@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DecisionGuide.AI - Better decisions faster</title>
+
+    <!-- Dev-only Service-Worker Unregister -->
+    <script type="module">
+      if (import.meta.env.DEV && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations()
+          .then((regs) => {
+            regs.forEach((reg) => {
+              console.warn('[SW] Unregistering service worker at scope:', reg.scope)
+              reg.unregister()
+            })
+          })
+          .catch((err) => {
+            console.error('[SW] Error unregistering service workers:', err)
+          })
+      }
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

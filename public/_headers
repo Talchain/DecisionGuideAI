@@ -1,0 +1,10 @@
+/*
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
+  Access-Control-Allow-Headers: Content-Type, Authorization, x-client-info, apikey, Range
+  Access-Control-Expose-Headers: Content-Range, Range
+  Access-Control-Max-Age: 86400
+  Cache-Control: no-cache
+  Cache-Control: no-store
+  Cache-Control: must-revalidate
+  Pragma: no-cache
