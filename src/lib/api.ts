@@ -106,8 +106,7 @@ export const generateOptionsIdeation = async ({
       role: 'system',
       content: `
 You are an expert in decision, behavioral, and cognitive science.
-Your task is to help a user generate the most promising options for a decision,
-and to highlight the cognitive biases they should guard against.
+Your task is to help a user generate the most promising options for a decision, and to highlight the cognitive biases they should guard against.
 
 Always respond with exactly one JSON object—no extra text, markdown, or code fences.
 If you cannot comply, return {"error": true, "message": "reason"}.
@@ -116,7 +115,8 @@ If you cannot comply, return {"error": true, "message": "reason"}.
     {
       role: 'user',
       content: `
-Context:
+Please analyse this decision context to generate viable options and potential biases:
+
 • Decision: ${decision}
 • Category: ${decisionType}
 • Goals: ${goals.length ? goals.join(' | ') : 'None specified'}
