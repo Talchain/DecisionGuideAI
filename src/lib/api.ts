@@ -19,7 +19,7 @@ const openai = new OpenAI({
 })
 
 // —————————————————————————————————————————————————————————————————————————————
-// Helper: create chat completion with retries & JSON support
+// Helper: create chat completion with retries (no response_format)
 // —————————————————————————————————————————————————————————————————————————————
 async function createChatCompletion(
   messages: any[],
@@ -27,7 +27,6 @@ async function createChatCompletion(
     model?: string
     temperature?: number
     max_tokens?: number
-    response_format?: { type: string }
   } = {},
   retries = 3
 ): Promise<{ content: string; prompt: any; rawResponse: any }> {
@@ -44,17 +43,16 @@ async function createChatCompletion(
         model: options.model ?? 'gpt-4',
         messages,
         temperature: options.temperature ?? 0.7,
-        max_tokens: options.max_tokens ?? 1500,
-        presence_penalty: 0.1,
-        frequency_penalty: 0.1,
-        response_format: options.response_format,
+        max_tokens: options.max_tokens ?? 1500
       })
 
       const content = completion.choices[0].message.content
-      if (!content) throw new Error('Empty response from API')
+      if (!content) {
+        throw new Error('Empty response from API')
+      }
       return { content, prompt: messages, rawResponse: completion }
     } catch (err) {
-      lastError = err instanceof Error ? err : new Error('Unknown error')
+      lastError = err instanceof Error ? err : new Error('Unknown error occurred')
       if (attempt < retries - 1) {
         await new Promise((r) => setTimeout(r, delay))
         delay *= 2
@@ -86,7 +84,7 @@ export interface OptionsAnalysisResponse {
 }
 
 // —————————————————————————————————————————————————————————————————————————————
-// generateOptionsIdeation
+// generateOptionsIdeation (uses no response_format)
 // —————————————————————————————————————————————————————————————————————————————
 export const generateOptionsIdeation = async ({
   decision,
@@ -106,7 +104,8 @@ export const generateOptionsIdeation = async ({
       role: 'system',
       content: `
 You are an expert in decision, behavioral, and cognitive science.
-Your task is to help a user generate the most promising options for a decision, and to highlight the cognitive biases they should guard against.
+Your task is to help a user generate the most promising options for a decision,
+and to highlight the cognitive biases they should guard against.
 
 Always respond with exactly one JSON object—no extra text, markdown, or code fences.
 If you cannot comply, return {"error": true, "message": "reason"}.
@@ -115,8 +114,7 @@ If you cannot comply, return {"error": true, "message": "reason"}.
     {
       role: 'user',
       content: `
-Please analyse this decision context to generate viable options and potential biases:
-
+Context:
 • Decision: ${decision}
 • Category: ${decisionType}
 • Goals: ${goals.length ? goals.join(' | ') : 'None specified'}
@@ -162,8 +160,7 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
     {
       model: 'gpt-4',
       temperature: 0.7,
-      max_tokens: 1500,
-      response_format: { type: 'json_object' }
+      max_tokens: 1500
     }
   )
 
@@ -205,6 +202,7 @@ export const analyzeDecision = async ({
     if (!decision || !decisionType || !reversibility || !importance) {
       throw new Error('Missing required parameters for analysis')
     }
+
     const promptMessages = generatePromptMessages(
       decision,
       decisionType,
@@ -214,19 +212,29 @@ export const analyzeDecision = async ({
       messages,
       query
     )
+
     const { content, prompt, rawResponse } = await createChatCompletion(
       promptMessages,
       { max_tokens: importance === 'critical_in_depth_analysis' ? 2000 : 1000 }
     )
-    return { analysis: content, cached: false, prompt, rawResponse }
+
+    return {
+      analysis: content,
+      cached: false,
+      prompt,
+      rawResponse
+    }
   } catch (error) {
-    console.error('Analysis error:', { error, context: { decision, decisionType, reversibility, importance }})
+    console.error(
+      'Analysis error:',
+      { error, context: { decision, decisionType, reversibility, importance } }
+    )
     throw error
   }
 }
 
 // —————————————————————————————————————————————————————————————————————————————
-// Existing: analyzeOptions (pros/cons version)
+// Existing: analyzeOptions (unmodified)
 // —————————————————————————————————————————————————————————————————————————————
 export interface Option {
   name: string
@@ -258,6 +266,7 @@ export const analyzeOptions = async ({
     if (!decision || !decisionType || !reversibility || !importance) {
       throw new Error('Missing required parameters for options analysis')
     }
+
     const { content, prompt, rawResponse } = await createChatCompletion(
       [
         {
@@ -277,27 +286,29 @@ ${goals?.length ? `Goals:\n${goals.join('\n')}` : ''}
 
 Based on this information:
 1. Identify 2-5 viable options for the decision. For each option, list:
-   - Key pros
-   - Key cons
+   - Key pros (considering immediate, emotional, and long-term benefits)
+   - Key cons (including risks, potential losses, and long-term impacts)
+If relevant, suggest an additional option that would allow the user to test their decision, gather more information, or consider a reframed perspective on the decision.
+
 2. Identify 3-6 cognitive biases most relevant to this decision. For each bias provide:
    - Its name
-   - A concise definition
-   - A practical tip for mitigation
+   - A very concise, plain-language definition
+   - A very concise practical tip for mitigating its impact
 
 Required JSON format:
 {
   "options": [
     {
       "name": "Option name",
-      "pros": ["pro1", "pro2"],
-      "cons": ["con1", "con2"]
+      "pros": ["pro1", "pro2", ...],
+      "cons": ["con1", "con2", ...]
     }
   ],
   "biases": [
     {
       "name": "Bias name",
       "definition": "Brief definition",
-      "mitigationTip": "Mitigation advice"
+      "mitigationTip": "How to mitigate this bias"
     }
   ]
 }`
@@ -309,10 +320,14 @@ Required JSON format:
         response_format: { type: 'json_object' }
       }
     )
+
     const parsed = JSON.parse(content)
     return { ...parsed, prompt, rawResponse }
   } catch (error) {
-    console.error('Options analysis error:', { error, context: { decision, decisionType, reversibility, importance }})
+    console.error(
+      'Options analysis error:',
+      { error, context: { decision, decisionType, reversibility, importance } }
+    )
     throw error
   }
 }
@@ -380,57 +395,79 @@ export async function registerInterest(
   email: string
 ): Promise<{ error: RegistrationError | null; data?: any }> {
   try {
-    // Check if email already exists
-    const { data: existing, error: checkErr } = await supabase.rpc(
-      'check_registration_exists',
-      { email_to_check: email }
-    )
-    if (checkErr) {
-      console.error('Error checking existing registration:', checkErr)
+    // First check if email already exists using a public function
+    const { data: existingRegistration, error: checkError } =
+      await supabase.rpc('check_registration_exists', {
+        email_to_check: email,
+      })
+
+    if (checkError) {
+      console.error('Error checking existing registration:', checkError)
       return {
         error: {
           code: 'CHECK_ERROR',
-          message: 'Failed to check registration status. Please try again.'
-        }
+          message: 'Failed to check registration status. Please try again.',
+        },
       }
     }
-    if (existing?.exists) {
+
+    if (existingRegistration?.exists) {
       return {
         error: {
-          code: '23505',
+          code: '23505', // Postgres unique violation code
           message:
-            existing.status === 'approved'
-              ? 'This email is already registered and approved.'
-              : 'This email is registered; you will be notified when access is available.',
-          details: { status: existing.status }
-        }
+            existingRegistration.status === 'approved'
+              ? 'This email is already registered and approved. Please check your email for access instructions.'
+              : "This email is already registered. You'll be notified when early access is available.",
+          details: {
+            status: existingRegistration.status,
+          },
+        },
       }
     }
-    // Insert new registration
-    const { data, error: insertErr } = await supabase
+
+    // If email doesn't exist, proceed with registration
+    const { data, error: insertError } = await supabase
       .from('interest_registrations')
-      .insert([{ email, ip_address: window.location.hostname, status: 'pending' }])
+      .insert([
+        {
+          email,
+          ip_address: window.location.hostname,
+          status: 'pending',
+        },
+      ])
       .select()
       .single()
-    if (insertErr) {
-      console.error('Error inserting registration:', insertErr)
-      return {
-        error: {
-          code: insertErr.code ?? 'INSERT_ERROR',
-          message: insertErr.code === '23514'
-            ? 'Please enter a valid email address.'
-            : 'Failed to register interest. Please try again.'
+
+    if (insertError) {
+      console.error('Error inserting registration:', insertError)
+
+      // Handle specific error cases
+      if (insertError.code === '23514') {
+        return {
+          error: {
+            code: '23514',
+            message: 'Please enter a valid email address.',
+          },
         }
       }
+
+      return {
+        error: {
+          code: 'INSERT_ERROR',
+          message: 'Failed to register interest. Please try again.',
+        },
+      }
     }
+
     return { data, error: null }
   } catch (error) {
-    console.error('Unexpected registration error:', error)
+    console.error('Unexpected error during registration:', error)
     return {
       error: {
         code: 'UNKNOWN_ERROR',
-        message: 'An unexpected error occurred. Please try again.'
-      }
+        message: 'An unexpected error occurred. Please try again.',
+      },
     }
   }
 }
