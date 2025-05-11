@@ -13,6 +13,17 @@ export interface Option {
   description: string
 }
 
+interface Collaborator {
+  id: string;
+  user_id: string;
+  decision_id: string;
+  role: 'owner' | 'contributor' | 'viewer';
+  status: 'invited' | 'active' | 'removed';
+  email?: string;
+  invited_at: string;
+  joined_at?: string;
+}
+
 export interface DecisionContextType {
   decisionId: string | null
   decisionType: string | null
@@ -21,6 +32,7 @@ export interface DecisionContextType {
   reversibility: string | null
   goals: string[]
   options: Option[]
+  collaborators: Collaborator[]
   setDecisionId: (id: string | null) => void
   setDecisionType: (type: string | null) => void
   setDecision: (text: string | null) => void
@@ -28,6 +40,7 @@ export interface DecisionContextType {
   setReversibility: (reversibility: string | null) => void
   setGoals: (goals: string[]) => void
   setOptions: (options: Option[]) => void
+  setCollaborators: (collaborators: Collaborator[]) => void
   resetDecisionContext: () => void
 }
 
@@ -62,6 +75,45 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
   const [reversibility, setReversibility] = useState<string | null>(initial.reversibility ?? null)
   const [goals, setGoals] = useState<string[]>(initial.goals ?? [])
   const [options, setOptions] = useState<Option[]>(initial.options ?? [])
+  const [collaborators, setCollaborators] = useState<Collaborator[]>(initial.collaborators ?? [])
+
+  // Subscribe to collaborator changes when decisionId changes
+  useEffect(() => {
+    if (!decisionId) return;
+
+    // Initial fetch
+    const fetchCollaborators = async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_decision_collaborators', {
+          decision_id_param: decisionId
+        });
+        if (error) throw error;
+        setCollaborators(data || []);
+      } catch (err) {
+        console.error('Error fetching collaborators:', err);
+      }
+    };
+
+    fetchCollaborators();
+
+    // Subscribe to changes
+    const subscription = supabase
+      .channel(`decision_collaborators:${decisionId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'decision_collaborators',
+        filter: `decision_id=eq.${decisionId}`
+      }, (payload) => {
+        console.log('Collaborator change:', payload);
+        fetchCollaborators(); // Refetch to get latest state
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [decisionId]);
 
   // Persist on *every* change to keep LS in sync
   useEffect(() => {
@@ -73,6 +125,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
       reversibility,
       goals,
       options,
+      collaborators,
     }
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state))
   }, [
@@ -83,6 +136,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     reversibility,
     goals,
     options,
+    collaborators,
   ])
 
   // Clears everything for a brand-new decision
@@ -94,6 +148,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     setReversibility(null)
     setGoals([])
     setOptions([])
+    setCollaborators([])
     localStorage.removeItem(LOCAL_STORAGE_KEY)
   }
 
@@ -107,6 +162,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
         reversibility,
         goals,
         options,
+        collaborators,
         setDecisionId,
         setDecisionType,
         setDecision,
@@ -114,6 +170,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
         setReversibility,
         setGoals,
         setOptions,
+        setCollaborators,
         resetDecisionContext,
       }}
     >
