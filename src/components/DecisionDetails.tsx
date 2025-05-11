@@ -3,19 +3,24 @@
 import React, { useState, useEffect, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Send, ArrowLeft, UserPlus } from 'lucide-react'
-import { getUserId, createDecision, DecisionType, isValidDecisionType } from '../lib/supabase'
+import {
+  getUserId,
+  createDecision,
+  DecisionType,
+  isValidDecisionType
+} from '../lib/supabase'
 import { useDecision } from '../contexts/DecisionContext'
 import Tooltip from './Tooltip'
 
 export default function DecisionDetails() {
   const navigate = useNavigate()
-  const { 
-    decisionType, 
-    decision, 
-    setDecision, 
-    setDecisionId, 
+  const {
+    decisionType,
+    decision,
+    setDecision,
+    setDecisionId,
     setDecisionType,
-    collaborators 
+    collaborators
   } = useDecision()
 
   // Rehydrate decisionType if missing
@@ -29,17 +34,16 @@ export default function DecisionDetails() {
     }
   }, [decisionType, setDecisionType])
 
-  // Redirect home if type still missing
+  // If still no decisionType, send them home
   useEffect(() => {
-    if (!decisionType) navigate('/decision')
+    if (!decisionType) navigate('/decision', { replace: true })
   }, [decisionType, navigate])
-
-  if (!decisionType) return null
 
   const [localDecision, setLocalDecision] = useState(decision || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Keep localDecision in sync if context updates
   useEffect(() => {
     if (decision) setLocalDecision(decision)
   }, [decision])
@@ -54,7 +58,7 @@ export default function DecisionDetails() {
       return
     }
 
-    if (!isValidDecisionType(decisionType)) {
+    if (!isValidDecisionType(decisionType!)) {
       setError('Invalid decision type. Please start again.')
       return
     }
@@ -73,7 +77,7 @@ export default function DecisionDetails() {
         user_id: userId,
         type: decisionType as DecisionType,
         title: trimmed,
-        status: 'draft',
+        status: 'draft'
       }
       console.debug('[DD] 📨 createDecision payload', payload)
 
@@ -91,7 +95,7 @@ export default function DecisionDetails() {
 
       setDecision(trimmed)
       setDecisionId(data.id)
-      navigate('/decision/importance')
+      navigate('/decision/invite')  // ← send to your Invite step
     } catch (err) {
       console.error('[DD] 💥 handleSubmit exception', err)
       setError(err instanceof Error ? err.message : 'Unknown error.')
@@ -123,15 +127,15 @@ export default function DecisionDetails() {
         <button
           onClick={() => navigate('/decision')}
           disabled={loading}
-          className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
+          className="flex items-center text-gray-600 hover:text-gray-900"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Decision Types
         </button>
-        
+
         <Tooltip content="Invite others to collaborate">
           <button
-            onClick={() => setShowInviteModal(true)}
+            onClick={() => navigate('/decision/invite')}
             className="flex items-center gap-2 px-4 py-2 text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
           >
             <UserPlus className="h-4 w-4" />
@@ -142,7 +146,10 @@ export default function DecisionDetails() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
-          <label htmlFor="decision" className="block text-lg font-medium text-gray-700 mb-2">
+          <label
+            htmlFor="decision"
+            className="block text-lg font-medium text-gray-700 mb-2"
+          >
             What decision are you trying to make?
           </label>
           <input
@@ -157,7 +164,9 @@ export default function DecisionDetails() {
               error ? 'border-red-300' : 'border-gray-300'
             } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
           />
-          {error && <p className="mt-2 text-sm text-red-600">• {error}</p>}
+          {error && (
+            <p className="mt-2 text-sm text-red-600">• {error}</p>
+          )}
         </div>
 
         <button
