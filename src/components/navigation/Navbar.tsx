@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef, memo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useDecision } from '../../contexts/DecisionContext';
 import { authLogger } from '../../lib/auth/authLogger';
 import { 
   Brain, 
@@ -14,9 +15,36 @@ import {
   PlusCircle,
   Info,
   DoorOpen
+  Users
 } from 'lucide-react';
 import { navDebug } from '../../lib/debug/navDebug';
 import { clearAccessValidation, ACCESS_VALIDATION_KEY, ACCESS_TIMESTAMP_KEY, ACCESS_CODE_KEY } from '../../lib/auth/accessValidation';
+import Tooltip from '../Tooltip';
+
+interface CollaboratorAvatarProps {
+  email: string;
+  role: string;
+}
+
+const CollaboratorAvatar = memo(({ email, role }: CollaboratorAvatarProps) => {
+  const initials = email
+    .split('@')[0]
+    .split(/[^a-zA-Z]/)
+    .map(part => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+
+  return (
+    <Tooltip content={`${email} (${role})`}>
+      <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-sm font-medium">
+        {initials}
+      </div>
+    </Tooltip>
+  );
+});
+
+CollaboratorAvatar.displayName = 'CollaboratorAvatar';
 
 const NavLink = memo(({ to, className, children }: { to: string; className: string; children: React.ReactNode }) => (
   <Link to={to} className={className}>{children}</Link>
@@ -43,6 +71,7 @@ NavButton.displayName = 'NavButton';
 
 function Navbar() {
   const { user, loading: authLoading, signOut } = useAuth();
+  const { collaborators, decisionId } = useDecision();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -254,6 +283,36 @@ function Navbar() {
           </div>
 
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
+            {/* Collaborators Section */}
+            {decisionId && (
+              <div className="flex items-center gap-2 mr-4">
+                <div className="flex -space-x-2">
+                  {collaborators.slice(0, 4).map((collab) => (
+                    <CollaboratorAvatar
+                      key={collab.id}
+                      email={collab.email || ''}
+                      role={collab.role}
+                    />
+                  ))}
+                  {collaborators.length > 4 && (
+                    <Tooltip content={`+${collaborators.length - 4} more collaborators`}>
+                      <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-sm font-medium">
+                        +{collaborators.length - 4}
+                      </div>
+                    </Tooltip>
+                  )}
+                </div>
+                <Tooltip content="Invite collaborators">
+                  <button
+                    onClick={() => setShowInviteModal(true)}
+                    className="p-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-full transition-colors"
+                  >
+                    <UserPlus className="h-5 w-5" />
+                  </button>
+                </Tooltip>
+              </div>
+            )}
+
             {renderNavLinks(false)}
           </div>
 
