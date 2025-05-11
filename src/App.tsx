@@ -1,6 +1,6 @@
 // src/App.tsx
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { authLogger } from './lib/auth/authLogger'
