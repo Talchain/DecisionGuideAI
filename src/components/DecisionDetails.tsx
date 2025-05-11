@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Send, ArrowLeft, UserPlus } from 'lucide-react'
+import { Send, ArrowLeft } from 'lucide-react'
 import {
   getUserId,
   createDecision,
@@ -10,7 +10,20 @@ import {
   isValidDecisionType
 } from '../lib/supabase'
 import { useDecision } from '../contexts/DecisionContext'
-import Tooltip from './Tooltip'
+
+const ROUTES = {
+  TYPE: '/decision',
+  IMPORTANCE: '/decision/importance'
+}
+
+const PLACEHOLDERS: Record<DecisionType, string> = {
+  professional: 'e.g., Should we implement a new project management system?',
+  financial: 'e.g., Should I invest in index funds or real estate?',
+  health: 'e.g., Which fitness program should I follow?',
+  career: 'e.g., Should I pursue an MBA or specialization?',
+  relationships: 'e.g., Should I move in with my partner?',
+  other: 'e.g., What decision are you trying to make?'
+}
 
 export default function DecisionDetails() {
   const navigate = useNavigate()
@@ -19,33 +32,35 @@ export default function DecisionDetails() {
     decision,
     setDecision,
     setDecisionId,
-    setDecisionType,
-    collaborators
+    setDecisionType
   } = useDecision()
-
-  // Rehydrate decisionType if missing
-  useEffect(() => {
-    if (!decisionType) {
-      const saved = localStorage.getItem('decisionType')
-      if (saved) {
-        setDecisionType(saved)
-        if (import.meta.env.DEV) console.debug('[DD] 💾 rehydrated type:', saved)
-      }
-    }
-  }, [decisionType, setDecisionType])
-
-  // If still no decisionType, send them home
-  useEffect(() => {
-    if (!decisionType) navigate('/decision', { replace: true })
-  }, [decisionType, navigate])
 
   const [localDecision, setLocalDecision] = useState(decision || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Keep localDecision in sync if context updates
+  // Rehydrate decisionType from localStorage if missing
   useEffect(() => {
-    if (decision) setLocalDecision(decision)
+    if (!decisionType) {
+      const saved = localStorage.getItem('decisionType')
+      if (saved && isValidDecisionType(saved)) {
+        setDecisionType(saved)
+      }
+    }
+  }, [decisionType, setDecisionType])
+
+  // Redirect if still no decisionType
+  useEffect(() => {
+    if (!decisionType) {
+      navigate(ROUTES.TYPE, { replace: true })
+    }
+  }, [decisionType, navigate])
+
+  // Sync context decision into local state
+  useEffect(() => {
+    if (decision) {
+      setLocalDecision(decision)
+    }
   }, [decision])
 
   const handleSubmit = async (e: FormEvent) => {
@@ -57,33 +72,25 @@ export default function DecisionDetails() {
       setError('Please enter a decision.')
       return
     }
-
-    if (!isValidDecisionType(decisionType!)) {
+    if (!decisionType || !isValidDecisionType(decisionType)) {
       setError('Invalid decision type. Please start again.')
       return
     }
 
     setLoading(true)
-    console.debug('[DD] 🟡 handleSubmit - fetching userId…')
     try {
       const userId = await getUserId()
-      console.debug('[DD] 👤 getUserId returned', userId)
       if (!userId) {
         setError('Unable to get user session. Please log in again.')
         return
       }
 
-      const payload = {
+      const { data, error: supaErr } = await createDecision({
         user_id: userId,
-        type: decisionType as DecisionType,
+        type: decisionType,
         title: trimmed,
         status: 'draft'
-      }
-      console.debug('[DD] 📨 createDecision payload', payload)
-
-      const { data, error: supaErr } = await createDecision(payload)
-      console.debug('[DD] 📥 createDecision response', { data, supaErr })
-
+      })
       if (supaErr) {
         setError(supaErr.message)
         return
@@ -95,56 +102,45 @@ export default function DecisionDetails() {
 
       setDecision(trimmed)
       setDecisionId(data.id)
-      navigate('/decision/invite')  // ← send to your Invite step
+      navigate(ROUTES.IMPORTANCE)
     } catch (err) {
-      console.error('[DD] 💥 handleSubmit exception', err)
       setError(err instanceof Error ? err.message : 'Unknown error.')
     } finally {
       setLoading(false)
     }
   }
 
-  const getPlaceholder = () => {
-    switch (decisionType) {
-      case 'professional':
-        return 'e.g., Should we implement a new project management system?'
-      case 'financial':
-        return 'e.g., Should I invest in index funds or real estate?'
-      case 'health':
-        return 'e.g., Which fitness program should I follow?'
-      case 'career':
-        return 'e.g., Should I pursue an MBA or specialisation?'
-      case 'relationships':
-        return 'e.g., Should I move in with my partner?'
-      default:
-        return 'e.g., What decision are you trying to make?'
-    }
-  }
+  if (!decisionType) return null
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-8">
+    <section
+      aria-labelledby="decision-details-heading"
+      className="bg-white rounded-xl shadow-lg p-8"
+    >
+      {/* Invisible heading for screen readers */}
+      <h2 id="decision-details-heading" className="sr-only">
+        Decision Details
+      </h2>
+
+      {/* Progress indicator */}
+      <div className="mb-4">
+        <p className="text-sm text-gray-600">Step 2 of 7</p>
+      </div>
+
+      {/* Back button */}
       <div className="flex items-center justify-between mb-6">
         <button
-          onClick={() => navigate('/decision')}
+          onClick={() => navigate(ROUTES.TYPE)}
           disabled={loading}
-          className="flex items-center text-gray-600 hover:text-gray-900"
+          className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Decision Types
         </button>
-
-        <Tooltip content="Invite others to collaborate">
-          <button
-            onClick={() => navigate('/decision/invite')}
-            className="flex items-center gap-2 px-4 py-2 text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
-          >
-            <UserPlus className="h-4 w-4" />
-            <span>Invite ({collaborators.length})</span>
-          </button>
-        </Tooltip>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="space-y-6" noValidate>
         <div>
           <label
             htmlFor="decision"
@@ -154,39 +150,42 @@ export default function DecisionDetails() {
           </label>
           <input
             id="decision"
+            name="decision"
             type="text"
+            autoFocus
             value={localDecision}
             onChange={(e) => setLocalDecision(e.target.value)}
-            placeholder={getPlaceholder()}
+            placeholder={PLACEHOLDERS[decisionType]}
             disabled={loading}
-            required
+            aria-describedby={error ? 'decision-error' : undefined}
             className={`w-full px-4 py-3 rounded-lg border ${
               error ? 'border-red-300' : 'border-gray-300'
             } focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500`}
           />
           {error && (
-            <p className="mt-2 text-sm text-red-600">• {error}</p>
+            <p
+              id="decision-error"
+              className="mt-2 text-sm text-red-600"
+              role="alert"
+            >
+              • {error}
+            </p>
           )}
         </div>
 
         <button
           type="submit"
           disabled={!localDecision.trim() || loading}
-          className="w-full flex items-center justify-center px-6 py-3 text-base font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
+          className="w-full flex items-center justify-center px-6 py-3 text-base font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-colors"
         >
           {loading ? (
-            <>
-              <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-              Creating…
-            </>
+            <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
           ) : (
-            <>
-              <Send className="h-5 w-5 mr-2" />
-              Continue
-            </>
+            <Send className="h-5 w-5 mr-2" />
           )}
+          Continue
         </button>
       </form>
-    </div>
+    </section>
   )
 }
