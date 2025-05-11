@@ -7,6 +7,7 @@ import { authLogger } from './lib/auth/authLogger'
 import { checkAccessValidation } from './lib/auth/accessValidation'
 import { useAuth } from './contexts/AuthContext'
 import ErrorBoundary from './components/ErrorBoundary'
+import InviteCollaborators from './components/InviteCollaborators'
 
 import DecisionList from './components/decisions/DecisionList'
 import DecisionForm from './components/decisions/DecisionForm'
@@ -38,6 +39,7 @@ import { DecisionProvider } from './contexts/DecisionContext'
 export default function App() {
   const location = useLocation()
   const { authenticated, loading } = useAuth()
+  const [showInviteModal, setShowInviteModal] = useState(false)
   const hasValidAccess = checkAccessValidation()
 
   useEffect(() => {
@@ -69,6 +71,9 @@ export default function App() {
     <ErrorBoundary>
       <DecisionProvider>
         <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-purple-100">
+          {showInviteModal && (
+            <InviteCollaborators onClose={() => setShowInviteModal(false)} />
+          )}
           <AuthNavigationGuard />
           {showNavbar && <Navbar />}
           <main className="container mx-auto px-4 py-8">
