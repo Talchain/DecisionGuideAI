@@ -1,83 +1,88 @@
 // src/App.tsx
 
-import React, { useEffect, useState } from 'react'
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { supabase } from './lib/supabase'
-import { authLogger } from './lib/auth/authLogger'
-import { checkAccessValidation } from './lib/auth/accessValidation'
-import { useAuth } from './contexts/AuthContext'
-import ErrorBoundary from './components/ErrorBoundary'
-import InviteCollaborators from './components/InviteCollaborators'
+import React, { useEffect } from 'react';
+import {
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate
+} from 'react-router-dom';
+import { supabase } from './lib/supabase';
+import { authLogger } from './lib/auth/authLogger';
+import { checkAccessValidation } from './lib/auth/accessValidation';
+import { useAuth } from './contexts/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
-import DecisionList from './components/decisions/DecisionList'
-import DecisionForm from './components/decisions/DecisionForm'
-import AuthNavigationGuard from './components/auth/AuthNavigationGuard'
-import Navbar from './components/navigation/Navbar'
-import LandingPage from './components/LandingPage'
-import About from './components/About'
-import AuthLayout from './components/navigation/AuthLayout'
-import LoginForm from './components/auth/LoginForm'
-import SignUpForm from './components/auth/SignUpForm'
-import ForgotPasswordForm from './components/auth/ForgotPasswordForm'
-import ResetPasswordForm from './components/auth/ResetPasswordForm'
-import ProfileForm from './components/auth/ProfileForm'
+import DecisionList from './components/decisions/DecisionList';
+import DecisionForm from './components/decisions/DecisionForm';
+import AuthNavigationGuard from './components/auth/AuthNavigationGuard';
+import Navbar from './components/navigation/Navbar';
+import LandingPage from './components/LandingPage';
+import About from './components/About';
+import AuthLayout from './components/navigation/AuthLayout';
+import LoginForm from './components/auth/LoginForm';
+import SignUpForm from './components/auth/SignUpForm';
+import ForgotPasswordForm from './components/auth/ForgotPasswordForm';
+import ResetPasswordForm from './components/auth/ResetPasswordForm';
+import ProfileForm from './components/auth/ProfileForm';
 
-import DecisionTypeSelector from './components/DecisionTypeSelector'
-import DecisionDetails from './components/DecisionDetails'
-import ImportanceSelector from './components/ImportanceSelector'
-import ReversibilitySelector from './components/ReversibilitySelector'
-import GoalClarificationScreen from './components/GoalClarificationScreen'
-import OptionsIdeation from './components/OptionsIdeation'
-import CriteriaForm from './components/CriteriaForm'
-import Analysis from './components/Analysis'
+import DecisionTypeSelector from './components/DecisionTypeSelector';
+import DecisionDetails from './components/DecisionDetails';
+import InviteCollaborators from './components/InviteCollaborators';
+import ImportanceSelector from './components/ImportanceSelector';
+import ReversibilitySelector from './components/ReversibilitySelector';
+import GoalClarificationScreen from './components/GoalClarificationScreen';
+import OptionsIdeation from './components/OptionsIdeation';
+import CriteriaForm from './components/CriteriaForm';
+import Analysis from './components/Analysis';
 
-import ProtectedRoute from './components/auth/ProtectedRoute'
-import LoadingSpinner from './components/LoadingSpinner'
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import LoadingSpinner from './components/LoadingSpinner';
 
-import { DecisionProvider } from './contexts/DecisionContext'
+import { DecisionProvider } from './contexts/DecisionContext';
 
 export default function App() {
-  const location = useLocation()
-  const { authenticated, loading } = useAuth()
-  const [showInviteModal, setShowInviteModal] = useState(false)
-  const hasValidAccess = checkAccessValidation()
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { authenticated, loading } = useAuth();
+  const hasValidAccess = checkAccessValidation();
 
+  // quick session-test log
   useEffect(() => {
-    console.log('▶️ [Test] getSession start')
+    console.log('▶️ [Test] getSession start');
     supabase.auth
       .getSession()
       .then(({ data, error }) => {
-        console.log('✅ [Test] getSession returned', { data, error })
+        console.log('✅ [Test] getSession returned', { data, error });
       })
       .catch((err) => {
-        console.error('❌ [Test] getSession threw', err)
-      })
-  }, [])
+        console.error('❌ [Test] getSession threw', err);
+      });
+  }, []);
 
   const isAuthRoute = [
     '/login',
     '/signup',
     '/forgot-password',
-    '/reset-password',
-  ].includes(location.pathname)
+    '/reset-password'
+  ].includes(location.pathname);
+
   const showNavbar =
     location.pathname !== '/' &&
     !isAuthRoute &&
-    (authenticated || hasValidAccess)
+    (authenticated || hasValidAccess);
 
-  if (loading) return <LoadingSpinner />
+  if (loading) return <LoadingSpinner />;
 
   return (
     <ErrorBoundary>
       <DecisionProvider>
         <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-purple-100">
-          {showInviteModal && (
-            <InviteCollaborators onClose={() => setShowInviteModal(false)} />
-          )}
           <AuthNavigationGuard />
           {showNavbar && (
             <Navbar
-              onInvite={() => setShowInviteModal(true)}
+              onInvite={() => navigate('/decision/invite')}
             />
           )}
           <main className="container mx-auto px-4 py-8">
@@ -87,7 +92,7 @@ export default function App() {
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/about" element={<About />} />
 
-                {/* Auth */}
+                {/* Auth routes */}
                 <Route element={<AuthLayout />}>
                   <Route path="/login" element={<LoginForm />} />
                   <Route path="/signup" element={<SignUpForm />} />
@@ -101,7 +106,7 @@ export default function App() {
                   />
                 </Route>
 
-                {/* Wizard */}
+                {/* Decision wizard */}
                 {console.debug(
                   '[App] 🔐 authenticated=',
                   authenticated,
@@ -110,9 +115,6 @@ export default function App() {
                 )}
                 {(authenticated || hasValidAccess) && (
                   <>
-                    {console.debug(
-                      '[App] ✅ rendering decision flow routes'
-                    )}
                     <Route
                       path="/decision"
                       element={<DecisionTypeSelector />}
@@ -121,6 +123,17 @@ export default function App() {
                       path="/decision/details"
                       element={<DecisionDetails />}
                     />
+
+                    {/* ← NEW: Invite step */}
+                    <Route
+                      path="/decision/invite"
+                      element={
+                        <InviteCollaborators
+                          onClose={() => navigate('/decision/importance')}
+                        />
+                      }
+                    />
+
                     <Route
                       path="/decision/importance"
                       element={<ImportanceSelector />}
@@ -182,5 +195,5 @@ export default function App() {
         </div>
       </DecisionProvider>
     </ErrorBoundary>
-  )
+  );
 }
