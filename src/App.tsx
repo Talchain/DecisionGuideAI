@@ -15,7 +15,14 @@ import { useAuth } from './contexts/AuthContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import Navbar from './components/navigation/Navbar'
 import InviteCollaborators from './components/InviteCollaborators'
-
+import DecisionTypeSelector from './components/DecisionTypeSelector'
+import DecisionDetails from './components/DecisionDetails'
+import ImportanceSelector from './components/ImportanceSelector'
+import ReversibilitySelector from './components/ReversibilitySelector'
+import GoalClarificationScreen from './components/GoalClarificationScreen'
+import OptionsIdeation from './components/OptionsIdeation'
+import CriteriaForm from './components/CriteriaForm'
+import Analysis from './components/Analysis'
 import LandingPage from './components/LandingPage'
 import About from './components/About'
 import AuthLayout from './components/navigation/AuthLayout'
@@ -25,20 +32,10 @@ import ForgotPasswordForm from './components/auth/ForgotPasswordForm'
 import ResetPasswordForm from './components/auth/ResetPasswordForm'
 import ProfileForm from './components/auth/ProfileForm'
 import ProtectedRoute from './components/auth/ProtectedRoute'
-import LoadingSpinner from './components/LoadingSpinner'
-
 import DecisionList from './components/decisions/DecisionList'
 import DecisionForm from './components/decisions/DecisionForm'
 import AuthNavigationGuard from './components/auth/AuthNavigationGuard'
-import DecisionTypeSelector from './components/DecisionTypeSelector'
-import DecisionDetails from './components/DecisionDetails'
-import ImportanceSelector from './components/ImportanceSelector'
-import ReversibilitySelector from './components/ReversibilitySelector'
-import GoalClarificationScreen from './components/GoalClarificationScreen'
-import OptionsIdeation from './components/OptionsIdeation'
-import CriteriaForm from './components/CriteriaForm'
-import Analysis from './components/Analysis'
-
+import LoadingSpinner from './components/LoadingSpinner'
 import { DecisionProvider } from './contexts/DecisionContext'
 
 export default function App() {
@@ -47,24 +44,14 @@ export default function App() {
   const { authenticated, loading } = useAuth()
   const hasValidAccess = checkAccessValidation()
 
-  // Quick supabase session check
   useEffect(() => {
-    console.log('▶️ [Test] getSession start')
-    supabase.auth
-      .getSession()
-      .then(({ data, error }) =>
-        console.log('✅ [Test] getSession returned', { data, error })
-      )
+    supabase.auth.getSession()
+      .then(({ data, error }) => console.log('✅ [Test] getSession returned', { data, error }))
       .catch(err => console.error('❌ [Test] getSession threw', err))
   }, [])
 
-  const isAuthRoute = [
-    '/login',
-    '/signup',
-    '/forgot-password',
-    '/reset-password'
-  ].includes(location.pathname)
-
+  const isAuthRoute = ['/login','/signup','/forgot-password','/reset-password']
+    .includes(location.pathname)
   const showNavbar =
     location.pathname !== '/' &&
     !isAuthRoute &&
@@ -93,83 +80,37 @@ export default function App() {
                 <Route element={<AuthLayout />}>
                   <Route path="/login" element={<LoginForm />} />
                   <Route path="/signup" element={<SignUpForm />} />
-                  <Route
-                    path="/forgot-password"
-                    element={<ForgotPasswordForm />}
-                  />
-                  <Route
-                    path="/reset-password"
-                    element={<ResetPasswordForm />}
-                  />
+                  <Route path="/forgot-password" element={<ForgotPasswordForm />} />
+                  <Route path="/reset-password" element={<ResetPasswordForm />} />
                 </Route>
 
                 {/* Wizard */}
                 {(authenticated || hasValidAccess) && (
                   <>
                     <Route path="/decision" element={<DecisionTypeSelector />} />
-                    <Route
-                      path="/decision/details"
-                      element={<DecisionDetails />}
-                    />
-
-                    {/* ← Primary “Invite collaborators” step */}
+                    <Route path="/decision/details" element={<DecisionDetails />} />
+                    {/* ← Invite step */}
                     <Route
                       path="/decision/invite"
-                      element={<InviteCollaborators />}
+                      element={
+                        <InviteCollaborators
+                          onClose={() => navigate('/decision/importance')}
+                        />
+                      }
                     />
-
-                    <Route
-                      path="/decision/importance"
-                      element={<ImportanceSelector />}
-                    />
-                    <Route
-                      path="/decision/reversibility"
-                      element={<ReversibilitySelector />}
-                    />
-                    <Route
-                      path="/decision/goals"
-                      element={<GoalClarificationScreen />}
-                    />
-                    <Route
-                      path="/decision/options"
-                      element={<OptionsIdeation />}
-                    />
-                    <Route
-                      path="/decision/criteria"
-                      element={<CriteriaForm />}
-                    />
-                    <Route
-                      path="/decision/analysis"
-                      element={<Analysis />}
-                    />
+                    <Route path="/decision/importance" element={<ImportanceSelector />} />
+                    <Route path="/decision/reversibility" element={<ReversibilitySelector />} />
+                    <Route path="/decision/goals" element={<GoalClarificationScreen />} />
+                    <Route path="/decision/options" element={<OptionsIdeation />} />
+                    <Route path="/decision/criteria" element={<CriteriaForm />} />
+                    <Route path="/decision/analysis" element={<Analysis />} />
                   </>
                 )}
 
                 {/* Protected */}
-                <Route
-                  path="/decisions"
-                  element={
-                    <ProtectedRoute>
-                      <DecisionList />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/decisions/new"
-                  element={
-                    <ProtectedRoute>
-                      <DecisionForm />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/profile"
-                  element={
-                    <ProtectedRoute>
-                      <ProfileForm />
-                    </ProtectedRoute>
-                  }
-                />
+                <Route path="/decisions" element={<ProtectedRoute><DecisionList /></ProtectedRoute>} />
+                <Route path="/decisions/new" element={<ProtectedRoute><DecisionForm /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><ProfileForm /></ProtectedRoute>} />
 
                 {/* Fallback */}
                 <Route path="*" element={<Navigate to="/" replace />} />
