@@ -12,30 +12,28 @@ import ErrorBoundary from './components/ErrorBoundary'
 import Navbar from './components/navigation/Navbar'
 import InviteCollaborators from './components/InviteCollaborators'
 
-import LandingPage from './components/LandingPage'
-import About from './components/About'
-import AuthLayout from './components/navigation/AuthLayout'
-import LoginForm from './components/auth/LoginForm'
-import SignUpForm from './components/auth/SignUpForm'
-import ForgotPasswordForm from './components/auth/ForgotPasswordForm'
-import ResetPasswordForm from './components/auth/ResetPasswordForm'
-import ProfileForm from './components/auth/ProfileForm'
-import ProtectedRoute from './components/auth/ProtectedRoute'
-import LoadingSpinner from './components/LoadingSpinner'
-
-import DecisionList from './components/decisions/DecisionList'
-import DecisionForm from './components/decisions/DecisionForm'
-import AuthNavigationGuard from './components/auth/AuthNavigationGuard'
-
+// … your other imports …
 import DecisionTypeSelector from './components/DecisionTypeSelector'
-import DecisionDetails from './components/DecisionDetails'
-import ImportanceSelector from './components/ImportanceSelector'
+import DecisionDetails       from './components/DecisionDetails'
+import ImportanceSelector    from './components/ImportanceSelector'
 import ReversibilitySelector from './components/ReversibilitySelector'
-import GoalClarificationScreen from './components/GoalClarificationScreen'
-import OptionsIdeation from './components/OptionsIdeation'
-import CriteriaForm from './components/CriteriaForm'
-import Analysis from './components/Analysis'
-
+import GoalClarificationScreen  from './components/GoalClarificationScreen'
+import OptionsIdeation       from './components/OptionsIdeation'
+import CriteriaForm         from './components/CriteriaForm'
+import Analysis             from './components/Analysis'
+import LandingPage          from './components/LandingPage'
+import About                from './components/About'
+import AuthLayout           from './components/navigation/AuthLayout'
+import LoginForm            from './components/auth/LoginForm'
+import SignUpForm           from './components/auth/SignUpForm'
+import ForgotPasswordForm   from './components/auth/ForgotPasswordForm'
+import ResetPasswordForm    from './components/auth/ResetPasswordForm'
+import ProfileForm          from './components/auth/ProfileForm'
+import ProtectedRoute       from './components/auth/ProtectedRoute'
+import DecisionList         from './components/decisions/DecisionList'
+import DecisionForm         from './components/decisions/DecisionForm'
+import AuthNavigationGuard  from './components/auth/AuthNavigationGuard'
+import LoadingSpinner       from './components/LoadingSpinner'
 import { DecisionProvider } from './contexts/DecisionContext'
 
 export default function App() {
@@ -43,10 +41,10 @@ export default function App() {
   const { authenticated, loading } = useAuth()
   const hasValidAccess = checkAccessValidation()
 
-  // invite‐modal visibility
+  // STATE for our Invite modal
   const [showInviteModal, setShowInviteModal] = useState(false)
 
-  // Quick supabase session check
+  // supabase session check
   useEffect(() => {
     supabase.auth
       .getSession()
@@ -68,16 +66,14 @@ export default function App() {
   return (
     <ErrorBoundary>
       <DecisionProvider>
-        {/** Shared Invite Modal */}
+        {/* only one Invite modal living here */}
         {showInviteModal && (
           <InviteCollaborators onClose={() => setShowInviteModal(false)} />
         )}
 
         <AuthNavigationGuard />
 
-        {showNavbar && (
-          <Navbar onInvite={() => setShowInviteModal(true)} />
-        )}
+        {showNavbar && <Navbar onInvite={() => setShowInviteModal(true)} />}
 
         <main className="container mx-auto px-4 py-8">
           <ErrorBoundary>
@@ -102,13 +98,11 @@ export default function App() {
                   <Route path="/decision/importance" element={<ImportanceSelector />} />
                   <Route path="/decision/reversibility" element={<ReversibilitySelector />} />
                   <Route path="/decision/goals" element={<GoalClarificationScreen />} />
-
-                  {/** Pass onInvite down so OptionsIdeation can trigger the same modal */}
+                  {/* pass the same onInvite callback down into OptionsIdeation */}
                   <Route
                     path="/decision/options"
                     element={<OptionsIdeation onInvite={() => setShowInviteModal(true)} />}
                   />
-
                   <Route path="/decision/criteria" element={<CriteriaForm />} />
                   <Route path="/decision/analysis" element={<Analysis />} />
                 </>
