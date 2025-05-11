@@ -14,7 +14,7 @@ import {
   User, 
   PlusCircle,
   Info,
-  DoorOpen
+  DoorOpen,
   Users
 } from 'lucide-react';
 import { navDebug } from '../../lib/debug/navDebug';
