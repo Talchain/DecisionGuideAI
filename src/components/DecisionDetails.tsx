@@ -2,13 +2,21 @@
 
 import React, { useState, useEffect, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Send, ArrowLeft } from 'lucide-react'
+import { Send, ArrowLeft, UserPlus } from 'lucide-react'
 import { getUserId, createDecision, DecisionType, isValidDecisionType } from '../lib/supabase'
 import { useDecision } from '../contexts/DecisionContext'
+import Tooltip from './Tooltip'
 
 export default function DecisionDetails() {
   const navigate = useNavigate()
-  const { decisionType, decision, setDecision, setDecisionId, setDecisionType } = useDecision()
+  const { 
+    decisionType, 
+    decision, 
+    setDecision, 
+    setDecisionId, 
+    setDecisionType,
+    collaborators 
+  } = useDecision()
 
   // Rehydrate decisionType if missing
   useEffect(() => {
@@ -111,14 +119,26 @@ export default function DecisionDetails() {
 
   return (
     <div className="bg-white rounded-xl shadow-lg p-8">
-      <button
-        onClick={() => navigate('/decision')}
-        disabled={loading}
-        className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Decision Types
-      </button>
+      <div className="flex items-center justify-between mb-6">
+        <button
+          onClick={() => navigate('/decision')}
+          disabled={loading}
+          className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Decision Types
+        </button>
+        
+        <Tooltip content="Invite others to collaborate">
+          <button
+            onClick={() => setShowInviteModal(true)}
+            className="flex items-center gap-2 px-4 py-2 text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors"
+          >
+            <UserPlus className="h-4 w-4" />
+            <span>Invite ({collaborators.length})</span>
+          </button>
+        </Tooltip>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
