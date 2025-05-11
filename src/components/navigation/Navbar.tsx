@@ -21,6 +21,10 @@ import { navDebug } from '../../lib/debug/navDebug';
 import { clearAccessValidation, ACCESS_VALIDATION_KEY, ACCESS_TIMESTAMP_KEY, ACCESS_CODE_KEY } from '../../lib/auth/accessValidation';
 import Tooltip from '../Tooltip';
 
+interface NavbarProps {
+  onInvite: () => void;
+}
+
 interface CollaboratorAvatarProps {
   email: string;
   role: string;
@@ -69,7 +73,7 @@ const NavButton = memo(({ onClick, className, children, disabled }: {
 
 NavButton.displayName = 'NavButton';
 
-function Navbar() {
+function Navbar({ onInvite }: NavbarProps) {
   const { user, loading: authLoading, signOut } = useAuth();
   const { collaborators, decisionId } = useDecision();
   const [isOpen, setIsOpen] = useState(false);
@@ -304,7 +308,7 @@ function Navbar() {
                 </div>
                 <Tooltip content="Invite collaborators">
                   <button
-                    onClick={() => setShowInviteModal(true)}
+                    onClick={onInvite}
                     className="p-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-full transition-colors"
                   >
                     <UserPlus className="h-5 w-5" />
