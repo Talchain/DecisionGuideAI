@@ -224,6 +224,95 @@ export async function getDecisions(userId: string) {
   }
 }
 
+// ---------------- Collaboration Management ----------------
+
+export async function inviteCollaborator(
+  decisionId: string,
+  userId: string,
+  role: 'owner' | 'contributor' | 'viewer'
+) {
+  if (!decisionId || !userId) {
+    return { data: null, error: new Error('Decision ID and User ID are required') }
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('decision_collaborators')
+      .insert({
+        decision_id: decisionId,
+        user_id: userId,
+        role,
+        status: 'invited',
+        permissions: {
+          can_comment: role !== 'viewer',
+          can_suggest: role !== 'viewer',
+          can_rate: role !== 'viewer'
+        }
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (err) {
+    console.error('inviteCollaborator exception:', err)
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error inviting collaborator')
+    }
+  }
+}
+
+export async function fetchCollaborators(decisionId: string) {
+  if (!decisionId) {
+    return { data: null, error: new Error('Decision ID is required') }
+  }
+
+  try {
+    // Use the RPC function to avoid RLS recursion
+    const { data, error } = await supabase
+      .rpc('get_decision_collaborators', {
+        decision_id_param: decisionId
+      })
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (err) {
+    console.error('fetchCollaborators exception:', err)
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error fetching collaborators')
+    }
+  }
+}
+
+export async function removeCollaborator(collabRowId: string) {
+  if (!collabRowId) {
+    return { error: new Error('Collaborator ID is required') }
+  }
+
+  try {
+    const { error } = await supabase
+      .from('decision_collaborators')
+      .delete()
+      .eq('id', collabRowId)
+
+    if (error) throw error
+    return { error: null }
+  } catch (err) {
+    console.error('removeCollaborator exception:', err)
+    return {
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error removing collaborator')
+    }
+  }
+}
+
 // ---------------- saveDecisionAnalysis ----------------
 
 export async function saveDecisionAnalysis(
