@@ -1,12 +1,25 @@
-// src/components/OptionsIdeation.tsx
-
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
-import { ArrowLeft, Loader2, AlertTriangle, Brain, ArrowRight } from 'lucide-react'
+import {
+  ArrowLeft,
+  Loader2,
+  AlertTriangle,
+  Brain,
+  ArrowRight,
+  UserPlus
+} from 'lucide-react'
 import { useDecision } from '../contexts/DecisionContext'
-import { generateOptionsIdeation, OptionIdeation, BiasIdeation } from '../lib/api'
+import {
+  generateOptionsIdeation,
+  OptionIdeation,
+  BiasIdeation
+} from '../lib/api'
 
-export default function OptionsIdeation() {
+interface Props {
+  onInvite: () => void
+}
+
+export default function OptionsIdeation({ onInvite }: Props) {
   const navigate = useNavigate()
   const {
     decisionId,
@@ -25,11 +38,13 @@ export default function OptionsIdeation() {
   if (!reversibility) return <Navigate to="/decision/reversibility" replace />
 
   const [loading, setLoading] = useState(true)
-  const [error, setError]     = useState<string | null>(null)
+  const [error, setError]   = useState<string | null>(null)
   const [options, setLocalOptions] = useState<OptionIdeation[]>([])
   const [biases, setLocalBiases]   = useState<BiasIdeation[]>([])
 
+  // fetch once on mount (won’t re-run when modal opens/closes)
   useEffect(() => {
+    let cancelled = false
     async function fetchIdeation() {
       try {
         setLoading(true)
@@ -43,22 +58,23 @@ export default function OptionsIdeation() {
           goals
         })
 
-        setLocalOptions(response.options)
-        setLocalBiases(response.biases)
-        setOptions(response.options)  // if you need to persist in context
+        if (!cancelled) {
+          setLocalOptions(response.options)
+          setLocalBiases(response.biases)
+          setOptions(response.options)
+        }
       } catch (err) {
         console.error('Error fetching options:', err)
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Failed to generate options'
-        )
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to generate options')
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
 
     fetchIdeation()
+    return () => { cancelled = true }
   }, [
     decision,
     decisionType,
@@ -85,10 +101,7 @@ export default function OptionsIdeation() {
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
         <AlertTriangle className="w-8 h-8 text-red-500" />
         <p className="text-red-600">{error}</p>
-        <button
-          onClick={() => window.location.reload()}
-          className="underline"
-        >
+        <button onClick={() => window.location.reload()} className="underline">
           Try again
         </button>
       </div>
@@ -97,14 +110,24 @@ export default function OptionsIdeation() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      {/* Back */}
-      <button
-        onClick={goBack}
-        className="flex items-center text-gray-600 hover:text-gray-900"
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Goals
-      </button>
+      {/* Top Row: Back + Invite */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={goBack}
+          className="flex items-center text-gray-600 hover:text-gray-900"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Goals
+        </button>
+
+        <button
+          onClick={onInvite}
+          className="flex items-center gap-1 text-indigo-600 hover:text-indigo-900"
+        >
+          <UserPlus className="h-5 w-5" />
+          Invite collaborators
+        </button>
+      </div>
 
       {/* Header */}
       <div className="text-center space-y-2">
@@ -116,19 +139,15 @@ export default function OptionsIdeation() {
         </p>
       </div>
 
-      {/* Options */}
+      {/* Options Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {options.map((opt, i) => (
           <div
             key={i}
             className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-200"
           >
-            <h3 className="text-lg font-semibold mb-2">
-              {opt.label}
-            </h3>
-            <p className="text-gray-700">
-              {opt.description}
-            </p>
+            <h3 className="text-lg font-semibold mb-2">{opt.label}</h3>
+            <p className="text-gray-700">{opt.description}</p>
           </div>
         ))}
       </div>
