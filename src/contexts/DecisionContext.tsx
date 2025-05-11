@@ -7,21 +7,22 @@ import React, {
   useEffect,
   ReactNode,
 } from 'react'
+import { supabase } from '../lib/supabase'
 
 export interface Option {
   label: string
   description: string
 }
 
-interface Collaborator {
-  id: string;
-  user_id: string;
-  decision_id: string;
-  role: 'owner' | 'contributor' | 'viewer';
-  status: 'invited' | 'active' | 'removed';
-  email?: string;
-  invited_at: string;
-  joined_at?: string;
+export interface Collaborator {
+  id: string
+  user_id: string
+  decision_id: string
+  role: 'owner' | 'contributor' | 'viewer'
+  status: 'invited' | 'active' | 'removed'
+  email?: string
+  invited_at: string
+  joined_at?: string
 }
 
 export interface DecisionContextType {
@@ -44,18 +45,25 @@ export interface DecisionContextType {
   resetDecisionContext: () => void
 }
 
-const DecisionContext = createContext<DecisionContextType | undefined>(undefined)
+const DecisionContext = createContext<DecisionContextType | undefined>(
+  undefined
+)
 
 const LOCAL_STORAGE_KEY = 'decisionContext'
 
 // Synchronously load from localStorage to avoid any race on first render
-function loadInitialState(): Partial<Record<keyof Omit<DecisionContextType, 'resetDecisionContext'>, any>> {
+function loadInitialState(): Partial<
+  Record<keyof Omit<DecisionContextType, 'resetDecisionContext'>, any>
+> {
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
       if (import.meta.env.DEV) {
-        console.debug('[Context] 💾 Loaded initial state from localStorage:', parsed)
+        console.debug(
+          '[Context] 💾 Loaded initial state from localStorage:',
+          parsed
+        )
       }
       return parsed
     }
@@ -68,52 +76,71 @@ function loadInitialState(): Partial<Record<keyof Omit<DecisionContextType, 'res
 export const DecisionProvider = ({ children }: { children: ReactNode }) => {
   const initial = loadInitialState()
 
-  const [decisionId, setDecisionId] = useState<string | null>(initial.decisionId ?? null)
-  const [decisionType, setDecisionType] = useState<string | null>(initial.decisionType ?? null)
-  const [decision, setDecision] = useState<string | null>(initial.decision ?? null)
-  const [importance, setImportance] = useState<string | null>(initial.importance ?? null)
-  const [reversibility, setReversibility] = useState<string | null>(initial.reversibility ?? null)
+  const [decisionId, setDecisionId] = useState<string | null>(
+    initial.decisionId ?? null
+  )
+  const [decisionType, setDecisionType] = useState<string | null>(
+    initial.decisionType ?? null
+  )
+  const [decision, setDecision] = useState<string | null>(
+    initial.decision ?? null
+  )
+  const [importance, setImportance] = useState<string | null>(
+    initial.importance ?? null
+  )
+  const [reversibility, setReversibility] = useState<string | null>(
+    initial.reversibility ?? null
+  )
   const [goals, setGoals] = useState<string[]>(initial.goals ?? [])
   const [options, setOptions] = useState<Option[]>(initial.options ?? [])
-  const [collaborators, setCollaborators] = useState<Collaborator[]>(initial.collaborators ?? [])
+  const [collaborators, setCollaborators] = useState<Collaborator[]>(
+    initial.collaborators ?? []
+  )
 
   // Subscribe to collaborator changes when decisionId changes
   useEffect(() => {
-    if (!decisionId) return;
+    if (!decisionId) return
 
     // Initial fetch
     const fetchCollaborators = async () => {
       try {
-        const { data, error } = await supabase.rpc('get_decision_collaborators', {
-          decision_id_param: decisionId
-        });
-        if (error) throw error;
-        setCollaborators(data || []);
+        const { data, error } = await supabase.rpc(
+          'get_decision_collaborators',
+          {
+            decision_id_param: decisionId,
+          }
+        )
+        if (error) throw error
+        setCollaborators(data || [])
       } catch (err) {
-        console.error('Error fetching collaborators:', err);
+        console.error('Error fetching collaborators:', err)
       }
-    };
+    }
 
-    fetchCollaborators();
+    fetchCollaborators()
 
     // Subscribe to changes
     const subscription = supabase
       .channel(`decision_collaborators:${decisionId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'decision_collaborators',
-        filter: `decision_id=eq.${decisionId}`
-      }, (payload) => {
-        console.log('Collaborator change:', payload);
-        fetchCollaborators(); // Refetch to get latest state
-      })
-      .subscribe();
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'decision_collaborators',
+          filter: `decision_id=eq.${decisionId}`,
+        },
+        (payload) => {
+          console.log('Collaborator change:', payload)
+          fetchCollaborators()
+        }
+      )
+      .subscribe()
 
     return () => {
-      subscription.unsubscribe();
-    };
-  }, [decisionId]);
+      subscription.unsubscribe()
+    }
+  }, [decisionId])
 
   // Persist on *every* change to keep LS in sync
   useEffect(() => {
