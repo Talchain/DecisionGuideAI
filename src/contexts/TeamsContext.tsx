@@ -57,15 +57,19 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     try {
       setLoading(true)
       setError(null)
+
       const { data, error: fetchError } = await supabase
         .from('teams')
         .select('*')
         .order('created_at', { ascending: false })
+
       if (fetchError) throw fetchError
+
       setTeams(data || [])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch teams')
-      console.error('Error fetching teams:', err)
+    } catch (err: any) {
+      console.error('[TeamsContext] fetchTeams raw error:', err)
+      const msg = err?.message ?? 'Failed to fetch teams'
+      setError(msg)
     } finally {
       setLoading(false)
     }
@@ -80,38 +84,42 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     async (name: string, description?: string): Promise<Team | null> => {
       try {
         // Get current user
-        const { data: { session } } = await supabase.auth.getSession()
+        const {
+          data: { session }
+        } = await supabase.auth.getSession()
         if (!session?.user) throw new Error('Not authenticated')
         const userId = session.user.id
 
-        // Create team
+        // Create team row
         const { data, error: createError } = await supabase
           .from('teams')
-          .insert([{ 
-            name, 
-            description,
+          .insert([{
+            name,
+            description: description ?? null,
             created_by: userId
           }])
           .select()
           .single()
+
         if (createError) throw createError
         if (!data) throw new Error('No data returned from create')
-        
+
         // Add creator as admin member
         const { error: memberError } = await supabase
           .from('team_members')
           .insert([{
             team_id: data.id,
             user_id: userId,
-            role: 'admin'
+            role: 'admin'  
           }])
+
         if (memberError) throw memberError
 
         // Update local state
         setTeams(prev => [data, ...prev])
         return data
       } catch (err) {
-        console.error('Error creating team:', err)
+        console.error('[TeamsContext] createTeam error:', err)
         throw err
       }
     },
@@ -127,12 +135,14 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           .eq('id', id)
           .select()
           .single()
+
         if (updateError) throw updateError
         if (!data) throw new Error('No data returned from update')
-        setTeams(prev => prev.map(team => (team.id === id ? data : team)))
+
+        setTeams(prev => prev.map(t => (t.id === id ? data : t)))
         return data
       } catch (err) {
-        console.error('Error updating team:', err)
+        console.error('[TeamsContext] updateTeam error:', err)
         return null
       }
     },
@@ -145,10 +155,11 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         .from('teams')
         .delete()
         .eq('id', id)
+
       if (deleteError) throw deleteError
-      setTeams(prev => prev.filter(team => team.id !== id))
+      setTeams(prev => prev.filter(t => t.id !== id))
     } catch (err) {
-      console.error('Error deleting team:', err)
+      console.error('[TeamsContext] deleteTeam error:', err)
     }
   }, [])
 
@@ -159,10 +170,11 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           .from('team_members')
           .select('*')
           .eq('team_id', teamId)
+
         if (membersError) throw membersError
         return data || []
       } catch (err) {
-        console.error('Error fetching team members:', err)
+        console.error('[TeamsContext] getTeamMembers error:', err)
         return []
       }
     },
