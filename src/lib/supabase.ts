@@ -60,6 +60,7 @@ export const supabase = createClient<Database>(
 
 export async function getUserId(): Promise<string | null> {
   const { data, error } = await supabase.auth.getSession()
+  console.debug('[getUserId] supabase.auth.getSession →', { data, error })
   const userId = data?.session?.user?.id
   if (error || !userId) {
     if (import.meta.env.DEV) console.error('[Supabase] getSession error:', error)
