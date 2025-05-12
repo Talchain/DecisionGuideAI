@@ -1,4 +1,3 @@
-// src/App.tsx
 import React, { useEffect } from 'react'
 import {
   Routes,
@@ -7,7 +6,6 @@ import {
   useLocation
 } from 'react-router-dom'
 import { supabase } from './lib/supabase'
-import { authLogger } from './lib/auth/authLogger'
 import { checkAccessValidation } from './lib/auth/accessValidation'
 import { useAuth } from './contexts/AuthContext'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -44,22 +42,15 @@ export default function App() {
   const { authenticated, loading } = useAuth()
   const hasValidAccess = checkAccessValidation()
 
-  // Quick supabase session check
+  // just a quick sanity check
   useEffect(() => {
-    supabase.auth
-      .getSession()
-      .then(({ data, error }) =>
-        console.log('✅ [Test] getSession returned', { data, error })
-      )
-      .catch(err => console.error('❌ [Test] getSession threw', err))
+    supabase.auth.getSession().then(({ data, error }) => {
+      console.log('session:', { data, error })
+    })
   }, [])
 
-  const isAuthRoute = [
-    '/login',
-    '/signup',
-    '/forgot-password',
-    '/reset-password'
-  ].includes(location.pathname)
+  const isAuthRoute = ['/login','/signup','/forgot-password','/reset-password']
+    .includes(location.pathname)
 
   const showNavbar =
     location.pathname !== '/' &&
@@ -73,9 +64,7 @@ export default function App() {
       <DecisionProvider>
         <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-purple-100">
           <AuthNavigationGuard />
-
           {showNavbar && <Navbar />}
-
           <main className="container mx-auto px-4 py-8">
             <ErrorBoundary>
               <Routes>
@@ -91,7 +80,7 @@ export default function App() {
                   <Route path="/reset-password" element={<ResetPasswordForm />} />
                 </Route>
 
-                {/* Decision‐wizard */}
+                {/* Decision Flow */}
                 {(authenticated || hasValidAccess) && (
                   <>
                     <Route path="/decision" element={<DecisionTypeSelector />} />
