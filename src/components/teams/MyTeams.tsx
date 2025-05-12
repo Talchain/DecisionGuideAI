@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useTeams } from '../../contexts/TeamsContext';
 import { Edit2, Trash2, PlusCircle, Users, Loader2, AlertTriangle } from 'lucide-react';
 import CreateTeamModal from './CreateTeamModal';
+import EditTeamModal from './EditTeamModal';
 import type { Team } from '../../types/teams';
 
 export default function MyTeams() {
   const { teams, loading, error, deleteTeam, fetchTeams } = useTeams();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null);
   
   useEffect(() => {
@@ -93,7 +95,7 @@ export default function MyTeams() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => {/* TODO: Implement edit */}}
+                    onClick={() => setEditingTeam(team)}
                     className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg"
                   >
                     <Edit2 className="h-4 w-4" />
@@ -135,6 +137,12 @@ export default function MyTeams() {
 
       {showCreateModal && (
         <CreateTeamModal onClose={() => setShowCreateModal(false)} />
+      )}
+      {editingTeam && (
+        <EditTeamModal
+          team={editingTeam}
+          onClose={() => setEditingTeam(null)}
+        />
       )}
     </div>
   );

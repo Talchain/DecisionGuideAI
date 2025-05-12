@@ -10,6 +10,7 @@ interface TeamsContextType {
   error: string | null;
   fetchTeams: () => Promise<void>;
   createTeam: (name: string, description?: string) => Promise<Team>;
+  updateTeam: (id: string, updates: { name: string; description?: string }) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
 }
 
@@ -88,8 +89,27 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
+  const updateTeam = useCallback(async (id: string, updates: { name: string; description?: string }) => {
+    if (!user) return;
+    setError(null);
+    try {
+      const { error: err } = await supabase
+        .from('teams')
+        .update(updates)
+        .eq('id', id);
+      if (err) throw err;
+      setTeams(prev => prev.map(team => 
+        team.id === id ? { ...team, ...updates } : team
+      ));
+    } catch (e) {
+      console.error('[TeamsContext] updateTeam error:', e);
+      setError(e instanceof Error ? e.message : 'Failed to update team');
+      throw e;
+    }
+  }, [user]);
+
   return (
-    <TeamsContext.Provider value={{ teams, loading, error, fetchTeams, createTeam, deleteTeam }}>
+      value={{ teams, loading, error, fetchTeams, createTeam, updateTeam, deleteTeam }}>
       {children}
     </TeamsContext.Provider>
   );
