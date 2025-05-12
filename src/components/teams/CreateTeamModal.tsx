@@ -16,16 +16,19 @@ export default function CreateTeamModal({ onClose }: CreateTeamModalProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-
     setLoading(true);
     setError(null);
 
     try {
-      await createTeam(name.trim(), description.trim() || undefined);
+      const team = await createTeam(
+        name.trim(),
+        description.trim() || undefined
+      );
+      if (!team) throw new Error('Failed to create team');
       onClose();
     } catch (err) {
       console.error('Failed to create team:', err);
-      setError('Failed to create team. Please try again.');
+      setError(err instanceof Error ? err.message : 'Failed to create team');
     } finally {
       setLoading(false);
     }

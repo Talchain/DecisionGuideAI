@@ -79,37 +79,40 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
   const createTeam = useCallback(
     async (name: string, description?: string): Promise<Team | null> => {
       try {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) throw new Error('Not authenticated')
+        // Get current user
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.user) throw new Error('Not authenticated')
+        const userId = session.user.id
 
+        // Create team
         const { data, error: createError } = await supabase
           .from('teams')
           .insert([{ 
             name, 
             description,
-            created_by: user.id 
+            created_by: userId
           }])
           .select()
           .single()
         if (createError) throw createError
         if (!data) throw new Error('No data returned from create')
         
-        // Auto-add creator as admin
+        // Add creator as admin member
         const { error: memberError } = await supabase
           .from('team_members')
           .insert([{
             team_id: data.id,
-            user_id: user.id,
+            user_id: userId,
             role: 'admin'
           }])
         if (memberError) throw memberError
 
+        // Update local state
         setTeams(prev => [data, ...prev])
         return data
       } catch (err) {
         console.error('Error creating team:', err)
         throw err
-        return null
       }
     },
     []

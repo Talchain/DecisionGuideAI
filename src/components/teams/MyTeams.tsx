@@ -1,18 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTeams } from '../../contexts/TeamsContext';
 import { Edit2, Trash2, PlusCircle, Users, Loader2, AlertTriangle } from 'lucide-react';
 import CreateTeamModal from './CreateTeamModal';
 import type { Team } from '../../types/teams';
 
 export default function MyTeams() {
-  const { teams, loading, error, deleteTeam } = useTeams();
+  const { teams, loading, error, deleteTeam, fetchTeams } = useTeams();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchTeams()
+  }, [fetchTeams])
 
   const handleDelete = async (teamId: string) => {
     try {
       setDeletingTeamId(teamId);
       await deleteTeam(teamId);
+      await fetchTeams(); // Refresh list after delete
     } catch (err) {
       console.error('Failed to delete team:', err);
     } finally {
