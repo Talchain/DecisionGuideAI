@@ -169,6 +169,7 @@ export default function ProfileForm() {
   };
 
   if (!userId) {
+    console.debug('[ProfileForm] userId state is:', userId)
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
