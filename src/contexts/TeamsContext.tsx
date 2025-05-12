@@ -109,7 +109,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   return (
-      value={{ teams, loading, error, fetchTeams, createTeam, updateTeam, deleteTeam }}>
+    <TeamsContext.Provider value={{ teams, loading, error, fetchTeams, createTeam, updateTeam, deleteTeam }}>
       {children}
     </TeamsContext.Provider>
   );
