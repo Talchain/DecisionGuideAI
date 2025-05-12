@@ -10,25 +10,28 @@ import {
   UserPlus,
   UserMinus
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useDecision } from '../contexts/DecisionContext'
 import type { Collaborator } from '../contexts/DecisionContext'
 import Tooltip from './Tooltip'
 
-export default function InviteCollaborators() {
-  const navigate = useNavigate()
+// 1️⃣ Accept an onClose prop instead of importing useNavigate
+interface InviteCollaboratorsProps {
+  onClose: () => void
+}
+
+export default function InviteCollaborators({ onClose }: InviteCollaboratorsProps) {
   const { decisionId, collaborators, setCollaborators } = useDecision()
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<'owner'|'contributor'|'approver'|'viewer'>('contributor')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch & subscribe
+  // 2️⃣ Fetch & subscribe
   useEffect(() => {
     if (!decisionId) {
-      // if someone lands here out of sequence
-      navigate('/decision/details', { replace: true })
+      console.warn('InviteCollaborators: missing decisionId, closing modal')
+      onClose()
       return
     }
 
@@ -64,9 +67,9 @@ export default function InviteCollaborators() {
     return () => {
       channel.unsubscribe()
     }
-  }, [decisionId, navigate, setCollaborators])
+  }, [decisionId, onClose, setCollaborators])
 
-  // Invite form
+  // 3️⃣ Invite form
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email.trim()) return
@@ -75,12 +78,10 @@ export default function InviteCollaborators() {
     setError(null)
 
     try {
-      // optional: check user existence
       const { data: userCheck } = await supabase.rpc(
         'check_user_email_exists',
         { email_to_check: email.trim() }
       )
-
       const { error: inviteError } = await supabase
         .from('decision_collaborators')
         .insert({
@@ -90,7 +91,6 @@ export default function InviteCollaborators() {
           role,
           status: 'invited'
         })
-
       if (inviteError) throw inviteError
       setEmail('')
     } catch (err: any) {
@@ -101,13 +101,13 @@ export default function InviteCollaborators() {
     }
   }
 
+  // 4️⃣ Removal
   const handleRemove = async (id: string) => {
     try {
       const { error } = await supabase
         .from('decision_collaborators')
         .delete()
         .eq('id', id)
-
       if (error) throw error
     } catch (err: any) {
       console.error('Error removing collaborator:', err)
@@ -124,8 +124,9 @@ export default function InviteCollaborators() {
             <Users className="h-5 w-5 text-indigo-600" />
             <h3 className="text-lg font-semibold">Invite Collaborators</h3>
           </div>
+          {/* 5️⃣ Call onClose, not navigate(-1) */}
           <button
-            onClick={() => navigate(-1)}
+            onClick={onClose}
             className="p-2 text-gray-400 hover:text-gray-600 rounded-full"
           >
             <X className="h-5 w-5" />
