@@ -3,9 +3,9 @@
 import React, { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { authLogger } from '../../lib/auth/authLogger';
-import { clearAuthStates } from '../../lib/auth/authUtils';
+// import { clearAuthStates } from '../../lib/auth/authUtils';  ← no longer needed here
 import { checkAccessValidation } from '../../lib/auth/accessValidation';
+import { authLogger } from '../../lib/auth/authLogger';
 
 export default function AuthNavigationGuard() {
   const { authenticated, loading } = useAuth();
@@ -19,29 +19,28 @@ export default function AuthNavigationGuard() {
   useEffect(() => {
     if (loading) return;
 
-    const isAuthRoute   = authRoutes.includes(location.pathname);
-    const isPublicRoute = publicRoutes.includes(location.pathname);
+    const isAuthRoute    = authRoutes.includes(location.pathname);
+    const isPublicRoute  = publicRoutes.includes(location.pathname);
     const hasValidAccess = !authenticated && checkAccessValidation();
 
     // Initial load only
     if (initialLoadRef.current) {
       initialLoadRef.current = false;
 
-      // If we're landing *and* authenticated, clear early-access and jump in
+      // If we're landing *and* authenticated, jump straight into the flow
       if (authenticated && location.pathname === '/') {
-        clearAuthStates();
         navigate('/decision', { replace: true });
         return;
       }
 
-      // If un-auth and no early-access, any protected URL → landing
+      // If un-authed and no early-access, any protected URL → landing
       if (!authenticated && !hasValidAccess && !isPublicRoute && !isAuthRoute) {
         navigate('/', { replace: true });
         return;
       }
     }
 
-    // If we're on an auth page but already signed in, send them to the flow
+    // If on an auth page but already signed in, send them to the flow
     if (isAuthRoute && authenticated) {
       navigate('/decision', { replace: true });
       return;
