@@ -9,83 +9,60 @@ import {
   UserPlus
 } from 'lucide-react'
 import { useDecision } from '../contexts/DecisionContext'
-import {
-  generateOptionsIdeation,
-  OptionIdeation,
-  BiasIdeation
-} from '../lib/api'
+import { generateOptionsIdeation, OptionIdeation, BiasIdeation } from '../lib/api'
+import InviteCollaborators from './InviteCollaborators'
 
-interface Props {
-  onInvite: () => void
-}
-
-export default function OptionsIdeation({ onInvite }: Props) {
+export default function OptionsIdeation() {
   const navigate = useNavigate()
   const {
     decisionId,
     decision,
-    decisionType,
     importance,
     reversibility,
     goals,
     setOptions
   } = useDecision()
 
-  // Guard-rails for flow
   if (!decisionId)    return <Navigate to="/decision" replace />
   if (!decision)      return <Navigate to="/decision/details" replace />
   if (!importance)    return <Navigate to="/decision/importance" replace />
   if (!reversibility) return <Navigate to="/decision/reversibility" replace />
 
   const [loading, setLoading] = useState(true)
-  const [error, setError]   = useState<string | null>(null)
+  const [error, setError]     = useState<string | null>(null)
   const [options, setLocalOptions] = useState<OptionIdeation[]>([])
   const [biases, setLocalBiases]   = useState<BiasIdeation[]>([])
+  const [showInvite, setShowInvite] = useState(false)
 
-  // fetch once on mount (won’t re-run when modal opens/closes)
   useEffect(() => {
-    let cancelled = false
     async function fetchIdeation() {
       try {
         setLoading(true)
         setError(null)
-
-        const response = await generateOptionsIdeation({
+        const resp = await generateOptionsIdeation({
           decision,
-          decisionType,
+          decisionType: decision.type,
           reversibility,
           importance,
           goals
         })
-
-        if (!cancelled) {
-          setLocalOptions(response.options)
-          setLocalBiases(response.biases)
-          setOptions(response.options)
-        }
+        setLocalOptions(resp.options)
+        setLocalBiases(resp.biases)
+        setOptions(resp.options)
       } catch (err) {
         console.error('Error fetching options:', err)
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to generate options')
-        }
+        setError(err instanceof Error ? err.message : 'Failed to generate options')
       } finally {
-        if (!cancelled) setLoading(false)
+        setLoading(false)
       }
     }
-
     fetchIdeation()
-    return () => { cancelled = true }
-  }, [
-    decision,
-    decisionType,
-    reversibility,
-    importance,
-    goals,
-    setOptions
-  ])
+  }, [decision, importance, reversibility, goals, setOptions])
 
   const goBack = () => navigate('/decision/goals')
   const goNext = () => navigate('/decision/criteria')
+
+  if (showInvite) return <InviteCollaborators onClose={() => setShowInvite(false)} />
 
   if (loading) {
     return (
@@ -110,7 +87,6 @@ export default function OptionsIdeation({ onInvite }: Props) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      {/* Top Row: Back + Invite */}
       <div className="flex items-center justify-between">
         <button
           onClick={goBack}
@@ -119,13 +95,12 @@ export default function OptionsIdeation({ onInvite }: Props) {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Goals
         </button>
-
         <button
-          onClick={onInvite}
-          className="flex items-center gap-1 text-indigo-600 hover:text-indigo-900"
+          onClick={() => setShowInvite(true)}
+          className="flex items-center gap-1 px-4 py-2 text-indigo-600 bg-indigo-50 rounded hover:bg-indigo-100 transition"
         >
-          <UserPlus className="h-5 w-5" />
-          Invite collaborators
+          <UserPlus className="h-4 w-4" />
+          Invite Collaborators
         </button>
       </div>
 
