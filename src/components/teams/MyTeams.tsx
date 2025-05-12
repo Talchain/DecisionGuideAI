@@ -8,6 +8,10 @@ export default function MyTeams() {
   const { teams, loading, error, deleteTeam, fetchTeams } = useTeams();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    fetchTeams()
+  }, [fetchTeams])
 
   useEffect(() => {
     fetchTeams()

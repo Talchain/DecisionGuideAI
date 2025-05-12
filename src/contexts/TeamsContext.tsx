@@ -1,125 +1,94 @@
 // src/contexts/TeamsContext.tsx
-
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useCallback,
-  useEffect,
-  ReactNode,
-} from 'react'
-import { supabase } from '../lib/supabase'
-import { useAuth } from './AuthContext'
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
 
 export interface Team {
-  id: string
-  name: string
-  description: string | null
-  created_by: string
-  created_at: string
-  updated_at: string
+  id: string;
+  name: string;
+  description: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface TeamsContextType {
-  teams: Team[]
-  loading: boolean
-  error: string | null
-  fetchTeams: () => Promise<void>
-  createTeam: (name: string, description?: string) => Promise<Team>
-  deleteTeam: (id: string) => Promise<void>
+  teams: Team[];
+  loading: boolean;
+  error: string | null;
+  fetchTeams: () => Promise<void>;
+  createTeam: (name: string, description?: string) => Promise<Team>;
+  deleteTeam: (id: string) => Promise<void>;
 }
 
-const TeamsContext = createContext<TeamsContextType | undefined>(undefined)
+const TeamsContext = createContext<TeamsContextType|undefined>(undefined);
 
 export function TeamsProvider({ children }: { children: ReactNode }) {
-  const { user, loading: authLoading } = useAuth()
-  const [teams, setTeams] = useState<Team[]>([])
-  const [loading, setLoading] = useState<boolean>(false)
-  const [error, setError] = useState<string | null>(null)
+  const { user } = useAuth();
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string|null>(null);
 
   const fetchTeams = useCallback(async () => {
-    if (!user) return
+    if (!user) return;
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true)
-      setError(null)
-
-      const { data, error: fetchError } = await supabase
+      const { data, error: err } = await supabase
         .from('teams')
         .select('id,name,description,created_by,created_at,updated_at')
         .eq('created_by', user.id)
-        .order('created_at', { ascending: false })
-
-      if (fetchError) throw fetchError
-      setTeams(data ?? [])
-    } catch (err) {
-      console.error('[TeamsContext] fetchTeams raw error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch teams')
+        .order('created_at', { ascending: false });
+      if (err) throw err;
+      setTeams(data ?? []);
+    } catch (e) {
+      console.error('[TeamsContext] fetchTeams raw error:', e);
+      setError(e instanceof Error ? e.message : 'Failed to fetch teams');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [user])
+  }, [user]);
 
-  useEffect(() => {
-    if (!authLoading && user) {
-      fetchTeams()
+  const createTeam = useCallback(async (name: string, description?: string) => {
+    if (!user) throw new Error('Not authenticated');
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: err } = await supabase
+        .from('teams')
+        .insert([{ name, description, created_by: user.id }])
+        .select('id,name,description,created_by,created_at,updated_at')
+        .single();
+      if (err) throw err;
+      setTeams(prev => [data!, ...prev]);
+      return data!;
+    } finally {
+      setLoading(false);
     }
-  }, [authLoading, user, fetchTeams])
+  }, [user]);
 
-  const createTeam = useCallback(
-    async (name: string, description?: string): Promise<Team> => {
-      if (!user) throw new Error('Not authenticated')
-      setError(null)
-      setLoading(true)
-      try {
-        const { data, error: createError } = await supabase
-          .from('teams')
-          .insert([{ name, description, created_by: user.id }])
-          .select('id,name,description,created_by,created_at,updated_at')
-          .single()
-
-        if (createError) throw createError
-        if (!data) throw new Error('No team returned')
-
-        setTeams(prev => [data, ...prev])
-        return data
-      } finally {
-        setLoading(false)
-      }
-    },
-    [user]
-  )
-
-  const deleteTeam = useCallback(
-    async (id: string) => {
-      if (!user) return
-      setError(null)
-      try {
-        const { error: deleteError } = await supabase
-          .from('teams')
-          .delete()
-          .eq('id', id)
-
-        if (deleteError) throw deleteError
-        setTeams(prev => prev.filter(t => t.id !== id))
-      } catch (err) {
-        console.error('[TeamsContext] deleteTeam error:', err)
-        setError(err instanceof Error ? err.message : 'Failed to delete team')
-      }
-    },
-    [user]
-  )
+  const deleteTeam = useCallback(async (id: string) => {
+    if (!user) return;
+    setError(null);
+    try {
+      const { error: err } = await supabase.from('teams').delete().eq('id', id);
+      if (err) throw err;
+      setTeams(prev => prev.filter(t => t.id !== id));
+    } catch (e) {
+      console.error('[TeamsContext] deleteTeam error:', e);
+      setError(e instanceof Error ? e.message : 'Failed to delete team');
+    }
+  }, [user]);
 
   return (
-    <TeamsContext.Provider
-      value={{ teams, loading, error, fetchTeams, createTeam, deleteTeam }}
-    >
+    <TeamsContext.Provider value={{ teams, loading, error, fetchTeams, createTeam, deleteTeam }}>
       {children}
     </TeamsContext.Provider>
-  )
+  );
 }
 
 export function useTeams() {
-  const ctx = useContext(TeamsContext)
-  if (!ctx) throw new Error('useTeams must be used within a TeamsProvider')
-  return ctx
+  const ctx = useContext(TeamsContext);
+  if (!ctx) throw new Error('useTeams must be used within a TeamsProvider');
+  return ctx;
 }
