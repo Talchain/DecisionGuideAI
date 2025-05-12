@@ -1,3 +1,5 @@
+// src/components/auth/AuthNavigationGuard.tsx
+
 import React, { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -9,90 +11,56 @@ export default function AuthNavigationGuard() {
   const { authenticated, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const navigationAttemptedRef = useRef(false);
   const initialLoadRef = useRef(true);
-  const debugLogRef = useRef(0);
+
   const publicRoutes = ['/', '/about'];
-  const authRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'];
+  const authRoutes   = ['/login', '/signup', '/forgot-password', '/reset-password'];
 
   useEffect(() => {
-    debugLogRef.current++;
-    console.debug('[AuthNavigationGuard] Navigation check', {
-      attempt: debugLogRef.current,
-      path: location.pathname,
-      loading,
-      authenticated,
-      initialLoad: initialLoadRef.current,
-      hasValidAccess: checkAccessValidation(),
-      timestamp: new Date().toISOString()
-    });
+    if (loading) return;
 
-    // Skip if loading or navigation already attempted
-    if (loading) {
-      authLogger.debug('AUTH', 'Waiting for auth state', {
-        path: location.pathname,
-        loading,
-        authenticated,
-        initialLoad: initialLoadRef.current
-      });
-      return;
-    }
-
-    const isAuthRoute = authRoutes.includes(location.pathname);
+    const isAuthRoute   = authRoutes.includes(location.pathname);
     const isPublicRoute = publicRoutes.includes(location.pathname);
     const hasValidAccess = !authenticated && checkAccessValidation();
 
-    console.debug('[AuthNavigationGuard] Navigation decision', {
-      isAuthRoute,
-      isPublicRoute,
-      hasValidAccess,
-      shouldRedirect: !hasValidAccess && !isPublicRoute && !isAuthRoute
-    });
-
-    // Handle initial load
+    // Initial load only
     if (initialLoadRef.current) {
       initialLoadRef.current = false;
-      
-      // If authenticated, clear early access and redirect from public routes
-      if (authenticated) {
+
+      // If we're landing *and* authenticated, clear early-access and jump in
+      if (authenticated && location.pathname === '/') {
         clearAuthStates();
-        // Only redirect from landing page, not other public routes
-        if (location.pathname === '/') {
-          navigate('/decision', { replace: true });
-          return;
-        }
+        navigate('/decision', { replace: true });
+        return;
       }
-      // If not authenticated and no access, redirect to landing
-      else if (!hasValidAccess && !isPublicRoute && !isAuthRoute) {
+
+      // If un-auth and no early-access, any protected URL → landing
+      if (!authenticated && !hasValidAccess && !isPublicRoute && !isAuthRoute) {
         navigate('/', { replace: true });
         return;
       }
     }
 
-    // Handle auth routes
-    if (isAuthRoute) {
-      if (authenticated) {
-        navigate('/decision', { replace: true });
-      }
+    // If we're on an auth page but already signed in, send them to the flow
+    if (isAuthRoute && authenticated) {
+      navigate('/decision', { replace: true });
       return;
     }
 
-    // Handle non-public routes
-    if (!isPublicRoute) {
+    // Non-public routes require auth or early access
+    if (!isPublicRoute && !isAuthRoute) {
       if (!authenticated && !hasValidAccess) {
         navigate('/', { replace: true });
         return;
       }
-      return; // Allow access for authenticated or early access users
+      // else: they’ve got access → let them through
     }
 
-    // Handle public routes for authenticated users
-    // Only redirect from landing page when authenticated
+    // Public landing page: if you’re already authed, bounce to /decision
     if (location.pathname === '/' && authenticated) {
       navigate('/decision', { replace: true });
     }
   }, [authenticated, loading, location.pathname, navigate]);
-
 
   return null;
 }
