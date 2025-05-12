@@ -26,6 +26,8 @@ import DecisionList from './components/decisions/DecisionList'
 import DecisionForm from './components/decisions/DecisionForm'
 import AuthNavigationGuard from './components/auth/AuthNavigationGuard'
 
+import MyTeams from './components/teams/MyTeams'
+
 import DecisionTypeSelector from './components/DecisionTypeSelector'
 import DecisionDetails from './components/DecisionDetails'
 import ImportanceSelector from './components/ImportanceSelector'
@@ -100,6 +102,9 @@ export default function App() {
                 }/>
                 <Route path="/decisions/new" element={
                   <ProtectedRoute><DecisionForm /></ProtectedRoute>
+                }/>
+                <Route path="/teams" element={
+                  <ProtectedRoute><MyTeams /></ProtectedRoute>
                 }/>
                 <Route path="/profile" element={
                   <ProtectedRoute><ProfileForm /></ProtectedRoute>
