@@ -38,6 +38,7 @@ import CriteriaForm from './components/CriteriaForm'
 import Analysis from './components/Analysis'
 
 import { DecisionProvider } from './contexts/DecisionContext'
+import { TeamsProvider }  from './contexts/TeamsContext'
 
 export default function App() {
   const location = useLocation()
