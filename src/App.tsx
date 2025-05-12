@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import React, { useEffect } from 'react'
 import {
   Routes,
@@ -45,15 +47,16 @@ export default function App() {
   const { authenticated, loading } = useAuth()
   const hasValidAccess = checkAccessValidation()
 
-  // just a quick sanity check
+  // quick sanity check
   useEffect(() => {
     supabase.auth.getSession().then(({ data, error }) => {
       console.log('session:', { data, error })
     })
   }, [])
 
-  const isAuthRoute = ['/login','/signup','/forgot-password','/reset-password']
-    .includes(location.pathname)
+  const isAuthRoute = [
+    '/login','/signup','/forgot-password','/reset-password'
+  ].includes(location.pathname)
 
   const showNavbar =
     location.pathname !== '/' &&
@@ -65,58 +68,110 @@ export default function App() {
   return (
     <ErrorBoundary>
       <DecisionProvider>
-        <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-purple-100">
-          <AuthNavigationGuard />
-          {showNavbar && <Navbar />}
-          <main className="container mx-auto px-4 py-8">
-            <ErrorBoundary>
-              <Routes>
-                {/* Public */}
-                <Route path="/" element={<LandingPage />} />
-                <Route path="/about" element={<About />} />
+        <TeamsProvider>
+          <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-purple-100">
+            <AuthNavigationGuard />
+            {showNavbar && <Navbar />}
+            <main className="container mx-auto px-4 py-8">
+              <ErrorBoundary>
+                <Routes>
+                  {/* Public */}
+                  <Route path="/" element={<LandingPage />} />
+                  <Route path="/about" element={<About />} />
 
-                {/* Auth */}
-                <Route element={<AuthLayout />}>
-                  <Route path="/login" element={<LoginForm />} />
-                  <Route path="/signup" element={<SignUpForm />} />
-                  <Route path="/forgot-password" element={<ForgotPasswordForm />} />
-                  <Route path="/reset-password" element={<ResetPasswordForm />} />
-                </Route>
+                  {/* Auth */}
+                  <Route element={<AuthLayout />}>
+                    <Route path="/login" element={<LoginForm />} />
+                    <Route path="/signup" element={<SignUpForm />} />
+                    <Route
+                      path="/forgot-password"
+                      element={<ForgotPasswordForm />}
+                    />
+                    <Route
+                      path="/reset-password"
+                      element={<ResetPasswordForm />}
+                    />
+                  </Route>
 
-                {/* Decision Flow */}
-                {(authenticated || hasValidAccess) && (
-                  <>
-                    <Route path="/decision" element={<DecisionTypeSelector />} />
-                    <Route path="/decision/details" element={<DecisionDetails />} />
-                    <Route path="/decision/importance" element={<ImportanceSelector />} />
-                    <Route path="/decision/reversibility" element={<ReversibilitySelector />} />
-                    <Route path="/decision/goals" element={<GoalClarificationScreen />} />
-                    <Route path="/decision/options" element={<OptionsIdeation />} />
-                    <Route path="/decision/criteria" element={<CriteriaForm />} />
-                    <Route path="/decision/analysis" element={<Analysis />} />
-                  </>
-                )}
+                  {/* Decision Flow */}
+                  {(authenticated || hasValidAccess) && (
+                    <>
+                      <Route
+                        path="/decision"
+                        element={<DecisionTypeSelector />}
+                      />
+                      <Route
+                        path="/decision/details"
+                        element={<DecisionDetails />}
+                      />
+                      <Route
+                        path="/decision/importance"
+                        element={<ImportanceSelector />}
+                      />
+                      <Route
+                        path="/decision/reversibility"
+                        element={<ReversibilitySelector />}
+                      />
+                      <Route
+                        path="/decision/goals"
+                        element={<GoalClarificationScreen />}
+                      />
+                      <Route
+                        path="/decision/options"
+                        element={<OptionsIdeation />}
+                      />
+                      <Route
+                        path="/decision/criteria"
+                        element={<CriteriaForm />}
+                      />
+                      <Route
+                        path="/decision/analysis"
+                        element={<Analysis />}
+                      />
+                    </>
+                  )}
 
-                {/* Protected */}
-                <Route path="/decisions" element={
-                  <ProtectedRoute><DecisionList /></ProtectedRoute>
-                }/>
-                <Route path="/decisions/new" element={
-                  <ProtectedRoute><DecisionForm /></ProtectedRoute>
-                }/>
-                <Route path="/teams" element={
-                  <ProtectedRoute><MyTeams /></ProtectedRoute>
-                }/>
-                <Route path="/profile" element={
-                  <ProtectedRoute><ProfileForm /></ProtectedRoute>
-                }/>
+                  {/* Protected */}
+                  <Route
+                    path="/decisions"
+                    element={
+                      <ProtectedRoute>
+                        <DecisionList />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/decisions/new"
+                    element={
+                      <ProtectedRoute>
+                        <DecisionForm />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/teams"
+                    element={
+                      <ProtectedRoute>
+                        <MyTeams />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/profile"
+                    element={
+                      <ProtectedRoute>
+                        <ProfileForm />
+                      </ProtectedRoute>
+                    }
+                  />
 
-                {/* Fallback */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </ErrorBoundary>
-          </main>
-        </div>
+                  {/* Fallback */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </ErrorBoundary>
+            </main>
+          </div>
+        </TeamsProvider>
       </DecisionProvider>
     </ErrorBoundary>
   )
