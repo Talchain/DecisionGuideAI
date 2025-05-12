@@ -9,7 +9,7 @@ import React, {
   ReactNode,
 } from 'react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from './AuthContext'   // <-- pull in your auth
+import { useAuth } from './AuthContext'
 
 export interface Team {
   id: string
@@ -38,15 +38,17 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   const fetchTeams = useCallback(async () => {
-    if (!user) return                                      // wait for user
+    if (!user) return
     try {
       setLoading(true)
       setError(null)
+
       const { data, error: fetchError } = await supabase
         .from('teams')
         .select('id,name,description,created_by,created_at,updated_at')
         .eq('created_by', user.id)
         .order('created_at', { ascending: false })
+
       if (fetchError) throw fetchError
       setTeams(data ?? [])
     } catch (err) {
@@ -74,10 +76,9 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           .insert([{ name, description, created_by: user.id }])
           .select('id,name,description,created_by,created_at,updated_at')
           .single()
+
         if (createError) throw createError
         if (!data) throw new Error('No team returned')
-
-        // (Optionally) auto-add the creator to team_members here…
 
         setTeams(prev => [data, ...prev])
         return data
@@ -97,11 +98,12 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           .from('teams')
           .delete()
           .eq('id', id)
+
         if (deleteError) throw deleteError
         setTeams(prev => prev.filter(t => t.id !== id))
       } catch (err) {
         console.error('[TeamsContext] deleteTeam error:', err)
-        setError(err instanceof Error ? err.message : 'Failed to delete')
+        setError(err instanceof Error ? err.message : 'Failed to delete team')
       }
     },
     [user]
