@@ -1,29 +1,98 @@
+// src/components/teams/MyTeams.tsx
+
 import React, { useState, useEffect } from 'react';
 import { useTeams } from '../../contexts/TeamsContext';
-import { Edit2, Trash2, PlusCircle, Users, Loader2, AlertTriangle } from 'lucide-react';
+import {
+  Edit2,
+  Trash2,
+  PlusCircle,
+  Users,
+  Loader2,
+  AlertTriangle
+} from 'lucide-react';
 import CreateTeamModal from './CreateTeamModal';
 import EditTeamModal from './EditTeamModal';
 import type { Team } from '../../types/teams';
+
+// A small presentational component for each team card
+function TeamCard({
+  team,
+  onEdit,
+  onDelete,
+  deleting
+}: {
+  team: Team & { members?: { id: string; user_id: string }[] };
+  onEdit: () => void;
+  onDelete: () => void;
+  deleting: boolean;
+}) {
+  const members = team.members ?? [];
+  return (
+    <div className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-200">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <h3 className="font-medium text-gray-900">{team.name}</h3>
+          {team.description && (
+            <p className="text-sm text-gray-500 mt-1">{team.description}</p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={onEdit}
+            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg"
+          >
+            <Edit2 className="h-4 w-4" />
+          </button>
+          <button
+            onClick={onDelete}
+            disabled={deleting}
+            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="flex -space-x-2">
+          {members.slice(0, 4).map((m) => (
+            <div
+              key={m.id}
+              className="w-8 h-8 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center text-sm font-medium text-indigo-600"
+            >
+              {m.user_id.charAt(0).toUpperCase()}
+            </div>
+          ))}
+          {members.length > 4 && (
+            <div className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-sm font-medium text-gray-600">
+              +{members.length - 4}
+            </div>
+          )}
+        </div>
+        <span className="text-sm text-gray-500">
+          {members.length} {members.length === 1 ? 'member' : 'members'}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export default function MyTeams() {
   const { teams, loading, error, deleteTeam, fetchTeams } = useTeams();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null);
-  
-  useEffect(() => {
-    fetchTeams()
-  }, [fetchTeams])
 
+  // Fetch once on mount
   useEffect(() => {
-    fetchTeams()
-  }, [fetchTeams])
+    fetchTeams();
+  }, [fetchTeams]);
 
   const handleDelete = async (teamId: string) => {
+    setDeletingTeamId(teamId);
     try {
-      setDeletingTeamId(teamId);
       await deleteTeam(teamId);
-      await fetchTeams(); // Refresh list after delete
+      await fetchTeams();
     } catch (err) {
       console.error('Failed to delete team:', err);
     } finally {
@@ -82,66 +151,24 @@ export default function MyTeams() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {teams.map((team) => (
-            <div
+            <TeamCard
               key={team.id}
-              className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-200"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="font-medium text-gray-900">{team.name}</h3>
-                  {team.description && (
-                    <p className="text-sm text-gray-500 mt-1">{team.description}</p>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setEditingTeam(team)}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(team.id)}
-                    disabled={deletingTeamId === team.id}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="flex -space-x-2">
-                  {(team.members || []).slice(0, 4).map((member) => (
-                    <div
-                      key={member.id}
-                      className="w-8 h-8 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center text-sm font-medium text-indigo-600"
-                    >
-                      {member.user_id.charAt(0).toUpperCase()}
-                    </div>
-                  ))}
-                  {(team.members || []).length > 4 && (
-                    <div className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-sm font-medium text-gray-600">
-                      +{(team.members || []).length - 4}
-                    </div>
-                  )}
-                </div>
-                <span className="text-sm text-gray-500">
-                  {(team.members || []).length} {(team.members || []).length === 1 ? 'member' : 'members'}
-                </span>
-              </div>
-            </div>
+              team={team}
+              onEdit={() => setEditingTeam(team)}
+              onDelete={() => handleDelete(team.id)}
+              deleting={deletingTeamId === team.id}
+            />
           ))}
         </div>
       )}
 
       {showCreateModal && (
-        <CreateTeamModal onClose={() => setShowCreateModal(false)} />
+        <CreateTeamModal onClose={() => { setShowCreateModal(false); fetchTeams(); }} />
       )}
       {editingTeam && (
         <EditTeamModal
           team={editingTeam}
-          onClose={() => setEditingTeam(null)}
+          onClose={() => { setEditingTeam(null); fetchTeams(); }}
         />
       )}
     </div>
