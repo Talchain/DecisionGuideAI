@@ -68,6 +68,7 @@ export function validateAuthInputs(email: string, password: string): string | nu
 
 // Clear all auth-related states
 export function clearAuthStates(): void {
+    console.debug('[authUtils] clearAuthStates() called', new Error().stack);
   // Clear early access validation state
   clearAccessValidation();
   
