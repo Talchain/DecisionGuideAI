@@ -110,22 +110,22 @@ export default function MyTeams() {
 
               <div className="flex items-center gap-2">
                 <div className="flex -space-x-2">
-                  {team.members.slice(0, 4).map((member) => (
+                  {(team.members || []).slice(0, 4).map((member) => (
                     <div
                       key={member.id}
                       className="w-8 h-8 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center text-sm font-medium text-indigo-600"
                     >
-                      {member.user?.email?.charAt(0).toUpperCase() || '?'}
+                      {member.user_id.charAt(0).toUpperCase()}
                     </div>
                   ))}
-                  {team.members.length > 4 && (
+                  {(team.members || []).length > 4 && (
                     <div className="w-8 h-8 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-sm font-medium text-gray-600">
-                      +{team.members.length - 4}
+                      +{(team.members || []).length - 4}
                     </div>
                   )}
                 </div>
                 <span className="text-sm text-gray-500">
-                  {team.members.length} {team.members.length === 1 ? 'member' : 'members'}
+                  {(team.members || []).length} {(team.members || []).length === 1 ? 'member' : 'members'}
                 </span>
               </div>
             </div>

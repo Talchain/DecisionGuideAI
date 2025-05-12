@@ -2,18 +2,20 @@ import { User } from '@supabase/supabase-js';
 
 export interface TeamMember {
   id: string;
-  role: 'admin' | 'member';
-  joinedAt: string;
-  user?: User;
+  team_id: string;
+  user_id: string;
+  role: string;
+  joined_at: string;
 }
 
 export interface Team {
   id: string;
   name: string;
-  description?: string;
+  description: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
   members: TeamMember[];
-  createdAt: string;
-  updatedAt: string;
 }
 
 export interface TeamContextState {
