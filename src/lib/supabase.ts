@@ -37,10 +37,10 @@ export const supabase = createClient<Database>(
   supabaseKey,
   {
     auth: {
-      autoRefreshToken: false,
+      autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,
-      multiTab: false,
+      multiTab: true,
       flowType: 'pkce',
     },
     global: {
