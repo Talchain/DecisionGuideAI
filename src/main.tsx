@@ -23,6 +23,7 @@ import { HashRouter as Router } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { GuestProvider } from './contexts/GuestContext'
 import { DecisionProvider } from './contexts/DecisionContext'
+import { TeamsProvider } from './contexts/TeamsContext'
 
 import App from './App'
 import './index.css'
@@ -35,9 +36,11 @@ createRoot(container).render(
     <Router>
       <AuthProvider>
         <GuestProvider>
-          <DecisionProvider>
-            <App />
-          </DecisionProvider>
+          <TeamsProvider>
+            <DecisionProvider>
+              <App />
+            </DecisionProvider>
+          </TeamsProvider>
         </GuestProvider>
       </AuthProvider>
     </Router>
