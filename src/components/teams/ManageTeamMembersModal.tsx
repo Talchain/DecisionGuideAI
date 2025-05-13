@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Users, Mail, Loader2, UserPlus, UserMinus, AlertCircle, UserSearch, Clock, RefreshCw, XCircle } from 'lucide-react';
+import { X, Users, Mail, Loader2, UserPlus, UserMinus, AlertCircle, UserSearch, Clock, RefreshCw, XCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useTeams } from '../../contexts/TeamsContext';
 import type { Team } from '../../types/teams';
@@ -38,7 +38,8 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   const [success, setSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [invitations, setInvitations] = useState<Invitation[]>([]);
-  const [loadingInvitations, setLoadingInvitations] = useState(false);
+  const [loadingInvitations, setLoadingInvitations] = useState<boolean>(false);
+  const [processingInvitationId, setProcessingInvitationId] = useState<string | null>(null);
 
   const { addTeamMember, inviteTeamMember, getTeamInvitations, revokeInvitation, resendInvitation } = useTeams();
 
@@ -53,7 +54,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     setLoadingInvitations(true);
     try {
       const invites = await getTeamInvitations(team.id);
-      setInvitations(invites);
+      setInvitations(invites || []);
     } catch (err) {
       console.error('Failed to fetch invitations:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch invitations');
@@ -153,6 +154,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
 
   const handleRevokeInvitation = async (invitationId: string) => {
     try {
+      setProcessingInvitationId(invitationId);
       await revokeInvitation(invitationId);
       // Refresh the invitations list
       fetchInvitations();
@@ -162,11 +164,14 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     } catch (err) {
       console.error('Failed to revoke invitation:', err);
       setError(err instanceof Error ? err.message : 'Failed to revoke invitation');
+    } finally {
+      setProcessingInvitationId(null);
     }
   };
 
   const handleResendInvitation = async (invitationId: string) => {
     try {
+      setProcessingInvitationId(invitationId);
       await resendInvitation(invitationId);
       // Refresh the invitations list
       fetchInvitations();
@@ -176,6 +181,8 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     } catch (err) {
       console.error('Failed to resend invitation:', err);
       setError(err instanceof Error ? err.message : 'Failed to resend invitation');
+    } finally {
+      setProcessingInvitationId(null);
     }
   };
 
@@ -353,7 +360,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                 <div className="space-y-3">
                   <h3 className="text-sm font-medium text-gray-700">Pending Invitations</h3>
                   {invitations.map(invitation => (
-                    <div 
+                    <div
                       key={invitation.id}
                       className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
                     >
@@ -362,7 +369,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                         <div className="text-xs text-gray-500 mt-1">
                           <span className="inline-flex items-center">
                             <Clock className="h-3 w-3 mr-1" />
-                            Invited {new Date(invitation.invited_at).toLocaleDateString()}
+                            Invited {new Date(invitation.invited_at).toLocaleString()}
                           </span>
                           <span className="mx-2">•</span>
                           <span>
@@ -377,23 +384,40 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                       <div className="flex gap-2">
                         <Tooltip content="Resend invitation">
                           <button
+                            disabled={processingInvitationId === invitation.id}
                             onClick={() => handleResendInvitation(invitation.id)}
-                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded disabled:opacity-50"
                           >
-                            <RefreshCw className="h-4 w-4" />
+                            {processingInvitationId === invitation.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-4 w-4" />
+                            )}
                           </button>
                         </Tooltip>
                         <Tooltip content="Revoke invitation">
                           <button
+                            disabled={processingInvitationId === invitation.id}
                             onClick={() => handleRevokeInvitation(invitation.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded disabled:opacity-50"
                           >
-                            <XCircle className="h-4 w-4" />
+                            {processingInvitationId === invitation.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <XCircle className="h-4 w-4" />
+                            )}
                           </button>
                         </Tooltip>
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+              {invitations.length === 0 && !loadingInvitations && (
+                <div className="text-center py-8 text-gray-500">
+                  <CheckCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p>No pending invitations</p>
+                  <p className="text-sm mt-2">Invite team members using the "Add by Email" tab</p>
                 </div>
               )}
             </div>
