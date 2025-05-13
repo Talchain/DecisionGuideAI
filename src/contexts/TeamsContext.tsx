@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
-import type { Team } from '../types/teams';
+import type { Team, TeamMember } from '../types/teams';
 
 interface TeamsContextType {
   teams: Team[];
@@ -39,15 +39,29 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      // Simple query that only gets teams, no members yet
-      const { data, error: err } = await supabase.from('teams')
-        .select('id, name, description, created_by, created_at, updated_at')
+      const { data, error: err } = await supabase
+        .from('teams')
+        .select(`
+          id, 
+          name, 
+          description, 
+          created_by, 
+          created_at, 
+          updated_at,
+          members:team_members(*)
+        `)
         .eq('created_by', user.id)
         .order('created_at', { ascending: false });
 
       if (err) throw err;
 
-      setTeams(data ?? []);
+      // Transform the data to match our Team type
+      const teamsWithMembers = (data ?? []).map(team => ({
+        ...team,
+        members: team.members || []
+      }));
+
+      setTeams(teamsWithMembers);
     } catch (e) {
       console.error('[TeamsContext] fetchTeams raw error:', e);
       setError(e instanceof Error ? e.message : 'Failed to fetch teams');
