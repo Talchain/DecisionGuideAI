@@ -35,25 +35,17 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     try {
       const emailList = emails.split(/[,\n]/).map(e => e.trim()).filter(Boolean);
       
-      // First check if users exist
-      const { data: users, error: userError } = await supabase
-        .rpc('get_users_by_email', { emails: emailList });
-      
-      if (userError) throw userError;
+      // Use the manage_team_invitation RPC function for each email
+      await Promise.all(emailList.map(async (email) => {
+        const { error: inviteError } = await supabase
+          .rpc('manage_team_invitation', {
+            team_uuid: team.id,
+            email_address: email,
+            member_role: role
+          });
 
-      // Add members
-      const { error: memberError } = await supabase
-        .from('team_members')
-        .insert(
-          emailList.map(email => ({
-            team_id: team.id,
-            user_id: users?.find(u => u.email === email)?.id,
-            role,
-            joined_at: new Date().toISOString()
-          }))
-        );
-
-      if (memberError) throw memberError;
+        if (inviteError) throw inviteError;
+      }));
 
       setEmails('');
       setSuccess(true);
@@ -221,7 +213,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                     >
                       <div>
                         <div className="font-medium text-gray-900">
-                          {member.user_id}
+                          {member.email || member.user_id}
                         </div>
                         <select
                           value={member.role}

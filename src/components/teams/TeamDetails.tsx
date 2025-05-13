@@ -11,47 +11,17 @@ import type { Team } from '../../types/teams';
 export default function TeamDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [team, setTeam] = useState<Team | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { teams, loading, error, fetchTeams } = useTeams();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
 
-  // Fetch team details using RPC function
+  // Fetch teams on mount
   useEffect(() => {
-    if (!id) return;
+    fetchTeams();
+  }, [fetchTeams]);
 
-    const fetchTeamDetails = async () => {
-      try {
-        setLoading(true);
-        const { data, error: err } = await supabase.rpc('get_team_details', { team_uuid: id });
-        
-        if (err) throw err;
-        if (!data?.[0]) throw new Error('Team not found');
-        
-        setTeam(data[0]);
-      } catch (err) {
-        console.error('Error fetching team details:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load team');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTeamDetails();
-  }, [id]);
-
-  // Refresh team details after changes
-  const refreshTeam = async () => {
-    if (!id) return;
-    try {
-      const { data, error: err } = await supabase.rpc('get_team_details', { team_uuid: id });
-      if (err) throw err;
-      if (data?.[0]) setTeam(data[0]);
-    } catch (err) {
-      console.error('Error refreshing team details:', err);
-    }
-  };
+  // Find the current team
+  const team = teams.find(t => t.id === id);
 
   if (loading) {
     return (
@@ -187,7 +157,7 @@ export default function TeamDetails() {
           team={team}
           onClose={() => {
             setShowEditModal(false);
-            refreshTeam();
+            fetchTeams();
           }}
         />
       )}
@@ -197,7 +167,7 @@ export default function TeamDetails() {
           team={team}
           onClose={() => {
             setShowMembersModal(false);
-            refreshTeam();
+            fetchTeams();
           }}
         />
       )}
