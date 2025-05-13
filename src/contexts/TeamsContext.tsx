@@ -5,192 +5,180 @@ import React, {
   useState,
   useCallback,
   ReactNode,
-} from 'react';
-import { supabase } from '../lib/supabase';
-import { useAuth } from './AuthContext';
-import type { Team } from '../types/teams';
+} from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from './AuthContext'
+import type { Team } from '../types/teams'
 
 interface TeamsContextType {
-  teams: Team[];
-  loading: boolean;
-  error: string | null;
-  fetchTeams: () => Promise<void>;
-  createTeam: (name: string, description?: string) => Promise<Team>;
-  updateTeam: (id: string, updates: { name: string; description?: string }) => Promise<void>;
-  deleteTeam: (id: string) => Promise<void>;
-  addTeamMember: (teamId: string, userId: string, role?: string) => Promise<void>;
-  removeTeamMember: (teamId: string, userId: string) => Promise<void>;
-  updateTeamMember: (teamId: string, userId: string, updates: { role?: string }) => Promise<void>;
+  teams: Team[]
+  loading: boolean
+  error: string | null
+  fetchTeams: () => Promise<void>
+  createTeam: (name: string, description?: string) => Promise<Team>
+  updateTeam: (id: string, updates: { name: string; description?: string }) => Promise<void>
+  deleteTeam: (id: string) => Promise<void>
+  addTeamMember: (teamId: string, userId: string, role?: string) => Promise<void>
+  removeTeamMember: (teamId: string, userId: string) => Promise<void>
+  updateTeamMember: (teamId: string, userId: string, updates: { role?: string }) => Promise<void>
 }
 
-const TeamsContext = createContext<TeamsContextType | undefined>(undefined);
+const TeamsContext = createContext<TeamsContextType | undefined>(undefined)
 
 export function TeamsProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth()
+  const [teams, setTeams] = useState<Team[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // FETCH
   const fetchTeams = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    setError(null);
+    if (!user) return
+    setLoading(true)
+    setError(null)
     try {
+      // 🔥 simplified to select * only from teams
       const { data, error: err } = await supabase
         .from('teams')
-        .select(`
-          id,
-          name,
-          description,
-          created_by,
-          created_at,
-          updated_at,
-          members:team_members(*)
-        `)
+        .select('*')
         .eq('created_by', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
 
-      if (err) throw err;
+      console.log({ teamsOnly: data, teamsOnlyError: err })
 
-      // Ensure members array always exists
-      const teamsWithMembers = (data ?? []).map((team) => ({
-        ...team,
-        members: team.members ?? [],
-      }));
-
-      setTeams(teamsWithMembers);
+      if (err) throw err
+      setTeams(data || [])
     } catch (e) {
-      console.error('[TeamsContext] fetchTeams raw error:', e);
-      setError(e instanceof Error ? e.message : 'Failed to fetch teams');
+      console.error('[TeamsContext] fetchTeams raw error:', e)
+      setError(e instanceof Error ? e.message : 'Failed to fetch teams')
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  }, [user]);
+  }, [user])
 
   // CREATE
   const createTeam = useCallback(
     async (name: string, description?: string) => {
-      if (!user) throw new Error('Not authenticated');
-      setLoading(true);
-      setError(null);
+      if (!user) throw new Error('Not authenticated')
+      setLoading(true)
+      setError(null)
       try {
         const { data, error: err } = await supabase
           .from('teams')
           .insert([{ name, description, created_by: user.id }])
           .select('id,name,description,created_by,created_at,updated_at')
-          .single();
-        if (err) throw err;
-        setTeams((prev) => [data!, ...prev]);
-        return data!;
+          .single()
+        if (err) throw err
+        setTeams((prev) => [data!, ...prev])
+        return data!
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     },
     [user]
-  );
+  )
 
   // UPDATE
   const updateTeam = useCallback(
     async (id: string, updates: { name: string; description?: string }) => {
-      if (!user) return;
-      setError(null);
+      if (!user) return
+      setError(null)
       try {
         const { error: err } = await supabase
           .from('teams')
           .update(updates)
-          .eq('id', id);
-        if (err) throw err;
+          .eq('id', id)
+        if (err) throw err
         setTeams((prev) =>
           prev.map((team) => (team.id === id ? { ...team, ...updates } : team))
-        );
+        )
       } catch (e) {
-        console.error('[TeamsContext] updateTeam error:', e);
-        setError(e instanceof Error ? e.message : 'Failed to update team');
-        throw e;
+        console.error('[TeamsContext] updateTeam error:', e)
+        setError(e instanceof Error ? e.message : 'Failed to update team')
+        throw e
       }
     },
     [user]
-  );
+  )
 
   // DELETE
   const deleteTeam = useCallback(
     async (id: string) => {
-      if (!user) return;
-      setError(null);
+      if (!user) return
+      setError(null)
       try {
-        const { error: err } = await supabase.from('teams').delete().eq('id', id);
-        if (err) throw err;
-        setTeams((prev) => prev.filter((t) => t.id !== id));
+        const { error: err } = await supabase.from('teams').delete().eq('id', id)
+        if (err) throw err
+        setTeams((prev) => prev.filter((t) => t.id !== id))
       } catch (e) {
-        console.error('[TeamsContext] deleteTeam error:', e);
-        setError(e instanceof Error ? e.message : 'Failed to delete team');
+        console.error('[TeamsContext] deleteTeam error:', e)
+        setError(e instanceof Error ? e.message : 'Failed to delete team')
       }
     },
     [user]
-  );
+  )
 
   // MEMBER MANAGEMENT
   const addTeamMember = useCallback(
     async (teamId: string, userId: string, role = 'member') => {
-      if (!user) return;
-      setError(null);
+      if (!user) return
+      setError(null)
       try {
         const { error: err } = await supabase
           .from('team_members')
-          .insert([{ team_id: teamId, user_id: userId, role }]);
-        if (err) throw err;
-        await fetchTeams();
+          .insert([{ team_id: teamId, user_id: userId, role }])
+        if (err) throw err
+        await fetchTeams()
       } catch (e) {
-        console.error('[TeamsContext] addTeamMember error:', e);
-        setError(e instanceof Error ? e.message : 'Failed to add team member');
-        throw e;
+        console.error('[TeamsContext] addTeamMember error:', e)
+        setError(e instanceof Error ? e.message : 'Failed to add team member')
+        throw e
       }
     },
     [user, fetchTeams]
-  );
+  )
 
   const removeTeamMember = useCallback(
     async (teamId: string, userId: string) => {
-      if (!user) return;
-      setError(null);
+      if (!user) return
+      setError(null)
       try {
         const { error: err } = await supabase
           .from('team_members')
           .delete()
           .eq('team_id', teamId)
-          .eq('user_id', userId);
-        if (err) throw err;
-        await fetchTeams();
+          .eq('user_id', userId)
+        if (err) throw err
+        await fetchTeams()
       } catch (e) {
-        console.error('[TeamsContext] removeTeamMember error:', e);
-        setError(e instanceof Error ? e.message : 'Failed to remove team member');
-        throw e;
+        console.error('[TeamsContext] removeTeamMember error:', e)
+        setError(e instanceof Error ? e.message : 'Failed to remove team member')
+        throw e
       }
     },
     [user, fetchTeams]
-  );
+  )
 
   const updateTeamMember = useCallback(
     async (teamId: string, userId: string, updates: { role?: string }) => {
-      if (!user) return;
-      setError(null);
+      if (!user) return
+      setError(null)
       try {
         const { error: err } = await supabase
           .from('team_members')
           .update(updates)
           .eq('team_id', teamId)
-          .eq('user_id', userId);
-        if (err) throw err;
-        await fetchTeams();
+          .eq('user_id', userId)
+        if (err) throw err
+        await fetchTeams()
       } catch (e) {
-        console.error('[TeamsContext] updateTeamMember error:', e);
-        setError(e instanceof Error ? e.message : 'Failed to update team member');
-        throw e;
+        console.error('[TeamsContext] updateTeamMember error:', e)
+        setError(e instanceof Error ? e.message : 'Failed to update team member')
+        throw e
       }
     },
     [user, fetchTeams]
-  );
+  )
 
   return (
     <TeamsContext.Provider
@@ -209,11 +197,11 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     >
       {children}
     </TeamsContext.Provider>
-  );
+  )
 }
 
 export function useTeams() {
-  const ctx = useContext(TeamsContext);
-  if (!ctx) throw new Error('useTeams must be used within a TeamsProvider');
-  return ctx;
+  const ctx = useContext(TeamsContext)
+  if (!ctx) throw new Error('useTeams must be used within a TeamsProvider')
+  return ctx
 }
