@@ -10,6 +10,7 @@ import React, {
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type { Team, TeamMember } from '../types/teams';
+import type { Invitation, InviteResult } from '../types/invitations';
 
 interface TeamsContextType {
   teams: Team[];
@@ -22,6 +23,10 @@ interface TeamsContextType {
   addTeamMember: (teamId: string, userId: string, role?: string, decisionRole?: string) => Promise<void>;
   removeTeamMember: (teamId: string, userId: string) => Promise<void>;
   updateTeamMember: (teamId: string, userId: string, updates: { role?: string, decision_role?: string }) => Promise<void>;
+  inviteTeamMember: (teamId: string, email: string, role?: string, decisionRole?: string) => Promise<InviteResult>;
+  getTeamInvitations: (teamId: string) => Promise<Invitation[]>;
+  revokeInvitation: (invitationId: string) => Promise<void>;
+  resendInvitation: (invitationId: string) => Promise<void>;
 }
 
 const TeamsContext = createContext<TeamsContextType | undefined>(undefined);
@@ -200,6 +205,111 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     [user, fetchTeams]
   );
 
+  /** Invite a user to a team */
+  const inviteTeamMember = useCallback(
+    async (teamId: string, email: string, role = 'member', decisionRole = 'contributor') => {
+      if (!user) throw new Error('Not authenticated');
+      setError(null);
+      
+      try {
+        const { data, error: err } = await supabase.rpc(
+          'manage_team_invite',
+          {
+            team_uuid: teamId,
+            email_address: email,
+            member_role: role,
+            decision_role: decisionRole
+          }
+        );
+        
+        if (err) throw err;
+        
+        // Refresh teams to get updated member list
+        await fetchTeams();
+        
+        return data as InviteResult;
+      } catch (e) {
+        console.error('[TeamsContext] inviteTeamMember error:', e);
+        setError(e instanceof Error ? e.message : 'Failed to invite team member');
+        throw e;
+      }
+    },
+    [user, fetchTeams]
+  );
+  
+  /** Get pending invitations for a team */
+  const getTeamInvitations = useCallback(
+    async (teamId: string) => {
+      if (!user) throw new Error('Not authenticated');
+      setError(null);
+      
+      try {
+        const { data, error: err } = await supabase.rpc(
+          'get_team_invitations',
+          { team_uuid: teamId }
+        );
+        
+        if (err) throw err;
+        return data as Invitation[];
+      } catch (e) {
+        console.error('[TeamsContext] getTeamInvitations error:', e);
+        setError(e instanceof Error ? e.message : 'Failed to get team invitations');
+        throw e;
+      }
+    },
+    [user]
+  );
+  
+  /** Revoke a team invitation */
+  const revokeInvitation = useCallback(
+    async (invitationId: string) => {
+      if (!user) throw new Error('Not authenticated');
+      setError(null);
+      
+      try {
+        const { error: err } = await supabase
+          .from('invitations')
+          .update({ status: 'expired' })
+          .eq('id', invitationId);
+          
+        if (err) throw err;
+      } catch (e) {
+        console.error('[TeamsContext] revokeInvitation error:', e);
+        setError(e instanceof Error ? e.message : 'Failed to revoke invitation');
+        throw e;
+      }
+    },
+    [user]
+  );
+  
+  /** Resend a team invitation */
+  const resendInvitation = useCallback(
+    async (invitationId: string) => {
+      if (!user) throw new Error('Not authenticated');
+      setError(null);
+      
+      try {
+        const { error: err } = await supabase
+          .from('invitations')
+          .update({ 
+            invited_at: new Date().toISOString(),
+            status: 'pending'
+          })
+          .eq('id', invitationId);
+          
+        if (err) throw err;
+        
+        // Here you would trigger an email notification
+        // This could be done via a separate API call or Edge Function
+      } catch (e) {
+        console.error('[TeamsContext] resendInvitation error:', e);
+        setError(e instanceof Error ? e.message : 'Failed to resend invitation');
+        throw e;
+      }
+    },
+    [user]
+  );
+
   return (
     <TeamsContext.Provider
       value={{
@@ -213,6 +323,10 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         addTeamMember,
         removeTeamMember,
         updateTeamMember,
+        inviteTeamMember,
+        getTeamInvitations,
+        revokeInvitation,
+        resendInvitation,
       }}
     >
       {children}

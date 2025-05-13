@@ -409,6 +409,141 @@ export async function fetchUserDirectory(searchTerm: string = '') {
   }
 }
 
+// ---------------- Team Invitations Management ----------------
+
+export async function inviteTeamMember(
+  teamId: string,
+  email: string,
+  role: string = 'member',
+  decisionRole: string = 'contributor'
+) {
+  try {
+    const { data, error } = await supabase.rpc(
+      'manage_team_invite',
+      {
+        team_uuid: teamId,
+        email_address: email,
+        member_role: role,
+        decision_role: decisionRole
+      }
+    );
+    
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    console.error('inviteTeamMember exception:', err);
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error inviting team member')
+    };
+  }
+}
+
+export async function getTeamInvitations(teamId: string) {
+  try {
+    const { data, error } = await supabase.rpc(
+      'get_team_invitations',
+      { team_uuid: teamId }
+    );
+    
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    console.error('getTeamInvitations exception:', err);
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error fetching team invitations')
+    };
+  }
+}
+
+export async function getMyInvitations() {
+  try {
+    const { data, error } = await supabase.rpc('get_my_invitations');
+    
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    console.error('getMyInvitations exception:', err);
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error fetching user invitations')
+    };
+  }
+}
+
+export async function acceptTeamInvitation(invitationId: string) {
+  try {
+    const { data, error } = await supabase.rpc(
+      'accept_team_invitation',
+      { invitation_id: invitationId }
+    );
+    
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    console.error('acceptTeamInvitation exception:', err);
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error accepting invitation')
+    };
+  }
+}
+
+export async function revokeTeamInvitation(invitationId: string) {
+  try {
+    const { error } = await supabase
+      .from('invitations')
+      .update({ status: 'expired' })
+      .eq('id', invitationId);
+      
+    if (error) throw error;
+    return { error: null };
+  } catch (err) {
+    console.error('revokeTeamInvitation exception:', err);
+    return {
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error revoking invitation')
+    };
+  }
+}
+
+export async function resendTeamInvitation(invitationId: string) {
+  try {
+    // First update the invitation to refresh the timestamp
+    const { error: updateError } = await supabase
+      .from('invitations')
+      .update({ 
+        invited_at: new Date().toISOString(),
+        status: 'pending'
+      })
+      .eq('id', invitationId);
+      
+    if (updateError) throw updateError;
+    
+    // Here you would trigger an email notification
+    // This could be done via a separate API call or Edge Function
+    
+    return { error: null };
+  } catch (err) {
+    console.error('resendTeamInvitation exception:', err);
+    return {
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error resending invitation')
+    };
+  }
+}
+
 export async function createInvitation(email: string) {
   try {
     const userId = await getUserId();

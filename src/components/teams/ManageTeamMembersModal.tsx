@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { X, Users, Mail, Loader2, UserPlus, UserMinus, AlertCircle, UserSearch } from 'lucide-react';
+import { X, Users, Mail, Loader2, UserPlus, UserMinus, AlertCircle, UserSearch, Clock, RefreshCw, XCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useTeams } from '../../contexts/TeamsContext';
 import type { Team } from '../../types/teams';
+import type { Invitation, InviteResult } from '../../types/invitations';
 import Tooltip from '../Tooltip';
 import UserDirectoryTab from './UserDirectoryTab';
 
@@ -11,7 +12,7 @@ interface ManageTeamMembersModalProps {
   onClose: () => void;
 }
 
-type TabId = 'email' | 'directory' | 'existing';
+type TabId = 'email' | 'directory' | 'existing' | 'pending';
 type TeamRole = 'admin' | 'member';
 type DecisionRole = 'owner' | 'approver' | 'contributor' | 'viewer';
 
@@ -35,33 +36,71 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [loadingInvitations, setLoadingInvitations] = useState(false);
 
-  const { addTeamMember } = useTeams();
+  const { addTeamMember, inviteTeamMember, getTeamInvitations, revokeInvitation, resendInvitation } = useTeams();
+
+  // Fetch pending invitations when the tab is selected
+  React.useEffect(() => {
+    if (activeTab === 'pending') {
+      fetchInvitations();
+    }
+  }, [activeTab]);
+
+  const fetchInvitations = async () => {
+    setLoadingInvitations(true);
+    try {
+      const invites = await getTeamInvitations(team.id);
+      setInvitations(invites);
+    } catch (err) {
+      console.error('Failed to fetch invitations:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch invitations');
+    } finally {
+      setLoadingInvitations(false);
+    }
+  };
 
   const handleEmailInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
     setSuccess(false);
+    setSuccessMessage('');
 
     try {
       const emailList = emails.split(/[,\n]/).map(e => e.trim()).filter(Boolean);
+      const results: InviteResult[] = [];
       
-      // Use the manage_team_member RPC function with correct parameter order
-      await Promise.all(emailList.map(async (email) => {
-        const { error: inviteError } = await supabase
-          .rpc('manage_team_member', {
-            team_uuid: team.id,
-            email_address: email,
-            member_role: teamRole,
-            member_decision_role: decisionRole
-          });
+      // Process each email
+      for (const email of emailList) {
+        const result = await inviteTeamMember(team.id, email, teamRole, decisionRole);
+        results.push(result);
+      }
 
-        if (inviteError) throw inviteError;
-      }));
+      // Count added and invited users
+      const added = results.filter(r => r.status === 'added').length;
+      const invited = results.filter(r => r.status === 'invited').length;
+      
+      // Create success message
+      let message = '';
+      if (added > 0) {
+        message += `${added} user${added !== 1 ? 's' : ''} added directly. `;
+      }
+      if (invited > 0) {
+        message += `${invited} invitation${invited !== 1 ? 's' : ''} sent.`;
+      }
+      
+      setSuccessMessage(message);
 
       setEmails('');
       setSuccess(true);
+      
+      // Refresh invitations if we sent any
+      if (invited > 0) {
+        fetchInvitations();
+      }
     } catch (err) {
       console.error('Failed to add members:', err);
       setError(err instanceof Error ? err.message : 'Failed to add members');
@@ -112,6 +151,34 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     }
   };
 
+  const handleRevokeInvitation = async (invitationId: string) => {
+    try {
+      await revokeInvitation(invitationId);
+      // Refresh the invitations list
+      fetchInvitations();
+      setSuccessMessage('Invitation revoked successfully');
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      console.error('Failed to revoke invitation:', err);
+      setError(err instanceof Error ? err.message : 'Failed to revoke invitation');
+    }
+  };
+
+  const handleResendInvitation = async (invitationId: string) => {
+    try {
+      await resendInvitation(invitationId);
+      // Refresh the invitations list
+      fetchInvitations();
+      setSuccessMessage('Invitation resent successfully');
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err) {
+      console.error('Failed to resend invitation:', err);
+      setError(err instanceof Error ? err.message : 'Failed to resend invitation');
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -146,6 +213,17 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
               Add by Email
             </button>
             <button
+              onClick={() => setActiveTab('pending')}
+              className={`flex-1 py-2 px-4 rounded-lg transition-colors ${
+                activeTab === 'pending'
+                  ? 'bg-indigo-100 text-indigo-700'
+                  : 'hover:bg-gray-100'
+              }`}
+            >
+              <Clock className="h-4 w-4 inline mr-2" />
+              Pending Invites
+            </button>
+            <button
               onClick={() => setActiveTab('directory')}
               className={`flex-1 py-2 px-4 rounded-lg transition-colors ${
                 activeTab === 'directory'
@@ -178,7 +256,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
           )}
           {success && (
             <div className="mb-4 bg-green-50 text-green-700 p-3 rounded-lg">
-              Members added successfully!
+              {successMessage || 'Operation completed successfully!'}
             </div>
           )}
 
@@ -257,6 +335,68 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
           {/* Directory Tab */}
           {activeTab === 'directory' && (
             <UserDirectoryTab onAddUser={handleAddFromDirectory} />
+          )}
+
+          {/* Pending Invitations Tab */}
+          {activeTab === 'pending' && (
+            <div className="space-y-4">
+              {loadingInvitations ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="animate-spin h-6 w-6 text-indigo-500 mr-2" />
+                  <span className="text-gray-600">Loading invitations...</span>
+                </div>
+              ) : invitations.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No pending invitations</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-medium text-gray-700">Pending Invitations</h3>
+                  {invitations.map(invitation => (
+                    <div 
+                      key={invitation.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                    >
+                      <div>
+                        <div className="font-medium text-gray-900">{invitation.email}</div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          <span className="inline-flex items-center">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Invited {new Date(invitation.invited_at).toLocaleDateString()}
+                          </span>
+                          <span className="mx-2">•</span>
+                          <span>
+                            Team Role: <span className="font-medium">{invitation.role}</span>
+                          </span>
+                          <span className="mx-2">•</span>
+                          <span>
+                            Decision Role: <span className="font-medium">{invitation.decision_role}</span>
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Tooltip content="Resend invitation">
+                          <button
+                            onClick={() => handleResendInvitation(invitation.id)}
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </button>
+                        </Tooltip>
+                        <Tooltip content="Revoke invitation">
+                          <button
+                            onClick={() => handleRevokeInvitation(invitation.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                          >
+                            <XCircle className="h-4 w-4" />
+                          </button>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Current Members Tab */}
