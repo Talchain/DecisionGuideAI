@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { fetchUserDirectory } from '../lib/supabase';
 import type { DirectoryUser } from '../types/directory';
 import { useDebounce } from './useDebounce';
 
@@ -15,10 +15,7 @@ export function useDirectory() {
     setError(null);
 
     try {
-      const { data, error: fetchError } = await supabase.rpc(
-        'get_user_directory',
-        { search_term: search }
-      );
+      const { data, error: fetchError } = await fetchUserDirectory(search);
 
       if (fetchError) throw fetchError;
       
