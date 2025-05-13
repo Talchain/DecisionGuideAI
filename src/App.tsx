@@ -154,7 +154,14 @@ export default function App() {
                       <ProtectedRoute>
                         <MyTeams />
                       </ProtectedRoute>
-                    }
+                    } />
+                    <Route
+                      path="/teams/:id"
+                      element={
+                        <ProtectedRoute>
+                          <TeamDetails />
+                        </ProtectedRoute>
+                      }
                   />
                   <Route
                     path="/profile"

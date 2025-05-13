@@ -22,6 +22,58 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string|null>(null);
 
+  const addTeamMember = useCallback(async (teamId: string, userId: string, role: string = 'member') => {
+    if (!user) return;
+    setError(null);
+    try {
+      const { error: err } = await supabase
+        .from('team_members')
+        .insert([{ team_id: teamId, user_id: userId, role }]);
+      if (err) throw err;
+      await fetchTeams();
+    } catch (e) {
+      console.error('[TeamsContext] addTeamMember error:', e);
+      setError(e instanceof Error ? e.message : 'Failed to add team member');
+      throw e;
+    }
+  }, [user, fetchTeams]);
+
+  const removeTeamMember = useCallback(async (teamId: string, userId: string) => {
+    if (!user) return;
+    setError(null);
+    try {
+      const { error: err } = await supabase
+        .from('team_members')
+        .delete()
+        .eq('team_id', teamId)
+        .eq('user_id', userId);
+      if (err) throw err;
+      await fetchTeams();
+    } catch (e) {
+      console.error('[TeamsContext] removeTeamMember error:', e);
+      setError(e instanceof Error ? e.message : 'Failed to remove team member');
+      throw e;
+    }
+  }, [user, fetchTeams]);
+
+  const updateTeamMember = useCallback(async (teamId: string, userId: string, updates: { role?: string }) => {
+    if (!user) return;
+    setError(null);
+    try {
+      const { error: err } = await supabase
+        .from('team_members')
+        .update(updates)
+        .eq('team_id', teamId)
+        .eq('user_id', userId);
+      if (err) throw err;
+      await fetchTeams();
+    } catch (e) {
+      console.error('[TeamsContext] updateTeamMember error:', e);
+      setError(e instanceof Error ? e.message : 'Failed to update team member');
+      throw e;
+    }
+  }, [user, fetchTeams]);
+
   const fetchTeams = useCallback(async () => {
     if (!user) return;
     setLoading(true);
@@ -109,7 +161,20 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   return (
-    <TeamsContext.Provider value={{ teams, loading, error, fetchTeams, createTeam, updateTeam, deleteTeam }}>
+    <TeamsContext.Provider 
+      value={{ 
+        teams, 
+        loading, 
+        error, 
+        fetchTeams, 
+        createTeam, 
+        updateTeam, 
+        deleteTeam,
+        addTeamMember,
+        removeTeamMember,
+        updateTeamMember
+      }}
+    >
       {children}
     </TeamsContext.Provider>
   );
