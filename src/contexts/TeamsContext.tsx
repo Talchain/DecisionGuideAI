@@ -19,16 +19,6 @@ interface TeamsContextType {
   createTeam: (name: string, description?: string) => Promise<Team>;
   updateTeam: (id: string, updates: { name: string; description?: string }) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
-}
-
-interface TeamsContextType {
-  teams: Team[];
-  loading: boolean;
-  error: string | null;
-  fetchTeams: () => Promise<void>;
-  createTeam: (name: string, description?: string) => Promise<Team>;
-  updateTeam: (id: string, updates: { name: string; description?: string }) => Promise<void>;
-  deleteTeam: (id: string) => Promise<void>;
   addTeamMember: (teamId: string, userId: string, role?: string) => Promise<void>;
   removeTeamMember: (teamId: string, userId: string) => Promise<void>;
   updateTeamMember: (teamId: string, userId: string, updates: { role?: string }) => Promise<void>;
@@ -172,7 +162,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     [user, fetchTeams]
   );
 
-  /** Update a member’s role */
+  /** Update a member's role */
   const updateTeamMember = useCallback(
     async (teamId: string, userId: string, updates: { role?: string }) => {
       if (!user) return;
@@ -208,20 +198,9 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         removeTeamMember,
         updateTeamMember,
       }}
-    <TeamsContext.Provider 
-      value={{ 
-        teams, 
-        loading, 
-        error, 
-        fetchTeams, 
-        createTeam, 
-        updateTeam, 
-        deleteTeam 
-      }}
     >
       {children}
     </TeamsContext.Provider>
-  )
   );
 }
 
