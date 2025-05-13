@@ -39,9 +39,10 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      // Use the new RPC function instead of direct select
-      const { data, error: err } = await supabase
-        .rpc('get_user_teams');
+      const { data, error: err } = await supabase.rpc(
+        'get_teams_with_members',
+        { user_uuid: user.id }
+      );
 
       if (err) throw err;
 
@@ -125,13 +126,19 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
 
   /** Add a member to a team */
   const addTeamMember = useCallback(
-    async (teamId: string, userId: string, role = 'member') => {
+    async (teamId: string, email: string, role = 'member') => {
       if (!user) return;
       setError(null);
       try {
-        const { error: err } = await supabase
-          .from('team_members')
-          .insert([{ team_id: teamId, user_id: userId, role }]);
+        const { error: err } = await supabase.rpc(
+          'manage_team_member',
+          {
+            team_uuid: teamId,
+            email_address: email,
+            member_role: role,
+            operation: 'add'
+          }
+        );
         if (err) throw err;
         await fetchTeams();
       } catch (e) {
@@ -145,15 +152,18 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
 
   /** Remove a member from a team */
   const removeTeamMember = useCallback(
-    async (teamId: string, userId: string) => {
+    async (teamId: string, email: string) => {
       if (!user) return;
       setError(null);
       try {
-        const { error: err } = await supabase
-          .from('team_members')
-          .delete()
-          .eq('team_id', teamId)
-          .eq('user_id', userId);
+        const { error: err } = await supabase.rpc(
+          'manage_team_member',
+          {
+            team_uuid: teamId,
+            email_address: email,
+            operation: 'remove'
+          }
+        );
         if (err) throw err;
         await fetchTeams();
       } catch (e) {
@@ -167,15 +177,19 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
 
   /** Update a member's role */
   const updateTeamMember = useCallback(
-    async (teamId: string, userId: string, updates: { role?: string }) => {
+    async (teamId: string, email: string, updates: { role?: string }) => {
       if (!user) return;
       setError(null);
       try {
-        const { error: err } = await supabase
-          .from('team_members')
-          .update(updates)
-          .eq('team_id', teamId)
-          .eq('user_id', userId);
+        const { error: err } = await supabase.rpc(
+          'manage_team_member',
+          {
+            team_uuid: teamId,
+            email_address: email,
+            member_role: updates.role,
+            operation: 'update'
+          }
+        );
         if (err) throw err;
         await fetchTeams();
       } catch (e) {
