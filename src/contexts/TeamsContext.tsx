@@ -136,8 +136,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             team_uuid: teamId,
             email_address: email,
             member_role: role,
-            decision_role: decisionRole,
-            operation: 'add'
+            member_decision_role: decisionRole
           }
         );
         if (err) throw err;
@@ -157,14 +156,13 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
       if (!user) return;
       setError(null);
       try {
-        const { error: err } = await supabase.rpc(
-          'manage_team_member',
-          {
-            team_uuid: teamId,
-            email_address: email,
-            operation: 'remove'
-          }
-        );
+        // Use direct delete instead of RPC function
+        const { error: err } = await supabase
+          .from('team_members')
+          .delete()
+          .eq('team_id', teamId)
+          .eq('user_id', (await supabase.rpc('check_user_email_exists', { email_to_check: email })).id);
+          
         if (err) throw err;
         await fetchTeams();
       } catch (e) {
@@ -188,8 +186,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             team_uuid: teamId,
             email_address: email,
             member_role: updates.role,
-            decision_role: updates.decision_role,
-            operation: 'update'
+            member_decision_role: updates.decision_role
           }
         );
         if (err) throw err;
