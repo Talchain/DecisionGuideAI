@@ -221,6 +221,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     >
       {children}
     </TeamsContext.Provider>
+  )
   );
 }
 
