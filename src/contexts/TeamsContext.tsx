@@ -39,29 +39,18 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
+      // Use the new RPC function instead of direct select
       const { data, error: err } = await supabase
-        .from('teams')
-        .select(`
-          id, 
-          name, 
-          description, 
-          created_by, 
-          created_at, 
-          updated_at,
-          members:team_members(*)
-        `)
-        .eq('created_by', user.id)
-        .order('created_at', { ascending: false });
+        .rpc('get_user_teams');
 
       if (err) throw err;
 
-      // Transform the data to match our Team type
-      const teamsWithMembers = (data ?? []).map(team => ({
-        ...team,
-        members: team.members || []
-      }));
+      // Sort teams by created_at
+      const sortedTeams = (data ?? []).sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
 
-      setTeams(teamsWithMembers);
+      setTeams(sortedTeams);
     } catch (e) {
       console.error('[TeamsContext] fetchTeams raw error:', e);
       setError(e instanceof Error ? e.message : 'Failed to fetch teams');
