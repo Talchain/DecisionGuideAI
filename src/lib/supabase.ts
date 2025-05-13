@@ -444,7 +444,7 @@ export async function inviteTeamMember(
 export async function getTeamInvitations(teamId: string) {
   try {
     const { data, error } = await supabase.rpc(
-      'get_team_invitations',
+      'manage_team_invite',
       { team_uuid: teamId }
     );
     
