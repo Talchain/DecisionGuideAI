@@ -1,5 +1,3 @@
-// src/App.tsx
-
 import React, { useEffect } from 'react'
 import {
   Routes,
@@ -29,6 +27,7 @@ import DecisionForm from './components/decisions/DecisionForm'
 import AuthNavigationGuard from './components/auth/AuthNavigationGuard'
 
 import MyTeams from './components/teams/MyTeams'
+import TeamDetails from './components/teams/TeamDetails'    // ← Newly added import
 
 import DecisionTypeSelector from './components/DecisionTypeSelector'
 import DecisionDetails from './components/DecisionDetails'
@@ -148,21 +147,25 @@ export default function App() {
                       </ProtectedRoute>
                     }
                   />
+
+                  {/* Teams listing and details */}
                   <Route
                     path="/teams"
                     element={
                       <ProtectedRoute>
                         <MyTeams />
                       </ProtectedRoute>
-                    } />
-                    <Route
-                      path="/teams/:id"
-                      element={
-                        <ProtectedRoute>
-                          <TeamDetails />
-                        </ProtectedRoute>
-                      }
+                    }
                   />
+                  <Route
+                    path="/teams/:teamId"
+                    element={
+                      <ProtectedRoute>
+                        <TeamDetails />
+                      </ProtectedRoute>
+                    }
+                  />
+
                   <Route
                     path="/profile"
                     element={
