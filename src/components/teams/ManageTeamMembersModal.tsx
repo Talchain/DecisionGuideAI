@@ -47,14 +47,14 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     try {
       const emailList = emails.split(/[,\n]/).map(e => e.trim()).filter(Boolean);
       
-      // Use the manage_team_invitation RPC function for each email
+      // Use the manage_team_member RPC function with correct parameter order
       await Promise.all(emailList.map(async (email) => {
         const { error: inviteError } = await supabase
-          .rpc('manage_team_invitation', {
-            team_uuid: team.id,
+          .rpc('manage_team_member', {
             email_address: email,
+            member_decision_role: decisionRole,
             member_role: teamRole,
-            decision_role: decisionRole
+            team_uuid: team.id
           });
 
         if (inviteError) throw inviteError;
