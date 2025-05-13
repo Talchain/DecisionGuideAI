@@ -3,6 +3,8 @@ import { Search, UserPlus, Loader2, AlertCircle, User, Clock } from 'lucide-reac
 import { useDirectory } from '../../hooks/useDirectory';
 import type { DirectoryUser } from '../../types/directory';
 import Tooltip from '../Tooltip';
+import DirectoryUserCard from './DirectoryUserCard';
+import DirectorySearchSkeleton from './DirectorySearchSkeleton';
 
 interface UserDirectoryTabProps {
   onAddUser: (email: string, teamRole: string, decisionRole: string) => Promise<void>;
@@ -84,9 +86,7 @@ export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
 
       {/* Loading State */}
       {loading ? (
-        <div className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 text-indigo-500 animate-spin" />
-        </div>
+        <DirectorySearchSkeleton />
       ) : (
         <>
           {/* User Selection Form */}
@@ -179,53 +179,12 @@ export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
             ) : (
               <ul className="space-y-2" role="listbox">
                 {users.map((user) => (
-                  <li 
+                  <DirectoryUserCard
                     key={user.id}
-                    role="option"
-                    aria-selected={selectedUser?.id === user.id}
-                    tabIndex={0}
-                    onKeyDown={(e) => handleKeyDown(e, user)}
-                    className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
-                      selectedUser?.id === user.id 
-                        ? 'bg-indigo-50 border border-indigo-200' 
-                        : 'bg-white border border-gray-200 hover:bg-gray-50'
-                    }`}
-                    onClick={() => handleAddUser(user)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="bg-gray-100 h-10 w-10 rounded-full flex items-center justify-center">
-                        <User className="h-5 w-5 text-gray-500" />
-                      </div>
-                      <div>
-                        <div className="font-medium text-gray-900">
-                          {user.email}
-                        </div>
-                        {user.first_name && user.last_name ? (
-                          <div className="text-sm text-gray-600">
-                            {user.first_name} {user.last_name}
-                          </div>
-                        ) : null}
-                        {user.source === 'invitation' && (
-                          <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-                            <Clock className="h-3 w-3" />
-                            <span>Invited {new Date(user.invited_at!).toLocaleDateString()}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <Tooltip content="Add to team">
-                      <button
-                        className={`p-1.5 rounded-full ${
-                          selectedUser?.id === user.id
-                            ? 'bg-indigo-100 text-indigo-600'
-                            : 'bg-gray-100 text-gray-600 hover:bg-indigo-50 hover:text-indigo-600'
-                        }`}
-                        aria-label="Add to team"
-                      >
-                        <UserPlus className="h-4 w-4" />
-                      </button>
-                    </Tooltip>
-                  </li>
+                    user={user}
+                    isSelected={selectedUser?.id === user.id}
+                    onSelect={handleAddUser}
+                  />
                 ))}
               </ul>
             )}

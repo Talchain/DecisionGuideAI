@@ -387,6 +387,58 @@ export async function fetchDecisionCollaborators(decisionId: string) {
   }
 }
 
+// ---------------- Directory Management ----------------
+
+export async function fetchUserDirectory(searchTerm: string = '') {
+  try {
+    const { data, error } = await supabase.rpc(
+      'get_user_directory',
+      { search_term: searchTerm }
+    );
+    
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    console.error('fetchUserDirectory exception:', err);
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error fetching user directory')
+    };
+  }
+}
+
+export async function createInvitation(email: string) {
+  try {
+    const userId = await getUserId();
+    if (!userId) {
+      return { data: null, error: new Error('User not authenticated') };
+    }
+    
+    const { data, error } = await supabase
+      .from('invitations')
+      .insert({
+        email,
+        status: 'pending',
+        invited_by: userId
+      })
+      .select()
+      .single();
+      
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    console.error('createInvitation exception:', err);
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error creating invitation')
+    };
+  }
+}
+
 // ---------------- testSupabaseConnection ----------------
 
 export async function testSupabaseConnection() {
