@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Users, Mail, Loader2, UserPlus, UserMinus, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useTeams } from '../../contexts/TeamsContext';
-import type { Team, TeamMember } from '../../types/teams';
+import type { Team } from '../../types/teams';
 import Tooltip from '../Tooltip';
 
 interface ManageTeamMembersModalProps {
@@ -11,17 +11,26 @@ interface ManageTeamMembersModalProps {
 }
 
 type TabId = 'email' | 'existing';
-type Role = 'admin' | 'member';
+type TeamRole = 'admin' | 'member';
+type DecisionRole = 'owner' | 'approver' | 'contributor' | 'viewer';
 
-const ROLES: { id: Role; label: string; description: string }[] = [
+const TEAM_ROLES: { id: TeamRole; label: string; description: string }[] = [
   { id: 'admin', label: 'Admin', description: 'Can manage team and members' },
   { id: 'member', label: 'Member', description: 'Regular team member' }
+];
+
+const DECISION_ROLES: { id: DecisionRole; label: string; description: string }[] = [
+  { id: 'owner', label: 'Decision Lead', description: 'Full control over the decision' },
+  { id: 'approver', label: 'Approver', description: 'Can approve or reject suggestions' },
+  { id: 'contributor', label: 'Contributor', description: 'Can add suggestions and comments' },
+  { id: 'viewer', label: 'Viewer', description: 'Read-only access' }
 ];
 
 export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMembersModalProps) {
   const [activeTab, setActiveTab] = useState<TabId>('email');
   const [emails, setEmails] = useState('');
-  const [role, setRole] = useState<Role>('member');
+  const [teamRole, setTeamRole] = useState<TeamRole>('member');
+  const [decisionRole, setDecisionRole] = useState<DecisionRole>('contributor');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -41,7 +50,8 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
           .rpc('manage_team_invitation', {
             team_uuid: team.id,
             email_address: email,
-            member_role: role
+            member_role: teamRole,
+            decision_role: decisionRole
           });
 
         if (inviteError) throw inviteError;
@@ -75,7 +85,9 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     try {
       const { error } = await supabase
         .from('team_members')
-        .update({ role: newRole })
+        .update({ 
+          role: newRole 
+        })
         .eq('id', memberId);
 
       if (error) throw error;
@@ -147,16 +159,35 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
           {/* Email Tab */}
           {activeTab === 'email' && (
             <form onSubmit={handleEmailInvite} className="space-y-4">
-              <div>
+              {/* Role Selection */}
+              <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Role
+                  Team Role
                 </label>
                 <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as Role)}
+                  value={teamRole}
+                  onChange={(e) => setTeamRole(e.target.value as TeamRole)}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
                 >
-                  {ROLES.map(({ id, label, description }) => (
+                  {TEAM_ROLES.map(({ id, label, description }) => (
+                    <option key={id} value={id}>
+                      {label} - {description}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Decision Role Selection */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Decision Role
+                </label>
+                <select
+                  value={decisionRole}
+                  onChange={(e) => setDecisionRole(e.target.value as DecisionRole)}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                >
+                  {DECISION_ROLES.map(({ id, label, description }) => (
                     <option key={id} value={id}>
                       {label} - {description}
                     </option>
@@ -215,17 +246,30 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                         <div className="font-medium text-gray-900">
                           {member.email || member.user_id}
                         </div>
-                        <select
-                          value={member.role}
-                          onChange={(e) => handleUpdateRole(member.id, e.target.value as Role)}
-                          className="mt-1 text-sm bg-transparent border-none focus:ring-0"
-                        >
-                          {ROLES.map(role => (
-                            <option key={role.id} value={role.id}>
-                              {role.label}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="flex flex-col gap-1 mt-1">
+                          <select
+                            value={member.role}
+                            onChange={(e) => handleUpdateRole(member.id, e.target.value as TeamRole)}
+                            className="text-sm bg-transparent border-none focus:ring-0"
+                          >
+                            {TEAM_ROLES.map(role => (
+                              <option key={role.id} value={role.id}>
+                                {role.label}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            value={member.decision_role || 'viewer'}
+                            onChange={(e) => handleUpdateRole(member.id, e.target.value as DecisionRole)}
+                            className="text-sm bg-transparent border-none focus:ring-0"
+                          >
+                            {DECISION_ROLES.map(role => (
+                              <option key={role.id} value={role.id}>
+                                {role.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                       <Tooltip content="Remove member">
                         <button

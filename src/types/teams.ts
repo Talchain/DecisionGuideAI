@@ -5,6 +5,7 @@ export interface TeamMember {
   team_id: string;
   user_id: string;
   role: string;
+  decision_role?: string;
   joined_at: string;
 }
 
@@ -30,7 +31,7 @@ export type TeamContextActions = {
   updateTeam: (id: string, updates: Partial<Team>) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
   setCurrentTeam: (teamId: string | null) => void;
-  addTeamMember: (teamId: string, userId: string, role?: TeamMember['role']) => Promise<void>;
+  addTeamMember: (teamId: string, userId: string, role?: TeamMember['role'], decisionRole?: TeamMember['decision_role']) => Promise<void>;
   removeTeamMember: (teamId: string, userId: string) => Promise<void>;
-  updateTeamMember: (teamId: string, userId: string, updates: Partial<TeamMember>) => Promise<void>;
+  updateTeamMember: (teamId: string, userId: string, updates: Partial<Pick<TeamMember, 'role' | 'decision_role'>>) => Promise<void>;
 };

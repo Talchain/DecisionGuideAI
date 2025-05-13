@@ -19,9 +19,9 @@ interface TeamsContextType {
   createTeam: (name: string, description?: string) => Promise<Team>;
   updateTeam: (id: string, updates: { name: string; description?: string }) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
-  addTeamMember: (teamId: string, userId: string, role?: string) => Promise<void>;
+  addTeamMember: (teamId: string, userId: string, role?: string, decisionRole?: string) => Promise<void>;
   removeTeamMember: (teamId: string, userId: string) => Promise<void>;
-  updateTeamMember: (teamId: string, userId: string, updates: { role?: string }) => Promise<void>;
+  updateTeamMember: (teamId: string, userId: string, updates: { role?: string, decision_role?: string }) => Promise<void>;
 }
 
 const TeamsContext = createContext<TeamsContextType | undefined>(undefined);
@@ -126,7 +126,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
 
   /** Add a member to a team */
   const addTeamMember = useCallback(
-    async (teamId: string, email: string, role = 'member') => {
+    async (teamId: string, email: string, role = 'member', decisionRole = 'contributor') => {
       if (!user) return;
       setError(null);
       try {
@@ -136,6 +136,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             team_uuid: teamId,
             email_address: email,
             member_role: role,
+            decision_role: decisionRole,
             operation: 'add'
           }
         );
@@ -177,7 +178,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
 
   /** Update a member's role */
   const updateTeamMember = useCallback(
-    async (teamId: string, email: string, updates: { role?: string }) => {
+    async (teamId: string, email: string, updates: { role?: string, decision_role?: string }) => {
       if (!user) return;
       setError(null);
       try {
@@ -187,6 +188,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             team_uuid: teamId,
             email_address: email,
             member_role: updates.role,
+            decision_role: updates.decision_role,
             operation: 'update'
           }
         );
