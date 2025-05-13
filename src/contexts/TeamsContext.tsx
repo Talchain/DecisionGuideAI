@@ -19,6 +19,16 @@ interface TeamsContextType {
   createTeam: (name: string, description?: string) => Promise<Team>;
   updateTeam: (id: string, updates: { name: string; description?: string }) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
+}
+
+interface TeamsContextType {
+  teams: Team[];
+  loading: boolean;
+  error: string | null;
+  fetchTeams: () => Promise<void>;
+  createTeam: (name: string, description?: string) => Promise<Team>;
+  updateTeam: (id: string, updates: { name: string; description?: string }) => Promise<void>;
+  deleteTeam: (id: string) => Promise<void>;
   addTeamMember: (teamId: string, userId: string, role?: string) => Promise<void>;
   removeTeamMember: (teamId: string, userId: string) => Promise<void>;
   updateTeamMember: (teamId: string, userId: string, updates: { role?: string }) => Promise<void>;
@@ -39,29 +49,15 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const { data, error: err } = await supabase
-        .from('teams')
-        .select(`
-          id,
-          name,
-          description,
-          created_by,
-          created_at,
-          updated_at,
-          members:team_members(*)
-        `)
+      // Simple query that only gets teams, no members yet
+      const { data, error: err } = await supabase.from('teams')
+        .select('id, name, description, created_by, created_at, updated_at')
         .eq('created_by', user.id)
         .order('created_at', { ascending: false });
 
       if (err) throw err;
 
-      // Ensure `members` is always an array
-      const list = (data ?? []).map((t) => ({
-        ...t,
-        members: t.members ?? [],
-      }));
-
-      setTeams(list);
+      setTeams(data ?? []);
     } catch (e) {
       console.error('[TeamsContext] fetchTeams raw error:', e);
       setError(e instanceof Error ? e.message : 'Failed to fetch teams');
@@ -211,6 +207,16 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         addTeamMember,
         removeTeamMember,
         updateTeamMember,
+      }}
+    <TeamsContext.Provider 
+      value={{ 
+        teams, 
+        loading, 
+        error, 
+        fetchTeams, 
+        createTeam, 
+        updateTeam, 
+        deleteTeam 
       }}
     >
       {children}
