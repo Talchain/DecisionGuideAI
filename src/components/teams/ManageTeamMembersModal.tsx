@@ -51,10 +51,10 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
       await Promise.all(emailList.map(async (email) => {
         const { error: inviteError } = await supabase
           .rpc('manage_team_member', {
+            team_uuid: team.id,
             email_address: email,
-            member_decision_role: decisionRole,
             member_role: teamRole,
-            team_uuid: team.id
+            member_decision_role: decisionRole
           });
 
         if (inviteError) throw inviteError;
