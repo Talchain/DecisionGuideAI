@@ -7,7 +7,7 @@ import DirectoryUserCard from './DirectoryUserCard';
 import DirectorySearchSkeleton from './DirectorySearchSkeleton';
 
 interface UserDirectoryTabProps {
-  onAddUser: (email: string, teamRole: string, decisionRole: string) => Promise<void>;
+  onAddUser: (email: string, teamRole: string, decisionRole: string) => Promise<boolean>;
 }
 
 export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
@@ -17,6 +17,7 @@ export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
   const [decisionRole, setDecisionRole] = useState('contributor');
   const [addingUser, setAddingUser] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [addSuccess, setAddSuccess] = useState(false);
 
   const handleAddUser = async (user: DirectoryUser) => {
     if (selectedUser?.id === user.id) {
@@ -26,6 +27,7 @@ export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
       // Otherwise, select the user
       setSelectedUser(user);
       setAddError(null);
+      setAddSuccess(false);
     }
   };
 
@@ -34,9 +36,14 @@ export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
     
     setAddingUser(true);
     setAddError(null);
+    setAddSuccess(false);
     
     try {
-      await onAddUser(selectedUser.email, teamRole, decisionRole);
+      const success = await onAddUser(selectedUser.email, teamRole, decisionRole);
+      if (success) {
+        setAddSuccess(true);
+        setTimeout(() => setAddSuccess(false), 3000);
+      }
       setSelectedUser(null);
     } catch (err) {
       setAddError(err instanceof Error ? err.message : 'Failed to add user');
@@ -81,6 +88,11 @@ export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
         <div className="bg-red-50 text-red-700 p-3 rounded-lg flex items-start gap-2">
           <AlertCircle className="h-5 w-5 flex-shrink-0" />
           <p>{addError}</p>
+        </div>
+      )}
+      {addSuccess && (
+        <div className="bg-green-50 text-green-700 p-3 rounded-lg mb-4">
+          User added successfully!
         </div>
       )}
 
