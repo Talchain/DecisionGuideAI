@@ -1,5 +1,3 @@
-// src/contexts/TeamsContext.tsx
-
 import React, {
   createContext,
   useContext,
@@ -131,17 +129,17 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
 
   /** Add a member to a team */
   const addTeamMember = useCallback(
-    async (teamId: string, email: string, role = 'member', decisionRole = 'contributor') => {
+    async (teamId: string, userId: string, role = 'member', decisionRole = 'contributor') => {
       if (!user) return;
       setError(null);
       try {
         const { error: err } = await supabase.rpc(
-          'manage_team_member',
+          'add_team_member',
           {
-            team_uuid: teamId,
-            email_address: email,
-            member_role: role,
-            member_decision_role: decisionRole
+            p_team_id: teamId,
+            p_user_id: userId,
+            p_role: role,
+            p_decision_role: decisionRole
           }
         );
         if (err) throw err;
@@ -157,16 +155,15 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
 
   /** Remove a member from a team */
   const removeTeamMember = useCallback(
-    async (teamId: string, email: string) => {
+    async (teamId: string, userId: string) => {
       if (!user) return;
       setError(null);
       try {
-        // Use direct delete instead of RPC function
         const { error: err } = await supabase
           .from('team_members')
           .delete()
           .eq('team_id', teamId)
-          .eq('user_id', (await supabase.rpc('check_user_email_exists', { email_to_check: email })).id);
+          .eq('user_id', userId);
           
         if (err) throw err;
         await fetchTeams();
@@ -181,19 +178,19 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
 
   /** Update a member's role */
   const updateTeamMember = useCallback(
-    async (teamId: string, email: string, updates: { role?: string, decision_role?: string }) => {
+    async (teamId: string, userId: string, updates: { role?: string, decision_role?: string }) => {
       if (!user) return;
       setError(null);
       try {
-        const { error: err } = await supabase.rpc(
-          'manage_team_member',
-          {
-            team_uuid: teamId,
-            email_address: email,
-            member_role: updates.role,
-            member_decision_role: updates.decision_role
-          }
-        );
+        const { error: err } = await supabase
+          .from('team_members')
+          .update({
+            role: updates.role,
+            decision_role: updates.decision_role
+          })
+          .eq('team_id', teamId)
+          .eq('user_id', userId);
+          
         if (err) throw err;
         await fetchTeams();
       } catch (e) {
@@ -298,9 +295,6 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           .eq('id', invitationId);
           
         if (err) throw err;
-        
-        // Here you would trigger an email notification
-        // This could be done via a separate API call or Edge Function
       } catch (e) {
         console.error('[TeamsContext] resendInvitation error:', e);
         setError(e instanceof Error ? e.message : 'Failed to resend invitation');
