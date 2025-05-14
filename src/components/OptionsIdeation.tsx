@@ -3,17 +3,12 @@
 import React, { useState } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import {
-  ArrowLeft,
-  ArrowRight,
-  Loader2,
-  AlertTriangle,
-  Pencil,
-  Trash2,
-  Plus
+  ArrowLeft, ArrowRight, Loader2, AlertTriangle, Pencil, Trash2, Plus, Users
 } from 'lucide-react'
 import InviteCollaborators from './InviteCollaborators'
 import { useDecision } from '../contexts/DecisionContext'
 import { generateOptionsIdeation, OptionIdeation, BiasIdeation } from '../lib/api'
+import CollaborativeOptions from './CollaborativeOptions'
 
 export default function OptionsIdeation() {
   const navigate = useNavigate()
@@ -41,6 +36,7 @@ export default function OptionsIdeation() {
   const [error, setError]                   = useState<string | null>(null)
   const [biases, setBiases]                 = useState<BiasIdeation[]>([])
   const [inviteOpen, setInviteOpen]         = useState(false)
+  const [showCollaborative, setShowCollaborative] = useState(false)
 
   const back = () => navigate('/decision/goals')
   const next = () => {
@@ -112,6 +108,13 @@ export default function OptionsIdeation() {
               Invite Collaborators
             </button>
             <button
+              onClick={() => setShowCollaborative(!showCollaborative)}
+              className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100"
+            >
+              <Users className="h-5 w-5 inline mr-2"/>
+              {showCollaborative ? 'Hide Collaborative' : 'Show Collaborative'}
+            </button>
+            <button
               onClick={generate}
               disabled={loading}
               className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
@@ -131,77 +134,86 @@ export default function OptionsIdeation() {
           </div>
         )}
 
-        <h2 className="text-3xl font-bold text-center">Your Options</h2>
-        <div className="space-y-4">
-          {localOptions.map((opt, i) => (
-            <div
-              key={i}
-              className="flex items-start justify-between bg-white p-4 rounded-xl shadow-sm"
-            >
-              <div>
-                <h3 className="font-medium">{opt.label}</h3>
-                {opt.description && <p className="text-gray-600 mt-1">{opt.description}</p>}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setEditingIdx(i)
-                    setNewOption({ label: opt.label, description: opt.description })
-                  }}
-                  className="p-1 text-gray-400 hover:text-gray-600"
+        {showCollaborative ? (
+          <CollaborativeOptions 
+            decisionId={decisionId} 
+            onGenerateAI={generate}
+          />
+        ) : (
+          <>
+            <h2 className="text-3xl font-bold text-center">Your Options</h2>
+            <div className="space-y-4">
+              {localOptions.map((opt, i) => (
+                <div
+                  key={i}
+                  className="flex items-start justify-between bg-white p-4 rounded-xl shadow-sm"
                 >
-                  <Pencil className="h-4 w-4"/>
-                </button>
-                <button
-                  onClick={() => deleteOption(i)}
-                  className="p-1 text-gray-400 hover:text-red-600"
-                >
-                  <Trash2 className="h-4 w-4"/>
-                </button>
-              </div>
-            </div>
-          ))}
+                  <div>
+                    <h3 className="font-medium">{opt.label}</h3>
+                    {opt.description && <p className="text-gray-600 mt-1">{opt.description}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingIdx(i)
+                        setNewOption({ label: opt.label, description: opt.description })
+                      }}
+                      className="p-1 text-gray-400 hover:text-gray-600"
+                    >
+                      <Pencil className="h-4 w-4"/>
+                    </button>
+                    <button
+                      onClick={() => deleteOption(i)}
+                      className="p-1 text-gray-400 hover:text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4"/>
+                    </button>
+                  </div>
+                </div>
+              ))}
 
-          <div className="bg-gray-50 p-4 rounded-xl">
-            <h3 className="font-medium mb-2">
-              {editingIdx !== null ? 'Edit Option' : 'Add New Option'}
-            </h3>
-            <div className="space-y-3">
-              <input
-                type="text"
-                placeholder="Option label"
-                value={newOption.label}
-                onChange={e => setNewOption(n => ({ ...n, label: e.target.value }))}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-500"
-              />
-              <textarea
-                placeholder="Description (optional)"
-                value={newOption.description}
-                onChange={e => setNewOption(n => ({ ...n, description: e.target.value }))}
-                className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-500"
-                rows={3}
-              />
-              <button
-                onClick={editingIdx !== null ? saveEdit : addOption}
-                disabled={!newOption.label.trim()}
-                className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {editingIdx !== null ? 'Save Changes' : 'Add Option'}
-              </button>
-              {editingIdx !== null && (
-                <button
-                  onClick={() => {
-                    setEditingIdx(null)
-                    setNewOption({ label: '', description: '' })
-                  }}
-                  className="ml-2 px-4 py-2 border rounded text-gray-700 hover:bg-gray-100"
-                >
-                  Cancel
-                </button>
-              )}
+              <div className="bg-gray-50 p-4 rounded-xl">
+                <h3 className="font-medium mb-2">
+                  {editingIdx !== null ? 'Edit Option' : 'Add New Option'}
+                </h3>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    placeholder="Option label"
+                    value={newOption.label}
+                    onChange={e => setNewOption(n => ({ ...n, label: e.target.value }))}
+                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <textarea
+                    placeholder="Description (optional)"
+                    value={newOption.description}
+                    onChange={e => setNewOption(n => ({ ...n, description: e.target.value }))}
+                    className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-500"
+                    rows={3}
+                  />
+                  <button
+                    onClick={editingIdx !== null ? saveEdit : addOption}
+                    disabled={!newOption.label.trim()}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {editingIdx !== null ? 'Save Changes' : 'Add Option'}
+                  </button>
+                  {editingIdx !== null && (
+                    <button
+                      onClick={() => {
+                        setEditingIdx(null)
+                        setNewOption({ label: '', description: '' })
+                      }}
+                      className="ml-2 px-4 py-2 border rounded text-gray-700 hover:bg-gray-100"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
 
         {biases.length > 0 && (
           <div className="bg-gray-50 p-6 rounded-xl space-y-4">
