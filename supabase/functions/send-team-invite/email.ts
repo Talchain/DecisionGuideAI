@@ -1,5 +1,5 @@
 // Email helper module for sending team invitations
-import { SmtpClient } from "npm:smtp@1.0.0";
+import nodemailer from "npm:nodemailer@6.9.9";
 
 // Environment variables
 const smtpUrl = Deno.env.get("SMTP_URL")!;
@@ -40,18 +40,18 @@ const getInvitationEmailTemplate = ({
 
 // Email client class
 export class EmailClient {
-  private client: SmtpClient;
+  private transporter: nodemailer.Transporter;
   
   constructor() {
-    this.client = new SmtpClient(smtpUrl);
+    this.transporter = nodemailer.createTransport(smtpUrl);
   }
   
   async connect() {
-    await this.client.connect();
+    await this.transporter.verify();
   }
   
   async close() {
-    await this.client.close();
+    this.transporter.close();
   }
   
   async sendInvitationEmail({
@@ -72,18 +72,17 @@ export class EmailClient {
     try {
       await this.connect();
       
-      await this.client.send({
+      await this.transporter.sendMail({
         from: fromEmail,
-        to: [to],
+        to: to,
         subject: `You've been invited to join ${teamName} on ${appName}`,
-        content: getInvitationEmailTemplate({
+        html: getInvitationEmailTemplate({
           teamName,
           inviterName,
           inviterEmail,
           role,
           acceptLink,
         }),
-        html: true,
       });
       
       await this.close();

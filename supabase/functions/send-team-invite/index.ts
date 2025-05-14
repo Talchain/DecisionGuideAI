@@ -1,6 +1,6 @@
 // Supabase Edge Function to send team invitation emails
 import { createClient } from "npm:@supabase/supabase-js@2.39.7";
-import { SmtpClient } from "npm:smtp@1.0.0";
+import nodemailer from "npm:nodemailer@6.9.9";
 
 // Environment variables are automatically available
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -12,8 +12,8 @@ const appUrl = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 // Create Supabase client with service role key
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Create SMTP client
-const smtp = new SmtpClient(smtpUrl);
+// Create SMTP transporter
+const transporter = nodemailer.createTransport(smtpUrl);
 
 // Listen for database changes
 Deno.serve(async (req) => {
@@ -229,21 +229,17 @@ Or paste the URL into your browser.
 — The DecisionGuide.AI Team
     `;
 
-    // Connect to SMTP server
-    await smtp.connect();
+    // Verify SMTP connection
+    await transporter.verify();
 
     // Send email
-    await smtp.send({
+    await transporter.sendMail({
       from: fromEmail,
-      to: [to],
+      to: to,
       subject: `You're invited to join "${teamName}" on DecisionGuide.AI`,
-      content: htmlBody,
-      html: true,
-      alternative: textBody
+      html: htmlBody,
+      text: textBody
     });
-
-    // Close connection
-    await smtp.close();
     
     console.log(`Email sent successfully to ${to}`);
   } catch (error) {
