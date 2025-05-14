@@ -25,6 +25,7 @@ interface TeamsContextType {
   getTeamInvitations: (teamId: string) => Promise<Invitation[]>;
   revokeInvitation: (invitationId: string) => Promise<void>;
   resendInvitation: (invitationId: string) => Promise<void>;
+  getUserIdByEmail: (email: string) => Promise<string | null>;
 }
 
 const TeamsContext = createContext<TeamsContextType | undefined>(undefined);
@@ -34,6 +35,23 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /** Get user ID by email */
+  const getUserIdByEmail = useCallback(async (email: string): Promise<string | null> => {
+    try {
+      const { data, error: err } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+      if (err) throw err;
+      return data?.id || null;
+    } catch (e) {
+      console.error('[TeamsContext] getUserIdByEmail error:', e);
+      throw new Error('User not found');
+    }
+  }, []);
 
   /** Fetch all teams created by this user, including their members */
   const fetchTeams = useCallback(async () => {
@@ -321,6 +339,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         getTeamInvitations,
         revokeInvitation,
         resendInvitation,
+        getUserIdByEmail,
       }}
     >
       {children}

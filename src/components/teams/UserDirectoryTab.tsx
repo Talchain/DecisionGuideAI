@@ -7,7 +7,7 @@ import DirectoryUserCard from './DirectoryUserCard';
 import DirectorySearchSkeleton from './DirectorySearchSkeleton';
 
 interface UserDirectoryTabProps {
-  onAddUser: (email: string, teamRole: string, decisionRole: string) => Promise<boolean>;
+  onAddUser: (userId: string, teamRole: string, decisionRole: string) => Promise<boolean>;
 }
 
 export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
@@ -39,7 +39,7 @@ export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
     setAddSuccess(false);
     
     try {
-      const success = await onAddUser(selectedUser.email, teamRole, decisionRole);
+      const success = await onAddUser(selectedUser.id, teamRole, decisionRole);
       if (success) {
         setAddSuccess(true);
         setTimeout(() => setAddSuccess(false), 3000);

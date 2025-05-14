@@ -110,9 +110,9 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     }
   };
 
-  const handleAddFromDirectory = async (email: string, role: string, decisionRole: string) => {
+  const handleAddFromDirectory = async (userId: string, role: string, decisionRole: string) => {
     try {
-      await addTeamMember(team.id, email, role, decisionRole);
+      await addTeamMember(team.id, userId, role, decisionRole);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
       return true;
