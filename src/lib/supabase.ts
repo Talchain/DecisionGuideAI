@@ -519,21 +519,15 @@ export async function revokeTeamInvitation(invitationId: string) {
 
 export async function resendTeamInvitation(invitationId: string) {
   try {
-    // First update the invitation to refresh the timestamp
-    const { error: updateError } = await supabase
-      .from('invitations')
-      .update({ 
-        invited_at: new Date().toISOString(),
-        status: 'pending'
-      })
-      .eq('id', invitationId);
-      
-    if (updateError) throw updateError;
+    // Use the RPC function to resend invitation
+    const { data, error } = await supabase.rpc(
+      'resend_team_invitation',
+      { invitation_id: invitationId }
+    );
     
-    // Here you would trigger an email notification
-    // This could be done via a separate API call or Edge Function
+    if (error) throw error;
     
-    return { error: null };
+    return { data, error: null };
   } catch (err) {
     console.error('resendTeamInvitation exception:', err);
     return {
