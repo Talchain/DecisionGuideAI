@@ -35,8 +35,7 @@ const getInvitationEmailTemplate = ({
       <p>Best regards,<br>The ${appName} Team</p>
     </div>
   </body>
-</html>
-`;
+</html>`;
 
 // Email client class
 export class EmailClient {
