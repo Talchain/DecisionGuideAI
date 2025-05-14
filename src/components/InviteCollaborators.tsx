@@ -1,5 +1,16 @@
+// src/components/InviteCollaborators.tsx
+
 import React, { useState, useEffect } from 'react';
-import { X, Users, Mail, Loader2, UserPlus, Copy, Link as LinkIcon, AlertCircle } from 'lucide-react';
+import {
+  X,
+  Users,
+  Mail,
+  Loader2,
+  UserPlus,
+  Copy,
+  Link as LinkIcon,
+  AlertCircle
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useTeams } from '../contexts/TeamsContext';
 import Tooltip from './Tooltip';
@@ -11,20 +22,15 @@ interface InviteCollaboratorsProps {
 }
 
 type TabId = 'email' | 'team';
-type Role = 'owner' | 'approver' | 'contributor' | 'viewer';
 
-const ROLES: { id: Role; label: string; description: string }[] = [
-  { id: 'owner', label: 'Decision Lead', description: 'Full control over the decision' },
-  { id: 'approver', label: 'Approver', description: 'Can approve or reject suggestions' },
-  { id: 'contributor', label: 'Contributor', description: 'Can add suggestions and comments' },
-  { id: 'viewer', label: 'Viewer', description: 'Read-only access' }
-];
-
-export default function InviteCollaborators({ open, onClose, decisionId }: InviteCollaboratorsProps) {
+export default function InviteCollaborators({
+  open,
+  onClose,
+  decisionId
+}: InviteCollaboratorsProps) {
   const { teams, loading: teamsLoading, fetchTeams } = useTeams();
   const [activeTab, setActiveTab] = useState<TabId>('email');
   const [emails, setEmails] = useState('');
-  const [role, setRole] = useState<Role>('contributor');
   const [selectedTeamId, setSelectedTeamId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,21 +50,26 @@ export default function InviteCollaborators({ open, onClose, decisionId }: Invit
     setSuccess(false);
 
     try {
-      const emailList = emails.split(/[,\n]/).map(e => e.trim()).filter(Boolean);
-      
+      const emailList = emails
+        .split(/[,\n]/)
+        .map((e) => e.trim())
+        .filter(Boolean);
+
       const { data: invites, error: inviteError } = await supabase
         .from('decision_collaborators')
-        .insert(emailList.map(email => ({
-          decision_id: decisionId,
-          email,
-          role,
-          status: 'invited',
-          permissions: {
-            can_comment: role !== 'viewer',
-            can_suggest: role !== 'viewer',
-            can_rate: role !== 'viewer'
-          }
-        })))
+        .insert(
+          emailList.map((email) => ({
+            decision_id: decisionId,
+            email,
+            role: 'contributor',
+            status: 'invited',
+            permissions: {
+              can_comment: true,
+              can_suggest: true,
+              can_rate: true,
+            },
+          }))
+        )
         .select();
 
       if (inviteError) throw inviteError;
@@ -84,28 +95,28 @@ export default function InviteCollaborators({ open, onClose, decisionId }: Invit
   const handleTeamInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTeamId) return;
-    
+
     setLoading(true);
     setError(null);
     setSuccess(false);
 
     try {
-      const team = teams.find(t => t.id === selectedTeamId);
+      const team = teams.find((t) => t.id === selectedTeamId);
       if (!team) throw new Error('Team not found');
 
       const { error: inviteError } = await supabase
         .from('decision_collaborators')
         .insert(
-          team.members.map(member => ({
+          team.members.map((member) => ({
             decision_id: decisionId,
             user_id: member.user_id,
-            role,
+            role: 'contributor',
             status: 'invited',
             permissions: {
-              can_comment: role !== 'viewer',
-              can_suggest: role !== 'viewer',
-              can_rate: role !== 'viewer'
-            }
+              can_comment: true,
+              can_suggest: true,
+              can_rate: true,
+            },
           }))
         );
 
@@ -125,7 +136,7 @@ export default function InviteCollaborators({ open, onClose, decisionId }: Invit
     if (!inviteLink) return;
     try {
       await navigator.clipboard.writeText(inviteLink);
-      // Show temporary success message
+      // optionally show a temporary success cue
     } catch (err) {
       console.error('Failed to copy link:', err);
     }
@@ -141,12 +152,14 @@ export default function InviteCollaborators({ open, onClose, decisionId }: Invit
       aria-modal="true"
       aria-labelledby="invite-title"
     >
-      <div 
+      <div
         className="bg-white rounded-xl shadow-xl w-full max-w-lg"
-        onClick={e => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b">
-          <h2 id="invite-title" className="text-lg font-semibold">Invite Collaborators</h2>
+          <h2 id="invite-title" className="text-lg font-semibold">
+            Invite Collaborators
+          </h2>
           <button
             onClick={onClose}
             className="p-2 text-gray-400 hover:text-gray-600 rounded-full"
@@ -194,24 +207,6 @@ export default function InviteCollaborators({ open, onClose, decisionId }: Invit
               Invitations sent successfully!
             </div>
           )}
-
-          {/* Role Selection */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Role
-            </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-            >
-              {ROLES.map(({ id, label, description }) => (
-                <option key={id} value={id}>
-                  {label} - {description}
-                </option>
-              ))}
-            </select>
-          </div>
 
           {/* Email Tab */}
           {activeTab === 'email' && (
