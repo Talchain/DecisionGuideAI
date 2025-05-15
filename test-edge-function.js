@@ -1,5 +1,5 @@
 // Test script for the send-team-invite Edge Function
-const fetch = require('node-fetch');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 // Configuration
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://etmmuzwxtcjipwphdola.supabase.co';
@@ -62,7 +62,7 @@ async function testSendInvitation(email) {
 
 // Run tests
 async function runTests() {
-  console.log('=== Testing send-team-invite Edge Function ===');
+  console.log('\n=== Testing send-team-invite Edge Function ===');
   
   // Test health check
   const healthResult = await testHealthCheck();
@@ -81,4 +81,7 @@ async function runTests() {
 }
 
 // Run the tests
-runTests();
+runTests().catch(error => {
+  console.error('Test script error:', error);
+  process.exit(1);
+});
