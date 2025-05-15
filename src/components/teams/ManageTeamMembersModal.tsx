@@ -11,7 +11,8 @@ import {
   Clock,
   RefreshCw,
   XCircle,
-  CheckCircle
+  CheckCircle,
+  Info
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useTeams } from '../../contexts/TeamsContext';
@@ -53,6 +54,11 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loadingInvitations, setLoadingInvitations] = useState(false);
   const [processingInvitationId, setProcessingInvitationId] = useState<string | null>(null);
+  const [selectedInvitation, setSelectedInvitation] = useState<Invitation | null>(null);
+  const [invitationLogs, setInvitationLogs] = useState<any[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [edgeFunctionStatus, setEdgeFunctionStatus] = useState<'checking' | 'ok' | 'error' | null>(null);
+  const [edgeFunctionError, setEdgeFunctionError] = useState<string | null>(null);
 
   const {
     addTeamMember,
@@ -66,7 +72,62 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     if (activeTab === 'pending') {
       fetchInvitations();
     }
+    
+    // Check edge function status when modal opens
+    checkEdgeFunctionStatus();
   }, [activeTab]);
+
+  // Function to check edge function status
+  const checkEdgeFunctionStatus = async () => {
+    setEdgeFunctionStatus('checking');
+    setEdgeFunctionError(null);
+    
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-team-invite/health`,
+        {
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          }
+        }
+      );
+      
+      const data = await response.json();
+      console.log('Edge function health check response:', data);
+      
+      if (response.ok && data.success) {
+        setEdgeFunctionStatus('ok');
+      } else {
+        setEdgeFunctionStatus('error');
+        setEdgeFunctionError(data.message || 'Unknown error checking edge function');
+      }
+    } catch (err) {
+      console.error('Error checking edge function status:', err);
+      setEdgeFunctionStatus('error');
+      setEdgeFunctionError(err instanceof Error ? err.message : 'Failed to check edge function status');
+    }
+  };
+
+  // Function to view invitation logs
+  const viewInvitationLogs = async (invitation: Invitation) => {
+    setSelectedInvitation(invitation);
+    setLoadingLogs(true);
+    
+    try {
+      const { data, error } = await supabase.rpc(
+        'get_invitation_status',
+        { invitation_uuid: invitation.id }
+      );
+      
+      if (error) throw error;
+      setInvitationLogs(data || []);
+    } catch (err) {
+      console.error('Error fetching invitation logs:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch invitation logs');
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
 
   const fetchInvitations = async () => {
     setLoadingInvitations(true);
@@ -87,24 +148,32 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     setError(null);
     setSuccess(false);
     setSuccessMessage('');
+    
+    console.log('Starting email invite process for emails:', emails);
+    setSuccessMessage('');
 
     try {
       const emailList = emails
         .split(/[,\n]/)
         .map(e => e.trim())
         .filter(Boolean);
+      
+      console.log('Processed email list:', emailList);
 
       const results: InviteResult[] = [];
       for (const email of emailList) {
         try {
+          console.log(`Inviting ${email} to team ${team.id}`);
           const result = await inviteTeamMember(
             team.id,
             email,
             teamRole,
             decisionRole
           );
+          console.log(`Invite result for ${email}:`, result);
           results.push(result);
         } catch (err: any) {
+          console.error(`Error inviting ${email}:`, err);
           if (err.code === '23505') {
             // conflict on invitations.email
             results.push({ status: 'already_invited', email });
@@ -123,6 +192,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
       if (invited) msg += `${invited} invitation${invited !== 1 ? 's' : ''} sent. `;
       if (already) msg += `${already} already invited.`;
       setSuccessMessage(msg.trim());
+      console.log('Invitation process completed:', msg.trim());
 
       setEmails('');
       setSuccess(true);
@@ -277,6 +347,39 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
               {successMessage}
             </div>
           )}
+          
+          {/* Edge Function Status */}
+          {edgeFunctionStatus && (
+            <div className={`mb-4 p-3 rounded-lg flex items-start gap-2 ${
+              edgeFunctionStatus === 'ok' 
+                ? 'bg-green-50 text-green-700' 
+                : edgeFunctionStatus === 'error'
+                ? 'bg-red-50 text-red-700'
+                : 'bg-blue-50 text-blue-700'
+            }`}>
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <div>
+                <p className="font-medium">
+                  {edgeFunctionStatus === 'ok' 
+                    ? 'Email system is operational' 
+                    : edgeFunctionStatus === 'error'
+                    ? 'Email system error'
+                    : 'Checking email system...'}
+                </p>
+                {edgeFunctionError && (
+                  <p className="text-sm mt-1">{edgeFunctionError}</p>
+                )}
+                {edgeFunctionStatus === 'error' && (
+                  <button 
+                    onClick={checkEdgeFunctionStatus}
+                    className="text-sm mt-2 underline"
+                  >
+                    Check again
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Email Tab */}
           {activeTab === 'email' && (
@@ -373,6 +476,8 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                   <div
                     key={inv.id}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
+                    onClick={() => viewInvitationLogs(inv)}
+                    style={{ cursor: 'pointer' }}
                   >
                     <div>
                       <div className="font-medium text-gray-900">{inv.email}</div>
@@ -384,10 +489,24 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                       </div>
                     </div>
                     <div className="flex gap-2">
+                      <Tooltip content="View logs">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            viewInvitationLogs(inv);
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
+                        >
+                          <Info className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
                       <Tooltip content="Resend">
                         <button
                           disabled={processingInvitationId === inv.id}
-                          onClick={() => handleResendInvitation(inv.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleResendInvitation(inv.id);
+                          }}
                           className="p-1.5 text-gray-400 hover:text-indigo-600 rounded disabled:opacity-50"
                         >
                           {processingInvitationId === inv.id ? (
@@ -400,7 +519,10 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                       <Tooltip content="Revoke">
                         <button
                           disabled={processingInvitationId === inv.id}
-                          onClick={() => handleRevokeInvitation(inv.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRevokeInvitation(inv.id);
+                          }}
                           className="p-1.5 text-gray-400 hover:text-red-600 rounded disabled:opacity-50"
                         >
                           {processingInvitationId === inv.id ? (
@@ -414,6 +536,79 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                   </div>
                 ))
               )}
+            </div>
+          )}
+          
+          {/* Invitation Logs Modal */}
+          {selectedInvitation && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+                <div className="flex items-center justify-between p-4 border-b">
+                  <h3 className="text-lg font-medium">Invitation Details</h3>
+                  <button
+                    onClick={() => setSelectedInvitation(null)}
+                    className="p-2 text-gray-400 hover:text-gray-600 rounded-full"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                
+                <div className="p-4">
+                  <div className="mb-4">
+                    <h4 className="font-medium text-gray-900">Invitation to: {selectedInvitation.email}</h4>
+                    <p className="text-sm text-gray-500">
+                      Status: <span className="font-medium">{selectedInvitation.status}</span>
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Invited: {new Date(selectedInvitation.invited_at).toLocaleString()}
+                    </p>
+                  </div>
+                  
+                  <h4 className="font-medium text-gray-900 mb-2">Activity Log</h4>
+                  
+                  {loadingLogs ? (
+                    <div className="flex items-center justify-center p-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-indigo-600 mr-2" />
+                      <span>Loading logs...</span>
+                    </div>
+                  ) : invitationLogs.length === 0 ? (
+                    <p className="text-sm text-gray-500 p-4 text-center">No logs available</p>
+                  ) : (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {invitationLogs.map((log) => (
+                        <div key={log.id} className="p-2 bg-gray-50 rounded text-sm">
+                          <div className="flex justify-between">
+                            <span className="font-medium">{log.status}</span>
+                            <span className="text-gray-500 text-xs">
+                              {new Date(log.created_at).toLocaleString()}
+                            </span>
+                          </div>
+                          {log.details && Object.keys(log.details).length > 0 && (
+                            <pre className="mt-1 text-xs text-gray-600 overflow-x-auto">
+                              {JSON.stringify(log.details, null, 2)}
+                            </pre>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      onClick={() => handleResendInvitation(selectedInvitation.id)}
+                      className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 mr-2"
+                    >
+                      Resend Invitation
+                    </button>
+                    <button
+                      onClick={() => setSelectedInvitation(null)}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

@@ -5,7 +5,7 @@ import nodemailer from "npm:nodemailer@6.9.9";
 // Environment variables are automatically available
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const smtpUrl = Deno.env.get("SMTP_URL")!;
+const smtpUrl = Deno.env.get("SMTP_URL");
 const fromEmail = Deno.env.get("FROM_EMAIL") || "hello@decisionguide.ai";
 const appUrl = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 
@@ -35,7 +35,24 @@ Deno.serve(async (req) => {
   if (req.method === "GET" && url.pathname.endsWith("/health")) {
     console.log("[HEALTH] Checking SMTP connection health");
     try {
-      const transporter = nodemailer.createTransport(smtpUrl);
+      // Validate SMTP URL
+      if (!smtpUrl) {
+        throw new Error("SMTP_URL environment variable is not set");
+      }
+      
+      console.log("[HEALTH] SMTP URL length:", smtpUrl.length);
+      console.log("[HEALTH] SMTP URL prefix:", smtpUrl.substring(0, 10) + "...");
+      
+      // Create transporter with explicit options instead of URL string
+      const smtpOptions = parseSmtpUrl(smtpUrl);
+      console.log("[HEALTH] Parsed SMTP options:", {
+        host: smtpOptions.host,
+        port: smtpOptions.port,
+        secure: smtpOptions.secure,
+        hasAuth: !!smtpOptions.auth
+      });
+      
+      const transporter = nodemailer.createTransport(smtpOptions);
       console.log("[HEALTH] Created transporter, verifying connection...");
       
       await transporter.verify();
@@ -262,7 +279,13 @@ async function sendInvitationEmail({
 }) {
   try {
     console.log(`[EMAIL] Preparing to send email to ${to}`);
-    console.log(`[EMAIL] SMTP URL length: ${smtpUrl.length}, first 10 chars: ${smtpUrl.substring(0, 10)}...`);
+    
+    // Validate SMTP URL
+    if (!smtpUrl) {
+      throw new Error("SMTP_URL environment variable is not set");
+    }
+    
+    console.log(`[EMAIL] SMTP URL length: ${smtpUrl.length}`);
     
     // HTML email template
     const htmlBody = `
@@ -301,8 +324,16 @@ Or paste the URL into your browser.
     `;
 
     // Create SMTP transporter
-    console.log("[EMAIL] Creating nodemailer transporter");
-    const transporter = nodemailer.createTransport(smtpUrl);
+    console.log("[EMAIL] Creating nodemailer transporter with parsed options");
+    const smtpOptions = parseSmtpUrl(smtpUrl);
+    console.log("[EMAIL] Parsed SMTP options:", {
+      host: smtpOptions.host,
+      port: smtpOptions.port,
+      secure: smtpOptions.secure,
+      hasAuth: !!smtpOptions.auth
+    });
+    
+    const transporter = nodemailer.createTransport(smtpOptions);
 
     // Verify SMTP connection
     try {
@@ -347,5 +378,49 @@ Or paste the URL into your browser.
       command: error.command
     });
     throw error;
+  }
+}
+
+// Helper function to parse SMTP URL into options object
+function parseSmtpUrl(url: string): any {
+  try {
+    console.log("[SMTP] Parsing SMTP URL");
+    
+    // Parse URL
+    const match = url.match(/^smtps?:\/\/(?:([^:]+):([^@]+)@)?([^:]+)(?::(\d+))?$/i);
+    
+    if (!match) {
+      throw new Error("Invalid SMTP URL format");
+    }
+    
+    const [, user, pass, host, portStr] = match;
+    const port = portStr ? parseInt(portStr, 10) : (url.startsWith('smtps://') ? 465 : 587);
+    const secure = port === 465;
+    
+    const options: any = {
+      host,
+      port,
+      secure
+    };
+    
+    // Add auth if credentials are provided
+    if (user && pass) {
+      options.auth = {
+        user,
+        pass
+      };
+    }
+    
+    console.log("[SMTP] Successfully parsed SMTP URL:", {
+      host,
+      port,
+      secure,
+      hasAuth: !!(user && pass)
+    });
+    
+    return options;
+  } catch (error) {
+    console.error("[SMTP] Error parsing SMTP URL:", error);
+    throw new Error(`Failed to parse SMTP URL: ${error.message}`);
   }
 }

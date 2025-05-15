@@ -226,6 +226,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
       if (!user) throw new Error('Not authenticated');
       setError(null);
       
+      console.log(`TeamsContext: Inviting ${email} to team ${teamId} with role ${role} and decision role ${decisionRole}`);
       try {
         const { data, error: err } = await supabase.rpc(
           'manage_team_invite',
@@ -237,13 +238,35 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           }
         );
         
+        console.log(`TeamsContext: RPC response:`, { data, error: err });
         if (err) throw err;
+        
+        // If this was an invitation (not direct add), track it
+        if (data && data.status === 'invited' && data.invitation_id) {
+          await supabase.rpc(
+            'track_invitation_status',
+            { 
+              invitation_uuid: data.invitation_id,
+              status_value: 'invitation_created',
+              details_json: JSON.stringify({ 
+                created_by: user.id,
+                email: email,
+                team_id: teamId,
+                role: role,
+                decision_role: decisionRole,
+                timestamp: new Date().toISOString()
+              })
+            }
+          );
+        }
         
         // Refresh teams to get updated member list
         await fetchTeams();
         
+        console.log(`TeamsContext: Invitation successful for ${email}`);
         return data as InviteResult;
       } catch (e) {
+        console.error(`TeamsContext: Error inviting ${email}:`, e);
         console.error('[TeamsContext] inviteTeamMember error:', e);
         setError(e instanceof Error ? e.message : 'Failed to invite team member');
         throw e;
@@ -303,7 +326,21 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
       if (!user) throw new Error('Not authenticated');
       setError(null);
       
+      console.log(`TeamsContext: Resending invitation ${invitationId}`);
       try {
+        // Track invitation status
+        await supabase.rpc(
+          'track_invitation_status',
+          { 
+            invitation_uuid: invitationId,
+            status_value: 'resend_requested',
+            details_json: JSON.stringify({ 
+              requested_by: user.id,
+              timestamp: new Date().toISOString()
+            })
+          }
+        );
+        
         const { error: err } = await supabase
           .from('invitations')
           .update({ 
@@ -313,7 +350,23 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           .eq('id', invitationId);
           
         if (err) throw err;
+        
+        // Track invitation status update
+        await supabase.rpc(
+          'track_invitation_status',
+          { 
+            invitation_uuid: invitationId,
+            status_value: 'resend_completed',
+            details_json: JSON.stringify({ 
+              completed_by: user.id,
+              timestamp: new Date().toISOString()
+            })
+          }
+        );
+        
+        console.log(`TeamsContext: Invitation ${invitationId} resent successfully`);
       } catch (e) {
+        console.error(`TeamsContext: Error resending invitation ${invitationId}:`, e);
         console.error('[TeamsContext] resendInvitation error:', e);
         setError(e instanceof Error ? e.message : 'Failed to resend invitation');
         throw e;
