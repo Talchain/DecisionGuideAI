@@ -2,7 +2,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.39.7";
 import nodemailer from "npm:nodemailer@6.9.9";
 import { SMTPTransport } from "npm:nodemailer@6.9.9/lib/smtp-transport";
-import { SMTPTransport } from "npm:nodemailer@6.9.9/lib/smtp-transport";
 
 // Environment variables are automatically available
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -15,97 +14,55 @@ const appUrl = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Parse SMTP URL and create transporter
-let transporter: nodemailer.Transporter;
+let transporter: nodemailer.Transporter | null = null;
 
-try {
-  console.log("Setting up SMTP transporter with URL:", smtpUrl.replace(/:[^:]*@/, ":***@"));
-  
-  // Parse SMTP URL manually to handle potential issues
-  const smtpConfig = parseSmtpUrl(smtpUrl);
-  transporter = nodemailer.createTransport(smtpConfig);
-  
-  console.log("SMTP transporter created successfully");
-} catch (error) {
-  console.error("Failed to create SMTP transporter:", error);
-}
-
-// Function to parse SMTP URL into config object
-function parseSmtpUrl(url: string): SMTPTransport.Options {
+function parseSmtpUrl(url: string) {
   try {
-    if (!url || url.trim() === "") {
-      throw new Error("SMTP_URL is empty or not provided");
+    if (!url) {
+      console.error("SMTP_URL environment variable is not set");
+      return null;
     }
     
-    // Parse URL parts
+    // Parse the SMTP URL
     const match = url.match(/^smtps?:\/\/([^:]+):([^@]+)@([^:]+):(\d+)$/);
     if (!match) {
-      throw new Error("Invalid SMTP URL format");
+      console.error("Invalid SMTP_URL format");
+      return null;
     }
     
-    const [_, user, pass, host, port] = match;
+    const [, user, pass, host, port] = match;
     
     return {
       host,
       port: parseInt(port, 10),
-      secure: url.startsWith("smtps://"),
+      secure: port === "465", // true for 465, false for other ports
       auth: {
         user,
-        pass
+        pass,
       },
-      debug: true,
-      logger: true
     };
   } catch (error) {
     console.error("Error parsing SMTP URL:", error);
-    throw error;
+    return null;
   }
 }
 
-// Parse SMTP URL and create transporter
-let transporter: nodemailer.Transporter;
-
+// Initialize SMTP transporter
 try {
-  console.log("Setting up SMTP transporter with URL:", smtpUrl.replace(/:[^:]*@/, ":***@"));
-  
-  // Parse SMTP URL manually to handle potential issues
   const smtpConfig = parseSmtpUrl(smtpUrl);
-  transporter = nodemailer.createTransport(smtpConfig);
-  
-  console.log("SMTP transporter created successfully");
-} catch (error) {
-  console.error("Failed to create SMTP transporter:", error);
-}
-
-// Function to parse SMTP URL into config object
-function parseSmtpUrl(url: string): SMTPTransport.Options {
-  try {
-    if (!url || url.trim() === "") {
-      throw new Error("SMTP_URL is empty or not provided");
-    }
-    
-    // Parse URL parts
-    const match = url.match(/^smtps?:\/\/([^:]+):([^@]+)@([^:]+):(\d+)$/);
-    if (!match) {
-      throw new Error("Invalid SMTP URL format");
-    }
-    
-    const [_, user, pass, host, port] = match;
-    
-    return {
-      host,
-      port: parseInt(port, 10),
-      secure: url.startsWith("smtps://"),
-      auth: {
-        user,
-        pass
-      },
-      debug: true,
-      logger: true
-    };
-  } catch (error) {
-    console.error("Error parsing SMTP URL:", error);
-    throw error;
+  if (smtpConfig) {
+    transporter = nodemailer.createTransport(smtpConfig);
+    console.log("SMTP transporter created with config:", {
+      host: smtpConfig.host,
+      port: smtpConfig.port,
+      secure: smtpConfig.secure,
+      auth: { user: smtpConfig.auth.user, pass: "***" },
+    });
+  } else {
+    console.error("Failed to create SMTP transporter: Invalid configuration");
   }
+} catch (error) {
+  console.error("Error creating SMTP transporter:", error);
 }
 
 // CORS headers
@@ -117,83 +74,74 @@ const corsHeaders = {
 
 // Handle HTTP requests
 Deno.serve(async (req) => {
-  console.log(`[${new Date().toISOString()}] Request received: ${req.method} ${req.url}`);
-  
-  console.log(`[${new Date().toISOString()}] Request received: ${req.method} ${req.url}`);
+  const url = new URL(req.url);
+  const path = url.pathname;
   
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
-    console.log("Handling CORS preflight request");
-    console.log("Handling CORS preflight request");
     return new Response(null, {
       headers: corsHeaders,
       status: 204,
     });
   }
-
-  // Handle health check
-  const url = new URL(req.url);
-  if (url.pathname.endsWith('/health')) {
-    console.log("Health check requested");
+  
+  // Health check endpoint
+  if (path.endsWith("/health")) {
     try {
+      // Check if transporter is initialized
+      if (!transporter) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: "SMTP transporter not initialized",
+            error: "Missing or invalid SMTP configuration",
+            timestamp: new Date().toISOString(),
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 500,
+          }
+        );
+      }
+      
       // Verify SMTP connection
-      await transporter.verify();
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: "SMTP connection successful",
-          timestamp: new Date().toISOString()
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        }
-      );
+      try {
+        await transporter.verify();
+        
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: "SMTP connection successful",
+            timestamp: new Date().toISOString(),
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          }
+        );
+      } catch (smtpError) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: "SMTP connection failed",
+            error: smtpError.message,
+            stack: smtpError.stack,
+            timestamp: new Date().toISOString(),
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 500,
+          }
+        );
+      }
     } catch (error) {
-      console.error("SMTP connection failed:", error);
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: "SMTP connection failed",
+        JSON.stringify({
+          success: false,
+          message: "Health check failed",
           error: error.message,
           stack: error.stack,
-          timestamp: new Date().toISOString()
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 500,
-        }
-      );
-    }
-  }
-
-  // Handle health check
-  const url = new URL(req.url);
-  if (url.pathname.endsWith('/health')) {
-    console.log("Health check requested");
-    try {
-      // Verify SMTP connection
-      await transporter.verify();
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: "SMTP connection successful",
-          timestamp: new Date().toISOString()
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        }
-      );
-    } catch (error) {
-      console.error("SMTP connection failed:", error);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          message: "SMTP connection failed",
-          error: error.message,
-          stack: error.stack,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -208,33 +156,35 @@ Deno.serve(async (req) => {
     console.log("Edge Function started with environment:", {
       hasSupabaseUrl: !!supabaseUrl,
       hasSupabaseServiceKey: !!supabaseServiceKey && supabaseServiceKey.length > 20,
-      hasSupabaseUrl: !!supabaseUrl,
-      hasSupabaseServiceKey: !!supabaseServiceKey && supabaseServiceKey.length > 20,
       hasSmtpUrl: !!smtpUrl,
-      smtpUrlLength: smtpUrl?.length || 0,
       smtpUrlLength: smtpUrl?.length || 0,
       hasFromEmail: !!fromEmail,
       hasAppUrl: !!appUrl,
-      timestamp: new Date().toISOString(),
       timestamp: new Date().toISOString()
     });
 
     // Parse request body if this is a direct HTTP request
     if (req.method === "POST") {
       const body = await req.json();
-      console.log("Received direct request payload:", JSON.stringify(body));
+      console.log("Received direct request:", JSON.stringify(body));
       
       // Process the invitation
-      await processInvitationPayload(body);
+      const result = await processInvitationPayload(body);
       
       return new Response(
-        JSON.stringify({ success: true }),
+        JSON.stringify({ 
+          success: result.success, 
+          message: result.message,
+          details: result.details,
+          timestamp: new Date().toISOString()
+        }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
         }
       );
     }
+
     return new Response(
       JSON.stringify({ success: true }),
       {
@@ -243,7 +193,7 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error("Error in edge function:", error.message, error.stack);
+    console.error("Error in edge function:", error);
     return new Response(
       JSON.stringify({ error: error.message }),
       {
@@ -255,12 +205,20 @@ Deno.serve(async (req) => {
 });
 
 // Process invitation from payload
-async function processInvitationPayload(payload: any) {
+async function processInvitationPayload(payload: any): Promise<{
+  success: boolean;
+  message: string;
+  details?: any;
+}> {
   try {
     const { invitation_id, email, team_id, team_name, inviter_id } = payload;
     
     if (!email || !team_id || !team_name) {
-      throw new Error("Missing required fields");
+      return {
+        success: false,
+        message: "Missing required fields in payload",
+        details: { payload }
+      };
     }
     
     console.log("Processing invitation payload:", {
@@ -271,28 +229,12 @@ async function processInvitationPayload(payload: any) {
       inviter_id: inviter_id || "Not provided"
     });
     
-    // Log invitation status
-    console.log("Processing invitation payload:", {
-      invitation_id: invitation_id || "Not provided",
-      email: email,
-      team_id: team_id,
-      team_name: team_name,
-      inviter_id: inviter_id || "Not provided"
-    });
-    
-    // Log invitation status
-    await supabase.rpc('track_invitation_status', {
-      invitation_uuid: invitation_id,
-      status_value: 'processing',
-      details_json: { payload }
-    });
-    
     // Get inviter details if inviter_id is provided
     let inviterName = "A team admin";
     let inviterEmail = fromEmail;
     
     if (inviter_id) {
-      try {
+      try {        
         const { data: inviter, error: inviterError } = await supabase
           .from("user_profiles")
           .select("first_name, last_name, id")
@@ -322,7 +264,7 @@ async function processInvitationPayload(payload: any) {
           }
         }
       } catch (error) {
-        console.warn("Error fetching inviter details:", error.message, error.stack);
+        console.warn("Error fetching inviter details:", error);
         // Continue with default inviter name
       }
     }
@@ -330,47 +272,57 @@ async function processInvitationPayload(payload: any) {
     // Generate invitation link
     const inviteLink = `${appUrl}/teams/join?token=${invitation_id}`;
     
-    // Send email
-    await sendInvitationEmail({
-      to: email,
-      teamName: team_name,
-      inviteeName: email.split("@")[0],
-      inviterName,
-      inviterEmail,
-      inviteLink,
-    });
+    try {
+      // Log the invitation attempt
+      await supabase.rpc('track_invitation_status', {
+        invitation_uuid: invitation_id,
+        status_value: 'sending',
+        details_json: { team_id, team_name, inviter_id }
+      });
+      
+      // Send email
+      await sendInvitationEmail({
+        to: email,
+        teamName: team_name,
+        inviteeName: email.split("@")[0],
+        inviterName,
+        inviterEmail,
+        inviteLink,
+      });
+      
+      // Log success
+      await supabase.rpc('track_invitation_status', {
+        invitation_uuid: invitation_id,
+        status_value: 'sent',
+        details_json: { timestamp: new Date().toISOString() }
+      });
+      
+      return { success: true, message: `Invitation email sent to ${email} for team ${team_name}` };
+    } catch (error) {
+      // Log failure
+      await supabase.rpc('track_invitation_status', {
+        invitation_uuid: invitation_id,
+        status_value: 'failed',
+        details_json: { 
+          error: error.message,
+          stack: error.stack,
+          timestamp: new Date().toISOString()
+        }
+      });
+      
+      throw error;
+    }
     
-    // Log success
-    await supabase.rpc('track_invitation_status', {
-      invitation_uuid: invitation_id,
-      status_value: 'email_sent',
-      details_json: { email, team_name, timestamp: new Date().toISOString() }
-    });
-    
-    // Log success
-    await supabase.rpc('track_invitation_status', {
-      invitation_uuid: invitation_id,
-      status_value: 'email_sent',
-      details_json: { email, team_name, timestamp: new Date().toISOString() }
-    });
-    
-    console.log(`Invitation email sent to ${email} for team ${team_name}`);
-    return true;
   } catch (error) {
-    // Log failure
-    await supabase.rpc('track_invitation_status', {
-      invitation_uuid: payload.invitation_id,
-      status_value: 'email_failed',
-      details_json: { error: error.message, stack: error.stack }
-    });
-    // Log failure
-    await supabase.rpc('track_invitation_status', {
-      invitation_uuid: payload.invitation_id,
-      status_value: 'email_failed',
-      details_json: { error: error.message, stack: error.stack }
-    });
     console.error("Error processing invitation payload:", error);
-    throw error;
+    return {
+      success: false,
+      message: "Failed to process invitation",
+      details: {
+        error: error.message,
+        stack: error.stack
+      }
+    };
   }
 }
 
@@ -389,9 +341,13 @@ async function sendInvitationEmail({
   inviterName: string;
   inviterEmail: string;
   inviteLink: string;
-}) {
+}): Promise<any> {
   try {
-    console.log(`Preparing to send email to ${to} with link ${inviteLink}`);
+    console.log(`Sending email to ${to} with link ${inviteLink}`);
+    
+    if (!transporter) {
+      throw new Error("SMTP transporter not initialized");
+    }
     
     // HTML email template
     const htmlBody = `
@@ -429,49 +385,27 @@ Or paste the URL into your browser.
 — The DecisionGuide.AI Team
     `;
 
-    console.log("Verifying SMTP connection...");
-    try {
-      await transporter.verify();
-      console.log("SMTP connection verified successfully");
-    } catch (verifyError) {
-      console.error("SMTP connection verification failed:", verifyError);
-      throw verifyError;
-    }
-
     // Verify SMTP connection
-    console.log("Verifying SMTP connection...");
     try {
       await transporter.verify();
-      console.log("SMTP connection verified successfully");
     } catch (verifyError) {
-      console.error("SMTP connection verification failed:", verifyError);
-      throw verifyError;
+      console.error("SMTP verification failed:", verifyError);
+      throw new Error(`SMTP verification failed: ${verifyError.message}`);
     }
 
-    console.log("Sending email with the following details:", {
+    // Send email
+    const info = await transporter.sendMail({
       from: `"DecisionGuide.AI" <${fromEmail}>`,
       to: to,
-      subject: `You're invited to join "${teamName}" on DecisionGuide.AI`
+      subject: `You're invited to join "${teamName}" on DecisionGuide.AI`,
+      html: htmlBody,
+      text: textBody
     });
-    
-    let info;
-    try {
-      info = await transporter.sendMail({
-        from: `"DecisionGuide.AI" <${fromEmail}>`,
-        to: to,
-        subject: `You're invited to join "${teamName}" on DecisionGuide.AI`,
-        html: htmlBody,
-        text: textBody
-      });
-    } catch (sendError) {
-      console.error("Error sending email:", sendError);
-      throw sendError;
-    }
     
     console.log(`Email sent successfully to ${to}:`, info.messageId);
     return info;
   } catch (error) {
-    console.error("Error sending email:", error.message, error.stack);
-    throw error;
+    console.error("Error sending email:", error);
+    throw new Error(`Email sending failed: ${error.message}`);
   }
 }
