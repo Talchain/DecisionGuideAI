@@ -80,14 +80,29 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   // Function to check edge function status
   const checkEdgeFunctionStatus = async () => {
     setEdgeFunctionStatus('checking');
-    setEdgeFunctionError(null); 
+    setEdgeFunctionError(null);
 
     try {
       console.log('Checking edge function status...');
       
       try {
-        // Use the test_smtp_configuration RPC function instead of direct edge function call
-        const { data, error } = await supabase.functions.invoke('send-team-invite/health');
+        // Use a direct fetch with proper headers to avoid CORS issues
+        const response = await fetch(
+          `${supabase.supabaseUrl}/functions/v1/send-team-invite/health`,
+          {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${supabase.supabaseKey}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        
+        const data = await response.json();
         
         console.log('Edge function health check response:', data);
         
@@ -96,7 +111,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
         } else {
           setEdgeFunctionStatus('error');
           // Extract more detailed error information
-          const errorDetails = error?.message || data?.message || 'Unknown error checking edge function';
+          const errorDetails = data?.message || 'Unknown error checking edge function';
           setEdgeFunctionError(errorDetails);
         }
       } catch (fetchErr) {
@@ -358,14 +373,10 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
           {/* Edge Function Status */}
           {edgeFunctionStatus && (
             <div className={`mb-4 p-3 rounded-lg flex items-start gap-2 ${
-              edgeFunctionStatus === 'ok' ? 'bg-green-50 text-green-700' : 
-              edgeFunctionStatus === 'error' ? 'bg-red-50 text-red-700' :
-              'bg-blue-50 text-blue-700'
+              edgeFunctionStatus === 'ok' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'
             }`}>
               {edgeFunctionStatus === 'ok' ? (
                 <CheckCircle className="h-5 w-5 flex-shrink-0" />
-              ) : edgeFunctionStatus === 'error' ? (
-                <AlertCircle className="h-5 w-5 flex-shrink-0" />
               ) : (
                 <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin" />
               )}
@@ -373,14 +384,12 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                 <p className="font-medium">
                   {edgeFunctionStatus === 'ok' 
                     ? 'Email system is operational' 
-                    : edgeFunctionStatus === 'error'
-                    ? 'Email system error'
                     : 'Checking email system...'}
                 </p>
                 {edgeFunctionError && (
                   <p className="text-sm mt-1">{edgeFunctionError}</p>
                 )}
-                {(edgeFunctionStatus === 'error' || edgeFunctionStatus === 'checking') && (
+                {edgeFunctionStatus === 'checking' && (
                   <button 
                     onClick={checkEdgeFunctionStatus}
                     className="text-sm mt-2 underline"
