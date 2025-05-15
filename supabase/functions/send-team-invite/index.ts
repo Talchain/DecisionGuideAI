@@ -2,12 +2,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2.39.7";
 import nodemailer from "npm:nodemailer@6.9.9";
 
-// Global variables for persistent state across invocations
-let transporterInitialized = false;
-let transporter: nodemailer.Transporter | null = null;
-let initializationError: Error | null = null;
-let lastInitAttempt = 0;
-
 // Environment variables are automatically available
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -18,48 +12,15 @@ const appUrl = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 // Create Supabase client with service role key
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Function to initialize the SMTP transporter
-function initializeTransporter() {
-  // Only attempt initialization if not already initialized or if last attempt was more than 5 minutes ago
-  const now = Date.now();
-  if (transporterInitialized || (now - lastInitAttempt < 300000 && initializationError)) {
-    return;
-  }
-  
-  lastInitAttempt = now;
-  
-  try {
-    console.log("Initializing SMTP transporter...");
-    
-    // Log environment variables for debugging (masking sensitive info)
-    console.log("Environment variables:", {
-      hasSupabaseUrl: !!supabaseUrl,
-      hasSupabaseKey: !!supabaseServiceKey,
-      smtpUrl: smtpUrl ? smtpUrl.replace(/:[^:@]+@/, ":***@") : "Not set",
-      fromEmail,
-      appUrl,
-      allEnvKeys: Object.keys(Deno.env.toObject())
-    });
-
-    // Create transporter directly from SMTP URL
-    transporter = nodemailer.createTransport(smtpUrl, {
-      logger: true, // Enable logging
-      debug: true   // Enable debug output
-    });
-    
-    console.log("SMTP transporter created successfully");
-    transporterInitialized = true;
-    initializationError = null;
-  } catch (error) {
-    console.error("Error creating SMTP transporter:", error);
-    transporterInitialized = false;
-    initializationError = error;
-    transporter = null;
-  }
-}
-
-// Initialize transporter on module load
-initializeTransporter();
+// Log environment variables for debugging (masking sensitive info)
+console.log("Environment variables:", {
+  hasSupabaseUrl: !!supabaseUrl,
+  hasSupabaseKey: !!supabaseServiceKey,
+  smtpUrl: smtpUrl ? smtpUrl.replace(/:[^:@]+@/, ":***@") : "Not set",
+  fromEmail,
+  appUrl,
+  allEnvKeys: Object.keys(Deno.env.toObject())
+});
 
 // CORS headers
 const corsHeaders = {
@@ -83,41 +44,29 @@ Deno.serve(async (req) => {
   
   // Health check endpoint
   if (path.endsWith("/health")) {
+    let smtpStatus = "unknown";
+    let smtpError = null;
+    
     try {
-      // Ensure transporter is initialized
-      if (!transporterInitialized) {
-        initializeTransporter();
-      }
-      
       // Test SMTP connection
-      let smtpStatus = "unknown";
-      let smtpError = null;
+      console.log("Testing SMTP connection...");
       
       try {
-        if (transporter) {
-          // Set a timeout for verify to prevent hanging
-          const verifyPromise = transporter.verify();
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error("SMTP verification timed out after 5 seconds")), 5000);
-          });
-          
-          await Promise.race([verifyPromise, timeoutPromise]);
-          smtpStatus = "connected";
-        } else {
-          smtpStatus = "not_initialized";
-          smtpError = initializationError ? initializationError.message : "SMTP transporter not initialized";
-          
-          // Try to initialize again
-          initializeTransporter();
-        }
+        // Create a new transporter for testing
+        const testTransporter = nodemailer.createTransport(smtpUrl);
+        
+        // Set a timeout for verify to prevent hanging
+        const verifyPromise = testTransporter.verify();
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("SMTP verification timed out after 5 seconds")), 5000);
+        });
+        
+        await Promise.race([verifyPromise, timeoutPromise]);
+        smtpStatus = "connected";
       } catch (error) {
         smtpStatus = "error";
         smtpError = error.message;
         console.error("SMTP verification failed:", error);
-        
-        // Try to reinitialize on error
-        transporterInitialized = false;
-        initializeTransporter();
       }
       
       // Log the SMTP status for debugging
@@ -163,12 +112,9 @@ Deno.serve(async (req) => {
   
   // Test email endpoint
   if (path.endsWith("/test-email")) {
+    let emailResult = { success: false, error: null, messageId: null };
+    
     try {
-      // Ensure transporter is initialized
-      if (!transporterInitialized) {
-        initializeTransporter();
-      }
-      
       const { email } = await req.json();
       
       if (!email) {
@@ -185,13 +131,13 @@ Deno.serve(async (req) => {
       }
       
       // Send test email using both methods
-      const results = await sendTestEmail(email);
+      emailResult = await sendTestEmail(email);
       
       return new Response(
         JSON.stringify({ 
           success: true, 
           message: "Test email sending initiated",
-          results,
+          results: { nodemailer: emailResult },
           timestamp: new Date().toISOString()
         }),
         {
@@ -205,8 +151,9 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          message: "Failed to send test email",
+          message: `Failed to send test email: ${error.message}`,
           error: error.message,
+          stack: error.stack,
           timestamp: new Date().toISOString()
         }),
         {
@@ -271,14 +218,7 @@ Deno.serve(async (req) => {
 
 // Send test email using multiple methods
 async function sendTestEmail(email: string): Promise<any> {
-  // Ensure transporter is initialized
-  if (!transporterInitialized) {
-    initializeTransporter();
-  }
-  
-  const results = {
-    nodemailer: { success: false, error: null, messageId: null }
-  };
+  let result = { success: false, error: null, messageId: null };
   
   // HTML email template for test
   const htmlBody = `
@@ -308,73 +248,49 @@ If you're receiving this email, it means our system can successfully send emails
   
   // Try sending with Nodemailer
   try {
-    if (transporter) {
-      console.log(`Sending test email to ${email} using Nodemailer...`);
-
-      try {
-        // Verify SMTP connection with timeout
-        const verifyPromise = transporter.verify();
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("SMTP verification timed out after 5 seconds")), 5000);
-        });
-        
-        await Promise.race([verifyPromise, timeoutPromise]);
-        
-        // Send email with timeout
-        const sendPromise = transporter.sendMail({
-          from: `"DecisionGuide.AI Test" <${fromEmail}>`,
-          to: email,
-          subject: `Test Email from DecisionGuide.AI`,
-          html: htmlBody,
-          text: textBody,
-          headers: {
-            'X-Priority': '1',
-            'X-MSMail-Priority': 'High',
-            'Importance': 'High'
-          }
-        });
-        
-        const sendTimeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error("Email sending timed out after 10 seconds")), 10000);
-        });
-        
-        const info = await Promise.race([sendPromise, sendTimeoutPromise]);
-        
-        console.log(`Nodemailer test email sent successfully to ${email}:`, info.messageId);
-        results.nodemailer = { 
-          success: true, 
-          error: null, 
-          messageId: info.messageId,
-          response: info.response
-        };
-      } catch (verifyError) {
-        console.error("Error during SMTP verification or sending:", verifyError);
-        results.nodemailer = { 
-          success: false, 
-          error: verifyError.message, 
-          messageId: null,
-          code: verifyError.code,
-          command: verifyError.command,
-          response: verifyError.response
-        };
-        
-        // Try to reinitialize on error
-        transporterInitialized = false;
-        initializeTransporter();
+    console.log(`Sending test email to ${email} using Nodemailer...`);
+    
+    // Create a new transporter for each email
+    const transporter = nodemailer.createTransport(smtpUrl);
+    
+    // Verify SMTP connection with timeout
+    const verifyPromise = transporter.verify();
+    const verifyTimeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("SMTP verification timed out after 5 seconds")), 5000);
+    });
+    
+    await Promise.race([verifyPromise, verifyTimeoutPromise]);
+    
+    // Send email with timeout
+    const sendPromise = transporter.sendMail({
+      from: `"DecisionGuide.AI Test" <${fromEmail}>`,
+      to: email,
+      subject: `Test Email from DecisionGuide.AI`,
+      html: htmlBody,
+      text: textBody,
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        'Importance': 'High'
       }
-    } else {
-      results.nodemailer = { 
-        success: false, 
-        error: initializationError ? initializationError.message : "Nodemailer transporter not initialized", 
-        messageId: null
-      };
-      
-      // Try to initialize
-      initializeTransporter();
-    }
+    });
+    
+    const sendTimeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error("Email sending timed out after 10 seconds")), 10000);
+    });
+    
+    const info = await Promise.race([sendPromise, sendTimeoutPromise]);
+    
+    console.log(`Nodemailer test email sent successfully to ${email}:`, info.messageId);
+    result = { 
+      success: true, 
+      error: null, 
+      messageId: info.messageId,
+      response: info.response
+    };
   } catch (error) {
     console.error("Error sending test email with Nodemailer:", error);
-    results.nodemailer = { 
+    result = { 
       success: false, 
       error: error.message, 
       messageId: null,
@@ -383,13 +299,9 @@ If you're receiving this email, it means our system can successfully send emails
       response: error.response,
       stack: error.stack
     };
-    
-    // Try to reinitialize on error
-    transporterInitialized = false;
-    initializeTransporter();
   }
   
-  return results;
+  return result;
 }
 
 // Process invitation from payload
@@ -398,13 +310,9 @@ async function processInvitationPayload(payload: any): Promise<{
   message: string;
   details?: any;
 }> {
+  console.log("processInvitationPayload: start", { payload });
+  
   try {
-    // Ensure transporter is initialized
-    if (!transporterInitialized) {
-      initializeTransporter();
-    }
-    
-    console.log("processInvitationPayload: start", { payload });
     const { invitation_id, email, team_id, team_name, inviter_id } = payload;
     console.log("processInvitationPayload: extracted payload", { invitation_id, email, team_id, team_name, inviter_id });
     let invitation_id_to_use = invitation_id;
@@ -586,17 +494,9 @@ async function sendInvitationEmail({
   
   try {
     console.log(`sendInvitationEmail: preparing to send email to ${to} with link ${inviteLink}`);
-    
-    // Ensure transporter is initialized
-    if (!transporterInitialized) {
-      initializeTransporter();
-    }
-    
-    if (!transporter) {
-      throw new Error(initializationError ? 
-        `SMTP transporter initialization failed: ${initializationError.message}` : 
-        "SMTP transporter not initialized");
-    }
+
+    // Create a new transporter for each email
+    const transporter = nodemailer.createTransport(smtpUrl);
     
     // HTML email template
     const htmlBody = `
@@ -636,27 +536,14 @@ Or paste the URL into your browser.
 
     // Verify SMTP connection
     try {
-      console.log("sendInvitationEmail: verifying SMTP connection before sending...");
-
-      try {
-        // Verify with timeout
-        const verifyPromise = transporter.verify();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("SMTP verification timed out after 5 seconds")), 5000)
-        );
-        
-        await Promise.race([verifyPromise, timeoutPromise]);
-      } catch (timeoutError) {
-        console.error("SMTP verification timed out, reinitializing transporter");
-        transporterInitialized = false;
-        initializeTransporter();
-        
-        if (!transporter) {
-          throw new Error("Failed to reinitialize SMTP transporter after timeout");
-        }
-      }
+      // Verify with timeout
+      const verifyPromise = transporter.verify();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("SMTP verification timed out after 5 seconds")), 5000)
+      );
       
-      console.log("sendInvitationEmail: SMTP connection verified successfully");
+      await Promise.race([verifyPromise, timeoutPromise]);
+      console.log("SMTP connection verified successfully");
     } catch (verifyError) {
       console.error("sendInvitationEmail: SMTP verification failed:", verifyError);
       
@@ -671,13 +558,7 @@ Or paste the URL into your browser.
               timestamp: new Date().toISOString()
             }
           });
-        } catch (logError) {
-          console.error("Failed to log invitation failure:", logError);
-        }
-        
-        // Try to reinitialize on error
-        transporterInitialized = false;
-        initializeTransporter();
+        } catch (logError) { /* Ignore logging errors */ }
       }
       
       throw new Error(`SMTP verification failed: ${verifyError.message || "Unknown error"}. Check SMTP credentials.`);
@@ -687,30 +568,21 @@ Or paste the URL into your browser.
     console.log(`sendInvitationEmail: sending email to ${to} from ${fromEmail}...`);
     
     try { 
-      // Send with timeout
-      const sendPromise = transporter.sendMail({
-          from: `"DecisionGuide.AI" <${fromEmail}>`,
-          to: to,
-          subject: `You're invited to join "${teamName}" on DecisionGuide.AI`,
-          html: htmlBody,
-          text: textBody,
-          // Add additional options for better delivery
-          headers: {
-            'X-Priority': '1',
-            'X-MSMail-Priority': 'High',
-            'Importance': 'High'
-          }
+      // Send email with timeout
+      const info = await transporter.sendMail({
+        from: `"DecisionGuide.AI" <${fromEmail}>`,
+        to: to,
+        subject: `You're invited to join "${teamName}" on DecisionGuide.AI`,
+        html: htmlBody,
+        text: textBody,
+        headers: {
+          'X-Priority': '1',
+          'X-MSMail-Priority': 'High',
+          'Importance': 'High'
+        }
       });
       
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Email sending timed out after 10 seconds")), 10000)
-      );
-      
-      const info = await Promise.race([sendPromise, timeoutPromise]);
-      
-      console.log(`sendInvitationEmail: email sent successfully to ${to}:`, info.messageId);
-      console.log("sendInvitationEmail: full response:", JSON.stringify(info, null, 2));
-      
+      console.log(`Email sent successfully to ${to}:`, info.messageId);
       return info;
     } catch (emailError) {
       console.error("Error in transporter.sendMail:", emailError);
@@ -729,10 +601,6 @@ Or paste the URL into your browser.
       
       console.error("sendInvitationEmail: email error details:", errorDetails);
       
-      // Try to reinitialize on error
-      transporterInitialized = false;
-      initializeTransporter();
-      
       // Rethrow with more details
       console.log("sendInvitationEmail: rethrowing error with details");
       throw new Error(`Email sending failed: ${emailError.message}. Code: ${emailError.code || 'unknown'}`);
@@ -747,10 +615,6 @@ Or paste the URL into your browser.
       name: error.name,
       cause: error.cause
     });
-    
-    // Try to reinitialize on error
-    transporterInitialized = false;
-    initializeTransporter();
     
     throw error;
   }
