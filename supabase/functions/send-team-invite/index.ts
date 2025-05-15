@@ -5,14 +5,14 @@ import nodemailer from "npm:nodemailer@6.9.9";
 // Environment variables are automatically available
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const smtpUrl = Deno.env.get("SMTP_URL");
+const smtpUrl = Deno.env.get("SMTP_URL") || "";
 const fromEmail = Deno.env.get("FROM_EMAIL") || "hello@decisionguide.ai";
 const appUrl = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 
 // Create Supabase client with service role key
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// SMTP configuration
+// SMTP configuration with better error handling
 let transporter: nodemailer.Transporter | null = null;
 
 // Parse SMTP URL into config
@@ -23,7 +23,9 @@ function parseSmtpUrl(url: string): any {
       return null;
     }
     
-    console.log(`Parsing SMTP URL: ${url.substring(0, 15)}...`);
+    // Mask credentials in logs
+    const maskedUrl = url.replace(/:[^:@]+@/, ":***@");
+    console.log(`Parsing SMTP URL: ${maskedUrl}`);
     
     // Parse the SMTP URL with more flexible pattern
     const match = url.match(/^smtps?:\/\/([^:]+)(?::([^@]+))?@([^:]+):(\d+)$/i);
@@ -63,17 +65,18 @@ function parseSmtpUrl(url: string): any {
 try {
   console.log("Initializing SMTP transporter...");
   
-  if (!smtpUrl) {
-    console.error("SMTP_URL environment variable is not set");
-    throw new Error("SMTP_URL environment variable is not set");
+  if (!smtpUrl || smtpUrl.trim() === '') {
+    console.error("SMTP_URL environment variable is not set or is empty");
+    throw new Error("SMTP_URL environment variable is not set or is empty");
   }
   
   const smtpConfig = parseSmtpUrl(smtpUrl);
   if (smtpConfig) {
     transporter = nodemailer.createTransport(smtpConfig);
-    console.log("SMTP transporter created successfully");
+    console.log("SMTP transporter created successfully for host:", smtpConfig.host);
   } else {
     console.error("Failed to create SMTP transporter: Invalid configuration");
+    throw new Error("Failed to create SMTP transporter: Invalid configuration");
   }
 } catch (error) {
   console.error("Error creating SMTP transporter:", error);
@@ -102,7 +105,9 @@ Deno.serve(async (req) => {
   // Health check endpoint
   if (path.endsWith("/health")) {
     try {
-      console.log("Health check requested at", new Date().toISOString());
+      const timestamp = new Date().toISOString();
+      console.log("Health check requested at", timestamp);
+      
       // Check if transporter is initialized
       if (!transporter) {
         console.log("Health check failed: SMTP transporter not initialized");
@@ -110,8 +115,9 @@ Deno.serve(async (req) => {
           JSON.stringify({
             success: false,
             message: "SMTP transporter not initialized",
-            error: "Missing or invalid SMTP configuration",
-            timestamp: new Date().toISOString(),
+            error: "Missing or invalid SMTP configuration. Check SMTP_URL environment variable.",
+            smtpUrl: smtpUrl ? "Set (masked)" : "Not set",
+            timestamp,
           }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -122,15 +128,25 @@ Deno.serve(async (req) => {
       
       // Verify SMTP connection
       try {
-        console.log("Verifying SMTP connection to", smtpUrl ? smtpUrl.split('@')[1] : "unknown host");
+        const smtpHost = smtpUrl.split('@')[1]?.split(':')[0] || "unknown host";
+        console.log("Verifying SMTP connection to", smtpHost);
+        
+        // Verify with timeout
+        const verifyPromise = transporter.verify();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("SMTP verification timed out after 5 seconds")), 5000)
+        );
+        
+        await Promise.race([verifyPromise, timeoutPromise]);
+        
         await transporter.verify();
         console.log("SMTP connection verified successfully");
         
         return new Response(
           JSON.stringify({
             success: true,
-            message: "SMTP connection successful",
-            timestamp: new Date().toISOString(),
+            message: `SMTP connection to ${smtpHost} successful`,
+            timestamp,
           }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -143,9 +159,10 @@ Deno.serve(async (req) => {
           JSON.stringify({
             success: false,
             message: "SMTP connection failed",
-            error: smtpError.message,
+            error: smtpError.message || "Unknown SMTP error",
             stack: smtpError.stack,
-            timestamp: new Date().toISOString(),
+            smtpUrl: smtpUrl ? "Set (masked)" : "Not set",
+            timestamp,
           }),
           {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -159,9 +176,9 @@ Deno.serve(async (req) => {
         JSON.stringify({
           success: false,
           message: "Health check failed",
-          error: error.message,
+          error: error.message || "Unknown error",
           stack: error.stack,
-          timestamp: new Date().toISOString(),
+          timestamp: new Date().toISOString()
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -407,15 +424,39 @@ Or paste the URL into your browser.
     // Verify SMTP connection
     try {
       console.log("Verifying SMTP connection before sending email...");
-      const verifyResult = await transporter.verify();
+      
+      // Verify with timeout
+      const verifyPromise = transporter.verify();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("SMTP verification timed out after 5 seconds")), 5000)
+      );
+      
+      await Promise.race([verifyPromise, timeoutPromise]);
       console.log("SMTP connection verified successfully");
     } catch (verifyError) {
       console.error("SMTP verification failed:", verifyError);
-      throw new Error(`SMTP verification failed: ${verifyError.message || "Unknown error"}`);
+      
+      // Log the invitation attempt failure
+      if (invitation_id) {
+        try {
+          await supabase.rpc('track_invitation_status', {
+            invitation_uuid: invitation_id,
+            status_value: 'email_failed',
+            details_json: { 
+              error: verifyError.message || "SMTP verification failed",
+              timestamp: new Date().toISOString()
+            }
+          });
+        } catch (logError) {
+          console.error("Failed to log invitation failure:", logError);
+        }
+      }
+      
+      throw new Error(`SMTP verification failed: ${verifyError.message || "Unknown error"}. Check SMTP credentials.`);
     }
 
     // Send email
-    console.log(`Sending email to ${to} from ${fromEmail}...`);
+    console.log(`Sending email to ${to} from ${fromEmail} via ${smtpUrl ? smtpUrl.split('@')[1] : "unknown"}...`);
     const info = await transporter.sendMail({
       from: `"DecisionGuide.AI" <${fromEmail}>`,
       to: to,
@@ -426,9 +467,43 @@ Or paste the URL into your browser.
     
     console.log(`Email sent successfully to ${to}:`, info.messageId);
     console.log("Email sending response:", JSON.stringify(info));
+    
+    // Log successful email delivery
+    if (invitation_id) {
+      try {
+        await supabase.rpc('track_invitation_status', {
+          invitation_uuid: invitation_id,
+          status_value: 'email_sent',
+          details_json: { 
+            messageId: info.messageId,
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch (logError) {
+        console.error("Failed to log successful email delivery:", logError);
+      }
+    }
+    
     return info;
   } catch (error) {
     console.error("Error sending email:", error);
+    
+    // Log email sending failure
+    if (invitation_id) {
+      try {
+        await supabase.rpc('track_invitation_status', {
+          invitation_uuid: invitation_id,
+          status_value: 'email_failed',
+          details_json: { 
+            error: error.message || "Unknown error",
+            timestamp: new Date().toISOString()
+          }
+        });
+      } catch (logError) {
+        console.error("Failed to log email failure:", logError);
+      }
+    }
+    
     throw new Error(`Email sending failed: ${error.message || "Unknown error"}`);
   }
 }
