@@ -425,3 +425,4 @@ Or paste the URL into your browser.
     console.error("Error sending email:", error);
     throw new Error(`Email sending failed: ${error.message}`);
   }
+}
