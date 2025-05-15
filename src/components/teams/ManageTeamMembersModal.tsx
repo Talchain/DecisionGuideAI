@@ -81,15 +81,15 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   const checkEdgeFunctionStatus = async () => {
     setEdgeFunctionStatus('checking');
     setEdgeFunctionError(null); 
-    
+
     try {
       console.log('Checking edge function status...');
       
       try {
         // Use the test_smtp_configuration RPC function instead of direct edge function call
-        const { data, error } = await supabase.rpc('test_smtp_configuration');
+        const { data, error } = await supabase.functions.invoke('send-team-invite/health');
         
-        console.log('Edge function health check response:', data || {});
+        console.log('Edge function health check response:', data);
         
         if (!error && data?.success) {
           setEdgeFunctionStatus('ok');
@@ -117,11 +117,14 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   const viewInvitationLogs = async (invitation: Invitation) => {
     setSelectedInvitation(invitation);
     setLoadingLogs(true);
+    setError(null);
     
     try {
       const { data, error } = await supabase.rpc(
         'get_invitation_status',
-        { invitation_uuid: invitation.id }
+        { 
+          invitation_uuid: invitation.id 
+        }
       );
       
       if (error) throw error;
@@ -155,7 +158,6 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     setSuccessMessage('');
     
     console.log('Starting email invite process for emails:', emails);
-    setSuccessMessage('');
 
     try {
       const emailList = emails
