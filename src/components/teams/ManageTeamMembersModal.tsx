@@ -59,6 +59,9 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [edgeFunctionStatus, setEdgeFunctionStatus] = useState<'checking' | 'ok' | 'error' | null>(null);
   const [edgeFunctionError, setEdgeFunctionError] = useState<string | null>(null);
+  const [testEmailAddress, setTestEmailAddress] = useState('');
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  const [testEmailResult, setTestEmailResult] = useState<any>(null);
 
   const {
     addTeamMember,
@@ -299,6 +302,50 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     }
   };
 
+  // Function to send a test email
+  const handleSendTestEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!testEmailAddress) return;
+    
+    setSendingTestEmail(true);
+    setError(null);
+    setSuccess(false);
+    
+    try {
+      const response = await fetch(
+        `${supabase.supabaseUrl}/functions/v1/send-team-invite/test-email`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabase.supabaseKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email: testEmailAddress })
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setTestEmailResult(data);
+      
+      if (data.success) {
+        setSuccessMessage(`Test email sent to ${testEmailAddress}. Please check your inbox and spam folder.`);
+        setSuccess(true);
+      } else {
+        setError(`Failed to send test email: ${data.message}`);
+      }
+    } catch (err) {
+      console.error('Failed to send test email:', err);
+      setError(err instanceof Error ? err.message : 'Failed to send test email');
+      setTestEmailResult({ success: false, error: err.message });
+    } finally {
+      setSendingTestEmail(false);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
@@ -397,7 +444,38 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                     Check again
                   </button>
                 )}
+                {edgeFunctionStatus === 'ok' && (
+                  <div className="mt-2">
+                    <form onSubmit={handleSendTestEmail} className="flex gap-2">
+                      <input
+                        type="email"
+                        value={testEmailAddress}
+                        onChange={(e) => setTestEmailAddress(e.target.value)}
+                        placeholder="Enter email for test"
+                        className="text-sm px-2 py-1 border border-gray-300 rounded flex-1"
+                        required
+                      />
+                      <button
+                        type="submit"
+                        disabled={sendingTestEmail || !testEmailAddress}
+                        className="text-sm px-2 py-1 bg-indigo-600 text-white rounded disabled:opacity-50"
+                      >
+                        {sendingTestEmail ? 'Sending...' : 'Send Test Email'}
+                      </button>
+                    </form>
+                  </div>
+                )}
               </div>
+            </div>
+          )}
+          
+          {/* Test Email Results */}
+          {testEmailResult && (
+            <div className="mb-4 p-3 rounded-lg bg-gray-50">
+              <h4 className="font-medium text-gray-900 mb-2">Test Email Results</h4>
+              <pre className="text-xs text-gray-600 overflow-x-auto max-h-40 p-2 bg-gray-100 rounded">
+                {JSON.stringify(testEmailResult, null, 2)}
+              </pre>
             </div>
           )}
 

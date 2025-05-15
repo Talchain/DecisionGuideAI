@@ -71,6 +71,34 @@ async function testSendInvitation(email) {
   }
 }
 
+// Test sending a test email
+async function testSendTestEmail(email) {
+  try {
+    console.log(`Testing test email to ${email} via ${SUPABASE_URL}/functions/v1/send-team-invite/test-email...`);
+    const response = await fetch(
+      `${SUPABASE_URL}/functions/v1/send-team-invite/test-email`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${ANON_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: email
+        })
+      }
+    );
+    console.log('Test email status:', response.status);
+    
+    const data = await response.json();
+    console.log('Test email response:', JSON.stringify(data, null, 2));
+    return data;
+  } catch (error) {
+    console.error('Test email failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 // Run tests
 async function runTests() {
   console.log('\n=== Testing send-team-invite Edge Function ===');
@@ -82,11 +110,16 @@ async function runTests() {
   const healthResult = await testHealthCheck();
   console.log('\nHealth check success:', healthResult.success);
   
+  // Get test email address from command line
+  const testEmail = process.argv[2] || 'test@example.com';
+  
   // Only test sending if health check passes
   if (healthResult.success) {
-    const testEmail = process.argv[2] || 'test@example.com';
     console.log(`\nHealth check passed, testing invitation to: ${testEmail}`);
     await testSendInvitation(testEmail);
+    
+    console.log(`\nTesting direct test email to: ${testEmail}`);
+    await testSendTestEmail(testEmail);
   } else {
     console.log('\nSkipping invitation test due to failed health check');
   }

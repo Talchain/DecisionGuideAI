@@ -1,6 +1,7 @@
 // Supabase Edge Function to send team invitation emails
 import { createClient } from "npm:@supabase/supabase-js@2.39.7";
 import nodemailer from "npm:nodemailer@6.9.9";
+import { SMTPClient } from "npm:emailjs@3.2.0";
 
 // Environment variables are automatically available
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -97,6 +98,24 @@ try {
   console.error("Error creating SMTP transporter:", error);
 }
 
+// Initialize EmailJS client as an alternative
+let emailjsClient: SMTPClient | null = null;
+try {
+  console.log("Initializing EmailJS client as alternative...");
+  
+  emailjsClient = new SMTPClient({
+    user: '8cfdcc001@smtp-brevo.com',
+    password: 'xsmtpsib-ddac0f4d8da36c3710407b5b4d546f9f41da176d1d87d2ee014012116f4c2175-DPKANEXQnp7FHmRT',
+    host: 'smtp-relay.brevo.com',
+    port: 587,
+    tls: true,
+  });
+  
+  console.log("EmailJS client created successfully");
+} catch (error) {
+  console.error("Error creating EmailJS client:", error);
+}
+
 // CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -120,12 +139,56 @@ Deno.serve(async (req) => {
   // Health check endpoint
   if (path.endsWith("/health")) {
     try {
+      // Test SMTP connection
+      let smtpStatus = "unknown";
+      let smtpError = null;
+      
+      try {
+        if (transporter) {
+          await transporter.verify();
+          smtpStatus = "connected";
+        } else {
+          smtpStatus = "not_initialized";
+          smtpError = "SMTP transporter not initialized";
+        }
+      } catch (error) {
+        smtpStatus = "error";
+        smtpError = error.message;
+        console.error("SMTP verification failed:", error);
+      }
+      
+      // Test EmailJS connection
+      let emailjsStatus = "unknown";
+      let emailjsError = null;
+      
+      try {
+        if (emailjsClient) {
+          // EmailJS doesn't have a verify method, so we'll just check if it's initialized
+          emailjsStatus = "initialized";
+        } else {
+          emailjsStatus = "not_initialized";
+          emailjsError = "EmailJS client not initialized";
+        }
+      } catch (error) {
+        emailjsStatus = "error";
+        emailjsError = error.message;
+        console.error("EmailJS check failed:", error);
+      }
+      
       // Always return success to avoid blocking the UI
       // The actual email sending will be tested when an invitation is sent
       return new Response(
         JSON.stringify({
           success: true,
           message: "Email system is operational",
+          smtp: {
+            status: smtpStatus,
+            error: smtpError
+          },
+          emailjs: {
+            status: emailjsStatus,
+            error: emailjsError
+          },
           timestamp: new Date().toISOString()
         }),
         {
@@ -146,6 +209,57 @@ Deno.serve(async (req) => {
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
+        }
+      );
+    }
+  }
+  
+  // Test email endpoint
+  if (path.endsWith("/test-email")) {
+    try {
+      const { email } = await req.json();
+      
+      if (!email) {
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            message: "Email address is required" 
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          }
+        );
+      }
+      
+      // Send test email using both methods
+      const results = await sendTestEmail(email);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: "Test email sending initiated",
+          results,
+          timestamp: new Date().toISOString()
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        }
+      );
+    } catch (error) {
+      console.error("Test email error:", error);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: "Failed to send test email",
+          error: error.message,
+          timestamp: new Date().toISOString()
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
         }
       );
     }
@@ -202,6 +316,127 @@ Deno.serve(async (req) => {
     );
   }
 });
+
+// Send test email using multiple methods
+async function sendTestEmail(email: string): Promise<any> {
+  const results = {
+    nodemailer: { success: false, error: null, messageId: null },
+    emailjs: { success: false, error: null, messageId: null }
+  };
+  
+  // HTML email template for test
+  const htmlBody = `
+<html>
+  <body style="font-family: sans-serif; line-height:1.6; color:#333;">
+    <h2>Test Email from DecisionGuide.AI</h2>
+    <p>This is a test email to verify that the email delivery system is working correctly.</p>
+    <p>If you're receiving this email, it means our system can successfully send emails to your address.</p>
+    <hr style="margin:40px 0; border:none; border-top:1px #eee solid;" />
+    <footer style="font-size:12px; color:#888;">
+      DecisionGuide.AI · <a href="https://decisionguide.ai">Make better decisions together</a>
+    </footer>
+  </body>
+</html>
+  `;
+
+  // Plain text fallback
+  const textBody = `
+Test Email from DecisionGuide.AI
+
+This is a test email to verify that the email delivery system is working correctly.
+
+If you're receiving this email, it means our system can successfully send emails to your address.
+
+— The DecisionGuide.AI Team
+  `;
+  
+  // Try sending with Nodemailer
+  try {
+    if (transporter) {
+      console.log(`Sending test email to ${email} using Nodemailer...`);
+      
+      // Verify SMTP connection
+      await transporter.verify();
+      
+      // Send email
+      const info = await transporter.sendMail({
+        from: `"DecisionGuide.AI Test" <${fromEmail}>`,
+        to: email,
+        subject: `Test Email from DecisionGuide.AI`,
+        html: htmlBody,
+        text: textBody,
+        headers: {
+          'X-Priority': '1',
+          'X-MSMail-Priority': 'High',
+          'Importance': 'High'
+        }
+      });
+      
+      console.log(`Nodemailer test email sent successfully to ${email}:`, info.messageId);
+      results.nodemailer = { 
+        success: true, 
+        error: null, 
+        messageId: info.messageId,
+        response: info.response
+      };
+    } else {
+      results.nodemailer = { 
+        success: false, 
+        error: "Nodemailer transporter not initialized", 
+        messageId: null 
+      };
+    }
+  } catch (error) {
+    console.error("Error sending test email with Nodemailer:", error);
+    results.nodemailer = { 
+      success: false, 
+      error: error.message, 
+      messageId: null,
+      code: error.code,
+      command: error.command,
+      response: error.response
+    };
+  }
+  
+  // Try sending with EmailJS
+  try {
+    if (emailjsClient) {
+      console.log(`Sending test email to ${email} using EmailJS...`);
+      
+      const message = await emailjsClient.send({
+        text: textBody,
+        from: `DecisionGuide.AI Test <${fromEmail}>`,
+        to: email,
+        subject: `Test Email from DecisionGuide.AI (EmailJS)`,
+        attachment: [
+          { data: htmlBody, alternative: true }
+        ]
+      });
+      
+      console.log(`EmailJS test email sent successfully to ${email}:`, message);
+      results.emailjs = { 
+        success: true, 
+        error: null, 
+        messageId: message.id
+      };
+    } else {
+      results.emailjs = { 
+        success: false, 
+        error: "EmailJS client not initialized", 
+        messageId: null 
+      };
+    }
+  } catch (error) {
+    console.error("Error sending test email with EmailJS:", error);
+    results.emailjs = { 
+      success: false, 
+      error: error.message, 
+      messageId: null 
+    };
+  }
+  
+  return results;
+}
 
 // Process invitation from payload
 async function processInvitationPayload(payload: any): Promise<{
@@ -487,6 +722,31 @@ Or paste the URL into your browser.
       };
       
       console.error("Email error details:", errorDetails);
+      
+      // Try with EmailJS as fallback
+      if (emailjsClient) {
+        console.log("Trying to send email with EmailJS as fallback...");
+        
+        try {
+          const message = await emailjsClient.send({
+            text: textBody,
+            from: `DecisionGuide.AI <${fromEmail}>`,
+            to: to,
+            subject: `You're invited to join "${teamName}" on DecisionGuide.AI`,
+            attachment: [
+              { data: htmlBody, alternative: true }
+            ]
+          });
+          
+          console.log(`EmailJS fallback email sent successfully to ${to}:`, message);
+          return message;
+        } catch (emailjsError) {
+          console.error("Error in EmailJS fallback:", emailjsError);
+          
+          // Combine both errors
+          throw new Error(`Email sending failed with both methods. Nodemailer: ${emailError.message}, EmailJS: ${emailjsError.message}`);
+        }
+      }
       
       // Rethrow with more details
       throw new Error(`Email sending failed: ${emailError.message}. Code: ${emailError.code || 'unknown'}`);
