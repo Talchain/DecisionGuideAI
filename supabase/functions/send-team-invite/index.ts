@@ -5,9 +5,19 @@ import nodemailer from "npm:nodemailer@6.9.9";
 // Environment variables are automatically available
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const smtpUrl = Deno.env.get("SMTP_URL") || "";
+const smtpUrl = Deno.env.get("SMTP_URL");
 const fromEmail = Deno.env.get("FROM_EMAIL") || "hello@decisionguide.ai";
 const appUrl = Deno.env.get("APP_URL") || "https://decisionguide.ai";
+
+// Log environment variables for debugging (masking sensitive info)
+console.log("Environment variables:", {
+  hasSupabaseUrl: !!supabaseUrl,
+  hasSupabaseKey: !!supabaseServiceKey,
+  smtpUrl: smtpUrl ? "Set (masked)" : "Not set",
+  fromEmail,
+  appUrl,
+  allEnvKeys: Object.keys(Deno.env.toObject())
+});
 
 // Create Supabase client with service role key
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -19,7 +29,7 @@ let transporter: nodemailer.Transporter | null = null;
 function parseSmtpUrl(url: string): any {
   try {
     if (!url) {
-      console.error("SMTP_URL environment variable is missing or empty");
+      console.error("SMTP_URL is missing or empty");
       return null;
     }
     
@@ -64,19 +74,23 @@ function parseSmtpUrl(url: string): any {
 // Initialize SMTP transporter
 try {
   console.log("Initializing SMTP transporter...");
-  
-  if (!smtpUrl || smtpUrl.trim() === '') {
-    console.error("SMTP_URL environment variable is not set or is empty");
-    throw new Error("SMTP_URL environment variable is not set or is empty");
-  }
-  
-  const smtpConfig = parseSmtpUrl(smtpUrl);
-  if (smtpConfig) {
-    transporter = nodemailer.createTransport(smtpConfig);
-    console.log("SMTP transporter created successfully for host:", smtpConfig.host);
+
+  // Check if SMTP_URL is defined
+  if (!smtpUrl) {
+    console.error("SMTP_URL environment variable is not set");
+    console.log("Available environment variables:", Object.keys(Deno.env.toObject()));
+    // Don't throw here, just log the error and continue without a transporter
+  } else if (smtpUrl.trim() === '') {
+    console.error("SMTP_URL environment variable is empty");
+    // Don't throw here, just log the error and continue without a transporter
   } else {
-    console.error("Failed to create SMTP transporter: Invalid configuration");
-    throw new Error("Failed to create SMTP transporter: Invalid configuration");
+    const smtpConfig = parseSmtpUrl(smtpUrl);
+    if (smtpConfig) {
+      transporter = nodemailer.createTransport(smtpConfig);
+      console.log("SMTP transporter created successfully for host:", smtpConfig.host);
+    } else {
+      console.error("Failed to create SMTP transporter: Invalid configuration");
+    }
   }
 } catch (error) {
   console.error("Error creating SMTP transporter:", error);
@@ -110,13 +124,29 @@ Deno.serve(async (req) => {
       
       // Check if transporter is initialized
       if (!transporter) {
-        console.log("Health check failed: SMTP transporter not initialized");
+        const envVars = Deno.env.toObject();
+        const safeEnvVars = Object.keys(envVars).reduce((acc, key) => {
+          // Don't include actual values of sensitive keys
+          if (key.includes('KEY') || key.includes('URL') || key.includes('PASS')) {
+            acc[key] = envVars[key] ? "Set (masked)" : "Not set";
+          } else {
+            acc[key] = envVars[key];
+          }
+          return acc;
+        }, {} as Record<string, string>);
+        
+        console.log("Health check failed: SMTP transporter not initialized. Environment:", safeEnvVars);
+        
         return new Response(
           JSON.stringify({
             success: false,
             message: "SMTP transporter not initialized",
             error: "Missing or invalid SMTP configuration. Check SMTP_URL environment variable.",
-            smtpUrl: smtpUrl ? "Set (masked)" : "Not set",
+            environment: {
+              smtpUrl: smtpUrl ? "Set (masked)" : "Not set",
+              fromEmail: fromEmail || "Not set",
+              availableEnvVars: Object.keys(Deno.env.toObject())
+            },
             timestamp,
           }),
           {
@@ -392,7 +422,7 @@ async function sendInvitationEmail({
   inviterName,
   inviterEmail,
   inviteLink,
-}: {
+}: { 
   to: string;
   teamName: string;
   inviteeName: string;
@@ -415,7 +445,7 @@ async function sendInvitationEmail({
   try {
     console.log(`Sending email to ${to} with link ${inviteLink}`);
     
-    if (!transporter) {
+    if (!transporter || !smtpUrl) {
       throw new Error("SMTP transporter not initialized");
     }
     
@@ -490,7 +520,7 @@ Or paste the URL into your browser.
     }
 
     // Send email
-    console.log(`Sending email to ${to} from ${fromEmail} via ${smtpUrl ? smtpUrl.split('@')[1] : "unknown"}...`);
+    console.log(`Sending email to ${to} from ${fromEmail} via ${smtpUrl ? smtpUrl.split('@')[1].split(':')[0] : "unknown"}...`);
     const info = await transporter.sendMail({
       from: `"DecisionGuide.AI" <${fromEmail}>`,
       to: to,

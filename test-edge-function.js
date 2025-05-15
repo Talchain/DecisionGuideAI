@@ -1,6 +1,14 @@
 // Test script for the send-team-invite Edge Function
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
+// Check if node-fetch is installed
+try {
+  require.resolve('node-fetch');
+} catch (e) {
+  console.error('node-fetch is not installed. Please run: npm install node-fetch');
+  process.exit(1);
+}
+
 // Configuration
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://etmmuzwxtcjipwphdola.supabase.co';
 const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV0bW11end4dGNqaXB3cGhkb2xhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg1MjczODIsImV4cCI6MjA1NDEwMzM4Mn0.QEPZS6OKIJBzlUKBNKHh25nRjRUzSpJzXyiZxHPr78k';
@@ -8,7 +16,7 @@ const ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5
 // Test health check
 async function testHealthCheck() {
   try {
-    console.log('Testing health check endpoint...');
+    console.log(`Testing health check endpoint at ${SUPABASE_URL}/functions/v1/send-team-invite/health...`);
     const response = await fetch(
       `${SUPABASE_URL}/functions/v1/send-team-invite/health`,
       {
@@ -19,6 +27,7 @@ async function testHealthCheck() {
         }
       }
     );
+    console.log('Health check status:', response.status);
     
     const data = await response.json();
     console.log('Health check response:', JSON.stringify(data, null, 2));
@@ -32,7 +41,7 @@ async function testHealthCheck() {
 // Test sending an invitation
 async function testSendInvitation(email) {
   try {
-    console.log(`Testing invitation to ${email}...`);
+    console.log(`Testing invitation to ${email} via ${SUPABASE_URL}/functions/v1/send-team-invite...`);
     const response = await fetch(
       `${SUPABASE_URL}/functions/v1/send-team-invite`,
       {
@@ -50,6 +59,7 @@ async function testSendInvitation(email) {
         })
       }
     );
+    console.log('Send invitation status:', response.status);
     
     const data = await response.json();
     console.log('Send invitation response:', JSON.stringify(data, null, 2));
@@ -62,7 +72,7 @@ async function testSendInvitation(email) {
 
 // Run tests
 async function runTests() {
-  console.log('\n=== Testing send-team-invite Edge Function ===');
+  console.log('\n=== Testing send-team-invite Edge Function ===\n');
   
   // Test health check
   const healthResult = await testHealthCheck();
@@ -71,7 +81,7 @@ async function runTests() {
   // Only test sending if health check passes
   if (healthResult.success) {
     const testEmail = process.argv[2] || 'test@example.com';
-    console.log('\nHealth check passed, testing invitation to:', testEmail);
+    console.log(`\nHealth check passed, testing invitation to: ${testEmail}`);
     await testSendInvitation(testEmail);
   } else {
     console.log('\nSkipping invitation test due to failed health check');

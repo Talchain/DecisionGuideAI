@@ -80,31 +80,45 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   // Function to check edge function status
   const checkEdgeFunctionStatus = async () => {
     setEdgeFunctionStatus('checking');
-    setEdgeFunctionError(null);
+    setEdgeFunctionError(null); 
     
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-team-invite/health`,
-        {
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+      console.log('Checking edge function status...');
+      
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-team-invite/health`,
+          {
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+            }
           }
+        );
+        
+        const data = await response.json();
+        console.log('Edge function health check response:', data);
+        
+        if (response.ok && data.success) {
+          setEdgeFunctionStatus('ok');
+        } else {
+          setEdgeFunctionStatus('error');
+          // Extract more detailed error information
+          const errorDetails = data.error || data.message || 'Unknown error checking edge function';
+          const envInfo = data.environment ? 
+            `Environment: ${JSON.stringify(data.environment)}` : '';
+          setEdgeFunctionError(`${errorDetails} ${envInfo}`);
         }
-      );
-      
-      const data = await response.json();
-      console.log('Edge function health check response:', data);
-      
-      if (response.ok && data.success) {
-        setEdgeFunctionStatus('ok');
-      } else {
+      } catch (fetchErr) {
+        console.error('Fetch error during health check:', fetchErr);
         setEdgeFunctionStatus('error');
-        setEdgeFunctionError(data.message || 'Unknown error checking edge function');
+        setEdgeFunctionError(`Network error: ${fetchErr.message}`);
       }
     } catch (err) {
       console.error('Error checking edge function status:', err);
       setEdgeFunctionStatus('error');
-      setEdgeFunctionError(err instanceof Error ? err.message : 'Failed to check edge function status');
+      setEdgeFunctionError(err instanceof Error ? 
+        `Error: ${err.message}` : 
+        'Failed to check edge function status');
     }
   };
 
@@ -351,13 +365,17 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
           {/* Edge Function Status */}
           {edgeFunctionStatus && (
             <div className={`mb-4 p-3 rounded-lg flex items-start gap-2 ${
-              edgeFunctionStatus === 'ok' 
-                ? 'bg-green-50 text-green-700' 
-                : edgeFunctionStatus === 'error'
-                ? 'bg-red-50 text-red-700'
-                : 'bg-blue-50 text-blue-700'
+              edgeFunctionStatus === 'ok' ? 'bg-green-50 text-green-700' : 
+              edgeFunctionStatus === 'error' ? 'bg-red-50 text-red-700' :
+              'bg-blue-50 text-blue-700'
             }`}>
-              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              {edgeFunctionStatus === 'ok' ? (
+                <CheckCircle className="h-5 w-5 flex-shrink-0" />
+              ) : edgeFunctionStatus === 'error' ? (
+                <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              ) : (
+                <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin" />
+              )}
               <div>
                 <p className="font-medium">
                   {edgeFunctionStatus === 'ok' 
@@ -369,7 +387,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                 {edgeFunctionError && (
                   <p className="text-sm mt-1">{edgeFunctionError}</p>
                 )}
-                {edgeFunctionStatus === 'error' && (
+                {(edgeFunctionStatus === 'error' || edgeFunctionStatus === 'checking') && (
                   <button 
                     onClick={checkEdgeFunctionStatus}
                     className="text-sm mt-2 underline"
