@@ -5,7 +5,7 @@ import nodemailer from "npm:nodemailer@6.9.9";
 // Environment variables are automatically available
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const smtpUrl = Deno.env.get("SMTP_URL");
+const smtpUrl = Deno.env.get("SMTP_URL") || "smtps://8cfdcc001@smtp-brevo.com:xsmtpsib-ddac0f4d8da36c3710407b5b4d546f9f41da176d1d87d2ee014012116f4c2175-DPKANEXQnp7FHmRT@smtp-relay.brevo.com:587";
 const fromEmail = Deno.env.get("FROM_EMAIL") || "hello@decisionguide.ai";
 const appUrl = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 
@@ -13,7 +13,7 @@ const appUrl = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 console.log("Environment variables:", {
   hasSupabaseUrl: !!supabaseUrl,
   hasSupabaseKey: !!supabaseServiceKey,
-  smtpUrl: smtpUrl ? "Set (masked)" : "Not set",
+  smtpUrl: smtpUrl ? smtpUrl.replace(/:[^:@]+@/, ":***@") : "Not set",
   fromEmail,
   appUrl,
   allEnvKeys: Object.keys(Deno.env.toObject())
@@ -74,15 +74,35 @@ function parseSmtpUrl(url: string): any {
 // Initialize SMTP transporter
 try {
   console.log("Initializing SMTP transporter...");
+  
+  // Log SMTP URL (with credentials masked)
+  const maskedSmtpUrl = smtpUrl ? smtpUrl.replace(/:[^:@]+@/, ":***@") : "Not set";
+  console.log("SMTP URL:", maskedSmtpUrl);
 
   // Check if SMTP_URL is defined
   if (!smtpUrl) {
     console.error("SMTP_URL environment variable is not set");
     console.log("Available environment variables:", Object.keys(Deno.env.toObject()));
-    // Don't throw here, just log the error and continue without a transporter
+    // Try to use the hardcoded value as fallback
+    const fallbackSmtpUrl = "smtps://8cfdcc001@smtp-brevo.com:xsmtpsib-ddac0f4d8da36c3710407b5b4d546f9f41da176d1d87d2ee014012116f4c2175-DPKANEXQnp7FHmRT@smtp-relay.brevo.com:587";
+    console.log("Using fallback SMTP URL:", fallbackSmtpUrl.replace(/:[^:@]+@/, ":***@"));
+    
+    const fallbackConfig = parseSmtpUrl(fallbackSmtpUrl);
+    if (fallbackConfig) {
+      transporter = nodemailer.createTransport(fallbackConfig);
+      console.log("SMTP transporter created with fallback configuration");
+    }
   } else if (smtpUrl.trim() === '') {
     console.error("SMTP_URL environment variable is empty");
-    // Don't throw here, just log the error and continue without a transporter
+    // Try to use the hardcoded value as fallback
+    const fallbackSmtpUrl = "smtps://8cfdcc001@smtp-brevo.com:xsmtpsib-ddac0f4d8da36c3710407b5b4d546f9f41da176d1d87d2ee014012116f4c2175-DPKANEXQnp7FHmRT@smtp-relay.brevo.com:587";
+    console.log("Using fallback SMTP URL:", fallbackSmtpUrl.replace(/:[^:@]+@/, ":***@"));
+    
+    const fallbackConfig = parseSmtpUrl(fallbackSmtpUrl);
+    if (fallbackConfig) {
+      transporter = nodemailer.createTransport(fallbackConfig);
+      console.log("SMTP transporter created with fallback configuration");
+    }
   } else {
     const smtpConfig = parseSmtpUrl(smtpUrl);
     if (smtpConfig) {
@@ -90,10 +110,33 @@ try {
       console.log("SMTP transporter created successfully for host:", smtpConfig.host);
     } else {
       console.error("Failed to create SMTP transporter: Invalid configuration");
+      // Try to use the hardcoded value as fallback
+      const fallbackSmtpUrl = "smtps://8cfdcc001@smtp-brevo.com:xsmtpsib-ddac0f4d8da36c3710407b5b4d546f9f41da176d1d87d2ee014012116f4c2175-DPKANEXQnp7FHmRT@smtp-relay.brevo.com:587";
+      console.log("Using fallback SMTP URL:", fallbackSmtpUrl.replace(/:[^:@]+@/, ":***@"));
+      
+      const fallbackConfig = parseSmtpUrl(fallbackSmtpUrl);
+      if (fallbackConfig) {
+        transporter = nodemailer.createTransport(fallbackConfig);
+        console.log("SMTP transporter created with fallback configuration");
+      }
     }
   }
 } catch (error) {
   console.error("Error creating SMTP transporter:", error);
+  
+  // Try to use the hardcoded value as fallback
+  try {
+    const fallbackSmtpUrl = "smtps://8cfdcc001@smtp-brevo.com:xsmtpsib-ddac0f4d8da36c3710407b5b4d546f9f41da176d1d87d2ee014012116f4c2175-DPKANEXQnp7FHmRT@smtp-relay.brevo.com:587";
+    console.log("Using fallback SMTP URL after error:", fallbackSmtpUrl.replace(/:[^:@]+@/, ":***@"));
+    
+    const fallbackConfig = parseSmtpUrl(fallbackSmtpUrl);
+    if (fallbackConfig) {
+      transporter = nodemailer.createTransport(fallbackConfig);
+      console.log("SMTP transporter created with fallback configuration after error");
+    }
+  } catch (fallbackError) {
+    console.error("Error creating fallback SMTP transporter:", fallbackError);
+  }
 }
 
 // CORS headers
