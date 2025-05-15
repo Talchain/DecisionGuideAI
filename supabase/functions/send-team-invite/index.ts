@@ -12,48 +12,114 @@ const appUrl = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 // Create Supabase client with service role key
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Create SMTP transporter
-const transporter = nodemailer.createTransport(smtpUrl);
-
 // CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 };
 
 // Handle HTTP requests
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
+    console.log("[CORS] Handling OPTIONS preflight request");
     return new Response(null, {
       headers: corsHeaders,
       status: 204,
     });
   }
 
-  try {
-    // Log environment configuration
-    console.log("Edge Function started with environment:", {
-      hasSmtpUrl: !!smtpUrl,
-      hasFromEmail: !!fromEmail,
-      hasAppUrl: !!appUrl
-    });
-
-    // Parse request body if this is a direct HTTP request
-    if (req.method === "POST") {
-      const body = await req.json();
-      console.log("Received direct request:", body);
+  // Health check endpoint
+  const url = new URL(req.url);
+  if (req.method === "GET" && url.pathname.endsWith("/health")) {
+    console.log("[HEALTH] Checking SMTP connection health");
+    try {
+      const transporter = nodemailer.createTransport(smtpUrl);
+      console.log("[HEALTH] Created transporter, verifying connection...");
       
-      // Process the invitation
-      await processInvitationPayload(body);
+      await transporter.verify();
+      console.log("[HEALTH] SMTP connection verified successfully");
       
       return new Response(
-        JSON.stringify({ success: true, message: "Invitation email sent" }),
+        JSON.stringify({ success: true, message: "SMTP connection OK" }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
         }
       );
+    } catch (error) {
+      console.error("[HEALTH] SMTP connection verification failed:", error);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: "SMTP connection failed", 
+          error: error.message,
+          stack: error.stack
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 500,
+        }
+      );
+    }
+  }
+
+  try {
+    // Log environment configuration
+    console.log("[ENV] Edge Function started with environment:", {
+      hasSupabaseUrl: !!supabaseUrl,
+      hasSupabaseServiceKey: !!supabaseServiceKey && supabaseServiceKey.length > 20,
+      hasSmtpUrl: !!smtpUrl,
+      smtpUrlLength: smtpUrl?.length || 0,
+      hasFromEmail: !!fromEmail,
+      hasAppUrl: !!appUrl,
+      timestamp: new Date().toISOString()
+    });
+
+    // Parse request body if this is a direct HTTP request
+    if (req.method === "POST") {
+      let body;
+      try {
+        body = await req.json();
+        console.log("[REQUEST] Received payload:", JSON.stringify(body));
+      } catch (parseError) {
+        console.error("[REQUEST] Failed to parse request body:", parseError);
+        return new Response(
+          JSON.stringify({ error: "Invalid JSON payload", details: parseError.message }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 400,
+          }
+        );
+      }
+      
+      // Process the invitation
+      try {
+        await processInvitationPayload(body);
+        
+        return new Response(
+          JSON.stringify({ success: true, message: "Invitation email sent" }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 200,
+          }
+        );
+      } catch (processError) {
+        console.error("[PROCESS] Error processing invitation:", processError);
+        return new Response(
+          JSON.stringify({ 
+            error: "Failed to process invitation", 
+            details: processError.message,
+            stack: processError.stack
+          }),
+          {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            status: 500,
+          }
+        );
+      }
     }
     
     // For webhook/subscription requests, just acknowledge receipt
@@ -65,9 +131,13 @@ Deno.serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error("Error in edge function:", error);
+    console.error("[GLOBAL] Unhandled error in edge function:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: "Unhandled error in edge function", 
+        message: error.message,
+        stack: error.stack
+      }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 500,
@@ -79,17 +149,20 @@ Deno.serve(async (req) => {
 // Process invitation from payload
 async function processInvitationPayload(payload: any) {
   try {
+    console.log("[PROCESS] Starting invitation processing");
     const { invitation_id, email, team_id, team_name, inviter_id } = payload;
     
     if (!email || !team_id || !team_name) {
+      console.error("[PROCESS] Missing required fields:", { email, team_id, team_name });
       throw new Error("Missing required fields in payload");
     }
     
-    console.log("Processing invitation payload:", {
+    console.log("[PROCESS] Processing invitation payload:", {
       invitation_id,
       email,
       team_id,
-      team_name
+      team_name,
+      inviter_id
     });
     
     // Get inviter details if inviter_id is provided
@@ -98,19 +171,26 @@ async function processInvitationPayload(payload: any) {
     
     if (inviter_id) {
       try {
+        console.log("[PROCESS] Fetching inviter profile:", inviter_id);
         const { data: inviter, error: inviterError } = await supabase
           .from("user_profiles")
           .select("first_name, last_name, id")
           .eq("id", inviter_id)
           .single();
           
-        if (inviterError) throw inviterError;
+        if (inviterError) {
+          console.error("[PROCESS] Error fetching inviter profile:", inviterError);
+          throw inviterError;
+        }
         
-        // Get inviter email
+        console.log("[PROCESS] Fetching inviter user details");
         const { data: inviterUser, error: inviterUserError } = await supabase
           .auth.admin.getUserById(inviter_id);
           
-        if (inviterUserError) throw inviterUserError;
+        if (inviterUserError) {
+          console.error("[PROCESS] Error fetching inviter user:", inviterUserError);
+          throw inviterUserError;
+        }
         
         if (inviter && inviterUser) {
           const firstName = inviter.first_name || "";
@@ -125,30 +205,41 @@ async function processInvitationPayload(payload: any) {
           if (inviterUser.user?.email) {
             inviterEmail = inviterUser.user.email;
           }
+          
+          console.log("[PROCESS] Resolved inviter details:", { inviterName, inviterEmail });
+        } else {
+          console.log("[PROCESS] No inviter details found, using defaults");
         }
       } catch (error) {
-        console.warn("Error fetching inviter details:", error);
+        console.warn("[PROCESS] Error fetching inviter details:", error);
         // Continue with default inviter name
       }
     }
     
     // Generate invitation link
     const inviteLink = `${appUrl}/teams/join?token=${invitation_id}`;
+    console.log("[PROCESS] Generated invite link:", inviteLink);
     
     // Send email
-    await sendInvitationEmail({
-      to: email,
-      teamName: team_name,
-      inviteeName: email.split("@")[0],
-      inviterName,
-      inviterEmail,
-      inviteLink,
-    });
+    try {
+      await sendInvitationEmail({
+        to: email,
+        teamName: team_name,
+        inviteeName: email.split("@")[0],
+        inviterName,
+        inviterEmail,
+        inviteLink,
+      });
+      
+      console.log(`[PROCESS] Invitation email sent to ${email} for team ${team_name}`);
+    } catch (emailError) {
+      console.error("[PROCESS] Failed to send invitation email:", emailError);
+      throw emailError;
+    }
     
-    console.log(`Invitation email sent to ${email} for team ${team_name}`);
     return true;
   } catch (error) {
-    console.error("Error processing invitation payload:", error);
+    console.error("[PROCESS] Error processing invitation payload:", error);
     throw error;
   }
 }
@@ -170,7 +261,8 @@ async function sendInvitationEmail({
   inviteLink: string;
 }) {
   try {
-    console.log(`Sending email to ${to} with link ${inviteLink}`);
+    console.log(`[EMAIL] Preparing to send email to ${to}`);
+    console.log(`[EMAIL] SMTP URL length: ${smtpUrl.length}, first 10 chars: ${smtpUrl.substring(0, 10)}...`);
     
     // HTML email template
     const htmlBody = `
@@ -208,10 +300,29 @@ Or paste the URL into your browser.
 — The DecisionGuide.AI Team
     `;
 
+    // Create SMTP transporter
+    console.log("[EMAIL] Creating nodemailer transporter");
+    const transporter = nodemailer.createTransport(smtpUrl);
+
     // Verify SMTP connection
-    await transporter.verify();
+    try {
+      console.log("[EMAIL] Verifying SMTP connection");
+      await transporter.verify();
+      console.log("[EMAIL] SMTP connection verified successfully");
+    } catch (verifyError) {
+      console.error("[EMAIL] SMTP connection verification failed:", verifyError);
+      throw new Error(`SMTP connection verification failed: ${verifyError.message}`);
+    }
 
     // Send email
+    console.log("[EMAIL] Sending email with the following details:", {
+      from: `"DecisionGuide.AI" <${fromEmail}>`,
+      to: to,
+      subject: `You're invited to join "${teamName}" on DecisionGuide.AI`,
+      textLength: textBody.length,
+      htmlLength: htmlBody.length
+    });
+    
     const info = await transporter.sendMail({
       from: `"DecisionGuide.AI" <${fromEmail}>`,
       to: to,
@@ -220,10 +331,21 @@ Or paste the URL into your browser.
       text: textBody
     });
     
-    console.log(`Email sent successfully to ${to}:`, info.messageId);
+    console.log(`[EMAIL] Email sent successfully:`, {
+      messageId: info.messageId,
+      response: info.response,
+      accepted: info.accepted,
+      rejected: info.rejected
+    });
+    
     return info;
   } catch (error) {
-    console.error("Error sending email:", error);
+    console.error("[EMAIL] Error sending email:", {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      command: error.command
+    });
     throw error;
   }
 }
