@@ -5,35 +5,37 @@ import nodemailer from "npm:nodemailer@6.9.9";
 // Environment variables are automatically available
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const smtpUrl = Deno.env.get("SMTP_URL") || "";
+const smtpUrl = Deno.env.get("SMTP_URL");
 const fromEmail = Deno.env.get("FROM_EMAIL") || "hello@decisionguide.ai";
 const appUrl = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 
 // Create Supabase client with service role key
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-// Create SMTP transporter
-let transporter: any = null;
+// SMTP configuration
+let transporter: nodemailer.Transporter | null = null;
 
 // Parse SMTP URL into config
 function parseSmtpUrl(url: string): any {
   try {
     if (!url) {
-      console.error("SMTP_URL environment variable is not set");
+      console.error("SMTP_URL environment variable is missing or empty");
       return null;
     }
     
-    // Parse the SMTP URL - handle both smtps:// and smtp:// protocols
-    const match = url.match(/^smtps?:\/\/([^:]+):([^@]+)@([^:]+):(\d+)$/i);
+    console.log(`Parsing SMTP URL: ${url.substring(0, 15)}...`);
+    
+    // Parse the SMTP URL with more flexible pattern
+    const match = url.match(/^smtps?:\/\/([^:]+)(?::([^@]+))?@([^:]+):(\d+)$/i);
     if (!match) {
-      console.error("Invalid SMTP_URL format");
+      console.error("Invalid SMTP_URL format, expected: smtp(s)://user:pass@host:port");
       return null;
     }
     
     const [, user, pass, host, port] = match;
     const portNum = parseInt(port, 10);
     
-    return {
+    const config = {
       host,
       port: portNum,
       secure: portNum === 465, // true for 465, false for other ports
@@ -42,6 +44,15 @@ function parseSmtpUrl(url: string): any {
         pass,
       },
     };
+    
+    console.log("SMTP config created:", {
+      host: config.host,
+      port: config.port,
+      secure: config.secure,
+      auth: { user: config.auth.user, pass: "***" }
+    });
+    
+    return config;
   } catch (error) {
     console.error("Error parsing SMTP URL:", error);
     return null;
@@ -50,21 +61,17 @@ function parseSmtpUrl(url: string): any {
 
 // Initialize SMTP transporter
 try {
-  console.log("Initializing SMTP transporter with URL:", smtpUrl ? `${smtpUrl.substring(0, 20)}...` : "undefined");
+  console.log("Initializing SMTP transporter...");
+  
+  if (!smtpUrl) {
+    console.error("SMTP_URL environment variable is not set");
+    throw new Error("SMTP_URL environment variable is not set");
+  }
+  
   const smtpConfig = parseSmtpUrl(smtpUrl);
   if (smtpConfig) {
-    console.log("SMTP config parsed:", {
-      host: smtpConfig.host,
-      port: smtpConfig.port,
-      secure: smtpConfig.secure,
-    });
     transporter = nodemailer.createTransport(smtpConfig);
-    console.log("SMTP transporter created with config:", {
-      host: smtpConfig.host,
-      port: smtpConfig.port,
-      secure: smtpConfig.secure,
-      auth: { user: smtpConfig.auth.user, pass: "***" }
-    });
+    console.log("SMTP transporter created successfully");
   } else {
     console.error("Failed to create SMTP transporter: Invalid configuration");
   }
@@ -95,7 +102,7 @@ Deno.serve(async (req) => {
   // Health check endpoint
   if (path.endsWith("/health")) {
     try {
-      console.log("Health check requested");
+      console.log("Health check requested at", new Date().toISOString());
       // Check if transporter is initialized
       if (!transporter) {
         console.log("Health check failed: SMTP transporter not initialized");
@@ -115,7 +122,7 @@ Deno.serve(async (req) => {
       
       // Verify SMTP connection
       try {
-        console.log("Verifying SMTP connection...");
+        console.log("Verifying SMTP connection to", smtpUrl ? smtpUrl.split('@')[1] : "unknown host");
         await transporter.verify();
         console.log("SMTP connection verified successfully");
         
@@ -168,9 +175,8 @@ Deno.serve(async (req) => {
     // Log environment configuration
     console.log("Edge Function started with environment:", {
       hasSupabaseUrl: !!supabaseUrl,
-      hasSupabaseServiceKey: !!supabaseServiceKey && supabaseServiceKey.length > 20,
+      hasSupabaseServiceKey: !!supabaseServiceKey,
       hasSmtpUrl: !!smtpUrl,
-      smtpUrlLength: smtpUrl?.length || 0,
       hasFromEmail: !!fromEmail,
       hasAppUrl: !!appUrl,
       timestamp: new Date().toISOString()
@@ -401,15 +407,15 @@ Or paste the URL into your browser.
     // Verify SMTP connection
     try {
       console.log("Verifying SMTP connection before sending email...");
-      await transporter.verify();
+      const verifyResult = await transporter.verify();
       console.log("SMTP connection verified successfully");
     } catch (verifyError) {
       console.error("SMTP verification failed:", verifyError);
-      throw new Error(`SMTP verification failed: ${verifyError.message}`);
+      throw new Error(`SMTP verification failed: ${verifyError.message || "Unknown error"}`);
     }
 
     // Send email
-    console.log(`Sending email to ${to}...`);
+    console.log(`Sending email to ${to} from ${fromEmail}...`);
     const info = await transporter.sendMail({
       from: `"DecisionGuide.AI" <${fromEmail}>`,
       to: to,
@@ -419,10 +425,10 @@ Or paste the URL into your browser.
     });
     
     console.log(`Email sent successfully to ${to}:`, info.messageId);
-    console.log("Email sending response:", info);
+    console.log("Email sending response:", JSON.stringify(info));
     return info;
   } catch (error) {
     console.error("Error sending email:", error);
-    throw new Error(`Email sending failed: ${error.message}`);
+    throw new Error(`Email sending failed: ${error.message || "Unknown error"}`);
   }
 }
