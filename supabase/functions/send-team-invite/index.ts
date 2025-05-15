@@ -5,7 +5,7 @@ import nodemailer from "npm:nodemailer@6.9.9";
 // Environment variables are automatically available
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const smtpUrl = Deno.env.get("SMTP_URL") || "smtps://8cfdcc001@smtp-brevo.com:xsmtpsib-ddac0f4d8da36c3710407b5b4d546f9f41da176d1d87d2ee014012116f4c2175-DPKANEXQnp7FHmRT@smtp-relay.brevo.com:587";
+const smtpUrl = Deno.env.get("SMTP_URL") || "smtp://8cfdcc001@smtp-brevo.com:xsmtpsib-ddac0f4d8da36c3710407b5b4d546f9f41da176d1d87d2ee014012116f4c2175-yyggG81zKWRvMvcF@smtp-relay.brevo.com:587";
 const fromEmail = Deno.env.get("FROM_EMAIL") || "hello@decisionguide.ai";
 const appUrl = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 
@@ -50,7 +50,8 @@ function parseSmtpUrl(url: string): any {
     const config = {
       host,
       port: portNum,
-      secure: portNum === 465, // true for 465, false for other ports
+      secure: false, // Use STARTTLS for port 587
+      requireTLS: true, // Require STARTTLS
       auth: {
         user,
         pass,
@@ -61,6 +62,7 @@ function parseSmtpUrl(url: string): any {
       host: config.host,
       port: config.port,
       secure: config.secure,
+      requireTLS: config.requireTLS,
       auth: { user: config.auth.user, pass: "***" }
     });
     
@@ -205,10 +207,10 @@ Deno.serve(async (req) => {
         console.log("Verifying SMTP connection to", smtpHost);
         
         // Verify with timeout
-        const verifyPromise = transporter.verify();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("SMTP verification timed out after 5 seconds")), 5000)
-        );
+        const verifyPromise = transporter.verify({ timeout: 10000 }); // Increase timeout to 10 seconds
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error("SMTP verification timed out after 10 seconds")), 10000);
+        });
         
         await Promise.race([verifyPromise, timeoutPromise]);
         
@@ -565,11 +567,17 @@ Or paste the URL into your browser.
     // Send email
     console.log(`Sending email to ${to} from ${fromEmail} via ${smtpUrl ? smtpUrl.split('@')[1].split(':')[0] : "unknown"}...`);
     const info = await transporter.sendMail({
-      from: `"DecisionGuide.AI" <${fromEmail}>`,
+      from: fromEmail,
       to: to,
       subject: `You're invited to join "${teamName}" on DecisionGuide.AI`,
       html: htmlBody,
-      text: textBody
+      text: textBody,
+      // Add additional options for better delivery
+      headers: {
+        'X-Priority': '1',
+        'X-MSMail-Priority': 'High',
+        'Importance': 'High'
+      }
     });
     
     console.log(`Email sent successfully to ${to}:`, info.messageId);

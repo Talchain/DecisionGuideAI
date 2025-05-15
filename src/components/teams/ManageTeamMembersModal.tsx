@@ -86,27 +86,18 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
       console.log('Checking edge function status...');
       
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-team-invite/health`,
-          {
-            headers: {
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-            }
-          }
-        );
+        // Use the test_smtp_configuration RPC function instead of direct edge function call
+        const { data, error } = await supabase.rpc('test_smtp_configuration');
         
-        const data = await response.json();
-        console.log('Edge function health check response:', data);
+        console.log('Edge function health check response:', data || {});
         
-        if (response.ok && data.success) {
+        if (!error && data?.success) {
           setEdgeFunctionStatus('ok');
         } else {
           setEdgeFunctionStatus('error');
           // Extract more detailed error information
-          const errorDetails = data.error || data.message || 'Unknown error checking edge function';
-          const envInfo = data.environment ? 
-            `Environment: ${JSON.stringify(data.environment)}` : '';
-          setEdgeFunctionError(`${errorDetails} ${envInfo}`);
+          const errorDetails = error?.message || data?.message || 'Unknown error checking edge function';
+          setEdgeFunctionError(errorDetails);
         }
       } catch (fetchErr) {
         console.error('Fetch error during health check:', fetchErr);
