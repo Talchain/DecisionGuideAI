@@ -58,6 +58,9 @@ function parseSmtpUrl(url: string): SMTPTransport.Options {
   } catch (error) {
     console.error("Error parsing SMTP URL:", error);
     throw error;
+  }
+}
+
 // Parse SMTP URL and create transporter
 let transporter: nodemailer.Transporter;
 
@@ -212,7 +215,7 @@ Deno.serve(async (req) => {
       smtpUrlLength: smtpUrl?.length || 0,
       hasFromEmail: !!fromEmail,
       hasAppUrl: !!appUrl,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
       timestamp: new Date().toISOString()
     });
 
@@ -269,6 +272,7 @@ async function processInvitationPayload(payload: any) {
     });
     
     // Log invitation status
+    console.log("Processing invitation payload:", {
       invitation_id: invitation_id || "Not provided",
       email: email,
       team_id: team_id,
@@ -432,6 +436,8 @@ Or paste the URL into your browser.
     } catch (verifyError) {
       console.error("SMTP connection verification failed:", verifyError);
       throw verifyError;
+    }
+
     // Verify SMTP connection
     console.log("Verifying SMTP connection...");
     try {
@@ -442,19 +448,6 @@ Or paste the URL into your browser.
       throw verifyError;
     }
 
-    console.log("Sending email with the following details:", {
-      from: `"DecisionGuide.AI" <${fromEmail}>`,
-      to: to,
-      subject: `You're invited to join "${teamName}" on DecisionGuide.AI`
-    });
-    
-    let info;
-    try {
-      info = await transporter.sendMail({
-        from: `"DecisionGuide.AI" <${fromEmail}>`,
-        to: to,
-        subject: `You're invited to join "${teamName}" on DecisionGuide.AI`,
-    // Send email
     console.log("Sending email with the following details:", {
       from: `"DecisionGuide.AI" <${fromEmail}>`,
       to: to,
