@@ -1,12 +1,11 @@
 // Supabase Edge Function to send team invitation emails
 import { createClient } from "npm:@supabase/supabase-js@2.39.7";
 import nodemailer from "npm:nodemailer@6.9.9";
-import { SMTPClient } from "npm:emailjs@3.2.0";
 
 // Environment variables are automatically available
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const smtpUrl = Deno.env.get("SMTP_URL") || "smtp://8cfdcc001@smtp-brevo.com:xsmtpsib-ddac0f4d8da36c3710407b5b4d546f9f41da176d1d87d2ee014012116f4c2175-DPKANEXQnp7FHmRT@smtp-relay.brevo.com:587";
+const smtpUrl = Deno.env.get("SMTP_URL")!;
 const fromEmail = Deno.env.get("FROM_EMAIL") || "hello@decisionguide.ai";
 const appUrl = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 
@@ -26,100 +25,25 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // SMTP configuration with better error handling
 let transporter: nodemailer.Transporter | null = null;
 
-// Parse SMTP URL into config
-function parseSmtpUrl(url: string): any {
-  try {
-    if (!url) {
-      console.error("SMTP_URL is missing or empty");
-      return null;
-    }
-    
-    // Mask credentials in logs
-    const maskedUrl = url.replace(/:[^:@]+@/, ":***@");
-    console.log(`Parsing SMTP URL: ${maskedUrl}`);
-    
-    // Parse the SMTP URL with more flexible pattern
-    const match = url.match(/^smtps?:\/\/([^:]+)(?::([^@]+))?@([^:]+):(\d+)$/i);
-    if (!match) {
-      console.error("Invalid SMTP_URL format, expected: smtp(s)://user:pass@host:port");
-      return null;
-    }
-    
-    const [, user, pass, host, port] = match;
-    const portNum = parseInt(port, 10);
-    
-    const config = {
-      host,
-      port: portNum,
-      secure: false, // Use STARTTLS for port 587
-      requireTLS: true, // Require STARTTLS
-      auth: {
-        user,
-        pass,
-      },
-    };
-    
-    console.log("SMTP config created:", {
-      host: config.host,
-      port: config.port,
-      secure: config.secure,
-      requireTLS: config.requireTLS,
-      auth: { user: config.auth.user, pass: "***" }
-    });
-    
-    return config;
-  } catch (error) {
-    console.error("Error parsing SMTP URL:", error);
-    return null;
-  }
-}
-
 // Initialize SMTP transporter
 try {
   console.log("Initializing SMTP transporter...");
 
-  // Create a simpler SMTP configuration
-  const smtpConfig = {
-    host: 'smtp-relay.brevo.com',
-    port: 587,
-    secure: false, // use STARTTLS
-    requireTLS: true,
-    auth: {
-      user: '8cfdcc001@smtp-brevo.com',
-      pass: 'xsmtpsib-ddac0f4d8da36c3710407b5b4d546f9f41da176d1d87d2ee014012116f4c2175-DPKANEXQnp7FHmRT'
-    },
+  // Create transporter directly from SMTP URL
+  transporter = nodemailer.createTransport(smtpUrl, {
     logger: true, // Enable logging
     debug: true   // Enable debug output
-  };
-  
-  transporter = nodemailer.createTransport(smtpConfig);
-  console.log("SMTP transporter created successfully for host:", smtpConfig.host);
-} catch (error) {
-  console.error("Error creating SMTP transporter:", error);
-}
-
-// Initialize EmailJS client as an alternative
-let emailjsClient: SMTPClient | null = null;
-try {
-  console.log("Initializing EmailJS client as alternative...");
-  
-  emailjsClient = new SMTPClient({
-    user: '8cfdcc001@smtp-brevo.com',
-    password: 'xsmtpsib-ddac0f4d8da36c3710407b5b4d546f9f41da176d1d87d2ee014012116f4c2175-DPKANEXQnp7FHmRT',
-    host: 'smtp-relay.brevo.com',
-    port: 587,
-    tls: true,
   });
   
-  console.log("EmailJS client created successfully");
+  console.log("SMTP transporter created successfully");
 } catch (error) {
-  console.error("Error creating EmailJS client:", error);
+  console.error("Error creating SMTP transporter:", error);
 }
 
 // CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-client-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-client-version, Range",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 };
 
@@ -146,7 +70,7 @@ Deno.serve(async (req) => {
       try {
         if (transporter) {
           await transporter.verify();
-          smtpStatus = "connected";
+          smtpStatus = "connected"; 
         } else {
           smtpStatus = "not_initialized";
           smtpError = "SMTP transporter not initialized";
@@ -157,24 +81,12 @@ Deno.serve(async (req) => {
         console.error("SMTP verification failed:", error);
       }
       
-      // Test EmailJS connection
-      let emailjsStatus = "unknown";
-      let emailjsError = null;
-      
-      try {
-        if (emailjsClient) {
-          // EmailJS doesn't have a verify method, so we'll just check if it's initialized
-          emailjsStatus = "initialized";
-        } else {
-          emailjsStatus = "not_initialized";
-          emailjsError = "EmailJS client not initialized";
-        }
-      } catch (error) {
-        emailjsStatus = "error";
-        emailjsError = error.message;
-        console.error("EmailJS check failed:", error);
-      }
-      
+      // Log the SMTP status for debugging
+      console.log("SMTP status check results:", {
+        status: smtpStatus,
+        error: smtpError
+      });
+
       // Always return success to avoid blocking the UI
       // The actual email sending will be tested when an invitation is sent
       return new Response(
@@ -182,12 +94,8 @@ Deno.serve(async (req) => {
           success: true,
           message: "Email system is operational",
           smtp: {
-            status: smtpStatus,
-            error: smtpError
-          },
-          emailjs: {
-            status: emailjsStatus,
-            error: emailjsError
+            status: smtpStatus, 
+            error: smtpError 
           },
           timestamp: new Date().toISOString()
         }),
@@ -320,8 +228,7 @@ Deno.serve(async (req) => {
 // Send test email using multiple methods
 async function sendTestEmail(email: string): Promise<any> {
   const results = {
-    nodemailer: { success: false, error: null, messageId: null },
-    emailjs: { success: false, error: null, messageId: null }
+    nodemailer: { success: false, error: null, messageId: null }
   };
   
   // HTML email template for test
@@ -383,7 +290,7 @@ If you're receiving this email, it means our system can successfully send emails
       results.nodemailer = { 
         success: false, 
         error: "Nodemailer transporter not initialized", 
-        messageId: null 
+        messageId: null
       };
     }
   } catch (error) {
@@ -398,43 +305,6 @@ If you're receiving this email, it means our system can successfully send emails
     };
   }
   
-  // Try sending with EmailJS
-  try {
-    if (emailjsClient) {
-      console.log(`Sending test email to ${email} using EmailJS...`);
-      
-      const message = await emailjsClient.send({
-        text: textBody,
-        from: `DecisionGuide.AI Test <${fromEmail}>`,
-        to: email,
-        subject: `Test Email from DecisionGuide.AI (EmailJS)`,
-        attachment: [
-          { data: htmlBody, alternative: true }
-        ]
-      });
-      
-      console.log(`EmailJS test email sent successfully to ${email}:`, message);
-      results.emailjs = { 
-        success: true, 
-        error: null, 
-        messageId: message.id
-      };
-    } else {
-      results.emailjs = { 
-        success: false, 
-        error: "EmailJS client not initialized", 
-        messageId: null 
-      };
-    }
-  } catch (error) {
-    console.error("Error sending test email with EmailJS:", error);
-    results.emailjs = { 
-      success: false, 
-      error: error.message, 
-      messageId: null 
-    };
-  }
-  
   return results;
 }
 
@@ -445,7 +315,9 @@ async function processInvitationPayload(payload: any): Promise<{
   details?: any;
 }> {
   try {
+    console.log("processInvitationPayload: start", { payload });
     const { invitation_id, email, team_id, team_name, inviter_id } = payload;
+    console.log("processInvitationPayload: extracted payload", { invitation_id, email, team_id, team_name, inviter_id });
     let invitation_id_to_use = invitation_id;
     
     if (!email || !team_id || !team_name) {
@@ -469,6 +341,7 @@ async function processInvitationPayload(payload: any): Promise<{
     let inviterEmail = fromEmail;
     
     if (inviter_id) {
+      console.log("processInvitationPayload: fetching inviter details", { inviter_id });
       try {        
         const { data: inviter, error: inviterError } = await supabase
           .from("user_profiles")
@@ -476,6 +349,7 @@ async function processInvitationPayload(payload: any): Promise<{
           .eq("id", inviter_id)
           .single();
           
+        console.log("processInvitationPayload: inviter profile result", { inviter, error: inviterError });
         if (inviterError) throw inviterError;
         
         // Get inviter email
@@ -483,6 +357,7 @@ async function processInvitationPayload(payload: any): Promise<{
           .auth.admin.getUserById(inviter_id);
           
         if (inviterUserError) throw inviterUserError;
+        console.log("processInvitationPayload: inviter user result", { user: inviterUser?.user, error: inviterUserError });
         
         if (inviter && inviterUser) {
           const firstName = inviter.first_name || "";
@@ -500,6 +375,7 @@ async function processInvitationPayload(payload: any): Promise<{
         }
       } catch (error) {
         console.warn("Error fetching inviter details:", error);
+        console.log("processInvitationPayload: using default inviter details due to error");
         // Continue with default inviter name
       }
     }
@@ -507,6 +383,7 @@ async function processInvitationPayload(payload: any): Promise<{
     // Generate invitation link
     const inviteLink = `${appUrl}/teams/join?token=${invitation_id}`;
     
+    console.log("processInvitationPayload: generated invite link", { inviteLink });
     try {
       // Log the invitation attempt
       if (invitation_id_to_use) {
@@ -517,12 +394,14 @@ async function processInvitationPayload(payload: any): Promise<{
             details_json: { team_id, team_name, inviter_id }
           });
         } catch (logError) {
+          console.log("processInvitationPayload: failed to log invitation attempt", { logError });
           console.warn("Failed to log invitation attempt:", logError);
           // Continue even if logging fails
         }
       }
       
       // Send email
+      console.log("processInvitationPayload: before sendInvitationEmail", { email, teamName: team_name, inviterName, inviterEmail, inviteLink });
       await sendInvitationEmail({
         to: email,
         teamName: team_name,
@@ -532,6 +411,7 @@ async function processInvitationPayload(payload: any): Promise<{
         inviteLink,
       });
       
+      console.log("processInvitationPayload: email sent successfully");
       // Log success
       if (invitation_id_to_use) {
         try {
@@ -541,6 +421,7 @@ async function processInvitationPayload(payload: any): Promise<{
             details_json: { timestamp: new Date().toISOString() }
           });
         } catch (logError) {
+          console.log("processInvitationPayload: failed to log invitation success", { logError });
           console.warn("Failed to log invitation success:", logError);
           // Continue even if logging fails
         }
@@ -548,6 +429,7 @@ async function processInvitationPayload(payload: any): Promise<{
       
       return { success: true, message: `Invitation email sent to ${email} for team ${team_name}` };
     } catch (error) {
+      console.log("processInvitationPayload: error sending email", { error });
       // Log failure
       if (invitation_id_to_use) {
         try {
@@ -561,6 +443,7 @@ async function processInvitationPayload(payload: any): Promise<{
             }
           });
         } catch (logError) {
+          console.log("processInvitationPayload: failed to log invitation failure", { logError });
           console.warn("Failed to log invitation failure:", logError);
           // Continue even if logging fails
         }
@@ -570,6 +453,7 @@ async function processInvitationPayload(payload: any): Promise<{
     }
     
   } catch (error) {
+    console.log("processInvitationPayload: unexpected error", { error });
     console.error("Error processing invitation payload:", error);
     return {
       success: false,
@@ -601,6 +485,7 @@ async function sendInvitationEmail({
   let invitation_id: string | undefined;
   
   // Extract invitation_id from inviteLink if available
+  console.log("sendInvitationEmail: starting", { to, teamName, inviteLink });
   try {
     const tokenMatch = inviteLink.match(/token=([^&]+)/);
     if (tokenMatch && tokenMatch[1]) {
@@ -611,7 +496,7 @@ async function sendInvitationEmail({
   }
   
   try {
-    console.log(`Sending email to ${to} with link ${inviteLink}`);
+    console.log(`sendInvitationEmail: preparing to send email to ${to} with link ${inviteLink}`);
     
     if (!transporter || !smtpUrl) {
       throw new Error("SMTP transporter not initialized");
@@ -655,7 +540,7 @@ Or paste the URL into your browser.
 
     // Verify SMTP connection
     try {
-      console.log("Verifying SMTP connection before sending email...");
+      console.log("sendInvitationEmail: verifying SMTP connection before sending...");
       
       // Verify with timeout
       const verifyPromise = transporter.verify();
@@ -664,9 +549,9 @@ Or paste the URL into your browser.
       );
       
       await Promise.race([verifyPromise, timeoutPromise]);
-      console.log("SMTP connection verified successfully");
+      console.log("sendInvitationEmail: SMTP connection verified successfully");
     } catch (verifyError) {
-      console.error("SMTP verification failed:", verifyError);
+      console.error("sendInvitationEmail: SMTP verification failed:", verifyError);
       
       // Log the invitation attempt failure
       if (invitation_id) {
@@ -688,9 +573,9 @@ Or paste the URL into your browser.
     }
 
     // Send email
-    console.log(`Sending email to ${to} from ${fromEmail} via ${smtpUrl ? smtpUrl.split('@')[1].split(':')[0] : "unknown"}...`);
+    console.log(`sendInvitationEmail: sending email to ${to} from ${fromEmail}...`);
     
-    try {
+    try { 
       const info = await transporter.sendMail({
         from: `"DecisionGuide.AI" <${fromEmail}>`,
         to: to,
@@ -705,8 +590,8 @@ Or paste the URL into your browser.
         }
       });
       
-      console.log(`Email sent successfully to ${to}:`, info.messageId);
-      console.log("Email sending response:", JSON.stringify(info, null, 2));
+      console.log(`sendInvitationEmail: email sent successfully to ${to}:`, info.messageId);
+      console.log("sendInvitationEmail: full response:", JSON.stringify(info, null, 2));
       
       return info;
     } catch (emailError) {
@@ -721,34 +606,10 @@ Or paste the URL into your browser.
         response: emailError.response
       };
       
-      console.error("Email error details:", errorDetails);
-      
-      // Try with EmailJS as fallback
-      if (emailjsClient) {
-        console.log("Trying to send email with EmailJS as fallback...");
-        
-        try {
-          const message = await emailjsClient.send({
-            text: textBody,
-            from: `DecisionGuide.AI <${fromEmail}>`,
-            to: to,
-            subject: `You're invited to join "${teamName}" on DecisionGuide.AI`,
-            attachment: [
-              { data: htmlBody, alternative: true }
-            ]
-          });
-          
-          console.log(`EmailJS fallback email sent successfully to ${to}:`, message);
-          return message;
-        } catch (emailjsError) {
-          console.error("Error in EmailJS fallback:", emailjsError);
-          
-          // Combine both errors
-          throw new Error(`Email sending failed with both methods. Nodemailer: ${emailError.message}, EmailJS: ${emailjsError.message}`);
-        }
-      }
+      console.error("sendInvitationEmail: email error details:", errorDetails);
       
       // Rethrow with more details
+      console.log("sendInvitationEmail: rethrowing error with details");
       throw new Error(`Email sending failed: ${emailError.message}. Code: ${emailError.code || 'unknown'}`);
     }
   } catch (error) {
