@@ -248,6 +248,7 @@ async function processInvitationPayload(payload: any): Promise<{
 }> {
   try {
     const { invitation_id, email, team_id, team_name, inviter_id } = payload;
+    let invitation_id_to_use = invitation_id;
     
     if (!email || !team_id || !team_name) {
       return {
@@ -310,11 +311,18 @@ async function processInvitationPayload(payload: any): Promise<{
     
     try {
       // Log the invitation attempt
-      await supabase.rpc('track_invitation_status', {
-        invitation_uuid: invitation_id,
-        status_value: 'sending',
-        details_json: { team_id, team_name, inviter_id }
-      });
+      if (invitation_id_to_use) {
+        try {
+          await supabase.rpc('track_invitation_status', {
+            invitation_uuid: invitation_id_to_use,
+            status_value: 'sending',
+            details_json: { team_id, team_name, inviter_id }
+          });
+        } catch (logError) {
+          console.warn("Failed to log invitation attempt:", logError);
+          // Continue even if logging fails
+        }
+      }
       
       // Send email
       await sendInvitationEmail({
@@ -327,24 +335,38 @@ async function processInvitationPayload(payload: any): Promise<{
       });
       
       // Log success
-      await supabase.rpc('track_invitation_status', {
-        invitation_uuid: invitation_id,
-        status_value: 'sent',
-        details_json: { timestamp: new Date().toISOString() }
-      });
+      if (invitation_id_to_use) {
+        try {
+          await supabase.rpc('track_invitation_status', {
+            invitation_uuid: invitation_id_to_use,
+            status_value: 'sent',
+            details_json: { timestamp: new Date().toISOString() }
+          });
+        } catch (logError) {
+          console.warn("Failed to log invitation success:", logError);
+          // Continue even if logging fails
+        }
+      }
       
       return { success: true, message: `Invitation email sent to ${email} for team ${team_name}` };
     } catch (error) {
       // Log failure
-      await supabase.rpc('track_invitation_status', {
-        invitation_uuid: invitation_id,
-        status_value: 'failed',
-        details_json: { 
-          error: error.message,
-          stack: error.stack,
-          timestamp: new Date().toISOString()
+      if (invitation_id_to_use) {
+        try {
+          await supabase.rpc('track_invitation_status', {
+            invitation_uuid: invitation_id_to_use,
+            status_value: 'failed',
+            details_json: { 
+              error: error.message,
+              stack: error.stack,
+              timestamp: new Date().toISOString()
+            }
+          });
+        } catch (logError) {
+          console.warn("Failed to log invitation failure:", logError);
+          // Continue even if logging fails
         }
-      });
+      }
       
       throw error;
     }
@@ -378,6 +400,18 @@ async function sendInvitationEmail({
   inviterEmail: string;
   inviteLink: string;
 }): Promise<any> {
+  let invitation_id: string | undefined;
+  
+  // Extract invitation_id from inviteLink if available
+  try {
+    const tokenMatch = inviteLink.match(/token=([^&]+)/);
+    if (tokenMatch && tokenMatch[1]) {
+      invitation_id = tokenMatch[1];
+    }
+  } catch (e) {
+    console.warn("Could not extract invitation_id from link:", e);
+  }
+  
   try {
     console.log(`Sending email to ${to} with link ${inviteLink}`);
     
@@ -468,42 +502,9 @@ Or paste the URL into your browser.
     console.log(`Email sent successfully to ${to}:`, info.messageId);
     console.log("Email sending response:", JSON.stringify(info));
     
-    // Log successful email delivery
-    if (invitation_id) {
-      try {
-        await supabase.rpc('track_invitation_status', {
-          invitation_uuid: invitation_id,
-          status_value: 'email_sent',
-          details_json: { 
-            messageId: info.messageId,
-            timestamp: new Date().toISOString()
-          }
-        });
-      } catch (logError) {
-        console.error("Failed to log successful email delivery:", logError);
-      }
-    }
-    
     return info;
   } catch (error) {
     console.error("Error sending email:", error);
-    
-    // Log email sending failure
-    if (invitation_id) {
-      try {
-        await supabase.rpc('track_invitation_status', {
-          invitation_uuid: invitation_id,
-          status_value: 'email_failed',
-          details_json: { 
-            error: error.message || "Unknown error",
-            timestamp: new Date().toISOString()
-          }
-        });
-      } catch (logError) {
-        console.error("Failed to log email failure:", logError);
-      }
-    }
-    
     throw new Error(`Email sending failed: ${error.message || "Unknown error"}`);
   }
 }

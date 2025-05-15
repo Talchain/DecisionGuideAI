@@ -30,7 +30,7 @@ async function testHealthCheck() {
 }
 
 // Test sending an invitation
-async function testSendInvitation(email = 'test@example.com') {
+async function testSendInvitation(email) {
   try {
     console.log(`Testing invitation to ${email}...`);
     const response = await fetch(
@@ -70,8 +70,8 @@ async function runTests() {
   
   // Only test sending if health check passes
   if (healthResult.success) {
-    console.log('\nHealth check passed, testing invitation...');
     const testEmail = process.argv[2] || 'test@example.com';
+    console.log('\nHealth check passed, testing invitation to:', testEmail);
     await testSendInvitation(testEmail);
   } else {
     console.log('\nSkipping invitation test due to failed health check');
