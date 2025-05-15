@@ -2,6 +2,7 @@
 // Run with: node test-edge-function.js
 
 const fetch = require('node:fetch');
+const crypto = require('node:crypto');
 
 // Configuration
 const SUPABASE_URL = 'https://etmmuzwxtcjipwphdola.supabase.co';
