@@ -359,26 +359,6 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
           }
         } catch (dbErr) {
           console.error('Error calling database email test:', dbErr);
-        setSuccess(true); 
-        
-        // Try the database function as well
-        try {
-          console.log('Trying database function for email test...');
-          const { data: dbResult, error: dbError } = await supabase.rpc(
-            'test_email_sending',
-            { to_email: testEmailAddress }
-          );
-          
-          if (dbError) {
-            console.error('Database email test failed:', dbError);
-          } else {
-            console.log('Database email test result:', dbResult);
-            if (dbResult.success) {
-              setSuccessMessage(prev => `${prev} A second test email was also sent via database function.`);
-            }
-          }
-        } catch (dbErr) {
-          console.error('Error calling database email test:', dbErr);
         }
       } else {
         setError(`Failed to send test email: ${data.message}`);
