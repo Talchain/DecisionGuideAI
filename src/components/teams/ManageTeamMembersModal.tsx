@@ -171,7 +171,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   const handleEmailInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
+    setError(null); 
     setSuccess(false);
     setSuccessMessage('');
     
@@ -305,7 +305,10 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   // Function to send a test email
   const handleSendTestEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!testEmailAddress) return;
+    if (!testEmailAddress || !testEmailAddress.includes('@')) {
+      setError('Please enter a valid email address');
+      return;
+    }
     
     setSendingTestEmail(true);
     setError(null);
@@ -333,7 +336,27 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
       
       if (data.success) {
         setSuccessMessage(`Test email sent to ${testEmailAddress}. Please check your inbox and spam folder.`);
-        setSuccess(true);
+        setSuccess(true); 
+        
+        // Try the database function as well
+        try {
+          console.log('Trying database function for email test...');
+          const { data: dbResult, error: dbError } = await supabase.rpc(
+            'test_email_sending',
+            { to_email: testEmailAddress }
+          );
+          
+          if (dbError) {
+            console.error('Database email test failed:', dbError);
+          } else {
+            console.log('Database email test result:', dbResult);
+            if (dbResult.success) {
+              setSuccessMessage(prev => `${prev} A second test email was also sent via database function.`);
+            }
+          }
+        } catch (dbErr) {
+          console.error('Error calling database email test:', dbErr);
+        }
       } else {
         setError(`Failed to send test email: ${data.message}`);
       }
@@ -448,7 +471,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                   <div className="mt-2">
                     <form onSubmit={handleSendTestEmail} className="flex gap-2">
                       <input
-                        type="email"
+                        type="email" 
                         value={testEmailAddress}
                         onChange={(e) => setTestEmailAddress(e.target.value)}
                         placeholder="Enter email for test"
@@ -460,7 +483,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                         disabled={sendingTestEmail || !testEmailAddress}
                         className="text-sm px-2 py-1 bg-indigo-600 text-white rounded disabled:opacity-50"
                       >
-                        {sendingTestEmail ? 'Sending...' : 'Send Test Email'}
+                        {sendingTestEmail ? 'Sending...' : 'Send Test Email'} 
                       </button>
                     </form>
                   </div>
@@ -475,7 +498,8 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
               <h4 className="font-medium text-gray-900 mb-2">Test Email Results</h4>
               <pre className="text-xs text-gray-600 overflow-x-auto max-h-40 p-2 bg-gray-100 rounded">
                 {JSON.stringify(testEmailResult, null, 2)}
-              </pre>
+              </pre> 
+              </div>
             </div>
           )}
 
@@ -523,7 +547,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Email Addresses
                 </label>
-                <textarea
+                <textarea 
                   value={emails}
                   onChange={e => setEmails(e.target.value)}
                   placeholder="Enter email addresses (one per line or comma-separated)"
@@ -535,7 +559,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
               <button
                 type="submit"
                 disabled={loading || !emails.trim()}
-                className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50" 
               >
                 {loading ? (
                   <>
@@ -569,7 +593,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                 <div className="text-center py-8 text-gray-500">
                   <p>No pending invitations</p>
                 </div>
-              ) : (
+              ) : ( 
                 invitations.map(inv => (
                   <div
                     key={inv.id}
@@ -611,7 +635,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <RefreshCw className="h-4 w-4" />
-                          )}
+                          )} 
                         </button>
                       </Tooltip>
                       <Tooltip content="Revoke">
@@ -627,7 +651,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
                             <XCircle className="h-4 w-4" />
-                          )}
+                          )} 
                         </button>
                       </Tooltip>
                     </div>
@@ -694,7 +718,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                   <div className="mt-4 flex justify-end">
                     <button
                       onClick={() => handleResendInvitation(selectedInvitation.id)}
-                      className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 mr-2"
+                      className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 mr-2" 
                     >
                       Resend Invitation
                     </button>
@@ -739,32 +763,4 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                         </select>
                         <select
                           value={m.decision_role || 'viewer'}
-                          onChange={e => handleUpdateRole(m.id, e.target.value)}
-                          className="text-sm bg-transparent border-none focus:ring-0"
-                        >
-                          {DECISION_ROLES.map(r => (
-                            <option key={r.id} value={r.id}>
-                              {r.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <Tooltip content="Remove">
-                      <button
-                        onClick={() => handleRemoveMember(m.id)}
-                        className="p-1 text-gray-400 hover:text-red-600 rounded"
-                      >
-                        <UserMinus className="h-4 w-4" />
-                      </button>
-                    </Tooltip>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+                          onChange={e =>
