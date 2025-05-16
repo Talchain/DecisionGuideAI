@@ -1,6 +1,7 @@
 // Supabase Edge Function to send team invitation emails
 import { createClient } from "npm:@supabase/supabase-js@2.39.7";
-import nodemailer from "npm:nodemailer@6.9.9";
+import * as nodemailer from "npm:nodemailer@6.9.9";
+import { sendEmailViaBrevoApi, extractBrevoApiKeyFromSmtp } from "./brevo-fallback.ts";
 
 // Parse SMTP URL to check format
 function parseSmtpUrl(url: string) {
@@ -27,6 +28,14 @@ const smtpUrl = Deno.env.get("SMTP_URL")!;
 const fromEmail = Deno.env.get("FROM_EMAIL") || "hello@decisionguide.ai";
 const appUrl = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 
+// Extract Brevo API key from SMTP URL
+const brevoApiKey = extractBrevoApiKeyFromSmtp(smtpUrl);
+console.log("[send-team-invite] Brevo API key extraction:", {
+  success: !!brevoApiKey,
+  keyLength: brevoApiKey ? brevoApiKey.length : 0,
+  keyPrefix: brevoApiKey ? brevoApiKey.substring(0, 8) + "..." : "none"
+});
+
 // Log SMTP URL format check
 console.log("[send-team-invite] SMTP URL format check:", {
   ...parseSmtpUrl(smtpUrl),
@@ -37,7 +46,23 @@ console.log("[send-team-invite] SMTP URL format check:", {
 let globalTransporter: any = null;
 try {
   console.log("[send-team-invite] Creating global transporter...");
-  globalTransporter = nodemailer.createTransport(smtpUrl);
+  
+  // Check if nodemailer is properly imported
+  console.log("[send-team-invite] Nodemailer import check:", {
+    type: typeof nodemailer,
+    keys: Object.keys(nodemailer || {}),
+    hasCreateTransport: typeof nodemailer.createTransport === 'function',
+    createTransportType: typeof nodemailer.createTransport
+  });
+  
+  if (typeof nodemailer.createTransport !== 'function') {
+    throw new Error("nodemailer.createTransport is not a function");
+  }
+  
+  globalTransporter = nodemailer.createTransport(smtpUrl, {
+    debug: true,
+    logger: true
+  });
   
   // Verify immediately
   globalTransporter.verify()
@@ -277,7 +302,7 @@ Deno.serve(async (req) => {
 // Send test email using multiple methods
 async function sendTestEmail(email: string): Promise<any> {
   console.log("[send-team-invite] sendTestEmail called for:", email);
-  let result = { success: false, error: null, messageId: null };
+  let result: any = { success: false, error: null, messageId: null };
   
   // Check if global transporter is available
   console.log("[send-team-invite] Global transporter status:", {
@@ -326,9 +351,26 @@ If you're receiving this email, it means our system can successfully send emails
     
     // Create a new transporter for each email
     let transporter;
+    
     try {
       console.log("[send-team-invite] Creating test email transporter...");
-      transporter = nodemailer.createTransport(smtpUrl);
+      
+      // Check nodemailer again
+      console.log("[send-team-invite] Nodemailer check before creating test transporter:", {
+        type: typeof nodemailer,
+        keys: Object.keys(nodemailer || {}),
+        hasCreateTransport: typeof nodemailer.createTransport === 'function'
+      });
+      
+      if (typeof nodemailer.createTransport !== 'function') {
+        throw new Error("nodemailer.createTransport is not a function");
+      }
+      
+      transporter = nodemailer.createTransport(smtpUrl, {
+        debug: true,
+        logger: true
+      });
+      
       console.log("[send-team-invite] Test email transporter created:", {
         type: typeof transporter,
         hasOptions: !!transporter?.options,
@@ -390,17 +432,29 @@ If you're receiving this email, it means our system can successfully send emails
         response: info.response
       });
     } catch (sendError) {
-      console.error("[send-team-invite] Test email send failed:", {
-        error: sendError.message,
-        stack: sendError.stack,
-        code: sendError.code,
-        command: sendError.command,
-        response: sendError.response
-      });
+      console.error("[send-team-invite] sendMail failed, trying Brevo API fallback:", sendError);
+      
+      // Try Brevo API fallback if we have an API key
+      if (brevoApiKey) {
+        console.log("[send-team-invite] Attempting Brevo API fallback for test email...");
+        const brevoResult = await sendEmailViaBrevoApi(brevoApiKey, {
+          to: email,
+          subject: `Test Email from DecisionGuide.AI (API Fallback)`,
+          htmlContent: htmlBody,
+          textContent: textBody
+        });
+        
+        return { success: true, error: null, messageId: "brevo-api", response: brevoResult };
+      }
+      
       throw sendError;
     }
     
-    console.log(`Nodemailer test email sent successfully to ${email}:`, info.messageId);
+    console.log(`Email sent successfully to ${to}:`, info.messageId);
+    console.log("[send-team-invite] Test email sent successfully:", {
+      messageId: info.messageId,
+      response: info.response
+    });
     result = { 
       success: true, 
       error: null, 
@@ -418,6 +472,54 @@ If you're receiving this email, it means our system can successfully send emails
       response: error.response,
       stack: error.stack
     };
+    
+    // Try Brevo API fallback if we have an API key
+    if (brevoApiKey) {
+      console.log("[send-team-invite] Attempting Brevo API fallback for test email...");
+      try {
+        const brevoResult = await sendEmailViaBrevoApi(brevoApiKey, {
+          to: email,
+          subject: `Test Email from DecisionGuide.AI (API Fallback)`,
+          htmlContent: htmlBody,
+          textContent: textBody
+        });
+        
+        return { success: true, error: null, messageId: "brevo-api", response: brevoResult };
+      } catch (brevoError) {
+        console.error("[send-team-invite] Brevo API fallback failed:", brevoError);
+        result = { 
+          success: false, 
+          error: `Nodemailer failed: ${error.message}. Brevo API fallback failed: ${brevoError.message}`,
+          messageId: null
+        };
+      }
+    }
+  }
+  
+  // If we get here, try the database function as a last resort
+  try {
+    console.log("[send-team-invite] Attempting database function fallback for test email...");
+    const { data, error } = await supabase.rpc('test_email_sending', { to_email: email });
+    
+    if (error) {
+      console.error("[send-team-invite] Database function fallback failed:", error);
+      if (!result.success) {
+        result.error += `. Database function fallback failed: ${error.message}`;
+      }
+    } else if (data?.success) {
+      console.log("[send-team-invite] Email sent via database function:", data);
+      return { 
+        success: true, 
+        error: null, 
+        messageId: "database-function", 
+        response: data 
+      };
+    }
+  } catch (dbError) {
+    console.error("[send-team-invite] Error calling database function:", dbError);
+    if (!result.success) {
+      result.error += `. Database function error: ${dbError.message}`;
+    }
   }
   
   return result;
@@ -434,7 +536,6 @@ async function processInvitationPayload(payload: any): Promise<{
   try {
     const { invitation_id, email, team_id, team_name, inviter_id } = payload;
     console.log("processInvitationPayload: extracted payload", { invitation_id, email, team_id, team_name, inviter_id });
-    let invitation_id_to_use = invitation_id;
     
     if (!email || !team_id || !team_name) {
       return {
@@ -444,13 +545,35 @@ async function processInvitationPayload(payload: any): Promise<{
       };
     }
     
-    console.log("Processing invitation payload:", {
-      invitation_id: invitation_id || "Not provided",
-      email: email,
-      team_id: team_id,
-      team_name: team_name,
-      inviter_id: inviter_id || "Not provided"
-    });
+    // Try using the database function first (most reliable)
+    try {
+      console.log("[send-team-invite] Attempting to send invitation via database function...");
+      
+      const { data, error } = await supabase.rpc('send_team_invitation_email', {
+        invitation_id,
+        to_email: email,
+        team_name,
+        inviter_name: "A team admin", // We'll improve this later
+        app_url: appUrl
+      });
+      
+      if (error) {
+        console.error("[send-team-invite] Database function failed:", error);
+        throw error;
+      }
+      
+      console.log("[send-team-invite] Invitation sent via database function:", data);
+      return { 
+        success: true, 
+        message: `Invitation email sent to ${email} for team ${team_name} via database function`,
+        details: data
+      };
+    } catch (dbError) {
+      console.error("[send-team-invite] Database function error:", dbError);
+      
+      // Fall back to the original method
+      console.log("[send-team-invite] Falling back to original email method...");
+    }
     
     // Get inviter details if inviter_id is provided
     let inviterName = "A team admin";
@@ -502,10 +625,10 @@ async function processInvitationPayload(payload: any): Promise<{
     console.log("processInvitationPayload: generated invite link", { inviteLink });
     try {
       // Log the invitation attempt
-      if (invitation_id_to_use) {
+      if (invitation_id) {
         try {
           await supabase.rpc('track_invitation_status', {
-            invitation_uuid: invitation_id_to_use,
+            invitation_uuid: invitation_id,
             status_value: 'sending',
             details_json: { team_id, team_name, inviter_id }
           });
@@ -516,7 +639,78 @@ async function processInvitationPayload(payload: any): Promise<{
         }
       }
       
-      // Send email
+      // Try Brevo API first if we have an API key
+      if (brevoApiKey) {
+        try {
+          console.log("[send-team-invite] Attempting to send invitation via Brevo API...");
+          
+          // HTML email template
+          const htmlBody = `
+<html>
+  <body style="font-family: sans-serif; line-height:1.6; color:#333;">
+    <h2>Hello ${email.split("@")[0]},</h2>
+    <p>${inviterName} has invited you to join the team <strong>${team_name}</strong> on DecisionGuide.AI.</p>
+    <p style="text-align:center; margin:40px 0;">
+      <a href="${inviteLink}"
+         style="background:#6366F1; color:#fff; padding:12px 24px; border-radius:6px; text-decoration:none; display:inline-block;">
+        Accept Your Invitation
+      </a>
+    </p>
+    <p>If the button above doesn't work, copy and paste this URL into your browser:</p>
+    <p style="word-break:break-all;"><a href="${inviteLink}">${inviteLink}</a></p>
+    <hr style="margin:40px 0; border:none; border-top:1px #eee solid;" />
+    <footer style="font-size:12px; color:#888;">
+      DecisionGuide.AI · <a href="https://decisionguide.ai/decision">Make better decisions together</a>
+    </footer>
+  </body>
+</html>`;
+
+          // Plain text fallback
+          const textBody = `
+Hello ${email.split("@")[0]},
+
+${inviterName} has invited you to join the team "${team_name}" on DecisionGuide.AI.
+
+Accept your invitation:
+${inviteLink}
+
+Or paste the URL into your browser.
+
+— The DecisionGuide.AI Team`;
+
+          const brevoResult = await sendEmailViaBrevoApi(brevoApiKey, {
+            to: email,
+            subject: `You're invited to join "${team_name}" on DecisionGuide.AI`,
+            htmlContent: htmlBody,
+            textContent: textBody
+          });
+          
+          console.log("[send-team-invite] Invitation sent via Brevo API:", brevoResult);
+          
+          // Log success
+          if (invitation_id) {
+            try {
+              await supabase.rpc('track_invitation_status', {
+                invitation_uuid: invitation_id,
+                status_value: 'sent_via_api',
+                details_json: { timestamp: new Date().toISOString() }
+              });
+            } catch (logError) {
+              console.warn("Failed to log invitation success:", logError);
+            }
+          }
+          
+          return { 
+            success: true, 
+            message: `Invitation email sent to ${email} for team ${team_name} via Brevo API` 
+          };
+        } catch (brevoError) {
+          console.error("[send-team-invite] Brevo API send failed:", brevoError);
+          // Continue to try SMTP as fallback
+        }
+      }
+      
+      // Send email via SMTP
       console.log("processInvitationPayload: before sendInvitationEmail", { email, teamName: team_name, inviterName, inviterEmail, inviteLink });
       await sendInvitationEmail({
         to: email,
@@ -529,10 +723,10 @@ async function processInvitationPayload(payload: any): Promise<{
       
       console.log("processInvitationPayload: email sent successfully");
       // Log success
-      if (invitation_id_to_use) {
+      if (invitation_id) {
         try {
           await supabase.rpc('track_invitation_status', {
-            invitation_uuid: invitation_id_to_use,
+            invitation_uuid: invitation_id,
             status_value: 'sent',
             details_json: { timestamp: new Date().toISOString() }
           });
@@ -547,10 +741,10 @@ async function processInvitationPayload(payload: any): Promise<{
     } catch (error) {
       console.log("processInvitationPayload: error sending email", { error });
       // Log failure
-      if (invitation_id_to_use) {
+      if (invitation_id) {
         try {
           await supabase.rpc('track_invitation_status', {
-            invitation_uuid: invitation_id_to_use,
+            invitation_uuid: invitation_id,
             status_value: 'failed',
             details_json: { 
               error: error.message,
@@ -642,204 +836,4 @@ async function sendInvitationEmail({
     // HTML email template
     const htmlBody = `
 <html>
-  <body style="font-family: sans-serif; line-height:1.6; color:#333;">
-    <h2>Hello ${inviteeName},</h2>
-    <p>${inviterName} has invited you to join the team <strong>${teamName}</strong> on DecisionGuide.AI.</p>
-    <p style="text-align:center; margin:40px 0;">
-      <a href="${inviteLink}"
-         style="background:#6366F1; color:#fff; padding:12px 24px; border-radius:6px; text-decoration:none; display:inline-block;">
-        Accept Your Invitation
-      </a>
-    </p>
-    <p>If the button above doesn't work, copy and paste this URL into your browser:</p>
-    <p style="word-break:break-all;"><a href="${inviteLink}">${inviteLink}</a></p>
-    <hr style="margin:40px 0; border:none; border-top:1px #eee solid;" />
-    <footer style="font-size:12px; color:#888;">
-      DecisionGuide.AI · <a href="https://decisionguide.ai/decision">Make better decisions together</a>
-    </footer>
-  </body>
-</html>
-    `;
-
-    // Plain text fallback
-    const textBody = `
-Hello ${inviteeName},
-
-${inviterName} has invited you to join the team "${teamName}" on DecisionGuide.AI.
-
-Accept your invitation:
-${inviteLink}
-
-Or paste the URL into your browser.
-
-— The DecisionGuide.AI Team
-    `;
-
-    // Verify SMTP connection
-    try {
-      console.log("[send-team-invite] Verifying invitation transporter...");
-      const verifyPromise = transporter.verify();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("SMTP verification timed out after 5 seconds")), 5000)
-      );
-      
-      await Promise.race([verifyPromise, timeoutPromise]);
-      console.log("[send-team-invite] Invitation transporter verified successfully");
-    } catch (verifyError) {
-      console.error("[send-team-invite] Invitation transporter verification failed:", {
-        error: verifyError.message,
-        stack: verifyError.stack
-      });
-      
-      // Log the invitation attempt failure
-      if (invitation_id) {
-        try {
-          await supabase.rpc('track_invitation_status', {
-            invitation_uuid: invitation_id,
-            status_value: 'email_failed',
-            details_json: { 
-              error: verifyError.message || "SMTP verification failed",
-              timestamp: new Date().toISOString()
-            }
-          });
-        } catch (logError) { /* Ignore logging errors */ }
-      }
-      
-      throw new Error(`SMTP verification failed: ${verifyError.message || "Unknown error"}. Check SMTP credentials.`);
-    }
-
-    // Send email
-    console.log(`sendInvitationEmail: sending email to ${to} from ${fromEmail}...`);
-    
-    // Check transporter state before sending
-    console.log("[send-team-invite] Transporter state before sending invitation:", {
-      type: typeof transporter,
-      keys: Object.keys(transporter || {}),
-      hasOptions: !!transporter?.options,
-      hasSendMail: typeof transporter?.sendMail === 'function'
-    });
-    
-    try { 
-      // Send email with timeout
-      console.log("[send-team-invite] Attempting to send invitation email...");
-      
-      const info = await transporter.sendMail({
-        from: `"DecisionGuide.AI" <${fromEmail}>`,
-        to: to,
-        subject: `You're invited to join "${teamName}" on DecisionGuide.AI`,
-        html: htmlBody,
-        text: textBody,
-        headers: {
-          'X-Priority': '1',
-          'X-MSMail-Priority': 'High',
-          'Importance': 'High'
-        }
-      });
-      
-      console.log(`Email sent successfully to ${to}:`, info.messageId);
-      console.log("[send-team-invite] Invitation email sent successfully:", {
-        messageId: info.messageId,
-        response: info.response
-      });
-      return info;
-    } catch (emailError) {
-      console.error("Error in transporter.sendMail:", emailError);
-      console.error("[send-team-invite] Invitation email send failed:", {
-        error: emailError.message,
-        stack: emailError.stack,
-        code: emailError.code,
-        command: emailError.command,
-        response: emailError.response,
-        transporterState: {
-          type: typeof transporter,
-          options: transporter?.options,
-          isIdle: transporter?.isIdle?.(),
-          isConnected: transporter?.isConnected?.(),
-        }
-      });
-      
-      // Log detailed error information
-      const errorDetails: Record<string, any> = {
-        message: emailError.message,
-        stack: emailError.stack
-      };
-      
-      // Add additional error properties if they exist
-      if ('code' in emailError) errorDetails.code = emailError.code;
-      if ('command' in emailError) errorDetails.command = emailError.command;
-      if ('responseCode' in emailError) errorDetails.responseCode = emailError.responseCode;
-      if ('response' in emailError) errorDetails.response = emailError.response;
-      
-      console.error("sendInvitationEmail: email error details:", errorDetails);
-      
-      // Rethrow with more details
-      console.log("sendInvitationEmail: rethrowing error with details");
-      throw new Error(`Email sending failed: ${emailError.message}. Code: ${emailError.code || 'unknown'}`);
-    }
-  } catch (error) {
-    console.error("Error sending email:", error);
-    
-    // Log detailed error information
-    console.error("Error details:", {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-      cause: error.cause
-    });
-    
-    throw error;
-  }
-}
-
-// Fallback method using Brevo API directly
-async function sendEmailViaBrevoApi(to: string, subject: string, htmlContent: string, textContent: string): Promise<any> {
-  try {
-    console.log("[send-team-invite] Attempting to send email via Brevo API fallback...");
-    
-    // Extract API key from SMTP URL if possible
-    let apiKey = "";
-    try {
-      const match = smtpUrl.match(/xsmtpsib-([a-f0-9]+)-/i);
-      if (match && match[1]) {
-        apiKey = match[1];
-      }
-    } catch (e) {
-      console.warn("[send-team-invite] Could not extract API key from SMTP URL:", e);
-    }
-    
-    if (!apiKey) {
-      throw new Error("No Brevo API key available for fallback");
-    }
-    
-    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "api-key": apiKey
-      },
-      body: JSON.stringify({
-        sender: {
-          name: "DecisionGuide.AI",
-          email: fromEmail
-        },
-        to: [{ email: to }],
-        subject: subject,
-        htmlContent: htmlContent,
-        textContent: textContent
-      })
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Brevo API error: ${response.status} - ${JSON.stringify(errorData)}`);
-    }
-    
-    const data = await response.json();
-    console.log("[send-team-invite] Email sent successfully via Brevo API:", data);
-    return data;
-  } catch (error) {
-    console.error("[send-team-invite] Failed to send email via Brevo API:", error);
-    throw error;
-  }
-}
+  <body style="font-family

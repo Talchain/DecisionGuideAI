@@ -1,6 +1,17 @@
 // Brevo API fallback for sending emails when SMTP fails
 // This module provides a direct API integration with Brevo's transactional email API
 
+// Define types for better type safety
+interface BrevoEmailOptions {
+  to: string | string[];
+  subject: string;
+  htmlContent: string;
+  textContent?: string;
+  from?: { name?: string; email: string };
+  replyTo?: { name?: string; email: string };
+  tags?: string[];
+}
+
 /**
  * Send an email using Brevo's API directly
  * @param apiKey Brevo API key
@@ -9,15 +20,7 @@
  */
 export async function sendEmailViaBrevoApi(
   apiKey: string,
-  options: {
-    to: string | string[];
-    subject: string;
-    htmlContent: string;
-    textContent?: string;
-    from?: { name?: string; email: string };
-    replyTo?: { name?: string; email: string };
-    tags?: string[];
-  }
+  options: BrevoEmailOptions
 ): Promise<any> {
   if (!apiKey) {
     throw new Error("Brevo API key is required");
@@ -42,8 +45,8 @@ export async function sendEmailViaBrevoApi(
   try {
     console.log("[brevo-fallback] Sending email via Brevo API:", {
       to: options.to,
-      subject: options.subject,
-      apiKeyLength: apiKey.length
+      subject: options.subject.substring(0, 30) + (options.subject.length > 30 ? "..." : ""),
+      apiKeyPrefix: apiKey.substring(0, 8) + "..."
     });
 
     // Make API request
@@ -68,6 +71,11 @@ export async function sendEmailViaBrevoApi(
     return data;
   } catch (error) {
     console.error("[brevo-fallback] Failed to send email via Brevo API:", error);
+    console.error("[brevo-fallback] Error details:", {
+      message: error.message,
+      status: error.status,
+      response: error.response
+    });
     throw error;
   }
 }
@@ -80,14 +88,29 @@ export async function sendEmailViaBrevoApi(
 export function extractBrevoApiKeyFromSmtp(smtpUrl: string): string | null {
   try {
     // Brevo SMTP URLs contain the API key in the format:
-    // xsmtpsib-{api-key}-{random}
-    const match = smtpUrl.match(/xsmtpsib-([a-f0-9]+)-/i);
-    if (match && match[1]) {
-      return match[1];
+    // smtps://username:xsmtpsib-{api-key}-{random}@smtp-relay.brevo.com
+    if (!smtpUrl) return null;
+    
+    // First try the standard format
+    let match = smtpUrl.match(/xsmtpsib-([a-f0-9]+)-/i);
+    
+    if (!match) {
+      // Try an alternative format where the API key might be the password directly
+      match = smtpUrl.match(/:([a-f0-9]{32,})/i);
     }
+    
+    if (match && match[1]) {
+      const key = match[1];
+      console.log("[brevo-fallback] Extracted API key:", {
+        keyLength: key.length,
+        keyPrefix: key.substring(0, 8) + "..."
+      });
+      return key;
+    }
+    
+    console.warn("[brevo-fallback] Could not extract API key from SMTP URL");
     return null;
   } catch (e) {
     console.warn("[brevo-fallback] Could not extract API key from SMTP URL:", e);
     return null;
   }
-}
