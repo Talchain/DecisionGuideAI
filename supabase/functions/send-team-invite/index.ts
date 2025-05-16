@@ -385,11 +385,11 @@ If you're receiving this email, it means our system can successfully send emails
     try {
       console.log("[send-team-invite] Verifying test email transporter...");
       const verifyPromise = transporter.verify();
-      const timeoutPromise = new Promise((_, reject) => {
+      const verifyTimeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error("SMTP verification timed out after 5 seconds")), 5000);
       });
       
-      await Promise.race([verifyPromise, timeoutPromise]);
+      await Promise.race([verifyPromise, verifyTimeoutPromise]);
       console.log("[send-team-invite] Test email transporter verified successfully");
     } catch (verifyError) {
       console.error("[send-team-invite] Test email transporter verification failed:", verifyError);
@@ -450,7 +450,7 @@ If you're receiving this email, it means our system can successfully send emails
       throw sendError;
     }
     
-    console.log(`Email sent successfully to ${email}:`, info.messageId);
+    console.log(`Email sent successfully to ${to}:`, info.messageId);
     console.log("[send-team-invite] Test email sent successfully:", {
       messageId: info.messageId,
       response: info.response
@@ -470,31 +470,29 @@ If you're receiving this email, it means our system can successfully send emails
       code: error.code,
       command: error.command,
       response: error.response,
-      stack: error.stack,
+      stack: error.stack
     };
     
     // Try Brevo API fallback if we have an API key
     if (brevoApiKey) {
-      console.log("[send-team-invite] Nodemailer failed, attempting to send invitation via Brevo API...");
+      console.log("[send-team-invite] Attempting Brevo API fallback for test email...");
       try {
         const brevoResult = await sendEmailViaBrevoApi(brevoApiKey, {
           to: email,
           subject: `Test Email from DecisionGuide.AI (API Fallback)`,
           htmlContent: htmlBody,
-          textContent: textBody,
+          textContent: textBody
         });
         
         return { success: true, error: null, messageId: "brevo-api", response: brevoResult };
       } catch (brevoError) {
         console.error("[send-team-invite] Brevo API fallback failed:", brevoError);
         result = { 
-          success: false,
+          success: false, 
           error: `Nodemailer failed: ${error.message}. Brevo API fallback failed: ${brevoError.message}`,
           messageId: null
         };
       }
-    } else {
-      throw new Error(`Nodemailer failed: ${error.message}. Brevo API key not available, cannot fallback.`);
     }
   }
   
@@ -577,6 +575,7 @@ async function processInvitationPayload(payload: any): Promise<{
       console.log("[send-team-invite] Falling back to original email method...");
     }
     
+    // Get inviter details if inviter_id is provided
     let inviterName = "A team admin";
     let inviterEmail = fromEmail;
     
@@ -833,3 +832,10 @@ async function sendInvitationEmail({
     } else {
       console.log("[send-team-invite] Using global transporter for invitation");
     }
+    
+    // HTML email template
+    const htmlBody = `
+<html>
+  <body style="font-family
+  }
+}
