@@ -308,9 +308,6 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     if (!testEmailAddress || !testEmailAddress.includes('@')) {
       setError('Please enter a valid email address');
       return;
-    if (!testEmailAddress || !testEmailAddress.includes('@')) {
-      setError('Please enter a valid email address');
-      return;
     }
     
     setSendingTestEmail(true);
