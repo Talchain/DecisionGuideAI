@@ -114,3 +114,4 @@ export function extractBrevoApiKeyFromSmtp(smtpUrl: string): string | null {
     console.warn("[brevo-fallback] Could not extract API key from SMTP URL:", e);
     return null;
   }
+}
