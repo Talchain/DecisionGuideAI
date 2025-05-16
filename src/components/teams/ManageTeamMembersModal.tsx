@@ -498,8 +498,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
               <h4 className="font-medium text-gray-900 mb-2">Test Email Results</h4>
               <pre className="text-xs text-gray-600 overflow-x-auto max-h-40 p-2 bg-gray-100 rounded">
                 {JSON.stringify(testEmailResult, null, 2)}
-              </pre> 
-              </div>
+              </pre>
             </div>
           )}
 
@@ -763,4 +762,30 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                         </select>
                         <select
                           value={m.decision_role || 'viewer'}
-                          onChange={e =>
+                          onChange={e => handleUpdateRole(m.id, e.target.value)}
+                          className="text-sm bg-transparent border-none focus:ring-0"
+                        >
+                          {DECISION_ROLES.map(r => (
+                            <option key={r.id} value={r.id}>
+                              {r.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveMember(m.id)}
+                      className="p-2 text-gray-400 hover:text-red-600 rounded"
+                    >
+                      <UserMinus className="h-5 w-5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
