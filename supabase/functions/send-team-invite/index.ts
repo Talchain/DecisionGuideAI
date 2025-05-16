@@ -9,6 +9,15 @@ const smtpUrl = Deno.env.get("SMTP_URL")!;
 const fromEmail = Deno.env.get("FROM_EMAIL") || "hello@decisionguide.ai";
 const appUrl = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 
+// Log environment configuration (redacting sensitive info)
+console.log("[send-team-invite] Environment configuration:", {
+  hasSupabaseUrl: !!supabaseUrl,
+  hasSupabaseKey: !!supabaseServiceKey,
+  smtpUrl: smtpUrl ? `${smtpUrl.split('@')[1]}` : undefined, // Only show host
+  fromEmail,
+  appUrl,
+});
+
 // Create Supabase client with service role key
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -220,6 +229,8 @@ Deno.serve(async (req) => {
 async function sendTestEmail(email: string): Promise<any> {
   let result = { success: false, error: null, messageId: null };
   
+  console.log("[send-team-invite] Creating test email transporter...");
+  
   // HTML email template for test
   const htmlBody = `
 <html>
@@ -249,9 +260,16 @@ If you're receiving this email, it means our system can successfully send emails
   // Try sending with Nodemailer
   try {
     console.log(`Sending test email to ${email} using Nodemailer...`);
+    console.log("[send-team-invite] SMTP URL format check:", {
+      hasSmtp: !!smtpUrl,
+      protocol: smtpUrl?.split(':')[0],
+      hasCredentials: smtpUrl?.includes('@'),
+    });
     
     // Create a new transporter for each email
     const transporter = nodemailer.createTransport(smtpUrl);
+    
+    console.log("[send-team-invite] Transporter created, verifying...");
     
     // Verify SMTP connection with timeout
     const verifyPromise = transporter.verify();
@@ -259,7 +277,16 @@ If you're receiving this email, it means our system can successfully send emails
       setTimeout(() => reject(new Error("SMTP verification timed out after 5 seconds")), 5000);
     });
     
-    await Promise.race([verifyPromise, verifyTimeoutPromise]);
+    try {
+      await Promise.race([verifyPromise, verifyTimeoutPromise]);
+      console.log("[send-team-invite] SMTP verification successful");
+    } catch (verifyError) {
+      console.error("[send-team-invite] SMTP verification failed:", {
+        error: verifyError.message,
+        stack: verifyError.stack,
+      });
+      throw verifyError;
+    }
     
     // Send email with timeout
     const sendPromise = transporter.sendMail({
@@ -279,7 +306,25 @@ If you're receiving this email, it means our system can successfully send emails
       setTimeout(() => reject(new Error("Email sending timed out after 10 seconds")), 10000);
     });
     
-    const info = await Promise.race([sendPromise, sendTimeoutPromise]);
+    let info;
+    try {
+      info = await Promise.race([sendPromise, sendTimeoutPromise]);
+      console.log("[send-team-invite] Email sent successfully:", {
+        messageId: info.messageId,
+        response: info.response,
+      });
+    } catch (sendError) {
+      console.error("[send-team-invite] Email send failed:", {
+        error: sendError.message,
+        stack: sendError.stack,
+        transporterState: {
+          options: testTransporter?.options,
+          isIdle: testTransporter?.isIdle?.(),
+          isConnected: testTransporter?.isConnected?.(),
+        },
+      });
+      throw sendError;
+    }
     
     console.log(`Nodemailer test email sent successfully to ${email}:`, info.messageId);
     result = { 
@@ -481,6 +526,12 @@ async function sendInvitationEmail({
 }): Promise<any> {
   let invitation_id: string | undefined;
   
+  console.log("[send-team-invite] Starting invitation email send:", {
+    to,
+    teamName,
+    inviteLink: inviteLink.split('token=')[0] + 'token=[REDACTED]',
+  });
+  
   // Extract invitation_id from inviteLink if available
   console.log("sendInvitationEmail: starting", { to, teamName, inviteLink });
   try {
@@ -495,8 +546,22 @@ async function sendInvitationEmail({
   try {
     console.log(`sendInvitationEmail: preparing to send email to ${to} with link ${inviteLink}`);
 
+    console.log("[send-team-invite] Creating invitation email transporter...");
+    
     // Create a new transporter for each email
     const transporter = nodemailer.createTransport(smtpUrl);
+    
+    // Verify SMTP connection
+    try {
+      await transporter.verify();
+      console.log("[send-team-invite] SMTP verification successful for invitation");
+    } catch (verifyError) {
+      console.error("[send-team-invite] SMTP verification failed for invitation:", {
+        error: verifyError.message,
+        stack: verifyError.stack,
+      });
+      throw verifyError;
+    }
     
     // HTML email template
     const htmlBody = `
@@ -569,6 +634,8 @@ Or paste the URL into your browser.
     
     try { 
       // Send email with timeout
+      console.log("[send-team-invite] Attempting to send invitation email...");
+      
       const info = await transporter.sendMail({
         from: `"DecisionGuide.AI" <${fromEmail}>`,
         to: to,
@@ -583,9 +650,22 @@ Or paste the URL into your browser.
       });
       
       console.log(`Email sent successfully to ${to}:`, info.messageId);
+      console.log("[send-team-invite] Invitation email sent successfully:", {
+        messageId: info.messageId,
+        response: info.response,
+      });
       return info;
     } catch (emailError) {
       console.error("Error in transporter.sendMail:", emailError);
+      console.error("[send-team-invite] Invitation email send failed:", {
+        error: emailError.message,
+        stack: emailError.stack,
+        transporterState: {
+          options: transporter?.options,
+          isIdle: transporter?.isIdle?.(),
+          isConnected: transporter?.isConnected?.(),
+        },
+      });
       
       // Log detailed error information
       const errorDetails: Record<string, any> = {
