@@ -34,6 +34,7 @@ export interface DecisionContextType {
   goals: string[]
   options: Option[]
   collaborators: Collaborator[]
+  collaboratorsError: string | null
   teamIds: string[]
   setDecisionId: (id: string | null) => void
   setDecisionType: (type: string | null) => void
@@ -98,6 +99,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
   const [collaborators, setCollaborators] = useState<Collaborator[]>(
     initial.collaborators ?? []
   )
+  const [collaboratorsError, setCollaboratorsError] = useState<string | null>(null)
   const [teamIds, setTeamIds] = useState<string[]>(initial.teamIds ?? [])
 
   // Subscribe to collaborator changes when decisionId changes
@@ -106,42 +108,84 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
 
     // Initial fetch
     const fetchCollaborators = async () => {
+      setCollaboratorsError(null)
       try {
-        const { data, error } = await supabase.rpc(
-          'get_decision_collaborators',
-          {
-            decision_id_param: decisionId,
+        console.log(`Fetching collaborators for decision: ${decisionId}`)
+        
+        // First try the RPC function
+        try {
+          const { data, error } = await supabase.rpc(
+            'get_decision_collaborators',
+            {
+              decision_id_param: decisionId,
+            }
+          )
+          
+          if (error) {
+            console.warn(`RPC error fetching collaborators: ${error.message}`)
+            throw error
           }
-        )
-        if (error) throw error
-        setCollaborators(data || [])
+          
+          console.log(`Collaborators fetched successfully: ${data?.length || 0} found`)
+          setCollaborators(data || [])
+          return
+        } catch (rpcError) {
+          console.error('RPC method failed, falling back to direct query:', rpcError)
+        }
+        
+        // Fallback to direct query if RPC fails
+        const { data: directData, error: directError } = await supabase
+          .from('decision_collaborators')
+          .select('*')
+          .eq('decision_id', decisionId)
+        
+        if (directError) throw directError
+        
+        console.log(`Collaborators fetched via fallback: ${directData?.length || 0} found`)
+        setCollaborators(directData || [])
       } catch (err) {
-        console.error('Error fetching collaborators:', err)
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+        console.error(`Error fetching collaborators: ${errorMessage}`, err)
+        setCollaboratorsError(errorMessage)
+        // Keep existing collaborators if any
       }
     }
 
     fetchCollaborators()
 
     // Subscribe to changes
-    const subscription = supabase
-      .channel(`decision_collaborators:${decisionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'decision_collaborators',
-          filter: `decision_id=eq.${decisionId}`,
-        },
-        (payload) => {
-          console.log('Collaborator change:', payload)
-          fetchCollaborators()
-        }
-      )
-      .subscribe()
+    let subscription
+    try {
+      subscription = supabase
+        .channel(`decision_collaborators:${decisionId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'decision_collaborators',
+            filter: `decision_id=eq.${decisionId}`,
+          },
+          (payload) => {
+            console.log('Collaborator change detected:', payload)
+            fetchCollaborators()
+          }
+        )
+        .subscribe((status) => {
+          console.log(`Realtime subscription status: ${status}`)
+        })
+    } catch (subError) {
+      console.error('Failed to create realtime subscription:', subError)
+    }
 
     return () => {
-      subscription.unsubscribe()
+      if (subscription) {
+        try {
+          subscription.unsubscribe()
+        } catch (e) {
+          console.warn('Error unsubscribing from channel:', e)
+        }
+      }
     }
   }, [decisionId])
 
@@ -156,6 +200,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
       goals,
       options,
       collaborators,
+      collaboratorsError,
       teamIds
     }
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state))
@@ -168,6 +213,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     goals,
     options,
     collaborators,
+    collaboratorsError,
     teamIds
   ])
 
@@ -181,6 +227,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     setGoals([])
     setOptions([])
     setCollaborators([])
+    setCollaboratorsError(null)
     setTeamIds([])
     localStorage.removeItem(LOCAL_STORAGE_KEY)
   }
@@ -196,6 +243,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
         goals,
         options,
         collaborators,
+        collaboratorsError,
         teamIds,
         setTeamIds,
         setDecisionId,

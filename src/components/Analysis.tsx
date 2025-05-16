@@ -67,6 +67,7 @@ export default function Analysis() {
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [collaboratorsLoading, setCollaboratorsLoading] = useState<boolean>(false);
   const [collaborationError, setCollaborationError] = useState<string | null>(null);
+  const [collaborationRetryCount, setCollaborationRetryCount] = useState<number>(0);
   const [showCollaborationPanel, setShowCollaborationPanel] = useState<boolean>(false);
   const [permanentId, setPermanentId] = useState<string | null>(() =>
     isValidDecisionId(state.decisionId) ? state.decisionId : null
@@ -75,6 +76,7 @@ export default function Analysis() {
   // == Refs ==
   const permanentDecisionIdRef = useRef<string | null>(permanentId); // Sync ref with initial state
   const saveTimeoutRef = useRef<number | null>(null);
+  const collaborationRetryTimeoutRef = useRef<number | null>(null);
   const componentMountedRef = useRef(true);
   const creationAttemptedRef = useRef(false);
   const hasCreatedPermanentDecisionRef = useRef(false);
@@ -119,6 +121,7 @@ export default function Analysis() {
     componentMountedRef.current = true;
     return () => {
       componentMountedRef.current = false;
+      if (collaborationRetryTimeoutRef.current) window.clearTimeout(collaborationRetryTimeoutRef.current);
       if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
     };
   }, []);
@@ -180,21 +183,46 @@ export default function Analysis() {
   // Fetch Collaborators Function - Refactored to 2 queries
   const fetchCollaborators = useCallback(async (decisionId: string) => {
     if (!decisionId || !isValidDecisionId(decisionId)) {
-      if (componentMountedRef.current) setCollaboratorsLoading(false);
-      setCollaborators([]);
+      if (componentMountedRef.current) {
+        setCollaboratorsLoading(false);
+        setCollaborators([]);
+      }
       return;
     }
     if (componentMountedRef.current) {
         setCollaboratorsLoading(true);
         setCollaborationError(null);
     }
+    
     try {
       console.log(`Fetching collaborator user IDs for decision ID: ${decisionId}`);
-      // Use the get_decision_collaborators function to avoid RLS recursion issues
-      const { data: collabData, error: collabError } = await supabase
-        .rpc('get_decision_collaborators', { decision_id_param: decisionId });
-
-      if (collabError) throw collabError;
+      
+      let collabData;
+      
+      // First try the RPC function
+      try {
+        // Use the get_decision_collaborators function to avoid RLS recursion issues
+        const { data, error } = await supabase
+          .rpc('get_decision_collaborators', { decision_id_param: decisionId });
+  
+        if (error) {
+          console.warn(`RPC error fetching collaborators: ${error.message}`);
+          throw error;
+        }
+        
+        collabData = data;
+      } catch (rpcError) {
+        console.error('RPC method failed, falling back to direct query:', rpcError);
+        
+        // Fallback to direct query
+        const { data, error } = await supabase
+          .from('decision_collaborators')
+          .select('*')
+          .eq('decision_id', decisionId);
+          
+        if (error) throw error;
+        collabData = data;
+      }
 
       if (!collabData || collabData.length === 0) {
           console.log("No collaborators found for this decision.");
@@ -235,6 +263,25 @@ export default function Analysis() {
     } catch (err) {
       console.error('Caught error fetching collaborators:', err);
       if (componentMountedRef.current) {
+          // Implement retry logic with exponential backoff
+          if (collaborationRetryCount < 3) {
+            const retryDelay = Math.pow(2, collaborationRetryCount) * 1000; // 1s, 2s, 4s
+            console.log(`Will retry fetching collaborators in ${retryDelay}ms (attempt ${collaborationRetryCount + 1}/3)`);
+            
+            if (collaborationRetryTimeoutRef.current) {
+              window.clearTimeout(collaborationRetryTimeoutRef.current);
+            }
+            
+            collaborationRetryTimeoutRef.current = window.setTimeout(() => {
+              if (componentMountedRef.current) {
+                setCollaborationRetryCount(prev => prev + 1);
+                fetchCollaborators(decisionId);
+              }
+            }, retryDelay);
+          } else {
+            console.error('Max retry attempts reached for fetching collaborators');
+          }
+          
           setCollaborationError(err instanceof Error ? err.message : 'Failed to load collaborators');
           setCollaborators([]);
       }
@@ -244,7 +291,7 @@ export default function Analysis() {
         setCollaboratorsLoading(false);
       }
     }
-  }, [isValidDecisionId, supabase]);
+  }, [isValidDecisionId, collaborationRetryCount]);
 
   // Function to invite a collaborator
   const inviteCollaborator = useCallback(async (email: string, role: 'collaborator' | 'viewer') => {
