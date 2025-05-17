@@ -17,6 +17,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { sendTestEmail, sendTeamInvitationEmail } from '../../lib/email';
 import { useTeams } from '../../contexts/TeamsContext';
+import { useAuth } from '../../contexts/AuthContext';
 import type { Team } from '../../types/teams';
 import type { Invitation, InviteResult } from '../../types/invitations';
 import Tooltip from '../Tooltip';
@@ -44,6 +45,7 @@ const DECISION_ROLES: { id: DecisionRole; label: string; description: string }[]
 ];
 
 export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMembersModalProps) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('email');
   const [emails, setEmails] = useState('');
   const [teamRole, setTeamRole] = useState<TeamRole>('member');
@@ -271,6 +273,10 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   const handleResendInvitation = async (invitationId: string) => {
     setProcessingInvitationId(invitationId);
     try {
+      if (!user) {
+        throw new Error('You must be logged in to resend invitations');
+      }
+      
       // Get invitation details
       const { data: invitation, error: invitationError } = await supabase
         .from('invitations')
@@ -296,7 +302,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
           invitation_uuid: invitationId,
           status_value: 'resend_requested',
           details_json: { 
-            requested_by: user?.id,
+            requested_by: user.id,
             timestamp: new Date().toISOString()
           }
         }
