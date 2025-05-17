@@ -17,11 +17,13 @@ import { supabase } from '../../lib/supabase';
 import { useTeams } from '../../contexts/TeamsContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { sendTeamInvitationEmail } from '../../lib/email';
+import { useAuth } from '../../contexts/AuthContext';
 import type { Team } from '../../types/teams';
 import type { Invitation, InviteResult } from '../../types/invitations';
 import Tooltip from '../Tooltip';
 
 export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMembersModalProps) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('email');
   const { user } = useAuth();
   const [emails, setEmails] = useState('');
@@ -30,6 +32,12 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
 
   const handleResendInvitation = async (invitationId: string) => {
     setProcessingInvitationId(invitationId);
+    if (!user) {
+      setError("You must be logged in to resend invitations");
+      setProcessingInvitationId(null);
+      return;
+    }
+    
     
     if (!user) {
       console.warn('Cannot resend invitation - user not authenticated');
