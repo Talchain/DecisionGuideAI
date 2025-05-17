@@ -15,7 +15,6 @@ import {
   Info
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { sendTestEmail, sendTeamInvitationEmail } from '../../lib/email';
 import { useTeams } from '../../contexts/TeamsContext';
 import { useAuth } from '../../contexts/AuthContext';
 import type { Team } from '../../types/teams';
@@ -45,8 +44,8 @@ const DECISION_ROLES: { id: DecisionRole; label: string; description: string }[]
 ];
 
 export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMembersModalProps) {
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabId>('email');
+  const { user } = useAuth();
   const [emails, setEmails] = useState('');
   const [teamRole, setTeamRole] = useState<TeamRole>('member');
   const [decisionRole, setDecisionRole] = useState<DecisionRole>('contributor');
@@ -766,28 +765,3 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                           value={m.decision_role || 'viewer'}
                           onChange={e => handleUpdateRole(m.id, e.target.value)}
                           className="text-sm bg-transparent border-none focus:ring-0"
-                        >
-                          {DECISION_ROLES.map(r => (
-                            <option key={r.id} value={r.id}>
-                              {r.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleRemoveMember(m.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 rounded"
-                    >
-                      <UserMinus className="h-5 w-5" />
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
