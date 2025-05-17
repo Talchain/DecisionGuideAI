@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import { sendTeamInvitationEmail } from '../lib/email';
 import type { Team, TeamMember } from '../types/teams';
 import type { Invitation, InviteResult } from '../types/invitations';
 
@@ -228,43 +229,120 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
       
       console.log(`TeamsContext: Inviting ${email} to team ${teamId} with role ${role} and decision role ${decisionRole}`);
       try {
-        const { data, error: err } = await supabase.rpc(
-          'manage_team_invite',
-          {
-            team_uuid: teamId,
-            email_address: email,
-            member_role: role,
-            decision_role: decisionRole
-          }
+        // First, check if user exists
+        const { data: userCheck, error: userCheckError } = await supabase.rpc(
+          'check_user_email_exists', 
+          { email_to_check: email }
         );
         
-        console.log(`TeamsContext: RPC response:`, { data, error: err });
-        if (err) throw err;
+        if (userCheckError) throw userCheckError;
         
-        // If this was an invitation (not direct add), track it
-        if (data && data.status === 'invited' && data.invitation_id) {
+        let result: InviteResult;
+        
+        if (userCheck && userCheck.exists) {
+          // User exists, add directly to team
+          const { error: addError } = await supabase.rpc(
+            'add_team_member',
+            {
+              p_team_id: teamId,
+              p_user_id: userCheck.id,
+              p_role: role,
+              p_decision_role: decisionRole
+            }
+          );
+          
+          if (addError) throw addError;
+          
+          result = {
+            status: 'added',
+            user_id: userCheck.id,
+            email: email,
+            team_id: teamId,
+            role: role,
+            decision_role: decisionRole
+          };
+        } else {
+          // User doesn't exist, create invitation
+          const { data: invitation, error: inviteError } = await supabase
+            .from('invitations')
+            .insert({
+              email: email,
+              team_id: teamId,
+              invited_by: user.id,
+              role: role,
+              decision_role: decisionRole,
+              status: 'pending'
+            })
+            .select()
+            .single();
+            
+          if (inviteError) throw inviteError;
+          
+          // Track invitation creation
           await supabase.rpc(
             'track_invitation_status',
             { 
-              invitation_uuid: data.invitation_id,
+              invitation_uuid: invitation.id,
               status_value: 'invitation_created',
-              details_json: JSON.stringify({ 
+              details_json: { 
                 created_by: user.id,
                 email: email,
                 team_id: teamId,
                 role: role,
                 decision_role: decisionRole,
                 timestamp: new Date().toISOString()
-              })
+              }
             }
           );
+          
+          // Get team name
+          const { data: team, error: teamError } = await supabase
+            .from('teams')
+            .select('name')
+            .eq('id', teamId)
+            .single();
+            
+          if (teamError) throw teamError;
+          
+          // Send invitation email
+          const emailResult = await sendTeamInvitationEmail(
+            invitation.id,
+            email,
+            team.name
+          );
+          
+          if (!emailResult.success) {
+            console.warn('Failed to send invitation email:', emailResult.error);
+            // Continue anyway, we'll track the failure
+            await supabase.rpc(
+              'track_invitation_status',
+              { 
+                invitation_uuid: invitation.id,
+                status_value: 'email_failed',
+                details_json: { 
+                  error: emailResult.error,
+                  timestamp: new Date().toISOString()
+                }
+              }
+            );
+          }
+          
+          result = {
+            status: 'invited',
+            id: invitation.id,
+            email: email,
+            team_id: teamId,
+            role: role,
+            decision_role: decisionRole,
+            invited_at: invitation.invited_at
+          };
         }
         
         // Refresh teams to get updated member list
         await fetchTeams();
         
-        console.log(`TeamsContext: Invitation successful for ${email}`);
-        return data as InviteResult;
+        console.log(`TeamsContext: ${result.status === 'added' ? 'Addition' : 'Invitation'} successful for ${email}`);
+        return result;
       } catch (e) {
         console.error(`TeamsContext: Error inviting ${email}:`, e);
         console.error('[TeamsContext] inviteTeamMember error:', e);
@@ -323,54 +401,9 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
   /** Resend a team invitation */
   const resendInvitation = useCallback(
     async (invitationId: string) => {
-      if (!user) throw new Error('Not authenticated');
-      setError(null);
-      
-      console.log(`TeamsContext: Resending invitation ${invitationId}`);
-      try {
-        // Track invitation status
-        await supabase.rpc(
-          'track_invitation_status',
-          { 
-            invitation_uuid: invitationId,
-            status_value: 'resend_requested',
-            details_json: JSON.stringify({ 
-              requested_by: user.id,
-              timestamp: new Date().toISOString()
-            })
-          }
-        );
-        
-        const { error: err } = await supabase
-          .from('invitations')
-          .update({ 
-            invited_at: new Date().toISOString(),
-            status: 'pending'
-          })
-          .eq('id', invitationId);
-          
-        if (err) throw err;
-        
-        // Track invitation status update
-        await supabase.rpc(
-          'track_invitation_status',
-          { 
-            invitation_uuid: invitationId,
-            status_value: 'resend_completed',
-            details_json: JSON.stringify({ 
-              completed_by: user.id,
-              timestamp: new Date().toISOString()
-            })
-          }
-        );
-        
-        console.log(`TeamsContext: Invitation ${invitationId} resent successfully`);
-      } catch (e) {
-        console.error(`TeamsContext: Error resending invitation ${invitationId}:`, e);
-        console.error('[TeamsContext] resendInvitation error:', e);
-        setError(e instanceof Error ? e.message : 'Failed to resend invitation');
-        throw e;
-      }
+      // This function is now implemented directly in ManageTeamMembersModal
+      // to use the new email service
+      throw new Error('This function is deprecated. Use the implementation in ManageTeamMembersModal.');
     },
     [user]
   );
