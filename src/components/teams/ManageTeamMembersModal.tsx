@@ -15,8 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useTeams } from '../../contexts/TeamsContext';
-import { useAuth } from '../../contexts/AuthContext';
-import { sendTeamInvitationEmail } from '../lib/email';
+import { sendTeamInvitationEmail } from '../../lib/email';
 import type { Team } from '../../types/teams';
 import type { Invitation, InviteResult } from '../../types/invitations';
 import Tooltip from '../Tooltip';
@@ -107,25 +106,32 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   }
 
   return (
-    <div>
-      <div>
-        <div>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h2 className="text-lg font-semibold">Manage Team Members</h2>
+          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-full">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        
+        <div className="p-4">
           {DECISION_ROLES.map(r => (
             <option key={r.id} value={r.id}>
               {r.label}
             </option>
           ))}
-        </select>
+          </select>
+        </div>
       </div>
+      <button
+        onClick={() => handleRemoveMember(m.id)}
+        className="p-2 text-gray-400 hover:text-red-600 rounded"
+      >
+        <UserMinus className="h-5 w-5" />
+      </button>
     </div>
-    <button
-      onClick={() => handleRemoveMember(m.id)}
-      className="p-2 text-gray-400 hover:text-red-600 rounded"
-    >
-      <UserMinus className="h-5 w-5" />
-    </button>
-  </div>
-))}
+  ))}
             </div>
           )}
         </div>
