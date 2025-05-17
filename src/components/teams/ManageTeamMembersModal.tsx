@@ -15,6 +15,7 @@ import {
   Info
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { sendTestEmail, sendTeamInvitationEmail } from '../../lib/email';
 import { useTeams } from '../../contexts/TeamsContext';
 import type { Team } from '../../types/teams';
 import type { Invitation, InviteResult } from '../../types/invitations';
@@ -62,7 +63,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   const [testEmailAddress, setTestEmailAddress] = useState('');
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
   const [testEmailResult, setTestEmailResult] = useState<any>(null);
-
+  
   const {
     addTeamMember,
     inviteTeamMember,
@@ -84,43 +85,23 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   const checkEdgeFunctionStatus = async () => {
     setEdgeFunctionStatus('checking');
     setEdgeFunctionError(null);
-
+    
     try {
-      console.log('Checking edge function status...');
+      // Check if we can access the email system by calling the test_email_sending RPC
+      const { data, error } = await supabase.rpc('test_email_sending', { 
+        to_email: 'test@example.com' 
+      });
       
-      try {
-        // Use a direct fetch with proper headers to avoid CORS issues
-        const response = await fetch(
-          `${supabase.supabaseUrl}/functions/v1/send-team-invite/health`,
-          {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${supabase.supabaseKey}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        console.log('Edge function health check response:', data);
-        
-        if (!error && data?.success) {
-          setEdgeFunctionStatus('ok');
-        } else {
-          setEdgeFunctionStatus('error');
-          // Extract more detailed error information
-          const errorDetails = data?.message || 'Unknown error checking edge function';
-          setEdgeFunctionError(errorDetails);
-        }
-      } catch (fetchErr) {
-        console.error('Fetch error during health check:', fetchErr);
+      if (error) {
+        throw error;
+      }
+      
+      // Check if the email system is configured
+      if (data.error && data.error.includes('Missing email credentials')) {
         setEdgeFunctionStatus('error');
-        setEdgeFunctionError(`Network error: ${fetchErr.message}`);
+        setEdgeFunctionError('Email system is not properly configured: Missing API key');
+      } else {
+        setEdgeFunctionStatus('ok');
       }
     } catch (err) {
       console.error('Error checking edge function status:', err);
@@ -290,10 +271,60 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   const handleResendInvitation = async (invitationId: string) => {
     setProcessingInvitationId(invitationId);
     try {
-      await resendInvitation(invitationId);
-      setSuccessMessage('Invitation resent.');
-      setSuccess(true);
-      fetchInvitations();
+      // Get invitation details
+      const { data: invitation, error: invitationError } = await supabase
+        .from('invitations')
+        .select('email, team_id')
+        .eq('id', invitationId)
+        .single();
+        
+      if (invitationError) throw invitationError;
+      
+      // Get team details
+      const { data: team, error: teamError } = await supabase
+        .from('teams')
+        .select('name')
+        .eq('id', invitation.team_id)
+        .single();
+        
+      if (teamError) throw teamError;
+      
+      // Track invitation status
+      await supabase.rpc(
+        'track_invitation_status',
+        { 
+          invitation_uuid: invitationId,
+          status_value: 'resend_requested',
+          details_json: { 
+            requested_by: user?.id,
+            timestamp: new Date().toISOString()
+          }
+        }
+      );
+      
+      // Send invitation email
+      const result = await sendTeamInvitationEmail(
+        invitationId,
+        invitation.email,
+        team.name
+      );
+      
+      if (result.success) {
+        // Update invitation timestamp
+        await supabase
+          .from('invitations')
+          .update({ 
+            invited_at: new Date().toISOString(),
+            status: 'pending'
+          })
+          .eq('id', invitationId);
+          
+        setSuccessMessage('Invitation resent successfully.');
+        setSuccess(true);
+        fetchInvitations();
+      } else {
+        throw new Error(result.error || 'Failed to send invitation email');
+      }
     } catch (err) {
       console.error('Failed to resend invitation:', err);
       setError((err as Error).message);
@@ -315,55 +346,20 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     setSuccess(false);
     
     try {
-      const response = await fetch(
-        `${supabase.supabaseUrl}/functions/v1/send-team-invite/test-email`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${supabase.supabaseKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ email: testEmailAddress })
-        }
-      );
+      // Send test email using the new email service
+      const result = await sendTestEmail(testEmailAddress);
+      setTestEmailResult(result);
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      setTestEmailResult(data);
-      
-      if (data.success) {
+      if (result.success) {
         setSuccessMessage(`Test email sent to ${testEmailAddress}. Please check your inbox and spam folder.`);
         setSuccess(true); 
-        
-        // Try the database function as well
-        try {
-          console.log('Trying database function for email test...');
-          const { data: dbResult, error: dbError } = await supabase.rpc(
-            'test_email_sending',
-            { to_email: testEmailAddress }
-          );
-          
-          if (dbError) {
-            console.error('Database email test failed:', dbError);
-          } else {
-            console.log('Database email test result:', dbResult);
-            if (dbResult.success) {
-              setSuccessMessage(prev => `${prev} A second test email was also sent via database function.`);
-            }
-          }
-        } catch (dbErr) {
-          console.error('Error calling database email test:', dbErr);
-        }
       } else {
-        setError(`Failed to send test email: ${data.message}`);
+        setError(`Failed to send test email: ${result.error}`);
       }
     } catch (err) {
       console.error('Failed to send test email:', err);
       setError(err instanceof Error ? err.message : 'Failed to send test email');
-      setTestEmailResult({ success: false, error: err.message });
+      setTestEmailResult({ success: false, error: err instanceof Error ? err.message : 'Unknown error' });
     } finally {
       setSendingTestEmail(false);
     }
