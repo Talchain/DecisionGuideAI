@@ -21,6 +21,7 @@ import type { Team } from '../../types/teams';
 import type { Invitation, InviteResult } from '../../types/invitations';
 import Tooltip from '../Tooltip';
 import UserDirectoryTab from './UserDirectoryTab';
+import { sendTestEmail, sendTeamInvitationEmail } from '../../lib/email';
 
 interface ManageTeamMembersModalProps {
   team: Team;
@@ -763,5 +764,4 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                         </select>
                         <select
                           value={m.decision_role || 'viewer'}
-                          onChange={e => handleUpdateRole(m.id, e.target.value)}
-                          className="text-sm bg-transparent border-none focus:ring-0"
+                          onChange={e => handleUpdateRole(m.id, e.target
