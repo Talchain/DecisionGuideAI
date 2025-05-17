@@ -27,7 +27,8 @@ export default defineConfig({
       'react',
       'react-dom',
       'react-router-dom',
-      '@supabase/supabase-js'
+      '@supabase/supabase-js',
+      'date-fns'
     ],
     exclude: []
   },
