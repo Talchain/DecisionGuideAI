@@ -11,6 +11,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { useDecision } from '../contexts/DecisionContext';
+import ChatBox from './ChatBox';
 
 interface DecisionType {
   id: string;
