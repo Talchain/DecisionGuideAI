@@ -1,4 +1,5 @@
 // src/components/teams/ManageTeamMembersModal.tsx
+
 import React, { useState, useEffect } from 'react';
 import {
   X,
@@ -16,8 +17,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useTeams } from '../../contexts/TeamsContext';
-import { sendTeamInvitationEmail } from '../../lib/email';
-import { useAuth } from '../../contexts/AuthContext';
+import { sendInviteViaEdge } from '../../lib/email';
 import type { Team } from '../../types/teams';
 import type { Invitation, InviteResult } from '../../types/invitations';
 import Tooltip from '../Tooltip';
@@ -45,8 +45,13 @@ const DECISION_ROLES: { id: DecisionRole; label: string; description: string }[]
 ];
 
 export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMembersModalProps) {
-  const { user } = useAuth();
-  const { addTeamMember, inviteTeamMember, getTeamInvitations, revokeInvitation } = useTeams();
+  const { user } = useTeams(); // note: useTeams provides user via AuthContext inside
+  const {
+    addTeamMember,
+    inviteTeamMember,
+    getTeamInvitations,
+    revokeInvitation,
+  } = useTeams();
 
   const [activeTab, setActiveTab] = useState<TabId>('email');
   const [emails, setEmails] = useState('');
@@ -55,7 +60,8 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loadingInvitations, setLoadingInvitations] = useState(false);
   const [processingInvitationId, setProcessingInvitationId] = useState<string | null>(null);
@@ -69,13 +75,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   const [testEmailResult, setTestEmailResult] = useState<any>(null);
 
   useEffect(() => {
-    if (activeTab === 'pending') {
-      fetchInvitations();
-    }
-    // reset before checking so form reappears on returning to 'email'
-    if (activeTab === 'email') {
-      setEdgeFunctionStatus(null);
-    }
+    if (activeTab === 'pending') fetchInvitations();
     checkEdgeFunctionStatus();
   }, [activeTab]);
 
@@ -91,7 +91,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
         setEdgeFunctionStatus('ok');
       } else {
         setEdgeFunctionStatus('error');
-        setEdgeFunctionError(data.message || 'Unknown error');
+        setEdgeFunctionError(data.error || data.message || 'Unknown error');
       }
     } catch (err: any) {
       setEdgeFunctionStatus('error');
@@ -128,36 +128,25 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
 
   const handleEmailInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSuccessMessage(null);
+    setInfoMessage(null);
     setLoading(true);
     setError(null);
     setSuccess(false);
+
     try {
       const list = emails.split(/[,\n]/).map(x => x.trim()).filter(Boolean);
-      const results: InviteResult[] = [];
-      for (const email of list) {
-        try {
-          results.push(await inviteTeamMember(team.id, email, teamRole, decisionRole));
-        } catch (err: any) {
-          if (err.code === '23505') {
-            results.push({ status: 'already_invited', email });
-          } else {
-            throw err;
-          }
+      for (const emailAddr of list) {
+        const result = await inviteTeamMember(team.id, emailAddr, teamRole, decisionRole);
+        if (result.status === 'invited') {
+          setSuccessMessage(`Invitation sent to ${emailAddr}`);
+        } else if (result.status === 'already_invited') {
+          setInfoMessage(`${emailAddr} is already invited`);
         }
       }
-      const added = results.filter(r => r.status === 'added').length;
-      const invited = results.filter(r => r.status === 'invited').length;
-      const already = results.filter(r => r.status === 'already_invited').length;
-      let msg = '';
-      if (added) msg += `${added} user${added!==1?'s':''} added. `;
-      if (invited) msg += `${invited} invitation${invited!==1?'s':''} sent. `;
-      if (already) msg += `${already} already invited.`;
-      setSuccessMessage(msg.trim());
-      setSuccess(true);
       setEmails('');
-      if (invited) {
-        await fetchInvitations();
-      }
+      setSuccess(true);
+      if (list.some(e => e)) await fetchInvitations();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -194,20 +183,24 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
 
   const handleResendInvitation = async (id: string) => {
     setProcessingInvitationId(id);
+    setSuccessMessage(null);
+    setInfoMessage(null);
     try {
       const inv = invitations.find(i => i.id === id)!;
-      const { data, error } = await sendTeamInvitationEmail(
-        id,
-        inv.email,
-        team.name,
-        user?.email || 'A team admin'
-      );
-      if (error || !data?.success) {
-        throw new Error(error || 'Resend failed');
+      const edge = await sendInviteViaEdge({
+        invitation_id: id,
+        email: inv.email,
+        team_id: team.id,
+        team_name: team.name,
+        inviter_id: user!.id
+      });
+      if (edge.success) {
+        setSuccessMessage(`Invitation resent to ${inv.email}`);
+        setSuccess(true);
+        await fetchInvitations();
+      } else {
+        setError(edge.error || 'Failed to resend invitation');
       }
-      setSuccessMessage(`Invitation resent to ${inv.email}.`);
-      setSuccess(true);
-      await fetchInvitations();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -225,26 +218,22 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     setError(null);
     setSuccess(false);
     try {
-      const res = await fetch(`${supabase.supabaseUrl}/functions/v1/send-team-invite/test-email`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${supabase.supabaseKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email: testEmailAddress })
-      });
+      const res = await fetch(
+        `${supabase.supabaseUrl}/functions/v1/send-team-invite/test-email`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${supabase.supabaseKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email: testEmailAddress })
+        }
+      );
       const data = await res.json();
       setTestEmailResult(data);
       if (res.ok && data.success) {
         setSuccessMessage(`Test email sent to ${testEmailAddress}.`);
         setSuccess(true);
-        // Optional: DB function test
-        const { data: dbRes } = await supabase.rpc('test_email_sending', {
-          to_email: testEmailAddress
-        });
-        if (dbRes?.success) {
-          setSuccessMessage(prev => `${prev} Also sent via DB function.`);
-        }
       } else {
         setError(data.error || `HTTP ${res.status}`);
       }
@@ -269,74 +258,69 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
           </button>
         </div>
 
+        {/* Feedback banners */}
         <div className="p-4">
-          {/* Tabs */}
-          <div className="flex space-x-1 mb-4">
-            <button
-              onClick={() => setActiveTab('email')}
-              className={`flex-1 py-2 px-4 rounded-lg ${
-                activeTab === 'email' ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'
-              }`}
-            >
-              <Mail className="h-4 w-4 inline mr-2" />
-              Add by Email
-            </button>
-            <button
-              onClick={() => setActiveTab('pending')}
-              className={`flex-1 py-2 px-4 rounded-lg ${
-                activeTab === 'pending' ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'
-              }`}
-            >
-              <Clock className="h-4 w-4 inline mr-2" />
-              Pending Invites
-            </button>
-            <button
-              onClick={() => setActiveTab('directory')}
-              className={`flex-1 py-2 px-4 rounded-lg ${
-                activeTab === 'directory' ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'
-              }`}
-            >
-              <UserSearch className="h-4 w-4 inline mr-2" />
-              Directory
-            </button>
-            <button
-              onClick={() => setActiveTab('existing')}
-              className={`flex-1 py-2 px-4 rounded-lg ${
-                activeTab === 'existing' ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'
-              }`}
-            >
-              <UserPlus className="h-4 w-4 inline mr-2" />
-              Current Members
-            </button>
-          </div>
-
-          {/* Messages */}
-          {error && (
-            <div className="mb-4 bg-red-50 text-red-700 p-3 rounded-lg flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 flex-shrink-0" />
-              <p>{error}</p>
+          {successMessage && (
+            <div className="mb-4 bg-green-50 text-green-700 p-3 rounded flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 flex-shrink-0" />
+              <span>{successMessage}</span>
             </div>
           )}
-          {success && (
-            <div className="mb-4 bg-green-50 text-green-700 p-3 rounded-lg">{successMessage}</div>
+          {infoMessage && (
+            <div className="mb-4 bg-blue-50 text-blue-700 p-3 rounded flex items-center gap-2">
+              <Info className="h-5 w-5 flex-shrink-0" />
+              <span>{infoMessage}</span>
+            </div>
           )}
+          {error && (
+            <div className="mb-4 bg-red-50 text-red-700 p-3 rounded flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+        </div>
 
-          {/* Edge Function Status & Test Email Form */}
+        {/* Tabs + content */}
+        <div className="p-4">
+          <div className="flex space-x-1 mb-4">
+            {['email', 'pending', 'directory', 'existing'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab as TabId)}
+                className={`flex-1 py-2 px-4 rounded-lg transition-colors ${
+                  activeTab === tab ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'
+                }`}
+              >
+                {{
+                  email:   <><Mail className="h-4 w-4 inline mr-2" />Add by Email</>,
+                  pending: <><Clock className="h-4 w-4 inline mr-2" />Pending Invites</>,
+                  directory:<><UserSearch className="h-4 w-4 inline mr-2" />Directory</>,
+                  existing:<><UserPlus className="h-4 w-4 inline mr-2" />Current Members</>
+                }[tab]}
+              </button>
+            ))}
+          </div>
+
+          {/* Edge Function health & test */}
           {edgeFunctionStatus && (
-            <div
-              className={`mb-4 p-3 rounded-lg flex items-start gap-2 ${
-                edgeFunctionStatus === 'ok' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'
-              }`}
-            >
-              {edgeFunctionStatus === 'ok' ? (
-                <CheckCircle className="h-5 w-5 flex-shrink-0" />
-              ) : (
-                <Loader2 className="h-5 w-5 animate-spin flex-shrink-0" />
-              )}
-              <div>
+            <div className={`mb-4 p-3 rounded-lg flex items-start gap-2 ${
+              edgeFunctionStatus === 'ok'
+                ? 'bg-green-50 text-green-700'
+                : 'bg-blue-50 text-blue-700'
+            }`}>
+              {edgeFunctionStatus === 'ok'
+                ? <CheckCircle className="h-5 w-5 flex-shrink-0" />
+                : <Loader2 className="h-5 w-5 animate-spin flex-shrink-0" />
+              }
+              <div className="flex-1">
                 <p className="font-medium">
-                  {edgeFunctionStatus === 'ok' ? 'Email system is operational' : 'Checking email system...'}
+                  {edgeFunctionStatus === 'ok'
+                    ? 'Email system is operational'
+                    : 'Checking email system...'}
                 </p>
+                {edgeFunctionError && (
+                  <p className="text-sm mt-1">{edgeFunctionError}</p>
+                )}
                 {edgeFunctionStatus === 'ok' && (
                   <form onSubmit={handleSendTestEmail} className="mt-2 flex gap-2">
                     <input
@@ -356,10 +340,10 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                     </button>
                   </form>
                 )}
-                {edgeFunctionError && <p className="text-sm mt-1">{edgeFunctionError}</p>}
               </div>
             </div>
           )}
+
           {testEmailResult && (
             <div className="mb-4 bg-gray-50 p-3 rounded">
               <h4 className="font-medium mb-2">Test Email Results</h4>
@@ -369,11 +353,13 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
             </div>
           )}
 
-          {/* Email Tab */}
+          {/* Email invite form */}
           {activeTab === 'email' && (
             <form onSubmit={handleEmailInvite} className="space-y-4">
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Team Role</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Team Role
+                </label>
                 <select
                   value={teamRole}
                   onChange={e => setTeamRole(e.target.value as TeamRole)}
@@ -386,9 +372,10 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                   ))}
                 </select>
               </div>
-
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Decision Role</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Decision Role
+                </label>
                 <select
                   value={decisionRole}
                   onChange={e => setDecisionRole(e.target.value as DecisionRole)}
@@ -401,9 +388,10 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                   ))}
                 </select>
               </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email Addresses</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Addresses
+                </label>
                 <textarea
                   value={emails}
                   onChange={e => setEmails(e.target.value)}
@@ -412,7 +400,6 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                   rows={4}
                 />
               </div>
-
               <button
                 type="submit"
                 disabled={loading || !emails.trim()}
@@ -433,12 +420,12 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
             </form>
           )}
 
-          {/* Directory Tab */}
+          {/* Directory tab */}
           {activeTab === 'directory' && (
             <UserDirectoryTab onAddUser={handleAddFromDirectory} />
           )}
 
-          {/* Pending Invitations */}
+          {/* Pending invites */}
           {activeTab === 'pending' && (
             <div className="space-y-4">
               {loadingInvitations ? (
@@ -468,10 +455,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                     <div className="flex gap-2">
                       <Tooltip content="View logs">
                         <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            viewInvitationLogs(inv);
-                          }}
+                          onClick={() => viewInvitationLogs(inv)}
                           className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
                         >
                           <Info className="h-4 w-4" />
@@ -480,10 +464,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                       <Tooltip content="Resend">
                         <button
                           disabled={processingInvitationId === inv.id}
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleResendInvitation(inv.id);
-                          }}
+                          onClick={() => handleResendInvitation(inv.id)}
                           className="p-1.5 text-gray-400 hover:text-indigo-600 rounded disabled:opacity-50"
                         >
                           {processingInvitationId === inv.id ? (
@@ -496,10 +477,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                       <Tooltip content="Revoke">
                         <button
                           disabled={processingInvitationId === inv.id}
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleRevokeInvitation(inv.id);
-                          }}
+                          onClick={() => handleRevokeInvitation(inv.id)}
                           className="p-1.5 text-gray-400 hover:text-red-600 rounded disabled:opacity-50"
                         >
                           {processingInvitationId === inv.id ? (
@@ -516,7 +494,107 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
             </div>
           )}
 
-          {/* Invitation Logs Modal and Current Members omitted for brevity; they remain unchanged */}
+          {/* Invitation Logs Modal */}
+          {selectedInvitation && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+                <div className="flex items-center justify-between p-4 border-b">
+                  <h3 className="text-lg font-medium">Invitation Details</h3>
+                  <button onClick={() => setSelectedInvitation(null)} className="p-2 text-gray-400 hover:text-gray-600 rounded-full">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="p-4">
+                  <h4 className="font-medium text-gray-900 mb-2">To: {selectedInvitation.email}</h4>
+                  <p className="text-sm text-gray-500">
+                    Status: <span className="font-medium">{selectedInvitation.status}</span>
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    Invited: {new Date(selectedInvitation.invited_at).toLocaleString()}
+                  </p>
+                  <h4 className="font-medium text-gray-900 mt-4 mb-2">Activity Log</h4>
+                  {loadingLogs ? (
+                    <div className="flex items-center justify-center p-4">
+                      <Loader2 className="h-5 w-5 animate-spin text-indigo-600 mr-2" />
+                      <span>Loading logs...</span>
+                    </div>
+                  ) : invitationLogs.length === 0 ? (
+                    <p className="text-sm text-gray-500 p-4 text-center">No logs available</p>
+                  ) : (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {invitationLogs.map(log => (
+                        <div key={log.id} className="p-2 bg-gray-50 rounded text-sm">
+                          <div className="flex justify-between">
+                            <span className="font-medium">{log.status}</span>
+                            <span className="text-gray-500 text-xs">{new Date(log.created_at).toLocaleString()}</span>
+                          </div>
+                          {log.details && (
+                            <pre className="mt-1 text-xs text-gray-600 overflow-x-auto">
+                              {JSON.stringify(log.details, null, 2)}
+                            </pre>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-4 flex justify-end gap-2">
+                    <button
+                      onClick={() => handleResendInvitation(selectedInvitation.id)}
+                      className="px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                    >
+                      Resend Invitation
+                    </button>
+                    <button
+                      onClick={() => setSelectedInvitation(null)}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Current Members */}
+          {activeTab === 'existing' && (
+            <div className="space-y-4">
+              {team.members.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">No members yet</p>
+              ) : (
+                team.members.map(m => (
+                  <div key={m.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <div className="font-medium text-gray-900">{m.email || m.user_id}</div>
+                      <div className="flex flex-col gap-1 mt-1">
+                        <select
+                          value={m.role}
+                          onChange={e => /* your role update handler */ {}}
+                          className="text-sm bg-transparent border-none focus:ring-0"
+                        >
+                          {TEAM_ROLES.map(r => (
+                            <option key={r.id} value={r.id}>{r.label}</option>
+                          ))}
+                        </select>
+                        <select
+                          value={m.decision_role || 'viewer'}
+                          onChange={e => /* your decision_role update handler */ {}}
+                          className="text-sm bg-transparent border-none focus:ring-0"
+                        >
+                          {DECISION_ROLES.map(r => (
+                            <option key={r.id} value={r.id}>{r.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <button onClick={() => /* your remove handler */ {}} className="p-2 text-gray-400 hover:text-red-600 rounded">
+                      <UserMinus className="h-5 w-5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
