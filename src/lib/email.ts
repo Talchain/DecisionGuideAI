@@ -1,4 +1,5 @@
 // src/lib/email.ts
+
 import { supabase } from './supabase';
 
 export interface EmailResponse {
@@ -6,6 +7,39 @@ export interface EmailResponse {
   status?: number;
   response?: any;
   error?: string;
+}
+
+export interface EdgeResult {
+  success: boolean;
+  status?: number;
+  response?: any;
+  error?: string;
+}
+
+/**
+ * Send a team invitation via the Supabase Edge Function.
+ */
+export async function sendInviteViaEdge(payload: {
+  invitation_id: string;
+  email:         string;
+  team_id:       string;
+  team_name:     string;
+  inviter_id:    string;
+}): Promise<EdgeResult> {
+  try {
+    const { data, error } = await supabase.functions.invoke(
+      'send-team-invite',
+      { body: payload }
+    );
+    if (error) throw error;
+    return data as EdgeResult;
+  } catch (err: any) {
+    console.error('sendInviteViaEdge exception:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : 'Unknown error'
+    };
+  }
 }
 
 /**
@@ -28,10 +62,11 @@ async function _sendInvitationEmail(
     return data as EmailResponse;
   } catch (err: any) {
     console.error('Failed to send invitation email:', err);
-    return { success: false, error: err.message || 'Failed to send invitation email' };
+    return {
+      success: false,
+      error: err.message || 'Failed to send invitation email'
+    };
   }
 }
 
-// Export under both names so your imports all resolve:
-export const sendInvitationEmail = _sendInvitationEmail;
-export const sendTeamInvitationEmail = _sendInvitationEmail;
+export { _sendInvitationEmail as sendInvitationEmail };
