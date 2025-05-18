@@ -6,13 +6,11 @@ const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY")!;
 const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "hello@decisionguide.ai";
 const APP_URL = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 
-// Debug logging for environment variables
-console.log('Edge Function Environment:', {
-  BREVO_API_KEY: BREVO_API_KEY ? `${BREVO_API_KEY.slice(0, 8)}...` : 'undefined',
-  FROM_EMAIL,
-  APP_URL,
-  timestamp: new Date().toISOString()
-});
+// Enhanced debug logging
+console.log('DEBUG EDGE ENV • BREVO_API_KEY:', BREVO_API_KEY?.slice(0,8) + '…');
+console.log('DEBUG EDGE ENV • FROM_EMAIL:   ', FROM_EMAIL);
+console.log('DEBUG EDGE ENV • APP_URL:      ', APP_URL);
+console.log('DEBUG EDGE ENV • TIMESTAMP:    ', new Date().toISOString());
 
 // Create Supabase client
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
