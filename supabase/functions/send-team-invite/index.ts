@@ -6,6 +6,14 @@ const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY")!;
 const FROM_EMAIL = Deno.env.get("FROM_EMAIL") || "hello@decisionguide.ai";
 const APP_URL = Deno.env.get("APP_URL") || "https://decisionguide.ai";
 
+// Debug logging for environment variables
+console.log('Edge Function Environment:', {
+  BREVO_API_KEY: BREVO_API_KEY ? `${BREVO_API_KEY.slice(0, 8)}...` : 'undefined',
+  FROM_EMAIL,
+  APP_URL,
+  timestamp: new Date().toISOString()
+});
+
 // Create Supabase client
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -70,6 +78,13 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders, status: 204 });
   }
+
+  // Log request details
+  console.log('Edge Function Request:', {
+    method: req.method,
+    path: new URL(req.url).pathname,
+    timestamp: new Date().toISOString()
+  });
 
   // Health check endpoint
   if (path.endsWith("/health")) {
