@@ -8,7 +8,6 @@ export interface EmailResponse {
   error?: string;
 }
 
-/**
  * Send a test email via the send-team-invite Edge Function.
  */
 export async function sendTestEmail(email: string): Promise<EmailResponse> {
@@ -26,9 +25,7 @@ export async function sendTestEmail(email: string): Promise<EmailResponse> {
 }
 
 /**
- * Core implementation for sending an invitation email via RPC.
- */
-async function _sendInvitationEmail(
+export async function sendInvitationEmail(
   invitationId: string,
   toEmail: string,
   teamName: string,
@@ -48,7 +45,3 @@ async function _sendInvitationEmail(
     return { success: false, error: err.message || 'Failed to send invitation email' };
   }
 }
-
-// Export under both names so your imports all resolve:
-export const sendInvitationEmail = _sendInvitationEmail;
-export const sendTeamInvitationEmail = _sendInvitationEmail;
