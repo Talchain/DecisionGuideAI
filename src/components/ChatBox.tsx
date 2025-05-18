@@ -1,14 +1,5 @@
 import React, { useState } from 'react';
-import {
-  Plus,
-  FileText,
-  EyeOff,
-  Wrench,
-  Mic,
-  MessageSquare,
-  Info,
-  Waveform
-} from 'lucide-react';
+import { Plus, FileText, EyeOff, Wrench, Mic, MessageSquare, Info, AudioWaveform as Waveform } from 'lucide-react';
 
 export default function ChatBox() {
   const [showTooltip, setShowTooltip] = useState(false);
