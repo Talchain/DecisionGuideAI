@@ -13,9 +13,10 @@ export interface EmailResponse {
  */
 export async function sendTestEmail(email: string): Promise<EmailResponse> {
   try {
-    const { data, error } = await supabase.functions.invoke('send-team-invite/test-email', {
-      body: { email },
-    });
+    const { data, error } = await supabase.functions.invoke(
+      'send-team-invite/test-email',
+      { body: { email } }
+    );
     if (error) throw error;
     return data as EmailResponse;
   } catch (err: any) {
@@ -25,7 +26,7 @@ export async function sendTestEmail(email: string): Promise<EmailResponse> {
 }
 
 /**
- * Send or resend a team invitation email via the send_team_invitation_email RPC.
+ * Core implementation for sending an invitation email via RPC.
  */
 async function _sendInvitationEmail(
   invitationId: string,
@@ -48,6 +49,6 @@ async function _sendInvitationEmail(
   }
 }
 
-// Export under the name your UI expects:
+// Export under both names so your imports all resolve:
 export const sendInvitationEmail = _sendInvitationEmail;
 export const sendTeamInvitationEmail = _sendInvitationEmail;
