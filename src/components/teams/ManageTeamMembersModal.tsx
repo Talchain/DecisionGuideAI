@@ -75,9 +75,28 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     checkEdgeFunctionStatus();
   }, [activeTab]);
 
-  // Edge function health check (implementation omitted for brevity)
   const checkEdgeFunctionStatus = async () => {
-    // …
+    setEdgeFunctionStatus('checking');
+    setEdgeFunctionError(null);
+    try {
+      const res = await fetch(`${supabase.supabaseUrl}/functions/v1/send-team-invite/health`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${supabase.supabaseKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setEdgeFunctionStatus('ok');
+      } else {
+        setEdgeFunctionStatus('error');
+        setEdgeFunctionError(data.message || 'Unknown error');
+      }
+    } catch (err: any) {
+      setEdgeFunctionStatus('error');
+      setEdgeFunctionError(err.message);
+    }
   };
 
   const viewInvitationLogs = async (inv: Invitation) => {
@@ -204,19 +223,17 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
         },
         body: JSON.stringify({ email: testEmailAddress })
       });
-      if (!res.ok) throw new Error(`Status ${res.status}`);
       const data = await res.json();
       setTestEmailResult(data);
-      if (data.success) {
+      if (res.ok && data.success) {
         setSuccessMessage(`Test email sent to ${testEmailAddress}.`);
         setSuccess(true);
-        // also call DB function
         const { data: dbRes } = await supabase.rpc('test_email_sending', { to_email: testEmailAddress });
         if (dbRes?.success) {
           setSuccessMessage(prev => `${prev} Also sent via DB function.`);
         }
       } else {
-        setError(data.error || 'Failed to send test email');
+        setError(data.error || `HTTP ${res.status}`);
       }
     } catch (err: any) {
       setError(err.message);
@@ -239,8 +256,8 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
           </button>
         </div>
 
-        {/* Tabs */}
         <div className="p-4">
+          {/* Tabs */}
           <div className="flex space-x-1 mb-4">
             <button
               onClick={() => setActiveTab('email')}
@@ -275,193 +292,3 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                 activeTab === 'existing' ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'
               }`}
             >
-              <UserPlus className="h-4 w-4 inline mr-2" />
-              Current Members
-            </button>
-          </div>
-
-          {/* Messages */}
-          {error && (
-            <div className="mb-4 bg-red-50 text-red-700 p-3 rounded-lg flex items-start gap-2">
-              <AlertCircle className="h-5 w-5" />
-              <p>{error}</p>
-            </div>
-          )}
-          {success && (
-            <div className="mb-4 bg-green-50 text-green-700 p-3 rounded-lg">
-              {successMessage}
-            </div>
-          )}
-
-          {/* Edge Function Status & Test Email */}
-          {edgeFunctionStatus && (
-            <div className={`mb-4 p-3 rounded-lg flex items-start gap-2 ${
-              edgeFunctionStatus === 'ok' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'
-            }`}>
-              {edgeFunctionStatus === 'ok' ? <CheckCircle className="h-5 w-5" /> : <Loader2 className="h-5 w-5 animate-spin" />}
-              <div>
-                <p className="font-medium">
-                  {edgeFunctionStatus === 'ok' ? 'Email system is operational' : 'Checking email system...'}
-                </p>
-                {edgeFunctionStatus === 'ok' && (
-                  <form onSubmit={handleSendTestEmail} className="mt-2 flex gap-2">
-                    <input
-                      type="email"
-                      value={testEmailAddress}
-                      onChange={e => setTestEmailAddress(e.target.value)}
-                      placeholder="Enter email for test"
-                      className="flex-1 px-2 py-1 border rounded"
-                      required
-                    />
-                    <button type="submit" disabled={sendingTestEmail} className="px-3 py-1 bg-indigo-600 text-white rounded disabled:opacity-50">
-                      {sendingTestEmail ? 'Sending…' : 'Send Test Email'}
-                    </button>
-                  </form>
-                )}
-                {edgeFunctionError && <p className="text-sm mt-1">{edgeFunctionError}</p>}
-              </div>
-            </div>
-          )}
-          {testEmailResult && (
-            <div className="mb-4 bg-gray-50 p-3 rounded">
-              <h4 className="font-medium mb-2">Test Email Results</h4>
-              <pre className="text-xs text-gray-600 max-h-40 overflow-auto bg-gray-100 p-2 rounded">
-                {JSON.stringify(testEmailResult, null, 2)}
-              </pre>
-            </div>
-          )}
-
-          {/* Email Tab */}
-          {activeTab === 'email' && (
-            <form onSubmit={handleEmailInvite} className="space-y-4">
-              {/* Team Role */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Team Role</label>
-                <select
-                  value={teamRole}
-                  onChange={e => setTeamRole(e.target.value as TeamRole)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                >
-                  {TEAM_ROLES.map(r => (
-                    <option key={r.id} value={r.id}>
-                      {r.label} – {r.description}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Decision Role */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Decision Role</label>
-                <select
-                  value={decisionRole}
-                  onChange={e => setDecisionRole(e.target.value as DecisionRole)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                >
-                  {DECISION_ROLES.map(r => (
-                    <option key={r.id} value={r.id}>
-                      {r.label} – {r.description}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Emails */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email Addresses</label>
-                <textarea
-                  value={emails}
-                  onChange={e => setEmails(e.target.value)}
-                  placeholder="Enter email addresses (one per line or comma-separated)"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  rows={4}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading || !emails.trim()}
-                className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
-                    Adding…
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="h-5 w-5 mr-2" />
-                    Add Members
-                  </>
-                )}
-              </button>
-            </form>
-          )}
-
-          {/* Directory Tab */}
-          {activeTab === 'directory' && (
-            <UserDirectoryTab onAddUser={handleAddFromDirectory} />
-          )}
-
-          {/* Pending Invitations */}
-          {activeTab === 'pending' && (
-            <div className="space-y-4">
-              {loadingInvitations ? (
-                <div className="flex items-center justify-center p-8">
-                  <Loader2 className="animate-spin h-6 w-6 text-indigo-500 mr-2" />
-                  <span className="text-gray-600">Loading invitations…</span>
-                </div>
-              ) : invitations.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p>No pending invitations</p>
-                </div>
-              ) : (
-                invitations.map(inv => (
-                  <div
-                    key={inv.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
-                  >
-                    <div>
-                      <div className="font-medium text-gray-900">{inv.email}</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        <span className="inline-flex items-center">
-                          <Clock className="h-3 w-3 mr-1" />
-                          Invited {new Date(inv.invited_at).toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Tooltip content="View logs">
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            viewInvitationLogs(inv);
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-blue-600 rounded"
-                        >
-                          <Info className="h-4 w-4" />
-                        </button>
-                      </Tooltip>
-                      <Tooltip content="Resend">
-                        <button
-                          disabled={processingInvitationId === inv.id}
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleResendInvitation(inv.id);
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-indigo-600 rounded disabled:opacity-50"
-                        >
-                          {processingInvitationId === inv.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <RefreshCw className="h-4 w-4" />
-                          )}
-                        </button>
-                      </Tooltip>
-                      <Tooltip content="Revoke">
-                        <button
-                          disabled={processingInvitationId === inv.id}
-                          onClick={e => {
-                            e.stopPropagation();
-                            handleRevokeInvitation(inv.id);
-                          }}```   (file truncated)  
