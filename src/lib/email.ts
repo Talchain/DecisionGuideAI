@@ -16,22 +16,18 @@ export async function sendTestEmail(email: string): Promise<EmailResponse> {
     const { data, error } = await supabase.functions.invoke('send-team-invite/test-email', {
       body: { email },
     });
-
     if (error) throw error;
     return data as EmailResponse;
   } catch (err: any) {
     console.error('Failed to send test email:', err);
-    return {
-      success: false,
-      error: err.message || 'Failed to send test email',
-    };
+    return { success: false, error: err.message || 'Failed to send test email' };
   }
 }
 
 /**
  * Send or resend a team invitation email via the send_team_invitation_email RPC.
  */
-export async function sendTeamInvitationEmail(
+async function _sendInvitationEmail(
   invitationId: string,
   toEmail: string,
   teamName: string,
@@ -44,14 +40,14 @@ export async function sendTeamInvitationEmail(
       team_name: teamName,
       inviter_name: inviterName,
     });
-
     if (error) throw error;
     return data as EmailResponse;
   } catch (err: any) {
     console.error('Failed to send invitation email:', err);
-    return {
-      success: false,
-      error: err.message || 'Failed to send invitation email',
-    };
+    return { success: false, error: err.message || 'Failed to send invitation email' };
   }
 }
+
+// Export under the name your UI expects:
+export const sendInvitationEmail = _sendInvitationEmail;
+export const sendTeamInvitationEmail = _sendInvitationEmail;
