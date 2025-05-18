@@ -251,7 +251,29 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             }
           );
           
-          if (addError) throw addError;
+          if (addError) {
+            if (addError.code === '23505') {
+              result = {
+                status: 'already_invited',
+                user_id: userCheck.id,
+                email: email,
+                team_id: teamId,
+                role: role,
+                decision_role: decisionRole
+              };
+            } else {
+              throw addError;
+            }
+          } else {
+            result = {
+              status: 'added',
+              user_id: userCheck.id,
+              email: email,
+              team_id: teamId,
+              role: role,
+              decision_role: decisionRole
+            };
+          }
           
           result = {
             status: 'added',
@@ -276,7 +298,29 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             .select()
             .single();
             
-          if (inviteError) throw inviteError;
+          if (inviteError) {
+            if (inviteError.code === '23505') {
+              result = {
+                status: 'already_invited',
+                email: email,
+                team_id: teamId,
+                role: role,
+                decision_role: decisionRole
+              };
+            } else {
+              throw inviteError;
+            }
+          } else {
+            result = {
+              status: 'invited',
+              id: invitation!.id,
+              email: email,
+              team_id: teamId,
+              role: role,
+              decision_role: decisionRole,
+              invited_at: invitation!.invited_at
+            };
+          }
           
           // Track invitation creation
           await supabase.rpc(
