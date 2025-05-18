@@ -8,24 +8,10 @@ export interface EmailResponse {
   error?: string;
 }
 
-export async function sendTestEmail(email: string): Promise<EmailResponse> {
-  try {
-    const { data, error } = await supabase.functions.invoke(
-      'send-team-invite/test-email',
-      { body: { email } }
-    );
-    if (error) throw error;
-    return data as EmailResponse;
-  } catch (err: any) {
-    console.error('Failed to send test email:', err);
-    return {
-      success: false,
-      error: err.message || 'Failed to send test email'
-    };
-  }
-}
-
-export async function sendInvitationEmail(
+/**
+ * Core implementation for sending an invitation email via RPC.
+ */
+async function _sendInvitationEmail(
   invitationId: string,
   toEmail: string,
   teamName: string,
@@ -42,12 +28,10 @@ export async function sendInvitationEmail(
     return data as EmailResponse;
   } catch (err: any) {
     console.error('Failed to send invitation email:', err);
-    return {
-      success: false,
-      error: err.message || 'Failed to send invitation email'
-    };
+    return { success: false, error: err.message || 'Failed to send invitation email' };
   }
 }
 
-// allow consumers to import under either name
-export { sendInvitationEmail as sendTeamInvitationEmail };
+// Export under both names so your imports all resolve:
+export const sendInvitationEmail = _sendInvitationEmail;
+export const sendTeamInvitationEmail = _sendInvitationEmail;
