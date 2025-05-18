@@ -48,3 +48,6 @@ export async function sendInvitationEmail(
     };
   }
 }
+
+// allow consumers to import under either name
+export { sendInvitationEmail as sendTeamInvitationEmail };
