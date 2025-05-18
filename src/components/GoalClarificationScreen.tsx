@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { ArrowLeft, Plus, X, AlertTriangle } from 'lucide-react'
+import ChatBox from './ChatBox'
 import { useDecision } from '../contexts/DecisionContext'
 import InviteCollaborators from './InviteCollaborators'
 
@@ -156,6 +157,9 @@ export default function GoalClarificationScreen() {
             <button onClick={skip} className="px-6 py-2 border rounded">Skip Goals</button>
           </div>
         </div>
+      </div>
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4">
+        <ChatBox />
       </div>
     </>
   )

@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { ArrowLeft, Zap, Shield, Clock, Scale } from 'lucide-react'
 import { useDecision } from '../contexts/DecisionContext'
+import ChatBox from './ChatBox'
 
 interface ImportanceType {
   id: string
@@ -110,6 +111,9 @@ export default function ImportanceSelector() {
             </div>
           </button>
         ))}
+      </div>
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4">
+        <ChatBox />
       </div>
     </div>
   )

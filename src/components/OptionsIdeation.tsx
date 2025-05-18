@@ -5,6 +5,7 @@ import { useNavigate, Navigate } from 'react-router-dom'
 import {
   ArrowLeft, ArrowRight, Loader2, AlertTriangle, Pencil, Trash2, Plus, Users
 } from 'lucide-react'
+import ChatBox from './ChatBox'
 import InviteCollaborators from './InviteCollaborators'
 import { useDecision } from '../contexts/DecisionContext'
 import { generateOptionsIdeation, OptionIdeation, BiasIdeation } from '../lib/api'
@@ -234,6 +235,9 @@ export default function OptionsIdeation() {
             Continue to Criteria <ArrowRight className="ml-2 h-5 w-5"/>
           </button>
         </div>
+      </div>
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4">
+        <ChatBox />
       </div>
     </>
   )

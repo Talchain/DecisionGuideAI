@@ -10,6 +10,7 @@ import {
   isValidDecisionType
 } from '../lib/supabase'
 import { useDecision } from '../contexts/DecisionContext'
+import ChatBox from './ChatBox'
 
 const ROUTES = {
   TYPE: '/decision',
@@ -186,6 +187,9 @@ export default function DecisionDetails() {
           Continue
         </button>
       </form>
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4">
+        <ChatBox />
+      </div>
     </section>
   )
 }

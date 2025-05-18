@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { ArrowLeft, RotateCcw, Shuffle, Ban, HelpCircle } from 'lucide-react';
+import ChatBox from './ChatBox';
 import { useDecision } from '../contexts/DecisionContext';
 
 interface ReversibilityType {
@@ -107,6 +108,9 @@ export default function ReversibilitySelector() {
             </div>
           </button>
         ))}
+      </div>
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4">
+        <ChatBox />
       </div>
     </div>
   );
