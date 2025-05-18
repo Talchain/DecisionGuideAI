@@ -70,3 +70,6 @@ async function _sendInvitationEmail(
 }
 
 export { _sendInvitationEmail as sendInvitationEmail };
+
+// re-export the RPC helper under the old name so legacy imports continue to work:
+export { sendInvitationEmail as sendTeamInvitationEmail };
