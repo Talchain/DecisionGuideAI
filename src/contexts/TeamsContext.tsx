@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
-import { sendTeamInvitationEmail } from '../lib/email';
+import { sendInvitationEmail } from '../lib/email';
 import type { Team, TeamMember } from '../types/teams';
 import type { Invitation, InviteResult } from '../types/invitations';
 
@@ -305,10 +305,11 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           if (teamError) throw teamError;
           
           // Send invitation email
-          const emailResult = await sendTeamInvitationEmail(
+          const emailResult = await sendInvitationEmail(
             invitation.id,
             email,
-            team.name
+            team.name,
+            user.email || 'A team admin'
           );
           
           if (!emailResult.success) {
