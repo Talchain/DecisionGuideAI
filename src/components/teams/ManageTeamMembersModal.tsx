@@ -292,3 +292,115 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                 activeTab === 'existing' ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'
               }`}
             >
+              <UserPlus className="h-4 w-4 inline mr-2" />
+              Current Members
+            </button>
+          </div>
+
+          {/* Messages */}
+          {error && (
+            <div className="mb-4 bg-red-50 text-red-700 p-3 rounded-lg flex items-start gap-2">
+              <AlertCircle className="h-5 w-5" />
+              <p>{error}</p>
+            </div>
+          )}
+          {success && (
+            <div className="mb-4 bg-green-50 text-green-700 p-3 rounded-lg">
+              {successMessage}
+            </div>
+          )}
+
+          {/* Edge Function Status & Test Email */}
+          {edgeFunctionStatus && (
+            <div className={`mb-4 p-3 rounded-lg flex items-start gap-2 ${
+              edgeFunctionStatus === 'ok' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'
+            }`}>
+              {edgeFunctionStatus === 'ok' ? <CheckCircle className="h-5 w-5" /> : <Loader2 className="h-5 w-5 animate-spin" />}
+              <div>
+                <p className="font-medium">
+                  {edgeFunctionStatus === 'ok' ? 'Email system is operational' : 'Checking email system...'}
+                </p>
+                {edgeFunctionStatus === 'ok' && (
+                  <form onSubmit={handleSendTestEmail} className="mt-2 flex gap-2">
+                    <input
+                      type="email"
+                      value={testEmailAddress}
+                      onChange={e => setTestEmailAddress(e.target.value)}
+                      placeholder="Enter email for test"
+                      className="flex-1 px-2 py-1 border rounded"
+                      required
+                    />
+                    <button type="submit" disabled={sendingTestEmail} className="px-3 py-1 bg-indigo-600 text-white rounded disabled:opacity-50">
+                      {sendingTestEmail ? 'Sending…' : 'Send Test Email'}
+                    </button>
+                  </form>
+                )}
+                {edgeFunctionError && <p className="text-sm mt-1">{edgeFunctionError}</p>}
+              </div>
+            </div>
+          )}
+          {testEmailResult && (
+            <div className="mb-4 bg-gray-50 p-3 rounded">
+              <h4 className="font-medium mb-2">Test Email Results</h4>
+              <pre className="text-xs text-gray-600 max-h-40 overflow-auto bg-gray-100 p-2 rounded">
+                {JSON.stringify(testEmailResult, null, 2)}
+              </pre>
+            </div>
+          )}
+
+          {/* Email Tab */}
+          {activeTab === 'email' && (
+            <form onSubmit={handleEmailInvite} className="space-y-4">
+              {/* Team Role */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Team Role</label>
+                <select
+                  value={teamRole}
+                  onChange={e => setTeamRole(e.target.value as TeamRole)}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                >
+                  {TEAM_ROLES.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.label} – {r.description}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Decision Role */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Decision Role</label>
+                <select
+                  value={decisionRole}
+                  onChange={e => setDecisionRole(e.target.value as DecisionRole)}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                >
+                  {DECISION_ROLES.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.label} – {r.description}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Emails */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email Addresses</label>
+                <textarea
+                  value={emails}
+                  onChange={e => setEmails(e.target.value)}
+                  placeholder="Enter email addresses (one per line or comma-separated)"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  rows={4}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !emails.trim()}
+                className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                    Adding…
