@@ -31,7 +31,7 @@ function TeamCard({
   onManageMembers: () => void;
   deleting: boolean;
 }) {
-  const members = team.members ?? [];
+  const members = Array.isArray(team?.members) ? team.members : [];
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm hover:shadow-md transition-shadow border border-gray-200">
       <div className="flex items-start justify-between mb-4">
@@ -135,6 +135,9 @@ export default function MyTeams() {
     );
   }
 
+  // Ensure teams is initialized as an array
+  const teamsArray = Array.isArray(teams) ? teams : [];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -148,7 +151,7 @@ export default function MyTeams() {
         </button>
       </div>
 
-      {teams.length === 0 ? (
+      {teamsArray.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-2xl">
           <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No teams yet</h3>
@@ -163,7 +166,7 @@ export default function MyTeams() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {teams.map((team) => (
+          {teamsArray.map((team) => (
             <TeamCard
               key={team.id}
               team={team}
