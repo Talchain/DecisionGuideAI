@@ -212,7 +212,7 @@ export default function Navbar() {
   );
 
   return (
-    <nav className="bg-white shadow-sm sticky top-0 z-50" role="navigation">
+    <nav className="bg-white/50 backdrop-blur-sm shadow-sm sticky top-0 z-50 border-b border-white/10" role="navigation">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
@@ -265,7 +265,7 @@ export default function Navbar() {
 
       <div
         id="mobile-menu"
-        className={`fixed inset-0 sm:hidden bg-black/25 transition-opacity ${
+        className={`fixed inset-0 sm:hidden bg-black/40 backdrop-blur-sm transition-opacity ${
           isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
         onClick={() => setIsOpen(false)}
