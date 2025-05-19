@@ -1,433 +1,191 @@
 // src/components/teams/ManageTeamMembersModal.tsx
-import React, { useState, useEffect } from 'react';
-import {
-  X,
-  Mail,
-  Loader2,
-  UserPlus,
-  UserMinus,
-  AlertCircle,
-  UserSearch,
-  Clock,
-  RefreshCw,
-  XCircle,
-  CheckCircle,
-  Info
-} from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import React, { useState } from 'react';
+import { X, Mail, Loader2, UserPlus, Users, Building2, Settings } from 'lucide-react';
 import { useTeams } from '../../contexts/TeamsContext';
-import { sendInviteViaEdge } from '../../lib/email';
-import type { Team } from '../../types/teams';
-import type { Invitation, InviteResult } from '../../types/invitations';
-import Tooltip from '../Tooltip';
-import UserDirectoryTab from './UserDirectoryTab';
+import { useDirectory } from '../../hooks/useDirectory';
+import DirectoryUserCard from './DirectoryUserCard';
+import DirectorySearchSkeleton from './DirectorySearchSkeleton';
 
 interface ManageTeamMembersModalProps {
-  team: Team;
+  open: boolean;
   onClose: () => void;
+  decisionId: string;
 }
 
-type TabId = 'email' | 'directory' | 'existing' | 'pending';
-type TeamRole = 'admin' | 'member';
-type DecisionRole = 'owner' | 'approver' | 'contributor' | 'viewer';
+type TabId = 'users' | 'teams' | 'settings';
 
-const TEAM_ROLES = [
-  { id: 'admin', label: 'Admin', description: 'Can manage team and members' },
-  { id: 'member', label: 'Member', description: 'Regular team member' }
-] as const;
-
-const DECISION_ROLES = [
-  { id: 'owner', label: 'Decision Lead', description: 'Full control over the decision' },
-  { id: 'approver', label: 'Approver', description: 'Can approve or reject suggestions' },
-  { id: 'contributor', label: 'Contributor', description: 'Can add suggestions and comments' },
-  { id: 'viewer', label: 'Viewer', description: 'Read-only access' }
-] as const;
-
-export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMembersModalProps) {
-  const { user } = useTeams(); // get current user
-  const { addTeamMember, inviteTeamMember, getTeamInvitations, revokeInvitation } = useTeams();
-
-  const [activeTab, setActiveTab] = useState<TabId>('email');
-  const [emails, setEmails] = useState('');
-  const [teamRole, setTeamRole] = useState<TeamRole>('member');
-  const [decisionRole, setDecisionRole] = useState<DecisionRole>('contributor');
+export default function ManageTeamMembersModal({ open, onClose, decisionId }: ManageTeamMembersModalProps) {
+  const { inviteTeamMember } = useTeams();
+  const { users, loading: directoryLoading, error: directoryError, searchTerm, setSearchTerm } = useDirectory();
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('contributor');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [activeTab, setActiveTab] = useState<TabId>('users');
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
 
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
-  const [loadingInvitations, setLoadingInvitations] = useState(false);
-  const [processingInvitationId, setProcessingInvitationId] = useState<string | null>(null);
-
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [infoMessage, setInfoMessage] = useState<string | null>(null);
-
-  const [edgeFunctionStatus, setEdgeFunctionStatus] = useState<'checking' | 'ok' | 'error' | null>(null);
-  const [edgeFunctionError, setEdgeFunctionError] = useState<string | null>(null);
-
-  const [testEmailAddress, setTestEmailAddress] = useState('');
-  const [sendingTestEmail, setSendingTestEmail] = useState(false);
-  const [testEmailResult, setTestEmailResult] = useState<any>(null);
-
-  // fetch invitations when opening Pending tab
-  useEffect(() => {
-    if (activeTab === 'pending') {
-      fetchInvitations();
-    }
-    // always (re)check health when tab changes
-    checkEdgeFunctionStatus();
-  }, [activeTab]);
-
-  async function checkEdgeFunctionStatus() {
-    setEdgeFunctionStatus('checking');
-    setEdgeFunctionError(null);
-    try {
-      const res = await fetch(`${supabase.supabaseUrl}/functions/v1/send-team-invite/health`, {
-        headers: {
-          apikey: supabase.supabaseKey,
-          Authorization: `Bearer ${supabase.supabaseKey}`
-        }
-      });
-      const json = await res.json();
-      if (res.ok && json.success) {
-        setEdgeFunctionStatus('ok');
-      } else {
-        setEdgeFunctionStatus('error');
-        setEdgeFunctionError(json.error || json.message || 'Unknown error');
-      }
-    } catch (err: any) {
-      setEdgeFunctionStatus('error');
-      setEdgeFunctionError(err.message);
-    }
-  }
-
-  async function fetchInvitations() {
-    setLoadingInvitations(true);
-    setError(null);
-    try {
-      const invs = await getTeamInvitations(team.id);
-      setInvitations(invs || []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoadingInvitations(false);
-    }
-  }
-
-  // ADD BY EMAIL
-  async function handleEmailInvite(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setSuccessMessage(null);
-    setInfoMessage(null);
-    setLoading(true);
-
-    try {
-      const list = emails.split(/[\s,]+/).map(x => x.trim()).filter(Boolean);
-      for (const email of list) {
-        const result = await inviteTeamMember(team.id, email, teamRole, decisionRole);
-        if (result.status === 'invited') {
-          setSuccessMessage(`Invitation sent to ${email}`);
-        } else if (result.status === 'already_invited') {
-          setInfoMessage(`${email} is already invited`);
-        }
-      }
-      setEmails('');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-      if (activeTab === 'pending') fetchInvitations();
-    }
-  }
-
-  // RESEND INVITE
-  async function handleResendInvitation(inv: Invitation) {
-    setProcessingInvitationId(inv.id);
-    setError(null);
-    setSuccessMessage(null);
-    setInfoMessage(null);
-
-    try {
-      const edgeResult = await sendInviteViaEdge({
-        invitation_id: inv.id,
-        email: inv.email,
-        team_id: team.id,
-        team_name: team.name,
-        inviter_id: user!.id
-      });
-
-      if (edgeResult.success) {
-        setSuccessMessage(`Invitation resent to ${inv.email}`);
-      } else {
-        setError(edgeResult.error || 'Failed to resend invitation');
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setProcessingInvitationId(null);
-      fetchInvitations();
-    }
-  }
-
-  // REVOKE INVITE
-  async function handleRevokeInvitation(invId: string) {
-    setProcessingInvitationId(invId);
-    setError(null);
-    try {
-      await revokeInvitation(invId);
-      setInfoMessage('Invitation revoked');
-      fetchInvitations();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setProcessingInvitationId(null);
-    }
-  }
-
-  // SEND TEST EMAIL
-  async function handleSendTestEmail(e: React.FormEvent) {
-    e.preventDefault();
-    if (!testEmailAddress.includes('@')) {
-      setError('Enter a valid email');
-      return;
-    }
-    setSendingTestEmail(true);
-    setError(null);
-    try {
-      const res = await fetch(`${supabase.supabaseUrl}/functions/v1/send-team-invite/test-email`, {
-        method: 'POST',
-        headers: {
-          apikey: supabase.supabaseKey,
-          Authorization: `Bearer ${supabase.supabaseKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email: testEmailAddress })
-      });
-      const data = await res.json();
-      setTestEmailResult(data);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setSendingTestEmail(false);
-    }
-  }
+  if (!open) return null;
 
   return (
-    <div
+    <div 
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={e => e.currentTarget === e.target && onClose()}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
-        {/* HEADER */}
         <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold">Manage Team Members</h2>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-full">
+          <h2 className="text-lg font-medium text-gray-900">Invite Collaborators</h2>
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:text-gray-600 rounded-full"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* TABS */}
-        <div className="p-4">
-          <div className="flex gap-1 mb-4">
-            {(['email','pending','directory','existing'] as TabId[]).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-2 px-4 rounded-lg transition ${
-                  activeTab === tab ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-gray-100'
-                }`}
-              >
-                {tab === 'email' && <Mail className="inline mr-1 h-4 w-4" />}
-                {tab === 'pending' && <Clock className="inline mr-1 h-4 w-4" />}
-                {tab === 'directory' && <UserSearch className="inline mr-1 h-4 w-4" />}
-                {tab === 'existing' && <UserPlus className="inline mr-1 h-4 w-4" />}
-                {tab === 'email' ? 'Add by Email' : tab === 'pending' ? 'Pending Invites' : tab === 'directory' ? 'Directory' : 'Current Members'}
-              </button>
-            ))}
+        {/* Tabs */}
+        <div className="border-b">
+          <div className="flex gap-1 p-2">
+            <button
+              onClick={() => setActiveTab('users')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
+                activeTab === 'users' ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50'
+              }`}
+            >
+              <Users className="h-4 w-4" />
+              <span>Users</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('teams')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
+                activeTab === 'teams' ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50'
+              }`}
+            >
+              <Building2 className="h-4 w-4" />
+              <span>Teams</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition ${
+                activeTab === 'settings' ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-50'
+              }`}
+            >
+              <Settings className="h-4 w-4" />
+              <span>Settings</span>
+            </button>
           </div>
+        </div>
 
-          {/* GLOBAL FEEDBACK */}
-          {error && (
-            <div className="mb-4 bg-red-50 text-red-700 p-3 rounded flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 flex-shrink-0" /><p>{error}</p>
-            </div>
-          )}
-          {successMessage && (
-            <div className="mb-4 bg-green-50 text-green-700 p-3 rounded">
-              {successMessage}
-            </div>
-          )}
-          {infoMessage && (
-            <div className="mb-4 bg-blue-50 text-blue-700 p-3 rounded">
-              {infoMessage}
-            </div>
-          )}
-
-          {/* EDGE HEALTH & TEST EMAIL */}
-          {activeTab === 'email' && edgeFunctionStatus && (
-            <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
-              edgeFunctionStatus === 'ok' ? 'bg-green-50 text-green-700' : 'bg-blue-50 text-blue-700'
-            }`}>
-              {edgeFunctionStatus === 'ok' ? (
-                <CheckCircle className="h-5 w-5" />
-              ) : (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              )}
-              <div className="flex-1">
-                <p className="font-medium">
-                  {edgeFunctionStatus === 'ok' ? 'Email system operational' : 'Checking email system...'}
-                </p>
-                {edgeFunctionStatus === 'ok' && (
-                  <form onSubmit={handleSendTestEmail} className="mt-2 flex gap-2">
-                    <input
-                      type="email"
-                      className="flex-1 px-2 py-1 border rounded"
-                      placeholder="Test email address"
-                      value={testEmailAddress}
-                      onChange={e => setTestEmailAddress(e.target.value)}
-                    />
-                    <button
-                      type="submit"
-                      disabled={sendingTestEmail}
-                      className="px-3 py-1 bg-indigo-600 text-white rounded disabled:opacity-50"
-                    >
-                      {sendingTestEmail ? 'Sending…' : 'Send Test Email'}
-                    </button>
-                  </form>
-                )}
-                {edgeFunctionError && <p className="text-sm mt-1 text-red-600">{edgeFunctionError}</p>}
-              </div>
-            </div>
-          )}
-
-          {/* TAB CONTENT */}
-          {activeTab === 'email' && (
-            <form onSubmit={handleEmailInvite} className="space-y-4">
-              {/* Team Role */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Team Role</label>
-                <select
-                  value={teamRole}
-                  onChange={e => setTeamRole(e.target.value as TeamRole)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-indigo-500"
-                >
-                  {TEAM_ROLES.map(r => (
-                    <option key={r.id} value={r.id}>{r.label} – {r.description}</option>
-                  ))}
-                </select>
-              </div>
-              {/* Decision Role */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Decision Role</label>
-                <select
-                  value={decisionRole}
-                  onChange={e => setDecisionRole(e.target.value as DecisionRole)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-indigo-500"
-                >
-                  {DECISION_ROLES.map(r => (
-                    <option key={r.id} value={r.id}>{r.label} – {r.description}</option>
-                  ))}
-                </select>
-              </div>
-              {/* Emails */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email Addresses</label>
-                <textarea
-                  value={emails}
-                  onChange={e => setEmails(e.target.value)}
-                  rows={4}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-indigo-500"
-                  placeholder="One per line or comma-separated"
+        <div className="p-4 space-y-4">
+          {activeTab === 'users' && (
+            <div className="space-y-4">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search users..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
-              <button
-                type="submit"
-                disabled={loading || !emails.trim()}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <UserPlus className="h-5 w-5" />}
-                {loading ? 'Adding…' : 'Add Members'}
-              </button>
-            </form>
-          )}
-
-          {activeTab === 'directory' && (
-            <UserDirectoryTab onAddUser={async id => {
-              const ok = await addTeamMember(team.id, id, teamRole, decisionRole);
-              if (ok) setInfoMessage('Member added');
-            }} />
-          )}
-
-          {activeTab === 'pending' && (
-            <div className="space-y-4">
-              {loadingInvitations ? (
-                <div className="flex items-center justify-center p-8">
-                  <Loader2 className="animate-spin h-6 w-6 text-indigo-500 mr-2" />
-                  <span>Loading invitations…</span>
+              
+              {directoryLoading ? (
+                <DirectorySearchSkeleton />
+              ) : directoryError ? (
+                <div className="bg-red-50 p-4 rounded-lg text-red-700">
+                  {directoryError}
                 </div>
-              ) : invitations.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">No pending invitations</p>
+              ) : users.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No users found matching your search.
+                </div>
               ) : (
-                invitations.map(inv => (
-                  <div
-                    key={inv.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
-                  >
-                    <div>
-                      <div className="font-medium">{inv.email}</div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        <Clock className="inline h-3 w-3 mr-1" />
-                        Invited {new Date(inv.invited_at).toLocaleString()}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Tooltip content="Resend">
-                        <button
-                          disabled={processingInvitationId === inv.id}
-                          onClick={() => handleResendInvitation(inv)}
-                          className="p-1.5 text-gray-400 hover:text-indigo-600 rounded disabled:opacity-50"
-                        >
-                          {processingInvitationId === inv.id ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
-                        </button>
-                      </Tooltip>
-                      <Tooltip content="Revoke">
-                        <button
-                          disabled={processingInvitationId === inv.id}
-                          onClick={() => handleRevokeInvitation(inv.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 rounded disabled:opacity-50"
-                        >
-                          {processingInvitationId === inv.id ? <Loader2 className="animate-spin h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                        </button>
-                      </Tooltip>
-                    </div>
-                  </div>
-                ))
+                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {users.map(user => (
+                    <DirectoryUserCard
+                      key={user.id}
+                      user={user}
+                      isSelected={selectedUsers.includes(user.id)}
+                      onSelect={() => {
+                        setSelectedUsers(prev =>
+                          prev.includes(user.id)
+                            ? prev.filter(id => id !== user.id)
+                            : [...prev, user.id]
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
               )}
-            </div>
-          )}
 
-          {/* Current Members */}
-          {activeTab === 'existing' && (
-            <div className="space-y-4">
-              {team.members.length === 0 ? (
-                <p className="text-center text-gray-500 py-8">No members yet</p>
-              ) : (
-                team.members.map(m => (
-                  <div key={m.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium">{m.email || m.user_id}</p>
+              {selectedUsers.length > 0 && (
+                <div className="border-t pt-4 mt-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-gray-600">
+                      {selectedUsers.length} user{selectedUsers.length !== 1 ? 's' : ''} selected
                     </div>
                     <button
-                      onClick={() => /* implement handleRemoveMember here if desired */ null}
-                      className="p-2 text-gray-400 hover:text-red-600 rounded"
+                      onClick={() => setSelectedUsers([])}
+                      className="text-sm text-gray-500 hover:text-gray-700"
                     >
-                      <UserMinus className="h-5 w-5" />
+                      Clear selection
                     </button>
                   </div>
-                ))
+                </div>
               )}
             </div>
           )}
+
+          {activeTab === 'teams' && (
+            <div className="space-y-4">
+              <div className="text-center py-8 text-gray-500">
+                Team selection coming soon...
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'settings' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Role</label>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                >
+                  <option value="contributor">Contributor (can edit)</option>
+                  <option value="viewer">Viewer (read-only)</option>
+                </select>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t p-4 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading || (!email && selectedUsers.length === 0)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="animate-spin h-4 w-4" />
+                <span>Inviting...</span>
+              </>
+            ) : (
+              <>
+                <UserPlus className="h-4 w-4" />
+                <span>Send Invitations</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>
