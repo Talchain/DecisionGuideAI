@@ -36,7 +36,7 @@ export default function OptionsIdeation() {
   const [loading, setLoading]               = useState(false)
   const [error, setError]                   = useState<string | null>(null)
   const [biases, setBiases]                 = useState<BiasIdeation[]>([])
-  const [inviteOpen, setInviteOpen]         = useState(false)
+  const [showInviteModal, setShowInviteModal] = useState(false)
   const [showCollaborative, setShowCollaborative] = useState(false)
 
   const back = () => navigate('/decision/goals')
@@ -85,10 +85,10 @@ export default function OptionsIdeation() {
 
   return (
     <>
-      {inviteOpen && (
+      {showInviteModal && (
         <InviteCollaborators
-          open={inviteOpen}
-          onClose={() => setInviteOpen(false)}
+          open={true}
+          onClose={() => setShowInviteModal(false)}
           decisionId={decisionId}
         />
       )}
@@ -103,7 +103,7 @@ export default function OptionsIdeation() {
           </button>
           <div className="flex gap-2">
             <button
-              onClick={() => setInviteOpen(true)}
+              onClick={() => setShowInviteModal(true)}
               className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded hover:bg-indigo-100"
             >
               Invite Collaborators
