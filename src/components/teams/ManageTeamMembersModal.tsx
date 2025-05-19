@@ -1,6 +1,7 @@
 // src/components/teams/ManageTeamMembersModal.tsx
 import React, { useState } from 'react';
 import { X, Mail, Loader2, UserPlus, Users, Building2, Settings } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 import { useTeams } from '../../contexts/TeamsContext';
 import { useDirectory } from '../../hooks/useDirectory';
 import { useQuery } from '@tanstack/react-query';
@@ -31,8 +32,14 @@ export default function ManageTeamMembersModal({ open, onClose, decisionId }: Ma
   const { data: teams, isLoading: teamsLoading } = useQuery({
     queryKey: ['teams'],
     queryFn: async () => {
-      const { data } = await supabase.from('teams').select('*');
-      return data || [];
+      try {
+        const { data, error } = await supabase.from('teams').select('*');
+        if (error) throw error;
+        return data || [];
+      } catch (err) {
+        console.error('Error fetching teams:', err);
+        throw new Error('Failed to load teams');
+      }
     }
   });
 
