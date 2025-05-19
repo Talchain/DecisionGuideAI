@@ -11,12 +11,12 @@ import DirectorySearchSkeleton from './DirectorySearchSkeleton';
 interface ManageTeamMembersModalProps {
   open: boolean;
   onClose: () => void;
-  decisionId: string;
+  teamId: string;
 }
 
 type TabId = 'users' | 'teams' | 'settings';
 
-export default function ManageTeamMembersModal({ open, onClose, decisionId }: ManageTeamMembersModalProps) {
+export default function ManageTeamMembersModal({ open, onClose, teamId }: ManageTeamMembersModalProps) {
   const { inviteTeamMember } = useTeams();
   const { users, loading: directoryLoading, error: directoryError, searchTerm, setSearchTerm } = useDirectory();
   const [email, setEmail] = useState('');
@@ -56,7 +56,7 @@ export default function ManageTeamMembersModal({ open, onClose, decisionId }: Ma
           const user = users.find(u => u.id === userId);
           if (!user?.email) continue;
 
-          const result = await inviteTeamMember(decisionId, user.email, role);
+          const result = await inviteTeamMember(teamId, user.email, role);
           if (result.error) {
             throw new Error(`Failed to invite ${user.email}: ${result.error}`);
           }
@@ -65,7 +65,7 @@ export default function ManageTeamMembersModal({ open, onClose, decisionId }: Ma
 
       // Process manual email if provided
       if (email.trim()) {
-        const result = await inviteTeamMember(decisionId, email.trim(), role);
+        const result = await inviteTeamMember(teamId, email.trim(), role);
         if (result.error) {
           throw new Error(`Failed to invite ${email}: ${result.error}`);
         }

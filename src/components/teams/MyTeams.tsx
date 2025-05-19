@@ -95,7 +95,7 @@ export default function MyTeams() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [managingTeam, setManagingTeam] = useState<Team | null>(null);
-  const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null);
+  const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null); 
 
   useEffect(() => {
     void fetchTeams(); // Use void operator to handle the Promise
@@ -171,8 +171,8 @@ export default function MyTeams() {
               key={team.id}
               team={team}
               onEdit={() => setEditingTeam(team)}
-              onDelete={() => handleDelete(team.id)}
               onManageMembers={() => setManagingTeam(team)}
+              onDelete={() => handleDelete(team.id)}
               deleting={deletingTeamId === team.id}
             />
           ))}
@@ -192,7 +192,8 @@ export default function MyTeams() {
 
       {managingTeam && (
         <ManageTeamMembersModal
-          team={managingTeam}
+          teamId={managingTeam.id}
+          open={true}
           onClose={() => { setManagingTeam(null); fetchTeams(); }}
         />
       )}
