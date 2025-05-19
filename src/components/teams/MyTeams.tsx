@@ -91,7 +91,7 @@ function TeamCard({
 }
 
 export default function MyTeams() {
-  const { teams = [], loading, error, deleteTeam, fetchTeams } = useTeams();
+  const { teams, loading, error, deleteTeam, fetchTeams } = useTeams();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [managingTeam, setManagingTeam] = useState<Team | null>(null);
