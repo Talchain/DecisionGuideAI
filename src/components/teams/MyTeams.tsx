@@ -98,7 +98,7 @@ export default function MyTeams() {
   const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchTeams();
+    void fetchTeams(); // Use void operator to handle the Promise
   }, [fetchTeams]);
 
   const handleDelete = async (teamId: string) => {

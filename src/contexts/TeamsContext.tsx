@@ -1,6 +1,6 @@
 // src/contexts/TeamsContext.tsx
 
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { sendInviteViaEdge, sendTestEmail } from '../lib/email';
 import { getUserId } from '../lib/supabase';
@@ -40,7 +40,7 @@ export const TeamsProvider = ({ children }) => {
   const [error, setError] = useState<string | null>(null);
   const [invitations, setInvitations] = useState([]);
 
-  const fetchTeams = async () => {
+  const fetchTeams = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -60,7 +60,7 @@ export const TeamsProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // Empty dependency array since it doesn't depend on any props or state
 
   const deleteTeam = async (teamId: string) => {
     try {
