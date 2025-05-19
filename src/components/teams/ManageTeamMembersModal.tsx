@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { X, Mail, Loader2, UserPlus, Users, Building2, Settings } from 'lucide-react';
 import { useTeams } from '../../contexts/TeamsContext';
 import { useDirectory } from '../../hooks/useDirectory';
+import { useQuery } from '@tanstack/react-query';
 import DirectoryUserCard from './DirectoryUserCard';
 import DirectorySearchSkeleton from './DirectorySearchSkeleton';
 
@@ -25,6 +26,59 @@ export default function ManageTeamMembersModal({ open, onClose, decisionId }: Ma
   const [activeTab, setActiveTab] = useState<TabId>('users');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+
+  // Fetch teams for the teams tab
+  const { data: teams, isLoading: teamsLoading } = useQuery({
+    queryKey: ['teams'],
+    queryFn: async () => {
+      const { data } = await supabase.from('teams').select('*');
+      return data || [];
+    }
+  });
+
+  const handleSubmit = async () => {
+    if (loading) return;
+    setLoading(true);
+    setError(null);
+    setSuccess(false);
+
+    try {
+      // Process selected users
+      if (selectedUsers.length > 0) {
+        for (const userId of selectedUsers) {
+          const user = users.find(u => u.id === userId);
+          if (!user?.email) continue;
+
+          const result = await inviteTeamMember(decisionId, user.email, role);
+          if (result.error) {
+            throw new Error(`Failed to invite ${user.email}: ${result.error}`);
+          }
+        }
+      }
+
+      // Process manual email if provided
+      if (email.trim()) {
+        const result = await inviteTeamMember(decisionId, email.trim(), role);
+        if (result.error) {
+          throw new Error(`Failed to invite ${email}: ${result.error}`);
+        }
+      }
+
+      setSuccess(true);
+      setSelectedUsers([]);
+      setEmail('');
+      
+      // Auto-close after success
+      setTimeout(() => {
+        if (success) onClose();
+      }, 1500);
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send invitations');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!open) return null;
 
@@ -78,8 +132,39 @@ export default function ManageTeamMembersModal({ open, onClose, decisionId }: Ma
         </div>
 
         <div className="p-4 space-y-4">
+          {error && (
+            <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+          
+          {success && (
+            <div className="bg-green-50 text-green-700 p-3 rounded-lg text-sm">
+              Invitations sent successfully!
+            </div>
+          )}
+
           {activeTab === 'users' && (
             <div className="space-y-4">
+              {/* Manual email input */}
+              <div className="relative">
+                <Mail className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                <input
+                  type="email"
+                  placeholder="Or enter email address manually..."
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-gray-200 to-transparent" />
+                <div className="relative text-center">
+                  <span className="px-2 text-sm text-gray-500 bg-white">or search directory</span>
+                </div>
+              </div>
+
               <div className="relative">
                 <input
                   type="text"
@@ -139,9 +224,46 @@ export default function ManageTeamMembersModal({ open, onClose, decisionId }: Ma
 
           {activeTab === 'teams' && (
             <div className="space-y-4">
-              <div className="text-center py-8 text-gray-500">
-                Team selection coming soon...
-              </div>
+              {teamsLoading ? (
+                <DirectorySearchSkeleton />
+              ) : teams?.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No teams available.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                  {teams?.map(team => (
+                    <div
+                      key={team.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${
+                        selectedTeams.includes(team.id)
+                          ? 'bg-indigo-50 border-indigo-200'
+                          : 'bg-white border-gray-200 hover:bg-gray-50'
+                      }`}
+                      onClick={() => {
+                        setSelectedTeams(prev =>
+                          prev.includes(team.id)
+                            ? prev.filter(id => id !== team.id)
+                            : [...prev, team.id]
+                        );
+                      }}
+                    >
+                      <div>
+                        <h3 className="font-medium text-gray-900">{team.name}</h3>
+                        {team.description && (
+                          <p className="text-sm text-gray-500">{team.description}</p>
+                        )}
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectedTeams.includes(team.id)}
+                        onChange={() => {}} // Handled by parent click
+                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -165,13 +287,14 @@ export default function ManageTeamMembersModal({ open, onClose, decisionId }: Ma
         <div className="border-t p-4 flex justify-end gap-2">
           <button
             onClick={onClose}
+            disabled={loading}
             className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
-            disabled={loading || (!email && selectedUsers.length === 0)}
+            disabled={loading || (!email && selectedUsers.length === 0 && selectedTeams.length === 0)}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2"
           >
             {loading ? (
