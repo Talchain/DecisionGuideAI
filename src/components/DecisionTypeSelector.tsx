@@ -84,14 +84,14 @@ export default function DecisionTypeSelector() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-start py-6 px-4 sm:px-6 lg:px-8 bg-black text-white bg-[url('https://images.pexels.com/photos/1103970/pexels-photo-1103970.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2')] bg-cover bg-center backdrop-blur-sm bg-opacity-80">
+    <div className="min-h-[calc(100vh-4rem)] flex flex-col items-center justify-start py-6 px-4 sm:px-6 lg:px-8">
       <div className="text-center max-w-4xl mx-auto space-y-6 mb-6">
         <h2 className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight">
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400">
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
             What type of decision are you facing?
           </span>
         </h2>
-        <p className="text-lg text-gray-300 max-w-2xl mx-auto">
+        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
           Select the category that best matches your decision for more relevant guidance and insights.
         </p>
       </div>
@@ -101,23 +101,23 @@ export default function DecisionTypeSelector() {
           <button
             key={id}
             onClick={() => handleSelect(id)}
-            className="bg-gray-900/50 backdrop-blur-sm p-6 rounded-xl border border-gray-800 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-left group relative overflow-hidden h-full flex flex-col justify-between hover:bg-gray-800/50 hover:border-gray-700"
+            className="bg-white p-4 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 text-left group relative overflow-hidden h-full flex flex-col justify-between"
           >
             <div className="relative z-10">
               <div className="flex items-start gap-4 mb-4">
-                <div className="p-2 bg-indigo-500/20 rounded-lg group-hover:bg-indigo-500/30 transition-colors duration-300">
-                  <Icon className="h-5 w-5 text-indigo-400" />
+                <div className="p-2 bg-indigo-50 rounded-lg group-hover:bg-indigo-100 transition-colors duration-300">
+                  <Icon className="h-4 w-4 text-indigo-600" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-semibold text-white mb-2 group-hover:text-indigo-400 transition-colors">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">
                     {label}
                   </h3>
-                  <p className="text-sm text-gray-300 mb-2">{description}</p>
-                  <p className="text-xs text-gray-400/80">{examples}</p>
+                  <p className="text-sm text-gray-500 mb-2">{description}</p>
+                  <p className="text-xs text-gray-400">{examples}</p>
                 </div>
               </div>
             </div>
-            <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/50 via-transparent to-purple-50/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </button>
         ))}
       </div>
