@@ -1,22 +1,80 @@
-// src/contexts/TeamsContext.tsx (bug fix: ensure 'invitations' is always initialised)
+// src/contexts/TeamsContext.tsx
 
 import React, { createContext, useContext, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { sendInviteViaEdge, sendTestEmail } from '../lib/email';
 import { getUserId } from '../lib/supabase';
+import type { Team } from '../types/teams';
 
 const USE_EDGE_INVITES = import.meta.env.VITE_USE_EDGE_INVITES === 'true';
 
-const TeamsContext = createContext({
+interface TeamsContextType {
+  teams: Team[];
+  loading: boolean;
+  error: string | null;
+  inviteTeamMember: (teamId: string, email: string, role: string, decisionRole: string) => Promise<any>;
+  getTeamInvitations: (teamId: string) => Promise<any[]>;
+  revokeInvitation: (invitationId: string) => Promise<any>;
+  resendInvitation: (invitationId: string, email: string, teamId: string, inviterId: string, teamName: string) => Promise<any>;
+  invitations: any[];
+  fetchTeams: () => Promise<void>;
+  deleteTeam: (teamId: string) => Promise<void>;
+}
+
+const TeamsContext = createContext<TeamsContextType>({
+  teams: [],
+  loading: false,
+  error: null,
   inviteTeamMember: async () => {},
   getTeamInvitations: async () => [],
   revokeInvitation: async () => {},
   resendInvitation: async () => {},
   invitations: [],
+  fetchTeams: async () => {},
+  deleteTeam: async () => {},
 });
 
 export const TeamsProvider = ({ children }) => {
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [invitations, setInvitations] = useState([]);
+
+  const fetchTeams = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('teams')
+        .select(`
+          *,
+          members:team_members(*)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+      setTeams(data || []);
+    } catch (err) {
+      console.error('Error fetching teams:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteTeam = async (teamId: string) => {
+    try {
+      const { error: deleteError } = await supabase
+        .from('teams')
+        .delete()
+        .eq('id', teamId);
+
+      if (deleteError) throw deleteError;
+    } catch (err) {
+      console.error('Error deleting team:', err);
+      throw err;
+    }
+  };
 
   const inviteTeamMember = async (teamId, email, role, decisionRole) => {
     try {
@@ -107,11 +165,16 @@ export const TeamsProvider = ({ children }) => {
   return (
     <TeamsContext.Provider
       value={{
+        teams,
+        loading,
+        error,
         inviteTeamMember,
         getTeamInvitations,
         revokeInvitation,
         resendInvitation,
         invitations: invitations || [],
+        fetchTeams,
+        deleteTeam,
       }}
     >
       {children}
