@@ -11,8 +11,9 @@ interface Props {
 }
 
 export default function ManageTeamMembersModal({ onClose }: Props) {
-  const { team, invitations, fetchInvitations, inviteTeamMember } = useTeams();
-  const { user } = useAuth(); // get current user from AuthContext
+  const { team, invitations: rawInvitations, fetchInvitations, inviteTeamMember } = useTeams();
+  const invitations: Invitation[] = rawInvitations || [];  // ← default to []
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [processingInvitationId, setProcessingInvitationId] = useState<string | null>(null);
@@ -24,14 +25,14 @@ export default function ManageTeamMembersModal({ onClose }: Props) {
   const [teamRole, setTeamRole] = useState<"member" | "admin">("member");
   const [decisionRole, setDecisionRole] = useState<"contributor" | "owner">("contributor");
 
-  // reset banners whenever the modal opens
   useEffect(() => {
+    // clear banners when opening
     setError(null);
     setSuccessMessage(null);
     setInfoMessage(null);
   }, []);
 
-  // ---- Invite new users by email ----
+  // Invite new emails
   const handleEmailInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -39,8 +40,8 @@ export default function ManageTeamMembersModal({ onClose }: Props) {
     setSuccessMessage(null);
     setInfoMessage(null);
 
-    const emails = emailInput.split(/[\s,;]+/).filter((e) => e);
-    for (const email of emails) {
+    const list = emailInput.split(/[\s,;]+/).filter((e) => e);
+    for (const email of list) {
       try {
         const result = await inviteTeamMember(team.id, email, teamRole, decisionRole);
         if (result.status === "invited") {
@@ -59,7 +60,7 @@ export default function ManageTeamMembersModal({ onClose }: Props) {
     await fetchInvitations();
   };
 
-  // ---- Resend a pending invitation ----
+  // Resend existing invite
   const handleResendInvitation = async (invId: string) => {
     setProcessingInvitationId(invId);
     setError(null);
@@ -76,7 +77,6 @@ export default function ManageTeamMembersModal({ onClose }: Props) {
     try {
       let edgeResult: { success: boolean; error?: string; status?: number };
       if (import.meta.env.VITE_USE_EDGE_INVITES === "true") {
-        // edge function path
         edgeResult = await sendInviteViaEdge({
           invitation_id: invId,
           email:         inv.email,
@@ -85,7 +85,6 @@ export default function ManageTeamMembersModal({ onClose }: Props) {
           inviter_id:    user!.id,
         });
       } else {
-        // RPC fallback
         const { data, error: rpcError } = await supabase.rpc(
           "send_team_invitation_email",
           {
@@ -132,20 +131,18 @@ export default function ManageTeamMembersModal({ onClose }: Props) {
             </div>
           )}
 
-          {/* Invite form */}
           <form onSubmit={handleEmailInvite} className="space-y-4 mb-6">
             <label className="block">
               <span className="text-sm font-medium">Invite by email</span>
               <input
                 type="text"
                 className="mt-1 block w-full border rounded p-2"
-                placeholder="e.g. alice@example.com, bob@example.com"
+                placeholder="alice@example.com, bob@example.com"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
                 disabled={loading}
               />
             </label>
-
             <div className="flex space-x-4">
               <label className="flex-1 block">
                 <span className="text-sm font-medium">Role</span>
@@ -172,7 +169,6 @@ export default function ManageTeamMembersModal({ onClose }: Props) {
                 </select>
               </label>
             </div>
-
             <button
               type="submit"
               className="bg-indigo-600 text-white px-4 py-2 rounded disabled:opacity-50"
@@ -182,42 +178,30 @@ export default function ManageTeamMembersModal({ onClose }: Props) {
             </button>
           </form>
 
-          {/* Pending invites */}
           <div>
             <h3 className="text-lg font-medium mb-2">Pending Invitations</h3>
             <ul className="space-y-2">
-              {invitations.length > 0
-                ? invitations.map((inv) => (
-                    <li
-                      key={inv.id}
-                      className="flex items-center justify-between"
+              {invitations.length > 0 ? (
+                invitations.map((inv) => (
+                  <li key={inv.id} className="flex items-center justify-between">
+                    <span>{inv.email}</span>
+                    <button
+                      onClick={() => handleResendInvitation(inv.id)}
+                      disabled={processingInvitationId === inv.id}
+                      className="text-indigo-600 hover:underline disabled:opacity-50"
                     >
-                      <span>{inv.email}</span>
-                      <button
-                        onClick={() => handleResendInvitation(inv.id)}
-                        disabled={processingInvitationId === inv.id}
-                        className="text-indigo-600 hover:underline disabled:opacity-50"
-                      >
-                        {processingInvitationId === inv.id
-                          ? "Resending…"
-                          : "Resend"}
-                      </button>
-                    </li>
-                  ))
-                : (
-                  <li className="text-sm text-gray-500">
-                    No pending invites
+                      {processingInvitationId === inv.id ? "Resending…" : "Resend"}
+                    </button>
                   </li>
-                )}
+                ))
+              ) : (
+                <li className="text-sm text-gray-500">No pending invites</li>
+              )}
             </ul>
           </div>
 
-          {/* Close button */}
           <div className="mt-6 text-right">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded border"
-            >
+            <button onClick={onClose} className="px-4 py-2 rounded border">
               Close
             </button>
           </div>
