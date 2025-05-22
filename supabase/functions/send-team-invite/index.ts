@@ -1,36 +1,32 @@
-// supabase/functions/send-team-invite/index.ts
+// src/functions/send-team-invite/index.ts
 
+// Supabase Edge Function for team invitations using Brevo API
 import { createClient } from "npm:@supabase/supabase-js@2.39.7";
 
-// Environment variables
-const BREVO_API_KEY       = Deno.env.get("BREVO_API_KEY")!;
-const FROM_EMAIL          = Deno.env.get("FROM_EMAIL")    || "hello@decisionguide.ai";
-const APP_URL             = Deno.env.get("APP_URL")       || "https://decisionguide.ai";
-const SUPABASE_URL        = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// Pull in your secrets
+const BREVO_API_KEY             = Deno.env.get("BREVO_API_KEY")!;
+const FROM_EMAIL                = Deno.env.get("FROM_EMAIL")     || "hello@decisionguide.ai";
+const APP_URL                   = Deno.env.get("APP_URL")        || "https://decisionguide.ai";
+const SUPABASE_URL              = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// Debug log of values (partially masked)
-console.log("DEBUG • BREVO_API_KEY:", BREVO_API_KEY.slice(0,8) + "…");
-console.log("DEBUG • FROM_EMAIL:   ", FROM_EMAIL);
-console.log("DEBUG • APP_URL:      ", APP_URL);
+// DEBUG logging
+console.log("🔑 BREVO_API_KEY:", BREVO_API_KEY.slice(0,8) + "…");
+console.log("📧 FROM_EMAIL:   ", FROM_EMAIL);
+console.log("🌐 APP_URL:      ", APP_URL);
+console.log("⏰ TIMESTAMP:    ", new Date().toISOString());
 
-// Supabase client with service role
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+// Create your Supabase client
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// CORS headers — note 200 on OPTIONS and including x-client-version
+// Shared CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin":  "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": [
-    "authorization",
-    "apikey",
-    "content-type",
-    "x-client-info",
-    "x-client-version"
-  ].join(", ")
 };
 
-// Common Brevo send
+// Helper to send via Brevo
 async function sendBrevoEmail(opts: {
   to: string;
   subject: string;
@@ -42,152 +38,165 @@ async function sendBrevoEmail(opts: {
     to:          [{ email: opts.to }],
     subject:     opts.subject,
     htmlContent: opts.htmlContent,
-    textContent: opts.textContent
+    textContent: opts.textContent,
   };
 
-  console.log("➤ Sending Brevo:", opts.to, opts.subject);
-  const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+  console.log("✉️  Sending via Brevo:", opts.to, opts.subject);
+  const resp = await fetch("https://api.brevo.com/v3/smtp/email", {
     method:  "POST",
     headers: {
-      "Accept":       "application/json",
-      "Content-Type": "application/json",
-      "api-key":      BREVO_API_KEY
+      "Accept":        "application/json",
+      "Content-Type":  "application/json",
+      "api-key":       BREVO_API_KEY,
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
   });
 
-  const json = await res.json();
-  console.log("↩️ Brevo responded:", res.status, json);
-  return { success: res.ok, status: res.status, response: json };
+  const body = await resp.json();
+  console.log("📬 Brevo response:", resp.status, body);
+  return { success: resp.ok, status: resp.status, response: body };
 }
 
+// Entrypoint
 Deno.serve(async (req) => {
-  const { method, url } = req;
-  const path = new URL(url).pathname;
+  const url    = new URL(req.url);
+  const path   = url.pathname;
+  const method = req.method.toUpperCase();
 
-  // 1) CORS preflight for **any** path
+  // Always respond to preflight
   if (method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  console.log("→ Request:", method, path);
+  console.log("➡️  Request", { method, path, time: new Date().toISOString() });
 
-  // 2) Health: POST to /health
-  if (path.endsWith("/health")) {
+  // 1) Health check
+  if (path.endsWith("/health") && method === "GET") {
     try {
       const result = await sendBrevoEmail({
         to:          FROM_EMAIL,
         subject:     "Health Check – DecisionGuide.AI",
-        htmlContent: "<p>Health check OK</p>",
-        textContent: "Health check OK"
+        htmlContent: "<p>Health check test email</p>",
+        textContent: "Health check test email",
       });
-      return new Response(JSON.stringify({
-        success:   result.success,
-        status:    result.status,
-        message:   "Email system operational",
-        timestamp: new Date().toISOString()
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+
+      return new Response(
+        JSON.stringify({
+          success:   result.success,
+          status:    result.status,
+          message:   "Email system operational",
+          timestamp: new Date().toISOString(),
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     } catch (err: any) {
-      console.error("Health failed:", err);
-      return new Response(JSON.stringify({
-        success:   false,
-        error:     err.message,
-        timestamp: new Date().toISOString()
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      console.error("❌ Health check error:", err);
+      return new Response(
+        JSON.stringify({ success: false, error: err.message, timestamp: new Date().toISOString() }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
   }
 
-  // 3) Test email: POST to /test-email
-  if (path.endsWith("/test-email")) {
+  // 2) Test-email
+  if (path.endsWith("/test-email") && method === "POST") {
     try {
       const { email } = await req.json();
-      if (!email) throw new Error("Email required");
+      if (!email) {
+        return new Response(
+          JSON.stringify({ success: false, message: "Email address required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       const result = await sendBrevoEmail({
         to:          email,
-        subject:     "Test Email – DecisionGuide.AI",
-        htmlContent: "<p>If you got this, it works!</p>",
-        textContent: "Test email successful"
+        subject:     "Test Email from DecisionGuide.AI",
+        htmlContent: `
+          <h2>Test Email</h2>
+          <p>This is a test email to verify delivery.</p>
+        `,
+        textContent: "This is a test email to verify delivery.",
       });
+
       return new Response(JSON.stringify(result), {
         status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch (err: any) {
-      console.error("Test-email failed:", err);
-      return new Response(JSON.stringify({
-        success:   false,
-        error:     err.message,
-        timestamp: new Date().toISOString()
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      console.error("❌ Test email error:", err);
+      return new Response(
+        JSON.stringify({ success: false, error: err.message, timestamp: new Date().toISOString() }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
   }
 
-  // 4) Invite: POST anywhere else
-  if (method === "POST") {
+  // 3) Send team invite
+  if (path.endsWith("/send-team-invite") && method === "POST") {
     try {
       const { invitation_id, email, team_id, team_name, inviter_id } = await req.json();
       if (!invitation_id || !email || !team_id || !team_name) {
-        throw new Error("Missing required fields");
+        return new Response(
+          JSON.stringify({ success: false, message: "Missing required fields" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
+
+      // Lookup inviter
+      const { data: inv, error: invErr } = await supabase.auth.admin.getUserById(inviter_id);
+      if (invErr) throw invErr;
+      const inviterEmail = inv?.user?.email || "A team admin";
+      const acceptLink   = `${APP_URL}/teams/join?token=${invitation_id}`;
 
       // Track “sending”
       await supabase.rpc("track_invitation_status", {
         invitation_uuid: invitation_id,
         status_value:    "sending",
-        details_json:    { team_id, team_name, inviter_id }
+        details_json:    { team_id, team_name, inviter_id },
       });
 
       // Send
-      const result = await sendBrevoEmail({
+      const brevoResult = await sendBrevoEmail({
         to:          email,
         subject:     `Join ${team_name} on DecisionGuide.AI`,
         htmlContent: `
-          <h2>Invitation</h2>
-          <p>Click to join <strong>${team_name}</strong>:</p>
-          <a href="${APP_URL}/teams/join?token=${invitation_id}"
-             style="padding:12px 24px;background:#4F46E5;color:#fff;border-radius:6px;text-decoration:none;">
-            Accept Invite
-          </a>`,
-        textContent: `Join ${team_name}: ${APP_URL}/teams/join?token=${invitation_id}`
+          <h2>Team Invitation</h2>
+          <p>${inviterEmail} invited you to join <strong>${team_name}</strong> on DecisionGuide.AI</p>
+          <p style="text-align:center">
+            <a href="${acceptLink}"
+               style="background:#4F46E5;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;">
+              Accept Invitation
+            </a>
+          </p>
+          <p>Or copy: ${acceptLink}</p>
+        `,
+        textContent: `${inviterEmail} invited you to join ${team_name}.\nAccept: ${acceptLink}`,
       });
 
       // Track result
       await supabase.rpc("track_invitation_status", {
         invitation_uuid: invitation_id,
-        status_value:    result.success ? "sent" : "failed",
-        details_json:    { status: result.status, response: result.response }
+        status_value:    brevoResult.success ? "sent" : "failed",
+        details_json:    { status: brevoResult.status, response: brevoResult.response },
       });
 
-      return new Response(JSON.stringify(result), {
+      return new Response(JSON.stringify(brevoResult), {
         status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch (err: any) {
-      console.error("Invitation failed:", err);
-      return new Response(JSON.stringify({
-        success:   false,
-        error:     err.message,
-        timestamp: new Date().toISOString()
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      console.error("❌ Invitation error:", err);
+      return new Response(
+        JSON.stringify({ success: false, error: err.message, timestamp: new Date().toISOString() }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
   }
 
-  // 5) All other methods → 405
-  return new Response(JSON.stringify({ error: "Method not allowed" }), {
-    status: 405,
-    headers: { ...corsHeaders, "Content-Type": "application/json" }
-  });
+  // 4) Fallback for everything else → 405
+  return new Response(
+    JSON.stringify({ error: "Method not allowed" }),
+    { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
 });
