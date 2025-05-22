@@ -1,312 +1,228 @@
 // src/components/teams/ManageTeamMembersModal.tsx
-import React, { useState, useEffect } from 'react';
-import {
-  X,
-  Mail,
-  Loader2,
-  UserPlus,
-  UserMinus,
-  AlertCircle,
-  UserSearch,
-  Clock,
-  RefreshCw,
-  XCircle,
-  CheckCircle,
-  Info
-} from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { useTeams } from '../../contexts/TeamsContext';
-import { sendInviteViaEdge } from '../../lib/email';
-import { useAuth } from '../../contexts/AuthContext';
-import type { Team } from '../../types/teams';
-import type { Invitation, InviteResult } from '../../types/invitations';
-import Tooltip from '../Tooltip';
-import UserDirectoryTab from './UserDirectoryTab';
+import React, { useState, useEffect, useCallback } from "react";
+import { supabase } from "../../lib/supabase";
+import { useTeams } from "../../contexts/TeamsContext";
+import { sendInviteViaEdge } from "../../lib/email";
+import type { Team } from "../../types/teams";
+import type { Invitation, InviteResult } from "../../types/invitations";
+import Tooltip from "../Tooltip";
 
-interface ManageTeamMembersModalProps {
-  team: Team;
+interface Props {
   onClose: () => void;
 }
 
-type TabId = 'email' | 'directory' | 'existing' | 'pending';
+export default function ManageTeamMembersModal({ onClose }: Props) {
+  const { team, invitations, fetchInvitations, inviteTeamMember } = useTeams();
+  const user = supabase.auth.user();
 
-export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMembersModalProps) {
-  const { user } = useAuth();
-  const { addTeamMember, inviteTeamMember, getTeamInvitations, revokeInvitation } = useTeams();
-
-  const [activeTab, setActiveTab] = useState<TabId>('email');
-  const [emails, setEmails] = useState('');
   const [loading, setLoading] = useState(false);
+  const [processingInvitationId, setProcessingInvitationId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<boolean>(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
-  const [invitations, setInvitations] = useState<Invitation[]>([]);
-  const [loadingInvitations, setLoadingInvitations] = useState(false);
-  const [processingInvitationId, setProcessingInvitationId] = useState<string | null>(null);
+  const [emailInput, setEmailInput] = useState("");
+  const [teamRole, setTeamRole] = useState<"member" | "admin">("member");
+  const [decisionRole, setDecisionRole] = useState<"contributor" | "owner">("contributor");
 
-  const [edgeFunctionStatus, setEdgeFunctionStatus] = useState<'checking' | 'ok' | 'error' | null>(null);
-  const [edgeFunctionError, setEdgeFunctionError] = useState<string | null>(null);
-
+  // RESET banners when modal opens
   useEffect(() => {
-    if (activeTab === 'pending') fetchInvitations();
-    checkEdgeFunctionStatus();
-  }, [activeTab]);
-
-  async function checkEdgeFunctionStatus() {
-    setEdgeFunctionStatus('checking');
-    setEdgeFunctionError(null);
-    try {
-      // invokes GET /functions/v1/send-team-invite/health
-      const { data, error } = await supabase.functions.invoke('send-team-invite/health');
-      if (error) throw error;
-      if (data.success) setEdgeFunctionStatus('ok');
-      else {
-        setEdgeFunctionStatus('error');
-        setEdgeFunctionError(data.message || 'Unknown health-check failure');
-      }
-    } catch (err: any) {
-      console.error('Edge Function health error', err);
-      setEdgeFunctionStatus('error');
-      setEdgeFunctionError(err.message);
-    }
-  }
-
-  async function fetchInvitations() {
-    setLoadingInvitations(true);
     setError(null);
-    try {
-      const invs = await getTeamInvitations(team.id);
-      setInvitations(invs || []);
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoadingInvitations(false);
-    }
-  }
+    setSuccess(false);
+    setSuccessMessage(null);
+    setInfoMessage(null);
+  }, []);
 
   const handleEmailInvite = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     setError(null);
+    setSuccess(false);
     setSuccessMessage(null);
     setInfoMessage(null);
 
-    const list = emails.split(/[,\n]/).map(x => x.trim()).filter(Boolean);
-    if (!list.length) return;
+    const emails = emailInput.split(/[\s,;]+/).filter((e) => e);
+    const results: InviteResult[] = [];
 
-    setLoading(true);
-    try {
-      const results: InviteResult[] = [];
-      for (const email of list) {
-        const result = await inviteTeamMember(team.id, email, 'member', 'contributor');
+    for (const email of emails) {
+      try {
+        const result = await inviteTeamMember(team.id, email, teamRole, decisionRole);
         results.push(result);
-        if (result.status === 'invited') {
+
+        if (result.status === "invited") {
           setSuccessMessage(`Invitation sent to ${email}`);
-        } else if (result.status === 'already_invited') {
+        } else if (result.status === "already_invited") {
           setInfoMessage(`${email} is already invited`);
         }
+
+      } catch (err: any) {
+        console.error("Error inviting via TeamsContext:", err);
+        setError(err.message || "Failed to invite");
       }
-      setEmails('');
-      if (results.some(r => r.status === 'invited')) {
-        await fetchInvitations();
-      }
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
+    setEmailInput("");
+    await fetchInvitations();
   };
 
-  const handleAddFromDirectory = async (userId: string) => {
+  const handleResendInvitation = async (invId: string) => {
+    setProcessingInvitationId(invId);
     setError(null);
-    try {
-      await addTeamMember(team.id, userId, 'member', 'contributor');
-      setSuccessMessage('Member added.');
-      setTimeout(() => setSuccessMessage(null), 3000);
-      return true;
-    } catch (err: any) {
-      setError(err.message);
-      return false;
-    }
-  };
-
-  const handleRevokeInvitation = async (id: string) => {
-    setProcessingInvitationId(id);
-    setError(null);
-    setSuccessMessage(null);
-    try {
-      await revokeInvitation(id);
-      setSuccessMessage('Invitation revoked.');
-      await fetchInvitations();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setProcessingInvitationId(null);
-    }
-  };
-
-  const handleResendInvitation = async (id: string) => {
-    setProcessingInvitationId(id);
-    setError(null);
+    setSuccess(false);
     setSuccessMessage(null);
     setInfoMessage(null);
 
-    const inv = invitations.find(i => i.id === id);
+    const inv = invitations.find((i) => i.id === invId);
     if (!inv) {
-      setError('Invitation not found');
+      setError("Invitation not found");
       setProcessingInvitationId(null);
       return;
     }
 
     try {
-      const edgeResult = await sendInviteViaEdge({
-        invitation_id: id,
-        email: inv.email,
-        team_id: team.id,
-        team_name: team.name,
-        inviter_id: user!.id
-      });
+      let edgeResult: { success: boolean; error?: string };
+      if (import.meta.env.VITE_USE_EDGE_INVITES === "true") {
+        edgeResult = await sendInviteViaEdge({
+          invitation_id: invId,
+          email:         inv.email,
+          team_id:       team.id,
+          team_name:     team.name,
+          inviter_id:    user!.id,
+        });
+      } else {
+        // fallback to RPC
+        const { data, error: rpcError } = await supabase.rpc(
+          "send_team_invitation_email",
+          {
+            invitation_uuid: invId,
+            to_email:        inv.email,
+            team_name:       team.name,
+            inviter_name:    user!.email || "Team Admin",
+          }
+        );
+        edgeResult = data || { success: false, error: rpcError?.message };
+      }
+
       if (edgeResult.success) {
         setSuccessMessage(`Invitation resent to ${inv.email}`);
       } else {
-        throw new Error(edgeResult.error || 'Resend failed');
+        throw new Error(edgeResult.error || "Failed to resend");
       }
-      await fetchInvitations();
+
     } catch (err: any) {
-      console.error('Error resending invite via Edge Function:', err);
-      setError(err.message);
-    } finally {
-      setProcessingInvitationId(null);
+      console.error("Error resending invite via Edge Function:", err);
+      setError(err.message || "Resend failed");
     }
+
+    setProcessingInvitationId(null);
+    setSuccess(true);
+    await fetchInvitations();
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={e => e.target === e.currentTarget && onClose()}
-    >
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold">Manage Team Members</h2>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-600 rounded-full">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="p-4">
-          {/* Tabs */}
-          <div className="flex space-x-1 mb-4">
-            <button onClick={() => setActiveTab('email')} className={`flex-1 py-2 px-4 rounded-lg ${activeTab==='email'?'bg-indigo-100 text-indigo-700':'hover:bg-gray-100'}`}>
-              <Mail className="h-4 w-4 inline mr-2" />Add by Email
-            </button>
-            <button onClick={() => setActiveTab('pending')} className={`flex-1 py-2 px-4 rounded-lg ${activeTab==='pending'?'bg-indigo-100 text-indigo-700':'hover:bg-gray-100'}`}>
-              <Clock className="h-4 w-4 inline mr-2" />Pending Invites
-            </button>
-            <button onClick={() => setActiveTab('directory')} className={`flex-1 py-2 px-4 rounded-lg ${activeTab==='directory'?'bg-indigo-100 text-indigo-700':'hover:bg-gray-100'}`}>
-              <UserSearch className="h-4 w-4 inline mr-2" />Directory
-            </button>
-            <button onClick={() => setActiveTab('existing')} className={`flex-1 py-2 px-4 rounded-lg ${activeTab==='existing'?'bg-indigo-100 text-indigo-700':'hover:bg-gray-100'}`}>
-              <UserPlus className="h-4 w-4 inline mr-2" />Current Members
-            </button>
-          </div>
-
-          {/* Inline Messages */}
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-auto">
+        <div className="p-6">
+          <h2 className="text-xl font-semibold mb-4">Manage Team Members</h2>
           {error && (
-            <div className="mb-4 bg-red-50 text-red-700 p-3 rounded-lg flex items-start gap-2">
-              <AlertCircle className="h-5 w-5" />
-              <p>{error}</p>
-            </div>
+            <div className="mb-4 bg-red-50 text-red-700 p-3 rounded">{error}</div>
           )}
           {successMessage && (
-            <div className="mb-4 bg-green-50 text-green-700 p-3 rounded-lg">
+            <div className="mb-4 bg-green-50 text-green-700 p-3 rounded">
               {successMessage}
             </div>
           )}
           {infoMessage && (
-            <div className="mb-4 bg-blue-50 text-blue-700 p-3 rounded-lg">
+            <div className="mb-4 bg-blue-50 text-blue-700 p-3 rounded">
               {infoMessage}
             </div>
           )}
 
-          {/* Edge Function Health */}
-          {edgeFunctionStatus && (
-            <div className={`mb-4 p-3 rounded-lg flex items-start gap-2 ${edgeFunctionStatus==='ok'?'bg-green-50 text-green-700':'bg-blue-50 text-blue-700'}`}>
-              {edgeFunctionStatus==='ok' ? <CheckCircle className="h-5 w-5"/> : <Loader2 className="h-5 w-5 animate-spin"/>}
-              <div>
-                <p className="font-medium">
-                  {edgeFunctionStatus==='ok' ? 'Email system is operational' : 'Checking email system…'}
-                </p>
-                {edgeFunctionError && <p className="text-sm mt-1">{edgeFunctionError}</p>}
-              </div>
+          {/* Invite by email form */}
+          <form onSubmit={handleEmailInvite} className="space-y-4 mb-6">
+            <label className="block">
+              <span className="text-sm font-medium">Invite by email</span>
+              <input
+                type="text"
+                className="mt-1 block w-full border rounded p-2"
+                placeholder="comma-separated emails"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                disabled={loading}
+              />
+            </label>
+
+            <div className="flex space-x-4">
+              <label className="flex-1 block">
+                <span className="text-sm font-medium">Role</span>
+                <select
+                  className="mt-1 block w-full border rounded p-2"
+                  value={teamRole}
+                  onChange={(e) => setTeamRole(e.target.value as any)}
+                  disabled={loading}
+                >
+                  <option value="member">Member</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </label>
+              <label className="flex-1 block">
+                <span className="text-sm font-medium">Decision Role</span>
+                <select
+                  className="mt-1 block w-full border rounded p-2"
+                  value={decisionRole}
+                  onChange={(e) => setDecisionRole(e.target.value as any)}
+                  disabled={loading}
+                >
+                  <option value="contributor">Contributor</option>
+                  <option value="owner">Owner</option>
+                </select>
+              </label>
             </div>
-          )}
 
-          {/* Email Tab */}
-          {activeTab === 'email' && (
-            <form onSubmit={handleEmailInvite} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email Addresses</label>
-                <textarea
-                  value={emails}
-                  onChange={e => setEmails(e.target.value)}
-                  placeholder="Enter email addresses (one per line or comma-separated)"
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                  rows={4}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading || !emails.trim()}
-                className="w-full flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-              >
-                {loading ? <><Loader2 className="animate-spin h-5 w-5 mr-2"/>Sending…</> : <><UserPlus className="h-5 w-5 mr-2"/>Send Invites</>}
-              </button>
-            </form>
-          )}
+            <button
+              type="submit"
+              className="bg-indigo-600 text-white px-4 py-2 rounded disabled:opacity-50"
+              disabled={loading}
+            >
+              {loading ? "Sending…" : "Send Invitations"}
+            </button>
+          </form>
 
-          {/* Directory Tab */}
-          {activeTab === 'directory' && <UserDirectoryTab onAddUser={handleAddFromDirectory}/>}
+          {/* Pending invites */}
+          <div>
+            <h3 className="text-lg font-medium mb-2">Pending Invitations</h3>
+            <ul className="space-y-2">
+              {invitations.map((inv) => (
+                <li key={inv.id} className="flex items-center justify-between">
+                  <span>{inv.email}</span>
+                  <button
+                    onClick={() => handleResendInvitation(inv.id)}
+                    disabled={processingInvitationId === inv.id}
+                    className="text-indigo-600 hover:underline disabled:opacity-50"
+                  >
+                    {processingInvitationId === inv.id
+                      ? "Resending…"
+                      : "Resend"}
+                  </button>
+                </li>
+              ))}
+              {invitations.length === 0 && (
+                <li className="text-sm text-gray-500">No pending invites</li>
+              )}
+            </ul>
+          </div>
 
-          {/* Pending Invitations */}
-          {activeTab === 'pending' && (
-            <div className="space-y-4">
-              {loadingInvitations
-                ? <div className="flex items-center justify-center p-8"><Loader2 className="animate-spin h-6 w-6 text-indigo-500 mr-2"/><span>Loading…</span></div>
-                : invitations.length === 0
-                  ? <div className="text-center py-8 text-gray-500">No pending invitations</div>
-                  : invitations.map(inv => (
-                    <div key={inv.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
-                      <div>
-                        <div className="font-medium text-gray-900">{inv.email}</div>
-                        <div className="text-xs text-gray-500 mt-1"><Clock className="h-3 w-3 inline mr-1"/>Invited {new Date(inv.invited_at).toLocaleString()}</div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Tooltip content="Resend"><button disabled={processingInvitationId===inv.id} onClick={() => handleResendInvitation(inv.id)} className="p-1.5 text-gray-400 hover:text-indigo-600 rounded disabled:opacity-50">{processingInvitationId===inv.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <RefreshCw className="h-4 w-4"/>}</button></Tooltip>
-                        <Tooltip content="Revoke"><button disabled={processingInvitationId===inv.id} onClick={() => handleRevokeInvitation(inv.id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded disabled:opacity-50">{processingInvitationId===inv.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <XCircle className="h-4 w-4"/>}</button></Tooltip>
-                      </div>
-                    </div>
-                  ))
-              }
-            </div>
-          )}
-
-          {/* Current Members */}
-          {activeTab === 'existing' && (
-            <div className="space-y-4">
-              {team.members.length === 0
-                ? <p className="text-center text-gray-500 py-4">No members yet</p>
-                : team.members.map(m => (
-                  <div key={m.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <div className="font-medium text-gray-900">{m.email || m.user_id}</div>
-                    </div>
-                    <button onClick={() => {/* implement remove if desired */}} className="p-2 text-gray-400 hover:text-red-600 rounded"><UserMinus className="h-5 w-5"/></button>
-                  </div>
-                ))
-              }
-            </div>
-          )}
+          {/* Close */}
+          <div className="mt-6 text-right">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 rounded border"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
