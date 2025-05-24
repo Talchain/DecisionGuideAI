@@ -43,7 +43,6 @@ const DECISION_ROLES = [
 ] as const;
 
 export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMembersModalProps) {
-  // pull user and actions from context
   const { user, addTeamMember, inviteTeamMember, getTeamInvitations, revokeInvitation } = useTeams();
 
   const [activeTab, setActiveTab] = useState<TabId>('email');
