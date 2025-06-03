@@ -22,7 +22,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 // Shared CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin":  "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-invoke-path",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
@@ -65,7 +65,13 @@ Deno.serve(async (req) => {
 
   // Always respond to preflight
   if (method === "OPTIONS") {
-    return new Response("ok", { status: 200, headers: corsHeaders });
+    return new Response(null, { 
+      status: 204,
+      headers: {
+        ...corsHeaders,
+        'Access-Control-Max-Age': '86400',
+      }
+    });
   }
 
   console.log("➡️  Request", { method, path, time: new Date().toISOString() });

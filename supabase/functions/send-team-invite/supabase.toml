@@ -1,0 +1,9 @@
+[functions.send-team-invite]
+verify_jwt = true
+cors = {
+  enabled = true,
+  allowed_origins = ["*"],
+  allowed_methods = ["GET", "POST", "OPTIONS"],
+  allowed_headers = ["authorization", "x-client-info", "apikey", "content-type", "x-invoke-path"],
+  exposed_headers = []
+}

@@ -29,7 +29,13 @@ export async function sendInviteViaEdge(payload: {
   try {
     const { data, error } = await supabase.functions.invoke(
       'send-team-invite',
-      { body: payload }
+      {
+        body: payload,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-invoke-path': '/send-team-invite'
+        }
+      }
     );
     if (error) throw error;
     return data as EdgeResult;
