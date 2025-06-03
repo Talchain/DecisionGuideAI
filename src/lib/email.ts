@@ -34,7 +34,18 @@ export async function sendInviteViaEdge(payload: {
     if (error) throw error;
     return data as EdgeResult;
   } catch (err: any) {
+    // Log the full error for debugging
     console.error('sendInviteViaEdge exception:', err);
+    
+    // Handle network errors specifically
+    if (err instanceof TypeError && err.message === 'Failed to fetch') {
+      return {
+        success: false,
+        error: 'Unable to reach the invitation service. Please check your network connection and try again.'
+      };
+    }
+    
+    // Handle other errors with a fallback message if none provided
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Unknown error'
