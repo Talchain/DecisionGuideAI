@@ -180,18 +180,34 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         const { error: e } = await supabase.rpc('add_team_member', {
           p_team_id: teamId, p_user_id: userCheck.id, p_role: role, p_decision_role: decisionRole
         });
-        if (e && e.code !== '23505') throw e;
-        result = { status: e ? 'already_invited' : 'added', user_id: userCheck.id, email, team_id: teamId, role, decision_role: decisionRole };
+        if (e?.code === '23505') {
+          console.info('[TeamsContext] duplicate member – already added:', email);
+          result = { status: 'already_invited', user_id: userCheck.id, email, team_id: teamId, role, decision_role: decisionRole };
+        } else if (e) {
+          throw e;
+        } else {
+          result = { status: 'added', user_id: userCheck.id, email, team_id: teamId, role, decision_role: decisionRole };
+        }
       } else {
         // new invitation row
         const { data: inv, error: ie } = await supabase.from('invitations')
           .insert({ email, team_id: teamId, invited_by: user.id, role, decision_role: decisionRole, status: 'pending' })
           .select('*').single();
-        if (ie && ie.code !== '23505') throw ie;
-        result = ie ? { status: 'already_invited', email, team_id: teamId, role, decision_role: decisionRole } : {
-          status: 'invited',
-          id: inv.id, email, team_id: teamId, role, decision_role: decisionRole, invited_at: inv.invited_at
-        };
+        if (ie?.code === '23505') {
+          console.info('[TeamsContext] duplicate invite – already invited:', email);
+          result = { status: 'already_invited', email, team_id: teamId, role, decision_role: decisionRole };
+        } else if (ie) {
+          throw ie;
+        } else {
+          result = {
+            status: 'invited',
+            id: inv.id,
+            email,
+            team_id: teamId,
+            role,
+            decision_role: decisionRole,
+            invited_at: inv.invited_at
+          };
 
         // track + send email
         await supabase.rpc('track_invitation_status', {
