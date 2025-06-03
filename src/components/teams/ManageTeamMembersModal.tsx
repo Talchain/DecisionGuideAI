@@ -77,13 +77,14 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     setEdgeFunctionStatus('checking');
     setEdgeFunctionError(null);
     try {
-      const res = await fetch(`${supabase.supabaseUrl}/functions/v1/send-team-invite/health`);
-      const json = await res.json();
-      if (res.ok && json.success) {
+      const { data, error } = await supabase.functions.invoke('send-team-invite', {
+        headers: { 'x-invoke-path': 'health' }
+      });
+      if (!error && data?.success) {
         setEdgeFunctionStatus('ok');
       } else {
         setEdgeFunctionStatus('error');
-        setEdgeFunctionError(json.error || json.message || 'Unknown error');
+        setEdgeFunctionError(error?.message || data?.error || 'Unknown error');
       }
     } catch (err: any) {
       setEdgeFunctionStatus('error');
@@ -188,15 +189,12 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     setError(null);
     setSendingTestEmail(true);
     try {
-      await fetch(`${supabase.supabaseUrl}/functions/v1/send-team-invite/test-email`, {
-        method: 'POST',
-        headers: {
-          apikey: supabase.supabaseKey,
-          Authorization: `Bearer ${supabase.supabaseKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email: testEmailAddress })
+      const { error } = await supabase.functions.invoke('send-team-invite', {
+        headers: { 'x-invoke-path': 'test-email' },
+        body: { email: testEmailAddress }
       });
+      if (error) throw error;
+      setSuccessMessage('Test email sent successfully');
     } catch (err: any) {
       setError(err.message);
     } finally {
