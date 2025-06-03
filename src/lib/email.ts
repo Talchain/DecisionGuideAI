@@ -27,17 +27,30 @@ export async function sendInviteViaEdge(payload: {
   inviter_id:    string;
 }): Promise<EdgeResult> {
   try {
+    if (!payload.invitation_id || !payload.email || !payload.team_id || !payload.team_name || !payload.inviter_id) {
+      throw new Error('Missing required fields for team invitation');
+    }
+
     const { data, error } = await supabase.functions.invoke(
       'send-team-invite',
       {
         body: payload,
         headers: {
           'Content-Type': 'application/json',
-          'x-invoke-path': '/send-team-invite'
         }
       }
     );
-    if (error) throw error;
+
+    // Handle specific error cases
+    if (error) {
+      throw new Error(error.message || 'Failed to send team invitation');
+    }
+    
+    // Validate response data
+    if (!data) {
+      throw new Error('No response received from invitation service');
+    }
+
     return data as EdgeResult;
   } catch (err: any) {
     // Log the full error for debugging
@@ -47,7 +60,7 @@ export async function sendInviteViaEdge(payload: {
     if (err instanceof TypeError && err.message === 'Failed to fetch') {
       return {
         success: false,
-        error: 'Unable to reach the invitation service. Please check your network connection and try again.'
+        error: 'Unable to reach the invitation service. Please try again later.'
       };
     }
     
