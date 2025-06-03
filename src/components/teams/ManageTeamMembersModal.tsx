@@ -77,14 +77,14 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     setEdgeFunctionStatus('checking');
     setEdgeFunctionError(null);
     try {
-      const { data, error } = await supabase.functions.invoke('send-team-invite', {
-        headers: { 'x-invoke-path': 'health' }
-      });
-      if (!error && data?.success) {
+      const url = `${supabase.supabaseUrl}/functions/v1/send-team-invite-health`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (res.ok && data?.success) {
         setEdgeFunctionStatus('ok');
       } else {
         setEdgeFunctionStatus('error');
-        setEdgeFunctionError(error?.message || data?.error || 'Unknown error');
+        setEdgeFunctionError(data?.error || 'Unknown error');
       }
     } catch (err: any) {
       setEdgeFunctionStatus('error');
