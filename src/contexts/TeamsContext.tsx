@@ -175,7 +175,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
       const { data: userCheck, error: ucErr } = await supabase.rpc('check_user_email_exists', { email_to_check: email });
       if (ucErr) throw ucErr;
 
-      let inv = null;
+      let result: InviteResult;
       let result: InviteResult;
       if (userCheck?.exists) {
         // add directly
@@ -199,7 +199,6 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           .ilike('email', email)
           .single();
 
-        if (existingErr?.code !== 'PGRST116') { // Not found error
           result = { status: 'already_invited', id: existingInv.id, email, team_id: teamId, role, decision_role: decisionRole };
         } else {
           // Create new invitation
