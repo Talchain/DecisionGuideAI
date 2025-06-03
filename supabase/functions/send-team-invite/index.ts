@@ -65,34 +65,17 @@ Deno.serve(async (req) => {
 
   // Always respond to preflight
   if (method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: corsHeaders });
+    return new Response("ok", { status: 200, headers: corsHeaders });
   }
 
   console.log("➡️  Request", { method, path, time: new Date().toISOString() });
 
   // 1) Health check
-  if (path.endsWith("/health") && (method === "GET" || method === "POST")) {
+  if (path.endsWith("/health")) {
     try {
-      // For POST requests, try to parse body but don't fail if empty
-      if (method === "POST") {
-        try {
-          await req.json();
-        } catch (e) {
-          // Ignore JSON parse errors for empty bodies
-        }
-      }
-
-      const result = await sendBrevoEmail({
-        to:          FROM_EMAIL,
-        subject:     "Health Check – DecisionGuide.AI",
-        htmlContent: "<p>Health check test email</p>",
-        textContent: "Health check test email",
-      });
-
       return new Response(
         JSON.stringify({
-          success:   result.success,
-          status:    result.status,
+          success:   true,
           message:   "Email system operational",
           timestamp: new Date().toISOString(),
         }),

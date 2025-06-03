@@ -77,15 +77,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     setEdgeFunctionStatus('checking');
     setEdgeFunctionError(null);
     try {
-      const res = await fetch(`${supabase.supabaseUrl}/functions/v1/send-team-invite/health`, { 
-        method: 'POST',
-        body: '{}',
-        headers: {
-          apikey: supabase.supabaseKey,
-          Authorization: `Bearer ${supabase.supabaseKey}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const res = await fetch(`${supabase.supabaseUrl}/functions/v1/send-team-invite/health`);
       const json = await res.json();
       if (res.ok && json.success) {
         setEdgeFunctionStatus('ok');
