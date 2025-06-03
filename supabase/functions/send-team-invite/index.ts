@@ -35,10 +35,10 @@ async function sendBrevoEmail(opts: {
 }) {
   const payload = {
     sender:      { name: "DecisionGuide.AI", email: FROM_EMAIL },
-    to:          [{ email: opts.to }],
-    subject:     opts.subject,
-    htmlContent: opts.htmlContent,
-    textContent: opts.textContent,
+    "Access-Control-Allow-Origin":  "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Max-Age":      "86400"
   };
 
   console.log("✉️  Sending via Brevo:", opts.to, opts.subject);
@@ -181,9 +181,6 @@ Deno.serve(async (req) => {
   // 4) Fallback for everything else → 405
   return new Response(
     JSON.stringify({ error: "Method not allowed" }),
-    { 
-      status: 405, 
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
-    }
+    { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
-}); // End of Deno.serve
+}); // EOF
