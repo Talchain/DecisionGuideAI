@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
   // 1) Health check
   if (path.endsWith("/health")) {
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, timestamp: new Date().toISOString() }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
