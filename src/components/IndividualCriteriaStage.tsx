@@ -39,6 +39,7 @@ export default function IndividualCriteriaStage() {
   );
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showLoadModal, setShowLoadModal] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(true);
 
   // Validation state
   const isValid = localCriteria.length >= 2 && 
@@ -120,12 +121,29 @@ export default function IndividualCriteriaStage() {
 
       {/* Main Content */}
       <div className="bg-white rounded-xl shadow-lg p-6 space-y-6">
+        {/* Templates Modal */}
+        {showTemplates && (
+          <div className="mb-8">
+            <CriteriaTemplates
+              decisionType={decisionType}
+              onSelect={(criteria) => {
+                setLocalCriteria(criteria);
+                setShowTemplates(false);
+              }}
+              onClose={() => setShowTemplates(false)}
+            />
+          </div>
+        )}
+
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Define Your Decision Criteria
           </h2>
           <p className="text-gray-600">
-            Add 2-5 criteria that matter most for this decision and rate their importance
+            {showTemplates
+              ? 'Choose a template or customize your own criteria'
+              : 'Add 2-5 criteria that matter most for this decision and rate their importance'
+            }
           </p>
         </div>
 
@@ -194,14 +212,24 @@ export default function IndividualCriteriaStage() {
         </div>
 
         {/* Future AI Integration Placeholder */}
-        <div className="bg-gray-50 p-4 rounded-lg opacity-50 cursor-not-allowed">
-          <p className="text-sm text-gray-600 text-center">
-            AI-powered criteria suggestions coming soon
-          </p>
-        </div>
+        {!showTemplates && (
+          <div className="bg-gray-50 p-4 rounded-lg opacity-50 cursor-not-allowed">
+            <p className="text-sm text-gray-600 text-center">
+              AI-powered criteria suggestions coming soon
+            </p>
+          </div>
+        )}
 
         {/* Submit Button */}
         <div className="flex justify-end pt-4">
+          {!showTemplates && (
+            <button
+              onClick={() => setShowTemplates(true)}
+              className="mr-auto px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"
+            >
+              Show Templates
+            </button>
+          )}
           <button
             onClick={handleSubmit}
             disabled={!isValid}
