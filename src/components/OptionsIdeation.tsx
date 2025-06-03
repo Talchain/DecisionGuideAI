@@ -43,7 +43,7 @@ export default function OptionsIdeation() {
   const next = () => {
     setOptions(localOptions)
     navigate('/decision/criteria')
-  const next = () => navigate('/decision/criteria')
+  }
 
   const addOption = () => {
     if (!newOption.label.trim()) return
@@ -230,7 +230,6 @@ export default function OptionsIdeation() {
         <div className="flex justify-end pt-6">
           <button
             onClick={next}
-            className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded hover:bg-indigo-700"
             className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded hover:bg-indigo-700"
           >
             Continue to Criteria <ArrowRight className="ml-2 h-5 w-5"/>
