@@ -59,8 +59,8 @@ async function sendBrevoEmail(opts: {
 
 // Entrypoint
 Deno.serve(async (req) => {
-  const url    = new URL(req.url);
-  const path   = url.pathname;
+  // Use x-invoke-path header for routing
+  const path   = req.headers.get("x-invoke-path") || "/";
   const method = req.method.toUpperCase();
 
   // Always respond to preflight
@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
   console.log("➡️  Request", { method, path, time: new Date().toISOString() });
 
   // 1) Health check
-  if (path.endsWith("/health")) {
+  if (path === "/health") {
     try {
       return new Response(
         JSON.stringify({
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
   }
 
   // 2) Test-email
-  if (path.endsWith("/test-email") && method === "POST") {
+  if (path === "/test-email" && method === "POST") {
     try {
       const { email } = await req.json();
       if (!email) {
@@ -131,7 +131,7 @@ Deno.serve(async (req) => {
   }
 
   // 3) Send team invite
-  if (path.endsWith("/send-team-invite") && method === "POST") {
+  if ((path === "/" || path === "/send-team-invite") && method === "POST") {
     try {
       const { invitation_id, email, team_id, team_name, inviter_id } = await req.json();
       if (!invitation_id || !email || !team_id || !team_name) {
