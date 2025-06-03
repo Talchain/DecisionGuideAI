@@ -6,7 +6,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.7";
 // Shared CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-client-version",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Max-Age": "86400"
 };
@@ -21,6 +21,10 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // Create Supabase client
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
+// Debug logging
+console.log("🚀 Edge Function starting");
+console.log("📧 FROM_EMAIL:", FROM_EMAIL);
+console.log("🌐 APP_URL:", APP_URL);
 
 // Helper to send via Brevo
 async function sendBrevoEmail(opts: {
@@ -69,7 +73,11 @@ Deno.serve(async (req) => {
   // 1) Health check
   if (path.endsWith("/health")) {
     return new Response(
-      JSON.stringify({ success: true, timestamp: new Date().toISOString() }),
+      JSON.stringify({
+        success: true,
+        timestamp: new Date().toISOString(),
+        message: "Email system operational"
+      }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
@@ -173,6 +181,9 @@ Deno.serve(async (req) => {
   // 4) Fallback for everything else → 405
   return new Response(
     JSON.stringify({ error: "Method not allowed" }),
-    { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    { 
+      status: 405, 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    }
   );
-});
+}); // End of Deno.serve
