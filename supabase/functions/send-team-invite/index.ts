@@ -3,28 +3,42 @@
 // Supabase Edge Function for team invitations using Brevo API
 import { createClient } from "npm:@supabase/supabase-js@2.39.7";
 
-// Pull in your secrets
+// Shared CORS headers
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS"
+};
+
+// Environment variables
 const BREVO_API_KEY             = Deno.env.get("BREVO_API_KEY")!;
 const FROM_EMAIL                = Deno.env.get("FROM_EMAIL")     || "hello@decisionguide.ai";
 const APP_URL                   = Deno.env.get("APP_URL")        || "https://decisionguide.ai";
 const SUPABASE_URL              = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// DEBUG logging
-console.log("🔑 BREVO_API_KEY:", BREVO_API_KEY.slice(0,8) + "…");
-console.log("📧 FROM_EMAIL:   ", FROM_EMAIL);
-console.log("🌐 APP_URL:      ", APP_URL);
-console.log("⏰ TIMESTAMP:    ", new Date().toISOString());
-
-// Create your Supabase client
+// Create Supabase client
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Shared CORS headers
-const corsHeaders = {
-  "Access-Control-Allow-Origin":  "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
+Deno.serve(async (req) => {
+  // Handle preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { status: 200, headers: corsHeaders });
+  }
+
+  const url = new URL(req.url);
+  const path = url.pathname;
+
+  // Health check endpoint - no auth required
+  if (path.endsWith("/health")) {
+    return new Response(
+      JSON.stringify({ success: true }),
+      { 
+        status: 200, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      }
+    );
+  }
 
 // Helper to send via Brevo
 async function sendBrevoEmail(opts: {
