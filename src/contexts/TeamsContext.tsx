@@ -169,7 +169,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     if (!user) throw new Error('Not authenticated');
     setError(null);
     console.log(`TeamsContext: Inviting ${email} to team ${teamId}…`);
-    try {
+    try {      
       // check if user exists…
       const { data: userCheck, error: ucErr } = await supabase.rpc('check_user_email_exists', { email_to_check: email });
       if (ucErr) throw ucErr;
@@ -177,7 +177,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
       let result: InviteResult;
       if (userCheck?.exists) {
         // add directly
-        const { error: e } = await supabase.rpc('add_team_member', {
+        const { error: e } = await supabase.rpc('add_team_member', { 
           p_team_id: teamId, p_user_id: userCheck.id, p_role: role, p_decision_role: decisionRole
         });
         if (e?.code === '23505') {
@@ -190,7 +190,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         }
       } else {
         // new invitation row
-        const { data: inv, error: ie } = await supabase.from('invitations')
+        const { data: inv, error: ie } = await supabase.from('invitations') 
           .insert({ email, team_id: teamId, invited_by: user.id, role, decision_role: decisionRole, status: 'pending' })
           .select('*').single();
         if (ie?.code === '23505') {
@@ -211,7 +211,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         }
 
         // track + send email
-        await supabase.rpc('track_invitation_status', {
+        await supabase.rpc('track_invitation_status', { 
           invitation_uuid: inv.id,
           status_value: 'invitation_created',
           details_json: { created_by: user.id, email, team_id: teamId, role, decision_role: decisionRole, timestamp: new Date().toISOString() }
@@ -220,7 +220,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         // choose path
         const teamRow = await supabase.from('teams').select('name').eq('id', teamId).single();
         const emailPayload = {
-          invitation_id: (inv?.id || ''), email, team_id: teamId, team_name: teamRow.data!.name, inviter_id: user.id
+          invitation_id: (inv?.id || ''), email, team_id: teamId, team_name: teamRow.data?.name || 'Team', inviter_id: user?.id || ''
         };
         const edgeEnv = import.meta.env.VITE_USE_EDGE_INVITES === 'true';
         const emailResult = edgeEnv
@@ -229,7 +229,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
 
         if (!emailResult.success) {
           console.warn('Email send failed:', emailResult.error);
-          await supabase.rpc('track_invitation_status', {
+          await supabase.rpc('track_invitation_status', { 
             invitation_uuid: inv.id,
             status_value: 'email_failed',
             details_json: { error: emailResult.error, timestamp: new Date().toISOString() }

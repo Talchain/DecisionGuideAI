@@ -113,14 +113,19 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     setInfoMessage(null);
     setLoading(true);
     try {
-      const list = emails.split(/[\s,]+/).map(x => x.trim()).filter(Boolean);
+      const list = emails.split(/[\s,]+/).map(x => x.trim().toLowerCase()).filter(Boolean);
       for (const email of list) {
         const result = await inviteTeamMember(team.id, email, teamRole, decisionRole);
         if (result.status === 'invited') {
           setSuccessMessage(`Invitation sent to ${email}`);
         } else if (result.status === 'already_invited') {
           setInfoMessage(`${email} is already invited`);
+        } else if (result.status === 'added') {
+          setSuccessMessage(`${email} was added directly as a team member`);
+        } else {
+          setError(`Failed to invite ${email}`);
         }
+        await new Promise(resolve => setTimeout(resolve, 100)); // Small delay between invites
       }
       setEmails('');
     } catch (err: any) {
