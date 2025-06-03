@@ -180,7 +180,7 @@ export default function App() {
                   />
 
                   {/* Fallback */}
-                  <Route path="*" element={<Navigate to="/" replace />} />
+                  <Route path="*" element={<Navigate to="/\" replace />} />
                 </Routes>
               </ErrorBoundary>
             </main>
