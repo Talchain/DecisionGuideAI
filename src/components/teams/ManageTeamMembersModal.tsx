@@ -71,12 +71,6 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
       fetchInvitations();
     }
   }, [activeTab]);
-
-  // health check for the edge function
-  async function checkEdgeFunctionStatus() {
-    setEdgeFunctionStatus('checking');
-    setEdgeFunctionError(null);
-    try {
       const res = await fetch(`${supabase.supabaseUrl}/functions/v1/send-team-invite/health`);
       const json = await res.json();
       if (res.ok && json.success) {

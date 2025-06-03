@@ -1,0 +1,2 @@
+[functions.send-team-invite]
+verify_jwt = false   # allow unauthenticated /health + OPTIONS
