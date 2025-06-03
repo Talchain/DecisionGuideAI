@@ -67,22 +67,10 @@ Deno.serve(async (req) => {
 
   // 1) Health check
   if (path.endsWith("/health")) {
-    try {
-      return new Response(
-        JSON.stringify({
-          success:   true,
-          message:   "Email system operational",
-          timestamp: new Date().toISOString(),
-        }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } catch (err: any) {
-      console.error("❌ Health check error:", err);
-      return new Response(
-        JSON.stringify({ success: false, error: err.message, timestamp: new Date().toISOString() }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    return new Response(
+      JSON.stringify({ success: true }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 
   // 2) Test-email
