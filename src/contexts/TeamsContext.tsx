@@ -208,6 +208,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             decision_role: decisionRole,
             invited_at: inv.invited_at
           };
+        }
 
         // track + send email
         await supabase.rpc('track_invitation_status', {
