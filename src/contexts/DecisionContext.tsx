@@ -9,6 +9,12 @@ import React, {
 } from 'react'
 import { supabase } from '../lib/supabase'
 
+export interface Criterion {
+  id: string
+  name: string
+  weight: number
+}
+
 export interface Option {
   label: string
   description: string
