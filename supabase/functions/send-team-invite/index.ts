@@ -39,6 +39,8 @@ Deno.serve(async (req) => {
       }
     );
   }
+}
+)
 
 // Helper to send via Brevo
 async function sendBrevoEmail(opts: {

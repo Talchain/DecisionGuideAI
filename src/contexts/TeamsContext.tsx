@@ -187,15 +187,29 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         const { data: inv, error: ie } = await supabase.from('invitations')
           .insert({ email, team_id: teamId, invited_by: user.id, role, decision_role: decisionRole, status: 'pending' })
           .select('*').single();
-        if (ie && ie.code !== '23505') throw ie;
-        result = ie ? { status: 'already_invited', email, team_id: teamId, role, decision_role: decisionRole } : {
-          status: 'invited',
-          id: inv.id, email, team_id: teamId, role, decision_role: decisionRole, invited_at: inv.invited_at
+        
+        // Handle duplicate invites
+        if (ie?.code === '23505') {
+          return { 
+            status: 'already_invited', 
+            email, 
+            team_id: teamId, 
+            role, 
+            decision_role: decisionRole 
+          };
         }
-        if (ie && ie.code !== '23505') throw ie;
-        result = ie ? { status: 'already_invited', email, team_id: teamId, role, decision_role: decisionRole } : {
+        
+        if (ie) throw ie;
+        if (!inv) throw new Error('No invitation data returned');
+        
+        result = {
           status: 'invited',
-          id: inv.id, email, team_id: teamId, role, decision_role: decisionRole, invited_at: inv.invited_at
+          id: inv.id,
+          email,
+          team_id: teamId,
+          role,
+          decision_role: decisionRole,
+          invited_at: inv.invited_at
         };
 
         // track + send email
