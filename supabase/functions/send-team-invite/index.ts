@@ -6,9 +6,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.7";
 // Shared CORS headers
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-client-version",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Max-Age": "86400"
+  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Methods": "GET,POST,OPTIONS"
 };
 
 // Environment variables
@@ -21,10 +20,27 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // Create Supabase client
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Debug logging
-console.log("🚀 Edge Function starting");
-console.log("📧 FROM_EMAIL:", FROM_EMAIL);
-console.log("🌐 APP_URL:", APP_URL);
+Deno.serve(async (req) => {
+  // Handle preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { status: 200, headers: corsHeaders });
+  }
+
+  const url = new URL(req.url);
+  const path = url.pathname;
+
+  // Health check endpoint - no auth required
+  if (path.endsWith("/health")) {
+    return new Response(
+      JSON.stringify({ success: true }),
+      { 
+        status: 200, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      }
+    );
+  }
+}
+)
 
 // Helper to send via Brevo
 async function sendBrevoEmail(opts: {
@@ -35,10 +51,10 @@ async function sendBrevoEmail(opts: {
 }) {
   const payload = {
     sender:      { name: "DecisionGuide.AI", email: FROM_EMAIL },
-    "Access-Control-Allow-Origin":  "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Max-Age":      "86400"
+    to:          [{ email: opts.to }],
+    subject:     opts.subject,
+    htmlContent: opts.htmlContent,
+    textContent: opts.textContent,
   };
 
   console.log("✉️  Sending via Brevo:", opts.to, opts.subject);
@@ -72,14 +88,22 @@ Deno.serve(async (req) => {
 
   // 1) Health check
   if (path.endsWith("/health")) {
-    return new Response(
-      JSON.stringify({
-        success: true,
-        timestamp: new Date().toISOString(),
-        message: "Email system operational"
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    try {
+      return new Response(
+        JSON.stringify({
+          success:   true,
+          message:   "Email system operational",
+          timestamp: new Date().toISOString(),
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    } catch (err: any) {
+      console.error("❌ Health check error:", err);
+      return new Response(
+        JSON.stringify({ success: false, error: err.message, timestamp: new Date().toISOString() }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
   }
 
   // 2) Test-email
@@ -183,4 +207,4 @@ Deno.serve(async (req) => {
     JSON.stringify({ error: "Method not allowed" }),
     { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
-}); // EOF
+});

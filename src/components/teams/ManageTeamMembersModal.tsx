@@ -76,13 +76,13 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     setEdgeFunctionStatus('checking');
     setEdgeFunctionError(null);
     try {
-      const res = await fetch(`${supabase.supabaseUrl}/functions/v1/send-team-invite/health`);
-      const ok = res.ok && (await res.json()).success;
-      if (ok) {
+      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/send-team-invite/health`);
+      const data = await response.json();
+      if (response.ok && data.success) {
         setEdgeFunctionStatus('ok');
       } else {
         setEdgeFunctionStatus('error');
-        setEdgeFunctionError(`${res.status} ${res.statusText}`);
+        setEdgeFunctionError('Email system unreachable');
       }
     } catch (err: any) {
       setEdgeFunctionStatus('error');
