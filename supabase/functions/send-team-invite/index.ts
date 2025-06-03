@@ -71,8 +71,17 @@ Deno.serve(async (req) => {
   console.log("➡️  Request", { method, path, time: new Date().toISOString() });
 
   // 1) Health check
-  if (path.endsWith("/health") && method === "GET") {
+  if (path.endsWith("/health") && (method === "GET" || method === "POST")) {
     try {
+      // For POST requests, try to parse body but don't fail if empty
+      if (method === "POST") {
+        try {
+          await req.json();
+        } catch (e) {
+          // Ignore JSON parse errors for empty bodies
+        }
+      }
+
       const result = await sendBrevoEmail({
         to:          FROM_EMAIL,
         subject:     "Health Check – DecisionGuide.AI",
@@ -149,7 +158,7 @@ Deno.serve(async (req) => {
       const inviterEmail = inv?.user?.email || "A team admin";
       const acceptLink   = `${APP_URL}/teams/join?token=${invitation_id}`;
 
-      // Track “sending”
+      // Track "sending"
       await supabase.rpc("track_invitation_status", {
         invitation_uuid: invitation_id,
         status_value:    "sending",
