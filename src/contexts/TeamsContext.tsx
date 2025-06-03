@@ -191,11 +191,6 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         result = ie ? { status: 'already_invited', email, team_id: teamId, role, decision_role: decisionRole } : {
           status: 'invited',
           id: inv.id, email, team_id: teamId, role, decision_role: decisionRole, invited_at: inv.invited_at
-        }
-        if (ie && ie.code !== '23505') throw ie;
-        result = ie ? { status: 'already_invited', email, team_id: teamId, role, decision_role: decisionRole } : {
-          status: 'invited',
-          id: inv.id, email, team_id: teamId, role, decision_role: decisionRole, invited_at: inv.invited_at
         };
 
         // track + send email

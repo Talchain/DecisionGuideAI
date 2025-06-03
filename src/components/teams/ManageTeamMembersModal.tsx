@@ -72,6 +72,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
     }
   }, [activeTab]);
 
+  // health check for the edge function
   async function checkEdgeFunctionStatus() {
     setEdgeFunctionStatus('checking');
     setEdgeFunctionError(null);
