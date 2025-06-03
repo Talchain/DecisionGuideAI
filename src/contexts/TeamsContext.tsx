@@ -174,6 +174,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
       const { data: userCheck, error: ucErr } = await supabase.rpc('check_user_email_exists', { email_to_check: email });
       if (ucErr) throw ucErr;
 
+      let inv = null;
       let result: InviteResult;
       if (userCheck?.exists) {
         // add directly
@@ -189,13 +190,22 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           result = { status: 'added', user_id: userCheck.id, email, team_id: teamId, role, decision_role: decisionRole };
         }
       } else {
-        // new invitation row
-        const { data: inv, error: ie } = await supabase.from('invitations') 
-          .insert({ email, team_id: teamId, invited_by: user.id, role, decision_role: decisionRole, status: 'pending' })
-          .select('*').single();
-        if (ie?.code === '23505') {
-          console.info('[TeamsContext] duplicate invite – already invited:', email);
-          result = { status: 'already_invited', email, team_id: teamId, role, decision_role: decisionRole };
+        // Check for existing invitation first
+        const { data: existingInv } = await supabase
+          .from('invitations')
+          .select('*')
+          .eq('team_id', teamId)
+          .ilike('email', email)
+          .single();
+
+        if (existingInv) {
+          result = { status: 'already_invited', id: existingInv.id, email, team_id: teamId, role, decision_role: decisionRole };
+          inv = existingInv;
+        } else {
+          // Create new invitation
+          const { data: newInv, error: ie } = await supabase.from('invitations')
+            .insert({ email, team_id: teamId, invited_by: user.id, role, decision_role: decisionRole, status: 'pending' })
+            .select('*').single();
         } else if (ie) {
           throw ie;
         } else {
@@ -209,7 +219,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             invited_at: inv.invited_at
           };
         }
-
+        inv = newInv;
         // track + send email
         await supabase.rpc('track_invitation_status', { 
           invitation_uuid: inv.id,
@@ -220,7 +230,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         // choose path
         const teamRow = await supabase.from('teams').select('name').eq('id', teamId).single();
         const emailPayload = {
-          invitation_id: (inv?.id || ''), email, team_id: teamId, team_name: teamRow.data?.name || 'Team', inviter_id: user?.id || ''
+          invitation_id: inv.id, email, team_id: teamId, team_name: teamRow.data?.name || 'Team', inviter_id: user?.id || ''
         };
         const edgeEnv = import.meta.env.VITE_USE_EDGE_INVITES === 'true';
         const emailResult = edgeEnv
