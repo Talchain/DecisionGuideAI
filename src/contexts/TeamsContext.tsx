@@ -169,7 +169,8 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     if (!user) throw new Error('Not authenticated');
     setError(null);
     console.log(`TeamsContext: Inviting ${email} to team ${teamId}…`);
-    try {      
+    try {
+      let inv: any = null;
       // check if user exists…
       const { data: userCheck, error: ucErr } = await supabase.rpc('check_user_email_exists', { email_to_check: email });
       if (ucErr) throw ucErr;
@@ -191,16 +192,15 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
         }
       } else {
         // Check for existing invitation first
-        const { data: existingInv } = await supabase
+        const { data: existingInv, error: existingErr } = await supabase
           .from('invitations')
           .select('*')
           .eq('team_id', teamId)
           .ilike('email', email)
           .single();
 
-        if (existingInv) {
+        if (existingErr?.code !== 'PGRST116') { // Not found error
           result = { status: 'already_invited', id: existingInv.id, email, team_id: teamId, role, decision_role: decisionRole };
-          inv = existingInv;
         } else {
           // Create new invitation
           const { data: newInv, error: ie } = await supabase.from('invitations')
@@ -208,7 +208,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             .select('*').single();
         } else if (ie) {
           throw ie;
-        } else {
+        } else if (newInv) {
           result = {
             status: 'invited',
             id: inv.id,
@@ -218,8 +218,8 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
             decision_role: decisionRole,
             invited_at: inv.invited_at
           };
+          inv = newInv;
         }
-        inv = newInv;
         // track + send email
         await supabase.rpc('track_invitation_status', { 
           invitation_uuid: inv.id,
