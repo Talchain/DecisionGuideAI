@@ -170,7 +170,6 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     setError(null);
     console.log(`TeamsContext: Inviting ${email} to team ${teamId}…`);
     try {
-      let inv: any = null;
       // check if user exists…
       const { data: userCheck, error: ucErr } = await supabase.rpc('check_user_email_exists', { email_to_check: email });
       if (ucErr) throw ucErr;
@@ -198,6 +197,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           .ilike('email', email)
           .single();
 
+        let inv = null;
         if (existingInv) {
           result = { status: 'already_invited', id: existingInv.id, email, team_id: teamId, role, decision_role: decisionRole };
         } else {
@@ -208,44 +208,47 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           if (ie) {
             throw ie;
           } else if (newInv) {
-            inv = newInv;
             result = {
               status: 'invited',
-              id: inv.id,
+              id: newInv.id,
               email,
               team_id: teamId,
               role,
               decision_role: decisionRole,
-              invited_at: inv.invited_at
+              invited_at: newInv.invited_at
             };
-          }
-        }
 
-        if (inv) {
-          // track + send email
-          await supabase.rpc('track_invitation_status', { 
-            invitation_uuid: inv.id,
-            status_value: 'invitation_created',
-            details_json: { created_by: user.id, email, team_id: teamId, role, decision_role: decisionRole, timestamp: new Date().toISOString() }
-          });
-
-          // choose path
-          const teamRow = await supabase.from('teams').select('name').eq('id', teamId).single();
-          const emailPayload = {
-            invitation_id: inv.id, email, team_id: teamId, team_name: teamRow.data?.name || 'Team', inviter_id: user?.id || ''
-          };
-          const edgeEnv = import.meta.env.VITE_USE_EDGE_INVITES === 'true';
-          const emailResult = edgeEnv
-            ? await sendInviteViaEdge(emailPayload)
-            : await sendInvitationEmail(inv.id, email, teamRow.data!.name, user.email || 'A team admin');
-
-          if (!emailResult.success) {
-            console.warn('Email send failed:', emailResult.error);
-            await supabase.rpc('track_invitation_status', { 
-              invitation_uuid: inv.id,
-              status_value: 'email_failed',
-              details_json: { error: emailResult.error, timestamp: new Date().toISOString() }
+            // track + send email for new invitations
+            await supabase.rpc('track_invitation_status', {
+              invitation_uuid: newInv.id,
+              status_value: 'invitation_created',
+              details_json: { created_by: user.id, email, team_id: teamId, role, decision_role: decisionRole, timestamp: new Date().toISOString() }
             });
+
+            // choose path
+            const teamRow = await supabase.from('teams').select('name').eq('id', teamId).single();
+            const emailPayload = {
+              invitation_id: newInv.id,
+              email,
+              team_id: teamId,
+              team_name: teamRow.data?.name || 'Team',
+              inviter_id: user?.id || ''
+            };
+            const edgeEnv = import.meta.env.VITE_USE_EDGE_INVITES === 'true';
+            const emailResult = edgeEnv
+              ? await sendInviteViaEdge(emailPayload)
+              : await sendInvitationEmail(newInv.id, email, teamRow.data!.name, user.email || 'A team admin');
+
+            if (!emailResult.success) {
+              console.warn('Email send failed:', emailResult.error);
+              await supabase.rpc('track_invitation_status', {
+                invitation_uuid: newInv.id,
+                status_value: 'email_failed',
+                details_json: { error: emailResult.error, timestamp: new Date().toISOString() }
+              });
+            }
+          } else {
+            throw new Error('Failed to create invitation');
           }
         }
       }
