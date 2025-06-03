@@ -121,6 +121,10 @@ export default function App() {
                       />
                       <Route
                         path="/decision/criteria"
+                        element={<CriteriaStage />}
+                      />
+                      <Route
+                        path="/decision/criteria"
                         element={<CriteriaForm />}
                       />
                       <Route

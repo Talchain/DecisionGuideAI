@@ -34,6 +34,7 @@ export interface DecisionContextType {
   goals: string[]
   options: Option[]
   collaborators: Collaborator[]
+  criteria: Criterion[]
   collaboratorsError: string | null
   teamIds: string[]
   setDecisionId: (id: string | null) => void
@@ -44,6 +45,7 @@ export interface DecisionContextType {
   setGoals: (goals: string[]) => void
   setOptions: (options: Option[]) => void
   setCollaborators: (collaborators: Collaborator[]) => void
+  setCriteria: (criteria: Criterion[]) => void
   setTeamIds: (teamIds: string[]) => void
   resetDecisionContext: () => void
 }
@@ -99,6 +101,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
   const [collaborators, setCollaborators] = useState<Collaborator[]>(
     initial.collaborators ?? []
   )
+  const [criteria, setCriteria] = useState<Criterion[]>(initial.criteria ?? [])
   const [collaboratorsError, setCollaboratorsError] = useState<string | null>(null)
   const [teamIds, setTeamIds] = useState<string[]>(initial.teamIds ?? [])
 
@@ -227,6 +230,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     setGoals([])
     setOptions([])
     setCollaborators([])
+    setCriteria([])
     setCollaboratorsError(null)
     setTeamIds([])
     localStorage.removeItem(LOCAL_STORAGE_KEY)
@@ -243,6 +247,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
         goals,
         options,
         collaborators,
+        criteria,
         collaboratorsError,
         teamIds,
         setTeamIds,
@@ -254,6 +259,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
         setGoals,
         setOptions,
         setCollaborators,
+        setCriteria,
         resetDecisionContext,
       }}
     >
