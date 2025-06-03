@@ -1,8 +1,10 @@
 // Move existing CriteriaStage.tsx content here and rename the component
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, AlertTriangle, ArrowRight, GripVertical } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, AlertTriangle, ArrowRight, GripVertical, Save, FolderOpen } from 'lucide-react';
 import { useDecision } from '../contexts/DecisionContext';
+import SaveCriteriaSetModal from './criteria/SaveCriteriaSetModal';
+import LoadCriteriaSetModal from './criteria/LoadCriteriaSetModal';
 
 interface Criterion {
   id: string;
@@ -35,6 +37,8 @@ export default function IndividualCriteriaStage() {
   const [localCriteria, setLocalCriteria] = useState<Criterion[]>(
     criteria?.length ? criteria : [{ id: crypto.randomUUID(), name: '', weight: 3 }]
   );
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showLoadModal, setShowLoadModal] = useState(false);
 
   // Validation state
   const isValid = localCriteria.length >= 2 && 
@@ -90,12 +94,28 @@ export default function IndividualCriteriaStage() {
       <div className="flex items-center justify-between">
         <button
           onClick={() => navigate('/decision/options')}
-          className="flex items-center text-gray-600 hover:text-gray-900"
+          className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Options
         </button>
-        <div className="text-sm text-gray-500">Step 4 of 6</div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowLoadModal(true)}
+            className="flex items-center px-3 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
+          >
+            <FolderOpen className="h-4 w-4 mr-1.5" />
+            Load Set
+          </button>
+          <button
+            onClick={() => setShowSaveModal(true)}
+            disabled={!isValid}
+            className="flex items-center px-3 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+          >
+            <Save className="h-4 w-4 mr-1.5" />
+            Save Set
+          </button>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -192,6 +212,29 @@ export default function IndividualCriteriaStage() {
           </button>
         </div>
       </div>
+
+      {/* Modals */}
+      {showSaveModal && (
+        <SaveCriteriaSetModal
+          criteria={localCriteria}
+          onClose={() => setShowSaveModal(false)}
+          onSaved={() => {
+            setShowSaveModal(false);
+            // Optional: Show success toast
+          }}
+        />
+      )}
+
+      {showLoadModal && (
+        <LoadCriteriaSetModal
+          onClose={() => setShowLoadModal(false)}
+          onLoad={(loadedCriteria) => {
+            setLocalCriteria(loadedCriteria);
+            setShowLoadModal(false);
+            // Optional: Show success toast
+          }}
+        />
+      )}
     </div>
   );
 }
