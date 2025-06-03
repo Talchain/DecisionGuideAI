@@ -25,6 +25,7 @@ import LoadingSpinner from './components/LoadingSpinner'
 import DecisionList from './components/decisions/DecisionList'
 import DecisionForm from './components/decisions/DecisionForm'
 import AuthNavigationGuard from './components/auth/AuthNavigationGuard'
+import CriteriaStage from './components/CriteriaStage'
 
 import MyTeams from './components/teams/MyTeams'
 import TeamDetails from './components/teams/TeamDetails'    // ← Newly added import
@@ -122,10 +123,6 @@ export default function App() {
                       <Route
                         path="/decision/criteria"
                         element={<CriteriaStage />}
-                      />
-                      <Route
-                        path="/decision/criteria"
-                        element={<CriteriaForm />}
                       />
                       <Route
                         path="/decision/analysis"
