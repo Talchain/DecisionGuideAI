@@ -239,7 +239,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
       await fetchTeams();
       console.log(`TeamsContext: inviteTeamMember → ${result.status} for ${email}`);
       return result;
-    } catch (e: any) {
+    } catch (e) {
       console.error('[TeamsContext] inviteTeamMember error:', e);
       setError(e.message || 'Failed to invite team member');
       throw e;
@@ -253,7 +253,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
       const { data, error: e } = await supabase.rpc('get_team_invitations', { team_uuid: teamId });
       if (e) throw e;
       return data as Invitation[];
-    } catch (e: any) {
+    } catch (e) {
       console.error('[TeamsContext] getTeamInvitations error:', e);
       setError(e.message || 'Failed to get team invitations');
       throw e;
@@ -266,7 +266,7 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     try {
       const { error: e } = await supabase.from('invitations').update({ status: 'expired' }).eq('id', invitationId);
       if (e) throw e;
-    } catch (e: any) {
+    } catch (e) {
       console.error('[TeamsContext] revokeInvitation error:', e);
       setError(e.message || 'Failed to revoke invitation');
       throw e;
