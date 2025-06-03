@@ -176,7 +176,6 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
       if (ucErr) throw ucErr;
 
       let result: InviteResult;
-      let result: InviteResult;
       if (userCheck?.exists) {
         // add directly
         const { error: e } = await supabase.rpc('add_team_member', { 
@@ -199,50 +198,55 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
           .ilike('email', email)
           .single();
 
+        if (existingInv) {
           result = { status: 'already_invited', id: existingInv.id, email, team_id: teamId, role, decision_role: decisionRole };
         } else {
           // Create new invitation
           const { data: newInv, error: ie } = await supabase.from('invitations')
             .insert({ email, team_id: teamId, invited_by: user.id, role, decision_role: decisionRole, status: 'pending' })
             .select('*').single();
-        } else if (ie) {
-          throw ie;
-        } else if (newInv) {
-          result = {
-            status: 'invited',
-            id: inv.id,
-            email,
-            team_id: teamId,
-            role,
-            decision_role: decisionRole,
-            invited_at: inv.invited_at
-          };
-          inv = newInv;
+          if (ie) {
+            throw ie;
+          } else if (newInv) {
+            inv = newInv;
+            result = {
+              status: 'invited',
+              id: inv.id,
+              email,
+              team_id: teamId,
+              role,
+              decision_role: decisionRole,
+              invited_at: inv.invited_at
+            };
+          }
         }
-        // track + send email
-        await supabase.rpc('track_invitation_status', { 
-          invitation_uuid: inv.id,
-          status_value: 'invitation_created',
-          details_json: { created_by: user.id, email, team_id: teamId, role, decision_role: decisionRole, timestamp: new Date().toISOString() }
-        });
 
-        // choose path
-        const teamRow = await supabase.from('teams').select('name').eq('id', teamId).single();
-        const emailPayload = {
-          invitation_id: inv.id, email, team_id: teamId, team_name: teamRow.data?.name || 'Team', inviter_id: user?.id || ''
-        };
-        const edgeEnv = import.meta.env.VITE_USE_EDGE_INVITES === 'true';
-        const emailResult = edgeEnv
-          ? await sendInviteViaEdge(emailPayload)
-          : await sendInvitationEmail(inv!.id, email, teamRow.data!.name, user.email || 'A team admin');
-
-        if (!emailResult.success) {
-          console.warn('Email send failed:', emailResult.error);
+        if (inv) {
+          // track + send email
           await supabase.rpc('track_invitation_status', { 
             invitation_uuid: inv.id,
-            status_value: 'email_failed',
-            details_json: { error: emailResult.error, timestamp: new Date().toISOString() }
+            status_value: 'invitation_created',
+            details_json: { created_by: user.id, email, team_id: teamId, role, decision_role: decisionRole, timestamp: new Date().toISOString() }
           });
+
+          // choose path
+          const teamRow = await supabase.from('teams').select('name').eq('id', teamId).single();
+          const emailPayload = {
+            invitation_id: inv.id, email, team_id: teamId, team_name: teamRow.data?.name || 'Team', inviter_id: user?.id || ''
+          };
+          const edgeEnv = import.meta.env.VITE_USE_EDGE_INVITES === 'true';
+          const emailResult = edgeEnv
+            ? await sendInviteViaEdge(emailPayload)
+            : await sendInvitationEmail(inv.id, email, teamRow.data!.name, user.email || 'A team admin');
+
+          if (!emailResult.success) {
+            console.warn('Email send failed:', emailResult.error);
+            await supabase.rpc('track_invitation_status', { 
+              invitation_uuid: inv.id,
+              status_value: 'email_failed',
+              details_json: { error: emailResult.error, timestamp: new Date().toISOString() }
+            });
+          }
         }
       }
 
