@@ -1,0 +1,9 @@
+[functions.send-team-invite-health]
+verify_jwt = false
+cors = {
+  enabled = true,
+  allowed_origins = ["*"],
+  allowed_methods = ["GET", "OPTIONS"],
+  allowed_headers = ["content-type"],
+  exposed_headers = []
+}
