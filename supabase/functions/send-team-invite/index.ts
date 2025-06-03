@@ -20,27 +20,6 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // Create Supabase client
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-Deno.serve(async (req) => {
-  // Handle preflight requests
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { status: 200, headers: corsHeaders });
-  }
-
-  const url = new URL(req.url);
-  const path = url.pathname;
-
-  // Health check endpoint - no auth required
-  if (path.endsWith("/health")) {
-    return new Response(
-      JSON.stringify({ success: true }),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" }
-      }
-    );
-  }
-}
-)
 
 // Helper to send via Brevo
 async function sendBrevoEmail(opts: {
