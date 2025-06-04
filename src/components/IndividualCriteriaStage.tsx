@@ -6,7 +6,6 @@ import { useDecision } from '../contexts/DecisionContext';
 import SaveCriteriaSetModal from './criteria/SaveCriteriaSetModal';
 import LoadCriteriaSetModal from './criteria/LoadCriteriaSetModal';
 import CriteriaTemplates from './criteria/CriteriaTemplates';
-import CriteriaTemplates from './criteria/CriteriaTemplates';
 
 interface Criterion {
   id: string;
