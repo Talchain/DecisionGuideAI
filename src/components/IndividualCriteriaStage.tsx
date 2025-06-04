@@ -6,6 +6,7 @@ import { useDecision } from '../contexts/DecisionContext';
 import SaveCriteriaSetModal from './criteria/SaveCriteriaSetModal';
 import LoadCriteriaSetModal from './criteria/LoadCriteriaSetModal';
 import CriteriaTemplates from './criteria/CriteriaTemplates';
+import CriteriaTemplates from './criteria/CriteriaTemplates';
 
 interface Criterion {
   id: string;
@@ -40,7 +41,7 @@ export default function IndividualCriteriaStage() {
   );
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showLoadModal, setShowLoadModal] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(true);
+  const [showTemplates, setShowTemplates] = useState<boolean>(true);
 
   // Validation state
   const isValid = localCriteria.length >= 2 && 
