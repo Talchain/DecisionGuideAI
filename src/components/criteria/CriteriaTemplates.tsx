@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, AlertTriangle, Lightbulb, Users, Target, TrendingUp, Shield, Search, DollarSign, BarChart } from 'lucide-react';
+import { Loader2, AlertTriangle, Lightbulb, Users, Target, TrendingUp, Shield, Search, DollarSign, BarChart, ChevronDown } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import type { Criterion } from '../../contexts/DecisionContext';
 
@@ -42,6 +42,7 @@ export default function CriteriaTemplates({
   const [error, setError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<CriteriaTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     const fetchTemplates = async () => {
@@ -121,6 +122,10 @@ export default function CriteriaTemplates({
     );
   }
 
+  // Show first 6 templates initially, then all if showAll is true
+  const visibleTemplates = showAll ? templates : templates.slice(0, 6);
+  const hasMoreTemplates = templates.length > 6;
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -134,80 +139,109 @@ export default function CriteriaTemplates({
         </p>
       </div>
 
-      {/* Templates Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {templates.map(template => {
-          const IconComponent = getTemplateIcon(template.name);
-          const isSelected = selectedTemplate === template.id;
-          
-          return (
-            <button
-              key={template.id}
-              onClick={() => handleTemplateSelect(template)}
-              className={`p-6 rounded-xl border-2 text-left transition-all duration-200 hover:shadow-lg ${
-                isSelected
-                  ? 'border-indigo-500 bg-indigo-50 shadow-md'
-                  : 'border-gray-200 bg-white hover:border-indigo-300'
-              }`}
-            >
-              {/* Template Header */}
-              <div className="flex items-start gap-4 mb-4">
-                <div className={`p-3 rounded-lg ${
-                  isSelected ? 'bg-indigo-100' : 'bg-gray-100'
-                }`}>
-                  <IconComponent className={`h-6 w-6 ${
-                    isSelected ? 'text-indigo-600' : 'text-gray-600'
-                  }`} />
+      {/* Templates Grid Container */}
+      <div className="space-y-6">
+        {/* Templates Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {visibleTemplates.map(template => {
+            const IconComponent = getTemplateIcon(template.name);
+            const isSelected = selectedTemplate === template.id;
+            
+            return (
+              <button
+                key={template.id}
+                onClick={() => handleTemplateSelect(template)}
+                className={`p-6 rounded-xl border-2 text-left transition-all duration-200 hover:shadow-lg transform hover:-translate-y-1 ${
+                  isSelected
+                    ? 'border-indigo-500 bg-indigo-50 shadow-md'
+                    : 'border-gray-200 bg-white hover:border-indigo-300'
+                }`}
+              >
+                {/* Template Header */}
+                <div className="flex items-start gap-4 mb-4">
+                  <div className={`p-3 rounded-lg ${
+                    isSelected ? 'bg-indigo-100' : 'bg-gray-100'
+                  }`}>
+                    <IconComponent className={`h-6 w-6 ${
+                      isSelected ? 'text-indigo-600' : 'text-gray-600'
+                    }`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 mb-1 leading-tight">
+                      {template.name}
+                    </h3>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      {template.description}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 mb-1 leading-tight">
-                    {template.name}
-                  </h3>
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    {template.description}
-                  </p>
-                </div>
-              </div>
 
-              {/* Criteria Preview */}
-              <div className="space-y-2">
-                <h4 className="text-xs font-medium text-gray-700 uppercase tracking-wide">
-                  Included Criteria ({template.criteria.length})
-                </h4>
-                <div className="grid grid-cols-1 gap-1.5">
-                  {template.criteria.slice(0, 4).map((criterion, index) => (
-                    <div key={index} className="flex justify-between items-center text-sm">
-                      <span className="text-gray-700 truncate">{criterion.name}</span>
-                      <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                        {[...Array(5)].map((_, i) => (
-                          <div
-                            key={i}
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              i < criterion.weight ? 'bg-indigo-400' : 'bg-gray-200'
-                            }`}
-                          />
-                        ))}
+                {/* Criteria Preview */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-medium text-gray-700 uppercase tracking-wide">
+                    Included Criteria ({template.criteria.length})
+                  </h4>
+                  <div className="grid grid-cols-1 gap-1.5">
+                    {template.criteria.slice(0, 4).map((criterion, index) => (
+                      <div key={index} className="flex justify-between items-center text-sm">
+                        <span className="text-gray-700 truncate">{criterion.name}</span>
+                        <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                          {[...Array(5)].map((_, i) => (
+                            <div
+                              key={i}
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                i < criterion.weight ? 'bg-indigo-400' : 'bg-gray-200'
+                              }`}
+                            />
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {template.criteria.length > 4 && (
-                    <div className="text-xs text-gray-500 italic">
-                      +{template.criteria.length - 4} more criteria
-                    </div>
-                  )}
+                    ))}
+                    {template.criteria.length > 4 && (
+                      <div className="text-xs text-gray-500 italic">
+                        +{template.criteria.length - 4} more criteria
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Selection Indicator */}
-              {isSelected && (
-                <div className="mt-4 flex items-center gap-2 text-sm text-indigo-600">
-                  <div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
-                  Template applied! You can now customize the criteria.
-                </div>
-              )}
+                {/* Selection Indicator */}
+                {isSelected && (
+                  <div className="mt-4 flex items-center gap-2 text-sm text-indigo-600">
+                    <div className="w-2 h-2 bg-indigo-600 rounded-full"></div>
+                    Template applied! You can now customize the criteria.
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Show More Button */}
+        {hasMoreTemplates && !showAll && (
+          <div className="flex justify-center">
+            <button
+              onClick={() => setShowAll(true)}
+              className="flex items-center gap-2 px-6 py-3 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors font-medium"
+            >
+              <span>Show {templates.length - 6} More Templates</span>
+              <ChevronDown className="h-5 w-5" />
             </button>
-          );
-        })}
+          </div>
+        )}
+
+        {/* Show Less Button */}
+        {showAll && hasMoreTemplates && (
+          <div className="flex justify-center">
+            <button
+              onClick={() => setShowAll(false)}
+              className="flex items-center gap-2 px-6 py-3 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors font-medium"
+            >
+              <span>Show Less</span>
+              <ChevronDown className="h-5 w-5 rotate-180" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Footer Actions */}
