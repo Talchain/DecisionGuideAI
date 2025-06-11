@@ -13,7 +13,9 @@ import {
   PlusCircle,
   Info,
   DoorOpen,
-  Users as TeamsIcon
+  Users as TeamsIcon,
+  Star,
+  UserPlus
 } from 'lucide-react';
 import { navDebug } from '../../lib/debug/navDebug';
 import {
@@ -284,5 +286,5 @@ export default function Navbar() {
         </div>
       </div>
     </nav>
-);
+  );
 }
