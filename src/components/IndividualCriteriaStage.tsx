@@ -1,10 +1,9 @@
 // Move existing CriteriaStage.tsx content here and rename the component
 import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, AlertTriangle, ArrowRight, GripVertical, Save, FolderOpen } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, AlertTriangle, ArrowRight, GripVertical, Save, FolderOpen, Star } from 'lucide-react';
 import { useDecision } from '../contexts/DecisionContext';
-import SaveCriteriaSetModal from './criteria/SaveCriteriaSetModal';
-import LoadCriteriaSetModal from './criteria/LoadCriteriaSetModal';
+import LoadTemplateModal from './criteria/LoadTemplateModal';
 import CriteriaTemplates from './criteria/CriteriaTemplates';
 
 interface Criterion {
@@ -38,8 +37,7 @@ export default function IndividualCriteriaStage() {
   const [localCriteria, setLocalCriteria] = useState<Criterion[]>(
     criteria?.length ? criteria : [{ id: crypto.randomUUID(), name: '', weight: 3 }]
   );
-  const [showSaveModal, setShowSaveModal] = useState(false);
-  const [showLoadModal, setShowLoadModal] = useState(false);
+  const [showLoadTemplateModal, setShowLoadTemplateModal] = useState(false);
   const [showTemplates, setShowTemplates] = useState<boolean>(false);
   const [hasAppliedTemplate, setHasAppliedTemplate] = useState(false);
 
@@ -114,19 +112,19 @@ export default function IndividualCriteriaStage() {
         </button>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowLoadModal(true)}
+            onClick={() => setShowLoadTemplateModal(true)}
             className="flex items-center px-3 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
           >
-            <FolderOpen className="h-4 w-4 mr-1.5" />
-            Load Set
+            <Star className="h-4 w-4 mr-1.5" />
+            Load Template
           </button>
           <button
-            onClick={() => setShowSaveModal(true)}
+            onClick={() => navigate('/templates', { state: { createFromCriteria: localCriteria } })}
             disabled={!isValid}
             className="flex items-center px-3 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
           >
             <Save className="h-4 w-4 mr-1.5" />
-            Save Set
+            Save as Template
           </button>
         </div>
       </div>
@@ -247,24 +245,12 @@ export default function IndividualCriteriaStage() {
       </div>
 
       {/* Modals */}
-      {showSaveModal && (
-        <SaveCriteriaSetModal
-          criteria={localCriteria}
-          onClose={() => setShowSaveModal(false)}
-          onSaved={() => {
-            setShowSaveModal(false);
-            // Optional: Show success toast
-          }}
-        />
-      )}
-
-      {showLoadModal && (
-        <LoadCriteriaSetModal
-          onClose={() => setShowLoadModal(false)}
-          onLoad={(loadedCriteria) => {
-            setLocalCriteria(loadedCriteria);
-            setShowLoadModal(false);
-            // Optional: Show success toast
+      {showLoadTemplateModal && (
+        <LoadTemplateModal
+          onClose={() => setShowLoadTemplateModal(false)}
+          onLoad={(templateCriteria) => {
+            setLocalCriteria(templateCriteria);
+            setHasAppliedTemplate(true);
           }}
         />
       )}
