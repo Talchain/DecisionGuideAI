@@ -146,6 +146,10 @@ export default function Navbar() {
                 <List className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
                 <span>My Decisions</span>
               </NavLink>
+              <NavLink to="/templates" className={baseStyles}>
+                <Star className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
+                <span>Templates</span>
+              </NavLink>
               <NavLink to="/teams" className={baseStyles}>
                 <TeamsIcon className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
                 <span>Teams</span>

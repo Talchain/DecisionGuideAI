@@ -31,6 +31,7 @@ import MyTeams from './components/teams/MyTeams'
 import TeamDetails from './components/teams/TeamDetails'    // ← Newly added import
 
 import DecisionTypeSelector from './components/DecisionTypeSelector'
+import TemplatesDashboard from './components/templates/TemplatesDashboard'
 import DecisionDetails from './components/DecisionDetails'
 import ImportanceSelector from './components/ImportanceSelector'
 import ReversibilitySelector from './components/ReversibilitySelector'
@@ -137,6 +138,14 @@ export default function App() {
                     element={
                       <ProtectedRoute>
                         <DecisionList />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/templates"
+                    element={
+                      <ProtectedRoute>
+                        <TemplatesDashboard />
                       </ProtectedRoute>
                     }
                   />
