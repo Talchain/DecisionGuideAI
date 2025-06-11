@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { ArrowLeft, Plus, Trash2, AlertTriangle, ArrowRight, GripVertical, Save, FolderOpen, Star } from 'lucide-react';
 import { useDecision } from '../contexts/DecisionContext';
-import LoadTemplateModal from './criteria/LoadTemplateModal';
 import CriteriaTemplates from './criteria/CriteriaTemplates';
 
 interface Criterion {
@@ -37,7 +36,6 @@ export default function IndividualCriteriaStage() {
   const [localCriteria, setLocalCriteria] = useState<Criterion[]>(
     criteria?.length ? criteria : [{ id: crypto.randomUUID(), name: '', weight: 3 }]
   );
-  const [showLoadTemplateModal, setShowLoadTemplateModal] = useState(false);
   const [showTemplates, setShowTemplates] = useState<boolean>(false);
   const [hasAppliedTemplate, setHasAppliedTemplate] = useState(false);
 
@@ -112,7 +110,7 @@ export default function IndividualCriteriaStage() {
         </button>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowLoadTemplateModal(true)}
+            onClick={() => setShowTemplates(true)}
             className="flex items-center px-3 py-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
           >
             <Star className="h-4 w-4 mr-1.5" />
@@ -243,17 +241,6 @@ export default function IndividualCriteriaStage() {
           </>
         )}
       </div>
-
-      {/* Modals */}
-      {showLoadTemplateModal && (
-        <LoadTemplateModal
-          onClose={() => setShowLoadTemplateModal(false)}
-          onLoad={(templateCriteria) => {
-            setLocalCriteria(templateCriteria);
-            setHasAppliedTemplate(true);
-          }}
-        />
-      )}
     </div>
   );
 }
