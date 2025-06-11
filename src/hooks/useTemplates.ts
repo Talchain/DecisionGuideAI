@@ -16,40 +16,24 @@ export function useTemplates() {
     setError(null);
     
     try {
+      // Simple query without joins since the schema doesn't show owner_id or user_id fields
       let query = supabase
         .from('criteria_templates')
-        .select(`
-          *,
-          users:owner_id(email)
-        `)
+        .select('*')
         .order('updated_at', { ascending: false });
 
-      // Apply scope filters
-      switch (scope) {
-        case 'my':
-          query = query.eq('owner_id', user.id);
-          break;
-        case 'team':
-          query = query.eq('sharing', 'team');
-          break;
-        case 'organization':
-          query = query.eq('sharing', 'organization');
-          break;
-        case 'featured':
-          query = query.eq('featured', true);
-          break;
-        case 'marketplace':
-          query = query.eq('sharing', 'public');
-          break;
-      }
-
+      // Note: Since there's no owner_id or user_id in the schema,
+      // we can only fetch all templates for now
+      // The scope filtering will need to be implemented once the proper
+      // user relationship fields are added to the criteria_templates table
+      
       const { data, error: fetchError } = await query;
       
       if (fetchError) throw fetchError;
       
       const processedTemplates = (data || []).map(template => ({
         ...template,
-        owner_name: template.users?.email || 'Unknown'
+        owner_name: 'System' // Default since we can't determine ownership
       }));
       
       setTemplates(processedTemplates);
@@ -68,8 +52,10 @@ export function useTemplates() {
       const { data, error } = await supabase
         .from('criteria_templates')
         .insert({
-          ...templateData,
-          owner_id: user.id,
+          name: templateData.name,
+          description: templateData.description,
+          type: templateData.type,
+          criteria: templateData.criteria,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -93,7 +79,10 @@ export function useTemplates() {
       const { data, error } = await supabase
         .from('criteria_templates')
         .update({
-          ...updates,
+          name: updates.name,
+          description: updates.description,
+          type: updates.type,
+          criteria: updates.criteria,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
@@ -131,22 +120,10 @@ export function useTemplates() {
 
   const shareTemplate = useCallback(async (id: string, sharing: string) => {
     try {
-      const { data, error } = await supabase
-        .from('criteria_templates')
-        .update({
-          sharing,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      // Update local state
-      setTemplates(prev => prev.map(t => t.id === id ? { ...t, sharing } : t));
-      
-      return data;
+      // Note: sharing functionality will need to be implemented
+      // once the proper fields are added to the criteria_templates table
+      console.warn('Share template functionality not available - missing schema fields');
+      return null;
     } catch (err) {
       console.error('Error sharing template:', err);
       throw err;
@@ -174,9 +151,6 @@ export function useTemplates() {
           description: original.description,
           type: original.type,
           criteria: original.criteria,
-          tags: original.tags,
-          owner_id: user.id,
-          sharing: 'private',
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
