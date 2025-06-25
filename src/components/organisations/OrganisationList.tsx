@@ -173,17 +173,17 @@ export default function OrganisationList() {
                               Edit
                             </Link>
                             
-                            <button
-                              onClick={() => {
-                                setActionMenuOpen(null);
-                                handleDeleteOrganisation(org.id);
-                              }}
-                              className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </button>
-                          </>
+                        {(org.is_owner || org.role === 'admin') && (
+                          <button
+                            onClick={() => {
+                              setActionMenuOpen(null);
+                              handleDeleteOrganisation(org.id);
+                            }}
+                            className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </button>
                         )}
                       </div>
                     </div>
