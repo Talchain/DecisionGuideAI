@@ -50,11 +50,9 @@ export default function CreateOrganisationModal({ onClose, onCreated }: CreateOr
     }
     
     try {
-      const { data, error } = await supabase
-        .from('organisations')
-        .select('id')
-        .eq('slug', slug)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc('check_organisation_slug_exists', { 
+        p_slug: slug 
+      });
         
       if (error) throw error;
       
