@@ -70,7 +70,7 @@ export default function Analysis() {
   const [collaborationRetryCount, setCollaborationRetryCount] = useState<number>(0);
   const [showCollaborationPanel, setShowCollaborationPanel] = useState<boolean>(false);
   const [permanentId, setPermanentId] = useState<string | null>(() =>
-    isValidDecisionId(state.decisionId) ? state.decisionId : null
+    isValidDecisionId(state?.decisionId) ? state.decisionId : null
   );
 
   // == Refs ==
