@@ -6,6 +6,27 @@ import { authLogger } from './auth/authLogger'
 
 // —————————————————————————————————————————————————————————————————————————————
 // DEV-only env logging
+// Validate environment variables
+if (!supabaseUrl) {
+  throw new Error('Missing VITE_SUPABASE_URL environment variable')
+}
+
+if (!supabaseAnonKey) {
+  throw new Error('Missing VITE_SUPABASE_ANON_KEY environment variable')
+}
+
+// Validate URL format
+try {
+  new URL(supabaseUrl)
+} catch {
+  throw new Error('Invalid VITE_SUPABASE_URL format')
+}
+
+console.log('Supabase configuration:', {
+  url: supabaseUrl,
+  hasAnonKey: !!supabaseAnonKey
+})
+
 // —————————————————————————————————————————————————————————————————————————————
 if (import.meta.env.DEV) {
   console.log(

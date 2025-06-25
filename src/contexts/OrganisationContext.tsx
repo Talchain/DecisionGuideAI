@@ -36,6 +36,17 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
     setError(null);
     
     try {
+      // Test Supabase connection first
+      const { data: testData, error: testError } = await supabase
+        .from('organisations')
+        .select('count')
+        .limit(1);
+        
+      if (testError) {
+        console.error('Supabase connection test failed:', testError);
+        throw new Error(`Database connection failed: ${testError.message}`);
+      }
+      
       // Get owned organisations
       const { data: ownedOrgs, error: ownedError } = await supabase
         .from('organisations')
@@ -44,7 +55,7 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
         
       if (ownedError) {
         console.error('Error fetching owned organisations:', ownedError);
-        throw ownedError;
+        throw new Error(`Failed to fetch owned organisations: ${ownedError.message}`);
       }
       
       // Get member organisations
@@ -67,7 +78,7 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
         
       if (memberError) {
         console.error('Error fetching member organisations:', memberError);
-        throw memberError;
+        throw new Error(`Failed to fetch member organisations: ${memberError.message}`);
       }
       
       // Combine and format the results
@@ -106,7 +117,21 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
       }
     } catch (err) {
       console.error('Error fetching organisations:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to load organisations';
+      
+      let errorMessage = 'Failed to load organisations';
+      
+      if (err instanceof Error) {
+        if (err.message.includes('Failed to fetch')) {
+          errorMessage = 'Unable to connect to the database. Please check your internet connection and try again.';
+        } else if (err.message.includes('CORS')) {
+          errorMessage = 'Cross-origin request blocked. Please check your Supabase configuration.';
+        } else if (err.message.includes('Network')) {
+          errorMessage = 'Network error. Please check your connection and try again.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
       setError(errorMessage);
       
       // Set empty state gracefully on any error
@@ -140,7 +165,7 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
         .select()
         .single();
         
-      if (error) throw error;
+      if (error) throw new Error(`Failed to create organisation: ${error.message}`);
       
       await fetchOrganisations();
       return data;
@@ -165,7 +190,7 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
         })
         .eq('id', id);
         
-      if (error) throw error;
+      if (error) throw new Error(`Failed to update organisation: ${error.message}`);
       
       await fetchOrganisations();
     } catch (err) {
@@ -186,7 +211,7 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
         .delete()
         .eq('id', id);
         
-      if (error) throw error;
+      if (error) throw new Error(`Failed to delete organisation: ${error.message}`);
       
       // If the deleted organisation was the current one, set current to null
       if (currentOrganisation?.id === id) {
