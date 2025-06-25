@@ -245,7 +245,7 @@ export default function OrganisationDetails() {
             <div className="text-sm text-gray-600 space-y-2">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-gray-400" />
-                <span>Created {format(new Date(organisation.created_at), 'MMM d, yyyy')}</span>
+                <span>Created {organisation.created_at ? format(new Date(organisation.created_at), 'MMM d, yyyy') : 'N/A'}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-gray-400" />
