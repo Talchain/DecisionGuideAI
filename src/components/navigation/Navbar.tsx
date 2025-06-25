@@ -14,6 +14,7 @@ import {
   Info,
   DoorOpen,
   Users as TeamsIcon,
+  Building,
   Star,
   UserPlus
 } from 'lucide-react';
@@ -155,6 +156,10 @@ export default function Navbar() {
               <NavLink to="/teams" className={baseStyles}>
                 <TeamsIcon className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
                 <span>Teams</span>
+              </NavLink>
+              <NavLink to="/organisations" className={baseStyles}>
+                <Building className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
+                <span>Organisations</span>
               </NavLink>
               <NavLink to="/decisions/new" className={baseStyles}>
                 <PlusCircle className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />

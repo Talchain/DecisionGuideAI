@@ -24,6 +24,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { GuestProvider } from './contexts/GuestContext'
 import { DecisionProvider } from './contexts/DecisionContext'
 import { TeamsProvider } from './contexts/TeamsContext'
+import { OrganisationProvider } from './contexts/OrganisationContext'
 
 import App from './App'
 import './index.css'
@@ -36,11 +37,13 @@ createRoot(container).render(
     <Router>
       <AuthProvider>
         <GuestProvider>
-          <TeamsProvider>
-            <DecisionProvider>
-              <App />
-            </DecisionProvider>
-          </TeamsProvider>
+          <OrganisationProvider>
+            <TeamsProvider>
+              <DecisionProvider>
+                <App />
+              </DecisionProvider>
+            </TeamsProvider>
+          </OrganisationProvider>
         </GuestProvider>
       </AuthProvider>
     </Router>

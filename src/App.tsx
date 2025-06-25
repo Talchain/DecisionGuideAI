@@ -29,6 +29,8 @@ import CriteriaStage from './components/CriteriaStage'
 
 import MyTeams from './components/teams/MyTeams'
 import TeamDetails from './components/teams/TeamDetails'    // ← Newly added import
+import OrganisationList from './components/organisations/OrganisationList'
+import OrganisationDetails from './components/organisations/OrganisationDetails'
 
 import DecisionTypeSelector from './components/DecisionTypeSelector'
 import TemplatesDashboard from './components/templates/TemplatesDashboard'
@@ -172,6 +174,32 @@ export default function App() {
                     element={
                       <ProtectedRoute>
                         <TeamDetails />
+                      </ProtectedRoute>
+                    }
+                  />
+                  
+                  {/* Organisations */}
+                  <Route
+                    path="/organisations"
+                    element={
+                      <ProtectedRoute>
+                        <OrganisationList />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/organisations/:id"
+                    element={
+                      <ProtectedRoute>
+                        <OrganisationDetails />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/organisations/:id/edit"
+                    element={
+                      <ProtectedRoute>
+                        <OrganisationDetails />
                       </ProtectedRoute>
                     }
                   />
