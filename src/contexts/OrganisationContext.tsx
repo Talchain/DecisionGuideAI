@@ -38,7 +38,10 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
     try {
       const { data, error } = await supabase.rpc('get_user_organisations');
       
-      if (error) throw error;
+      if (error) {
+        console.error('RPC error:', error);
+        throw error;
+      }
       
       const orgs = data || [];
       setOrganisations(orgs);
@@ -63,7 +66,14 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
       }
     } catch (err) {
       console.error('Error fetching organisations:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load organisations');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load organisations';
+      setError(errorMessage);
+      
+      // If it's a network error or RPC doesn't exist, set empty state gracefully
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('function') || errorMessage.includes('does not exist')) {
+        setOrganisations([]);
+        setCurrentOrganisation(null);
+      }
     } finally {
       setLoading(false);
     }
