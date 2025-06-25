@@ -1,7 +1,9 @@
 // src/components/teams/MyTeams.tsx
 
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTeams } from '../../contexts/TeamsContext';
+import { useOrganisation } from '../../contexts/OrganisationContext';
 import {
   Edit2,
   Trash2,
@@ -92,14 +94,23 @@ function TeamCard({
 
 export default function MyTeams() {
   const { teams, loading, error, deleteTeam, fetchTeams } = useTeams();
+  const { organisations } = useOrganisation();
+  const location = useLocation();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [managingTeam, setManagingTeam] = useState<Team | null>(null);
   const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null);
+  const [organisationFilter, setOrganisationFilter] = useState<string | null>(null);
+  
+  // Get organisation ID from location state if available
+  const organisationIdFromState = location.state?.organisationId;
 
   useEffect(() => {
+    if (organisationIdFromState) {
+      setOrganisationFilter(organisationIdFromState);
+    }
     void fetchTeams(); // Use void operator to handle the Promise
-  }, [fetchTeams]);
+  }, [fetchTeams, organisationIdFromState]);
 
   const handleDelete = async (teamId: string) => {
     setDeletingTeamId(teamId);
@@ -113,6 +124,15 @@ export default function MyTeams() {
     }
   };
 
+  // Filter teams by organisation if filter is set
+  const filteredTeams = organisationFilter
+    ? teamsArray.filter(team => team.organisation_id === organisationFilter)
+    : teamsArray;
+
+  // Get organisation name if filter is set
+  const selectedOrganisation = organisationFilter
+    ? organisations.find(org => org.id === organisationFilter)
+    : null;
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -141,7 +161,16 @@ export default function MyTeams() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">My Teams</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {selectedOrganisation ? `${selectedOrganisation.name} Teams` : 'My Teams'}
+          </h1>
+          {selectedOrganisation && (
+            <p className="text-sm text-gray-500">
+              Teams in this organisation
+            </p>
+          )}
+        </div>
         <button
           onClick={() => setShowCreateModal(true)}
           className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -151,11 +180,19 @@ export default function MyTeams() {
         </button>
       </div>
 
-      {teamsArray.length === 0 ? (
+      {filteredTeams.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-2xl">
           <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No teams yet</h3>
-          <p className="text-gray-500 mb-4">Create your first team to start collaborating</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {selectedOrganisation 
+              ? `No teams in ${selectedOrganisation.name}` 
+              : 'No teams yet'}
+          </h3>
+          <p className="text-gray-500 mb-4">
+            {selectedOrganisation
+              ? `Create your first team in ${selectedOrganisation.name}`
+              : 'Create your first team to start collaborating'}
+          </p>
           <button
             onClick={() => setShowCreateModal(true)}
             className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
@@ -166,7 +203,7 @@ export default function MyTeams() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {teamsArray.map((team) => (
+          {filteredTeams.map((team) => (
             <TeamCard
               key={team.id}
               team={team}
@@ -180,7 +217,10 @@ export default function MyTeams() {
       )}
 
       {showCreateModal && (
-        <CreateTeamModal onClose={() => { setShowCreateModal(false); fetchTeams(); }} />
+        <CreateTeamModal 
+          onClose={() => { setShowCreateModal(false); fetchTeams(); }}
+          organisationId={organisationFilter} 
+        />
       )}
       
       {editingTeam && (

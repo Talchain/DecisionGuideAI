@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { useTeams } from '../../contexts/TeamsContext';
+import { useOrganisation } from '../../contexts/OrganisationContext';
 
 interface CreateTeamModalProps {
   onClose: () => void;
+  organisationId?: string;
 }
 
-export default function CreateTeamModal({ onClose }: CreateTeamModalProps) {
+export default function CreateTeamModal({ onClose, organisationId }: CreateTeamModalProps) {
   const { createTeam } = useTeams();
+  const { currentOrganisation } = useOrganisation();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,7 +25,8 @@ export default function CreateTeamModal({ onClose }: CreateTeamModalProps) {
     try {
       const team = await createTeam(
         name.trim(),
-        description.trim() || undefined
+        description.trim() || undefined,
+        organisationId || currentOrganisation?.id
       );
       if (!team) throw new Error('Failed to create team');
       onClose();
@@ -44,8 +48,7 @@ export default function CreateTeamModal({ onClose }: CreateTeamModalProps) {
           <h2 className="text-lg font-medium text-gray-900">Create New Team</h2>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 rounded-full"
-          >
+            className="p-2 text-gray-400 hover:text-gray-600 rounded-full">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -85,6 +88,12 @@ export default function CreateTeamModal({ onClose }: CreateTeamModalProps) {
               rows={3}
             />
           </div>
+
+          {organisationId || currentOrganisation ? (
+            <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
+              This team will be created in the organisation: {currentOrganisation?.name || "Selected organisation"}
+            </div>
+          ) : null}
 
           <div className="flex justify-end gap-3 pt-4">
             <button

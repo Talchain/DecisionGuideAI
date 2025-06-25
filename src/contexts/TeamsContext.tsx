@@ -16,7 +16,7 @@ interface TeamsContextType {
   loading: boolean;
   error: string | null;
   fetchTeams: () => Promise<void>;
-  createTeam: (name: string, description?: string) => Promise<Team>;
+  createTeam: (name: string, description?: string, organisationId?: string) => Promise<Team>;
   updateTeam: (id: string, updates: { name: string; description?: string }) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
   addTeamMember: (teamId: string, userId: string, role?: string, decisionRole?: string) => Promise<void>;
@@ -55,14 +55,19 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  const createTeam = useCallback(async (name: string, description?: string) => {
+  const createTeam = useCallback(async (name: string, description?: string, organisationId?: string) => {
     if (!user) throw new Error('Not authenticated');
     setLoading(true);
     setError(null);
     try {
       const { data, error: e } = await supabase
         .from('teams')
-        .insert([{ name, description, created_by: user.id }])
+        .insert([{ 
+          name, 
+          description, 
+          created_by: user.id,
+          organisation_id: organisationId || null
+        }])
         .select('*')
         .single();
       if (e) throw e;

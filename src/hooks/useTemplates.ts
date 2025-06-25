@@ -9,37 +9,67 @@ export function useTemplates() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTemplates = useCallback(async (scope: string = 'my') => {
+  const fetchTemplates = useCallback(async (tab: string = 'my') => {
     if (!user) return;
     
     setLoading(true);
     setError(null);
     
     try {
-      // Simple query without joins since the schema doesn't show owner_id or user_id fields
-      let query = supabase
-        .from('criteria_templates')
-        .select('*')
-        .order('updated_at', { ascending: false });
-
-      // Note: Since there's no owner_id or user_id in the schema,
-      // we can only fetch all templates for now
-      // The scope filtering will need to be implemented once the proper
-      // user relationship fields are added to the criteria_templates table
+      let query;
+      
+      switch (tab) {
+        case 'my':
+          query = supabase
+            .from('criteria_templates')
+            .select('*')
+            .eq('owner_id', user.id)
+            .order('updated_at', { ascending: false });
+          break;
+        case 'team':
+          query = supabase
+            .from('criteria_templates')
+            .select('*')
+            .eq('sharing', 'team')
+            .order('updated_at', { ascending: false });
+          break;
+        case 'organization':
+          query = supabase
+            .from('criteria_templates')
+            .select('*')
+            .eq('sharing', 'organization')
+            .order('updated_at', { ascending: false });
+          break;
+        case 'featured':
+          query = supabase
+            .from('criteria_templates')
+            .select('*')
+            .eq('featured', true)
+            .order('updated_at', { ascending: false });
+          break;
+        default:
+          query = supabase
+            .from('criteria_templates')
+            .select('*')
+            .eq('owner_id', user.id)
+            .order('updated_at', { ascending: false });
+      }
       
       const { data, error: fetchError } = await query;
       
       if (fetchError) throw fetchError;
       
-      const processedTemplates = (data || []).map(template => ({
+      // Add owner information
+      const templatesWithOwner = data?.map(template => ({
         ...template,
-        owner_name: 'System' // Default since we can't determine ownership
-      }));
+        owner_name: template.owner_id === user.id ? 'You' : 'Other User',
+        sharing: template.sharing || 'private'
+      })) || [];
       
-      setTemplates(processedTemplates);
+      setTemplates(templatesWithOwner);
     } catch (err) {
       console.error('Error fetching templates:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch templates');
+      setError(err instanceof Error ? err.message : 'Failed to load templates');
     } finally {
       setLoading(false);
     }
@@ -48,94 +78,157 @@ export function useTemplates() {
   const createTemplate = useCallback(async (templateData: Partial<CriteriaTemplate>) => {
     if (!user) throw new Error('User not authenticated');
     
+    setLoading(true);
+    setError(null);
+    
     try {
-      const { data, error } = await supabase
+      const { data, error: createError } = await supabase
         .from('criteria_templates')
         .insert({
-          name: templateData.name,
-          description: templateData.description,
-          type: templateData.type,
-          criteria: templateData.criteria,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          name: templateData.name || 'Untitled Template',
+          description: templateData.description || null,
+          type: templateData.type || 'other',
+          criteria: templateData.criteria || [],
+          sharing: templateData.sharing || 'private',
+          owner_id: user.id,
+          tags: templateData.tags || []
         })
         .select()
         .single();
       
-      if (error) throw error;
+      if (createError) throw createError;
       
-      // Add to local state
-      setTemplates(prev => [data, ...prev]);
+      // Add the new template to the state
+      setTemplates(prev => [
+        {
+          ...data,
+          owner_name: 'You'
+        },
+        ...prev
+      ]);
       
       return data;
     } catch (err) {
       console.error('Error creating template:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create template');
       throw err;
+    } finally {
+      setLoading(false);
     }
   }, [user]);
 
   const updateTemplate = useCallback(async (id: string, updates: Partial<CriteriaTemplate>) => {
+    if (!user) throw new Error('User not authenticated');
+    
+    setLoading(true);
+    setError(null);
+    
     try {
-      const { data, error } = await supabase
+      const { data, error: updateError } = await supabase
         .from('criteria_templates')
         .update({
           name: updates.name,
           description: updates.description,
           type: updates.type,
           criteria: updates.criteria,
+          sharing: updates.sharing,
+          tags: updates.tags,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
         .select()
         .single();
       
-      if (error) throw error;
+      if (updateError) throw updateError;
       
-      // Update local state
-      setTemplates(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
+      // Update the template in the state
+      setTemplates(prev => 
+        prev.map(template => 
+          template.id === id 
+            ? { ...template, ...data, owner_name: 'You' } 
+            : template
+        )
+      );
       
       return data;
     } catch (err) {
       console.error('Error updating template:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update template');
       throw err;
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   const deleteTemplate = useCallback(async (id: string) => {
+    if (!user) throw new Error('User not authenticated');
+    
+    setLoading(true);
+    setError(null);
+    
     try {
-      const { error } = await supabase
+      const { error: deleteError } = await supabase
         .from('criteria_templates')
         .delete()
         .eq('id', id);
       
-      if (error) throw error;
+      if (deleteError) throw deleteError;
       
-      // Remove from local state
-      setTemplates(prev => prev.filter(t => t.id !== id));
+      // Remove the template from the state
+      setTemplates(prev => prev.filter(template => template.id !== id));
     } catch (err) {
       console.error('Error deleting template:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete template');
       throw err;
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   const shareTemplate = useCallback(async (id: string, sharing: string) => {
+    if (!user) throw new Error('User not authenticated');
+    
+    setLoading(true);
+    setError(null);
+    
     try {
-      // Note: sharing functionality will need to be implemented
-      // once the proper fields are added to the criteria_templates table
-      console.warn('Share template functionality not available - missing schema fields');
-      return null;
+      const { data, error: shareError } = await supabase
+        .from('criteria_templates')
+        .update({ sharing, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (shareError) throw shareError;
+      
+      // Update the template in the state
+      setTemplates(prev => 
+        prev.map(template => 
+          template.id === id 
+            ? { ...template, sharing: data.sharing } 
+            : template
+        )
+      );
+      
+      return data;
     } catch (err) {
       console.error('Error sharing template:', err);
+      setError(err instanceof Error ? err.message : 'Failed to share template');
       throw err;
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   const forkTemplate = useCallback(async (id: string) => {
     if (!user) throw new Error('User not authenticated');
     
+    setLoading(true);
+    setError(null);
+    
     try {
-      // Get the original template
-      const { data: original, error: fetchError } = await supabase
+      // First get the template to fork
+      const { data: templateToFork, error: fetchError } = await supabase
         .from('criteria_templates')
         .select('*')
         .eq('id', id)
@@ -143,29 +236,39 @@ export function useTemplates() {
       
       if (fetchError) throw fetchError;
       
-      // Create a copy
-      const { data, error } = await supabase
+      // Create a new template based on the original
+      const { data: newTemplate, error: createError } = await supabase
         .from('criteria_templates')
         .insert({
-          name: `${original.name} (Copy)`,
-          description: original.description,
-          type: original.type,
-          criteria: original.criteria,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          name: `${templateToFork.name} (Copy)`,
+          description: templateToFork.description,
+          type: templateToFork.type,
+          criteria: templateToFork.criteria,
+          sharing: 'private', // Default to private for the fork
+          owner_id: user.id,
+          tags: templateToFork.tags || []
         })
         .select()
         .single();
       
-      if (error) throw error;
+      if (createError) throw createError;
       
-      // Add to local state
-      setTemplates(prev => [data, ...prev]);
+      // Add the new template to the state
+      setTemplates(prev => [
+        {
+          ...newTemplate,
+          owner_name: 'You'
+        },
+        ...prev
+      ]);
       
-      return data;
+      return newTemplate;
     } catch (err) {
       console.error('Error forking template:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fork template');
       throw err;
+    } finally {
+      setLoading(false);
     }
   }, [user]);
 

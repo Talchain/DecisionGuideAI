@@ -15,20 +15,12 @@ export interface Organisation {
 
 export interface OrganisationMember {
   id: string;
-  user_id: string;
   organisation_id: string;
+  user_id: string;
   role: string;
   created_at: string;
+  updated_at: string;
   email?: string;
   first_name?: string;
   last_name?: string;
-}
-
-export interface OrganisationTeam {
-  id: string;
-  name: string;
-  description: string | null;
-  created_by: string;
-  created_at: string;
-  member_count: number;
 }

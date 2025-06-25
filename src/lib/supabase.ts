@@ -411,8 +411,8 @@ export async function fetchDecisionCollaborators(decisionId: string) {
 export async function fetchUserDirectory(searchTerm: string = '') {
   try {
     const { data, error } = await supabase.rpc(
-      'get_user_directory',
-      { search_term: searchTerm }
+      'get_user_directory_with_organisation',
+      { search_term: searchTerm, organisation_id: null }
     );
     
     if (error) throw error;
@@ -583,6 +583,85 @@ export async function createInvitation(email: string) {
       error: err instanceof Error
         ? err
         : new Error('Unknown error creating invitation')
+    };
+  }
+}
+
+// ---------------- Organisation Management ----------------
+
+export async function getUserOrganisations() {
+  try {
+    const { data, error } = await supabase.rpc('get_user_organisations');
+    
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    console.error('getUserOrganisations exception:', err);
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error fetching organisations')
+    };
+  }
+}
+
+export async function getOrganisationDetails(id: string) {
+  try {
+    const { data, error } = await supabase.rpc(
+      'get_organisation_details',
+      { org_id: id }
+    );
+    
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    console.error('getOrganisationDetails exception:', err);
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error fetching organisation details')
+    };
+  }
+}
+
+export async function getOrganisationMembers(id: string) {
+  try {
+    const { data, error } = await supabase.rpc(
+      'get_organisation_members',
+      { org_id: id }
+    );
+    
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    console.error('getOrganisationMembers exception:', err);
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error fetching organisation members')
+    };
+  }
+}
+
+export async function getOrganisationTeams(id: string) {
+  try {
+    const { data, error } = await supabase.rpc(
+      'get_organisation_teams',
+      { org_id: id }
+    );
+    
+    if (error) throw error;
+    return { data, error: null };
+  } catch (err) {
+    console.error('getOrganisationTeams exception:', err);
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error fetching organisation teams')
     };
   }
 }

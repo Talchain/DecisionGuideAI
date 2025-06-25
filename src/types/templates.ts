@@ -1,26 +1,18 @@
-export interface Criterion {
-  id: string;
-  name: string;
-  weight: number;
-  tooltip?: string;
-}
+import type { Criterion } from '../contexts/DecisionContext';
 
 export interface CriteriaTemplate {
   id: string;
   name: string;
-  description?: string;
+  description: string | null;
   type: string;
   criteria: Criterion[];
+  sharing: string;
   owner_id: string;
   owner_name?: string;
-  sharing: 'private' | 'team' | 'organization' | 'public';
-  tags?: string[];
-  featured?: boolean;
   created_at: string;
   updated_at: string;
-  version?: number;
-  team_id?: string;
-  organization_id?: string;
+  featured?: boolean;
+  tags?: string[];
 }
 
 export interface TemplateFilter {
@@ -29,12 +21,4 @@ export interface TemplateFilter {
   tags: string[];
   dateRange: string;
   sharing: string;
-}
-
-export interface TemplateStats {
-  totalTemplates: number;
-  myTemplates: number;
-  teamTemplates: number;
-  organizationTemplates: number;
-  featuredTemplates: number;
 }
