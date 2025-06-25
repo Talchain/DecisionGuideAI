@@ -36,83 +36,69 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
     setError(null);
     
     try {
-      // Try to use RPC function first, fallback to direct queries if it doesn't exist
-      let data, error;
-      
-      try {
-        const rpcResult = await supabase.rpc('get_user_organisations');
-        data = rpcResult.data;
-        error = rpcResult.error;
-      } catch (rpcError) {
-        // If RPC function doesn't exist, fall back to direct queries
-        console.log('RPC function not available, using fallback queries');
+      // Get owned organisations
+      const { data: ownedOrgs, error: ownedError } = await supabase
+        .from('organisations')
+        .select('*')
+        .eq('owner_id', user.id);
         
-        // Get owned organisations
-        const { data: ownedOrgs, error: ownedError } = await supabase
-          .from('organisations')
-          .select('*, role:owner_id, is_owner:owner_id')
-          .eq('owner_id', user.id);
-          
-        if (ownedError) throw ownedError;
-        
-        // Get member organisations
-        const { data: memberOrgs, error: memberError } = await supabase
-          .from('organisation_members')
-          .select(`
-            role,
-            organisations!inner (
-              id,
-              name,
-              slug,
-              description,
-              owner_id,
-              settings,
-              created_at,
-              updated_at
-            )
-          `)
-          .eq('user_id', user.id);
-          
-        if (memberError) throw memberError;
-        
-        // Combine and format the results
-        const formattedOwned = (ownedOrgs || []).map(org => ({
-          ...org,
-          role: 'owner',
-          is_owner: true
-        }));
-        
-        const formattedMember = (memberOrgs || []).map(item => ({
-          ...item.organisations,
-          role: item.role,
-          is_owner: false
-        }));
-        
-        data = [...formattedOwned, ...formattedMember];
-        error = null;
+      if (ownedError) {
+        console.error('Error fetching owned organisations:', ownedError);
+        throw ownedError;
       }
       
-      if (error) {
-        console.error('RPC error:', error);
-        throw error;
+      // Get member organisations
+      const { data: memberOrgs, error: memberError } = await supabase
+        .from('organisation_members')
+        .select(`
+          role,
+          organisations!inner (
+            id,
+            name,
+            slug,
+            description,
+            owner_id,
+            settings,
+            created_at,
+            updated_at
+          )
+        `)
+        .eq('user_id', user.id);
+        
+      if (memberError) {
+        console.error('Error fetching member organisations:', memberError);
+        throw memberError;
       }
       
-      const orgs = data || [];
-      setOrganisations(orgs);
+      // Combine and format the results
+      const formattedOwned = (ownedOrgs || []).map(org => ({
+        ...org,
+        role: 'owner' as const,
+        is_owner: true
+      }));
+      
+      const formattedMember = (memberOrgs || []).map(item => ({
+        ...item.organisations,
+        role: item.role,
+        is_owner: false
+      }));
+      
+      const allOrgs = [...formattedOwned, ...formattedMember];
+      setOrganisations(allOrgs);
       
       // If no current organisation is set, set the first one
-      if (!currentOrganisation && orgs.length > 0) {
-        setCurrentOrganisation(orgs[0]);
+      if (!currentOrganisation && allOrgs.length > 0) {
+        setCurrentOrganisation(allOrgs[0]);
       } else if (currentOrganisation) {
         // If current organisation is set, make sure it's still in the list
-        const stillExists = orgs.some(org => org.id === currentOrganisation.id);
-        if (!stillExists && orgs.length > 0) {
-          setCurrentOrganisation(orgs[0]);
+        const stillExists = allOrgs.some(org => org.id === currentOrganisation.id);
+        if (!stillExists && allOrgs.length > 0) {
+          setCurrentOrganisation(allOrgs[0]);
         } else if (!stillExists) {
           setCurrentOrganisation(null);
         } else {
           // Update the current organisation with fresh data
-          const updatedOrg = orgs.find(org => org.id === currentOrganisation.id);
+          const updatedOrg = allOrgs.find(org => org.id === currentOrganisation.id);
           if (updatedOrg) {
             setCurrentOrganisation(updatedOrg);
           }
