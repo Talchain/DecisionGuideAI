@@ -5,8 +5,26 @@ import type { Database } from '../types/database'
 import { authLogger } from './auth/authLogger'
 
 // —————————————————————————————————————————————————————————————————————————————
+// Environment variables - declare first before any usage
+// —————————————————————————————————————————————————————————————————————————————
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY!
+
+// —————————————————————————————————————————————————————————————————————————————
 // DEV-only env logging
+// —————————————————————————————————————————————————————————————————————————————
+if (import.meta.env.DEV) {
+  console.log(
+    '[Supabase ENV] URL=',
+    supabaseUrl,
+    'ANON_KEY_PREFIX=',
+    supabaseAnonKey?.slice(0, 8)
+  )
+}
+
+// —————————————————————————————————————————————————————————————————————————————
 // Validate environment variables
+// —————————————————————————————————————————————————————————————————————————————
 if (!supabaseUrl) {
   throw new Error('Missing VITE_SUPABASE_URL environment variable')
 }
@@ -28,26 +46,6 @@ console.log('Supabase configuration:', {
 })
 
 // —————————————————————————————————————————————————————————————————————————————
-if (import.meta.env.DEV) {
-  console.log(
-    '[Supabase ENV] URL=',
-    import.meta.env.VITE_SUPABASE_URL,
-    'ANON_KEY_PREFIX=',
-    import.meta.env.VITE_SUPABASE_ANON_KEY?.slice(0, 8)
-  )
-}
-
-// —————————————————————————————————————————————————————————————————————————————
-// Validate environment variables
-// —————————————————————————————————————————————————————————————————————————————
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY!
-if (!supabaseUrl || !supabaseKey) {
-  console.error('CRITICAL: Missing Supabase environment variables')
-  throw new Error('Missing Supabase environment variables')
-}
-
-// —————————————————————————————————————————————————————————————————————————————
 // Create Supabase client
 //  • disable auto token-refresh  (avoids background-tab stalls)
 //  • disable multi-tab sync      (prevents SW broadcasts)
@@ -55,7 +53,7 @@ if (!supabaseUrl || !supabaseKey) {
 // —————————————————————————————————————————————————————————————————————————————
 export const supabase = createClient<Database>(
   supabaseUrl,
-  supabaseKey,
+  supabaseAnonKey,
   {
     auth: {
       autoRefreshToken: true,
