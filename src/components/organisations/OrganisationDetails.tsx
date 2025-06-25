@@ -214,7 +214,7 @@ export default function OrganisationDetails() {
                 <Edit className="h-5 w-5" />
               </button>
               
-              {organisation.is_owner && (
+              {(organisation.is_owner || organisation.role === 'admin') && (
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
