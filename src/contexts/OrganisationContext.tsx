@@ -36,7 +36,61 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
     setError(null);
     
     try {
-      const { data, error } = await supabase.rpc('get_user_organisations');
+      // Try to use RPC function first, fallback to direct queries if it doesn't exist
+      let data, error;
+      
+      try {
+        const rpcResult = await supabase.rpc('get_user_organisations');
+        data = rpcResult.data;
+        error = rpcResult.error;
+      } catch (rpcError) {
+        // If RPC function doesn't exist, fall back to direct queries
+        console.log('RPC function not available, using fallback queries');
+        
+        // Get owned organisations
+        const { data: ownedOrgs, error: ownedError } = await supabase
+          .from('organisations')
+          .select('*, role:owner_id, is_owner:owner_id')
+          .eq('owner_id', user.id);
+          
+        if (ownedError) throw ownedError;
+        
+        // Get member organisations
+        const { data: memberOrgs, error: memberError } = await supabase
+          .from('organisation_members')
+          .select(`
+            role,
+            organisations!inner (
+              id,
+              name,
+              slug,
+              description,
+              owner_id,
+              settings,
+              created_at,
+              updated_at
+            )
+          `)
+          .eq('user_id', user.id);
+          
+        if (memberError) throw memberError;
+        
+        // Combine and format the results
+        const formattedOwned = (ownedOrgs || []).map(org => ({
+          ...org,
+          role: 'owner',
+          is_owner: true
+        }));
+        
+        const formattedMember = (memberOrgs || []).map(item => ({
+          ...item.organisations,
+          role: item.role,
+          is_owner: false
+        }));
+        
+        data = [...formattedOwned, ...formattedMember];
+        error = null;
+      }
       
       if (error) {
         console.error('RPC error:', error);
@@ -69,11 +123,9 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
       const errorMessage = err instanceof Error ? err.message : 'Failed to load organisations';
       setError(errorMessage);
       
-      // If it's a network error or RPC doesn't exist, set empty state gracefully
-      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('function') || errorMessage.includes('does not exist')) {
-        setOrganisations([]);
-        setCurrentOrganisation(null);
-      }
+      // Set empty state gracefully on any error
+      setOrganisations([]);
+      setCurrentOrganisation(null);
     } finally {
       setLoading(false);
     }
