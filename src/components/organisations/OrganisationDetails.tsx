@@ -237,13 +237,13 @@ export default function OrganisationDetails() {
             </span>
           )}
           <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-            (organisation.plan_type || 'solo') === 'solo' 
+            organisation?.plan_type === 'solo' || !organisation?.plan_type
               ? 'bg-gray-100 text-gray-800' 
-              : (organisation.plan_type || 'solo') === 'team'
+              : organisation?.plan_type === 'team'
               ? 'bg-green-100 text-green-800'
               : 'bg-purple-100 text-purple-800'
           }`}>
-            {(organisation.plan_type || 'solo').charAt(0).toUpperCase() + (organisation.plan_type || 'solo').slice(1)} Plan
+            {organisation?.plan_type ? (organisation.plan_type.charAt(0).toUpperCase() + organisation.plan_type.slice(1)) : 'Solo'} Plan
           </span>
         </div>
         
@@ -251,7 +251,7 @@ export default function OrganisationDetails() {
           {(organisation.is_owner || organisation.role === 'admin') && (
             <div className="flex items-center gap-2">
               <div className="flex">
-                {(organisation.plan_type || 'solo') !== 'solo' ? (
+                {organisation?.plan_type === 'team' || organisation?.plan_type === 'enterprise' ? (
                   <>
                     <button
                       onClick={() => setShowMembersModal(true)}
@@ -333,8 +333,8 @@ export default function OrganisationDetails() {
             <div className="text-sm text-gray-600 space-y-2">
               <div className="flex items-center gap-2">
                 <CreditCard className="h-4 w-4 text-gray-400" />
-                <span className="capitalize">{organisation.plan_type || 'solo'} Plan</span>
-                {organisation.is_owner && (organisation.plan_type || 'solo') !== 'solo' && (
+                <span className="capitalize">{organisation?.plan_type || 'solo'} Plan</span>
+                {organisation?.is_owner && organisation?.plan_type && organisation.plan_type !== 'solo' && (
                   <button
                     onClick={handleTogglePlan}
                     disabled={changingPlan || !organisation?.id}
@@ -374,7 +374,7 @@ export default function OrganisationDetails() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-medium text-gray-900">Teams</h2>
-              {(organisation.plan_type || 'solo') !== 'solo' ? (
+              {organisation?.plan_type === 'team' || organisation?.plan_type === 'enterprise' ? (
                 <Link
                   to="/teams/new"
                   state={{ organisationId: organisation.id }}
@@ -393,7 +393,7 @@ export default function OrganisationDetails() {
               <div className="text-center py-8 bg-gray-50 rounded-lg">
                 <Briefcase className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                 <p className="text-gray-500">No teams in this organisation yet</p>
-                {(organisation.plan_type || 'solo') !== 'solo' ? (
+                {organisation?.plan_type === 'team' || organisation?.plan_type === 'enterprise' ? (
                   <Link
                     to="/teams/new"
                     state={{ organisationId: organisation.id }}
@@ -519,7 +519,7 @@ export default function OrganisationDetails() {
                 onClick={handleTogglePlan}
                 disabled={changingPlan || !organisation?.id}
                 className={`inline-flex items-center px-4 py-2 rounded-lg transition-colors ${
-                  (organisation.plan_type || 'solo') === 'solo'
+                  !organisation?.plan_type || organisation?.plan_type === 'solo'
                     ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700'
                     : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
                 }`}
@@ -529,7 +529,7 @@ export default function OrganisationDetails() {
                 ) : (
                   <CreditCard className="h-4 w-4 mr-2" />
                 )}
-                {(organisation.plan_type || 'solo') === 'solo' ? 'Upgrade to Team Plan' : 'Change Plan'}
+                {!organisation?.plan_type || organisation?.plan_type === 'solo' ? 'Upgrade to Team Plan' : 'Change Plan'}
               </button>
             )}
           </div>
@@ -540,33 +540,33 @@ export default function OrganisationDetails() {
               <h3 className="font-medium text-gray-900 mb-2">Current Plan</h3>
               <div className="flex items-center gap-3">
                 <div className={`p-3 rounded-lg ${
-                  (organisation.plan_type || 'solo') === 'solo' 
+                  !organisation?.plan_type || organisation?.plan_type === 'solo' 
                     ? 'bg-gray-100' 
-                    : (organisation.plan_type || 'solo') === 'team'
+                    : organisation?.plan_type === 'team'
                     ? 'bg-green-100'
                     : 'bg-purple-100'
                 }`}>
                   <CreditCard className={`h-5 w-5 ${
-                    (organisation.plan_type || 'solo') === 'solo' 
+                    !organisation?.plan_type || organisation?.plan_type === 'solo' 
                       ? 'text-gray-600' 
-                      : (organisation.plan_type || 'solo') === 'team'
+                      : organisation?.plan_type === 'team'
                       ? 'text-green-600'
                       : 'text-purple-600'
                   }`} />
                 </div>
                 <div>
-                  <h4 className="font-medium text-gray-900 capitalize">{organisation.plan_type || 'solo'} Plan</h4>
+                  <h4 className="font-medium text-gray-900 capitalize">{organisation?.plan_type || 'solo'} Plan</h4>
                   <p className="text-sm text-gray-600">
-                    {(organisation.plan_type || 'solo') === 'solo' 
+                    {!organisation?.plan_type || organisation?.plan_type === 'solo' 
                       ? 'Limited to single user. No team features.' 
-                      : (organisation.plan_type || 'solo') === 'team'
+                      : organisation?.plan_type === 'team'
                       ? 'Full team collaboration features.'
                       : 'Enterprise features and support.'}
                   </p>
                 </div>
               </div>
               
-              {(organisation.plan_type || 'solo') === 'solo' && (
+              {(!organisation?.plan_type || organisation?.plan_type === 'solo') && (
                 <div className="mt-4 bg-indigo-50 p-3 rounded-lg">
                   <p className="text-sm text-indigo-700">
                     <strong>Upgrade to Team Plan</strong> to unlock collaboration features:

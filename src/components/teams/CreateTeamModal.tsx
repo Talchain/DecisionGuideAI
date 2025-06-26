@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { X, Loader2, Users, Check, Search } from 'lucide-react';
+import { X, Loader2, Users, Check, Search, CreditCard } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useTeams } from '../../contexts/TeamsContext';
 import { useOrganisation } from '../../contexts/OrganisationContext';
 import { supabase, getOrganisationDetails } from '../../lib/supabase';
@@ -47,7 +48,7 @@ export default function CreateTeamModal({ onClose, organisationId }: CreateTeamM
   const [addingMembers, setAddingMembers] = useState(false);
   
   // Fetch organisation details to check plan type
-  useEffect(() => {
+  React.useEffect(() => {
     if (organisationId) {
       const fetchOrgDetails = async () => {
         setLoadingOrg(true);
@@ -67,15 +68,8 @@ export default function CreateTeamModal({ onClose, organisationId }: CreateTeamM
     }
   }, [organisationId]);
   
-  // Fetch organisation members when moving to the add members step
-  React.useEffect(() => {
-    if (currentStep === CreateTeamStep.ADD_MEMBERS && organisationId) {
-      fetchOrganisationMembers();
-    }
-  }, [currentStep, organisationId]);
-  
   // Fetch organisation members
-  const fetchOrganisationMembers = async () => {
+  const fetchOrganisationMembers = React.useCallback(async () => {
     if (!organisationId) return;
     
     setLoadingMembers(true);
@@ -95,7 +89,14 @@ export default function CreateTeamModal({ onClose, organisationId }: CreateTeamM
     } finally {
       setLoadingMembers(false);
     }
-  };
+  }, [organisationId]);
+  
+  // Fetch organisation members when moving to the add members step
+  React.useEffect(() => {
+    if (currentStep === CreateTeamStep.ADD_MEMBERS && organisationId) {
+      fetchOrganisationMembers();
+    }
+  }, [currentStep, organisationId, fetchOrganisationMembers]);
   
   // Toggle member selection
   const toggleMemberSelection = (userId: string) => {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Mail, Loader2, UserPlus, CreditCard } from 'lucide-react';
+import { X, Mail, Loader2, UserPlus, CreditCard, AlertTriangle } from 'lucide-react';
 import { useTeams } from '../contexts/TeamsContext';
 import { supabase } from '../lib/supabase';
 import { Link } from 'react-router-dom';
@@ -22,7 +22,7 @@ export default function InviteCollaborators({ open, onClose, decisionId }: Invit
   const [loadingOrg, setLoadingOrg] = useState(true);
 
   // Fetch decision and organisation details to check plan type
-  React.useEffect(() => {
+  useEffect(() => {
     if (decisionId) {
       const fetchDecisionOrg = async () => {
         setLoadingOrg(true);
