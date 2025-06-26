@@ -1,7 +1,7 @@
 // src/components/teams/MyTeams.tsx
 
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTeams } from '../../contexts/TeamsContext';
 import { useOrganisation } from '../../contexts/OrganisationContext';
 import {
@@ -96,6 +96,7 @@ export default function MyTeams() {
   const { teams, loading, error, deleteTeam, fetchTeams } = useTeams();
   const { organisations } = useOrganisation();
   const location = useLocation();
+  const navigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [managingTeam, setManagingTeam] = useState<Team | null>(null);
@@ -105,12 +106,17 @@ export default function MyTeams() {
   // Get organisation ID from location state if available
   const organisationIdFromState = location.state?.organisationId;
 
+  // Effect to handle opening create modal when navigating from organisation page
   useEffect(() => {
     if (organisationIdFromState) {
       setOrganisationFilter(organisationIdFromState);
+      setShowCreateModal(true);
+      
+      // Clear the state to prevent modal from reopening on navigation within the component
+      navigate(location.pathname, { replace: true, state: {} });
     }
     void fetchTeams(); // Use void operator to handle the Promise
-  }, [fetchTeams, organisationIdFromState]);
+  }, [fetchTeams, organisationIdFromState, navigate, location.pathname]);
 
   const handleDelete = async (teamId: string) => {
     setDeletingTeamId(teamId);
@@ -219,7 +225,7 @@ export default function MyTeams() {
       {showCreateModal && (
         <CreateTeamModal 
           onClose={() => { setShowCreateModal(false); fetchTeams(); }}
-          organisationId={organisationFilter} 
+          organisationId={organisationFilter || organisationIdFromState} 
         />
       )}
       
