@@ -152,7 +152,7 @@ export default function OrganisationDetails() {
   };
 
   const handleTogglePlan = async () => {
-    if (!organisation || !user) return;
+    if (!organisation || !user || !organisation.id) return;
     
     const currentPlanType = organisation.plan_type || 'solo';
     if (!confirm(`Are you sure you want to ${currentPlanType === 'solo' ? 'upgrade to team plan' : 'downgrade to solo plan'}?`)) {
@@ -272,7 +272,7 @@ export default function OrganisationDetails() {
                 ) : (
                   <button
                     onClick={handleTogglePlan}
-                    disabled={changingPlan}
+                    disabled={changingPlan || !organisation?.id}
                     className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-colors disabled:opacity-50"
                   >
                     {changingPlan ? (
@@ -337,7 +337,7 @@ export default function OrganisationDetails() {
                 {organisation.is_owner && (organisation.plan_type || 'solo') !== 'solo' && (
                   <button
                     onClick={handleTogglePlan}
-                    disabled={changingPlan}
+                    disabled={changingPlan || !organisation?.id}
                     className="ml-2 text-xs text-indigo-600 hover:text-indigo-700"
                   >
                     {changingPlan ? (
@@ -404,7 +404,7 @@ export default function OrganisationDetails() {
                 ) : (
                   <button
                     onClick={handleTogglePlan}
-                    disabled={changingPlan}
+                    disabled={changingPlan || !organisation?.id}
                     className="mt-4 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-700"
                   >
                     {changingPlan ? (
@@ -517,7 +517,7 @@ export default function OrganisationDetails() {
             {organisation.is_owner && (
               <button
                 onClick={handleTogglePlan}
-                disabled={changingPlan}
+                disabled={changingPlan || !organisation?.id}
                 className={`inline-flex items-center px-4 py-2 rounded-lg transition-colors ${
                   (organisation.plan_type || 'solo') === 'solo'
                     ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700'
