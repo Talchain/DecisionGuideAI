@@ -124,6 +124,9 @@ export default function MyTeams() {
     }
   };
 
+  // Ensure teams is initialized as an array
+  const teamsArray = Array.isArray(teams) ? teams : [];
+
   // Filter teams by organisation if filter is set
   const filteredTeams = organisationFilter
     ? teamsArray.filter(team => team.organisation_id === organisationFilter)
@@ -154,9 +157,6 @@ export default function MyTeams() {
       </div>
     );
   }
-
-  // Ensure teams is initialized as an array
-  const teamsArray = Array.isArray(teams) ? teams : [];
 
   return (
     <div className="space-y-6">
