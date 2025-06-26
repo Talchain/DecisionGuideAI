@@ -15,7 +15,6 @@ export interface CriteriaTemplate {
   owner_name?: string;
   created_at: string;
   updated_at: string;
-}
   owner: string;
   useCase: string;
   tags: string[];
