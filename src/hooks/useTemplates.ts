@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import type { CriteriaTemplate, TemplateFilter, TabId } from '../types/templates';
@@ -16,8 +17,6 @@ export function useTemplates() {
     setError(null);
     
     try {
-      let query = supabase
-        .from('criteria_templates')
       let query = supabase
         .from('criteria_templates')
         .select('*');
@@ -60,26 +59,14 @@ export function useTemplates() {
       
       const { data, error: fetchError } = await query;
       
-      if (fetchError) throw fetchError;
-        console.error('Fetch error:', fetchError);
-        // If the error is about missing columns, try fetching without filters
-        if (fetchError.message?.includes('column') && fetchError.message?.includes('does not exist')) {
-          const { data: fallbackData } = await supabase
-            .from('criteria_templates')
-            .select('*');
-          
-          setTemplates(fallbackData || []);
-          setError('Some filters could not be applied due to missing columns');
-        } else {
-          throw fetchError;
-        }
-      } else {
         setTemplates(data || []);
       // Process templates to add owner name if available
       const processedTemplates = data?.map(template => ({
         ...template,
         owner_name: template.owner_id === user?.id ? 'You' : 'Other User'
       })) || [];
+      
+      setTemplates(processedTemplates);
     } catch (err) {
       console.error('Error fetching templates:', err);
       setError(err instanceof Error ? err.message : 'Failed to load templates');
@@ -218,11 +205,18 @@ export function useTemplates() {
       
       // Create a new template based on the forked one
       const { data: newTemplate, error: createError } = await supabase
-        .rpc('fork_criteria_template', {
-          template_id: id,
-          new_owner_id: user.id,
-          new_name: `${template.name} (Copy)`
-        });
+        .from('criteria_templates')
+        .insert({
+          name: `${templateToFork.name} (Copy)`,
+          description: templateToFork.description,
+          type: templateToFork.type,
+          criteria: templateToFork.criteria,
+          owner_id: user.id,
+          sharing: 'private',
+          tags: templateToFork.tags || []
+        })
+        .select()
+        .single();
       
       if (createError) throw createError;
       
