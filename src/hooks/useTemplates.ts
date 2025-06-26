@@ -63,7 +63,10 @@ export function useTemplates() {
       const templatesWithOwner = data?.map(template => ({
         ...template,
         owner_name: template.owner_id === user.id ? 'You' : 'Other User',
-        sharing: template.sharing || 'private'
+        sharing: template.sharing || 'private',
+        owner_id: template.owner_id,
+        tags: template.tags || [],
+        featured: template.featured || false
       })) || [];
       
       setTemplates(templatesWithOwner);
@@ -91,7 +94,8 @@ export function useTemplates() {
           criteria: templateData.criteria || [],
           sharing: templateData.sharing || 'private',
           owner_id: user.id,
-          tags: templateData.tags || []
+          tags: templateData.tags || [],
+          featured: templateData.featured || false
         })
         .select()
         .single();
@@ -102,7 +106,8 @@ export function useTemplates() {
       setTemplates(prev => [
         {
           ...data,
-          owner_name: 'You'
+          owner_name: 'You',
+          owner_id: user.id
         },
         ...prev
       ]);
@@ -133,6 +138,7 @@ export function useTemplates() {
           criteria: updates.criteria,
           sharing: updates.sharing,
           tags: updates.tags,
+          featured: updates.featured,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
@@ -145,7 +151,7 @@ export function useTemplates() {
       setTemplates(prev => 
         prev.map(template => 
           template.id === id 
-            ? { ...template, ...data, owner_name: 'You' } 
+            ? { ...template, ...data, owner_name: 'You', owner_id: user.id } 
             : template
         )
       );
@@ -257,7 +263,8 @@ export function useTemplates() {
       setTemplates(prev => [
         {
           ...newTemplate,
-          owner_name: 'You'
+          owner_name: 'You',
+          owner_id: user.id
         },
         ...prev
       ]);
