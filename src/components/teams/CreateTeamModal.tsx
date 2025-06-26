@@ -208,7 +208,7 @@ export default function CreateTeamModal({ onClose, organisationId }: CreateTeamM
             <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
               This team will be created in the organisation: {currentOrganisation?.name || "Selected organisation"}
             </div>
-          ) : null}
+          )}
 
           <div className="flex justify-end gap-3 pt-4">
             <button
