@@ -11,7 +11,8 @@ import {
   Clock,
   RefreshCw,
   XCircle,
-  CheckCircle
+  CheckCircle,
+  CreditCard
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useTeams } from '../../contexts/TeamsContext';
@@ -44,6 +45,8 @@ const DECISION_ROLES = [
 
 export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMembersModalProps) {
   const { user, addTeamMember, inviteTeamMember, getTeamInvitations, revokeInvitation } = useTeams();
+  const [organisationDetails, setOrganisationDetails] = useState<any>(null);
+  const [loadingOrg, setLoadingOrg] = useState(false);
 
   const [activeTab, setActiveTab] = useState<TabId>('email');
   const [emails, setEmails] = useState('');
@@ -63,6 +66,31 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
 
   const [testEmailAddress, setTestEmailAddress] = useState('');
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
+
+  // Fetch organisation details to check plan type
+  useEffect(() => {
+    if (team.organisation_id) {
+      const fetchOrgDetails = async () => {
+        setLoadingOrg(true);
+        try {
+          const { data: orgData, error: orgError } = await supabase
+            .from('organisations')
+            .select('id, plan_type')
+            .eq('id', team.organisation_id)
+            .single();
+            
+          if (orgError) throw orgError;
+          setOrganisationDetails(orgData);
+        } catch (err) {
+          console.error('Error fetching organisation details:', err);
+        } finally {
+          setLoadingOrg(false);
+        }
+      };
+      
+      fetchOrgDetails();
+    }
+  }, [team.organisation_id]);
 
   // whenever we switch tabs, re-check health; when 'pending', also reload invites
   useEffect(() => {
@@ -205,6 +233,9 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
   // safe array lengths
   const pendingCount = invitations?.length ?? 0;
   const memberCount = team.members?.length ?? 0;
+  
+  // Check if organisation is on solo plan
+  const isSoloPlan = organisationDetails?.plan_type === 'solo';
 
   return (
     <div
@@ -306,66 +337,124 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
           {/* TAB CONTENT */}
           {activeTab === 'email' && (
             <form onSubmit={handleEmailInvite} className="space-y-4">
-              {/* Team Role */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Team Role</label>
-                <select
-                  value={teamRole}
-                  onChange={e => setTeamRole(e.target.value as TeamRole)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-indigo-500"
-                >
-                  {TEAM_ROLES.map(r => (
-                    <option key={r.id} value={r.id}>
-                      {r.label} – {r.description}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {/* Decision Role */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Decision Role</label>
-                <select
-                  value={decisionRole}
-                  onChange={e => setDecisionRole(e.target.value as DecisionRole)}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-indigo-500"
-                >
-                  {DECISION_ROLES.map(r => (
-                    <option key={r.id} value={r.id}>
-                      {r.label} – {r.description}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {/* Emails */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email Addresses</label>
-                <textarea
-                  value={emails}
-                  onChange={e => setEmails(e.target.value)}
-                  rows={4}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-indigo-500"
-                  placeholder="One per line or comma-separated"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading || !emails.trim()}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
-              >
-                {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <UserPlus className="h-5 w-5" />}
-                {loading ? 'Adding…' : 'Add Members'}
-              </button>
+              {loadingOrg ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                </div>
+              ) : isSoloPlan ? (
+                <div className="bg-amber-50 p-6 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-amber-100 rounded-full">
+                      <CreditCard className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-amber-800 mb-2">Team Plan Required</h3>
+                      <p className="text-sm text-amber-700 mb-4">
+                        Adding members to teams requires a Team Plan. Please upgrade your organisation plan to continue.
+                      </p>
+                      <Link
+                        to={`/organisations/${team.organisation_id}`}
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-500 text-white rounded-lg hover:from-amber-700 hover:to-amber-600"
+                      >
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Upgrade Plan
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Team Role */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Team Role</label>
+                    <select
+                      value={teamRole}
+                      onChange={e => setTeamRole(e.target.value as TeamRole)}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-indigo-500"
+                    >
+                      {TEAM_ROLES.map(r => (
+                        <option key={r.id} value={r.id}>
+                          {r.label} – {r.description}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Decision Role */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Decision Role</label>
+                    <select
+                      value={decisionRole}
+                      onChange={e => setDecisionRole(e.target.value as DecisionRole)}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-indigo-500"
+                    >
+                      {DECISION_ROLES.map(r => (
+                        <option key={r.id} value={r.id}>
+                          {r.label} – {r.description}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Emails */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Email Addresses</label>
+                    <textarea
+                      value={emails}
+                      onChange={e => setEmails(e.target.value)}
+                      rows={4}
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-indigo-500"
+                      placeholder="One per line or comma-separated"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading || !emails.trim()}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
+                  >
+                    {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <UserPlus className="h-5 w-5" />}
+                    {loading ? 'Adding…' : 'Add Members'}
+                  </button>
+                </>
+              )}
             </form>
           )}
 
           {activeTab === 'directory' && (
-            <UserDirectoryTab
-              onAddUser={async id => {
-                const ok = await addTeamMember(team.id, id, teamRole, decisionRole);
-                if (ok) setInfoMessage('Member added');
-              }}
-              organisationId={team.organisation_id}
-            />
+            <>
+              {loadingOrg ? (
+                <div className="flex items-center justify-center p-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+                </div>
+              ) : isSoloPlan ? (
+                <div className="bg-amber-50 p-6 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-amber-100 rounded-full">
+                      <CreditCard className="h-5 w-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-amber-800 mb-2">Team Plan Required</h3>
+                      <p className="text-sm text-amber-700 mb-4">
+                        Adding members to teams requires a Team Plan. Please upgrade your organisation plan to continue.
+                      </p>
+                      <Link
+                        to={`/organisations/${team.organisation_id}`}
+                        className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-500 text-white rounded-lg hover:from-amber-700 hover:to-amber-600"
+                      >
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Upgrade Plan
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <UserDirectoryTab
+                  onAddUser={async id => {
+                    const ok = await addTeamMember(team.id, id, teamRole, decisionRole);
+                    if (ok) setInfoMessage('Member added');
+                  }}
+                  organisationId={team.organisation_id}
+                />
+              )}
+            </>
           )}
 
           {activeTab === 'pending' && (

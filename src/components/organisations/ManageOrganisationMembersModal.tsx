@@ -12,7 +12,8 @@ import {
   Clock,
   RefreshCw,
   XCircle,
-  Check
+  Check,
+  CreditCard
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -80,6 +81,7 @@ export default function ManageOrganisationMembersModal({
   const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
   const [availableTeams, setAvailableTeams] = useState<{id: string, name: string}[]>([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
+  const [upgradeRequired, setUpgradeRequired] = useState(false);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [processingMemberId, setProcessingMemberId] = useState<string | null>(null);
@@ -191,8 +193,15 @@ export default function ManageOrganisationMembersModal({
     
     if (activeTab === 'invite') {
       fetchOrganisationTeams();
+      
+      // Check if organisation is on solo plan
+      if (organisation.plan_type === 'solo') {
+        setUpgradeRequired(true);
+      } else {
+        setUpgradeRequired(false);
+      }
     }
-  }, [activeTab]);
+  }, [activeTab, organisation.plan_type]);
 
   const fetchPendingInvitations = async () => {
     if (!organisation.id) return;
@@ -639,129 +648,154 @@ export default function ManageOrganisationMembersModal({
             {/* Invite Members Tab */}
             {activeTab === 'invite' && (
               <form onSubmit={handleInviteMember} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email Addresses
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    <textarea
-                      value={emailsInput}
-                      onChange={handleEmailInputChange}
-                      placeholder="Enter email addresses (comma or line separated)"
-                      className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      rows={3}
-                      required
-                    />
-                  </div>
-                  
-                  {/* Email Preview */}
-                  {parsedEmails.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {parsedEmails.map(email => {
-                        const result = emailLookupResults.get(email);
-                        return (
-                          <div 
-                            key={email}
-                            className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
-                              result?.status === 'exists' ? 'bg-green-100 text-green-800' :
-                              result?.status === 'new' ? 'bg-blue-100 text-blue-800' :
-                              result?.status === 'invalid' ? 'bg-red-100 text-red-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            {result?.status === 'exists' && <Check className="h-3 w-3" />}
-                            {result?.status === 'new' && <Mail className="h-3 w-3" />}
-                            {result?.status === 'invalid' && <AlertCircle className="h-3 w-3" />}
-                            {result?.status === 'checking' && <Loader2 className="h-3 w-3 animate-spin" />}
-                            <span>{email}</span>
-                            {result?.status === 'exists' && (
-                              <span className="ml-1 bg-green-50 px-1 rounded">existing user</span>
-                            )}
-                            {result?.status === 'new' && (
-                              <span className="ml-1 bg-blue-50 px-1 rounded">will invite</span>
-                            )}
-                          </div>
-                        );
-                      })}
+                {upgradeRequired ? (
+                  <div className="bg-amber-50 p-6 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-amber-100 rounded-full">
+                        <CreditCard className="h-5 w-5 text-amber-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-amber-800 mb-2">Team Plan Required</h3>
+                        <p className="text-sm text-amber-700 mb-4">
+                          Adding members to your organisation requires a Team Plan. Please upgrade your plan to continue.
+                        </p>
+                        <Link
+                          to={`/organisations/${organisation.id}`}
+                          className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-500 text-white rounded-lg hover:from-amber-700 hover:to-amber-600"
+                        >
+                          <CreditCard className="h-4 w-4 mr-2" />
+                          Upgrade Plan
+                        </Link>
+                      </div>
                     </div>
-                  )}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Role
-                  </label>
-                  <select
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="admin">Admin - Can manage organisation settings and members</option>
-                    <option value="member">Member - Can view and participate in organisation activities</option>
-                  </select>
-                </div>
-                
-                {/* Team Assignment (Optional) */}
-                {availableTeams.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Assign to Teams (Optional)
-                    </label>
-                    <div className="max-h-[150px] overflow-y-auto border border-gray-300 rounded-lg p-2">
-                      {loadingTeams ? (
-                        <div className="flex items-center justify-center p-4">
-                          <Loader2 className="h-5 w-5 text-indigo-500 animate-spin mr-2" />
-                          <span className="text-gray-500">Loading teams...</span>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {availableTeams.map(team => (
-                            <div key={team.id} className="flex items-center">
-                              <input
-                                type="checkbox"
-                                id={`team-${team.id}`}
-                                checked={selectedTeams.includes(team.id)}
-                                onChange={() => toggleTeamSelection(team.id)}
-                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                              />
-                              <label htmlFor={`team-${team.id}`} className="ml-2 text-sm text-gray-700">
-                                {team.name}
-                              </label>
-                            </div>
-                          ))}
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Email Addresses
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                        <textarea
+                          value={emailsInput}
+                          onChange={handleEmailInputChange}
+                          placeholder="Enter email addresses (comma or line separated)"
+                          className="w-full pl-10 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          rows={3}
+                          required
+                        />
+                      </div>
+                      
+                      {/* Email Preview */}
+                      {parsedEmails.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {parsedEmails.map(email => {
+                            const result = emailLookupResults.get(email);
+                            return (
+                              <div 
+                                key={email}
+                                className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                                  result?.status === 'exists' ? 'bg-green-100 text-green-800' :
+                                  result?.status === 'new' ? 'bg-blue-100 text-blue-800' :
+                                  result?.status === 'invalid' ? 'bg-red-100 text-red-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}
+                              >
+                                {result?.status === 'exists' && <Check className="h-3 w-3" />}
+                                {result?.status === 'new' && <Mail className="h-3 w-3" />}
+                                {result?.status === 'invalid' && <AlertCircle className="h-3 w-3" />}
+                                {result?.status === 'checking' && <Loader2 className="h-3 w-3 animate-spin" />}
+                                <span>{email}</span>
+                                {result?.status === 'exists' && (
+                                  <span className="ml-1 bg-green-50 px-1 rounded">existing user</span>
+                                )}
+                                {result?.status === 'new' && (
+                                  <span className="ml-1 bg-blue-50 px-1 rounded">will invite</span>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
-                  </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Role
+                      </label>
+                      <select
+                        value={role}
+                        onChange={(e) => setRole(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      >
+                        <option value="admin">Admin - Can manage organisation settings and members</option>
+                        <option value="member">Member - Can view and participate in organisation activities</option>
+                      </select>
+                    </div>
+                    
+                    {/* Team Assignment (Optional) */}
+                    {availableTeams.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Assign to Teams (Optional)
+                        </label>
+                        <div className="max-h-[150px] overflow-y-auto border border-gray-300 rounded-lg p-2">
+                          {loadingTeams ? (
+                            <div className="flex items-center justify-center p-4">
+                              <Loader2 className="h-5 w-5 text-indigo-500 animate-spin mr-2" />
+                              <span className="text-gray-500">Loading teams...</span>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {availableTeams.map(team => (
+                                <div key={team.id} className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    id={`team-${team.id}`}
+                                    checked={selectedTeams.includes(team.id)}
+                                    onChange={() => toggleTeamSelection(team.id)}
+                                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                  />
+                                  <label htmlFor={`team-${team.id}`} className="ml-2 text-sm text-gray-700">
+                                    {team.name}
+                                  </label>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    <button
+                      type="submit"
+                      disabled={loading || parsedEmails.length === 0}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="animate-spin h-5 w-5" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="h-5 w-5" />
+                          {parsedEmails.length > 1 
+                            ? `Add ${parsedEmails.length} Members` 
+                            : 'Add Member'}
+                        </>
+                      )}
+                    </button>
+                    
+                    <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
+                      <p>
+                        <strong>Note:</strong> If the email belongs to an existing user, they will be added directly to the organisation.
+                        Otherwise, an invitation will be sent to the email address.
+                      </p>
+                    </div>
+                  </>
                 )}
-                
-                <button
-                  type="submit"
-                  disabled={loading || parsedEmails.length === 0}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="animate-spin h-5 w-5" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="h-5 w-5" />
-                      {parsedEmails.length > 1 
-                        ? `Add ${parsedEmails.length} Members` 
-                        : 'Add Member'}
-                    </>
-                  )}
-                </button>
-                
-                <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded-lg">
-                  <p>
-                    <strong>Note:</strong> If the email belongs to an existing user, they will be added directly to the organisation.
-                    Otherwise, an invitation will be sent to the email address.
-                  </p>
-                </div>
               </form>
             )}
             
