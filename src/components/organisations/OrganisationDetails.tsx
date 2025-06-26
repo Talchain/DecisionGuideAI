@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Building, 
-  Users, 
+  Users,
   Briefcase, 
   Calendar, 
   Settings, 
   ArrowLeft,
   Edit,
   Trash2,
-  UserPlus,
+  UserPlus, 
+  PlusCircle,
   Loader2,
   AlertTriangle,
   CheckCircle
@@ -73,6 +74,7 @@ export default function OrganisationDetails() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [showSuccessMessage, setShowSuccessMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -145,6 +147,12 @@ export default function OrganisationDetails() {
     }
   };
 
+  // Show success message with auto-dismiss
+  const displaySuccessMessage = (message: string) => {
+    setShowSuccessMessage(message);
+    setTimeout(() => setShowSuccessMessage(null), 3000);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -179,7 +187,7 @@ export default function OrganisationDetails() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/organisations')}
+            onClick={() => navigate('/organisations')} 
             className="p-2 text-gray-400 hover:text-gray-600 rounded-full"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -194,34 +202,54 @@ export default function OrganisationDetails() {
         
         <div className="flex gap-2">
           {(organisation.is_owner || organisation.role === 'admin') && (
-            <>
-              <button
-                onClick={() => setShowMembersModal(true)}
-                className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-              >
-                <UserPlus className="h-5 w-5 mr-2" />
-                Manage Members
-              </button>
-              
-              <button
-                onClick={() => setShowEditModal(true)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg"
-              >
-                <Edit className="h-5 w-5" />
-              </button>
-              
-              {(organisation.is_owner || organisation.role === 'admin') && (
+            <div className="flex items-center gap-2">
+              <div className="flex">
                 <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                  onClick={() => setShowMembersModal(true)}
+                  className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-l-lg hover:bg-indigo-700 transition-colors"
                 >
-                  <Trash2 className="h-5 w-5" />
+                  <UserPlus className="h-5 w-5 mr-2" />
+                  Add Members
                 </button>
-              )}
-            </>
+                <Link
+                  to="/teams"
+                  state={{ organisationId: organisation.id }}
+                  className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-r-lg hover:bg-indigo-700 border-l border-indigo-500 transition-colors"
+                >
+                  <PlusCircle className="h-5 w-5 mr-2" />
+                  Create Team
+                </Link>
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  <Edit className="h-5 w-5" />
+                </button>
+                
+                {(organisation.is_owner || organisation.role === 'admin') && (
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>
+
+      {/* Success Message */}
+      {showSuccessMessage && (
+        <div className="mt-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg flex items-center animate-fade-in">
+          <CheckCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+          <p>{showSuccessMessage}</p>
+        </div>
+      )}
 
       {/* Organisation Info */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -452,11 +480,15 @@ export default function OrganisationDetails() {
       {showMembersModal && (
         <ManageOrganisationMembersModal
           organisation={organisation}
+          initialTab="invite"
           members={members}
           onClose={() => setShowMembersModal(false)}
-          onUpdated={() => {
+          onUpdated={(message) => {
             setShowMembersModal(false);
             fetchOrganisationDetails();
+            if (message) {
+              displaySuccessMessage(message);
+            }
           }}
         />
       )}
