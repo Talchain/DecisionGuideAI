@@ -152,9 +152,10 @@ export default function OrganisationDetails() {
   };
 
   const handleTogglePlan = async () => {
-    if (!organisation || !user || !organisation.id) return;
+    if (!organisation || !user) return;
     
-    const currentPlanType = organisation.plan_type || 'solo';
+    // Safely access plan_type with fallback to 'solo'
+    const currentPlanType = organisation?.plan_type || 'solo';
     if (!confirm(`Are you sure you want to ${currentPlanType === 'solo' ? 'upgrade to team plan' : 'downgrade to solo plan'}?`)) {
       return;
     }
@@ -162,7 +163,8 @@ export default function OrganisationDetails() {
     setChangingPlan(true);
     
     try {
-      const currentPlanType = organisation.plan_type || 'solo';
+      // Safely access plan_type with fallback to 'solo'
+      const currentPlanType = organisation?.plan_type || 'solo';
       const newPlanType = currentPlanType === 'solo' ? 'team' : 'solo';
       
       const { error } = await supabase
@@ -243,7 +245,9 @@ export default function OrganisationDetails() {
               ? 'bg-green-100 text-green-800'
               : 'bg-purple-100 text-purple-800'
           }`}>
-            {organisation?.plan_type ? (organisation.plan_type.charAt(0).toUpperCase() + organisation.plan_type.slice(1)) : 'Solo'} Plan
+            {organisation?.plan_type ? 
+              (organisation.plan_type.charAt(0).toUpperCase() + organisation.plan_type.slice(1)) 
+              : 'Solo'} Plan
           </span>
         </div>
         
