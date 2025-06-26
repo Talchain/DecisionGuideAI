@@ -20,6 +20,8 @@ export interface CriteriaTemplate {
   updated_at: string;
 }
 
+export type TabId = 'my' | 'team' | 'organization' | 'featured' | 'marketplace';
+
 export interface TemplateFilter {
   owner: string;
   useCase: string;

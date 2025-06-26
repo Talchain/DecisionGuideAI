@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import type { CriteriaTemplate } from '../types/templates';
+import type { CriteriaTemplate, TemplateFilter, TabId } from '../types/templates';
 
 export function useTemplates() {
   const { user } = useAuth();
@@ -9,7 +9,7 @@ export function useTemplates() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTemplates = useCallback(async (tab: string = 'my') => {
+  const fetchTemplates = useCallback(async (tab: TabId = 'my') => {
     if (!user && tab === 'my') return;
     
     setLoading(true);
@@ -18,13 +18,22 @@ export function useTemplates() {
     try {
       let query = supabase
         .from('criteria_templates')
+      let query = supabase
+        .from('criteria_templates')
         .select('*');
       
       // Apply filters based on tab
       switch (tab) {
         case 'my':
           // For "My Templates" tab, get templates owned by the user
-          query = query.eq('owner_id', user?.id);
+          if (user?.id) {
+            query = query.eq('owner_id', user.id);
+          } else {
+            // If no user, return empty array
+            setTemplates([]);
+            setLoading(false);
+            return;
+          }
           break;
         case 'team':
           // For "Team" tab, get templates shared with teams
@@ -38,6 +47,9 @@ export function useTemplates() {
           // For "Featured" tab, get featured templates
           query = query.eq('featured', true);
           break;
+        case 'marketplace':
+          query = query.eq('sharing', 'public');
+          break;
         default:
           // Default to public templates
           query = query.eq('sharing', 'public');
@@ -49,14 +61,25 @@ export function useTemplates() {
       const { data, error: fetchError } = await query;
       
       if (fetchError) throw fetchError;
-      
+        console.error('Fetch error:', fetchError);
+        // If the error is about missing columns, try fetching without filters
+        if (fetchError.message?.includes('column') && fetchError.message?.includes('does not exist')) {
+          const { data: fallbackData } = await supabase
+            .from('criteria_templates')
+            .select('*');
+          
+          setTemplates(fallbackData || []);
+          setError('Some filters could not be applied due to missing columns');
+        } else {
+          throw fetchError;
+        }
+      } else {
+        setTemplates(data || []);
       // Process templates to add owner name if available
       const processedTemplates = data?.map(template => ({
         ...template,
         owner_name: template.owner_id === user?.id ? 'You' : 'Other User'
       })) || [];
-      
-      setTemplates(processedTemplates);
     } catch (err) {
       console.error('Error fetching templates:', err);
       setError(err instanceof Error ? err.message : 'Failed to load templates');
@@ -66,7 +89,7 @@ export function useTemplates() {
   }, [user]);
 
   const createTemplate = useCallback(async (templateData: Partial<CriteriaTemplate>) => {
-    if (!user) throw new Error('You must be logged in to create templates');
+    if (!user?.id) throw new Error('User not authenticated');
     
     setLoading(true);
     setError(null);
@@ -77,8 +100,6 @@ export function useTemplates() {
         .insert({
           ...templateData,
           owner_id: user.id,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
         })
         .select()
         .single();
@@ -97,7 +118,7 @@ export function useTemplates() {
   }, [user]);
 
   const updateTemplate = useCallback(async (id: string, updates: Partial<CriteriaTemplate>) => {
-    if (!user) throw new Error('You must be logged in to update templates');
+    if (!user?.id) throw new Error('User not authenticated');
     
     setLoading(true);
     setError(null);
@@ -107,7 +128,6 @@ export function useTemplates() {
         .from('criteria_templates')
         .update({
           ...updates,
-          updated_at: new Date().toISOString()
         })
         .eq('id', id)
         .select()
@@ -127,7 +147,7 @@ export function useTemplates() {
   }, [user]);
 
   const deleteTemplate = useCallback(async (id: string) => {
-    if (!user) throw new Error('You must be logged in to delete templates');
+    if (!user?.id) throw new Error('User not authenticated');
     
     setLoading(true);
     setError(null);
@@ -151,7 +171,7 @@ export function useTemplates() {
   }, [user]);
 
   const shareTemplate = useCallback(async (id: string, sharing: string) => {
-    if (!user) throw new Error('You must be logged in to share templates');
+    if (!user?.id) throw new Error('User not authenticated');
     
     setLoading(true);
     setError(null);
@@ -181,7 +201,7 @@ export function useTemplates() {
   }, [user]);
 
   const forkTemplate = useCallback(async (id: string) => {
-    if (!user) throw new Error('You must be logged in to fork templates');
+    if (!user?.id) throw new Error('User not authenticated');
     
     setLoading(true);
     setError(null);
@@ -198,20 +218,11 @@ export function useTemplates() {
       
       // Create a new template based on the forked one
       const { data: newTemplate, error: createError } = await supabase
-        .from('criteria_templates')
-        .insert({
-          name: `Copy of ${templateToFork.name}`,
-          description: templateToFork.description,
-          type: templateToFork.type,
-          criteria: templateToFork.criteria,
-          owner_id: user.id,
-          sharing: 'private',
-          tags: templateToFork.tags,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single();
+        .rpc('fork_criteria_template', {
+          template_id: id,
+          new_owner_id: user.id,
+          new_name: `${template.name} (Copy)`
+        });
       
       if (createError) throw createError;
       
@@ -225,6 +236,11 @@ export function useTemplates() {
       setLoading(false);
     }
   }, [user]);
+
+  // Initialize with public templates on mount
+  useEffect(() => {
+    fetchTemplates('featured');
+  }, [fetchTemplates]);
 
   return {
     templates,

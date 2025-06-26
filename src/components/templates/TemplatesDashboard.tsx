@@ -25,10 +25,9 @@ import ShareTemplateModal from './ShareTemplateModal';
 import OnboardingModal from './OnboardingModal';
 import AIGenerationModal from './AIGenerationModal';
 import IntegrationsModal from './IntegrationsModal';
-import type { CriteriaTemplate, TemplateFilter } from '../../types/templates';
+import type { CriteriaTemplate, TemplateFilter, TabId } from '../../types/templates';
 
 type ViewMode = 'grid' | 'list';
-type TabId = 'my' | 'team' | 'organization' | 'featured' | 'marketplace';
 
 export default function TemplatesDashboard() {
   const navigate = useNavigate();
@@ -80,7 +79,9 @@ export default function TemplatesDashboard() {
 
   // Fetch templates on mount and tab change
   useEffect(() => {
-    fetchTemplates(activeTab);
+    if (activeTab) {
+      fetchTemplates(activeTab);
+    }
   }, [activeTab, fetchTemplates]);
 
   // Filter templates based on search and filters
