@@ -11,7 +11,8 @@ import {
   Users,
   Loader2,
   AlertTriangle,
-  UserPlus
+  UserPlus,
+  CreditCard
 } from 'lucide-react';
 import CreateTeamModal from './CreateTeamModal';
 import EditTeamModal from './EditTeamModal';
@@ -102,6 +103,7 @@ export default function MyTeams() {
   const [managingTeam, setManagingTeam] = useState<Team | null>(null);
   const [deletingTeamId, setDeletingTeamId] = useState<string | null>(null);
   const [organisationFilter, setOrganisationFilter] = useState<string | null>(null);
+  const [showUpgradeMessage, setShowUpgradeMessage] = useState<boolean>(false);
   
   // Get organisation ID from location state if available
   const organisationIdFromState = location.state?.organisationId;
@@ -142,6 +144,10 @@ export default function MyTeams() {
   const selectedOrganisation = organisationFilter
     ? organisations.find(org => org.id === organisationFilter)
     : null;
+    
+  // Check if the selected organisation is on a solo plan
+  const isOrganisationSolo = selectedOrganisation?.plan_type === 'solo';
+  
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -173,18 +179,60 @@ export default function MyTeams() {
           </h1>
           {selectedOrganisation && (
             <p className="text-sm text-gray-500">
-              Teams in this organisation
+              Teams in this organisation 
+              {isOrganisationSolo && (
+                <span className="ml-1 text-amber-600">(Solo Plan - Upgrade to create teams)</span>
+              )}
             </p>
           )}
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-        >
-          <PlusCircle className="h-5 w-5 mr-2" />
-          Create Team
-        </button>
+        {isOrganisationSolo ? (
+          <button
+            onClick={() => setShowUpgradeMessage(true)}
+            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-colors"
+          >
+            <CreditCard className="h-5 w-5 mr-2" />
+            Upgrade to Team Plan
+          </button>
+        ) : (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <PlusCircle className="h-5 w-5 mr-2" />
+            Create Team
+          </button>
+        )}
       </div>
+
+      {/* Upgrade Message */}
+      {showUpgradeMessage && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 animate-fade-in">
+          <div className="flex items-start gap-3">
+            <CreditCard className="h-5 w-5 text-amber-500 mt-0.5" />
+            <div>
+              <h3 className="font-medium text-amber-800">Team Plan Required</h3>
+              <p className="text-sm text-amber-700 mt-1">
+                Creating teams requires a Team Plan. Please visit the organisation settings to upgrade your plan.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <Link
+                  to={`/organisations/${selectedOrganisation?.id}`}
+                  className="text-sm text-amber-700 hover:text-amber-800 font-medium"
+                >
+                  Go to Organisation Settings
+                </Link>
+                <button
+                  onClick={() => setShowUpgradeMessage(false)}
+                  className="text-sm text-gray-500 hover:text-gray-700"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {filteredTeams.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-2xl">
@@ -194,18 +242,35 @@ export default function MyTeams() {
               ? `No teams in ${selectedOrganisation.name}` 
               : 'No teams yet'}
           </h3>
-          <p className="text-gray-500 mb-4">
-            {selectedOrganisation
-              ? `Create your first team in ${selectedOrganisation.name}`
-              : 'Create your first team to start collaborating'}
-          </p>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-          >
-            <PlusCircle className="h-5 w-5 mr-2" />
-            Create Team
-          </button>
+          {isOrganisationSolo ? (
+            <>
+              <p className="text-gray-500 mb-4">
+                Upgrade to Team Plan to create teams and collaborate
+              </p>
+              <Link
+                to={`/organisations/${selectedOrganisation?.id}`}
+                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-colors"
+              >
+                <CreditCard className="h-5 w-5 mr-2" />
+                Upgrade Plan
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="text-gray-500 mb-4">
+                {selectedOrganisation
+                  ? `Create your first team in ${selectedOrganisation.name}`
+                  : 'Create your first team to start collaborating'}
+              </p>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              >
+                <PlusCircle className="h-5 w-5 mr-2" />
+                Create Team
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -13,7 +13,9 @@ import {
   PlusCircle,
   Loader2,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  CreditCard,
+  ArrowUpDown
 } from 'lucide-react';
 import { 
   supabase, 
@@ -77,6 +79,7 @@ export default function OrganisationDetails() {
   const [showSuccessMessage, setShowSuccessMessage] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [changingPlan, setChangingPlan] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -147,6 +150,38 @@ export default function OrganisationDetails() {
     }
   };
 
+  const handleTogglePlan = async () => {
+    if (!organisation || !user) return;
+    
+    if (!confirm(`Are you sure you want to ${organisation.plan_type === 'solo' ? 'upgrade to team plan' : 'downgrade to solo plan'}?`)) {
+      return;
+    }
+    
+    setChangingPlan(true);
+    
+    try {
+      const newPlanType = organisation.plan_type === 'solo' ? 'team' : 'solo';
+      
+      const { error } = await supabase
+        .from('organisations')
+        .update({ 
+          plan_type: newPlanType,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', organisation.id);
+        
+      if (error) throw error;
+      
+      displaySuccessMessage(`Organisation ${newPlanType === 'team' ? 'upgraded to team plan' : 'downgraded to solo plan'}`);
+      fetchOrganisationDetails();
+    } catch (err) {
+      console.error('Error changing plan:', err);
+      alert(err instanceof Error ? err.message : 'Failed to change plan');
+    } finally {
+      setChangingPlan(false);
+    }
+  };
+
   // Show success message with auto-dismiss
   const displaySuccessMessage = (message: string) => {
     setShowSuccessMessage(message);
@@ -198,27 +233,53 @@ export default function OrganisationDetails() {
               Owner
             </span>
           )}
+          <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+            organisation.plan_type === 'solo' 
+              ? 'bg-gray-100 text-gray-800' 
+              : organisation.plan_type === 'team'
+              ? 'bg-green-100 text-green-800'
+              : 'bg-purple-100 text-purple-800'
+          }`}>
+            {organisation.plan_type.charAt(0).toUpperCase() + organisation.plan_type.slice(1)} Plan
+          </span>
         </div>
         
         <div className="flex gap-2">
           {(organisation.is_owner || organisation.role === 'admin') && (
             <div className="flex items-center gap-2">
               <div className="flex">
-                <button
-                  onClick={() => setShowMembersModal(true)}
-                  className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-l-lg hover:bg-indigo-700 transition-colors"
-                >
-                  <UserPlus className="h-5 w-5 mr-2" />
-                  Add Members
-                </button>
-                <Link
-                  to="/teams"
-                  state={{ organisationId: organisation.id }}
-                  className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-r-lg hover:bg-indigo-700 border-l border-indigo-500 transition-colors"
-                >
-                  <PlusCircle className="h-5 w-5 mr-2" />
-                  Create Team
-                </Link>
+                {organisation.plan_type !== 'solo' ? (
+                  <>
+                    <button
+                      onClick={() => setShowMembersModal(true)}
+                      className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-l-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      <UserPlus className="h-5 w-5 mr-2" />
+                      Add Members
+                    </button>
+                    <Link
+                      to="/teams"
+                      state={{ organisationId: organisation.id }}
+                      className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-r-lg hover:bg-indigo-700 border-l border-indigo-500 transition-colors"
+                    >
+                      <PlusCircle className="h-5 w-5 mr-2" />
+                      Create Team
+                    </Link>
+                  </>
+                ) : (
+                  <button
+                    onClick={handleTogglePlan}
+                    disabled={changingPlan}
+                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-colors disabled:opacity-50"
+                  >
+                    {changingPlan ? (
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    ) : (
+                      <CreditCard className="h-5 w-5 mr-2" />
+                    )}
+                    Upgrade to Team Plan
+                  </button>
+                )}
               </div>
               
               <div className="flex gap-2">
@@ -268,6 +329,26 @@ export default function OrganisationDetails() {
             <h3 className="text-sm font-medium text-gray-700 mb-2">Details</h3>
             <div className="text-sm text-gray-600 space-y-2">
               <div className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-gray-400" />
+                <span className="capitalize">{organisation.plan_type} Plan</span>
+                {organisation.is_owner && organisation.plan_type !== 'solo' && (
+                  <button
+                    onClick={handleTogglePlan}
+                    disabled={changingPlan}
+                    className="ml-2 text-xs text-indigo-600 hover:text-indigo-700"
+                  >
+                    {changingPlan ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <span className="flex items-center">
+                        <ArrowUpDown className="h-3 w-3 mr-1" />
+                        Change
+                      </span>
+                    )}
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-gray-400" />
                 <span>Created {organisation.created_at ? format(new Date(organisation.created_at), 'MMM d, yyyy') : 'N/A'}</span>
               </div>
@@ -290,26 +371,49 @@ export default function OrganisationDetails() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-medium text-gray-900">Teams</h2>
-              <Link
-                to="/teams/new"
-                state={{ organisationId: organisation.id }}
-                className="text-sm text-indigo-600 hover:text-indigo-700"
-              >
-                Create Team
-              </Link>
+              {organisation.plan_type !== 'solo' ? (
+                <Link
+                  to="/teams/new"
+                  state={{ organisationId: organisation.id }}
+                  className="text-sm text-indigo-600 hover:text-indigo-700"
+                >
+                  Create Team
+                </Link>
+              ) : (
+                <span className="text-sm text-gray-400 cursor-not-allowed">
+                  Upgrade to create teams
+                </span>
+              )}
             </div>
 
             {teams.length === 0 ? (
               <div className="text-center py-8 bg-gray-50 rounded-lg">
                 <Briefcase className="h-8 w-8 text-gray-400 mx-auto mb-2" />
                 <p className="text-gray-500">No teams in this organisation yet</p>
-                <Link
-                  to="/teams/new"
-                  state={{ organisationId: organisation.id }}
-                  className="mt-4 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-700"
-                >
-                  Create your first team
-                </Link>
+                {organisation.plan_type !== 'solo' ? (
+                  <Link
+                    to="/teams/new"
+                    state={{ organisationId: organisation.id }}
+                    className="mt-4 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-700"
+                  >
+                    Create your first team
+                  </Link>
+                ) : (
+                  <button
+                    onClick={handleTogglePlan}
+                    disabled={changingPlan}
+                    className="mt-4 inline-flex items-center text-sm text-indigo-600 hover:text-indigo-700"
+                  >
+                    {changingPlan ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <>
+                        <CreditCard className="h-4 w-4 mr-2" />
+                        Upgrade to Team Plan
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
@@ -401,12 +505,87 @@ export default function OrganisationDetails() {
       {/* Settings Section */}
       {(organisation.is_owner || organisation.role === 'admin') && (
         <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Settings className="h-5 w-5 text-gray-500" />
-            <h2 className="text-lg font-medium text-gray-900">Organisation Settings</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Settings className="h-5 w-5 text-gray-500" />
+              <h2 className="text-lg font-medium text-gray-900">Organisation Settings</h2>
+            </div>
+            
+            {organisation.is_owner && (
+              <button
+                onClick={handleTogglePlan}
+                disabled={changingPlan}
+                className={`inline-flex items-center px-4 py-2 rounded-lg transition-colors ${
+                  organisation.plan_type === 'solo'
+                    ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700'
+                    : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {changingPlan ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <CreditCard className="h-4 w-4 mr-2" />
+                )}
+                {organisation.plan_type === 'solo' ? 'Upgrade to Team Plan' : 'Change Plan'}
+              </button>
+            )}
           </div>
 
           <div className="space-y-4">
+            {/* Plan Information */}
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <h3 className="font-medium text-gray-900 mb-2">Current Plan</h3>
+              <div className="flex items-center gap-3">
+                <div className={`p-3 rounded-lg ${
+                  organisation.plan_type === 'solo' 
+                    ? 'bg-gray-100' 
+                    : organisation.plan_type === 'team'
+                    ? 'bg-green-100'
+                    : 'bg-purple-100'
+                }`}>
+                  <CreditCard className={`h-5 w-5 ${
+                    organisation.plan_type === 'solo' 
+                      ? 'text-gray-600' 
+                      : organisation.plan_type === 'team'
+                      ? 'text-green-600'
+                      : 'text-purple-600'
+                  }`} />
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900 capitalize">{organisation.plan_type} Plan</h4>
+                  <p className="text-sm text-gray-600">
+                    {organisation.plan_type === 'solo' 
+                      ? 'Limited to single user. No team features.' 
+                      : organisation.plan_type === 'team'
+                      ? 'Full team collaboration features.'
+                      : 'Enterprise features and support.'}
+                  </p>
+                </div>
+              </div>
+              
+              {organisation.plan_type === 'solo' && (
+                <div className="mt-4 bg-indigo-50 p-3 rounded-lg">
+                  <p className="text-sm text-indigo-700">
+                    <strong>Upgrade to Team Plan</strong> to unlock collaboration features:
+                  </p>
+                  <ul className="mt-2 text-sm text-indigo-600 space-y-1">
+                    <li className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>
+                      Create and manage teams
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>
+                      Invite team members
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>
+                      Collaborate on decisions
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </div>
+            
             <div className="p-4 bg-gray-50 rounded-lg">
               <h3 className="font-medium text-gray-900 mb-2">Danger Zone</h3>
               <p className="text-sm text-gray-600 mb-4">

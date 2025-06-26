@@ -4,6 +4,7 @@ export interface Organisation {
   slug: string;
   description: string | null;
   owner_id: string;
+  plan_type: string;
   settings: Record<string, any>;
   created_at: string;
   updated_at: string;

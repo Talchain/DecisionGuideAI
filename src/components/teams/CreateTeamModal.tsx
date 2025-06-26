@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Loader2, Users, Check, Search } from 'lucide-react';
 import { useTeams } from '../../contexts/TeamsContext';
 import { useOrganisation } from '../../contexts/OrganisationContext';
-import { supabase } from '../../lib/supabase';
+import { supabase, getOrganisationDetails } from '../../lib/supabase';
 
 interface CreateTeamModalProps {
   onClose: () => void;
@@ -34,8 +34,10 @@ export default function CreateTeamModal({ onClose, organisationId }: CreateTeamM
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingOrg, setLoadingOrg] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdTeamId, setCreatedTeamId] = useState<string | null>(null);
+  const [organisationDetails, setOrganisationDetails] = useState<any>(null);
   
   // Member selection state
   const [organisationMembers, setOrganisationMembers] = useState<OrganisationMember[]>([]);
@@ -43,6 +45,27 @@ export default function CreateTeamModal({ onClose, organisationId }: CreateTeamM
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [addingMembers, setAddingMembers] = useState(false);
+  
+  // Fetch organisation details to check plan type
+  useEffect(() => {
+    if (organisationId) {
+      const fetchOrgDetails = async () => {
+        setLoadingOrg(true);
+        try {
+          const { data, error } = await getOrganisationDetails(organisationId);
+          if (error) throw error;
+          setOrganisationDetails(data);
+        } catch (err) {
+          console.error('Error fetching organisation details:', err);
+          setError(err instanceof Error ? err.message : 'Failed to load organisation details');
+        } finally {
+          setLoadingOrg(false);
+        }
+      };
+      
+      fetchOrgDetails();
+    }
+  }, [organisationId]);
   
   // Fetch organisation members when moving to the add members step
   React.useEffect(() => {
@@ -149,6 +172,9 @@ export default function CreateTeamModal({ onClose, organisationId }: CreateTeamM
     }
   };
 
+  // Check if organisation is on solo plan
+  const isSoloPlan = organisationDetails?.plan_type === 'solo';
+
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto"
@@ -167,7 +193,32 @@ export default function CreateTeamModal({ onClose, organisationId }: CreateTeamM
         </div>
 
         <div className="p-4 flex-1 overflow-y-auto">
-          {error && currentStep === CreateTeamStep.DETAILS && (
+          {loadingOrg ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-6 w-6 animate-spin text-indigo-600" />
+            </div>
+          ) : isSoloPlan ? (
+            <div className="bg-amber-50 p-6 rounded-lg">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-amber-100 rounded-full">
+                  <CreditCard className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-amber-800 mb-2">Team Plan Required</h3>
+                  <p className="text-sm text-amber-700 mb-4">
+                    Creating teams requires a Team Plan. Please upgrade your organisation plan to continue.
+                  </p>
+                  <Link
+                    to={`/organisations/${organisationId}`}
+                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-500 text-white rounded-lg hover:from-amber-700 hover:to-amber-600"
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Upgrade Plan
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ) : error && currentStep === CreateTeamStep.DETAILS && (
             <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
               {error}
             </div>
@@ -176,63 +227,82 @@ export default function CreateTeamModal({ onClose, organisationId }: CreateTeamM
           {currentStep === CreateTeamStep.DETAILS ? (
             <form onSubmit={handleCreateTeam} className="space-y-4">
               <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Team Name
-            </label>
-            <input
-              type="text"
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Enter team name"
-              required
-            />
-          </div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Team Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Enter team name"
+                  required
+                  disabled={isSoloPlan}
+                />
+              </div>
 
-          <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-              Description (optional)
-            </label>
-            <textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Enter team description"
-              rows={3}
-            />
-          </div>
+              <div>
+                <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                  Description (optional)
+                </label>
+                <textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Enter team description"
+                  rows={3}
+                  disabled={isSoloPlan}
+                />
+              </div>
 
-          {(organisationId || currentOrganisation) && (
-            <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
-              This team will be created in the organisation: {currentOrganisation?.name || "Selected organisation"}
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              type="button" 
-              onClick={onClose}
-              className="px-4 py-2 text-gray-700 hover:text-gray-900"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !name.trim()} 
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin h-4 w-4 mr-2" />
-                  Creating...
-                </>
-              ) : ( 
-                'Create Team'
+              {(organisationId || currentOrganisation) && (
+                <div className={`p-3 rounded-lg text-sm ${isSoloPlan ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
+                  {isSoloPlan ? (
+                    <>
+                      <p className="font-medium">Solo Plan Restriction</p>
+                      <p>Team creation is not available on the Solo Plan.</p>
+                    </>
+                  ) : (
+                    <>This team will be created in the organisation: {currentOrganisation?.name || "Selected organisation"}</>
+                  )}
+                </div>
               )}
-            </button>
-          </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button" 
+                  onClick={onClose}
+                  className="px-4 py-2 text-gray-700 hover:text-gray-900"
+                >
+                  Cancel
+                </button>
+                {isSoloPlan ? (
+                  <Link
+                    to={`/organisations/${organisationId}`}
+                    className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 flex items-center"
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Upgrade Plan
+                  </Link>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={loading || !name.trim()} 
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                        Creating...
+                      </>
+                    ) : ( 
+                      'Create Team'
+                    )}
+                  </button>
+                )}
+              </div>
             </form>
           ) : (
             <div className="space-y-4">
