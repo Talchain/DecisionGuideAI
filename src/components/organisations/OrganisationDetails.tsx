@@ -38,6 +38,7 @@ interface Organisation {
   settings: Record<string, any>;
   created_at: string;
   updated_at: string;
+  plan_type: string;
   is_owner: boolean;
   role: string;
 }
