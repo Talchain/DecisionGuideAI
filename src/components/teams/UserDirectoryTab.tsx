@@ -8,10 +8,11 @@ import DirectorySearchSkeleton from './DirectorySearchSkeleton';
 
 interface UserDirectoryTabProps {
   onAddUser: (userId: string, teamRole: string, decisionRole: string) => Promise<boolean>;
+  organisationId?: string | null;
 }
 
-export default function UserDirectoryTab({ onAddUser }: UserDirectoryTabProps) {
-  const { users, loading, error, searchTerm, setSearchTerm } = useDirectory();
+export default function UserDirectoryTab({ onAddUser, organisationId }: UserDirectoryTabProps) {
+  const { users, loading, error, searchTerm, setSearchTerm } = useDirectory({ organisationId });
   const [selectedUser, setSelectedUser] = useState<DirectoryUser | null>(null);
   const [teamRole, setTeamRole] = useState('member');
   const [decisionRole, setDecisionRole] = useState('contributor');

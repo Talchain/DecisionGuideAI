@@ -364,6 +364,7 @@ export default function ManageTeamMembersModal({ team, onClose }: ManageTeamMemb
                 const ok = await addTeamMember(team.id, id, teamRole, decisionRole);
                 if (ok) setInfoMessage('Member added');
               }}
+              organisationId={team.organisation_id}
             />
           )}
 

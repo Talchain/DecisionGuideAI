@@ -408,11 +408,11 @@ export async function fetchDecisionCollaborators(decisionId: string) {
 
 // ---------------- Directory Management ----------------
 
-export async function fetchUserDirectory(searchTerm: string = '') {
+export async function fetchUserDirectory(searchTerm: string = '', organisationId: string | null = null) {
   try {
     const { data, error } = await supabase.rpc(
       'get_user_directory_with_organisation',
-      { search_term: searchTerm, organisation_id: null }
+      { search_term: searchTerm, organisation_id: organisationId }
     );
     
     if (error) throw error;

@@ -12,7 +12,7 @@ import {
   Loader2,
   AlertTriangle
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, getUserOrganisations } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import CreateOrganisationModal from './CreateOrganisationModal';
 import Tooltip from '../Tooltip';
@@ -52,7 +52,7 @@ export default function OrganisationList() {
     setError(null);
     
     try {
-      const { data, error } = await supabase.rpc('get_user_organisations');
+      const { data, error } = await getUserOrganisations();
       
       if (error) throw error;
       

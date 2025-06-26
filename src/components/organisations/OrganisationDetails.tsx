@@ -14,7 +14,12 @@ import {
   AlertTriangle,
   CheckCircle
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { 
+  supabase, 
+  getOrganisationDetails, 
+  getOrganisationMembers, 
+  getOrganisationTeams 
+} from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { format } from 'date-fns';
 import EditOrganisationModal from './EditOrganisationModal';
@@ -84,31 +89,22 @@ export default function OrganisationDetails() {
     setError(null);
     
     try {
-      // Fetch organisation details
-      const { data: orgData, error: orgError } = await supabase.rpc(
-        'get_organisation_details',
-        { org_id: id }
-      );
+      // Fetch organisation details using the helper function
+      const { data: orgData, error: orgError } = await getOrganisationDetails(id);
       
       if (orgError) throw orgError;
       if (!orgData) throw new Error('Organisation not found');
       
       setOrganisation(orgData);
       
-      // Fetch organisation members
-      const { data: membersData, error: membersError } = await supabase.rpc(
-        'get_organisation_members',
-        { org_id: id }
-      );
+      // Fetch organisation members using the helper function
+      const { data: membersData, error: membersError } = await getOrganisationMembers(id);
       
       if (membersError) throw membersError;
       setMembers(membersData || []);
       
-      // Fetch organisation teams
-      const { data: teamsData, error: teamsError } = await supabase.rpc(
-        'get_organisation_teams',
-        { org_id: id }
-      );
+      // Fetch organisation teams using the helper function
+      const { data: teamsData, error: teamsError } = await getOrganisationTeams(id);
       
       if (teamsError) throw teamsError;
       setTeams(teamsData || []);
