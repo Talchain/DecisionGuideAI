@@ -122,7 +122,7 @@ export default function DecisionTypeSelector() {
         ))}
       </div>
       
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-4xl px-4">
+      <div className="mt-8 w-full max-w-4xl mx-auto px-4">
         <ChatBox />
       </div>
     </div>
