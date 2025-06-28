@@ -110,7 +110,7 @@ export default function EditOrganisationModal({
             </label>
             <div className="flex items-center">
               <span className="text-gray-500 bg-gray-100 px-3 py-2 rounded-l-lg border border-r-0 border-gray-300">
-                decisionguide.ai/org/
+                olumi.ai/org/
               </span>
               <input
                 type="text"

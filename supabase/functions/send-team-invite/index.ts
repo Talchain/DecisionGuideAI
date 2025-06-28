@@ -5,8 +5,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.7";
 
 // Pull in your secrets
 const BREVO_API_KEY             = Deno.env.get("BREVO_API_KEY")!;
-const FROM_EMAIL                = Deno.env.get("FROM_EMAIL")     || "hello@decisionguide.ai";
-const APP_URL                   = Deno.env.get("APP_URL")        || "https://decisionguide.ai";
+const FROM_EMAIL                = Deno.env.get("FROM_EMAIL")     || "hello@olumi.ai";
+const APP_URL                   = Deno.env.get("APP_URL")        || "https://olumi.ai";
 const SUPABASE_URL              = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -34,7 +34,7 @@ async function sendBrevoEmail(opts: {
   textContent: string;
 }) {
   const payload = {
-    sender:      { name: "DecisionGuide.AI", email: FROM_EMAIL },
+    sender:      { name: "Olumi", email: FROM_EMAIL },
     to:          [{ email: opts.to }],
     subject:     opts.subject,
     htmlContent: opts.htmlContent,
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
 
       const result = await sendBrevoEmail({
         to:          email,
-        subject:     "Test Email from DecisionGuide.AI",
+        subject:     "Test Email from Olumi",
         htmlContent: `
           <h2>Test Email</h2>
           <p>This is a test email to verify delivery.</p>
@@ -157,10 +157,10 @@ Deno.serve(async (req) => {
       // Send
       const brevoResult = await sendBrevoEmail({
         to:          email,
-        subject:     `Join ${team_name} on DecisionGuide.AI`,
+        subject:     `Join ${team_name} on Olumi`,
         htmlContent: `
           <h2>Team Invitation</h2>
-          <p>${inviterEmail} invited you to join <strong>${team_name}</strong> on DecisionGuide.AI</p>
+          <p>${inviterEmail} invited you to join <strong>${team_name}</strong> on Olumi</p>
           <p style="text-align:center">
             <a href="${acceptLink}"
                style="background:#4F46E5;color:white;padding:12px 24px;text-decoration:none;border-radius:6px;">
@@ -169,7 +169,7 @@ Deno.serve(async (req) => {
           </p>
           <p>Or copy: ${acceptLink}</p>
         `,
-        textContent: `${inviterEmail} invited you to join ${team_name}.\nAccept: ${acceptLink}`,
+        textContent: `${inviterEmail} invited you to join ${team_name} on Olumi.\nAccept: ${acceptLink}`,
       });
 
       // Track result

@@ -23,7 +23,7 @@ export default function ForgotPasswordForm() {
         redirectTo: `${window.location.origin}/reset-password`,
         options: {
           data: {
-            email_subject: 'Reset Your DecisionGuide.AI Password',
+            email_subject: 'Reset Your Olumi Password',
             email_template: 'recovery',
             token_lifetime: 86400 // 24 hours in seconds
           }

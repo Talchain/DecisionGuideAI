@@ -188,7 +188,7 @@ export default function LandingPage() {
                 <div className="flex gap-4 mb-5">
                   <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight text-gray-900">
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
-                      DecisionGuide.AI
+                      Olumi
                     </span>
                   </h1>
                 </div>
@@ -310,7 +310,7 @@ export default function LandingPage() {
                   disabled={isSubmitting}
                   className="w-full flex items-center justify-center px-6 py-3.5 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transform hover:-translate-y-0.5 transition-all duration-200"
                 >
-                  {isSubmitting ? 'Verifying...' : 'Enter DecisionGuide.AI'}
+                  {isSubmitting ? 'Verifying...' : 'Enter Olumi'}
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </button>
               </form>

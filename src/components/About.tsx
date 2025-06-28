@@ -14,7 +14,7 @@ export default function About() {
           </span>
         </h1>
         <p className="text-xl text-gray-600 max-w-2xl mx-auto">
- Empowering individuals and teams with science-backed methods and AI-powered insights for smarter decision-making.
+ Olumi empowers individuals and teams with science-backed methods and AI-powered insights for smarter decision-making.
         </p>
       </div>
 

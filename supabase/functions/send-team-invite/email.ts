@@ -3,8 +3,8 @@ import nodemailer from "npm:nodemailer@6.9.9";
 
 // Environment variables
 const smtpUrl = Deno.env.get("SMTP_URL")!;
-const fromEmail = Deno.env.get("FROM_EMAIL") || "noreply@decisionguide.ai";
-const appName = Deno.env.get("APP_NAME") || "DecisionGuide.AI";
+const fromEmail = Deno.env.get("FROM_EMAIL") || "noreply@olumi.ai";
+const appName = Deno.env.get("APP_NAME") || "Olumi";
 
 // Email template for team invitations
 const getInvitationEmailTemplate = ({

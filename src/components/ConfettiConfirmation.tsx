@@ -115,7 +115,7 @@ export default function ConfettiConfirmation({ email }: ConfettiConfirmationProp
           Registration Successful!
         </h2>
         <p className="text-lg text-gray-600 mb-2 animate-fade-in">
-          Thank you for your interest in DecisionGuide.AI
+          Thank you for your interest in Olumi
         </p>
         <p className="text-gray-500 animate-fade-in">
           We'll notify <span className="font-medium">{email}</span> when early access is available.

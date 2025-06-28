@@ -140,7 +140,7 @@ export default function CreateOrganisationModal({ onClose, onCreated }: CreateOr
 
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Organisation Name *
+              olumi.ai/org/
             </label>
             <input
               type="text"

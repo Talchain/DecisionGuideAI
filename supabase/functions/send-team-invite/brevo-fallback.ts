@@ -33,7 +33,7 @@ export async function sendEmailViaBrevoApi(
 
   // Prepare request body
   const body = {
-    sender: options.from || { email: "noreply@decisionguide.ai", name: "DecisionGuide.AI" },
+    sender: options.from || { email: "noreply@olumi.ai", name: "Olumi" },
     to: recipients,
     subject: options.subject,
     htmlContent: options.htmlContent,
