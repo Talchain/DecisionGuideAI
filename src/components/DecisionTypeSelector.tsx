@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ListChecks, Map, Rocket, ShoppingCart, FlaskConical, Repeat, AlertTriangle, Users, HandHelping, Briefcase, CreditCard, HeartPulse, Sun, GraduationCap, Users2, CircleEllipsis as Ellipsis, ArrowRight, HelpCircle } from 'lucide-react';
+import { ListChecks, Map, Rocket, ShoppingCart, FlaskConical, Repeat, AlertTriangle, Users, HandHelping, Briefcase, CreditCard, HeartPulse, Sun, GraduationCap, Users2, CircleEllipsis as Ellipsis, ArrowRight, HelpCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { useDecision } from '../contexts/DecisionContext';
 import ChatBox from './ChatBox';
 import Tooltip from './Tooltip';
@@ -202,6 +202,7 @@ const decisionCategories: DecisionCategory[] = [
 export default function DecisionTypeSelector() {
   const navigate = useNavigate();
   const { resetDecisionContext, setDecisionType, setDecision } = useDecision();
+  const [showPersonalLife, setShowPersonalLife] = useState(false);
   const [selectedType, setSelectedType] = useState<string | null>(null);
 
   // Group decision categories by section
@@ -261,11 +262,35 @@ export default function DecisionTypeSelector() {
       <div className="w-full max-w-7xl space-y-8">
         {sectionOrder.map((section) => (
           <div key={section} className="space-y-4">
-            {section !== "Other" && (
-              <h3 className="text-xl font-semibold text-gray-800 px-4">{section}</h3>
+            {section !== "Other" ? (
+              <div className="flex items-center justify-between px-4">
+                <h3 className="text-xl font-semibold text-gray-800">{section}</h3>
+                {section === "Personal & Life" && (
+                  <button 
+                    onClick={() => setShowPersonalLife(!showPersonalLife)}
+                    className="flex items-center text-gray-600 hover:text-indigo-600 transition-colors"
+                    aria-expanded={showPersonalLife}
+                    aria-controls="personal-life-section"
+                  >
+                    <span className="text-sm mr-1">{showPersonalLife ? 'Hide' : 'Show'}</span>
+                    {showPersonalLife ? (
+                      <ChevronDown className="h-5 w-5" />
+                    ) : (
+                      <ChevronRight className="h-5 w-5" />
+                    )}
+                  </button>
+                )}
+              </div>
+            ) : (
+              null
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4">
-              {groupedCategories[section]?.map((category) => {
+            <div 
+              id={section === "Personal & Life" ? "personal-life-section" : undefined}
+              className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 px-4 ${
+                section === "Personal & Life" && !showPersonalLife ? "hidden" : ""
+              }`}
+            >
+              {(section === "Personal & Life" && !showPersonalLife ? [] : groupedCategories[section])?.map((category) => {
                 const isSelected = selectedType === category.name;
                 const IconComponent = iconMap[category.icon] || HelpCircle;
                 
