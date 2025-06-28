@@ -46,6 +46,51 @@ console.log('Supabase configuration:', {
 })
 
 // —————————————————————————————————————————————————————————————————————————————
+// Network diagnostics and error handling
+// —————————————————————————————————————————————————————————————————————————————
+
+function getNetworkErrorMessage(error: any): string {
+  if (error?.name === 'TypeError' && error?.message?.includes('Failed to fetch')) {
+    return `Network connection failed. This could be due to:
+    • Internet connectivity issues
+    • Supabase project is paused or unavailable
+    • CORS configuration problems
+    • VPN or firewall blocking the connection
+    
+    Please check:
+    1. Your internet connection
+    2. Supabase project status at https://supabase.com/dashboard
+    3. Browser developer tools Network tab for more details`
+  }
+  
+  if (error?.message?.includes('CORS')) {
+    return 'Cross-origin request blocked. Please check your Supabase project CORS settings.'
+  }
+  
+  if (error?.message?.includes('DNS')) {
+    return 'DNS resolution failed. Please check your internet connection and try again.'
+  }
+  
+  return error?.message || 'Unknown network error occurred'
+}
+
+async function withNetworkErrorHandling<T>(
+  operation: () => Promise<T>,
+  context: string
+): Promise<{ data: T | null; error: Error | null }> {
+  try {
+    const result = await operation()
+    return { data: result, error: null }
+  } catch (err) {
+    console.error(`[Supabase] ${context} failed:`, err)
+    
+    const errorMessage = getNetworkErrorMessage(err)
+    const enhancedError = new Error(`${context}: ${errorMessage}`)
+    
+    return { data: null, error: enhancedError }
+  }
+}
+// —————————————————————————————————————————————————————————————————————————————
 // Create Supabase client
 //  • disable auto token-refresh  (avoids background-tab stalls)
 //  • disable multi-tab sync      (prevents SW broadcasts)
@@ -75,6 +120,28 @@ export const supabase = createClient<Database>(
   }
 )
 
+// —————————————————————————————————————————————————————————————————————————————
+// Connection test function
+// —————————————————————————————————————————————————————————————————————————————
+
+export async function testSupabaseConnection() {
+  console.log('[Supabase] Testing connection...')
+  
+  return withNetworkErrorHandling(async () => {
+    // Test basic connectivity with a simple query
+    const { data, error } = await supabase
+      .from('organisations')
+      .select('count')
+      .limit(1)
+    
+    if (error) {
+      throw new Error(`Supabase query failed: ${error.message}`)
+    }
+    
+    console.log('[Supabase] Connection test successful')
+    return { success: true, data }
+  }, 'Connection test')
+}
 // ---------------- Auth Helpers ----------------
 
 export async function getUserId(): Promise<string | null> {
@@ -92,23 +159,17 @@ export async function getUserId(): Promise<string | null> {
 
 export async function getProfile(userId: string) {
   if (!userId) return { data: null, error: new Error('User ID is required') }
-  try {
+  
+  return withNetworkErrorHandling(async () => {
     const { data, error, status } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('id', userId)
       .single()
+    
     if (error && status !== 406) throw error
-    return { data, error: null }
-  } catch (err) {
-    console.error('getProfile exception:', err)
-    return {
-      data: null,
-      error: err instanceof Error
-        ? err
-        : new Error('Unknown error fetching profile'),
-    }
-  }
+    return data
+  }, 'Get profile')
 }
 
 export async function updateProfile(
@@ -119,24 +180,18 @@ export async function updateProfile(
   if (!updates || Object.keys(updates).length === 0) {
     return { data: null, error: new Error('No updates provided') }
   }
-  try {
+  
+  return withNetworkErrorHandling(async () => {
     const { data, error } = await supabase
       .from('user_profiles')
       .update(updates)
       .eq('id', userId)
       .select()
       .single()
+    
     if (error) throw error
-    return { data, error: null }
-  } catch (err) {
-    console.error('updateProfile exception:', err)
-    return {
-      data: null,
-      error: err instanceof Error
-        ? err
-        : new Error('Unknown error updating profile'),
-    }
-  }
+    return data
+  }, 'Update profile')
 }
 
 // ---------------- Decision Management ----------------
@@ -667,17 +722,3 @@ export async function getOrganisationTeams(id: string) {
 }
 
 // ---------------- testSupabaseConnection ----------------
-
-export async function testSupabaseConnection() {
-  try {
-    await supabase.from('decisions').select('id', { head: true }).limit(1)
-    console.log('Supabase connection OK.')
-    return { success: true }
-  } catch (err) {
-    console.error('testSupabaseConnection failed:', err)
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : 'Unknown error',
-    }
-  }
-}

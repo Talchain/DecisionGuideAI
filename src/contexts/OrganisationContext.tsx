@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, testSupabaseConnection } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type { Organisation } from '../types/organisations';
 
@@ -37,15 +37,15 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
     
     try {
       // Test Supabase connection first
-      const { data: testData, error: testError } = await supabase
-        .from('organisations')
-        .select('count')
-        .limit(1);
+      console.log('[OrganisationContext] Testing Supabase connection...');
+      const connectionTest = await testSupabaseConnection();
         
-      if (testError) {
-        console.error('Supabase connection test failed:', testError);
-        throw new Error(`Database connection failed: ${testError.message}`);
+      if (connectionTest.error) {
+        console.error('[OrganisationContext] Connection test failed:', connectionTest.error);
+        throw connectionTest.error;
       }
+      
+      console.log('[OrganisationContext] Connection test successful, fetching organisations...');
       
       // Get owned organisations
       const { data: ownedOrgs, error: ownedError } = await supabase
@@ -55,7 +55,7 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
         
       if (ownedError) {
         console.error('Error fetching owned organisations:', ownedError);
-        throw new Error(`Failed to fetch owned organisations: ${ownedError.message}`);
+        throw new Error(`Failed to fetch owned organisations: ${ownedError.message || 'Unknown error'}`);
       }
       
       // Get member organisations
@@ -78,7 +78,7 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
         
       if (memberError) {
         console.error('Error fetching member organisations:', memberError);
-        throw new Error(`Failed to fetch member organisations: ${memberError.message}`);
+        throw new Error(`Failed to fetch member organisations: ${memberError.message || 'Unknown error'}`);
       }
       
       // Combine and format the results
@@ -115,20 +115,26 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
           }
         }
       }
+      
+      console.log('[OrganisationContext] Successfully fetched organisations:', allOrgs.length);
     } catch (err) {
       console.error('Error fetching organisations:', err);
       
-      let errorMessage = 'Failed to load organisations';
+      let errorMessage = 'Failed to load organisations.';
       
       if (err instanceof Error) {
-        if (err.message.includes('Failed to fetch')) {
-          errorMessage = 'Unable to connect to the database. Please check your internet connection and try again.';
-        } else if (err.message.includes('CORS')) {
-          errorMessage = 'Cross-origin request blocked. Please check your Supabase configuration.';
-        } else if (err.message.includes('Network')) {
-          errorMessage = 'Network error. Please check your connection and try again.';
-        } else {
+        if (err.message.includes('Connection test:')) {
+          // This is already a formatted network error from our helper
           errorMessage = err.message;
+        } else if (err.message.includes('Failed to fetch') || err.message.includes('Network')) {
+          errorMessage = `Network connection failed. Please check:
+          • Your internet connection
+          • Supabase project status
+          • Browser developer tools for more details
+          
+          Original error: ${err.message}`;
+        } else {
+          errorMessage = `${errorMessage} ${err.message}`;
         }
       }
       
