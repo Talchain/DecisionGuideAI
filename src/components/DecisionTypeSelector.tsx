@@ -1,25 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  ListChecks,
-  Map,
-  Rocket,
-  ShoppingCart,
-  FlaskConical,
-  Repeat,
-  AlertTriangle,
-  Users,
-  HandHelping,
-  Briefcase,
-  CreditCard,
-  HeartPulse,
-  Sun,
-  GraduationCap,
-  Users2,
-  Ellipsis,
-  ArrowRight,
-  HelpCircle
-} from 'lucide-react';
+import { ListChecks, Map, Rocket, ShoppingCart, FlaskConical, Repeat, AlertTriangle, Users, HandHelping, Briefcase, CreditCard, HeartPulse, Sun, GraduationCap, Users2, CircleEllipsis as Ellipsis, ArrowRight, HelpCircle } from 'lucide-react';
 import { useDecision } from '../contexts/DecisionContext';
 import ChatBox from './ChatBox';
 import Tooltip from './Tooltip';
