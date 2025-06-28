@@ -67,7 +67,7 @@ export function validateAuthInputs(email: string, password: string): string | nu
 }
 
 // Clear all auth-related states
-export function clearAuthStates(): void {
+export async function clearAuthStates(): Promise<void> {
     console.debug('[authUtils] clearAuthStates() called', new Error().stack);
   // Clear early access validation state
   clearAccessValidation();
@@ -79,6 +79,8 @@ export function clearAuthStates(): void {
       'sb-refresh-token',
       'supabase.auth.token',
       'sb-auth-token',
+      'sb-localhost-auth-token',
+      'supabase.auth.token.localhost',
       'dga_access_validated',
       'dga_access_validation_time',
       'dga_access_code',
@@ -93,6 +95,26 @@ export function clearAuthStates(): void {
         console.warn(`Failed to remove ${key} from localStorage:`, e);
       }
     });
+
+    // Also clear any Supabase-specific keys that might exist
+    try {
+      const allKeys = Object.keys(localStorage);
+      const supabaseKeys = allKeys.filter(key => 
+        key.startsWith('sb-') || 
+        key.includes('supabase') ||
+        key.includes('auth')
+      );
+      
+      supabaseKeys.forEach(key => {
+        try {
+          localStorage.removeItem(key);
+        } catch (e) {
+          console.warn(`Failed to remove Supabase key ${key}:`, e);
+        }
+      });
+    } catch (e) {
+      console.warn('Failed to clear additional Supabase keys:', e);
+    }
   
     // Dispatch storage event for cross-tab synchronization
     try {

@@ -103,7 +103,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       } catch (error) {
         authLogger.error('ERROR', 'Auth initialization failed', error);
-        setState(prev => ({ ...prev, loading: false }));
+        
+        // Check if this is a refresh token error
+        const errorMessage = error instanceof Error ? error.message : '';
+        if (errorMessage.includes('refresh_token_not_found') || 
+            errorMessage.includes('Invalid Refresh Token') ||
+            errorMessage.includes('Refresh Token Not Found')) {
+          authLogger.debug('AUTH', 'Invalid refresh token detected, clearing auth states');
+          
+          // Clear all auth states and reset to unauthenticated state
+          await clearAuthStates();
+          setState({
+            user: null,
+            profile: null,
+            loading: false,
+            authenticated: false
+          });
+        } else {
+          // For other errors, just stop loading
+          setState(prev => ({ ...prev, loading: false }));
+        }
       }
     };
 
