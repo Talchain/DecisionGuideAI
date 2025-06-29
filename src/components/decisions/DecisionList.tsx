@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { getUserId, getDecisions } from '../../lib/supabase';
 import { authLogger } from '../../lib/auth/authLogger';
+import { useDecision } from '../../contexts/DecisionContext';
 import { Decision } from '../../types/database';
 import { 
   PlusCircle, Loader, AlertTriangle, RefreshCw, Search, Filter, 
@@ -45,6 +46,7 @@ const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50];
 
 export default function DecisionList() {
   const [decisions, setDecisions] = useState<Decision[]>([]);
+  const { resetDecisionContext } = useDecision();
   const [filteredDecisions, setFilteredDecisions] = useState<Decision[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -348,6 +350,7 @@ export default function DecisionList() {
           <h2 className="text-2xl font-bold text-gray-900">Your Decisions</h2>
           <Link
             to="/decision/intake"
+            onClick={() => resetDecisionContext()}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             <PlusCircle className="h-5 w-5 mr-2" />
@@ -362,6 +365,7 @@ export default function DecisionList() {
             
             <Link
               to="/decision/intake"
+              onClick={() => resetDecisionContext()}
               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               <PlusCircle className="h-5 w-5 mr-2" />
@@ -405,6 +409,7 @@ export default function DecisionList() {
         </div>
         <Link
           to="/decision/intake"
+          onClick={() => resetDecisionContext()}
           className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
           <PlusCircle className="h-5 w-5 mr-2" />

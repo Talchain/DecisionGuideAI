@@ -4,10 +4,12 @@ import React, { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { checkAccessValidation } from '../../lib/auth/accessValidation';
+import { useDecision } from '../../contexts/DecisionContext';
 import { authLogger } from '../../lib/auth/authLogger';
 
 export default function AuthNavigationGuard() {
   const { authenticated, loading } = useAuth();
+  const { resetDecisionContext } = useDecision();
   const navigate = useNavigate();
   const location = useLocation();
   const initialLoadRef = useRef(true);
@@ -65,6 +67,8 @@ export default function AuthNavigationGuard() {
       // If we're landing *and* authenticated, jump straight into the flow
       if (authenticated && location.pathname === '/') {
         console.log("[AuthNavigationGuard] Authenticated user on landing page, redirecting to intake");
+        // Reset decision context when starting a new flow from landing page
+        resetDecisionContext();
         lastNavigationRef.current = targetPath;
         navigate(targetPath, { replace: true });
         return;
@@ -82,6 +86,8 @@ export default function AuthNavigationGuard() {
     // If on an auth page but already signed in, send them to the flow
     if (isAuthRoute && authenticated && !isAlreadyAtTarget) {
       console.log("[AuthNavigationGuard] Authenticated user on auth page, redirecting to intake");
+      // Reset decision context when starting a new flow after login
+      resetDecisionContext();
       lastNavigationRef.current = targetPath;
       navigate(targetPath, { replace: true });
       return;
@@ -102,6 +108,8 @@ export default function AuthNavigationGuard() {
     // Public landing page: if you're already authed, bounce to /decision/intake
     if (location.pathname === '/' && authenticated && !isAlreadyAtTarget) {
       console.log("[AuthNavigationGuard] Authenticated user on landing page, redirecting to intake");
+      // Reset decision context when starting a new flow from landing page
+      resetDecisionContext();
       lastNavigationRef.current = targetPath;
       navigate(targetPath, { replace: true });
     }

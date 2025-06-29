@@ -103,9 +103,8 @@ export default function DecisionIntakeScreen() {
   const recommendedTypes = getRecommendedTypes();
 
   // Reset context on mount
-  useEffect(() => {
-    resetDecisionContext();
-  }, [resetDecisionContext]);
+  // We've removed the useEffect that was calling resetDecisionContext on every mount
+  // This was causing an infinite loop as it would reset state, trigger re-render, and repeat
 
   // Don't use Navigate guards in this component since it's the entry point
 
@@ -172,6 +171,7 @@ export default function DecisionIntakeScreen() {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("[DecisionIntakeScreen] Form submitted");
     
     if (!formData.decision || !formData.decisionType || !formData.importance || !formData.reversibility) {
       setError('Please complete all fields');
