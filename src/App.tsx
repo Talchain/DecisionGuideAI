@@ -33,11 +33,7 @@ import OrganisationList from './components/organisations/OrganisationList'
 import OrganisationDetails from './components/organisations/OrganisationDetails'
 
 import DecisionIntakeScreen from './components/DecisionIntakeScreen'
-import DecisionTypeSelector from './components/DecisionTypeSelector'
 import TemplatesDashboard from './components/templates/TemplatesDashboard'
-import DecisionDetails from './components/DecisionDetails'
-import ImportanceSelector from './components/ImportanceSelector'
-import ReversibilitySelector from './components/ReversibilitySelector'
 import GoalClarificationScreen from './components/GoalClarificationScreen'
 import OptionsIdeation from './components/OptionsIdeation'
 import CriteriaForm from './components/CriteriaForm'
@@ -104,39 +100,6 @@ export default function App() {
                     element={
                       <ProtectedRoute>
                         <DecisionIntakeScreen />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/decision"
-                    element={
-                      <ProtectedRoute>
-                        <DecisionTypeSelector />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/decision/details"
-                    element={
-                      <ProtectedRoute>
-                        <DecisionDetails />
-                      </ProtectedRoute>
-                    }
-                  />
-                  
-                  <Route
-                    path="/decision/importance"
-                    element={
-                      <ProtectedRoute>
-                        <ImportanceSelector />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/decision/reversibility"
-                    element={
-                      <ProtectedRoute>
-                        <ReversibilitySelector />
                       </ProtectedRoute>
                     }
                   />

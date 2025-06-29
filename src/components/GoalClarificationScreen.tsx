@@ -38,7 +38,7 @@ export default function GoalClarificationScreen() {
     }
   }, [importance, reversibility, navigate])
 
-  const back   = () => navigate('/decision/reversibility')
+  const back   = () => navigate('/decision/intake')
   const next   = () => navigate('/decision/options')
   const add    = () => {
     console.log("[GoalClarificationScreen] Adding goal:", newGoal);
@@ -75,7 +75,7 @@ export default function GoalClarificationScreen() {
             onClick={back}
             className="flex items-center text-gray-600 hover:text-gray-900"
           >
-            <ArrowLeft className="h-4 w-4 mr-2"/> Back to Reversibility
+            <ArrowLeft className="h-4 w-4 mr-2"/> Back to Decision Details
           </button>
 
           <div className="flex gap-2">

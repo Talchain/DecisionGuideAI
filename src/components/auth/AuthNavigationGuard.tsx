@@ -21,10 +21,6 @@ export default function AuthNavigationGuard() {
   const authRoutes   = ['/login', '/signup', '/forgot-password', '/reset-password'];
   const decisionFlowRoutes = [
     '/decision/intake',
-    '/decision',
-    '/decision/details',
-    '/decision/importance',
-    '/decision/reversibility',
     '/decision/goals',
     '/decision/options',
     '/decision/criteria',

@@ -540,7 +540,7 @@ export default function Analysis() {
   const handleBack = useCallback(() => {
     // ... (implementation remains the same) ...
     if (state.skipGoalsReason) {
-        navigate('/decision/reversibility', { state: { ...state } });
+        navigate('/decision/intake', { state: { ...state } });
     } else {
         navigate('/decision/goals', { state: { ...state } });
     }
@@ -568,7 +568,7 @@ export default function Analysis() {
         <div className="flex items-center justify-between">
           <button onClick={handleBack} disabled={saveInProgress} className="flex items-center text-gray-600 hover:text-gray-900 transition-colors disabled:opacity-50 p-2 rounded border" >
             <ArrowLeft className="h-4 w-4 mr-2" />
-            {state.skipGoalsReason ? 'Back to Reversibility' : 'Back to Goals'}
+            {state.skipGoalsReason ? 'Back to Decision Details' : 'Back to Goals'}
           </button>
           <div className="flex items-center gap-2">
             <button 
