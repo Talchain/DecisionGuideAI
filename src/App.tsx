@@ -99,9 +99,30 @@ export default function App() {
                   </Route>
 
                   {/* Decision Flow */}
-                  <Route path="/decision/intake" element={<DecisionIntakeScreen />} />
-                  <Route path="/decision" element={<DecisionTypeSelector />} />
-                  <Route path="/decision/details" element={<DecisionDetails />} />
+                  <Route
+                    path="/decision/intake"
+                    element={
+                      <ProtectedRoute>
+                        <DecisionIntakeScreen />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/decision"
+                    element={
+                      <ProtectedRoute>
+                        <DecisionTypeSelector />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/decision/details"
+                    element={
+                      <ProtectedRoute>
+                        <DecisionDetails />
+                      </ProtectedRoute>
+                    }
+                  />
                   
                   <Route
                     path="/decision/importance"
