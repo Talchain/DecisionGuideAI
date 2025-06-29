@@ -10,6 +10,7 @@ import InviteCollaborators from './InviteCollaborators'
 import { useDecision } from '../contexts/DecisionContext'
 import { OptionIdeation, BiasIdeation } from '../lib/api'
 import { generateOptionsIdeation } from '../lib/generateOptionsIdeation'
+import { AlertCircle } from 'lucide-react'
 import CollaborativeOptions from './CollaborativeOptions'
 
 export default function OptionsIdeation() {
@@ -36,6 +37,7 @@ export default function OptionsIdeation() {
   const [editingIdx, setEditingIdx]         = useState<number | null>(null)
   const [loading, setLoading]               = useState(false)
   const [error, setError]                   = useState<string | null>(null)
+  const [retryCount, setRetryCount]         = useState(0)
   const [biases, setBiases]                 = useState<BiasIdeation[]>([])
   const [showInviteModal, setShowInviteModal] = useState(false)
   const [showCollaborative, setShowCollaborative] = useState(false)
@@ -70,6 +72,7 @@ export default function OptionsIdeation() {
   const generate = async () => {
     setLoading(true)
     setError(null)
+    
     try {
       console.log('Starting options generation...')
       const r = await generateOptionsIdeation({
@@ -79,11 +82,21 @@ export default function OptionsIdeation() {
       setLocalOptions(r.options)
       setBiases(r.biases)
     } catch (err) {
-      console.error('Options generation failed:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Failed to generate options'
+      console.error(`Options generation failed (attempt ${retryCount + 1}):`, err)
+      const errorMessage = err instanceof Error 
+        ? err.message 
+        : 'Failed to generate options. Please try again or check your connection.'
       setError(errorMessage)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Retry handler
+  const handleRetry = () => {
+    if (retryCount < 3) {
+      setRetryCount(prev => prev + 1)
+      generate()
     }
   }
 
@@ -133,9 +146,20 @@ export default function OptionsIdeation() {
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 bg-red-50 p-4 rounded">
-            <AlertTriangle className="h-5 w-5 text-red-500"/>
-            <p className="text-red-700">{error}</p>
+          <div className="bg-red-50 p-4 rounded-lg">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-red-700 font-medium">Error generating options</p>
+                <p className="text-sm text-red-600 mt-1">{error}</p>
+                
+                {retryCount < 3 && (
+                  <button onClick={handleRetry} className="mt-3 text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+                    Try Again ({3 - retryCount} attempts remaining)
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

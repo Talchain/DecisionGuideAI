@@ -25,9 +25,15 @@ export async function generateOptionsIdeation({
     }
 
     // Get the current session for authentication
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError) {
+      console.error('Session error:', sessionError);
+      throw new Error(`Authentication error: ${sessionError.message}`);
+    }
+    
     if (!session) {
-      throw new Error('Authentication required');
+      throw new Error('You need to be signed in to generate options. Please sign in and try again.');
     }
 
     // Use the correct Supabase URL format
@@ -37,7 +43,7 @@ export async function generateOptionsIdeation({
     }
 
     const edgeFunctionUrl = `${supabaseUrl}/functions/v1/openai-proxy`;
-
+    
     // Prepare messages for the API
     const messages = [
       {
@@ -98,7 +104,7 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
     console.log('Making request to:', edgeFunctionUrl);
     console.log('With session token:', session.access_token ? 'Present' : 'Missing');
 
-    // Make request to Edge Function with proper headers
+    // Make request to Edge Function with proper headers and timeout
     const response = await fetch(edgeFunctionUrl, {
       method: 'POST',
       headers: {
@@ -113,7 +119,8 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
           temperature: 0.7,
           max_tokens: 1500
         }
-      })
+      }),
+      signal: AbortSignal.timeout(30000) // 30 second timeout
     });
 
     console.log('Response status:', response.status);
@@ -122,11 +129,25 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
     if (!response.ok) {
       let errorMessage = `API error: ${response.status}`;
       try {
-        const errorData = await response.json();
-        errorMessage = errorData.error || errorMessage;
-        console.error('Error response data:', errorData);
+        const errorText = await response.text();
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+          console.error('Error response data:', errorData);
+        } catch (parseError) {
+          // If JSON parsing fails, use the raw text
+          console.error('Error response (not JSON):', errorText);
+          errorMessage = errorText || errorMessage;
+        }
       } catch (e) {
-        console.error('Failed to parse error response:', e);
+        console.error('Failed to read error response:', e);
+      }
+      
+      // Provide more user-friendly messages for common error codes
+      if (response.status === 429) {
+        errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+      } else if (response.status >= 500) {
+        errorMessage = 'The AI service is currently unavailable. Please try again later.';
       }
       throw new Error(errorMessage);
     }
@@ -134,7 +155,7 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
     const result = await response.json();
     console.log('Success response:', result);
     
-    const content = result.content;
+    const content = result?.content;
     if (!content) {
       throw new Error('Empty response from API');
     }
@@ -143,11 +164,11 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
     const parsed = JSON.parse(content);
     
     // Validate the response structure
-    if (!parsed.options || !Array.isArray(parsed.options)) {
-      throw new Error('Invalid response: missing or invalid options array');
+    if (!parsed.options || !Array.isArray(parsed.options) || parsed.options.length === 0) {
+      throw new Error('The AI couldn\'t generate any options for this decision. Please try again with more details.');
     }
     
-    if (!parsed.biases || !Array.isArray(parsed.biases)) {
+    if (!parsed.biases || !Array.isArray(parsed.biases) || parsed.biases.length === 0) {
       throw new Error('Invalid response: missing or invalid biases array');
     }
 
@@ -158,10 +179,22 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
       { error, context: { decision, decisionType, reversibility, importance } }
     );
     
-    // Re-throw with more context
+    // Provide user-friendly error messages based on error type
     if (error instanceof Error) {
-      throw new Error(`Options ideation failed: ${error.message}`);
+      const errorMessage = error.message;
+      
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        throw new Error('Network error: Please check your internet connection and try again.');
+      } else if (errorMessage.includes('timeout') || errorMessage.includes('Timed out')) {
+        throw new Error('The request timed out. The AI service might be busy, please try again in a moment.');
+      } else if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
+        throw new Error('You\'ve reached the rate limit for AI requests. Please wait a moment before trying again.');
+      } else if (errorMessage.includes('authentication') || errorMessage.includes('Unauthorized')) {
+        throw new Error('Authentication error: Please sign in again and retry.');
+      } else {
+        throw new Error(`Options generation failed: ${error.message}`);
+      }
     }
-    throw new Error('Options ideation failed: Unknown error');
+    throw new Error('Options generation failed. Please try again or contact support if the problem persists.');
   }
 }
