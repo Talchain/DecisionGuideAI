@@ -180,3 +180,5 @@ export function SupabaseDiagnostics() {
     </div>
   );
 }
+
+export default SupabaseDiagnostics
