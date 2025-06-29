@@ -15,7 +15,7 @@ interface DecisionCategory {
 }
 
 // Map of icon names to Lucide React components
-const iconMap: Record<string, React.ElementType> = {
+export const iconMap: Record<string, React.ElementType> = {
   ListChecks,
   Map,
   Rocket,
@@ -36,7 +36,7 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 // Decision categories data
-const decisionCategories: DecisionCategory[] = [
+export const decisionCategories: DecisionCategory[] = [
   {
     name: "Feature Prioritization",
     icon: "ListChecks",

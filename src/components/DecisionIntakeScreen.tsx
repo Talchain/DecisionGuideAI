@@ -16,13 +16,18 @@ import {
   Clock, 
   Scale,
   CheckCircle,
-  ChevronRight
+  ChevronRight,
+  ChevronDown,
+  Search,
+  Ellipsis
 } from 'lucide-react';
 import { useDecision } from '../contexts/DecisionContext';
 import { getUserId, createDecision } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import Tooltip from './Tooltip';
 import ChatBox from './ChatBox';
+import AllDecisionTypesModal from './AllDecisionTypesModal';
+import { decisionCategories } from './DecisionTypeSelector';
 
 // Decision Type Options
 const DECISION_TYPES = [
@@ -60,6 +65,19 @@ const PLACEHOLDERS: Record<string, string> = {
   other: 'e.g., What decision are you trying to make?'
 };
 
+// Get recommended decision types from DecisionTypeSelector
+const getRecommendedTypes = () => {
+  // Get the first 5 from "Product & Work" section
+  const productWorkTypes = decisionCategories
+    .filter(category => category.section === "Product & Work")
+    .slice(0, 5);
+  
+  // Always include "Something else"
+  const somethingElse = decisionCategories.find(category => category.name === "Something else");
+  
+  return [...productWorkTypes, somethingElse].filter(Boolean);
+};
+
 export default function DecisionIntakeScreen() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -86,7 +104,12 @@ export default function DecisionIntakeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showTypeOptions, setShowTypeOptions] = useState(false);
   const [showImportanceOptions, setShowImportanceOptions] = useState(false);
-  const [showReversibilityOptions, setShowReversibilityOptions] = useState(false); 
+  const [showReversibilityOptions, setShowReversibilityOptions] = useState(false);
+  const [showAllTypesModal, setShowAllTypesModal] = useState(false);
+  const [analyticsEvents, setAnalyticsEvents] = useState<string[]>([]);
+
+  // Get recommended decision types
+  const recommendedTypes = getRecommendedTypes();
 
   // Reset context on mount
   useEffect(() => {
@@ -108,6 +131,17 @@ export default function DecisionIntakeScreen() {
     }
   }, [formData, currentStep]);
 
+  // Track analytics events
+  const trackEvent = (eventName: string, properties?: Record<string, any>) => {
+    const event = {
+      name: eventName,
+      timestamp: new Date().toISOString(),
+      properties
+    };
+    console.log('📊 Analytics Event:', event);
+    setAnalyticsEvents(prev => [...prev, JSON.stringify(event)]);
+  };
+
   // Handle decision input change
   const handleDecisionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, decision: e.target.value }));
@@ -119,6 +153,8 @@ export default function DecisionIntakeScreen() {
     setFormData(prev => ({ ...prev, decisionType: type }));
     setCurrentStep(2);
     setError(null);
+    trackEvent('decision_type_selected', { type });
+    setShowAllTypesModal(false);
   };
 
   // Handle importance selection
@@ -126,6 +162,7 @@ export default function DecisionIntakeScreen() {
     setFormData(prev => ({ ...prev, importance }));
     setCurrentStep(3);
     setError(null);
+    trackEvent('importance_selected', { importance });
   };
 
   // Handle reversibility selection
@@ -133,6 +170,7 @@ export default function DecisionIntakeScreen() {
     setFormData(prev => ({ ...prev, reversibility }));
     setCurrentStep(4);
     setError(null);
+    trackEvent('reversibility_selected', { reversibility });
   };
 
   // Handle form submission
@@ -180,6 +218,11 @@ export default function DecisionIntakeScreen() {
       setReversibility(formData.reversibility);
       setDecisionId(data.id);
 
+      trackEvent('decision_intake_completed', { 
+        decisionId: data.id,
+        decisionType: formData.decisionType
+      });
+
       // Navigate to goals screen
       navigate('/decision/goals', {
         state: { 
@@ -217,6 +260,31 @@ export default function DecisionIntakeScreen() {
 
   // Check if all fields are completed
   const isComplete = formData.decision && formData.decisionType && formData.importance && formData.reversibility;
+
+  // Get icon component for a decision type
+  const getIconComponent = (iconName: string) => {
+    const iconMap: Record<string, React.ElementType> = {
+      ListChecks: () => <div className="h-6 w-6 text-indigo-600">📋</div>,
+      Map: () => <div className="h-6 w-6 text-indigo-600">🗺️</div>,
+      Rocket: () => <div className="h-6 w-6 text-indigo-600">🚀</div>,
+      ShoppingCart: () => <div className="h-6 w-6 text-indigo-600">🛒</div>,
+      FlaskConical: () => <div className="h-6 w-6 text-indigo-600">🧪</div>,
+      Repeat: () => <div className="h-6 w-6 text-indigo-600">🔄</div>,
+      AlertTriangle: () => <div className="h-6 w-6 text-indigo-600">⚠️</div>,
+      Users: () => <div className="h-6 w-6 text-indigo-600">👥</div>,
+      HandHelping: () => <div className="h-6 w-6 text-indigo-600">🤝</div>,
+      Briefcase: Briefcase,
+      CreditCard: Wallet,
+      HeartPulse: Heart,
+      Sun: () => <div className="h-6 w-6 text-indigo-600">☀️</div>,
+      GraduationCap: () => <div className="h-6 w-6 text-indigo-600">🎓</div>,
+      Users2: Users,
+      Ellipsis: Ellipsis,
+      HelpCircle: HelpCircle
+    };
+    
+    return iconMap[iconName] || HelpCircle;
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
@@ -289,6 +357,7 @@ export default function DecisionIntakeScreen() {
             placeholder={getPlaceholder()}
             className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
             autoFocus
+            data-testid="decision-input"
           />
           {formData.decision && (
             <div className="mt-2 flex items-center text-sm text-green-600">
@@ -301,32 +370,66 @@ export default function DecisionIntakeScreen() {
         {/* Decision Type */}
         {showTypeOptions && (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200 transition-all duration-300 animate-fade-in">
-            <label className="block text-lg font-medium text-gray-800 mb-4">
-              What type of decision is this?
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {DECISION_TYPES.map(({ id, label, icon: Icon, description }) => (
+            <div className="flex flex-col space-y-2 mb-4">
+              <label className="text-lg font-medium text-gray-800">
+                What type of decision is this?
+              </label>
+              <p className="text-gray-600">
+                Olumi recommends common choices for product teams. Looking for something else?
                 <button
-                  key={id}
                   type="button"
-                  onClick={() => handleTypeSelect(id)}
-                  className={`
-                    flex flex-col items-start p-4 rounded-lg border-2 transition-all duration-200
-                    ${formData.decisionType === id 
-                      ? 'border-indigo-500 bg-indigo-50' 
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}
-                  `}
+                  onClick={() => {
+                    setShowAllTypesModal(true);
+                    trackEvent('browse_all_types_clicked');
+                  }}
+                  className="ml-2 text-indigo-600 hover:text-indigo-700 font-medium"
+                  data-testid="browse-all-types"
                 >
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className={`p-2 rounded-lg ${formData.decisionType === id ? 'bg-indigo-100' : 'bg-gray-100'}`}>
-                      <Icon className={`h-5 w-5 ${formData.decisionType === id ? 'text-indigo-600' : 'text-gray-600'}`} />
-                    </div>
-                    <span className="font-medium">{label}</span>
-                  </div>
-                  <p className="text-sm text-gray-500">{description}</p>
+                  Browse all types
                 </button>
-              ))}
+              </p>
             </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recommendedTypes.map((category) => {
+                const isSelected = formData.decisionType === category.name;
+                const IconComponent = getIconComponent(category.icon);
+                
+                return (
+                  <button
+                    key={category.name}
+                    type="button"
+                    onClick={() => handleTypeSelect(category.name)}
+                    className={`
+                      flex flex-col items-start p-4 rounded-lg border-2 transition-all duration-200
+                      text-left relative overflow-hidden h-full
+                      ${isSelected 
+                        ? 'border-indigo-500 bg-indigo-50' 
+                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}
+                    `}
+                    aria-pressed={isSelected}
+                    data-testid={`decision-type-${category.name === "Something else" ? "something-else" : category.name.toLowerCase().replace(/\s+/g, '-')}`}
+                  >
+                    <div className="relative z-10">
+                      <div className="flex items-start gap-4 mb-4">
+                        <div className={`p-2 rounded-lg ${isSelected ? 'bg-indigo-100' : 'bg-gray-50'} transition-colors duration-300`}>
+                          <IconComponent className={`h-5 w-5 ${isSelected ? 'text-indigo-600' : 'text-gray-600'}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className={`text-lg font-semibold mb-1 ${isSelected ? 'text-indigo-700' : 'text-gray-900'}`}>
+                            {category.name}
+                          </h4>
+                          <p className="text-sm text-gray-500 mb-2">{category.description}</p>
+                          <p className="text-xs text-gray-400 italic">e.g., {category.examples[0]}</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`absolute inset-0 bg-gradient-to-br from-indigo-50/50 via-transparent to-purple-50/50 opacity-0 ${isSelected ? 'opacity-100' : 'hover:opacity-100'} transition-opacity duration-300`} />
+                  </button>
+                );
+              })}
+            </div>
+            
             {formData.decisionType && (
               <div className="mt-4 flex items-center text-sm text-green-600">
                 <CheckCircle className="h-4 w-4 mr-1" />
@@ -352,8 +455,10 @@ export default function DecisionIntakeScreen() {
                     flex items-center gap-4 p-4 rounded-lg border-2 transition-all duration-200
                     ${formData.importance === id 
                       ? `${color.replace('hover:', '')} border-current` 
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }
                   `}
+                  data-testid={`importance-${id}`}
                 >
                   <Icon className="h-6 w-6" />
                   <div className="text-left">
@@ -388,8 +493,10 @@ export default function DecisionIntakeScreen() {
                     flex items-center gap-4 p-4 rounded-lg border-2 transition-all duration-200
                     ${formData.reversibility === id 
                       ? `${color.replace('hover:', '')} border-current` 
-                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                    }
                   `}
+                  data-testid={`reversibility-${id}`}
                 >
                   <Icon className="h-6 w-6" />
                   <div className="text-left">
@@ -422,6 +529,7 @@ export default function DecisionIntakeScreen() {
               type="submit"
               disabled={loading || !isComplete}
               className="flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              data-testid="continue-button"
             >
               {loading ? 'Processing...' : 'Continue to Goals'}
               <ChevronRight className="ml-2 h-5 w-5" />
@@ -472,6 +580,15 @@ export default function DecisionIntakeScreen() {
       <div className="mt-8">
         <ChatBox />
       </div>
+
+      {/* All Decision Types Modal */}
+      {showAllTypesModal && (
+        <AllDecisionTypesModal
+          onClose={() => setShowAllTypesModal(false)}
+          onSelectType={handleTypeSelect}
+          currentType={formData.decisionType}
+        />
+      )}
     </div>
   );
 }
