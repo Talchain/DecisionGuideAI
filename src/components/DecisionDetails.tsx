@@ -54,8 +54,6 @@ export default function DecisionDetails() {
   if (!decisionType) {
     return <Navigate to="/decision/intake" replace />
   }
-
-  // Sync context decision into local state
   useEffect(() => {
     if (decision) {
       setLocalDecision(decision)

@@ -60,6 +60,10 @@ export default function ImportanceSelector() {
     return <Navigate to="/decision/intake" replace />
   }
   
+  if (!decisionId) {
+    return <Navigate to="/decision/intake" replace />
+  }
+  
   if (!decisionType || !decision) {
     return <Navigate to="/decision/intake" replace />
   }

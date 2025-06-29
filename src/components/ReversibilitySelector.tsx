@@ -59,6 +59,7 @@ export default function ReversibilitySelector() {
   if (!decisionType) return <Navigate to="/decision/intake" replace />;
   if (!decision) return <Navigate to="/decision/intake" replace />;
   if (!importance) return <Navigate to="/decision/intake" replace />;
+  if (!importance) return <Navigate to="/decision/intake" replace />;
 
   const handleSelect = (reversibility: string) => {
     setLoading(true);

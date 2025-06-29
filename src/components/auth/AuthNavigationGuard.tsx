@@ -74,7 +74,7 @@ export default function AuthNavigationGuard() {
 
       // If we're landing *and* authenticated, jump straight into the flow
       if (authenticated && location.pathname === '/') {
-        authLogger.info('AUTH', 'Redirecting authenticated user', {
+        navigate('/decision/intake', { replace: true });
           from: location.pathname,
           to: targetPath
         });
@@ -101,7 +101,7 @@ export default function AuthNavigationGuard() {
 
     // If on an auth page but already signed in, send them to the flow
     if (isAuthRoute && authenticated) {
-      authLogger.info('AUTH', 'Redirecting authenticated user from auth page', {
+      navigate('/decision/intake', { replace: true });
         from: location.pathname,
         to: targetPath
       });
@@ -130,7 +130,7 @@ export default function AuthNavigationGuard() {
 
     // Public landing page: if you're already authed, bounce to /decision/intake
     if (location.pathname === '/' && authenticated) {
-      authLogger.info('AUTH', 'Redirecting authenticated user from landing', {
+      navigate('/decision/intake', { replace: true });
         from: location.pathname,
         to: targetPath
       });

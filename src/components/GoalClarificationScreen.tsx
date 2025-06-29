@@ -28,7 +28,6 @@ export default function GoalClarificationScreen() {
   if (!decision) return <Navigate to="/decision/intake" replace />
   if (!importance) return <Navigate to="/decision/intake" replace />
   if (!reversibility) return <Navigate to="/decision/intake" replace />
-
   // quick-skip
   useEffect(() => {
     if (
