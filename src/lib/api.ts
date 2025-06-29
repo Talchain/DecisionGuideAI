@@ -3,6 +3,22 @@
 import { generatePromptMessages } from './prompts'
 import { supabase } from './supabase'
 
+// Error types for better categorization
+export enum ApiErrorType {
+  NETWORK = 'network',
+  RATE_LIMIT = 'rate_limit',
+  AUTHENTICATION = 'authentication',
+  INVALID_PARAMETERS = 'invalid_parameters',
+  SERVER_ERROR = 'server_error',
+  UNKNOWN = 'unknown'
+}
+
+export interface ApiError extends Error {
+  type: ApiErrorType;
+  status?: number;
+  retryAfter?: number;
+}
+
 // —————————————————————————————————————————————————————————————————————————————
 // Helper: create chat completion with retries via Edge Function
 // —————————————————————————————————————————————————————————————————————————————
@@ -19,7 +35,9 @@ async function createChatCompletion(
   let delay = 1000
 
   if (!Array.isArray(messages) || messages.length === 0) {
-    throw new Error('Invalid messages format')
+    const error = new Error('Invalid messages format') as ApiError;
+    error.type = ApiErrorType.INVALID_PARAMETERS;
+    throw error;
   }
 
   const supabaseUrl = supabase.supabaseUrl;
@@ -30,7 +48,9 @@ async function createChatCompletion(
       // Get the current session for authentication
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        throw new Error('Authentication required');
+        const error = new Error('Authentication required') as ApiError;
+        error.type = ApiErrorType.AUTHENTICATION;
+        throw error;
       }
 
       // Make request to Edge Function
@@ -53,18 +73,57 @@ async function createChatCompletion(
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `API error: ${response.status}`);
+        const error = new Error(errorData.error || `API error: ${response.status}`) as ApiError;
+        error.status = response.status;
+        
+        // Categorize error based on status code
+        if (response.status === 429) {
+          error.type = ApiErrorType.RATE_LIMIT;
+          error.retryAfter = errorData.retryAfter || 60;
+        } else if (response.status === 401 || response.status === 403) {
+          error.type = ApiErrorType.AUTHENTICATION;
+        } else if (response.status === 400) {
+          error.type = ApiErrorType.INVALID_PARAMETERS;
+        } else if (response.status >= 500) {
+          error.type = ApiErrorType.SERVER_ERROR;
+        } else {
+          error.type = ApiErrorType.UNKNOWN;
+        }
+        
+        throw error;
       }
 
       const completion = await response.json();
 
       const content = completion.content;
       if (!content) {
-        throw new Error('Empty response from API')
+        const error = new Error('Empty response from API') as ApiError;
+        error.type = ApiErrorType.SERVER_ERROR;
+        throw error;
       }
       return { content, prompt: messages, rawResponse: completion }
     } catch (err) {
-      lastError = err instanceof Error ? err : new Error('Unknown error occurred')
+      // Ensure error has the ApiError type
+      if (err instanceof Error && !('type' in err)) {
+        const apiError = err as ApiError;
+        
+        // Categorize network errors
+        if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+          apiError.type = ApiErrorType.NETWORK;
+        } else if (err.message.includes('timeout')) {
+          apiError.type = ApiErrorType.NETWORK;
+        } else {
+          apiError.type = ApiErrorType.UNKNOWN;
+        }
+        
+        lastError = apiError;
+      } else {
+        lastError = err instanceof Error ? err as ApiError : new Error('Unknown error occurred') as ApiError;
+        if (!('type' in lastError)) {
+          (lastError as ApiError).type = ApiErrorType.UNKNOWN;
+        }
+      }
+      
       if (attempt < retries - 1) {
         await new Promise((r) => setTimeout(r, delay))
         delay *= 2
@@ -72,7 +131,13 @@ async function createChatCompletion(
     }
   }
 
-  throw lastError || new Error('Failed to get API response after retries')
+  if (!lastError) {
+    const error = new Error('Failed to get API response after retries') as ApiError;
+    error.type = ApiErrorType.UNKNOWN;
+    throw error;
+  }
+  
+  throw lastError;
 }
 
 // —————————————————————————————————————————————————————————————————————————————
@@ -111,10 +176,44 @@ export const generateOptionsIdeation = async ({
   importance: string
   goals?: string[]
 }): Promise<OptionsAnalysisResponse> => {
-  const messages = [
-    {
-      role: 'system',
-      content: `
+  try {
+    if (!decision || !decisionType || !reversibility || !importance) {
+      const error = new Error('Missing required parameters for options analysis') as ApiError;
+      error.type = ApiErrorType.INVALID_PARAMETERS;
+      throw error;
+    }
+
+    // Check authentication first
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session error:', sessionError);
+        const error = new Error(`Authentication error: ${sessionError.message}`) as ApiError;
+        error.type = ApiErrorType.AUTHENTICATION;
+        throw error;
+      }
+      
+      if (!session) {
+        const error = new Error('You need to be signed in to generate options. Please sign in and try again.') as ApiError;
+        error.type = ApiErrorType.AUTHENTICATION;
+        throw error;
+      }
+
+      // Use the correct Supabase URL format
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        const error = new Error('Supabase URL not configured') as ApiError;
+        error.type = ApiErrorType.SERVER_ERROR;
+        throw error;
+      }
+
+      const edgeFunctionUrl = `${supabaseUrl}/functions/v1/openai-proxy`;
+
+      const messages = [
+        {
+          role: 'system',
+          content: `
 You are an expert in decision, behavioral, and cognitive science.
 Your task is to help a user generate the most promising options for a decision,
 and to highlight the cognitive biases they should guard against.
@@ -122,10 +221,10 @@ and to highlight the cognitive biases they should guard against.
 Always respond with exactly one JSON object—no extra text, markdown, or code fences.
 If you cannot comply, return {"error": true, "message": "reason"}.
 `.trim()
-    },
-    {
-      role: 'user',
-      content: `
+        },
+        {
+          role: 'user',
+          content: `
 Context:
 • Decision: ${decision}
 • Category: ${decisionType}
@@ -164,20 +263,112 @@ Requirements for biases:
 Do not include any text outside the JSON. If you fail to generate valid JSON, return:
 {"error": true, "message": "Could not generate JSON as specified"}
 `.trim()
-    }
-  ]
+        }
+      ];
 
-  const { content, prompt, rawResponse } = await createChatCompletion(
-    messages,
-    {
-      model: 'gpt-4',
-      temperature: 0.7,
-      max_tokens: 1500
-    }
-  )
+      const response = await fetch(edgeFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          messages,
+          options: {
+            model: 'gpt-4',
+            temperature: 0.7,
+            max_tokens: 1500
+          }
+        })
+      });
 
-  const parsed = JSON.parse(content)
-  return { ...parsed, prompt, rawResponse }
+      if (!response.ok) {
+        const errorData = await response.json();
+        let errorMessage = errorData.error || `API error: ${response.status}`;
+        
+        // Provide more user-friendly messages for common error codes
+        if (response.status === 429) {
+          const error = new Error('Rate limit exceeded. Please wait a moment and try again.') as ApiError;
+          error.type = ApiErrorType.RATE_LIMIT;
+          error.status = response.status;
+          error.retryAfter = 60; // Default to 60 seconds if not specified
+          throw error;
+        } else if (response.status >= 500) {
+          const error = new Error('The AI service is currently unavailable. Please try again later.') as ApiError;
+          error.type = ApiErrorType.SERVER_ERROR;
+          error.status = response.status;
+          throw error;
+        }
+        
+        const error = new Error(errorMessage) as ApiError;
+        error.type = ApiErrorType.UNKNOWN;
+        error.status = response.status;
+        throw error;
+      }
+
+      const result = await response.json();
+      
+      const content = result?.content;
+      if (!content) {
+        const error = new Error('Empty response from API') as ApiError;
+        error.type = ApiErrorType.SERVER_ERROR;
+        throw error;
+      }
+
+      // Parse the JSON response
+      const parsed = JSON.parse(content);
+      
+      // Validate the response structure
+      if (!parsed.options || !Array.isArray(parsed.options) || parsed.options.length === 0) {
+        const error = new Error('The AI couldn\'t generate any options for this decision. Please try again with more details.') as ApiError;
+        error.type = ApiErrorType.INVALID_PARAMETERS;
+        throw error;
+      }
+      
+      if (!parsed.biases || !Array.isArray(parsed.biases) || parsed.biases.length === 0) {
+        const error = new Error('Invalid response: missing or invalid biases array') as ApiError;
+        error.type = ApiErrorType.INVALID_PARAMETERS;
+        throw error;
+      }
+
+      return parsed;
+    } catch (error) {
+      console.error('Options ideation error:', error);
+      throw error;
+    }
+  } catch (error) {
+    console.error('Options ideation error:', error);
+    
+    if (error instanceof Error) {
+      const errorMessage = error.message;
+      
+      if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
+        const apiError = new Error('Network error: Please check your internet connection and try again.') as ApiError;
+        apiError.type = ApiErrorType.NETWORK;
+        throw apiError;
+      } else if (errorMessage.includes('timeout') || errorMessage.includes('Timed out')) {
+        const apiError = new Error('The request timed out. The AI service might be busy, please try again in a moment.') as ApiError;
+        apiError.type = ApiErrorType.NETWORK;
+        throw apiError;
+      } else if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
+        const apiError = new Error('You\'ve reached the rate limit for AI requests. Please wait a moment before trying again.') as ApiError;
+        apiError.type = ApiErrorType.RATE_LIMIT;
+        apiError.retryAfter = 60; // Default to 60 seconds
+        throw apiError;
+      } else if (errorMessage.includes('authentication') || errorMessage.includes('Unauthorized')) {
+        const apiError = new Error('Authentication error: Please sign in again and retry.') as ApiError;
+        apiError.type = ApiErrorType.AUTHENTICATION;
+        throw apiError;
+      } else {
+        const apiError = new Error(`Options generation failed: ${error.message}`) as ApiError;
+        apiError.type = ApiErrorType.UNKNOWN;
+        throw apiError;
+      }
+    }
+    const apiError = new Error('Options generation failed. Please try again or contact support if the problem persists.') as ApiError;
+    apiError.type = ApiErrorType.UNKNOWN;
+    throw apiError;
+  }
 }
 
 // —————————————————————————————————————————————————————————————————————————————
@@ -279,13 +470,17 @@ export const analyzeOptions = async ({
 }: AnalysisRequest): Promise<OptionsAnalysisRawResponse> => {
   try {
     if (!decision || !decisionType || !reversibility || !importance) {
-      throw new Error('Missing required parameters for options analysis')
+      const error = new Error('Missing required parameters for options analysis') as ApiError;
+      error.type = ApiErrorType.INVALID_PARAMETERS;
+      throw error;
     }
 
     // Get the current session for authentication
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      throw new Error('Authentication required');
+      const error = new Error('Authentication required') as ApiError;
+      error.type = ApiErrorType.AUTHENTICATION;
+      throw error;
     }
 
     const supabaseUrl = supabase.supabaseUrl;
@@ -351,15 +546,31 @@ Required JSON format:
         options: {
           model: 'gpt-4.1-mini',
           max_tokens: 1500,
-          temperature: 0.7,
-          // Remove response_format as it's not supported with this model
+          temperature: 0.7
         }
       })
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || `API error: ${response.status}`);
+      const error = new Error(errorData.error || `API error: ${response.status}`) as ApiError;
+      error.status = response.status;
+      
+      // Categorize error based on status code
+      if (response.status === 429) {
+        error.type = ApiErrorType.RATE_LIMIT;
+        error.retryAfter = errorData.retryAfter || 60;
+      } else if (response.status === 401 || response.status === 403) {
+        error.type = ApiErrorType.AUTHENTICATION;
+      } else if (response.status === 400) {
+        error.type = ApiErrorType.INVALID_PARAMETERS;
+      } else if (response.status >= 500) {
+        error.type = ApiErrorType.SERVER_ERROR;
+      } else {
+        error.type = ApiErrorType.UNKNOWN;
+      }
+      
+      throw error;
     }
 
     const result = await response.json();
@@ -372,6 +583,13 @@ Required JSON format:
       'Options analysis error:',
       { error, context: { decision, decisionType, reversibility, importance } }
     );
+    
+    // Ensure error has the ApiError type
+    if (error instanceof Error && !('type' in error)) {
+      const apiError = error as ApiError;
+      apiError.type = ApiErrorType.UNKNOWN;
+      throw apiError;
+    }
     throw error;
   }
 }

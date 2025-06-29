@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { analyzeDecision, analyzeOptions } from '../lib/api';
+import { analyzeDecision, analyzeOptions, ApiErrorType } from '../lib/api';
 import { supabase } from '../lib/supabase';
 import type { Bias, Option as APIOption } from '../lib/api';
 import type { Option } from '../components/ProsConsList/types';
@@ -14,6 +14,7 @@ interface UseAnalysisProps {
 
 interface AnalysisState {
   aiAnalysis: string | null;
+  errorType: ApiErrorType | null;
   options: Option[];
   biases: Bias[];
   loading: boolean;
@@ -86,6 +87,7 @@ export function useAnalysis({
 }: UseAnalysisProps) {
   const [state, setState] = useState<AnalysisState>({
     aiAnalysis: null,
+    errorType: null,
     options: [],
     biases: [],
     loading: true,
@@ -227,7 +229,7 @@ export function useAnalysis({
     hasRunAnalysisRef.current = true;
     apiCallInProgressRef.current = true;
 
-    setState(prev => ({ ...prev, loading: true, error: null }));
+    setState(prev => ({ ...prev, loading: true, errorType: null, error: null }));
 
     try {
       // Get the current session for authentication
@@ -338,7 +340,11 @@ Guide me through the next step in this decision-making process, considering the 
 
       setState(prev => ({
         ...prev,
-        error: 'Failed to analyze decision',
+        errorType: error.type || ApiErrorType.UNKNOWN,
+        error: error instanceof Error 
+          ? `${error.message}${error.type === ApiErrorType.RATE_LIMIT && error.retryAfter 
+              ? ` Please try again in ${error.retryAfter} seconds.` : ''}`
+          : 'Failed to analyze decision',
         loading: false
       }));
     }
