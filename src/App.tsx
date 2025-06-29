@@ -83,6 +83,7 @@ export default function App() {
                   {/* Public */}
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/about" element={<About />} />
+                  
 
                   {/* Auth */}
                   <Route element={<AuthLayout />}>
@@ -97,21 +98,9 @@ export default function App() {
                       element={<ResetPasswordForm />}
                     />
                   </Route>
-
-                  {/* Decision Flow */}
-                  {(authenticated || hasValidAccess) && (
-                    <>
                       <Route
                         path="/"
                         element={<DecisionIntakeScreen />}
-                      />
-                      <Route
-                        path="/decision"
-                        element={<DecisionTypeSelector />}
-                      />
-                      <Route
-                        path="/decision/details"
-                        element={<DecisionDetails />}
                       />
                       <Route
                         path="/decision/importance"

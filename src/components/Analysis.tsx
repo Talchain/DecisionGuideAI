@@ -85,7 +85,7 @@ export default function Analysis() {
   // Redirect if missing required state
   if (!state?.decisionId || !state?.decision || !state?.decisionType || !state?.reversibility || !state?.importance) {
     console.warn("Missing required state for Analysis component, redirecting.", state);
-    return <Navigate to="/" replace />;
+    return <Navigate to="/decision/intake" replace />;
   }
 
 

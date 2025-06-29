@@ -86,12 +86,14 @@ export default function DecisionIntakeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showTypeOptions, setShowTypeOptions] = useState(false);
   const [showImportanceOptions, setShowImportanceOptions] = useState(false);
-  const [showReversibilityOptions, setShowReversibilityOptions] = useState(false);
+  const [showReversibilityOptions, setShowReversibilityOptions] = useState(false); 
 
   // Reset context on mount
   useEffect(() => {
     resetDecisionContext();
   }, [resetDecisionContext]);
+
+  // Don't use Navigate guards in this component since it's the entry point
 
   // Advance to next step when current step is completed
   useEffect(() => {
@@ -179,14 +181,14 @@ export default function DecisionIntakeScreen() {
       setDecisionId(data.id);
 
       // Navigate to goals screen
-      navigate('/decision/goals', { 
+      navigate('/decision/goals', {
         state: { 
           decisionId: data.id,
           decision: formData.decision.trim(),
           decisionType: formData.decisionType,
           importance: formData.importance,
-          reversibility: formData.reversibility
-        } 
+          reversibility: formData.reversibility 
+        }
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error.');

@@ -25,10 +25,10 @@ export default function IndividualCriteriaStage() {
   } = useDecision();
 
   // Flow guards
-  if (!decisionId) return <Navigate to="/decision" replace />;
-  if (!decision) return <Navigate to="/decision/details" replace />;
-  if (!importance) return <Navigate to="/decision/importance" replace />;
-  if (!reversibility) return <Navigate to="/decision/reversibility" replace />;
+  if (!decisionId) return <Navigate to="/decision/intake" replace />;
+  if (!decision) return <Navigate to="/decision/intake" replace />;
+  if (!importance) return <Navigate to="/decision/intake" replace />;
+  if (!reversibility) return <Navigate to="/decision/intake" replace />;
   if (!options?.length) return <Navigate to="/decision/options" replace />;
 
   const [newCriterion, setNewCriterion] = useState('');
