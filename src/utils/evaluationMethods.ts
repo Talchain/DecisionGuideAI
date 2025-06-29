@@ -1,176 +1,163 @@
 import { 
   Scale, 
   BarChart2, 
-  Grid, 
-  Calculator, 
-  AlertOctagon, 
   ListChecks, 
-  DollarSign,
-  Brain
+  Layers, 
+  AlertOctagon, 
+  DollarSign, 
+  BarChart 
 } from 'lucide-react';
 
 export interface EvaluationMethod {
   id: string;
   name: string;
   description: string;
-  icon: React.ElementType;
   longDescription: string;
+  icon: React.ElementType;
   usageExamples: string[];
-  recommendedFor: {
+  requiresCriteria: boolean;
+  suitableFor: {
     decisionTypes: string[];
     importance: string[];
     reversibility: string[];
   };
-  setupInstructions?: string;
-  requiresCriteria: boolean;
 }
 
 export const evaluationMethods: EvaluationMethod[] = [
   {
-    id: 'weighted-criteria-matrix',
+    id: 'weighted-criteria',
     name: 'Weighted Criteria Matrix',
     description: 'Score each option against key criteria, with criteria weighted by importance.',
+    longDescription: 'A systematic approach that evaluates options against multiple criteria, with each criterion weighted by importance. This provides a quantitative score for each option, making it easier to compare them objectively.',
     icon: Scale,
-    longDescription: 'A weighted criteria matrix helps you evaluate options by scoring them against multiple criteria, with each criterion weighted by importance. This method is ideal for complex decisions with multiple factors to consider.',
     usageExamples: [
-      'Choosing between multiple job offers based on salary, location, growth potential, etc.',
-      'Selecting a vendor based on price, quality, support, and reliability',
-      'Deciding between product features based on development cost, user impact, and strategic alignment'
+      'Complex decisions with multiple factors to consider',
+      'When you need to balance competing priorities',
+      'For transparent, defensible decision-making'
     ],
-    recommendedFor: {
+    requiresCriteria: true,
+    suitableFor: {
       decisionTypes: ['professional', 'financial', 'career', 'other'],
-      importance: ['high_priority_urgent', 'critical_in_depth_analysis', 'moderate_priority_thorough_quick'],
-      reversibility: ['partially', 'irreversible', 'unsure']
-    },
-    requiresCriteria: true
+      importance: ['high_priority_urgent', 'critical_in_depth_analysis'],
+      reversibility: ['partially', 'irreversible']
+    }
   },
   {
     id: 'weighted-pros-cons',
-    name: 'Weighted Pros & Cons Analysis',
+    name: 'Weighted Pros & Cons',
     description: 'Compare options by listing and weighting their advantages and disadvantages.',
+    longDescription: 'An enhanced version of the classic pros and cons list where each pro and con is assigned a weight based on its importance. This helps account for the fact that not all advantages and disadvantages are equally significant.',
     icon: BarChart2,
-    longDescription: 'This method enhances the traditional pros and cons list by assigning weights to each factor. It helps you see which option has the strongest advantages and most manageable disadvantages.',
     usageExamples: [
-      'Deciding whether to accept a job offer',
-      'Evaluating whether to move to a new city',
-      'Choosing between two competing strategies'
+      'When you have a few well-defined options',
+      'For decisions with clear trade-offs',
+      'When you want a simple but effective approach'
     ],
-    recommendedFor: {
+    requiresCriteria: false,
+    suitableFor: {
       decisionTypes: ['professional', 'financial', 'health', 'career', 'relationships', 'other'],
-      importance: ['low_priority_quick_assessment', 'moderate_priority_thorough_quick', 'high_priority_urgent'],
+      importance: ['low_priority_quick_assessment', 'moderate_priority_thorough_quick'],
       reversibility: ['reversible', 'partially', 'unsure']
-    },
-    requiresCriteria: false
+    }
   },
   {
-    id: 'effort-impact-matrix',
+    id: 'effort-impact',
     name: 'Effort-Impact Matrix',
     description: 'Visualize options by plotting effort required versus impact/benefit.',
-    icon: Grid,
-    longDescription: 'The Effort-Impact Matrix plots options on a 2x2 grid based on the effort required to implement them and their potential impact. This visual approach helps prioritize high-impact, low-effort options.',
+    longDescription: 'A visual decision-making tool that plots options on a 2x2 grid based on the effort required to implement them and their potential impact. This helps identify "quick wins" (high impact, low effort) and avoid "thankless tasks" (low impact, high effort).',
+    icon: BarChart,
     usageExamples: [
-      'Prioritizing product features for development',
-      'Selecting process improvement initiatives',
-      'Choosing between marketing campaigns'
+      'Prioritizing tasks or initiatives',
+      'When resources are limited',
+      'For visual thinkers'
     ],
-    recommendedFor: {
+    requiresCriteria: false,
+    suitableFor: {
       decisionTypes: ['professional', 'financial'],
-      importance: ['moderate_priority_thorough_quick', 'high_priority_urgent'],
+      importance: ['low_priority_quick_assessment', 'moderate_priority_thorough_quick'],
       reversibility: ['reversible', 'partially']
-    },
-    requiresCriteria: false
+    }
   },
   {
     id: 'rice-scoring',
     name: 'RICE Scoring',
     description: 'Prioritize initiatives by Reach, Impact, Confidence, and Effort.',
-    icon: Calculator,
-    longDescription: 'RICE scoring evaluates options based on four factors: Reach (how many people will it affect), Impact (how much it will affect each person), Confidence (how sure you are about the estimates), and Effort (how much time it will take). The formula is (Reach × Impact × Confidence) ÷ Effort.',
-    usageExamples: [
-      'Prioritizing product roadmap items',
-      'Selecting marketing initiatives',
-      'Choosing between business opportunities'
-    ],
-    recommendedFor: {
-      decisionTypes: ['professional', 'financial'],
-      importance: ['moderate_priority_thorough_quick', 'high_priority_urgent', 'critical_in_depth_analysis'],
-      reversibility: ['partially', 'unsure']
-    },
-    requiresCriteria: false
-  },
-  {
-    id: 'premortem-analysis',
-    name: 'Pre-mortem Analysis',
-    description: 'Identify potential points of failure and mitigation strategies before committing.',
-    icon: AlertOctagon,
-    longDescription: 'A pre-mortem analysis asks you to imagine that your decision has failed, then work backward to determine what potentially could lead to the failure. This helps identify risks and develop mitigation strategies before they occur.',
-    usageExamples: [
-      'Launching a new product or feature',
-      'Implementing a major organizational change',
-      'Making a significant investment'
-    ],
-    recommendedFor: {
-      decisionTypes: ['professional', 'financial', 'career'],
-      importance: ['high_priority_urgent', 'critical_in_depth_analysis'],
-      reversibility: ['irreversible', 'unsure']
-    },
-    requiresCriteria: false
-  },
-  {
-    id: 'moscow-prioritization',
-    name: 'MoSCoW Prioritization',
-    description: 'Categorize options into Must have, Should have, Could have, Won\'t have.',
+    longDescription: 'A prioritization framework that scores options based on four factors: Reach (how many people will it affect), Impact (how much it will affect them), Confidence (how sure you are about the estimates), and Effort (how much time it will take). The formula is (Reach × Impact × Confidence) ÷ Effort.',
     icon: ListChecks,
-    longDescription: 'MoSCoW prioritization helps you categorize options based on their importance: Must have (essential), Should have (important but not critical), Could have (desirable but not necessary), and Won\'t have (not needed now but maybe later).',
     usageExamples: [
-      'Defining project requirements',
-      'Planning feature releases',
-      'Allocating resources across initiatives'
+      'Product feature prioritization',
+      'Project portfolio management',
+      'Resource allocation decisions'
     ],
-    recommendedFor: {
-      decisionTypes: ['professional', 'financial'],
+    requiresCriteria: false,
+    suitableFor: {
+      decisionTypes: ['professional'],
       importance: ['moderate_priority_thorough_quick', 'high_priority_urgent'],
       reversibility: ['reversible', 'partially']
-    },
-    requiresCriteria: false
+    }
   },
   {
-    id: 'cost-benefit-analysis',
+    id: 'pre-mortem',
+    name: 'Pre-mortem Analysis',
+    description: 'Identify potential points of failure and mitigation strategies before committing.',
+    longDescription: 'A risk analysis technique where you imagine that your decision has failed, then work backward to determine what potentially could lead to the failure. This helps identify risks and develop preventive measures before making the decision.',
+    icon: AlertOctagon,
+    usageExamples: [
+      'High-risk decisions',
+      'When failure would be costly',
+      'For decisions with many unknowns'
+    ],
+    requiresCriteria: false,
+    suitableFor: {
+      decisionTypes: ['professional', 'financial', 'career'],
+      importance: ['high_priority_urgent', 'critical_in_depth_analysis'],
+      reversibility: ['irreversible', 'partially']
+    }
+  },
+  {
+    id: 'moscow',
+    name: 'MoSCoW Prioritization',
+    description: 'Categorize options into Must have, Should have, Could have, Won\'t have.',
+    longDescription: 'A prioritization technique that categorizes options into four groups: Must have (essential), Should have (important but not critical), Could have (desirable but not necessary), and Won\'t have (not a priority now but maybe later). This helps focus on what\'s truly essential.',
+    icon: Layers,
+    usageExamples: [
+      'Feature prioritization',
+      'Project scope definition',
+      'When facing time constraints'
+    ],
+    requiresCriteria: false,
+    suitableFor: {
+      decisionTypes: ['professional'],
+      importance: ['moderate_priority_thorough_quick', 'high_priority_urgent'],
+      reversibility: ['reversible', 'partially']
+    }
+  },
+  {
+    id: 'cost-benefit',
     name: 'Cost-Benefit Analysis',
     description: 'Quantify and compare the costs and benefits of each option.',
+    longDescription: 'A systematic approach to estimating the strengths and weaknesses of alternatives by determining the benefits and costs of each option. This helps determine which option provides the best approach to achieve benefits while preserving savings.',
     icon: DollarSign,
-    longDescription: 'Cost-benefit analysis involves identifying, quantifying, and comparing the costs and benefits of each option. This method is particularly useful for financial decisions or when tangible outcomes can be measured.',
     usageExamples: [
-      'Evaluating a potential investment',
-      'Deciding whether to hire additional staff',
-      'Assessing whether to build or buy a solution'
+      'Financial decisions',
+      'Business investments',
+      'Policy evaluations'
     ],
-    recommendedFor: {
-      decisionTypes: ['professional', 'financial'],
-      importance: ['moderate_priority_thorough_quick', 'high_priority_urgent', 'critical_in_depth_analysis'],
-      reversibility: ['partially', 'irreversible']
-    },
-    requiresCriteria: false
-  },
-  {
-    id: 'decision-tree',
-    name: 'Decision Tree Analysis',
-    description: 'Map out possible outcomes and their probabilities for each option.',
-    icon: Brain,
-    longDescription: 'Decision tree analysis creates a flowchart-like diagram that shows the possible outcomes of each option, along with their probabilities and consequences. This helps visualize complex decisions with multiple possible outcomes.',
-    usageExamples: [
-      'Making decisions under uncertainty',
-      'Planning for different scenarios',
-      'Evaluating options with multiple possible outcomes'
-    ],
-    recommendedFor: {
-      decisionTypes: ['professional', 'financial', 'career', 'health'],
+    requiresCriteria: false,
+    suitableFor: {
+      decisionTypes: ['financial', 'professional'],
       importance: ['high_priority_urgent', 'critical_in_depth_analysis'],
-      reversibility: ['partially', 'irreversible', 'unsure']
-    },
-    requiresCriteria: false
+      reversibility: ['partially', 'irreversible']
+    }
   }
 ];
+
+/**
+ * Get a method by its ID
+ */
+export function getMethodById(id: string): EvaluationMethod | undefined {
+  return evaluationMethods.find(method => method.id === id);
+}
 
 /**
  * Get recommended evaluation methods based on decision context
@@ -182,39 +169,42 @@ export function getRecommendedMethods(
   hasCriteria: boolean
 ): EvaluationMethod[] {
   if (!decisionType || !importance || !reversibility) {
-    // If missing context, return all methods
-    return evaluationMethods;
+    // If missing context, recommend methods that don't require criteria if no criteria defined
+    return hasCriteria 
+      ? evaluationMethods
+      : evaluationMethods.filter(method => !method.requiresCriteria);
   }
-
-  // Filter methods based on decision context
-  const recommendedMethods = evaluationMethods.filter(method => {
-    // Skip methods that require criteria if none are defined
-    if (method.requiresCriteria && !hasCriteria) {
-      return false;
+  
+  // Score each method based on suitability
+  const scoredMethods = evaluationMethods.map(method => {
+    let score = 0;
+    
+    // Check decision type match
+    if (method.suitableFor.decisionTypes.includes(decisionType)) {
+      score += 2;
     }
-
-    // Check if method is recommended for this decision type
-    const matchesType = method.recommendedFor.decisionTypes.includes(decisionType) || 
-                        method.recommendedFor.decisionTypes.includes('other');
     
-    // Check if method is recommended for this importance level
-    const matchesImportance = method.recommendedFor.importance.includes(importance);
+    // Check importance match
+    if (method.suitableFor.importance.includes(importance)) {
+      score += 2;
+    }
     
-    // Check if method is recommended for this reversibility level
-    const matchesReversibility = method.recommendedFor.reversibility.includes(reversibility);
+    // Check reversibility match
+    if (method.suitableFor.reversibility.includes(reversibility)) {
+      score += 1;
+    }
     
-    // Method is recommended if it matches at least 2 of the 3 criteria
-    const matchCount = [matchesType, matchesImportance, matchesReversibility].filter(Boolean).length;
-    return matchCount >= 2;
+    // Penalize methods that require criteria if none defined
+    if (method.requiresCriteria && !hasCriteria) {
+      score -= 10; // Large penalty to ensure these appear last
+    }
+    
+    return { method, score };
   });
-
-  // If no methods are recommended, return all methods
-  return recommendedMethods.length > 0 ? recommendedMethods : evaluationMethods;
-}
-
-/**
- * Get an evaluation method by ID
- */
-export function getMethodById(id: string): EvaluationMethod | undefined {
-  return evaluationMethods.find(method => method.id === id);
+  
+  // Sort by score (descending) and return top methods
+  return scoredMethods
+    .sort((a, b) => b.score - a.score)
+    .map(item => item.method)
+    .filter(method => !method.requiresCriteria || hasCriteria);
 }

@@ -1,6 +1,17 @@
 import React from 'react';
 import { ListChecks, Map, Rocket, ShoppingCart, FlaskConical, Repeat, AlertTriangle, Users, HandHelping, Briefcase, CreditCard, HeartPulse, Sun, GraduationCap, Users2, CircleEllipsis as Ellipsis, HelpCircle } from 'lucide-react';
 
+// Define the decision type structure
+export interface DecisionCategory {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  examples: string[];
+  section: string;
+  backendType: 'professional' | 'financial' | 'health' | 'career' | 'relationships' | 'other';
+}
+
 // Map of icon names to Lucide React components
 export const iconMap: Record<string, React.ElementType> = {
   ListChecks,
@@ -21,17 +32,6 @@ export const iconMap: Record<string, React.ElementType> = {
   Ellipsis,
   HelpCircle
 };
-
-// Define the decision type structure
-export interface DecisionCategory {
-  id: string;
-  name: string;
-  icon: string;
-  description: string;
-  examples: string[];
-  section: string;
-  backendType: 'professional' | 'financial' | 'health' | 'career' | 'relationships' | 'other';
-}
 
 // Decision categories data
 export const decisionCategories: DecisionCategory[] = [

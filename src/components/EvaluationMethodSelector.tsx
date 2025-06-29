@@ -75,6 +75,8 @@ export default function EvaluationMethodSelector() {
     decision, 
     importance, 
     reversibility, 
+    goals,
+    options,
     criteria,
     setEvaluationMethod
   } = useDecision();
@@ -114,7 +116,17 @@ export default function EvaluationMethodSelector() {
     setEvaluationMethod(selectedMethodId);
     
     // Navigate to analysis
-    navigate('/decision/analysis');
+    navigate('/decision/analysis', {
+      state: {
+        decisionId,
+        decision,
+        decisionType,
+        importance,
+        reversibility,
+        goals,
+        options
+      }
+    });
   };
   
   const handleBack = () => {
