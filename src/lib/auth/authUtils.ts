@@ -68,7 +68,7 @@ export function validateAuthInputs(email: string, password: string): string | nu
 
 // Clear all auth-related states
 export async function clearAuthStates(): Promise<void> {
-    console.debug('[authUtils] clearAuthStates() called', new Error().stack);
+  console.debug('[authUtils] clearAuthStates() called');
   // Clear early access validation state
   clearAccessValidation();
   
@@ -85,7 +85,8 @@ export async function clearAuthStates(): Promise<void> {
       'dga_access_validation_time',
       'dga_access_code',
       'dga_session_state',
-      'registered_email'
+      'registered_email',
+      'decisionContext' // Clear decision context to prevent stale data
     ];
 
     authKeys.forEach(key => {
@@ -99,10 +100,11 @@ export async function clearAuthStates(): Promise<void> {
     // Also clear any Supabase-specific keys that might exist
     try {
       const allKeys = Object.keys(localStorage);
-      const supabaseKeys = allKeys.filter(key => 
-        key.startsWith('sb-') || 
+      const supabaseKeys = allKeys.filter(key =>
+        key.startsWith('sb-') ||
         key.includes('supabase') ||
-        key.includes('auth')
+        key.includes('auth') ||
+        key.includes('token')
       );
       
       supabaseKeys.forEach(key => {
@@ -119,7 +121,7 @@ export async function clearAuthStates(): Promise<void> {
     // Dispatch storage event for cross-tab synchronization
     try {
       window.dispatchEvent(new StorageEvent('storage', {
-        key: 'auth_state_cleared',
+        key: 'auth_state_cleared', 
         newValue: 'true'
       }));
     } catch (e) {
@@ -129,7 +131,8 @@ export async function clearAuthStates(): Promise<void> {
     authLogger.debug('AUTH', 'Auth states cleared successfully');
   } catch (error) {
     authLogger.error('ERROR', 'Failed to clear auth states', error);
-    throw error;
+    console.error('Failed to clear auth states:', error);
+    // Don't throw the error - we want to continue even if some cleanup fails
   }
 }
 

@@ -6,6 +6,9 @@ import type { UserProfile } from '../types/database';
 import { authLogger } from '../lib/auth/authLogger';
 import { clearAuthStates } from '../lib/auth/authUtils';
 
+// Debug flag for additional logging
+const AUTH_DEBUG = false;
+
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
@@ -55,39 +58,68 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const handleAuthStateChange = useCallback(async (session: Session | null) => {
     if (!session) {
       // Clear any stale auth data when session is null
-      await clearAuthStates();
-      setState({
-        user: null,
-        profile: null,
-        loading: false,
-        authenticated: false
-      });
+      if (state.user !== null || state.profile !== null || state.authenticated !== false) {
+        if (AUTH_DEBUG) console.log('[AuthContext] Session is null, clearing auth state');
+        await clearAuthStates();
+        setState({
+          user: null,
+          profile: null,
+          loading: false,
+          authenticated: false
+        });
+      } else if (state.loading) {
+        // Only update loading state if it's true
+        setState(prev => ({ ...prev, loading: false }));
+      }
       return;
     }
 
     try {
-      const profile = await fetchProfile(session.user);
-      setState({
-        user: session.user,
-        profile,
-        loading: false,
-        authenticated: true
-      });
+      // Check if user has changed before fetching profile
+      const currentUserId = state.user?.id;
+      const newUserId = session.user.id;
+      
+      if (AUTH_DEBUG) console.log('[AuthContext] Session exists, user IDs:', { currentUserId, newUserId });
+      
+      // Only fetch profile and update state if user has changed or we don't have a profile
+      if (currentUserId !== newUserId || !state.profile) {
+        const profile = await fetchProfile(session.user);
+        
+        if (AUTH_DEBUG) console.log('[AuthContext] Updating auth state with new user/profile');
+        
+        setState({
+          user: session.user,
+          profile,
+          loading: false,
+          authenticated: true
+        });
+      } else if (state.loading || !state.authenticated) {
+        // Just update loading/authenticated if needed
+        setState(prev => ({
+          ...prev,
+          loading: false,
+          authenticated: true
+        }));
+      }
     } catch (error) {
       authLogger.error('ERROR', 'Auth state change error', error);
-      setState({
-        user: session.user,
-        profile: null,
-        loading: false,
-        authenticated: true
-      });
+      
+      // Only update state if it's different from current state
+      if (state.user?.id !== session.user.id || state.profile !== null || state.loading || !state.authenticated) {
+        setState({
+          user: session.user,
+          profile: null,
+          loading: false,
+          authenticated: true
+        });
+      }
     }
-  }, [fetchProfile]);
+  }, [fetchProfile, state]);
 
   // Initialize auth state
   useEffect(() => {
     const initAuth = async () => {
-      authLogger.debug('AUTH', 'Initializing auth state');
+      authLogger.debug('AUTH', 'Initializing auth state', { timestamp: new Date().toISOString() });
       try {
         const { data: { session } } = await supabase.auth.getSession();
         await handleAuthStateChange(session);
@@ -170,9 +202,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut: async () => {
       authLogger.debug('AUTH', 'Sign out attempt');
       try {
-        // First clear all local state and auth data
-        await clearAuthStates();
-        
         // Reset context state before attempting Supabase signout
         setState({
           user: null,
@@ -180,6 +209,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           loading: false,
           authenticated: false
         });
+
+        // Clear all local state and auth data
+        await clearAuthStates();
         
         // Then try to sign out from Supabase
         try {
@@ -189,6 +221,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (session) {
             await supabase.auth.signOut({
               scope: 'local' // Change to local scope to prevent 403 error
+            }).then(() => {
+              if (AUTH_DEBUG) console.log('[AuthContext] Supabase sign out successful');
+            }).catch(e => {
+              console.warn('[AuthContext] Supabase sign out error:', e);
             });
           }
         } catch (signOutError) {
@@ -200,6 +236,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Navigate to landing page
         navigate('/', { replace: true });
+        authLogger.debug('AUTH', 'Sign out completed successfully');
         
         return { error: null };
       } catch (error) {

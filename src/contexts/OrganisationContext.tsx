@@ -27,9 +27,11 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
 
   const fetchOrganisations = useCallback(async () => {
     if (!user) {
-      setOrganisations([]);
-      setCurrentOrganisation(null);
-      setLoading(false);
+      if (organisations.length > 0 || currentOrganisation !== null || loading) {
+        setOrganisations([]);
+        setCurrentOrganisation(null);
+        setLoading(false);
+      }
       return;
     }
     
@@ -130,23 +132,28 @@ Your Supabase project needs to allow requests from this development server.
       const allOrgs = [...formattedOwned, ...formattedMember];
       setOrganisations(allOrgs);
       
-      // If no current organisation is set, set the first one
-      if (!currentOrganisation && allOrgs.length > 0) {
-        setCurrentOrganisation(allOrgs[0]);
-      } else if (currentOrganisation) {
-        // If current organisation is set, make sure it's still in the list
-        const stillExists = allOrgs.some(org => org.id === currentOrganisation.id);
-        if (!stillExists && allOrgs.length > 0) {
+      // Handle current organisation state updates only if needed
+      if (allOrgs.length > 0) {
+        if (!currentOrganisation) {
+          // If no current organisation is set, set the first one
           setCurrentOrganisation(allOrgs[0]);
-        } else if (!stillExists) {
-          setCurrentOrganisation(null);
         } else {
-          // Update the current organisation with fresh data
-          const updatedOrg = allOrgs.find(org => org.id === currentOrganisation.id);
-          if (updatedOrg) {
-            setCurrentOrganisation(updatedOrg);
+          // If current organisation is set, make sure it's still in the list
+          const stillExists = allOrgs.some(org => org.id === currentOrganisation.id);
+          if (!stillExists) {
+            // Current org no longer exists, set to first available
+            setCurrentOrganisation(allOrgs[0]);
+          } else {
+            // Update the current organisation with fresh data if it changed
+            const updatedOrg = allOrgs.find(org => org.id === currentOrganisation.id);
+            if (updatedOrg && JSON.stringify(updatedOrg) !== JSON.stringify(currentOrganisation)) {
+              setCurrentOrganisation(updatedOrg);
+            }
           }
         }
+      } else if (currentOrganisation !== null) {
+        // No orgs available but we have a current org set
+        setCurrentOrganisation(null);
       }
       
       console.log('[OrganisationContext] Successfully fetched organisations:', allOrgs.length);
@@ -192,7 +199,7 @@ This is likely a CORS (Cross-Origin Resource Sharing) issue.
   // Fetch organisations on mount and when user changes
   useEffect(() => {
     fetchOrganisations();
-  }, [user, fetchOrganisations]);
+  }, [user?.id, fetchOrganisations]); // Only depend on user.id, not the entire user object
 
   const createOrganisation = async (name: string, slug: string, description?: string) => {
     if (!user) return null;

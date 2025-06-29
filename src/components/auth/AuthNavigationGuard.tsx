@@ -7,7 +7,7 @@ import { checkAccessValidation } from '../../lib/auth/accessValidation';
 import { authLogger } from '../../lib/auth/authLogger';
 
 export default function AuthNavigationGuard() {
-  const { authenticated, loading } = useAuth();
+  const { authenticated, loading, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -16,6 +16,7 @@ export default function AuthNavigationGuard() {
   const lastAttemptedNavigationRef = useRef<string | null>(null);
   const previousPathnameRef = useRef<string>(location.pathname);
   const navigationInProgressRef = useRef<boolean>(false);
+  const hasRedirectedRef = useRef<boolean>(false);
 
   const publicRoutes = ['/', '/about'];
   const authRoutes   = ['/login', '/signup', '/forgot-password', '/reset-password'];
@@ -35,16 +36,19 @@ export default function AuthNavigationGuard() {
     const isDecisionFlowRoute = decisionFlowRoutes.includes(location.pathname);
     const hasValidAccess = !authenticated && checkAccessValidation();
     
-    // Detect potential navigation loops
-    const targetPath = '/decision/intake';
-    const isAttemptingToNavigateToSameRoute = lastAttemptedNavigationRef.current === location.pathname;
-    const isRepeatedNavigation = lastAttemptedNavigationRef.current === targetPath && location.pathname === targetPath;
+    // Determine target path for authenticated users
+    const targetPath = isDecisionFlowRoute ? location.pathname : '/decision/intake';
+    
+    // Detect and prevent navigation loops
+    const isNavigatingToSameRoute = lastAttemptedNavigationRef.current === location.pathname;
+    const isAlreadyAtTargetPath = location.pathname === targetPath;
     
     // Log navigation state for debugging
     authLogger.debug('AUTH', 'Navigation check', {
       path: location.pathname,
       previousPath: previousPathnameRef.current,
       lastAttemptedNavigation: lastAttemptedNavigationRef.current,
+      hasUser: !!user,
       isAuthRoute,
       isPublicRoute,
       isDecisionFlowRoute,
@@ -52,11 +56,15 @@ export default function AuthNavigationGuard() {
       hasValidAccess,
       initialLoad: initialLoadRef.current,
       navigationInProgress: navigationInProgressRef.current,
-      isRepeatedNavigation
+      isNavigatingToSameRoute,
+      isAlreadyAtTargetPath,
+      hasRedirected: hasRedirectedRef.current
     });
 
     // Prevent navigation loops
-    if (isRepeatedNavigation || navigationInProgressRef.current) {
+    if ((isNavigatingToSameRoute && !initialLoadRef.current) || 
+        navigationInProgressRef.current || 
+        (authenticated && isAlreadyAtTargetPath)) {
       authLogger.debug('AUTH', 'Preventing navigation loop', {
         currentPath: location.pathname,
         lastAttemptedPath: lastAttemptedNavigationRef.current
@@ -67,6 +75,11 @@ export default function AuthNavigationGuard() {
     // Initial load only
     if (initialLoadRef.current) {
       initialLoadRef.current = false;
+      authLogger.debug('AUTH', 'Initial load navigation check', {
+        authenticated,
+        path: location.pathname,
+        hasValidAccess
+      });
 
       // If we're landing *and* authenticated, jump straight into the flow
       if (authenticated && location.pathname === '/') {
@@ -77,6 +90,7 @@ export default function AuthNavigationGuard() {
         
         navigationInProgressRef.current = true;
         lastAttemptedNavigationRef.current = targetPath;
+        hasRedirectedRef.current = true;
         navigate(targetPath, { replace: true });
         return;
       }
@@ -90,6 +104,7 @@ export default function AuthNavigationGuard() {
         
         navigationInProgressRef.current = true;
         lastAttemptedNavigationRef.current = '/';
+        hasRedirectedRef.current = true;
         navigate('/', { replace: true });
         return;
       }
@@ -104,6 +119,7 @@ export default function AuthNavigationGuard() {
       
       navigationInProgressRef.current = true;
       lastAttemptedNavigationRef.current = targetPath;
+      hasRedirectedRef.current = true;
       navigate(targetPath, { replace: true });
       return;
     }
@@ -113,11 +129,13 @@ export default function AuthNavigationGuard() {
       if (!authenticated && !hasValidAccess) {
         authLogger.info('AUTH', 'Redirecting unauthenticated user without access', {
           from: location.pathname,
-          to: '/'
+          to: '/',
+          hasUser: !!user
         });
         
         navigationInProgressRef.current = true;
         lastAttemptedNavigationRef.current = '/';
+        hasRedirectedRef.current = true;
         navigate('/', { replace: true });
         return;
       }
@@ -133,6 +151,7 @@ export default function AuthNavigationGuard() {
       
       navigationInProgressRef.current = true;
       lastAttemptedNavigationRef.current = targetPath;
+      hasRedirectedRef.current = true;
       navigate(targetPath, { replace: true });
     }
     
@@ -140,11 +159,9 @@ export default function AuthNavigationGuard() {
     previousPathnameRef.current = location.pathname;
     
     // Reset navigation in progress flag after the current execution cycle
-    setTimeout(() => {
-      navigationInProgressRef.current = false;
-    }, 0);
+    navigationInProgressRef.current = false;
     
-  }, [authenticated, loading, location.pathname, navigate]);
+  }, [authenticated, loading, location.pathname, navigate, user]);
 
   return null;
 }
