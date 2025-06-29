@@ -245,12 +245,6 @@ export default function Navbar() {
                   resetDecisionContext();
                 }
               }}
-              onClick={() => {
-                if (user) {
-                  console.log("[Navbar] Clicking logo with user, resetting context");
-                  resetDecisionContext();
-                }
-              }}
               className="flex-shrink-0 flex items-center"
               aria-label="DecisionGuide.AI Home"
             >
