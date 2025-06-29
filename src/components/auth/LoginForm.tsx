@@ -99,7 +99,7 @@ export default function LoginForm() {
       authLogger.info('AUTH', 'Sign in successful', { email: trimmedEmail });
 
       // Navigate to the intended destination or /decision
-      const from = location.state?.from || '/decision';
+      const from = location.state?.from || '/decision/intake';
       navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');

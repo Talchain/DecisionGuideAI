@@ -32,6 +32,7 @@ import TeamDetails from './components/teams/TeamDetails'    // ← Newly added i
 import OrganisationList from './components/organisations/OrganisationList'
 import OrganisationDetails from './components/organisations/OrganisationDetails'
 
+import DecisionIntakeScreen from './components/DecisionIntakeScreen'
 import DecisionTypeSelector from './components/DecisionTypeSelector'
 import TemplatesDashboard from './components/templates/TemplatesDashboard'
 import DecisionDetails from './components/DecisionDetails'
@@ -99,6 +100,10 @@ export default function App() {
                   {/* Decision Flow */}
                   {(authenticated || hasValidAccess) && (
                     <>
+                      <Route
+                        path="/decision/intake"
+                        element={<DecisionIntakeScreen />}
+                      />
                       <Route
                         path="/decision"
                         element={<DecisionTypeSelector />}

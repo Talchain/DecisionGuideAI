@@ -307,7 +307,7 @@ export default function LandingPage() {
                 </div>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  href="/decision/intake" 
                   className="w-full flex items-center justify-center px-6 py-3.5 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transform hover:-translate-y-0.5 transition-all duration-200"
                 >
                   {isSubmitting ? 'Verifying...' : 'Enter Olumi'}
