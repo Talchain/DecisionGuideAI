@@ -22,8 +22,19 @@ export const iconMap: Record<string, React.ElementType> = {
   HelpCircle
 };
 
+// Define the decision type structure
+export interface DecisionCategory {
+  id: string;
+  name: string;
+  icon: string;
+  description: string;
+  examples: string[];
+  section: string;
+  backendType: 'professional' | 'financial' | 'health' | 'career' | 'relationships' | 'other';
+}
+
 // Decision categories data
-export const decisionCategories = [
+export const decisionCategories: DecisionCategory[] = [
   {
     id: "feature-prioritization",
     name: "Feature Prioritization",
@@ -218,19 +229,8 @@ export const decisionCategories = [
   }
 ];
 
-// Helper function to get the backend type from a category name
-export function getBackendTypeFromName(categoryName: string): string {
-  const category = decisionCategories.find(c => c.name === categoryName);
-  if (!category) {
-    console.warn(`No category found with name: ${categoryName}. Defaulting to 'other'.`);
-    return 'other';
-  }
-  
-  return category.backendType;
-}
-
 // Get recommended decision types
-export function getRecommendedTypes() {
+export const getRecommendedTypes = () => {
   // Get the first 5 from "Product & Work" section 
   const productWorkTypes = decisionCategories
     .filter(category => category.section === "Product & Work")
@@ -240,4 +240,15 @@ export function getRecommendedTypes() {
   const somethingElse = decisionCategories.find(category => category.name === "Something else");
   
   return [...productWorkTypes, somethingElse].filter(Boolean);
-}
+};
+
+// Helper function to get the backend type from a category name
+export const getBackendTypeFromName = (categoryName: string): string => {
+  const category = decisionCategories.find(c => c.name === categoryName);
+  if (!category) {
+    console.warn(`No category found with name: ${categoryName}. Defaulting to 'other'.`);
+    return 'other';
+  }
+  
+  return category.backendType;
+};

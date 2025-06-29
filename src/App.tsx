@@ -26,6 +26,7 @@ import DecisionList from './components/decisions/DecisionList'
 import DecisionForm from './components/decisions/DecisionForm'
 import AuthNavigationGuard from './components/auth/AuthNavigationGuard'
 import CriteriaStage from './components/CriteriaStage'
+import EvaluationMethodSelector from './components/EvaluationMethodSelector'
 
 import MyTeams from './components/teams/MyTeams'
 import TeamDetails from './components/teams/TeamDetails'    // ← Newly added import
@@ -124,6 +125,14 @@ export default function App() {
                     element={
                       <ProtectedRoute>
                         <CriteriaStage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/decision/evaluate"
+                    element={
+                      <ProtectedRoute>
+                        <EvaluationMethodSelector />
                       </ProtectedRoute>
                     }
                   />

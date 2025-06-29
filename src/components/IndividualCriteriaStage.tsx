@@ -84,7 +84,7 @@ export default function IndividualCriteriaStage() {
       return;
     }
     setCriteria(localCriteria);
-    navigate('/decision/analysis');
+    navigate('/decision/evaluate');
   };
 
   const handleTemplateSelect = (templateCriteria: Criterion[]) => {

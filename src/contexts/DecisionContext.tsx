@@ -40,6 +40,7 @@ export interface DecisionContextType {
   goals: string[]
   options: Option[]
   collaborators: Collaborator[]
+  evaluationMethod: string | null
   criteria: Criterion[]
   collaboratorsError: string | null
   teamIds: string[]
@@ -51,6 +52,7 @@ export interface DecisionContextType {
   setGoals: (goals: string[]) => void
   setOptions: (options: Option[]) => void
   setCollaborators: (collaborators: Collaborator[]) => void
+  setEvaluationMethod: (method: string | null) => void
   setCriteria: (criteria: Criterion[]) => void
   setTeamIds: (teamIds: string[]) => void
   resetDecisionContext: () => void
@@ -106,6 +108,9 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
   const [options, setOptions] = useState<Option[]>(initial.options ?? [])
   const [collaborators, setCollaborators] = useState<Collaborator[]>(
     initial.collaborators ?? []
+  )
+  const [evaluationMethod, setEvaluationMethod] = useState<string | null>(
+    initial.evaluationMethod ?? null
   )
   const [criteria, setCriteria] = useState<Criterion[]>(initial.criteria ?? [])
   const [collaboratorsError, setCollaboratorsError] = useState<string | null>(null)
@@ -221,6 +226,8 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     reversibility,
     goals,
     options,
+    evaluationMethod,
+    evaluationMethod,
     collaborators,
     collaboratorsError,
     teamIds
@@ -235,6 +242,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     setReversibility(null)
     setGoals([])
     setOptions([])
+    setEvaluationMethod(null)
     setCollaborators([])
     setCriteria([])
     setCollaboratorsError(null)
@@ -252,6 +260,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
         reversibility,
         goals,
         options,
+        evaluationMethod,
         collaborators,
         criteria,
         collaboratorsError,
@@ -264,6 +273,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
         setReversibility,
         setGoals,
         setOptions,
+        setEvaluationMethod,
         setCollaborators,
         setCriteria,
         resetDecisionContext,
