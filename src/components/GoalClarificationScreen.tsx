@@ -42,16 +42,19 @@ export default function GoalClarificationScreen() {
   const back   = () => navigate('/decision/reversibility')
   const next   = () => navigate('/decision/options')
   const add    = () => {
+    console.log("[GoalClarificationScreen] Adding goal:", newGoal);
     if (!newGoal.trim()) return
     setGoals([...goals, newGoal.trim()])
     setNewGoal('')
   }
   const remove = (i: number) => {
+    console.log("[GoalClarificationScreen] Removing goal at index:", i);
     const arr = [...goals]
     arr.splice(i, 1)
     setGoals(arr)
   }
   const skip   = () => {
+    console.log("[GoalClarificationScreen] Skipping goals");
     if (!skipConfirm) return setSkipConfirm(true)
     setSkipConfirm(false)
     navigate('/decision/options')

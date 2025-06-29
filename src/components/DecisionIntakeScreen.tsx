@@ -212,10 +212,22 @@ export default function DecisionIntakeScreen() {
 
       // Update context
       setDecision(formData.decision.trim());
-      setDecisionType(formData.decisionType);
+      // Get the backend type from the selected category name
+      const backendType = getBackendTypeFromName(formData.decisionType);
+      console.log(`[handleSubmit] Selected UI type: ${formData.decisionType}, mapped to backend type: ${backendType}`);
+      setDecisionType(backendType);
       setImportance(formData.importance); 
       setReversibility(formData.reversibility);
       setDecisionId(data.id);
+      
+      console.log("[handleSubmit] Decision created successfully:", {
+        userId,
+        decisionId: data.id,
+        decision: formData.decision.trim(),
+        decisionType: backendType,
+        importance: formData.importance,
+        reversibility: formData.reversibility
+      });
 
       trackEvent('decision_intake_completed', { 
         decisionId: data.id,
@@ -223,16 +235,25 @@ export default function DecisionIntakeScreen() {
       });
 
       // Navigate to goals screen
+      console.log("[handleSubmit] Navigating to /decision/goals with state:", {
+        decisionId: data.id,
+        decision: formData.decision.trim(),
+        decisionType: backendType,
+        importance: formData.importance,
+        reversibility: formData.reversibility
+      });
+      
       navigate('/decision/goals', {
         state: { 
           decisionId: data.id,
           decision: formData.decision.trim(),
-          decisionType: formData.decisionType,
+          decisionType: backendType,
           importance: formData.importance,
           reversibility: formData.reversibility 
         }
       });
     } catch (err) {
+      console.error("[handleSubmit] Error creating decision:", err);
       setError(err instanceof Error ? err.message : 'Unknown error.');
     } finally {
       setLoading(false);

@@ -12,13 +12,25 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading, profile, authenticated } = useAuth();
   const location = useLocation();
   const hasValidAccess = checkAccessValidation();
+  const hasValidAccess = checkAccessValidation();
 
   // Log protection check
+  console.log("[ProtectedRoute] Route protection check:", {
+    path: location.pathname,
+    hasUser: !!user,
+    hasProfile: !!profile,
+    authenticated,
+    hasValidAccess,
+    loading,
+    timestamp: new Date().toISOString()
+  });
+  
   authLogger.debug('AUTH', 'Protected route check', {
     path: location.pathname,
     hasUser: !!user,
     hasProfile: !!profile,
     authenticated,
+    hasValidAccess,
     hasValidAccess,
     loading,
     timestamp: new Date().toISOString()
@@ -38,21 +50,37 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   // Allow access if user is authenticated OR has a valid access code
   if (!authenticated && !hasValidAccess) {
+    console.log("[ProtectedRoute] Access denied, redirecting to login:", {
+      authenticated,
+      hasValidAccess,
+      redirectTo: "/login",
+      from: location.pathname
+    });
+    
     authLogger.info('AUTH', 'Protected route access denied', {
       path: location.pathname,
       hasUser: !!user,
       hasProfile: !!profile,
       authenticated,
       hasValidAccess
+      hasValidAccess
     });
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
   // Log successful access
+  console.log("[ProtectedRoute] Access granted:", {
+    path: location.pathname,
+    userId: user?.id || 'access-code-user',
+    authenticated,
+    hasValidAccess
+  });
+  
   authLogger.info('AUTH', 'Protected route access granted', {
     path: location.pathname,
     userId: user?.id || 'access-code-user',
     authenticated,
+    hasValidAccess
     hasValidAccess
   });
 

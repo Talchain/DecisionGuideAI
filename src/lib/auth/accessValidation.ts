@@ -86,7 +86,16 @@ export function validateAccessCode(code: string): ValidationResult {
 export function checkAccessValidation(): boolean {
   try {
     // If user is authenticated, they don't need access validation
-    const hasAuthToken = !!localStorage.getItem('sb-auth-token');
+    const hasAuthToken = !!localStorage.getItem('sb-auth-token') || 
+                         !!localStorage.getItem('sb-localhost-auth-token');
+    
+    console.log("[accessValidation] Checking access validation:", {
+      hasAuthToken,
+      isValidated: localStorage.getItem(ACCESS_VALIDATION_KEY) === 'true',
+      timestamp: localStorage.getItem(ACCESS_TIMESTAMP_KEY),
+      hasAccessCode: !!localStorage.getItem(ACCESS_CODE_KEY)
+    });
+    
     if (hasAuthToken) {
       return true;
     }
@@ -107,6 +116,7 @@ export function checkAccessValidation(): boolean {
     const validationAge = Date.now() - parseInt(timestamp);
     if (validationAge > VALIDATION_EXPIRY) {
       clearAccessValidation();
+      console.log("[accessValidation] Access code expired");
       return false;
     }
 
