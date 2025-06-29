@@ -42,7 +42,7 @@ export default function CriteriaTemplates({
   const [error, setError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<CriteriaTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(true);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     const fetchTemplates = async () => {
@@ -216,6 +216,32 @@ export default function CriteriaTemplates({
             );
           })}
         </div>
+
+        {/* Show More Button */}
+        {hasMoreTemplates && !showAll && (
+          <div className="flex justify-center">
+            <button
+              onClick={() => setShowAll(true)}
+              className="flex items-center gap-2 px-6 py-3 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-lg transition-colors font-medium"
+            >
+              <span>Show {templates.length - 6} More Templates</span>
+              <ChevronDown className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+
+        {/* Show Less Button */}
+        {showAll && hasMoreTemplates && (
+          <div className="flex justify-center">
+            <button
+              onClick={() => setShowAll(false)}
+              className="flex items-center gap-2 px-6 py-3 text-gray-600 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors font-medium"
+            >
+              <span>Show Less</span>
+              <ChevronDown className="h-5 w-5 rotate-180" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Footer Actions */}
