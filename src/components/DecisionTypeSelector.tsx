@@ -7,11 +7,13 @@ import Tooltip from './Tooltip';
 
 // Define the decision type structure
 interface DecisionCategory {
+  id: string;
   name: string;
   icon: string;
   description: string;
   examples: string[];
   section: string;
+  backendType: 'professional' | 'financial' | 'health' | 'career' | 'relationships' | 'other';
 }
 
 // Map of icon names to Lucide React components
@@ -38,6 +40,7 @@ export const iconMap: Record<string, React.ElementType> = {
 // Decision categories data
 export const decisionCategories: DecisionCategory[] = [
   {
+    id: "feature-prioritization",
     name: "Feature Prioritization",
     icon: "ListChecks",
     description: "Rank features or improvements for your next release.",
@@ -45,9 +48,11 @@ export const decisionCategories: DecisionCategory[] = [
       "Which feature should we build next?",
       "What goes in our upcoming sprint?"
     ],
-    section: "Product & Work"
+    section: "Product & Work",
+    backendType: "professional"
   },
   {
+    id: "roadmap-strategy",
     name: "Roadmap/Strategy",
     icon: "Map",
     description: "Plan or prioritize projects and initiatives.",
@@ -55,9 +60,11 @@ export const decisionCategories: DecisionCategory[] = [
       "How should we structure our roadmap?",
       "Which initiatives are most strategic?"
     ],
-    section: "Product & Work"
+    section: "Product & Work",
+    backendType: "professional"
   },
   {
+    id: "go-no-go-launch",
     name: "Go/No-Go Launch",
     icon: "Rocket",
     description: "Decide if a product or feature is ready to launch.",
@@ -65,9 +72,11 @@ export const decisionCategories: DecisionCategory[] = [
       "Is our product ready for users?",
       "Should we release this update now?"
     ],
-    section: "Product & Work"
+    section: "Product & Work",
+    backendType: "professional"
   },
   {
+    id: "vendor-tool-selection",
     name: "Vendor/Tool Selection",
     icon: "ShoppingCart",
     description: "Choose between tools, vendors, or services.",
@@ -75,9 +84,11 @@ export const decisionCategories: DecisionCategory[] = [
       "Which analytics tool should we buy?",
       "Who should be our new infrastructure provider?"
     ],
-    section: "Product & Work"
+    section: "Product & Work",
+    backendType: "professional"
   },
   {
+    id: "experiment-pilot-evaluation",
     name: "Experiment/Pilot Evaluation",
     icon: "FlaskConical",
     description: "Assess the value of experiments and pilots.",
@@ -85,9 +96,11 @@ export const decisionCategories: DecisionCategory[] = [
       "Which test should we run next?",
       "Was our experiment a success?"
     ],
-    section: "Product & Work"
+    section: "Product & Work",
+    backendType: "professional"
   },
   {
+    id: "retrospective-learning",
     name: "Retrospective/Learning",
     icon: "Repeat",
     description: "Reflect on past work to improve future outcomes.",
@@ -95,9 +108,11 @@ export const decisionCategories: DecisionCategory[] = [
       "What did we learn from the last release?",
       "How can we improve our process?"
     ],
-    section: "Product & Work"
+    section: "Product & Work",
+    backendType: "professional"
   },
   {
+    id: "risk-dependency-assessment",
     name: "Risk/Dependency Assessment",
     icon: "AlertTriangle",
     description: "Identify and prioritize risks or blockers.",
@@ -105,9 +120,11 @@ export const decisionCategories: DecisionCategory[] = [
       "What could block this project?",
       "How risky is this dependency?"
     ],
-    section: "Product & Work"
+    section: "Product & Work",
+    backendType: "professional"
   },
   {
+    id: "team-hiring",
     name: "Team/Hiring",
     icon: "Users",
     description: "Make decisions about hiring or team structure.",
@@ -115,9 +132,11 @@ export const decisionCategories: DecisionCategory[] = [
       "Who should join our team?",
       "Is it time to hire a new PM?"
     ],
-    section: "Product & Work"
+    section: "Product & Work",
+    backendType: "professional"
   },
   {
+    id: "stakeholder-alignment",
     name: "Stakeholder/Alignment",
     icon: "HandHelping",
     description: "Align on strategy or priorities with stakeholders.",
@@ -125,9 +144,11 @@ export const decisionCategories: DecisionCategory[] = [
       "How do we get consensus on direction?",
       "Who should be involved in this decision?"
     ],
-    section: "Product & Work"
+    section: "Product & Work",
+    backendType: "professional"
   },
   {
+    id: "career-job-move",
     name: "Career/Job Move",
     icon: "Briefcase",
     description: "Evaluate job offers or career moves.",
@@ -135,9 +156,11 @@ export const decisionCategories: DecisionCategory[] = [
       "Should I accept this job?",
       "Is it time to switch roles?"
     ],
-    section: "Personal & Life"
+    section: "Personal & Life",
+    backendType: "career"
   },
   {
+    id: "financial-purchasing",
     name: "Financial/Purchasing",
     icon: "CreditCard",
     description: "Make major spending, saving, or investment choices.",
@@ -145,9 +168,11 @@ export const decisionCategories: DecisionCategory[] = [
       "Should I invest in this opportunity?",
       "Which laptop should I buy?"
     ],
-    section: "Personal & Life"
+    section: "Personal & Life",
+    backendType: "financial"
   },
   {
+    id: "health-wellness",
     name: "Health/Wellness",
     icon: "HeartPulse",
     description: "Choose a health, fitness, or lifestyle path.",
@@ -155,9 +180,11 @@ export const decisionCategories: DecisionCategory[] = [
       "Which exercise plan is best for me?",
       "Should I change my diet?"
     ],
-    section: "Personal & Life"
+    section: "Personal & Life",
+    backendType: "health"
   },
   {
+    id: "major-life-decision",
     name: "Major Life Decision",
     icon: "Sun",
     description: "Decide on major changes like moving, relationships, or big commitments.",
@@ -165,9 +192,11 @@ export const decisionCategories: DecisionCategory[] = [
       "Should we move to a new city?",
       "Is it the right time to start a family?"
     ],
-    section: "Personal & Life"
+    section: "Personal & Life",
+    backendType: "other"
   },
   {
+    id: "education-personal-development",
     name: "Education/Personal Development",
     icon: "GraduationCap",
     description: "Select courses, degrees, or growth opportunities.",
@@ -175,9 +204,11 @@ export const decisionCategories: DecisionCategory[] = [
       "Which course should I take?",
       "Is this degree the right next step?"
     ],
-    section: "Personal & Life"
+    section: "Personal & Life",
+    backendType: "other"
   },
   {
+    id: "relationships-group",
     name: "Relationships/Group",
     icon: "Users2",
     description: "Decide on social, family, or group matters.",
@@ -185,9 +216,11 @@ export const decisionCategories: DecisionCategory[] = [
       "How should we resolve this family disagreement?",
       "What's the best way to support my friend?"
     ],
-    section: "Personal & Life"
+    section: "Personal & Life",
+    backendType: "relationships"
   },
   {
+    id: "something-else",
     name: "Something else",
     icon: "Ellipsis",
     description: "Any other decision not listed above.",
@@ -195,7 +228,8 @@ export const decisionCategories: DecisionCategory[] = [
       "I want to use my own decision process.",
       "My decision doesn't fit any of these."
     ],
-    section: "Other"
+    section: "Other",
+    backendType: "other"
   }
 ];
 
@@ -220,6 +254,16 @@ export default function DecisionTypeSelector() {
   const handleSelect = (type: string) => {
     setSelectedType(type);
   };
+  
+  // Find the selected category to get its backendType
+  const getBackendType = (categoryName: string): string => {
+    const category = decisionCategories.find(c => c.name === categoryName);
+    if (!category) {
+      console.warn(`No category found with name: ${categoryName}. Defaulting to 'other'.`);
+      return 'other';
+    }
+    return category.backendType;
+  };
 
   const handleContinue = () => {
     if (!selectedType) return;
@@ -228,7 +272,11 @@ export default function DecisionTypeSelector() {
     resetDecisionContext();
 
     // Initialize this decision
-    setDecisionType(selectedType);
+    const backendType = getBackendType(selectedType);
+    
+    // Log for debugging
+    console.log(`Selected type: ${selectedType}, mapped to backend type: ${backendType}`);
+    setDecisionType(backendType);
     setDecision(''); // clear any previous decision text
     localStorage.setItem('decisionType', selectedType);
 

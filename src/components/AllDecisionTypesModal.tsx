@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Search, ChevronDown, ChevronRight } from 'lucide-react';
-import { decisionCategories } from './DecisionTypeSelector';
+import { decisionCategories, iconMap } from './DecisionTypeSelector';
 
 interface AllDecisionTypesModalProps {
   onClose: () => void;
@@ -172,7 +172,8 @@ export default function AllDecisionTypesModal({
                         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
                       >
                         {filteredCategories[section].map(category => {
-                          const IconComponent = category.icon;
+                          // Get the icon component from the iconMap
+                          const IconComponent = iconMap[category.icon] || (() => <div>?</div>);
                           const isSelected = currentType === category.name;
                           
                           return (

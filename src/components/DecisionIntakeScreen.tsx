@@ -4,10 +4,10 @@ import { ArrowRight, HelpCircle, Briefcase, Wallet, Heart, Compass, Users, Rotat
 import { useDecision } from '../contexts/DecisionContext';
 import { getUserId, createDecision } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import Tooltip from './Tooltip';
-import ChatBox from './ChatBox';
-import AllDecisionTypesModal from './AllDecisionTypesModal';
-import { decisionCategories } from './DecisionTypeSelector';
+import Tooltip from './Tooltip'; 
+import ChatBox from './ChatBox'; 
+import { decisionCategories } from './DecisionTypeSelector'; 
+import AllDecisionTypesModal from './AllDecisionTypesModal'; 
 
 // Decision Type Options
 const DECISION_TYPES = [
@@ -47,7 +47,7 @@ const PLACEHOLDERS: Record<string, string> = {
 
 // Get recommended decision types from DecisionTypeSelector
 const getRecommendedTypes = () => {
-  // Get the first 5 from "Product & Work" section
+  // Get the first 5 from "Product & Work" section 
   const productWorkTypes = decisionCategories
     .filter(category => category.section === "Product & Work")
     .slice(0, 5);
@@ -56,6 +56,17 @@ const getRecommendedTypes = () => {
   const somethingElse = decisionCategories.find(category => category.name === "Something else");
   
   return [...productWorkTypes, somethingElse].filter(Boolean);
+};
+
+// Helper function to get the backend type from a category name
+const getBackendTypeFromName = (categoryName: string): string => {
+  const category = decisionCategories.find(c => c.name === categoryName);
+  if (!category) {
+    console.warn(`No category found with name: ${categoryName}. Defaulting to 'other'.`);
+    return 'other';
+  }
+  
+  return category.backendType;
 };
 
 export default function DecisionIntakeScreen() {
@@ -131,6 +142,11 @@ export default function DecisionIntakeScreen() {
   // Handle decision type selection
   const handleTypeSelect = (type: string) => {
     setFormData(prev => ({ ...prev, decisionType: type }));
+    
+    // Log the mapping for debugging
+    const backendType = getBackendTypeFromName(type);
+    console.log(`Selected UI type: ${type}, mapped to backend type: ${backendType}`);
+    
     setCurrentStep(2);
     setError(null);
     trackEvent('decision_type_selected', { type });
@@ -166,6 +182,9 @@ export default function DecisionIntakeScreen() {
     setError(null);
 
     try {
+      // Get the backend type from the selected category name
+      const backendType = getBackendTypeFromName(formData.decisionType);
+      
       const userId = await getUserId();
       if (!userId) {
         setError('Unable to get user session. Please log in again.');
@@ -174,7 +193,7 @@ export default function DecisionIntakeScreen() {
 
       const { data, error: supaErr } = await createDecision({
         user_id: userId,
-        type: formData.decisionType,
+        type: backendType, // Use the backend type for the API call
         title: formData.decision.trim(),
         reversibility: formData.reversibility,
         importance: formData.importance,
@@ -194,7 +213,7 @@ export default function DecisionIntakeScreen() {
       // Update context
       setDecision(formData.decision.trim());
       setDecisionType(formData.decisionType);
-      setImportance(formData.importance);
+      setImportance(formData.importance); 
       setReversibility(formData.reversibility);
       setDecisionId(data.id);
 
