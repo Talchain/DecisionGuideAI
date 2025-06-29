@@ -4,78 +4,6 @@ import { generatePromptMessages } from './prompts'
 import { supabase } from './supabase'
 
 // —————————————————————————————————————————————————————————————————————————————
-// Helper: create chat completion with retries via Edge Function
-// —————————————————————————————————————————————————————————————————————————————
-async function createChatCompletion(
-  messages: any[],
-  options: {
-    model?: string
-    temperature?: number
-    max_tokens?: number
-  } = {},
-  retries = 3
-): Promise<{ content: string; prompt: any; rawResponse: any }> {
-  let lastError: Error | null = null
-  let delay = 1000
-
-  if (!Array.isArray(messages) || messages.length === 0) {
-    throw new Error('Invalid messages format')
-  }
-
-  const supabaseUrl = supabase.supabaseUrl;
-  const edgeFunctionUrl = `${supabaseUrl}/functions/v1/openai-proxy`;
-
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      // Get the current session for authentication
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('Authentication required');
-      }
-
-      // Make request to Edge Function
-      const response = await fetch(edgeFunctionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          messages,
-          options: {
-            model: options.model ?? 'gpt-4',
-            temperature: options.temperature ?? 0.7,
-            max_tokens: options.max_tokens ?? 1500,
-            response_format: options.response_format
-          }
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `API error: ${response.status}`);
-      }
-
-      const completion = await response.json();
-
-      const content = completion.content;
-      if (!content) {
-        throw new Error('Empty response from API')
-      }
-      return { content, prompt: messages, rawResponse: completion }
-    } catch (err) {
-      lastError = err instanceof Error ? err : new Error('Unknown error occurred')
-      if (attempt < retries - 1) {
-        await new Promise((r) => setTimeout(r, delay))
-        delay *= 2
-      }
-    }
-  }
-
-  throw lastError || new Error('Failed to get API response after retries')
-}
-
-// —————————————————————————————————————————————————————————————————————————————
 // Types for Options Ideation
 // —————————————————————————————————————————————————————————————————————————————
 export interface OptionIdeation {
@@ -93,91 +21,6 @@ export interface OptionsAnalysisResponse {
   biases: BiasIdeation[]
   prompt?: any
   rawResponse?: any
-}
-
-// —————————————————————————————————————————————————————————————————————————————
-// generateOptionsIdeation (uses no response_format)
-// —————————————————————————————————————————————————————————————————————————————
-export const generateOptionsIdeation = async ({
-  decision,
-  decisionType,
-  reversibility,
-  importance,
-  goals = []
-}: {
-  decision: string
-  decisionType: string
-  reversibility: string
-  importance: string
-  goals?: string[]
-}): Promise<OptionsAnalysisResponse> => {
-  const messages = [
-    {
-      role: 'system',
-      content: `
-You are an expert in decision, behavioral, and cognitive science.
-Your task is to help a user generate the most promising options for a decision,
-and to highlight the cognitive biases they should guard against.
-
-Always respond with exactly one JSON object—no extra text, markdown, or code fences.
-If you cannot comply, return {"error": true, "message": "reason"}.
-`.trim()
-    },
-    {
-      role: 'user',
-      content: `
-Context:
-• Decision: ${decision}
-• Category: ${decisionType}
-• Goals: ${goals.length ? goals.join(' | ') : 'None specified'}
-• Importance: ${importance}
-• Reversibility: ${reversibility}
-
-Please output exactly one JSON object with these two keys:
-
-{
-  "options": [
-    {
-      "label": "Short, clear title of the option",
-      "description": "A 1–2 sentence explanation of what this option involves"
-    }
-    // 3–6 such entries
-  ],
-  "biases": [
-    {
-      "name": "Name of cognitive bias",
-      "description": "How it might skew the user's thinking here"
-    }
-    // at least 4, more if relevant
-  ]
-}
-
-Requirements for options:
-1. Produce 3–6 distinct, high-quality entries.
-2. Include the top-priority choices plus at least one unconventional or creative angle.
-3. If applicable, include one “test or reframe” option (e.g. a small experiment or data gathering).
-
-Requirements for biases:
-1. List at least 4 biases most likely to affect this decision.
-2. For each, give a concise, plain-language description of its influence.
-
-Do not include any text outside the JSON. If you fail to generate valid JSON, return:
-{"error": true, "message": "Could not generate JSON as specified"}
-`.trim()
-    }
-  ]
-
-  const { content, prompt, rawResponse } = await createChatCompletion(
-    messages,
-    {
-      model: 'gpt-4',
-      temperature: 0.7,
-      max_tokens: 1500
-    }
-  )
-
-  const parsed = JSON.parse(content)
-  return { ...parsed, prompt, rawResponse }
 }
 
 // —————————————————————————————————————————————————————————————————————————————
@@ -215,6 +58,15 @@ export const analyzeDecision = async ({
       throw new Error('Missing required parameters for analysis')
     }
 
+    // Get the current session for authentication
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('Authentication required');
+    }
+
+    const supabaseUrl = supabase.supabaseUrl;
+    const edgeFunctionUrl = `${supabaseUrl}/functions/v1/openai-proxy`;
+
     const promptMessages = generatePromptMessages(
       decision,
       decisionType,
@@ -225,16 +77,35 @@ export const analyzeDecision = async ({
       query
     )
 
-    const { content, prompt, rawResponse } = await createChatCompletion(
-      promptMessages,
-      { max_tokens: importance === 'critical_in_depth_analysis' ? 2000 : 1000 }
-    )
+    // Make request to Edge Function
+    const response = await fetch(edgeFunctionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({
+        messages: promptMessages,
+        options: {
+          max_tokens: importance === 'critical_in_depth_analysis' ? 2000 : 1000,
+          temperature: 0.7
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const content = result.content;
 
     return {
       analysis: content,
       cached: false,
-      prompt,
-      rawResponse
+      prompt: promptMessages,
+      rawResponse: result
     }
   } catch (error) {
     console.error(
@@ -467,6 +338,7 @@ interface RegistrationError {
 export async function registerInterest(
   email: string
 ): Promise<{ error: RegistrationError | null; data?: any }> {
+  try {
     // First check if email already exists using a public function
     const { data: existingRegistration, error: checkError } =
       await supabase.rpc('check_registration_exists', {
