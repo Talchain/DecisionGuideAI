@@ -119,7 +119,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
   const [teamIds, setTeamIds] = useState<string[]>(initial.teamIds ?? [])
 
   // Track subscriptions to clean up properly
-  const subscriptionsRef = useRef<{[key: string]: any}>({});
+  const subscriptionsRef = useRef<{[key: string]: any}>({})
 
   // Subscribe to collaborator changes when decisionId changes
   useEffect(() => {
@@ -173,9 +173,9 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     fetchCollaborators()
 
     // Subscribe to changes
-    let collaboratorsSubscription;
+    let collaboratorsSubscription
     try {
-      subscription = supabase
+      const subscription = supabase
         .channel(`decision_collaborators:${decisionId}`)
         .on(
           'postgres_changes',
@@ -195,7 +195,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
         })
         
       // Store subscription reference for cleanup
-      subscriptionsRef.current.collaborators = collaboratorsSubscription;
+      subscriptionsRef.current.collaborators = collaboratorsSubscription
     } catch (subError) {
       console.error('Failed to create realtime subscription:', subError)
     }
@@ -213,17 +213,17 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
             filter: `decision_id=eq.${decisionId}`,
           },
           (payload) => {
-            console.log('Options change detected:', payload);
+            console.log('Options change detected:', payload)
             // Update options in state when changes occur
-            fetchOptions(decisionId);
+            fetchOptions(decisionId)
           }
         )
-        .subscribe();
+        .subscribe()
         
       // Store subscription reference for cleanup
-      subscriptionsRef.current.options = optionsSubscription;
+      subscriptionsRef.current.options = optionsSubscription
     } catch (subError) {
-      console.error('Failed to create options subscription:', subError);
+      console.error('Failed to create options subscription:', subError)
     }
     
     // Subscribe to criteria suggestions changes
@@ -239,17 +239,17 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
             filter: `decision_id=eq.${decisionId}`,
           },
           (payload) => {
-            console.log('Criteria suggestion change detected:', payload);
+            console.log('Criteria suggestion change detected:', payload)
             // Update criteria in state when changes occur
-            fetchCriteria(decisionId);
+            fetchCriteria(decisionId)
           }
         )
-        .subscribe();
+        .subscribe()
         
       // Store subscription reference for cleanup
-      subscriptionsRef.current.suggestions = suggestionsSubscription;
+      subscriptionsRef.current.suggestions = suggestionsSubscription
     } catch (subError) {
-      console.error('Failed to create criteria suggestions subscription:', subError);
+      console.error('Failed to create criteria suggestions subscription:', subError)
     }
 
     return () => {
@@ -257,21 +257,17 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
       Object.entries(subscriptionsRef.current).forEach(([key, subscription]) => {
         try {
           if (subscription) {
-            console.log(`Unsubscribing from ${key} channel`);
-            subscription.unsubscribe();
-            delete subscriptionsRef.current[key];
+            console.log(`Unsubscribing from ${key} channel`)
+            subscription.unsubscribe()
+            delete subscriptionsRef.current[key]
           }
         } catch (e) {
-          console.warn(`Error unsubscribing from ${key} channel:`, e);
+          console.warn(`Error unsubscribing from ${key} channel:`, e)
         }
-      });
+      })
       
       // Reset subscriptions object
-      subscriptionsRef.current = {};
-        } catch (e) {
-          console.warn('Error unsubscribing from channel:', e)
-        }
-      }
+      subscriptionsRef.current = {}
     }
   }, [decisionId])
 
@@ -281,23 +277,23 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
       const { data, error } = await supabase
         .from('options')
         .select('*')
-        .eq('decision_id', decisionId);
+        .eq('decision_id', decisionId)
         
-      if (error) throw error;
+      if (error) throw error
       
       if (data) {
         // Map to expected format
         const formattedOptions = data.map(option => ({
           label: option.name,
           description: option.description || ''
-        }));
+        }))
         
-        setOptions(formattedOptions);
+        setOptions(formattedOptions)
       }
     } catch (err) {
-      console.error('Error fetching options:', err);
+      console.error('Error fetching options:', err)
     }
-  }, []);
+  }, [])
 
   // Helper function to fetch criteria
   const fetchCriteria = useCallback(async (decisionId: string) => {
@@ -306,17 +302,17 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
         .from('decision_analysis')
         .select('criteria')
         .eq('decision_id', decisionId)
-        .single();
+        .single()
         
-      if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
+      if (error && error.code !== 'PGRST116') throw error // PGRST116 is "no rows returned"
       
       if (data?.criteria) {
-        setCriteria(data.criteria);
+        setCriteria(data.criteria)
       }
     } catch (err) {
-      console.error('Error fetching criteria:', err);
+      console.error('Error fetching criteria:', err)
     }
-  }, []);
+  }, [])
 
   // Persist on *every* change to keep LS in sync
   useEffect(() => {
@@ -367,16 +363,16 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     Object.entries(subscriptionsRef.current).forEach(([key, subscription]) => {
       try {
         if (subscription) {
-          console.log(`Unsubscribing from ${key} channel during reset`);
-          subscription.unsubscribe();
+          console.log(`Unsubscribing from ${key} channel during reset`)
+          subscription.unsubscribe()
         }
       } catch (e) {
-        console.warn(`Error unsubscribing from ${key} channel during reset:`, e);
+        console.warn(`Error unsubscribing from ${key} channel during reset:`, e)
       }
-    });
+    })
     
     // Reset subscriptions object
-    subscriptionsRef.current = {};
+    subscriptionsRef.current = {}
     
     localStorage.removeItem(LOCAL_STORAGE_KEY)
   }
