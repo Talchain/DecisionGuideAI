@@ -172,13 +172,6 @@ export default function Navbar() {
                 }} 
                 className={baseStyles}
               >
-                to="/decision/intake" 
-                onClick={() => {
-                  console.log("[Navbar] Starting new decision flow, resetting context");
-                  resetDecisionContext();
-                }} 
-                className={baseStyles}
-              >
                 <PlusCircle className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
                 <span>New Decision</span>
               </NavLink>
