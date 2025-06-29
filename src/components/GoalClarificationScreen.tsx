@@ -24,11 +24,10 @@ export default function GoalClarificationScreen() {
   const [inviteOpen, setInviteOpen] = useState(false)
 
   // Flow guards
-  if (!decisionType)    return <Navigate to="/decision" replace />
-  if (!decision)        return <Navigate to="/decision/details" replace />
-  if (!importance)      return <Navigate to="/decision/importance" replace />
-  if (!reversibility)   return <Navigate to="/decision/reversibility" replace />
-  if (!decisionId)      return <Navigate to="/decision" replace />
+  if (!decisionId) return <Navigate to="/decision" replace />
+  if (!decision) return <Navigate to="/decision/details" replace />
+  if (!importance) return <Navigate to="/decision/importance" replace />
+  if (!reversibility) return <Navigate to="/decision/reversibility" replace />
 
   // quick-skip
   useEffect(() => {
