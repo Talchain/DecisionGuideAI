@@ -112,10 +112,10 @@ export const supabase = createClient<Database>(
   supabaseAnonKey,
   {
     auth: {
-      autoRefreshToken: true,
+      autoRefreshToken: true, // Keep this enabled to maintain session
       persistSession: true,
       detectSessionInUrl: false,
-      multiTab: false,
+      multiTab: true, // Enable multi-tab support to improve session consistency
       flowType: 'pkce',
     },
     global: {

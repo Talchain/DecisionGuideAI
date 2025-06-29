@@ -25,6 +25,19 @@ export default function LoginForm() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [redirectPath, setRedirectPath] = useState<string | null>(null);
+  
+  // Extract redirect path from location state
+  useEffect(() => {
+    if (location.state?.from) {
+      setRedirectPath(location.state.from);
+    }
+    
+    // Display error message if provided in state
+    if (location.state?.error) {
+      setError(location.state.error);
+    }
+  }, [location.state]);
 
   // Clean up timeouts on unmount
   React.useEffect(() => {
@@ -99,7 +112,7 @@ export default function LoginForm() {
       authLogger.info('AUTH', 'Sign in successful', { email: trimmedEmail });
 
       // Navigate to the intended destination or /decision
-      const from = location.state?.from || '/decision/intake';
+      const from = redirectPath || location.state?.from || '/decision/intake';
       navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');

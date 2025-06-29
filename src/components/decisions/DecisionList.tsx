@@ -663,7 +663,21 @@ export default function DecisionList() {
                         <Tooltip content="Edit">
                           <Link
                             to={`/decisions/${decision.id}`}
-                            className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-gray-100"
+                            className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-gray-100" 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              // Ensure we have a valid session before navigating
+                              supabase.auth.getSession().then(({ data }) => {
+                                if (data.session) {
+                                  navigate(`/decisions/${decision.id}`);
+                                } else {
+                                  console.error("Session expired, redirecting to login");
+                                  navigate('/login', { 
+                                    state: { from: `/decisions/${decision.id}` } 
+                                  });
+                                }
+                              });
+                            }}
                           >
                             <Edit className="h-4 w-4" />
                           </Link>

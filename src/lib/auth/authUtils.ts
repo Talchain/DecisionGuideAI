@@ -86,7 +86,8 @@ export async function clearAuthStates(): Promise<void> {
       'dga_access_code',
       'dga_session_state',
       'registered_email',
-      'decisionContext' // Clear decision context to prevent stale data
+      // Don't clear decisionContext to preserve user work
+      // 'decisionContext'
     ];
 
     authKeys.forEach(key => {

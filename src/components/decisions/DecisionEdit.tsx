@@ -41,9 +41,38 @@ interface DecisionRow {
 function DecisionEditLoader() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   if (!id) return <Navigate to="/decisions" replace />;
 
+  // Check for valid session before loading data
+  useEffect(() => {
+    if (!user) {
+      supabase.auth.getSession().then(({ data, error }) => {
+        if (error || !data.session) {
+          console.error("Session invalid or expired:", error);
+          navigate('/login', { 
+            state: { from: `/decisions/${id}`, error: "Your session has expired. Please sign in again." } 
+          });
+        } else {
+          setSessionChecked(true);
+        }
+      });
+    } else {
+      setSessionChecked(true);
+    }
+  }, [user, id, navigate]);
+
+  // Don't proceed until session check is complete
+  if (!sessionChecked && !user) {
+    return (
+      <div className="flex items-center justify-center h-[60vh] text-gray-600">
+        <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+        Verifying session...
+      </div>
+    );
+  }
   const [row, setRow] = useState<DecisionRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);

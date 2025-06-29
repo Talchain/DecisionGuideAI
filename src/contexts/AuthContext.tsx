@@ -60,6 +60,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clear any stale auth data when session is null
       if (state.user !== null || state.profile !== null || state.authenticated !== false) {
         if (AUTH_DEBUG) console.log('[AuthContext] Session is null, clearing auth state');
+        
+        // Log the event for debugging
+        authLogger.debug('AUTH', 'Session became null, clearing state', {
+          previousUser: state.user?.id,
+          timestamp: new Date().toISOString()
+        });
+        
         await clearAuthStates();
         setState({
           user: null,
@@ -121,12 +128,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       authLogger.debug('AUTH', 'Initializing auth state', { timestamp: new Date().toISOString() });
       try {
+        // Add a small delay to ensure localStorage is properly initialized
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         const { data: { session } } = await supabase.auth.getSession();
+        
+        // Log session state for debugging
+        authLogger.debug('AUTH', 'Initial session check', { 
+          hasSession: !!session,
+          userId: session?.user?.id,
+          timestamp: new Date().toISOString()
+        });
+        
         await handleAuthStateChange(session);
 
         // Subscribe to auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           authLogger.debug('AUTH', 'Auth state changed', { event });
+          
+          // Log auth events for debugging
+          if (event === 'SIGNED_OUT') {
+            authLogger.info('AUTH', 'User signed out', { timestamp: new Date().toISOString() });
+          } else if (event === 'SIGNED_IN') {
+            authLogger.info('AUTH', 'User signed in', { 
+              userId: session?.user?.id,
+              timestamp: new Date().toISOString() 
+            });
+          } else if (event === 'TOKEN_REFRESHED') {
+            authLogger.debug('AUTH', 'Token refreshed', { 
+              userId: session?.user?.id,
+              timestamp: new Date().toISOString() 
+            });
+          }
+          
           await handleAuthStateChange(session);
         });
 
