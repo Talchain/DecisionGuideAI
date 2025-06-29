@@ -42,6 +42,7 @@ import GoalClarificationScreen from './components/GoalClarificationScreen'
 import OptionsIdeation from './components/OptionsIdeation'
 import CriteriaForm from './components/CriteriaForm'
 import Analysis from './components/Analysis'
+import SupabaseDiagnostics from './components/diagnostics/SupabaseDiagnostics'
 
 import { DecisionProvider } from './contexts/DecisionContext'
 import { TeamsProvider }  from './contexts/TeamsContext'
@@ -179,6 +180,15 @@ export default function App() {
                     element={
                       <ProtectedRoute>
                         <TeamDetails />
+                      </ProtectedRoute>
+                    }
+                  />
+                  
+                  <Route
+                    path="/diagnostics"
+                    element={
+                      <ProtectedRoute>
+                        <SupabaseDiagnostics />
                       </ProtectedRoute>
                     }
                   />
