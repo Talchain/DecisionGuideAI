@@ -102,9 +102,12 @@ export default function DecisionIntakeScreen() {
   // Get recommended decision types
   const recommendedTypes = getRecommendedTypes();
 
-  // Reset context on mount
-  // We've removed the useEffect that was calling resetDecisionContext on every mount
-  // This was causing an infinite loop as it would reset state, trigger re-render, and repeat
+  // Reset context on mount - but only once
+  useEffect(() => {
+    // This is safe because it only runs once on mount
+    resetDecisionContext();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Don't use Navigate guards in this component since it's the entry point
 

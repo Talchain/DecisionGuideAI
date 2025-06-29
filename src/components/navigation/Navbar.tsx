@@ -166,7 +166,10 @@ export default function Navbar() {
               </NavLink>
               <NavLink 
                 to="/decision/intake" 
-                onClick={() => resetDecisionContext()} 
+                onClick={() => {
+                  console.log("[Navbar] Starting new decision flow, resetting context");
+                  resetDecisionContext();
+                }} 
                 className={baseStyles}
               >
                 <PlusCircle className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
@@ -236,7 +239,12 @@ export default function Navbar() {
           <div className="flex">
             <Link
               to={user ? '/decision/intake' : '/'}
-              onClick={() => user && resetDecisionContext()}
+              onClick={() => {
+                if (user) {
+                  console.log("[Navbar] Clicking logo with user, resetting context");
+                  resetDecisionContext();
+                }
+              }}
               className="flex-shrink-0 flex items-center"
               aria-label="DecisionGuide.AI Home"
             >
