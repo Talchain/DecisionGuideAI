@@ -249,12 +249,23 @@ export default function CriteriaTemplates({
         <div className="text-sm text-gray-500">
           💡 All criteria can be edited, reordered, or removed after applying a template
         </div>
-        <button
-          onClick={onClose}
-          className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium"
-        >
-          Skip Templates
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              onClose();
+              window.location.href = '/templates';
+            }}
+            className="px-4 py-2 text-indigo-600 hover:text-indigo-700 font-medium"
+          >
+            Browse All Templates
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-gray-700 hover:text-gray-900 font-medium"
+          >
+            Skip Templates
+          </button>
+        </div>
       </div>
     </div>
   );
