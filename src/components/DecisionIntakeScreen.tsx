@@ -179,7 +179,15 @@ export default function DecisionIntakeScreen() {
       setDecisionId(data.id);
 
       // Navigate to goals screen
-      navigate('/decision/goals');
+      navigate('/decision/goals', { 
+        state: { 
+          decisionId: data.id,
+          decision: formData.decision.trim(),
+          decisionType: formData.decisionType,
+          importance: formData.importance,
+          reversibility: formData.reversibility
+        } 
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error.');
     } finally {

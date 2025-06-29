@@ -197,6 +197,15 @@ export default function LandingPage() {
                     Better decisions faster.
                   </span>
                 </h3>
+                <div className="mt-6">
+                  <Link
+                    to="/decision/intake"
+                    className="inline-flex items-center px-6 py-3 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-all duration-200"
+                  >
+                    Start Making Better Decisions
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

@@ -101,7 +101,7 @@ export default function App() {
                   {(authenticated || hasValidAccess) && (
                     <>
                       <Route
-                        path="/decision/intake"
+                        path="/"
                         element={<DecisionIntakeScreen />}
                       />
                       <Route
@@ -219,7 +219,7 @@ export default function App() {
                   />
 
                   {/* Fallback */}
-                  <Route path="*" element={<Navigate to="/\" replace />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </ErrorBoundary>
             </main>
