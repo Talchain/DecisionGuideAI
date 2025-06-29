@@ -82,7 +82,7 @@ NavButton.displayName = 'NavButton';
 
 export default function Navbar() {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { collaborators, decisionId } = useDecision();
+  const { collaborators, decisionId, resetDecisionContext } = useDecision();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
