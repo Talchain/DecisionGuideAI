@@ -6,6 +6,8 @@ import React, {
   useState,
   useEffect,
   ReactNode,
+  useRef,
+  useCallback
 } from 'react'
 import { supabase } from '../lib/supabase'
 
@@ -116,6 +118,9 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
   const [collaboratorsError, setCollaboratorsError] = useState<string | null>(null)
   const [teamIds, setTeamIds] = useState<string[]>(initial.teamIds ?? [])
 
+  // Track subscriptions to clean up properly
+  const subscriptionsRef = useRef<{[key: string]: any}>({});
+
   // Subscribe to collaborator changes when decisionId changes
   useEffect(() => {
     if (!decisionId) return
@@ -168,7 +173,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     fetchCollaborators()
 
     // Subscribe to changes
-    let subscription
+    let collaboratorsSubscription;
     try {
       subscription = supabase
         .channel(`decision_collaborators:${decisionId}`)
@@ -188,20 +193,130 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
         .subscribe((status) => {
           console.log(`Realtime subscription status: ${status}`)
         })
+        
+      // Store subscription reference for cleanup
+      subscriptionsRef.current.collaborators = collaboratorsSubscription;
     } catch (subError) {
       console.error('Failed to create realtime subscription:', subError)
     }
 
+    // Subscribe to options changes
+    try {
+      const optionsSubscription = supabase
+        .channel(`options:${decisionId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'options',
+            filter: `decision_id=eq.${decisionId}`,
+          },
+          (payload) => {
+            console.log('Options change detected:', payload);
+            // Update options in state when changes occur
+            fetchOptions(decisionId);
+          }
+        )
+        .subscribe();
+        
+      // Store subscription reference for cleanup
+      subscriptionsRef.current.options = optionsSubscription;
+    } catch (subError) {
+      console.error('Failed to create options subscription:', subError);
+    }
+    
+    // Subscribe to criteria suggestions changes
+    try {
+      const suggestionsSubscription = supabase
+        .channel(`criteria_suggestions:${decisionId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'criteria_suggestions',
+            filter: `decision_id=eq.${decisionId}`,
+          },
+          (payload) => {
+            console.log('Criteria suggestion change detected:', payload);
+            // Update criteria in state when changes occur
+            fetchCriteria(decisionId);
+          }
+        )
+        .subscribe();
+        
+      // Store subscription reference for cleanup
+      subscriptionsRef.current.suggestions = suggestionsSubscription;
+    } catch (subError) {
+      console.error('Failed to create criteria suggestions subscription:', subError);
+    }
+
     return () => {
-      if (subscription) {
+      // Clean up all subscriptions
+      Object.entries(subscriptionsRef.current).forEach(([key, subscription]) => {
         try {
-          subscription.unsubscribe()
+          if (subscription) {
+            console.log(`Unsubscribing from ${key} channel`);
+            subscription.unsubscribe();
+            delete subscriptionsRef.current[key];
+          }
+        } catch (e) {
+          console.warn(`Error unsubscribing from ${key} channel:`, e);
+        }
+      });
+      
+      // Reset subscriptions object
+      subscriptionsRef.current = {};
         } catch (e) {
           console.warn('Error unsubscribing from channel:', e)
         }
       }
     }
   }, [decisionId])
+
+  // Helper function to fetch options
+  const fetchOptions = useCallback(async (decisionId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('options')
+        .select('*')
+        .eq('decision_id', decisionId);
+        
+      if (error) throw error;
+      
+      if (data) {
+        // Map to expected format
+        const formattedOptions = data.map(option => ({
+          label: option.name,
+          description: option.description || ''
+        }));
+        
+        setOptions(formattedOptions);
+      }
+    } catch (err) {
+      console.error('Error fetching options:', err);
+    }
+  }, []);
+
+  // Helper function to fetch criteria
+  const fetchCriteria = useCallback(async (decisionId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('decision_analysis')
+        .select('criteria')
+        .eq('decision_id', decisionId)
+        .single();
+        
+      if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
+      
+      if (data?.criteria) {
+        setCriteria(data.criteria);
+      }
+    } catch (err) {
+      console.error('Error fetching criteria:', err);
+    }
+  }, []);
 
   // Persist on *every* change to keep LS in sync
   useEffect(() => {
@@ -247,6 +362,22 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     setCriteria([])
     setCollaboratorsError(null)
     setTeamIds([])
+    
+    // Clean up any active subscriptions
+    Object.entries(subscriptionsRef.current).forEach(([key, subscription]) => {
+      try {
+        if (subscription) {
+          console.log(`Unsubscribing from ${key} channel during reset`);
+          subscription.unsubscribe();
+        }
+      } catch (e) {
+        console.warn(`Error unsubscribing from ${key} channel during reset:`, e);
+      }
+    });
+    
+    // Reset subscriptions object
+    subscriptionsRef.current = {};
+    
     localStorage.removeItem(LOCAL_STORAGE_KEY)
   }
 

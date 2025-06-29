@@ -3,14 +3,14 @@
 import React, { useState } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import {
-  ArrowLeft, ArrowRight, Loader2, AlertTriangle, Pencil, Trash2, Plus, Users
+  ArrowLeft, ArrowRight, Loader2, AlertTriangle, Pencil, Trash2, Plus, Users, 
+  WifiOff, Clock, ServerCrash, AlertCircle
 } from 'lucide-react'
 import ChatBox from './ChatBox'
 import InviteCollaborators from './InviteCollaborators'
 import { useDecision } from '../contexts/DecisionContext'
-import { OptionIdeation, BiasIdeation } from '../lib/api'
+import { OptionIdeation, BiasIdeation, ApiErrorType } from '../lib/api'
 import { generateOptionsIdeation } from '../lib/generateOptionsIdeation'
-import { AlertCircle } from 'lucide-react'
 import CollaborativeOptions from './CollaborativeOptions'
 
 export default function OptionsIdeation() {
@@ -36,7 +36,10 @@ export default function OptionsIdeation() {
   const [newOption, setNewOption]           = useState({ label: '', description: '' })
   const [editingIdx, setEditingIdx]         = useState<number | null>(null)
   const [loading, setLoading]               = useState(false)
-  const [error, setError]                   = useState<string | null>(null)
+  const [error, setError]                   = useState<{message: string | null, type: ApiErrorType | null}>({
+    message: null,
+    type: null
+  })
   const [retryCount, setRetryCount]         = useState(0)
   const [biases, setBiases]                 = useState<BiasIdeation[]>([])
   const [showInviteModal, setShowInviteModal] = useState(false)
@@ -71,7 +74,7 @@ export default function OptionsIdeation() {
 
   const generate = async () => {
     setLoading(true)
-    setError(null)
+    setError({message: null, type: null})
     
     try {
       console.log('Starting options generation...')
@@ -83,8 +86,8 @@ export default function OptionsIdeation() {
       setBiases(r.biases)
     } catch (err) {
       console.error(`Options generation failed (attempt ${retryCount + 1}):`, err)
-      const errorMessage = err instanceof Error 
-        ? err.message 
+      const errorMessage = err instanceof Error
+        ? err.message
         : 'Failed to generate options. Please try again or check your connection.'
       setError(errorMessage)
     } finally {
@@ -96,6 +99,7 @@ export default function OptionsIdeation() {
   const handleRetry = () => {
     if (retryCount < 3) {
       setRetryCount(prev => prev + 1)
+      setError({message: null, type: null})
       generate()
     }
   }
@@ -145,13 +149,41 @@ export default function OptionsIdeation() {
           </div>
         </div>
 
-        {error && (
+        {error.message && (
           <div className="bg-red-50 p-4 rounded-lg">
             <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+              {/* Show different icons based on error type */}
+              {error.type === ApiErrorType.NETWORK ? (
+                <WifiOff className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+              ) : error.type === ApiErrorType.RATE_LIMIT ? (
+                <Clock className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+              ) : error.type === ApiErrorType.SERVER_ERROR ? (
+                <ServerCrash className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+              )}
               <div>
                 <p className="text-red-700 font-medium">Error generating options</p>
-                <p className="text-sm text-red-600 mt-1">{error}</p>
+                <p className="text-sm text-red-600 mt-1">{error.message}</p>
+                
+                {/* Show specific guidance based on error type */}
+                {error.type === ApiErrorType.NETWORK && (
+                  <div className="mt-2 text-sm text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
+                    <p className="font-medium">Network issue detected:</p>
+                    <ul className="list-disc pl-5 mt-1 space-y-1">
+                      <li>Check your internet connection</li>
+                      <li>Ensure you're not behind a restrictive firewall</li>
+                      <li>Try refreshing the page</li>
+                    </ul>
+                  </div>
+                )}
+                
+                {error.type === ApiErrorType.RATE_LIMIT && (
+                  <div className="mt-2 text-sm text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-100">
+                    <p className="font-medium">Rate limit reached:</p>
+                    <p className="mt-1">Please wait a moment before trying again. Our AI service has usage limits to ensure fair access for all users.</p>
+                  </div>
+                )}
                 
                 {retryCount < 3 && (
                   <button onClick={handleRetry} className="mt-3 text-sm text-indigo-600 hover:text-indigo-700 font-medium">

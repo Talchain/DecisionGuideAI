@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { ArrowLeft, AlertCircle, Users, Loader2 } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Users, Loader2, WifiOff, Clock, ServerCrash, AlertTriangle } from 'lucide-react';
 import BiasesCarousel from './BiasesCarousel';
-import { useAnalysis } from '../hooks/useAnalysis'; // Assuming path is correct
+import { useAnalysis } from '../hooks/useAnalysis';
 import ProsConsList from './ProsConsList';
-import { analyzeOptions } from '../lib/api';
+import { analyzeOptions, ApiErrorType } from '../lib/api';
 import type { Bias } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { saveDecisionAnalysis, supabase, createDecision } from '../lib/supabase';
@@ -63,7 +63,10 @@ export default function Analysis() {
   const [biases, setBiases] = useState<Bias[]>([]);
   const [analysisHookError, setAnalysisError] = useState<string | null>(null);
   const [optionsLoading, setOptionsLoading] = useState(true);
-  const [optionsError, setOptionsError] = useState<string | null>(null);
+  const [optionsError, setOptionsError] = useState<{message: string | null, type: ApiErrorType | null}>({
+    message: null,
+    type: null
+  });
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [collaboratorsLoading, setCollaboratorsLoading] = useState<boolean>(false);
   const [collaborationError, setCollaborationError] = useState<string | null>(null);
@@ -93,6 +96,7 @@ export default function Analysis() {
   const {
     aiAnalysis,
     options,
+    errorType: analysisErrorType,
     loading: analysisLoading,
     error: useAnalysisError,
     retryCount,
@@ -108,7 +112,7 @@ export default function Analysis() {
   // Update local error state when hook error changes
   useEffect(() => {
       setAnalysisError(useAnalysisError);
-  }, [useAnalysisError]);
+  }, [useAnalysisError, analysisErrorType]);
 
   // Update ref whenever permanentId state changes
    useEffect(() => {
@@ -130,7 +134,7 @@ export default function Analysis() {
   const fetchBiasesAndOptions = useCallback(async () => {
     if (!componentMountedRef.current) return;
     setOptionsLoading(true);
-    setOptionsError(null);
+    setOptionsError({message: null, type: null});
     try {
       const response = await analyzeOptions({
         decision: state.decision, decisionType: state.decisionType,
@@ -141,7 +145,7 @@ export default function Analysis() {
       }
     } catch (err) {
       if (componentMountedRef.current) {
-          setOptionsError(err instanceof Error ? err.message : 'Failed to fetch biases/options');
+          setOptionsError({message: err instanceof Error ? err.message : 'Failed to fetch biases/options', type: err.type || null});
           setBiases([]);
       }
     } finally {
@@ -561,9 +565,9 @@ export default function Analysis() {
           analysisLoading,
           analysisHookError: !!analysisHookError,
           optionsLoading,
-          optionsError: !!optionsError,
+          optionsError: !!optionsError.message,
           permanentId: !!permanentId,
-          isDisabled: saveInProgress || analysisLoading || !!analysisHookError || optionsLoading || !!optionsError || !permanentId
+          isDisabled: saveInProgress || analysisLoading || !!analysisHookError || optionsLoading || !!optionsError.message || !permanentId
       });
   }, [saveInProgress, analysisLoading, analysisHookError, optionsLoading, optionsError, permanentId]);
 
@@ -587,7 +591,7 @@ export default function Analysis() {
               Collaboration
             </button>
           {/* Save Button - Disable if no permanentId state */}
-          <button onClick={handleSave} disabled={saveInProgress || analysisLoading || !!analysisHookError || optionsLoading || !!optionsError || !permanentId} className="flex items-center px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors border" >
+          <button onClick={handleSave} disabled={saveInProgress || analysisLoading || !!analysisHookError || optionsLoading || !!optionsError.message || !permanentId} className="flex items-center px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors border" >
             {saveInProgress ? ( <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving... </> ) : ( 'Save & Finalize Analysis' )}
           </button>
           </div>
@@ -622,7 +626,7 @@ export default function Analysis() {
         </div>
 
         {/* Biases Carousel */}
-        <BiasesCarousel biases={biases} isLoading={optionsLoading} error={optionsError} />
+        <BiasesCarousel biases={biases} isLoading={optionsLoading} error={optionsError.message} />
 
         {/* Save Error Display */}
         {saveError && ( <div className="bg-red-50 p-4 rounded-lg"><p className="text-red-700">Save Error: {saveError}</p></div> )}
@@ -631,13 +635,44 @@ export default function Analysis() {
         <div>
             <h3 className="text-lg font-semibold mb-2">AI Analysis</h3>
             {analysisLoading || optionsLoading ? ( <div className="flex items-center justify-center p-8 text-gray-500"><Loader2 className="mr-2 h-6 w-6 animate-spin" /> Loading Analysis Data...</div>
-            ) : analysisHookError || optionsError ? (
+            ) : analysisHookError || optionsError.message ? (
                  ( <div className="bg-red-50 p-4 rounded-lg">
                      <div className="flex items-center gap-2 mb-2">
-                        <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                        <p className="text-red-700 font-medium">{analysisHookError ? 'Error loading AI analysis:' : 'Error loading options/biases:'}</p>
+                        {/* Show different icons based on error type */}
+                        {(analysisErrorType === ApiErrorType.NETWORK || optionsError.type === ApiErrorType.NETWORK) ? (
+                          <WifiOff className="h-5 w-5 text-red-500 flex-shrink-0" />
+                        ) : (analysisErrorType === ApiErrorType.RATE_LIMIT || optionsError.type === ApiErrorType.RATE_LIMIT) ? (
+                          <Clock className="h-5 w-5 text-red-500 flex-shrink-0" />
+                        ) : (analysisErrorType === ApiErrorType.SERVER_ERROR || optionsError.type === ApiErrorType.SERVER_ERROR) ? (
+                          <ServerCrash className="h-5 w-5 text-red-500 flex-shrink-0" />
+                        ) : (
+                          <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                        )}
+                        <p className="text-red-700 font-medium">
+                          {analysisHookError ? 'Error loading AI analysis:' : 'Error loading options/biases:'}
+                        </p>
                      </div>
-                     <p className="text-red-600 text-sm pl-7">{analysisHookError || optionsError}</p>
+                     <p className="text-red-600 text-sm pl-7">{analysisHookError || optionsError.message}</p>
+                     
+                     {/* Show specific guidance based on error type */}
+                     {(analysisErrorType === ApiErrorType.NETWORK || optionsError.type === ApiErrorType.NETWORK) && (
+                       <div className="mt-2 pl-7 text-sm text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
+                         <p className="font-medium">Network issue detected:</p>
+                         <ul className="list-disc pl-5 mt-1 space-y-1">
+                           <li>Check your internet connection</li>
+                           <li>Ensure you're not behind a restrictive firewall</li>
+                           <li>Try refreshing the page</li>
+                         </ul>
+                       </div>
+                     )}
+                     
+                     {(analysisErrorType === ApiErrorType.RATE_LIMIT || optionsError.type === ApiErrorType.RATE_LIMIT) && (
+                       <div className="mt-2 pl-7 text-sm text-amber-600 bg-amber-50 p-2 rounded-lg border border-amber-100">
+                         <p className="font-medium">Rate limit reached:</p>
+                         <p className="mt-1">Please wait a moment before trying again. Our AI service has usage limits to ensure fair access for all users.</p>
+                       </div>
+                     )}
+                     
                      {analysisHookError && typeof retry === 'function' && retryCount < 3 && (
                         <button onClick={retry} className="mt-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium pl-7">Try Again</button>
                      )}
@@ -647,7 +682,7 @@ export default function Analysis() {
         </div>
 
         {/* Options Render Section using ProsConsList */}
-        {!(analysisLoading || analysisHookError || optionsLoading || optionsError) && options && options.length > 0 && (
+        {!(analysisLoading || analysisHookError || optionsLoading || optionsError.message) && options && options.length > 0 && (
           <div className="mt-6 pt-6 border-t">
             <h3 className="text-lg font-semibold mb-4">Options Analysis</h3>
             <ProsConsList decision={state.decision} initialOptions={options} biases={biases}/>

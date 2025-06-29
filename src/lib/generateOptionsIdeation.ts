@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { OptionIdeation, BiasIdeation } from './api';
+import { ApiErrorType } from './api';
 
 export interface OptionsIdeationResponse {
   options: OptionIdeation[];
@@ -29,17 +30,23 @@ export async function generateOptionsIdeation({
     
     if (sessionError) {
       console.error('Session error:', sessionError);
-      throw new Error(`Authentication error: ${sessionError.message}`);
+      const error = new Error(`Authentication error: ${sessionError.message}`);
+      error.type = ApiErrorType.AUTHENTICATION;
+      throw error;
     }
     
     if (!session) {
-      throw new Error('You need to be signed in to generate options. Please sign in and try again.');
+      const error = new Error('You need to be signed in to generate options. Please sign in and try again.');
+      error.type = ApiErrorType.AUTHENTICATION;
+      throw error;
     }
 
     // Use the correct Supabase URL format
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     if (!supabaseUrl) {
-      throw new Error('Supabase URL not configured');
+      const error = new Error('Supabase URL not configured');
+      error.type = ApiErrorType.SERVER_ERROR;
+      throw error;
     }
 
     const edgeFunctionUrl = `${supabaseUrl}/functions/v1/openai-proxy`;
@@ -145,11 +152,22 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
       
       // Provide more user-friendly messages for common error codes
       if (response.status === 429) {
-        errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+        const error = new Error('Rate limit exceeded. Please wait a moment and try again.');
+        error.type = ApiErrorType.RATE_LIMIT;
+        error.status = response.status;
+        error.retryAfter = 60; // Default to 60 seconds if not specified
+        throw error;
       } else if (response.status >= 500) {
-        errorMessage = 'The AI service is currently unavailable. Please try again later.';
+        const error = new Error('The AI service is currently unavailable. Please try again later.');
+        error.type = ApiErrorType.SERVER_ERROR;
+        error.status = response.status;
+        throw error;
       }
-      throw new Error(errorMessage);
+      
+      const error = new Error(errorMessage);
+      error.type = ApiErrorType.UNKNOWN;
+      error.status = response.status;
+      throw error;
     }
 
     const result = await response.json();
@@ -157,7 +175,9 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
     
     const content = result?.content;
     if (!content) {
-      throw new Error('Empty response from API');
+      const error = new Error('Empty response from API');
+      error.type = ApiErrorType.SERVER_ERROR;
+      throw error;
     }
 
     // Parse the JSON response
@@ -165,11 +185,15 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
     
     // Validate the response structure
     if (!parsed.options || !Array.isArray(parsed.options) || parsed.options.length === 0) {
-      throw new Error('The AI couldn\'t generate any options for this decision. Please try again with more details.');
+      const error = new Error('The AI couldn\'t generate any options for this decision. Please try again with more details.');
+      error.type = ApiErrorType.INVALID_PARAMETERS;
+      throw error;
     }
     
     if (!parsed.biases || !Array.isArray(parsed.biases) || parsed.biases.length === 0) {
-      throw new Error('Invalid response: missing or invalid biases array');
+      const error = new Error('Invalid response: missing or invalid biases array');
+      error.type = ApiErrorType.INVALID_PARAMETERS;
+      throw error;
     }
 
     return parsed;
@@ -184,17 +208,30 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
       const errorMessage = error.message;
       
       if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
-        throw new Error('Network error: Please check your internet connection and try again.');
+        const apiError = new Error('Network error: Please check your internet connection and try again.');
+        apiError.type = ApiErrorType.NETWORK;
+        throw apiError;
       } else if (errorMessage.includes('timeout') || errorMessage.includes('Timed out')) {
-        throw new Error('The request timed out. The AI service might be busy, please try again in a moment.');
+        const apiError = new Error('The request timed out. The AI service might be busy, please try again in a moment.');
+        apiError.type = ApiErrorType.NETWORK;
+        throw apiError;
       } else if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
-        throw new Error('You\'ve reached the rate limit for AI requests. Please wait a moment before trying again.');
+        const apiError = new Error('You\'ve reached the rate limit for AI requests. Please wait a moment before trying again.');
+        apiError.type = ApiErrorType.RATE_LIMIT;
+        apiError.retryAfter = 60; // Default to 60 seconds
+        throw apiError;
       } else if (errorMessage.includes('authentication') || errorMessage.includes('Unauthorized')) {
-        throw new Error('Authentication error: Please sign in again and retry.');
+        const apiError = new Error('Authentication error: Please sign in again and retry.');
+        apiError.type = ApiErrorType.AUTHENTICATION;
+        throw apiError;
       } else {
-        throw new Error(`Options generation failed: ${error.message}`);
+        const apiError = new Error(`Options generation failed: ${error.message}`);
+        apiError.type = ApiErrorType.UNKNOWN;
+        throw apiError;
       }
     }
-    throw new Error('Options generation failed. Please try again or contact support if the problem persists.');
+    const apiError = new Error('Options generation failed. Please try again or contact support if the problem persists.');
+    apiError.type = ApiErrorType.UNKNOWN;
+    throw apiError;
   }
 }
