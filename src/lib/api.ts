@@ -346,6 +346,7 @@ Required JSON format:
       body: JSON.stringify({
         messages,
         options: {
+          model: 'gpt-4-turbo-preview',
           max_tokens: 1500,
           temperature: 0.7,
           response_format: { type: 'json_object' }
