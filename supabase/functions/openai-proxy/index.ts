@@ -1,12 +1,26 @@
 import { createClient } from "npm:@supabase/supabase-js@2.39.7";
 import OpenAI from "npm:openai@4.28.0";
 
-// CORS headers
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info",
-};
+// Dynamic CORS headers based on request origin
+function getCorsHeaders(origin?: string | null): Record<string, string> {
+  // Allow specific origins for development and production
+  const allowedOrigins = [
+    "http://localhost:5173",
+    "https://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://127.0.0.1:5173"
+  ];
+  
+  // Check if origin is allowed, fallback to * for other cases
+  const allowOrigin = origin && allowedOrigins.includes(origin) ? origin : "*";
+  
+  return {
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info",
+    "Access-Control-Allow-Credentials": "true",
+  };
+}
 
 // Environment variables
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
@@ -64,6 +78,10 @@ function sanitizeErrorMessage(error: any): string {
 }
 
 Deno.serve(async (req) => {
+  // Get CORS headers for this request
+  const origin = req.headers.get("Origin");
+  const corsHeaders = getCorsHeaders(origin);
+  
   // Handle CORS preflight request
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -79,7 +97,10 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "Method not allowed" }),
         {
           status: 405,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json" 
+          },
         }
       );
     }
@@ -91,7 +112,10 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "Missing Authorization header" }),
         {
           status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json" 
+          },
         }
       );
     }
@@ -107,7 +131,10 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "Unauthorized" }),
         {
           status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json" 
+          },
         }
       );
     }
@@ -122,8 +149,8 @@ Deno.serve(async (req) => {
         }),
         {
           status: 429,
-          headers: { 
-            ...corsHeaders, 
+          headers: {
+            ...corsHeaders,
             "Content-Type": "application/json",
             "Retry-After": (RATE_WINDOW / 1000).toString()
           },
@@ -140,7 +167,10 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "Invalid request: messages array is required" }),
         {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json" 
+          },
         }
       );
     }
@@ -180,7 +210,10 @@ Deno.serve(async (req) => {
       }),
       {
         status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json" 
+        },
       }
     );
   } catch (error) {
@@ -200,7 +233,10 @@ Deno.serve(async (req) => {
       }),
       {
         status: statusCode,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { 
+          ...corsHeaders, 
+          "Content-Type": "application/json" 
+        },
       }
     );
   }

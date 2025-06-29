@@ -2,8 +2,8 @@
 verify_jwt = true
 cors = {
   enabled = true,
-  allowed_origins = ["*"],
+  allowed_origins = ["*", "http://localhost:5173", "https://localhost:5173", "http://127.0.0.1:5173", "https://127.0.0.1:5173"],
   allowed_methods = ["POST", "OPTIONS"],
-  allowed_headers = ["authorization", "x-client-info", "apikey", "content-type"],
+  allowed_headers = ["authorization", "x-client-info", "apikey", "content-type", "origin"],
   exposed_headers = []
 }
