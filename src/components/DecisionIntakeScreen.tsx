@@ -212,9 +212,6 @@ export default function DecisionIntakeScreen() {
 
       // Update context
       setDecision(formData.decision.trim());
-      // Get the backend type from the selected category name
-      const backendType = getBackendTypeFromName(formData.decisionType);
-      console.log(`[handleSubmit] Selected UI type: ${formData.decisionType}, mapped to backend type: ${backendType}`);
       setDecisionType(backendType);
       setImportance(formData.importance); 
       setReversibility(formData.reversibility);

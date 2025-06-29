@@ -12,7 +12,6 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading, profile, authenticated } = useAuth();
   const location = useLocation();
   const hasValidAccess = checkAccessValidation();
-  const hasValidAccess = checkAccessValidation();
 
   // Log protection check
   console.log("[ProtectedRoute] Route protection check:", {
@@ -30,7 +29,6 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     hasUser: !!user,
     hasProfile: !!profile,
     authenticated,
-    hasValidAccess,
     hasValidAccess,
     loading,
     timestamp: new Date().toISOString()
@@ -63,7 +61,6 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       hasProfile: !!profile,
       authenticated,
       hasValidAccess
-      hasValidAccess
     });
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
@@ -80,7 +77,6 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     path: location.pathname,
     userId: user?.id || 'access-code-user',
     authenticated,
-    hasValidAccess
     hasValidAccess
   });
 
