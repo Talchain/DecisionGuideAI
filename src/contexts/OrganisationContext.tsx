@@ -187,7 +187,7 @@ This is likely a CORS (Cross-Origin Resource Sharing) issue.
     } finally {
       setLoading(false);
     }
-  }, [user, currentOrganisation]);
+  }, [user]);
 
   // Fetch organisations on mount and when user changes
   useEffect(() => {
