@@ -460,7 +460,7 @@ export default function Analysis() {
   // Auto-Save Effect Hook
   useEffect(() => {
     // DEBUG: Log all dependency values for auto-save check
-    console.log("Auto-save check:", {
+    if (import.meta.env.DEV) console.log("Auto-save check:", {
         permanentId: !!permanentId,
         user: !!user,
         aiAnalysis: !!aiAnalysis,
@@ -472,9 +472,17 @@ export default function Analysis() {
     if (!permanentId || !user || !aiAnalysis || analysisLoading || analysisHookError || saveInProgress) {
       return; // Skip if conditions not met
     }
+    
+    // Skip if already saving
+    if (saveInProgress) {
+      return;
+    }
 
     console.log("Auto-save triggered for decision:", permanentId);
-    if (componentMountedRef.current) setSaveInProgress(true);
+    
+    // Set saving state only if component is still mounted
+    if (!componentMountedRef.current) return;
+    setSaveInProgress(true);
 
     const dataToSave: AnalysisDataToSave = {
         analysis: aiAnalysis, biases, options,
@@ -487,7 +495,7 @@ export default function Analysis() {
         if (!success) {
           console.error("Auto-save failed:", error);
         } else {
-          console.log("Auto-save successful for decision:", permanentId);
+          if (import.meta.env.DEV) console.log("Auto-save successful for decision:", permanentId);
         }
       } catch (err) {
         console.error("Unexpected error during auto-save effect:", err);

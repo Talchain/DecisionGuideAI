@@ -44,16 +44,23 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error: e } = await supabase.rpc('get_teams_with_members', { user_uuid: user.id });
       if (e) throw e;
-      setTeams((data ?? []).sort(
+      
+      // Sort teams by creation date
+      const sortedTeams = (data ?? []).sort(
         (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      ));
+      );
+      
+      // Only update state if teams have changed
+      if (JSON.stringify(sortedTeams) !== JSON.stringify(teams)) {
+        setTeams(sortedTeams);
+      }
     } catch (e: any) {
       console.error('[TeamsContext] fetchTeams raw error:', e);
       setError(e.message || 'Failed to fetch teams');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user?.id, teams]); // Add teams to dependencies for comparison
 
   const createTeam = useCallback(async (name: string, description?: string, organisationId?: string) => {
     if (!user) throw new Error('Not authenticated');
