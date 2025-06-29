@@ -12,11 +12,12 @@ function getCorsHeaders(origin?: string | null): Record<string, string> {
   ];
   
   // Check if origin is allowed, fallback to * for other cases
-  const allowOrigin = origin && allowedOrigins.includes(origin) ? origin : "*";
+  // For diagnostic purposes, always use * as requested
+  const allowOrigin = "*";
   
   return {
     "Access-Control-Allow-Origin": allowOrigin,
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info",
     "Access-Control-Allow-Credentials": "true",
   };
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === "OPTIONS") {
     return new Response(null, {
-      status: 204,
+      status: 200,
       headers: corsHeaders,
     });
   }
