@@ -128,7 +128,20 @@ export async function testSupabaseConnection() {
   console.log('[Supabase] Testing connection...')
   
   return withNetworkErrorHandling(async () => {
-    // Test basic connectivity with a simple query
+    // First test basic API connectivity
+    const response = await fetch(`${supabaseUrl}/rest/v1/`, {
+      method: 'HEAD',
+      headers: {
+        'apikey': supabaseAnonKey,
+        'Authorization': `Bearer ${supabaseAnonKey}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Supabase API unreachable: ${response.status} ${response.statusText}`);
+    }
+    
+    // Then test a simple query
     const { data, error } = await supabase
       .from('organisations')
       .select('count')

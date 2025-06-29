@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase, testSupabaseConnection } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import type { Organisation } from '../types/organisations';
+import { runSupabaseDiagnostics, displayDiagnostics } from '../lib/supabase-diagnostics';
 
 interface OrganisationContextType {
   organisations: Organisation[];
@@ -42,6 +43,16 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
         
       if (connectionTest.error) {
         console.error('[OrganisationContext] Connection test failed:', connectionTest.error);
+        
+        // Run diagnostics to help debug the issue
+        console.log('[OrganisationContext] Running connection diagnostics...');
+        try {
+          const diagnostics = await runSupabaseDiagnostics();
+          displayDiagnostics(diagnostics);
+        } catch (diagError) {
+          console.error('[OrganisationContext] Diagnostics failed:', diagError);
+        }
+        
         throw connectionTest.error;
       }
       
