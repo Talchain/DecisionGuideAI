@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { checkAccessValidation } from '../../lib/auth/accessValidation';
 import { authLogger } from '../../lib/auth/authLogger';
 
 interface ProtectedRouteProps {
@@ -10,6 +11,7 @@ interface ProtectedRouteProps {
 export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { user, loading, profile, authenticated } = useAuth();
   const location = useLocation();
+  const hasValidAccess = checkAccessValidation();
 
   // Log protection check
   authLogger.debug('AUTH', 'Protected route check', {
@@ -17,6 +19,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     hasUser: !!user,
     hasProfile: !!profile,
     authenticated,
+    hasValidAccess,
     loading,
     timestamp: new Date().toISOString()
   });
@@ -33,13 +36,14 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  // Redirect to login if not authenticated
-  if (!authenticated || !user) {
+  // Allow access if user is authenticated OR has a valid access code
+  if (!authenticated && !hasValidAccess) {
     authLogger.info('AUTH', 'Protected route access denied', {
       path: location.pathname,
       hasUser: !!user,
       hasProfile: !!profile,
-      authenticated
+      authenticated,
+      hasValidAccess
     });
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
@@ -47,8 +51,9 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   // Log successful access
   authLogger.info('AUTH', 'Protected route access granted', {
     path: location.pathname,
-    userId: user.id,
-    authenticated
+    userId: user?.id || 'access-code-user',
+    authenticated,
+    hasValidAccess
   });
 
   // Render protected content
