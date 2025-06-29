@@ -126,8 +126,6 @@ export default function App() {
                         path="/decision/analysis"
                         element={<Analysis />}
                       />
-                    </>
-                  )}
 
                   {/* Protected */}
                   <Route
