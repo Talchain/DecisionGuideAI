@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowRight, HelpCircle, Briefcase, Wallet, Heart, Compass, Users, RotateCcw, Shuffle, Ban, Zap, Shield, Clock, Scale, CheckCircle, ChevronRight, ChevronDown, Search, CircleEllipsis as Ellipsis } from 'lucide-react';
 import { useDecision } from '../contexts/DecisionContext';
 import { getUserId, createDecision } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
 import Tooltip from './Tooltip'; 
 import ChatBox from './ChatBox'; 
-import { decisionCategories } from './DecisionTypeSelector'; 
+import { decisionCategories, getBackendTypeFromName, getRecommendedTypes } from '../utils/decisionTypes'; 
 import AllDecisionTypesModal from './AllDecisionTypesModal'; 
+import { useAuth } from '../contexts/AuthContext';
 
 // Decision Type Options
 const DECISION_TYPES = [
@@ -43,30 +43,6 @@ const PLACEHOLDERS: Record<string, string> = {
   career: 'e.g., Should I pursue an MBA or specialization?',
   relationships: 'e.g., Should I move in with my partner?',
   other: 'e.g., What decision are you trying to make?'
-};
-
-// Get recommended decision types from DecisionTypeSelector
-const getRecommendedTypes = () => {
-  // Get the first 5 from "Product & Work" section 
-  const productWorkTypes = decisionCategories
-    .filter(category => category.section === "Product & Work")
-    .slice(0, 5);
-  
-  // Always include "Something else"
-  const somethingElse = decisionCategories.find(category => category.name === "Something else");
-  
-  return [...productWorkTypes, somethingElse].filter(Boolean);
-};
-
-// Helper function to get the backend type from a category name
-const getBackendTypeFromName = (categoryName: string): string => {
-  const category = decisionCategories.find(c => c.name === categoryName);
-  if (!category) {
-    console.warn(`No category found with name: ${categoryName}. Defaulting to 'other'.`);
-    return 'other';
-  }
-  
-  return category.backendType;
 };
 
 export default function DecisionIntakeScreen() {

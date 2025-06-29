@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Search, ChevronDown, ChevronRight } from 'lucide-react';
-import { decisionCategories, iconMap } from './DecisionTypeSelector';
+import { decisionCategories, iconMap } from '../utils/decisionTypes';
 
 interface AllDecisionTypesModalProps {
   onClose: () => void;
