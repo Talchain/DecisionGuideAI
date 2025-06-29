@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { analyzeDecision, analyzeOptions } from '../lib/api';
+import { supabase } from '../lib/supabase';
 import type { Bias, Option as APIOption } from '../lib/api';
 import type { Option } from '../components/ProsConsList/types';
 
@@ -229,13 +230,70 @@ export function useAnalysis({
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
+      // Get the current session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Authentication required');
+      }
+
+      const supabaseUrl = supabase.supabaseUrl;
+      const edgeFunctionUrl = `${supabaseUrl}/functions/v1/openai-proxy`;
+
+      // Prepare messages for the API
+      const messages = [
+        {
+          role: 'system',
+          content: `You are a decision analysis, behavioural science, cognitive psychology, and neuroscience expert helping users make better choices. 
+
+Your role is to:
+1. Guide users through an optimal decision-making process based on their decision type and its reversibility, importance, and complexity 
+2. Help identify any blind spots, missing considerations, or potential biases
+
+You are now guiding the user to update their decision options with weighted pros and cons that you just provided to make it more relevant to them. 
+
+For each response:
+1. Use a friendly and comforting communication style with a clean and spacious layout
+2. Briefly acknowledge the current situation, the decision they face, and any goals they provide
+3. Provide analysis and guidance based on principles from behavioural science, cognitive psychology, and neuroscience to help the user complete their list of options with weighted pros and cons. 
+
+Keep responses clear, actionable, and appropriate to the decision's scope.`
+        },
+        {
+          role: 'user',
+          content: `Help me with this ${decisionType} decision: "${decision}"
+
+Context:
+• Reversibility: ${reversibility}
+• Importance: ${importance}
+${goals?.length ? `• Goals:\n${goals.map(goal => `  - ${goal}`).join('\n')}` : ''}
+
+Guide me through the next step in this decision-making process, considering the appropriate depth of analysis for its importance level and the ${reversibility.toLowerCase()} nature of the decision.`
+        }
+      ];
+
       const [analysisResponse, optionsResponse] = await Promise.all([
-        analyzeDecision({
-          decision,
-          decisionType,
-          reversibility,
-          importance,
-          goals
+        // Make request to Edge Function for analysis
+        fetch(edgeFunctionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            messages,
+            options: {
+              model: 'gpt-4',
+              temperature: 0.7,
+              max_tokens: importance === 'critical_in_depth_analysis' ? 2000 : 1000
+            }
+          })
+        }).then(async (response) => {
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `API error: ${response.status}`);
+          }
+          const result = await response.json();
+          return { analysis: result.content };
         }),
         analyzeOptions({
           decision,

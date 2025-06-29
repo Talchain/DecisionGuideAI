@@ -8,7 +8,8 @@ import {
 import ChatBox from './ChatBox'
 import InviteCollaborators from './InviteCollaborators'
 import { useDecision } from '../contexts/DecisionContext'
-import { generateOptionsIdeation, OptionIdeation, BiasIdeation } from '../lib/api'
+import { OptionIdeation, BiasIdeation } from '../lib/api'
+import { generateOptionsIdeation } from '../lib/generateOptionsIdeation'
 import CollaborativeOptions from './CollaborativeOptions'
 
 export default function OptionsIdeation() {
