@@ -71,14 +71,17 @@ export default function OptionsIdeation() {
     setLoading(true)
     setError(null)
     try {
+      console.log('Starting options generation...')
       const r = await generateOptionsIdeation({
         decision, decisionType, reversibility, importance, goals
       })
+      console.log('Options generation successful:', r)
       setLocalOptions(r.options)
       setBiases(r.biases)
     } catch (err) {
-      console.error(err)
-      setError(err instanceof Error ? err.message : 'Failed to generate options')
+      console.error('Options generation failed:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Failed to generate options'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

@@ -30,7 +30,12 @@ export async function generateOptionsIdeation({
       throw new Error('Authentication required');
     }
 
-    const supabaseUrl = supabase.supabaseUrl;
+    // Use the correct Supabase URL format
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (!supabaseUrl) {
+      throw new Error('Supabase URL not configured');
+    }
+
     const edgeFunctionUrl = `${supabaseUrl}/functions/v1/openai-proxy`;
 
     // Prepare messages for the API
@@ -90,12 +95,16 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
       }
     ];
 
-    // Make request to Edge Function
+    console.log('Making request to:', edgeFunctionUrl);
+    console.log('With session token:', session.access_token ? 'Present' : 'Missing');
+
+    // Make request to Edge Function with proper headers
     const response = await fetch(edgeFunctionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY || ''
       },
       body: JSON.stringify({
         messages,
@@ -107,22 +116,52 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
       })
     });
 
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || `API error: ${response.status}`);
+      let errorMessage = `API error: ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorMessage;
+        console.error('Error response data:', errorData);
+      } catch (e) {
+        console.error('Failed to parse error response:', e);
+      }
+      throw new Error(errorMessage);
     }
 
     const result = await response.json();
+    console.log('Success response:', result);
+    
     const content = result.content;
+    if (!content) {
+      throw new Error('Empty response from API');
+    }
 
     // Parse the JSON response
     const parsed = JSON.parse(content);
+    
+    // Validate the response structure
+    if (!parsed.options || !Array.isArray(parsed.options)) {
+      throw new Error('Invalid response: missing or invalid options array');
+    }
+    
+    if (!parsed.biases || !Array.isArray(parsed.biases)) {
+      throw new Error('Invalid response: missing or invalid biases array');
+    }
+
     return parsed;
   } catch (error) {
     console.error(
       'Options ideation error:',
       { error, context: { decision, decisionType, reversibility, importance } }
     );
-    throw error;
+    
+    // Re-throw with more context
+    if (error instanceof Error) {
+      throw new Error(`Options ideation failed: ${error.message}`);
+    }
+    throw new Error('Options ideation failed: Unknown error');
   }
 }

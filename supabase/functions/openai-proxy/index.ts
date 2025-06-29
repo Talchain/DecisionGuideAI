@@ -8,12 +8,13 @@ function getCorsHeaders(origin?: string | null): Record<string, string> {
     "http://localhost:5173",
     "https://localhost:5173",
     "http://127.0.0.1:5173",
-    "https://127.0.0.1:5173"
+    "https://127.0.0.1:5173",
+    // Add WebContainer specific origins
+    "https://zp1v56uxy8rdx5ypatb0ockcb9tr6a-oci3--5173--cb7c0bca.local-credentialless.webcontainer-api.io"
   ];
   
-  // Check if origin is allowed, fallback to * for other cases
-  // For diagnostic purposes, always use * as requested
-  const allowOrigin = "*";
+  // Check if origin is allowed
+  const allowOrigin = origin && allowedOrigins.includes(origin) ? origin : "*";
   
   return {
     "Access-Control-Allow-Origin": allowOrigin,
@@ -27,6 +28,17 @@ function getCorsHeaders(origin?: string | null): Record<string, string> {
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+// Validate environment variables
+if (!OPENAI_API_KEY) {
+  console.error("OPENAI_API_KEY is not set");
+}
+if (!SUPABASE_URL) {
+  console.error("SUPABASE_URL is not set");
+}
+if (!SUPABASE_SERVICE_ROLE_KEY) {
+  console.error("SUPABASE_SERVICE_ROLE_KEY is not set");
+}
 
 // Rate limiting (simple in-memory implementation)
 const rateLimits = new Map<string, { count: number; resetTime: number }>();
@@ -83,8 +95,12 @@ Deno.serve(async (req) => {
   const origin = req.headers.get("Origin");
   const corsHeaders = getCorsHeaders(origin);
   
+  console.log(`Request from origin: ${origin}`);
+  console.log(`Method: ${req.method}`);
+  
   // Handle CORS preflight request
   if (req.method === "OPTIONS") {
+    console.log("Handling CORS preflight request");
     return new Response(null, {
       status: 200,
       headers: corsHeaders,
@@ -94,6 +110,7 @@ Deno.serve(async (req) => {
   try {
     // Only allow POST requests
     if (req.method !== "POST") {
+      console.log(`Method not allowed: ${req.method}`);
       return new Response(
         JSON.stringify({ error: "Method not allowed" }),
         {
@@ -106,9 +123,25 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Check if required environment variables are set
+    if (!OPENAI_API_KEY) {
+      console.error("OPENAI_API_KEY is not configured");
+      return new Response(
+        JSON.stringify({ error: "OpenAI API key not configured" }),
+        {
+          status: 500,
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json" 
+          },
+        }
+      );
+    }
+
     // Verify authentication
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
+      console.log("Missing Authorization header");
       return new Response(
         JSON.stringify({ error: "Missing Authorization header" }),
         {
@@ -128,6 +161,7 @@ Deno.serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
     if (authError || !user) {
+      console.log("Authentication failed:", authError?.message);
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         {
@@ -140,9 +174,12 @@ Deno.serve(async (req) => {
       );
     }
 
+    console.log(`Authenticated user: ${user.id.substring(0, 8)}...`);
+
     // Apply rate limiting
     const identifier = user.id;
     if (!checkRateLimit(identifier)) {
+      console.log(`Rate limit exceeded for user: ${user.id.substring(0, 8)}...`);
       return new Response(
         JSON.stringify({ 
           error: "Rate limit exceeded. Please try again later.",
@@ -164,6 +201,7 @@ Deno.serve(async (req) => {
     const { messages, options = {} } = requestData;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      console.log("Invalid request: missing or empty messages array");
       return new Response(
         JSON.stringify({ error: "Invalid request: messages array is required" }),
         {
@@ -219,7 +257,8 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     // Log error (without sensitive data)
-    console.error("Error processing request:", error.name, error.status);
+    console.error("Error processing request:", error.name, error.message);
+    console.error("Error stack:", error.stack);
     
     // Determine appropriate status code
     let statusCode = 500;
