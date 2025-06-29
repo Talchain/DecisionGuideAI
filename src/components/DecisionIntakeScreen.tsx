@@ -1,26 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ArrowRight, 
-  HelpCircle, 
-  Briefcase, 
-  Wallet, 
-  Heart, 
-  Compass, 
-  Users, 
-  RotateCcw, 
-  Shuffle, 
-  Ban, 
-  Zap, 
-  Shield, 
-  Clock, 
-  Scale,
-  CheckCircle,
-  ChevronRight,
-  ChevronDown,
-  Search,
-  Ellipsis
-} from 'lucide-react';
+import { ArrowRight, HelpCircle, Briefcase, Wallet, Heart, Compass, Users, RotateCcw, Shuffle, Ban, Zap, Shield, Clock, Scale, CheckCircle, ChevronRight, ChevronDown, Search, CircleEllipsis as Ellipsis } from 'lucide-react';
 import { useDecision } from '../contexts/DecisionContext';
 import { getUserId, createDecision } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
