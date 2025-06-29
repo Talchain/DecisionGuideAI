@@ -153,6 +153,9 @@ export default function Navbar() {
                 <Star className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
                 <span>Templates</span>
               </NavLink>
+              <NavLink to="/diagnostics" className={baseStyles}>
+                <span>Diagnostics</span>
+              </NavLink>
               <NavLink to="/teams" className={baseStyles}>
                 <TeamsIcon className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
                 <span>Teams</span>
