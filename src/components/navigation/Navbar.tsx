@@ -164,7 +164,7 @@ export default function Navbar() {
                 <Building className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
                 <span>Organisations</span>
               </NavLink>
-              <NavLink to="/decisions/new" className={baseStyles}>
+              <NavLink to="/decision/intake" className={baseStyles}>
                 <PlusCircle className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
                 <span>New Decision</span>
               </NavLink>
@@ -231,7 +231,7 @@ export default function Navbar() {
         <div className="flex justify-between h-16">
           <div className="flex">
             <Link
-              to={user ? '/decision' : '/'}
+              to={user ? '/decision/intake' : '/'}
               className="flex-shrink-0 flex items-center"
               aria-label="DecisionGuide.AI Home"
             >
