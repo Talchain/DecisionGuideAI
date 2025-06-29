@@ -121,8 +121,8 @@ export async function runSupabaseDiagnostics(): Promise<DiagnosticsResult> {
   // Test Supabase client query
   try {
     const { data, error } = await supabase
-      .from('organisations')
-      .select('count')
+      .from('app_settings')
+      .select('key')
       .limit(1);
     
     if (error) {

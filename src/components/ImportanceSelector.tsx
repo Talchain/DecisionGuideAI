@@ -55,9 +55,13 @@ export default function ImportanceSelector() {
   } = useDecision()
   const [loading, setLoading] = useState(false)
 
-  // Guard: redirect if missing required context
+  // Flow guards
+  if (!decisionId) {
+    return <Navigate to="/decision/intake" replace />
+  }
+  
   if (!decisionType || !decision) {
-    return <Navigate to="/decision" replace />
+    return <Navigate to="/decision/intake" replace />
   }
 
   const handleSelect = (id: string) => {

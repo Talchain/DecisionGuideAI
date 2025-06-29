@@ -51,11 +51,9 @@ export default function DecisionDetails() {
   }, [decisionType, setDecisionType])
 
   // Redirect if still no decisionType
-  useEffect(() => {
-    if (!decisionType) {
-      navigate(ROUTES.TYPE, { replace: true })
-    }
-  }, [decisionType, navigate])
+  if (!decisionType) {
+    return <Navigate to="/decision/intake" replace />
+  }
 
   // Sync context decision into local state
   useEffect(() => {

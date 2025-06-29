@@ -83,7 +83,6 @@ export default function App() {
                   {/* Public */}
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/about" element={<About />} />
-                  
 
                   {/* Auth */}
                   <Route element={<AuthLayout />}>
@@ -98,34 +97,60 @@ export default function App() {
                       element={<ResetPasswordForm />}
                     />
                   </Route>
-                      <Route
-                        path="/"
-                        element={<DecisionIntakeScreen />}
-                      />
-                      <Route
-                        path="/decision/importance"
-                        element={<ImportanceSelector />}
-                      />
-                      <Route
-                        path="/decision/reversibility"
-                        element={<ReversibilitySelector />}
-                      />
-                      <Route
-                        path="/decision/goals"
-                        element={<GoalClarificationScreen />}
-                      />
-                      <Route
-                        path="/decision/options"
-                        element={<OptionsIdeation />}
-                      />
-                      <Route
-                        path="/decision/criteria"
-                        element={<CriteriaStage />}
-                      />
-                      <Route
-                        path="/decision/analysis"
-                        element={<Analysis />}
-                      />
+
+                  {/* Decision Flow */}
+                  <Route path="/decision/intake" element={<DecisionIntakeScreen />} />
+                  <Route path="/decision" element={<DecisionTypeSelector />} />
+                  <Route path="/decision/details" element={<DecisionDetails />} />
+                  
+                  <Route
+                    path="/decision/importance"
+                    element={
+                      <ProtectedRoute>
+                        <ImportanceSelector />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/decision/reversibility"
+                    element={
+                      <ProtectedRoute>
+                        <ReversibilitySelector />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/decision/goals"
+                    element={
+                      <ProtectedRoute>
+                        <GoalClarificationScreen />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/decision/options"
+                    element={
+                      <ProtectedRoute>
+                        <OptionsIdeation />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/decision/criteria"
+                    element={
+                      <ProtectedRoute>
+                        <CriteriaStage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/decision/analysis"
+                    element={
+                      <ProtectedRoute>
+                        <Analysis />
+                      </ProtectedRoute>
+                    }
+                  />
 
                   {/* Protected */}
                   <Route

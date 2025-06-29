@@ -54,10 +54,11 @@ export default function ReversibilitySelector() {
   } = useDecision();
   const [loading, setLoading] = useState(false);
 
-  if (!decisionType) return <Navigate to="/decision" replace />;
-  if (!decision) return <Navigate to="/decision/details" replace />;
-  if (!importance) return <Navigate to="/decision/importance" replace />;
-  if (!decisionId) return <Navigate to="/decision" replace />;
+  // Flow guards
+  if (!decisionId) return <Navigate to="/decision/intake" replace />;
+  if (!decisionType) return <Navigate to="/decision/intake" replace />;
+  if (!decision) return <Navigate to="/decision/intake" replace />;
+  if (!importance) return <Navigate to="/decision/intake" replace />;
 
   const handleSelect = (reversibility: string) => {
     setLoading(true);
