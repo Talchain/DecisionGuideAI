@@ -9,7 +9,7 @@ import { supabase } from './supabase'
 async function createChatCompletion(
   messages: any[],
   options: {
-    model?: string
+    model?: string 
     temperature?: number
     max_tokens?: number
   } = {},
@@ -43,7 +43,7 @@ async function createChatCompletion(
         body: JSON.stringify({
           messages,
           options: {
-            model: options.model ?? 'gpt-4',
+            model: options.model ?? 'gpt-4.1-mini',
             temperature: options.temperature ?? 0.7,
             max_tokens: options.max_tokens ?? 1500,
             response_format: options.response_format
@@ -227,7 +227,10 @@ export const analyzeDecision = async ({
 
     const { content, prompt, rawResponse } = await createChatCompletion(
       promptMessages,
-      { max_tokens: importance === 'critical_in_depth_analysis' ? 2000 : 1000 }
+      { 
+        model: 'gpt-4.1-mini',
+        max_tokens: importance === 'critical_in_depth_analysis' ? 2000 : 1000 
+      }
     )
 
     return {
@@ -346,10 +349,10 @@ Required JSON format:
       body: JSON.stringify({
         messages,
         options: {
-          model: 'gpt-4-turbo-preview',
+          model: 'gpt-4.1-mini',
           max_tokens: 1500,
           temperature: 0.7,
-          response_format: { type: 'json_object' }
+          // Remove response_format as it's not supported with this model
         }
       })
     });
