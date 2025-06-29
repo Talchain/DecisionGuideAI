@@ -29,8 +29,7 @@ export default function AuthNavigationGuard() {
 
       // If we're landing *and* authenticated, jump straight into the flow
       if (authenticated && location.pathname === '/') {
-        navigate('/decision', { replace: true });
-        return;
+        // No need to navigate since '/' is now the intake screen
       }
 
       // If un-authed and no early-access, any protected URL → landing
@@ -42,8 +41,7 @@ export default function AuthNavigationGuard() {
 
     // If on an auth page but already signed in, send them to the flow
     if (isAuthRoute && authenticated) {
-      navigate('/decision', { replace: true });
-      return;
+      navigate('/', { replace: true });
     }
 
     // Non-public routes require auth or early access
@@ -57,7 +55,7 @@ export default function AuthNavigationGuard() {
 
     // Public landing page: if you’re already authed, bounce to /decision
     if (location.pathname === '/' && authenticated) {
-      navigate('/decision', { replace: true });
+      // No need to navigate since '/' is now the intake screen
     }
   }, [authenticated, loading, location.pathname, navigate]);
 
