@@ -6,6 +6,7 @@ interface DiagnosticsResult {
   environmentVariables: any;
   networkConnectivity: any;
   corsTest: any;
+  supabaseQuery: any;
   recommendations: string[];
 }
 
@@ -116,11 +117,42 @@ export function SupabaseDiagnostics() {
                       Error: {results.corsTest.error}
                     </div>
                   )}
+                  {results.corsTest.details && (
+                    <div className="mt-2 text-xs text-gray-700 bg-gray-50 p-2 rounded">
+                      {results.corsTest.details}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
 
+          {/* Supabase Query Test */}
+          <div className="border rounded-lg p-4">
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+              {getStatusIcon(results.supabaseQuery.success)}
+              Supabase Query Test
+            </h3>
+            <div className="text-sm">
+              {results.supabaseQuery.success ? (
+                <div className="text-green-600">✓ Supabase queries working correctly</div>
+              ) : (
+                <div className="text-red-600">
+                  ✗ Supabase query failed
+                  {results.supabaseQuery.error && (
+                    <div className="mt-1 text-xs text-gray-600">
+                      Error: {results.supabaseQuery.error}
+                    </div>
+                  )}
+                  {results.supabaseQuery.details && (
+                    <div className="mt-2 text-xs text-gray-700 bg-gray-50 p-2 rounded">
+                      {results.supabaseQuery.details}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
           {/* Recommendations */}
           {results.recommendations.length > 0 && (
             <div className="border rounded-lg p-4 bg-yellow-50">
@@ -146,8 +178,9 @@ export function SupabaseDiagnostics() {
                 <strong>1. Check CORS Settings:</strong>
                 <ul className="ml-4 mt-1 space-y-1">
                   <li>• Go to Supabase Dashboard → Project Settings → API</li>
-                  <li>• Under "CORS", add: <code className="bg-white px-1 rounded">http://localhost:5173</code></li>
+                  <li>• Under "CORS", add: <code className="bg-white px-1 rounded">{window.location.origin}</code></li>
                   <li>• For development, you can temporarily use: <code className="bg-white px-1 rounded">*</code></li>
+                  <li>• Save changes and restart your development server</li>
                 </ul>
               </div>
               <div>
@@ -167,6 +200,14 @@ export function SupabaseDiagnostics() {
                   <li>• Visit <a href="https://status.supabase.com/" target="_blank" rel="noopener noreferrer" className="underline">status.supabase.com</a> for service status</li>
                 </ul>
               </div>
+              <div>
+                <strong>4. Browser Developer Tools:</strong>
+                <ul className="ml-4 mt-1 space-y-1">
+                  <li>• Open Network tab to see failed requests</li>
+                  <li>• Look for CORS-related error messages</li>
+                  <li>• Check Console for additional error details</li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
@@ -174,7 +215,16 @@ export function SupabaseDiagnostics() {
 
       {!results && !loading && (
         <div className="text-center py-8 text-gray-500">
-          Click "Run Diagnostics" to check your Supabase connection
+          <div className="mb-4">
+            <p className="text-lg font-medium text-gray-700 mb-2">Supabase Connection Issues?</p>
+            <p>Click "Run Diagnostics" to identify and resolve connection problems</p>
+          </div>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left max-w-md mx-auto">
+            <p className="text-sm text-yellow-800">
+              <strong>Common Issue:</strong> If you're seeing "Failed to fetch" errors, 
+              this is usually a CORS configuration problem that can be easily fixed.
+            </p>
+          </div>
         </div>
       )}
     </div>

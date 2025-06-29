@@ -1,11 +1,48 @@
-// Supabase Connection Diagnostics Tool
-// Run this to help diagnose connection issues
+import { supabase } from './supabase';
 
-export async function runSupabaseDiagnostics() {
-  const results = {
-    environmentVariables: {},
-    networkConnectivity: {},
-    corsTest: {},
+interface DiagnosticsResult {
+  environmentVariables: {
+    hasUrl: boolean;
+    hasAnonKey: boolean;
+    urlValue: string;
+    keyPrefix: string;
+  };
+  networkConnectivity: {
+    reachable: boolean;
+    status?: number;
+    error?: string;
+    responseTime?: number;
+  };
+  corsTest: {
+    corsAllowed: boolean;
+    error?: string;
+    details?: string;
+  };
+  supabaseQuery: {
+    success: boolean;
+    error?: string;
+    details?: string;
+  };
+  recommendations: string[];
+}
+
+export async function runSupabaseDiagnostics(): Promise<DiagnosticsResult> {
+  const result: DiagnosticsResult = {
+    environmentVariables: {
+      hasUrl: false,
+      hasAnonKey: false,
+      urlValue: '',
+      keyPrefix: ''
+    },
+    networkConnectivity: {
+      reachable: false
+    },
+    corsTest: {
+      corsAllowed: false
+    },
+    supabaseQuery: {
+      success: false
+    },
     recommendations: []
   };
 
@@ -13,111 +50,151 @@ export async function runSupabaseDiagnostics() {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
   
-  results.environmentVariables = {
+  result.environmentVariables = {
     hasUrl: !!supabaseUrl,
     hasAnonKey: !!supabaseAnonKey,
-    urlFormat: supabaseUrl ? 'Valid' : 'Missing',
-    urlValue: supabaseUrl || 'Not set'
+    urlValue: supabaseUrl || 'Not set',
+    keyPrefix: supabaseAnonKey ? supabaseAnonKey.slice(0, 8) + '...' : 'Not set'
   };
 
-  if (!supabaseUrl) {
-    results.recommendations.push('❌ VITE_SUPABASE_URL is missing from .env file');
-  }
-  
-  if (!supabaseAnonKey) {
-    results.recommendations.push('❌ VITE_SUPABASE_ANON_KEY is missing from .env file');
+  if (!supabaseUrl || !supabaseAnonKey) {
+    result.recommendations.push('Set up environment variables: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+    return result;
   }
 
-  // Test basic network connectivity to Supabase
-  if (supabaseUrl) {
+  // Test basic network connectivity
+  try {
+    const startTime = Date.now();
+    const response = await fetch(`${supabaseUrl}/rest/v1/`, {
+      method: 'HEAD',
+      headers: {
+        'apikey': supabaseAnonKey,
+        'Authorization': `Bearer ${supabaseAnonKey}`
+      }
+    });
+    
+    const responseTime = Date.now() - startTime;
+    result.networkConnectivity = {
+      reachable: response.ok,
+      status: response.status,
+      responseTime
+    };
+
+    if (!response.ok) {
+      result.networkConnectivity.error = `HTTP ${response.status}: ${response.statusText}`;
+    }
+  } catch (error: any) {
+    result.networkConnectivity = {
+      reachable: false,
+      error: error.message || 'Network request failed'
+    };
+    
+    if (error.message?.includes('Failed to fetch')) {
+      result.corsTest.corsAllowed = false;
+      result.corsTest.error = 'CORS policy blocking request';
+      result.corsTest.details = 'The browser is blocking the request due to CORS policy. This usually means the Supabase project needs to allow your development origin.';
+    }
+  }
+
+  // Test CORS specifically
+  if (result.networkConnectivity.reachable) {
     try {
-      const response = await fetch(`${supabaseUrl}/rest/v1/`, {
-        method: 'HEAD',
+      const corsResponse = await fetch(`${supabaseUrl}/rest/v1/`, {
+        method: 'OPTIONS',
         headers: {
-          'apikey': supabaseAnonKey || '',
-          'Authorization': `Bearer ${supabaseAnonKey || ''}`
+          'Origin': window.location.origin,
+          'Access-Control-Request-Method': 'GET',
+          'Access-Control-Request-Headers': 'apikey,authorization,content-type'
         }
       });
       
-      results.networkConnectivity = {
-        status: response.status,
-        statusText: response.statusText,
-        reachable: response.ok
-      };
-
-      if (!response.ok) {
-        results.recommendations.push(`❌ Supabase API returned ${response.status}: ${response.statusText}`);
-      } else {
-        results.recommendations.push('✅ Supabase API is reachable');
+      result.corsTest.corsAllowed = corsResponse.ok;
+      if (!corsResponse.ok) {
+        result.corsTest.error = `CORS preflight failed: ${corsResponse.status}`;
       }
-    } catch (error) {
-      results.networkConnectivity = {
-        error: error.message,
-        reachable: false
-      };
-      
-      if (error.message.includes('Failed to fetch')) {
-        results.recommendations.push('❌ Network connectivity issue detected. Check:');
-        results.recommendations.push('  • Internet connection');
-        results.recommendations.push('  • VPN/Firewall settings');
-        results.recommendations.push('  • Supabase project status');
-        results.recommendations.push('  • CORS configuration in Supabase dashboard');
-      }
+    } catch (error: any) {
+      result.corsTest.corsAllowed = false;
+      result.corsTest.error = error.message;
     }
   }
 
-  // CORS test
+  // Test Supabase client query
   try {
-    const corsTestUrl = `${supabaseUrl}/rest/v1/organisations?select=count&limit=1`;
-    const corsResponse = await fetch(corsTestUrl, {
-      method: 'GET',
-      headers: {
-        'apikey': supabaseAnonKey || '',
-        'Authorization': `Bearer ${supabaseAnonKey || ''}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    results.corsTest = {
-      status: corsResponse.status,
-      corsAllowed: corsResponse.status !== 0
-    };
-
-    if (corsResponse.status === 0) {
-      results.recommendations.push('❌ CORS error detected. Add your origin to Supabase CORS settings:');
-      results.recommendations.push('  • Go to Supabase Dashboard > Project Settings > API');
-      results.recommendations.push('  • Under CORS, add: http://localhost:5173');
-      results.recommendations.push('  • For development, you can temporarily use: *');
+    const { data, error } = await supabase
+      .from('organisations')
+      .select('count')
+      .limit(1);
+    
+    if (error) {
+      result.supabaseQuery.success = false;
+      result.supabaseQuery.error = error.message;
+      result.supabaseQuery.details = error.details || error.hint || 'No additional details';
+    } else {
+      result.supabaseQuery.success = true;
     }
-  } catch (error) {
-    results.corsTest = {
-      error: error.message,
-      corsAllowed: false
-    };
+  } catch (error: any) {
+    result.supabaseQuery.success = false;
+    result.supabaseQuery.error = error.message || 'Unknown error';
   }
 
-  return results;
+  // Generate recommendations
+  if (!result.networkConnectivity.reachable) {
+    result.recommendations.push('Check your internet connection and Supabase project status');
+  }
+  
+  if (!result.corsTest.corsAllowed) {
+    result.recommendations.push(`Add "${window.location.origin}" to your Supabase project's CORS settings`);
+    result.recommendations.push('Go to Supabase Dashboard → Project Settings → API → CORS');
+  }
+  
+  if (!result.supabaseQuery.success && result.networkConnectivity.reachable) {
+    result.recommendations.push('Check your Supabase project permissions and RLS policies');
+  }
+
+  if (result.networkConnectivity.responseTime && result.networkConnectivity.responseTime > 5000) {
+    result.recommendations.push('Slow response time detected - check your network connection');
+  }
+
+  return result;
 }
 
-// Helper function to display diagnostics in console
-export function displayDiagnostics(results: any) {
+export function displayDiagnostics(diagnostics: DiagnosticsResult) {
   console.group('🔍 Supabase Connection Diagnostics');
   
-  console.group('📋 Environment Variables');
-  console.table(results.environmentVariables);
-  console.groupEnd();
+  console.log('📋 Environment Variables:');
+  console.log(`  URL: ${diagnostics.environmentVariables.hasUrl ? '✅' : '❌'} ${diagnostics.environmentVariables.urlValue}`);
+  console.log(`  Key: ${diagnostics.environmentVariables.hasAnonKey ? '✅' : '❌'} ${diagnostics.environmentVariables.keyPrefix}`);
   
-  console.group('🌐 Network Connectivity');
-  console.table(results.networkConnectivity);
-  console.groupEnd();
+  console.log('🌐 Network Connectivity:');
+  console.log(`  Reachable: ${diagnostics.networkConnectivity.reachable ? '✅' : '❌'}`);
+  if (diagnostics.networkConnectivity.status) {
+    console.log(`  Status: ${diagnostics.networkConnectivity.status}`);
+  }
+  if (diagnostics.networkConnectivity.responseTime) {
+    console.log(`  Response Time: ${diagnostics.networkConnectivity.responseTime}ms`);
+  }
+  if (diagnostics.networkConnectivity.error) {
+    console.log(`  Error: ${diagnostics.networkConnectivity.error}`);
+  }
   
-  console.group('🔒 CORS Test');
-  console.table(results.corsTest);
-  console.groupEnd();
+  console.log('🔒 CORS Test:');
+  console.log(`  Allowed: ${diagnostics.corsTest.corsAllowed ? '✅' : '❌'}`);
+  if (diagnostics.corsTest.error) {
+    console.log(`  Error: ${diagnostics.corsTest.error}`);
+  }
   
-  console.group('💡 Recommendations');
-  results.recommendations.forEach(rec => console.log(rec));
-  console.groupEnd();
+  console.log('🗄️ Supabase Query:');
+  console.log(`  Success: ${diagnostics.supabaseQuery.success ? '✅' : '❌'}`);
+  if (diagnostics.supabaseQuery.error) {
+    console.log(`  Error: ${diagnostics.supabaseQuery.error}`);
+  }
+  
+  if (diagnostics.recommendations.length > 0) {
+    console.log('💡 Recommendations:');
+    diagnostics.recommendations.forEach((rec, i) => {
+      console.log(`  ${i + 1}. ${rec}`);
+    });
+  }
   
   console.groupEnd();
 }

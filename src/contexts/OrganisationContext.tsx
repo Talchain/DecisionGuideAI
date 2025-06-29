@@ -49,6 +49,21 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
         try {
           const diagnostics = await runSupabaseDiagnostics();
           displayDiagnostics(diagnostics);
+          
+          // Show user-friendly error with specific CORS guidance
+          if (!diagnostics.corsTest.corsAllowed) {
+            throw new Error(`CORS Configuration Required
+            
+Your Supabase project needs to allow requests from this development server.
+
+🔧 To fix this:
+1. Open your Supabase Dashboard
+2. Go to Project Settings → API
+3. Under "CORS", add: ${window.location.origin}
+4. Save changes and refresh this page
+
+💡 For development, you can temporarily use "*" as the CORS origin.`);
+          }
         } catch (diagError) {
           console.error('[OrganisationContext] Diagnostics failed:', diagError);
         }
@@ -58,48 +73,55 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
       
       console.log('[OrganisationContext] Connection test successful, fetching organisations...');
       
-      // Get owned organisations
-      const { data: ownedOrgs, error: ownedError } = await supabase
-        .from('organisations')
-        .select('*')
-        .eq('owner_id', user.id);
-        
-      if (ownedError) {
-        console.error('Error fetching owned organisations:', ownedError);
-        throw new Error(`Failed to fetch owned organisations: ${ownedError.message || 'Unknown error'}`);
+      // Use Promise.allSettled to handle partial failures gracefully
+      const [ownedResult, memberResult] = await Promise.allSettled([
+        supabase
+          .from('organisations')
+          .select('*')
+          .eq('owner_id', user.id),
+        supabase
+          .from('organisation_members')
+          .select(`
+            role,
+            organisations!inner (
+              id,
+              name,
+              slug,
+              description,
+              owner_id,
+              settings,
+              created_at,
+              updated_at
+            )
+          `)
+          .eq('user_id', user.id)
+      ]);
+      
+      let ownedOrgs: any[] = [];
+      let memberOrgs: any[] = [];
+      
+      if (ownedResult.status === 'fulfilled' && !ownedResult.value.error) {
+        ownedOrgs = ownedResult.value.data || [];
+      } else {
+        console.warn('Failed to fetch owned organisations:', 
+          ownedResult.status === 'fulfilled' ? ownedResult.value.error : ownedResult.reason);
       }
       
-      // Get member organisations
-      const { data: memberOrgs, error: memberError } = await supabase
-        .from('organisation_members')
-        .select(`
-          role,
-          organisations!inner (
-            id,
-            name,
-            slug,
-            description,
-            owner_id,
-            settings,
-            created_at,
-            updated_at
-          )
-        `)
-        .eq('user_id', user.id);
-        
-      if (memberError) {
-        console.error('Error fetching member organisations:', memberError);
-        throw new Error(`Failed to fetch member organisations: ${memberError.message || 'Unknown error'}`);
+      if (memberResult.status === 'fulfilled' && !memberResult.value.error) {
+        memberOrgs = memberResult.value.data || [];
+      } else {
+        console.warn('Failed to fetch member organisations:', 
+          memberResult.status === 'fulfilled' ? memberResult.value.error : memberResult.reason);
       }
       
       // Combine and format the results
-      const formattedOwned = (ownedOrgs || []).map(org => ({
+      const formattedOwned = ownedOrgs.map(org => ({
         ...org,
         role: 'owner' as const,
         is_owner: true
       }));
       
-      const formattedMember = (memberOrgs || []).map(item => ({
+      const formattedMember = memberOrgs.map(item => ({
         ...item.organisations,
         role: item.role,
         is_owner: false
@@ -134,16 +156,24 @@ export function OrganisationProvider({ children }: { children: React.ReactNode }
       let errorMessage = 'Failed to load organisations.';
       
       if (err instanceof Error) {
-        if (err.message.includes('Connection test:')) {
+        if (err.message.includes('CORS Configuration Required')) {
+          // This is our formatted CORS error message
+          errorMessage = err.message;
+        } else if (err.message.includes('Connection test:')) {
           // This is already a formatted network error from our helper
           errorMessage = err.message;
-        } else if (err.message.includes('Failed to fetch') || err.message.includes('Network')) {
-          errorMessage = `Network connection failed. Please check:
-          • Your internet connection
-          • Supabase project status
-          • Browser developer tools for more details
+        } else if (err.message.includes('Failed to fetch')) {
+          errorMessage = `Connection Error: Unable to reach Supabase
           
-          Original error: ${err.message}`;
+This is likely a CORS (Cross-Origin Resource Sharing) issue.
+
+🔧 To fix this:
+1. Go to your Supabase Dashboard
+2. Navigate to Project Settings → API  
+3. Under "CORS", add: ${window.location.origin}
+4. Save and refresh this page
+
+💡 For development, you can temporarily use "*" as the CORS origin.`;
         } else {
           errorMessage = `${errorMessage} ${err.message}`;
         }

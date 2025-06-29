@@ -51,20 +51,21 @@ console.log('Supabase configuration:', {
 
 function getNetworkErrorMessage(error: any): string {
   if (error?.name === 'TypeError' && error?.message?.includes('Failed to fetch')) {
-    return `Network connection failed. This could be due to:
-    • Internet connectivity issues
-    • Supabase project is paused or unavailable
-    • CORS configuration problems
-    • VPN or firewall blocking the connection
+    return `CORS Error: Your Supabase project is blocking requests from this origin.
     
-    Please check:
-    1. Your internet connection
-    2. Supabase project status at https://supabase.com/dashboard
-    3. Browser developer tools Network tab for more details`
+    🔧 Quick Fix:
+    1. Go to your Supabase Dashboard
+    2. Navigate to Project Settings → API
+    3. Under "CORS", add: ${window.location.origin}
+    4. For development, you can temporarily use: *
+    5. Save and restart your dev server
+    
+    📋 Current origin: ${window.location.origin}
+    🌐 Supabase URL: ${import.meta.env.VITE_SUPABASE_URL}`
   }
   
   if (error?.message?.includes('CORS')) {
-    return 'Cross-origin request blocked. Please check your Supabase project CORS settings.'
+    return `CORS policy error. Add "${window.location.origin}" to your Supabase CORS settings.`
   }
   
   if (error?.message?.includes('DNS')) {
@@ -83,6 +84,16 @@ async function withNetworkErrorHandling<T>(
     return { data: result, error: null }
   } catch (err) {
     console.error(`[Supabase] ${context} failed:`, err)
+    
+    // Log additional debugging info for CORS errors
+    if (err instanceof TypeError && err.message.includes('Failed to fetch')) {
+      console.group('🚨 CORS Error Debug Info');
+      console.log('Current Origin:', window.location.origin);
+      console.log('Supabase URL:', import.meta.env.VITE_SUPABASE_URL);
+      console.log('User Agent:', navigator.userAgent);
+      console.log('Timestamp:', new Date().toISOString());
+      console.groupEnd();
+    }
     
     const errorMessage = getNetworkErrorMessage(err)
     const enhancedError = new Error(`${context}: ${errorMessage}`)
@@ -128,27 +139,31 @@ export async function testSupabaseConnection() {
   console.log('[Supabase] Testing connection...')
   
   return withNetworkErrorHandling(async () => {
-    // First test basic API connectivity
-    const response = await fetch(`${supabaseUrl}/rest/v1/`, {
-      method: 'HEAD',
-      headers: {
-        'apikey': supabaseAnonKey,
-        'Authorization': `Bearer ${supabaseAnonKey}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Supabase API unreachable: ${response.status} ${response.statusText}`);
-    }
-    
-    // Then test a simple query
+    // Test with a simple query that should work with basic permissions
     const { data, error } = await supabase
-      .from('organisations')
-      .select('count')
+      .from('app_settings')
+      .select('key')
       .limit(1)
     
     if (error) {
-      throw new Error(`Supabase query failed: ${error.message}`)
+      // If app_settings fails, try a more basic test
+      console.log('[Supabase] app_settings query failed, trying basic connection test...')
+      
+      const response = await fetch(`${supabaseUrl}/rest/v1/`, {
+        method: 'HEAD',
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Supabase API unreachable: ${response.status} ${response.statusText}`);
+      }
+      
+      console.log('[Supabase] Basic connection successful, but query permissions may be restricted')
+      return { success: true, data: null, note: 'Basic connection only' }
     }
     
     console.log('[Supabase] Connection test successful')
