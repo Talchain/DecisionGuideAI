@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTemplates } from '../../hooks/useTemplates';
+import EmptyState from '../EmptyState';
 import TemplateCard from './TemplateCard';
 import TemplateList from './TemplateList';
 import CreateTemplateModal from './CreateTemplateModal';
