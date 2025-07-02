@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
-import { ArrowLeft, AlertCircle, Users, Loader2, WifiOff, Clock, ServerCrash, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, AlertCircle, Loader2, WifiOff, Clock, ServerCrash, AlertTriangle } from 'lucide-react';
 import BiasesCarousel from './BiasesCarousel';
 import { useAnalysis } from '../hooks/useAnalysis';
 import ProsConsList from './ProsConsList';
@@ -71,7 +71,6 @@ export default function Analysis() {
   const [collaboratorsLoading, setCollaboratorsLoading] = useState<boolean>(false);
   const [collaborationError, setCollaborationError] = useState<string | null>(null);
   const [collaborationRetryCount, setCollaborationRetryCount] = useState<number>(0);
-  const [showCollaborationPanel, setShowCollaborationPanel] = useState<boolean>(false);
   const [permanentId, setPermanentId] = useState<string | null>(() =>
     isValidDecisionId(state?.decisionId) ? state.decisionId : null
   );
@@ -581,16 +580,8 @@ export default function Analysis() {
           <button onClick={handleBack} disabled={saveInProgress} className="flex items-center text-gray-600 hover:text-gray-900 transition-colors disabled:opacity-50 p-2 rounded border" >
             <ArrowLeft className="h-4 w-4 mr-2" />
             {state.skipGoalsReason ? 'Back to Decision Details' : 'Back to Goals'}
-          </button>
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setShowCollaborationPanel(!showCollaborationPanel)}
-              className="flex items-center px-4 py-2 text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 disabled:opacity-50 transition-colors border border-indigo-200"
-            >
-              <Users className="h-4 w-4 mr-2" />
-              Collaboration
-            </button>
-          {/* Save Button - Disable if no permanentId state */}
+          <div>
+          {/* Save Button */}
           <button onClick={handleSave} disabled={saveInProgress || analysisLoading || !!analysisHookError || optionsLoading || !!optionsError.message || !permanentId} className="flex items-center px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors border" >
             {saveInProgress ? ( <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving... </> ) : ( 'Save & Finalize Analysis' )}
           </button>
@@ -602,29 +593,6 @@ export default function Analysis() {
       <div className="flex flex-1 min-h-0 gap-4">
         <div className="flex-1 min-h-0 bg-white rounded-xl shadow-lg p-6 overflow-y-auto space-y-6">
         {/* Collaborators Section */}
-        <div className="border-b pb-4 mb-4">
-          <h3 className="text-lg font-semibold mb-2 flex items-center"><Users className="mr-2 h-5 w-5 text-gray-600"/> Collaborators</h3>
-           {!permanentId ? ( <div className="text-sm text-gray-500 italic">Collaboration features available after analysis is generated.</div>
-           ) : collaboratorsLoading ? ( <div className="flex items-center text-gray-500"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading collaborators...</div>
-           ) : collaborationError ? (
-             <div className="bg-red-50 p-3 rounded-lg">
-                 <div className="flex items-center gap-2">
-                   <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
-                   <p className="text-sm text-red-700">{collaborationError}</p>
-                 </div>
-             </div>
-           ) : collaborators.length > 0 ? (
-             <ul className="list-disc list-inside pl-2 text-sm text-gray-700 space-y-1">
-               {collaborators.map((collab) => (
-                 <li key={collab.id || collab.user_id}>
-                   {/* Use mapped email */}
-                   {collab.email || `User ID: ${collab.user_id}`}
-                 </li>
-               ))}
-             </ul>
-           ) : ( <p className="text-sm text-gray-500">No collaborators found.</p> )}
-        </div>
-
         {/* Biases Carousel */}
         <BiasesCarousel biases={biases} isLoading={optionsLoading} error={optionsError.message} />
 
@@ -684,185 +652,6 @@ export default function Analysis() {
         {/* Options Render Section using ProsConsList */}
         {!(analysisLoading || analysisHookError || optionsLoading || optionsError.message) && options && options.length > 0 && (
           <div className="mt-6 pt-6 border-t">
-            <h3 className="text-lg font-semibold mb-4">Options Analysis</h3>
-            <ProsConsList decision={state.decision} initialOptions={options} biases={biases}/>
-          </div>
-        )}
-        </div>
-        
-        {showCollaborationPanel && permanentId && (
-          <div className="w-96 min-h-0 bg-white rounded-xl shadow-lg overflow-hidden">
-            <div className="p-4 bg-indigo-50 border-b border-indigo-100">
-              <h3 className="text-lg font-semibold text-gray-900">Collaboration Hub</h3>
-              <p className="text-sm text-gray-600">Invite others to collaborate on this decision</p>
-            </div>
-            
-            <div className="p-4 overflow-y-auto max-h-[calc(100vh-12rem)]">
-              <div className="space-y-6">
-                {/* Collaborator List */}
-                <div>
-                  <h4 className="text-md font-medium text-gray-800 mb-3">Current Collaborators</h4>
-                  {collaboratorsLoading ? (
-                    <div className="flex items-center justify-center p-4">
-                      <Loader2 className="h-5 w-5 text-indigo-500 animate-spin mr-2" />
-                      <span className="text-gray-500">Loading collaborators...</span>
-                    </div>
-                  ) : collaborationError ? (
-                    <div className="bg-red-50 p-3 rounded-lg">
-                      <p className="text-sm text-red-600">{collaborationError}</p>
-                    </div>
-                  ) : collaborators.length > 0 ? (
-                    <div className="space-y-2">
-                      {collaborators.map(collab => (
-                        <div key={collab.id} className="p-3 bg-gray-50 rounded-lg">
-                          <div className="flex justify-between items-center">
-                            <div>
-                              <p className="font-medium text-gray-800">{collab.email || `User ${collab.user_id.substring(0, 8)}`}</p>
-                              <p className="text-xs text-gray-500">
-                                {collab.role} • {collab.status}
-                              </p>
-                            </div>
-                            <button 
-                              onClick={() => removeCollaborator(collab.id)}
-                              className="p-1 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-100"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-sm">No collaborators yet. Invite someone below.</p>
-                  )}
-                </div>
-                
-                {/* Invite Form */}
-                <div>
-                  <h4 className="text-md font-medium text-gray-800 mb-3">Invite Collaborators</h4>
-                  <form onSubmit={(e) => {
-                    e.preventDefault();
-                    const form = e.target as HTMLFormElement;
-                    const email = (form.elements.namedItem('email') as HTMLInputElement).value;
-                    const role = (form.elements.namedItem('role') as HTMLSelectElement).value as 'collaborator' | 'viewer';
-                    inviteCollaborator(email, role);
-                    form.reset();
-                  }}>
-                    <div className="space-y-3">
-                      <div>
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                          Email Address
-                        </label>
-                        <input
-                          type="email"
-                          id="email"
-                          name="email"
-                          required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                          placeholder="Enter email address"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
-                          Role
-                        </label>
-                        <select
-                          id="role"
-                          name="role"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                          <option value="collaborator">Collaborator (can edit)</option>
-                          <option value="viewer">Viewer (read-only)</option>
-                        </select>
-                      </div>
-                      
-                      <button
-                        type="submit"
-                        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                      >
-                        Send Invitation
-                      </button>
-                    </div>
-                  </form>
-                </div>
-                
-                {/* Collaboration Settings */}
-                <div>
-                  <h4 className="text-md font-medium text-gray-800 mb-3">Collaboration Settings</h4>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-800">Allow Suggestions</p>
-                        <p className="text-xs text-gray-500">Let collaborators suggest changes</p>
-                      </div>
-                      <button
-                        onClick={() => updateCollaborationSettings({
-                          ...state.collaboration_settings,
-                          allow_suggestions: !state.collaboration_settings?.allow_suggestions
-                        })}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full ${
-                          state.collaboration_settings?.allow_suggestions ? 'bg-indigo-600' : 'bg-gray-200'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                            state.collaboration_settings?.allow_suggestions ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-800">Require Approval</p>
-                        <p className="text-xs text-gray-500">Approve suggestions before applying</p>
-                      </div>
-                      <button
-                        onClick={() => updateCollaborationSettings({
-                          ...state.collaboration_settings,
-                          require_approval: !state.collaboration_settings?.require_approval
-                        })}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full ${
-                          state.collaboration_settings?.require_approval ? 'bg-indigo-600' : 'bg-gray-200'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                            state.collaboration_settings?.require_approval ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div>
-                        <p className="font-medium text-gray-800">Auto Notifications</p>
-                        <p className="text-xs text-gray-500">Send email notifications</p>
-                      </div>
-                      <button
-                        onClick={() => updateCollaborationSettings({
-                          ...state.collaboration_settings,
-                          auto_notify: !state.collaboration_settings?.auto_notify
-                        })}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full ${
-                          state.collaboration_settings?.auto_notify ? 'bg-indigo-600' : 'bg-gray-200'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
-                            state.collaboration_settings?.auto_notify ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

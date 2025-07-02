@@ -10,7 +10,20 @@ import {
   ArrowRight,
   Users,
   Lock
+  CheckCircle,
+  ArrowRight,
+  Users,
+  Lock
 } from 'lucide-react';
+import Tooltip from '../Tooltip';
+
+interface JourneyStep {
+  id: string;
+  path: string;
+  label: string;
+  icon: React.ElementType;
+  description: string;
+}
 import Tooltip from '../Tooltip';
 
 interface JourneyStep {
@@ -24,12 +37,14 @@ interface JourneyStep {
 export default function DecisionJourneyMap() {
   const navigate = useNavigate();
   const location = useLocation();
+  const location = useLocation();
   const { 
     decisionId, 
     decision, 
     goals, 
     options, 
     criteria,
+    collaborators
     collaborators
   } = useDecision();
 
@@ -38,6 +53,7 @@ export default function DecisionJourneyMap() {
     {
       id: 'frame',
       path: '/decision/intake',
+      label: 'Frame',
       label: 'Frame',
       icon: Target,
       description: 'Define your decision'
@@ -48,12 +64,14 @@ export default function DecisionJourneyMap() {
       label: 'Goals',
       icon: Lightbulb,
       description: 'Clarify your objectives'
+      description: 'Clarify your objectives'
     },
     {
       id: 'options',
       path: '/decision/options',
       label: 'Options',
       icon: ListChecks,
+      description: 'Generate alternatives'
       description: 'Generate alternatives'
     },
     {
@@ -69,9 +87,24 @@ export default function DecisionJourneyMap() {
       label: 'Analysis',
       icon: CheckCircle,
       description: 'Review and finalize'
+      description: 'Define evaluation criteria'
+    },
+    {
+      id: 'analysis',
+      path: '/decision/analysis',
+      label: 'Analysis',
+      icon: CheckCircle,
+      description: 'Review and finalize'
     }
   ];
 
+  // Determine current step
+  const currentStepIndex = journeySteps.findIndex(step => 
+    location.pathname === step.path
+  );
+
+  // Determine which steps are available based on decision state
+  const isStepAvailable = (index: number): boolean => {
   // Determine current step
   const currentStepIndex = journeySteps.findIndex(step => 
     location.pathname === step.path
@@ -93,6 +126,12 @@ export default function DecisionJourneyMap() {
         return (!!criteria?.length && criteria.length > 0) || location.pathname === '/decision/analysis';
       default:
         return false;
+        state: { 
+          decisionId,
+          decision,
+          goals
+        } 
+      });
     }
   };
 
@@ -108,6 +147,11 @@ export default function DecisionJourneyMap() {
       });
     }
   };
+
+  // If no decision in progress, don't show the journey map
+  if (!decisionId && !location.pathname.startsWith('/decision/')) {
+    return null;
+  }
 
   // If no decision in progress, don't show the journey map
   if (!decisionId && !location.pathname.startsWith('/decision/')) {
@@ -145,6 +189,43 @@ export default function DecisionJourneyMap() {
                     className={`
                       relative w-10 h-10 rounded-full flex items-center justify-center
                       ${isActive 
+                        ? 'bg-indigo-600 text-white' 
+                        : isAvailable 
+                          ? 'bg-white border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50' 
+                          : 'bg-gray-100 text-gray-400 cursor-not-allowed border-2 border-gray-200'
+                      }
+                      transition-all duration-200
+                    `}
+                  >
+                    {!isAvailable && (
+                      <Lock className="absolute h-3 w-3 top-0 right-0 text-gray-400" />
+                    )}
+                    <StepIcon className="h-5 w-5" />
+                  </button>
+                  <span className={`
+                    text-xs mt-1
+                    ${isActive 
+                      ? 'font-medium text-indigo-600' 
+                      : isAvailable 
+                        ? 'text-gray-700' 
+                        : 'text-gray-400'
+                    }
+                  `}>
+                    {step.label}
+                  </span>
+                </div>
+              </Tooltip>
+              
+              {index < journeySteps.length - 1 && (
+                <div className={`
+                  w-12 h-0.5 
+                  ${isPast ? 'bg-indigo-600' : 'bg-gray-200'}
+                `}>
+                </div>
+              )}
+            </React.Fragment>
+          );
+        })}
                         ? 'bg-indigo-600 text-white' 
                         : isAvailable 
                           ? 'bg-white border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50' 

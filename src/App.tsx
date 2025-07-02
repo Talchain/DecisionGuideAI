@@ -9,11 +9,42 @@ import { supabase } from './lib/supabase'
 import { checkAccessValidation } from './lib/auth/accessValidation'
 import { useAuth } from './contexts/AuthContext'
 import ErrorBoundary from './components/ErrorBoundary'
+import ErrorBoundary from './components/ErrorBoundary'
 import Navbar from './components/navigation/Navbar'
 
 import LandingPage from './components/LandingPage'
 import About from './components/About'
 import AuthLayout from './components/navigation/AuthLayout'
+import LoginForm from './components/auth/LoginForm'
+import SignUpForm from './components/auth/SignUpForm'
+import ForgotPasswordForm from './components/auth/ForgotPasswordForm'
+import ResetPasswordForm from './components/auth/ResetPasswordForm'
+import ProfileForm from './components/auth/ProfileForm'
+import ProtectedRoute from './components/auth/ProtectedRoute'
+import LoadingSpinner from './components/LoadingSpinner'
+
+import DecisionList from './components/decisions/DecisionList'
+import DecisionForm from './components/decisions/DecisionForm'
+import AuthNavigationGuard from './components/auth/AuthNavigationGuard'
+import CriteriaStage from './components/CriteriaStage'
+import EvaluationMethodSelector from './components/EvaluationMethodSelector'
+
+import MyTeams from './components/teams/MyTeams'
+import TeamDetails from './components/teams/TeamDetails'    // ← Newly added import
+import OrganisationList from './components/organisations/OrganisationList'
+import OrganisationDetails from './components/organisations/OrganisationDetails'
+
+import DecisionIntakeScreen from './components/DecisionIntakeScreen'
+import TemplatesDashboard from './components/templates/TemplatesDashboard'
+import GoalClarificationScreen from './components/GoalClarificationScreen'
+import OptionsIdeation from './components/OptionsIdeation'
+import CriteriaForm from './components/CriteriaForm'
+import Analysis from './components/Analysis'
+import SupabaseDiagnostics from './components/diagnostics/SupabaseDiagnostics'
+
+import { DecisionProvider } from './contexts/DecisionContext'
+import { TeamsProvider }  from './contexts/TeamsContext'
+import DecisionFlowLayout from './components/navigation/DecisionFlowLayout'
 import LoginForm from './components/auth/LoginForm'
 import SignUpForm from './components/auth/SignUpForm'
 import ForgotPasswordForm from './components/auth/ForgotPasswordForm'
@@ -95,55 +126,57 @@ export default function App() {
                     />
                   </Route>
 
-                  {/* Decision Flow */}
-                  <Route
-                    path="/decision/intake"
-                    element={
-                      <ProtectedRoute>
-                        <DecisionIntakeScreen />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/decision/goals"
-                    element={
-                      <ProtectedRoute>
-                        <GoalClarificationScreen />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/decision/options"
-                    element={
-                      <ProtectedRoute>
-                        <OptionsIdeation />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/decision/criteria"
-                    element={
-                      <ProtectedRoute>
-                        <CriteriaStage />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/decision/evaluate"
-                    element={
-                      <ProtectedRoute>
-                        <EvaluationMethodSelector />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/decision/analysis"
-                    element={
-                      <ProtectedRoute>
-                        <Analysis />
-                      </ProtectedRoute>
-                    }
-                  />
+                  {/* Decision Flow - Wrapped in DecisionFlowLayout */}
+                  <Route element={<DecisionFlowLayout />}>
+                    <Route
+                      path="/decision/intake"
+                      element={
+                        <ProtectedRoute>
+                          <DecisionIntakeScreen />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/decision/goals"
+                      element={
+                        <ProtectedRoute>
+                          <GoalClarificationScreen />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/decision/options"
+                      element={
+                        <ProtectedRoute>
+                          <OptionsIdeation />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/decision/criteria"
+                      element={
+                        <ProtectedRoute>
+                          <CriteriaStage />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/decision/evaluate"
+                      element={
+                        <ProtectedRoute>
+                          <EvaluationMethodSelector />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/decision/analysis"
+                      element={
+                        <ProtectedRoute>
+                          <Analysis />
+                        </ProtectedRoute>
+                      }
+                    />
+                  </Route>
 
                   {/* Protected */}
                   <Route
@@ -234,6 +267,14 @@ export default function App() {
                   />
 
                   {/* Fallback */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </ErrorBoundary>
+            </main>
+          </div>
+        </TeamsProvider>
+      </DecisionProvider>
+    </ErrorBoundary>
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </ErrorBoundary>

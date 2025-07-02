@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getUserId, getDecisions } from '../../lib/supabase';
 import { authLogger } from '../../lib/auth/authLogger';
 import { useDecision } from '../../contexts/DecisionContext';
+import { useDecision } from '../../contexts/DecisionContext';
 import { Decision } from '../../types/database';
 import { 
   PlusCircle, Loader, AlertTriangle, RefreshCw, Search, Filter, 
@@ -46,6 +47,7 @@ const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50];
 
 export default function DecisionList() {
   const [decisions, setDecisions] = useState<Decision[]>([]);
+  const { resetDecisionContext } = useDecision();
   const { resetDecisionContext } = useDecision();
   const [filteredDecisions, setFilteredDecisions] = useState<Decision[]>([]);
   const [loading, setLoading] = useState(true);
@@ -358,6 +360,26 @@ export default function DecisionList() {
               console.log("[DecisionList] Starting new decision, resetting context");
               resetDecisionContext();
             }}
+            onClick={() => {
+              console.log("[DecisionList] Starting new decision, resetting context");
+              resetDecisionContext();
+            }}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">Your Decisions</h2>
+          <Link
+            to="/decision/intake"
+            onClick={() => {
+              console.log("[DecisionList] Starting new decision from empty state, resetting context");
+              resetDecisionContext();
+            }}
+            onClick={() => {
+              console.log("[DecisionList] Starting new decision from empty state, resetting context");
+              resetDecisionContext();
+            }}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
           >
             <PlusCircle className="h-5 w-5 mr-2" />
@@ -380,7 +402,15 @@ export default function DecisionList() {
                 console.log("[DecisionList] Starting new decision from empty state, resetting context");
                 resetDecisionContext();
               }}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              onClick={() => {
+                console.log("[DecisionList] Starting new decision from header, resetting context");
+                resetDecisionContext();
+              }}
+              onClick={() => {
+                console.log("[DecisionList] Starting new decision from header, resetting context");
+                resetDecisionContext();
+              }}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             >
               <PlusCircle className="h-5 w-5 mr-2" />
               Create Decision

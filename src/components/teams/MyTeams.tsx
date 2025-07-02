@@ -19,6 +19,8 @@ import EditTeamModal from './EditTeamModal';
 import ManageTeamMembersModal from './ManageTeamMembersModal';
 import type { Team } from '../../types/teams';
 import Tooltip from '../Tooltip';
+import EmptyState from '../EmptyState';
+import Tooltip from '../Tooltip';
 
 // TeamCard component with new Manage Members button
 function TeamCard({
@@ -235,43 +237,26 @@ export default function MyTeams() {
       )}
 
       {filteredTeams.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-2xl">
-          <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {selectedOrganisation 
-              ? `No teams in ${selectedOrganisation.name}` 
-              : 'No teams yet'}
-          </h3>
-          {isOrganisationSolo ? (
-            <>
-              <p className="text-gray-500 mb-4">
-                Upgrade to Team Plan to create teams and collaborate
-              </p>
-              <Link
-                to={`/organisations/${selectedOrganisation?.id}`}
-                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-colors"
-              >
-                <CreditCard className="h-5 w-5 mr-2" />
-                Upgrade Plan
-              </Link>
-            </>
-          ) : (
-            <>
-              <p className="text-gray-500 mb-4">
-                {selectedOrganisation
-                  ? `Create your first team in ${selectedOrganisation.name}`
-                  : 'Create your first team to start collaborating'}
-              </p>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-              >
-                <PlusCircle className="h-5 w-5 mr-2" />
-                Create Team
-              </button>
-            </>
-          )}
-        </div>
+        <EmptyState
+          title={selectedOrganisation 
+            ? `No teams in ${selectedOrganisation.name}` 
+            : 'No teams yet'}
+          description={isOrganisationSolo
+            ? "Upgrade to Team Plan to create teams and collaborate"
+            : selectedOrganisation
+              ? `Create your first team in ${selectedOrganisation.name}`
+              : "Create your first team to start collaborating"}
+          icon={Users}
+          actionText={isOrganisationSolo ? "Upgrade Plan" : "Create Team"}
+          actionPath={isOrganisationSolo 
+            ? `/organisations/${selectedOrganisation?.id}` 
+            : "#"}
+          tips={[
+            "Teams help you collaborate on decisions with others",
+            "Invite team members to contribute to decisions",
+            "Share templates and criteria sets with your team"
+          ]}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredTeams.map((team) => (

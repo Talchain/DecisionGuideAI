@@ -293,10 +293,10 @@ export default function DecisionIntakeScreen() {
           ></div>
         </div>
         <div className="flex justify-between mt-2 text-xs text-gray-500">
-          <span>Decision</span>
-          <span>Type</span>
-          <span>Importance</span>
-          <span>Reversibility</span>
+          <span className={currentStep >= 1 ? 'text-indigo-600 font-medium' : ''}>Decision</span>
+          <span className={currentStep >= 2 ? 'text-indigo-600 font-medium' : ''}>Type</span>
+          <span className={currentStep >= 3 ? 'text-indigo-600 font-medium' : ''}>Importance</span>
+          <span className={currentStep >= 4 ? 'text-indigo-600 font-medium' : ''}>Reversibility</span>
         </div>
       </div>
 

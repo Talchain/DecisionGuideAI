@@ -393,31 +393,20 @@ export default function TemplatesDashboard() {
 
       {/* Templates Grid/List */}
       {filteredTemplates.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="max-w-md mx-auto">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Star className="h-8 w-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {searchQuery ? 'No templates found' : 'No templates yet'}
-            </h3>
-            <p className="text-gray-500 mb-6">
-              {searchQuery 
-                ? 'Try adjusting your search or filters'
-                : 'Create your first template to get started'
-              }
-            </p>
-            {!searchQuery && (
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Create Template
-              </button>
-            )}
-          </div>
-        </div>
+        <EmptyState
+          title={searchQuery ? 'No templates found' : 'No templates yet'}
+          description={searchQuery 
+            ? 'Try adjusting your search or filters'
+            : 'Create your first template to get started'}
+          icon={Star}
+          actionText="Create Template"
+          actionPath="#"
+          tips={[
+            "Templates help you reuse criteria across multiple decisions",
+            "Share templates with your team for consistent decision-making",
+            "Use AI to generate templates based on your needs"
+          ]}
+        />
       ) : viewMode === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredTemplates.map((template) => (
