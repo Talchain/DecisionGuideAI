@@ -86,17 +86,5 @@ export default function DecisionList() {
     );
   }
 
-                            onClick={(e) => {
-                              e.preventDefault();
-                              // Ensure we have a valid session before navigating
-                              setActiveDecisionId(decision.id);
-                              supabase.auth.getSession().then(({ data }) => {
-                                if (data.session) {
-                                  navigate(`/decisions/${decision.id}`);
-                                } else {
-                                  console.error('No valid session found');
-                                }
-                              });
-                            }}
   // ... rest of the component code ...
 }
