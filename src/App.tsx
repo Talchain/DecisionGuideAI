@@ -44,6 +44,7 @@ import SupabaseDiagnostics from './components/diagnostics/SupabaseDiagnostics'
 import { DecisionProvider } from './contexts/DecisionContext'
 import { TeamsProvider }  from './contexts/TeamsContext'
 import DecisionFlowLayout from './components/navigation/DecisionFlowLayout'
+import MobileNavBar from './components/navigation/MobileNavBar'
 
 export default function App() {
   const location = useLocation()
@@ -243,6 +244,7 @@ export default function App() {
             </main>
           </div>
         </TeamsProvider>
+        <MobileNavBar />
       </DecisionProvider>
     </ErrorBoundary>
   )

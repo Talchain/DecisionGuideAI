@@ -2,21 +2,10 @@ import React, { useState, useCallback, useEffect, useRef, memo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDecision } from '../../contexts/DecisionContext';
-import {
-  Brain,
-  LogIn,
-  LogOut,
-  Menu,
-  X,
-  List,
-  User,
-  PlusCircle,
-  Info,
-  DoorOpen,
-  Users as TeamsIcon,
-  Building,
-  Star,
-  UserPlus
+import { 
+  Brain, LogIn, LogOut, Menu, X, List, User, PlusCircle, Info, DoorOpen, 
+  Users as TeamsIcon, Building, Star, UserPlus, Settings, Play, 
+  LayoutDashboard, ChevronDown, Database, Wrench, MoreHorizontal
 } from 'lucide-react';
 import { navDebug } from '../../lib/debug/navDebug';
 import {
@@ -82,8 +71,9 @@ NavButton.displayName = 'NavButton';
 
 export default function Navbar() {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { collaborators, decisionId, resetDecisionContext } = useDecision();
+  const { collaborators, decisionId, activeDecisionId, resetDecisionContext } = useDecision();
   const [isOpen, setIsOpen] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const mountedRef = useRef(true);
@@ -131,61 +121,137 @@ export default function Navbar() {
   const renderNavLinks = useCallback(
     (isMobile = false) => {
       const baseStyles = isMobile
-        ? 'flex items-center w-full px-4 py-3 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-        : 'flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 rounded-md';
+        ? 'flex items-center w-full px-4 py-3 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors duration-200'
+        : 'flex items-center px-3 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 rounded-md transition-colors duration-200';
       const authButtonStyles = isMobile
         ? baseStyles
-        : 'inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md';
+        : 'inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md transition-all duration-200 transform hover:-translate-y-0.5';
+      
+      // Active styles based on current path
+      const getNavLinkStyles = (path: string) => {
+        const isActive = location.pathname === path;
+        return `${baseStyles} ${isActive ? 'text-indigo-600 bg-indigo-50' : ''}`;
+      };
+      
       return (
         <div className={isMobile ? 'space-y-1' : 'flex items-center space-x-4'}>
-          <NavLink to="/about" className={baseStyles}>
-            <Info className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
-            <span>About</span>
-          </NavLink>
-
           {user && (
             <>
-              <NavLink to="/decisions" className={`${baseStyles} font-semibold`}>
+              {/* Primary Navigation Items */}
+              <NavLink to="/decisions" className={getNavLinkStyles('/decisions')}>
                 <List className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
                 <span>My Decisions</span>
               </NavLink>
-              <NavLink to="/templates" className={baseStyles}>
-                <Star className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
-                <span>Templates</span>
-              </NavLink>
-              <NavLink to="/diagnostics" className={baseStyles}>
-                <span>Diagnostics</span>
-              </NavLink>
-              <NavLink to="/teams" className={baseStyles}>
-                <TeamsIcon className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
-                <span>Teams</span>
-              </NavLink>
-              <NavLink to="/organisations" className={baseStyles}>
-                <Building className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
-                <span>Organisations</span>
-              </NavLink>
-              <NavLink 
-                to="/decision/intake" 
-                onClick={() => {
-                  console.log("[Navbar] Starting new decision flow, resetting context");
-                  resetDecisionContext();
-                }} 
-                className={baseStyles}
-              >
-                <PlusCircle className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
-                <span>New Decision</span>
-              </NavLink>
-              <NavLink to="/profile" className={baseStyles}>
-                <User className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
-                <span>Profile</span>
-              </NavLink>
+              
+              {/* New Decision Button - Always Visible and Prominent */}
+              <div className={isMobile ? 'my-2' : 'ml-2'}>
+                <NavLink 
+                  to="/decision/intake" 
+                  onClick={() => {
+                    console.log("[Navbar] Starting new decision flow, resetting context");
+                    resetDecisionContext();
+                  }} 
+                  className={`inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-600 shadow-sm transform transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${isMobile ? 'w-full justify-center' : ''}`}
+                >
+                  <PlusCircle className="h-5 w-5 mr-2" />
+                  <span>New Decision</span>
+                </NavLink>
+              </div>
+              
+              {/* Resume Decision - Conditionally Rendered */}
+              {activeDecisionId && (
+                <NavLink 
+                  to={`/decision/analysis?id=${activeDecisionId}`}
+                  className={`${baseStyles} text-green-600`}
+                >
+                  <Play className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
+                  <span>Resume Decision</span>
+                </NavLink>
+              )}
+              
+              {/* More Menu - Desktop Dropdown */}
+              {!isMobile && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowMoreMenu(!showMoreMenu)}
+                    className={`${baseStyles} gap-1`}
+                    aria-expanded={showMoreMenu}
+                    aria-haspopup="true"
+                  >
+                    <MoreHorizontal className="h-5 w-5 mr-1" />
+                    <span>More</span>
+                    <ChevronDown className={`h-4 w-4 ml-1 transition-transform duration-200 ${showMoreMenu ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showMoreMenu && (
+                    <div 
+                      className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg py-2 z-50 border border-gray-200 animate-fade-in"
+                      onMouseLeave={() => setShowMoreMenu(false)}
+                    >
+                      <NavLink to="/templates" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        <Star className="h-5 w-5 mr-3 text-yellow-500" />
+                        <span>Templates</span>
+                      </NavLink>
+                      <NavLink to="/teams" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        <TeamsIcon className="h-5 w-5 mr-3 text-blue-500" />
+                        <span>Teams</span>
+                      </NavLink>
+                      <NavLink to="/organisations" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        <Building className="h-5 w-5 mr-3 text-purple-500" />
+                        <span>Organisations</span>
+                      </NavLink>
+                      <div className="border-t border-gray-100 my-2"></div>
+                      <NavLink to="/diagnostics" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        <Wrench className="h-5 w-5 mr-3 text-gray-500" />
+                        <span>Diagnostics</span>
+                      </NavLink>
+                      <NavLink to="/about" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                        <Info className="h-5 w-5 mr-3 text-gray-500" />
+                        <span>About</span>
+                      </NavLink>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {/* Mobile-only secondary links */}
+              {isMobile && (
+                <>
+                  <NavLink to="/templates" className={getNavLinkStyles('/templates')}>
+                    <Star className="h-5 w-5 mr-3" />
+                    <span>Templates</span>
+                  </NavLink>
+                  <NavLink to="/teams" className={getNavLinkStyles('/teams')}>
+                    <TeamsIcon className="h-5 w-5 mr-3" />
+                    <span>Teams</span>
+                  </NavLink>
+                  <NavLink to="/organisations" className={getNavLinkStyles('/organisations')}>
+                    <Building className="h-5 w-5 mr-3" />
+                    <span>Organisations</span>
+                  </NavLink>
+                  <div className="border-t border-gray-200 my-2"></div>
+                  <NavLink to="/diagnostics" className={getNavLinkStyles('/diagnostics')}>
+                    <Wrench className="h-5 w-5 mr-3" />
+                    <span>Diagnostics</span>
+                  </NavLink>
+                  <NavLink to="/about" className={getNavLinkStyles('/about')}>
+                    <Info className="h-5 w-5 mr-3" />
+                    <span>About</span>
+                  </NavLink>
+                  <NavLink to="/profile" className={getNavLinkStyles('/profile')}>
+                    <User className="h-5 w-5 mr-3" />
+                    <span>Profile</span>
+                  </NavLink>
+                </>
+              )}
+              
               <NavButton
                 onClick={handleSignOut}
                 disabled={isLoading}
                 className={
                   isMobile
                     ? baseStyles
-                    : 'inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md'
+                    : 'inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors ml-2'
                 }
               >
                 <LogOut className="h-4 w-4 mr-2" />
@@ -198,14 +264,14 @@ export default function Navbar() {
             <>
               <NavLink
                 to="/login"
-                className={`${authButtonStyles} text-indigo-600 bg-indigo-50 hover:bg-indigo-100`}
+                className={`${authButtonStyles} text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:shadow-sm`}
               >
                 <LogIn className="h-4 w-4 mr-2" />
                 <span>Sign In</span>
               </NavLink>
               <NavLink
                 to="/signup"
-                className={`${authButtonStyles} text-white bg-indigo-600 hover:bg-indigo-700`}
+                className={`${authButtonStyles} text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-purple-600 hover:to-indigo-600 hover:shadow-md`}
               >
                 <UserPlus className="h-4 w-4 mr-2" />
                 <span>Create Account</span>
@@ -233,23 +299,22 @@ export default function Navbar() {
   );
 
   return (
-    <nav className="backdrop-blur-sm shadow-sm sticky top-0 z-50 border-b border-white/10" role="navigation">
+    <nav className="backdrop-blur-sm shadow-sm sticky top-0 z-50 border-b border-white/10 bg-white/90" role="navigation">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
             <Link
-              to={user ? '/decision/intake' : '/'}
+              to={user ? '/decisions' : '/'}
               onClick={() => {
                 if (user) {
                   console.log("[Navbar] Clicking logo with user, resetting context");
-                  resetDecisionContext();
                 }
               }}
-              className="flex-shrink-0 flex items-center"
+              className="flex-shrink-0 flex items-center group"
               aria-label="DecisionGuide.AI Home"
             >
-              <Brain className="h-8 w-8 text-indigo-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900">Olumi</span>
+              <Brain className="h-8 w-8 text-indigo-600 transition-transform duration-300 group-hover:scale-110" />
+              <span className="ml-2 text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600">Olumi</span>
             </Link>
           </div>
 
@@ -278,7 +343,7 @@ export default function Navbar() {
           <div className="flex items-center sm:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
+              className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 transition-colors"
               aria-expanded={isOpen}
             >
               <span className="sr-only">
@@ -291,19 +356,18 @@ export default function Navbar() {
       </div>
 
       <div
-        id="mobile-menu"
-        className={`fixed inset-0 sm:hidden bg-black/25 backdrop-blur-sm transition-opacity ${
+        className={`fixed inset-0 sm:hidden bg-black/25 backdrop-blur-sm transition-opacity z-50 ${
           isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
         onClick={() => setIsOpen(false)}
       >
         <div
-          className={`absolute right-0 top-16 w-full max-w-sm bg-white shadow-lg transform transition-transform ${
+          className={`absolute right-0 top-16 w-full max-w-sm bg-white shadow-lg transform transition-transform h-[calc(100vh-4rem)] overflow-y-auto ${
             isOpen ? 'translate-x-0' : 'translate-x-full'
           }`}
           onClick={e => e.stopPropagation()}
         >
-          <div className="py-3">{renderNavLinks(true)}</div>
+          <div className="py-3 pb-24">{renderNavLinks(true)}</div>
         </div>
       </div>
     </nav>

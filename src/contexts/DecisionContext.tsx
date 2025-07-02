@@ -35,6 +35,7 @@ export interface Collaborator {
 
 export interface DecisionContextType {
   decisionId: string | null
+  activeDecisionId: string | null
   decisionType: string | null
   decision: string | null
   importance: string | null
@@ -47,6 +48,7 @@ export interface DecisionContextType {
   collaboratorsError: string | null
   teamIds: string[]
   setDecisionId: (id: string | null) => void
+  setActiveDecisionId: (id: string | null) => void
   setDecisionType: (type: string | null) => void
   setDecision: (text: string | null) => void
   setImportance: (importance: string | null) => void
@@ -93,6 +95,9 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
 
   const [decisionId, setDecisionId] = useState<string | null>(
     initial.decisionId ?? null
+  )
+  const [activeDecisionId, setActiveDecisionId] = useState<string | null>(
+    initial.activeDecisionId ?? null
   )
   const [decisionType, setDecisionType] = useState<string | null>(
     initial.decisionType ?? null
@@ -318,6 +323,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const state = {
       decisionId,
+      activeDecisionId,
       decisionType,
       decision,
       importance,
@@ -331,6 +337,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state))
   }, [
     decisionId,
+    activeDecisionId,
     decisionType,
     decision,
     importance,
@@ -347,6 +354,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
   // Clears everything for a brand-new decision
   const resetDecisionContext = () => {
     setDecisionId(null)
+    setActiveDecisionId(null)
     setDecisionType(null)
     setDecision(null)
     setImportance(null)
@@ -381,6 +389,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     <DecisionContext.Provider
       value={{
         decisionId,
+        activeDecisionId,
         decisionType,
         decision,
         importance,
@@ -394,6 +403,7 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
         teamIds,
         setTeamIds,
         setDecisionId,
+        setActiveDecisionId,
         setDecisionType,
         setDecision,
         setImportance,
