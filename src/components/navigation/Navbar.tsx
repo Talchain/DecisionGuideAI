@@ -3,9 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDecision } from '../../contexts/DecisionContext';
 import { 
-  Brain, LogIn, LogOut, Menu, X, List, User, PlusCircle, Info, DoorOpen, 
-  Users as TeamsIcon, Building, Star, UserPlus, Settings, Play, 
-  LayoutDashboard, ChevronDown, Database, Wrench, MoreHorizontal
+  Brain, LogIn, LogOut, Menu, X, List, User, PlusCircle, Info, DoorOpen,
+  Users, Building, Star, UserPlus, Settings, Play, 
+  ChevronDown, Wrench, MoreHorizontal
 } from 'lucide-react';
 import { navDebug } from '../../lib/debug/navDebug';
 import {
@@ -71,13 +71,15 @@ NavButton.displayName = 'NavButton';
 
 export default function Navbar() {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { collaborators, decisionId, activeDecisionId, resetDecisionContext } = useDecision();
+  const { collaborators, decisionId, resetDecisionContext } = useDecision();
   const [isOpen, setIsOpen] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const mountedRef = useRef(true);
   const renderCountRef = useRef(0);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
 
   const hasValidAccess = localStorage.getItem('dga_access_validated') === 'true';
 
@@ -98,6 +100,26 @@ export default function Navbar() {
       });
     };
   }, [authLoading, user, hasValidAccess]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        showMoreMenu &&
+        moreMenuRef.current &&
+        moreButtonRef.current &&
+        !moreMenuRef.current.contains(event.target as Node) &&
+        !moreButtonRef.current.contains(event.target as Node)
+      ) {
+        setShowMoreMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showMoreMenu]);
 
   const handleSignOut = useCallback(async () => {
     if (isLoading) return;
@@ -141,7 +163,7 @@ export default function Navbar() {
               <NavLink to="/decisions" className={getNavLinkStyles('/decisions')}>
                 <List className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
                 <span>My Decisions</span>
-              </NavLink>
+              </NavLink> 
               
               {/* New Decision Button - Always Visible and Prominent */}
               <div className={isMobile ? 'my-2' : 'ml-2'}>
@@ -159,9 +181,9 @@ export default function Navbar() {
               </div>
               
               {/* Resume Decision - Conditionally Rendered */}
-              {activeDecisionId && (
+              {decisionId && (
                 <NavLink 
-                  to={`/decision/analysis?id=${activeDecisionId}`}
+                  to={`/decision/analysis?id=${decisionId}`}
                   className={`${baseStyles} text-green-600`}
                 >
                   <Play className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
@@ -173,6 +195,7 @@ export default function Navbar() {
               {!isMobile && (
                 <div className="relative">
                   <button
+                    ref={moreButtonRef}
                     onClick={() => setShowMoreMenu(!showMoreMenu)}
                     className={`${baseStyles} gap-1`}
                     aria-expanded={showMoreMenu}
@@ -185,27 +208,47 @@ export default function Navbar() {
                   
                   {showMoreMenu && (
                     <div 
+                      ref={moreMenuRef}
                       className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg py-2 z-50 border border-gray-200 animate-fade-in"
-                      onMouseLeave={() => setShowMoreMenu(false)}
                     >
-                      <NavLink to="/templates" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      <NavLink 
+                        to="/templates" 
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => setShowMoreMenu(false)}
+                      >
                         <Star className="h-5 w-5 mr-3 text-yellow-500" />
                         <span>Templates</span>
                       </NavLink>
-                      <NavLink to="/teams" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                        <TeamsIcon className="h-5 w-5 mr-3 text-blue-500" />
+                      <NavLink 
+                        to="/teams" 
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => setShowMoreMenu(false)}
+                      >
+                        <Users className="h-5 w-5 mr-3 text-blue-500" />
                         <span>Teams</span>
                       </NavLink>
-                      <NavLink to="/organisations" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      <NavLink 
+                        to="/organisations" 
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => setShowMoreMenu(false)}
+                      >
                         <Building className="h-5 w-5 mr-3 text-purple-500" />
                         <span>Organisations</span>
                       </NavLink>
                       <div className="border-t border-gray-100 my-2"></div>
-                      <NavLink to="/diagnostics" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      <NavLink 
+                        to="/diagnostics" 
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => setShowMoreMenu(false)}
+                      >
                         <Wrench className="h-5 w-5 mr-3 text-gray-500" />
                         <span>Diagnostics</span>
                       </NavLink>
-                      <NavLink to="/about" className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                      <NavLink 
+                        to="/about" 
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => setShowMoreMenu(false)}
+                      >
                         <Info className="h-5 w-5 mr-3 text-gray-500" />
                         <span>About</span>
                       </NavLink>
@@ -220,9 +263,9 @@ export default function Navbar() {
                   <NavLink to="/templates" className={getNavLinkStyles('/templates')}>
                     <Star className="h-5 w-5 mr-3" />
                     <span>Templates</span>
-                  </NavLink>
+                  </NavLink> 
                   <NavLink to="/teams" className={getNavLinkStyles('/teams')}>
-                    <TeamsIcon className="h-5 w-5 mr-3" />
+                    <Users className="h-5 w-5 mr-3" />
                     <span>Teams</span>
                   </NavLink>
                   <NavLink to="/organisations" className={getNavLinkStyles('/organisations')}>
@@ -305,11 +348,6 @@ export default function Navbar() {
           <div className="flex">
             <Link
               to={user ? '/decisions' : '/'}
-              onClick={() => {
-                if (user) {
-                  console.log("[Navbar] Clicking logo with user, resetting context");
-                }
-              }}
               className="flex-shrink-0 flex items-center group"
               aria-label="DecisionGuide.AI Home"
             >

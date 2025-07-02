@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 export default function MobileNavBar() {
   const location = useLocation();
   const { authenticated } = useAuth();
-  const { activeDecisionId, resetDecisionContext } = useDecision();
+  const { decisionId, resetDecisionContext } = useDecision();
   
   // Don't show on auth pages or landing page for non-authenticated users
   const isAuthRoute = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname);
@@ -48,11 +48,11 @@ export default function MobileNavBar() {
           <div className="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center -mt-5 shadow-lg">
             <PlusCircle className="h-6 w-6 text-white" />
           </div>
-        </Link>
+        </Link> 
         
-        {activeDecisionId ? (
+        {decisionId ? (
           <Link 
-            to={`/decision/analysis?id=${activeDecisionId}`}
+            to={`/decision/analysis?id=${decisionId}`}
             className="flex flex-col items-center justify-center w-1/5 h-full text-gray-500 hover:text-indigo-600"
           >
             <Play className="h-5 w-5" />
