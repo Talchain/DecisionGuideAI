@@ -73,7 +73,7 @@ export default function Navbar() {
   const { user, loading: authLoading, signOut } = useAuth();
   const { collaborators, decisionId, resetDecisionContext } = useDecision();
   const [isOpen, setIsOpen] = useState(false);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const mountedRef = useRef(true);
@@ -104,14 +104,11 @@ export default function Navbar() {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        showMoreMenu &&
-        moreMenuRef.current &&
-        moreButtonRef.current &&
-        !moreMenuRef.current.contains(event.target as Node) &&
-        !moreButtonRef.current.contains(event.target as Node)
-      ) {
-        setShowMoreMenu(false);
+      if (moreMenuOpen && moreMenuRef.current && moreButtonRef.current) {
+        if (!moreMenuRef.current.contains(event.target as Node) && 
+            !moreButtonRef.current.contains(event.target as Node)) {
+          setMoreMenuOpen(false);
+        }
       }
     };
 
@@ -119,7 +116,7 @@ export default function Navbar() {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [showMoreMenu]);
+  }, [moreMenuOpen]);
 
   const handleSignOut = useCallback(async () => {
     if (isLoading) return;
@@ -194,19 +191,19 @@ export default function Navbar() {
               {/* More Menu - Desktop Dropdown */}
               {!isMobile && (
                 <div className="relative z-50">
-                  <button
+                  <button 
                     ref={moreButtonRef}
-                    onClick={() => setShowMoreMenu(!showMoreMenu)}
+                    onClick={() => setMoreMenuOpen(!moreMenuOpen)}
                     className={`${baseStyles} gap-1`}
-                    aria-expanded={showMoreMenu}
+                    aria-expanded={moreMenuOpen}
                     aria-haspopup="true"
                   >
                     <MoreHorizontal className="h-5 w-5 mr-1" />
                     <span>More</span>
-                    <ChevronDown className={`h-4 w-4 ml-1 transition-transform duration-200 ${showMoreMenu ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`h-4 w-4 ml-1 transition-transform duration-200 ${moreMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
                   
-                  {showMoreMenu && (
+                  {moreMenuOpen && (
                     <div 
                       ref={moreMenuRef}
                       className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg py-2 border border-gray-200 animate-fade-in"
@@ -214,7 +211,7 @@ export default function Navbar() {
                       <NavLink 
                         to="/templates" 
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                        onClick={() => setShowMoreMenu(false)}
+                        onClick={() => setMoreMenuOpen(false)}
                       >
                         <Star className="h-5 w-5 mr-3 text-yellow-500" />
                         <span>Templates</span>
@@ -222,7 +219,7 @@ export default function Navbar() {
                       <NavLink 
                         to="/teams" 
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                        onClick={() => setShowMoreMenu(false)}
+                        onClick={() => setMoreMenuOpen(false)}
                       >
                         <Users className="h-5 w-5 mr-3 text-blue-500" />
                         <span>Teams</span>
@@ -230,7 +227,7 @@ export default function Navbar() {
                       <NavLink 
                         to="/organisations" 
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                        onClick={() => setShowMoreMenu(false)}
+                        onClick={() => setMoreMenuOpen(false)}
                       >
                         <Building className="h-5 w-5 mr-3 text-purple-500" />
                         <span>Organisations</span>
@@ -239,7 +236,7 @@ export default function Navbar() {
                       <NavLink 
                         to="/diagnostics" 
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                        onClick={() => setShowMoreMenu(false)}
+                        onClick={() => setMoreMenuOpen(false)}
                       >
                         <Wrench className="h-5 w-5 mr-3 text-gray-500" />
                         <span>Diagnostics</span>
@@ -247,7 +244,7 @@ export default function Navbar() {
                       <NavLink 
                         to="/about" 
                         className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                        onClick={() => setShowMoreMenu(false)}
+                        onClick={() => setMoreMenuOpen(false)}
                       >
                         <Info className="h-5 w-5 mr-3 text-gray-500" />
                         <span>About</span>
