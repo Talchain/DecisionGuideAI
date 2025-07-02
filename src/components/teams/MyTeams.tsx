@@ -20,7 +20,6 @@ import ManageTeamMembersModal from './ManageTeamMembersModal';
 import type { Team } from '../../types/teams';
 import Tooltip from '../Tooltip';
 import EmptyState from '../EmptyState';
-import Tooltip from '../Tooltip';
 
 // TeamCard component with new Manage Members button
 function TeamCard({

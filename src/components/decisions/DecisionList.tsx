@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { getUserId, getDecisions } from '../../lib/supabase';
 import { authLogger } from '../../lib/auth/authLogger';
 import { useDecision } from '../../contexts/DecisionContext';
-import { useDecision } from '../../contexts/DecisionContext';
 import { Decision } from '../../types/database';
 import { 
   PlusCircle, Loader, AlertTriangle, RefreshCw, Search, Filter, 

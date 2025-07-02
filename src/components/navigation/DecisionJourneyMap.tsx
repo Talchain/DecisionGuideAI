@@ -10,20 +10,7 @@ import {
   ArrowRight,
   Users,
   Lock,
-  CheckCircle,
-  ArrowRight,
-  Users,
-  Lock
 } from 'lucide-react';
-import Tooltip from '../Tooltip';
-
-interface JourneyStep {
-  id: string;
-  path: string;
-  label: string;
-  icon: React.ElementType;
-  description: string;
-}
 import Tooltip from '../Tooltip';
 
 interface JourneyStep {
@@ -37,14 +24,12 @@ interface JourneyStep {
 export default function DecisionJourneyMap() {
   const navigate = useNavigate();
   const location = useLocation();
-  const location = useLocation();
   const { 
     decisionId, 
     decision, 
     goals, 
     options, 
     criteria,
-    collaborators,
     collaborators
   } = useDecision();
 
@@ -54,7 +39,6 @@ export default function DecisionJourneyMap() {
       id: 'frame',
       path: '/decision/intake',
       label: 'Frame',
-      label: 'Frame',
       icon: Target,
       description: 'Define your decision'
     },
@@ -63,7 +47,6 @@ export default function DecisionJourneyMap() {
       path: '/decision/goals',
       label: 'Goals',
       icon: Lightbulb,
-      description: 'Clarify your objectives',
       description: 'Clarify your objectives'
     },
     {
@@ -71,7 +54,6 @@ export default function DecisionJourneyMap() {
       path: '/decision/options',
       label: 'Options',
       icon: ListChecks,
-      description: 'Generate alternatives',
       description: 'Generate alternatives'
     },
     {
@@ -79,14 +61,6 @@ export default function DecisionJourneyMap() {
       path: '/decision/criteria',
       label: 'Criteria',
       icon: BarChart2,
-      description: 'Define evaluation criteria'
-    },
-    {
-      id: 'analysis',
-      path: '/decision/analysis',
-      label: 'Analysis',
-      icon: CheckCircle,
-      description: 'Review and finalize',
       description: 'Define evaluation criteria'
     },
     {
@@ -134,11 +108,6 @@ export default function DecisionJourneyMap() {
       });
     }
   };
-
-  // If no decision in progress, don't show the journey map
-  if (!decisionId && !location.pathname.startsWith('/decision/')) {
-    return null;
-  }
 
   // If no decision in progress, don't show the journey map
   if (!decisionId && !location.pathname.startsWith('/decision/')) {
