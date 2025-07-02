@@ -106,7 +106,7 @@ export default function AuthNavigationGuard() {
         from: location.pathname
       });
 
-      navigate(targetPath, { replace: true });
+      navigate('/decision/intake', { replace: true });
     }
   }, [authenticated, loading, location.pathname, navigate, user]);
 
