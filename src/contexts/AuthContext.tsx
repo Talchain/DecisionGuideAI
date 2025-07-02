@@ -6,6 +6,9 @@ import type { UserProfile } from '../types/database';
 import { authLogger } from '../lib/auth/authLogger';
 import { clearAuthStates } from '../lib/auth/authUtils';
 
+// Timeout for session refresh attempts
+const SESSION_REFRESH_TIMEOUT = 10000; // 10 seconds
+
 // Debug flag for additional logging
 const AUTH_DEBUG = false;
 
@@ -43,6 +46,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading: true,
     authenticated: false
   });
+  
+  // Refs for tracking session refresh state
+  const refreshingSessionRef = useRef<boolean>(false);
+  const sessionRefreshTimeoutRef = useRef<number | null>(null);
 
   const fetchProfile = useCallback(async (user: User) => {
     try {
@@ -224,11 +231,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Add visibility change listener
     document.addEventListener('visibilitychange', visibilityChangeHandler);
 
+    // Set up a periodic session check for active tabs
+    const periodicSessionCheck = setInterval(async () => {
+      if (document.visibilityState === 'visible' && state.authenticated) {
+        try {
+          // Only attempt refresh if we're not already refreshing
+          if (!refreshingSessionRef.current) {
+            refreshingSessionRef.current = true;
+            
+            // Set a timeout to prevent hanging
+            if (sessionRefreshTimeoutRef.current) {
+              window.clearTimeout(sessionRefreshTimeoutRef.current);
+            }
+            
+            sessionRefreshTimeoutRef.current = window.setTimeout(() => {
+              refreshingSessionRef.current = false;
+              sessionRefreshTimeoutRef.current = null;
+              console.log('[AuthContext] Session refresh timed out');
+            }, SESSION_REFRESH_TIMEOUT);
+            
+            // Attempt to refresh the session
+            const { data, error } = await supabase.auth.refreshSession();
+            
+            // Clear timeout since we got a response
+            if (sessionRefreshTimeoutRef.current) {
+              window.clearTimeout(sessionRefreshTimeoutRef.current);
+              sessionRefreshTimeoutRef.current = null;
+            }
+            
+            if (error) {
+              console.warn('[AuthContext] Session refresh error:', error);
+              // If refresh fails and we thought we were authenticated, update state
+              if (state.authenticated) {
+                await handleAuthStateChange(null);
+              }
+            } else if (data.session) {
+              if (AUTH_DEBUG) console.log('[AuthContext] Session refreshed successfully');
+              await handleAuthStateChange(data.session);
+            } else if (state.authenticated) {
+              // No session returned but we thought we were authenticated
+              await handleAuthStateChange(null);
+            }
+          }
+        } catch (error) {
+          console.error('[AuthContext] Error during periodic session check:', error);
+        } finally {
+          refreshingSessionRef.current = false;
+          if (sessionRefreshTimeoutRef.current) {
+            window.clearTimeout(sessionRefreshTimeoutRef.current);
+            sessionRefreshTimeoutRef.current = null;
+          }
+        }
+      }
+    }, 60000); // Check every minute
+
     initAuth();
 
     return () => {
       if (visibilityChangeHandler) {
         document.removeEventListener('visibilitychange', visibilityChangeHandler);
+      }
+      
+      // Clear interval and timeout on unmount
+      clearInterval(periodicSessionCheck);
+      if (sessionRefreshTimeoutRef.current) {
+        window.clearTimeout(sessionRefreshTimeoutRef.current);
+        sessionRefreshTimeoutRef.current = null;
       }
     };
   }, [handleAuthStateChange]);
@@ -274,6 +342,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut: async () => {
       authLogger.debug('AUTH', 'Sign out attempt');
       try {
+        // Clear any pending session refresh
+        if (sessionRefreshTimeoutRef.current) {
+          window.clearTimeout(sessionRefreshTimeoutRef.current);
+          sessionRefreshTimeoutRef.current = null;
+        }
+        refreshingSessionRef.current = false;
+        
         // Reset context state before attempting Supabase signout
         setState({
           user: null,
@@ -287,18 +362,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Then try to sign out from Supabase
         try {
-          // Get current session first
-          const { data: { session } } = await supabase.auth.getSession();
-          
-          if (session) {
-            await supabase.auth.signOut({
-              scope: 'local' // Change to local scope to prevent 403 error
-            }).then(() => {
-              if (AUTH_DEBUG) console.log('[AuthContext] Supabase sign out successful');
-            }).catch(e => {
-              console.warn('[AuthContext] Supabase sign out error:', e);
-            });
-          }
+          // Sign out without checking session first
+          await supabase.auth.signOut({
+            scope: 'local' // Use local scope to prevent 403 error
+          }).then(() => {
+            if (AUTH_DEBUG) console.log('[AuthContext] Supabase sign out successful');
+          }).catch(e => {
+            console.warn('[AuthContext] Supabase sign out error:', e);
+          });
         } catch (signOutError) {
           // Log but continue - we'll still clear local state
           authLogger.debug('AUTH', 'Supabase sign out failed, continuing with cleanup', {
