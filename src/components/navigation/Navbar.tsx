@@ -2,7 +2,6 @@ import React, { useState, useCallback, useEffect, useRef, memo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDecision } from '../../contexts/DecisionContext';
-import { useDecision } from '../../contexts/DecisionContext';
 import {
   Brain,
   LogIn,
@@ -12,12 +11,10 @@ import {
   List,
   User,
   PlusCircle,
-  PlusCircle,
   Info,
   DoorOpen,
   Users as TeamsIcon,
   Building,
-  Star,
   Star,
   UserPlus
 } from 'lucide-react';
@@ -85,7 +82,6 @@ NavButton.displayName = 'NavButton';
 
 export default function Navbar() {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { collaborators, decisionId, resetDecisionContext } = useDecision();
   const { collaborators, decisionId, resetDecisionContext } = useDecision();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -157,10 +153,6 @@ export default function Navbar() {
                 <Star className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
                 <span>Templates</span>
               </NavLink>
-              <NavLink to="/templates" className={baseStyles}>
-                <Star className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
-                <span>Templates</span>
-              </NavLink>
               <NavLink to="/diagnostics" className={baseStyles}>
                 <span>Diagnostics</span>
               </NavLink>
@@ -171,17 +163,6 @@ export default function Navbar() {
               <NavLink to="/organisations" className={baseStyles}>
                 <Building className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
                 <span>Organisations</span>
-              </NavLink>
-              <NavLink 
-                to="/decision/intake" 
-                onClick={() => {
-                  console.log("[Navbar] Starting new decision flow, resetting context");
-                  resetDecisionContext();
-                }} 
-                className={baseStyles}
-              >
-                <PlusCircle className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
-                <span>New Decision</span>
               </NavLink>
               <NavLink 
                 to="/decision/intake" 
@@ -264,12 +245,6 @@ export default function Navbar() {
                   resetDecisionContext();
                 }
               }}
-              onClick={() => {
-                if (user) {
-                  console.log("[Navbar] Clicking logo with user, resetting context");
-                  resetDecisionContext();
-                }
-              }}
               className="flex-shrink-0 flex items-center"
               aria-label="DecisionGuide.AI Home"
             >
@@ -279,24 +254,6 @@ export default function Navbar() {
           </div>
 
           <div className="hidden sm:ml-6 sm:flex sm:items-center">
-            {/* Collaborator avatars */}
-            {decisionId && (
-              <div className="flex items-center gap-2 mr-4">
-                <div className="flex -space-x-2">
-                  {collaborators.slice(0, 4).map(c => (
-                    <CollaboratorAvatar key={c.id} email={c.email || ''} role={c.role} />
-                  ))}
-                  {collaborators.length > 4 && (
-                    <Tooltip content={`+${collaborators.length - 4} more`}>
-                      <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-sm font-medium">
-                        +{collaborators.length - 4}
-                      </div>
-                    </Tooltip>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Collaborator avatars */}
             {decisionId && (
               <div className="flex items-center gap-2 mr-4">
