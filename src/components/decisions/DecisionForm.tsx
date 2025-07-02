@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useDecision } from '../../contexts/DecisionContext';
 import { createDecision } from '../../lib/supabase';
 import { 
   Briefcase, Wallet, Heart, Compass, Users, HelpCircle,
@@ -44,6 +45,7 @@ const IMPORTANCE_LEVELS = [
 export default function DecisionForm() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { setActiveDecisionId } = useDecision();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   
@@ -90,6 +92,9 @@ export default function DecisionForm() {
       });
 
       if (error) throw error;
+
+      // Set as active decision
+      setActiveDecisionId(data?.id);
 
       navigate('/decision/analysis', {
         state: {

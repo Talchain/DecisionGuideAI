@@ -90,13 +90,19 @@ export default function DecisionIntakeScreen() {
   // Advance to next step when current step is completed
   useEffect(() => {
     if (formData.decision && currentStep === 1) {
+      setCurrentStep(1);
       setShowTypeOptions(true);
     }
     if (formData.decisionType && currentStep === 2) {
+      setCurrentStep(2);
       setShowImportanceOptions(true);
     }
     if (formData.importance && currentStep === 3) {
+      setCurrentStep(3);
       setShowReversibilityOptions(true);
+    }
+    if (formData.reversibility && currentStep === 4) {
+      setCurrentStep(4);
     }
   }, [formData, currentStep]);
 
@@ -163,8 +169,8 @@ export default function DecisionIntakeScreen() {
     try {
       // Get the backend type from the selected category name
       const backendType = getBackendTypeFromName(formData.decisionType);
-      
       const userId = await getUserId();
+      
       if (!userId) {
         setError('Unable to get user session. Please log in again.');
         return;
@@ -195,6 +201,7 @@ export default function DecisionIntakeScreen() {
       setImportance(formData.importance); 
       setReversibility(formData.reversibility);
       setDecisionId(data.id);
+      setActiveDecisionId(data.id);
       
       console.log("[handleSubmit] Decision created successfully:", {
         userId,
@@ -239,10 +246,10 @@ export default function DecisionIntakeScreen() {
   // Calculate progress percentage
   const calculateProgress = () => {
     const steps = [
-      !!formData.decision,
-      !!formData.decisionType,
-      !!formData.importance,
-      !!formData.reversibility
+      !!formData.decision, // Step 1
+      !!formData.decisionType, // Step 2
+      !!formData.importance, // Step 3
+      !!formData.reversibility // Step 4
     ];
     
     const completedSteps = steps.filter(Boolean).length;
