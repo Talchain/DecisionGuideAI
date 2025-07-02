@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase, getProfile } from '../lib/supabase';
@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const handleAuthStateChange = useCallback(async (session: Session | null) => {
     if (!session) {
       // Clear any stale auth data when session is null
-      if (state.user !== null || state.profile !== null || state.authenticated !== false) {
+      if (state.user !== null || state.profile !== null || state.authenticated !== false || state.loading) {
         if (AUTH_DEBUG) console.log('[AuthContext] Session is null, clearing auth state');
         
         // Log the event for debugging
@@ -91,22 +91,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Only fetch profile and update state if user has changed or we don't have a profile
       if (currentUserId !== newUserId || !state.profile) {
         const profile = await fetchProfile(session.user);
-        
-        if (AUTH_DEBUG) console.log('[AuthContext] Updating auth state with new user/profile');
-        
+
+        if (AUTH_DEBUG) console.log('[AuthContext] Updating auth state with new user/profile', {
+          userId: session.user.id,
+          hasProfile: !!profile
+        });
+
         setState({
           user: session.user,
           profile,
           loading: false,
           authenticated: true
         });
-      } else if (state.loading || !state.authenticated) {
-        // Just update loading/authenticated if needed
-        setState(prev => ({
-          ...prev,
-          loading: false,
-          authenticated: true
-        }));
+      } else {
+        // Always ensure loading is false and authenticated is true when we have a valid session
+        if (state.loading || !state.authenticated) {
+          if (AUTH_DEBUG) console.log('[AuthContext] Updating loading/authenticated state only');
+          setState(prev => ({
+            ...prev,
+            loading: false,
+            authenticated: true
+          }));
+        }
       }
     } catch (error) {
       authLogger.error('ERROR', 'Auth state change error', error);
@@ -125,6 +131,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize auth state
   useEffect(() => {
+    let visibilityChangeHandler: (() => void) | null = null;
+    
     const initAuth = async () => {
       authLogger.debug('AUTH', 'Initializing auth state', { timestamp: new Date().toISOString() });
       try {
@@ -145,6 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Subscribe to auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
           authLogger.debug('AUTH', 'Auth state changed', { event });
+          console.log('[AuthContext] Auth state changed:', event, session?.user?.id);
           
           // Log auth events for debugging
           if (event === 'SIGNED_OUT') {
@@ -163,6 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           await handleAuthStateChange(session);
         });
+
 
         return () => {
           subscription.unsubscribe();
@@ -192,7 +202,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    // Set up visibility change handler to refresh session when tab becomes visible
+    visibilityChangeHandler = async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[AuthContext] Tab became visible, refreshing session');
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (data.session) {
+            console.log('[AuthContext] Session refreshed on visibility change');
+            await handleAuthStateChange(data.session);
+          } else if (state.authenticated) {
+            console.log('[AuthContext] No session found on visibility change but state shows authenticated');
+            await handleAuthStateChange(null);
+          }
+        } catch (error) {
+          console.error('[AuthContext] Error refreshing session on visibility change:', error);
+        }
+      }
+    };
+
+    // Add visibility change listener
+    document.addEventListener('visibilitychange', visibilityChangeHandler);
+
     initAuth();
+
+    return () => {
+      if (visibilityChangeHandler) {
+        document.removeEventListener('visibilitychange', visibilityChangeHandler);
+      }
+    };
   }, [handleAuthStateChange]);
 
   const value = React.useMemo(() => ({
