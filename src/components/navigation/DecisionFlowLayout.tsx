@@ -1,5 +1,6 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
+import { Users } from 'lucide-react';
 import { useDecision } from '../../contexts/DecisionContext';
 import DecisionJourneyMap from './DecisionJourneyMap';
 import CollaborationPanel from './CollaborationPanel';
