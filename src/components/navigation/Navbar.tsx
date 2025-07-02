@@ -205,7 +205,7 @@ export default function Navbar() {
                   {moreMenuOpen && (
                     <div 
                       ref={moreMenuRef}
-                      className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg py-2 border border-gray-200 animate-fade-in"
+                      className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg py-2 border border-gray-200 animate-fade-in z-50"
                     >
                       <NavLink 
                         to="/templates" 
