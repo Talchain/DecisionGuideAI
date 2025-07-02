@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 export default function MobileNavBar() {
   const location = useLocation();
   const { authenticated } = useAuth();
-  const { decisionId, resetDecisionContext } = useDecision();
+  const { activeDecisionId, resetDecisionContext } = useDecision();
   
   // Don't show on auth pages or landing page for non-authenticated users
   const isAuthRoute = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname);
@@ -50,9 +50,9 @@ export default function MobileNavBar() {
           </div>
         </Link> 
         
-        {decisionId ? (
+        {activeDecisionId ? (
           <Link 
-            to={`/decision/analysis?id=${decisionId}`}
+            to={`/decision/analysis?id=${activeDecisionId}`}
             className="flex flex-col items-center justify-center w-1/5 h-full text-gray-500 hover:text-indigo-600"
           >
             <Play className="h-5 w-5" />

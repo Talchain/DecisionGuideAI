@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getUserId, getDecisions } from '../../lib/supabase';
 import { authLogger } from '../../lib/auth/authLogger';
 import { useDecision } from '../../contexts/DecisionContext';
+import EmptyState from '../EmptyState';
 import { Decision } from '../../types/database';
 import { 
   PlusCircle, Loader, AlertTriangle, RefreshCw, Search, Filter, 
@@ -45,5 +46,57 @@ const SORT_OPTIONS = [
 const ITEMS_PER_PAGE_OPTIONS = [10, 25, 50];
 
 export default function DecisionList() {
+  const [decisions, setDecisions] = useState<Decision[]>([]);
+  const { resetDecisionContext, setActiveDecisionId } = useDecision();
+  const [filteredDecisions, setFilteredDecisions] = useState<Decision[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Render empty state
+  if (decisions.length === 0) {
+    return (
+      <div className="space-y-8">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-gray-900">Your Decisions</h2>
+          <Link
+            to="/decision/intake"
+            onClick={() => {
+              console.log("[DecisionList] Starting new decision, resetting context");
+              resetDecisionContext();
+            }}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          >
+            <PlusCircle className="h-5 w-5 mr-2" />
+            New Decision
+          </Link>
+        </div>
+
+        <EmptyState
+          title="No decisions yet"
+          description="Start by creating your first decision to track and analyze your decision-making process."
+          actionText="Create Decision"
+          actionPath="/decision/intake"
+          tips={[
+            "Create a new decision by clicking the button above",
+            "Fill in the details about your decision",
+            "Use our AI-powered analysis to help you make better choices"
+          ]}
+        />
+      </div>
+    );
+  }
+
+                            onClick={(e) => {
+                              e.preventDefault();
+                              // Ensure we have a valid session before navigating
+                              setActiveDecisionId(decision.id);
+                              supabase.auth.getSession().then(({ data }) => {
+                                if (data.session) {
+                                  navigate(`/decisions/${decision.id}`);
+                                } else {
+                                  console.error('No valid session found');
+                                }
+                              });
+                            }}
   // ... rest of the component code ...
 }

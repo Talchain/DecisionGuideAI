@@ -3,9 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDecision } from '../../contexts/DecisionContext';
 import { 
-  Brain, LogIn, LogOut, Menu, X, List, User, PlusCircle, Info, DoorOpen,
-  Users, Building, Star, UserPlus, Settings, Play, 
-  ChevronDown, Wrench, MoreHorizontal
+  Brain, LogIn, LogOut, Menu, X, List, User, PlusCircle, Info, DoorOpen, 
+  Users, Building, Star, UserPlus, Settings, Play, ChevronDown, Wrench
 } from 'lucide-react';
 import { navDebug } from '../../lib/debug/navDebug';
 import {
@@ -71,7 +70,7 @@ NavButton.displayName = 'NavButton';
 
 export default function Navbar() {
   const { user, loading: authLoading, signOut } = useAuth();
-  const { collaborators, decisionId, resetDecisionContext } = useDecision();
+  const { collaborators, decisionId, activeDecisionId, resetDecisionContext } = useDecision();
   const [isOpen, setIsOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -178,9 +177,9 @@ export default function Navbar() {
               </div>
               
               {/* Resume Decision - Conditionally Rendered */}
-              {decisionId && (
+              {activeDecisionId && (
                 <NavLink 
-                  to={`/decision/analysis?id=${decisionId}`}
+                  to={`/decision/analysis?id=${activeDecisionId}`}
                   className={`${baseStyles} text-green-600`}
                 >
                   <Play className={`h-5 w-5 ${isMobile ? 'mr-3' : 'mr-2'}`} />
