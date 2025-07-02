@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDecision } from '../../contexts/DecisionContext';
 import { 
-  Brain, LogIn, LogOut, Menu, X, List, User, PlusCircle, Info, DoorOpen, 
+  Brain, LogIn, LogOut, Menu, X, List, User, PlusCircle, Info, DoorOpen, MoreHorizontal,
   Users, Building, Star, UserPlus, Settings, Play, ChevronDown, Wrench
 } from 'lucide-react';
 import { navDebug } from '../../lib/debug/navDebug';
