@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   ArrowRight,
@@ -41,6 +41,43 @@ export default function LandingPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
   const navigationAttemptedRef = useRef(false);
+  
+  // Animation state for feature cards
+  const [visibleCards, setVisibleCards] = useState<boolean[]>([false, false, false, false]);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+  
+  // Intersection Observer for scroll animations
+  const observerCallback = useCallback((entries: IntersectionObserverEntry[]) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        const index = cardRefs.current.findIndex(ref => ref === entry.target);
+        if (index !== -1) {
+          setVisibleCards(prev => {
+            const newState = [...prev];
+            newState[index] = true;
+            return newState;
+          });
+        }
+      }
+    });
+  }, []);
+  
+  useEffect(() => {
+    const observer = new IntersectionObserver(observerCallback, {
+      threshold: 0.2,
+      rootMargin: '0px 0px -50px 0px'
+    });
+    
+    cardRefs.current.forEach(ref => {
+      if (ref) observer.observe(ref);
+    });
+    
+    return () => {
+      cardRefs.current.forEach(ref => {
+        if (ref) observer.unobserve(ref);
+      });
+    };
+  }, [observerCallback]);
 
   // Handle navigation for authenticated users
   useEffect(() => {
@@ -153,7 +190,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 animate-gradient-shift">
       {/* Sign In Link */}
       <div className="absolute top-0 right-0 p-6 md:p-8 z-50">
         <Link
@@ -168,8 +205,8 @@ export default function LandingPage() {
             hover:text-white
             hover:bg-gradient-to-r hover:from-purple-500 hover:to-indigo-500
             rounded-lg
-            shadow-md hover:shadow-lg
-            transform hover:-translate-y-0.5
+            shadow-md hover:shadow-xl
+            transform hover:-translate-y-1 active:scale-[0.98]
             transition-all duration-200
             border border-gray-200
             focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500
@@ -180,7 +217,7 @@ export default function LandingPage() {
       </div>
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden pt-10 pb-2 lg:pt-[10px] lg:pb-[20px]">
+      <section className="relative overflow-hidden pt-10 pb-2 lg:pt-[10px] lg:pb-[20px] animate-scale-in">
         <div className="container mx-auto px-4">
           <div className="flex flex-wrap -mx-4">
             <div className="w-full px-4">
@@ -200,7 +237,7 @@ export default function LandingPage() {
                 <div className="mt-6">
                   <Link
                     to="/decision/intake"
-                    className="inline-flex items-center px-6 py-3 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 transition-all duration-200"
+                    className="inline-flex items-center px-6 py-3 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 hover:shadow-xl transform hover:-translate-y-1 active:scale-[0.98] transition-all duration-200"
                   >
                     Start Making Better Decisions
                     <ArrowRight className="ml-2 h-5 w-5" />
@@ -213,7 +250,7 @@ export default function LandingPage() {
       </section>
 
       {/* Forms Section */}
-      <section className="py-12 backdrop-blur-sm">
+      <section className="py-12 backdrop-blur-sm animate-float-up">
         <div className="container mx-auto px-4">
           <div className="grid md:grid-cols-2 gap-8 max-w-7xl mx-auto items-start">
             {/* Early Access Registration */}
@@ -259,7 +296,7 @@ export default function LandingPage() {
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full flex items-center justify-center px-6 py-3.5 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transform hover:-translate-y-0.5 transition-all duration-200"
+                      className="w-full flex items-center justify-center px-6 py-3.5 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transform hover:-translate-y-1 hover:shadow-xl active:scale-[0.98] transition-all duration-200"
                     >
                       {isSubmitting ? 'Processing...' : 'Request Early Access'}
                       <ArrowRight className="ml-2 h-5 w-5" />
@@ -317,7 +354,7 @@ export default function LandingPage() {
                 <button
                   type="submit"
                   href="/decision/intake" 
-                  className="w-full flex items-center justify-center px-6 py-3.5 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transform hover:-translate-y-0.5 transition-all duration-200"
+                  className="w-full flex items-center justify-center px-6 py-3.5 text-base font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg hover:from-purple-600 hover:to-indigo-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transform hover:-translate-y-1 hover:shadow-xl active:scale-[0.98] transition-all duration-200"
                 >
                   {isSubmitting ? 'Verifying...' : 'Enter Olumi'}
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -342,7 +379,13 @@ export default function LandingPage() {
       <section className="py-16">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
+            <div 
+              ref={el => cardRefs.current[0] = el}
+              className={`p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group ${
+                visibleCards[0] ? 'animate-float-up' : 'opacity-0 translate-y-8'
+              }`}
+              style={{ animationDelay: '0.1s' }}
+            >
               <div className="p-3 bg-indigo-50 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
                 <CodeBranch className="h-6 w-6 text-indigo-600 transition-transform duration-300 ease-in-out group-hover:scale-110 group-hover:rotate-45" />
               </div>
@@ -355,7 +398,13 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
+            <div 
+              ref={el => cardRefs.current[1] = el}
+              className={`p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group ${
+                visibleCards[1] ? 'animate-float-up' : 'opacity-0 translate-y-8'
+              }`}
+              style={{ animationDelay: '0.2s' }}
+            >
               <div className="p-3 bg-green-50 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
                 <Brain className="h-6 w-6 text-green-600 transition-transform duration-300 ease-in-out group-hover:scale-110 group-hover:animate-pulse" />
               </div>
@@ -368,7 +417,13 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
+            <div 
+              ref={el => cardRefs.current[2] = el}
+              className={`p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group ${
+                visibleCards[2] ? 'animate-float-up' : 'opacity-0 translate-y-8'
+              }`}
+              style={{ animationDelay: '0.3s' }}
+            >
               <div className="p-3 bg-purple-50 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
                 <Sparkles className="h-6 w-6 text-purple-600 transition-transform duration-300 ease-in-out group-hover:animate-[sparkle_0.5s_ease-in-out]" />
               </div>
@@ -381,7 +436,13 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group">
+            <div 
+              ref={el => cardRefs.current[3] = el}
+              className={`p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 group ${
+                visibleCards[3] ? 'animate-float-up' : 'opacity-0 translate-y-8'
+              }`}
+              style={{ animationDelay: '0.4s' }}
+            >
               <div className="p-3 bg-blue-50 rounded-lg w-12 h-12 flex items-center justify-center mb-4">
                 <UserCog className="h-6 w-6 text-blue-600 transition-transform duration-300 ease-in-out group-hover:animate-[usercog_0.5s_ease-in-out]" />
               </div>
