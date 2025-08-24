@@ -1,13 +1,15 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, List, PlusCircle, Play, Menu } from 'lucide-react';
+import { Inbox, Brain, PlusCircle, Users, Menu } from 'lucide-react';
 import { useDecision } from '../../contexts/DecisionContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useSidebar } from '../../contexts/SidebarContext';
 
 export default function MobileNavBar() {
   const location = useLocation();
   const { authenticated } = useAuth();
-  const { activeDecisionId, resetDecisionContext } = useDecision();
+  const { resetDecisionContext } = useDecision();
+  const { toggleCollapsed } = useSidebar();
   
   // Don't show on auth pages or landing page for non-authenticated users
   const isAuthRoute = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(location.pathname);
@@ -21,11 +23,11 @@ export default function MobileNavBar() {
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40 sm:hidden">
       <div className="flex items-center justify-around h-16">
         <Link 
-          to="/"
+          to="/inbox/waiting"
           className="flex flex-col items-center justify-center w-1/5 h-full text-gray-500 hover:text-indigo-600"
         >
-          <Home className="h-5 w-5" />
-          <span className="text-xs mt-1">Home</span>
+          <Inbox className="h-5 w-5" />
+          <span className="text-xs mt-1">Inbox</span>
         </Link>
         
         <Link 
@@ -36,7 +38,7 @@ export default function MobileNavBar() {
               : 'text-gray-500 hover:text-indigo-600'
           }`}
         >
-          <List className="h-5 w-5" />
+          <Brain className="h-5 w-5" />
           <span className="text-xs mt-1">Decisions</span>
         </Link>
         
@@ -50,28 +52,21 @@ export default function MobileNavBar() {
           </div>
         </Link> 
         
-        {activeDecisionId ? (
-          <Link 
-            to={`/decision/analysis?id=${activeDecisionId}`}
-            className="flex flex-col items-center justify-center w-1/5 h-full text-gray-500 hover:text-indigo-600"
-          >
-            <Play className="h-5 w-5" />
-            <span className="text-xs mt-1">Resume</span>
-          </Link>
-        ) : (
-          <div className="flex flex-col items-center justify-center w-1/5 h-full text-gray-300">
-            <Play className="h-5 w-5" />
-            <span className="text-xs mt-1">Resume</span>
-          </div>
-        )}
-        
         <Link 
-          to="#"
+          to="/teams"
+          className="flex flex-col items-center justify-center w-1/5 h-full text-gray-500 hover:text-indigo-600"
+        >
+          <Users className="h-5 w-5" />
+          <span className="text-xs mt-1">Teams</span>
+        </Link>
+        
+        <button 
+          onClick={toggleCollapsed}
           className="flex flex-col items-center justify-center w-1/5 h-full text-gray-500 hover:text-indigo-600"
         >
           <Menu className="h-5 w-5" />
-          <span className="text-xs mt-1">More</span>
-        </Link>
+          <span className="text-xs mt-1">Menu</span>
+        </button>
       </div>
     </div>
   );

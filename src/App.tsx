@@ -8,8 +8,9 @@ import {
 import { supabase } from './lib/supabase'
 import { checkAccessValidation } from './lib/auth/accessValidation'
 import { useAuth } from './contexts/AuthContext'
+import { SidebarProvider } from './contexts/SidebarContext'
 import ErrorBoundary from './components/ErrorBoundary'
-import Navbar from './components/navigation/Navbar'
+import Sidebar from './components/navigation/Sidebar'
 
 import LandingPage from './components/LandingPage'
 import About from './components/About'
@@ -71,181 +72,183 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <DecisionProvider>
-        <TeamsProvider>
-          <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-purple-100">
-            <AuthNavigationGuard />
-            {showNavbar && <Navbar />}
-            <main className="container mx-auto px-4 py-8">
-              <ErrorBoundary>
-                <Routes>
-                  {/* Public */}
-                  <Route path="/" element={<LandingPage />} />
-                  <Route path="/about" element={<About />} />
+      <SidebarProvider>
+        <DecisionProvider>
+          <TeamsProvider>
+            <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-purple-100">
+              <AuthNavigationGuard />
+              <Sidebar />
+              <main className="container mx-auto px-4 py-8">
+                <ErrorBoundary>
+                  <Routes>
+                    {/* Public */}
+                    <Route path="/" element={<LandingPage />} />
+                    <Route path="/about" element={<About />} />
 
-                  {/* Auth */}
-                  <Route element={<AuthLayout />}>
-                    <Route path="/login" element={<LoginForm />} />
-                    <Route path="/signup" element={<SignUpForm />} />
-                    <Route
-                      path="/forgot-password"
-                      element={<ForgotPasswordForm />}
-                    />
-                    <Route
-                      path="/reset-password"
-                      element={<ResetPasswordForm />}
-                    />
-                  </Route>
+                    {/* Auth */}
+                    <Route element={<AuthLayout />}>
+                      <Route path="/login" element={<LoginForm />} />
+                      <Route path="/signup" element={<SignUpForm />} />
+                      <Route
+                        path="/forgot-password"
+                        element={<ForgotPasswordForm />}
+                      />
+                      <Route
+                        path="/reset-password"
+                        element={<ResetPasswordForm />}
+                      />
+                    </Route>
 
-                  {/* Decision Flow - Wrapped in DecisionFlowLayout */}
-                  <Route element={<DecisionFlowLayout />}>
+                    {/* Decision Flow - Wrapped in DecisionFlowLayout */}
+                    <Route element={<DecisionFlowLayout />}>
+                      <Route
+                        path="/decision/intake"
+                        element={
+                          <ProtectedRoute>
+                            <DecisionIntakeScreen />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/decision/goals"
+                        element={
+                          <ProtectedRoute>
+                            <GoalClarificationScreen />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/decision/options"
+                        element={
+                          <ProtectedRoute>
+                            <OptionsIdeation />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/decision/criteria"
+                        element={
+                          <ProtectedRoute>
+                            <CriteriaStage />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/decision/evaluate"
+                        element={
+                          <ProtectedRoute>
+                            <EvaluationMethodSelector />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/decision/analysis"
+                        element={
+                          <ProtectedRoute>
+                            <Analysis />
+                          </ProtectedRoute>
+                        }
+                      />
+                    </Route>
+
+                    {/* Protected */}
                     <Route
-                      path="/decision/intake"
+                      path="/decisions"
                       element={
                         <ProtectedRoute>
-                          <DecisionIntakeScreen />
+                          <DecisionList />
                         </ProtectedRoute>
                       }
                     />
                     <Route
-                      path="/decision/goals"
+                      path="/templates"
                       element={
                         <ProtectedRoute>
-                          <GoalClarificationScreen />
+                          <TemplatesDashboard />
                         </ProtectedRoute>
                       }
                     />
                     <Route
-                      path="/decision/options"
+                      path="/decisions/new"
                       element={
                         <ProtectedRoute>
-                          <OptionsIdeation />
+                          <DecisionForm />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Teams listing and details */}
+                    <Route
+                      path="/teams"
+                      element={
+                        <ProtectedRoute>
+                          <MyTeams />
                         </ProtectedRoute>
                       }
                     />
                     <Route
-                      path="/decision/criteria"
+                      path="/teams/:teamId"
                       element={
                         <ProtectedRoute>
-                          <CriteriaStage />
+                          <TeamDetails />
+                        </ProtectedRoute>
+                      }
+                    />
+                    
+                    <Route
+                      path="/diagnostics"
+                      element={
+                        <ProtectedRoute>
+                          <SupabaseDiagnostics />
+                        </ProtectedRoute>
+                      }
+                    />
+                    
+                    {/* Organisations */}
+                    <Route
+                      path="/organisations"
+                      element={
+                        <ProtectedRoute>
+                          <OrganisationList />
                         </ProtectedRoute>
                       }
                     />
                     <Route
-                      path="/decision/evaluate"
+                      path="/organisations/:id"
                       element={
                         <ProtectedRoute>
-                          <EvaluationMethodSelector />
+                          <OrganisationDetails />
                         </ProtectedRoute>
                       }
                     />
                     <Route
-                      path="/decision/analysis"
+                      path="/organisations/:id/edit"
                       element={
                         <ProtectedRoute>
-                          <Analysis />
+                          <OrganisationDetails />
                         </ProtectedRoute>
                       }
                     />
-                  </Route>
 
-                  {/* Protected */}
-                  <Route
-                    path="/decisions"
-                    element={
-                      <ProtectedRoute>
-                        <DecisionList />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/templates"
-                    element={
-                      <ProtectedRoute>
-                        <TemplatesDashboard />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/decisions/new"
-                    element={
-                      <ProtectedRoute>
-                        <DecisionForm />
-                      </ProtectedRoute>
-                    }
-                  />
+                    <Route
+                      path="/profile"
+                      element={
+                        <ProtectedRoute>
+                          <ProfileForm />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                  {/* Teams listing and details */}
-                  <Route
-                    path="/teams"
-                    element={
-                      <ProtectedRoute>
-                        <MyTeams />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/teams/:teamId"
-                    element={
-                      <ProtectedRoute>
-                        <TeamDetails />
-                      </ProtectedRoute>
-                    }
-                  />
-                  
-                  <Route
-                    path="/diagnostics"
-                    element={
-                      <ProtectedRoute>
-                        <SupabaseDiagnostics />
-                      </ProtectedRoute>
-                    }
-                  />
-                  
-                  {/* Organisations */}
-                  <Route
-                    path="/organisations"
-                    element={
-                      <ProtectedRoute>
-                        <OrganisationList />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/organisations/:id"
-                    element={
-                      <ProtectedRoute>
-                        <OrganisationDetails />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/organisations/:id/edit"
-                    element={
-                      <ProtectedRoute>
-                        <OrganisationDetails />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  <Route
-                    path="/profile"
-                    element={
-                      <ProtectedRoute>
-                        <ProfileForm />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  {/* Fallback */}
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </ErrorBoundary>
-            </main>
-          </div>
-        </TeamsProvider>
-        <MobileNavBar />
-      </DecisionProvider>
+                    {/* Fallback */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </ErrorBoundary>
+              </main>
+            </div>
+          </TeamsProvider>
+          <MobileNavBar />
+        </DecisionProvider>
+      </SidebarProvider>
     </ErrorBoundary>
   )
 }
