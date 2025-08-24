@@ -1,41 +1,4 @@
-import {
-  Inbox,
-  Brain,
-  Target,
-  BarChart3,
-  BookOpen,
-  Users,
-  HelpCircle,
-  Settings,
-  Plus,
-  Clock,
-  CheckSquare,
-  AlertCircle,
-  Pin,
-  Zap,
-  Play,
-  Trophy,
-  CheckCircle,
-  FileTemplate,
-  Eye,
-  History,
-  TrendingUp,
-  Lightbulb,
-  Database,
-  Wrench,
-  Activity,
-  Library,
-  Link,
-  User,
-  Shield,
-  MessageSquare,
-  Sparkles,
-  Info,
-  CreditCard,
-  PieChart,
-  Lock,
-  Building
-} from 'lucide-react';
+import { Inbox, Brain, Target, BarChart3, BookOpen, Users, HelpCircle, Settings, Plus, Clock, CheckSquare, AlertCircle, Pin, Zap, Play, Trophy, CheckCircle, BookTemplate as FileTemplate, Eye, History, TrendingUp, Lightbulb, Database, Wrench, Activity, Library, Link, User, Shield, MessageSquare, Sparkles, Info, CreditCard, PieChart, Lock, Building } from 'lucide-react';
 import type { NavigationGroup } from './types';
 
 export const navigationConfig: NavigationGroup[] = [
