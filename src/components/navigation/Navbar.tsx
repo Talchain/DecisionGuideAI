@@ -10,6 +10,7 @@ import {
   X,
   List,
   User,
+  UserPlus,
   PlusCircle,
   Info,
   DoorOpen,

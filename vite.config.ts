@@ -1,8 +1,14 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src')
+    }
+  },
   build: {
     target: 'esnext',
     outDir: 'dist',
@@ -39,9 +45,11 @@ export default defineConfig({
     strictPort: true,
     port: 5173,
     hmr: {
-      clientPort: 443,
+      clientPort: 5173,
+      port: 5173,
+      protocol: 'ws',
       timeout: 10000,
-      overlay: true
+      overlay: false
     },
     middlewareMode: false,
     fs: {

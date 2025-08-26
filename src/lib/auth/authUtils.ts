@@ -67,24 +67,33 @@ export function validateAuthInputs(email: string, password: string): string | nu
 }
 
 // Clear all auth-related states
-export function clearAuthStates(): void {
-    console.debug('[authUtils] clearAuthStates() called', new Error().stack);
-  // Clear early access validation state
-  clearAccessValidation();
+export function clearAuthStates(preserveEarlyAccess = false): void {
+  console.debug('[authUtils] clearAuthStates() called', { preserveEarlyAccess }, new Error().stack);
+  
+  // Only clear early access validation if explicitly requested
+  if (!preserveEarlyAccess) {
+    clearAccessValidation();
+  }
   
   try {
-    // Clear all auth-related localStorage items
+    // Clear all auth-related localStorage items except early access validation
     const authKeys = [
       'sb-access-token',
       'sb-refresh-token',
       'supabase.auth.token',
       'sb-auth-token',
-      'dga_access_validated',
-      'dga_access_validation_time',
-      'dga_access_code',
       'dga_session_state',
       'registered_email'
     ];
+    
+    // Only clear these if we're not preserving early access
+    if (!preserveEarlyAccess) {
+      authKeys.push(
+        'dga_access_validated',
+        'dga_access_validation_time',
+        'dga_access_code'
+      );
+    }
 
     authKeys.forEach(key => {
       try {

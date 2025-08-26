@@ -10,7 +10,6 @@ import {
   Sparkles,
   UserCog,
   Brain,
-  EuroIcon as Neurons,
 } from 'lucide-react';
 import { registerInterest } from '../lib/api';
 import { validateAccessCode } from '../lib/auth/accessValidation';
@@ -52,7 +51,7 @@ export default function LandingPage() {
     // Only navigate if we have a user
     if (user) {
       navigationAttemptedRef.current = true;
-      authLogger.info('AUTH', 'Redirecting authenticated user', {
+      authLogger.info('STATE', 'Redirecting authenticated user', {
         userId: user.id,
       });
       navigate('/decision', { replace: true });
@@ -125,6 +124,7 @@ export default function LandingPage() {
 
     try {
       const { isValid, error } = validateAccessCode(formState.accessCode);
+      console.log('Access code validation result:', { isValid, error });
 
       if (!isValid) {
         setErrors((prev) => ({
@@ -136,10 +136,11 @@ export default function LandingPage() {
       }
 
       setSuccess('Access granted! Redirecting...');
+      console.log('Access code valid, redirecting to /sandbox');
 
       // Small delay to ensure state updates are processed
       setTimeout(() => {
-        navigate('/decision', { replace: true });
+        navigate('/sandbox', { replace: true });
       }, 100);
     } catch (error) {
       console.error('Access code validation error:', error);
