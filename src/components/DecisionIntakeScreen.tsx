@@ -54,7 +54,8 @@ export default function DecisionIntakeScreen() {
     setDecisionType,
     setDecision,
     setImportance,
-    setReversibility
+    setReversibility,
+    setActiveDecisionId
   } = useDecision();
 
   // Form state
