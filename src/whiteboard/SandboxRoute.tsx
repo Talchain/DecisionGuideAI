@@ -66,7 +66,7 @@ export const SandboxRoute: React.FC = () => {
               <SandboxMockLazy decisionId={decisionId} onExpandDecision={onExpandDecision} onCollapseDecision={() => onCollapseGraph()} />
             </div>
           ) : (
-            <div data-testid="sandbox-real">
+            <div data-testid="sandbox-real" className="h-full">
               <RealCanvasLazy decisionId={decisionId} />
             </div>
           )}
