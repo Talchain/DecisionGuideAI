@@ -3,6 +3,7 @@ import { Tldraw } from '@/whiteboard/tldraw'
 import { ensureCanvasForDecision, loadCanvasDoc, saveCanvasDoc } from './persistence'
 import { loadSeed } from './seed'
 import { writeProjection } from './projection'
+import { useTelemetry } from '@/lib/useTelemetry'
 
 interface CanvasProps {
   decisionId: string
@@ -12,12 +13,27 @@ interface CanvasProps {
 }
 
 export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDelayMs = 500, persistOnlyWithTldraw = false }) => {
+  const STORAGE_KEY = useMemo(() => `dgai:canvas:decision/${decisionId || 'demo'}`, [decisionId])
+  const TIP_KEY = 'dgai:canvas:tip:dismissed'
+  const { track } = useTelemetry()
   const [canvasId, setCanvasId] = useState<string | null>(null)
-  const [doc, setDoc] = useState<any | null>(null)
+  const [doc, setDoc] = useState<any | null>(() => {
+    try {
+      const saved = localStorage.getItem(`dgai:canvas:decision/${decisionId || 'demo'}`)
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
   const [localOnly, setLocalOnly] = useState(false)
+  const [tipVisible, setTipVisible] = useState(() => {
+    try { return localStorage.getItem(TIP_KEY) !== 'true' } catch { return false }
+  })
   const savingRef = useRef<number | null>(null)
+  const localSaveRef = useRef<number | null>(null)
   const editorRef = useRef<any | null>(null)
   const unsubRef = useRef<null | (() => void)>(null)
+  const hydratedFromLocalRef = useRef<boolean>(!!doc)
 
   // Using internal TLDraw store for minimal/safe integration
 
@@ -35,11 +51,11 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
         if (cancelled) return
 
         if (existing && existing.shapes) {
-          setDoc(existing)
+          if (!hydratedFromLocalRef.current) setDoc(existing)
         } else {
           const seeded = await loadSeed(decisionId)
           if (cancelled) return
-          setDoc(seeded.doc)
+          if (!hydratedFromLocalRef.current) setDoc(seeded.doc)
           // Prime persistence immediately with seed
           await saveCanvasDoc(canvasId, seeded.doc)
           await writeProjection(decisionId, seeded.doc)
@@ -54,14 +70,14 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
           const localId = `local:${decisionId}`
           setCanvasId(localId)
           onReady?.({ canvasId: localId })
-          setDoc(seeded.doc)
+          if (!hydratedFromLocalRef.current) setDoc(seeded.doc)
         } catch (e2) {
           // As a last resort, mount an empty doc so UI remains interactive
           setLocalOnly(true)
           const localId = `local:${decisionId}`
           setCanvasId(localId)
           onReady?.({ canvasId: localId })
-          setDoc({ shapes: [], bindings: [], meta: { decision_id: decisionId, kind: 'sandbox' } })
+          if (!hydratedFromLocalRef.current) setDoc({ shapes: [], bindings: [], meta: { decision_id: decisionId, kind: 'sandbox' } })
         }
       }
     })()
@@ -129,12 +145,45 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
   }, [])
 
   // Toolbar actions — stable callbacks reading from editorRef
-  const setTool = useCallback((tool: string) => () => { try { editorRef.current?.setCurrentTool?.(tool) } catch {} }, [])
-  const handleUndo = useCallback(() => { try { editorRef.current?.undo?.() } catch {} }, [])
-  const handleRedo = useCallback(() => { try { editorRef.current?.redo?.() } catch {} }, [])
+  const setTool = useCallback((tool: string) => () => {
+    try { editorRef.current?.setCurrentTool?.(tool) } finally { try { track('sandbox_whiteboard_action', { action: 'tool_change', tool }) } catch {} }
+  }, [track])
+  const handleUndo = useCallback(() => { try { editorRef.current?.undo?.() } finally { try { track('sandbox_whiteboard_action', { action: 'undo' }) } catch {} } }, [track])
+  const handleRedo = useCallback(() => { try { editorRef.current?.redo?.() } finally { try { track('sandbox_whiteboard_action', { action: 'redo' }) } catch {} } }, [track])
   const handleZoomIn = useCallback(() => { try { editorRef.current?.zoomIn?.() } catch {} }, [])
   const handleZoomOut = useCallback(() => { try { editorRef.current?.zoomOut?.() } catch {} }, [])
   const handleZoomToFit = useCallback(() => { try { editorRef.current?.zoomToFit?.() } catch {} }, [])
+
+  // Local autosave debounce (no backend required)
+  useEffect(() => {
+    if (!doc) return
+    if (localSaveRef.current) window.clearTimeout(localSaveRef.current)
+    localSaveRef.current = window.setTimeout(() => {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(doc)) } catch {}
+    }, 800)
+    return () => { if (localSaveRef.current) { window.clearTimeout(localSaveRef.current); localSaveRef.current = null } }
+  }, [doc, STORAGE_KEY])
+
+  // Toolbar: Save/Restore/Reset handlers (local-only)
+  const handleSaveNow = useCallback(() => { try { if (doc) localStorage.setItem(STORAGE_KEY, JSON.stringify(doc)) } catch {} }, [doc, STORAGE_KEY])
+  const handleRestore = useCallback(() => {
+    try {
+      const s = localStorage.getItem(STORAGE_KEY)
+      if (!s) return
+      const parsed = JSON.parse(s)
+      setDoc(parsed)
+      const snap = parsed?.tldraw
+      if (snap && editorRef.current?.store?.loadSnapshot) {
+        try { editorRef.current.store.loadSnapshot(snap) } catch {}
+      }
+    } catch {}
+  }, [STORAGE_KEY])
+  const handleReset = useCallback(() => {
+    try { localStorage.removeItem(STORAGE_KEY) } catch {}
+    const empty = { meta: { decision_id: decisionId, kind: 'sandbox' }, shapes: [], bindings: [] }
+    setDoc(empty)
+    try { editorRef.current?.store?.loadSnapshot?.({}) } catch {}
+  }, [STORAGE_KEY, decisionId])
 
   // Cleanup subscriptions and timers on unmount
   useEffect(() => {
@@ -154,14 +203,35 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
     <div className="relative w-full h-full overflow-hidden">
       {/* Toolbar: top-left; non-blocking banners remain pointer-events-none */}
       <div className="pointer-events-auto absolute top-2 left-2 z-10 flex flex-wrap gap-1">
-        <button aria-label="Select" data-testid="tb-select" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm" onClick={setTool('select')}>Select</button>
-        <button aria-label="Rectangle" data-testid="tb-rect" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm" onClick={setTool('geo')}>Rect</button>
-        <button aria-label="Text" data-testid="tb-text" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm" onClick={setTool('text')}>Text</button>
-        <button aria-label="Undo" data-testid="tb-undo" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm" onClick={handleUndo}>Undo</button>
-        <button aria-label="Redo" data-testid="tb-redo" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm" onClick={handleRedo}>Redo</button>
-        <button aria-label="Zoom In" data-testid="tb-zoom-in" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm" onClick={handleZoomIn}>+</button>
-        <button aria-label="Zoom Out" data-testid="tb-zoom-out" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm" onClick={handleZoomOut}>−</button>
-        <button aria-label="Zoom To Fit" data-testid="tb-zoom-fit" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm" onClick={handleZoomToFit}>Fit</button>
+        <button aria-label="Select" title="Select (V)" data-testid="tb-select" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={setTool('select')}>Select</button>
+        <button aria-label="Rectangle" title="Rectangle (R)" data-testid="tb-rect" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={setTool('geo')}>Rect</button>
+        <button aria-label="Text" title="Text (T)" data-testid="tb-text" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={setTool('text')}>Text</button>
+        <button aria-label="Undo" title="Undo (⌘Z)" data-testid="tb-undo" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleUndo}>Undo</button>
+        <button aria-label="Redo" title="Redo (⇧⌘Z)" data-testid="tb-redo" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleRedo}>Redo</button>
+        <button aria-label="Zoom In" title="Zoom In" data-testid="tb-zoom-in" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleZoomIn}>+</button>
+        <button aria-label="Zoom Out" title="Zoom Out" data-testid="tb-zoom-out" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleZoomOut}>−</button>
+        <button aria-label="Zoom To Fit" title="Zoom to Fit" data-testid="tb-zoom-fit" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleZoomToFit}>Fit</button>
+        <button aria-label="Save" title="Save now" data-testid="tb-save" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleSaveNow}>Save</button>
+        <button aria-label="Restore" title="Restore from local" data-testid="tb-restore" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleRestore}>Restore</button>
+        <button aria-label="Reset" title="Clear canvas" data-testid="tb-reset" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleReset}>Reset</button>
+      </div>
+      {tipVisible && (
+        <div data-testid="toolbar-tip" className="pointer-events-auto absolute top-12 left-2 z-10 max-w-xs text-xs bg-white shadow rounded border p-2">
+          <div className="mb-1 text-gray-800">Draw (R), Text (T), Select/Move (V), Pan (Space-drag), Zoom (trackpad/Cmd+scroll), Undo (⌘Z).</div>
+          <button className="mt-1 px-2 py-0.5 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={() => { try { localStorage.setItem(TIP_KEY, 'true') } catch {}; setTipVisible(false) }}>Got it</button>
+        </div>
+      )}
+      {/* Top-right actions: feedback */}
+      <div className="pointer-events-auto absolute top-2 right-2 z-10 flex gap-2">
+        <a
+          aria-label="Send feedback"
+          title="Send feedback"
+          data-testid="tb-feedback"
+          className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          href={`mailto:?subject=${encodeURIComponent('Sandbox MVP Feedback')}&body=${encodeURIComponent(`decisionId=${decisionId}\nua=${navigator.userAgent}\n\nDescribe your feedback:`)}`}
+        >
+          Send feedback
+        </a>
       </div>
       <Tldraw persistenceKey={"sandbox-local"} onMount={handleMount} />
       <div className="pointer-events-none absolute top-2 right-2 bg-white/80 text-xs text-gray-700 rounded px-2 py-1 shadow">
