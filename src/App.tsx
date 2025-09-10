@@ -43,6 +43,7 @@ import Analysis from './components/Analysis'
 import { isSandboxEnabled, isWhiteboardEnabled, isStrategyBridgeEnabled, isSandboxRealtimeEnabled, isSandboxDeltaReapplyV2Enabled, isScenarioSnapshotsEnabled, isOptionHandlesEnabled, isSandboxVotingEnabled, isProjectionsEnabled, isDecisionCTAEnabled } from './lib/config'
 import { SandboxRoute } from './sandbox/routes'
 import { SandboxRoute as WhiteboardSandboxRoute } from './whiteboard/SandboxRoute'
+import CombinedSandboxRoute from './whiteboard/CombinedSandboxRoute'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { Toaster } from './components/ui/toast/toaster'
 import { FlagsProvider } from './lib/flags'
@@ -190,6 +191,17 @@ export default function App() {
                         element={
                           <ProtectedRoute>
                             <WhiteboardSandboxRoute />
+                          </ProtectedRoute>
+                        }
+                      />
+                    )}
+
+                    {isWhiteboardEnabled() && (
+                      <Route
+                        path="/decisions/:decisionId/sandbox/combined"
+                        element={
+                          <ProtectedRoute>
+                            <CombinedSandboxRoute />
                           </ProtectedRoute>
                         }
                       />

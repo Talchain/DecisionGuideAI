@@ -11,9 +11,10 @@ import { useTelemetry } from '@/lib/useTelemetry';
 interface SnapshotTrayProps {
   boardId?: string;
   className?: string;
+  fixed?: boolean; // when false, render inline (no fixed overlay)
 }
 
-export function SnapshotTray({ className = '', boardId }: SnapshotTrayProps) {
+export function SnapshotTray({ className = '', boardId, fixed = true }: SnapshotTrayProps) {
   const { toast } = useToast();
   const flags = useFlags();
   const featureEnabled = flags.scenarioSnapshots;
@@ -77,8 +78,9 @@ export function SnapshotTray({ className = '', boardId }: SnapshotTrayProps) {
 
   if (!featureEnabled) return null;
 
+  const positionClass = fixed ? 'fixed bottom-0 left-0 z-50' : 'relative z-10'
   return (
-    <div className={`w-full fixed bottom-0 left-0 bg-white border-t shadow-md p-4 z-50 ${className}`} style={{ pointerEvents: 'auto' }}>
+    <div className={`w-full bg-white border-t shadow-md p-4 ${positionClass} ${className}`} style={{ pointerEvents: 'auto' }}>
       <div className="flex items-center gap-4">
         <Button size="sm" onClick={() => setShowNamePrompt(true)} disabled={isSaving}>
           Save Snapshot

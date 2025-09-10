@@ -16,6 +16,7 @@ export type TelemetryEvent =
   | 'sandbox_handle_click'
   | 'sandbox_bridge'
   | 'sandbox_whiteboard_action'
+  | 'sandbox_panel_view'
 
 export type TrackFn = (name: TelemetryEvent, props?: Record<string, unknown>) => void
 

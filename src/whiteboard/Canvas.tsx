@@ -10,9 +10,11 @@ interface CanvasProps {
   onReady?: (info: { canvasId: string }) => void
   persistDelayMs?: number
   persistOnlyWithTldraw?: boolean
+  hideBanner?: boolean
+  hideFeedback?: boolean
 }
 
-export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDelayMs = 500, persistOnlyWithTldraw = false }) => {
+export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDelayMs = 500, persistOnlyWithTldraw = false, hideBanner = false, hideFeedback = false }) => {
   const STORAGE_KEY = useMemo(() => `dgai:canvas:decision/${decisionId || 'demo'}`, [decisionId])
   const TIP_KEY = 'dgai:canvas:tip:dismissed'
   const { track } = useTelemetry()
@@ -202,7 +204,7 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
   const ui = useMemo(() => (
     <div className="relative w-full h-full overflow-hidden">
       {/* Toolbar: top-left; non-blocking banners remain pointer-events-none */}
-      <div className="pointer-events-auto absolute top-2 left-2 z-10 flex flex-wrap gap-1">
+      <div className="pointer-events-auto absolute top-2 left-2 z-[1000] flex flex-wrap gap-1">
         <button aria-label="Select" title="Select (V)" data-testid="tb-select" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={setTool('select')}>Select</button>
         <button aria-label="Rectangle" title="Rectangle (R)" data-testid="tb-rect" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={setTool('geo')}>Rect</button>
         <button aria-label="Text" title="Text (T)" data-testid="tb-text" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={setTool('text')}>Text</button>
@@ -216,29 +218,33 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
         <button aria-label="Reset" title="Clear canvas" data-testid="tb-reset" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleReset}>Reset</button>
       </div>
       {tipVisible && (
-        <div data-testid="toolbar-tip" className="pointer-events-auto absolute top-12 left-2 z-10 max-w-xs text-xs bg-white shadow rounded border p-2">
+        <div data-testid="toolbar-tip" className="pointer-events-auto absolute top-12 left-2 z-[1000] max-w-xs text-xs bg-white shadow rounded border p-2">
           <div className="mb-1 text-gray-800">Draw (R), Text (T), Select/Move (V), Pan (Space-drag), Zoom (trackpad/Cmd+scroll), Undo (⌘Z).</div>
           <button className="mt-1 px-2 py-0.5 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={() => { try { localStorage.setItem(TIP_KEY, 'true') } catch {}; setTipVisible(false) }}>Got it</button>
         </div>
       )}
-      {/* Top-right actions: feedback */}
-      <div className="pointer-events-auto absolute top-2 right-2 z-10 flex gap-2">
-        <a
-          aria-label="Send feedback"
-          title="Send feedback"
-          data-testid="tb-feedback"
-          className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          href={`mailto:?subject=${encodeURIComponent('Sandbox MVP Feedback')}&body=${encodeURIComponent(`decisionId=${decisionId}\nua=${navigator.userAgent}\n\nDescribe your feedback:`)}`}
-        >
-          Send feedback
-        </a>
-      </div>
+      {/* Top-right actions: feedback (optional) */}
+      {!hideFeedback && (
+        <div className="pointer-events-auto absolute top-2 right-2 z-[1000] flex gap-2">
+          <a
+            aria-label="Send feedback"
+            title="Send feedback"
+            data-testid="tb-feedback"
+            className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            href={`mailto:?subject=${encodeURIComponent('Sandbox MVP Feedback')}&body=${encodeURIComponent(`decisionId=${decisionId}\nua=${navigator.userAgent}\n\nDescribe your feedback:`)}`}
+          >
+            Send feedback
+          </a>
+        </div>
+      )}
       <Tldraw persistenceKey={"sandbox-local"} onMount={handleMount} />
-      <div className="pointer-events-none absolute top-2 right-2 bg-white/80 text-xs text-gray-700 rounded px-2 py-1 shadow">
-        Scenario Sandbox (MVP)
-      </div>
-      {localOnly && (
-        <div className="pointer-events-none absolute top-2 left-2 bg-amber-50/90 text-amber-800 text-xs rounded px-2 py-1 border border-amber-200 shadow">
+      {!hideBanner && (
+        <div className="pointer-events-none absolute top-2 right-2 z-[1000] bg-white/80 text-xs text-gray-700 rounded px-2 py-1 shadow">
+          Scenario Sandbox (MVP)
+        </div>
+      )}
+      {!hideBanner && localOnly && (
+        <div className="pointer-events-none absolute top-2 left-2 z-[1000] bg-amber-50/90 text-amber-800 text-xs rounded px-2 py-1 border border-amber-200 shadow">
           Working locally — cloud sync unavailable
         </div>
       )}
