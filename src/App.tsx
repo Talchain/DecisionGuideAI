@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Routes,
   Route,
@@ -6,7 +6,7 @@ import {
   useLocation
 } from 'react-router-dom'
 import { supabase, isSupabaseConfigured } from './lib/supabase'
-import { checkAccessValidation } from './lib/auth/accessValidation'
+import { checkAccessValidation, ACCESS_VALIDATION_KEY, ACCESS_TIMESTAMP_KEY, ACCESS_CODE_KEY } from './lib/auth/accessValidation'
 import { useAuth } from './contexts/AuthContext'
 import ErrorBoundary from './components/ErrorBoundary'
 import Navbar from './components/navigation/Navbar'
@@ -38,8 +38,7 @@ import OptionsIdeation from './components/OptionsIdeation'
 import CriteriaForm from './components/CriteriaForm'
 import Analysis from './components/Analysis'
 
-import { DecisionProvider } from './contexts/DecisionContext'
-import { TeamsProvider }  from './contexts/TeamsContext'
+// Providers for Decision/Teams are mounted at the root (main.tsx) to avoid duplication
 // Sandbox support:
 import { isSandboxEnabled, isWhiteboardEnabled, isStrategyBridgeEnabled, isSandboxRealtimeEnabled, isSandboxDeltaReapplyV2Enabled, isScenarioSnapshotsEnabled, isOptionHandlesEnabled, isSandboxVotingEnabled, isProjectionsEnabled, isDecisionCTAEnabled } from './lib/config'
 import { SandboxRoute } from './sandbox/routes'
@@ -51,13 +50,28 @@ import { FlagsProvider } from './lib/flags'
 export default function App() {
   const location = useLocation()
   const { authenticated, loading } = useAuth()
-  const hasValidAccess = checkAccessValidation()
+  // Compute once and update on storage changes to avoid repeated logs/churn
+  const [hasValidAccess, setHasValidAccess] = useState(checkAccessValidation())
 
   useEffect(() => {
     if (!isSupabaseConfigured) return
     supabase.auth.getSession().then(({ data, error }) => {
-      console.log('session:', { data, error })
+      if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_AUTH === 'true') {
+        console.log('session:', { data, error })
+      }
     })
+  }, [])
+
+  // Listen for access validation changes (storage events) to refresh once, not per render
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (!e) return
+      if (e.key === ACCESS_VALIDATION_KEY || e.key === ACCESS_TIMESTAMP_KEY || e.key === ACCESS_CODE_KEY) {
+        setHasValidAccess(checkAccessValidation())
+      }
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
   }, [])
 
   const isAuthRoute = [
@@ -88,8 +102,6 @@ export default function App() {
           voting: isSandboxVotingEnabled(),
           decisionCTA: isDecisionCTAEnabled(),
         }}>
-        <DecisionProvider>
-          <TeamsProvider>
             <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-purple-100">
               <AuthNavigationGuard />
               {showNavbar && <Navbar />}
@@ -190,8 +202,6 @@ export default function App() {
               </main>
               <Toaster />
             </div>
-          </TeamsProvider>
-        </DecisionProvider>
         </FlagsProvider>
       </ThemeProvider>
     </ErrorBoundary>

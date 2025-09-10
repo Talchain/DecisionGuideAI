@@ -1,5 +1,5 @@
 // Navigation debugging utility
-const DEBUG_NAV = true; // Enable/disable debug logging
+const DEBUG_NAV = import.meta.env.DEV && (import.meta.env.VITE_DEBUG_NAV === 'true');
 
 interface NavDebugEvent {
   type: 'auth' | 'render' | 'state' | 'error';

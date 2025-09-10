@@ -1,4 +1,5 @@
 // Constants
+const DEBUG = import.meta.env.DEV && (import.meta.env.VITE_DEBUG_ACCESS === 'true')
 const ACCESS_CODES = (import.meta.env.VITE_ACCESS_CODES || 'DGAIV01').split(',');
 const SALT = import.meta.env.VITE_ACCESS_SALT || 'dga_v1_'; // Fallback for development
 export const ACCESS_VALIDATION_KEY = 'dga_access_validated';
@@ -36,12 +37,12 @@ interface ValidationResult {
 }
 
 export function validateAccessCode(code: string): ValidationResult {
-  console.log('Validating access code...');
+  if (DEBUG) console.log('Validating access code...');
   
   try {
     // Input validation
     if (!code) {
-      console.log('No access code provided');
+      if (DEBUG) console.log('No access code provided');
       return {
         isValid: false,
         error: 'Please enter an access code'
@@ -49,28 +50,30 @@ export function validateAccessCode(code: string): ValidationResult {
     }
 
     if (typeof code !== 'string') {
-      console.log('Invalid input type:', typeof code);
+      if (DEBUG) console.log('Invalid input type:', typeof code);
       return {
         isValid: false,
         error: 'Invalid input type'
       };
     }
 
-    console.log('Available access codes:', ACCESS_CODES);
-    console.log('Validating code:', code);
+    if (DEBUG) {
+      console.log('Available access codes:', ACCESS_CODES);
+      console.log('Validating code:', code);
+    }
     
     // Check against all valid access codes
     const isValid = ACCESS_CODES.some((validCode: string) => {
       const isMatch = constantTimeEqual(code, validCode);
-      console.log(`Comparing with '${validCode}':`, isMatch);
+      if (DEBUG) console.log(`Comparing with '${validCode}':`, isMatch);
       return isMatch;
     });
 
-    console.log('Access code validation result:', isValid);
+    if (DEBUG) console.log('Access code validation result:', isValid);
 
     if (isValid) {
       const timestamp = Date.now();
-      console.log('Storing validation state with timestamp:', new Date(timestamp).toISOString());
+      if (DEBUG) console.log('Storing validation state with timestamp:', new Date(timestamp).toISOString());
       
       // Store validation state and timestamp
       localStorage.setItem(ACCESS_VALIDATION_KEY, 'true');
@@ -78,7 +81,7 @@ export function validateAccessCode(code: string): ValidationResult {
       localStorage.setItem(ACCESS_CODE_KEY, hashAccessCode(code));
       
       // Log the stored values for verification
-      console.log('Stored values:', {
+      if (DEBUG) console.log('Stored values:', {
         [ACCESS_VALIDATION_KEY]: localStorage.getItem(ACCESS_VALIDATION_KEY),
         [ACCESS_TIMESTAMP_KEY]: localStorage.getItem(ACCESS_TIMESTAMP_KEY),
         [ACCESS_CODE_KEY]: '***' // Don't log the actual access code hash
@@ -94,7 +97,7 @@ export function validateAccessCode(code: string): ValidationResult {
       });
       
       window.dispatchEvent(storageEvent);
-      console.log('Storage event dispatched');
+      if (DEBUG) console.log('Storage event dispatched');
     }
 
     return {
@@ -102,7 +105,7 @@ export function validateAccessCode(code: string): ValidationResult {
       error: isValid ? undefined : 'Invalid access code'
     };
   } catch (error) {
-    console.error('Access validation error:', error);
+    if (DEBUG) console.error('Access validation error:', error);
     return {
       isValid: false,
       error: 'An error occurred during validation'
@@ -112,14 +115,14 @@ export function validateAccessCode(code: string): ValidationResult {
 
 export function checkAccessValidation(): boolean {
   try {
-    console.log('Checking access validation...');
+    if (DEBUG) console.log('Checking access validation...');
     
     // If user is authenticated, they don't need access validation
     const hasAuthToken = !!localStorage.getItem('sb-auth-token');
-    console.log('Has auth token:', hasAuthToken);
+    if (DEBUG) console.log('Has auth token:', hasAuthToken);
     
     if (hasAuthToken) {
-      console.log('User is authenticated, access granted');
+      if (DEBUG) console.log('User is authenticated, access granted');
       return true;
     }
 
@@ -127,19 +130,19 @@ export function checkAccessValidation(): boolean {
     const timestamp = localStorage.getItem(ACCESS_TIMESTAMP_KEY);
     const accessCode = localStorage.getItem(ACCESS_CODE_KEY);
     
-    console.log('Access validation state:', {
+    if (DEBUG) console.log('Access validation state:', {
       isValidated,
       hasTimestamp: !!timestamp,
       hasAccessCode: !!accessCode
     });
     
     if (!isValidated) {
-      console.log('Access not validated');
+      if (DEBUG) console.log('Access not validated');
       return false;
     }
 
     if (!timestamp || !accessCode) {
-      console.log('Missing timestamp or access code');
+      if (DEBUG) console.log('Missing timestamp or access code');
       clearAccessValidation();
       return false;
     }
@@ -147,18 +150,18 @@ export function checkAccessValidation(): boolean {
     const validationAge = Date.now() - parseInt(timestamp);
     const isExpired = validationAge > VALIDATION_EXPIRY;
     
-    console.log('Validation age (ms):', validationAge, 'Expired:', isExpired);
+    if (DEBUG) console.log('Validation age (ms):', validationAge, 'Expired:', isExpired);
     
     if (isExpired) {
-      console.log('Access validation expired');
+      if (DEBUG) console.log('Access validation expired');
       clearAccessValidation();
       return false;
     }
 
-    console.log('Access validation successful');
+    if (DEBUG) console.log('Access validation successful');
     return true;
   } catch (error) {
-    console.error('Error checking access validation:', error);
+    if (DEBUG) console.error('Error checking access validation:', error);
     clearAccessValidation();
     return false;
   }

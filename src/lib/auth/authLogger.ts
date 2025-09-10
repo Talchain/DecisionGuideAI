@@ -15,7 +15,7 @@ class AuthLogger {
   private static instance: AuthLogger;
   private logs: LogEntry[] = [];
   private readonly MAX_LOGS = 100;
-  private readonly DEBUG = true;
+  private readonly DEBUG = (import.meta as any)?.env?.DEV && (import.meta as any)?.env?.VITE_DEBUG_AUTH === 'true';
 
   private constructor() {}
 
