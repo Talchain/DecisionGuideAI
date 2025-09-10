@@ -68,6 +68,12 @@ const ScenarioSandboxInner: React.FC<{ decisionId?: string; onExpandDecision?: (
   const [dragging, setDragging] = useState(false)
   const dragOffset = useRef<{ dx: number; dy: number }>({ dx: 0, dy: 0 })
   const [selected, setSelected] = useState(false)
+  // Temporary instrumentation: initial debug line only — DEV only
+  const renderCountRef = useRef(0)
+  renderCountRef.current += 1
+  if (import.meta.env.DEV && renderCountRef.current === 1) {
+    try { console.warn('[SandboxMock] render start') } catch {}
+  }
 
   // Tile data
   const [title, setTitle] = useState('Scenario A')
@@ -242,32 +248,50 @@ const ScenarioSandboxInner: React.FC<{ decisionId?: string; onExpandDecision?: (
     const yOpts = (mock.get('options') as Y.Array<Y.Map<unknown>>)
     const yProbs = (mock.get('probRows') as Y.Array<Y.Map<unknown>>)
     if (yOpts && Array.isArray(yOpts.toArray())) {
-      setOptions(yOpts.toArray().map(m => ({ id: String(m.get('id')), label: String(m.get('label')) })))
+      const nextOptions = yOpts.toArray().map(m => ({ id: String(m.get('id')), label: String(m.get('label')) }))
+      setOptions(prev => {
+        if (prev.length === nextOptions.length && prev.every((p, i) => p.id === nextOptions[i].id && p.label === nextOptions[i].label)) return prev
+        return nextOptions
+      })
     }
     if (yProbs && Array.isArray(yProbs.toArray())) {
-      setProbRows(yProbs.toArray().map(m => ({
+      const nextProbs = yProbs.toArray().map(m => ({
         id: String(m.get('id')),
         label: String(m.get('label')),
         value: Number(m.get('value')) || 0,
         conf: Number(m.get('conf')) || 1,
         updatedAt: Number(m.get('updatedAt')) || Date.now(),
-      })))
+      })) as ProbabilityRow[]
+      setProbRows(prev => {
+        if (
+          prev.length === nextProbs.length &&
+          prev.every((p, i) => p.id === nextProbs[i].id && p.label === nextProbs[i].label && p.value === nextProbs[i].value && p.conf === nextProbs[i].conf && p.updatedAt === nextProbs[i].updatedAt)
+        ) return prev
+        return nextProbs
+      })
     }
-    setTitle(t)
-    setStatus(s)
-    setTilePos({ x: nx, y: ny })
+    setTitle(prev => (prev === t ? prev : t))
+    setStatus(prev => (prev === s ? prev : s))
+    setTilePos(prev => (prev.x === nx && prev.y === ny ? prev : { x: nx, y: ny }))
   }
 
   useEffect(() => {
     const d = getCurrentDocument?.()
     if (!d) return
+    if (docRef.current === d) return
     docRef.current = d
     ensureYState(d)
-    readYStateToReact(d)
-    const onUpdate = () => readYStateToReact(d)
+    let raf = 0
+    const apply = () => { readYStateToReact(d); raf = 0 }
+    const onUpdate = () => {
+      if (raf) cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(apply)
+    }
+    // initial sync
+    onUpdate()
     d.on('update', onUpdate)
-    return () => { d.off('update', onUpdate) }
-  }, [getCurrentDocument])
+    return () => { if (raf) cancelAnimationFrame(raf); d.off('update', onUpdate) }
+  }, [getCurrentDocument, did])
 
   // --- Dragging handlers ---
   useEffect(() => {
