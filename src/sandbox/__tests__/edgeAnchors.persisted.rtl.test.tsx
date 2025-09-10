@@ -1,4 +1,3 @@
-import React from 'react';
 import { render } from '@testing-library/react';
 import { EdgeLayer } from '../components/EdgeLayer';
 import type { Node as SandboxNode, Edge, Handle } from '../../types/sandbox';

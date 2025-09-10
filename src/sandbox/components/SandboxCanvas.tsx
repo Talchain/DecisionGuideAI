@@ -1,43 +1,40 @@
-import React, { MouseEvent, useRef, useState } from 'react';
+import React, { MouseEvent, useState } from 'react';
 import { useBoardState } from '../state/boardState';
+import { useRealtimeDoc } from '@/realtime/provider';
 import { Node as SandboxNode, Edge } from '../../types/sandbox';
 import { MiniMap } from './MiniMap';
 import { DiffView } from './DiffView';
 import { OnboardingCoach } from './OnboardingCoach';
-import { useCommentState } from '../state/useCommentState';
 import { CommentPanel } from './CommentPanel';
 import { ConfirmModal } from './ConfirmModal';
 import { useTheme } from '../../contexts/ThemeContext';
 import { DraftWatermark } from './DraftWatermark';
 import { NodeLayer } from './NodeLayer';
 import { EdgeLayer } from './EdgeLayer';
+import { useFlags } from '@/lib/flags';
+import { saveSnapshot as storageSaveSnapshot, listSnapshots as storageListSnapshots } from '@/sandbox/state/snapshots';
 
 interface SandboxCanvasProps {
   boardId?: string;
   onShowComments?: (nodeId: string) => void;
 }
 
-export const SandboxCanvas: React.FC<SandboxCanvasProps> = ({
-  boardId: propBoardId,
-  onShowComments,
-}) => {
+export const SandboxCanvas: React.FC<SandboxCanvasProps> = () => {
   // Guarantee boardId stability for the entire session/component
   const [stableBoardId] = useState(() => 'debug-test-board');
+  const flags = useFlags()
 
   // Board state and operations
+  const realDoc = useRealtimeDoc()
   const {
     board,
     updateNode,
     deleteNode,
     updateEdgeLikelihood,
     addEdge,
-    deleteEdge,
-    isLoading,
     addNode,
-    listSnapshots,
-    saveSnapshot,
-    loadSnapshot,
-  } = useBoardState(stableBoardId);
+    getUpdate,
+  } = useBoardState(stableBoardId, realDoc);
 
   const { isDraft } = useTheme();
   const [selectedNode, setSelectedNode] = useState<SandboxNode | null>(null);
@@ -46,12 +43,6 @@ export const SandboxCanvas: React.FC<SandboxCanvasProps> = ({
   const [showDiff, setShowDiff] = useState(false);
 
   // Comments state
-  const {
-    addComment,
-    editComment,
-    deleteComment,
-    listComments,
-  } = useCommentState();
   const [commentTarget, setCommentTarget] = useState<{ type: 'node' | 'edge'; id: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ nodeId: string } | null>(null);
   const author = 'User'; // TODO: Replace with real user
@@ -61,6 +52,7 @@ export const SandboxCanvas: React.FC<SandboxCanvasProps> = ({
 
   // --- Node handlers for NodeLayer ---
   const handleNodeSelect = (node: SandboxNode, e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
     setSelectedNode(node);
   };
 
@@ -102,27 +94,26 @@ const handleShowComments = (id: string, opts?: { type?: 'node' | 'edge' }) => {
   };
 
   // --- Comments handler ---
-  const handleEdgeContext = () => {}; // Define handleEdgeContext as a no-op
+  const handleEdgeContext = (_edge: Edge, e: MouseEvent<SVGPathElement>) => {
+    // Placeholder: could open a contextual menu or comments
+    e.preventDefault();
+  };
 
-  const snapshots = listSnapshots();
-  const lastSnapshotId = snapshots.length > 0 ? snapshots[snapshots.length - 1].id : '';
+  const snapshots = storageListSnapshots(stableBoardId);
+  const lastSnapshotId = snapshots.length > 0 ? snapshots[0].id : '';
 
   return (
     <div className="w-full h-full bg-gray-50 relative overflow-hidden">
       <MiniMap />
       <OnboardingCoach />
       {showDiff && lastSnapshotId && (
-        <DiffView lastSnapshotId={lastSnapshotId} onClose={() => setShowDiff(false)} />
+        <DiffView lastSnapshotId={lastSnapshotId} decisionId={stableBoardId} onClose={() => setShowDiff(false)} />
       )}
       
-      {import.meta.env.VITE_FEATURE_SCENARIO_SANDBOX === 'true' && commentTarget && (
+      {flags.sandbox && commentTarget && (
         <CommentPanel
           targetId={commentTarget.id}
-          comments={listComments(commentTarget.id)}
           author={author}
-          addComment={addComment}
-          editComment={editComment}
-          deleteComment={deleteComment}
           onClose={() => setCommentTarget(null)}
         />
       )}
@@ -149,7 +140,10 @@ const handleShowComments = (id: string, opts?: { type?: 'node' | 'edge' }) => {
             aria-label="Save Draft"
             title="Save your work as a draft"
             onClick={() => {
-              saveSnapshot();
+              try {
+                const bytes = getUpdate();
+                storageSaveSnapshot(stableBoardId, bytes, { note: 'Draft' });
+              } catch {}
               setToast('Draft saved!');
               setTimeout(() => setToast(null), 1500);
             }}
@@ -224,7 +218,7 @@ const handleShowComments = (id: string, opts?: { type?: 'node' | 'edge' }) => {
             toolbarPos={toolbarPos}
             setToolbarPos={setToolbarPos}
             onEdgeClick={handleEdgeClick}
-            onEdgeContext={handleEdgeContext || (() => {})}
+            onEdgeContext={handleEdgeContext}
             onShowComments={handleShowComments}
             updateEdgeLikelihood={updateEdgeLikelihood}
           />

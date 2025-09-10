@@ -11,7 +11,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { authLogger } from '../../lib/auth/authLogger';
-import { validateAuthInputs } from '../../lib/auth/authUtils';
+import { validateAuthInputs, parseAuthError } from '../../lib/auth/authUtils';
 import { validateAccessCode } from '../../lib/auth/accessValidation';
 
 export default function LoginForm() {
@@ -39,14 +39,14 @@ export default function LoginForm() {
     e.preventDefault();
     
     if (loading) {
-      authLogger.debug('AUTH', 'Sign in blocked - already in progress');
+      authLogger.debug('STATE', 'Sign in blocked - already in progress');
       return;
     }
 
     const trimmedEmail = email.trim();
     const trimmedPassword = password.trim();
 
-    authLogger.debug('AUTH', 'Login attempt starting', {
+    authLogger.debug('SIGN_IN', 'Login attempt starting', {
       email: trimmedEmail,
       loading,
       timestamp: new Date().toISOString()
@@ -81,14 +81,14 @@ export default function LoginForm() {
 
       const { error: signInError } = await signIn(trimmedEmail, trimmedPassword);
       
-      authLogger.debug('AUTH', 'Sign in response received', {
+      authLogger.debug('STATE', 'Sign in response received', {
         error: signInError,
         timestamp: new Date().toISOString()
       });
 
       if (signInError) {
         attemptCountRef.current++;
-        setError(signInError.message);
+        setError(parseAuthError(signInError));
         return;
       }
 
@@ -96,13 +96,13 @@ export default function LoginForm() {
       validateAccessCode('DGAIV01');
 
       attemptCountRef.current = 0;
-      authLogger.info('AUTH', 'Sign in successful', { email: trimmedEmail });
+      authLogger.info('SIGN_IN', 'Sign in successful', { email: trimmedEmail });
 
       // Navigate to the intended destination or /decision
       const from = location.state?.from || '/decision';
       navigate(from, { replace: true });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      setError(parseAuthError(err));
       attemptCountRef.current++;
       authLogger.error('ERROR', 'Sign in error', err);
     } finally {

@@ -1,22 +1,30 @@
 // src/lib/api.ts
 
 import OpenAI from 'openai'
+import { cfg } from './config'
+import { createAbortControllerWithTimeout, TimeoutError } from './network'
 import { generatePromptMessages } from './prompts'
 import { supabase } from './supabase'
 
 // —————————————————————————————————————————————————————————————————————————————
 // Environment variables & OpenAI client
 // —————————————————————————————————————————————————————————————————————————————
-const VITE_OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY
-if (!VITE_OPENAI_API_KEY) {
-  console.error('Missing OpenAI API key')
-  throw new Error('Missing OpenAI API key')
+let openai: OpenAI | null = null
+function getOpenAI(): OpenAI {
+  const key = import.meta.env.VITE_OPENAI_API_KEY
+  if (!key) {
+    // Do not crash the whole app if key is missing at import time.
+    // Throw only when an OpenAI-dependent function is invoked.
+    throw new Error('OpenAI API key is not configured. Set VITE_OPENAI_API_KEY to use AI features.')
+  }
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: key,
+      dangerouslyAllowBrowser: true,
+    })
+  }
+  return openai
 }
-
-const openai = new OpenAI({
-  apiKey: VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true,
-})
 
 // —————————————————————————————————————————————————————————————————————————————
 // Helper: create chat completion with retries (no response_format)
@@ -27,6 +35,7 @@ async function createChatCompletion(
     model?: string
     temperature?: number
     max_tokens?: number
+    response_format?: { type: 'json_object' }
   } = {},
   retries = 3
 ): Promise<{ content: string; prompt: any; rawResponse: any }> {
@@ -39,18 +48,36 @@ async function createChatCompletion(
 
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      const completion = await openai.chat.completions.create({
-        model: options.model ?? 'gpt-4',
-        messages,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.max_tokens ?? 1500
-      })
+      // Enforce a hard timeout per attempt via AbortController + Promise.race.
+      const { controller, cleanup } = createAbortControllerWithTimeout(cfg.openaiTimeoutMs)
+      try {
+        const completion = await Promise.race([
+          getOpenAI().chat.completions.create({
+            model: options.model ?? 'gpt-4',
+            messages,
+            temperature: options.temperature ?? 0.7,
+            max_tokens: options.max_tokens ?? 1500,
+            // Pass AbortSignal if the SDK supports it; if not, the race still enforces cutoff
+            ...(options.response_format ? { response_format: options.response_format } : {}),
+            signal: controller.signal,
+          } as any),
+          new Promise((_, reject) => {
+            controller.signal.addEventListener(
+              'abort',
+              () => reject(new TimeoutError(`OpenAI request timed out after ${cfg.openaiTimeoutMs}ms`)),
+              { once: true }
+            )
+          })
+        ]) as any
 
-      const content = completion.choices[0].message.content
-      if (!content) {
-        throw new Error('Empty response from API')
+        const content = completion.choices[0].message.content
+        if (!content) {
+          throw new Error('Empty response from API')
+        }
+        return { content, prompt: messages, rawResponse: completion }
+      } finally {
+        cleanup()
       }
-      return { content, prompt: messages, rawResponse: completion }
     } catch (err) {
       lastError = err instanceof Error ? err : new Error('Unknown error occurred')
       if (attempt < retries - 1) {
@@ -347,7 +374,7 @@ export const analyzeGoalClarification = async ({
   importance
 }: AnalysisRequest): Promise<GoalClarificationResponse> => {
   try {
-    const { content, prompt, rawResponse } = await createChatCompletion(
+    const { content } = await createChatCompletion(
       [
         {
           role: 'system',

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { AuthNavigationGuard } from '@/components/auth/AuthNavigationGuard';
+import AuthNavigationGuard from '@/components/auth/AuthNavigationGuard';
 import { AuthProvider } from '@/contexts/AuthContext';
 
 const TestHome = () => <div data-testid="home">Home</div>;
@@ -33,7 +33,7 @@ describe('AuthNavigationGuard', () => {
     expect(screen.getByTestId('sandbox')).toBeInTheDocument();
   });
 
-  it('redirects to home when no access token', () => {
+  it('redirects to home when no access token', async () => {
     render(
       <MemoryRouter initialEntries={['/sandbox']}>
         <AuthProvider>
@@ -47,6 +47,6 @@ describe('AuthNavigationGuard', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByTestId('home')).toBeInTheDocument();
+    expect(await screen.findByTestId('home')).toBeInTheDocument();
   });
 });

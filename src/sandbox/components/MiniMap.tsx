@@ -1,8 +1,9 @@
-
 import { useBoardState } from '../state/boardState';
+import { useFlags } from '@/lib/flags';
 
 export function MiniMap() {
-  if (import.meta.env.VITE_FEATURE_SCENARIO_SANDBOX !== 'true') return null;
+  const flags = useFlags()
+  if (!flags.sandbox) return null;
   const { board } = useBoardState();
   if (!board) return null;
 

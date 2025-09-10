@@ -5,9 +5,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 // import { clearAuthStates } from '../../lib/auth/authUtils';  ← no longer needed here
 import { checkAccessValidation } from '../../lib/auth/accessValidation';
-import { authLogger } from '../../lib/auth/authLogger';
 
-export default function AuthNavigationGuard() {
+export default function AuthNavigationGuard({ children }: { children?: React.ReactNode }) {
   const { authenticated, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -61,5 +60,5 @@ export default function AuthNavigationGuard() {
     }
   }, [authenticated, loading, location.pathname, navigate]);
 
-  return null;
+  return <>{children}</>;
 }

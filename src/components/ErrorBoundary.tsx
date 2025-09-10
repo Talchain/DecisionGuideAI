@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react';
 
 interface Props {
   children: React.ReactNode;
+  fallback?: React.ReactNode;
 }
 
 interface State {
@@ -30,6 +31,9 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   public render() {
     if (this.state.hasError) {
+      if (this.props.fallback) {
+        return <>{this.props.fallback}</>
+      }
       return (
         <div className="min-h-[200px] flex items-center justify-center p-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-lg w-full">

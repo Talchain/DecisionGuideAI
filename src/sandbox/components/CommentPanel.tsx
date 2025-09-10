@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { track } from '../telemetry/track';
 import { useYjsComments, type RTComment } from '../state/useYjsComments';
 import { useYjsEdgeReads } from '../state/useYjsEdgeReads';
+import { toast } from '@/components/ui/use-toast';
 
 /**
  * CommentPanel
@@ -62,13 +63,7 @@ export const CommentPanel: React.FC<CommentPanelProps> = ({ targetId, author, on
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
-  const [toasts, setToasts] = useState<string[]>([]);
-  const addToast = (msg: string) => setToasts(t => [...t, msg]);
-  useEffect(() => {
-    if (toasts.length === 0) return;
-    const id = window.setTimeout(() => setToasts(t => t.slice(1)), 2500);
-    return () => window.clearTimeout(id);
-  }, [toasts]);
+  
 
   // Reads: mark as read on open if user provided
   const reads = currentUserId ? useYjsEdgeReads(targetId, currentUserId) : null;
@@ -174,7 +169,7 @@ export const CommentPanel: React.FC<CommentPanelProps> = ({ targetId, author, on
       mentions.forEach(id => {
         const user = mentionUsers.find(u => u.id === id);
         if (user && id !== currentUserId) {
-          addToast(`Mentioned ${user.name}`);
+          toast({ title: `Mentioned ${user.name}` });
           if (notify?.mention && created) notify.mention({ edgeId: targetId, commentId: created.id, userId: id });
         }
       });
@@ -199,7 +194,7 @@ export const CommentPanel: React.FC<CommentPanelProps> = ({ targetId, author, on
       const baseline = target.updatedAt ?? target.createdAt;
       const fifteen = 15 * 60 * 1000;
       if (Date.now() - baseline > fifteen && !isModerator) {
-        addToast('Edit window expired');
+        toast({ title: 'Edit window expired', type: 'destructive' });
         setEditingId(null);
         return;
       }
@@ -305,7 +300,7 @@ export const CommentPanel: React.FC<CommentPanelProps> = ({ targetId, author, on
                 <button
                   aria-label="Edit"
                   onClick={() => {
-                    if (!canEditLocal(c)) { addToast('Edit window expired'); return; }
+                    if (!canEditLocal(c)) { toast({ title: 'Edit window expired', type: 'destructive' }); return; }
                     setEditingId(c.id); setEditText(c.text);
                   }}
                   className={`text-xs ml-2 ${canEditLocal(c) ? 'text-green-600' : 'text-gray-400'}`}
@@ -354,18 +349,18 @@ export const CommentPanel: React.FC<CommentPanelProps> = ({ targetId, author, on
                     <span className="font-semibold text-xs">{r.author}</span>
                     <span className="text-xs text-gray-400">{new Date(r.updatedAt ?? r.createdAt).toLocaleString()}</span>
                     {(isModerator || r.author === author) && <>
-                      <button
-                        aria-label="Edit reply"
-                        onClick={() => {
-                          if (!canEditLocal(r)) { addToast('Edit window expired'); return; }
-                          setEditingId(r.id); setEditText(r.text);
-                        }}
-                        className={`text-xs ml-2 ${canEditLocal(r) ? 'text-green-600' : 'text-gray-400'}`}
-                        aria-disabled={!canEditLocal(r)}
-                      >Edit</button>
-                      <button aria-label="Delete reply" onClick={() => deleteComment(r.id)} className="text-xs text-red-600 ml-1">Delete</button>
-                    </>}
-                  </div>
+                  <button
+                    aria-label="Edit reply"
+                    onClick={() => {
+                      if (!canEditLocal(r)) { toast({ title: 'Edit window expired', type: 'destructive' }); return; }
+                      setEditingId(r.id); setEditText(r.text);
+                    }}
+                    className={`text-xs ml-2 ${canEditLocal(r) ? 'text-green-600' : 'text-gray-400'}`}
+                    aria-disabled={!canEditLocal(r)}
+                  >Edit</button>
+                  <button aria-label="Delete reply" onClick={() => deleteComment(r.id)} className="text-xs text-red-600 ml-1">Delete</button>
+                </>}
+              </div>
                   {editingId === r.id ? (
                     <textarea
                       ref={inputRef}
@@ -449,12 +444,6 @@ export const CommentPanel: React.FC<CommentPanelProps> = ({ targetId, author, on
             <button className="px-3 py-1 rounded bg-blue-600 text-white disabled:opacity-50" onClick={handleAdd} aria-label="Add comment" disabled={sendDisabled}>Add</button>
           )}
           <button className="px-3 py-1 rounded bg-gray-200" onClick={handleClose} aria-label="Close">Close</button>
-        </div>
-        {/* Lightweight toast fallback */}
-        <div aria-live="polite" aria-atomic="true" className="pointer-events-none fixed right-2 bottom-2 flex flex-col gap-1">
-          {toasts.map((t, i) => (
-            <div key={i} className="px-2 py-1 rounded bg-gray-900/80 text-white text-xs shadow">{t}</div>
-          ))}
         </div>
       </div>
     </div>

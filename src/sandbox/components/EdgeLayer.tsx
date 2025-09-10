@@ -1,5 +1,4 @@
 import React from 'react';
-import { EdgeLikelihoodEditor } from './EdgeLikelihoodEditor';
 import { EdgeOverlayPill } from './EdgeOverlayPill';
 import type { Node as SandboxNode, Edge } from '../../types/sandbox';
 
@@ -7,10 +6,11 @@ interface EdgeLayerProps {
   nodes: SandboxNode[];
   edges: Edge[];
   selectedEdge: Edge | null;
-  setSelectedEdge: (edge: Edge | null) => void;
-  setSelectedNode: (node: SandboxNode | null) => void;
-  toolbarPos: { x: number; y: number };
-  setToolbarPos: (pos: { x: number; y: number }) => void;
+  // Legacy/compat props kept optional for tests/callers; not used internally
+  setSelectedEdge?: (edge: Edge | null) => void;
+  setSelectedNode?: (node: SandboxNode | null) => void;
+  toolbarPos?: { x: number; y: number };
+  setToolbarPos?: (pos: { x: number; y: number }) => void;
   onEdgeClick: (edge: Edge, e: React.MouseEvent<SVGPathElement>) => void;
   onEdgeContext: (edge: Edge, e: React.MouseEvent<SVGPathElement>) => void;
   onShowComments?: (id: string, opts?: { type?: 'node' | 'edge' }) => void;
@@ -22,10 +22,6 @@ export const EdgeLayer: React.FC<EdgeLayerProps> = ({
   nodes,
   edges,
   selectedEdge,
-  setSelectedEdge,
-  setSelectedNode,
-  toolbarPos,
-  setToolbarPos,
   onEdgeClick,
   onEdgeContext,
   onShowComments,
@@ -136,7 +132,7 @@ export const EdgeLayer: React.FC<EdgeLayerProps> = ({
                 selected={sel}
                 hovered={hoveredEdgeId === edge.id}
                 onLikelihoodUpdate={updateEdgeLikelihood}
-                onShowComments={onShowComments}
+                onShowComments={(id, opts) => onShowComments?.(id, opts)}
                 onPillFocus={() => setHoveredEdgeId(edge.id)}
                 onPillBlur={() => setHoveredEdgeId(null)}
               />

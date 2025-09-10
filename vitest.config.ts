@@ -11,8 +11,11 @@ export default defineConfig({
     coverage: {
       reporter: ['text', 'json', 'html'],
     },
-    include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
-    exclude: ['node_modules', 'dist', '.idea', '.git', '.cache'],
+    include: [
+      'src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
+      'packages/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}',
+    ],
+    exclude: ['node_modules', 'dist', '.idea', '.git', '.cache', '**/*.nightly.test.ts'],
     testTimeout: 10000,
   },
   resolve: {

@@ -4,7 +4,7 @@ import { SandboxCanvas } from '../components/SandboxCanvas';
 import { vi } from 'vitest';
 
 // --- Inline test board state context/provider ---
-const BoardStateContext = createContext(undefined);
+const BoardStateContext = createContext<any>(undefined as any);
 function getDefaultNodes() {
   return [
     { id: 'n1', label: 'Node 1', type: 'decision', x: 100, y: 100, data: {} },
@@ -13,10 +13,11 @@ function getDefaultNodes() {
 function getDefaultEdges() {
   return [];
 }
-export function BoardStateTestProvider({ children }) {
+export function BoardStateTestProvider({ children }: { children: React.ReactNode }) {
   const [nodes, setNodes] = useState(getDefaultNodes());
   const [edges] = useState(getDefaultEdges());
-  const updateNode = updated => setNodes(prev => prev.map(n => n.id === updated.id ? { ...n, ...updated } : n));
+  const updateNode = (nodeId: string, updates: Partial<{ id: string; label: string; x: number; y: number; type: string; data: any }>) =>
+    setNodes(prev => prev.map(n => (n.id === nodeId ? { ...n, ...updates } : n)));
   const value = {
     board: { nodes, edges, title: 'Test Board' },
     addNode: vi.fn(),
@@ -64,37 +65,37 @@ function renderWithSandboxBoard(ui: React.ReactElement) {
 }
 
 describe('Node label editing', () => {
-  it('allows editing and saving a node label', () => {
+  it('allows editing and saving a node label', async () => {
     renderWithSandboxBoard(<SandboxCanvas />);
-    // Double-click node to edit
+    // Click node to edit (NodeLayer uses onClick to start edit)
     const node = screen.getByText('Node 1');
-    fireEvent.doubleClick(node);
+    fireEvent.click(node);
     // Input appears with old label
     const input = screen.getByDisplayValue('Node 1');
     fireEvent.change(input, { target: { value: 'New Label' } });
     fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
     // Label updated
-    expect(screen.getByText('New Label')).toBeInTheDocument();
+    expect(await screen.findByText('New Label')).toBeInTheDocument();
   });
 
-  it('reverts on empty label', () => {
-    render(<SandboxCanvas />);
+  it('reverts on empty label', async () => {
+    renderWithSandboxBoard(<SandboxCanvas />);
     const node = screen.getByText('Node 1');
-    fireEvent.doubleClick(node);
+    fireEvent.click(node);
     const input = screen.getByDisplayValue('Node 1');
     fireEvent.change(input, { target: { value: '' } });
     fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
     // Old label remains
-    expect(screen.getByText('Node 1')).toBeInTheDocument();
+    expect(await screen.findByText('Node 1')).toBeInTheDocument();
   });
 
-  it('saves on blur', () => {
-    render(<SandboxCanvas />);
+  it('saves on blur', async () => {
+    renderWithSandboxBoard(<SandboxCanvas />);
     const node = screen.getByText('Node 1');
-    fireEvent.doubleClick(node);
+    fireEvent.click(node);
     const input = screen.getByDisplayValue('Node 1');
     fireEvent.change(input, { target: { value: 'Blur Save' } });
     fireEvent.blur(input);
-    expect(screen.getByText('Blur Save')).toBeInTheDocument();
+    expect(await screen.findByText('Blur Save')).toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Joyride, { CallBackProps, STATUS, Step } from 'react-joyride';
+import { useFlags } from '@/lib/flags';
 
 const steps: Step[] = [
   {
@@ -25,7 +26,8 @@ const steps: Step[] = [
 ];
 
 export function OnboardingCoach() {
-  if (import.meta.env.VITE_FEATURE_SCENARIO_SANDBOX !== 'true') return null;
+  const flags = useFlags()
+  if (!flags.sandbox) return null;
   const [run, setRun] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   return (

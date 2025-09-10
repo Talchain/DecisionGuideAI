@@ -1,17 +1,17 @@
 import * as React from 'react';
 import { SandboxCanvas } from '../components/SandboxCanvas';
 import { DraftToggle } from '../../components/ui/DraftToggle';
+import { StrategyBridgeShell } from '@/sandbox/layout/StrategyBridgeShell';
+import { useFlags } from '@/lib/flags';
 
 interface SandboxRouteProps {
   boardId?: string;
 }
 
 export const SandboxRoute: React.FC<SandboxRouteProps> = ({ boardId }) => {
-  // Check if the feature is enabled
-  const isSandboxEnabled = import.meta.env.VITE_FEATURE_SCENARIO_SANDBOX === 'true';
-  const isVotingEnabled = import.meta.env.VITE_FEATURE_COLLAB_VOTING === 'true';
-
-  if (!isSandboxEnabled) {
+  const flags = useFlags()
+  // Feature gate
+  if (!flags.sandbox) {
     return (
       <div className="container mx-auto p-8 text-center">
         <h1 className="text-2xl font-bold text-gray-800 mb-4">Feature Not Available</h1>
@@ -31,7 +31,7 @@ export const SandboxRoute: React.FC<SandboxRouteProps> = ({ boardId }) => {
               DecisionGuide.AI - Scenario Sandbox
             </h1>
             <div className="flex items-center space-x-4">
-              {isVotingEnabled && (
+              {flags.voting && (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                   Collaborative Voting
                 </span>
@@ -46,7 +46,11 @@ export const SandboxRoute: React.FC<SandboxRouteProps> = ({ boardId }) => {
       </header>
       
       <main className="flex-1 overflow-hidden">
-        <SandboxCanvas boardId={boardId} />
+        {flags.strategyBridge ? (
+          <StrategyBridgeShell decisionId={boardId} />
+        ) : (
+          <SandboxCanvas boardId={boardId} />
+        )}
       </main>
       
       <footer className="bg-gray-50 border-t border-gray-200">

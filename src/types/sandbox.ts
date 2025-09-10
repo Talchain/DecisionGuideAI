@@ -11,7 +11,7 @@ export interface VoteStats {
 
 export interface Node {
   id: string;
-  type: 'decision' | 'option' | 'outcome';
+  type: 'decision' | 'option' | 'problem' | 'action' | 'outcome';
   x: number;
   y: number;
   label: string;
@@ -21,7 +21,7 @@ export interface Node {
   votes?: VoteStats; // Only present when voting is enabled
 }
 
-export type Handle = 'left' | 'right' | 'bottom' | 'top';
+export type Handle = 'left' | 'right' | 'bottom' | 'top' | `option:${string}`;
 
 export interface Edge {
   id: string;

@@ -2,7 +2,7 @@ import { AuthError } from '@supabase/supabase-js';
 import { clearAccessValidation } from './accessValidation';
 import { authLogger } from './authLogger';
 
-function parseAuthError(error: AuthError | Error | unknown): string {
+export function parseAuthError(error: AuthError | Error | unknown): string {
   if (!error) return 'An unknown error occurred';
 
   const errorMessage = error instanceof Error ? error.message : 'Unknown error';
@@ -113,33 +113,9 @@ export function clearAuthStates(preserveEarlyAccess = false): void {
       console.warn('Failed to dispatch storage event:', e);
     }
 
-    authLogger.debug('AUTH', 'Auth states cleared successfully');
+    authLogger.debug('STATE', 'Auth states cleared successfully');
   } catch (error) {
     authLogger.error('ERROR', 'Failed to clear auth states', error);
     throw error;
-  }
-}
-
-// Cache auth tokens with expiration
-function cacheAuthToken(token: string, expiresIn: number): void {
-  try {
-    const expiresAt = Date.now() + expiresIn * 1000;
-    localStorage.setItem('auth_token_expires_at', expiresAt.toString());
-    localStorage.setItem('auth_token', token);
-  } catch (error) {
-    console.error('Failed to cache auth token:', error);
-  }
-}
-
-// Check if cached token is valid
-function isTokenValid(): boolean {
-  try {
-    const expiresAt = localStorage.getItem('auth_token_expires_at');
-    if (!expiresAt) return false;
-    
-    return Date.now() < parseInt(expiresAt);
-  } catch (error) {
-    console.error('Failed to check token validity:', error);
-    return false;
   }
 }

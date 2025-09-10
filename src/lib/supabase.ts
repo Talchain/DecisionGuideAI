@@ -1,8 +1,10 @@
 // src/lib/supabase.ts
 
 import { createClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '../types/database'
-import { authLogger } from './auth/authLogger'
+import { fetchWithTimeout } from './network'
+import { cfg } from './config'
 
 // —————————————————————————————————————————————————————————————————————————————
 // DEV-only env logging
@@ -19,12 +21,9 @@ if (import.meta.env.DEV) {
 // —————————————————————————————————————————————————————————————————————————————
 // Validate environment variables
 // —————————————————————————————————————————————————————————————————————————————
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY!
-if (!supabaseUrl || !supabaseKey) {
-  console.error('CRITICAL: Missing Supabase environment variables')
-  throw new Error('Missing Supabase environment variables')
-}
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey)
 
 // —————————————————————————————————————————————————————————————————————————————
 // Create Supabase client
@@ -32,29 +31,39 @@ if (!supabaseUrl || !supabaseKey) {
 //  • disable multi-tab sync      (prevents SW broadcasts)
 //  • force fetchOptions: keepalive & no-store
 // —————————————————————————————————————————————————————————————————————————————
-export const supabase = createClient<Database>(
-  supabaseUrl,
-  supabaseKey,
-  {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: false,
-      multiTab: true,
-      flowType: 'pkce',
-    },
-    global: {
-      headers: {
-        'X-Client-Info': 'decision-guide-ai',
-        'X-Client-Version': '1.0.0',
+let supabase: SupabaseClient<Database>
+if (supabaseUrl && supabaseKey) {
+  supabase = createClient<Database>(
+    supabaseUrl,
+    supabaseKey,
+    {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: false,
+        flowType: 'pkce',
       },
-      fetchOptions: {
-        keepalive: true,
-        cache: 'no-store',
+      global: {
+        headers: {
+          'X-Client-Info': 'decision-guide-ai',
+          'X-Client-Version': '1.0.0',
+        },
+        fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+          fetchWithTimeout(input, init, cfg.supabaseTimeoutMs),
       },
+    }
+  )
+} else {
+  console.warn('CRITICAL: Missing Supabase environment variables — running in limited mode')
+  // Proxy that throws only when Supabase is actually used, so the app can render public pages.
+  supabase = new Proxy({} as any, {
+    get(_target, prop) {
+      throw new Error(`Supabase not configured. Attempted to access supabase.${String(prop)}. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.`)
     },
-  }
-)
+  }) as SupabaseClient<Database>
+}
+
+export { supabase }
 
 // ---------------- Auth Helpers ----------------
 
@@ -334,7 +343,7 @@ export async function saveDecisionAnalysis(
     const payload =
       JSON.stringify(analysisData).length > 500_000
         ? JSON.parse(
-            JSON.stringify(analysisData, (k, v) =>
+            JSON.stringify(analysisData, (_key, v) =>
               typeof v === 'string' && v.length > 10000
                 ? v.slice(0, 10000) + '…'
                 : v

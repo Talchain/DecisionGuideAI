@@ -36,7 +36,7 @@ export function CommitWorkflow() {
       toast({
         title: 'Commit message required',
         description: 'Please enter a commit message to proceed.',
-        variant: 'destructive',
+        type: 'destructive',
       });
       return;
     }
@@ -52,21 +52,10 @@ export function CommitWorkflow() {
       setCommitResult(result);
       
       if (result.success) {
-        // Show success toast with confetti
+        // Show success toast
         toast({
           title: 'Changes committed!',
           description: `Version ${result.newVersion?.version} has been created.`,
-          action: (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                // TODO: Show version history or diff view
-              }}
-            >
-              View Changes
-            </Button>
-          ),
         });
         
         // Close the dialog after a short delay
@@ -78,14 +67,14 @@ export function CommitWorkflow() {
         toast({
           title: 'Merge conflict detected',
           description: 'Please resolve the conflicts before committing.',
-          variant: 'destructive',
+          type: 'destructive',
         });
       } else {
         // Show error message
         toast({
           title: 'Failed to commit changes',
           description: result.error || 'An unknown error occurred.',
-          variant: 'destructive',
+          type: 'destructive',
         });
       }
     } catch (error) {
@@ -93,7 +82,7 @@ export function CommitWorkflow() {
       toast({
         title: 'Error',
         description: 'An unexpected error occurred while committing changes.',
-        variant: 'destructive',
+        type: 'destructive',
       });
     } finally {
       setIsCommitting(false);

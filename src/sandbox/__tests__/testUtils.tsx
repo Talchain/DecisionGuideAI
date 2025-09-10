@@ -55,10 +55,27 @@ export { BoardStateTestProvider, useBoardStateMock } from './BoardStateTestProvi
 
 // Render wrapper for context providers
 import { render } from '@testing-library/react';
+import { ThemeProvider } from '../../contexts/ThemeContext';
 import { BoardStateTestProvider } from './BoardStateTestProvider';
+import { Toaster } from '@/components/ui/toast/toaster';
 
 export function renderWithSandboxBoard(ui: React.ReactElement) {
-  return render(<BoardStateTestProvider>{ui}</BoardStateTestProvider>);
+  return render(
+    <ThemeProvider>
+      <BoardStateTestProvider>{ui}</BoardStateTestProvider>
+    </ThemeProvider>
+  );
+}
+
+export function renderWithSandboxBoardAndToaster(ui: React.ReactElement) {
+  return render(
+    <ThemeProvider>
+      <BoardStateTestProvider>
+        {ui}
+        <Toaster />
+      </BoardStateTestProvider>
+    </ThemeProvider>
+  );
 }
 
 // README for future test writers

@@ -12,7 +12,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const location = useLocation();
 
   // Log protection check
-  authLogger.debug('AUTH', 'Protected route check', {
+  authLogger.debug('STATE', 'Protected route check', {
     path: location.pathname,
     hasUser: !!user,
     hasProfile: !!profile,
@@ -35,7 +35,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   // Redirect to login if not authenticated
   if (!authenticated || !user) {
-    authLogger.info('AUTH', 'Protected route access denied', {
+    authLogger.info('STATE', 'Protected route access denied', {
       path: location.pathname,
       hasUser: !!user,
       hasProfile: !!profile,
@@ -45,7 +45,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   // Log successful access
-  authLogger.info('AUTH', 'Protected route access granted', {
+  authLogger.info('STATE', 'Protected route access granted', {
     path: location.pathname,
     userId: user.id,
     authenticated

@@ -299,7 +299,7 @@ export const NodeLayer: React.FC<NodeLayerProps> = ({
                       const defaultLabel = type.label;
                       // Cast type.key to correct node type
                       const created = onAddNode({
-                        type: type.key as 'decision' | 'option' | 'outcome',
+                        type: type.key as SandboxNode['type'],
                         label: defaultLabel,
                         x: newX,
                         y: newY,

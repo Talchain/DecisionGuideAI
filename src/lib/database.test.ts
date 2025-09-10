@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { supabase } from './supabase';
 
 // Test user profile creation
@@ -45,18 +46,15 @@ async function testDecisionData() {
   return true;
 }
 
-// Run all tests
-async function runDatabaseTests() {
-  console.log('Testing database schema...');
-  
-  const results = await Promise.all([
-    testUserProfile(),
-    testDecisions(),
-    testDecisionData()
-  ]);
-
-  const allPassed = results.every(result => result);
-  console.log('All tests passed:', allPassed);
-}
-
-runDatabaseTests();
+// Vitest suite
+describe('database schema smoke tests', () => {
+  it('user_profiles accessible', async () => {
+    expect(await testUserProfile()).toBe(true);
+  });
+  it('decisions accessible', async () => {
+    expect(await testDecisions()).toBe(true);
+  });
+  it('decision_data accessible', async () => {
+    expect(await testDecisionData()).toBe(true);
+  });
+});

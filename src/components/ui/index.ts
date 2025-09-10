@@ -14,7 +14,6 @@ export * from "./input"
 export { Switch } from "./switch"
 
 // Toast
-export * from "./toast"
 export * from "./use-toast"
 
 // Tooltip

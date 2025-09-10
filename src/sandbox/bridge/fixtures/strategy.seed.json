@@ -1,0 +1,18 @@
+{
+  "goals": [
+    { "id": "g1", "title": "Increase ARR" },
+    { "id": "g2", "title": "Improve NPS" }
+  ],
+  "objectives": [
+    { "id": "o1", "title": "Ship Scenario Sandbox", "goalId": "g1" },
+    { "id": "o2", "title": "Reduce churn", "goalId": "g2" }
+  ],
+  "keyResults": [
+    { "id": "kr1", "title": "+10% conversion", "objectiveId": "o1" },
+    { "id": "kr2", "title": "-15% time-to-decision", "objectiveId": "o2" }
+  ],
+  "strategyBlocks": [
+    { "id": "sb1", "title": "AI-first decision support" },
+    { "id": "sb2", "title": "Human-in-the-loop validation" }
+  ]
+}

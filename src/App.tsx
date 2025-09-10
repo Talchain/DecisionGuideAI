@@ -1,11 +1,11 @@
-import React, { useEffect } from 'react'
+import { useEffect } from 'react'
 import {
   Routes,
   Route,
   Navigate,
   useLocation
 } from 'react-router-dom'
-import { supabase } from './lib/supabase'
+import { supabase, isSupabaseConfigured } from './lib/supabase'
 import { checkAccessValidation } from './lib/auth/accessValidation'
 import { useAuth } from './contexts/AuthContext'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -41,10 +41,12 @@ import Analysis from './components/Analysis'
 import { DecisionProvider } from './contexts/DecisionContext'
 import { TeamsProvider }  from './contexts/TeamsContext'
 // Sandbox support:
-import { isSandboxEnabled } from './lib/config'
+import { isSandboxEnabled, isWhiteboardEnabled, isStrategyBridgeEnabled, isSandboxRealtimeEnabled, isSandboxDeltaReapplyV2Enabled, isScenarioSnapshotsEnabled, isOptionHandlesEnabled, isSandboxVotingEnabled, isProjectionsEnabled, isDecisionCTAEnabled } from './lib/config'
 import { SandboxRoute } from './sandbox/routes'
+import { SandboxRoute as WhiteboardSandboxRoute } from './whiteboard/SandboxRoute'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { Toaster } from './components/ui/toast/toaster'
+import { FlagsProvider } from './lib/flags'
 
 export default function App() {
   const location = useLocation()
@@ -52,6 +54,7 @@ export default function App() {
   const hasValidAccess = checkAccessValidation()
 
   useEffect(() => {
+    if (!isSupabaseConfigured) return
     supabase.auth.getSession().then(({ data, error }) => {
       console.log('session:', { data, error })
     })
@@ -74,6 +77,17 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
+        <FlagsProvider value={{
+          sandbox: isSandboxEnabled(),
+          strategyBridge: isStrategyBridgeEnabled(),
+          realtime: isSandboxRealtimeEnabled(),
+          deltaReapplyV2: isSandboxDeltaReapplyV2Enabled(),
+          projections: isProjectionsEnabled(),
+          scenarioSnapshots: isScenarioSnapshotsEnabled(),
+          optionHandles: isOptionHandlesEnabled(),
+          voting: isSandboxVotingEnabled(),
+          decisionCTA: isDecisionCTAEnabled(),
+        }}>
         <DecisionProvider>
           <TeamsProvider>
             <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-purple-100">
@@ -154,8 +168,19 @@ export default function App() {
                     />
 
                     {/* Sandbox */}
-                    {isSandboxEnabled && (
+                    {isSandboxEnabled() && (
                       <Route path="/sandbox/*" element={<SandboxRoute />} />
+                    )}
+
+                    {isWhiteboardEnabled() && (
+                      <Route
+                        path="/decisions/:decisionId/sandbox"
+                        element={
+                          <ProtectedRoute>
+                            <WhiteboardSandboxRoute />
+                          </ProtectedRoute>
+                        }
+                      />
                     )}
 
                     {/* Fallback */}
@@ -167,6 +192,7 @@ export default function App() {
             </div>
           </TeamsProvider>
         </DecisionProvider>
+        </FlagsProvider>
       </ThemeProvider>
     </ErrorBoundary>
   )

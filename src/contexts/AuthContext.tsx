@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase, getProfile } from '../lib/supabase';
+import { supabase, getProfile, isSupabaseConfigured } from '../lib/supabase';
 import type { UserProfile } from '../types/database';
 import { authLogger } from '../lib/auth/authLogger';
 import { clearAuthStates } from '../lib/auth/authUtils';
@@ -87,14 +87,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Initialize auth state
   useEffect(() => {
     const initAuth = async () => {
-      authLogger.debug('AUTH', 'Initializing auth state');
+      authLogger.debug('INIT', 'Initializing auth state');
       try {
+        // If Supabase isn't configured (e.g., missing env vars), run in guest mode
+        if (!isSupabaseConfigured) {
+          authLogger.debug('INIT', 'Supabase not configured — starting in guest mode');
+          setState({ user: null, profile: null, loading: false, authenticated: false });
+          return;
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         await handleAuthStateChange(session);
 
         // Subscribe to auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-          authLogger.debug('AUTH', 'Auth state changed', { event });
+          authLogger.debug('STATE', 'Auth state changed', { event });
           await handleAuthStateChange(session);
         });
 
@@ -113,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = React.useMemo(() => ({
     ...state,
     signUp: async (email: string, password: string) => {
-      authLogger.debug('AUTH', 'Sign up attempt', { email });
+      authLogger.debug('SIGN_UP', 'Sign up attempt', { email });
       try {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -135,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     },
     signIn: async (email: string, password: string) => {
-      authLogger.debug('AUTH', 'Sign in attempt', { email });
+      authLogger.debug('SIGN_IN', 'Sign in attempt', { email });
       try {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
@@ -149,7 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     },
     signOut: async () => {
-      authLogger.debug('AUTH', 'Sign out attempt');
+      authLogger.debug('SIGN_OUT', 'Sign out attempt');
       try {
         // First clear all local state and auth data
         await clearAuthStates();
@@ -174,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         } catch (signOutError) {
           // Log but continue - we'll still clear local state
-          authLogger.debug('AUTH', 'Supabase sign out failed, continuing with cleanup', {
+          authLogger.debug('SIGN_OUT', 'Supabase sign out failed, continuing with cleanup', {
             error: signOutError instanceof Error ? signOutError.message : 'Unknown error'
           });
         }
