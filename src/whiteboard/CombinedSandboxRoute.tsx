@@ -4,8 +4,18 @@ import { useFlags } from '@/lib/flags'
 import { useTelemetry } from '@/lib/useTelemetry'
 import { ScenarioPanels } from '@/sandbox/panels/ScenarioPanels'
 import { Canvas } from '@/whiteboard/Canvas'
+import { useToast } from '@/components/ui/use-toast'
+import { useDecision } from '@/contexts/DecisionContext'
 
-const PANEL_KEY = 'dgai:combined:panel_w'
+const MIN_W = 240
+const MAX_W = 560
+const MIN_CANVAS_W_DESKTOP = 480
+const MIN_CANVAS_W_MOBILE = 320
+
+const keyW = (id: string) => `dgai:combined:${id}:panel_w`
+const keyCollapsed = (id: string) => `dgai:combined:${id}:panel_collapsed`
+const keyStyle = (id: string) => `dgai:combined:${id}:style_open`
+const keyTab = (id: string) => `dgai:combined:${id}:active_tab`
 
 type Tab = 'panels' | 'canvas'
 
@@ -13,41 +23,115 @@ export const CombinedSandboxRoute: React.FC = () => {
   const { decisionId = 'demo' } = useParams<{ decisionId: string }>()
   const flags = useFlags()
   const { track } = useTelemetry()
+  const { toast } = useToast()
+  const { decision: decisionTitle } = (() => {
+    try { return useDecision() } catch { return { decision: null as string | null } as any }
+  })()
 
   // Gate: require sandbox flag; canvas mounts regardless (Canvas has its own local-first fallback).
   if (!flags.sandbox) {
     return <div className="p-8 text-center text-sm text-gray-700">Scenario Sandbox is not enabled.</div>
   }
 
+  const isMobile = typeof window !== 'undefined' ? window.innerWidth < 1024 : false
+  const clampWithViewport = (w: number) => {
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
+    const minCanvas = isMobile ? MIN_CANVAS_W_MOBILE : MIN_CANVAS_W_DESKTOP
+    const maxAllowed = Math.max(MIN_W, Math.min(MAX_W, vw - minCanvas))
+    return Math.max(MIN_W, Math.min(maxAllowed, w))
+  }
   const [panelW, setPanelW] = React.useState<number>(() => {
-    try { return Math.min(560, Math.max(320, Number(localStorage.getItem(PANEL_KEY)) || 360)) } catch { return 360 }
+    try {
+      const raw = Number(localStorage.getItem(keyW(decisionId)))
+      const base = Number.isFinite(raw) && raw > 0 ? raw : 320
+      return clampWithViewport(base)
+    } catch { return 320 }
   })
   const [dragging, setDragging] = React.useState(false)
+  const [collapsed, setCollapsed] = React.useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem(keyCollapsed(decisionId))
+      if (raw === 'true') return true
+      if (raw === 'false') return false
+    } catch {}
+    return isMobile
+  })
+  const [styleOpen, setStyleOpen] = React.useState<boolean>(() => {
+    try { return localStorage.getItem(keyStyle(decisionId)) === 'true' } catch { return false }
+  })
+  const [liveText, setLiveText] = React.useState<string>("")
+  const asideRef = React.useRef<HTMLElement | null>(null)
+  const sessionIdRef = React.useRef<string>(Math.random().toString(36).slice(2))
+  const baseMeta = () => ({ decisionId, route: 'combined', viewport: { w: (typeof window !== 'undefined' ? window.innerWidth : 0), h: (typeof window !== 'undefined' ? window.innerHeight : 0) }, sessionId: sessionIdRef.current })
 
   const onMouseDownDivider = React.useCallback((e: React.MouseEvent) => {
     e.preventDefault(); setDragging(true)
   }, [])
+  const dragStartWRef = React.useRef<number>(panelW)
+  const dragStartTsRef = React.useRef<number>(0)
+  const lastEmitRef = React.useRef<number>(0)
   React.useEffect(() => {
     if (!dragging) return
+    dragStartWRef.current = panelW
+    dragStartTsRef.current = Date.now()
     const onMove = (e: MouseEvent) => {
-      const next = Math.min(560, Math.max(320, e.clientX - 24))
+      const raw = e.clientX - 24
+      const next = clampWithViewport(raw)
       setPanelW(next)
+      const now = Date.now()
+      if (now - lastEmitRef.current >= 1000) {
+        lastEmitRef.current = now
+        try { track('sandbox_panel_resize', { ...baseMeta(), width: next, delta: next - dragStartWRef.current, durationMs: now - dragStartTsRef.current }) } catch {}
+      }
     }
-    const onUp = () => setDragging(false)
+    const onUp = () => {
+      setDragging(false)
+      const now = Date.now()
+      setLiveText(`Panel width ${Math.round(panelW)}px`)
+      try { track('sandbox_panel_resize', { ...baseMeta(), width: panelW, delta: panelW - dragStartWRef.current, durationMs: now - dragStartTsRef.current }) } catch {}
+    }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-  }, [dragging])
-  React.useEffect(() => { try { localStorage.setItem(PANEL_KEY, String(panelW)) } catch {} }, [panelW])
+  }, [dragging, panelW])
+  React.useEffect(() => { try { localStorage.setItem(keyW(decisionId), String(panelW)) } catch {} }, [panelW, decisionId])
 
   // Responsive tabs for <1024px, keep both mounted
-  const [active, setActive] = React.useState<Tab>('canvas')
-  const isMobile = typeof window !== 'undefined' ? window.innerWidth < 1024 : false
+  const [active, setActive] = React.useState<Tab>(() => {
+    try { return (localStorage.getItem(keyTab(decisionId)) as Tab) || (isMobile ? 'canvas' : 'canvas') } catch { return isMobile ? 'canvas' : 'canvas' }
+  })
   const onTab = (tab: Tab) => {
     setActive(tab)
+    try { localStorage.setItem(keyTab(decisionId), tab) } catch {}
     // Emit name-only telemetry for tab switch; map Panels to 'intelligence' for now
-    try { track('sandbox_panel_view', { panel: tab === 'panels' ? 'intelligence' : 'canvas' }) } catch {}
+    try { track('sandbox_panel_view', { ...baseMeta(), panel: tab === 'panels' ? 'intelligence' : 'canvas' }) } catch {}
   }
+
+  // Apply inert/focus-removal when collapsed
+  React.useEffect(() => {
+    const el = asideRef.current
+    if (!el) return
+    if (collapsed) {
+      try { el.setAttribute('inert', '') } catch {}
+      const focusables = el.querySelectorAll<HTMLElement>('a,button,input,textarea,select,[tabindex]')
+      focusables.forEach(n => {
+        if (!n.hasAttribute('data-prev-tabindex')) {
+          const prev = n.getAttribute('tabindex')
+          if (prev !== null) n.setAttribute('data-prev-tabindex', prev)
+        }
+        n.setAttribute('tabindex', '-1')
+      })
+    } else {
+      try { el.removeAttribute('inert') } catch {}
+      const toRestore = el.querySelectorAll<HTMLElement>('[data-prev-tabindex]')
+      toRestore.forEach(n => {
+        const prev = n.getAttribute('data-prev-tabindex')
+        if (prev === null) n.removeAttribute('tabindex')
+        else n.setAttribute('tabindex', prev)
+        n.removeAttribute('data-prev-tabindex')
+      })
+    }
+  }, [collapsed])
 
   // Stop TLDraw hotkeys when typing in panels
   const stopCanvasHotkeys: React.KeyboardEventHandler = (e) => {
@@ -63,18 +147,164 @@ export const CombinedSandboxRoute: React.FC = () => {
     }
   }
 
+  // Helpers
+  const isTextInput = (el: EventTarget | null) => {
+    const t = el as HTMLElement | null
+    if (!t) return false
+    const tag = t.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+    if ((t as any).isContentEditable) return true
+    const role = t.getAttribute('role')
+    if (role === 'combobox' || role === 'textbox') return true
+    return false
+  }
+
+  // Panel toggle via header button and Alt+P
+  const togglePanels = React.useCallback(() => {
+    setCollapsed(prev => {
+      const next = !prev
+      try { localStorage.setItem(keyCollapsed(decisionId), String(next)) } catch {}
+      try { track('sandbox_panel_toggle', { ...baseMeta(), collapsed: next }) } catch {}
+      // On mobile, ensure Panels become visible when opening
+      if (next === false && isMobile) setActive('panels')
+      return next
+    })
+  }, [isMobile, track, decisionId])
+
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey && (e.key.toLowerCase() === 'p')) {
+        if (isTextInput(e.target)) return
+        e.preventDefault(); togglePanels()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [togglePanels])
+
+  // Canvas API for actions and style toggle
+  const apiRef = React.useRef<null | {
+    saveNow: () => boolean
+    restore: () => boolean
+    reset: () => boolean
+    setStyleOpen: (open: boolean) => void
+    toggleStyle: () => void
+    getRoot: () => HTMLElement | null
+    editor: any | null
+    getDoc: () => any
+    loadDoc: (next: any) => boolean
+  }>(null)
+
+  const onCanvasAPI = React.useCallback((api: any) => {
+    apiRef.current = api
+    // Default: style panel collapsed per state
+    try { api.setStyleOpen(styleOpen) } catch {}
+  }, [styleOpen])
+
+  const exportSnapshot = React.useCallback(() => {
+    try {
+      const data = apiRef.current?.getDoc?.() || {}
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `canvas-${decisionId}.json`
+      document.body.appendChild(a); a.click(); document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      try { track('sandbox_canvas_error', { ...baseMeta(), op: 'export', message: (e as any)?.message }) } catch {}
+    }
+  }, [decisionId])
+
+  const handleSave = React.useCallback(() => {
+    try {
+      const ok = apiRef.current?.saveNow?.()
+      if (ok) { toast({ title: 'Canvas saved' }); track('sandbox_canvas_save', baseMeta()) }
+      else {
+        toast({ title: 'Unable to save locally. Storage may be blocked or full.', type: 'destructive' })
+        if (window.confirm('Local save failed. Export JSON now?')) exportSnapshot()
+        track('sandbox_canvas_error', { ...baseMeta(), op: 'save' })
+      }
+    } catch (e) {
+      toast({ title: 'Failed to save', type: 'destructive' }); try { track('sandbox_canvas_error', { ...baseMeta(), op: 'save', message: (e as any)?.message }) } catch {}
+    }
+  }, [toast])
+  const handleRestore = React.useCallback(() => {
+    try {
+      const ok = apiRef.current?.restore?.()
+      if (ok) { toast({ title: 'Canvas restored' }); track('sandbox_canvas_restore', baseMeta()) }
+      else { toast({ title: 'Nothing to restore', type: 'destructive' }); track('sandbox_canvas_error', { ...baseMeta(), op: 'restore', message: 'empty' }) }
+    } catch (e) {
+      toast({ title: 'Failed to restore', type: 'destructive' }); try { track('sandbox_canvas_error', { ...baseMeta(), op: 'restore', message: (e as any)?.message }) } catch {}
+    }
+  }, [toast])
+  const preResetRef = React.useRef<any | null>(null)
+  const undoTimerRef = React.useRef<number | null>(null)
+  const [showUndoBanner, setShowUndoBanner] = React.useState(false)
+  const handleReset = React.useCallback(() => {
+    try {
+      const confirm = window.prompt('Type RESET to confirm')
+      if (confirm !== 'RESET') return
+      preResetRef.current = apiRef.current?.getDoc?.()
+      const ok = apiRef.current?.reset?.()
+      if (ok) {
+        setShowUndoBanner(true)
+        if (undoTimerRef.current) { clearTimeout(undoTimerRef.current); undoTimerRef.current = null }
+        undoTimerRef.current = window.setTimeout(() => { preResetRef.current = null; undoTimerRef.current = null; setShowUndoBanner(false) }, 10000)
+        track('sandbox_canvas_reset', baseMeta())
+      } else {
+        toast({ title: 'Failed to reset', type: 'destructive' }); track('sandbox_canvas_error', { ...baseMeta(), op: 'reset' })
+      }
+    } catch (e) {
+      toast({ title: 'Failed to reset', type: 'destructive' }); try { track('sandbox_canvas_error', { ...baseMeta(), op: 'reset', message: (e as any)?.message }) } catch {}
+    }
+  }, [toast])
+  const handleStyleToggle = React.useCallback(() => {
+    const next = !styleOpen
+    setStyleOpen(next)
+    try { localStorage.setItem(keyStyle(decisionId), String(next)) } catch {}
+    try { track('sandbox_style_toggle', { ...baseMeta(), open: next }) } catch {}
+    try { apiRef.current?.setStyleOpen(next) } catch {}
+  }, [styleOpen])
+
   return (
     <div className="w-full h-[75vh] bg-white border rounded shadow-sm overflow-hidden flex flex-col">
+      {/* Fallback CSS for TL style panel */}
+      <style>{`[data-dg-style-open="false"] .tlui-style-panel{ display:none !important; }`}</style>
       {/* Header */}
       <div className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b px-3 py-2 flex items-center gap-3">
-        <div className="text-sm font-medium truncate">Decision {decisionId}</div>
+        <div className="text-sm font-medium truncate">{decisionTitle || `Decision ${decisionId}`}</div>
         <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border">Panels + Canvas</span>
         <div className="ml-auto flex items-center gap-2">
+          {/* Panels toggle (desktop & mobile) */}
+          <button
+            aria-label={collapsed ? 'Show panels' : 'Hide panels'}
+            aria-pressed={!collapsed}
+            aria-controls="panels-region"
+            aria-expanded={!collapsed}
+            className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            onClick={() => togglePanels()}
+          >
+            {collapsed ? 'Show panels' : 'Hide panels'}
+          </button>
           {/* Mobile tabs */}
           <div className="lg:hidden inline-flex items-center gap-1 border rounded overflow-hidden" role="tablist" aria-label="Sandbox view">
             <button role="tab" aria-selected={active==='panels'} className={`px-2 py-1 text-xs ${active==='panels' ? 'bg-indigo-600 text-white' : 'bg-white'}`} onClick={() => onTab('panels')}>Panels</button>
             <button role="tab" aria-selected={active==='canvas'} className={`px-2 py-1 text-xs ${active==='canvas' ? 'bg-indigo-600 text-white' : 'bg-white'}`} onClick={() => onTab('canvas')}>Canvas</button>
           </div>
+          {/* Style toggle */}
+          <button
+            aria-label="Toggle style panel"
+            aria-pressed={styleOpen}
+            className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            onClick={handleStyleToggle}
+          >
+            Style
+          </button>
+          {/* Save/Restore/Reset actions */}
+          <button className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleSave}>Save</button>
+          <button className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleRestore}>Restore</button>
+          <button className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleReset}>Reset</button>
           <a
             aria-label="Send feedback"
             title="Send feedback"
@@ -88,27 +318,73 @@ export const CombinedSandboxRoute: React.FC = () => {
 
       {/* Body */}
       <div
-        className="grid h-full w-full grid-cols-[minmax(320px,420px)_1fr] lg:grid-cols-[minmax(var(--panel-w,360px),560px)_8px_1fr]"
+        className={`grid h-full w-full ${collapsed ? 'grid-cols-[0px_0px_1fr] lg:grid-cols-[0px_0px_1fr]' : 'grid-cols-[minmax(240px,420px)_8px_1fr] lg:grid-cols-[minmax(var(--panel-w,320px),560px)_8px_1fr]'}`}
         style={{ '--panel-w': `${panelW}px` } as React.CSSProperties}
       >
         {/* Panels */}
-        <aside className={`h-full border-r overflow-y-auto ${isMobile && active !== 'panels' ? 'hidden' : ''}`} onKeyDownCapture={stopCanvasHotkeys}>
+        <aside ref={asideRef} id="panels-region" className={`h-full border-r overflow-y-auto ${isMobile && active !== 'panels' ? 'hidden' : ''} ${collapsed ? 'hidden' : ''}`} onKeyDownCapture={stopCanvasHotkeys} aria-hidden={collapsed ? true : undefined}>
           <ScenarioPanels decisionId={decisionId} />
         </aside>
 
         {/* Divider column (desktop only) */}
-        <div className="hidden lg:block relative" aria-hidden>
-          <div className="absolute inset-y-0 left-0 right-0 cursor-col-resize" onMouseDown={onMouseDownDivider} />
+        <div className={`hidden lg:block relative ${collapsed ? 'hidden' : ''}`} aria-hidden>
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize panels"
+            aria-controls="panels-region"
+            tabIndex={0}
+            aria-valuemin={240}
+            aria-valuemax={560}
+            aria-valuenow={Math.round(panelW)}
+            className="absolute inset-y-0 left-0 right-0 cursor-col-resize"
+            onMouseDown={onMouseDownDivider}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                e.preventDefault()
+                const delta = e.key === 'ArrowRight' ? 16 : -16
+                const next = clampWithViewport(panelW + delta)
+                setPanelW(next)
+              }
+            }}
+            onKeyUp={(e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') setLiveText(`Panel width ${Math.round(panelW)}px`) }}
+          />
         </div>
 
         {/* Canvas */}
-        <section className={`relative h-full overflow-hidden p-4 ${isMobile && active !== 'canvas' ? 'hidden' : ''}`}>
+        <section className={`relative h-full overflow-hidden p-4 pr-2 md:pr-4 ${isMobile && active !== 'canvas' ? 'hidden' : ''}`}>
           {/* Safe gutter so floating toolbars don't touch edges */}
           <div className="relative w-full h-full">
-            <Canvas decisionId={decisionId} hideBanner hideFeedback />
+            <Canvas decisionId={decisionId} hideBanner hideFeedback embedded onAPIReady={onCanvasAPI} />
           </div>
         </section>
       </div>
+
+      {/* Undo Reset banner (interactive) */}
+      {showUndoBanner && (
+        <div className="absolute top-[56px] left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+          <div className="rounded border bg-white shadow px-3 py-2 text-xs flex items-center gap-3">
+            <span>Canvas reset. Undo?</span>
+            <button className="px-2 py-0.5 rounded border bg-white hover:bg-gray-50" onClick={() => { try { if (preResetRef.current) apiRef.current?.loadDoc?.(preResetRef.current) } finally { setShowUndoBanner(false); if (undoTimerRef.current) { clearTimeout(undoTimerRef.current); undoTimerRef.current = null } } }}>Undo</button>
+            <button className="px-2 py-0.5 rounded border bg-white hover:bg-gray-50" onClick={() => { setShowUndoBanner(false); if (undoTimerRef.current) { clearTimeout(undoTimerRef.current); undoTimerRef.current = null } }}>Dismiss</button>
+          </div>
+        </div>
+      )}
+
+      {/* Peek handle when collapsed (desktop) */}
+      {(!isMobile && collapsed) && (
+        <button
+          title="Show panels (⌥P)"
+          aria-label="Show panels"
+          className="absolute left-0 top-[64px] h-24 w-5 bg-white/80 border-r rounded-r shadow flex items-center justify-center text-[10px]"
+          onClick={() => togglePanels()}
+        >
+          ▶
+        </button>
+      )}
+
+      {/* ARIA live announcer for width */}
+      <div className="sr-only" aria-live="polite">{liveText}</div>
     </div>
   )
 }

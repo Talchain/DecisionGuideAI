@@ -13,7 +13,9 @@ export const ScenarioPanels: React.FC<{ decisionId?: string; className?: string 
         {/* Additional panels can be appended here if needed */}
       </div>
       {/* Snapshot tray inline (no fixed overlay within combined layout) */}
-      <SnapshotTray boardId={decisionId} fixed={false} />
+      <div className="relative z-[5] max-h-[40vh] overflow-auto">
+        <SnapshotTray boardId={decisionId} fixed={false} />
+      </div>
     </div>
   )
 }
