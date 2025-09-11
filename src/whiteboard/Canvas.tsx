@@ -76,7 +76,9 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
           await writeProjection(decisionId, seeded.doc)
         }
       } catch (e) {
-        console.error('[Whiteboard] init failed', e)
+        if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_BOARD === 'true') {
+          console.error('[Whiteboard] init failed', e)
+        }
         // Local-first fallback: proceed with a local doc and skip cloud persistence
         try {
           const seeded = await loadSeed(decisionId)
@@ -125,7 +127,9 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
         editor.store.loadSnapshot(snap)
       }
     } catch (e) {
-      console.warn('[Whiteboard] loadSnapshot failed', e)
+      if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_BOARD === 'true') {
+        console.warn('[Whiteboard] loadSnapshot failed', e)
+      }
     }
 
     try {
@@ -136,14 +140,20 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
         unsubRef.current = store.listen(() => {
           try {
             const nextSnap = store.getSnapshot ? store.getSnapshot() : store.getState?.()
-            setDoc((prev: any) => (prev ? { ...prev, tldraw: nextSnap } : prev))
+            setDoc((prev: any) => {
+              if (!prev) return prev
+              const same = (prev as any).tldraw === nextSnap
+              return same ? prev : { ...prev, tldraw: nextSnap }
+            })
           } catch (e) {
             // no-op
           }
         }, { scope: 'document' })
       }
     } catch (e) {
-      console.warn('[Whiteboard] store.listen failed', e)
+      if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_BOARD === 'true') {
+        console.warn('[Whiteboard] store.listen failed', e)
+      }
     }
     try {
       // Ensure interactive editor (not read-only) and sensible default tool

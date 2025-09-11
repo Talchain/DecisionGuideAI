@@ -70,6 +70,8 @@ export const CombinedSandboxRoute: React.FC = () => {
   const dragStartWRef = React.useRef<number>(panelW)
   const dragStartTsRef = React.useRef<number>(0)
   const lastEmitRef = React.useRef<number>(0)
+  const rafRef = React.useRef<number>(0)
+  const pendingWRef = React.useRef<number | null>(null)
   React.useEffect(() => {
     if (!dragging) return
     dragStartWRef.current = panelW
@@ -77,7 +79,13 @@ export const CombinedSandboxRoute: React.FC = () => {
     const onMove = (e: MouseEvent) => {
       const raw = e.clientX - 24
       const next = clampWithViewport(raw)
-      setPanelW(next)
+      pendingWRef.current = next
+      if (!rafRef.current) {
+        rafRef.current = requestAnimationFrame(() => {
+          if (pendingWRef.current != null) setPanelW(pendingWRef.current)
+          rafRef.current = 0
+        })
+      }
       const now = Date.now()
       if (now - lastEmitRef.current >= 1000) {
         lastEmitRef.current = now
@@ -87,8 +95,12 @@ export const CombinedSandboxRoute: React.FC = () => {
     const onUp = () => {
       setDragging(false)
       const now = Date.now()
-      setLiveText(`Panel width ${Math.round(panelW)}px`)
-      try { track('sandbox_panel_resize', { ...baseMeta(), width: panelW, delta: panelW - dragStartWRef.current, durationMs: now - dragStartTsRef.current }) } catch {}
+      const finalW = pendingWRef.current ?? panelW
+      if (pendingWRef.current != null) setPanelW(finalW)
+      setLiveText(`Panel width ${Math.round(finalW)}px`)
+      try { track('sandbox_panel_resize', { ...baseMeta(), width: finalW, delta: finalW - dragStartWRef.current, durationMs: now - dragStartTsRef.current }) } catch {}
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = 0 }
+      pendingWRef.current = null
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)

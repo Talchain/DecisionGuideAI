@@ -71,8 +71,8 @@ const ScenarioSandboxInner: React.FC<{ decisionId?: string; onExpandDecision?: (
   // Temporary instrumentation: initial debug line only — DEV only
   const renderCountRef = useRef(0)
   renderCountRef.current += 1
-  if (import.meta.env.DEV && renderCountRef.current === 1) {
-    try { console.warn('[SandboxMock] render start') } catch {}
+  if (import.meta.env.DEV && import.meta.env.VITE_DEBUG_BOARD === 'true' && renderCountRef.current === 1) {
+    try { console.debug('[SandboxMock] render start') } catch {}
   }
 
   // Tile data
