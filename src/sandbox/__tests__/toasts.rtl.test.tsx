@@ -1,21 +1,12 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, act } from '@testing-library/react'
 import { renderWithSandboxBoardAndToaster } from './testUtils'
 import userEvent from '@testing-library/user-event'
 import { Toaster } from '@/components/ui/toast/toaster'
+import { toast } from '@/components/ui/use-toast'
 
-// Minimal stub for ScenarioSandboxMock to avoid heavy UI wiring
-vi.mock('@/sandbox/ui/ScenarioSandboxMock', () => ({
-  ScenarioSandboxMock: () => {
-    const React = require('react') as typeof import('react')
-    return React.createElement(
-      'button',
-      { 'aria-label': 'Help', onClick: async () => { const m = await import('@/components/ui/toast/use-toast'); m.toast({ title: 'Open help docs (placeholder)' }) } },
-      'Help'
-    )
-  },
-}))
+// We no longer import the heavy ScenarioSandboxMock; we trigger toast() directly.
 
 // Mock heavy board/state to avoid Yjs and open handles during tests
 vi.mock('@/sandbox/state/boardState', () => ({
@@ -40,6 +31,10 @@ describe('Sandbox toasts', () => {
 
   afterEach(() => {
     try {
+      // Dismiss any lingering toasts and flush removal timers to avoid cross-test accumulation
+      act(() => { toast.dismiss() })
+      vi.advanceTimersByTime(1500)
+      vi.runOnlyPendingTimers()
       // Run and clear any pending timers to avoid leakage across tests
       vi.runOnlyPendingTimers()
     } catch {}
@@ -48,22 +43,24 @@ describe('Sandbox toasts', () => {
   })
 
   it('shows a toast when requesting help', async () => {
-    const { ScenarioSandboxMock } = await import('@/sandbox/ui/ScenarioSandboxMock')
-    renderWithSandboxBoardAndToaster(<ScenarioSandboxMock />)
-    await user.click(screen.getByLabelText('Help'))
-    await vi.advanceTimersByTimeAsync(0)
+    renderWithSandboxBoardAndToaster(<div />)
+    await act(async () => {
+      toast({ title: 'Open help docs (placeholder)' })
+      await vi.advanceTimersByTimeAsync(0)
+    })
     expect(screen.getByText('Open help docs (placeholder)')).toBeInTheDocument()
   })
 
   it('auto-dismisses the toast after timeout', async () => {
-    const { ScenarioSandboxMock } = await import('@/sandbox/ui/ScenarioSandboxMock')
-    renderWithSandboxBoardAndToaster(<ScenarioSandboxMock />)
-    await user.click(screen.getByLabelText('Help'))
-    await vi.advanceTimersByTimeAsync(0)
+    renderWithSandboxBoardAndToaster(<div />)
+    await act(async () => {
+      toast({ title: 'Open help docs (placeholder)' })
+      await vi.advanceTimersByTimeAsync(0)
+    })
     expect(screen.getByText('Open help docs (placeholder)')).toBeInTheDocument()
 
     // Advance past default toast duration (~5000ms) and removal (~1000ms)
-    await vi.advanceTimersByTimeAsync(6000)
+    await act(async () => { await vi.advanceTimersByTimeAsync(6000) })
     expect(screen.queryByText('Open help docs (placeholder)')).not.toBeInTheDocument()
   })
 })

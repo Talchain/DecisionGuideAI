@@ -39,6 +39,8 @@ describe('Canvas local autosave + hydration', () => {
 
     // Debounce (~800ms) and write
     await act(async () => { vi.advanceTimersByTime(850) })
+    // Flush microtasks
+    await act(async () => { vi.advanceTimersByTime(0) })
 
     const saved = localStorage.getItem(KEY)
     expect(saved).toBeTruthy()
@@ -53,7 +55,7 @@ describe('Canvas local autosave + hydration', () => {
     localStorage.setItem(KEY, JSON.stringify(seeded))
     render(<div style={{ width: 800, height: 400 }}><Canvas decisionId="demo" /></div>)
 
-    expect(await screen.findByTestId('tldraw-mock')).toBeInTheDocument()
+    expect(screen.getByTestId('tldraw-mock')).toBeInTheDocument()
     // On mount, loadSnapshot should be attempted with saved snapshot
     // We can't directly access editor here, but lack of errors and presence of localStorage value suffices for the hydration smoke test
     expect(localStorage.getItem(KEY)).toBeTruthy()

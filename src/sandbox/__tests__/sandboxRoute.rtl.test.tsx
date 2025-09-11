@@ -3,47 +3,38 @@ import { describe, it, expect, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { render, screen, waitFor } from '@testing-library/react'
 
-// Helper to render route with desired flags via module mock
-const renderWithFlags = async (
-  flags: { featureScenarioSandbox: boolean; featureWhiteboard: boolean },
-  opts: { mockCanvas?: boolean } = {}
-) => {
-  vi.doMock('@/lib/config', () => ({
-    cfg: {
-      supabaseUrl: '',
-      supabaseAnon: '',
-      openaiKey: '',
-      featureWhiteboard: flags.featureWhiteboard,
-      featureScenarioSandbox: flags.featureScenarioSandbox,
-    },
-    hasSupabase: false,
-    isSandboxEnabled: () => flags.featureScenarioSandbox,
-    isWhiteboardEnabled: () => flags.featureWhiteboard,
-  }))
+// Hoisted mocks with mutable flags avoid resetModules; tests mutate this state before rendering
+const __flags = { featureScenarioSandbox: false, featureWhiteboard: false }
+vi.mock('@/lib/config', () => ({
+  cfg: {
+    supabaseUrl: '',
+    supabaseAnon: '',
+    openaiKey: '',
+    featureWhiteboard: __flags.featureWhiteboard,
+    featureScenarioSandbox: __flags.featureScenarioSandbox,
+  },
+  hasSupabase: false,
+  isSandboxEnabled: () => __flags.featureScenarioSandbox,
+  isWhiteboardEnabled: () => __flags.featureWhiteboard,
+  isDecisionGraphEnabled: () => false,
+}))
+// Lightweight UI mocks
+vi.mock('@/whiteboard/RightPanel', () => ({ RightPanel: () => <aside>RightPanel</aside> }))
+vi.mock('@/whiteboard/Canvas', () => ({ Canvas: ({ decisionId }: { decisionId: string }) => <div>Canvas Loaded {decisionId}</div> }))
 
-  // Mock RightPanel to keep test lightweight
-  vi.doMock('@/whiteboard/RightPanel', () => ({
-    RightPanel: () => <aside>RightPanel</aside>
-  }))
-
-  if (opts.mockCanvas) {
-    vi.doMock('@/whiteboard/Canvas', () => ({
-      Canvas: ({ decisionId }: { decisionId: string }) => <div>Canvas Loaded {decisionId}</div>
-    }))
-  }
-
-  // Reset modules so per-call mocks apply without query params that confuse esbuild
-  await vi.resetModules()
+// Helper to render route with desired flags
+const renderWithFlags = async (flags: { featureScenarioSandbox: boolean; featureWhiteboard: boolean }) => {
+  __flags.featureScenarioSandbox = flags.featureScenarioSandbox
+  __flags.featureWhiteboard = flags.featureWhiteboard
   const mod = await import('@/whiteboard/SandboxRoute')
   const SandboxRoute: any = (mod as any).SandboxRoute
-  const ui = (
+  return render(
     <MemoryRouter initialEntries={['/decisions/abc/sandbox']}>
       <Routes>
         <Route path="/decisions/:decisionId/sandbox" element={<SandboxRoute />} />
       </Routes>
     </MemoryRouter>
   )
-  return render(ui)
 }
 
 describe('SandboxRoute feature gating and lazy behavior', () => {
@@ -58,7 +49,7 @@ describe('SandboxRoute feature gating and lazy behavior', () => {
   })
 
   it('shows spinner then lazy canvas when both flags enabled', async () => {
-    await renderWithFlags({ featureScenarioSandbox: true, featureWhiteboard: true }, { mockCanvas: true })
+    await renderWithFlags({ featureScenarioSandbox: true, featureWhiteboard: true })
 
     // Suspense fallback initially
     expect(screen.getByText(/Loading…/i)).toBeInTheDocument()
