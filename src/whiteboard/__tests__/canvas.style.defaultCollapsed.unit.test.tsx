@@ -6,6 +6,8 @@ import { Canvas } from '@/whiteboard/Canvas'
 
 function mountWithAPI(decisionId = 'style-doc') {
   let api: any = null
+  // Seed doc so Canvas renders immediately (no splash)
+  localStorage.setItem(`dgai:canvas:decision/${decisionId}`, JSON.stringify({ shapes: [], bindings: [], meta: { decision_id: decisionId, kind: 'sandbox' } }))
   const ui = <div style={{ width: 800, height: 600 }}><Canvas decisionId={decisionId} embedded onAPIReady={(a) => { api = a }} /></div>
   const utils = render(ui)
   return { api, ...utils }

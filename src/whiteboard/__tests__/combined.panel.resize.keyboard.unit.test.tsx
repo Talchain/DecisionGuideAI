@@ -39,7 +39,7 @@ describe('CombinedSandboxRoute — divider keyboard resize', () => {
     renderSandbox(ui, { sandbox: true })
 
     // Start expanded; focus separator and press ArrowRight (grow)
-    const sep = await screen.findByRole('separator', { name: /resize panels/i })
+    const sep = await screen.findByRole('separator', { name: /resize panels/i, hidden: true })
     sep.focus()
     const before = Number(sep.getAttribute('aria-valuenow'))
     fireEvent.keyDown(sep, { key: 'ArrowRight' })

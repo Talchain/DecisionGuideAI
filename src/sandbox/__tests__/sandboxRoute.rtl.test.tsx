@@ -32,8 +32,9 @@ const renderWithFlags = async (
     }))
   }
 
-  // Cache-bust import so per-call mocks apply without module resets
-  const mod = await import(`@/whiteboard/SandboxRoute?ts=${Date.now()}&r=${Math.random()}`)
+  // Reset modules so per-call mocks apply without query params that confuse esbuild
+  await vi.resetModules()
+  const mod = await import('@/whiteboard/SandboxRoute')
   const SandboxRoute: any = (mod as any).SandboxRoute
   const ui = (
     <MemoryRouter initialEntries={['/decisions/abc/sandbox']}>

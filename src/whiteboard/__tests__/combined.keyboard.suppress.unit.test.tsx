@@ -5,11 +5,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { renderSandbox } from '@/test/renderSandbox'
 import { fireEvent, screen } from '@testing-library/react'
 
-vi.doMock('@/whiteboard/Canvas', () => ({
+vi.mock('@/whiteboard/Canvas', () => ({
   Canvas: () => <div data-testid="canvas-root" />
 }))
 
-vi.doMock('@/sandbox/panels/ScenarioPanels', () => ({
+vi.mock('@/sandbox/panels/ScenarioPanels', () => ({
   ScenarioPanels: () => (
     <div data-testid="panels-root">
       <input data-testid="panel-input" placeholder="Type here" />

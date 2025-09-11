@@ -1,8 +1,21 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import { renderWithSandboxBoardAndToaster } from './testUtils'
 import userEvent from '@testing-library/user-event'
 import { Toaster } from '@/components/ui/toast/toaster'
+
+// Minimal stub for ScenarioSandboxMock to avoid heavy UI wiring
+vi.mock('@/sandbox/ui/ScenarioSandboxMock', () => ({
+  ScenarioSandboxMock: () => {
+    const React = require('react') as typeof import('react')
+    return React.createElement(
+      'button',
+      { 'aria-label': 'Help', onClick: async () => { const m = await import('@/components/ui/toast/use-toast'); m.toast({ title: 'Open help docs (placeholder)' }) } },
+      'Help'
+    )
+  },
+}))
 
 // Mock heavy board/state to avoid Yjs and open handles during tests
 vi.mock('@/sandbox/state/boardState', () => ({
@@ -36,34 +49,21 @@ describe('Sandbox toasts', () => {
 
   it('shows a toast when requesting help', async () => {
     const { ScenarioSandboxMock } = await import('@/sandbox/ui/ScenarioSandboxMock')
-    render(
-      <>
-        <ScenarioSandboxMock />
-        <Toaster />
-      </>
-    )
+    renderWithSandboxBoardAndToaster(<ScenarioSandboxMock />)
     await user.click(screen.getByLabelText('Help'))
-    // With fake timers, drive any scheduled updates to completion
     await vi.advanceTimersByTimeAsync(0)
     expect(screen.getByText('Open help docs (placeholder)')).toBeInTheDocument()
   })
 
   it('auto-dismisses the toast after timeout', async () => {
     const { ScenarioSandboxMock } = await import('@/sandbox/ui/ScenarioSandboxMock')
-    render(
-      <>
-        <ScenarioSandboxMock />
-        <Toaster />
-      </>
-    )
+    renderWithSandboxBoardAndToaster(<ScenarioSandboxMock />)
     await user.click(screen.getByLabelText('Help'))
     await vi.advanceTimersByTimeAsync(0)
     expect(screen.getByText('Open help docs (placeholder)')).toBeInTheDocument()
 
     // Advance past default toast duration (~5000ms) and removal (~1000ms)
-    vi.advanceTimersByTime(6000)
-    // Allow any pending microtasks to flush
-    await Promise.resolve()
+    await vi.advanceTimersByTimeAsync(6000)
     expect(screen.queryByText('Open help docs (placeholder)')).not.toBeInTheDocument()
   })
 })

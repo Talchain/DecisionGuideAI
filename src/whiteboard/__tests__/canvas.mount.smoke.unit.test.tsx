@@ -28,6 +28,8 @@ const { Canvas } = await import('@/whiteboard/Canvas')
 
 describe('Canvas mount smoke', () => {
   it('invokes onMount and configures editor to be interactive', async () => {
+    // Pre-seed doc so Canvas skips the async loading splash
+    localStorage.setItem('dgai:canvas:decision/mount-test', JSON.stringify({ shapes: [], bindings: [], meta: { decision_id: 'mount-test', kind: 'sandbox' } }))
     render(<div style={{ width: 800, height: 400 }}><Canvas decisionId="mount-test" /></div>)
 
     // Ensure mocked Tldraw rendered

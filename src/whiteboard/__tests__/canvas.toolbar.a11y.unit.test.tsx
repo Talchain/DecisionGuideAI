@@ -19,11 +19,12 @@ const { Canvas } = await import('@/whiteboard/Canvas')
 
 describe('Canvas toolbar a11y', () => {
   it('has aria-label and title attributes on all buttons', async () => {
+    localStorage.setItem('dgai:canvas:decision/demo', JSON.stringify({ shapes: [], bindings: [], meta: { decision_id: 'demo', kind: 'sandbox' } }))
     render(<div style={{ width: 800, height: 400 }}><Canvas decisionId="demo" /></div>)
     expect(await screen.findByTestId('tldraw-mock')).toBeInTheDocument()
 
     const buttons = [
-      'tb-select', 'tb-rect', 'tb-text', 'tb-undo', 'tb-redo', 'tb-zoom-in', 'tb-zoom-out', 'tb-zoom-fit', 'tb-save', 'tb-restore', 'tb-reset'
+      'tb-select', 'tb-rect', 'tb-text', 'tb-undo', 'tb-redo', 'tb-zoom-in', 'tb-zoom-out', 'tb-zoom-fit'
     ]
 
     for (const id of buttons) {

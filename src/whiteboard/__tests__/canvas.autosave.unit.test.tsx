@@ -6,8 +6,6 @@ import { render, screen, act } from '@testing-library/react'
 // We'll capture the store.listen callback to simulate document changes
 let storeListener: (() => void) | null = null
 
-vi.useFakeTimers()
-
 vi.doMock('@/whiteboard/tldraw', () => ({
   Tldraw: ({ onMount }: any) => {
     const editor = {
@@ -28,12 +26,12 @@ const { Canvas } = await import('@/whiteboard/Canvas')
 
 describe('Canvas local autosave + hydration', () => {
   const KEY = 'dgai:canvas:decision/demo'
-  beforeEach(() => { localStorage.clear() })
-  afterEach(() => { localStorage.clear(); vi.clearAllTimers() })
+  beforeEach(() => { vi.useFakeTimers(); localStorage.clear(); localStorage.setItem(KEY, JSON.stringify({ meta: { decision_id: 'demo', kind: 'sandbox' }, shapes: [], bindings: [] })) })
+  afterEach(() => { localStorage.clear(); try { vi.runOnlyPendingTimers() } catch {}; vi.clearAllTimers(); vi.useRealTimers() })
 
   it('autosaves to localStorage on document change (debounced)', async () => {
     render(<div style={{ width: 800, height: 400 }}><Canvas decisionId="demo" /></div>)
-    expect(await screen.findByTestId('tldraw-mock')).toBeInTheDocument()
+    expect(screen.getByTestId('tldraw-mock')).toBeInTheDocument()
 
     // Simulate TL document change by invoking the stored listener
     expect(storeListener).toBeTypeOf('function')

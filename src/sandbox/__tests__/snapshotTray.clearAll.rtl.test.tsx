@@ -22,17 +22,19 @@ vi.mock('@/sandbox/state/boardState', async () => {
   }
 })
 
+// Capture analytics at the module level so storage-level telemetry (snapshots.ts) is intercepted
+let calls: Array<{ event: string; props: any }> = []
+vi.mock('@/lib/analytics', () => ({
+  track: (event: string, props: any = {}) => calls.push({ event, props }),
+  model_segment_changed: () => {},
+}))
+
 describe('SnapshotTray Clear All', () => {
-  let calls: Array<{ event: string; props: any }>
   const decisionId = 'tray-clear'
 
   beforeEach(() => {
     calls = []
     try { localStorage.clear() } catch {}
-    vi.doMock('@/lib/analytics', () => ({
-      track: (event: string, props: any = {}) => calls.push({ event, props }),
-      model_segment_changed: () => {},
-    }))
   })
 
   it('clears all snapshots via SnapshotTray UI and emits correct telemetry', async () => {

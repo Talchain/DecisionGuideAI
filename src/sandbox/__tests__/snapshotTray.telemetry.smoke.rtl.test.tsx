@@ -9,6 +9,18 @@ import { Toaster } from '@/components/ui/toast/toaster'
 
 // Smoke: SnapshotTray emits sandbox_snapshot on save and restore via useTelemetry
 
+// Avoid real Yjs/board wiring in tests
+vi.mock('@/sandbox/state/boardState', async () => {
+  const actual = await vi.importActual<typeof import('@/sandbox/state/boardState')>('@/sandbox/state/boardState')
+  return {
+    ...actual,
+    useBoardState: () => ({
+      getUpdate: () => new Uint8Array(),
+      replaceWithUpdate: () => {},
+    }),
+  }
+})
+
 describe('SnapshotTray telemetry (smoke)', () => {
   beforeEach(() => {
     analytics.__clearTestBuffer()
@@ -29,14 +41,14 @@ describe('SnapshotTray telemetry (smoke)', () => {
 
     // Click Save Snapshot to open prompt
     fireEvent.click(screen.getByRole('button', { name: 'Save Snapshot' }))
-    // Click Save in the dialog (no name needed)
-    fireEvent.click(await screen.findByRole('button', { name: 'Save' }))
+    // Click Save in the dialog
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 
     // Wait a tick for state updates
     await vi.advanceTimersByTimeAsync(1)
 
     // There should be at least one snapshot with a Load button
-    const loadButtons = await screen.findAllByRole('button', { name: 'Load' })
+    const loadButtons = screen.getAllByRole('button', { name: 'Load' })
     expect(loadButtons.length).toBeGreaterThan(0)
 
     // Click Load to trigger restore event

@@ -2,6 +2,20 @@ import React, { createContext, useContext, useState } from 'react';
 import { vi } from 'vitest';
 // Ensure the feature flag is on so CommentPanel renders in tests
 vi.stubEnv('VITE_FEATURE_SCENARIO_SANDBOX', 'true');
+// Mock useFlags to return sandbox enabled; others false by default
+vi.mock('@/lib/flags', () => ({
+  useFlags: () => ({
+    sandbox: true,
+    strategyBridge: false,
+    voting: false,
+    realtime: false,
+    deltaReapplyV2: false,
+    projections: false,
+    scenarioSnapshots: false,
+    optionHandles: false,
+    decisionCTA: false,
+  })
+}))
 
 // --- Inline test board state context/provider ---
 import type { ReactNode, ReactElement } from 'react';
