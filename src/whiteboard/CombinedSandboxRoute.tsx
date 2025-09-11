@@ -280,7 +280,7 @@ export const CombinedSandboxRoute: React.FC = () => {
   }, [styleOpen])
 
   return (
-    <div className="w-full h-[75vh] bg-white border rounded shadow-sm overflow-hidden flex flex-col">
+    <div className="w-full h-[75vh] bg-white border rounded shadow-sm overflow-hidden flex flex-col" data-dg-style-open={styleOpen ? 'true' : 'false'}>
       {/* Fallback CSS for TL style panel */}
       <style>{`[data-dg-style-open="false"] .tlui-style-panel{ display:none !important; }`}</style>
       {/* Header */}
@@ -339,7 +339,7 @@ export const CombinedSandboxRoute: React.FC = () => {
         </aside>
 
         {/* Divider column (desktop only) */}
-        <div className={`hidden lg:block relative ${collapsed ? 'hidden' : ''}`} aria-hidden>
+        <div className={`hidden lg:block relative ${collapsed ? 'hidden' : ''}`}>
           <div
             role="separator"
             aria-orientation="vertical"
