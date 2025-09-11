@@ -15,6 +15,7 @@ vi.mock('@/lib/config', () => ({
     supabaseUrl: '', supabaseAnon: '', openaiKey: ''
   },
   isSandboxEnabled: () => flags.sandbox,
+  isDecisionGraphEnabled: () => false,
 }))
 
 // Mock ScenarioSandboxMock with a tiny component

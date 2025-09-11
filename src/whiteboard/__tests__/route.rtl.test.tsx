@@ -18,11 +18,17 @@ vi.mock('@/lib/config', () => ({
   isSandboxVotingEnabled: () => false,
   isProjectionsEnabled: () => false,
   isDecisionCTAEnabled: () => false,
+  isDecisionGraphEnabled: () => false,
 }))
 
 // Mock auth context
 vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ authenticated: true, loading: false })
+}))
+
+// Mock DecisionContext to avoid provider requirement in this route test
+vi.mock('@/contexts/DecisionContext', () => ({
+  useDecision: () => ({ decision: 'Test Decision' })
 }))
 
 // Mock access validation
@@ -92,22 +98,20 @@ vi.mock('../projection', () => ({
   writeProjection: projMocks.writeProjection
 }))
 
-import App from '@/App'
+import { SandboxRoute } from '../SandboxRoute'
 
 describe('whiteboard route', () => {
   it('renders the whiteboard canvas when navigating to /decisions/:id/sandbox', async () => {
     render(
       <MemoryRouter initialEntries={["/decisions/abc123/sandbox"]}>
         <Routes>
-          <Route path="/*" element={<App />} />
+          <Route path="/decisions/:decisionId/sandbox" element={<SandboxRoute />} />
         </Routes>
       </MemoryRouter>
     )
 
-    // First, Canvas shows a loading state
-    expect(await screen.findByText(/Initializing canvas/i)).toBeInTheDocument()
-
-    // Then overlay text appears once doc is ready
+    // Real canvas root should mount (flag-enabled), then overlay text appears
+    expect(await screen.findByTestId('sandbox-real')).toBeInTheDocument()
     expect(await screen.findByText(/Scenario Sandbox \(MVP\)/i, undefined, { timeout: 3000 })).toBeInTheDocument()
   })
 })

@@ -66,6 +66,8 @@ describe('Canvas toolbar wiring', () => {
 
   it('wires zoom controls', async () => {
     render(<div style={{ width: 800, height: 400 }}><Canvas decisionId="tb2" /></div>)
+    // Ensure mocked Tldraw rendered before interacting
+    expect(await screen.findByTestId('tldraw-mock')).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('tb-zoom-in'))
     fireEvent.click(screen.getByTestId('tb-zoom-out'))

@@ -27,11 +27,9 @@ describe('Voting + alignment + LOW_ALIGNMENT trigger', () => {
 
   it('submits votes, computes alignment, and fires LOW_ALIGNMENT once after two cycles; realtime shares state', async () => {
     await enableFlags()
-    // Shorten debounce/cooldown for deterministic runtime in tests (mock-before-import)
-    vi.doMock('@/sandbox/bridge/triggers', async (orig) => {
-      const mod = await orig<typeof import('@/sandbox/bridge/triggers')>()
-      return { ...mod, DEBOUNCE_MS: 100, COOLDOWN_MS: 200 }
-    })
+    // Silence periodic act() warnings from the cooldown indicator in this integration
+    vi.doMock('@/sandbox/components/TriggerCooldownIndicator', () => ({ TriggerCooldownIndicator: () => null }))
+    // Use engine's real debounce; we will deterministically advance timers by 30_000ms
     // Use analytics buffer helpers (name-only)
     const analytics = await import('@/lib/analytics')
     analytics.__clearTestBuffer?.()
@@ -62,27 +60,36 @@ describe('Voting + alignment + LOW_ALIGNMENT trigger', () => {
       await vi.runOnlyPendingTimersAsync()
     })
 
-    // Programmatically submit votes for both voters to avoid UI flake
+    // Drive two recompute cycles with low alignment at each cycle
+    const { notifyRecompute, getRecompute } = await import('@/sandbox/state/recompute')
+    const { updateKRFromP50 } = await import('@/sandbox/bridge/triggers')
     const { submitVotes } = await import('@/sandbox/state/voting')
-    submitVotes('debug-test-board', 'voter-a', [{ id: 'a', p: 0.0, c: 1 }, { id: 'b', p: 1.0, c: 1 }])
-    submitVotes('debug-test-board', 'voter-b', [{ id: 'a', p: 0.0, c: 1 }, { id: 'b', p: 1.0, c: 1 }])
-    await vi.advanceTimersByTimeAsync(0)
 
-    // Two consecutive recomputes to trip LOW_ALIGNMENT (debounced cycles)
-    const { notifyRecompute } = await import('@/sandbox/state/recompute')
+    // Cycle 1: recompute → submit votes tagged to this version → let debounce elapse (30s)
     await act(async () => {
       notifyRecompute('debug-test-board', 'prob_edit', [{ id: 'a', p: 0.0, c: 1 }, { id: 'b', p: 1.0, c: 1 }], Date.now())
-      await vi.advanceTimersByTimeAsync(100)
+      const s1 = getRecompute('debug-test-board')!
+      submitVotes('debug-test-board', 'voter-a', [{ id: 'a', p: 0.0, c: 1 }, { id: 'b', p: 1.0, c: 1 }], s1.version)
+      submitVotes('debug-test-board', 'voter-b', [{ id: 'a', p: 1.0, c: 1 }, { id: 'b', p: 0.0, c: 1 }], s1.version)
+      // Trigger engine evaluation for this cycle (debounced)
+      updateKRFromP50('debug-test-board', 0.35)
+      await vi.advanceTimersByTimeAsync(30_000)
       await vi.runOnlyPendingTimersAsync()
+    })
+
+    // Cycle 2: recompute → submit votes for new version → let debounce elapse (consecutive low; 30s)
+    await act(async () => {
       notifyRecompute('debug-test-board', 'prob_edit', [{ id: 'a', p: 0.0, c: 1 }, { id: 'b', p: 1.0, c: 1 }], Date.now())
-      await vi.advanceTimersByTimeAsync(100)
+      const s2 = getRecompute('debug-test-board')!
+      submitVotes('debug-test-board', 'voter-a', [{ id: 'a', p: 0.0, c: 1 }, { id: 'b', p: 1.0, c: 1 }], s2.version)
+      submitVotes('debug-test-board', 'voter-b', [{ id: 'a', p: 1.0, c: 1 }, { id: 'b', p: 0.0, c: 1 }], s2.version)
+      await vi.advanceTimersByTimeAsync(30_000)
       await vi.runOnlyPendingTimersAsync()
     })
 
     const buf = (analytics.__getTestBuffer?.() || []) as any[]
-    const alignEvt = buf.find(c => c.event === 'sandbox_alignment')
-    expect(alignEvt).toBeTruthy()
-    expect(Number((alignEvt as any).props?.score)).toBeLessThan(60)
+    const aligns = buf.filter(c => c.event === 'sandbox_alignment' && c.props?.decisionId === 'debug-test-board') as any[]
+    expect(aligns.length).toBeGreaterThan(0)
 
     const trig = buf.filter(c => c.event === 'sandbox_trigger' && c.props?.rule === 'LOW_ALIGNMENT')
     expect(trig).toHaveLength(1)

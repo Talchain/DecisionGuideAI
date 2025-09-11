@@ -19,7 +19,7 @@ describe('CombinedSandboxRoute panel toggle', () => {
   const originalWidth = globalThis.innerWidth
   beforeEach(() => {
     Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1280 })
-    localStorage.removeItem('dgai:combined:panel_collapsed')
+    localStorage.removeItem('dgai:combined:demo:panel_collapsed')
   })
   afterEach(() => {
     Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: originalWidth })
@@ -43,12 +43,12 @@ describe('CombinedSandboxRoute panel toggle', () => {
     fireEvent.click(toggle)
     expect(toggle).toHaveTextContent(/show panels/i)
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(localStorage.getItem('dgai:combined:panel_collapsed')).toBe('true')
+    expect(localStorage.getItem('dgai:combined:demo:panel_collapsed')).toBe('true')
 
     // Expand
     fireEvent.click(toggle)
     expect(toggle).toHaveTextContent(/hide panels/i)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(localStorage.getItem('dgai:combined:panel_collapsed')).toBe('false')
+    expect(localStorage.getItem('dgai:combined:demo:panel_collapsed')).toBe('false')
   })
 })
