@@ -25,12 +25,16 @@ describe('TriggerCooldownIndicator', () => {
     const { IntelligencePanel } = await import('@/sandbox/panels/IntelligencePanel')
 
     renderSandbox(<IntelligencePanel decisionId={decisionId} />, { sandbox: true, strategyBridge: true })
+    // Schedule interval effects
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
 
     // Fire a high severity trigger: p50 well below 0.2
     await act(async () => {
       updateKRFromP50(decisionId, 0.1)
       await vi.advanceTimersByTimeAsync(30_000) // DEBOUNCE_MS
     })
+    // Let 1s indicator tick observe cooldown
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
 
     // Indicator should appear (deterministic)
     expect(screen.getByLabelText('Trigger cooldown active')).toBeTruthy()
@@ -39,6 +43,8 @@ describe('TriggerCooldownIndicator', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(COOLDOWN_MS + 2_000)
     })
+    // One more tick to update UI
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
 
     expect(screen.queryByLabelText('Trigger cooldown active')).toBeNull()
   })

@@ -14,8 +14,8 @@ describe('Trigger grouping & lifecycle', () => {
 
   it('groups multiple High rules into a single sandbox_trigger with multiple kr_ids', async () => {
     await enable()
-    const calls: Array<{ event: string; props: Record<string, any> }> = []
-    vi.doMock('@/lib/analytics', () => ({ track: (e: string, p: Record<string, any> = {}) => { calls.push({ event: e, props: p }) }, model_segment_changed: () => {} }))
+    const analytics = await import('@/lib/analytics')
+    analytics.__clearTestBuffer?.()
     const { updateKRFromP50, __setActuals, __setImpactSums, __setCycleKRIds } = await import('@/sandbox/bridge/triggers')
 
     // Inject both guardrail breach and conflicting impacts to produce multiple Highs
@@ -28,20 +28,21 @@ describe('Trigger grouping & lifecycle', () => {
     updateKRFromP50('g1', 0.35) // trigger sigma breach comparing prevP50
     await vi.advanceTimersByTimeAsync(30_000); await vi.runOnlyPendingTimersAsync()
 
-    const trig = calls.filter(c => c.event === 'sandbox_trigger').at(-1)
+    const buf = analytics.__getTestBuffer?.() || []
+    const trig = (buf as any[]).filter(c => c.event === 'sandbox_trigger').at(-1)
     expect(trig).toBeTruthy()
-    expect(trig!.props.severity).toBe('high')
+    expect((trig as any).props?.severity).toBe('high')
     // Grouping marker
-    expect(['MULTI_HIGH', 'CONFLICTING_IMPACTS', 'COUNTER_GUARDRAIL_BREACH']).toContain(trig!.props.rule)
+    expect(['MULTI_HIGH', 'CONFLICTING_IMPACTS', 'COUNTER_GUARDRAIL_BREACH']).toContain((trig as any).props?.rule)
     // Payload contains grouped kr_ids
-    expect(Array.isArray(trig!.props.payload.kr_ids)).toBe(true)
-    expect(trig!.props.payload.kr_ids.length).toBe(3)
+    expect(Array.isArray((trig as any).props?.payload?.kr_ids)).toBe(true)
+    expect((trig as any).props?.payload?.kr_ids?.length).toBe(3)
   })
 
   it('emits lifecycle: evaluation_cycle and debounced once per update; cooldown_started within window', async () => {
     await enable()
-    const calls: Array<{ event: string; props: Record<string, any> }> = []
-    vi.doMock('@/lib/analytics', () => ({ track: (e: string, p: Record<string, any> = {}) => { calls.push({ event: e, props: p }) }, model_segment_changed: () => {} }))
+    const analytics = await import('@/lib/analytics')
+    analytics.__clearTestBuffer?.()
     const { updateKRFromP50 } = await import('@/sandbox/bridge/triggers')
 
     updateKRFromP50('cycle1', 0.31)
@@ -51,9 +52,10 @@ describe('Trigger grouping & lifecycle', () => {
     updateKRFromP50('cycle1', 0.33)
     await vi.advanceTimersByTimeAsync(30_000); await vi.runOnlyPendingTimersAsync()
 
-    const evals = calls.filter(c => c.event === 'trigger_evaluation_cycle')
-    const debs = calls.filter(c => c.event === 'trigger_debounced')
-    const cooldowns = calls.filter(c => c.event === 'trigger_cooldown_started')
+    const buf = analytics.__getTestBuffer?.() || []
+    const evals = (buf as any[]).filter(c => c.event === 'trigger_evaluation_cycle')
+    const debs = (buf as any[]).filter(c => c.event === 'trigger_debounced')
+    const cooldowns = (buf as any[]).filter(c => c.event === 'trigger_cooldown_started')
     expect(evals.length).toBe(2)
     expect(debs.length).toBe(2)
     expect(cooldowns.length).toBeGreaterThan(0)

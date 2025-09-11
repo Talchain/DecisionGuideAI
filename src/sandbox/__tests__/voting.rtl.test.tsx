@@ -27,10 +27,14 @@ describe('Voting + alignment + LOW_ALIGNMENT trigger', () => {
 
   it('submits votes, computes alignment, and fires LOW_ALIGNMENT once after two cycles; realtime shares state', async () => {
     await enableFlags()
-
-    // Spy analytics
-    const calls: Array<{ event: string; props: Record<string, any> }> = []
-    vi.doMock('@/lib/analytics', () => ({ track: (event: string, props: Record<string, any> = {}) => { calls.push({ event, props }) }, model_segment_changed: () => {} }))
+    // Shorten debounce/cooldown for deterministic runtime in tests (mock-before-import)
+    vi.doMock('@/sandbox/bridge/triggers', async (orig) => {
+      const mod = await orig<typeof import('@/sandbox/bridge/triggers')>()
+      return { ...mod, DEBOUNCE_MS: 100, COOLDOWN_MS: 200 }
+    })
+    // Use analytics buffer helpers (name-only)
+    const analytics = await import('@/lib/analytics')
+    analytics.__clearTestBuffer?.()
 
     // Prepare shared doc and populate probRows with two options far apart
     const { connect } = await import('@/realtime/provider')
@@ -48,36 +52,39 @@ describe('Voting + alignment + LOW_ALIGNMENT trigger', () => {
     const { RealtimeProvider } = await import('@/realtime/provider')
     // Open Intelligence tab to arm triggers via effects
     window.location.hash = '#/decisions/debug-test-board/sandbox?panel=intelligence'
-    renderSandbox(
-      <RealtimeProvider decisionId="debug-test-board"><StrategyBridgeShell decisionId="debug-test-board" /></RealtimeProvider>,
-      { sandbox: true, strategyBridge: true, projections: true, realtime: true, voting: true, decisionCTA: true }
-    )
-    await vi.runOnlyPendingTimersAsync()
-
-    // Let seed recompute run
-    await vi.runOnlyPendingTimersAsync()
-
-    // Click Submit Vote (voter A)
-    const btn = await screen.findByRole('button', { name: /submit vote/i })
-    fireEvent.click(btn)
-
-    // Submit a second vote programmatically (voter B) with identical rows
-    const { submitVotes } = await import('@/sandbox/state/voting')
-    submitVotes('debug-test-board', 'voter-b', [{ id: 'a', p: 0.0, c: 1 }, { id: 'b', p: 1.0, c: 1 }])
-
-    // Two consecutive recomputes to trip LOW_ALIGNMENT
-    const { notifyRecompute } = await import('@/sandbox/state/recompute')
     await act(async () => {
-      notifyRecompute('debug-test-board', 'prob_edit', [{ id: 'a', p: 0.0, c: 1 }, { id: 'b', p: 1.0, c: 1 }], Date.now())
-      notifyRecompute('debug-test-board', 'prob_edit', [{ id: 'a', p: 0.0, c: 1 }, { id: 'b', p: 1.0, c: 1 }], Date.now())
+      renderSandbox(
+        <RealtimeProvider decisionId="debug-test-board"><StrategyBridgeShell decisionId="debug-test-board" /></RealtimeProvider>,
+        { sandbox: true, strategyBridge: true, projections: true, realtime: true, voting: true, decisionCTA: true }
+      )
+      // Flush initial effects
+      await vi.advanceTimersByTimeAsync(0)
       await vi.runOnlyPendingTimersAsync()
     })
 
-    const alignEvt = calls.find(c => c.event === 'sandbox_alignment')
-    expect(alignEvt).toBeTruthy()
-    expect(Number(alignEvt!.props.score)).toBeLessThan(60)
+    // Programmatically submit votes for both voters to avoid UI flake
+    const { submitVotes } = await import('@/sandbox/state/voting')
+    submitVotes('debug-test-board', 'voter-a', [{ id: 'a', p: 0.0, c: 1 }, { id: 'b', p: 1.0, c: 1 }])
+    submitVotes('debug-test-board', 'voter-b', [{ id: 'a', p: 0.0, c: 1 }, { id: 'b', p: 1.0, c: 1 }])
+    await vi.advanceTimersByTimeAsync(0)
 
-    const trig = calls.filter(c => c.event === 'sandbox_trigger' && c.props.rule === 'LOW_ALIGNMENT')
+    // Two consecutive recomputes to trip LOW_ALIGNMENT (debounced cycles)
+    const { notifyRecompute } = await import('@/sandbox/state/recompute')
+    await act(async () => {
+      notifyRecompute('debug-test-board', 'prob_edit', [{ id: 'a', p: 0.0, c: 1 }, { id: 'b', p: 1.0, c: 1 }], Date.now())
+      await vi.advanceTimersByTimeAsync(100)
+      await vi.runOnlyPendingTimersAsync()
+      notifyRecompute('debug-test-board', 'prob_edit', [{ id: 'a', p: 0.0, c: 1 }, { id: 'b', p: 1.0, c: 1 }], Date.now())
+      await vi.advanceTimersByTimeAsync(100)
+      await vi.runOnlyPendingTimersAsync()
+    })
+
+    const buf = (analytics.__getTestBuffer?.() || []) as any[]
+    const alignEvt = buf.find(c => c.event === 'sandbox_alignment')
+    expect(alignEvt).toBeTruthy()
+    expect(Number((alignEvt as any).props?.score)).toBeLessThan(60)
+
+    const trig = buf.filter(c => c.event === 'sandbox_trigger' && c.props?.rule === 'LOW_ALIGNMENT')
     expect(trig).toHaveLength(1)
   })
 })

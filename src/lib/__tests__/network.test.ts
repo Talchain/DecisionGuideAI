@@ -27,9 +27,16 @@ describe('network utilities', () => {
     const originalFetch = globalThis.fetch
     const mock = vi
       .spyOn(globalThis as any, 'fetch')
-      .mockImplementation(async (..._args: unknown[]) => {
-        await delay(200)
-        return new Response('late', { status: 200 })
+      .mockImplementation(async (input: any, init: any = {}) => {
+        const signal: AbortSignal | undefined = init?.signal
+        return await new Promise<Response>((resolve, reject) => {
+          const onAbort = () => reject(new DOMException('Aborted', 'AbortError'))
+          if (signal) {
+            if (signal.aborted) return onAbort()
+            signal.addEventListener('abort', onAbort, { once: true })
+          }
+          setTimeout(() => resolve(new Response('late', { status: 200 })), 200)
+        })
       })
 
     try {
@@ -50,9 +57,13 @@ describe('network utilities', () => {
 
   it('withTimeout throws TimeoutError when underlying promise exceeds timeout', async () => {
     await expect(
-      withTimeout(async (_signal) => {
-        await delay(200)
-        return 'done'
+      withTimeout(async (signal) => {
+        return await new Promise<string>((resolve, reject) => {
+          const onAbort = () => reject(new DOMException('Aborted', 'AbortError'))
+          if (signal.aborted) return onAbort()
+          signal.addEventListener('abort', onAbort, { once: true })
+          setTimeout(() => resolve('done'), 200)
+        })
       }, 50)
     ).rejects.toBeInstanceOf(TimeoutError)
   })

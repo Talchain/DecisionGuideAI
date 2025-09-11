@@ -23,6 +23,25 @@ vi.doMock('@/whiteboard/tldraw', () => ({
   }
 }))
 
+// Ensure Canvas has a ready document quickly (avoid 'Initializing canvas…')
+const wbMocks = vi.hoisted(() => ({
+  ensureCanvasForDecision: vi.fn().mockResolvedValue({ canvasId: 'cv_test' }),
+  loadCanvasDoc: vi.fn().mockResolvedValue({ shapes: [], bindings: [], meta: { decision_id: 'tb' } }),
+  saveCanvasDoc: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('../persistence', () => ({
+  ensureCanvasForDecision: wbMocks.ensureCanvasForDecision,
+  loadCanvasDoc: wbMocks.loadCanvasDoc,
+  saveCanvasDoc: wbMocks.saveCanvasDoc,
+}))
+
+const seedMocks = vi.hoisted(() => ({
+  loadSeed: vi.fn().mockResolvedValue({ doc: { shapes: [], bindings: [], meta: { decision_id: 'tb' } } })
+}))
+vi.mock('../seed', () => ({
+  loadSeed: seedMocks.loadSeed
+}))
+
 const { Canvas } = await import('@/whiteboard/Canvas')
 
 describe('Canvas toolbar wiring', () => {

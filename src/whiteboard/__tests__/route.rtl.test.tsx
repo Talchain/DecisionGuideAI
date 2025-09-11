@@ -9,6 +9,15 @@ vi.mock('@/lib/config', () => ({
   hasSupabase: false,
   isWhiteboardEnabled: () => true,
   isSandboxEnabled: () => true,
+  // Flags used by App.tsx FlagsProvider; return conservative defaults for this route test
+  isStrategyBridgeEnabled: () => false,
+  isSandboxRealtimeEnabled: () => false,
+  isSandboxDeltaReapplyV2Enabled: () => false,
+  isScenarioSnapshotsEnabled: () => false,
+  isOptionHandlesEnabled: () => false,
+  isSandboxVotingEnabled: () => false,
+  isProjectionsEnabled: () => false,
+  isDecisionCTAEnabled: () => false,
 }))
 
 // Mock auth context
