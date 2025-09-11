@@ -32,8 +32,8 @@ describe('TriggerCooldownIndicator', () => {
       await vi.advanceTimersByTimeAsync(30_000) // DEBOUNCE_MS
     })
 
-    // Indicator should appear
-    expect(await screen.findByLabelText('Trigger cooldown active')).toBeTruthy()
+    // Indicator should appear (deterministic)
+    expect(screen.getByLabelText('Trigger cooldown active')).toBeTruthy()
 
     // Advance beyond cooldown window so indicator disappears
     await act(async () => {
