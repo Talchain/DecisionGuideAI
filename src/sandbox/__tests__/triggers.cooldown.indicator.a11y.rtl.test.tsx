@@ -24,6 +24,8 @@ describe('TriggerCooldownIndicator a11y', () => {
 
     const decisionId = 'cooldown-a11y'
     renderSandbox(<IntelligencePanel decisionId={decisionId} />, { sandbox: true, strategyBridge: true })
+    // Flush initial effect scheduling for the indicator
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
 
     // Initially off
     expect(document.querySelector('[aria-label="Trigger cooldown active"]')).toBeNull()
@@ -31,12 +33,16 @@ describe('TriggerCooldownIndicator a11y', () => {
     // Fire; debounce then indicator visible (with title)
     updateKRFromP50(decisionId, 0.1)
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
+    // Allow the 1s interval to tick and reflect the active cooldown
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
     const el = document.querySelector('[aria-label="Trigger cooldown active"]') as HTMLElement | null
     expect(el).not.toBeNull()
     expect(el?.getAttribute('title')).toBe('Triggers are in cooldown')
 
     // After cooldown, it disappears
     await act(async () => { await vi.advanceTimersByTimeAsync(COOLDOWN_MS + 1000) })
+    // One more tick to update the indicator UI state
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000) })
     expect(document.querySelector('[aria-label="Trigger cooldown active"]')).toBeNull()
   })
 })
