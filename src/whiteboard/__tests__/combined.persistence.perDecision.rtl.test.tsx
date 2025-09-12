@@ -2,7 +2,8 @@
 import React from 'react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { FlagsProvider } from '@/lib/flags'
 import CombinedSandboxRoute from '@/whiteboard/CombinedSandboxRoute'
@@ -64,8 +65,9 @@ describe('Combined route — per-decision persistence', () => {
     const showBtns = screen.getAllByRole('button', { name: /show panels/i })
     const headerToggle = showBtns.find(el => el.getAttribute('aria-controls') === 'panels-region') as HTMLButtonElement
     expect(headerToggle).toBeTruthy()
-    headerToggle.click()
-    const sepA = screen.getByRole('separator', { name: /resize panels/i })
+    const user = userEvent.setup()
+    await act(async () => { await user.click(headerToggle) })
+    const sepA = await screen.findByRole('separator', { name: /resize panels/i })
     const nowA = Number(sepA.getAttribute('aria-valuenow'))
     expect(nowA).toBeGreaterThanOrEqual(240)
 

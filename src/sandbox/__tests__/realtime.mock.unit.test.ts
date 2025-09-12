@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, waitFor } from '@testing-library/react'
+import { render, waitFor, act } from '@testing-library/react'
 
 import { RealtimeProvider, useRealtimeDoc } from '@/realtime/provider'
 import { useBoardState } from '@/sandbox/state/boardState'
@@ -38,13 +38,11 @@ describe('Realtime mock provider', () => {
         ReactLib.createElement(TestPeer as any, { decisionId: 'rt-x' }),
       )
     )
-
-    await waitFor(() => {
-      const A = (window as any)._peer_A
-      const B = (window as any)._peer_B
-      expect(A?.nodes?.length || 0).toBeGreaterThan(0)
-      expect(B?.nodes?.length || 0).toBe(0)
-    })
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    const A = (window as any)._peer_A
+    const B = (window as any)._peer_B
+    expect(A?.nodes?.length || 0).toBeGreaterThan(0)
+    expect(B?.nodes?.length || 0).toBe(0)
   })
 
   it('flag on (mock) → peers share the same Y.Doc updates; disconnect cleans up', async () => {
@@ -62,13 +60,11 @@ describe('Realtime mock provider', () => {
         ReactLib2.createElement(TestPeer as any, { decisionId: 'rt-y' }),
       )
     )
-
-    await waitFor(() => {
-      const A = (window as any)._peer_A
-      const B = (window as any)._peer_B
-      expect(A?.nodes?.length || 0).toBeGreaterThan(0)
-      expect(B?.nodes?.length || 0).toBeGreaterThan(0)
-    })
+    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    const A = (window as any)._peer_A
+    const B = (window as any)._peer_B
+    expect(A?.nodes?.length || 0).toBeGreaterThan(0)
+    expect(B?.nodes?.length || 0).toBeGreaterThan(0)
 
     // Unmount to ensure no errors and that disconnect doesn't throw
     r.unmount()
