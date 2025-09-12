@@ -58,6 +58,9 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
   const flags = useFlags()
   const graphApi = useGraphOptional()
   const sessionIdRef = useRef<string>(Math.random().toString(36).slice(2))
+  const shapeIndexRef = useRef<Map<string, string>>(new Map())
+  const [connectActive, setConnectActive] = useState(false)
+  const connectSourceRef = useRef<string | null>(null)
 
   // Using internal TLDraw store for minimal/safe integration
 
@@ -166,6 +169,130 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
                 graphApi.setSelectedEdge(meta.edgeId)
                 graphApi.setSelectedNode(null)
               }
+              // Connect mode: source -> target via selections
+              if (connectActive && meta?.nodeId) {
+                if (!connectSourceRef.current) {
+                  connectSourceRef.current = meta.nodeId
+                } else if (connectSourceRef.current !== meta.nodeId) {
+                  const src = connectSourceRef.current
+                  const dst = meta.nodeId
+                  connectSourceRef.current = null
+                  setConnectActive(false)
+                  const edgeId = `e_${Math.random().toString(36).slice(2,8)}`
+                  graphApi?.upsertEdge?.({ id: edgeId, from: src, to: dst, kind: 'supports' })
+                  mappingRef.current?.upsertConnectorFromEdge?.({ id: edgeId, from: src, to: dst, kind: 'supports' } as any)
+                }
+              }
+            } catch {}
+
+            // TL → Domain incremental sync (diff by signature)
+            try {
+              if (!flags.sandboxMapping || !graphApi) return
+              const shapes: any[] = editor?.getCurrentPageShapes?.() ?? []
+              const index = shapeIndexRef.current
+              const seen = new Set<string>()
+
+              // Build reverse maps for quick lookups
+              const revNode = new Map<string, string>()
+              const revEdge = new Map<string, string>()
+              for (const [nid, sid] of mappingRef.current?.nodeToShape ?? []) revNode.set(sid, nid)
+              for (const [eid, sid] of mappingRef.current?.edgeToShape ?? []) revEdge.set(sid, eid)
+
+              const sigFor = (s: any): string => {
+                if (!s) return ''
+                if (s.type === 'geo') return JSON.stringify({ x: s.x, y: s.y, w: s.props?.w, h: s.props?.h, text: s.props?.text })
+                if (s.type === 'arrow') return JSON.stringify({ start: s.props?.start?.boundShapeId, end: s.props?.end?.boundShapeId, kind: s.meta?.kind })
+                return JSON.stringify({})
+              }
+
+              // Handle creates/updates
+              for (const s of shapes) {
+                const id = s.id
+                seen.add(id)
+                const curSig = sigFor(s)
+                const prevSig = index.get(id)
+                if (prevSig === undefined) {
+                  // Create
+                  if (mappingRef.current?.isFromMapping(id)) {
+                    index.set(id, curSig)
+                    continue
+                  }
+                  if (s.type === 'geo') {
+                    const nodeId = s.meta?.nodeId || `n_${Math.random().toString(36).slice(2, 8)}`
+                    const title = (s.props?.text || '').split('\n')[0] || 'Node'
+                    graphApi.upsertNode({ id: nodeId, type: 'Option', title, view: { x: s.x ?? 0, y: s.y ?? 0, w: s.props?.w ?? 160, h: s.props?.h ?? 80 } })
+                    // adopt existing TL shape id into mapping, then reconcile
+                    if (mappingRef.current) {
+                      try { mappingRef.current.nodeToShape.set(nodeId, id) } catch {}
+                      mappingRef.current.upsertShapeFromNode({ id: nodeId, type: 'Option', title, view: { x: s.x ?? 0, y: s.y ?? 0, w: s.props?.w ?? 160, h: s.props?.h ?? 80 } } as any)
+                    }
+                  } else if (s.type === 'arrow') {
+                    const fromSid = s.props?.start?.boundShapeId
+                    const toSid = s.props?.end?.boundShapeId
+                    const fromNode = revNode.get(fromSid)
+                    const toNode = revNode.get(toSid)
+                    if (fromNode && toNode) {
+                      const edgeId = s.meta?.edgeId || `e_${Math.random().toString(36).slice(2, 8)}`
+                      const kind = (s.meta?.kind as any) || 'supports'
+                      graphApi.upsertEdge({ id: edgeId, from: fromNode, to: toNode, kind })
+                      if (mappingRef.current) {
+                        try { mappingRef.current.edgeToShape.set(edgeId, id) } catch {}
+                        mappingRef.current.upsertConnectorFromEdge({ id: edgeId, from: fromNode, to: toNode, kind } as any)
+                      }
+                    }
+                  }
+                } else if (prevSig !== curSig) {
+                  // Update
+                  if (mappingRef.current?.isFromMapping(id)) {
+                    index.set(id, curSig)
+                    continue
+                  }
+                  if (s.type === 'geo') {
+                    const nodeId = s.meta?.nodeId || revNode.get(id)
+                    if (nodeId) {
+                      const title = (s.props?.text || '').split('\n')[0] || undefined
+                      const patch: any = { }
+                      if (title !== undefined) patch.title = title
+                      patch.view = { x: s.x ?? 0, y: s.y ?? 0, w: s.props?.w ?? 160, h: s.props?.h ?? 80 }
+                      graphApi.updateNodeFields(nodeId, patch)
+                    }
+                  } else if (s.type === 'arrow') {
+                    const edgeId = s.meta?.edgeId || revEdge.get(id)
+                    if (edgeId) {
+                      const fromSid = s.props?.start?.boundShapeId
+                      const toSid = s.props?.end?.boundShapeId
+                      const fromNode = revNode.get(fromSid)
+                      const toNode = revNode.get(toSid)
+                      if (fromNode && toNode) {
+                        mappingRef.current?.onConnectorReattach(edgeId, fromNode, toNode)
+                      }
+                    }
+                  }
+                }
+                index.set(id, curSig)
+              }
+
+              // Deletes
+              for (const [sid] of Array.from(index.entries())) {
+                if (!seen.has(sid)) {
+                  // shape deleted
+                  const isOut = mappingRef.current?.isFromMapping(sid)
+                  index.delete(sid)
+                  if (isOut) continue
+                  const nodeId = revNode.get(sid)
+                  if (nodeId) {
+                    graphApi.removeNode(nodeId)
+                    try { mappingRef.current?.removeNodeShape(nodeId) } catch {}
+                    continue
+                  }
+                  const edgeId = revEdge.get(sid)
+                  if (edgeId) {
+                    graphApi.removeEdge(edgeId)
+                    try { mappingRef.current?.removeEdgeConnector(edgeId) } catch {}
+                    continue
+                  }
+                }
+              }
             } catch {}
           } catch (e) {
             // no-op
@@ -198,7 +325,7 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
         const trackAny = (name: string, props?: Record<string, unknown>) => {
           try { (track as any)(name, props) } catch {}
         }
-        mappingRef.current = createDomainMapping({ editor, decisionId, sessionId: sessionIdRef.current, track: trackAny })
+        mappingRef.current = createDomainMapping({ editor, decisionId, sessionId: sessionIdRef.current, track: trackAny, onEdgeChange: graphApi?.upsertEdge })
         if (graphApi?.graph) {
           mappingRef.current.rebuildFromGraph(graphApi.graph)
         }
@@ -292,6 +419,30 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
     }
   }, [])
 
+  // Keyboard shortcuts: duplicate selected node (Cmd/Ctrl+D) and cancel connect (Esc)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!flags.sandboxMapping) return
+      if (e.key === 'Escape') {
+        connectSourceRef.current = null
+        setConnectActive(false)
+        return
+      }
+      if ((e.key === 'd' || e.key === 'D') && (e.metaKey || e.ctrlKey)) {
+        const api = graphApi
+        if (!api?.selectedNodeId) return
+        const src = api.graph.nodes[api.selectedNodeId]
+        if (!src) return
+        const id = `n_${Math.random().toString(36).slice(2, 8)}`
+        const view = src.view || { x: 80, y: 80, w: 160, h: 80 }
+        const dst = { ...src, id, title: src.title + ' Copy', view: { ...view, x: (view.x ?? 0) + 24, y: (view.y ?? 0) + 24 } }
+        api.upsertNode(dst)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [flags.sandboxMapping, graphApi])
+
   // Rebuild mapping from graph when it changes (nodes only)
   useEffect(() => {
     if (!flags.sandboxMapping) return
@@ -317,7 +468,7 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
       )}
       {flags.sandboxMapping && !embedded && (
         <div className="pointer-events-auto absolute top-14 left-2 z-[1000]">
-          <Palette getEditor={() => editorRef.current} />
+          <Palette getEditor={() => editorRef.current} connect={{ active: connectActive, toggle: () => setConnectActive(v => !v) }} />
         </div>
       )}
       {!embedded && tipVisible && (

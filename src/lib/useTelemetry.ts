@@ -28,6 +28,15 @@ export type TelemetryEvent =
   | 'sandbox_graph_node_update'
   | 'sandbox_graph_edge_add'
   | 'sandbox_graph_edge_update'
+  | 'sandbox_graph_node_delete'
+  | 'sandbox_graph_edge_delete'
+  | 'sandbox_snapshot_create'
+  | 'sandbox_snapshot_duplicate'
+  | 'sandbox_snapshot_restore'
+  | 'sandbox_snapshot_rename'
+  | 'sandbox_snapshot_delete'
+  | 'sandbox_compare_open'
+  | 'sandbox_compare_close'
 
 export type TrackFn = (name: TelemetryEvent, props?: Record<string, unknown>) => void
 

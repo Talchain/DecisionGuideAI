@@ -2,7 +2,7 @@ import React from 'react'
 import { useGraph } from '@/sandbox/state/graphStore'
 import type { NodeType, Node, Edge } from '@/domain/graph'
 
-export default function Palette({ getEditor: _getEditor }: { getEditor: () => any }) {
+export default function Palette({ getEditor: _getEditor, connect }: { getEditor: () => any; connect?: { active: boolean; toggle: () => void } }) {
   const { upsertNode, upsertEdge, graph } = useGraph()
 
   const addNode = (type: NodeType) => () => {
@@ -25,6 +25,11 @@ export default function Palette({ getEditor: _getEditor }: { getEditor: () => an
         const e: Edge = { id: `e_${Math.random().toString(36).slice(2,8)}` , from, to, kind: 'supports' }
         upsertEdge(e)
       }}>Connect</button>
+      {connect && (
+        <button aria-label="Connect Mode" title="Connect Mode" data-testid="pal-connect-mode" aria-pressed={connect.active} className={`px-2 py-1 text-xs rounded border focus:outline-none focus:ring-2 ${connect.active ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white hover:bg-gray-50'}`} onClick={connect.toggle}>
+          Connect Mode
+        </button>
+      )}
     </div>
   )
 }

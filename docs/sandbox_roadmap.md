@@ -8,11 +8,12 @@
 - [x] Wire Combined route with `GraphProvider` behind flag
 - [x] Wire Canvas: register mapping on mount; expose mapping via `onAPIReady`; rebuild on graph change
 - [x] Tests: node upsert unit; graph persistence reload
-- [ ] Domain → TL mapping (edges): connectors create/update/remove; default kind='supports'
-- [ ] TL → Domain listener registration (create/rename/move/resize/delete/connect)
-- [ ] Inspector Panel: edit Node title/notes/KR; Edge kind/notes; debounced save
-- [ ] Tests: edge mapping unit; inspector node edit (RTL)
-- [ ] Tests: end-to-end persistence reload includes connectors
+- [x] Domain → TL mapping (edges): connectors create/update/remove; default kind='supports'
+- [x] TL → Domain listener registration (create/rename/move/resize/delete/connect); incremental diff + rAF batching; origin guard; telemetry add/update/delete
+- [x] Inspector Panel: edit Node title/notes/KR; Edge kind/notes; debounced save; quick kind toggle
+- [x] Tests: edge mapping unit; inspector node edit (RTL)
+- [x] Tests: end-to-end persistence reload includes connectors; TL→Domain incremental sync
+- [x] Compare UI (V1): header actions, chooser, two read-only canvases, diff chips, telemetry
 - [ ] Docs update as features complete
 
 Notes:
@@ -21,3 +22,5 @@ Notes:
 - Register TL listeners once; cleanup on unmount; use official TL APIs so undo/redo works.
 - KR badge: single largest |Δ| chip with `title` tooltip; fail-soft if TL UI changes.
 - Telemetry: `sandbox_graph_*` name-only with `{ decisionId, route:'combined', sessionId }`.
+ - Delete events added for node and edge.
+ - Compare UX: two read-only canvases, mapping rebuilds from static Graph inputs; diff chips via `[data-dg-diff="true"] [data-dg-diff-chip]` attributes; TL native UI visible.

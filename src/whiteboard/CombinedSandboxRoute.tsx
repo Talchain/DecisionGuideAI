@@ -4,7 +4,8 @@ import { useFlags } from '@/lib/flags'
 import { useTelemetry } from '@/lib/useTelemetry'
 import { ScenarioPanels } from '@/sandbox/panels/ScenarioPanels'
 import { Canvas } from '@/whiteboard/Canvas'
-import { GraphProvider } from '@/sandbox/state/graphStore'
+import { GraphProvider, useGraph } from '@/sandbox/state/graphStore'
+import CompareView from '@/whiteboard/CompareView'
 import { useToast } from '@/components/ui/use-toast'
 import { useDecision } from '@/contexts/DecisionContext'
 
@@ -32,6 +33,13 @@ export const CombinedSandboxRoute: React.FC = () => {
   // Gate: require sandbox flag; canvas mounts regardless (Canvas has its own local-first fallback).
   if (!flags.sandbox) {
     return <div className="p-8 text-center text-sm text-gray-700">Scenario Sandbox is not enabled.</div>
+  }
+
+  function RestoreUndoButton({ snapId, onDone }: { snapId: string; onDone: () => void }) {
+    const api = useGraph()
+    return (
+      <button className="px-2 py-0.5 rounded border bg-white hover:bg-gray-50" onClick={() => { try { api.restoreSnapshot(snapId) } finally { onDone() } }}>Undo</button>
+    )
   }
 
   const isMobile = typeof window !== 'undefined' ? window.innerWidth < 1024 : false
@@ -64,6 +72,101 @@ export const CombinedSandboxRoute: React.FC = () => {
   const asideRef = React.useRef<HTMLElement | null>(null)
   const sessionIdRef = React.useRef<string>(Math.random().toString(36).slice(2))
   const baseMeta = () => ({ decisionId, route: 'combined', viewport: { w: (typeof window !== 'undefined' ? window.innerWidth : 0), h: (typeof window !== 'undefined' ? window.innerHeight : 0) }, sessionId: sessionIdRef.current })
+
+  // Snapshot & Compare state (UI-only)
+  const [snapMenuOpen, setSnapMenuOpen] = React.useState(false)
+  const [compareOpen, setCompareOpen] = React.useState(false)
+  const [leftSource, setLeftSource] = React.useState<string>('current')
+  const [rightSource, setRightSource] = React.useState<string>('current')
+  const [announce, setAnnounce] = React.useState<string>('')
+  const lastRestoreBackupRef = React.useRef<string | null>(null)
+  const [showRestoreUndo, setShowRestoreUndo] = React.useState(false)
+
+  function HeaderSnapshotControls() {
+    const graphApi = useGraph()
+    return (
+      <>
+        {flags.sandboxCompare && (
+          <div className="relative inline-flex items-center gap-2">
+            <button
+              className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              onClick={() => {
+                try {
+                  const name = window.prompt('Snapshot name?', 'Snapshot') || 'Snapshot'
+                  graphApi.saveSnapshot(name)
+                  toast({ title: `Snapshot saved`, description: name })
+                } catch {}
+              }}
+            >Save Snapshot</button>
+            <div className="inline-flex">
+              <button
+                className="px-2 py-1 text-xs rounded-l border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                onClick={() => setSnapMenuOpen(v => !v)}
+                aria-expanded={snapMenuOpen}
+              >Snapshots ▾</button>
+              <button
+                className="px-2 py-1 text-xs rounded-r border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                onClick={() => {
+                  const list = graphApi.listSnapshots() || []
+                  if (!list.length) { toast({ title: 'No snapshots to duplicate' }); return }
+                  const id = window.prompt('Duplicate which snapshot id?', list[0]?.id)
+                  if (!id) return
+                  const res = graphApi.duplicateSnapshot(id)
+                  if ((res as any)?.snapId) toast({ title: 'Duplicated snapshot' })
+                }}
+              >Duplicate</button>
+            </div>
+            <button
+              className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              onClick={() => {
+                setCompareOpen(true)
+                setAnnounce('Compare chooser opened')
+              }}
+            >Compare</button>
+            {snapMenuOpen && (
+              <div className="absolute right-0 top-[110%] z-30 min-w-[240px] max-h-64 overflow-auto rounded border bg-white shadow">
+                <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 border-b">Snapshots</div>
+                <ul className="divide-y">
+                  {(graphApi.listSnapshots() || []).map(s => (
+                    <li key={s.id} className="px-2 py-1 text-xs flex items-center gap-2">
+                      <span className="flex-1 truncate" title={s.id}>{s.name}</span>
+                      <button className="px-1 py-0.5 border rounded bg-white hover:bg-gray-50" onClick={() => {
+                        try {
+                          const backup = graphApi.saveSnapshot('Pre-restore')
+                          lastRestoreBackupRef.current = backup?.snapId || null
+                          const ok = graphApi.restoreSnapshot(s.id)
+                          if ((ok as any)?.ok) {
+                            setShowRestoreUndo(true)
+                            setTimeout(() => setShowRestoreUndo(false), 10000)
+                            toast({ title: `Restored ${s.name}` })
+                          }
+                        } catch {}
+                      }}>Restore</button>
+                      <button className="px-1 py-0.5 border rounded bg-white hover:bg-gray-50" onClick={() => {
+                        const name = window.prompt('Rename to:', s.name)
+                        if (!name) return
+                        graphApi.renameSnapshot(s.id, name)
+                        setSnapMenuOpen(true)
+                      }}>Rename</button>
+                      <button className="px-1 py-0.5 border rounded bg-white hover:bg-gray-50" onClick={() => {
+                        const ok = graphApi.deleteSnapshot(s.id)
+                        if ((ok as any)?.ok) {
+                          toast({ title: `Deleted ${s.name}` })
+                        }
+                      }}>Delete</button>
+                    </li>
+                  ))}
+                  {((graphApi.listSnapshots() || []).length === 0) && (
+                    <li className="px-2 py-2 text-xs text-gray-500">No snapshots</li>
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </>
+    )
+  }
 
   const onMouseDownDivider = React.useCallback((e: React.MouseEvent) => {
     e.preventDefault(); setDragging(true)
@@ -326,6 +429,7 @@ export const CombinedSandboxRoute: React.FC = () => {
           >
             Send feedback
           </a>
+          {flags.sandboxCompare && <HeaderSnapshotControls />}
         </div>
       </div>
 
@@ -364,11 +468,22 @@ export const CombinedSandboxRoute: React.FC = () => {
           />
         </div>
 
-        {/* Canvas */}
+        {/* Canvas or Compare */}
         <section className={`relative h-full overflow-hidden p-4 pr-2 md:pr-4 ${isMobile && active !== 'canvas' ? 'hidden' : ''}`}>
-          {/* Safe gutter so floating toolbars don't touch edges */}
           <div className="relative w-full h-full">
-            <Canvas decisionId={decisionId} hideBanner hideFeedback embedded onAPIReady={onCanvasAPI} />
+            {!compareOpen && (
+              <Canvas decisionId={decisionId} hideBanner hideFeedback embedded onAPIReady={onCanvasAPI} />
+            )}
+            {compareOpen && flags.sandboxCompare && (
+              <CompareView
+                decisionId={decisionId}
+                left={leftSource}
+                right={rightSource}
+                onClose={() => { setCompareOpen(false); try { track('sandbox_compare_close', { ...baseMeta(), leftId: leftSource, rightId: rightSource }) } catch {} }}
+                onOpened={() => { try { track('sandbox_compare_open', { ...baseMeta(), leftId: leftSource, rightId: rightSource }) } catch {}; setAnnounce(`Compare opened: ${leftSource} vs ${rightSource}`) }}
+                onPick={(l: string, r: string) => { setLeftSource(l); setRightSource(r) }}
+              />
+            )}
           </div>
         </section>
       </div>
@@ -398,10 +513,23 @@ export const CombinedSandboxRoute: React.FC = () => {
 
       {/* ARIA live announcer for width */}
       <div className="sr-only" aria-live="polite">{liveText}</div>
+      {/* ARIA live announcer for snapshot/compare */}
+      <div className="sr-only" aria-live="polite">{announce}</div>
+      {showRestoreUndo && lastRestoreBackupRef.current && (
+        <div className="absolute top-[56px] left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+          <div className="rounded border bg-white shadow px-3 py-2 text-xs flex items-center gap-3">
+            <span>Restored. Undo?</span>
+            {lastRestoreBackupRef.current && (
+              <RestoreUndoButton snapId={lastRestoreBackupRef.current} onDone={() => setShowRestoreUndo(false)} />
+            )}
+            <button className="px-2 py-0.5 rounded border bg-white hover:bg-gray-50" onClick={() => setShowRestoreUndo(false)}>Dismiss</button>
+          </div>
+        </div>
+      )}
     </div>
   )
 
-  if (flags.sandboxMapping) {
+  if (flags.sandboxMapping || flags.sandboxCompare) {
     return (
       <GraphProvider decisionId={decisionId}>
         {body}

@@ -21,12 +21,14 @@ describe('domainMapping nodes', () => {
 
     const n1: Node = { id: 'A', type: 'Problem', title: 'P1' }
     const shapeId = mapping.upsertShapeFromNode(n1)
+    mapping._flushNow?.()
     expect(shapeId).toBe('node-A')
     expect(editor.calls[0].op).toBe('create')
     expect(editor.calls[0].args.meta).toMatchObject({ nodeId: 'A', type: 'Problem' })
 
     const n1b: Node = { id: 'A', type: 'Problem', title: 'P1 updated', krImpacts: [{ krId: 'kr1', deltaP50: 0.5, confidence: 0.9 }] }
     mapping.upsertShapeFromNode(n1b)
+    mapping._flushNow?.()
     const last = editor.calls[editor.calls.length - 1]
     expect(last.op).toBe('update')
     expect(last.args.props.text).toContain('P1 updated')

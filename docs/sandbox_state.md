@@ -18,12 +18,22 @@
 - `VITE_FEATURE_SANDBOX_VOTING`
 - `VITE_FEATURE_SANDBOX_DELTA_REAPPLY_V2`
 - `VITE_FEATURE_SANDBOX_MAPPING` (new)
+- `VITE_FEATURE_SANDBOX_COMPARE` (new)
 
 ## Storage Keys
 - Domain graph (canonical for mapping): `dgai:graph:decision:${decisionId}`
+- Snapshot list: `dgai:graph:snap:list:${decisionId}` → `[{ id, name, createdAt }]`
+- Snapshot payload: `dgai:graph:snap:${decisionId}:${snapId}` → `Graph`
 - TL snapshot (UI-only; existing): `dgai:canvas:decision/${decisionId}`
 - Combined route UI prefs (existing):
   - `dgai:combined:${decisionId}:panel_w`
   - `dgai:combined:${decisionId}:panel_collapsed`
   - `dgai:combined:${decisionId}:style_open`
   - `dgai:combined:${decisionId}:active_tab`
+
+## Compare UX (V1)
+- Two read-only canvases (Left and Right) mounted in the combined view when Compare is open.
+- Each pane rebuilds from a static Graph (Current or a saved snapshot) using the domain→TL mapping.
+- Visual diff chips rendered as non-blocking overlays under `[data-dg-diff="true"]`:
+  - Node chips via `data-dg-diff-chip="added|removed|changed"` placed near their node.
+- TL native UI remains visible; overlays are `pointer-events:none`.

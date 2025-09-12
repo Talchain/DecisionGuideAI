@@ -24,9 +24,11 @@ describe('domainMapping edges', () => {
     const B: Node = { id: 'B', type: 'Option', title: 'B' }
     mapping.upsertShapeFromNode(A)
     mapping.upsertShapeFromNode(B)
+    mapping._flushNow?.()
 
     const e1: Edge = { id: 'E1', from: 'A', to: 'B', kind: 'supports' }
     const sid = mapping.upsertConnectorFromEdge(e1)
+    mapping._flushNow?.()
     expect(sid).toBe('edge-E1')
 
     // First call is create arrow
@@ -36,6 +38,7 @@ describe('domainMapping edges', () => {
 
     // Second call updates same connector
     mapping.upsertConnectorFromEdge({ ...e1, kind: 'causes' })
+    mapping._flushNow?.()
     const last = editor.calls[editor.calls.length - 1]
     expect(last.op).toBe('update')
     expect(last.args.meta.kind).toBe('causes')

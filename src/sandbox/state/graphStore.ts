@@ -1,5 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { Graph, Node, Edge, emptyGraph, normalizeNode, SCHEMA_VERSION } from '@/domain/graph'
+import type { Edge, Graph, Node } from '@/domain/graph'
+import { emptyGraph, normalizeNode, SCHEMA_VERSION } from '@/domain/graph'
+import { useTelemetry } from '@/lib/useTelemetry'
 
 export type GraphAPI = {
   decisionId: string
@@ -16,11 +18,20 @@ export type GraphAPI = {
   selectedEdgeId?: string | null
   setSelectedNode: (nodeId: string | null) => void
   setSelectedEdge: (edgeId: string | null) => void
+  // Snapshots API (UI-only storage)
+  saveSnapshot: (name?: string) => { snapId: string }
+  duplicateSnapshot: (srcSnapId: string) => { snapId: string } | { error: string }
+  restoreSnapshot: (snapId: string) => { ok: true } | { ok: false, error: string }
+  listSnapshots: () => Array<{ id: string; name: string; createdAt: number }>
+  renameSnapshot: (snapId: string, name: string) => { ok: true } | { ok: false, error: string }
+  deleteSnapshot: (snapId: string) => { ok: true } | { ok: false, error: string }
 }
 
 export const GraphContext = createContext<GraphAPI | null>(null)
 
 const keyFor = (decisionId: string) => `dgai:graph:decision:${decisionId}`
+const keySnapList = (decisionId: string) => `dgai:graph:snap:list:${decisionId}`
+const keySnap = (decisionId: string, snapId: string) => `dgai:graph:snap:${decisionId}:${snapId}`
 
 function clampAndNormalize(g: any): Graph {
   try {
@@ -59,6 +70,8 @@ export function GraphProvider({ decisionId, children }: { decisionId: string; ch
   const saveTimerRef = useRef<number | null>(null)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
+  const sessionIdRef = useRef<string>(Math.random().toString(36).slice(2))
+  const { track } = useTelemetry()
 
   const scheduleSave = useCallback((next: Graph) => {
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
@@ -85,6 +98,79 @@ export function GraphProvider({ decisionId, children }: { decisionId: string; ch
     selectedEdgeId,
     setSelectedNode: (id) => setSelectedNodeId(id),
     setSelectedEdge: (id) => setSelectedEdgeId(id),
+    saveSnapshot: (name?: string) => {
+      const snapId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+      const entry = { id: snapId, name: name || 'Snapshot', createdAt: Date.now() }
+      try {
+        // Write payload
+        const payload: Graph = clampAndNormalize(graph)
+        localStorage.setItem(keySnap(decisionId, snapId), JSON.stringify(payload))
+        // Update list
+        const raw = localStorage.getItem(keySnapList(decisionId))
+        const list = raw ? (JSON.parse(raw) as Array<{ id: string; name: string; createdAt: number }>) : []
+        list.push(entry)
+        localStorage.setItem(keySnapList(decisionId), JSON.stringify(list))
+        try { track('sandbox_snapshot_create', { decisionId, route: 'combined', sessionId: sessionIdRef.current, snapId, name: entry.name }) } catch {}
+      } catch {}
+      return { snapId }
+    },
+    duplicateSnapshot: (srcSnapId: string) => {
+      try {
+        const raw = localStorage.getItem(keySnap(decisionId, srcSnapId))
+        if (!raw) return { error: 'not_found' }
+        const from = JSON.parse(raw)
+        const snapId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+        const entry = { id: snapId, name: `Copy of ${srcSnapId}`, createdAt: Date.now() }
+        localStorage.setItem(keySnap(decisionId, snapId), JSON.stringify(clampAndNormalize(from)))
+        const listRaw = localStorage.getItem(keySnapList(decisionId))
+        const list = listRaw ? JSON.parse(listRaw) : []
+        list.push(entry)
+        localStorage.setItem(keySnapList(decisionId), JSON.stringify(list))
+        try { track('sandbox_snapshot_duplicate', { decisionId, route: 'combined', sessionId: sessionIdRef.current, srcSnapId, snapId }) } catch {}
+        return { snapId }
+      } catch { return { error: 'error' } }
+    },
+    restoreSnapshot: (snapId: string) => {
+      try {
+        const raw = localStorage.getItem(keySnap(decisionId, snapId))
+        if (!raw) return { ok: false, error: 'not_found' }
+        const g = clampAndNormalize(JSON.parse(raw))
+        setGraph(g)
+        scheduleSave(g)
+        try { track('sandbox_snapshot_restore', { decisionId, route: 'combined', sessionId: sessionIdRef.current, snapId }) } catch {}
+        return { ok: true }
+      } catch { return { ok: false, error: 'error' } }
+    },
+    listSnapshots: () => {
+      try {
+        const raw = localStorage.getItem(keySnapList(decisionId))
+        const list = raw ? JSON.parse(raw) as Array<{ id: string; name: string; createdAt: number }> : []
+        return list
+      } catch { return [] }
+    },
+    renameSnapshot: (snapId: string, name: string) => {
+      try {
+        const raw = localStorage.getItem(keySnapList(decisionId))
+        const list: Array<{ id: string; name: string; createdAt: number }> = raw ? JSON.parse(raw) : []
+        const idx = list.findIndex(e => e.id === snapId)
+        if (idx === -1) return { ok: false, error: 'not_found' }
+        list[idx] = { ...list[idx], name }
+        localStorage.setItem(keySnapList(decisionId), JSON.stringify(list))
+        try { track('sandbox_snapshot_rename', { decisionId, route: 'combined', sessionId: sessionIdRef.current, snapId, name }) } catch {}
+        return { ok: true }
+      } catch { return { ok: false, error: 'error' } }
+    },
+    deleteSnapshot: (snapId: string) => {
+      try {
+        const raw = localStorage.getItem(keySnapList(decisionId))
+        const list: Array<{ id: string; name: string; createdAt: number }> = raw ? JSON.parse(raw) : []
+        const next = list.filter(e => e.id !== snapId)
+        localStorage.setItem(keySnapList(decisionId), JSON.stringify(next))
+        try { localStorage.removeItem(keySnap(decisionId, snapId)) } catch {}
+        try { track('sandbox_snapshot_delete', { decisionId, route: 'combined', sessionId: sessionIdRef.current, snapId }) } catch {}
+        return { ok: true }
+      } catch { return { ok: false, error: 'error' } }
+    },
     upsertNode: (node: Node) => {
       const n = normalizeNode(node)
       updateGraph(g => ({ ...g, nodes: { ...g.nodes, [n.id]: { ...g.nodes[n.id], ...n } } }))
