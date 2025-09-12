@@ -45,10 +45,14 @@ const renderCombined = (decisionId: string) => {
 
 describe('Combined route — per-decision persistence', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     localStorage.clear()
   })
   afterEach(() => {
+    try { vi.runOnlyPendingTimers() } catch {}
+    vi.useRealTimers()
     localStorage.clear()
+    vi.clearAllMocks()
   })
 
   it('persists width/collapse per decision and clamps width on restore', async () => {
@@ -66,8 +70,10 @@ describe('Combined route — per-decision persistence', () => {
     const headerToggle = showBtns.find(el => el.getAttribute('aria-controls') === 'panels-region') as HTMLButtonElement
     expect(headerToggle).toBeTruthy()
     const user = userEvent.setup()
-    await act(async () => { await user.click(headerToggle) })
-    const sepA = await screen.findByRole('separator', { name: /resize panels/i })
+    await act(async () => { await user.click(headerToggle); await vi.advanceTimersByTimeAsync(0) })
+    // Wait until the toggle reflects expanded state deterministically
+    await screen.findByRole('button', { name: /hide panels/i })
+    const sepA = screen.getByRole('separator', { name: /resize panels/i })
     const nowA = Number(sepA.getAttribute('aria-valuenow'))
     expect(nowA).toBeGreaterThanOrEqual(240)
 
