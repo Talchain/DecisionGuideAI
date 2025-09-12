@@ -25,6 +25,7 @@ export type GraphAPI = {
   listSnapshots: () => Array<{ id: string; name: string; createdAt: number }>
   renameSnapshot: (snapId: string, name: string) => { ok: true } | { ok: false, error: string }
   deleteSnapshot: (snapId: string) => { ok: true } | { ok: false, error: string }
+  undoDeleteSnapshot: () => { ok: true } | { ok: false, error: string }
 }
 
 export const GraphContext = createContext<GraphAPI | null>(null)
@@ -72,6 +73,8 @@ export function GraphProvider({ decisionId, children }: { decisionId: string; ch
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const sessionIdRef = useRef<string>(Math.random().toString(36).slice(2))
   const { track } = useTelemetry()
+  // Last-deleted snapshot (UI-only TTL memory)
+  const lastDeletedRef = useRef<null | { id: string; name: string; payload: Graph; timer: number | null }>(null)
 
   const scheduleSave = useCallback((next: Graph) => {
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
@@ -164,10 +167,37 @@ export function GraphProvider({ decisionId, children }: { decisionId: string; ch
       try {
         const raw = localStorage.getItem(keySnapList(decisionId))
         const list: Array<{ id: string; name: string; createdAt: number }> = raw ? JSON.parse(raw) : []
+        const idx = list.findIndex(e => e.id === snapId)
+        const entry = idx >= 0 ? list[idx] : null
+        const payloadRaw = localStorage.getItem(keySnap(decisionId, snapId))
+        const payload = payloadRaw ? clampAndNormalize(JSON.parse(payloadRaw)) : null
         const next = list.filter(e => e.id !== snapId)
         localStorage.setItem(keySnapList(decisionId), JSON.stringify(next))
         try { localStorage.removeItem(keySnap(decisionId, snapId)) } catch {}
+        // Capture for 10s undo
+        if (entry && payload) {
+          if (lastDeletedRef.current?.timer) window.clearTimeout(lastDeletedRef.current.timer)
+          const t = window.setTimeout(() => { lastDeletedRef.current = null }, 10000)
+          lastDeletedRef.current = { id: entry.id, name: entry.name, payload, timer: t as unknown as number }
+        }
         try { track('sandbox_snapshot_delete', { decisionId, route: 'combined', sessionId: sessionIdRef.current, snapId }) } catch {}
+        return { ok: true }
+      } catch { return { ok: false, error: 'error' } }
+    },
+    undoDeleteSnapshot: () => {
+      try {
+        const last = lastDeletedRef.current
+        if (!last) return { ok: false, error: 'not_found' }
+        // reinsert list entry and payload under same id
+        const listRaw = localStorage.getItem(keySnapList(decisionId))
+        const list: Array<{ id: string; name: string; createdAt: number }> = listRaw ? JSON.parse(listRaw) : []
+        if (!list.find(e => e.id === last.id)) {
+          list.push({ id: last.id, name: last.name, createdAt: Date.now() })
+          localStorage.setItem(keySnapList(decisionId), JSON.stringify(list))
+        }
+        localStorage.setItem(keySnap(decisionId, last.id), JSON.stringify(last.payload))
+        if (last.timer) { try { window.clearTimeout(last.timer) } catch {} }
+        lastDeletedRef.current = null
         return { ok: true }
       } catch { return { ok: false, error: 'error' } }
     },

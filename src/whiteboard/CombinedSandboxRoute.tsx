@@ -42,6 +42,13 @@ export const CombinedSandboxRoute: React.FC = () => {
     )
   }
 
+  function DeleteUndoButton({ onDone }: { onDone: () => void }) {
+    const api = useGraph()
+    return (
+      <button className="px-2 py-0.5 rounded border bg-white hover:bg-gray-50" onClick={() => { const r = api.undoDeleteSnapshot(); if ((r as any)?.ok) { setAnnounce(`Restored deleted snapshot ${lastDeletedNameRef.current}.`)}; onDone() }}>Undo</button>
+    )
+  }
+
   const isMobile = typeof window !== 'undefined' ? window.innerWidth < 1024 : false
   const clampWithViewport = (w: number) => {
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1280
@@ -81,6 +88,8 @@ export const CombinedSandboxRoute: React.FC = () => {
   const [announce, setAnnounce] = React.useState<string>('')
   const lastRestoreBackupRef = React.useRef<string | null>(null)
   const [showRestoreUndo, setShowRestoreUndo] = React.useState(false)
+  const [showDeleteUndo, setShowDeleteUndo] = React.useState(false)
+  const lastDeletedNameRef = React.useRef<string>('')
 
   function HeaderSnapshotControls() {
     const graphApi = useGraph()
@@ -100,21 +109,11 @@ export const CombinedSandboxRoute: React.FC = () => {
             >Save Snapshot</button>
             <div className="inline-flex">
               <button
-                className="px-2 py-1 text-xs rounded-l border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 onClick={() => setSnapMenuOpen(v => !v)}
                 aria-expanded={snapMenuOpen}
+                aria-controls="snapshots-menu"
               >Snapshots ▾</button>
-              <button
-                className="px-2 py-1 text-xs rounded-r border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                onClick={() => {
-                  const list = graphApi.listSnapshots() || []
-                  if (!list.length) { toast({ title: 'No snapshots to duplicate' }); return }
-                  const id = window.prompt('Duplicate which snapshot id?', list[0]?.id)
-                  if (!id) return
-                  const res = graphApi.duplicateSnapshot(id)
-                  if ((res as any)?.snapId) toast({ title: 'Duplicated snapshot' })
-                }}
-              >Duplicate</button>
             </div>
             <button
               className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -124,13 +123,13 @@ export const CombinedSandboxRoute: React.FC = () => {
               }}
             >Compare</button>
             {snapMenuOpen && (
-              <div className="absolute right-0 top-[110%] z-30 min-w-[240px] max-h-64 overflow-auto rounded border bg-white shadow">
+              <div id="snapshots-menu" className="absolute right-0 top-[110%] z-30 min-w-[280px] max-h-64 overflow-auto rounded border bg-white shadow">
                 <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 border-b">Snapshots</div>
                 <ul className="divide-y">
                   {(graphApi.listSnapshots() || []).map(s => (
                     <li key={s.id} className="px-2 py-1 text-xs flex items-center gap-2">
                       <span className="flex-1 truncate" title={s.id}>{s.name}</span>
-                      <button className="px-1 py-0.5 border rounded bg-white hover:bg-gray-50" onClick={() => {
+                      <button aria-label={`Restore snapshot ${s.name}`} className="px-1 py-0.5 border rounded bg-white hover:bg-gray-50" onClick={() => {
                         try {
                           const backup = graphApi.saveSnapshot('Pre-restore')
                           lastRestoreBackupRef.current = backup?.snapId || null
@@ -139,19 +138,30 @@ export const CombinedSandboxRoute: React.FC = () => {
                             setShowRestoreUndo(true)
                             setTimeout(() => setShowRestoreUndo(false), 10000)
                             toast({ title: `Restored ${s.name}` })
+                            setAnnounce(`Restored ${s.name}. Undo available for 10 seconds.`)
                           }
                         } catch {}
                       }}>Restore</button>
-                      <button className="px-1 py-0.5 border rounded bg-white hover:bg-gray-50" onClick={() => {
+                      <button aria-label={`Duplicate snapshot ${s.name}`} className="px-1 py-0.5 border rounded bg-white hover:bg-gray-50" onClick={() => {
+                        const res = graphApi.duplicateSnapshot(s.id)
+                        if ((res as any)?.snapId) {
+                          toast({ title: `Duplicated ${s.name}` })
+                          setSnapMenuOpen(true)
+                        }
+                      }}>Duplicate</button>
+                      <button aria-label={`Rename snapshot ${s.name}`} className="px-1 py-0.5 border rounded bg-white hover:bg-gray-50" onClick={() => {
                         const name = window.prompt('Rename to:', s.name)
                         if (!name) return
                         graphApi.renameSnapshot(s.id, name)
                         setSnapMenuOpen(true)
                       }}>Rename</button>
-                      <button className="px-1 py-0.5 border rounded bg-white hover:bg-gray-50" onClick={() => {
+                      <button aria-label={`Delete snapshot ${s.name}`} className="px-1 py-0.5 border rounded bg-white hover:bg-gray-50" onClick={() => {
                         const ok = graphApi.deleteSnapshot(s.id)
                         if ((ok as any)?.ok) {
                           toast({ title: `Deleted ${s.name}` })
+                          lastDeletedNameRef.current = s.name
+                          setShowDeleteUndo(true)
+                          setAnnounce(`Deleted ${s.name}. Undo available for 10 seconds.`)
                         }
                       }}>Delete</button>
                     </li>
@@ -523,6 +533,15 @@ export const CombinedSandboxRoute: React.FC = () => {
               <RestoreUndoButton snapId={lastRestoreBackupRef.current} onDone={() => setShowRestoreUndo(false)} />
             )}
             <button className="px-2 py-0.5 rounded border bg-white hover:bg-gray-50" onClick={() => setShowRestoreUndo(false)}>Dismiss</button>
+          </div>
+        </div>
+      )}
+      {showDeleteUndo && (
+        <div className="absolute top-[96px] left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
+          <div className="rounded border bg-white shadow px-3 py-2 text-xs flex items-center gap-3">
+            <span>Deleted {lastDeletedNameRef.current}. Undo?</span>
+            <DeleteUndoButton onDone={() => setShowDeleteUndo(false)} />
+            <button className="px-2 py-0.5 rounded border bg-white hover:bg-gray-50" onClick={() => setShowDeleteUndo(false)}>Dismiss</button>
           </div>
         </div>
       )}

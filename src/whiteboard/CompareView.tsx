@@ -37,6 +37,11 @@ export default function CompareView({ decisionId, left, right, onPick, onOpened,
 
   return (
     <div className="w-full h-full flex flex-col" data-dg-compare-root>
+      <style>{`
+        [data-dg-diff="true"] [data-dg-diff-chip="added"]{ color:#065f46; border-color:#10b981; background:#ecfdf5 }
+        [data-dg-diff="true"] [data-dg-diff-chip="removed"]{ color:#7f1d1d; border-color:#f87171; background:#fef2f2 }
+        [data-dg-diff="true"] [data-dg-diff-chip="changed"]{ color:#92400e; border-color:#f59e0b; background:#fffbeb }
+      `}</style>
       <div className="border-b p-2 flex items-center gap-2 text-xs bg-white/90">
         <div className="font-semibold">Compare</div>
         <label className="inline-flex items-center gap-1">Left
@@ -66,8 +71,28 @@ export default function CompareView({ decisionId, left, right, onPick, onOpened,
       <div className="flex-1 grid grid-cols-2 gap-2 p-2">
         {opened ? (
           <>
-            <ComparePane decisionId={decisionId} graph={gLeft} nodesAdded={[]} nodesRemoved={d.nodes.removed} nodesChanged={d.nodes.changed} label="Left" />
-            <ComparePane decisionId={decisionId} graph={gRight} nodesAdded={d.nodes.added} nodesRemoved={[]} nodesChanged={d.nodes.changed} label="Right" />
+            <ComparePane
+              decisionId={decisionId}
+              graph={gLeft}
+              nodesAdded={[]}
+              nodesRemoved={d.nodes.removed}
+              nodesChanged={d.nodes.changed}
+              edgesAdded={[]}
+              edgesRemoved={d.edges.removed}
+              edgesChanged={d.edges.changed}
+              label="Left"
+            />
+            <ComparePane
+              decisionId={decisionId}
+              graph={gRight}
+              nodesAdded={d.nodes.added}
+              nodesRemoved={[]}
+              nodesChanged={d.nodes.changed}
+              edgesAdded={d.edges.added}
+              edgesRemoved={[]}
+              edgesChanged={d.edges.changed}
+              label="Right"
+            />
           </>
         ) : (
           <div className="col-span-2 text-center text-xs text-gray-600 p-6">Pick sources and click Open to start comparing.</div>
@@ -77,7 +102,7 @@ export default function CompareView({ decisionId, left, right, onPick, onOpened,
   )
 }
 
-function ComparePane({ decisionId, graph, nodesAdded, nodesRemoved, nodesChanged, label }: { decisionId: string; graph: Graph; nodesAdded: string[]; nodesRemoved: string[]; nodesChanged: string[]; label: string }) {
+function ComparePane({ decisionId, graph, nodesAdded, nodesRemoved, nodesChanged, edgesAdded, edgesRemoved, edgesChanged, label }: { decisionId: string; graph: Graph; nodesAdded: string[]; nodesRemoved: string[]; nodesChanged: string[]; edgesAdded: string[]; edgesRemoved: string[]; edgesChanged: string[]; label: string }) {
   const rootRef = React.useRef<HTMLDivElement | null>(null)
   const editorRef = React.useRef<any | null>(null)
   const mappingRef = React.useRef<ReturnType<typeof createDomainMapping> | null>(null)
@@ -109,6 +134,28 @@ function ComparePane({ decisionId, graph, nodesAdded, nodesRemoved, nodesChanged
           return (
             <span key={n.id} data-dg-diff-chip={chip} className={`absolute text-[10px] px-1.5 py-0.5 rounded border bg-white shadow`} style={{ left: pos.x + 4, top: pos.y + 4 }}>
               {chip === 'added' ? '+' : chip === 'removed' ? '–' : 'Δ'}
+            </span>
+          )
+        })}
+        {/* Edge chips at midpoints */}
+        {Object.values(graph.edges).map(e => {
+          let chip: 'added' | 'removed' | 'changed' | null = null
+          if (edgesAdded.includes(e.id)) chip = 'added'
+          else if (edgesRemoved.includes(e.id)) chip = 'removed'
+          else if (edgesChanged.includes(e.id)) chip = 'changed'
+          if (!chip) return null
+          const from = graph.nodes[e.from]
+          const to = graph.nodes[e.to]
+          if (!from || !to) return null
+          const fx = (from.view?.x ?? 0) + (from.view?.w ?? 120) / 2
+          const fy = (from.view?.y ?? 0) + (from.view?.h ?? 60) / 2
+          const tx = (to.view?.x ?? 0) + (to.view?.w ?? 120) / 2
+          const ty = (to.view?.y ?? 0) + (to.view?.h ?? 60) / 2
+          const mx = (fx + tx) / 2
+          const my = (fy + ty) / 2
+          return (
+            <span key={e.id} data-dg-diff-chip={chip} className={`absolute text-[10px] px-1.5 py-0.5 rounded border bg-white shadow`} style={{ left: mx, top: my }}>
+              {chip === 'added' ? '+' : chip === 'removed' ? '–' : '~'}
             </span>
           )
         })}
