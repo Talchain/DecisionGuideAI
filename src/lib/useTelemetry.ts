@@ -37,6 +37,7 @@ export type TelemetryEvent =
   | 'sandbox_snapshot_delete'
   | 'sandbox_compare_open'
   | 'sandbox_compare_close'
+  | 'sandbox_graph_ai_draft'
 
 export type TrackFn = (name: TelemetryEvent, props?: Record<string, unknown>) => void
 

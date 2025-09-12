@@ -10,6 +10,7 @@ export interface Node {
   notes?: string
   krImpacts?: KrImpact[]
   view?: { x?: number; y?: number; w?: number; h?: number }
+  meta?: { generated?: boolean }
 }
 
 export interface Edge {
@@ -18,6 +19,7 @@ export interface Edge {
   to: string
   kind: EdgeKind
   notes?: string
+  meta?: { generated?: boolean }
 }
 
 export interface Graph {

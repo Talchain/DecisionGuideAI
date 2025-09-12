@@ -40,7 +40,7 @@ import Analysis from './components/Analysis'
 
 // Providers for Decision/Teams are mounted at the root (main.tsx) to avoid duplication
 // Sandbox support:
-import { isSandboxEnabled, isWhiteboardEnabled, isStrategyBridgeEnabled, isSandboxRealtimeEnabled, isSandboxDeltaReapplyV2Enabled, isScenarioSnapshotsEnabled, isOptionHandlesEnabled, isSandboxVotingEnabled, isProjectionsEnabled, isDecisionCTAEnabled, isSandboxMappingEnabled, isSandboxCompareEnabled } from './lib/config'
+import { isSandboxEnabled, isWhiteboardEnabled, isStrategyBridgeEnabled, isSandboxRealtimeEnabled, isSandboxDeltaReapplyV2Enabled, isScenarioSnapshotsEnabled, isOptionHandlesEnabled, isSandboxVotingEnabled, isProjectionsEnabled, isDecisionCTAEnabled, isSandboxMappingEnabled, isSandboxCompareEnabled, isSandboxAIDraftEnabled } from './lib/config'
 import { SandboxRoute } from './sandbox/routes'
 import { SandboxRoute as WhiteboardSandboxRoute } from './whiteboard/SandboxRoute'
 import CombinedSandboxRoute from './whiteboard/CombinedSandboxRoute'
@@ -104,6 +104,7 @@ export default function App() {
           decisionCTA: isDecisionCTAEnabled(),
           sandboxMapping: isSandboxMappingEnabled(),
           sandboxCompare: isSandboxCompareEnabled(),
+          sandboxAIDraft: isSandboxAIDraftEnabled(),
         }}>
             <div className="min-h-screen bg-gradient-to-br from-indigo-100 via-white to-purple-100">
               <AuthNavigationGuard />

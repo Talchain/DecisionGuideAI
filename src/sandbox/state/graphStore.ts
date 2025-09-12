@@ -26,6 +26,9 @@ export type GraphAPI = {
   renameSnapshot: (snapId: string, name: string) => { ok: true } | { ok: false, error: string }
   deleteSnapshot: (snapId: string) => { ok: true } | { ok: false, error: string }
   undoDeleteSnapshot: () => { ok: true } | { ok: false, error: string }
+  // AI Draft
+  applyDraft: (draft: { nodes: Node[]; edges: Edge[] }) => { ok: true; bbox: { x: number; y: number; w: number; h: number }; added: { nodes: string[]; edges: string[] } } | { ok: false, error: string }
+  undoLastDraft: () => { ok: true } | { ok: false, error: string }
 }
 
 export const GraphContext = createContext<GraphAPI | null>(null)
@@ -75,6 +78,8 @@ export function GraphProvider({ decisionId, children }: { decisionId: string; ch
   const { track } = useTelemetry()
   // Last-deleted snapshot (UI-only TTL memory)
   const lastDeletedRef = useRef<null | { id: string; name: string; payload: Graph; timer: number | null }>(null)
+  // Last AI draft (UI-only)
+  const lastDraftRef = useRef<null | { nodes: string[]; edges: string[] }>(null)
 
   const scheduleSave = useCallback((next: Graph) => {
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
@@ -116,6 +121,76 @@ export function GraphProvider({ decisionId, children }: { decisionId: string; ch
         try { track('sandbox_snapshot_create', { decisionId, route: 'combined', sessionId: sessionIdRef.current, snapId, name: entry.name }) } catch {}
       } catch {}
       return { snapId }
+    },
+    applyDraft: (draft) => {
+      try {
+        const addedNodes: string[] = []
+        const addedEdges: string[] = []
+        const next: Graph = { ...graph, nodes: { ...graph.nodes }, edges: { ...graph.edges } }
+        // Deduplicate by type+title
+        const byTypeTitle = new Map<string, string>()
+        for (const n of Object.values(next.nodes)) byTypeTitle.set(`${n.type}::${n.title}`.toLowerCase(), n.id)
+        // Place nodes (respect incoming view if provided)
+        let count = 0
+        for (const n of draft.nodes) {
+          const key = `${n.type}::${n.title}`.toLowerCase()
+          let id = byTypeTitle.get(key)
+          if (id) {
+            // merge meta.generated if present
+            next.nodes[id] = { ...next.nodes[id], meta: { ...(next.nodes[id].meta || {}), generated: (n.meta?.generated || next.nodes[id].meta?.generated) } }
+            continue
+          }
+          id = n.id && !next.nodes[n.id] ? n.id : `n_${Math.random().toString(36).slice(2,8)}`
+          const view = n.view || { x: 80 + (count%4)*220, y: 80 + Math.floor(count/4)*180, w: 160, h: 80 }
+          next.nodes[id] = { id, type: n.type, title: n.title, notes: n.notes, krImpacts: n.krImpacts, view, meta: { ...(n.meta || {}), generated: true } }
+          byTypeTitle.set(key, id)
+          addedNodes.push(id)
+          count++
+        }
+        // Upsert edges if endpoints exist
+        for (const e of draft.edges) {
+          const from = byTypeTitle.get(`${(next.nodes[e.from]?.type || 'X')}::${next.nodes[e.from]?.title}`.toLowerCase()) || e.from
+          const to = byTypeTitle.get(`${(next.nodes[e.to]?.type || 'X')}::${next.nodes[e.to]?.title}`.toLowerCase()) || e.to
+          const fromOk = !!next.nodes[from]
+          const toOk = !!next.nodes[to]
+          if (!fromOk || !toOk) continue
+          let id = e.id && !next.edges[e.id] ? e.id : `e_${Math.random().toString(36).slice(2,8)}`
+          next.edges[id] = { id, from, to, kind: e.kind, notes: e.notes, meta: { ...(e.meta || {}), generated: true } }
+          addedEdges.push(id)
+        }
+        // Persist and update state
+        setGraph(next)
+        scheduleSave(next)
+        lastDraftRef.current = { nodes: addedNodes, edges: addedEdges }
+        const xs = addedNodes.map(id => next.nodes[id]?.view?.x ?? 0)
+        const ys = addedNodes.map(id => next.nodes[id]?.view?.y ?? 0)
+        const ws = addedNodes.map(id => next.nodes[id]?.view?.w ?? 160)
+        const hs = addedNodes.map(id => next.nodes[id]?.view?.h ?? 80)
+        const minX = xs.length ? Math.min(...xs) : 0
+        const minY = ys.length ? Math.min(...ys) : 0
+        const maxX = xs.length ? Math.max(...xs.map((x,i)=> x + (ws[i]||160))) : 0
+        const maxY = ys.length ? Math.max(...ys.map((y,i)=> y + (hs[i]||80))) : 0
+        const bbox = { x: minX, y: minY, w: Math.max(1, maxX - minX), h: Math.max(1, maxY - minY) }
+        try { track('sandbox_graph_ai_draft', { decisionId, route: 'combined', sessionId: sessionIdRef.current, countNodes: addedNodes.length, countEdges: addedEdges.length }) } catch {}
+        return { ok: true, bbox, added: { nodes: addedNodes, edges: addedEdges } }
+      } catch { return { ok: false, error: 'error' } }
+    },
+    undoLastDraft: () => {
+      try {
+        const last = lastDraftRef.current
+        if (!last) return { ok: false, error: 'not_found' }
+        setGraph(prev => {
+          const nodes = { ...prev.nodes }
+          const edges = { ...prev.edges }
+          for (const id of last.edges) { delete edges[id] }
+          for (const id of last.nodes) { delete nodes[id] }
+          const next = { ...prev, nodes, edges }
+          scheduleSave(next)
+          return next
+        })
+        lastDraftRef.current = null
+        return { ok: true }
+      } catch { return { ok: false, error: 'error' } }
     },
     duplicateSnapshot: (srcSnapId: string) => {
       try {

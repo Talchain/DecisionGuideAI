@@ -36,6 +36,9 @@ export const InspectorPanel: React.FC = () => {
         {node && (
           <div className="space-y-2">
             <div className="text-xs text-gray-600">Node: <span className="font-medium">{node.type}</span> ({node.id})</div>
+            {node.meta?.generated && (
+              <div className="inline-flex items-center gap-1 text-[10px] text-indigo-700 bg-indigo-50 border border-indigo-200 rounded px-1.5 py-0.5" title="AI-generated">AI</div>
+            )}
             <label className="block text-xs mb-1">Title
               <input className="mt-0.5 w-full text-xs border rounded px-2 py-1" value={node.title} onChange={(e) => debouncedUpdate(node.id, { title: e.target.value })} />
             </label>

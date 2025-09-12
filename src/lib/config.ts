@@ -23,6 +23,7 @@ export const cfg = {
   featureSandboxDeltaReapplyV2: import.meta.env.VITE_FEATURE_SANDBOX_DELTA_REAPPLY_V2 === 'true',
   featureSandboxMapping: import.meta.env.VITE_FEATURE_SANDBOX_MAPPING === 'true',
   featureSandboxCompare: import.meta.env.VITE_FEATURE_SANDBOX_COMPARE === 'true',
+  featureSandboxAIDraft: import.meta.env.VITE_FEATURE_SANDBOX_AI_DRAFT === 'true',
   // Network timeouts (ms)
   openaiTimeoutMs: Number.parseInt(import.meta.env.VITE_OPENAI_TIMEOUT_MS ?? '') || 25000,
   supabaseTimeoutMs: Number.parseInt(import.meta.env.VITE_SUPABASE_TIMEOUT_MS ?? '') || 15000,
@@ -62,3 +63,5 @@ export const isSandboxDeltaReapplyV2Enabled = (): boolean => cfg.featureSandboxD
 export const isSandboxMappingEnabled = (): boolean => cfg.featureSandboxMapping
 /** @deprecated Use useFlags() in UI components */
 export const isSandboxCompareEnabled = (): boolean => cfg.featureSandboxCompare
+/** @deprecated Use useFlags() in UI components */
+export const isSandboxAIDraftEnabled = (): boolean => cfg.featureSandboxAIDraft

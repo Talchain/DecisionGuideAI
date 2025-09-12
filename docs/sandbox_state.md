@@ -19,6 +19,7 @@
 - `VITE_FEATURE_SANDBOX_DELTA_REAPPLY_V2`
 - `VITE_FEATURE_SANDBOX_MAPPING` (new)
 - `VITE_FEATURE_SANDBOX_COMPARE` (new)
+- `VITE_FEATURE_SANDBOX_AI_DRAFT` (new)
 
 ## Storage Keys
 - Domain graph (canonical for mapping): `dgai:graph:decision:${decisionId}`
@@ -37,3 +38,11 @@
 - Visual diff chips rendered as non-blocking overlays under `[data-dg-diff="true"]`:
   - Node chips via `data-dg-diff-chip="added|removed|changed"` placed near their node.
 - TL native UI remains visible; overlays are `pointer-events:none`.
+
+## AI Draft Scenario (V1)
+- Flag: `VITE_FEATURE_SANDBOX_AI_DRAFT`
+- UI: Palette shows a "Draft with AI" button. Clicking opens a small sheet with a prompt textarea and Draft button.
+- Generation: deterministic stub in `src/sandbox/ai/draft.ts` produces ~4–8 nodes and ~4–10 edges, tagged with `meta.generated=true`.
+- Apply: `applyDraft(draft)` inserts all nodes/edges in one undo group, deduping by type+title; recenters viewport to the draft bbox; toast confirms; Undo removes generated items.
+- Inspector: shows an "AI" chip when `node.meta.generated` is true.
+- Telemetry: emits `sandbox_graph_ai_draft` with `{ countNodes, countEdges }`.

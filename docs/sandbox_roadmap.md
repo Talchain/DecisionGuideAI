@@ -14,6 +14,7 @@
 - [x] Tests: edge mapping unit; inspector node edit (RTL)
 - [x] Tests: end-to-end persistence reload includes connectors; TL→Domain incremental sync
 - [x] Compare UI (V1): header actions, chooser, two read-only canvases, diff chips, telemetry
+- [x] AI Draft (V1): Palette button, prompt sheet, deterministic stub, single-undo apply, telemetry
 - [ ] Docs update as features complete
 
 Notes:
@@ -24,3 +25,4 @@ Notes:
 - Telemetry: `sandbox_graph_*` name-only with `{ decisionId, route:'combined', sessionId }`.
  - Delete events added for node and edge.
  - Compare UX: two read-only canvases, mapping rebuilds from static Graph inputs; diff chips via `[data-dg-diff="true"] [data-dg-diff-chip]` attributes; TL native UI visible.
+ - AI Draft UX: gated by `VITE_FEATURE_SANDBOX_AI_DRAFT`; Palette button opens prompt sheet; generated nodes/edges tagged via `meta.generated=true`.
