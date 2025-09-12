@@ -24,6 +24,10 @@ export type TelemetryEvent =
   | 'sandbox_canvas_restore'
   | 'sandbox_canvas_reset'
   | 'sandbox_canvas_error'
+  | 'sandbox_graph_node_add'
+  | 'sandbox_graph_node_update'
+  | 'sandbox_graph_edge_add'
+  | 'sandbox_graph_edge_update'
 
 export type TrackFn = (name: TelemetryEvent, props?: Record<string, unknown>) => void
 

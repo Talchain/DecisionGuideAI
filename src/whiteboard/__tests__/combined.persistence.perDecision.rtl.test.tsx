@@ -2,8 +2,7 @@
 import React from 'react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { render, screen, act } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { FlagsProvider } from '@/lib/flags'
 import CombinedSandboxRoute from '@/whiteboard/CombinedSandboxRoute'
@@ -45,12 +44,9 @@ const renderCombined = (decisionId: string) => {
 
 describe('Combined route — per-decision persistence', () => {
   beforeEach(() => {
-    vi.useFakeTimers()
     localStorage.clear()
   })
   afterEach(() => {
-    try { vi.runOnlyPendingTimers() } catch {}
-    vi.useRealTimers()
     localStorage.clear()
     vi.clearAllMocks()
   })
@@ -69,12 +65,14 @@ describe('Combined route — per-decision persistence', () => {
     const showBtns = screen.getAllByRole('button', { name: /show panels/i })
     const headerToggle = showBtns.find(el => el.getAttribute('aria-controls') === 'panels-region') as HTMLButtonElement
     expect(headerToggle).toBeTruthy()
-    const user = userEvent.setup()
-    await act(async () => { await user.click(headerToggle); await vi.advanceTimersByTimeAsync(0) })
+    fireEvent.click(headerToggle)
     // Wait until the toggle reflects expanded state deterministically
-    await screen.findByRole('button', { name: /hide panels/i })
-    const sepA = screen.getByRole('separator', { name: /resize panels/i })
-    const nowA = Number(sepA.getAttribute('aria-valuenow'))
+    await waitFor(() => expect(screen.getByRole('button', { name: /hide panels/i })).toBeInTheDocument())
+    const gridA = document.querySelector('div[style*="--panel-w:"]') as HTMLDivElement
+    expect(gridA).toBeTruthy()
+    const styleA = gridA.getAttribute('style') || ''
+    const matchA = /--panel-w:\s*(\d+)px/.exec(styleA)
+    const nowA = matchA ? Number(matchA[1]) : NaN
     expect(nowA).toBeGreaterThanOrEqual(240)
 
     unmount()
@@ -83,8 +81,10 @@ describe('Combined route — per-decision persistence', () => {
     renderCombined(B)
     // Not collapsed initially (saved false)
     expect(screen.getByRole('button', { name: /hide panels/i })).toBeInTheDocument()
-    const sepB = screen.getByRole('separator', { name: /resize panels/i })
-    const nowB = Number(sepB.getAttribute('aria-valuenow'))
+    const gridB = document.querySelector('div[style*="--panel-w:"]') as HTMLDivElement
+    const styleB = gridB.getAttribute('style') || ''
+    const matchB = /--panel-w:\s*(\d+)px/.exec(styleB)
+    const nowB = matchB ? Number(matchB[1]) : NaN
     // Default JSDOM width ~1024 → maxAllowed = min(560, 1024-480)=544
     expect(nowB).toBeLessThanOrEqual(560)
     expect(nowB).toBeLessThanOrEqual(544)

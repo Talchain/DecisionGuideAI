@@ -4,6 +4,7 @@ import { useFlags } from '@/lib/flags'
 import { useTelemetry } from '@/lib/useTelemetry'
 import { ScenarioPanels } from '@/sandbox/panels/ScenarioPanels'
 import { Canvas } from '@/whiteboard/Canvas'
+import { GraphProvider } from '@/sandbox/state/graphStore'
 import { useToast } from '@/components/ui/use-toast'
 import { useDecision } from '@/contexts/DecisionContext'
 
@@ -279,7 +280,7 @@ export const CombinedSandboxRoute: React.FC = () => {
     try { apiRef.current?.setStyleOpen(next) } catch {}
   }, [styleOpen])
 
-  return (
+  const body = (
     <div className="w-full h-[75vh] bg-white border rounded shadow-sm overflow-hidden flex flex-col">
       {/* Fallback CSS for TL style panel */}
       <style>{`[data-dg-style-open="false"] .tlui-style-panel{ display:none !important; }`}</style>
@@ -399,6 +400,15 @@ export const CombinedSandboxRoute: React.FC = () => {
       <div className="sr-only" aria-live="polite">{liveText}</div>
     </div>
   )
+
+  if (flags.sandboxMapping) {
+    return (
+      <GraphProvider decisionId={decisionId}>
+        {body}
+      </GraphProvider>
+    )
+  }
+  return body
 }
 
 export default CombinedSandboxRoute

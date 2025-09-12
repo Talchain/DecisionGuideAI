@@ -2,8 +2,6 @@
 import React from 'react'
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderSandbox } from '@/test/renderSandbox'
-import { IntelligencePanel } from '@/sandbox/panels/IntelligencePanel'
-import { updateKRFromP50, COOLDOWN_MS } from '@/sandbox/bridge/triggers'
 import { screen, act } from '@testing-library/react'
 
 const decisionId = 'cooldown-x'
@@ -30,6 +28,7 @@ describe('TriggerCooldownIndicator', () => {
 
     // Fire a high severity trigger: p50 well below 0.2
     await act(async () => {
+      const { updateKRFromP50 } = await import('@/sandbox/bridge/triggers')
       updateKRFromP50(decisionId, 0.1)
       await vi.advanceTimersByTimeAsync(30_000) // DEBOUNCE_MS
     })
@@ -41,6 +40,7 @@ describe('TriggerCooldownIndicator', () => {
 
     // Advance beyond cooldown window so indicator disappears
     await act(async () => {
+      const { COOLDOWN_MS } = await import('@/sandbox/bridge/triggers')
       await vi.advanceTimersByTimeAsync(COOLDOWN_MS + 2_000)
     })
     // One more tick to update UI

@@ -4,6 +4,10 @@ import { ensureCanvasForDecision, loadCanvasDoc, saveCanvasDoc } from './persist
 import { loadSeed } from './seed'
 import { writeProjection } from './projection'
 import { useTelemetry } from '@/lib/useTelemetry'
+import { useFlags } from '@/lib/flags'
+import { useGraphOptional } from '@/sandbox/state/graphStore'
+import { createDomainMapping, type DomainMapping } from '@/whiteboard/domainMapping'
+import Palette from '@/whiteboard/Palette'
 
 interface CanvasProps {
   decisionId: string
@@ -23,6 +27,7 @@ interface CanvasProps {
     editor: any | null
     getDoc: () => any
     loadDoc: (next: any) => boolean
+    mapping?: DomainMapping | null
   }) => void
 }
 
@@ -47,8 +52,12 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
   const localSaveRef = useRef<number | null>(null)
   const editorRef = useRef<any | null>(null)
   const unsubRef = useRef<null | (() => void)>(null)
+  const mappingRef = useRef<DomainMapping | null>(null)
   const hydratedFromLocalRef = useRef<boolean>(!!doc)
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const flags = useFlags()
+  const graphApi = useGraphOptional()
+  const sessionIdRef = useRef<string>(Math.random().toString(36).slice(2))
 
   // Using internal TLDraw store for minimal/safe integration
 
@@ -169,6 +178,19 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
         try { (window as any).tl = editor } catch {}
       }
     } catch {}
+
+    // Domain mapping (nodes only in this commit)
+    try {
+      if (flags.sandboxMapping) {
+        const trackAny = (name: string, props?: Record<string, unknown>) => {
+          try { (track as any)(name, props) } catch {}
+        }
+        mappingRef.current = createDomainMapping({ editor, decisionId, sessionId: sessionIdRef.current, track: trackAny })
+        if (graphApi?.graph) {
+          mappingRef.current.rebuildFromGraph(graphApi.graph)
+        }
+      }
+    } catch {}
   }, [])
 
   // Toolbar actions — stable callbacks reading from editorRef
@@ -236,7 +258,7 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
       el.setAttribute('data-dg-style-open', (!cur).toString())
     }
     const loadDoc = (next: any) => { try { setDoc(next); try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)) } catch {}; try { editorRef.current?.store?.loadSnapshot?.({}) } catch {}; return true } catch { return false } }
-    onAPIReady({ saveNow: handleSaveNow, restore: handleRestore, reset: handleReset, setStyleOpen, toggleStyle, getRoot: () => rootRef.current, editor: editorRef.current, getDoc: () => doc, loadDoc })
+    onAPIReady({ saveNow: handleSaveNow, restore: handleRestore, reset: handleReset, setStyleOpen, toggleStyle, getRoot: () => rootRef.current, editor: editorRef.current, getDoc: () => doc, loadDoc, mapping: mappingRef.current })
   }, [onAPIReady, handleSaveNow, handleRestore, handleReset, doc])
 
   // Cleanup subscriptions and timers on unmount
@@ -250,8 +272,20 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
         window.clearTimeout(savingRef.current)
         savingRef.current = null
       }
+      if (mappingRef.current) {
+        try { mappingRef.current.detach() } catch {}
+        mappingRef.current = null
+      }
     }
   }, [])
+
+  // Rebuild mapping from graph when it changes (nodes only)
+  useEffect(() => {
+    if (!flags.sandboxMapping) return
+    if (!editorRef.current) return
+    if (!graphApi?.graph) return
+    try { mappingRef.current?.rebuildFromGraph(graphApi.graph) } catch {}
+  }, [flags.sandboxMapping, graphApi?.graph])
 
   const ui = useMemo(() => (
     <div ref={rootRef} data-dg-style-open="true" className="relative w-full h-full overflow-hidden">
@@ -267,6 +301,11 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
         <button aria-label="Zoom Out" title="Zoom Out" data-testid="tb-zoom-out" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleZoomOut}>−</button>
         <button aria-label="Zoom To Fit" title="Zoom to Fit" data-testid="tb-zoom-fit" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleZoomToFit}>Fit</button>
       </div>
+      )}
+      {flags.sandboxMapping && !embedded && (
+        <div className="pointer-events-auto absolute top-14 left-2 z-[1000]">
+          <Palette getEditor={() => editorRef.current} />
+        </div>
       )}
       {!embedded && tipVisible && (
         <div data-testid="toolbar-tip" className="pointer-events-auto absolute top-12 left-2 z-[1000] max-w-xs text-xs bg-white shadow rounded border p-2">

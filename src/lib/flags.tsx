@@ -12,6 +12,7 @@ export type SandboxFlags = {
   scenarioSnapshots: boolean
   optionHandles: boolean
   decisionCTA: boolean
+  sandboxMapping: boolean
 }
 
 const defaultFlags: SandboxFlags = {
@@ -24,6 +25,7 @@ const defaultFlags: SandboxFlags = {
   scenarioSnapshots: false,
   optionHandles: false,
   decisionCTA: false,
+  sandboxMapping: false,
 }
 
 const FlagsContext = createContext<SandboxFlags>(defaultFlags)

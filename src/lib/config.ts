@@ -21,6 +21,7 @@ export const cfg = {
   featureSandboxRealtime: import.meta.env.VITE_FEATURE_SANDBOX_REALTIME === 'true',
   featureSandboxVoting: import.meta.env.VITE_FEATURE_SANDBOX_VOTING === 'true',
   featureSandboxDeltaReapplyV2: import.meta.env.VITE_FEATURE_SANDBOX_DELTA_REAPPLY_V2 === 'true',
+  featureSandboxMapping: import.meta.env.VITE_FEATURE_SANDBOX_MAPPING === 'true',
   // Network timeouts (ms)
   openaiTimeoutMs: Number.parseInt(import.meta.env.VITE_OPENAI_TIMEOUT_MS ?? '') || 25000,
   supabaseTimeoutMs: Number.parseInt(import.meta.env.VITE_SUPABASE_TIMEOUT_MS ?? '') || 15000,
@@ -56,3 +57,5 @@ export const isSandboxRealtimeEnabled = (): boolean => cfg.featureSandboxRealtim
 export const isSandboxVotingEnabled = (): boolean => cfg.featureSandboxVoting
 /** @deprecated Use useFlags() in UI components */
 export const isSandboxDeltaReapplyV2Enabled = (): boolean => cfg.featureSandboxDeltaReapplyV2
+/** @deprecated Use useFlags() in UI components */
+export const isSandboxMappingEnabled = (): boolean => cfg.featureSandboxMapping

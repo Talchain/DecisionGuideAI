@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import React from 'react'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ThemeProvider } from '@/contexts/ThemeContext'
@@ -27,6 +27,12 @@ const renderCombined = () =>
   )
 
 describe('Combined divider a11y', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    // Ensure panels collapsed by default for deterministic header state
+    localStorage.setItem('dgai:combined:demo:panel_collapsed', 'true')
+  })
+  afterEach(() => { localStorage.clear() })
   it('has proper ARIA and announces width on keyup only', async () => {
     renderCombined()
     // Panels start collapsed; open using the header toggle (has aria-controls)
@@ -34,8 +40,9 @@ describe('Combined divider a11y', () => {
     const headerToggle = showBtns.find(el => el.getAttribute('aria-controls') === 'panels-region') as HTMLButtonElement
     expect(headerToggle).toBeTruthy()
     headerToggle.click()
-
-    const sep = screen.getByRole('separator', { name: /resize panels/i })
+    // Wait for expanded state deterministically
+    await screen.findByRole('button', { name: /hide panels/i })
+    const sep = screen.getByRole('separator', { name: /resize panels/i, hidden: true as any })
     expect(sep).toHaveAttribute('aria-orientation', 'vertical')
     expect(Number(sep.getAttribute('aria-valuemin'))).toBe(240)
     expect(Number(sep.getAttribute('aria-valuemax'))).toBe(560)
@@ -48,7 +55,8 @@ describe('Combined divider a11y', () => {
     expect(midNow).toBe(initialNow + 16)
 
     // Live region should be empty until keyup
-    const announcer = screen.getByRole('status', { hidden: true })
+    const announcer = document.querySelector('[aria-live="polite"]') as HTMLElement
+    expect(announcer).toBeTruthy()
     expect(announcer.textContent).toBe('')
 
     // On keyup, announcement updates

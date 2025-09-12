@@ -55,6 +55,6 @@ describe('SandboxRoute feature gating and lazy behavior', () => {
     expect(screen.getByText(/Loading…/i)).toBeInTheDocument()
 
     // Then the mocked canvas appears
-    await waitFor(() => expect(screen.getByText(/Canvas Loaded/i)).toBeInTheDocument())
+    expect(await screen.findByText(/Canvas Loaded/i)).toBeInTheDocument()
   })
 })
