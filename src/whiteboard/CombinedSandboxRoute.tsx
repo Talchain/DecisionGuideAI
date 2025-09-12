@@ -54,7 +54,8 @@ export const CombinedSandboxRoute: React.FC = () => {
       if (raw === 'true') return true
       if (raw === 'false') return false
     } catch {}
-    return isMobile
+    // Collapsed by default on first visit (desktop & mobile)
+    return true
   })
   const [styleOpen, setStyleOpen] = React.useState<boolean>(() => {
     try { return localStorage.getItem(keyStyle(decisionId)) === 'true' } catch { return false }
@@ -280,7 +281,7 @@ export const CombinedSandboxRoute: React.FC = () => {
   }, [styleOpen])
 
   return (
-    <div className="w-full h-[75vh] bg-white border rounded shadow-sm overflow-hidden flex flex-col" data-dg-style-open={styleOpen ? 'true' : 'false'}>
+    <div className="w-full h-[75vh] bg-white border rounded shadow-sm overflow-hidden flex flex-col">
       {/* Fallback CSS for TL style panel */}
       <style>{`[data-dg-style-open="false"] .tlui-style-panel{ display:none !important; }`}</style>
       {/* Header */}
@@ -374,8 +375,8 @@ export const CombinedSandboxRoute: React.FC = () => {
 
       {/* Undo Reset banner (interactive) */}
       {showUndoBanner && (
-        <div className="absolute top-[56px] left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
-          <div className="rounded border bg-white shadow px-3 py-2 text-xs flex items-center gap-3">
+        <div className="absolute top-[56px] left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+          <div className="pointer-events-auto rounded border bg-white shadow px-3 py-2 text-xs flex items-center gap-3">
             <span>Canvas reset. Undo?</span>
             <button className="px-2 py-0.5 rounded border bg-white hover:bg-gray-50" onClick={() => { try { if (preResetRef.current) apiRef.current?.loadDoc?.(preResetRef.current) } finally { setShowUndoBanner(false); if (undoTimerRef.current) { clearTimeout(undoTimerRef.current); undoTimerRef.current = null } } }}>Undo</button>
             <button className="px-2 py-0.5 rounded border bg-white hover:bg-gray-50" onClick={() => { setShowUndoBanner(false); if (undoTimerRef.current) { clearTimeout(undoTimerRef.current); undoTimerRef.current = null } }}>Dismiss</button>
@@ -396,7 +397,7 @@ export const CombinedSandboxRoute: React.FC = () => {
       )}
 
       {/* ARIA live announcer for width */}
-      <div className="sr-only" aria-live="polite">{liveText}</div>
+      <div className="sr-only" aria-live="polite" role="status">{liveText}</div>
     </div>
   )
 }

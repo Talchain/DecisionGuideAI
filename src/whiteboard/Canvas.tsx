@@ -4,6 +4,7 @@ import { ensureCanvasForDecision, loadCanvasDoc, saveCanvasDoc } from './persist
 import { loadSeed } from './seed'
 import { writeProjection } from './projection'
 import { useTelemetry } from '@/lib/useTelemetry'
+import { useToast } from '@/components/ui/use-toast'
 
 interface CanvasProps {
   decisionId: string
@@ -49,6 +50,8 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
   const unsubRef = useRef<null | (() => void)>(null)
   const hydratedFromLocalRef = useRef<boolean>(!!doc)
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const autosaveErrorShownRef = useRef<boolean>(false)
+  const { toast } = useToast()
 
   // Using internal TLDraw store for minimal/safe integration
 
@@ -186,10 +189,35 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
     if (!doc) return
     if (localSaveRef.current) window.clearTimeout(localSaveRef.current)
     localSaveRef.current = window.setTimeout(() => {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(doc)) } catch {}
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(doc))
+      } catch (e) {
+        try { track('sandbox_canvas_error', { op: 'autosave', decisionId }) } catch {}
+        if (!autosaveErrorShownRef.current) {
+          autosaveErrorShownRef.current = true
+          try { toast({ title: 'Unable to save locally. Storage may be blocked or full.', type: 'destructive' }) } catch {}
+          // Offer JSON export without blocking pointer events
+          try {
+            setTimeout(() => {
+              if (window.confirm('Local autosave failed. Export JSON now?')) {
+                try {
+                  const data = doc || {}
+                  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+                  const url = URL.createObjectURL(blob)
+                  const a = document.createElement('a')
+                  a.href = url
+                  a.download = `canvas-${decisionId}.json`
+                  document.body.appendChild(a); a.click(); document.body.removeChild(a)
+                  URL.revokeObjectURL(url)
+                } catch {}
+              }
+            }, 0)
+          } catch {}
+        }
+      }
     }, 800)
     return () => { if (localSaveRef.current) { window.clearTimeout(localSaveRef.current); localSaveRef.current = null } }
-  }, [doc, STORAGE_KEY])
+  }, [doc, STORAGE_KEY, decisionId, track, toast])
 
   // Toolbar: Save/Restore/Reset handlers (local-only)
   const handleSaveNow = useCallback(() => {
