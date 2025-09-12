@@ -4,6 +4,7 @@ import { useFlags } from '@/lib/flags'
 import { useTelemetry } from '@/lib/useTelemetry'
 import { ScenarioPanels } from '@/sandbox/panels/ScenarioPanels'
 import { Canvas } from '@/whiteboard/Canvas'
+import { ScorePill } from '@/whiteboard/ScorePill'
 import { GraphProvider, useGraph } from '@/sandbox/state/graphStore'
 import CompareView from '@/whiteboard/CompareView'
 import { useToast } from '@/components/ui/use-toast'
@@ -418,6 +419,9 @@ export const CombinedSandboxRoute: React.FC = () => {
             <button role="tab" aria-selected={active==='panels'} className={`px-2 py-1 text-xs ${active==='panels' ? 'bg-indigo-600 text-white' : 'bg-white'}`} onClick={() => onTab('panels')}>Panels</button>
             <button role="tab" aria-selected={active==='canvas'} className={`px-2 py-1 text-xs ${active==='canvas' ? 'bg-indigo-600 text-white' : 'bg-white'}`} onClick={() => onTab('canvas')}>Canvas</button>
           </div>
+          {flags.sandboxScore && (
+            <ScorePill decisionId={decisionId} />
+          )}
           {/* Style toggle */}
           <button
             aria-label="Toggle style panel"
@@ -548,7 +552,7 @@ export const CombinedSandboxRoute: React.FC = () => {
     </div>
   )
 
-  if (flags.sandboxMapping || flags.sandboxCompare) {
+  if (flags.sandboxMapping || flags.sandboxCompare || flags.sandboxScore) {
     return (
       <GraphProvider decisionId={decisionId}>
         {body}

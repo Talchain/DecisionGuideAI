@@ -15,6 +15,7 @@ export type SandboxFlags = {
   sandboxMapping: boolean
   sandboxCompare: boolean
   sandboxAIDraft: boolean
+  sandboxScore: boolean
 }
 
 const defaultFlags: SandboxFlags = {
@@ -30,6 +31,7 @@ const defaultFlags: SandboxFlags = {
   sandboxMapping: false,
   sandboxCompare: false,
   sandboxAIDraft: false,
+  sandboxScore: false,
 }
 
 const FlagsContext = createContext<SandboxFlags>(defaultFlags)

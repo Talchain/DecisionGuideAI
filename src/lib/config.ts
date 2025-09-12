@@ -24,6 +24,7 @@ export const cfg = {
   featureSandboxMapping: import.meta.env.VITE_FEATURE_SANDBOX_MAPPING === 'true',
   featureSandboxCompare: import.meta.env.VITE_FEATURE_SANDBOX_COMPARE === 'true',
   featureSandboxAIDraft: import.meta.env.VITE_FEATURE_SANDBOX_AI_DRAFT === 'true',
+  featureSandboxScore: import.meta.env.VITE_FEATURE_SANDBOX_SCORE === 'true',
   // Network timeouts (ms)
   openaiTimeoutMs: Number.parseInt(import.meta.env.VITE_OPENAI_TIMEOUT_MS ?? '') || 25000,
   supabaseTimeoutMs: Number.parseInt(import.meta.env.VITE_SUPABASE_TIMEOUT_MS ?? '') || 15000,
@@ -65,3 +66,5 @@ export const isSandboxMappingEnabled = (): boolean => cfg.featureSandboxMapping
 export const isSandboxCompareEnabled = (): boolean => cfg.featureSandboxCompare
 /** @deprecated Use useFlags() in UI components */
 export const isSandboxAIDraftEnabled = (): boolean => cfg.featureSandboxAIDraft
+/** @deprecated Use useFlags() in UI components */
+export const isSandboxScoreEnabled = (): boolean => cfg.featureSandboxScore

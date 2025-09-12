@@ -4,6 +4,8 @@ import { createDomainMapping } from '@/whiteboard/domainMapping'
 import type { Graph } from '@/domain/graph'
 import { useGraph } from '@/sandbox/state/graphStore'
 import { diffGraphs } from '@/domain/graphDiff'
+import { scoreGraph } from '@/domain/kr'
+import { useFlags } from '@/lib/flags'
 
 function keySnap(decisionId: string, snapId: string) { return `dgai:graph:snap:${decisionId}:${snapId}` }
 
@@ -18,9 +20,11 @@ type CompareViewProps = {
 
 export default function CompareView({ decisionId, left, right, onPick, onOpened, onClose }: CompareViewProps) {
   const { graph, listSnapshots } = useGraph()
+  const flags = useFlags()
   const [opened, setOpened] = React.useState(false)
   const [selLeft, setSelLeft] = React.useState(left)
   const [selRight, setSelRight] = React.useState(right)
+  const [live, setLive] = React.useState('')
 
   const loadGraph = React.useCallback((token: string): Graph => {
     if (token === 'current') return graph
@@ -34,6 +38,16 @@ export default function CompareView({ decisionId, left, right, onPick, onOpened,
   const gLeft = loadGraph(opened ? left : selLeft)
   const gRight = loadGraph(opened ? right : selRight)
   const d = diffGraphs(gLeft, gRight)
+  const sLeft = flags.sandboxScore ? Math.round(scoreGraph(gLeft).scenarioScore) : null
+  const sRight = flags.sandboxScore ? Math.round(scoreGraph(gRight).scenarioScore) : null
+  const delta = flags.sandboxScore && sLeft != null && sRight != null ? (sRight - sLeft) : null
+
+  React.useEffect(() => {
+    if (!flags.sandboxScore) return
+    if (!opened) return
+    if (sLeft == null || sRight == null || delta == null) return
+    setLive(`Compare: Left ${sLeft} vs Right ${sRight} (Δ ${delta}).`)
+  }, [flags.sandboxScore, opened, sLeft, sRight, delta])
 
   return (
     <div className="w-full h-full flex flex-col" data-dg-compare-root>
@@ -63,11 +77,19 @@ export default function CompareView({ decisionId, left, right, onPick, onOpened,
           <button className="ml-2 px-2 py-1 border rounded bg-white hover:bg-gray-50" onClick={() => { setOpened(false); onClose() }}>Close</button>
         )}
         <div className="ml-auto inline-flex items-center gap-2">
+          {flags.sandboxScore && opened && (
+            <div className="inline-flex items-center gap-2">
+              <span className="px-1.5 py-0.5 border rounded bg-white" title="Left score">Left: {sLeft}%</span>
+              <span className="px-1.5 py-0.5 border rounded bg-white" title="Delta">Δ {delta! >= 0 ? `+${delta}` : delta}%</span>
+              <span className="px-1.5 py-0.5 border rounded bg-white" title="Right score">Right: {sRight}%</span>
+            </div>
+          )}
           <span className="px-1.5 py-0.5 border rounded bg-white" title="Added">+ Added</span>
           <span className="px-1.5 py-0.5 border rounded bg-white" title="Removed">– Removed</span>
           <span className="px-1.5 py-0.5 border rounded bg-white" title="Changed">~ Changed</span>
         </div>
       </div>
+      <div className="sr-only" aria-live="polite">{live}</div>
       <div className="flex-1 grid grid-cols-2 gap-2 p-2">
         {opened ? (
           <>

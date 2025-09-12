@@ -8,6 +8,7 @@ import { useFlags } from '@/lib/flags'
 import { useGraphOptional } from '@/sandbox/state/graphStore'
 import { createDomainMapping, type DomainMapping } from '@/whiteboard/domainMapping'
 import Palette from '@/whiteboard/Palette'
+import { scoreGraph } from '@/domain/kr'
 
 interface CanvasProps {
   decisionId: string
@@ -61,6 +62,8 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
   const shapeIndexRef = useRef<Map<string, string>>(new Map())
   const [connectActive, setConnectActive] = useState(false)
   const connectSourceRef = useRef<string | null>(null)
+  const [perNodeScore, setPerNodeScore] = useState<Record<string, number>>({})
+  const scoreTimerRef = useRef<number | null>(null)
 
   // Using internal TLDraw store for minimal/safe integration
 
@@ -451,6 +454,21 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
     try { mappingRef.current?.rebuildFromGraph(graphApi.graph) } catch {}
   }, [flags.sandboxMapping, graphApi?.graph])
 
+  // Debounced score compute for per-node badges
+  useEffect(() => {
+    if (!flags.sandboxScore) return
+    const g = graphApi?.graph
+    if (!g) return
+    if (scoreTimerRef.current) window.clearTimeout(scoreTimerRef.current)
+    scoreTimerRef.current = window.setTimeout(() => {
+      try {
+        const res = scoreGraph(g)
+        setPerNodeScore(res.perNode || {})
+      } catch {}
+    }, 300) as unknown as number
+    return () => { if (scoreTimerRef.current) { window.clearTimeout(scoreTimerRef.current); scoreTimerRef.current = null } }
+  }, [flags.sandboxScore, graphApi?.graph])
+
   const ui = useMemo(() => (
     <div ref={rootRef} data-dg-style-open="true" className="relative w-full h-full overflow-hidden">
       {/* Toolbar: top-left; only when not embedded; non-blocking banners remain pointer-events-none */}
@@ -469,6 +487,23 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
       {flags.sandboxMapping && !embedded && (
         <div className="pointer-events-auto absolute top-14 left-2 z-[1000]">
           <Palette getEditor={() => editorRef.current} connect={{ active: connectActive, toggle: () => setConnectActive(v => !v) }} />
+        </div>
+      )}
+      {/* Per-node score badges overlay: non-blocking */}
+      {flags.sandboxScore && graphApi?.graph && (
+        <div className="pointer-events-none absolute inset-0 z-[999]" data-dg-score-overlay>
+          {Object.values(graphApi.graph.nodes).map(n => {
+            const v = perNodeScore[n.id] || 0
+            if (!v) return null
+            const x = (n.view?.x ?? 0) + (n.view?.w ?? 160) - 18
+            const y = (n.view?.y ?? 0) + (n.view?.h ?? 80) - 14
+            const txt = String(Math.max(-99, Math.min(99, Math.round(v))))
+            return (
+              <span key={n.id} data-dg-score-node={n.id} className="absolute text-[10px] px-1 rounded border bg-white/90 shadow" style={{ left: x, top: y }}>
+                {txt}
+              </span>
+            )
+          })}
         </div>
       )}
       {!embedded && tipVisible && (
@@ -503,7 +538,7 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
         </div>
       )}
     </div>
-  ), [handleMount, localOnly])
+  ), [handleMount, localOnly, flags.sandboxScore, graphApi?.graph, perNodeScore])
 
   if (!doc) {
     return (

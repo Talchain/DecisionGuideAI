@@ -38,6 +38,7 @@ export type TelemetryEvent =
   | 'sandbox_compare_open'
   | 'sandbox_compare_close'
   | 'sandbox_graph_ai_draft'
+  | 'sandbox_graph_score_update'
 
 export type TrackFn = (name: TelemetryEvent, props?: Record<string, unknown>) => void
 

@@ -98,6 +98,21 @@ export function GraphProvider({ decisionId, children }: { decisionId: string; ch
 
   useEffect(() => () => { if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current) }, [])
 
+  // Reload graph when localStorage updates (e.g., cross-tab or tests)
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      try {
+        if (!e) return
+        if (e.key === storageKey) {
+          const parsed = e.newValue ? JSON.parse(e.newValue) : null
+          setGraph(clampAndNormalize(parsed))
+        }
+      } catch {}
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [storageKey])
+
   const api = useMemo<GraphAPI>(() => ({
     decisionId,
     graph,
