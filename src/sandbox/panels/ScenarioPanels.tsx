@@ -2,6 +2,7 @@ import React from 'react'
 import { IntelligencePanel } from '@/sandbox/panels/IntelligencePanel'
 import { GoalsOkrsPanel } from '@/sandbox/panels/GoalsOkrsPanel'
 import { SnapshotTray } from '@/sandbox/components/SnapshotTray'
+import InspectorPanel from '@/sandbox/panels/InspectorPanel'
 
 export const ScenarioPanels: React.FC<{ decisionId?: string; className?: string }> = ({ decisionId = 'demo', className = '' }) => {
   return (
@@ -10,6 +11,7 @@ export const ScenarioPanels: React.FC<{ decisionId?: string; className?: string 
         {/* Keep panel sections internally scrollable */}
         <IntelligencePanel decisionId={decisionId} />
         <GoalsOkrsPanel />
+        <InspectorPanel />
         {/* Additional panels can be appended here if needed */}
       </div>
       {/* Snapshot tray inline (no fixed overlay within combined layout) */}

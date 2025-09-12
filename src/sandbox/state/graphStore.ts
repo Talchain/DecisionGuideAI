@@ -12,6 +12,10 @@ export type GraphAPI = {
   updateNodeFields: (nodeId: string, patch: Partial<Omit<Node, 'id' | 'type'>>) => void
   setView: (nodeId: string, view: NonNullable<Node['view']>) => void
   reloadFromStorage: () => void
+  selectedNodeId?: string | null
+  selectedEdgeId?: string | null
+  setSelectedNode: (nodeId: string | null) => void
+  setSelectedEdge: (edgeId: string | null) => void
 }
 
 export const GraphContext = createContext<GraphAPI | null>(null)
@@ -53,6 +57,8 @@ export function GraphProvider({ decisionId, children }: { decisionId: string; ch
     } catch { return emptyGraph() }
   })
   const saveTimerRef = useRef<number | null>(null)
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
 
   const scheduleSave = useCallback((next: Graph) => {
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
@@ -75,6 +81,10 @@ export function GraphProvider({ decisionId, children }: { decisionId: string; ch
     decisionId,
     graph,
     getGraph: () => graph,
+    selectedNodeId,
+    selectedEdgeId,
+    setSelectedNode: (id) => setSelectedNodeId(id),
+    setSelectedEdge: (id) => setSelectedEdgeId(id),
     upsertNode: (node: Node) => {
       const n = normalizeNode(node)
       updateGraph(g => ({ ...g, nodes: { ...g.nodes, [n.id]: { ...g.nodes[n.id], ...n } } }))
@@ -118,7 +128,7 @@ export function GraphProvider({ decisionId, children }: { decisionId: string; ch
         setGraph(clampAndNormalize(parsed))
       } catch { setGraph(emptyGraph()) }
     },
-  }), [decisionId, graph, storageKey, updateGraph])
+  }), [decisionId, graph, storageKey, updateGraph, selectedNodeId, selectedEdgeId])
 
   return React.createElement(GraphContext.Provider, { value: api, children })
 }

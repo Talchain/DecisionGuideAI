@@ -154,6 +154,19 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
               const same = (prev as any).tldraw === nextSnap
               return same ? prev : { ...prev, tldraw: nextSnap }
             })
+            // Selection bridging: map selected TL shape to Graph selection
+            try {
+              const selectedShapes = editor?.getSelectedShapes?.() ?? []
+              const shape = selectedShapes?.[0] ?? null
+              const meta = shape?.meta || null
+              if (meta?.nodeId && graphApi?.setSelectedNode) {
+                graphApi.setSelectedNode(meta.nodeId)
+                graphApi.setSelectedEdge(null)
+              } else if (meta?.edgeId && graphApi?.setSelectedEdge) {
+                graphApi.setSelectedEdge(meta.edgeId)
+                graphApi.setSelectedNode(null)
+              }
+            } catch {}
           } catch (e) {
             // no-op
           }
