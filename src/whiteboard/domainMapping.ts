@@ -1,10 +1,13 @@
-import { Graph, Node } from '@/domain/graph'
+import { Graph, Node, Edge } from '@/domain/graph'
 
 export type DomainMapping = {
   nodeToShape: Map<string, string>
   edgeToShape: Map<string, string>
   upsertShapeFromNode: (node: Node) => string
   removeNodeShape: (nodeId: string) => void
+  upsertConnectorFromEdge: (edge: Edge) => string | null
+  removeEdgeConnector: (edgeId: string) => void
+  onConnectorReattach: (edgeId: string, fromNodeId: string, toNodeId: string) => void
   rebuildFromGraph: (graph: Graph) => void
   detach: () => void
 }
@@ -14,6 +17,7 @@ export type DomainMappingOptions = {
   decisionId: string
   sessionId: string
   track: (name: string, props?: Record<string, unknown>) => void
+  onEdgeChange?: (edge: Edge) => void
 }
 
 const DEFAULT_W = 160
@@ -35,7 +39,7 @@ function pickBadge(node: Node): { text: string; title: string } | null {
 }
 
 export function createDomainMapping(opts: DomainMappingOptions): DomainMapping {
-  const { editor, decisionId, sessionId, track } = opts
+  const { editor, decisionId, sessionId, track, onEdgeChange } = opts
   const nodeToShape = new Map<string, string>()
   const edgeToShape = new Map<string, string>()
 
@@ -72,10 +76,50 @@ export function createDomainMapping(opts: DomainMappingOptions): DomainMapping {
     nodeToShape.delete(nodeId)
   }
 
+  const upsertConnectorFromEdge = (edge: Edge): string | null => {
+    const shapeId = `edge-${edge.id}`
+    const fromShape = nodeToShape.get(edge.from)
+    const toShape = nodeToShape.get(edge.to)
+    if (!fromShape || !toShape) return null
+    const meta: any = { edgeId: edge.id, kind: edge.kind }
+    const props: any = {
+      start: { type: 'binding', boundShapeId: fromShape },
+      end: { type: 'binding', boundShapeId: toShape },
+    }
+    try {
+      const isNew = !edgeToShape.has(edge.id)
+      if (isNew) {
+        editor?.createShape?.({ id: shapeId, type: 'arrow', props, meta })
+        edgeToShape.set(edge.id, shapeId)
+        try { track('sandbox_graph_edge_add', { decisionId, route: 'combined', sessionId, edgeId: edge.id, kind: edge.kind }) } catch {}
+      } else {
+        editor?.updateShape?.({ id: shapeId, type: 'arrow', props, meta })
+        try { track('sandbox_graph_edge_update', { decisionId, route: 'combined', sessionId, edgeId: edge.id, kind: edge.kind }) } catch {}
+      }
+      return shapeId
+    } catch {
+      return null
+    }
+  }
+
+  const removeEdgeConnector = (edgeId: string) => {
+    const sid = edgeToShape.get(edgeId)
+    if (!sid) return
+    try { editor?.deleteShape?.({ id: sid }) } catch {}
+    edgeToShape.delete(edgeId)
+  }
+
+  const onConnectorReattach = (edgeId: string, fromNodeId: string, toNodeId: string) => {
+    if (!onEdgeChange) return
+    const kind = undefined as unknown as Edge['kind']
+    onEdgeChange({ id: edgeId, from: fromNodeId, to: toNodeId, kind: (kind ?? 'supports') })
+  }
+
   const rebuildFromGraph = (graph: Graph) => {
-    // Upsert all nodes
+    // Upsert all nodes first
     for (const n of Object.values(graph.nodes)) createOrUpdate(n)
-    // Note: edges handled in commit 2
+    // Then upsert edges
+    for (const e of Object.values(graph.edges)) upsertConnectorFromEdge(e)
   }
 
   const detach = () => {
@@ -87,6 +131,9 @@ export function createDomainMapping(opts: DomainMappingOptions): DomainMapping {
     edgeToShape,
     upsertShapeFromNode: createOrUpdate,
     removeNodeShape,
+    upsertConnectorFromEdge,
+    removeEdgeConnector,
+    onConnectorReattach,
     rebuildFromGraph,
     detach,
   }

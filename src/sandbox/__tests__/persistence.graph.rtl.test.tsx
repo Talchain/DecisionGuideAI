@@ -31,7 +31,9 @@ describe('graph persistence reload (nodes)', () => {
     localStorage.setItem(key, JSON.stringify({ schemaVersion: 1, nodes: {
       A: { id: 'A', type: 'Problem', title: 'Problem A', view: { x: 100, y: 120, w: 140, h: 80 } },
       B: { id: 'B', type: 'Option', title: 'Option B', view: { x: 360, y: 120, w: 160, h: 80 } },
-    }, edges: {} }))
+    }, edges: {
+      E1: { id: 'E1', from: 'A', to: 'B', kind: 'supports' }
+    } }))
     // Prime Canvas local snapshot so Tldraw mounts immediately
     localStorage.setItem('dgai:canvas:decision/demo', JSON.stringify({ meta: { decision_id: 'demo', kind: 'sandbox' }, shapes: [], bindings: [], tldraw: {} }))
 
@@ -49,6 +51,7 @@ describe('graph persistence reload (nodes)', () => {
     await waitFor(() => {
       expect(calls.some(c => c.op === 'create' && c.args.meta?.nodeId === 'A')).toBe(true)
       expect(calls.some(c => c.op === 'create' && c.args.meta?.nodeId === 'B')).toBe(true)
+      expect(calls.some(c => c.op === 'create' && c.args.meta?.edgeId === 'E1')).toBe(true)
     })
   })
 })
