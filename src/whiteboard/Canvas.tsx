@@ -458,13 +458,17 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
       if (e.key === 'Escape') {
         try {
           if (flags.sandboxWhatIf && overrides?.focusOnNodeId) {
+            // Immediately flip the focus data-attr for deterministic tests
+            const el = rootRef.current
+            if (el) el.setAttribute('data-dg-focus', 'off')
             overrides.setFocusOn(null)
           }
         } catch {}
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    // Capture phase so TLDraw or other handlers cannot swallow Esc first
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [flags.sandboxWhatIf, overrides?.focusOnNodeId])
 
   // Rebuild mapping from graph when it changes (nodes only)
@@ -529,7 +533,11 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
           )}
         </div>
       )}
-      <Tldraw persistenceKey={"sandbox-local"} onMount={handleMount} />
+      {doc ? (
+        <Tldraw persistenceKey={"sandbox-local"} onMount={handleMount} />
+      ) : (
+        <div className="w-full h-[70vh] flex items-center justify-center text-gray-600">Initializing canvas…</div>
+      )}
       {/* What-If overlays */}
       {flags.sandboxWhatIf && (
         <>
@@ -594,15 +602,7 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
         </div>
       )}
     </div>
-  ), [handleMount, localOnly, flags.sandboxScore, graphApi?.graph, perNodeScore, flags.sandboxPresence, authUser?.id, profile, flags.sandboxWhatIf, overrides?.focusOnNodeId])
-
-  if (!doc) {
-    return (
-      <div className="w-full h-[70vh] flex items-center justify-center text-gray-600">
-        Initializing canvas…
-      </div>
-    )
-  }
+  ), [handleMount, localOnly, flags.sandboxScore, graphApi?.graph, perNodeScore, flags.sandboxPresence, authUser?.id, profile, flags.sandboxWhatIf, overrides?.focusOnNodeId, doc])
 
   return ui
 }

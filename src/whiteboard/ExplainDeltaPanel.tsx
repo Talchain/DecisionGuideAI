@@ -65,6 +65,7 @@ export function ExplainDeltaPanel({
       className="pointer-events-auto absolute top-[56px] right-2 z-[1100] w-[300px] max-h-[60vh] overflow-auto rounded border bg-white/95 shadow"
       data-dg-explain="true"
       data-testid="explain-panel"
+      data-dg-explain-decision={decisionId}
     >
       <header className="sticky top-0 bg-white/95 border-b px-3 py-2 flex items-center gap-2">
         <div className="text-xs font-medium">Explain Δ</div>

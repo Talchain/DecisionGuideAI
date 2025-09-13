@@ -25,6 +25,35 @@ try {
   }
 } catch {}
 
+// jsdom: indexedDB.databases polyfill for TLDraw local sync
+try {
+  if (typeof window !== 'undefined') {
+    const idb: any = (window as any).indexedDB || ((window as any).indexedDB = {} as any)
+    if (typeof idb.databases !== 'function') {
+      idb.databases = async () => []
+    }
+    if (typeof idb.open !== 'function') {
+      idb.open = function (_name: string, _version?: number) {
+        const req: any = {
+          result: undefined,
+          onerror: null,
+          onsuccess: null,
+          onupgradeneeded: null,
+          addEventListener(type: string, cb: any) {
+            ;(this as any)['on' + type] = cb
+          },
+        }
+        // Simulate async success
+        setTimeout(() => { try { req.result = {}; req.onsuccess && req.onsuccess({ target: req }) } catch {} }, 0)
+        return req
+      }
+    }
+    if (typeof idb.deleteDatabase !== 'function') {
+      idb.deleteDatabase = function () { return { onsuccess: null, onerror: null } }
+    }
+  }
+} catch {}
+
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
