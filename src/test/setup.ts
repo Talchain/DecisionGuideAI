@@ -54,6 +54,27 @@ try {
   }
 } catch {}
 
+// Minimal IDB* constructors to avoid ReferenceError in idb/wrap
+try {
+  const g: any = globalThis as any
+  const ctorNames = [
+    'IDBRequest',
+    'IDBOpenDBRequest',
+    'IDBDatabase',
+    'IDBTransaction',
+    'IDBObjectStore',
+    'IDBIndex',
+    'IDBCursor',
+    'IDBCursorWithValue',
+    'IDBKeyRange',
+  ]
+  for (const name of ctorNames) {
+    if (typeof g[name] === 'undefined') {
+      g[name] = function () {}
+    }
+  }
+} catch {}
+
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
