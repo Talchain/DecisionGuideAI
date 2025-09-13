@@ -7,8 +7,11 @@ import { useTelemetry } from '@/lib/useTelemetry'
 import { useFlags } from '@/lib/flags'
 import { useGraphOptional } from '@/sandbox/state/graphStore'
 import { createDomainMapping, type DomainMapping } from '@/whiteboard/domainMapping'
-import Palette from '@/whiteboard/Palette'
 import { scoreGraph } from '@/domain/kr'
+import { useAuth } from '@/contexts/AuthContext'
+import { useOverrides } from '@/sandbox/state/overridesStore'
+import { FocusOverlay } from '@/whiteboard/FocusOverlay'
+import { WhatIfOverlay } from '@/whiteboard/WhatIfOverlay'
 
 interface CanvasProps {
   decisionId: string
@@ -18,6 +21,7 @@ interface CanvasProps {
   hideBanner?: boolean
   hideFeedback?: boolean
   embedded?: boolean
+  explainHighlightNodeId?: string | null
   onAPIReady?: (api: {
     saveNow: () => boolean
     restore: () => boolean
@@ -32,9 +36,10 @@ interface CanvasProps {
   }) => void
 }
 
-export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDelayMs = 500, persistOnlyWithTldraw = false, hideBanner = false, hideFeedback = false, embedded = false, onAPIReady }) => {
+//
+
+export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDelayMs = 500, persistOnlyWithTldraw = false, hideBanner = false, hideFeedback = false, embedded = false, explainHighlightNodeId = null, onAPIReady }) => {
   const STORAGE_KEY = useMemo(() => `dgai:canvas:decision/${decisionId || 'demo'}`, [decisionId])
-  const TIP_KEY = 'dgai:canvas:tip:dismissed'
   const { track } = useTelemetry()
   const [canvasId, setCanvasId] = useState<string | null>(null)
   const [doc, setDoc] = useState<any | null>(() => {
@@ -46,9 +51,7 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
     }
   })
   const [localOnly, setLocalOnly] = useState(false)
-  const [tipVisible, setTipVisible] = useState(() => {
-    try { return localStorage.getItem(TIP_KEY) !== 'true' } catch { return false }
-  })
+  // Removed tip banner for simplicity
   const savingRef = useRef<number | null>(null)
   const localSaveRef = useRef<number | null>(null)
   const editorRef = useRef<any | null>(null)
@@ -57,6 +60,7 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
   const hydratedFromLocalRef = useRef<boolean>(!!doc)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const flags = useFlags()
+  const { user: authUser, profile } = useAuth()
   const graphApi = useGraphOptional()
   const sessionIdRef = useRef<string>(Math.random().toString(36).slice(2))
   const shapeIndexRef = useRef<Map<string, string>>(new Map())
@@ -64,6 +68,8 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
   const connectSourceRef = useRef<string | null>(null)
   const [perNodeScore, setPerNodeScore] = useState<Record<string, number>>({})
   const scoreTimerRef = useRef<number | null>(null)
+  // Optional overrides (What-If) — provider may be absent
+  const overrides = (() => { try { return useOverrides() } catch { return null } })()
 
   // Using internal TLDraw store for minimal/safe integration
 
@@ -446,6 +452,21 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
     return () => window.removeEventListener('keydown', onKey)
   }, [flags.sandboxMapping, graphApi])
 
+  // ESC to exit Focus Mode (independent of mapping)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        try {
+          if (flags.sandboxWhatIf && overrides?.focusOnNodeId) {
+            overrides.setFocusOn(null)
+          }
+        } catch {}
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [flags.sandboxWhatIf, overrides?.focusOnNodeId])
+
   // Rebuild mapping from graph when it changes (nodes only)
   useEffect(() => {
     if (!flags.sandboxMapping) return
@@ -453,12 +474,15 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
     if (!graphApi?.graph) return
     try { mappingRef.current?.rebuildFromGraph(graphApi.graph) } catch {}
   }, [flags.sandboxMapping, graphApi?.graph])
-
   // Debounced score compute for per-node badges
   useEffect(() => {
     if (!flags.sandboxScore) return
-    const g = graphApi?.graph
-    if (!g) return
+    let g = graphApi?.graph || { schemaVersion: 1, nodes: {}, edges: {} }
+    try {
+      if (overrides && (overrides.hasOverrides)) {
+        g = overrides.effectiveGraph(g)
+      }
+    } catch {}
     if (scoreTimerRef.current) window.clearTimeout(scoreTimerRef.current)
     scoreTimerRef.current = window.setTimeout(() => {
       try {
@@ -467,26 +491,66 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
       } catch {}
     }, 300) as unknown as number
     return () => { if (scoreTimerRef.current) { window.clearTimeout(scoreTimerRef.current); scoreTimerRef.current = null } }
-  }, [flags.sandboxScore, graphApi?.graph])
+  }, [flags.sandboxScore, graphApi?.graph, overrides?.version])
 
   const ui = useMemo(() => (
-    <div ref={rootRef} data-dg-style-open="true" className="relative w-full h-full overflow-hidden">
-      {/* Toolbar: top-left; only when not embedded; non-blocking banners remain pointer-events-none */}
+    <div ref={rootRef} data-dg-style-open="true" data-dg-focus={overrides?.focusOnNodeId ? 'on' : 'off'} data-dg-explain={explainHighlightNodeId ? 'true' : undefined} data-dg-explain-highlight={explainHighlightNodeId || undefined} className="relative w-full h-full overflow-hidden">
+      {/* Toolbar: top-left; only when not embedded */}
       {!embedded && (
-      <div className="pointer-events-auto absolute top-2 left-2 z-[1000] flex flex-wrap gap-1">
-        <button aria-label="Select" title="Select (V)" data-testid="tb-select" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={setTool('select')}>Select</button>
-        <button aria-label="Rectangle" title="Rectangle (R)" data-testid="tb-rect" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={setTool('geo')}>Rect</button>
-        <button aria-label="Text" title="Text (T)" data-testid="tb-text" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={setTool('text')}>Text</button>
-        <button aria-label="Undo" title="Undo (⌘Z)" data-testid="tb-undo" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleUndo}>Undo</button>
-        <button aria-label="Redo" title="Redo (⇧⌘Z)" data-testid="tb-redo" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleRedo}>Redo</button>
-        <button aria-label="Zoom In" title="Zoom In" data-testid="tb-zoom-in" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleZoomIn}>+</button>
-        <button aria-label="Zoom Out" title="Zoom Out" data-testid="tb-zoom-out" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleZoomOut}>−</button>
-        <button aria-label="Zoom To Fit" title="Zoom to Fit" data-testid="tb-zoom-fit" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleZoomToFit}>Fit</button>
-      </div>
+        <div className="pointer-events-auto absolute top-2 left-2 z-[1000] flex flex-wrap gap-1">
+          <button aria-label="Select" title="Select (V)" data-testid="tb-select" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={setTool('select')}>Select</button>
+          <button aria-label="Rectangle" title="Rectangle (R)" data-testid="tb-rect" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={setTool('geo')}>Rect</button>
+          <button aria-label="Text" title="Text (T)" data-testid="tb-text" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={setTool('text')}>Text</button>
+          <button aria-label="Undo" title="Undo (⌘Z)" data-testid="tb-undo" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleUndo}>Undo</button>
+          <button aria-label="Redo" title="Redo (⇧⌘Z)" data-testid="tb-redo" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleRedo}>Redo</button>
+          <button aria-label="Zoom In" title="Zoom In" data-testid="tb-zoom-in" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleZoomIn}>+</button>
+          <button aria-label="Zoom Out" title="Zoom Out" data-testid="tb-zoom-out" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleZoomOut}>−</button>
+          <button aria-label="Zoom To Fit" title="Zoom to Fit" data-testid="tb-zoom-fit" className="px-2 py-1 text-xs rounded border bg-white/90 hover:bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleZoomToFit}>Fit</button>
+          {flags.sandboxWhatIf && (
+            <button
+              aria-label="Focus Mode"
+              title="Focus Mode"
+              data-testid="pal-focus"
+              aria-pressed={!!overrides?.focusOnNodeId}
+              className={`px-2 py-1 text-xs rounded border focus:outline-none focus:ring-2 ${overrides?.focusOnNodeId ? 'bg-amber-600 text-white border-amber-600' : 'bg-white hover:bg-gray-50'}`}
+              onClick={() => {
+                try {
+                  if (!overrides) return
+                  if (overrides.focusOnNodeId) { overrides.setFocusOn(null); return }
+                  const sel = graphApi?.selectedNodeId
+                  if (sel) { overrides.setFocusOn(sel); return }
+                  const first = graphApi?.graph ? Object.keys(graphApi.graph.nodes)[0] : null
+                  if (first) overrides.setFocusOn(first)
+                } catch {}
+              }}
+            >
+              Focus
+            </button>
+          )}
+        </div>
       )}
-      {flags.sandboxMapping && !embedded && (
-        <div className="pointer-events-auto absolute top-14 left-2 z-[1000]">
-          <Palette getEditor={() => editorRef.current} connect={{ active: connectActive, toggle: () => setConnectActive(v => !v) }} />
+      <Tldraw persistenceKey={"sandbox-local"} onMount={handleMount} />
+      {/* What-If overlays */}
+      {flags.sandboxWhatIf && (
+        <>
+          <WhatIfOverlay />
+          <FocusOverlay />
+        </>
+      )}
+      {/* Explain highlight overlay: non-blocking outline */}
+      {explainHighlightNodeId && graphApi?.graph && (
+        <div className="pointer-events-none absolute inset-0 z-[982]" data-dg-explain-overlay>
+          {(() => {
+            const n = graphApi.graph.nodes[explainHighlightNodeId]
+            if (!n) return null
+            const x = n.view?.x ?? 0
+            const y = n.view?.y ?? 0
+            const w = n.view?.w ?? 160
+            const h = n.view?.h ?? 80
+            return (
+              <div data-testid="explain-highlight-ring" aria-hidden className="absolute rounded-sm ring-2 ring-indigo-400/80" style={{ left: x - 2, top: y - 2, width: w + 4, height: h + 4 }} />
+            )
+          })()}
         </div>
       )}
       {/* Per-node score badges overlay: non-blocking */}
@@ -498,23 +562,21 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
             const x = (n.view?.x ?? 0) + (n.view?.w ?? 160) - 18
             const y = (n.view?.y ?? 0) + (n.view?.h ?? 80) - 14
             const txt = String(Math.max(-99, Math.min(99, Math.round(v))))
+            const overridden = !!(overrides && (overrides.isNodeOverridden(n.id) || overrides.isNodeDisabled(n.id)))
             return (
-              <span key={n.id} data-dg-score-node={n.id} className="absolute text-[10px] px-1 rounded border bg-white/90 shadow" style={{ left: x, top: y }}>
-                {txt}
-              </span>
+              <span key={n.id} data-dg-score-node={n.id} className={`absolute text-[10px] px-1 py-0.5 rounded border bg-white/90 ${overridden ? 'ring-1 ring-amber-400' : ''}`} style={{ left: x, top: y }} title="Node score">{txt}</span>
             )
           })}
         </div>
       )}
-      {!embedded && tipVisible && (
-        <div data-testid="toolbar-tip" className="pointer-events-auto absolute top-12 left-2 z-[1000] max-w-xs text-xs bg-white shadow rounded border p-2">
-          <div className="mb-1 text-gray-800">Draw (R), Text (T), Select/Move (V), Pan (Space-drag), Zoom (trackpad/Cmd+scroll), Undo (⌘Z).</div>
-          <button className="mt-1 px-2 py-0.5 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={() => { try { localStorage.setItem(TIP_KEY, 'true') } catch {}; setTipVisible(false) }}>Got it</button>
+      {!embedded && !hideBanner && (
+        <div className="pointer-events-none absolute top-2 right-2 z-[1000] bg-white/80 text-xs text-gray-700 rounded px-2 py-1 shadow">
+          Scenario Sandbox (MVP)
         </div>
       )}
       {/* Top-right actions: feedback (optional) */}
       {!embedded && !hideFeedback && (
-        <div className="pointer-events-auto absolute top-2 right-2 z-[1000] flex gap-2">
+        <div className="pointer-events-auto absolute top-2 right-28 z-[1000] flex gap-2">
           <a
             aria-label="Send feedback"
             title="Send feedback"
@@ -526,19 +588,13 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
           </a>
         </div>
       )}
-      <Tldraw persistenceKey={"sandbox-local"} onMount={handleMount} />
-      {!embedded && !hideBanner && (
-        <div className="pointer-events-none absolute top-2 right-2 z-[1000] bg-white/80 text-xs text-gray-700 rounded px-2 py-1 shadow">
-          Scenario Sandbox (MVP)
-        </div>
-      )}
       {!embedded && !hideBanner && localOnly && (
         <div className="pointer-events-none absolute top-2 left-2 z-[1000] bg-amber-50/90 text-amber-800 text-xs rounded px-2 py-1 border border-amber-200 shadow">
           Working locally — cloud sync unavailable
         </div>
       )}
     </div>
-  ), [handleMount, localOnly, flags.sandboxScore, graphApi?.graph, perNodeScore])
+  ), [handleMount, localOnly, flags.sandboxScore, graphApi?.graph, perNodeScore, flags.sandboxPresence, authUser?.id, profile, flags.sandboxWhatIf, overrides?.focusOnNodeId])
 
   if (!doc) {
     return (

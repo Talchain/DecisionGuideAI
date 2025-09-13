@@ -5,10 +5,16 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { renderSandbox } from '@/test/renderSandbox'
 import { screen, fireEvent, act } from '@testing-library/react'
 
-// Mock Canvas to surface explainHighlightNodeId as a data attr
+// Mock Canvas to surface explainHighlightNodeId and a ring element
 vi.mock('@/whiteboard/Canvas', () => {
   const React = require('react')
-  return { Canvas: (props: any) => React.createElement('div', { 'data-testid': 'canvas-root', 'data-dg-explain-highlight': props.explainHighlightNodeId || '' }) }
+  return {
+    Canvas: (props: any) => React.createElement(
+      'div',
+      { 'data-testid': 'canvas-root', 'data-dg-explain-highlight': props.explainHighlightNodeId || '' },
+      props.explainHighlightNodeId ? React.createElement('div', { 'data-testid': 'explain-highlight-ring' }) : null
+    )
+  }
 })
 
 // Mock CompareView to avoid tldraw side-effects
@@ -43,8 +49,13 @@ function mount(route = '/decisions/demo/sandbox/combined', flags?: any) {
 }
 
 describe('explain.panel (open, list, highlight)', () => {
-  beforeEach(() => { vi.useFakeTimers(); localStorage.clear() })
-  afterEach(() => { try { vi.runOnlyPendingTimers() } catch {}; vi.useRealTimers(); localStorage.clear() })
+  let errSpy: any, warnSpy: any
+  beforeEach(() => {
+    vi.useFakeTimers(); localStorage.clear()
+    errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+  afterEach(() => { try { vi.runOnlyPendingTimers() } catch {}; vi.useRealTimers(); localStorage.clear(); errSpy.mockRestore(); warnSpy.mockRestore() })
 
   it('opens via ScorePill link when Δ ≠ 0, lists rows, and highlights on click', async () => {
     // Base graph with a single Outcome scoring 15%
@@ -66,7 +77,13 @@ describe('explain.panel (open, list, highlight)', () => {
     fireEvent.click(anyRow)
     const canvas = await screen.findByTestId('canvas-root')
     expect(canvas.getAttribute('data-dg-explain-highlight')).toBeTruthy()
+    // Ring element visible
+    expect(await screen.findByTestId('explain-highlight-ring')).toBeTruthy()
 
-    await act(async () => { await vi.advanceTimersByTimeAsync(0) })
+    // After ~1200ms highlight is cleared
+    await act(async () => { await vi.advanceTimersByTimeAsync(1200); await vi.advanceTimersByTimeAsync(0) })
+    // No console noise
+    expect(errSpy).not.toHaveBeenCalled()
+    expect(warnSpy).not.toHaveBeenCalled()
   })
 })

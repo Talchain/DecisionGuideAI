@@ -3,16 +3,16 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 import { cleanup } from '@testing-library/react';
 expect.extend(matchers);
 
-// TLDraw / font preload polyfills for jsdom
+// TLDraw / font preload polyfills for jsdom (test-only guards)
 try {
-  if (!(globalThis as any).FontFace) {
-    (globalThis as any).FontFace = class {
+  if (typeof window !== 'undefined' && !('FontFace' in window)) {
+    ;(window as any).FontFace = class {
       family: string
       constructor(family: string) { this.family = family }
       load() { return Promise.resolve(this) }
     } as any
   }
-  if (!(document as any).fonts) {
+  if (typeof document !== 'undefined' && !(document as any).fonts) {
     Object.defineProperty(document, 'fonts', {
       configurable: true,
       value: {
