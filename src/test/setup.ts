@@ -3,6 +3,28 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 import { cleanup } from '@testing-library/react';
 expect.extend(matchers);
 
+// TLDraw / font preload polyfills for jsdom
+try {
+  if (!(globalThis as any).FontFace) {
+    (globalThis as any).FontFace = class {
+      family: string
+      constructor(family: string) { this.family = family }
+      load() { return Promise.resolve(this) }
+    } as any
+  }
+  if (!(document as any).fonts) {
+    Object.defineProperty(document, 'fonts', {
+      configurable: true,
+      value: {
+        add: () => {},
+        delete: () => {},
+        clear: () => {},
+        ready: Promise.resolve(),
+      }
+    })
+  }
+} catch {}
+
 // Mock window.matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
