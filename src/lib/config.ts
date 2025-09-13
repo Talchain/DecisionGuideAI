@@ -25,6 +25,9 @@ export const cfg = {
   featureSandboxCompare: import.meta.env.VITE_FEATURE_SANDBOX_COMPARE === 'true',
   featureSandboxAIDraft: import.meta.env.VITE_FEATURE_SANDBOX_AI_DRAFT === 'true',
   featureSandboxScore: import.meta.env.VITE_FEATURE_SANDBOX_SCORE === 'true',
+  featureSandboxPresence: import.meta.env.VITE_FEATURE_SANDBOX_PRESENCE === 'true',
+  featureSandboxWhatIf: import.meta.env.VITE_FEATURE_SANDBOX_WHATIF === 'true',
+  featureSandboxExplain: import.meta.env.VITE_FEATURE_SANDBOX_EXPLAIN === 'true',
   // Network timeouts (ms)
   openaiTimeoutMs: Number.parseInt(import.meta.env.VITE_OPENAI_TIMEOUT_MS ?? '') || 25000,
   supabaseTimeoutMs: Number.parseInt(import.meta.env.VITE_SUPABASE_TIMEOUT_MS ?? '') || 15000,
@@ -68,3 +71,9 @@ export const isSandboxCompareEnabled = (): boolean => cfg.featureSandboxCompare
 export const isSandboxAIDraftEnabled = (): boolean => cfg.featureSandboxAIDraft
 /** @deprecated Use useFlags() in UI components */
 export const isSandboxScoreEnabled = (): boolean => cfg.featureSandboxScore
+/** @deprecated Use useFlags() in UI components */
+export const isSandboxPresenceEnabled = (): boolean => cfg.featureSandboxPresence
+/** @deprecated Use useFlags() in UI components */
+export const isSandboxWhatIfEnabled = (): boolean => cfg.featureSandboxWhatIf
+/** @deprecated Use useFlags() in UI components */
+export const isSandboxExplainEnabled = (): boolean => cfg.featureSandboxExplain

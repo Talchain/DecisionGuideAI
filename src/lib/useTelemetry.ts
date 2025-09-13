@@ -39,6 +39,18 @@ export type TelemetryEvent =
   | 'sandbox_compare_close'
   | 'sandbox_graph_ai_draft'
   | 'sandbox_graph_score_update'
+  | 'sandbox_presence_join'
+  | 'sandbox_presence_leave'
+  | 'sandbox_presence_cursor'
+  | 'sandbox_presence_select'
+  | 'sandbox_whatif_toggle'
+  | 'sandbox_whatif_kr_override'
+  | 'sandbox_whatif_reset_all'
+  | 'sandbox_focus_enter'
+  | 'sandbox_focus_exit'
+  | 'sandbox_whatif_score_update'
+  | 'sandbox_score_explain_open'
+  | 'sandbox_score_explain_close'
 
 export type TrackFn = (name: TelemetryEvent, props?: Record<string, unknown>) => void
 
