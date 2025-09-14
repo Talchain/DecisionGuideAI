@@ -70,6 +70,9 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
   const scoreTimerRef = useRef<number | null>(null)
   // Optional overrides (What-If) — provider may be absent
   const overrides = (() => { try { return useOverrides() } catch { return null } })()
+  // Local focus attr state ensures deterministic flips on ESC, even pre-hydration
+  const [focusAttrOn, setFocusAttrOn] = useState<boolean>(!!overrides?.focusOnNodeId)
+  useEffect(() => { setFocusAttrOn(!!overrides?.focusOnNodeId) }, [overrides?.focusOnNodeId])
 
   // Using internal TLDraw store for minimal/safe integration
 
@@ -458,9 +461,8 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
       if (e.key === 'Escape') {
         try {
           if (flags.sandboxWhatIf && overrides?.focusOnNodeId) {
-            // Immediately flip the focus data-attr for deterministic tests
-            const el = rootRef.current
-            if (el) el.setAttribute('data-dg-focus', 'off')
+            // Immediately flip the focus state for deterministic tests
+            setFocusAttrOn(false)
             overrides.setFocusOn(null)
           }
         } catch {}
@@ -498,7 +500,7 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
   }, [flags.sandboxScore, graphApi?.graph, overrides?.version])
 
   const ui = useMemo(() => (
-    <div ref={rootRef} data-dg-style-open="true" data-dg-focus={overrides?.focusOnNodeId ? 'on' : 'off'} data-dg-explain={explainHighlightNodeId ? 'true' : undefined} data-dg-explain-highlight={explainHighlightNodeId || undefined} className="relative w-full h-full overflow-hidden">
+    <div ref={rootRef} data-dg-style-open="true" data-dg-focus={focusAttrOn ? 'on' : 'off'} data-dg-explain={explainHighlightNodeId ? 'true' : undefined} data-dg-explain-highlight={explainHighlightNodeId || undefined} className="relative w-full h-full overflow-hidden">
       {/* Toolbar: top-left; only when not embedded */}
       {!embedded && (
         <div className="pointer-events-auto absolute top-2 left-2 z-[1000] flex flex-wrap gap-1">
@@ -602,7 +604,7 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
         </div>
       )}
     </div>
-  ), [handleMount, localOnly, flags.sandboxScore, graphApi?.graph, perNodeScore, flags.sandboxPresence, authUser?.id, profile, flags.sandboxWhatIf, overrides?.focusOnNodeId, doc])
+  ), [handleMount, localOnly, flags.sandboxScore, graphApi?.graph, perNodeScore, flags.sandboxPresence, authUser?.id, profile, flags.sandboxWhatIf, focusAttrOn, doc])
 
   return ui
 }

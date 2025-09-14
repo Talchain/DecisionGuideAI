@@ -1,50 +1,38 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import * as persistence from '../persistence'
 
-// Mock supabase client used inside the module
-const upsertSpy = vi.fn().mockResolvedValue({ data: null, error: null })
-const selectLatestSpy = vi.fn().mockResolvedValue({ data: [{ version_number: 2 }], error: null })
-const insertVersionSpy = vi.fn().mockResolvedValue({ data: null, error: null })
-
-const canvasesTable = {
-  upsert: upsertSpy,
-  select: vi.fn().mockReturnThis(),
-  eq: vi.fn().mockReturnThis(),
-  maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-  insert: vi.fn().mockResolvedValue({ data: { id: 'c1' }, error: null }),
-  single: vi.fn().mockResolvedValue({ data: { id: 'c1' }, error: null }),
-}
-
-const canvasVersionsTable = {
-  select: vi.fn().mockReturnThis(),
-  eq: vi.fn().mockReturnThis(),
-  order: vi.fn().mockReturnThis(),
-  limit: vi.fn().mockResolvedValue({ data: [{ version_number: 2 }], error: null }),
-  insert: insertVersionSpy,
-}
-
+// Hoisted mock for Supabase with fluent tables and exposed spies
 vi.mock('@/lib/supabase', () => {
-  return {
-    supabase: {
-      from: (table: string) => {
-        if (table === 'canvases') return canvasesTable as any
-        if (table === 'canvas_versions') return canvasVersionsTable as any
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-          single: vi.fn().mockResolvedValue({ data: null, error: null }),
-        }
-      },
-    },
+  const upsertSpy = vi.fn(async () => ({ data: null, error: null }))
+  const insertVersionSpy = vi.fn(async () => ({ data: null, error: null }))
+  const canvasesTable: any = {}
+  canvasesTable.select = vi.fn(() => canvasesTable)
+  canvasesTable.eq = vi.fn(() => canvasesTable)
+  canvasesTable.maybeSingle = vi.fn(async () => ({ data: null, error: null }))
+  canvasesTable.insert = vi.fn(async () => ({ data: { id: 'c1' }, error: null }))
+  canvasesTable.single = vi.fn(async () => ({ data: { id: 'c1' }, error: null }))
+  canvasesTable.upsert = upsertSpy
+
+  const canvasVersionsTable: any = {}
+  canvasVersionsTable.select = vi.fn(() => canvasVersionsTable)
+  canvasVersionsTable.eq = vi.fn(() => canvasVersionsTable)
+  canvasVersionsTable.order = vi.fn(() => canvasVersionsTable)
+  canvasVersionsTable.limit = vi.fn(async () => ({ data: [{ version_number: 2 }], error: null }))
+  canvasVersionsTable.insert = insertVersionSpy
+
+  const supabase = {
+    from: (name: string) => (name === 'canvases' ? canvasesTable : name === 'canvas_versions' ? canvasVersionsTable : canvasesTable),
+    __testSpies: { upsertSpy, insertVersionSpy, canvasesTable, canvasVersionsTable },
   }
+  return { supabase }
 })
+
+const persistence = await import('../persistence')
+const supaMod: any = await import('@/lib/supabase')
+const { upsertSpy, insertVersionSpy, canvasesTable, canvasVersionsTable } = supaMod.supabase.__testSpies
 
 beforeEach(() => {
   vi.useFakeTimers()
   upsertSpy.mockClear()
-  selectLatestSpy.mockClear()
   insertVersionSpy.mockClear()
 })
 
@@ -72,7 +60,7 @@ describe('saveCanvasDoc debounce', () => {
     await Promise.resolve()
 
     expect(upsertSpy).toHaveBeenCalledTimes(1)
-    const args = upsertSpy.mock.calls[0][0]
+    const args = (upsertSpy.mock.calls[0] as any[])[0]
     expect(args).toEqual({ id: canvasId, canvas_data: docB })
   })
 })
@@ -83,11 +71,11 @@ describe('saveSnapshot', () => {
     const doc = { shapes: [], bindings: [], meta: { decision_id: 'd1' } }
     ;(canvasesTable.maybeSingle as any).mockResolvedValueOnce({ data: { canvas_data: doc }, error: null })
 
-    const result = await persistence.saveSnapshot(canvasId, 'auto')
+    const result = await persistence.saveSnapshot(canvasId as any, 'auto')
 
     expect(result.version).toBe(3) // 2 + 1 from mock
     expect(insertVersionSpy).toHaveBeenCalledTimes(1)
-    const payload = insertVersionSpy.mock.calls[0][0]
+    const payload = (insertVersionSpy.mock.calls[0] as any[])[0] as any
     expect(payload.canvas_id).toBe(canvasId)
     expect(payload.version_number).toBe(3)
     expect(payload.canvas_data).toEqual(doc)
