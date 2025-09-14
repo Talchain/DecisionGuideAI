@@ -55,6 +55,7 @@ export type TelemetryEvent =
   | 'sandbox_io_import'
   | 'sandbox_template_apply'
   | 'sandbox_presence_idle'
+  | 'sandbox_presence_active'
 
 export type TrackFn = (name: TelemetryEvent, props?: Record<string, unknown>) => void
 

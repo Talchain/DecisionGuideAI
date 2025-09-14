@@ -33,6 +33,24 @@
   - `sandbox_score_explain_close`
 
 
+## Presence Idle (V1)
+- Flag: `VITE_FEATURE_SANDBOX_PRESENCE` (default OFF)
+- UX:
+  - A collaborator is considered idle after 45s of no interaction (document-level `pointermove`, `keydown`, `wheel`, `mousedown`, `focusin` reset the timer).
+  - When idle: avatar/name fade to ~50% opacity; the displayed name is suffixed with "(idle)"; tooltip/title shows "Idle".
+  - Stable selectors: `data-dg-presence="idle|active"` on the presence element; overlay root has `data-dg-presence-overlay` and remains non-blocking (`pointer-events:none`).
+  - On activity: immediately returns to active state.
+- Accessibility:
+  - No live region changes for idle; this is decorative only. The single score aria-live in `ScorePill` remains the only live region.
+  - Ensure name text remains readable at reduced opacity; contrast verified against light token background.
+- Telemetry (name-only, no PII; rate-limited to once per 60s per session):
+  - `sandbox_presence_idle { decisionId, route:'combined', sessionId }`
+  - `sandbox_presence_active { decisionId, route:'combined', sessionId }`
+- Testing hooks (available only in tests):
+  - From `PresenceProvider`: `__TEST__getPresenceControls(decisionId)?.resetIdleTimer()` to deterministically start/reset the idle timer.
+  - From `PresenceOverlay`: `__TEST__presenceOverlayTick()` to request a single re-render tick for time-based visuals.
+
+
 ## Routes
 - `/decisions/:decisionId/sandbox/combined` — Panels + Canvas combined route.
 

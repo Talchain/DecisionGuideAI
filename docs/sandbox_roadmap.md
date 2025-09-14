@@ -15,7 +15,12 @@
 - [x] Tests: end-to-end persistence reload includes connectors; TL→Domain incremental sync
 - [x] Compare UI (V1): header actions, chooser, two read-only canvases, diff chips, telemetry
 - [x] AI Draft (V1): Palette button, prompt sheet, deterministic stub, single-undo apply, telemetry
-- [ ] Docs update as features complete
+- [x] What-If & Focus (V1): non-destructive overrides, focus mode toggle + ESC, overlays, score Δ, compare "Current (with what-ifs)", a11y, telemetry, deterministic tests
+- [ ] Docs update as features complete (ongoing)
+
+Next:
+- [x] Explain Score Δ (V1): gated by `VITE_FEATURE_SANDBOX_EXPLAIN`; link from ScorePill when Δ ≠ 0; side panel shows before/after + Δ and top contributors; keyboard/aria; open/close telemetry; UI-only, non-persistent.
+- [x] Presence Idle (V1): gated by `VITE_FEATURE_SANDBOX_PRESENCE`; idle after 45s; fade + “(idle)” suffix; non-blocking overlay; telemetry idle/active (rate-limited); tests + docs.
 
 Notes:
 - TL remains renderer, domain is source of truth.
