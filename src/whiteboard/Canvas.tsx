@@ -73,6 +73,13 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
   // Local focus attr state ensures deterministic flips on ESC, even pre-hydration
   const [focusAttrOn, setFocusAttrOn] = useState<boolean>(!!overrides?.focusOnNodeId)
   useEffect(() => { setFocusAttrOn(!!overrides?.focusOnNodeId) }, [overrides?.focusOnNodeId])
+  // Mirror focusAttrOn to DOM attribute immediately for deterministic tests
+  useEffect(() => {
+    const el = rootRef.current
+    if (el) {
+      try { el.setAttribute('data-dg-focus', focusAttrOn ? 'on' : 'off') } catch {}
+    }
+  }, [focusAttrOn])
 
   // Using internal TLDraw store for minimal/safe integration
 
@@ -139,6 +146,19 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
       await writeProjection(decisionId, doc)
     }, persistDelayMs)
   }, [canvasId, doc, decisionId, persistDelayMs, persistOnlyWithTldraw, localOnly])
+
+  // If doc.tldraw was set before canvasId, persist once when canvasId becomes available
+  useEffect(() => {
+    if (!canvasId) return
+    if (!doc) return
+    if (localOnly) return
+    if (persistOnlyWithTldraw && !(doc as any)?.tldraw) return
+    if (savingRef.current) return
+    // Schedule immediate persist to catch up
+    savingRef.current = window.setTimeout(async () => {
+      try { await saveCanvasDoc(canvasId, doc); await writeProjection(decisionId, doc) } finally { savingRef.current = null }
+    }, 0)
+  }, [canvasId])
 
   // In a fuller impl, we would connect Tldraw editor events to update `doc` when content changes.
   // Here we connect to the editor store and mirror its snapshot into doc.tldraw.
@@ -463,6 +483,8 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
           if (flags.sandboxWhatIf && overrides?.focusOnNodeId) {
             // Immediately flip the focus state for deterministic tests
             setFocusAttrOn(false)
+            const el = rootRef.current
+            try { if (el) el.setAttribute('data-dg-focus', 'off') } catch {}
             overrides.setFocusOn(null)
           }
         } catch {}

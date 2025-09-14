@@ -34,18 +34,29 @@ try {
     }
     if (typeof idb.open !== 'function') {
       idb.open = function (_name: string, _version?: number) {
-        const req: any = {
-          result: undefined,
+        // Minimal fake DB object
+        const fakeDb = {
+          close: () => {},
+          createObjectStore: () => ({}),
+          transaction: () => ({ objectStore: () => ({ put: () => {}, get: () => undefined, delete: () => {}, index: () => ({ get: () => undefined }) }), oncomplete: null, onerror: null, addEventListener: () => {} }),
+          onversionchange: null,
+        }
+        // Return a thenable to satisfy idb's openDB path that expects a Promise-like
+        const thenable: any = {
+          then(onFulfilled?: (db: any) => any) {
+            setTimeout(() => { try { onFulfilled && onFulfilled(fakeDb) } catch {} }, 0)
+            return thenable
+          },
+          catch(_onRejected?: (err: any) => any) { return thenable },
+          finally(_onFinally?: () => any) { return thenable },
+          // Also expose request-like handlers as no-ops for alternative code paths
           onerror: null,
           onsuccess: null,
           onupgradeneeded: null,
-          addEventListener(type: string, cb: any) {
-            ;(this as any)['on' + type] = cb
-          },
+          addEventListener: (_t: string, _cb: any) => {},
+          result: fakeDb,
         }
-        // Simulate async success
-        setTimeout(() => { try { req.result = {}; req.onsuccess && req.onsuccess({ target: req }) } catch {} }, 0)
-        return req
+        return thenable
       }
     }
     if (typeof idb.deleteDatabase !== 'function') {
