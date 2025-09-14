@@ -35,12 +35,27 @@ vi.mock('@/whiteboard/ScorePill', () => {
 })
 
 // Mock Panels to trigger a Δ via overrides
+// Provide a test-level mock for overridesStore so useOverrides has toggleNodeDisabled()
+vi.mock('@/sandbox/state/overridesStore', () => {
+  const React = require('react')
+  const state = { disabled: new Set<string>() }
+  return {
+    OverridesProvider: ({ children }: any) => React.createElement(React.Fragment, null, children),
+    useOverrides: () => ({
+      toggleNodeDisabled: (id: string) => {
+        if (state.disabled.has(id)) state.disabled.delete(id); else state.disabled.add(id)
+      },
+      focusOnNodeId: null,
+      setFocusOn: () => {},
+    }),
+  }
+})
 vi.mock('@/sandbox/panels/ScenarioPanels', async () => {
   const React = await import('react')
   const { useOverrides } = await import('@/sandbox/state/overridesStore')
   function Driver() {
     const o = useOverrides()
-    React.useEffect(() => { o.toggleNodeDisabled('o1') }, [o])
+    React.useEffect(() => { (o as any).toggleNodeDisabled?.('o1') }, [o])
     return React.createElement('div', { 'data-testid': 'panels-root' }, 'Panels')
   }
   return { ScenarioPanels: Driver }

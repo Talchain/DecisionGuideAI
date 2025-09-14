@@ -19,6 +19,10 @@ export type SandboxFlags = {
   sandboxPresence: boolean
   sandboxWhatIf: boolean
   sandboxExplain: boolean
+  // IO controls and advanced import modes
+  sandboxIO: boolean
+  sandboxIODnD: boolean
+  sandboxTemplates: boolean
 }
 
 const defaultFlags: SandboxFlags = {
@@ -38,6 +42,9 @@ const defaultFlags: SandboxFlags = {
   sandboxPresence: false,
   sandboxWhatIf: false,
   sandboxExplain: false,
+  sandboxIO: false,
+  sandboxIODnD: false,
+  sandboxTemplates: false,
 }
 
 const FlagsContext = createContext<SandboxFlags>(defaultFlags)

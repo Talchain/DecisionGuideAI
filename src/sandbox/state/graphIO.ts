@@ -7,6 +7,16 @@ export type ExportPayload = {
   graph: Graph
 }
 
+// Read helper used in tests/IO V2 paths
+export async function readBlobOrText(input: Blob | string): Promise<string> {
+  if (typeof input === 'string') return input
+  try {
+    const anyIn: any = input as any
+    if (typeof anyIn.text === 'function') return await anyIn.text()
+  } catch {}
+  return await new Response(input).text()
+}
+
 export function normalizeGraph(input: any): Graph {
   try {
     const nodes: Record<string, Node> = {}

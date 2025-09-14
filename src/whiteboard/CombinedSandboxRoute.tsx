@@ -339,6 +339,11 @@ export const CombinedSandboxRoute: React.FC = () => {
   function HeaderIOControls() {
     const graphApi = useGraph()
     const importInputRef = React.useRef<HTMLInputElement | null>(null)
+    const containerRef = React.useRef<HTMLDivElement | null>(null)
+    const [dragOpen, setDragOpen] = React.useState(false)
+    const [importMode, setImportMode] = React.useState(false)
+    const pendingPasteRef = React.useRef<string | null>(null)
+    const [ioLive, setIOLive] = React.useState('')
     const handleExportJSON = React.useCallback(() => {
       try {
         const payload = serializeGraph(decisionId, graphApi.getGraph())
@@ -354,7 +359,7 @@ export const CombinedSandboxRoute: React.FC = () => {
         setAnnounce(`Exported ${nodeCount} nodes, ${edgeCount} links.`)
       } catch {}
     }, [graphApi])
-    const doImportPayload = React.useCallback(async (rawText: string) => {
+    const doImportPayload = React.useCallback(async (rawText: string, method?: 'dnd' | 'paste') => {
       try {
         const { graph: g, counts } = validateAndNormalizeImport(rawText)
         const { nodeCount, edgeCount } = counts
@@ -368,20 +373,95 @@ export const CombinedSandboxRoute: React.FC = () => {
         // Replace storage
         try { localStorage.setItem(`dgai:graph:decision:${decisionId}`, JSON.stringify(g)) } catch {}
         // Announce before reload to ensure jsdom detects the live region update
+        setIOLive(`Imported ${nodeCount} nodes, ${edgeCount} links.`)
         setAnnounce(`Imported ${nodeCount} nodes, ${edgeCount} links.`)
         await Promise.resolve()
         // Reload graph
         await (graphApi.reloadFromStorage() as unknown as Promise<void> | void)
         toast({ title: `Imported ${nodeCount} nodes, ${edgeCount} links` })
-        try { track('sandbox_io_import', { ...baseMeta(), nodeCount, edgeCount }) } catch {}
+        try { track('sandbox_io_import', { ...baseMeta(), nodeCount, edgeCount, ...(method ? { method } : {}) }) } catch {}
       } catch (e) {
         const reason = (e as any)?.reason || 'unknown'
         try { track('sandbox_io_import', { ...baseMeta(), error: true, reason }) } catch {}
         toast({ title: 'Failed to import JSON', description: (e as any)?.message || String(reason), type: 'destructive' })
       }
     }, [graphApi])
+
+    // Header-only DnD and Paste (active when flags.sandboxIODnD)
+    const onDragOver = React.useCallback((e: React.DragEvent<HTMLDivElement>) => {
+      if (!flags.sandboxIODnD) return
+      const types = Array.from((e.dataTransfer?.types || []) as any)
+      if (!types.includes('Files')) return
+      e.preventDefault()
+      if (!dragOpen) {
+        setDragOpen(true)
+        try { track('sandbox_io_drop_open', baseMeta()) } catch {}
+      }
+    }, [flags.sandboxIODnD, dragOpen])
+    const onDragLeave = React.useCallback((e: React.DragEvent<HTMLDivElement>) => {
+      if (!flags.sandboxIODnD) return
+      // Only close when leaving the container
+      if (e.currentTarget.contains(e.relatedTarget as Node)) return
+      if (dragOpen) {
+        setDragOpen(false)
+        try { track('sandbox_io_drop_cancel', baseMeta()) } catch {}
+      }
+    }, [flags.sandboxIODnD, dragOpen])
+    const onDrop = React.useCallback((e: React.DragEvent<HTMLDivElement>) => {
+      if (!flags.sandboxIODnD) return
+      e.preventDefault(); setDragOpen(false)
+      const f = e.dataTransfer?.files?.[0]
+      if (!f) return
+      ;(async () => {
+        try {
+          if ((f as any).size > 2 * 1024 * 1024) { toast({ title: 'File too large (limit 2MB)', type: 'destructive' }); try { track('sandbox_io_import', { ...baseMeta(), error: true, reason: 'too_large' }) } catch {}; return }
+          const txt = typeof (f as any)?.text === 'function' ? await (f as any).text() : await new Response(f as any).text()
+          await doImportPayload(txt, 'dnd')
+        } catch {}
+      })()
+    }, [flags.sandboxIODnD, doImportPayload])
+
+    const onPaste = React.useCallback((e: React.ClipboardEvent<HTMLDivElement>) => {
+      if (!flags.sandboxIODnD) return
+      if (!importMode) return
+      const dt: DataTransfer | undefined = (e as any).clipboardData
+      const txt = dt?.getData('application/json') || dt?.getData('text/plain')
+      if (!txt) return
+      e.preventDefault()
+      pendingPasteRef.current = txt
+      setIOLive('Import ready from clipboard. Press Enter to confirm, Esc to cancel.')
+      setAnnounce('Import ready from clipboard. Press Enter to confirm, Esc to cancel.')
+      try { track('sandbox_io_paste_detected', baseMeta()) } catch {}
+    }, [flags.sandboxIODnD, importMode])
+
+    const onKeyDown = React.useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (!flags.sandboxIODnD) return
+      // Cancel open drop zone
+      if (dragOpen && e.key === 'Escape') {
+        e.preventDefault(); setDragOpen(false); try { track('sandbox_io_drop_cancel', baseMeta()) } catch {}; return
+      }
+      // Paste confirm/cancel
+      const hasPending = !!pendingPasteRef.current
+      if (!hasPending) return
+      if (e.key === 'Escape') {
+        e.preventDefault(); pendingPasteRef.current = null; setIOLive('Import cancelled.'); setAnnounce('Import cancelled.')
+      } else if (e.key === 'Enter') {
+        e.preventDefault(); const txt = pendingPasteRef.current; pendingPasteRef.current = null; if (txt) doImportPayload(txt, 'paste')
+      }
+    }, [flags.sandboxIODnD, doImportPayload, dragOpen])
     return (
-      <div className="inline-flex items-center gap-2" data-dg-io>
+      <div
+        ref={containerRef}
+        className="relative inline-flex items-center gap-2"
+        data-dg-io
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        onPaste={onPaste}
+        onKeyDown={onKeyDown}
+        onFocusCapture={() => setImportMode(true)}
+        onBlurCapture={() => { setImportMode(false); pendingPasteRef.current = null }}
+      >
         <button data-testid="io-export-btn" className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleExportJSON}>Export JSON</button>
         <button data-testid="io-import-btn" className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={() => importInputRef.current?.click()}>Import JSON</button>
         <input data-testid="io-import-input" ref={importInputRef} type="file" accept="application/json" className="hidden" onChange={(e) => {
@@ -399,6 +479,14 @@ export const CombinedSandboxRoute: React.FC = () => {
             }
           })()
         }} />
+        {/* Header-only dropzone overlay */}
+        {flags.sandboxIODnD && dragOpen && (
+          <div data-dg-io-dropzone role="group" aria-label="Import from file (drag and drop)" className="pointer-events-none absolute -inset-2 rounded border-2 border-dashed border-indigo-400 bg-indigo-50/50 text-[10px] uppercase tracking-wide text-indigo-700 flex items-center justify-center">
+            Drop JSON to import
+          </div>
+        )}
+        {/* Local IO status announcer (polite) */}
+        <div className="sr-only" aria-live="polite" data-dg-io-status>{ioLive}</div>
       </div>
     )
   }

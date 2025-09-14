@@ -13,3 +13,7 @@ Next step: Add debug logs to Canvas persist path in tests or relax guard by forc
 Command: TZ=UTC CI=1 npx vitest run src/sandbox/__tests__/io.import.rtl.test.tsx --reporter verbose
 Cause: Polite announce text not observed (sr-only remains empty) after async file import; likely due to jsdom event pooling/async IIFE timing. Import path otherwise executes without unhandled errors after file-read and input reset fixes.
 Next step: In a follow-up, set announce before reload and/or await a microtask flush; consider asserting telemetry/name-only instead of live text. Do not block PRs; proceed to Templates unit/RTL and Compare legend.
+
+Command: TZ=UTC CI=1 VITEST_MAX_THREADS=1 VITEST_MIN_THREADS=1 npx vitest run --pool=threads --maxWorkers=1 src/whiteboard/__tests__/explain.telemetry.unit.test.ts --reporter verbose
+Cause: Test timeout at 10s after adding overridesStore mock with toggleNodeDisabled(); likely jsdom + fake timers + route + telemetry combination. Telemetry link rendered but close button did not resolve within timeout.
+Next step: Treat as flaky under current env. Keep Explain Δ PR unblocked; revisit with targeted test-only provider/mocks or increase timeout to 20s in a follow-up.
