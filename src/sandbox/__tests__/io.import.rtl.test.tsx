@@ -2,8 +2,9 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
-import { screen, fireEvent, act, waitFor } from '@testing-library/react'
-import { renderSandbox } from '@/test/renderSandbox'
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
+import { FlagsProvider } from '@/lib/flags'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 
 // Quiet console
 let errSpy: any, warnSpy: any
@@ -22,7 +23,16 @@ vi.mock('@/whiteboard/Canvas', () => {
 vi.mock('@/sandbox/panels/ScenarioPanels', () => {
   const React = require('react')
   return { ScenarioPanels: () => React.createElement('div', { 'data-testid': 'panels-root' }, 'Panels') }
-})
+}, { virtual: true })
+
+// Mock overrides store to avoid dependency on its implementation in this IO-focused test
+vi.mock('@/sandbox/state/overridesStore', () => {
+  const React = require('react')
+  return {
+    OverridesProvider: ({ children }: any) => React.createElement(React.Fragment, null, children),
+    useOverrides: () => ({ focusOnNodeId: null, setFocusOn: () => {} }),
+  }
+}, { virtual: true })
 
 import CombinedSandboxRoute from '@/whiteboard/CombinedSandboxRoute'
 
@@ -38,15 +48,17 @@ describe('sandbox IO import (RTL)', () => {
   })
 
   it('imports a JSON file, updates graph, announces politely, and emits telemetry', async () => {
-    const ui = (
-      <MemoryRouter initialEntries={["/decisions/demo/sandbox/combined"]}>
-        <Routes>
-          <Route path="/decisions/:decisionId/sandbox/combined" element={<CombinedSandboxRoute />} />
-        </Routes>
-      </MemoryRouter>
+    render(
+      <ThemeProvider>
+        <FlagsProvider value={{ sandbox: true, sandboxIO: true } as any}>
+          <MemoryRouter initialEntries={["/decisions/demo/sandbox/combined"]}>
+            <Routes>
+              <Route path="/decisions/:decisionId/sandbox/combined" element={<CombinedSandboxRoute />} />
+            </Routes>
+          </MemoryRouter>
+        </FlagsProvider>
+      </ThemeProvider>
     )
-
-    renderSandbox(ui, { sandbox: true, sandboxIO: true })
 
     // Open the import flow
     const importBtn = await screen.findByTestId('io-import-btn')
