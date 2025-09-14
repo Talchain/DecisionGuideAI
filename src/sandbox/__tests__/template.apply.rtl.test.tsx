@@ -2,7 +2,7 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
-import { screen, fireEvent, act } from '@testing-library/react'
+import { screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { renderSandbox } from '@/test/renderSandbox'
 
 // Quiet console
@@ -51,18 +51,20 @@ describe('templates apply (RTL)', () => {
     // Open templates menu
     const menuBtn = await screen.findByRole('button', { name: /templates/i })
     fireEvent.click(menuBtn)
-
-    // Click first template item
-    const firstItem = await screen.findAllByRole('button', { name: /template/i }).then(list => list[0]).catch(async () => {
-      // Fallback: pick any item inside the templates menu
-      const items = await screen.findAllByRole('button')
-      return items.find(b => (b.parentElement?.parentElement?.id === 'templates-menu')) as HTMLButtonElement
+    await waitFor(() => {
+      const menuNow = document.getElementById('templates-menu')
+      if (!menuNow) throw new Error('menu not open yet')
     })
+
+    // Click first template item (query inside the templates menu)
+    const menu = document.getElementById('templates-menu') as HTMLElement
+    expect(menu).toBeTruthy()
+    const firstItem = menu.querySelector('button') as HTMLButtonElement
     expect(firstItem).toBeTruthy()
-    fireEvent.click(firstItem as HTMLButtonElement)
+    fireEvent.click(firstItem)
 
     // Polite announce should render text containing "Template applied" or "Applied template"
-    await screen.findByText(/applied template/i)
+    await screen.findByText(/(template applied|applied template)/i)
 
     // Telemetry should include sandbox_template_apply
     const names = trackSpy.mock.calls.map(c => c[0])
@@ -76,8 +78,10 @@ describe('templates apply (RTL)', () => {
     await act(async () => {})
     expect(screen.queryByRole('button', { name: /undo/i })).toBeNull()
 
-    // No console noise
+    // No console noise (ignore React Router future flag warnings)
     expect(errSpy).not.toHaveBeenCalled()
-    expect(warnSpy).not.toHaveBeenCalled()
+    const routerWarnings = (warnSpy.mock.calls as unknown[][]).filter((c: unknown[]) => String((c && (c as any)[0]) || '').includes('React Router Future Flag Warning'))
+    const otherWarnings = (warnSpy.mock.calls as unknown[][]).filter((c: unknown[]) => !String((c && (c as any)[0]) || '').includes('React Router Future Flag Warning'))
+    expect(otherWarnings.length).toBe(0)
   })
 })
