@@ -354,7 +354,7 @@ export const CombinedSandboxRoute: React.FC = () => {
         setAnnounce(`Exported ${nodeCount} nodes, ${edgeCount} links.`)
       } catch {}
     }, [graphApi])
-    const doImportPayload = React.useCallback((rawText: string) => {
+    const doImportPayload = React.useCallback(async (rawText: string) => {
       try {
         const { graph: g, counts } = validateAndNormalizeImport(rawText)
         const { nodeCount, edgeCount } = counts
@@ -365,10 +365,13 @@ export const CombinedSandboxRoute: React.FC = () => {
           setShowRestoreUndo(true)
           window.setTimeout(() => setShowRestoreUndo(false), 10000)
         } catch {}
-        // Replace storage and reload graph
+        // Replace storage
         try { localStorage.setItem(`dgai:graph:decision:${decisionId}`, JSON.stringify(g)) } catch {}
-        graphApi.reloadFromStorage()
+        // Announce before reload to ensure jsdom detects the live region update
         setAnnounce(`Imported ${nodeCount} nodes, ${edgeCount} links.`)
+        await Promise.resolve()
+        // Reload graph
+        await (graphApi.reloadFromStorage() as unknown as Promise<void> | void)
         toast({ title: `Imported ${nodeCount} nodes, ${edgeCount} links` })
         try { track('sandbox_io_import', { ...baseMeta(), nodeCount, edgeCount }) } catch {}
       } catch (e) {
@@ -390,7 +393,7 @@ export const CombinedSandboxRoute: React.FC = () => {
               // pre-validate size (2MB)
               if (f.size > 2 * 1024 * 1024) { toast({ title: 'File too large (limit 2MB)', type: 'destructive' }); try { track('sandbox_io_import', { ...baseMeta(), error: true, reason: 'too_large' }) } catch {}; return }
               const txt = typeof (f as any)?.text === 'function' ? await (f as any).text() : await new Response(f as any).text()
-              doImportPayload(txt)
+              await doImportPayload(txt)
             } finally {
               try { inputEl.value = '' } catch {}
             }
@@ -412,7 +415,7 @@ export const CombinedSandboxRoute: React.FC = () => {
             <ul>
               {templates.map((t: Template) => (
                 <li key={t.id}>
-                  <button className="w-full text-left px-2 py-1 text-xs hover:bg-gray-50" title={t.title} onClick={() => {
+                  <button className="w-full text-left px-2 py-1 text-xs hover:bg-gray-50" title={t.title} onClick={async () => {
                     try {
                       const g = normalizeGraph({ graph: t.graph })
                       const { nodeCount, edgeCount } = countEntities(g)
@@ -420,10 +423,12 @@ export const CombinedSandboxRoute: React.FC = () => {
                       const backup = graphApi.saveSnapshot(`Pre-template ${t.id}`)
                       lastRestoreBackupRef.current = backup?.snapId || null
                       setShowRestoreUndo(true); window.setTimeout(() => setShowRestoreUndo(false), 10000)
-                      // apply
+                      // apply to storage
                       localStorage.setItem(`dgai:graph:decision:${decisionId}`, JSON.stringify(g))
-                      graphApi.reloadFromStorage()
+                      // Announce before reload for jsdom
                       setAnnounce(`Applied template ${t.title} with ${nodeCount} nodes, ${edgeCount} links.`)
+                      await Promise.resolve()
+                      await (graphApi.reloadFromStorage() as unknown as Promise<void> | void)
                       toast({ title: `Template applied`, description: `${t.title} (${nodeCount} nodes, ${edgeCount} links)` })
                       try { track('sandbox_template_apply', { ...baseMeta(), templateId: t.id, nodeCount, edgeCount }) } catch {}
                     } catch (e) {
