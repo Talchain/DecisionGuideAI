@@ -19,6 +19,7 @@ export type SandboxFlags = {
   sandboxPresence: boolean
   sandboxWhatIf: boolean
   sandboxExplain: boolean
+  sandboxTemplates: boolean
 }
 
 const defaultFlags: SandboxFlags = {
@@ -38,6 +39,7 @@ const defaultFlags: SandboxFlags = {
   sandboxPresence: false,
   sandboxWhatIf: false,
   sandboxExplain: false,
+  sandboxTemplates: false,
 }
 
 const FlagsContext = createContext<SandboxFlags>(defaultFlags)

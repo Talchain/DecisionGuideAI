@@ -24,6 +24,15 @@ vi.mock('@/sandbox/panels/ScenarioPanels', () => {
   return { ScenarioPanels: () => React.createElement('div', { 'data-testid': 'panels-root' }, 'Panels') }
 })
 
+// Mock overrides store to avoid dependency on its implementation in this Templates-focused test
+vi.mock('@/sandbox/state/overridesStore', () => {
+  const React = require('react')
+  return {
+    OverridesProvider: ({ children }: any) => React.createElement(React.Fragment, null, children),
+    useOverrides: () => ({ focusOnNodeId: null, setFocusOn: () => {} }),
+  }
+})
+
 import CombinedSandboxRoute from '@/whiteboard/CombinedSandboxRoute'
 
 describe('templates apply (RTL)', () => {
