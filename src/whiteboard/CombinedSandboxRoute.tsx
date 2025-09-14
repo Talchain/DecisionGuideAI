@@ -381,14 +381,20 @@ export const CombinedSandboxRoute: React.FC = () => {
       <div className="inline-flex items-center gap-2" data-dg-io>
         <button data-testid="io-export-btn" className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleExportJSON}>Export JSON</button>
         <button data-testid="io-import-btn" className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={() => importInputRef.current?.click()}>Import JSON</button>
-        <input data-testid="io-import-input" ref={importInputRef} type="file" accept="application/json" className="hidden" onChange={async (e) => {
-          const f = e.currentTarget.files?.[0]
+        <input data-testid="io-import-input" ref={importInputRef} type="file" accept="application/json" className="hidden" onChange={(e) => {
+          const inputEl = e.currentTarget
+          const f = inputEl.files?.[0]
           if (!f) return
-          // pre-validate size (2MB)
-          if (f.size > 2 * 1024 * 1024) { toast({ title: 'File too large (limit 2MB)', type: 'destructive' }); try { track('sandbox_io_import', { ...baseMeta(), error: true, reason: 'too_large' }) } catch {}; e.currentTarget.value = ''; return }
-          const txt = await f.text()
-          doImportPayload(txt)
-          e.currentTarget.value = ''
+          ;(async () => {
+            try {
+              // pre-validate size (2MB)
+              if (f.size > 2 * 1024 * 1024) { toast({ title: 'File too large (limit 2MB)', type: 'destructive' }); try { track('sandbox_io_import', { ...baseMeta(), error: true, reason: 'too_large' }) } catch {}; return }
+              const txt = typeof (f as any)?.text === 'function' ? await (f as any).text() : await new Response(f as any).text()
+              doImportPayload(txt)
+            } finally {
+              try { inputEl.value = '' } catch {}
+            }
+          })()
         }} />
       </div>
     )
@@ -682,7 +688,7 @@ export const CombinedSandboxRoute: React.FC = () => {
     </div>
   )
 
-  if (flags.sandboxMapping || flags.sandboxCompare || flags.sandboxScore || flags.sandboxWhatIf) {
+  if (flags.sandboxMapping || flags.sandboxCompare || flags.sandboxScore || flags.sandboxWhatIf || flags.sandboxIO || flags.sandboxTemplates) {
     return (
       <GraphProvider decisionId={decisionId}>
         {flags.sandboxWhatIf ? (
