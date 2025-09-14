@@ -5,9 +5,13 @@ import { useTelemetry } from '@/lib/useTelemetry'
 import { ScenarioPanels } from '@/sandbox/panels/ScenarioPanels'
 import { Canvas } from '@/whiteboard/Canvas'
 import { ScorePill } from '@/whiteboard/ScorePill'
+import { ExplainDeltaPanel } from '@/whiteboard/ExplainDeltaPanel'
 import { GraphProvider, useGraph } from '@/sandbox/state/graphStore'
+import { OverridesProvider, useOverrides } from '@/sandbox/state/overridesStore'
 import CompareView from '@/whiteboard/CompareView'
 import { useToast } from '@/components/ui/use-toast'
+import { normalizeGraph, serializeGraph, countEntities } from '@/sandbox/state/graphIO'
+import { templates, type Template } from '@/sandbox/templates'
 import { useDecision } from '@/contexts/DecisionContext'
 
 const MIN_W = 240
@@ -87,10 +91,14 @@ export const CombinedSandboxRoute: React.FC = () => {
   const [leftSource, setLeftSource] = React.useState<string>('current')
   const [rightSource, setRightSource] = React.useState<string>('current')
   const [announce, setAnnounce] = React.useState<string>('')
+  // Explain Δ panel state
+  const [explainOpen, setExplainOpen] = React.useState(false)
+  const [explainHighlight, setExplainHighlight] = React.useState<string | null>(null)
   const lastRestoreBackupRef = React.useRef<string | null>(null)
   const [showRestoreUndo, setShowRestoreUndo] = React.useState(false)
   const [showDeleteUndo, setShowDeleteUndo] = React.useState(false)
   const lastDeletedNameRef = React.useRef<string>('')
+  // header subcomponents live inside GraphProvider to use hooks safely
 
   function HeaderSnapshotControls() {
     const graphApi = useGraph()
@@ -328,6 +336,102 @@ export const CombinedSandboxRoute: React.FC = () => {
     try { api.setStyleOpen(styleOpen) } catch {}
   }, [styleOpen])
 
+  function HeaderIOControls() {
+    const graphApi = useGraph()
+    const importInputRef = React.useRef<HTMLInputElement | null>(null)
+    const handleExportJSON = React.useCallback(() => {
+      try {
+        const payload = serializeGraph(decisionId, graphApi.getGraph())
+        const { nodeCount, edgeCount } = countEntities(payload.graph)
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `decision-${decisionId}-graph.json`
+        document.body.appendChild(a); a.click(); document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        try { track('sandbox_io_export', { ...baseMeta(), nodeCount, edgeCount }) } catch {}
+        setAnnounce(`Exported ${nodeCount} nodes, ${edgeCount} links.`)
+      } catch {}
+    }, [graphApi])
+    const doImportPayload = React.useCallback((rawText: string) => {
+      try {
+        const parsed = JSON.parse(rawText)
+        const g = normalizeGraph(parsed)
+        const { nodeCount, edgeCount } = countEntities(g)
+        // Snapshot backup for Undo
+        try {
+          const backup = graphApi.saveSnapshot('Pre-import')
+          lastRestoreBackupRef.current = backup?.snapId || null
+          setShowRestoreUndo(true)
+          window.setTimeout(() => setShowRestoreUndo(false), 10000)
+        } catch {}
+        // Replace storage and reload graph
+        try { localStorage.setItem(`dgai:graph:decision:${decisionId}`, JSON.stringify(g)) } catch {}
+        graphApi.reloadFromStorage()
+        setAnnounce(`Imported ${nodeCount} nodes, ${edgeCount} links.`)
+        toast({ title: `Imported ${nodeCount} nodes, ${edgeCount} links` })
+        try { track('sandbox_io_import', { ...baseMeta(), nodeCount, edgeCount }) } catch {}
+      } catch (e) {
+        toast({ title: 'Failed to import JSON', description: (e as any)?.message, type: 'destructive' })
+      }
+    }, [graphApi])
+    return (
+      <div className="inline-flex items-center gap-2" data-dg-io>
+        <button data-testid="io-export-btn" className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={handleExportJSON}>Export JSON</button>
+        <button data-testid="io-import-btn" className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={() => importInputRef.current?.click()}>Import JSON</button>
+        <input data-testid="io-import-input" ref={importInputRef} type="file" accept="application/json" className="hidden" onChange={async (e) => {
+          const f = e.currentTarget.files?.[0]
+          if (!f) return
+          const txt = await f.text()
+          doImportPayload(txt)
+          e.currentTarget.value = ''
+        }} />
+      </div>
+    )
+  }
+
+  function HeaderTemplatesControls() {
+    const graphApi = useGraph()
+    const [open, setOpen] = React.useState(false)
+    return (
+      <div className="relative inline-flex" data-dg-template>
+        <button className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={() => setOpen(v => !v)} aria-expanded={open} aria-controls="templates-menu">Templates ▾</button>
+        {open && (
+          <div id="templates-menu" className="absolute right-0 top-[110%] z-30 min-w-[240px] rounded border bg-white shadow">
+            <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 border-b">Quickstart</div>
+            <ul>
+              {templates.map((t: Template) => (
+                <li key={t.id}>
+                  <button className="w-full text-left px-2 py-1 text-xs hover:bg-gray-50" title={t.title} onClick={() => {
+                    try {
+                      const g = normalizeGraph({ graph: t.graph })
+                      const { nodeCount, edgeCount } = countEntities(g)
+                      // backup
+                      const backup = graphApi.saveSnapshot(`Pre-template ${t.id}`)
+                      lastRestoreBackupRef.current = backup?.snapId || null
+                      setShowRestoreUndo(true); window.setTimeout(() => setShowRestoreUndo(false), 10000)
+                      // apply
+                      localStorage.setItem(`dgai:graph:decision:${decisionId}`, JSON.stringify(g))
+                      graphApi.reloadFromStorage()
+                      setAnnounce(`Applied template ${t.title} with ${nodeCount} nodes, ${edgeCount} links.`)
+                      toast({ title: `Template applied`, description: `${t.title} (${nodeCount} nodes, ${edgeCount} links)` })
+                      try { track('sandbox_template_apply', { ...baseMeta(), templateId: t.id, nodeCount, edgeCount }) } catch {}
+                    } catch (e) {
+                      toast({ title: 'Failed to apply template', type: 'destructive' })
+                    } finally {
+                      setOpen(false)
+                    }
+                  }}>{t.title}</button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   const exportSnapshot = React.useCallback(() => {
     try {
       const data = apiRef.current?.getDoc?.() || {}
@@ -402,6 +506,10 @@ export const CombinedSandboxRoute: React.FC = () => {
       <div className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b px-3 py-2 flex items-center gap-3">
         <div className="text-sm font-medium truncate">{decisionTitle || `Decision ${decisionId}`}</div>
         <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border">Panels + Canvas</span>
+        {/* Focus chip */}
+        {flags.sandboxWhatIf && (
+          <FocusChip />
+        )}
         <div className="ml-auto flex items-center gap-2">
           {/* Panels toggle (desktop & mobile) */}
           <button
@@ -420,7 +528,11 @@ export const CombinedSandboxRoute: React.FC = () => {
             <button role="tab" aria-selected={active==='canvas'} className={`px-2 py-1 text-xs ${active==='canvas' ? 'bg-indigo-600 text-white' : 'bg-white'}`} onClick={() => onTab('canvas')}>Canvas</button>
           </div>
           {flags.sandboxScore && (
-            <ScorePill decisionId={decisionId} />
+            <ScorePill decisionId={decisionId} onExplain={() => {
+              if (!flags.sandboxExplain) return
+              setExplainOpen(true)
+              try { track('sandbox_score_explain_open', baseMeta()) } catch {}
+            }} />
           )}
           {/* Style toggle */}
           <button
@@ -443,6 +555,10 @@ export const CombinedSandboxRoute: React.FC = () => {
           >
             Send feedback
           </a>
+          {/* IO (Export / Import JSON) */}
+          {flags.sandboxIO && <HeaderIOControls />}
+          {/* Templates */}
+          {flags.sandboxTemplates && <HeaderTemplatesControls />}
           {flags.sandboxCompare && <HeaderSnapshotControls />}
         </div>
       </div>
@@ -486,7 +602,7 @@ export const CombinedSandboxRoute: React.FC = () => {
         <section className={`relative h-full overflow-hidden p-4 pr-2 md:pr-4 ${isMobile && active !== 'canvas' ? 'hidden' : ''}`}>
           <div className="relative w-full h-full">
             {!compareOpen && (
-              <Canvas decisionId={decisionId} hideBanner hideFeedback embedded onAPIReady={onCanvasAPI} />
+              <Canvas decisionId={decisionId} hideBanner hideFeedback embedded onAPIReady={onCanvasAPI} explainHighlightNodeId={explainHighlight} />
             )}
             {compareOpen && flags.sandboxCompare && (
               <CompareView
@@ -529,6 +645,17 @@ export const CombinedSandboxRoute: React.FC = () => {
       <div className="sr-only" aria-live="polite">{liveText}</div>
       {/* ARIA live announcer for snapshot/compare */}
       <div className="sr-only" aria-live="polite">{announce}</div>
+      {/* Explain Δ Panel (UI-only) */}
+      {flags.sandboxExplain && explainOpen && (
+        <ExplainDeltaPanel
+          decisionId={decisionId}
+          onClose={() => { setExplainOpen(false); try { track('sandbox_score_explain_close', baseMeta()) } catch {} }}
+          onHighlight={(id) => {
+            setExplainHighlight(id)
+            window.setTimeout(() => setExplainHighlight(null), 1200)
+          }}
+        />
+      )}
       {showRestoreUndo && lastRestoreBackupRef.current && (
         <div className="absolute top-[56px] left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
           <div className="rounded border bg-white shadow px-3 py-2 text-xs flex items-center gap-3">
@@ -552,10 +679,12 @@ export const CombinedSandboxRoute: React.FC = () => {
     </div>
   )
 
-  if (flags.sandboxMapping || flags.sandboxCompare || flags.sandboxScore) {
+  if (flags.sandboxMapping || flags.sandboxCompare || flags.sandboxScore || flags.sandboxWhatIf) {
     return (
       <GraphProvider decisionId={decisionId}>
-        {body}
+        {flags.sandboxWhatIf ? (
+          <OverridesProvider decisionId={decisionId}>{body}</OverridesProvider>
+        ) : body}
       </GraphProvider>
     )
   }
@@ -563,3 +692,32 @@ export const CombinedSandboxRoute: React.FC = () => {
 }
 
 export default CombinedSandboxRoute
+
+// Focus header chip + ESC behavior and selection sync
+function FocusChip() {
+  const flags = useFlags()
+  const { selectedNodeId, graph } = useGraph()
+  const { focusOnNodeId, setFocusOn } = useOverrides()
+  const name = focusOnNodeId ? (graph.nodes[focusOnNodeId]?.title || focusOnNodeId) : ''
+  // Sync on selection changes when active
+  React.useEffect(() => {
+    if (!flags.sandboxWhatIf) return
+    if (!focusOnNodeId) return
+    if (selectedNodeId && selectedNodeId !== focusOnNodeId) setFocusOn(selectedNodeId)
+  }, [flags.sandboxWhatIf, selectedNodeId, focusOnNodeId, setFocusOn])
+  // ESC to exit focus
+  React.useEffect(() => {
+    if (!flags.sandboxWhatIf) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && focusOnNodeId) {
+        setFocusOn(null)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [flags.sandboxWhatIf, focusOnNodeId, setFocusOn])
+  if (!flags.sandboxWhatIf || !focusOnNodeId) return null
+  return (
+    <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border" title="Focus Mode active">Focus: {name} (Esc to exit)</span>
+  )
+}

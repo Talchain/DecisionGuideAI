@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState, useLayoutEffect } from 'react'
 import { Tldraw } from '@/whiteboard/tldraw'
 import { ensureCanvasForDecision, loadCanvasDoc, saveCanvasDoc } from './persistence'
 import { loadSeed } from './seed'
@@ -59,6 +59,8 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
   const mappingRef = useRef<DomainMapping | null>(null)
   const hydratedFromLocalRef = useRef<boolean>(!!doc)
   const rootRef = useRef<HTMLDivElement | null>(null)
+  // Buffer for TL snapshot events that may fire before doc is ready
+  const pendingTLSnapRef = useRef<any | null>(null)
   const flags = useFlags()
   const { user: authUser, profile } = useAuth()
   const graphApi = useGraphOptional()
@@ -70,10 +72,12 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
   const scoreTimerRef = useRef<number | null>(null)
   // Optional overrides (What-If) — provider may be absent
   const overrides = (() => { try { return useOverrides() } catch { return null } })()
-  // Local focus attr state ensures deterministic flips on ESC, even pre-hydration
-  const [focusAttrOn, setFocusAttrOn] = useState<boolean>(!!overrides?.focusOnNodeId)
-  useEffect(() => { setFocusAttrOn(!!overrides?.focusOnNodeId) }, [overrides?.focusOnNodeId])
-  // Mirror focusAttrOn to DOM attribute immediately for deterministic tests
+  // Focus Mode attribute control: derive from overrides + force-off toggle (deterministic ESC)
+  const [forceFocusOff, setForceFocusOff] = useState(false)
+  const focusAttrOn = useMemo(() => (!!overrides?.focusOnNodeId) && !forceFocusOff, [overrides?.focusOnNodeId, forceFocusOff])
+  // Reset force-off when focus mode is not active anymore
+  useEffect(() => { if (!overrides?.focusOnNodeId) setForceFocusOff(false) }, [overrides?.focusOnNodeId])
+  // Mirror computed focusAttrOn to DOM attribute immediately for deterministic tests
   useEffect(() => {
     const el = rootRef.current
     if (el) {
@@ -160,6 +164,19 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
     }, 0)
   }, [canvasId])
 
+  // Apply any buffered TL snapshot once a doc exists
+  useEffect(() => {
+    if (!doc) return
+    const snap = pendingTLSnapRef.current
+    if (!snap) return
+    setDoc((prev: any) => {
+      if (!prev) return prev
+      const same = (prev as any).tldraw === snap
+      return same ? prev : { ...prev, tldraw: snap }
+    })
+    pendingTLSnapRef.current = null
+  }, [doc])
+
   // In a fuller impl, we would connect Tldraw editor events to update `doc` when content changes.
   // Here we connect to the editor store and mirror its snapshot into doc.tldraw.
   const handleMount = useCallback((editor: any) => {
@@ -185,7 +202,11 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
           try {
             const nextSnap = store.getSnapshot ? store.getSnapshot() : store.getState?.()
             setDoc((prev: any) => {
-              if (!prev) return prev
+              if (!prev) {
+                // Doc not ready yet — buffer latest snapshot and wait
+                pendingTLSnapRef.current = nextSnap
+                return prev
+              }
               const same = (prev as any).tldraw === nextSnap
               return same ? prev : { ...prev, tldraw: nextSnap }
             })
@@ -476,24 +497,35 @@ export const Canvas: React.FC<CanvasProps> = ({ decisionId, onReady, persistDela
   }, [flags.sandboxMapping, graphApi])
 
   // ESC to exit Focus Mode (independent of mapping)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key !== 'Escape') return
+      try {
+        // Immediately flip the focus state for deterministic tests (idempotent)
+        setForceFocusOff(true)
+        const el = rootRef.current
         try {
-          if (flags.sandboxWhatIf && overrides?.focusOnNodeId) {
-            // Immediately flip the focus state for deterministic tests
-            setFocusAttrOn(false)
-            const el = rootRef.current
-            try { if (el) el.setAttribute('data-dg-focus', 'off') } catch {}
-            overrides.setFocusOn(null)
+          if (el) {
+            el.removeAttribute('data-dg-focus')
+            el.setAttribute('data-dg-focus', 'off')
+            // Enforce in microtask and next frame to avoid any re-render flicker
+            try { Promise.resolve().then(() => { try { el.setAttribute('data-dg-focus', 'off') } catch {} }) } catch {}
+            try { requestAnimationFrame(() => { try { el.setAttribute('data-dg-focus', 'off') } catch {} }) } catch {}
           }
         } catch {}
-      }
+        overrides?.setFocusOn?.(null)
+      } catch {}
     }
-    // Capture phase so TLDraw or other handlers cannot swallow Esc first
+    // Capture and bubble on both document and window for robustness in tests
+    document.addEventListener('keydown', onKey, true)
     window.addEventListener('keydown', onKey, true)
-    return () => window.removeEventListener('keydown', onKey, true)
-  }, [flags.sandboxWhatIf, overrides?.focusOnNodeId])
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('keydown', onKey, true)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [overrides])
 
   // Rebuild mapping from graph when it changes (nodes only)
   useEffect(() => {
