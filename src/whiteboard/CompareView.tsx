@@ -84,9 +84,11 @@ export default function CompareView({ decisionId, left, right, onPick, onOpened,
               <span className="px-1.5 py-0.5 border rounded bg-white" title="Right score">Right: {sRight}%</span>
             </div>
           )}
-          <span className="px-1.5 py-0.5 border rounded bg-white" title="Added">+ Added</span>
-          <span className="px-1.5 py-0.5 border rounded bg-white" title="Removed">– Removed</span>
-          <span className="px-1.5 py-0.5 border rounded bg-white" title="Changed">~ Changed</span>
+          <div data-dg-legend className="inline-flex items-center gap-2">
+            <span className="px-1.5 py-0.5 border rounded bg-white" title="Added">+ Added</span>
+            <span className="px-1.5 py-0.5 border rounded bg-white" title="Removed">– Removed</span>
+            <span className="px-1.5 py-0.5 border rounded bg-white" title="Changed">~ Changed</span>
+          </div>
         </div>
       </div>
       <div className="sr-only" aria-live="polite">{live}</div>
