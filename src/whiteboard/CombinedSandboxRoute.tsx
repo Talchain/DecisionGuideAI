@@ -10,7 +10,7 @@ import { GraphProvider, useGraph } from '@/sandbox/state/graphStore'
 import { OverridesProvider, useOverrides } from '@/sandbox/state/overridesStore'
 import CompareView from '@/whiteboard/CompareView'
 import { useToast } from '@/components/ui/use-toast'
-import { normalizeGraph, serializeGraph, countEntities } from '@/sandbox/state/graphIO'
+import { normalizeGraph, serializeGraph, countEntities, validateAndNormalizeImport } from '@/sandbox/state/graphIO'
 import { templates, type Template } from '@/sandbox/templates'
 import { useDecision } from '@/contexts/DecisionContext'
 
@@ -356,9 +356,8 @@ export const CombinedSandboxRoute: React.FC = () => {
     }, [graphApi])
     const doImportPayload = React.useCallback((rawText: string) => {
       try {
-        const parsed = JSON.parse(rawText)
-        const g = normalizeGraph(parsed)
-        const { nodeCount, edgeCount } = countEntities(g)
+        const { graph: g, counts } = validateAndNormalizeImport(rawText)
+        const { nodeCount, edgeCount } = counts
         // Snapshot backup for Undo
         try {
           const backup = graphApi.saveSnapshot('Pre-import')
@@ -373,7 +372,9 @@ export const CombinedSandboxRoute: React.FC = () => {
         toast({ title: `Imported ${nodeCount} nodes, ${edgeCount} links` })
         try { track('sandbox_io_import', { ...baseMeta(), nodeCount, edgeCount }) } catch {}
       } catch (e) {
-        toast({ title: 'Failed to import JSON', description: (e as any)?.message, type: 'destructive' })
+        const reason = (e as any)?.reason || 'unknown'
+        try { track('sandbox_io_import', { ...baseMeta(), error: true, reason }) } catch {}
+        toast({ title: 'Failed to import JSON', description: (e as any)?.message || String(reason), type: 'destructive' })
       }
     }, [graphApi])
     return (
@@ -383,6 +384,8 @@ export const CombinedSandboxRoute: React.FC = () => {
         <input data-testid="io-import-input" ref={importInputRef} type="file" accept="application/json" className="hidden" onChange={async (e) => {
           const f = e.currentTarget.files?.[0]
           if (!f) return
+          // pre-validate size (2MB)
+          if (f.size > 2 * 1024 * 1024) { toast({ title: 'File too large (limit 2MB)', type: 'destructive' }); try { track('sandbox_io_import', { ...baseMeta(), error: true, reason: 'too_large' }) } catch {}; e.currentTarget.value = ''; return }
           const txt = await f.text()
           doImportPayload(txt)
           e.currentTarget.value = ''
