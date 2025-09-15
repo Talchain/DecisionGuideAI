@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useFlags } from '@/lib/flags'
 import { useGraph } from '@/sandbox/state/graphStore'
 import { useOverrides } from '@/sandbox/state/overridesStore'
+import { useTelemetry } from '@/lib/useTelemetry'
 import { scoreGraph } from '@/domain/kr'
 import { topContributors } from '@/domain/krExplain'
 
@@ -25,6 +26,7 @@ export function ExplainDeltaPanel({
   const flags = useFlags()
   const { graph } = useGraph()
   const overrides = useOverrides()
+  const { track } = useTelemetry()
 
   if (!flags.sandboxExplain) return null
 
@@ -42,10 +44,17 @@ export function ExplainDeltaPanel({
   const delta = scenarioAfter - scenarioBefore
   const list = React.useMemo(() => topContributors(before, after, graph), [before, after, graph])
 
-  // Announce open once
+  // Focus management and live announcements
   const [live, setLive] = React.useState('')
+  const [copyLive, setCopyLive] = React.useState('')
+  const headingRef = React.useRef<HTMLDivElement | null>(null)
+  const prevFocusRef = React.useRef<HTMLElement | null>(null)
   React.useEffect(() => {
     setLive('Explain panel opened.')
+    try { prevFocusRef.current = (document.activeElement as HTMLElement) || null } catch {}
+    // Focus heading on open
+    const id = window.setTimeout(() => { try { headingRef.current?.focus() } catch {} }, 0)
+    return () => { window.clearTimeout(id); try { prevFocusRef.current?.focus?.() } catch {} }
   }, [])
 
   React.useEffect(() => {
@@ -56,7 +65,67 @@ export function ExplainDeltaPanel({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const items = list.slice(0, 7)
+  // v1.5: cap contributors to top K when flag enabled; otherwise legacy 7
+  const CAP = 5
+  const items = React.useMemo(() => {
+    if (flags.sandboxExplainV15) return list.slice(0, CAP)
+    return list.slice(0, 7)
+  }, [flags.sandboxExplainV15, list])
+  const limited = flags.sandboxExplainV15 && list.length > CAP
+
+  // Utilities
+  const sanitize = (s: string, max = 120) => {
+    try {
+      const noCtl = s.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+      return noCtl.trim().slice(0, max)
+    } catch { return (s || '').slice(0, max) }
+  }
+  const clampNum = (n: number) => Math.max(-9999, Math.min(9999, Math.round(n)))
+
+  const copyText = React.useCallback(() => {
+    const header = `Explain Δ — Before ${scenarioBefore}% → After ${scenarioAfter}% (Δ ${delta >= 0 ? `+${delta}` : delta})`
+    const k = items.length
+    const total = list.length
+    const lines = [header]
+    lines.push(`Top ${k} contributors${flags.sandboxExplainV15 ? ` (of ${total})` : ''}:`)
+    for (const it of items) {
+      const title = sanitize(it.title)
+      const tot = clampNum(it.total)
+      const d = clampNum(it.delta)
+      lines.push(`- ${title}: total ${tot} (Δ ${d >= 0 ? `+${d}` : d})`)
+    }
+    return lines.join('\n')
+  }, [flags.sandboxExplainV15, items, list.length, scenarioBefore, scenarioAfter, delta])
+
+  const handleCopy = React.useCallback(async () => {
+    try {
+      if (flags.sandboxExplainV15) {
+        try { track('sandbox_score_explain_copy', { decisionId, route: 'combined', contributorCount: items.length, limitedTo: CAP }) } catch {}
+      } else {
+        try { track('sandbox_score_explain_copy', { decisionId, route: 'combined', contributorCount: items.length }) } catch {}
+      }
+    } catch {}
+    const text = copyText()
+    let ok = false
+    try {
+      if (navigator?.clipboard?.writeText) { await navigator.clipboard.writeText(text); ok = true }
+    } catch {}
+    if (!ok) {
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = text
+        ta.setAttribute('readonly', '')
+        ta.style.position = 'fixed'
+        ta.style.left = '-9999px'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+        ok = true
+      } catch {}
+    }
+    if (ok) setCopyLive('Explanation copied.')
+  }, [copyText, decisionId, items.length, track, flags.sandboxExplainV15])
 
   return (
     <aside
@@ -68,14 +137,24 @@ export function ExplainDeltaPanel({
       data-dg-explain-decision={decisionId}
     >
       <header className="sticky top-0 bg-white/95 border-b px-3 py-2 flex items-center gap-2">
-        <div className="text-xs font-medium">Explain Δ</div>
+        <div ref={headingRef} tabIndex={-1} className="text-xs font-medium outline-none">Explain Δ</div>
         <div className="ml-auto text-[11px] text-gray-600">{`Before ${scenarioBefore}% → After ${scenarioAfter}% (Δ ${delta >= 0 ? `+${delta}` : delta})`}</div>
+        {flags.sandboxExplainV15 && (
+          <button
+            aria-label="Copy explanation"
+            className="ml-2 px-1.5 py-0.5 text-xs rounded border bg-white hover:bg-gray-50"
+            onClick={handleCopy}
+          >Copy</button>
+        )}
         <button
           aria-label="Close"
           className="ml-2 px-1.5 py-0.5 text-xs rounded border bg-white hover:bg-gray-50"
           onClick={onClose}
         >Close</button>
       </header>
+      {limited && (
+        <div data-dg-explain-limited className="px-3 py-1 text-[11px] text-amber-800 bg-amber-50 border-b">{`Showing top ${CAP} of ${list.length}`}</div>
+      )}
       <ul className="divide-y">
         {items.map(it => (
           <li key={it.id} className="px-3 py-2 text-xs flex items-center gap-2">
@@ -101,6 +180,8 @@ export function ExplainDeltaPanel({
       </ul>
       {/* Open/close announcer: not a score live region */}
       <div aria-live="polite" className="sr-only">{live}</div>
+      {/* Local announce for copy status */}
+      {flags.sandboxExplainV15 && <div aria-live="polite" className="sr-only">{copyLive}</div>}
     </aside>
   )
 }
