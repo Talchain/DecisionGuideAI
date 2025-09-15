@@ -95,8 +95,8 @@ describe('Snapshot Manager panel (flag OFF by default)', () => {
     // Reopen popover to ensure dialog reference fresh
     const trigger2 = await screen.findByRole('button', { name: /snapshots/i })
     fireEvent.click(trigger2)
-    const dialog2 = await screen.findByRole('dialog', { name: /snapshots/i })
-    const itemsNow = within(dialog2).getAllByRole('listitem')
+    const dialog3 = await screen.findByRole('dialog', { name: /snapshots/i })
+    const itemsNow = within(dialog3).getAllByRole('listitem')
     const lastItem = itemsNow[itemsNow.length - 1]
     const deleteBtn = within(lastItem).getByRole('button', { name: /delete/i })
     fireEvent.click(deleteBtn)

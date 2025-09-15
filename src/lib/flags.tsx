@@ -22,6 +22,8 @@ export type SandboxFlags = {
   snapshotManager: boolean
   sandboxIO: boolean
   sandboxTemplates: boolean
+  commandPalette: boolean
+  sandboxShortcuts: boolean
 }
 
 const defaultFlags: SandboxFlags = {
@@ -44,6 +46,8 @@ const defaultFlags: SandboxFlags = {
   snapshotManager: false,
   sandboxIO: false,
   sandboxTemplates: false,
+  commandPalette: false,
+  sandboxShortcuts: false,
 }
 
 const FlagsContext = createContext<SandboxFlags>(defaultFlags)

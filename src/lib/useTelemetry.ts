@@ -55,6 +55,11 @@ export type TelemetryEvent =
   | 'sandbox_io_import'
   | 'sandbox_template_apply'
   | 'sandbox_presence_idle'
+  | 'sandbox_cmdp_open'
+  | 'sandbox_cmdp_close'
+  | 'sandbox_cmdp_execute'
+  | 'sandbox_shortcut_execute'
+  | 'sandbox_score_explain_copy'
 
 export type TrackFn = (name: TelemetryEvent, props?: Record<string, unknown>) => void
 
