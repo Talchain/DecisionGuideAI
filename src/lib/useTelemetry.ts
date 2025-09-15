@@ -53,7 +53,11 @@ export type TelemetryEvent =
   | 'sandbox_score_explain_close'
   | 'sandbox_io_export'
   | 'sandbox_io_import'
+  | 'sandbox_io_drop_cancel'
+  | 'sandbox_io_paste_detected'
   | 'sandbox_template_apply'
+  | 'sandbox_template_preview_open'
+  | 'sandbox_template_preview_close'
   | 'sandbox_presence_idle'
 
 export type TrackFn = (name: TelemetryEvent, props?: Record<string, unknown>) => void

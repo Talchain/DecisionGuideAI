@@ -406,10 +406,132 @@ export const CombinedSandboxRoute: React.FC = () => {
   function HeaderTemplatesControls() {
     const graphApi = useGraph()
     const [open, setOpen] = React.useState(false)
+    const [tplLive, setTplLive] = React.useState('')
+    const [query, setQuery] = React.useState('')
+    const [focusIndex, setFocusIndex] = React.useState(0)
+    const triggerRef = React.useRef<HTMLButtonElement | null>(null)
+    const gridRef = React.useRef<HTMLDivElement | null>(null)
+    const filtered = React.useMemo(() => {
+      const q = query.trim().toLowerCase()
+      if (!q) return templates
+      return templates.filter(t => t.title.toLowerCase().includes(q) || t.id.toLowerCase().includes(q))
+    }, [query])
+    const closePopover = React.useCallback(() => {
+      setOpen(false); setQuery(''); setFocusIndex(0)
+      try { track('sandbox_template_preview_close', baseMeta()) } catch {}
+      // Return focus to trigger
+      triggerRef.current?.focus()
+    }, [])
+    const onOpen = React.useCallback(() => {
+      setOpen(v => {
+        const next = !v
+        if (next) { try { track('sandbox_template_preview_open', baseMeta()) } catch {} }
+        else { try { track('sandbox_template_preview_close', baseMeta()) } catch {} }
+        return next
+      })
+    }, [])
+    const applyTemplate = React.useCallback(async (t: Template) => {
+      try {
+        const g = normalizeGraph({ graph: t.graph })
+        const { nodeCount, edgeCount } = countEntities(g)
+        // backup
+        const backup = graphApi.saveSnapshot(`Pre-template ${t.id}`)
+        lastRestoreBackupRef.current = backup?.snapId || null
+        setShowRestoreUndo(true); window.setTimeout(() => setShowRestoreUndo(false), 10000)
+        // apply to storage
+        localStorage.setItem(`dgai:graph:decision:${decisionId}`, JSON.stringify(g))
+        // Announce before reload for jsdom
+        setTplLive(`Applied template ${t.title} with ${nodeCount} nodes, ${edgeCount} links.`)
+        setAnnounce(`Applied template ${t.title} with ${nodeCount} nodes, ${edgeCount} links.`)
+        await Promise.resolve()
+        await (graphApi.reloadFromStorage() as unknown as Promise<void> | void)
+        toast({ title: `Template applied`, description: `${t.title} (${nodeCount} nodes, ${edgeCount} links)` })
+        try { track('sandbox_template_apply', { ...baseMeta(), source: 'gallery', templateId: t.id, nodeCount, edgeCount }) } catch {}
+      } catch (e) {
+        toast({ title: 'Failed to apply template', type: 'destructive' })
+      } finally {
+        closePopover()
+      }
+    }, [graphApi, closePopover])
+
+    // Keyboard handling within popover (focus trap + arrow nav)
+    const onDialogKeyDown = React.useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Escape') { e.preventDefault(); closePopover(); return }
+      if (!filtered.length) return
+      if (['ArrowDown','ArrowRight'].includes(e.key)) {
+        e.preventDefault(); setFocusIndex(i => Math.min(filtered.length - 1, i + 1))
+      } else if (['ArrowUp','ArrowLeft'].includes(e.key)) {
+        e.preventDefault(); setFocusIndex(i => Math.max(0, i - 1))
+      } else if (e.key === 'Enter') {
+        e.preventDefault(); const t = filtered[focusIndex]; if (t) void applyTemplate(t)
+      } else if (e.key === 'Tab') {
+        // Focus trap: wrap between search input and grid container
+        const dlg = e.currentTarget
+        const focusables = dlg.querySelectorAll<HTMLElement>('input,button,[tabindex]:not([tabindex="-1"])')
+        if (focusables.length > 0) {
+          const first = focusables[0]
+          const last = focusables[focusables.length - 1]
+          if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus() }
+          if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus() }
+        }
+      }
+    }, [filtered, focusIndex, applyTemplate, closePopover])
+
+    // Move DOM focus to the currently highlighted card
+    React.useEffect(() => {
+      if (!open) return
+      const list = gridRef.current?.querySelectorAll<HTMLElement>('[data-dg-template-card]')
+      const el = list?.[focusIndex]
+      el?.focus()
+    }, [open, focusIndex, filtered.length])
+
     return (
       <div className="relative inline-flex" data-dg-template>
-        <button className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={() => setOpen(v => !v)} aria-expanded={open} aria-controls="templates-menu">Templates ▾</button>
-        {open && (
+        <button ref={triggerRef} className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500" onClick={onOpen} aria-expanded={open} aria-controls="templates-menu">Templates ▾</button>
+        {open && flags.sandboxTemplatesGallery && (
+          <div
+            id="templates-menu"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Templates gallery"
+            className="absolute right-0 top-[110%] z-30 w-[360px] max-h-[60vh] overflow-auto rounded border bg-white shadow p-2"
+            onKeyDown={onDialogKeyDown}
+          >
+            <div className="mb-2 flex items-center gap-2">
+              <input
+                aria-label="Search templates"
+                className="w-full px-2 py-1 text-xs rounded border"
+                placeholder="Search templates"
+                value={query}
+                onChange={(e) => { setQuery(e.currentTarget.value); setFocusIndex(0) }}
+              />
+              <button className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50" onClick={() => closePopover()}>Close</button>
+            </div>
+            <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2 gap-2" role="listbox" aria-label="Templates">
+              {filtered.map((t, idx) => (
+                <button
+                  key={t.id}
+                  data-dg-template-card
+                  role="button"
+                  tabIndex={idx === focusIndex ? 0 : -1}
+                  className={`text-left px-2 py-2 text-xs rounded border hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 ${idx === focusIndex ? 'ring-2 ring-indigo-400' : ''}`}
+                  onClick={() => void applyTemplate(t)}
+                  onMouseEnter={() => setFocusIndex(idx)}
+                  title={t.title}
+                >
+                  <div className="font-medium truncate">{t.title}</div>
+                  <div className="text-[10px] text-gray-500 truncate">{t.id}</div>
+                </button>
+              ))}
+              {filtered.length === 0 && (
+                <div className="text-xs text-gray-500 px-2 py-4">No templates match.</div>
+              )}
+            </div>
+            {/* Local Templates status announcer (polite) */}
+            <div className="sr-only" aria-live="polite" data-dg-template-status>{tplLive}</div>
+          </div>
+        )}
+        {open && !flags.sandboxTemplatesGallery && (
           <div id="templates-menu" className="absolute right-0 top-[110%] z-30 min-w-[240px] rounded border bg-white shadow">
             <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 border-b">Quickstart</div>
             <ul>
