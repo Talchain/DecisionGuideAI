@@ -13,6 +13,10 @@ export type SandboxFlags = {
   optionHandles: boolean
   decisionCTA: boolean
   sandboxMapping: boolean
+  sandboxTemplates: boolean
+  sandboxTemplatesGallery: boolean
+  sandboxIO: boolean
+  exportReport: boolean
   sandboxCompare: boolean
   sandboxAIDraft: boolean
   sandboxScore: boolean
@@ -32,6 +36,10 @@ const defaultFlags: SandboxFlags = {
   optionHandles: false,
   decisionCTA: false,
   sandboxMapping: false,
+  sandboxTemplates: false,
+  sandboxTemplatesGallery: false,
+  sandboxIO: false,
+  exportReport: false,
   sandboxCompare: false,
   sandboxAIDraft: false,
   sandboxScore: false,

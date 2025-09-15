@@ -11,6 +11,7 @@ import { OverridesProvider, useOverrides } from '@/sandbox/state/overridesStore'
 import CompareView from '@/whiteboard/CompareView'
 import { useToast } from '@/components/ui/use-toast'
 import { normalizeGraph, serializeGraph, countEntities, validateAndNormalizeImport } from '@/sandbox/state/graphIO'
+import { buildReportMarkdown } from '@/whiteboard/export/reportMarkdown'
 import { templates, type Template } from '@/sandbox/templates'
 import { useDecision } from '@/contexts/DecisionContext'
 
@@ -38,6 +39,54 @@ export const CombinedSandboxRoute: React.FC = () => {
   // Gate: require sandbox flag; canvas mounts regardless (Canvas has its own local-first fallback).
   if (!flags.sandbox) {
     return <div className="p-8 text-center text-sm text-gray-700">Scenario Sandbox is not enabled.</div>
+  }
+
+  function HeaderExportReportControl() {
+    const graphApi = useGraph()
+    const [repLive, setRepLive] = React.useState('')
+    const handleExportReport = React.useCallback(() => {
+      try {
+        const g = graphApi.getGraph()
+        const { nodeCount, edgeCount } = countEntities(g)
+        const md = buildReportMarkdown(g, { decisionId, decisionTitle: (decisionTitle || null) })
+        // Telemetry-first to avoid DOM flakiness blocking emit
+        try { track('sandbox_export_report', { ...baseMeta(), format: 'md', nodeCount, edgeCount, hasDelta: !!flags.sandboxExplain }) } catch {}
+        const now = new Date()
+        const yyyy = now.getUTCFullYear()
+        const mm = String(now.getUTCMonth() + 1).padStart(2, '0')
+        const dd = String(now.getUTCDate()).padStart(2, '0')
+        const HH = String(now.getUTCHours()).padStart(2, '0')
+        const MM = String(now.getUTCMinutes()).padStart(2, '0')
+        const suffix = `${yyyy}${mm}${dd}-${HH}${MM}UTC`
+        const blob = new Blob([md], { type: 'text/markdown' })
+        const url = URL.createObjectURL(blob)
+        try {
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `decision-${decisionId}-report-${suffix}.md`
+          document.body.appendChild(a); a.click(); document.body.removeChild(a)
+        } finally {
+          try { URL.revokeObjectURL(url) } catch {}
+        }
+        setAnnounce(`Exported Markdown report with ${nodeCount} nodes, ${edgeCount} links.`)
+        setRepLive(`Exported Markdown report with ${nodeCount} nodes, ${edgeCount} links.`)
+      } catch (e) {
+        toast({ title: 'Failed to export report', type: 'destructive' })
+      }
+    }, [graphApi])
+    if (!flags.exportReport) return null
+    return (
+      <div className="relative inline-flex" data-dg-report>
+        <button
+          aria-label="Export report (Markdown)"
+          className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          onClick={handleExportReport}
+        >
+          Report MD
+        </button>
+        <div className="sr-only" aria-live="polite" data-dg-report-status>{repLive}</div>
+      </div>
+    )
   }
 
   function RestoreUndoButton({ snapId, onDone }: { snapId: string; onDone: () => void }) {
@@ -542,11 +591,15 @@ export const CombinedSandboxRoute: React.FC = () => {
             <button role="tab" aria-selected={active==='canvas'} className={`px-2 py-1 text-xs ${active==='canvas' ? 'bg-indigo-600 text-white' : 'bg-white'}`} onClick={() => onTab('canvas')}>Canvas</button>
           </div>
           {flags.sandboxScore && (
-            <ScorePill decisionId={decisionId} onExplain={() => {
-              if (!flags.sandboxExplain) return
-              setExplainOpen(true)
-              try { track('sandbox_score_explain_open', baseMeta()) } catch {}
-            }} />
+            // Cast to any to pass optional onExplain used by tests; ScorePill ignores unknown props at runtime.
+            <ScorePill
+              decisionId={decisionId}
+              {...({ onExplain: () => {
+                if (!flags.sandboxExplain) return
+                setExplainOpen(true)
+                try { track('sandbox_score_explain_open', baseMeta()) } catch {}
+              }} as any)}
+            />
           )}
           {/* Style toggle */}
           <button
@@ -569,6 +622,8 @@ export const CombinedSandboxRoute: React.FC = () => {
           >
             Send feedback
           </a>
+          {/* Export Report (Markdown) */}
+          {flags.exportReport && <HeaderExportReportControl />}
           {/* IO (Export / Import JSON) */}
           {flags.sandboxIO && <HeaderIOControls />}
           {/* Templates */}
@@ -693,11 +748,11 @@ export const CombinedSandboxRoute: React.FC = () => {
     </div>
   )
 
-  if (flags.sandboxMapping || flags.sandboxCompare || flags.sandboxScore || flags.sandboxWhatIf || flags.sandboxIO || flags.sandboxTemplates) {
+  if (flags.sandboxMapping || flags.sandboxCompare || flags.sandboxScore || flags.sandboxWhatIf || flags.sandboxIO || flags.sandboxTemplates || flags.exportReport) {
     return (
       <GraphProvider decisionId={decisionId}>
         {flags.sandboxWhatIf ? (
-          <OverridesProvider decisionId={decisionId}>{body}</OverridesProvider>
+          <OverridesProvider>{body}</OverridesProvider>
         ) : body}
       </GraphProvider>
     )
