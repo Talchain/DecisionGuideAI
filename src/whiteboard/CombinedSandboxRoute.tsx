@@ -47,6 +47,110 @@ export const CombinedSandboxRoute: React.FC = () => {
     )
   }
 
+  function HeaderSnapshotManagerControl() {
+    const graphApi = useGraph()
+    const [open, setOpen] = React.useState(false)
+    const [localSnaps, setLocalSnaps] = React.useState<Array<{ id: string; name: string; createdAt: number }>>(() => graphApi.listSnapshots() || [])
+    const triggerRef = React.useRef<HTMLButtonElement | null>(null)
+    const dialogRef = React.useRef<HTMLDivElement | null>(null)
+    const version = React.useRef(0)
+    React.useEffect(() => {
+      if (!open) return
+      const onKey = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') { setOpen(false); try { triggerRef.current?.focus() } catch {} }
+      }
+      window.addEventListener('keydown', onKey)
+      // Focus first focusable on open
+      const id = window.setTimeout(() => {
+        try {
+          const btn = dialogRef.current?.querySelector<HTMLElement>('button')
+          btn?.focus()
+        } catch {}
+      }, 0)
+      return () => { window.removeEventListener('keydown', onKey); window.clearTimeout(id) }
+    }, [open])
+    React.useEffect(() => {
+      if (open) setLocalSnaps(graphApi.listSnapshots() || [])
+    }, [open])
+    return (
+      <div className="relative inline-flex" data-dg-snapshots>
+        <button
+          ref={triggerRef}
+          className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          aria-controls="snapmgr-menu"
+          aria-expanded={open}
+          onClick={() => setOpen(v => !v)}
+        >Snapshots ▾</button>
+        <div aria-live="polite" className="sr-only" data-dg-snapshots-status />
+        {open && (
+          <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="snapmgr-label"
+            id="snapmgr-menu"
+            className="absolute right-0 top-[110%] z-30 min-w-[280px] max-h-64 overflow-auto rounded border bg-white shadow"
+            data-version={++version.current}
+          >
+            <div className="px-2 py-1 text-[10px] uppercase tracking-wide text-gray-500 border-b" id="snapmgr-label">Snapshots</div>
+            <div className="p-2">
+              <button
+                className="px-1.5 py-0.5 text-xs rounded border bg-white hover:bg-gray-50"
+                onClick={() => {
+                  try {
+                    const name = window.prompt('Snapshot name?', 'Snapshot') || 'Snapshot'
+                    graphApi.saveSnapshot(name)
+                    setAnnounce(`Snapshot saved: ${name}`)
+                    setLocalSnaps(graphApi.listSnapshots() || [])
+                  } catch {}
+                }}
+              >Create Snapshot</button>
+            </div>
+            <ul className="divide-y">
+              {localSnaps.map(s => (
+                <li key={s.id} className="px-2 py-1 text-xs flex items-center gap-2" data-dg-snapshot-item>
+                  <span className="flex-1 truncate" title={s.id}>{s.name}</span>
+                  <button className="px-1 py-0.5 border rounded bg-white hover:bg-gray-50" onClick={() => {
+                    try {
+                      const backup = graphApi.saveSnapshot('Pre-restore')
+                      lastRestoreBackupRef.current = backup?.snapId || null
+                      const ok = graphApi.restoreSnapshot(s.id)
+                      if ((ok as any)?.ok) {
+                        setShowRestoreUndo(true)
+                        window.setTimeout(() => setShowRestoreUndo(false), 10000)
+                        setAnnounce(`Restored ${s.name}. Undo available for 10 seconds.`)
+                        setLocalSnaps(graphApi.listSnapshots() || [])
+                      }
+                    } catch {}
+                  }}>Restore</button>
+                  <button className="px-1 py-0.5 border rounded bg-white hover:bg-gray-50" onClick={() => {
+                    const name = window.prompt('Rename to:', s.name)
+                    if (!name) return
+                    graphApi.renameSnapshot(s.id, name)
+                    setAnnounce(`Renamed snapshot to ${name}`)
+                    setLocalSnaps(graphApi.listSnapshots() || [])
+                  }} data-dg-snapshot-rename>Rename</button>
+                  <button className="px-1 py-0.5 border rounded bg-white hover:bg-gray-50" onClick={() => {
+                    const ok = graphApi.deleteSnapshot(s.id)
+                    if ((ok as any)?.ok) {
+                      lastDeletedNameRef.current = s.name
+                      setShowDeleteUndo(true)
+                      setAnnounce(`Deleted ${s.name}. Undo available for 10 seconds.`)
+                      setLocalSnaps(graphApi.listSnapshots() || [])
+                    }
+                  }}>Delete</button>
+                </li>
+              ))}
+              {localSnaps.length === 0 && (
+                <li className="px-2 py-2 text-xs text-gray-500">No snapshots</li>
+              )}
+            </ul>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   function DeleteUndoButton({ onDone }: { onDone: () => void }) {
     const api = useGraph()
     return (
@@ -562,6 +666,7 @@ export const CombinedSandboxRoute: React.FC = () => {
           {flags.sandboxIO && <HeaderIOControls />}
           {/* Templates */}
           {flags.sandboxTemplates && <HeaderTemplatesControls />}
+          {flags.snapshotManager && <HeaderSnapshotManagerControl />}
           {flags.sandboxCompare && <HeaderSnapshotControls />}
         </div>
       </div>
@@ -682,7 +787,7 @@ export const CombinedSandboxRoute: React.FC = () => {
     </div>
   )
 
-  if (flags.sandboxMapping || flags.sandboxCompare || flags.sandboxScore || flags.sandboxWhatIf) {
+  if (flags.sandboxMapping || flags.sandboxCompare || flags.sandboxScore || flags.sandboxWhatIf || flags.snapshotManager) {
     return (
       <GraphProvider decisionId={decisionId}>
         {flags.sandboxWhatIf ? (

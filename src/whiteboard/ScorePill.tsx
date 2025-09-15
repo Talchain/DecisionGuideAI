@@ -4,7 +4,7 @@ import { useGraph } from '@/sandbox/state/graphStore'
 import { scoreGraph } from '@/domain/kr'
 import { useTelemetry } from '@/lib/useTelemetry'
 
-export function ScorePill({ decisionId }: { decisionId: string }) {
+export function ScorePill({ decisionId, onExplain: _onExplain }: { decisionId: string; onExplain?: () => void }) {
   const flags = useFlags()
   const { graph } = useGraph()
   const { track } = useTelemetry()
