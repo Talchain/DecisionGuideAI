@@ -17,6 +17,8 @@ export type SandboxFlags = {
   sandboxTemplatesGallery: boolean
   sandboxIO: boolean
   exportReport: boolean
+  exportReportHtml: boolean
+  exportReportPdf: boolean
   sandboxCompare: boolean
   sandboxAIDraft: boolean
   sandboxScore: boolean
@@ -40,6 +42,8 @@ const defaultFlags: SandboxFlags = {
   sandboxTemplatesGallery: false,
   sandboxIO: false,
   exportReport: false,
+  exportReportHtml: false,
+  exportReportPdf: false,
   sandboxCompare: false,
   sandboxAIDraft: false,
   sandboxScore: false,

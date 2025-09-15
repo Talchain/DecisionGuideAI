@@ -12,6 +12,7 @@ import CompareView from '@/whiteboard/CompareView'
 import { useToast } from '@/components/ui/use-toast'
 import { normalizeGraph, serializeGraph, countEntities, validateAndNormalizeImport } from '@/sandbox/state/graphIO'
 import { buildReportMarkdown } from '@/whiteboard/export/reportMarkdown'
+import { buildReportHtml } from '@/whiteboard/export/reportHtml'
 import { templates, type Template } from '@/sandbox/templates'
 import { useDecision } from '@/contexts/DecisionContext'
 
@@ -39,6 +40,86 @@ export const CombinedSandboxRoute: React.FC = () => {
   // Gate: require sandbox flag; canvas mounts regardless (Canvas has its own local-first fallback).
   if (!flags.sandbox) {
     return <div className="p-8 text-center text-sm text-gray-700">Scenario Sandbox is not enabled.</div>
+  }
+
+  function HeaderExportHtmlPdfControls() {
+    const graphApi = useGraph()
+    const [live, setLive] = React.useState('')
+    const exportSuffix = () => {
+      const now = new Date()
+      const yyyy = now.getUTCFullYear()
+      const mm = String(now.getUTCMonth() + 1).padStart(2, '0')
+      const dd = String(now.getUTCDate()).padStart(2, '0')
+      const HH = String(now.getUTCHours()).padStart(2, '0')
+      const MM = String(now.getUTCMinutes()).padStart(2, '0')
+      return `${yyyy}${mm}${dd}-${HH}${MM}UTC`
+    }
+    const onExportHtml = React.useCallback(() => {
+      try {
+        const g = graphApi.getGraph()
+        const { nodeCount, edgeCount } = countEntities(g)
+        const html = buildReportHtml(g, { decisionId, decisionTitle: (decisionTitle || null) })
+        try { track('sandbox_export_report', { ...baseMeta(), format: 'html', nodeCount, edgeCount }) } catch {}
+        const suffix = exportSuffix()
+        const blob = new Blob([html], { type: 'text/html' })
+        const url = URL.createObjectURL(blob)
+        try {
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `decision-${decisionId}-report-${suffix}.html`
+          document.body.appendChild(a); a.click(); document.body.removeChild(a)
+        } finally { try { URL.revokeObjectURL(url) } catch {} }
+        setAnnounce(`Exported HTML report with ${nodeCount} nodes, ${edgeCount} links.`)
+        setLive(`Exported HTML report with ${nodeCount} nodes, ${edgeCount} links.`)
+      } catch (e) {
+        toast({ title: 'Failed to export HTML report', type: 'destructive' })
+      }
+    }, [graphApi])
+    const onExportPdf = React.useCallback(() => {
+      try {
+        const g = graphApi.getGraph()
+        const { nodeCount, edgeCount } = countEntities(g)
+        const html = buildReportHtml(g, { decisionId, decisionTitle: (decisionTitle || null) })
+        try { track('sandbox_export_report', { ...baseMeta(), format: 'pdf', nodeCount, edgeCount }) } catch {}
+        const suffix = exportSuffix()
+        const w = window.open('', '_blank', 'noopener,noreferrer')
+        if (!w) throw new Error('popup_blocked')
+        try {
+          w.document.open()
+          w.document.write(html)
+          try { w.document.title = `decision-${decisionId}-report-${suffix}.pdf` } catch {}
+          w.document.close()
+          try { w.focus() } catch {}
+          try { w.print() } catch {}
+        } finally {
+          // leave the window open to allow user to confirm print, do not auto-close
+        }
+        setAnnounce(`Opened PDF print for report with ${nodeCount} nodes, ${edgeCount} links.`)
+        setLive(`Opened PDF print for report with ${nodeCount} nodes, ${edgeCount} links.`)
+      } catch (e) {
+        toast({ title: 'Failed to export PDF', type: 'destructive' })
+      }
+    }, [graphApi])
+    if (!flags.exportReportHtml && !flags.exportReportPdf) return null
+    return (
+      <div className="inline-flex items-center gap-2" data-dg-export>
+        {flags.exportReportHtml && (
+          <button
+            aria-label="Export report (HTML)"
+            className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            onClick={onExportHtml}
+          >Report HTML</button>
+        )}
+        {flags.exportReportPdf && (
+          <button
+            aria-label="Export report (PDF)"
+            className="px-2 py-1 text-xs rounded border bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            onClick={onExportPdf}
+          >Report PDF</button>
+        )}
+        <div className="sr-only" aria-live="polite" data-dg-export-status>{live}</div>
+      </div>
+    )
   }
 
   function HeaderExportReportControl() {
@@ -624,6 +705,8 @@ export const CombinedSandboxRoute: React.FC = () => {
           </a>
           {/* Export Report (Markdown) */}
           {flags.exportReport && <HeaderExportReportControl />}
+          {/* Export Report (HTML/PDF) */}
+          {(flags.exportReportHtml || flags.exportReportPdf) && <HeaderExportHtmlPdfControls />}
           {/* IO (Export / Import JSON) */}
           {flags.sandboxIO && <HeaderIOControls />}
           {/* Templates */}
@@ -748,7 +831,7 @@ export const CombinedSandboxRoute: React.FC = () => {
     </div>
   )
 
-  if (flags.sandboxMapping || flags.sandboxCompare || flags.sandboxScore || flags.sandboxWhatIf || flags.sandboxIO || flags.sandboxTemplates || flags.exportReport) {
+  if (flags.sandboxMapping || flags.sandboxCompare || flags.sandboxScore || flags.sandboxWhatIf || flags.sandboxIO || flags.sandboxTemplates || flags.exportReport || flags.exportReportHtml || flags.exportReportPdf) {
     return (
       <GraphProvider decisionId={decisionId}>
         {flags.sandboxWhatIf ? (
