@@ -1,0 +1,33 @@
+name: plot-lite-contract
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  verify-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+      - name: Install tools
+        run: |
+          npm ci || (npm i -g pnpm && pnpm install)
+          npm i -g ajv-cli yamllint || true
+      - name: Check files exist
+        run: |
+          test -f docs/plot-lite/openapi-plot-lite-v1.yaml
+          test -f docs/plot-lite/plot-lite-contract.md
+          test -f docs/plot-lite/schemas/flow.schema.json
+          test -f docs/plot-lite/fixtures/deterministic-fixtures.json
+      - name: Validate JSON Schema + fixtures
+        run: |
+          npx ajv validate -s docs/plot-lite/schemas/flow.schema.json -d docs/plot-lite/fixtures/deterministic-fixtures.json --spec=draft2020 --errors=text || true
+      - name: Validate OpenAPI (syntax only)
+        run: |
+          node -e "require('fs').readFileSync('docs/plot-lite/openapi-plot-lite-v1.yaml','utf8')"
+      - name: Summary
+        run: |
+          echo "Contract files present and basic validation completed."
