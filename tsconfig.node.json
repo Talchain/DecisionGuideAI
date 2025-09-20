@@ -12,6 +12,11 @@
     "moduleDetection": "force",
     "noEmit": true,
 
+    /* Paths and Types for alias + Node env */
+    "baseUrl": ".",
+    "paths": { "@/*": ["src/*"] },
+    "types": ["node"],
+
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,
