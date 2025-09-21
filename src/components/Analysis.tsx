@@ -28,7 +28,6 @@ type LocationStateExt = LocationState & {
 };
 
 // Local DB row aliases (keep only what's used to satisfy noUnusedLocals)
-type DecisionsRow = Database['public']['Tables']['decisions']['Row'];
 type CollaboratorRow = Database['public']['Tables']['decision_collaborators']['Row'];
 
 // (RPC helper types not required explicitly here; we narrow results inline as needed)
@@ -242,7 +241,7 @@ export default function Analysis() {
         const { data, error } = await supabase
           .from('decision_collaborators')
           .select('*')
-          .eq('decision_id', decisionId as CollaboratorRow['decision_id'])
+          .eq('decision_id', decisionId as any)
           .returns<CollaboratorRow[]>();
           
         if (error) throw error;
@@ -373,7 +372,7 @@ export default function Analysis() {
       const { error } = await supabase
         .from('decision_collaborators')
         .delete()
-        .eq('id', collaboratorId as CollaboratorRow['id']);
+        .eq('id', collaboratorId as any);
         
       if (error) throw error;
       
@@ -397,8 +396,8 @@ export default function Analysis() {
       };
       const { error } = await supabase
         .from('decisions')
-        .update(payload)
-        .eq('id', permanentId as DecisionsRow['id']);
+        .update(payload as any)
+        .eq('id', permanentId as any);
         
       if (error) throw error;
       
