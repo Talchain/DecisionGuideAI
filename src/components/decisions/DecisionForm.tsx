@@ -9,6 +9,7 @@ import {
   Plus, Minus, Loader, ArrowRight
 } from 'lucide-react';
 import Tooltip from '../Tooltip';
+import { onSubmitDescribeDecision } from '../../plotLite/submit';
 
 interface FormData {
   type: string;
@@ -78,6 +79,9 @@ export default function DecisionForm() {
     }
 
     setLoading(true);
+
+    // Flag-gated PLoT‑lite hook: fire-and-forget, no UI change. Safe when flag OFF.
+    void onSubmitDescribeDecision(formData.title);
 
     try {
       const { data, error } = await createDecision({
