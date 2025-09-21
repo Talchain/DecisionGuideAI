@@ -16,7 +16,7 @@ if (import.meta.env.DEV && typeof navigator !== 'undefined' && 'serviceWorker' i
     })
 }
 
-import React, { StrictMode } from 'react'
+import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter as Router } from 'react-router-dom'
 

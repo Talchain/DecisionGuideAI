@@ -53,7 +53,7 @@ export const supabase = createClient<Database>(
         cache: 'no-store',
       },
     },
-  }
+  } as any // typing-only: cast options to satisfy SDK type shape without altering runtime
 )
 
 // ---------------- Auth Helpers ----------------
@@ -77,7 +77,8 @@ export async function getProfile(userId: string) {
     const { data, error, status } = await supabase
       .from('user_profiles')
       .select('*')
-      .eq('id', userId)
+      .eq('id', userId as any) // typing-only: branded id cast
+      .returns<Database['public']['Tables']['user_profiles']['Row']>()
       .single()
     if (error && status !== 406) throw error
     return { data, error: null }
@@ -103,8 +104,8 @@ export async function updateProfile(
   try {
     const { data, error } = await supabase
       .from('user_profiles')
-      .update(updates)
-      .eq('id', userId)
+      .update(updates as Database['public']['Tables']['user_profiles']['Update'])
+      .eq('id', userId as any) // typing-only: branded id cast
       .select()
       .single()
     if (error) throw error
@@ -174,7 +175,7 @@ export async function createDecision(
     console.log('[Supabase] ⏳ inserting via supabase-js…')
     const { data, error } = await supabase
       .from('decisions')
-      .insert([decision])
+      .insert([decision] as Database['public']['Tables']['decisions']['Insert'][])
       .select()
       .single()
     console.log('[Supabase] ⏪ insert response', { data, error })
@@ -210,7 +211,7 @@ export async function getDecisions(userId: string) {
       .select(
         'id, title, type, reversibility, importance, created_at, updated_at, user_id, description'
       )
-      .eq('user_id', userId)
+      .eq('user_id', userId as any) // typing-only: branded id cast
       .order('created_at', { ascending: false })
     if (error) throw error
     return { data, error: null }
@@ -249,7 +250,7 @@ export async function inviteCollaborator(
           can_suggest: role !== 'viewer',
           can_rate: role !== 'viewer'
         }
-      })
+      } as any) // typing-only: Insert union + branded IDs
       .select()
       .single()
 
@@ -277,6 +278,7 @@ export async function fetchCollaborators(decisionId: string) {
       .rpc('get_decision_collaborators', {
         decision_id_param: decisionId
       })
+      .returns<any[]>()
 
     if (error) throw error
     return { data, error: null }
@@ -300,7 +302,7 @@ export async function removeCollaborator(collabRowId: string) {
     const { error } = await supabase
       .from('decision_collaborators')
       .delete()
-      .eq('id', collabRowId)
+      .eq('id', collabRowId as any) // typing-only: branded id cast
 
     if (error) throw error
     return { error: null }
@@ -342,7 +344,7 @@ export async function saveDecisionAnalysis(
           )
         : analysisData
 
-    const { error: anaErr } = await supabase
+    const { error: anaErr } = await (supabase as any)
       .from('decision_analysis')
       .upsert(
         {
@@ -351,8 +353,8 @@ export async function saveDecisionAnalysis(
           status,
           version: 1,
           metadata: { ...metadata, lastUpdated: timestamp },
-        },
-        { onConflict: 'decision_id' }
+        } as any,
+        { onConflict: 'decision_id' } as any
       )
 
     if (anaErr) throw anaErr
@@ -373,7 +375,7 @@ export async function fetchDecisionCollaborators(decisionId: string) {
   try {
     const { data, error } = await supabase.rpc('get_decision_collaborators', {
       decision_id_param: decisionId,
-    })
+    }).returns<any[]>()
     if (error) throw error
     return { data, error: null }
   } catch (err) {
@@ -394,7 +396,7 @@ export async function fetchUserDirectory(searchTerm: string = '') {
     const { data, error } = await supabase.rpc(
       'get_user_directory',
       { search_term: searchTerm }
-    );
+    ).returns<any[]>();
     
     if (error) throw error;
     return { data, error: null };
@@ -426,7 +428,7 @@ export async function inviteTeamMember(
         member_role: role,
         decision_role: decisionRole
       }
-    );
+    ).returns<any>();
     
     if (error) throw error;
     return { data, error: null };
@@ -446,7 +448,7 @@ export async function getTeamInvitations(teamId: string) {
     const { data, error } = await supabase.rpc(
       'manage_team_invite',
       { team_uuid: teamId }
-    );
+    ).returns<any[]>();
     
     if (error) throw error;
     return { data, error: null };
@@ -463,7 +465,7 @@ export async function getTeamInvitations(teamId: string) {
 
 export async function getMyInvitations() {
   try {
-    const { data, error } = await supabase.rpc('get_my_invitations');
+    const { data, error } = await supabase.rpc('get_my_invitations').returns<any[]>();
     
     if (error) throw error;
     return { data, error: null };
@@ -483,7 +485,7 @@ export async function acceptTeamInvitation(invitationId: string) {
     const { data, error } = await supabase.rpc(
       'accept_team_invitation',
       { invitation_id: invitationId }
-    );
+    ).returns<any>();
     
     if (error) throw error;
     return { data, error: null };
@@ -500,10 +502,10 @@ export async function acceptTeamInvitation(invitationId: string) {
 
 export async function revokeTeamInvitation(invitationId: string) {
   try {
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('invitations')
-      .update({ status: 'expired' })
-      .eq('id', invitationId);
+      .update({ status: 'expired' } as any)
+      .eq('id', invitationId as any);
       
     if (error) throw error;
     return { error: null };
@@ -523,7 +525,7 @@ export async function resendTeamInvitation(invitationId: string) {
     const { data, error } = await supabase.rpc(
       'resend_team_invitation',
       { invitation_id: invitationId }
-    );
+    ).returns<any>();
     
     if (error) throw error;
     
@@ -545,13 +547,13 @@ export async function createInvitation(email: string) {
       return { data: null, error: new Error('User not authenticated') };
     }
     
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from('invitations')
       .insert({
         email,
         status: 'pending',
         invited_by: userId
-      })
+      } as any)
       .select()
       .single();
       
