@@ -1,6 +1,7 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
+    "composite": true,
     "noEmit": true,
     "useDefineForClassFields": true,
     "allowImportingTsExtensions": true,
@@ -8,4 +9,9 @@
     "moduleDetection": "force"
   },
   "include": ["src", "vite.config.ts", "src/vite-env.d.ts"]
+  ,
+  "exclude": [
+    "**/*.test.*",
+    "**/__tests__/**"
+  ]
 }
