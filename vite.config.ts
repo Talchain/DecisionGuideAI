@@ -47,6 +47,12 @@ export default defineConfig({
     middlewareMode: false,
     fs: {
       strict: true
+    },
+    proxy: {
+      '/plot-lite': {
+        target: 'http://localhost:4311',
+        changeOrigin: true
+      }
     }
   },
   preview: {
