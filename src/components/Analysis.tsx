@@ -9,6 +9,8 @@ import type { Bias } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { saveDecisionAnalysis, supabase, createDecision } from '../lib/supabase';
 import AnalysisContent from './Analysis/AnalysisContent';
+import { flags } from '../flags';
+import { GhostPanel } from '../plotLite/GhostPanel';
 
 // Define types
 interface LocationState {
@@ -585,6 +587,9 @@ export default function Analysis() {
           </div>
         </div>
       </div>
+
+      {/* PLoT-lite Ghost Panel (flag-gated) */}
+      {flags.plotLite.enabled ? <GhostPanel /> : null}
 
       {/* Main Content */}
       <div className="flex flex-1 min-h-0 gap-4">
