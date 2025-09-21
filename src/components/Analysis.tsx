@@ -188,11 +188,14 @@ export default function Analysis() {
         reversibility: state.reversibility, importance: state.importance,
         status: 'in_progress', description: state.goals?.join("; ")
       });
-       if (error) throw error;
-       if (!data || !data.id) throw new Error("No ID returned");
-       hasCreatedPermanentDecisionRef.current = true;
-       if (componentMountedRef.current) setPermanentId(data.id);
-       return data.id;
+      if (error) throw error;
+      const newId = (data && typeof data === 'object' && data !== null && 'id' in (data as any))
+        ? ((data as any).id as string)
+        : null;
+      if (!newId) throw new Error("No ID returned");
+      hasCreatedPermanentDecisionRef.current = true;
+      if (componentMountedRef.current) setPermanentId(newId);
+      return newId;
      } catch (err) {
        console.error("Error creating permanent decision:", err);
        if (componentMountedRef.current) setSaveError("Failed to initialize decision saving.");
@@ -360,27 +363,8 @@ export default function Analysis() {
     }
   }, [permanentId, isValidDecisionId, fetchCollaborators, supabase]);
   
-  // Function to update collaborator
-  const updateCollaborator = useCallback(async (collaboratorId: string, updates: Partial<Collaborator>) => {
-    if (!permanentId) return;
-    
-    try {
-      const { error } = await supabase
-        .from('decision_collaborators')
-        .update(updates as any)
-        .eq('id', collaboratorId as CollaboratorRow['id']);
-        
-      if (error) throw error;
-      
-      // Refresh collaborator list
-      fetchCollaborators(permanentId);
-      
-    } catch (err) {
-      console.error('Error updating collaborator:', err);
-      setSaveError(err instanceof Error ? err.message : 'Failed to update collaborator');
-    }
-  }, [permanentId, fetchCollaborators, supabase]);
-  
+  // (updateCollaborator removed – unused)
+
   // Function to remove collaborator
   const removeCollaborator = useCallback(async (collaboratorId: string) => {
     if (!permanentId) return;
@@ -407,12 +391,13 @@ export default function Analysis() {
     if (!permanentId) return;
     
     try {
+      const payload: Database['public']['Tables']['decisions']['Update'] = {
+        collaboration_settings: settings as unknown as Database['public']['Tables']['decisions']['Row']['collaboration_settings'],
+        is_collaborative: true,
+      };
       const { error } = await supabase
         .from('decisions')
-        .update({
-          collaboration_settings: settings,
-          is_collaborative: true
-        })
+        .update(payload)
         .eq('id', permanentId as DecisionsRow['id']);
         
       if (error) throw error;
