@@ -67,3 +67,8 @@ jobs:
 
       - name: Run tests (Vitest)
         run: npx vitest run --reporter=dot
+      - name: Ensure tests.json (non-blocking)
+        run: node tools/ensure-tests-json.js
+        env:
+          ENSURE_TESTS_JSON_SKIP_RUN: '1'
+        continue-on-error: true
