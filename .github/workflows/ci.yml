@@ -1,0 +1,69 @@
+# CI for DecisionGuideAI — runs on pushes and pull requests to main.
+# It creates two required checks: "TypeScript" and "Tests".
+# Safe dummy env vars are provided so no real secrets are needed in CI.
+
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+# Cancel older runs of the same branch/PR to save time.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Safe defaults so builds/tests do not need real keys.
+env:
+  TZ: UTC
+  CI: "1"
+  VITE_OPENAI_API_KEY: "test"
+  VITE_SUPABASE_URL: "http://localhost"
+  VITE_SUPABASE_ANON_KEY: "test"
+  VITE_FEATURE_SSE: "0"
+  VITE_EDGE_GATEWAY_URL: "http://localhost:3001"
+  VITE_PLOT_LITE_BASE_URL: "/plot-lite"
+
+jobs:
+  tsc:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check (no emit)
+        run: npx tsc -p tsconfig.app.json --noEmit
+
+  vitest:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests (Vitest)
+        run: npx vitest run --reporter=dot
