@@ -1,0 +1,106 @@
+# PoC Compose for Scenario Sandbox
+# Profile: poc - Gateway(3001), Warp(4311), Jobs(4500), optional Usage Meter(4600)
+# Usage: docker compose --profile poc up
+
+version: '3.8'
+
+services:
+  # Core services for PoC
+  gateway:
+    profiles: ["poc"]
+    image: scenario-sandbox/gateway:latest
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - WARP_SERVICE_URL=http://warp:4311
+      - JOBS_SERVICE_URL=http://jobs:4500
+      - USAGE_METER_URL=http://usage-meter:4600
+      # Safe defaults - all powerful features OFF
+      - SECRET_HYGIENE_ENABLED=0
+      - ALERT_ONLY=1
+      - OPENAPI_ENFORCE=0
+      - LOG_GUARDRAIL_ENABLED=0
+      - TELEMETRY_ENABLED=0
+    networks:
+      - poc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  warp:
+    profiles: ["poc"]
+    image: scenario-sandbox/warp:latest
+    ports:
+      - "4311:4311"
+    environment:
+      - NODE_ENV=production
+      - PORT=4311
+      - GATEWAY_URL=http://gateway:3001
+      # Safe defaults
+      - SIM_MODE=0
+      - FAST_CANCEL=0
+    networks:
+      - poc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4311/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  jobs:
+    profiles: ["poc"]
+    image: scenario-sandbox/jobs:latest
+    ports:
+      - "4500:4500"
+    environment:
+      - NODE_ENV=production
+      - PORT=4500
+      - GATEWAY_URL=http://gateway:3001
+      # Safe defaults
+      - PROGRESS_ENABLED=0
+    networks:
+      - poc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4500/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # Optional Usage Meter (can be disabled with --scale usage-meter=0)
+  usage-meter:
+    profiles: ["poc"]
+    image: scenario-sandbox/usage-meter:latest
+    ports:
+      - "4600:4600"
+    environment:
+      - NODE_ENV=production
+      - PORT=4600
+      # Safe defaults
+      - METER_ENABLED=0
+    networks:
+      - poc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4600/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      replicas: 1
+
+networks:
+  poc-network:
+    driver: bridge
+    name: scenario-sandbox-poc
+
+# Volumes for persistent data if needed
+volumes:
+  poc-data:
+    name: scenario-sandbox-poc-data

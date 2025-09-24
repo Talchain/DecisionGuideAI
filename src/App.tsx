@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import { useEffect } from 'react'
 import {
   Routes,
   Route,
@@ -38,6 +38,8 @@ import OptionsIdeation from './components/OptionsIdeation'
 import CriteriaForm from './components/CriteriaForm'
 import Analysis from './components/Analysis'
 
+import SandboxStreamPanel from './components/SandboxStreamPanel'
+import GhostPanel from './plotLite/GhostPanel'
 import { DecisionProvider } from './contexts/DecisionContext'
 import { TeamsProvider }  from './contexts/TeamsContext'
 
@@ -77,6 +79,8 @@ export default function App() {
                   {/* Public */}
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/about" element={<About />} />
+                  <Route path="/sandbox" element={<SandboxStreamPanel />} />
+                  <Route path="/ghost" element={<GhostPanel />} />
 
                   {/* Auth */}
                   <Route element={<AuthLayout />}>

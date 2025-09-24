@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.app.json",
+  "include": [
+    "src/flags.ts",
+    "src/lib/sseClient.ts",
+    "src/lib/markdown.ts",
+    "src/lib/history.ts",
+    "src/lib/session.ts",
+    "src/lib/export.ts",
+    "src/lib/runReport.ts",
+    "src/lib/telemetry.ts",
+    "src/components/SandboxStreamPanel.tsx",
+    "src/components/RunHistoryDrawer.tsx",
+    "src/components/RunReportDrawer.tsx"
+  ],
+  "exclude": [
+    "src/components/teams/**",
+    "src/components/ProsConsList/**",
+    "src/contexts/**",
+    "src/types/**",
+    "src/lib/supabase.ts",
+    "src/lib/api.ts"
+  ]
+}

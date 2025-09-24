@@ -1,0 +1,29 @@
+name: Windsurf Direct Apply
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    branches: [ main ]
+
+jobs:
+  validate-allowed-paths:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate PR unified diff
+        run: |
+          git diff --unified=0 ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }} > pr.diff
+          wc -l pr.diff || true
+
+      - name: Validate allowed paths
+        run: |
+          node .github/scripts/validate-allowed-paths.js pr.diff

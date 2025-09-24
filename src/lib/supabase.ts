@@ -2,7 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '../types/database'
-import { authLogger } from './auth/authLogger'
+ 
 
 // —————————————————————————————————————————————————————————————————————————————
 // DEV-only env logging
@@ -336,7 +336,7 @@ export async function saveDecisionAnalysis(
     const payload =
       JSON.stringify(analysisData).length > 500_000
         ? JSON.parse(
-            JSON.stringify(analysisData, (k, v) =>
+            JSON.stringify(analysisData, (_k, v) =>
               typeof v === 'string' && v.length > 10000
                 ? v.slice(0, 10000) + '…'
                 : v
