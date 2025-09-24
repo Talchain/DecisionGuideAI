@@ -11,6 +11,7 @@ async function primeCopyPage(page: import('@playwright/test').Page) {
       localStorage.setItem('feature.streamBuffer', '0') // deterministic preview flush on terminal
       localStorage.setItem('feature.params', '1')
       localStorage.setItem('feature.runReport', '1')
+      localStorage.setItem('feature.shortcuts', '1')
       // Treat as authenticated for E2E
       localStorage.setItem('sb-auth-token', '1')
     } catch {}
@@ -72,19 +73,15 @@ test('Markdown preview Copy code copies fenced contents and announces', async ({
   await page.goto('/#/sandbox')
   await page.waitForLoadState('domcontentloaded')
   await page.waitForLoadState('networkidle')
-  // Wait until Start appears in either form
-  await page.waitForFunction(() => {
-    const byId = document.querySelector('[data-testid="start-btn"]') as HTMLElement | null
-    if (byId && (byId.offsetParent !== null)) return true
-    const buttons = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[]
-    return buttons.some((b) => /\bStart\b/i.test(b.textContent || ''))
-  }, { timeout: 20000 })
-  // Click Start (data-testid or role fallback)
+  // Click Start (robust: testid or role)
+  await page.waitForSelector('[data-testid="start-btn"]', { timeout: 15000 })
   if (await page.getByTestId('start-btn').isVisible().catch(() => false)) {
     await page.getByTestId('start-btn').click()
   } else {
     await page.getByRole('button', { name: 'Start' }).click()
   }
+  // Wait for FakeEventSource instance to be created by the app
+  await page.waitForFunction(() => (window as any).FakeEventSource?.instances?.length > 0, { timeout: 20000 })
 
   // Drive a minimal fenced block stream: ```js, body, ``` then done
   await page.evaluate(() => {
