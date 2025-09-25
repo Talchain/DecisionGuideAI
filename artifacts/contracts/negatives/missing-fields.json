@@ -1,0 +1,108 @@
+{
+  "title": "Missing Required Fields - Should Fail",
+  "description": "Examples of requests that should fail validation due to missing required fields",
+  "scenarios": [
+    {
+      "name": "Analysis Request - Missing Decision Title",
+      "should_fail": true,
+      "reason": "decisionTitle is required",
+      "status_code": 400,
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis",
+        "body": {
+          "options": [
+            {"name": "Option A", "description": "First choice"},
+            {"name": "Option B", "description": "Second choice"}
+          ],
+          "context": {
+            "timeline": "6 months",
+            "budget": "$100K"
+          }
+        }
+      },
+      "expected_error": {
+        "error": "validation_failed",
+        "message": "Missing required field: decisionTitle",
+        "field": "decisionTitle"
+      }
+    },
+    {
+      "name": "Analysis Request - Missing Options",
+      "should_fail": true,
+      "reason": "At least 2 options are required",
+      "status_code": 400,
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis",
+        "body": {
+          "decisionTitle": "Choose Infrastructure",
+          "context": {
+            "timeline": "6 months"
+          }
+        }
+      },
+      "expected_error": {
+        "error": "validation_failed",
+        "message": "At least 2 options are required for analysis",
+        "field": "options"
+      }
+    },
+    {
+      "name": "Analysis Request - Single Option Only",
+      "should_fail": true,
+      "reason": "Need at least 2 options for comparison",
+      "status_code": 400,
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis",
+        "body": {
+          "decisionTitle": "Should I do X?",
+          "options": [
+            {"name": "Yes", "description": "Do it"}
+          ]
+        }
+      },
+      "expected_error": {
+        "error": "insufficient_options",
+        "message": "Analysis requires at least 2 decision options",
+        "provided": 1,
+        "minimum": 2
+      }
+    },
+    {
+      "name": "Cancel Request - Missing Analysis ID",
+      "should_fail": true,
+      "reason": "Analysis ID is required in URL",
+      "status_code": 404,
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis//cancel",
+        "body": {
+          "reason": "user_requested"
+        }
+      },
+      "expected_error": {
+        "error": "invalid_endpoint",
+        "message": "Analysis ID is required"
+      }
+    },
+    {
+      "name": "Job Status - Empty Job ID",
+      "should_fail": true,
+      "reason": "Job ID cannot be empty",
+      "status_code": 400,
+      "request": {
+        "method": "GET",
+        "url": "/api/jobs/",
+        "headers": {
+          "Authorization": "Bearer valid-token"
+        }
+      },
+      "expected_error": {
+        "error": "invalid_job_id",
+        "message": "Job ID cannot be empty"
+      }
+    }
+  ]
+}

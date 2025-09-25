@@ -1,0 +1,33 @@
+{
+  "models": {
+    "gpt-4-turbo": {
+      "input": 0.01,
+      "output": 0.03
+    },
+    "gpt-4": {
+      "input": 0.03,
+      "output": 0.06
+    },
+    "gpt-3.5-turbo": {
+      "input": 0.0015,
+      "output": 0.002
+    }
+  },
+  "estimations": {
+    "typical_scenario": {
+      "tokens": 1000,
+      "steps": 5,
+      "duration_ms": 15000
+    },
+    "complex_scenario": {
+      "tokens": 3000,
+      "steps": 8,
+      "duration_ms": 45000
+    }
+  },
+  "advisory_thresholds": {
+    "tokens": 5000,
+    "cost": 1.0,
+    "duration_ms": 60000
+  }
+}

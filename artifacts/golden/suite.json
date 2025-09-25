@@ -1,0 +1,74 @@
+{
+  "version": "1.0",
+  "name": "Decision Guide AI Golden Suite",
+  "description": "Reference test suite for regression testing",
+  "created": "2025-09-25T08:43:47.767Z",
+  "config": {
+    "timeout": 60000,
+    "retries": 0,
+    "mode": "simulation"
+  },
+  "tests": [
+    {
+      "name": "framework-selection-baseline",
+      "scenario": "artifacts/scenarios/sample-framework.yaml",
+      "params": {
+        "seed": 42,
+        "temperature": 0.7,
+        "maxTokens": 1200
+      },
+      "description": "Baseline framework selection scenario",
+      "tags": [
+        "baseline",
+        "framework",
+        "quick"
+      ],
+      "expectedHash": "00cbff0234c61b25"
+    },
+    {
+      "name": "database-selection-baseline",
+      "scenario": "artifacts/scenarios/sample-database.yaml",
+      "params": {
+        "seed": 42,
+        "temperature": 0.7,
+        "maxTokens": 1200
+      },
+      "description": "Baseline database selection scenario",
+      "tags": [
+        "baseline",
+        "database",
+        "quick"
+      ]
+    },
+    {
+      "name": "framework-high-temp",
+      "scenario": "artifacts/scenarios/sample-framework.yaml",
+      "params": {
+        "seed": 42,
+        "temperature": 0.9,
+        "maxTokens": 1200
+      },
+      "description": "Framework selection with high temperature",
+      "tags": [
+        "framework",
+        "temperature",
+        "variant"
+      ]
+    },
+    {
+      "name": "big-scenario-comprehensive",
+      "scenario": "artifacts/scenarios/big-scenario.yaml",
+      "params": {
+        "seed": 123,
+        "temperature": 0.8,
+        "maxTokens": 2000
+      },
+      "description": "Comprehensive enterprise architecture decision",
+      "tags": [
+        "enterprise",
+        "comprehensive",
+        "slow"
+      ]
+    }
+  ]
+}

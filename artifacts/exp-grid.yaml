@@ -1,0 +1,47 @@
+# Experiment Grid Configuration
+# Runs scenario variations across multiple dimensions for comparison
+
+name: "Temperature and Token Limits"
+description: "Test different temperature and token limit settings"
+
+# Scenarios to test (relative to artifacts/scenarios/)
+scenarios:
+  - "sample-framework.yaml"
+  - "cloud-migration.yaml"
+  - "database-selection.yaml"
+  - "mobile-strategy.yaml"
+
+# Grid dimensions - each combination will be tested
+grid:
+  temperature:
+    - 0.3   # Conservative
+    - 0.7   # Balanced (baseline)
+    - 0.9   # Creative
+
+  maxTokens:
+    - 800   # Constrained
+    - 1200  # Standard (baseline)
+    - 2000  # Generous
+
+# Baseline configuration (for comparison)
+baseline:
+  temperature: 0.7
+  maxTokens: 1200
+
+# Experiment settings
+settings:
+  # Deterministic seeds for each scenario (consistent across variants)
+  seeds:
+    "sample-framework.yaml": 1001
+    "cloud-migration.yaml": 1002
+    "database-selection.yaml": 1003
+    "mobile-strategy.yaml": 1004
+
+  # Run mode
+  mode: "simulation"  # Always use simulation for experiments
+
+  # Output format preferences
+  output:
+    include_diffs: true
+    max_comparisons: 10  # Limit diff comparisons to top changes
+    sort_by: "tokens"   # Primary sort: tokens, cost, duration

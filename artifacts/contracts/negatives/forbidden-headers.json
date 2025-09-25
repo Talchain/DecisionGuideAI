@@ -1,0 +1,173 @@
+{
+  "title": "Forbidden Headers - Should Fail",
+  "description": "Examples of requests that should fail due to forbidden or malformed headers",
+  "scenarios": [
+    {
+      "name": "Missing Authorization Header",
+      "should_fail": true,
+      "reason": "Authorization header is required",
+      "status_code": 401,
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "decisionTitle": "Valid Decision",
+          "options": [
+            {"name": "Option A", "description": "First choice"},
+            {"name": "Option B", "description": "Second choice"}
+          ]
+        }
+      },
+      "expected_error": {
+        "error": "unauthorized",
+        "message": "Authorization header is required",
+        "suggestions": [
+          "Include Authorization: Bearer <token> header",
+          "Verify your API token is valid"
+        ]
+      }
+    },
+    {
+      "name": "Invalid Authorization Format",
+      "should_fail": true,
+      "reason": "Authorization header must use Bearer format",
+      "status_code": 401,
+      "request": {
+        "method": "GET",
+        "url": "/api/analysis/ana_demo_001",
+        "headers": {
+          "Authorization": "Basic dXNlcjpwYXNz"
+        }
+      },
+      "expected_error": {
+        "error": "invalid_auth_format",
+        "message": "Authorization must use Bearer token format",
+        "expected_format": "Bearer <token>",
+        "received_format": "Basic"
+      }
+    },
+    {
+      "name": "Empty Bearer Token",
+      "should_fail": true,
+      "reason": "Bearer token cannot be empty",
+      "status_code": 401,
+      "request": {
+        "method": "GET",
+        "url": "/api/analysis/ana_demo_001/status",
+        "headers": {
+          "Authorization": "Bearer "
+        }
+      },
+      "expected_error": {
+        "error": "empty_token",
+        "message": "Bearer token cannot be empty",
+        "suggestions": [
+          "Provide a valid API token",
+          "Check token is not accidentally trimmed"
+        ]
+      }
+    },
+    {
+      "name": "Wrong Content-Type for JSON",
+      "should_fail": true,
+      "reason": "JSON endpoints require application/json content type",
+      "status_code": 415,
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis",
+        "headers": {
+          "Authorization": "Bearer valid-token",
+          "Content-Type": "text/plain"
+        },
+        "body": "{\"decisionTitle\":\"Test\",\"options\":[{\"name\":\"A\",\"description\":\"First\"},{\"name\":\"B\",\"description\":\"Second\"}]}"
+      },
+      "expected_error": {
+        "error": "unsupported_media_type",
+        "message": "Content-Type must be application/json for JSON endpoints",
+        "received": "text/plain",
+        "expected": "application/json"
+      }
+    },
+    {
+      "name": "Prohibited X-Admin Header",
+      "should_fail": true,
+      "reason": "Admin headers are not allowed in public API",
+      "status_code": 403,
+      "request": {
+        "method": "GET",
+        "url": "/api/analysis",
+        "headers": {
+          "Authorization": "Bearer valid-token",
+          "X-Admin-Override": "true"
+        }
+      },
+      "expected_error": {
+        "error": "forbidden_header",
+        "message": "Header 'X-Admin-Override' is not allowed",
+        "forbidden_headers": ["X-Admin-Override", "X-Internal-*", "X-Debug-*"]
+      }
+    },
+    {
+      "name": "Invalid Accept Header for SSE",
+      "should_fail": true,
+      "reason": "SSE endpoints require text/event-stream accept header",
+      "status_code": 406,
+      "request": {
+        "method": "GET",
+        "url": "/api/analysis/ana_demo_001/stream",
+        "headers": {
+          "Authorization": "Bearer valid-token",
+          "Accept": "application/json"
+        }
+      },
+      "expected_error": {
+        "error": "not_acceptable",
+        "message": "SSE endpoints require Accept: text/event-stream",
+        "received": "application/json",
+        "expected": "text/event-stream"
+      }
+    },
+    {
+      "name": "Malformed User-Agent",
+      "should_fail": true,
+      "reason": "User-Agent contains illegal characters",
+      "status_code": 400,
+      "request": {
+        "method": "GET",
+        "url": "/api/analysis",
+        "headers": {
+          "Authorization": "Bearer valid-token",
+          "User-Agent": "Test\\r\\nX-Injection: attack"
+        }
+      },
+      "expected_error": {
+        "error": "malformed_header",
+        "message": "User-Agent header contains illegal characters",
+        "illegal_chars": ["\\r", "\\n"]
+      }
+    },
+    {
+      "name": "Oversized Header Value",
+      "should_fail": true,
+      "reason": "Header value exceeds maximum length",
+      "status_code": 431,
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis",
+        "headers": {
+          "Authorization": "Bearer valid-token",
+          "X-Custom-Context": "A".repeat(8193)
+        }
+      },
+      "expected_error": {
+        "error": "header_too_large",
+        "message": "Header 'X-Custom-Context' exceeds maximum length of 8192 bytes",
+        "max_length": 8192,
+        "received_length": 8193
+      }
+    }
+  ]
+}

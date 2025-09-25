@@ -1,0 +1,50 @@
+{
+  "timestamp": "2025-09-25T16:02:59.951Z",
+  "version": "dry-run-2025-09-25",
+  "branch": "platform/overnight-ui-fixtures",
+  "commit": "ae749d9a",
+  "checks": [
+    {
+      "name": "TypeScript Compilation",
+      "status": "pass",
+      "message": "Clean compilation"
+    },
+    {
+      "name": "Unit Tests",
+      "status": "pass",
+      "message": "All tests passing"
+    },
+    {
+      "name": "Contract Wall",
+      "status": "pass",
+      "message": "API contracts validated"
+    },
+    {
+      "name": "Integration Check",
+      "status": "pass",
+      "message": "System integration verified"
+    },
+    {
+      "name": "Determinism Check",
+      "status": "pass",
+      "message": "Analysis results consistent"
+    },
+    {
+      "name": "Config Security",
+      "status": "pass",
+      "message": "Configuration secure"
+    },
+    {
+      "name": "Secret/PII Guards",
+      "status": "fail",
+      "message": "Some powerful features enabled",
+      "details": "Command failed: npm run flags:print 2>/dev/null | grep -q \"No feature flags currently active\" || npm run flags:print 2>/dev/null | grep -E \"ENABLE.*false\" >/dev/null"
+    }
+  ],
+  "decision": "NO-GO",
+  "score": {
+    "passed": 6,
+    "total": 7,
+    "percentage": 86
+  }
+}

@@ -1,0 +1,188 @@
+{
+  "id": "ana_contract_example_001",
+  "decisionTitle": "Cloud Infrastructure Migration Strategy",
+  "timestamp": "2024-09-24T19:15:00Z",
+  "status": "completed",
+  "version": "1.0",
+
+  "summary": {
+    "recommendation": "Hybrid cloud approach with phased migration",
+    "confidence": 89,
+    "totalOptions": 3,
+    "analysisType": "comprehensive",
+    "riskLevel": "medium"
+  },
+
+  "context": {
+    "industry": "fintech",
+    "companySize": "mid-market",
+    "timeline": "12 months",
+    "budget": "$2.5M",
+    "constraints": ["regulatory_compliance", "zero_downtime", "data_sovereignty"]
+  },
+
+  "options": [
+    {
+      "id": "opt_001",
+      "name": "Full Cloud Migration",
+      "description": "Complete migration to AWS with containerization",
+      "score": 72,
+      "ranking": 3,
+      "pros": [
+        "Maximum cost savings long-term",
+        "Full cloud-native capabilities",
+        "Simplified infrastructure management"
+      ],
+      "cons": [
+        "Highest migration complexity",
+        "Significant upfront investment",
+        "Regulatory compliance challenges"
+      ],
+      "riskLevel": "high",
+      "estimatedCost": "$2.8M",
+      "timeline": "18 months",
+      "confidence": 74
+    },
+    {
+      "id": "opt_002",
+      "name": "Hybrid Cloud Approach",
+      "description": "Critical systems in private cloud, non-critical in public cloud",
+      "score": 89,
+      "ranking": 1,
+      "pros": [
+        "Balanced risk and reward",
+        "Regulatory compliance maintained",
+        "Incremental migration reduces risk"
+      ],
+      "cons": [
+        "Complex multi-cloud management",
+        "Higher ongoing operational complexity",
+        "Limited cost optimization"
+      ],
+      "riskLevel": "medium",
+      "estimatedCost": "$2.1M",
+      "timeline": "12 months",
+      "confidence": 91
+    },
+    {
+      "id": "opt_003",
+      "name": "Modernize On-Premises",
+      "description": "Upgrade existing infrastructure with modern tooling",
+      "score": 63,
+      "ranking": 2,
+      "pros": [
+        "Lowest migration risk",
+        "Maintains full data control",
+        "Leverages existing investments"
+      ],
+      "cons": [
+        "Limited scalability benefits",
+        "Higher long-term costs",
+        "Technical debt accumulation"
+      ],
+      "riskLevel": "low",
+      "estimatedCost": "$1.2M",
+      "timeline": "8 months",
+      "confidence": 85
+    }
+  ],
+
+  "analysis": {
+    "keyFactors": [
+      {
+        "factor": "regulatory_compliance",
+        "weight": 0.25,
+        "impact": "Hybrid approach best balances compliance with modernization"
+      },
+      {
+        "factor": "cost_optimization",
+        "weight": 0.20,
+        "impact": "Full cloud offers best long-term savings but higher upfront cost"
+      },
+      {
+        "factor": "risk_management",
+        "weight": 0.30,
+        "impact": "Hybrid provides safest path with manageable complexity"
+      },
+      {
+        "factor": "scalability_needs",
+        "weight": 0.25,
+        "impact": "All options provide adequate scalability for projected growth"
+      }
+    ],
+
+    "riskAssessment": {
+      "overallRisk": "medium",
+      "keyRisks": [
+        {
+          "risk": "regulatory_non_compliance",
+          "probability": "low",
+          "impact": "high",
+          "mitigation": "Phased approach with compliance validation at each step"
+        },
+        {
+          "risk": "project_overrun",
+          "probability": "medium",
+          "impact": "medium",
+          "mitigation": "Agile methodology with monthly checkpoints"
+        },
+        {
+          "risk": "skill_gap",
+          "probability": "high",
+          "impact": "low",
+          "mitigation": "Training program and external consultants for first 6 months"
+        }
+      ]
+    },
+
+    "financialProjection": {
+      "recommendedOption": "opt_002",
+      "initialInvestment": "$2.1M",
+      "operationalSavings": {
+        "year1": "$180K",
+        "year2": "$420K",
+        "year3": "$680K"
+      },
+      "breakEven": "2.8 years",
+      "roi5Year": "23%"
+    }
+  },
+
+  "recommendations": {
+    "primary": "Proceed with Hybrid Cloud Approach (Option 2)",
+    "rationale": "Best balance of risk, compliance, and modernization benefits for fintech context",
+    "nextSteps": [
+      "Conduct detailed compliance audit with legal team",
+      "Engage cloud architects for hybrid design workshop",
+      "Establish project governance and milestone tracking",
+      "Begin team training on cloud technologies"
+    ],
+    "alternatives": {
+      "if_budget_reduced": "Consider Modernize On-Premises with cloud-ready architecture",
+      "if_timeline_extended": "Full Cloud Migration becomes more viable with 24-month timeline"
+    }
+  },
+
+  "metadata": {
+    "analysisModel": "gpt-4-turbo",
+    "processingTime": 8.7,
+    "tokensGenerated": 2847,
+    "confidenceFactors": [
+      "industry_expertise",
+      "similar_case_studies",
+      "regulatory_knowledge",
+      "cost_modeling"
+    ],
+    "dataSourcesUsed": [
+      "market_research",
+      "regulatory_guidelines",
+      "vendor_pricing",
+      "case_studies"
+    ],
+    "limitations": [
+      "Vendor-specific pricing may vary",
+      "Regulatory landscape subject to change",
+      "Implementation complexity depends on current architecture"
+    ]
+  }
+}

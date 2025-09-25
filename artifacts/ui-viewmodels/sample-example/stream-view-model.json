@@ -1,0 +1,212 @@
+{
+  "sessionId": "unknown-session",
+  "status": "completed",
+  "tokens": [
+    {
+      "id": "token_000",
+      "text": "Based",
+      "timestamp": 1758793330551
+    },
+    {
+      "id": "token_001",
+      "text": " on",
+      "timestamp": 1758793330651
+    },
+    {
+      "id": "token_002",
+      "text": " your",
+      "timestamp": 1758793330751
+    },
+    {
+      "id": "token_003",
+      "text": " requirements",
+      "timestamp": 1758793330851
+    },
+    {
+      "id": "token_004",
+      "text": ",",
+      "timestamp": 1758793330951
+    },
+    {
+      "id": "token_005",
+      "text": " I",
+      "timestamp": 1758793331051
+    },
+    {
+      "id": "token_006",
+      "text": " recommend",
+      "timestamp": 1758793331151
+    },
+    {
+      "id": "token_007",
+      "text": " **React**",
+      "timestamp": 1758793331251
+    },
+    {
+      "id": "token_008",
+      "text": " for",
+      "timestamp": 1758793331351
+    },
+    {
+      "id": "token_009",
+      "text": " this",
+      "timestamp": 1758793331451
+    },
+    {
+      "id": "token_010",
+      "text": " project",
+      "timestamp": 1758793331551
+    },
+    {
+      "id": "token_011",
+      "text": ".",
+      "timestamp": 1758793331651
+    },
+    {
+      "id": "token_012",
+      "text": "\n\n",
+      "timestamp": 1758793331751
+    },
+    {
+      "id": "token_013",
+      "text": "##",
+      "timestamp": 1758793331851
+    },
+    {
+      "id": "token_014",
+      "text": " Analysis",
+      "timestamp": 1758793331951
+    },
+    {
+      "id": "token_015",
+      "text": "\n\n",
+      "timestamp": 1758793332051
+    },
+    {
+      "id": "token_016",
+      "text": "React",
+      "timestamp": 1758793332151
+    },
+    {
+      "id": "token_017",
+      "text": " offers",
+      "timestamp": 1758793332251
+    },
+    {
+      "id": "token_018",
+      "text": " the",
+      "timestamp": 1758793332351
+    },
+    {
+      "id": "token_019",
+      "text": " best",
+      "timestamp": 1758793332451
+    },
+    {
+      "id": "token_020",
+      "text": " combination",
+      "timestamp": 1758793332551
+    },
+    {
+      "id": "token_021",
+      "text": " of",
+      "timestamp": 1758793332651
+    },
+    {
+      "id": "token_022",
+      "text": ":\n\n",
+      "timestamp": 1758793332751
+    },
+    {
+      "id": "token_023",
+      "text": "- ",
+      "timestamp": 1758793332851
+    },
+    {
+      "id": "token_024",
+      "text": "Developer",
+      "timestamp": 1758793332951
+    },
+    {
+      "id": "token_025",
+      "text": " experience",
+      "timestamp": 1758793333051
+    },
+    {
+      "id": "token_026",
+      "text": "\n",
+      "timestamp": 1758793333151
+    },
+    {
+      "id": "token_027",
+      "text": "- ",
+      "timestamp": 1758793333251
+    },
+    {
+      "id": "token_028",
+      "text": "Community",
+      "timestamp": 1758793333351
+    },
+    {
+      "id": "token_029",
+      "text": " support",
+      "timestamp": 1758793333451
+    },
+    {
+      "id": "token_030",
+      "text": "\n",
+      "timestamp": 1758793333551
+    },
+    {
+      "id": "token_031",
+      "text": "- ",
+      "timestamp": 1758793333651
+    },
+    {
+      "id": "token_032",
+      "text": "Performance",
+      "timestamp": 1758793333751
+    },
+    {
+      "id": "token_033",
+      "text": " optimization",
+      "timestamp": 1758793333851
+    },
+    {
+      "id": "token_034",
+      "text": "\n\n",
+      "timestamp": 1758793333951
+    },
+    {
+      "id": "token_035",
+      "text": "**Final",
+      "timestamp": 1758793334051
+    },
+    {
+      "id": "token_036",
+      "text": " recommendation:** ",
+      "timestamp": 1758793334151
+    },
+    {
+      "id": "token_037",
+      "text": "React",
+      "timestamp": 1758793334251
+    },
+    {
+      "id": "token_038",
+      "text": " with",
+      "timestamp": 1758793334351
+    },
+    {
+      "id": "token_039",
+      "text": " TypeScript",
+      "timestamp": 1758793334451
+    }
+  ],
+  "metadata": {
+    "totalTokens": 1000,
+    "totalCost": 0.02,
+    "duration": 10000,
+    "model": "gpt-4-turbo"
+  }
+}

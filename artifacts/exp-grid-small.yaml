@@ -1,0 +1,29 @@
+# Small Experiment Grid for Testing
+# Single scenario with just 2 variants
+
+name: "Small Test Grid"
+description: "Test with minimal variants"
+
+scenarios:
+  - "sample-framework.yaml"
+
+grid:
+  temperature:
+    - 0.7   # Baseline
+    - 0.9   # Creative
+
+  maxTokens:
+    - 1200  # Baseline
+
+baseline:
+  temperature: 0.7
+  maxTokens: 1200
+
+settings:
+  seeds:
+    "sample-framework.yaml": 42
+  mode: "simulation"
+  output:
+    include_diffs: true
+    max_comparisons: 5
+    sort_by: "tokens"

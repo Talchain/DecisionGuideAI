@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SARB Explorer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .header .subtitle {
+            font-size: 1.2rem;
+            color: #6c757d;
+            margin-bottom: 2rem;
+        }
+
+        .upload-zone {
+            border: 3px dashed #007bff;
+            border-radius: 12px;
+            padding: 3rem;
+            text-align: center;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 2rem;
+        }
+
+        .upload-zone:hover {
+            border-color: #0056b3;
+            background: #f8f9ff;
+        }
+
+        .upload-zone.dragover {
+            border-color: #28a745;
+            background: #f8fff8;
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #007bff;
+            margin-bottom: 1rem;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: #495057;
+        }
+
+        .upload-hint {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-top: 0.5rem;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .bundle-info {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .info-card {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+
+        .info-label {
+            font-size: 0.85rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }
+
+        .info-value {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .steps-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border-left: 4px solid #28a745;
+            background: #f8f9fa;
+            margin-bottom: 1rem;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .step-number {
+            background: #28a745;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .step-details {
+            flex: 1;
+        }
+
+        .step-stage {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.25rem;
+        }
+
+        .step-metrics {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .transcript-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .transcript-content {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 2rem;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid #e9ecef;
+            margin-bottom: 2rem;
+        }
+
+        .tab {
+            padding: 1rem 2rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #6c757d;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab:hover {
+            color: #007bff;
+        }
+
+        .tab.active {
+            color: #007bff;
+            border-bottom-color: #007bff;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .reset-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+        }
+
+        .reset-btn:hover {
+            background: #545b62;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tabs {
+                flex-direction: column;
+            }
+
+            .tab {
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 SARB Explorer</h1>
+            <p class="subtitle">Load and explore Scenario Run Bundles (.sarb.zip) locally in your browser</p>
+        </div>
+
+        <div class="upload-zone" id="uploadZone">
+            <div class="upload-icon">📁</div>
+            <div class="upload-text">Choose SARB file or drag & drop</div>
+            <div class="upload-hint">Select a .sarb.zip bundle to explore its contents</div>
+            <input type="file" id="fileInput" class="file-input" accept=".zip,.sarb.zip">
+        </div>
+
+        <div class="bundle-info" id="bundleInfo">
+            <div class="info-grid" id="infoGrid">
+                <!-- Populated by JavaScript -->
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('overview')">Overview</button>
+                <button class="tab" onclick="showTab('steps')">Steps</button>
+                <button class="tab" onclick="showTab('transcript')">Transcript</button>
+            </div>
+
+            <div class="tab-content active" id="overview">
+                <div class="section-title">📋 Scenario Overview</div>
+                <div id="scenarioOverview"></div>
+            </div>
+
+            <div class="tab-content" id="steps">
+                <div class="section-title">⚡ Execution Steps</div>
+                <div class="steps-section">
+                    <div id="stepsContainer"></div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="transcript">
+                <div class="section-title">📄 Analysis Transcript</div>
+                <div class="transcript-section">
+                    <div class="transcript-content" id="transcriptContent"></div>
+                </div>
+            </div>
+
+            <button class="reset-btn" onclick="resetExplorer()">Load Different Bundle</button>
+        </div>
+    </div>
+
+    <script>
+        let currentBundle = null;
+
+        // File upload handling
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const bundleInfo = document.getElementById('bundleInfo');
+
+        uploadZone.addEventListener('click', () => fileInput.click());
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        async function handleFile(file) {
+            if (!file.name.endsWith('.zip') && !file.name.endsWith('.sarb.zip')) {
+                showError('Please select a .sarb.zip file');
+                return;
+            }
+
+            showLoading();
+
+            try {
+                // Load and extract ZIP
+                const bundle = await extractSARBBundle(file);
+                currentBundle = bundle;
+                displayBundle(bundle);
+            } catch (error) {
+                showError(`Failed to load bundle: ${error.message}`);
+            }
+        }
+
+        async function extractSARBBundle(file) {
+            // Simple ZIP parsing for SARB files
+            const JSZip = await loadJSZip();
+            const zip = await JSZip.loadAsync(file);
+
+            // Find the JSON file
+            let jsonFile = null;
+            zip.forEach((relativePath, file) => {
+                if (relativePath.endsWith('.sarb.json')) {
+                    jsonFile = file;
+                }
+            });
+
+            if (!jsonFile) {
+                throw new Error('No .sarb.json file found in bundle');
+            }
+
+            const jsonContent = await jsonFile.async('string');
+            return JSON.parse(jsonContent);
+        }
+
+        function displayBundle(bundle) {
+            // Hide upload zone and show bundle info
+            uploadZone.style.display = 'none';
+            bundleInfo.style.display = 'block';
+
+            // Populate info grid
+            const infoGrid = document.getElementById('infoGrid');
+            const createdDate = new Date(bundle.created);
+            const duration = Math.round(bundle.results.duration / 1000);
+            const cost = bundle.results.cost || 0;
+
+            infoGrid.innerHTML = `
+                <div class="info-card">
+                    <div class="info-label">Title</div>
+                    <div class="info-value">${escapeHtml(bundle.scenario.title)}</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Created</div>
+                    <div class="info-value">${createdDate.toLocaleDateString()}</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Duration</div>
+                    <div class="info-value">${duration}s</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Tokens</div>
+                    <div class="info-value">${bundle.results.tokensGenerated.toLocaleString()}</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Cost</div>
+                    <div class="info-value">$${cost.toFixed(4)}</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-label">Model</div>
+                    <div class="info-value">${bundle.execution.params.model}</div>
+                </div>
+            `;
+
+            // Populate scenario overview
+            const scenarioOverview = document.getElementById('scenarioOverview');
+            scenarioOverview.innerHTML = `
+                <div class="transcript-content">
+                    <strong>Title:</strong> ${escapeHtml(bundle.scenario.title)}
+
+                    ${bundle.scenario.description ? `<strong>Description:</strong> ${escapeHtml(bundle.scenario.description)}\n\n` : ''}
+
+                    <strong>Options:</strong>
+                    ${bundle.scenario.options ? bundle.scenario.options.map((opt, i) =>
+                        `${i + 1}. ${escapeHtml(opt.name || 'Option ' + (i + 1))}${opt.description ? '\n   ' + escapeHtml(opt.description) : ''}`
+                    ).join('\n\n') : 'No options specified'}
+
+                    ${bundle.scenario.constraints ? `\n<strong>Constraints:</strong>\n${bundle.scenario.constraints.map(c => '• ' + escapeHtml(c)).join('\n')}` : ''}
+                </div>
+            `;
+
+            // Populate steps
+            const stepsContainer = document.getElementById('stepsContainer');
+            stepsContainer.innerHTML = bundle.results.steps.map(step => `
+                <div class="step-item">
+                    <div class="step-number">${step.step}</div>
+                    <div class="step-details">
+                        <div class="step-stage">${formatStage(step.stage)}</div>
+                        <div class="step-metrics">${step.tokens} tokens • ${Math.round(step.deltaTime/1000)}s</div>
+                    </div>
+                </div>
+            `).join('');
+
+            // Populate transcript
+            const transcriptContent = document.getElementById('transcriptContent');
+            transcriptContent.textContent = bundle.transcript.markdown || 'No transcript available';
+
+            // Show first tab
+            showTab('overview');
+        }
+
+        function showTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.textContent.toLowerCase().includes(tabName)) {
+                    tab.classList.add('active');
+                }
+            });
+
+            // Update tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        function resetExplorer() {
+            uploadZone.style.display = 'block';
+            bundleInfo.style.display = 'none';
+            fileInput.value = '';
+            currentBundle = null;
+        }
+
+        function showLoading() {
+            uploadZone.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>Loading bundle...</div>
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            uploadZone.innerHTML = `
+                <div class="upload-icon">📁</div>
+                <div class="upload-text">Choose SARB file or drag & drop</div>
+                <div class="upload-hint">Select a .sarb.zip bundle to explore its contents</div>
+                <div class="error-message">${escapeHtml(message)}</div>
+            `;
+        }
+
+        function formatStage(stage) {
+            return stage.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load JSZip library dynamically
+        async function loadJSZip() {
+            if (window.JSZip) {
+                return window.JSZip;
+            }
+
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+                script.onload = () => resolve(window.JSZip);
+                script.onerror = () => reject(new Error('Failed to load JSZip library'));
+                document.head.appendChild(script);
+            });
+        }
+    </script>
+</body>
+</html>

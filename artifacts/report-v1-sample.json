@@ -1,0 +1,99 @@
+{
+  "id": "ana_demo_12345",
+  "decisionTitle": "Market Entry Strategy - Southeast Asia",
+  "timestamp": "2024-09-24T16:18:00Z",
+  "status": "completed",
+  "summary": {
+    "recommendation": "Partnership approach recommended",
+    "confidence": 87,
+    "totalOptions": 3,
+    "analysisType": "comprehensive"
+  },
+  "options": [
+    {
+      "name": "Organic Growth",
+      "score": 72,
+      "pros": [
+        "Full control over brand and operations",
+        "Lower regulatory complexity",
+        "Gradual market learning opportunity"
+      ],
+      "cons": [
+        "Slowest time to market (18-24 months)",
+        "Highest upfront investment required",
+        "Limited local market knowledge"
+      ],
+      "riskLevel": "medium",
+      "estimatedROI": "15-20% after 3 years"
+    },
+    {
+      "name": "Strategic Partnership",
+      "score": 89,
+      "pros": [
+        "Immediate market access through local partner",
+        "Shared risks and costs",
+        "Local expertise and relationships",
+        "Faster regulatory approval"
+      ],
+      "cons": [
+        "Shared profits and decision-making",
+        "Partner dependency risk",
+        "Potential cultural misalignment"
+      ],
+      "riskLevel": "low",
+      "estimatedROI": "22-28% after 2 years"
+    },
+    {
+      "name": "Acquisition",
+      "score": 65,
+      "pros": [
+        "Instant market presence",
+        "Existing customer base",
+        "Established operations"
+      ],
+      "cons": [
+        "Highest capital requirement",
+        "Integration complexity",
+        "Cultural integration challenges",
+        "Regulatory approval uncertainty"
+      ],
+      "riskLevel": "high",
+      "estimatedROI": "12-18% after 4 years"
+    }
+  ],
+  "riskAnalysis": {
+    "overallRisk": "medium",
+    "keyRisks": [
+      "Regulatory changes in target markets",
+      "Currency fluctuation exposure",
+      "Competitive response from incumbents"
+    ],
+    "mitigationStrategies": [
+      "Diversify across multiple markets",
+      "Hedge currency exposure",
+      "Build strong local partnerships"
+    ]
+  },
+  "financialProjections": {
+    "initialInvestment": "$2.5M",
+    "breakeven": "18 months",
+    "projectedRevenue": {
+      "year1": "$1.2M",
+      "year2": "$3.8M",
+      "year3": "$7.2M"
+    }
+  },
+  "nextSteps": [
+    "Identify 3-5 potential local partners",
+    "Conduct due diligence on partnership candidates",
+    "Prepare partnership term sheets",
+    "Begin regulatory compliance research"
+  ],
+  "metadata": {
+    "analysisVersion": "1.2.0",
+    "modelUsed": "gpt-4-turbo",
+    "processingTime": "3.2 seconds",
+    "tokensGenerated": 1847,
+    "simulationMode": false
+  }
+}

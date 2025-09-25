@@ -1,0 +1,231 @@
+{
+  "info": {
+    "name": "DecisionGuide AI - Scenario Sandbox API",
+    "version": "1.0.0",
+    "description": "Developer-friendly collection for Scenario Sandbox PoC testing",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{api_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string",
+      "description": "API base URL (dev: localhost:3000, staging: your-staging-url)"
+    },
+    {
+      "key": "api_token",
+      "value": "your-api-token-here",
+      "type": "string",
+      "description": "Bearer token for authentication"
+    },
+    {
+      "key": "user_id",
+      "value": "test-user-123",
+      "type": "string",
+      "description": "User ID for testing"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/health",
+          "host": ["{{base_url}}"],
+          "path": ["api", "health"]
+        },
+        "description": "Basic health check - no auth required"
+      },
+      "response": []
+    },
+    {
+      "name": "Create Decision",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Market Entry Strategy\",\n  \"description\": \"Evaluating options for entering a new geographic market\",\n  \"context\": {\n    \"industry\": \"technology\",\n    \"timeline\": \"6 months\",\n    \"budget\": \"500k\",\n    \"riskTolerance\": \"medium\"\n  },\n  \"options\": [\n    {\n      \"name\": \"Organic Growth\",\n      \"description\": \"Build local presence gradually\",\n      \"estimatedCost\": 300000,\n      \"timeline\": \"18 months\"\n    },\n    {\n      \"name\": \"Acquisition\",\n      \"description\": \"Acquire existing local player\",\n      \"estimatedCost\": 800000,\n      \"timeline\": \"6 months\"\n    },\n    {\n      \"name\": \"Partnership\",\n      \"description\": \"Joint venture with local company\",\n      \"estimatedCost\": 200000,\n      \"timeline\": \"9 months\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/decisions",
+          "host": ["{{base_url}}"],
+          "path": ["api", "decisions"]
+        },
+        "description": "Create a new decision scenario for analysis"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Decision",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/decisions/{{decision_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "decisions", "{{decision_id}}"]
+        },
+        "description": "Retrieve a specific decision by ID"
+      },
+      "response": []
+    },
+    {
+      "name": "List User Decisions",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/decisions?user_id={{user_id}}&limit=10&offset=0",
+          "host": ["{{base_url}}"],
+          "path": ["api", "decisions"],
+          "query": [
+            {
+              "key": "user_id",
+              "value": "{{user_id}}"
+            },
+            {
+              "key": "limit",
+              "value": "10"
+            },
+            {
+              "key": "offset",
+              "value": "0"
+            }
+          ]
+        },
+        "description": "List decisions for a user with pagination"
+      },
+      "response": []
+    },
+    {
+      "name": "Start Analysis (Stream)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Accept",
+            "value": "text/event-stream"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"decisionId\": \"{{decision_id}}\",\n  \"analysisType\": \"comprehensive\",\n  \"parameters\": {\n    \"depth\": \"detailed\",\n    \"includeRiskAnalysis\": true,\n    \"includeFinancialModel\": true,\n    \"scenarioCount\": 3,\n    \"confidenceLevel\": 0.95\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/analysis/stream",
+          "host": ["{{base_url}}"],
+          "path": ["api", "analysis", "stream"]
+        },
+        "description": "Start streaming analysis of a decision scenario"
+      },
+      "response": []
+    },
+    {
+      "name": "Get Analysis Results",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/analysis/{{analysis_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "analysis", "{{analysis_id}}"]
+        },
+        "description": "Retrieve completed analysis results"
+      },
+      "response": []
+    },
+    {
+      "name": "Export Analysis (PDF)",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/pdf"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/analysis/{{analysis_id}}/export?format=pdf",
+          "host": ["{{base_url}}"],
+          "path": ["api", "analysis", "{{analysis_id}}", "export"],
+          "query": [
+            {
+              "key": "format",
+              "value": "pdf"
+            }
+          ]
+        },
+        "description": "Export analysis results as PDF report"
+      },
+      "response": []
+    },
+    {
+      "name": "Simulation Mode - Quick Test",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Simulation-Mode",
+            "value": "true"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"scenario\": \"market_entry_test\",\n  \"seed\": 42,\n  \"options\": 3,\n  \"complexity\": \"medium\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/simulate/analysis",
+          "host": ["{{base_url}}"],
+          "path": ["api", "simulate", "analysis"]
+        },
+        "description": "Quick simulation for testing (no real AI calls)"
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-set decision_id from previous requests",
+          "if (pm.response && pm.response.json() && pm.response.json().id) {",
+          "    pm.collectionVariables.set('decision_id', pm.response.json().id);",
+          "}",
+          "",
+          "// Auto-set analysis_id from previous requests",
+          "if (pm.response && pm.response.json() && pm.response.json().analysisId) {",
+          "    pm.collectionVariables.set('analysis_id', pm.response.json().analysisId);",
+          "}"
+        ]
+      }
+    }
+  ]
+}

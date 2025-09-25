@@ -1,0 +1,49 @@
+{
+  "id": "hiring-strategy-scenario",
+  "title": "Engineering Team Scaling Strategy",
+  "description": "Startup deciding how to scale engineering team rapidly",
+  "seed": 999,
+  "context": {
+    "currentTeam": "8 engineers",
+    "targetSize": "20 engineers",
+    "timeline": "6 months",
+    "budget": "$2.8M",
+    "growth": "100% YoY revenue growth",
+    "challenges": ["Competitive market", "Remote work", "Technical complexity"]
+  },
+  "options": [
+    {
+      "name": "Local Hiring Focus",
+      "description": "Focus on hiring senior engineers in home market",
+      "estimatedCost": 2800000,
+      "timeline": "6-9 months",
+      "quality": "high"
+    },
+    {
+      "name": "Global Remote Hiring",
+      "description": "Hire globally with remote-first approach",
+      "estimatedCost": 2200000,
+      "timeline": "3-5 months",
+      "quality": "medium-high"
+    },
+    {
+      "name": "Contractor + FTE Mix",
+      "description": "Mix of full-time employees and experienced contractors",
+      "estimatedCost": 2400000,
+      "timeline": "2-4 months",
+      "quality": "medium"
+    },
+    {
+      "name": "Acquisition Approach",
+      "description": "Acquire small engineering team or consultancy",
+      "estimatedCost": 3500000,
+      "timeline": "4-6 months",
+      "quality": "variable"
+    }
+  ],
+  "expectedOutput": {
+    "recommendation": "Global Remote Hiring",
+    "confidence": 95,
+    "reasoning": "Best balance of speed, cost, and talent access in current market"
+  }
+}

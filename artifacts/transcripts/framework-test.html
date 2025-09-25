@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SARB Transcript - Choose Development Framework</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+            font-size: 1.75rem;
+        }
+
+        .header .subtitle {
+            color: #6c757d;
+            font-size: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .meta-item {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+
+        .meta-label {
+            font-size: 0.85rem;
+            color: #6c757d;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.25rem;
+        }
+
+        .meta-value {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .execution-steps {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .steps-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            padding: 1rem;
+            border-left: 4px solid #28a745;
+            background: #f8f9fa;
+            margin-bottom: 1rem;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .step-number {
+            background: #28a745;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 1rem;
+        }
+
+        .step-details {
+            flex: 1;
+        }
+
+        .step-stage {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 0.25rem;
+        }
+
+        .step-metrics {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+
+        .transcript {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+
+        .transcript h2 {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .reveal-controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s ease;
+        }
+
+        .btn:hover {
+            background: #0056b3;
+        }
+
+        .btn.secondary {
+            background: #6c757d;
+        }
+
+        .btn.secondary:hover {
+            background: #545b62;
+        }
+
+        .transcript-content {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, monospace;
+            font-size: 0.95rem;
+            line-height: 1.7;
+            white-space: pre-wrap;
+            border: 1px solid #e9ecef;
+        }
+
+        .token {
+            opacity: 0;
+            animation: fadeIn 0.3s ease-in-out forwards;
+            display: inline;
+        }
+
+        .token.revealed {
+            opacity: 1;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .footer {
+            text-align: center;
+            color: #6c757d;
+            font-size: 0.9rem;
+            padding: 2rem 0;
+        }
+
+        @media print {
+            body {
+                background: white;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+
+            .header, .execution-steps, .transcript {
+                box-shadow: none;
+                border: 1px solid #e9ecef;
+            }
+
+            .reveal-controls {
+                display: none;
+            }
+
+            .token {
+                opacity: 1 !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .meta-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .reveal-controls {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 Choose Development Framework</h1>
+            <div class="subtitle">Evaluate JavaScript frameworks for a new project</div>
+
+            <div class="meta-grid">
+                <div class="meta-item">
+                    <div class="meta-label">Created</div>
+                    <div class="meta-value">24/09/2025</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Duration</div>
+                    <div class="meta-value">23s</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Tokens</div>
+                    <div class="meta-value">395</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Cost</div>
+                    <div class="meta-value">$0.7900</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Model</div>
+                    <div class="meta-value">gpt-4-turbo</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Seed</div>
+                    <div class="meta-value">42</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="execution-steps">
+            <h2>⚡ Execution Timeline</h2>
+            
+            <div class="step">
+                <div class="step-number">1</div>
+                <div class="step-details">
+                    <div class="step-stage">Initialization</div>
+                    <div class="step-metrics">75 tokens • 5s</div>
+                </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">2</div>
+                <div class="step-details">
+                    <div class="step-stage">Option Analysis</div>
+                    <div class="step-metrics">71 tokens • 3s</div>
+                </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">3</div>
+                <div class="step-details">
+                    <div class="step-stage">Scoring</div>
+                    <div class="step-metrics">77 tokens • 5s</div>
+                </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">4</div>
+                <div class="step-details">
+                    <div class="step-stage">Risk Assessment</div>
+                    <div class="step-metrics">78 tokens • 5s</div>
+                </div>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">5</div>
+                <div class="step-details">
+                    <div class="step-stage">Final Report</div>
+                    <div class="step-metrics">94 tokens • 5s</div>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="transcript">
+            <h2>📄 Analysis Transcript</h2>
+
+            <div class="reveal-controls">
+                <button class="btn" onclick="revealAll()">⚡ Reveal All</button>
+                <button class="btn secondary" onclick="revealStep()">👆 Reveal Step-by-Step</button>
+                <button class="btn secondary" onclick="resetReveal()">🔄 Reset</button>
+            </div>
+
+            <div class="transcript-content" id="transcriptContent">
+                <span class="token" data-index="0"># Decision Analysis Report</span><span class="token" data-index="1">**Decision:** Select Frontend Framework for E-commerce Platform</span><span class="token" data-index="2">## Context</span><span class="token" data-index="3">- **Timeline:** 6 months development
+- **Budget:** $150,000</span><span class="token" data-index="4">## Analysis Summary</span><span class="token" data-index="5">After analyzing your 3 options, here are the key findings:</span><span class="token" data-index="6">## Option Comparison</span><span class="token" data-index="7">### 1</span><span class="token" data-index="8">. </span><span class="token" data-index="9">React
+- **Score:** 85/100
+- **Description:** Popular library with large ecosystem and community support
+- **Analysis:** Detailed evaluation shows strong potential</span><span class="token" data-index="10">.
+
+</span><span class="token" data-index="11">### 2</span><span class="token" data-index="12">. </span><span class="token" data-index="13">Vue.js
+- **Score:** 72/100
+- **Description:** Progressive framework with gentle learning curve
+- **Analysis:** Detailed evaluation shows moderate viability</span><span class="token" data-index="14">.
+
+</span><span class="token" data-index="15">### 3</span><span class="token" data-index="16">. </span><span class="token" data-index="17">Angular
+- **Score:** 91/100
+- **Description:** Full-featured framework with enterprise tooling
+- **Analysis:** Detailed evaluation shows strong potential</span><span class="token" data-index="18">.
+
+</span><span class="token" data-index="19">## Recommendation</span><span class="token" data-index="20">Based on the analysis, **Angular** appears to be the most suitable option</span><span class="token" data-index="21">.
+
+</span><span class="token" data-index="22">## Next Steps</span><span class="token" data-index="23">1</span><span class="token" data-index="24">. </span><span class="token" data-index="25">Review the detailed analysis above
+2</span><span class="token" data-index="26">. </span><span class="token" data-index="27">Consider any additional constraints
+3</span><span class="token" data-index="28">. </span><span class="token" data-index="29">Plan implementation timeline</span><span class="token" data-index="30">*Analysis completed in 23 seconds with 395 tokens.*</span>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Generated by SARB Transcript Tool • Self-contained HTML • Print/Save Friendly</p>
+            <p>Bundle: Choose-Development-Framework.sarb.zip</p>
+        </div>
+    </div>
+
+    <script>
+        let revealIndex = 0;
+        const tokens = document.querySelectorAll('.token');
+
+        function revealAll() {
+            tokens.forEach(token => {
+                token.classList.add('revealed');
+            });
+            revealIndex = tokens.length;
+        }
+
+        function revealStep() {
+            if (revealIndex < tokens.length) {
+                // Reveal next 5-10 tokens at once (realistic typing speed)
+                const step = Math.min(Math.floor(Math.random() * 5) + 5, tokens.length - revealIndex);
+
+                for (let i = 0; i < step; i++) {
+                    if (revealIndex < tokens.length) {
+                        setTimeout(() => {
+                            tokens[revealIndex].classList.add('revealed');
+                        }, i * 50); // 50ms between tokens
+                        revealIndex++;
+                    }
+                }
+            }
+        }
+
+        function resetReveal() {
+            tokens.forEach(token => {
+                token.classList.remove('revealed');
+            });
+            revealIndex = 0;
+        }
+
+        // Auto-reveal on scroll for better UX
+        function handleScroll() {
+            const transcriptEl = document.getElementById('transcriptContent');
+            const rect = transcriptEl.getBoundingClientRect();
+
+            if (rect.top < window.innerHeight && revealIndex < tokens.length * 0.3) {
+                revealStep();
+            }
+        }
+
+        window.addEventListener('scroll', handleScroll);
+
+        // Reveal first few tokens immediately
+        setTimeout(() => {
+            revealStep();
+        }, 500);
+    </script>
+</body>
+</html>

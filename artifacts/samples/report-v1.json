@@ -1,0 +1,21 @@
+{
+  "meta": {
+    "seed": 42,
+    "timestamp": "2025-09-25T16:02:58.622Z",
+    "duration": 1234
+  },
+  "steps": [
+    {
+      "id": 1,
+      "type": "analysis",
+      "duration": 500,
+      "status": "completed"
+    },
+    {
+      "id": 2,
+      "type": "generation",
+      "duration": 734,
+      "status": "completed"
+    }
+  ]
+}

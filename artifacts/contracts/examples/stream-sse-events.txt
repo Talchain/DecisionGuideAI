@@ -1,0 +1,58 @@
+// Stream SSE Events Example
+// Content-Type: text/event-stream
+// Copy-runnable sequence for testing
+
+// 1. Connection Established
+event: connected
+data: {"analysisId": "ana_demo_001", "timestamp": "2024-09-24T19:15:00Z", "status": "connected"}
+
+// 2. Analysis Started
+event: start
+data: {"analysisId": "ana_demo_001", "status": "started", "estimatedDuration": "3-5 seconds"}
+
+// 3. Progress Updates
+event: progress
+data: {"step": "analyzing_options", "progress": 25, "message": "Evaluating decision options..."}
+
+event: progress
+data: {"step": "risk_assessment", "progress": 50, "message": "Assessing risks and opportunities..."}
+
+event: progress
+data: {"step": "generating_insights", "progress": 75, "message": "Generating insights and recommendations..."}
+
+// 4. Content Streaming (token-by-token)
+event: token
+data: {"content": "## Analysis Results\n\n", "tokenIndex": 1}
+
+event: token
+data: {"content": "Based on your decision scenario, here are the key findings:\n\n", "tokenIndex": 2}
+
+event: token
+data: {"content": "**Recommendation:** Partner Channel Strategy\n", "tokenIndex": 3}
+
+event: token
+data: {"content": "**Confidence:** 87%\n\n", "tokenIndex": 4}
+
+event: token
+data: {"content": "### Key Reasons:\n", "tokenIndex": 5}
+
+event: token
+data: {"content": "1. **Speed to Market** - Partner channels provide immediate market access\n", "tokenIndex": 6}
+
+event: token
+data: {"content": "2. **Risk Mitigation** - Shared investment reduces financial exposure\n", "tokenIndex": 7}
+
+event: token
+data: {"content": "3. **Local Expertise** - Partners bring market knowledge and relationships\n", "tokenIndex": 8}
+
+// 5. Analysis Complete
+event: complete
+data: {"analysisId": "ana_demo_001", "status": "completed", "totalTokens": 8, "duration": 4.2, "finalConfidence": 87}
+
+// 6. Connection Closing
+event: close
+data: {"analysisId": "ana_demo_001", "reason": "analysis_complete", "timestamp": "2024-09-24T19:15:04Z"}
+
+// Error Example (if something goes wrong)
+event: error
+data: {"error": "rate_limit_exceeded", "message": "Analysis rate limit reached. Please try again in 60 seconds.", "retryAfter": 60}

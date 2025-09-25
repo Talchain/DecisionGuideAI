@@ -1,0 +1,41 @@
+title: "Mobile App Development Strategy"
+description: "Choose development approach for cross-platform mobile app"
+note: "Notice the development speed vs performance tradeoffs and team skills"
+
+context:
+  timeline: "9 months to market"
+  budget: "$300K"
+  team: "5 developers, mixed web/mobile experience"
+  requirements:
+    - "iOS and Android support"
+    - "Offline functionality"
+    - "Push notifications"
+    - "Biometric authentication"
+
+options:
+  - name: "Native Development"
+    description: "Separate native apps for iOS (Swift) and Android (Kotlin)"
+    pros: ["Best performance", "Platform-specific features", "App store optimization"]
+    cons: ["Dual codebase", "Higher cost", "Longer development"]
+
+  - name: "React Native"
+    description: "Cross-platform framework using JavaScript"
+    pros: ["Code sharing", "Faster development", "Web team familiarity"]
+    cons: ["Performance limitations", "Platform-specific bugs", "Bridge overhead"]
+
+  - name: "Flutter"
+    description: "Google's UI toolkit for cross-platform development"
+    pros: ["Single codebase", "Great performance", "Growing ecosystem"]
+    cons: ["Dart language learning", "Newer ecosystem", "Large app size"]
+
+constraints:
+  - "Must support iOS 14+ and Android API 26+"
+  - "App size limit: 50MB initial download"
+  - "Team cannot hire additional mobile specialists"
+  - "Launch window cannot move (trade show demo)"
+
+params:
+  maxTokens: 900
+  steps: 5
+  model: "gpt-4-turbo"
+  seed: 4004

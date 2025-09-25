@@ -1,0 +1,23 @@
+title: "Seedless Test Scenario"
+description: "Test scenario without a fixed seed for enforcement testing"
+
+context:
+  timeline: "1 week"
+  budget: "$10,000"
+
+options:
+  - name: "Option A"
+    description: "First choice"
+    pros: ["Quick implementation"]
+    cons: ["Limited features"]
+
+  - name: "Option B"
+    description: "Second choice"
+    pros: ["Full featured"]
+    cons: ["Longer timeline"]
+
+constraints:
+  - "Must be completed by end of week"
+  - "Budget cannot exceed $10,000"
+
+# Note: No seed specified - will be enforced by seed manager

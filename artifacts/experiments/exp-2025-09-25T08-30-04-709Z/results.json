@@ -1,0 +1,74 @@
+{
+  "grid": {
+    "name": "Small Test Grid",
+    "description": "Test with minimal variants",
+    "scenarios": [
+      "sample-framework.yaml"
+    ],
+    "grid": {
+      "temperature": [
+        0.7,
+        0.9
+      ],
+      "maxTokens": [
+        1200
+      ]
+    },
+    "baseline": {
+      "temperature": 0.7,
+      "maxTokens": 1200
+    },
+    "settings": {
+      "seeds": {
+        "sample-framework.yaml": 42
+      },
+      "mode": "simulation",
+      "output": {
+        "include_diffs": true,
+        "max_comparisons": 5,
+        "sort_by": "tokens"
+      }
+    }
+  },
+  "results": [
+    {
+      "variant": {
+        "id": "baseline",
+        "scenario": "/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/scenarios/sample-framework.yaml",
+        "params": {
+          "temperature": 0.7,
+          "maxTokens": 1200
+        },
+        "isBaseline": true,
+        "outputPath": "/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/experiments/sample-framework/baseline.sarb.zip"
+      },
+      "success": true,
+      "metadata": {
+        "tokens": 1143,
+        "duration": 14,
+        "cost": 2.286,
+        "steps": 5
+      }
+    },
+    {
+      "variant": {
+        "id": "maxTokens1200-temperature09",
+        "scenario": "/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/scenarios/sample-framework.yaml",
+        "params": {
+          "temperature": 0.9,
+          "maxTokens": 1200
+        },
+        "isBaseline": false,
+        "outputPath": "/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/experiments/sample-framework/maxTokens1200-temperature09.sarb.zip"
+      },
+      "success": true,
+      "metadata": {
+        "tokens": 1251,
+        "duration": 15,
+        "cost": 2.5020000000000002,
+        "steps": 5
+      }
+    }
+  ],
+  "timestamp": "2025-09-25T08-30-04-709Z"
+}

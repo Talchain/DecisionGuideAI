@@ -1,0 +1,79 @@
+{
+  "info": {
+    "title": "API Contract Examples",
+    "description": "Generated from OpenAPI specification",
+    "version": "1.0",
+    "generated": "2025-09-24T18:45:27.133Z",
+    "source": "fallback_patterns"
+  },
+  "examples": {
+    "example_analysis_request": {
+      "name": "Create Analysis Request",
+      "method": "POST",
+      "path": "/api/analysis",
+      "description": "Submit a new decision analysis request with multiple options",
+      "request": {
+        "decisionTitle": "Choose Development Framework",
+        "options": [
+          {
+            "name": "React",
+            "description": "Popular JavaScript library for building user interfaces"
+          },
+          {
+            "name": "Vue.js",
+            "description": "Progressive JavaScript framework"
+          },
+          {
+            "name": "Angular",
+            "description": "Platform for building mobile and desktop web applications"
+          }
+        ],
+        "context": {
+          "timeline": "3 months",
+          "budget": "$50,000",
+          "teamSize": "5 developers"
+        }
+      },
+      "response": {
+        "analysisId": "ana_example_001",
+        "status": "queued",
+        "timestamp": "2024-09-24T19:35:00Z",
+        "estimatedDuration": "45 seconds"
+      }
+    },
+    "example_analysis_status": {
+      "name": "Get Analysis Status",
+      "method": "GET",
+      "path": "/api/analysis/{analysisId}/status",
+      "description": "Check the current status of an analysis",
+      "response": {
+        "analysisId": "ana_example_001",
+        "status": "completed",
+        "progress": 100,
+        "startedAt": "2024-09-24T19:35:00Z",
+        "completedAt": "2024-09-24T19:35:45Z",
+        "tokensGenerated": 256
+      }
+    },
+    "example_analysis_cancel": {
+      "name": "Cancel Analysis",
+      "method": "POST",
+      "path": "/api/analysis/{analysisId}/cancel",
+      "description": "Cancel a running analysis with optional graceful shutdown",
+      "request": {
+        "reason": "user_requested",
+        "graceful": true
+      },
+      "response": {
+        "analysisId": "ana_example_001",
+        "status": "cancelled",
+        "cancelledAt": "2024-09-24T19:35:30Z",
+        "partialResults": {
+          "tokensGenerated": 128,
+          "progress": 60,
+          "lastStage": "option_analysis"
+        }
+      }
+    }
+  }
+}

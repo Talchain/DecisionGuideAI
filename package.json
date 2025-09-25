@@ -51,7 +51,15 @@
     "fixtures:ui": "tsx ./tools/fixtures-ui.ts",
     "types:gen": "tsx ./tools/types-gen.ts",
     "exp:tune": "tsx ./tools/exp-tuner.ts",
-    "notes:prepare": "node ./tools/prepare-release-notes.cjs"
+    "vm:from-sarb": "tsx ./tools/vm-from-sarb.ts",
+    "notes:prepare": "node ./tools/prepare-release-notes.cjs",
+    "artefacts:scan": "tsx ./tools/artefacts-scan.ts",
+    "contract:coverage": "tsx ./tools/contract-coverage.ts",
+    "sarb:rank": "tsx ./tools/sarb-rank.ts",
+    "ui:kickstart": "tsx ./tools/ui-kickstart-pack.ts",
+    "claude:charter": "./tools/copy-standing-permissions.sh",
+    "scorecard:generate": "tsx tools/scorecard-generate.ts",
+    "scorecard:open": "node -e \"console.log('open artifacts/integration-scorecard.html')\""
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -70,7 +78,6 @@
     "react-router-dom": "^6.22.3",
     "ulid": "^3.0.1",
     "uuid": "^9.0.1",
-    "yaml": "^2.8.1",
     "zod": "^3.22.4"
   },
   "devDependencies": {
@@ -90,6 +97,7 @@
     "tsx": "^4.20.5",
     "typescript": "^5.5.3",
     "vite": "^5.4.2",
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.0",
+    "yaml": "^2.8.1"
   }
 }

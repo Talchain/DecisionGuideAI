@@ -1,0 +1,36 @@
+{"event":"connected","data":{"sessionId":"session_fixture_001","timestamp":"2024-09-24T19:15:00.000Z","mode":"simulation"}}
+{"event":"start","data":{"analysisId":"ana_fixture_basic_001","status":"started","timestamp":"2024-09-24T19:15:00.100Z"}}
+{"event":"progress","data":{"progress":10,"stage":"initialization","message":"Setting up analysis..."}}
+{"event":"token","data":{"text":"# Decision Analysis Report\n\n"}}
+{"event":"token","data":{"text":"**Decision:** Choose Cloud Provider\n\n"}}
+{"event":"token","data":{"text":"## Summary\n\n"}}
+{"event":"progress","data":{"progress":25,"stage":"option_analysis","message":"Analyzing options..."}}
+{"event":"token","data":{"text":"After careful analysis of your three options, here's what I found:\n\n"}}
+{"event":"token","data":{"text":"**Recommendation:** Option 2 (AWS) provides the best balance\n\n"}}
+{"event":"token","data":{"text":"## Option Comparison\n\n"}}
+{"event":"progress","data":{"progress":50,"stage":"scoring","message":"Calculating scores..."}}
+{"event":"token","data":{"text":"### 1. Google Cloud\n"}}
+{"event":"token","data":{"text":"- **Score:** 72/100\n"}}
+{"event":"token","data":{"text":"- **Pros:** Great AI/ML tools, competitive pricing\n"}}
+{"event":"token","data":{"text":"- **Cons:** Smaller ecosystem than AWS\n\n"}}
+{"event":"token","data":{"text":"### 2. AWS\n"}}
+{"event":"token","data":{"text":"- **Score:** 89/100 ⭐ **Best Choice**\n"}}
+{"event":"token","data":{"text":"- **Pros:** Largest ecosystem, proven reliability\n"}}
+{"event":"token","data":{"text":"- **Cons:** Can be complex for beginners\n\n"}}
+{"event":"progress","data":{"progress":75,"stage":"risk_assessment","message":"Evaluating risks..."}}
+{"event":"token","data":{"text":"### 3. Azure\n"}}
+{"event":"token","data":{"text":"- **Score:** 81/100\n"}}
+{"event":"token","data":{"text":"- **Pros:** Great Microsoft integration\n"}}
+{"event":"token","data":{"text":"- **Cons:** Learning curve for non-MS shops\n\n"}}
+{"event":"token","data":{"text":"## Key Factors\n\n"}}
+{"event":"token","data":{"text":"- **Reliability:** AWS leads with 99.99% uptime\n"}}
+{"event":"token","data":{"text":"- **Cost:** Google Cloud offers best pricing for compute\n"}}
+{"event":"token","data":{"text":"- **Ecosystem:** AWS has the most third-party tools\n\n"}}
+{"event":"progress","data":{"progress":90,"stage":"final_report","message":"Generating recommendations..."}}
+{"event":"token","data":{"text":"## Next Steps\n\n"}}
+{"event":"token","data":{"text":"1. Start with AWS free tier\n"}}
+{"event":"token","data":{"text":"2. Set up basic monitoring\n"}}
+{"event":"token","data":{"text":"3. Plan migration timeline\n\n"}}
+{"event":"token","data":{"text":"*Analysis complete. Confidence: 87%*"}}
+{"event":"progress","data":{"progress":100,"stage":"complete","message":"Analysis finished"}}
+{"event":"complete","data":{"analysisId":"ana_fixture_basic_001","status":"completed","timestamp":"2024-09-24T19:15:45.000Z","tokensGenerated":156,"duration":45.0}}

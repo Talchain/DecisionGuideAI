@@ -1,0 +1,26 @@
+{
+  "suite": "Decision Guide AI Golden Suite",
+  "timestamp": "2025-09-25T08:44:30.346Z",
+  "duration": 759,
+  "summary": {
+    "total": 2,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 2
+  },
+  "results": [
+    {
+      "test": "framework-selection-baseline",
+      "status": "error",
+      "duration": 478,
+      "error": "SARB execution failed: Command failed: INTEGRATION_SIM_MODE=1 npm run sarb:pack -- --scenario \"artifacts/scenarios/sample-framework.yaml\" --output \"/tmp/golden-1758789870349.sarb.zip\" --seed 42 --temperature 0.7 --maxTokens 1200\n❌ Failed to pack bundle: Error: Scenario file not found: /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/--scenario\n"
+    },
+    {
+      "test": "database-selection-baseline",
+      "status": "error",
+      "duration": 277,
+      "error": "SARB execution failed: Command failed: INTEGRATION_SIM_MODE=1 npm run sarb:pack -- --scenario \"artifacts/scenarios/sample-database.yaml\" --output \"/tmp/golden-1758789870827.sarb.zip\" --seed 42 --temperature 0.7 --maxTokens 1200\n❌ Failed to pack bundle: Error: Scenario file not found: /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/--scenario\n"
+    }
+  ]
+}

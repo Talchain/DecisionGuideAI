@@ -1,0 +1,31 @@
+title: "Database Migration Strategy"
+description: "Choose approach for migrating legacy database"
+
+decision:
+  title: "Select Database Migration Strategy"
+  options:
+    - name: "Big Bang Migration"
+      description: "Complete migration in single maintenance window"
+    - name: "Phased Migration"
+      description: "Gradual migration with dual-write approach"
+    - name: "Strangler Fig"
+      description: "Incremental replacement with parallel systems"
+
+  context:
+    timeline: "12 months maximum"
+    budget: "$200,000"
+    constraints:
+      - "Zero downtime requirement"
+      - "Data consistency critical"
+      - "Regulatory compliance"
+
+params:
+  seed: 1337
+  maxTokens: 300
+  temperature: 0.8
+  model: "gpt-4-turbo"
+
+metadata:
+  created: "2024-09-24"
+  author: "Architecture Team"
+  tags: ["database", "migration", "architecture"]

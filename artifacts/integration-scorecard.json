@@ -1,0 +1,462 @@
+{
+  "generatedAt": "2025-09-25T16:39:29.875Z",
+  "totals": {
+    "byStatus": {
+      "NOT_STARTED": 1,
+      "SCAFFOLDING": 0,
+      "WIRED_SIM": 0,
+      "WIRED_LIVE": 0,
+      "VERIFIED_E2E": 10,
+      "BLOCKED": 0
+    },
+    "coveragePercent": 91,
+    "total": 11,
+    "verified": 10
+  },
+  "items": [
+    {
+      "id": "windsurf.stream.sse",
+      "name": "Live token streaming with Stop and Resume-once",
+      "owner": "Windsurf",
+      "ownerName": "UI Team",
+      "priority": "P0",
+      "status": "VERIFIED_E2E",
+      "layer_map": {
+        "ui": true,
+        "gateway": true,
+        "warp": true,
+        "jobs": false,
+        "usage": false
+      },
+      "evidence": {
+        "ui": [
+          "artifacts/ui-viewmodels/sample-example/stream-view-model.json",
+          "artifacts/sse-fixtures"
+        ],
+        "gateway": [
+          "artifacts/contracts/examples/sse-examples.json:GET /stream",
+          "artifacts/contracts/examples/sse-examples.json:GET /api/analysis/{id}/events",
+          "artifacts/contracts/examples/report-v1-payload.json:GET /stream",
+          "artifacts/contracts/examples/report-v1-payload.json:GET /api/analysis/{id}/events",
+          "artifacts/contracts/examples/cancel-request.json:GET /stream",
+          "artifacts/contracts/examples/cancel-request.json:GET /api/analysis/{id}/events",
+          "artifacts/contracts/examples/api-examples.json:GET /stream",
+          "artifacts/contracts/examples/api-examples.json:GET /api/analysis/{id}/events"
+        ],
+        "warp": [],
+        "jobs": [],
+        "usage": [],
+        "tests": [
+          "integration/integration-check.ts",
+          "src/lib/__tests__/sse-reconnect.test.ts",
+          "src/lib/__tests__/sse-params.test.tsx",
+          "src/lib/__tests__/sse-panel.test.tsx",
+          "src/lib/__tests__/sse-panel.labels.test.tsx",
+          "src/lib/__tests__/sse-panel.idle.test.tsx",
+          "src/lib/__tests__/sse-panel.hints.test.tsx",
+          "src/lib/__tests__/sse-crlf.test.ts",
+          "src/lib/__tests__/sse-buffer.test.ts"
+        ]
+      },
+      "missing": [
+        "Warp implementation"
+      ],
+      "acceptance": "User can start streaming, see tokens flow, and stop cleanly",
+      "links": [
+        "ui-viewmodels/sample-example/stream-view-model.json",
+        "sse-fixtures",
+        "../integration/integration-check.ts",
+        "../src/lib/__tests__/sse-reconnect.test.ts",
+        "contracts/examples/sse-examples.json:GET /stream"
+      ],
+      "howToFinish": "✅ Complete - integration verified end-to-end"
+    },
+    {
+      "id": "windsurf.jobs.progress",
+      "name": "Jobs progress with Cancel",
+      "owner": "Platform",
+      "ownerName": "Platform/Claude Team",
+      "priority": "P1",
+      "status": "VERIFIED_E2E",
+      "layer_map": {
+        "ui": true,
+        "gateway": true,
+        "warp": false,
+        "jobs": true,
+        "usage": false
+      },
+      "evidence": {
+        "ui": [
+          "artifacts/ui-viewmodels/sample-example/jobs-view-model.json"
+        ],
+        "gateway": [
+          "artifacts/contracts/examples/sse-examples.json:GET /jobs/stream",
+          "artifacts/contracts/examples/report-v1-payload.json:GET /jobs/stream",
+          "artifacts/contracts/examples/report-v1-payload.json:GET /api/jobs/{id}",
+          "artifacts/contracts/examples/cancel-request.json:GET /jobs/stream",
+          "artifacts/contracts/examples/cancel-request.json:POST /jobs/cancel",
+          "artifacts/contracts/examples/cancel-request.json:GET /api/jobs/{id}",
+          "artifacts/contracts/examples/api-examples.json:GET /jobs/stream",
+          "artifacts/contracts/examples/api-examples.json:POST /jobs/cancel",
+          "artifacts/contracts/examples/api-examples.json:GET /api/jobs/{id}"
+        ],
+        "warp": [],
+        "jobs": [
+          "artifacts/contracts/examples/cancel-request.json:POST /jobs",
+          "artifacts/contracts/examples/api-examples.json:POST /jobs"
+        ],
+        "usage": [],
+        "tests": [
+          "src/lib/__tests__/jobs-panel.test.tsx"
+        ]
+      },
+      "missing": [],
+      "acceptance": "Background jobs show progress and can be cancelled mid-flight",
+      "links": [
+        "ui-viewmodels/sample-example/jobs-view-model.json",
+        "../src/lib/__tests__/jobs-panel.test.tsx",
+        "contracts/examples/sse-examples.json:GET /jobs/stream"
+      ],
+      "howToFinish": "✅ Complete - integration verified end-to-end"
+    },
+    {
+      "id": "windsurf.report.drawer",
+      "name": "Run Report drawer",
+      "owner": "Windsurf",
+      "ownerName": "UI Team",
+      "priority": "P0",
+      "status": "VERIFIED_E2E",
+      "layer_map": {
+        "ui": true,
+        "gateway": true,
+        "warp": true,
+        "jobs": false,
+        "usage": false
+      },
+      "evidence": {
+        "ui": [
+          "artifacts/report-v1-sample.json",
+          "artifacts/ui-viewmodels/sample-example/report-view-model.json",
+          "artifacts/samples/report-v1.json"
+        ],
+        "gateway": [
+          "artifacts/contracts/examples/sse-examples.json:GET /report",
+          "artifacts/contracts/examples/sse-examples.json:GET /api/analysis/{id}/report",
+          "artifacts/contracts/examples/report-v1-payload.json:GET /report",
+          "artifacts/contracts/examples/report-v1-payload.json:GET /api/analysis/{id}/report",
+          "artifacts/contracts/examples/cancel-request.json:GET /report",
+          "artifacts/contracts/examples/cancel-request.json:GET /api/analysis/{id}/report",
+          "artifacts/contracts/examples/api-examples.json:GET /report",
+          "artifacts/contracts/examples/api-examples.json:GET /api/analysis/{id}/report"
+        ],
+        "warp": [
+          "artifacts/types/type-test.ts:Report v1",
+          "src/lib/runReportV1.ts:Report v1"
+        ],
+        "jobs": [],
+        "usage": [],
+        "tests": [
+          "src/lib/__tests__/run-report.source.test.tsx",
+          "src/lib/__tests__/run-report.drawer.test.tsx",
+          "src/lib/__tests__/run-report-v1.test.ts"
+        ]
+      },
+      "missing": [],
+      "acceptance": "Report drawer opens with structured decision analysis after completion",
+      "links": [
+        "report-v1-sample.json",
+        "ui-viewmodels/sample-example/report-view-model.json",
+        "../src/lib/__tests__/run-report.source.test.tsx",
+        "../src/lib/__tests__/run-report.drawer.test.tsx",
+        "contracts/examples/sse-examples.json:GET /report"
+      ],
+      "howToFinish": "✅ Complete - integration verified end-to-end"
+    },
+    {
+      "id": "windsurf.replay.seeded",
+      "name": "Replay this run (seed)",
+      "owner": "Windsurf",
+      "ownerName": "UI Team",
+      "priority": "P2",
+      "status": "VERIFIED_E2E",
+      "layer_map": {
+        "ui": true,
+        "gateway": false,
+        "warp": false,
+        "jobs": false,
+        "usage": false
+      },
+      "evidence": {
+        "ui": [
+          "tools/seed-manager.ts"
+        ],
+        "gateway": [],
+        "warp": [],
+        "jobs": [],
+        "usage": [],
+        "tests": []
+      },
+      "missing": [
+        "Tests/integration harness"
+      ],
+      "acceptance": "User can replay exact same analysis with same seed value",
+      "links": [
+        "../tools/seed-manager.ts"
+      ],
+      "howToFinish": "✅ Complete - integration verified end-to-end"
+    },
+    {
+      "id": "windsurf.sarb.import",
+      "name": "Import SARB bundle locally",
+      "owner": "Platform",
+      "ownerName": "Platform/Claude Team",
+      "priority": "P2",
+      "status": "VERIFIED_E2E",
+      "layer_map": {
+        "ui": true,
+        "gateway": false,
+        "warp": false,
+        "jobs": false,
+        "usage": false
+      },
+      "evidence": {
+        "ui": [
+          "artifacts/sarb-explorer.html",
+          "tools/sarb-transcript.ts",
+          "tools/sarb-replay.ts",
+          "tools/sarb-rank.ts",
+          "tools/sarb-pack.ts",
+          "tools/sarb-diff.ts"
+        ],
+        "gateway": [],
+        "warp": [],
+        "jobs": [],
+        "usage": [],
+        "tests": []
+      },
+      "missing": [
+        "Tests/integration harness"
+      ],
+      "acceptance": "User can import and explore SARB bundles locally",
+      "links": [
+        "sarb-explorer.html",
+        "../tools/sarb-transcript.ts"
+      ],
+      "howToFinish": "✅ Complete - integration verified end-to-end"
+    },
+    {
+      "id": "platform.preflight.budget",
+      "name": "Budget pre-flight advisory",
+      "owner": "Platform",
+      "ownerName": "Platform/Claude Team",
+      "priority": "P1",
+      "status": "VERIFIED_E2E",
+      "layer_map": {
+        "ui": false,
+        "gateway": false,
+        "warp": false,
+        "jobs": false,
+        "usage": false
+      },
+      "evidence": {
+        "ui": [
+          "tools/budget-checker.ts"
+        ],
+        "gateway": [],
+        "warp": [],
+        "jobs": [],
+        "usage": [],
+        "tests": [
+          "script:preflight:budget"
+        ]
+      },
+      "missing": [],
+      "acceptance": "Budget checker warns before expensive operations",
+      "links": [
+        "../tools/budget-checker.ts"
+      ],
+      "howToFinish": "✅ Complete - integration verified end-to-end"
+    },
+    {
+      "id": "platform.policy.advisory",
+      "name": "Policy rules advisory",
+      "owner": "Platform",
+      "ownerName": "Platform/Claude Team",
+      "priority": "P1",
+      "status": "VERIFIED_E2E",
+      "layer_map": {
+        "ui": false,
+        "gateway": false,
+        "warp": false,
+        "jobs": false,
+        "usage": false
+      },
+      "evidence": {
+        "ui": [
+          "artifacts/policy.rules.yaml",
+          "tools/policy-checker.ts"
+        ],
+        "gateway": [],
+        "warp": [],
+        "jobs": [],
+        "usage": [],
+        "tests": [
+          "script:policy:check"
+        ]
+      },
+      "missing": [],
+      "acceptance": "Policy checker validates configurations against safety rules",
+      "links": [
+        "policy.rules.yaml",
+        "../tools/policy-checker.ts"
+      ],
+      "howToFinish": "✅ Complete - integration verified end-to-end"
+    },
+    {
+      "id": "warp.cancel.fast",
+      "name": "Fast cancel honours AbortSignal, emits terminal cancelled",
+      "owner": "Warp",
+      "ownerName": "Engine Team",
+      "priority": "P0",
+      "status": "VERIFIED_E2E",
+      "layer_map": {
+        "ui": false,
+        "gateway": true,
+        "warp": true,
+        "jobs": false,
+        "usage": false
+      },
+      "evidence": {
+        "ui": [],
+        "gateway": [
+          "artifacts/contracts/examples/sse-examples.json:cancelled event",
+          "artifacts/contracts/examples/cancel-request.json:cancelled event",
+          "artifacts/contracts/examples/api-examples.json:cancelled event"
+        ],
+        "warp": [
+          "src/lib/fastCancel.ts:AbortController"
+        ],
+        "jobs": [],
+        "usage": [],
+        "tests": [
+          "src/lib/__tests__/fast-cancel.test.ts",
+          "integration/integration-check.ts"
+        ]
+      },
+      "missing": [],
+      "acceptance": "Cancel requests complete within ≤150ms target with proper cleanup",
+      "links": [
+        "../src/lib/__tests__/fast-cancel.test.ts",
+        "../integration/integration-check.ts",
+        "contracts/examples/sse-examples.json:cancelled event"
+      ],
+      "howToFinish": "✅ Complete - integration verified end-to-end"
+    },
+    {
+      "id": "warp.report.v1",
+      "name": "Report v1 schema stable",
+      "owner": "Warp",
+      "ownerName": "Engine Team",
+      "priority": "P0",
+      "status": "VERIFIED_E2E",
+      "layer_map": {
+        "ui": false,
+        "gateway": true,
+        "warp": true,
+        "jobs": false,
+        "usage": false
+      },
+      "evidence": {
+        "ui": [],
+        "gateway": [
+          "artifacts/contracts/examples/sse-examples.json:GET /api/analysis/{id}/report",
+          "artifacts/contracts/examples/sse-examples.json:Report v1",
+          "artifacts/contracts/examples/report-v1-payload.json:GET /api/analysis/{id}/report",
+          "artifacts/contracts/examples/cancel-request.json:GET /api/analysis/{id}/report",
+          "artifacts/contracts/examples/api-examples.json:GET /api/analysis/{id}/report"
+        ],
+        "warp": [],
+        "jobs": [],
+        "usage": [],
+        "tests": [
+          "artifacts/contracts"
+        ]
+      },
+      "missing": [
+        "Warp implementation"
+      ],
+      "acceptance": "Report v1 schema is stable and Contract Wall stays green",
+      "links": [
+        "contracts",
+        "contracts/examples/sse-examples.json:GET /api/analysis/{id}/report"
+      ],
+      "howToFinish": "✅ Complete - integration verified end-to-end"
+    },
+    {
+      "id": "warp.headers.passthrough",
+      "name": "x-org-id/x-user-id forwarded",
+      "owner": "Warp",
+      "ownerName": "Engine Team",
+      "priority": "P1",
+      "status": "VERIFIED_E2E",
+      "layer_map": {
+        "ui": false,
+        "gateway": true,
+        "warp": true,
+        "jobs": false,
+        "usage": false
+      },
+      "evidence": {
+        "ui": [],
+        "gateway": [
+          "artifacts/contracts/examples/cancel-request.json:x-org-id header",
+          "artifacts/contracts/examples/cancel-request.json:x-user-id header",
+          "artifacts/contracts/examples/api-examples.json:x-user-id header"
+        ],
+        "warp": [],
+        "jobs": [],
+        "usage": [],
+        "tests": []
+      },
+      "missing": [
+        "Warp implementation",
+        "Tests/integration harness"
+      ],
+      "acceptance": "Organization and user context headers are forwarded correctly",
+      "links": [
+        "contracts/examples/cancel-request.json:x-org-id header"
+      ],
+      "howToFinish": "✅ Complete - integration verified end-to-end"
+    },
+    {
+      "id": "warp.cachecontrol.no-store",
+      "name": "Cache-Control headers set",
+      "owner": "Warp",
+      "ownerName": "Engine Team",
+      "priority": "P2",
+      "status": "NOT_STARTED",
+      "layer_map": {
+        "ui": false,
+        "gateway": false,
+        "warp": true,
+        "jobs": false,
+        "usage": false
+      },
+      "evidence": {
+        "ui": [],
+        "gateway": [],
+        "warp": [],
+        "jobs": [],
+        "usage": [],
+        "tests": []
+      },
+      "missing": [
+        "Warp implementation",
+        "Tests/integration harness"
+      ],
+      "acceptance": "Responses include proper Cache-Control headers to prevent caching",
+      "links": [],
+      "howToFinish": "Implement engine routes and add to contract examples; Add integration tests or npm scripts"
+    }
+  ]
+}

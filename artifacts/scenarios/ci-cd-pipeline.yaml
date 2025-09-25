@@ -1,0 +1,41 @@
+title: "CI/CD Pipeline Architecture"
+description: "Design deployment pipeline for microservices platform"
+note: "Notice the automation vs control balance and deployment safety mechanisms"
+
+context:
+  timeline: "4 months setup"
+  budget: "$75K"
+  scale: "20 microservices, 50+ deployments/week"
+  requirements:
+    - "Automated testing and deployment"
+    - "Blue-green deployment support"
+    - "Rollback capabilities"
+    - "Multi-environment promotion"
+
+options:
+  - name: "GitOps with ArgoCD"
+    description: "Git as single source of truth for deployment state"
+    pros: ["Declarative deployments", "Version controlled", "Drift detection"]
+    cons: ["Git workflow complexity", "Learning curve", "Sync delays"]
+
+  - name: "Jenkins with Kubernetes"
+    description: "Traditional CI/CD with container orchestration"
+    pros: ["Mature ecosystem", "Plugin flexibility", "Team familiarity"]
+    cons: ["Maintenance overhead", "Security concerns", "Scaling challenges"]
+
+  - name: "GitHub Actions with Cloud Deploy"
+    description: "Cloud-native CI/CD with managed services"
+    pros: ["Integrated workflow", "Managed infrastructure", "Cost effective"]
+    cons: ["Vendor lock-in", "Limited customization", "Network requirements"]
+
+constraints:
+  - "Must support pull request previews"
+  - "Deployment time budget: 10 minutes max"
+  - "Team of 15 developers across 3 time zones"
+  - "Compliance requires deployment audit trails"
+
+params:
+  maxTokens: 1100
+  steps: 6
+  model: "gpt-4-turbo"
+  seed: 5005

@@ -1,0 +1,48 @@
+{
+  "info": {
+    "title": "SSE Stream Examples",
+    "description": "Server-Sent Events stream patterns",
+    "generated": "2025-09-24T18:45:27.133Z"
+  },
+  "events": {
+    "connected": {
+      "event": "connected",
+      "data": {
+        "sessionId": "session_example_001",
+        "timestamp": "2025-09-24T18:45:27.133Z"
+      }
+    },
+    "start": {
+      "event": "start",
+      "data": {
+        "analysisId": "ana_example_001",
+        "status": "started",
+        "timestamp": "2025-09-24T18:45:27.133Z"
+      }
+    },
+    "token": {
+      "event": "token",
+      "data": {
+        "text": "# Decision Analysis Report\n\n"
+      }
+    },
+    "progress": {
+      "event": "progress",
+      "data": {
+        "progress": 25,
+        "stage": "option_analysis",
+        "message": "Analyzing options..."
+      }
+    },
+    "complete": {
+      "event": "complete",
+      "data": {
+        "analysisId": "ana_example_001",
+        "status": "completed",
+        "timestamp": "2025-09-24T18:45:27.133Z",
+        "tokensGenerated": 256,
+        "duration": 45
+      }
+    }
+  }
+}

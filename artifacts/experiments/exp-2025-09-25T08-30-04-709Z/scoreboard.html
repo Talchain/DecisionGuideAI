@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Experiment Scoreboard: Small Test Grid</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: #f8f9fa;
+        }
+        .header {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 { color: #2c3e50; margin-bottom: 0.5rem; }
+        .subtitle { color: #6c757d; margin-bottom: 1rem; }
+        .summary {
+            background: #e8f5e8;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 2rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        th {
+            background: #495057;
+            color: white;
+            cursor: pointer;
+            user-select: none;
+        }
+        th:hover { background: #343a40; }
+        .baseline-row { background: #fff3cd; }
+        .variant-id { font-family: monospace; font-size: 0.9em; }
+        .comparison { font-size: 0.9em; }
+        .better { color: #28a745; }
+        .worse { color: #dc3545; }
+        .same { color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 Small Test Grid</h1>
+        <div class="subtitle">Generated: 25/09/2025, 09:30:04</div>
+        <p>Test with minimal variants</p>
+    </div>
+
+    <div class="summary">
+        <strong>Summary:</strong> 2/2 successful runs
+    </div>
+
+    <table id="resultsTable">
+        <thead>
+            <tr>
+                <th onclick="sortTable(0)">Scenario</th>
+                <th onclick="sortTable(1)">Variant</th>
+                <th onclick="sortTable(2)">Tokens</th>
+                <th onclick="sortTable(3)">Duration</th>
+                <th onclick="sortTable(4)">Steps</th>
+                <th onclick="sortTable(5)">Cost</th>
+                <th onclick="sortTable(6)">vs Baseline</th>
+            </tr>
+        </thead>
+        <tbody>
+            
+            <tr class="baseline-row">
+                <td>sample-framework</td>
+                <td class="variant-id">baseline</td>
+                <td>1143</td>
+                <td>14s</td>
+                <td>5</td>
+                <td>$2.2860</td>
+                <td class="comparison">⚖️ Baseline</td>
+            </tr>
+          
+            <tr class="">
+                <td>sample-framework</td>
+                <td class="variant-id">maxTokens1200-temperature09</td>
+                <td>1251</td>
+                <td>15s</td>
+                <td>5</td>
+                <td>$2.5020</td>
+                <td class="comparison">📈 +108, 🐌 +1s</td>
+            </tr>
+          
+        </tbody>
+    </table>
+
+    <script>
+        function sortTable(n) {
+            const table = document.getElementById("resultsTable");
+            const rows = Array.from(table.getElementsByTagName("tr")).slice(1);
+
+            rows.sort((a, b) => {
+                const aVal = a.getElementsByTagName("td")[n].innerText;
+                const bVal = b.getElementsByTagName("td")[n].innerText;
+
+                // Try numeric sort first
+                const aNum = parseFloat(aVal.replace(/[^0-9.-]/g, ''));
+                const bNum = parseFloat(bVal.replace(/[^0-9.-]/g, ''));
+
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return aNum - bNum;
+                }
+
+                return aVal.localeCompare(bVal);
+            });
+
+            const tbody = table.getElementsByTagName("tbody")[0];
+            rows.forEach(row => tbody.appendChild(row));
+        }
+    </script>
+</body>
+</html>

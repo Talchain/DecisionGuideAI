@@ -1,0 +1,191 @@
+name: 🏗️ Platform Operations
+description: Platform infrastructure, deployment, or operational issues
+title: "[Ops] "
+labels: ["platform", "ops", "needs-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For platform operations, infrastructure, deployment, or system administration issues.
+
+        **🚨 Production Issues**: If this is affecting production users right now, contact the on-call team immediately instead of creating an issue.
+
+  - type: checkboxes
+    id: ops-checklist
+    attributes:
+      label: Operations Checklist
+      description: Pre-submission safety checks
+      options:
+        - label: This is not a production emergency requiring immediate response
+          required: true
+        - label: I have sanitized any logs or output to remove sensitive information
+          required: true
+        - label: I have checked recent deployments and changes that might be related
+          required: false
+
+  - type: dropdown
+    id: ops-category
+    attributes:
+      label: Issue Category
+      description: What type of operational issue is this?
+      options:
+        - Deployment Issue
+        - Performance Problem
+        - Monitoring/Alerting
+        - Configuration Management
+        - Infrastructure Change Request
+        - Capacity Planning
+        - Security/Compliance
+        - Documentation Update
+        - Process Improvement
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment-affected
+    attributes:
+      label: Environment
+      description: Which environment is affected?
+      options:
+        - Production
+        - Staging
+        - Development
+        - All Environments
+        - CI/CD Pipeline
+        - Monitoring Systems
+        - Other/Multiple
+    validations:
+      required: true
+
+  - type: dropdown
+    id: urgency
+    attributes:
+      label: Urgency Level
+      description: How urgent is this issue?
+      options:
+        - Critical (affecting users now)
+        - High (needs attention this week)
+        - Medium (needs attention this month)
+        - Low (when time permits)
+        - Planned (scheduled work)
+    validations:
+      required: true
+
+  - type: textarea
+    id: ops-description
+    attributes:
+      label: Issue Description
+      description: Describe the operational issue or request
+      placeholder: |
+        Provide details about:
+        - What is happening (or not happening)?
+        - When did this start?
+        - How many users/systems are affected?
+        - Is this a new problem or recurring issue?
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact-analysis
+    attributes:
+      label: Impact Analysis
+      description: What is the business/user impact?
+      placeholder: |
+        Describe the impact:
+        - How many users are affected?
+        - What functionality is impacted?
+        - Is there data loss risk?
+        - What are the business consequences?
+        - Are there workarounds available?
+    validations:
+      required: true
+
+  - type: textarea
+    id: system-details
+    attributes:
+      label: System Details
+      description: Relevant system information
+      placeholder: |
+        Include relevant details:
+        - Server names/IDs
+        - Service versions
+        - Resource utilization (CPU, memory, disk)
+        - Recent changes or deployments
+        - Error rates or metrics
+
+  - type: textarea
+    id: logs-output
+    attributes:
+      label: Logs and Output
+      description: Relevant logs, error messages, or system output (sanitized)
+      placeholder: |
+        Paste relevant logs here. Remember to:
+        - Remove or redact sensitive information
+        - Include timestamps
+        - Provide enough context
+        - Use code blocks for formatting
+      render: shell
+
+  - type: textarea
+    id: troubleshooting-done
+    attributes:
+      label: Troubleshooting Already Attempted
+      description: What have you already tried?
+      placeholder: |
+        List troubleshooting steps you've already attempted:
+        - Checked system status dashboard
+        - Reviewed recent deployments
+        - Checked resource utilization
+        - Looked at error logs
+        - Tested in different environment
+        - etc.
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution (if any)
+      description: Do you have ideas for how to resolve this?
+      placeholder: |
+        If you have suggestions for resolution:
+        - Configuration changes needed
+        - Infrastructure modifications
+        - Process improvements
+        - Additional monitoring/alerting
+
+  - type: checkboxes
+    id: safety-impact
+    attributes:
+      label: Safety Impact Assessment
+      description: Consider the safety implications
+      options:
+        - label: This change/fix will not impact user data
+        - label: This change can be safely rolled back if needed
+        - label: This change has been tested in a non-production environment (if applicable)
+        - label: Required approvals have been obtained (for infrastructure changes)
+
+  - type: dropdown
+    id: timeline
+    attributes:
+      label: Preferred Timeline
+      description: When would you like this addressed?
+      options:
+        - ASAP (production impact)
+        - This week
+        - Next sprint
+        - Next month
+        - When convenient
+        - Scheduled maintenance window
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other relevant information
+      placeholder: |
+        Include any additional context:
+        - Related tickets or issues
+        - Dependencies on other work
+        - Stakeholder requirements
+        - Compliance considerations
+        - Screenshots or diagrams

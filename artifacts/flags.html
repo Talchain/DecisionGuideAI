@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DecisionGuide AI - Feature Flags Registry</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .header h1 {
+            font-size: 2.2rem;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .header .subtitle {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #3498db;
+        }
+
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        .flag-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .flag-card {
+            background: #fff;
+            border: 1px solid #ecf0f1;
+            border-radius: 8px;
+            padding: 1.5rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .flag-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .flag-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .flag-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .flag-status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .flag-status.off {
+            background: #fadbd8;
+            color: #c0392b;
+        }
+
+        .flag-status.on {
+            background: #d5f4e6;
+            color: #27ae60;
+        }
+
+        .flag-description {
+            color: #7f8c8d;
+            margin-bottom: 1rem;
+            font-size: 0.95rem;
+        }
+
+        .flag-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .flag-detail {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .flag-detail-label {
+            font-size: 0.8rem;
+            color: #95a5a6;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.25rem;
+        }
+
+        .flag-detail-value {
+            font-size: 0.9rem;
+            color: #2c3e50;
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .flag-when-on {
+            background: #e8f5e8;
+            border-left: 4px solid #27ae60;
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .flag-when-on-title {
+            font-weight: 600;
+            color: #27ae60;
+            margin-bottom: 0.5rem;
+        }
+
+        .flag-when-on-description {
+            color: #2c3e50;
+            font-size: 0.9rem;
+        }
+
+        .category-header {
+            grid-column: 1 / -1;
+            background: #3498db;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .footer {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid #ecf0f1;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        .safety-notice {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .safety-notice-title {
+            font-weight: 600;
+            color: #856404;
+            margin-bottom: 0.5rem;
+        }
+
+        .safety-notice-text {
+            color: #856404;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .flag-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .flag-details {
+                grid-template-columns: 1fr;
+            }
+
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚩 Feature Flags Registry</h1>
+            <div class="subtitle">DecisionGuide AI - Scenario Sandbox PoC</div>
+        </div>
+
+        <div class="safety-notice">
+            <div class="safety-notice-title">🔒 Safety First</div>
+            <div class="safety-notice-text">
+                All flags default to OFF for safety. Enable gradually with careful monitoring. Never expose secrets or sensitive data through flag configuration.
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">16</div>
+                <div class="stat-label">Total Flags</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">0</div>
+                <div class="stat-label">Enabled by Default</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">16</div>
+                <div class="stat-label">Safe Defaults</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">2</div>
+                <div class="stat-label">Control Methods</div>
+            </div>
+        </div>
+
+        <div class="flag-grid">
+            <div class="category-header">Core Streaming Features</div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">SSE Streaming</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    Enables Server-Sent Events for real-time analysis streaming
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_FEATURE_SSE</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.sseStreaming</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        Live streaming analysis results with token-by-token delivery, connection status indicators, and auto-reconnection on network issues
+                    </div>
+                </div>
+            </div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">SSE Auto-Reconnect</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    Automatic reconnection for dropped SSE connections
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">N/A (localStorage only)</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.sseAuto</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        Automatic reconnection attempts when streaming connection drops, with visual indicators showing reconnection progress
+                    </div>
+                </div>
+            </div>
+
+            <div class="category-header">Analysis & Reporting</div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">Real Report Data</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    Use real AI-generated reports instead of mock data
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_USE_REAL_REPORT</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.realReport</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        Actual AI-generated analysis reports with real insights, recommendations, and decision breakdowns (incurs AI service costs)
+                    </div>
+                </div>
+            </div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">Confidence Chips</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    Visual confidence indicators throughout the analysis
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_FEATURE_CONFIDENCE_CHIPS</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.confidenceChips</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        Color-coded confidence indicators (high/medium/low) displayed as chips next to analysis points and recommendations
+                    </div>
+                </div>
+            </div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">Run Reports</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    Detailed execution reports for analysis runs
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_FEATURE_RUN_REPORT</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.runReport</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        Detailed drawer showing analysis execution metrics, processing time, token usage, and system performance data
+                    </div>
+                </div>
+            </div>
+
+            <div class="category-header">User Interface Enhancements</div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">Ghost Panel</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    Experimental floating panel for advanced controls
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_FEATURE_GHOST_PANEL</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.ghostPanel</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        Floating panel with advanced debugging controls, system status indicators, and developer tools for analysis inspection
+                    </div>
+                </div>
+            </div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">Jobs Progress Panel</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    Visual progress tracking for background analysis jobs
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_FEATURE_JOBS_PROGRESS</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.jobsProgress</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        Live progress bars and status updates for background analysis jobs, showing queue position and estimated completion time
+                    </div>
+                </div>
+            </div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">Terminal Hints</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    "What happened?" hints for terminal states
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_FEATURE_HINTS</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.hints</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        Contextual hints explaining why analysis stopped, what caused errors, or what the current system state means
+                    </div>
+                </div>
+            </div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">Scenario Parameters</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    UI controls for seed, budget, and model parameters
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_FEATURE_PARAMS</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.params</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        Advanced controls for setting analysis seed (for reproducibility), budget constraints, and AI model selection
+                    </div>
+                </div>
+            </div>
+
+            <div class="category-header">History & Export Features</div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">Run History</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    Local history drawer for past analysis runs
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_FEATURE_HISTORY</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.history</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        Sidebar showing your recent analysis runs with timestamps, decision titles, and quick access to past results
+                    </div>
+                </div>
+            </div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">History Re-run</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    Re-run button for historical analysis scenarios
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_FEATURE_HISTORY_RERUN</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.historyRerun</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        "Re-run Analysis" buttons on historical entries, allowing you to run the same scenario again with updated AI models
+                    </div>
+                </div>
+            </div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">Export Transcripts</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    Export analysis results to various formats
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_FEATURE_EXPORT</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.export</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        Export buttons for downloading analysis as PDF, Word document, or plain text transcript for sharing and archiving
+                    </div>
+                </div>
+            </div>
+
+            <div class="category-header">Developer & Content Features</div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">Markdown Preview</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    Live markdown preview for analysis content
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_FEATURE_MD_PREVIEW</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.mdPreview</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        Rich markdown rendering of analysis results with proper formatting, tables, and code blocks for technical scenarios
+                    </div>
+                </div>
+            </div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">Copy Code Buttons</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    Copy-to-clipboard buttons for code blocks
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_FEATURE_COPY_CODE</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.copyCode</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        One-click copy buttons on all code blocks in analysis results, making it easy to extract technical recommendations
+                    </div>
+                </div>
+            </div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">Keyboard Shortcuts</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    Keyboard shortcuts for power users
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_FEATURE_SHORTCUTS</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.shortcuts</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        Keyboard shortcuts for common actions (Ctrl+Enter to run analysis, Ctrl+E to export, etc.) with on-screen hints
+                    </div>
+                </div>
+            </div>
+
+            <div class="category-header">System & Monitoring</div>
+
+            <div class="flag-card">
+                <div class="flag-header">
+                    <div class="flag-name">Telemetry</div>
+                    <div class="flag-status off">OFF</div>
+                </div>
+                <div class="flag-description">
+                    Usage analytics and system telemetry collection
+                </div>
+                <div class="flag-details">
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">Environment Variable</div>
+                        <div class="flag-detail-value">VITE_FEATURE_TELEMETRY</div>
+                    </div>
+                    <div class="flag-detail">
+                        <div class="flag-detail-label">LocalStorage Key</div>
+                        <div class="flag-detail-value">feature.telemetry</div>
+                    </div>
+                </div>
+                <div class="flag-when-on">
+                    <div class="flag-when-on-title">When ON, you'll see:</div>
+                    <div class="flag-when-on-description">
+                        Anonymous usage analytics collection for improving the platform (no personal data), with opt-out controls in settings
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>Control Methods:</strong></p>
+            <p>1. <strong>Environment Variables:</strong> Set during build/deployment (VITE_FEATURE_*)</p>
+            <p>2. <strong>LocalStorage:</strong> Runtime toggle via browser developer tools or settings UI</p>
+            <br>
+            <p>All flags default to <strong>OFF</strong> for maximum safety. Enable features gradually with monitoring.</p>
+            <p><em>Generated: <span id="timestamp"></span> | DecisionGuide AI Platform</em></p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+    </script>
+</body>
+</html>

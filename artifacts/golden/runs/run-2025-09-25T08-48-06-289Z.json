@@ -1,0 +1,25 @@
+{
+  "suite": "Decision Guide AI Golden Suite",
+  "timestamp": "2025-09-25T08:48:06.289Z",
+  "duration": 863,
+  "summary": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 0
+  },
+  "results": [
+    {
+      "test": "framework-selection-baseline",
+      "status": "pass",
+      "duration": 854,
+      "hash": "00cbff0234c61b25",
+      "metadata": {
+        "tokens": 372,
+        "cost": 0.744,
+        "steps": 5
+      }
+    }
+  ]
+}

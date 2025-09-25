@@ -1,0 +1,40 @@
+title: "Cloud Migration Strategy"
+description: "Migrate legacy on-premise infrastructure to cloud"
+note: "Notice the cost vs risk tradeoffs and timeline dependencies"
+
+context:
+  timeline: "18 months"
+  budget: "$2M"
+  current_state: "On-premise data center with 200+ servers"
+  requirements:
+    - "Zero downtime migration"
+    - "Cost optimization priority"
+    - "Compliance with industry standards"
+
+options:
+  - name: "Lift and Shift (IaaS)"
+    description: "Move existing VMs to cloud with minimal changes"
+    pros: ["Fast migration", "Low risk", "Familiar architecture"]
+    cons: ["Suboptimal costs", "Limited cloud benefits", "Technical debt"]
+
+  - name: "Platform Modernization (PaaS)"
+    description: "Refactor applications for cloud-native platforms"
+    pros: ["Better performance", "Managed services", "Auto-scaling"]
+    cons: ["Longer timeline", "Application changes", "Learning curve"]
+
+  - name: "Hybrid Cloud"
+    description: "Keep some workloads on-premise, move others to cloud"
+    pros: ["Gradual transition", "Flexibility", "Risk mitigation"]
+    cons: ["Complex management", "Network dependencies", "Split operations"]
+
+constraints:
+  - "Must maintain 99.9% uptime during migration"
+  - "Regulatory data cannot leave specific regions"
+  - "Budget cannot exceed $2M over 18 months"
+  - "Team has limited cloud expertise"
+
+params:
+  maxTokens: 1200
+  steps: 6
+  model: "gpt-4-turbo"
+  seed: 1001

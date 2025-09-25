@@ -1,0 +1,41 @@
+{
+  "id": "market-entry-scenario",
+  "title": "Market Entry Strategy - European Expansion",
+  "description": "Technology company evaluating options for entering European markets",
+  "seed": 42,
+  "context": {
+    "company": "B2B SaaS startup",
+    "currentMarkets": ["North America"],
+    "timeline": "12 months",
+    "budget": "$1.5M",
+    "teamSize": "45 employees"
+  },
+  "options": [
+    {
+      "name": "Direct Sales Expansion",
+      "description": "Hire local sales teams and establish offices in key European cities",
+      "estimatedCost": 800000,
+      "timeline": "8-10 months",
+      "complexity": "high"
+    },
+    {
+      "name": "Partner Channel Strategy",
+      "description": "Work with established local partners and resellers",
+      "estimatedCost": 300000,
+      "timeline": "4-6 months",
+      "complexity": "medium"
+    },
+    {
+      "name": "Remote-First Approach",
+      "description": "Serve European customers remotely with targeted digital marketing",
+      "estimatedCost": 200000,
+      "timeline": "2-3 months",
+      "complexity": "low"
+    }
+  ],
+  "expectedOutput": {
+    "recommendation": "Partner Channel Strategy",
+    "confidence": 87,
+    "reasoning": "Balances speed to market with manageable risk and investment"
+  }
+}

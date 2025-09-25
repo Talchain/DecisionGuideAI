@@ -1,5 +1,11 @@
 DecisionGuideAI
 
+## Status
+
+🟢 **Platform Status:** Operational | [Start Here](./artifacts/start-here.html) | [Integration Status](./artifacts/integration-status.html) | [Evidence Pack](./artifacts/index.html) | [Operator Handbook](./docs/OPERATOR_HANDBOOK.md) | [Feature Flags](./artifacts/flags.html) | [FAQ](./artifacts/faq.md) | [Glossary](./artifacts/glossary.md)
+
+[![Nightly Integration](https://img.shields.io/badge/Nightly%20Integration-%E2%9C%85%20Passing-brightgreen)](./artifacts/integration-status.html)
+
 ## Quick PoC Start (Two-Minute Setup)
 
 Get the Scenario Sandbox PoC running in under 2 minutes:

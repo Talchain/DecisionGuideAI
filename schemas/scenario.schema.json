@@ -1,0 +1,156 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://decision-mind.ai/schemas/scenario.schema.json",
+  "title": "Decision Scenario Schema",
+  "description": "Schema for validating Decision Guide AI scenario files",
+  "type": "object",
+  "required": ["title", "description"],
+  "additionalProperties": true,
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Human-readable title for the scenario",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of what the scenario evaluates",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "decision": {
+      "type": "object",
+      "description": "The core decision structure (optional nested format)",
+      "additionalProperties": true,
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Specific decision to be made",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "options": {
+          "type": "array",
+          "description": "Available choices for the decision",
+          "minItems": 2,
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "required": ["name", "description"],
+            "additionalProperties": true,
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Name of the option",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              "description": {
+                "type": "string",
+                "description": "Detailed description of the option",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            }
+          }
+        },
+        "context": {
+          "type": "object",
+          "description": "Additional context for the decision",
+          "additionalProperties": true
+        }
+      }
+    },
+    "options": {
+      "type": "array",
+      "description": "Available choices (flat format alternative)",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "additionalProperties": true,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the option",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "description": "Detailed description of the option",
+            "maxLength": 500
+          }
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "description": "Additional context for the decision (flat format)",
+      "additionalProperties": true
+    },
+    "params": {
+      "type": "object",
+      "description": "Model parameters for execution",
+      "additionalProperties": true,
+      "properties": {
+        "seed": {
+          "type": "integer",
+          "description": "Random seed for reproducibility",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "maxTokens": {
+          "type": "integer",
+          "description": "Maximum tokens for model response",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "temperature": {
+          "type": "number",
+          "description": "Temperature for model creativity",
+          "minimum": 0,
+          "maximum": 2.0
+        },
+        "model": {
+          "type": "string",
+          "description": "Model identifier",
+          "enum": ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo", "claude-3-sonnet", "claude-3-opus"]
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata about the scenario",
+      "additionalProperties": true,
+      "properties": {
+        "created": {
+          "type": "string",
+          "description": "Creation date (YYYY-MM-DD format)",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "author": {
+          "type": "string",
+          "description": "Author of the scenario",
+          "maxLength": 100
+        },
+        "tags": {
+          "type": "array",
+          "description": "Tags for categorization",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$",
+            "maxLength": 50
+          },
+          "maxItems": 10,
+          "uniqueItems": true
+        },
+        "version": {
+          "type": "string",
+          "description": "Scenario version",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        }
+      }
+    }
+  }
+}

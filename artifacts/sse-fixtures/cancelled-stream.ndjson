@@ -1,0 +1,16 @@
+{"event":"connected","data":{"sessionId":"session_fixture_002","timestamp":"2024-09-24T19:20:00.000Z","mode":"simulation"}}
+{"event":"start","data":{"analysisId":"ana_fixture_cancel_001","status":"started","timestamp":"2024-09-24T19:20:00.100Z"}}
+{"event":"progress","data":{"progress":10,"stage":"initialization","message":"Setting up analysis..."}}
+{"event":"token","data":{"text":"# Decision Analysis Report\n\n"}}
+{"event":"token","data":{"text":"**Decision:** Mobile App Framework\n\n"}}
+{"event":"token","data":{"text":"## Executive Summary\n\n"}}
+{"event":"progress","data":{"progress":25,"stage":"option_analysis","message":"Analyzing options..."}}
+{"event":"token","data":{"text":"Comparing React Native, Flutter, and native development...\n\n"}}
+{"event":"token","data":{"text":"### React Native\n"}}
+{"event":"token","data":{"text":"- **Pros:** JavaScript ecosystem, faster development\n"}}
+{"event":"token","data":{"text":"- **Cons:** Performance limitations for complex apps\n\n"}}
+{"event":"progress","data":{"progress":35,"stage":"option_analysis","message":"Evaluating Flutter..."}}
+{"event":"token","data":{"text":"### Flutter\n"}}
+{"event":"token","data":{"text":"- **Pros:** Single codebase, great performance\n"}}
+{"event":"token","data":{"text":"- **Cons:** Dart learning curve, newer ecosystem\n\n"}}
+{"event":"cancelled","data":{"analysisId":"ana_fixture_cancel_001","reason":"user_requested","timestamp":"2024-09-24T19:20:15.500Z","partialResults":{"tokensGenerated":67,"progress":35,"lastStage":"option_analysis"},"graceful":true}}

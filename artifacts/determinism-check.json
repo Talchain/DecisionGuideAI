@@ -1,0 +1,132 @@
+{
+  "timestamp": "2025-09-25T16:03:10.696Z",
+  "verdict": "deterministic OK",
+  "overallResult": "PASS",
+  "summary": {
+    "passed": 5,
+    "total": 5,
+    "passRate": 100
+  },
+  "results": [
+    {
+      "seed": 42,
+      "runs": [
+        {
+          "output": "Analyzing scenario with seed 42...\n\n## Analysis Results\n\nInitial findings indicate potential requiring immediate attention.\n\n**Confidence Level**: 87%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.531Z"
+        },
+        {
+          "output": "Analyzing scenario with seed 42...\n\n## Analysis Results\n\nInitial findings indicate potential requiring immediate attention.\n\n**Confidence Level**: 87%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.543Z"
+        },
+        {
+          "output": "Analyzing scenario with seed 42...\n\n## Analysis Results\n\nInitial findings indicate potential requiring immediate attention.\n\n**Confidence Level**: 87%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.554Z"
+        }
+      ],
+      "isDeterministic": true,
+      "verdict": "PASS",
+      "summary": "✅ All 3 runs produced identical output"
+    },
+    {
+      "seed": 123,
+      "runs": [
+        {
+          "output": "Analyzing scenario with seed 123...\n\n## Analysis Results\n\nInitial findings indicate potential that warrants further investigation.\n\n**Confidence Level**: 71%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.565Z"
+        },
+        {
+          "output": "Analyzing scenario with seed 123...\n\n## Analysis Results\n\nInitial findings indicate potential that warrants further investigation.\n\n**Confidence Level**: 71%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.576Z"
+        },
+        {
+          "output": "Analyzing scenario with seed 123...\n\n## Analysis Results\n\nInitial findings indicate potential that warrants further investigation.\n\n**Confidence Level**: 71%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.587Z"
+        }
+      ],
+      "isDeterministic": true,
+      "verdict": "PASS",
+      "summary": "✅ All 3 runs produced identical output"
+    },
+    {
+      "seed": 999,
+      "runs": [
+        {
+          "output": "Analyzing scenario with seed 999...\n\n## Analysis Results\n\nPreliminary analysis reveals demanding strategic consideration.\n\n**Confidence Level**: 95%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.598Z"
+        },
+        {
+          "output": "Analyzing scenario with seed 999...\n\n## Analysis Results\n\nPreliminary analysis reveals demanding strategic consideration.\n\n**Confidence Level**: 95%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.609Z"
+        },
+        {
+          "output": "Analyzing scenario with seed 999...\n\n## Analysis Results\n\nPreliminary analysis reveals demanding strategic consideration.\n\n**Confidence Level**: 95%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.620Z"
+        }
+      ],
+      "isDeterministic": true,
+      "verdict": "PASS",
+      "summary": "✅ All 3 runs produced identical output"
+    },
+    {
+      "seed": 1337,
+      "runs": [
+        {
+          "output": "Analyzing scenario with seed 1337...\n\n## Analysis Results\n\nKey observations from the data with significant implications.\n\n**Confidence Level**: 78%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.630Z"
+        },
+        {
+          "output": "Analyzing scenario with seed 1337...\n\n## Analysis Results\n\nKey observations from the data with significant implications.\n\n**Confidence Level**: 78%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.641Z"
+        },
+        {
+          "output": "Analyzing scenario with seed 1337...\n\n## Analysis Results\n\nKey observations from the data with significant implications.\n\n**Confidence Level**: 78%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.652Z"
+        }
+      ],
+      "isDeterministic": true,
+      "verdict": "PASS",
+      "summary": "✅ All 3 runs produced identical output"
+    },
+    {
+      "seed": 2024,
+      "runs": [
+        {
+          "output": "Analyzing scenario with seed 2024...\n\n## Analysis Results\n\nThe data suggests a clear pattern demanding strategic consideration.\n\n**Confidence Level**: 90%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.663Z"
+        },
+        {
+          "output": "Analyzing scenario with seed 2024...\n\n## Analysis Results\n\nThe data suggests a clear pattern demanding strategic consideration.\n\n**Confidence Level**: 90%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.673Z"
+        },
+        {
+          "output": "Analyzing scenario with seed 2024...\n\n## Analysis Results\n\nThe data suggests a clear pattern demanding strategic consideration.\n\n**Confidence Level**: 90%",
+          "duration": 0,
+          "timestamp": "2025-09-25T16:03:10.685Z"
+        }
+      ],
+      "isDeterministic": true,
+      "verdict": "PASS",
+      "summary": "✅ All 3 runs produced identical output"
+    }
+  ],
+  "metadata": {
+    "testType": "determinism",
+    "simulator": "DeterminismTestStreamer",
+    "runsPerSeed": 3
+  }
+}

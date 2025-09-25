@@ -1,0 +1,40 @@
+title: "Database Technology Selection"
+description: "Choose database for high-traffic e-commerce platform"
+note: "Notice the performance vs consistency tradeoffs and operational complexity"
+
+context:
+  timeline: "3 months"
+  budget: "$50K setup + operational costs"
+  scale: "1M+ daily active users, 10TB data"
+  requirements:
+    - "Sub-100ms query response"
+    - "ACID compliance for transactions"
+    - "Horizontal scalability"
+
+options:
+  - name: "PostgreSQL (Relational)"
+    description: "Open source relational database with strong consistency"
+    pros: ["ACID compliance", "Rich query language", "Mature ecosystem"]
+    cons: ["Vertical scaling limits", "Complex sharding", "Higher maintenance"]
+
+  - name: "MongoDB (Document)"
+    description: "NoSQL document database with flexible schema"
+    pros: ["Horizontal scaling", "Flexible schema", "Developer friendly"]
+    cons: ["Eventual consistency", "Memory usage", "Complex transactions"]
+
+  - name: "Redis Cluster (In-memory)"
+    description: "In-memory data structure store for caching and fast access"
+    pros: ["Ultra-fast performance", "Built-in clustering", "Rich data types"]
+    cons: ["Memory limitations", "Data persistence concerns", "Cost at scale"]
+
+constraints:
+  - "Must handle 10K+ transactions per second"
+  - "Data loss tolerance: < 1 minute"
+  - "Team familiar with SQL but new to NoSQL"
+  - "Budget constraints for enterprise licenses"
+
+params:
+  maxTokens: 800
+  steps: 5
+  model: "gpt-3.5-turbo"
+  seed: 2002

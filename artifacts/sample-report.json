@@ -1,0 +1,52 @@
+{
+  "version": "1.0",
+  "meta": {
+    "seed": 42,
+    "timestamp": "2025-09-25T09:30:00.000Z",
+    "duration": 15000,
+    "route": "/decision/analyze",
+    "totalTokens": 1250,
+    "totalCost": 0.025,
+    "model": "gpt-4-turbo",
+    "status": "completed"
+  },
+  "steps": [
+    {
+      "id": 1,
+      "type": "analysis",
+      "startTime": 1695645000000,
+      "endTime": 1695645005000,
+      "duration": 5000,
+      "status": "completed",
+      "tokens": 400,
+      "cost": 0.008
+    },
+    {
+      "id": 2,
+      "type": "generation",
+      "startTime": 1695645005000,
+      "endTime": 1695645012000,
+      "duration": 7000,
+      "status": "completed",
+      "tokens": 600,
+      "cost": 0.012
+    },
+    {
+      "id": 3,
+      "type": "validation",
+      "startTime": 1695645012000,
+      "endTime": 1695645015000,
+      "duration": 3000,
+      "status": "completed",
+      "tokens": 250,
+      "cost": 0.005
+    }
+  ],
+  "totals": {
+    "totalSteps": 3,
+    "completedSteps": 3,
+    "totalTokens": 1250,
+    "totalCost": 0.025,
+    "totalDuration": 15000
+  }
+}

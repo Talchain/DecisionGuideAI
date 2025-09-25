@@ -1,0 +1,73 @@
+#!/bin/bash
+# Panic Off Switch - Emergency Feature Flag Override
+# Forces ALL powerful features OFF across all services
+# Usage: source ./tools/panic-off.sh
+
+echo "🚨 PANIC OFF SWITCH ACTIVATED"
+echo "=================================================="
+echo "Setting environment variables to force ALL features OFF:"
+echo
+
+# Core Feature Flags
+export ENABLE_RATE_LIMITING=false
+export ENABLE_CACHING=false
+export ENABLE_USAGE_TRACKING=false
+export ENABLE_TELEMETRY=false
+export ENABLE_MONITORING=false
+export ENABLE_SECRET_HYGIENE=false
+export ENABLE_SLO_TRACKING=false
+export ENABLE_SSE_EXTRAS=false
+
+# Advanced Features
+export ENABLE_ADVANCED_ANALYTICS=false
+export ENABLE_BATCH_PROCESSING=false
+export ENABLE_WEBHOOK_DELIVERY=false
+export ENABLE_EMAIL_NOTIFICATIONS=false
+export ENABLE_SLACK_INTEGRATION=false
+export ENABLE_AUDIT_LOGGING=false
+export ENABLE_PERFORMANCE_PROFILING=false
+export ENABLE_DEBUG_MODE=false
+
+# Data Processing
+export ENABLE_DATA_EXPORT=false
+export ENABLE_BULK_OPERATIONS=false
+export ENABLE_AUTO_SCALING=false
+export ENABLE_BACKGROUND_JOBS=false
+
+# Security Features
+export ENABLE_HMAC_SIGNING=false
+export ENABLE_API_KEY_ROTATION=false
+export ENABLE_SESSION_PERSISTENCE=false
+export ENABLE_CROSS_ORIGIN_REQUESTS=false
+
+echo "✅ ENABLE_RATE_LIMITING=$ENABLE_RATE_LIMITING"
+echo "✅ ENABLE_CACHING=$ENABLE_CACHING"
+echo "✅ ENABLE_USAGE_TRACKING=$ENABLE_USAGE_TRACKING"
+echo "✅ ENABLE_TELEMETRY=$ENABLE_TELEMETRY"
+echo "✅ ENABLE_MONITORING=$ENABLE_MONITORING"
+echo "✅ ENABLE_SECRET_HYGIENE=$ENABLE_SECRET_HYGIENE"
+echo "✅ ENABLE_SLO_TRACKING=$ENABLE_SLO_TRACKING"
+echo "✅ ENABLE_SSE_EXTRAS=$ENABLE_SSE_EXTRAS"
+echo "✅ ENABLE_ADVANCED_ANALYTICS=$ENABLE_ADVANCED_ANALYTICS"
+echo "✅ ENABLE_BATCH_PROCESSING=$ENABLE_BATCH_PROCESSING"
+echo "✅ ENABLE_WEBHOOK_DELIVERY=$ENABLE_WEBHOOK_DELIVERY"
+echo "✅ ENABLE_EMAIL_NOTIFICATIONS=$ENABLE_EMAIL_NOTIFICATIONS"
+echo "✅ ENABLE_SLACK_INTEGRATION=$ENABLE_SLACK_INTEGRATION"
+echo "✅ ENABLE_AUDIT_LOGGING=$ENABLE_AUDIT_LOGGING"
+echo "✅ ENABLE_PERFORMANCE_PROFILING=$ENABLE_PERFORMANCE_PROFILING"
+echo "✅ ENABLE_DEBUG_MODE=$ENABLE_DEBUG_MODE"
+echo "✅ ENABLE_DATA_EXPORT=$ENABLE_DATA_EXPORT"
+echo "✅ ENABLE_BULK_OPERATIONS=$ENABLE_BULK_OPERATIONS"
+echo "✅ ENABLE_AUTO_SCALING=$ENABLE_AUTO_SCALING"
+echo "✅ ENABLE_BACKGROUND_JOBS=$ENABLE_BACKGROUND_JOBS"
+echo "✅ ENABLE_HMAC_SIGNING=$ENABLE_HMAC_SIGNING"
+echo "✅ ENABLE_API_KEY_ROTATION=$ENABLE_API_KEY_ROTATION"
+echo "✅ ENABLE_SESSION_PERSISTENCE=$ENABLE_SESSION_PERSISTENCE"
+echo "✅ ENABLE_CROSS_ORIGIN_REQUESTS=$ENABLE_CROSS_ORIGIN_REQUESTS"
+
+echo
+echo "=================================================="
+echo "🛡️  ALL POWERFUL FEATURES NOW DISABLED"
+echo "🔧 To restore defaults: restart your terminal session"
+echo "📝 Current session only - does not change config files"
+echo "=================================================="

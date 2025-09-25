@@ -1,0 +1,2399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contract Coverage Map</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 40px; line-height: 1.6; }
+        .header { border-bottom: 3px solid #0066cc; padding-bottom: 20px; margin-bottom: 30px; }
+        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .summary-card { padding: 20px; border-radius: 8px; text-align: center; }
+        .well-covered { background: #d4edda; border-left: 4px solid #28a745; }
+        .partial-covered { background: #fff3cd; border-left: 4px solid #ffc107; }
+        .poor-covered { background: #f8d7da; border-left: 4px solid #dc3545; }
+        .no-coverage { background: #f1f3f4; border-left: 4px solid #6c757d; }
+        .route { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .route-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .method { padding: 4px 8px; border-radius: 4px; color: white; font-weight: bold; font-size: 0.8em; }
+        .method.GET { background: #28a745; }
+        .method.POST { background: #007bff; }
+        .method.PUT { background: #ffc107; color: black; }
+        .method.DELETE { background: #dc3545; }
+        .coverage-bar { height: 8px; background: #e9ecef; border-radius: 4px; overflow: hidden; }
+        .coverage-fill { height: 100%; transition: width 0.3s; }
+        .coverage-items { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 10px; margin: 15px 0; }
+        .coverage-item { padding: 10px; border-left: 3px solid #ccc; background: #f8f9fa; }
+        .coverage-item.example { border-color: #007bff; }
+        .coverage-item.mock { border-color: #28a745; }
+        .coverage-item.ui-fixture { border-color: #ffc107; }
+        .coverage-item.test { border-color: #17a2b8; }
+        .coverage-item.reference { border-color: #6c757d; }
+        .gaps { color: #dc3545; font-style: italic; }
+        .score { font-weight: bold; font-size: 1.2em; }
+        .timestamp { color: #6c757d; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🗺️ Contract Coverage Map</h1>
+        <p class="timestamp">Generated: 2025-09-25T15:41:26.521Z</p>
+        <p>Coverage analysis for 13 API routes</p>
+    </div>
+
+    <div class="summary">
+        <div class="summary-card well-covered">
+            <h3>9</h3>
+            <p>Well Covered<br><small>(80%+ coverage)</small></p>
+        </div>
+        <div class="summary-card partial-covered">
+            <h3>3</h3>
+            <p>Partial Coverage<br><small>(50-79% coverage)</small></p>
+        </div>
+        <div class="summary-card poor-covered">
+            <h3>1</h3>
+            <p>Poor Coverage<br><small>(1-49% coverage)</small></p>
+        </div>
+        <div class="summary-card no-coverage">
+            <h3>0</h3>
+            <p>No Coverage<br><small>(0% coverage)</small></p>
+        </div>
+    </div>
+
+    <p><strong>Average Coverage:</strong> 87% | <strong>Routes with Coverage:</strong> 13/13</p>
+
+    <h2>📋 Route Coverage Details</h2>
+
+    
+        <div class="route">
+            <div class="route-header">
+                <div>
+                    <span class="method POST">POST</span>
+                    <strong>/api/analysis</strong>
+                    <br><small>Submit a new decision analysis request with multiple options</small>
+                </div>
+                <div class="score">100%</div>
+            </div>
+
+            <div class="coverage-bar">
+                <div class="coverage-fill" style="width: 100%; background: #28a745"></div>
+            </div>
+
+            
+                <div class="coverage-items">
+                    
+                        <div class="coverage-item example">
+                            <strong>example</strong>: Example payload in contracts/examples/api-examples.json<br>
+                            <small>📁 artifacts/contracts/examples/api-examples.json</small>
+                            <br><small>💡 POST /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/5-jobs-progress-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/1-happy-path/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/stream-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/report-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/jobs-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/App.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/supabase.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/simMode.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/runReportV1.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/prompts.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/flagRegistry.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/api.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/hooks/useAnalysis.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/LandingPage.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ImportanceSelector.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/GoalClarificationScreen.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/CriteriaForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/About.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionList.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionEdit.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/AnalysisContent.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/BiasesCarousel/index.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/ScoreComparison.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/utils/formatAnalysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/components/Header.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis</small>
+                        </div>
+                    
+                </div>
+            
+
+            
+                <div class="gaps">
+                    <strong>Gaps:</strong> No test coverage found
+                </div>
+            
+        </div>
+    
+        <div class="route">
+            <div class="route-header">
+                <div>
+                    <span class="method GET">GET</span>
+                    <strong>/api/analysis/{analysisId}/status</strong>
+                    <br><small>Check the current status of an analysis</small>
+                </div>
+                <div class="score">100%</div>
+            </div>
+
+            <div class="coverage-bar">
+                <div class="coverage-fill" style="width: 100%; background: #28a745"></div>
+            </div>
+
+            
+                <div class="coverage-items">
+                    
+                        <div class="coverage-item example">
+                            <strong>example</strong>: Example payload in contracts/examples/api-examples.json<br>
+                            <small>📁 artifacts/contracts/examples/api-examples.json</small>
+                            <br><small>💡 GET /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/stream-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/report-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/jobs-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/5-jobs-progress-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/4-error-stream/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/1-happy-path/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/3-mid-stream-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/2-resume-last-event-id/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/App.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/types/invitations.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/types/database.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/supabase.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/simMode.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/runReportV1.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/runReport.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/prompts.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/flagRegistry.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/fastCancel.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/export.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/email.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/api.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/hooks/useAnalysis.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/contexts/TeamsContext.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/contexts/DecisionContext.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/SandboxStreamPanel.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/RunReportDrawer.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/RunHistoryDrawer.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/LandingPage.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/JobsProgressPanel.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ImportanceSelector.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/GoalClarificationScreen.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/DecisionDetails.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/CriteriaForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/About.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/teams/ManageTeamMembersModal.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionList.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionEdit.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/ScoreComparison.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/ProsConsList.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/BiasesCarousel/index.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/AnalysisContent.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/components/Header.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/utils/formatAnalysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/status</small>
+                        </div>
+                    
+                </div>
+            
+
+            
+                <div class="gaps">
+                    <strong>Gaps:</strong> No test coverage found
+                </div>
+            
+        </div>
+    
+        <div class="route">
+            <div class="route-header">
+                <div>
+                    <span class="method POST">POST</span>
+                    <strong>/api/analysis/{analysisId}/cancel</strong>
+                    <br><small>Cancel a running analysis with optional graceful shutdown</small>
+                </div>
+                <div class="score">100%</div>
+            </div>
+
+            <div class="coverage-bar">
+                <div class="coverage-fill" style="width: 100%; background: #28a745"></div>
+            </div>
+
+            
+                <div class="coverage-items">
+                    
+                        <div class="coverage-item example">
+                            <strong>example</strong>: Example payload in contracts/examples/api-examples.json<br>
+                            <small>📁 artifacts/contracts/examples/api-examples.json</small>
+                            <br><small>💡 POST /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/5-jobs-progress-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/3-mid-stream-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/1-happy-path/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/stream-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/report-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/jobs-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/App.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/telemetry.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/supabase.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/sseClient.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/simMode.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/runReportV1.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/prompts.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/flagRegistry.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/fastCancel.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/api.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/hooks/useAnalysis.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/SandboxStreamPanel.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/OptionsIdeation.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/LandingPage.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/JobsProgressPanel.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ImportanceSelector.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/GoalClarificationScreen.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/CriteriaForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ConfettiConfirmation.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/About.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionList.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionEdit.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/teams/UserDirectoryTab.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/teams/EditTeamModal.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/teams/CreateTeamModal.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/CollaborativeOptions/MergeOptionsModal.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/AnalysisContent.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/BiasesCarousel/index.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/SortableItem.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/ScoreComparison.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/OptionColumn.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/AddOptionModal.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/utils/formatAnalysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/components/Header.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{analysisId}/cancel</small>
+                        </div>
+                    
+                </div>
+            
+
+            
+                <div class="gaps">
+                    <strong>Gaps:</strong> No test coverage found
+                </div>
+            
+        </div>
+    
+        <div class="route">
+            <div class="route-header">
+                <div>
+                    <span class="method GET">GET</span>
+                    <strong>/api/analysis/{id}</strong>
+                    <br><small>Get analysis by ID</small>
+                </div>
+                <div class="score">100%</div>
+            </div>
+
+            <div class="coverage-bar">
+                <div class="coverage-fill" style="width: 100%; background: #28a745"></div>
+            </div>
+
+            
+                <div class="coverage-items">
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/5-jobs-progress-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/1-happy-path/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/stream-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/report-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/jobs-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/App.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/hooks/useAnalysis.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/supabase.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/simMode.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/runReportV1.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/prompts.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/flagRegistry.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/api.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/LandingPage.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ImportanceSelector.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/GoalClarificationScreen.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/CriteriaForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/About.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionList.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionEdit.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/ScoreComparison.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/BiasesCarousel/index.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/AnalysisContent.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/components/Header.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/utils/formatAnalysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}</small>
+                        </div>
+                    
+                </div>
+            
+
+            
+                <div class="gaps">
+                    <strong>Gaps:</strong> No example payload available, No test coverage found
+                </div>
+            
+        </div>
+    
+        <div class="route">
+            <div class="route-header">
+                <div>
+                    <span class="method GET">GET</span>
+                    <strong>/api/analysis/{id}/status</strong>
+                    <br><small>Get analysis status</small>
+                </div>
+                <div class="score">100%</div>
+            </div>
+
+            <div class="coverage-bar">
+                <div class="coverage-fill" style="width: 100%; background: #28a745"></div>
+            </div>
+
+            
+                <div class="coverage-items">
+                    
+                        <div class="coverage-item example">
+                            <strong>example</strong>: Example payload in contracts/examples/api-examples.json<br>
+                            <small>📁 artifacts/contracts/examples/api-examples.json</small>
+                            <br><small>💡 GET /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/stream-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/report-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/jobs-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/5-jobs-progress-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/4-error-stream/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/3-mid-stream-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/2-resume-last-event-id/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/1-happy-path/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/App.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/types/invitations.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/types/database.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/hooks/useAnalysis.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/contexts/TeamsContext.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/contexts/DecisionContext.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/supabase.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/simMode.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/runReportV1.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/runReport.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/prompts.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/flagRegistry.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/fastCancel.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/export.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/email.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/api.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/SandboxStreamPanel.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/RunReportDrawer.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/RunHistoryDrawer.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/LandingPage.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/JobsProgressPanel.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ImportanceSelector.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/GoalClarificationScreen.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/DecisionDetails.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/CriteriaForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/About.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/teams/ManageTeamMembersModal.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionList.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionEdit.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/ScoreComparison.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/ProsConsList.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/BiasesCarousel/index.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/AnalysisContent.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/components/Header.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/utils/formatAnalysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/status</small>
+                        </div>
+                    
+                </div>
+            
+
+            
+                <div class="gaps">
+                    <strong>Gaps:</strong> No test coverage found
+                </div>
+            
+        </div>
+    
+        <div class="route">
+            <div class="route-header">
+                <div>
+                    <span class="method POST">POST</span>
+                    <strong>/api/analysis/{id}/cancel</strong>
+                    <br><small>Cancel analysis</small>
+                </div>
+                <div class="score">100%</div>
+            </div>
+
+            <div class="coverage-bar">
+                <div class="coverage-fill" style="width: 100%; background: #28a745"></div>
+            </div>
+
+            
+                <div class="coverage-items">
+                    
+                        <div class="coverage-item example">
+                            <strong>example</strong>: Example payload in contracts/examples/api-examples.json<br>
+                            <small>📁 artifacts/contracts/examples/api-examples.json</small>
+                            <br><small>💡 POST /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/stream-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/report-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/jobs-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/5-jobs-progress-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/3-mid-stream-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/1-happy-path/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/App.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/hooks/useAnalysis.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/telemetry.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/supabase.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/sseClient.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/simMode.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/runReportV1.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/prompts.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/flagRegistry.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/fastCancel.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/api.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/SandboxStreamPanel.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/OptionsIdeation.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/LandingPage.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/JobsProgressPanel.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ImportanceSelector.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/GoalClarificationScreen.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/CriteriaForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ConfettiConfirmation.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/About.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/teams/UserDirectoryTab.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/teams/EditTeamModal.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/teams/CreateTeamModal.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/SortableItem.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/ScoreComparison.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/OptionColumn.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/AddOptionModal.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionList.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionEdit.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/AnalysisContent.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/BiasesCarousel/index.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/CollaborativeOptions/MergeOptionsModal.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/components/Header.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/utils/formatAnalysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/cancel</small>
+                        </div>
+                    
+                </div>
+            
+
+            
+                <div class="gaps">
+                    <strong>Gaps:</strong> No test coverage found
+                </div>
+            
+        </div>
+    
+        <div class="route">
+            <div class="route-header">
+                <div>
+                    <span class="method GET">GET</span>
+                    <strong>/api/analysis/{id}/report</strong>
+                    <br><small>Get analysis report</small>
+                </div>
+                <div class="score">100%</div>
+            </div>
+
+            <div class="coverage-bar">
+                <div class="coverage-fill" style="width: 100%; background: #28a745"></div>
+            </div>
+
+            
+                <div class="coverage-items">
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/stream-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/report-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/jobs-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/5-jobs-progress-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/1-happy-path/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/flags.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/App.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/supabase.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/simMode.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/runReportV1.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/runReport.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/prompts.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/flagRegistry.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/api.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/hooks/useAnalysis.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/SandboxStreamPanel.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/RunReportDrawer.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/RunHistoryDrawer.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/LandingPage.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ImportanceSelector.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/GoalClarificationScreen.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/CriteriaForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/About.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionList.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionEdit.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/ScoreComparison.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/BiasesCarousel/index.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/AnalysisContent.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/components/Header.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/utils/formatAnalysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/report</small>
+                        </div>
+                    
+                </div>
+            
+
+            
+                <div class="gaps">
+                    <strong>Gaps:</strong> No example payload available, No test coverage found
+                </div>
+            
+        </div>
+    
+        <div class="route">
+            <div class="route-header">
+                <div>
+                    <span class="method GET">GET</span>
+                    <strong>/api/analysis/{id}/events</strong>
+                    <br><small>SSE stream for analysis events</small>
+                </div>
+                <div class="score">100%</div>
+            </div>
+
+            <div class="coverage-bar">
+                <div class="coverage-fill" style="width: 100%; background: #28a745"></div>
+            </div>
+
+            
+                <div class="coverage-items">
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/stream-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/report-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/jobs-view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/5-jobs-progress-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/1-happy-path/view-model.json</small>
+                            <br><small>💡 May contain data for /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/App.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/supabase.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/sseClient.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/simMode.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/runReportV1.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/prompts.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/flagRegistry.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/fastCancel.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/api.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/hooks/useAnalysis.ts</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/LandingPage.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ImportanceSelector.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/GoalClarificationScreen.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/CriteriaForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ConfettiConfirmation.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/About.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/navigation/Navbar.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/teams/UserDirectoryTab.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionList.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionEdit.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/ScoreComparison.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/auth/ResetPasswordForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/auth/ForgotPasswordForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/AnalysisContent.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/BiasesCarousel/index.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/ProsConsList/components/Header.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis/utils/formatAnalysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/analysis/{id}/events</small>
+                        </div>
+                    
+                </div>
+            
+
+            
+                <div class="gaps">
+                    <strong>Gaps:</strong> No example payload available, No test coverage found
+                </div>
+            
+        </div>
+    
+        <div class="route">
+            <div class="route-header">
+                <div>
+                    <span class="method GET">GET</span>
+                    <strong>/api/health</strong>
+                    <br><small>Health check endpoint</small>
+                </div>
+                <div class="score">90%</div>
+            </div>
+
+            <div class="coverage-bar">
+                <div class="coverage-fill" style="width: 90%; background: #28a745"></div>
+            </div>
+
+            
+                <div class="coverage-items">
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/supabase.ts</small>
+                            <br><small>💡 May implement or reference /api/health</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/prompts.ts</small>
+                            <br><small>💡 May implement or reference /api/health</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/types/database.ts</small>
+                            <br><small>💡 May implement or reference /api/health</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/DecisionTypeSelector.tsx</small>
+                            <br><small>💡 May implement or reference /api/health</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/DecisionDetails.tsx</small>
+                            <br><small>💡 May implement or reference /api/health</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/Analysis.tsx</small>
+                            <br><small>💡 May implement or reference /api/health</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/teams/ManageTeamMembersModal.tsx</small>
+                            <br><small>💡 May implement or reference /api/health</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionList.tsx</small>
+                            <br><small>💡 May implement or reference /api/health</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/decisions/DecisionForm.tsx</small>
+                            <br><small>💡 May implement or reference /api/health</small>
+                        </div>
+                    
+                </div>
+            
+
+            
+                <div class="gaps">
+                    <strong>Gaps:</strong> No example payload available, No test coverage found, No mock or UI fixtures
+                </div>
+            
+        </div>
+    
+        <div class="route">
+            <div class="route-header">
+                <div>
+                    <span class="method POST">POST</span>
+                    <strong>/api/jobs</strong>
+                    <br><small>Create background job</small>
+                </div>
+                <div class="score">70%</div>
+            </div>
+
+            <div class="coverage-bar">
+                <div class="coverage-fill" style="width: 70%; background: #ffc107"></div>
+            </div>
+
+            
+                <div class="coverage-items">
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/jobs-view-model.json</small>
+                            <br><small>💡 May contain data for /api/jobs</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/5-jobs-progress-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/jobs</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/flags.ts</small>
+                            <br><small>💡 May implement or reference /api/jobs</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/sseClient.ts</small>
+                            <br><small>💡 May implement or reference /api/jobs</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/flagRegistry.ts</small>
+                            <br><small>💡 May implement or reference /api/jobs</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/JobsProgressPanel.tsx</small>
+                            <br><small>💡 May implement or reference /api/jobs</small>
+                        </div>
+                    
+                </div>
+            
+
+            
+                <div class="gaps">
+                    <strong>Gaps:</strong> No example payload available, No test coverage found
+                </div>
+            
+        </div>
+    
+        <div class="route">
+            <div class="route-header">
+                <div>
+                    <span class="method GET">GET</span>
+                    <strong>/api/jobs/{id}</strong>
+                    <br><small>Get job status</small>
+                </div>
+                <div class="score">70%</div>
+            </div>
+
+            <div class="coverage-bar">
+                <div class="coverage-fill" style="width: 70%; background: #ffc107"></div>
+            </div>
+
+            
+                <div class="coverage-items">
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/jobs-view-model.json</small>
+                            <br><small>💡 May contain data for /api/jobs/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/5-jobs-progress-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/jobs/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/flags.ts</small>
+                            <br><small>💡 May implement or reference /api/jobs/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/sseClient.ts</small>
+                            <br><small>💡 May implement or reference /api/jobs/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/flagRegistry.ts</small>
+                            <br><small>💡 May implement or reference /api/jobs/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/JobsProgressPanel.tsx</small>
+                            <br><small>💡 May implement or reference /api/jobs/{id}</small>
+                        </div>
+                    
+                </div>
+            
+
+            
+                <div class="gaps">
+                    <strong>Gaps:</strong> No example payload available, No test coverage found
+                </div>
+            
+        </div>
+    
+        <div class="route">
+            <div class="route-header">
+                <div>
+                    <span class="method DELETE">DELETE</span>
+                    <strong>/api/jobs/{id}</strong>
+                    <br><small>Cancel job</small>
+                </div>
+                <div class="score">70%</div>
+            </div>
+
+            <div class="coverage-bar">
+                <div class="coverage-fill" style="width: 70%; background: #ffc107"></div>
+            </div>
+
+            
+                <div class="coverage-items">
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-fixtures/5-jobs-progress-cancel/view-model.json</small>
+                            <br><small>💡 May contain data for /api/jobs/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item ui-fixture">
+                            <strong>ui-fixture</strong>: UI fixture referencing route concepts<br>
+                            <small>📁 artifacts/ui-viewmodels/sample-example/jobs-view-model.json</small>
+                            <br><small>💡 May contain data for /api/jobs/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/flags.ts</small>
+                            <br><small>💡 May implement or reference /api/jobs/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/sseClient.ts</small>
+                            <br><small>💡 May implement or reference /api/jobs/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/flagRegistry.ts</small>
+                            <br><small>💡 May implement or reference /api/jobs/{id}</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/components/JobsProgressPanel.tsx</small>
+                            <br><small>💡 May implement or reference /api/jobs/{id}</small>
+                        </div>
+                    
+                </div>
+            
+
+            
+                <div class="gaps">
+                    <strong>Gaps:</strong> No example payload available, No test coverage found
+                </div>
+            
+        </div>
+    
+        <div class="route">
+            <div class="route-header">
+                <div>
+                    <span class="method GET">GET</span>
+                    <strong>/api/version</strong>
+                    <br><small>API version information</small>
+                </div>
+                <div class="score">30%</div>
+            </div>
+
+            <div class="coverage-bar">
+                <div class="coverage-fill" style="width: 30%; background: #dc3545"></div>
+            </div>
+
+            
+                <div class="coverage-items">
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/supabase.ts</small>
+                            <br><small>💡 May implement or reference /api/version</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/lib/runReportV1.ts</small>
+                            <br><small>💡 May implement or reference /api/version</small>
+                        </div>
+                    
+                        <div class="coverage-item reference">
+                            <strong>reference</strong>: Source code referencing route concepts<br>
+                            <small>📁 src/hooks/useAnalysis.ts</small>
+                            <br><small>💡 May implement or reference /api/version</small>
+                        </div>
+                    
+                </div>
+            
+
+            
+                <div class="gaps">
+                    <strong>Gaps:</strong> No example payload available, No test coverage found, No mock or UI fixtures
+                </div>
+            
+        </div>
+    
+
+    <hr style="margin: 40px 0;">
+    <p style="text-align: center; color: #6c757d;">
+        <small>Report generated by DecisionGuide AI Contract Coverage Analyzer</small>
+    </p>
+</body>
+</html>

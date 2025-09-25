@@ -1,0 +1,53 @@
+{
+  "id": "pricing-strategy-scenario",
+  "title": "SaaS Pricing Model Optimization",
+  "description": "Product team reconsidering pricing strategy after market research",
+  "seed": 2024,
+  "context": {
+    "product": "Project management SaaS",
+    "currentModel": "Per-user monthly subscription",
+    "monthlyRevenue": "$180K MRR",
+    "customerBase": "2,800 companies",
+    "marketPosition": "Mid-tier pricing",
+    "feedback": "Customers want more flexible options"
+  },
+  "options": [
+    {
+      "name": "Usage-Based Pricing",
+      "description": "Charge based on projects, tasks, or storage used",
+      "complexity": "high",
+      "implementationTime": "3-4 months",
+      "revenueImpact": "+15-25%",
+      "riskLevel": "medium"
+    },
+    {
+      "name": "Freemium Model",
+      "description": "Free tier for small teams, premium for advanced features",
+      "complexity": "medium",
+      "implementationTime": "2-3 months",
+      "revenueImpact": "+35-45%",
+      "riskLevel": "medium"
+    },
+    {
+      "name": "Tiered Feature Pricing",
+      "description": "Multiple tiers based on feature access, not users",
+      "complexity": "low",
+      "implementationTime": "1-2 months",
+      "revenueImpact": "+10-20%",
+      "riskLevel": "low"
+    },
+    {
+      "name": "Enterprise Custom Pricing",
+      "description": "Keep current model but add enterprise tier with custom pricing",
+      "complexity": "medium",
+      "implementationTime": "2 months",
+      "revenueImpact": "+25-40%",
+      "riskLevel": "low"
+    }
+  ],
+  "expectedOutput": {
+    "recommendation": "Freemium Model",
+    "confidence": 90,
+    "reasoning": "Highest revenue potential with manageable risk and strong market fit trends"
+  }
+}

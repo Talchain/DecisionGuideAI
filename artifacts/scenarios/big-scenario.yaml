@@ -1,0 +1,62 @@
+title: "Enterprise Architecture Decision"
+description: "Choose comprehensive technology stack for large-scale system"
+
+context:
+  timeline: "12 months"
+  budget: "$500,000"
+  team_size: 50
+  requirements:
+    - High availability (99.99% uptime)
+    - Global scale (100M+ users)
+    - Real-time processing
+    - Regulatory compliance
+    - Multi-region deployment
+
+options:
+  - name: "Microservices + Kubernetes"
+    description: "Container-based microservices architecture"
+    pros: ["Scalability", "Fault tolerance", "Team autonomy"]
+    cons: ["Complexity", "Operational overhead"]
+
+  - name: "Serverless Architecture"
+    description: "Function-as-a-Service with cloud providers"
+    pros: ["Auto-scaling", "Cost efficiency", "Zero server management"]
+    cons: ["Vendor lock-in", "Cold starts", "Limited runtime"]
+
+  - name: "Event-Driven Architecture"
+    description: "Message-based distributed system"
+    pros: ["Loose coupling", "Async processing", "Resilience"]
+    cons: ["Eventual consistency", "Debug complexity"]
+
+  - name: "Service Mesh Architecture"
+    description: "Infrastructure layer for service communication"
+    pros: ["Security", "Observability", "Traffic management"]
+    cons: ["Learning curve", "Resource overhead"]
+
+  - name: "Hybrid Cloud Architecture"
+    description: "Multi-cloud deployment strategy"
+    pros: ["Vendor diversity", "Risk mitigation", "Compliance options"]
+    cons: ["Management complexity", "Data synchronization"]
+
+  - name: "Edge Computing Architecture"
+    description: "Distributed computing at network edge"
+    pros: ["Low latency", "Bandwidth optimization", "Privacy"]
+    cons: ["Device management", "Security challenges"]
+
+constraints:
+  - "Must support 100M concurrent users"
+  - "99.99% uptime SLA required"
+  - "GDPR and SOC2 compliance mandatory"
+  - "Multi-region deployment in 6 regions"
+  - "Real-time analytics required"
+  - "Zero-downtime deployments"
+  - "Disaster recovery with RPO < 1 hour"
+  - "Auto-scaling within 30 seconds"
+  - "Cost optimization targets"
+  - "Security audit requirements"
+
+params:
+  maxTokens: 8000  # High token count to trigger warnings
+  steps: 12
+  model: "gpt-4"  # More expensive model
+  seed: 12345

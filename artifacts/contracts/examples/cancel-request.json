@@ -1,0 +1,103 @@
+{
+  "examples": {
+    "cancel_analysis": {
+      "description": "Cancel a running analysis",
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis/ana_demo_001/cancel",
+        "headers": {
+          "Authorization": "Bearer your-api-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reason": "user_requested",
+          "graceful": true
+        }
+      },
+      "response_success": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "analysisId": "ana_demo_001",
+          "status": "cancelled",
+          "cancelledAt": "2024-09-24T19:15:30Z",
+          "graceful": true,
+          "partialResults": {
+            "tokensGenerated": 156,
+            "progress": 45,
+            "lastStep": "risk_assessment"
+          }
+        }
+      },
+      "response_already_complete": {
+        "status": 409,
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "error": "analysis_already_complete",
+          "message": "Cannot cancel completed analysis",
+          "analysisId": "ana_demo_001",
+          "completedAt": "2024-09-24T19:15:25Z"
+        }
+      }
+    },
+    "force_cancel": {
+      "description": "Force cancel with immediate termination",
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis/ana_demo_002/cancel",
+        "headers": {
+          "Authorization": "Bearer your-api-token",
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "reason": "system_shutdown",
+          "graceful": false,
+          "timeout": 1000
+        }
+      },
+      "response_success": {
+        "status": 200,
+        "body": {
+          "analysisId": "ana_demo_002",
+          "status": "force_cancelled",
+          "cancelledAt": "2024-09-24T19:16:00Z",
+          "graceful": false,
+          "warning": "Analysis terminated immediately, partial results may be incomplete"
+        }
+      }
+    },
+    "cancel_not_found": {
+      "description": "Cancel request for non-existent analysis",
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis/ana_invalid_123/cancel"
+      },
+      "response_error": {
+        "status": 404,
+        "body": {
+          "error": "analysis_not_found",
+          "message": "Analysis with ID 'ana_invalid_123' not found",
+          "suggestions": [
+            "Check the analysis ID is correct",
+            "Verify the analysis belongs to your account",
+            "Use GET /api/analysis to list your analyses"
+          ]
+        }
+      }
+    }
+  },
+  "curl_examples": [
+    {
+      "description": "Basic cancel",
+      "command": "curl -X POST 'https://api.decisionguide.ai/api/analysis/ana_demo_001/cancel' -H 'Authorization: Bearer YOUR_TOKEN' -H 'Content-Type: application/json' -d '{\"reason\": \"user_requested\"}'"
+    },
+    {
+      "description": "Force cancel with timeout",
+      "command": "curl -X POST 'https://api.decisionguide.ai/api/analysis/ana_demo_002/cancel' -H 'Authorization: Bearer YOUR_TOKEN' -H 'Content-Type: application/json' -d '{\"reason\": \"timeout\", \"graceful\": false, \"timeout\": 500}'"
+    }
+  ]
+}

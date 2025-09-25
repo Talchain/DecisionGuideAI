@@ -1,0 +1,144 @@
+{
+  "title": "Wrong Data Types - Should Fail",
+  "description": "Examples of requests that should fail due to incorrect data types",
+  "scenarios": [
+    {
+      "name": "Analysis Request - String Options Array",
+      "should_fail": true,
+      "reason": "options must be an array, not a string",
+      "status_code": 400,
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis",
+        "body": {
+          "decisionTitle": "Pick Technology Stack",
+          "options": "React, Vue, Angular"
+        }
+      },
+      "expected_error": {
+        "error": "type_error",
+        "message": "Field 'options' must be an array",
+        "field": "options",
+        "expected": "array",
+        "received": "string"
+      }
+    },
+    {
+      "name": "Analysis Request - Number as Decision Title",
+      "should_fail": true,
+      "reason": "decisionTitle must be a string",
+      "status_code": 400,
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis",
+        "body": {
+          "decisionTitle": 12345,
+          "options": [
+            {"name": "Option A", "description": "First choice"},
+            {"name": "Option B", "description": "Second choice"}
+          ]
+        }
+      },
+      "expected_error": {
+        "error": "type_error",
+        "message": "Field 'decisionTitle' must be a string",
+        "field": "decisionTitle",
+        "expected": "string",
+        "received": "number"
+      }
+    },
+    {
+      "name": "Analysis Request - Boolean as Timeline",
+      "should_fail": true,
+      "reason": "timeline must be a string",
+      "status_code": 400,
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis",
+        "body": {
+          "decisionTitle": "Migration Strategy",
+          "options": [
+            {"name": "Cloud", "description": "Move to cloud"},
+            {"name": "On-prem", "description": "Stay on-premises"}
+          ],
+          "context": {
+            "timeline": true
+          }
+        }
+      },
+      "expected_error": {
+        "error": "type_error",
+        "message": "Field 'context.timeline' must be a string",
+        "field": "context.timeline",
+        "expected": "string",
+        "received": "boolean"
+      }
+    },
+    {
+      "name": "Cancel Request - Number as Reason",
+      "should_fail": true,
+      "reason": "reason must be a string",
+      "status_code": 400,
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis/ana_demo_001/cancel",
+        "body": {
+          "reason": 404,
+          "graceful": true
+        }
+      },
+      "expected_error": {
+        "error": "type_error",
+        "message": "Field 'reason' must be a string",
+        "field": "reason",
+        "expected": "string",
+        "received": "number"
+      }
+    },
+    {
+      "name": "Analysis Request - String as Graceful Flag",
+      "should_fail": true,
+      "reason": "graceful must be a boolean",
+      "status_code": 400,
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis/ana_demo_002/cancel",
+        "body": {
+          "reason": "timeout",
+          "graceful": "false"
+        }
+      },
+      "expected_error": {
+        "error": "type_error",
+        "message": "Field 'graceful' must be a boolean",
+        "field": "graceful",
+        "expected": "boolean",
+        "received": "string"
+      }
+    },
+    {
+      "name": "Analysis Request - Object as Option Name",
+      "should_fail": true,
+      "reason": "Option name must be a string",
+      "status_code": 400,
+      "request": {
+        "method": "POST",
+        "url": "/api/analysis",
+        "body": {
+          "decisionTitle": "Service Architecture",
+          "options": [
+            {"name": {"value": "Microservices"}, "description": "Small services"},
+            {"name": "Monolith", "description": "Single application"}
+          ]
+        }
+      },
+      "expected_error": {
+        "error": "type_error",
+        "message": "Field 'options[0].name' must be a string",
+        "field": "options[0].name",
+        "expected": "string",
+        "received": "object"
+      }
+    }
+  ]
+}

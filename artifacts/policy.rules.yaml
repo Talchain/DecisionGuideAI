@@ -1,0 +1,95 @@
+# Policy Rules Configuration
+# Dry-run only advisory checks - never blocks execution
+# OFF by default: set POLICY_CHECK_ENABLED=1 to enable
+
+version: "1.0"
+enabled: false  # Default OFF as required
+
+rules:
+  # Content filtering rules
+  banned_terms:
+    - name: "sensitive_data"
+      description: "Prevent sensitive data exposure"
+      patterns:
+        - "password"
+        - "secret"
+        - "api[_-]?key"
+        - "private[_-]?key"
+        - "token"
+        - "credit[_-]?card"
+        - "ssn"
+        - "social[_-]?security"
+      case_sensitive: false
+      severity: "high"
+
+    - name: "inappropriate_content"
+      description: "Flag potentially inappropriate content"
+      patterns:
+        - "hack"
+        - "exploit"
+        - "bypass"
+        - "vulnerability"
+      case_sensitive: false
+      severity: "medium"
+
+  # Network access rules
+  hostname_rules:
+    allow_list:
+      - "*.github.com"
+      - "*.openai.com"
+      - "*.anthropic.com"
+      - "docs.python.org"
+      - "developer.mozilla.org"
+
+    deny_list:
+      - "*.torrent"
+      - "*.onion"
+      - "malicious-site.com"
+
+    severity: "high"
+
+  # Resource limits
+  resource_limits:
+    max_tokens:
+      limit: 10000
+      severity: "medium"
+      description: "Token usage advisory limit"
+
+    max_steps:
+      limit: 15
+      severity: "low"
+      description: "Analysis step count advisory limit"
+
+    max_duration_minutes:
+      limit: 10
+      severity: "medium"
+      description: "Maximum execution time advisory"
+
+# Compliance rules
+compliance:
+  data_residency:
+    enabled: false
+    description: "Data must remain in approved regions"
+    approved_regions: ["us-east", "eu-west"]
+
+  audit_requirements:
+    enabled: false
+    description: "All decisions must be auditable"
+    required_fields: ["seed", "model", "timestamp"]
+
+# Alert settings
+alerts:
+  log_violations: true
+  fail_on_violation: false  # Advisory only, never block
+  notification_threshold: "medium"
+
+# Exemptions
+exemptions:
+  scenarios:
+    - "test-*"
+    - "sample-*"
+    - "*-demo"
+
+  users:
+    - "system"
+    - "admin"

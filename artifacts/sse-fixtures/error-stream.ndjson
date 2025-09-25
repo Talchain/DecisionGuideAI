@@ -1,0 +1,15 @@
+{"event":"connected","data":{"sessionId":"session_fixture_003","timestamp":"2024-09-24T19:25:00.000Z","mode":"simulation"}}
+{"event":"start","data":{"analysisId":"ana_fixture_error_001","status":"started","timestamp":"2024-09-24T19:25:00.100Z"}}
+{"event":"progress","data":{"progress":10,"stage":"initialization","message":"Setting up analysis..."}}
+{"event":"token","data":{"text":"# Decision Analysis Report\n\n"}}
+{"event":"token","data":{"text":"**Decision:** Database Migration Strategy\n\n"}}
+{"event":"progress","data":{"progress":25,"stage":"option_analysis","message":"Analyzing migration options..."}}
+{"event":"token","data":{"text":"## Analysis in Progress\n\n"}}
+{"event":"token","data":{"text":"Evaluating your database migration options:\n\n"}}
+{"event":"token","data":{"text":"1. **Big Bang Migration**\n"}}
+{"event":"token","data":{"text":"   - Complete migration in one weekend\n"}}
+{"event":"token","data":{"text":"   - High risk but fast completion\n\n"}}
+{"event":"progress","data":{"progress":40,"stage":"option_analysis","message":"Processing migration strategies..."}}
+{"event":"token","data":{"text":"2. **Phased Migration**\n"}}
+{"event":"token","data":{"text":"   - Gradual migration over several months\n"}}
+{"event":"error","data":{"analysisId":"ana_fixture_error_001","error":"insufficient_data","message":"Analysis requires more detailed information about your current database schema and constraints","timestamp":"2024-09-24T19:25:12.800Z","retryable":true,"suggestions":["Provide database schema details","Specify performance requirements","Include compliance constraints"],"partialResults":{"tokensGenerated":45,"progress":40,"lastStage":"option_analysis"}}}

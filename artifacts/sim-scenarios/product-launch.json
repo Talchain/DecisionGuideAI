@@ -1,0 +1,41 @@
+{
+  "id": "product-launch-scenario",
+  "title": "Product Launch Strategy - Mobile App Feature",
+  "description": "Product team deciding how to launch a new premium feature",
+  "seed": 123,
+  "context": {
+    "product": "Mobile productivity app",
+    "userBase": "2.5M active users",
+    "currentRevenue": "$8M ARR",
+    "teamSize": "12 product/eng",
+    "competitorAction": "Similar feature launched by competitor"
+  },
+  "options": [
+    {
+      "name": "Free Beta Launch",
+      "description": "Release as free beta to all users, monetize later",
+      "estimatedCost": 150000,
+      "timeline": "1 month",
+      "riskLevel": "low"
+    },
+    {
+      "name": "Premium Tier Addition",
+      "description": "Add to existing premium subscription immediately",
+      "estimatedCost": 75000,
+      "timeline": "2 weeks",
+      "riskLevel": "medium"
+    },
+    {
+      "name": "Separate App Launch",
+      "description": "Launch as standalone premium app",
+      "estimatedCost": 400000,
+      "timeline": "3 months",
+      "riskLevel": "high"
+    }
+  ],
+  "expectedOutput": {
+    "recommendation": "Premium Tier Addition",
+    "confidence": 71,
+    "reasoning": "Fastest time to market with existing user base and revenue model"
+  }
+}

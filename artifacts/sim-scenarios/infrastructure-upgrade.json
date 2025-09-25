@@ -1,0 +1,44 @@
+{
+  "id": "infrastructure-upgrade-scenario",
+  "title": "Cloud Infrastructure Modernization",
+  "description": "Engineering team evaluating infrastructure upgrade paths",
+  "seed": 1337,
+  "context": {
+    "currentSetup": "Legacy monolith on AWS EC2",
+    "traffic": "10M requests/month",
+    "team": "6 DevOps/SRE engineers",
+    "constraints": ["99.9% uptime SLA", "Regulatory compliance", "Cost optimization"],
+    "timeline": "Q1-Q2 2025"
+  },
+  "options": [
+    {
+      "name": "Containerization Migration",
+      "description": "Move to Docker containers with Kubernetes orchestration",
+      "estimatedCost": 450000,
+      "timeline": "4-5 months",
+      "riskLevel": "medium",
+      "benefits": ["Better scalability", "Resource efficiency", "Modern deployment"]
+    },
+    {
+      "name": "Serverless Transition",
+      "description": "Migrate to serverless architecture with AWS Lambda",
+      "estimatedCost": 320000,
+      "timeline": "6-8 months",
+      "riskLevel": "high",
+      "benefits": ["Auto-scaling", "Pay-per-use", "Reduced maintenance"]
+    },
+    {
+      "name": "Incremental Modernization",
+      "description": "Gradual updates to current infrastructure",
+      "estimatedCost": 180000,
+      "timeline": "2-3 months",
+      "riskLevel": "low",
+      "benefits": ["Minimal disruption", "Lower cost", "Proven approach"]
+    }
+  ],
+  "expectedOutput": {
+    "recommendation": "Containerization Migration",
+    "confidence": 78,
+    "reasoning": "Good balance of modernization benefits with manageable risk and timeline"
+  }
+}

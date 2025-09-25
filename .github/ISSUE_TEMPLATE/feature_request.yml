@@ -1,0 +1,160 @@
+name: ✨ Feature Request
+description: Suggest a new feature or improvement
+title: "[Feature] "
+labels: ["enhancement", "needs-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new feature!
+
+        **🎯 Focus**: Please ensure your feature request aligns with our platform's decision-analysis mission.
+
+  - type: checkboxes
+    id: feature-checklist
+    attributes:
+      label: Feature Request Checklist
+      description: Please confirm before submitting
+      options:
+        - label: This feature relates to decision analysis or platform operations
+          required: true
+        - label: I have searched existing issues and PRs for similar requests
+          required: true
+        - label: This feature would benefit multiple users (not just my specific use case)
+          required: true
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature Type
+      description: What kind of feature is this?
+      options:
+        - New Analysis Capability
+        - UI/UX Improvement
+        - API Enhancement
+        - Platform/Infrastructure
+        - Developer Experience
+        - Security Enhancement
+        - Performance Improvement
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: user-type
+    attributes:
+      label: Primary User
+      description: Who would primarily benefit from this feature?
+      options:
+        - End Users (decision makers)
+        - Platform Operators
+        - Developers/Integrators
+        - System Administrators
+        - All Users
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve?
+      placeholder: |
+        Describe the current pain point or limitation that this feature would address.
+
+        Example: "Currently, users cannot export their analysis results to PDF format, which makes it difficult to share with stakeholders who prefer document format over web interfaces."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your proposed feature in detail
+      placeholder: |
+        Provide a clear description of what you'd like to see implemented.
+
+        Consider:
+        - How would users interact with this feature?
+        - What would the UI/UX look like?
+        - What are the key requirements?
+    validations:
+      required: true
+
+  - type: textarea
+    id: user-stories
+    attributes:
+      label: User Stories
+      description: Describe how users would interact with this feature
+      placeholder: |
+        Write user stories in the format: "As a [user type], I want [goal] so that [benefit]"
+
+        Example:
+        - As a business analyst, I want to export analysis results as PDF so that I can share them in board meetings
+        - As a platform operator, I want to monitor export usage so that I can track feature adoption
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Critical (blocks major workflow)
+        - High (significantly improves experience)
+        - Medium (nice to have improvement)
+        - Low (minor enhancement)
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: Have you considered any alternative approaches?
+      placeholder: |
+        Describe any workarounds you're currently using or other ways this problem could be solved.
+
+  - type: textarea
+    id: implementation-notes
+    attributes:
+      label: Implementation Considerations
+      description: Any technical considerations or constraints?
+      placeholder: |
+        If you have technical knowledge, please share any:
+        - Implementation challenges you anticipate
+        - Security considerations
+        - Performance implications
+        - Dependencies or integrations needed
+
+  - type: checkboxes
+    id: safety-considerations
+    attributes:
+      label: Safety & Security Considerations
+      description: Consider the security implications
+      options:
+        - label: This feature does not introduce new security risks
+        - label: This feature follows our "secure by default" principle
+        - label: This feature includes proper access controls (if applicable)
+        - label: This feature can be safely feature-flagged during rollout
+
+  - type: textarea
+    id: success-criteria
+    attributes:
+      label: Success Criteria
+      description: How would we know this feature is successful?
+      placeholder: |
+        Define measurable success criteria:
+        - Usage metrics (e.g., "50% of users try the new export feature within 30 days")
+        - Performance targets (e.g., "Export generation completes in <5 seconds")
+        - Quality measures (e.g., "Exported PDFs are properly formatted 99% of the time")
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other information that might be helpful
+      placeholder: |
+        - Screenshots or mockups
+        - Links to related issues
+        - Research or competitive analysis
+        - User feedback that led to this request

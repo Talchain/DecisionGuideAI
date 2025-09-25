@@ -1,0 +1,95 @@
+name: PR Size Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check-pr-size:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate PR size
+        id: pr_size
+        run: |
+          # Get the base branch
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          # Calculate lines changed (additions + deletions)
+          LINES_CHANGED=$(git diff --stat $BASE_SHA..$HEAD_SHA | tail -n1 | grep -o '[0-9]\+ insertions\|[0-9]\+ deletions' | grep -o '[0-9]\+' | paste -sd+ - | bc || echo "0")
+
+          # Get file count
+          FILES_CHANGED=$(git diff --name-only $BASE_SHA..$HEAD_SHA | wc -l)
+
+          echo "lines_changed=$LINES_CHANGED" >> $GITHUB_OUTPUT
+          echo "files_changed=$FILES_CHANGED" >> $GITHUB_OUTPUT
+
+          echo "📊 PR Size Analysis:"
+          echo "Lines changed: $LINES_CHANGED"
+          echo "Files changed: $FILES_CHANGED"
+
+      - name: Comment on large PR
+        if: steps.pr_size.outputs.lines_changed > 800
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const linesChanged = ${{ steps.pr_size.outputs.lines_changed }};
+            const filesChanged = ${{ steps.pr_size.outputs.files_changed }};
+
+            const comment = `## 📏 Large PR Notice
+
+            Hi there! 👋 This PR is quite substantial with **${linesChanged} lines changed** across **${filesChanged} files**.
+
+            ### Why smaller PRs are awesome:
+            - ✅ **Faster reviews** - easier to understand and approve quickly
+            - ✅ **Safer deployments** - smaller blast radius if something goes wrong
+            - ✅ **Better feedback** - reviewers can focus on specific features
+            - ✅ **Easier rollbacks** - pin down issues to specific changes
+
+            ### Consider splitting by:
+            - 🔧 **Infrastructure changes** (CI, build, config)
+            - 🧪 **Tests and fixtures** (new test cases, mock data)
+            - 📚 **Documentation** (README, guides, examples)
+            - ⚡ **Feature implementation** (one feature per PR)
+            - 🎨 **UI/UX changes** (styling, components, layouts)
+
+            ### No pressure though!
+            This is just a friendly nudge - sometimes large PRs are necessary for major features or refactoring. The build will continue normally regardless of PR size.
+
+            *This message appears automatically for PRs > 800 lines to encourage smaller, focused changes.*`;
+
+            // Check if we already commented on this PR
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existingComment = comments.find(comment =>
+              comment.user.login === 'github-actions[bot]' &&
+              comment.body.includes('📏 Large PR Notice')
+            );
+
+            if (!existingComment) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+
+              console.log('Posted large PR comment');
+            } else {
+              console.log('Large PR comment already exists, skipping');
+            }
+
+      - name: Success regardless of size
+        run: |
+          echo "✅ PR size check completed"
+          echo "Note: This check never fails the build - it only provides friendly guidance"

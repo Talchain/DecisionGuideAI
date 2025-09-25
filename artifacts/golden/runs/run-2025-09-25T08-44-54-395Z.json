@@ -1,0 +1,20 @@
+{
+  "suite": "Decision Guide AI Golden Suite",
+  "timestamp": "2025-09-25T08:44:54.395Z",
+  "duration": 413,
+  "summary": {
+    "total": 1,
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "errors": 1
+  },
+  "results": [
+    {
+      "test": "framework-selection-baseline",
+      "status": "error",
+      "duration": 410,
+      "error": "SARB execution failed: ENOENT: no such file or directory, open '/tmp/golden-1758789894397.sarb.zip'"
+    }
+  ]
+}

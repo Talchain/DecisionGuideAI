@@ -1,0 +1,40 @@
+title: "Security Architecture Design"
+description: "Design security model for multi-tenant SaaS platform"
+note: "Notice the security depth vs usability tensions and compliance requirements"
+
+context:
+  timeline: "6 months"
+  budget: "$200K"
+  environment: "Multi-tenant SaaS with healthcare and financial clients"
+  requirements:
+    - "HIPAA and SOX compliance"
+    - "Zero-trust security model"
+    - "Single sign-on support"
+
+options:
+  - name: "Identity-Centric (Zero Trust)"
+    description: "Identity and access management as security perimeter"
+    pros: ["Modern approach", "Device agnostic", "Granular control"]
+    cons: ["Complex implementation", "User friction", "Identity sprawl"]
+
+  - name: "Network-Centric (Defense in Depth)"
+    description: "Layered security with network segmentation"
+    pros: ["Proven approach", "Network visibility", "Incident containment"]
+    cons: ["Perimeter focused", "VPN dependencies", "Complexity at scale"]
+
+  - name: "Data-Centric (Encryption First)"
+    description: "Focus on data protection and encryption everywhere"
+    pros: ["Data privacy", "Compliance friendly", "Breach protection"]
+    cons: ["Key management complexity", "Performance impact", "Application changes"]
+
+constraints:
+  - "Must pass SOC 2 Type II audit"
+  - "Support for federated identity providers"
+  - "Encryption at rest and in transit mandatory"
+  - "Audit logging for all access"
+
+params:
+  maxTokens: 1500
+  steps: 7
+  model: "gpt-4"
+  seed: 3003

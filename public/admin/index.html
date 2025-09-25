@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scenario Sandbox - Stream Monitor</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-secondary { background: #6b7280; color: white; }
+        .btn-secondary:hover { background: #4b5563; }
+
+        .stream-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .stream-output {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 20px;
+            border-radius: 6px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: 4px;
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-idle .status-dot { background: #6b7280; }
+        .status-streaming .status-dot { background: #10b981; animation: pulse 2s infinite; }
+        .status-error .status-dot { background: #ef4444; }
+        .status-cancelled .status-dot { background: #f59e0b; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .scenario-selector {
+            margin-bottom: 15px;
+        }
+
+        .scenario-selector select {
+            padding: 6px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            margin-left: 10px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #e5e7eb;
+            border-radius: 2px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #10b981;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .metric {
+            background: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .metric-value {
+            font-weight: bold;
+            display: block;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎭 Scenario Sandbox - Stream Monitor</h1>
+        <p>Monitor and test streaming simulations for safe demonstrations</p>
+    </div>
+
+    <div class="stream-container">
+        <div class="status-bar">
+            <div class="status-indicator status-idle" id="statusIndicator">
+                <span class="status-dot"></span>
+                <span id="statusText">Idle</span>
+            </div>
+            <div class="scenario-selector">
+                <label>
+                    Scenario:
+                    <select id="scenarioSelect">
+                        <option value="42">Analysis Basic (Seed: 42)</option>
+                        <option value="123">Error Demo (Seed: 123)</option>
+                        <option value="999">Quick Demo (Seed: 999)</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressBar"></div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" id="startBtn">🚀 Start Stream</button>
+            <button class="btn btn-danger" id="cancelBtn" disabled>🛑 Cancel</button>
+            <button class="btn btn-secondary" id="clearBtn">🗑 Clear</button>
+        </div>
+
+        <div class="stream-output" id="streamOutput">
+Waiting for stream to start...
+
+Usage:
+1. Select a scenario from the dropdown
+2. Click "Start Stream" to begin simulation
+3. Click "Cancel" to test cancellation (should be ≤1s)
+4. Monitor progress and metrics below
+
+This is a safe simulation mode - no real services are contacted.
+        </div>
+
+        <div class="metrics">
+            <div class="metric">
+                <span class="metric-value" id="tokenCount">0</span>
+                <span>Tokens</span>
+            </div>
+            <div class="metric">
+                <span class="metric-value" id="duration">0ms</span>
+                <span>Duration</span>
+            </div>
+            <div class="metric">
+                <span class="metric-value" id="progress">0%</span>
+                <span>Progress</span>
+            </div>
+            <div class="metric">
+                <span class="metric-value" id="speed">0</span>
+                <span>Tokens/s</span>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Simple simulation for admin viewer (doesn't import actual sim lib)
+        class MockSimStreamer {
+            constructor(seed) {
+                this.seed = seed;
+                this.scenarios = {
+                    42: {
+                        tokens: [
+                            'Analyzing the scenario...',
+                            '\n\n## Initial Assessment\n\n',
+                            'Based on the provided information, I can identify several key factors:\n\n',
+                            '1. **Market Context**: The current situation suggests a need for strategic positioning.\n',
+                            '2. **Risk Factors**: Limited resources may constrain our implementation options.\n',
+                            '3. **Opportunity**: There is potential for significant impact with the right approach.\n\n',
+                            '## Recommendation\n\n',
+                            'I recommend proceeding with a phased implementation that prioritizes quick wins.'
+                        ],
+                        delays: [200, 300, 400, 350, 380, 320, 400, 360]
+                    },
+                    123: {
+                        tokens: ['Starting analysis...', '\n\nProcessing initial data...', 'Error: Budget exceeded'],
+                        delays: [200, 300, 500],
+                        error: true
+                    },
+                    999: {
+                        tokens: ['Quick analysis complete.\n\n', '**Result**: Low complexity scenario with clear path forward.'],
+                        delays: [100, 200]
+                    }
+                };
+                this.currentIndex = 0;
+                this.isStreaming = false;
+                this.isCancelled = false;
+                this.startTime = 0;
+            }
+
+            start(onToken, onComplete) {
+                this.isStreaming = true;
+                this.isCancelled = false;
+                this.currentIndex = 0;
+                this.startTime = Date.now();
+                this.streamNext(onToken, onComplete);
+            }
+
+            streamNext(onToken, onComplete) {
+                if (this.isCancelled) {
+                    onToken({ text: '', type: 'aborted' });
+                    onComplete();
+                    return;
+                }
+
+                const scenario = this.scenarios[this.seed] || this.scenarios[42];
+                if (this.currentIndex >= scenario.tokens.length) {
+                    if (scenario.error) {
+                        onToken({ text: scenario.tokens[scenario.tokens.length - 1], type: 'error' });
+                    } else {
+                        onToken({ text: '', type: 'done' });
+                    }
+                    onComplete();
+                    return;
+                }
+
+                const token = scenario.tokens[this.currentIndex];
+                const delay = scenario.delays[this.currentIndex] || 300;
+                this.currentIndex++;
+
+                onToken({ text: token });
+
+                setTimeout(() => {
+                    this.streamNext(onToken, onComplete);
+                }, delay);
+            }
+
+            cancel() {
+                this.isCancelled = true;
+            }
+
+            getProgress() {
+                const scenario = this.scenarios[this.seed] || this.scenarios[42];
+                return {
+                    completed: this.currentIndex,
+                    total: scenario.tokens.length,
+                    duration: Date.now() - this.startTime
+                };
+            }
+        }
+
+        let streamer = null;
+        let tokenCount = 0;
+        let output = '';
+
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const scenarioSelect = document.getElementById('scenarioSelect');
+        const startBtn = document.getElementById('startBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const streamOutput = document.getElementById('streamOutput');
+        const progressBar = document.getElementById('progressBar');
+
+        // Metrics elements
+        const tokenCountEl = document.getElementById('tokenCount');
+        const durationEl = document.getElementById('duration');
+        const progressEl = document.getElementById('progress');
+        const speedEl = document.getElementById('speed');
+
+        function setStatus(status, text) {
+            statusIndicator.className = `status-indicator status-${status}`;
+            statusText.textContent = text;
+        }
+
+        function updateMetrics() {
+            if (!streamer) return;
+
+            const progress = streamer.getProgress();
+            const progressPercent = Math.round((progress.completed / progress.total) * 100);
+            const speed = progress.duration > 0 ? Math.round((tokenCount / progress.duration) * 1000) : 0;
+
+            tokenCountEl.textContent = tokenCount;
+            durationEl.textContent = progress.duration + 'ms';
+            progressEl.textContent = progressPercent + '%';
+            speedEl.textContent = speed;
+
+            progressBar.style.width = progressPercent + '%';
+        }
+
+        startBtn.addEventListener('click', () => {
+            const seed = parseInt(scenarioSelect.value);
+            streamer = new MockSimStreamer(seed);
+            tokenCount = 0;
+            output = '';
+
+            setStatus('streaming', 'Streaming...');
+            startBtn.disabled = true;
+            cancelBtn.disabled = false;
+
+            streamOutput.textContent = '';
+
+            streamer.start(
+                (token) => {
+                    if (token.text) {
+                        tokenCount++;
+                        output += token.text;
+                        streamOutput.textContent += token.text;
+                        streamOutput.scrollTop = streamOutput.scrollHeight;
+                    }
+
+                    if (token.type === 'done') {
+                        setStatus('idle', 'Completed');
+                    } else if (token.type === 'error') {
+                        setStatus('error', 'Error');
+                        streamOutput.textContent += token.text;
+                    } else if (token.type === 'aborted') {
+                        setStatus('cancelled', 'Cancelled');
+                        streamOutput.textContent += '\n\n[CANCELLED]';
+                    }
+
+                    updateMetrics();
+                },
+                () => {
+                    startBtn.disabled = false;
+                    cancelBtn.disabled = true;
+                    streamer = null;
+                }
+            );
+
+            // Update metrics periodically while streaming
+            const metricsInterval = setInterval(() => {
+                if (!streamer || !streamer.isStreaming) {
+                    clearInterval(metricsInterval);
+                    return;
+                }
+                updateMetrics();
+            }, 100);
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            if (streamer) {
+                streamer.cancel();
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            streamOutput.textContent = 'Output cleared.\n\nReady for next stream...';
+            tokenCount = 0;
+            output = '';
+
+            tokenCountEl.textContent = '0';
+            durationEl.textContent = '0ms';
+            progressEl.textContent = '0%';
+            speedEl.textContent = '0';
+            progressBar.style.width = '0%';
+
+            setStatus('idle', 'Idle');
+        });
+    </script>
+</body>
+</html>

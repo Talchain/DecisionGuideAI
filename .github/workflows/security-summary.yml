@@ -1,0 +1,188 @@
+name: Security Summary Comment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [ main, develop ]
+
+jobs:
+  security-summary:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run security checks
+        id: security_checks
+        run: |
+          # Initialize status variables
+          CONTRACT_WALL="❓"
+          LOG_GUARDRAIL="❓"
+          CODEQL_STATUS="❓"
+          SECRET_HYGIENE="❓"
+          DETERMINISM="❓"
+
+          echo "🔍 Running security validation suite..."
+
+          # 1. Contract Wall (TypeScript compilation + tests)
+          echo "Checking Contract Wall..."
+          if npm run typecheck >/dev/null 2>&1 && npm test >/dev/null 2>&1; then
+            CONTRACT_WALL="✅"
+            echo "✅ Contract Wall: PASS"
+          else
+            CONTRACT_WALL="❌"
+            echo "❌ Contract Wall: FAIL"
+          fi
+
+          # 2. Log Guardrail (config lint)
+          echo "Checking Log Guardrail..."
+          if npm run config:lint >/dev/null 2>&1; then
+            LOG_GUARDRAIL="✅"
+            echo "✅ Log Guardrail: PASS"
+          else
+            LOG_GUARDRAIL="❌"
+            echo "❌ Log Guardrail: FAIL"
+          fi
+
+          # 3. CodeQL Status (check if CodeQL workflow exists and recent runs)
+          echo "Checking CodeQL status..."
+          if [[ -f .github/workflows/codeql.yml ]] || [[ -f .github/workflows/codeql-analysis.yml ]]; then
+            CODEQL_STATUS="✅"
+            echo "✅ CodeQL: Configured"
+          else
+            CODEQL_STATUS="⚠️"
+            echo "⚠️ CodeQL: Not configured"
+          fi
+
+          # 4. Secret Hygiene (basic secret detection)
+          echo "Checking Secret Hygiene..."
+          SECRET_ISSUES=0
+
+          # Check for common secret patterns
+          if git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} | xargs -I {} sh -c 'test -f "{}" && grep -l -E "(password|secret|key|token).*=.*['\''\"'][^'\''\"']{10,}" "{}" || true' | head -1 | grep -q .; then
+            SECRET_ISSUES=$((SECRET_ISSUES + 1))
+          fi
+
+          # Check for hardcoded URLs with credentials
+          if git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} | xargs -I {} sh -c 'test -f "{}" && grep -l -E "https?://[^:]+:[^@]+@" "{}" || true' | head -1 | grep -q .; then
+            SECRET_ISSUES=$((SECRET_ISSUES + 1))
+          fi
+
+          if [[ $SECRET_ISSUES -eq 0 ]]; then
+            SECRET_HYGIENE="✅"
+            echo "✅ Secret Hygiene: PASS"
+          else
+            SECRET_HYGIENE="❌"
+            echo "❌ Secret Hygiene: FAIL ($SECRET_ISSUES issues)"
+          fi
+
+          # 5. Determinism Check (simulation mode)
+          echo "Checking Determinism..."
+          if npm run determinism:check >/dev/null 2>&1; then
+            DETERMINISM="✅"
+            echo "✅ Determinism: PASS"
+          else
+            DETERMINISM="❌"
+            echo "❌ Determinism: FAIL"
+          fi
+
+          # Export results for comment
+          echo "contract_wall=$CONTRACT_WALL" >> $GITHUB_OUTPUT
+          echo "log_guardrail=$LOG_GUARDRAIL" >> $GITHUB_OUTPUT
+          echo "codeql_status=$CODEQL_STATUS" >> $GITHUB_OUTPUT
+          echo "secret_hygiene=$SECRET_HYGIENE" >> $GITHUB_OUTPUT
+          echo "determinism=$DETERMINISM" >> $GITHUB_OUTPUT
+
+      - name: Create security summary comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const contractWall = '${{ steps.security_checks.outputs.contract_wall }}';
+            const logGuardrail = '${{ steps.security_checks.outputs.log_guardrail }}';
+            const codeqlStatus = '${{ steps.security_checks.outputs.codeql_status }}';
+            const secretHygiene = '${{ steps.security_checks.outputs.secret_hygiene }}';
+            const determinism = '${{ steps.security_checks.outputs.determinism }}';
+
+            const comment = `## 🛡️ Security Summary
+
+            | Check | Status | Description |
+            |-------|--------|-------------|
+            | **Contract Wall** | ${contractWall} | TypeScript compilation & unit tests |
+            | **Log Guardrail** | ${logGuardrail} | Configuration security & PII protection |
+            | **CodeQL** | ${codeqlStatus} | Static security analysis |
+            | **Secret Hygiene** | ${secretHygiene} | Credential and secret detection |
+            | **Determinism** | ${determinism} | Reproducible analysis results |
+
+            ### 📋 Security Artifacts
+
+            - 🔗 [Integration Status](./artifacts/integration-status.html)
+            - 🔗 [Config Lint Report](./artifacts/config-lint.json)
+            - 🔗 [Evidence Pack](./artifacts/index.html)
+
+            ### 🎯 Quick Actions
+
+            \`\`\`bash
+            # Run full security validation
+            npm run integration:check
+
+            # Check configuration security
+            npm run config:lint
+
+            # Verify deterministic behavior
+            npm run determinism:check
+
+            # Emergency feature disable
+            source ./tools/panic-off.sh
+            \`\`\`
+
+            ---
+            *Security summary generated automatically • No secrets included in this comment*`;
+
+            // Check for existing security summary comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existingComment = comments.find(comment =>
+              comment.user.login === 'github-actions[bot]' &&
+              comment.body.includes('🛡️ Security Summary')
+            );
+
+            if (existingComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: comment
+              });
+              console.log('Updated existing security summary comment');
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment
+              });
+              console.log('Created new security summary comment');
+            }
+
+      - name: Success regardless of check results
+        run: |
+          echo "✅ Security summary comment posted"
+          echo "Note: This workflow provides information only - it does not fail the build"

@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DecisionGuide AI - Evidence Pack</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+
+        .header .subtitle {
+            font-size: 1.2rem;
+            color: #7f8c8d;
+            margin-bottom: 1rem;
+        }
+
+        .header .timestamp {
+            font-size: 0.9rem;
+            color: #95a5a6;
+            font-style: italic;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .card-icon {
+            font-size: 2rem;
+            margin-right: 1rem;
+        }
+
+        .card h2 {
+            font-size: 1.4rem;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .card .description {
+            color: #7f8c8d;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .links {
+            list-style: none;
+        }
+
+        .links li {
+            margin-bottom: 0.75rem;
+        }
+
+        .links a {
+            display: inline-flex;
+            align-items: center;
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.5rem;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .links a:hover {
+            background: #ecf0f1;
+            color: #2980b9;
+            transform: translateX(5px);
+        }
+
+        .links a::before {
+            content: "📄";
+            margin-right: 0.5rem;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status.pass {
+            background: #d5f4e6;
+            color: #27ae60;
+        }
+
+        .status.fail {
+            background: #fadbd8;
+            color: #e74c3c;
+        }
+
+        .status.info {
+            background: #d6eaf8;
+            color: #3498db;
+        }
+
+        .footer {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            margin-top: 2rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .footer h3 {
+            margin-bottom: 1rem;
+            color: #2c3e50;
+        }
+
+        .footer p {
+            color: #7f8c8d;
+            margin-bottom: 1rem;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .btn.secondary {
+            background: #95a5a6;
+        }
+
+        .btn.secondary:hover {
+            background: #7f8c8d;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .card {
+                padding: 1.5rem;
+            }
+
+            .quick-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 DecisionGuide AI</h1>
+            <div class="subtitle">Scenario Sandbox PoC - Evidence Pack</div>
+            <div class="timestamp">Generated: <span id="timestamp"></span></div>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🎯</div>
+                    <h2>Start Here</h2>
+                </div>
+                <div class="description">
+                    Landing page with quick start paths and links to all platform resources. Perfect entry point for new users.
+                </div>
+                <ul class="links">
+                    <li><a href="./start-here.html" target="_blank">Open Start Here Page</a></li>
+                                    <li><a href="./integration-scorecard.html" target="_blank">Integration Scorecard</a></li>
+</ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status info">Ready</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🚀</div>
+                    <h2>Release Validation</h2>
+                </div>
+                <div class="description">
+                    One-command release script with Go/No-Go decision logic. Validates code, contracts, and integration tests.
+                </div>
+                <ul class="links">
+                    <li><a href="./release-validation.json" data-file="release-validation.json">Release Validation Report</a></li>
+                    <li><a href="../tools/release-poc.cjs" target="_blank">Release Script Source</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status info" id="release-status">Unknown</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🔬</div>
+                    <h2>Determinism Testing</h2>
+                </div>
+                <div class="description">
+                    Validates that AI analysis produces consistent results with seeded inputs. Critical for reliability.
+                </div>
+                <ul class="links">
+                    <li><a href="./determinism-check.json" data-file="determinism-check.json">Determinism Test Results</a></li>
+                    <li><a href="../tools/determinism-check.ts" target="_blank">Test Tool Source</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status pass" id="determinism-status">PASS</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🌊</div>
+                    <h2>SSE Stability</h2>
+                </div>
+                <div class="description">
+                    Tests Server-Sent Events streaming with parallel connections, mid-flight cancellations, and memory leak detection.
+                </div>
+                <ul class="links">
+                    <li><a href="./sse-stability.json" data-file="sse-stability.json">SSE Stability Report</a></li>
+                    <li><a href="./sse-stability.html" data-file="sse-stability.html">Visual Report</a></li>
+                    <li><a href="../tools/sse-blip-stability.ts" target="_blank">Stability Test Tool</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status fail" id="sse-status">FAIL</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🔧</div>
+                    <h2>API Testing Kit</h2>
+                </div>
+                <div class="description">
+                    Developer-friendly Postman collection and curl recipes for comprehensive API testing and integration.
+                </div>
+                <ul class="links">
+                    <li><a href="../tools/postman-collection.json" target="_blank">Postman Collection</a></li>
+                    <li><a href="../tools/curl-recipes.md" target="_blank">curl Recipes</a></li>
+                    <li><a href="../tools/api-testing-guide.md" target="_blank">Testing Guide</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status info">Ready</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📖</div>
+                    <h2>Operator Handbook</h2>
+                </div>
+                <div class="description">
+                    Plain English guide for platform operators, covering daily operations, troubleshooting, and safety procedures.
+                </div>
+                <ul class="links">
+                    <li><a href="../docs/OPERATOR_HANDBOOK.md" target="_blank">Operator Handbook v1</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status info">Complete</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🔐</div>
+                    <h2>Configuration Lint</h2>
+                </div>
+                <div class="description">
+                    Validates environment configuration, detects leaked secrets, and ensures safe defaults across all config files.
+                </div>
+                <ul class="links">
+                    <li><a href="./config-lint.json" data-file="config-lint.json">Config Lint Report</a></li>
+                    <li><a href="./config-lint.md" data-file="config-lint.md">Markdown Report</a></li>
+                    <li><a href="../tools/config-lint.ts" target="_blank">Lint Tool Source</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status pass" id="config-status">PASS</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <h2>Integration Status</h2>
+                </div>
+                <div class="description">
+                    Real-time integration health monitoring and system status reporting from automated checks.
+                </div>
+                <ul class="links">
+                    <li><a href="./integration-status.html" data-file="integration-status.html">Integration Status</a></li>
+                    <li><a href="./report-v1.json" data-file="report-v1.json">System Report</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status info" id="integration-status">Monitor</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">📦</div>
+                    <h2>Demo Kit</h2>
+                </div>
+                <div class="description">
+                    Complete demonstration package with all materials needed for showcasing the platform safely in any environment.
+                </div>
+                <ul class="links">
+                    <li><a href="./demo-kit-20250924-161831.zip" target="_blank">Download Demo Kit ZIP</a></li>
+                    <li><a href="./demo-script-60s.md" target="_blank">60-Second Demo Script</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status info">Ready</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">❓</div>
+                    <h2>FAQ & Glossary</h2>
+                </div>
+                <div class="description">
+                    Common questions and plain English explanations of technical terms - no jargon, just clear answers.
+                </div>
+                <ul class="links">
+                    <li><a href="./faq.md" target="_blank">Frequently Asked Questions</a></li>
+                    <li><a href="./glossary.md" target="_blank">Glossary of Terms</a></li>
+                    <li><a href="./claude-standing-permissions.md" target="_blank">Claude Standing Permissions Charter</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status info">Complete</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🔧</div>
+                    <h2>API Testing Tools</h2>
+                </div>
+                <div class="description">
+                    Developer-friendly API testing collection and curl recipes for comprehensive integration testing and validation.
+                </div>
+                <ul class="links">
+                    <li><a href="../tools/postman-collection.json" target="_blank">Postman Collection</a></li>
+                    <li><a href="../tools/curl-recipes.md" target="_blank">curl Recipes</a></li>
+                    <li><a href="../tools/api-testing-guide.md" target="_blank">API Testing Guide</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status info">Ready</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🎭</div>
+                    <h2>Simulation & Testing</h2>
+                </div>
+                <div class="description">
+                    Safe testing environment with simulation mode instructions and sample data for demonstrations and development.
+                </div>
+                <ul class="links">
+                    <li><a href="./sim-viewer-instructions.md" target="_blank">Simulation Mode Guide</a></li>
+                    <li><a href="./report-v1-sample.json" target="_blank">Sample Report v1 JSON</a></li>
+                    <li><a href="./sim-scenarios/" target="_blank">Demo Scenarios</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status info">Ready</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🏗️</div>
+                    <h2>GitHub Templates</h2>
+                </div>
+                <div class="description">
+                    Issue and PR templates with safety checklists, contributing guidelines, and development best practices.
+                </div>
+                <ul class="links">
+                    <li><a href="../.github/ISSUE_TEMPLATE/" target="_blank">Issue Templates</a></li>
+                    <li><a href="../.github/PULL_REQUEST_TEMPLATE.md" target="_blank">PR Template</a></li>
+                    <li><a href="../.github/CONTRIBUTING.md" target="_blank">Contributing Guide</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status info" id="github-status">Complete</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <h3>Quick Actions</h3>
+            <p>Common platform operations and health checks</p>
+
+            <div class="quick-actions">
+                <a href="#" class="btn" onclick="runCommand('npm run release:poc')">🚀 Release Check</a>
+                <a href="#" class="btn" onclick="runCommand('npm run determinism:check')">🔬 Determinism Test</a>
+                <a href="#" class="btn" onclick="runCommand('npm run sse:stability')">🌊 SSE Stability</a>
+                <a href="#" class="btn" onclick="runCommand('npm run config:lint')">🔐 Config Lint</a>
+                <a href="#" class="btn secondary" onclick="openTerminal()">💻 Open Terminal</a>
+            </div>
+
+            <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #ecf0f1;">
+                <p><strong>Platform Status:</strong> <span id="overall-status">🟢 Operational</span></p>
+                <p>Last updated: <span id="last-updated"></span></p>
+                <p><em>DecisionGuide AI - Scenario Sandbox PoC | Evidence Pack v1.0</em></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set timestamps
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+        document.getElementById('last-updated').textContent = new Date().toLocaleString();
+
+        // Check file availability and update status badges
+        async function checkFileStatus() {
+            const files = [
+                { id: 'release-status', file: './release-validation.json', defaultStatus: 'info' },
+                { id: 'determinism-status', file: './determinism-check.json', expectedVerdict: 'deterministic OK' },
+                { id: 'sse-status', file: './sse-stability.json', expectedVerdict: 'PASS' },
+                { id: 'config-status', file: './config-lint.json', expectedVerdict: 'PASS' }
+            ];
+
+            for (const fileCheck of files) {
+                try {
+                    const response = await fetch(fileCheck.file);
+                    if (response.ok) {
+                        const data = await response.json();
+                        const element = document.getElementById(fileCheck.id);
+
+                        if (data.verdict || data.overallResult) {
+                            const verdict = data.verdict || data.overallResult;
+                            element.textContent = verdict;
+                            element.className = `status ${verdict === 'PASS' || verdict === 'deterministic OK' ? 'pass' : 'fail'}`;
+                        } else {
+                            element.textContent = 'Available';
+                            element.className = 'status info';
+                        }
+                    }
+                } catch (error) {
+                    console.log(`File ${fileCheck.file} not available yet`);
+                }
+            }
+        }
+
+        // Add click handlers for file links
+        document.querySelectorAll('a[data-file]').forEach(link => {
+            link.addEventListener('click', async (e) => {
+                const file = link.getAttribute('data-file');
+                try {
+                    const response = await fetch(file);
+                    if (!response.ok) {
+                        e.preventDefault();
+                        alert(`File ${file} is not available yet. Run the corresponding npm command to generate it.`);
+                    }
+                } catch (error) {
+                    e.preventDefault();
+                    alert(`File ${file} is not available yet. Run the corresponding npm command to generate it.`);
+                }
+            });
+        });
+
+        // Utility functions for quick actions
+        function runCommand(command) {
+            alert(`To run this command, open a terminal and execute:\n\n${command}\n\nOr click "Open Terminal" and run it there.`);
+        }
+
+        function openTerminal() {
+            // This would depend on the deployment environment
+            // For now, just show instructions
+            alert('Open a terminal in the project directory:\n\ncd /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude\n\nThen run any npm commands listed on this page.');
+        }
+
+        // Check file status on load
+        checkFileStatus();
+
+        // Refresh status every 30 seconds
+        setInterval(checkFileStatus, 30000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+// Jobs Progress SSE Stream Example
+// Content-Type: text/event-stream
+// Real-time job queue updates
+
+// 1. Job Queue Status
+event: queue-status
+data: {"totalJobs": 12, "activeJobs": 3, "queuedJobs": 9, "timestamp": "2024-09-24T19:15:00Z"}
+
+// 2. New Job Added
+event: job-queued
+data: {"jobId": "job_abc123", "type": "analysis", "priority": "normal", "queuePosition": 10, "estimatedWait": "2 minutes"}
+
+// 3. Job Started Processing
+event: job-started
+data: {"jobId": "job_abc123", "workerId": "worker_001", "startedAt": "2024-09-24T19:17:00Z"}
+
+// 4. Job Progress Updates
+event: job-progress
+data: {"jobId": "job_abc123", "stage": "data_preparation", "progress": 20, "message": "Preparing analysis data..."}
+
+event: job-progress
+data: {"jobId": "job_abc123", "stage": "ai_analysis", "progress": 60, "message": "Running AI analysis..."}
+
+event: job-progress
+data: {"jobId": "job_abc123", "stage": "report_generation", "progress": 90, "message": "Generating final report..."}
+
+// 5. Job Completed Successfully
+event: job-completed
+data: {"jobId": "job_abc123", "status": "success", "duration": 145, "resultId": "result_xyz789", "completedAt": "2024-09-24T19:19:25Z"}
+
+// 6. Job Failed Example
+event: job-failed
+data: {"jobId": "job_def456", "status": "failed", "error": "insufficient_data", "message": "Analysis requires at least 2 decision options", "failedAt": "2024-09-24T19:20:00Z", "retryable": true}
+
+// 7. Queue Statistics Update
+event: queue-stats
+data: {"totalProcessed": 1247, "successRate": 94.2, "averageProcessingTime": 127, "activeWorkers": 8}
+
+// 8. Worker Status Change
+event: worker-status
+data: {"workerId": "worker_002", "status": "offline", "reason": "maintenance", "affectedJobs": ["job_ghi789"]}
+
+// 9. System Alert
+event: system-alert
+data: {"level": "warning", "message": "Queue backlog growing: 15+ jobs waiting", "action": "consider_scaling", "timestamp": "2024-09-24T19:25:00Z"}
+
+// Heartbeat (sent every 30 seconds to keep connection alive)
+event: heartbeat
+data: {"timestamp": "2024-09-24T19:25:30Z", "serverTime": "2024-09-24T19:25:30.123Z"}

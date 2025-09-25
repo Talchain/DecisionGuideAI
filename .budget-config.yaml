@@ -1,0 +1,19 @@
+# Budget & Quota Configuration
+# OFF by default - set enabled: true to activate
+
+enabled: false
+
+limits:
+  # Daily cost limit in USD
+  daily: 100
+  # Token limit per period
+  tokens: 1000000
+  # Request limit per period
+  requests: 10000
+
+warnings:
+  # Warning thresholds (as percentages)
+  thresholds: [0.8, 0.9, 0.95]
+
+# Usage tracking file
+quotaFile: '.quota-usage.json'

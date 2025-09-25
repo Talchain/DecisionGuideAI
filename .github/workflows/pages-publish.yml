@@ -1,0 +1,136 @@
+name: GitHub Pages Publisher
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Actually publish to GitHub Pages'
+        type: boolean
+        default: false
+        required: true
+      subset:
+        description: 'Which subset of artifacts to publish'
+        type: choice
+        options:
+          - demo
+          - all-safe
+        default: demo
+        required: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Define file subsets
+        id: subsets
+        run: |
+          if [ "${{ github.event.inputs.subset }}" = "demo" ]; then
+            echo "files<<EOF" >> $GITHUB_OUTPUT
+            echo "artifacts/start-here.html" >> $GITHUB_OUTPUT
+            echo "artifacts/index.html" >> $GITHUB_OUTPUT
+            echo "artifacts/sarb-explorer.html" >> $GITHUB_OUTPUT
+            echo "artifacts/experiments/index.html" >> $GITHUB_OUTPUT
+            echo "artifacts/transcripts/framework-test.html" >> $GITHUB_OUTPUT
+            echo "artifacts/samples/sample-report.json" >> $GITHUB_OUTPUT
+            echo "artifacts/ui-viewmodels/" >> $GITHUB_OUTPUT
+            echo "artifacts/types/README.md" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "files<<EOF" >> $GITHUB_OUTPUT
+            echo "artifacts/*.html" >> $GITHUB_OUTPUT
+            echo "artifacts/*.md" >> $GITHUB_OUTPUT
+            echo "artifacts/experiments/" >> $GITHUB_OUTPUT
+            echo "artifacts/transcripts/" >> $GITHUB_OUTPUT
+            echo "artifacts/ui-viewmodels/" >> $GITHUB_OUTPUT
+            echo "artifacts/ui-copy/" >> $GITHUB_OUTPUT
+            echo "artifacts/types/" >> $GITHUB_OUTPUT
+            echo "artifacts/samples/" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Prepare publish directory
+        run: |
+          mkdir -p _site
+
+          # Add demo banner to all HTML files
+          banner='<div style="background: #ffeaa7; padding: 8px; text-align: center; font-family: monospace; border-bottom: 2px solid #fdcb6e; margin-bottom: 16px;"><strong>🚀 Demo artefacts only — no personal data</strong></div>'
+
+          # Copy and process files based on subset
+          while IFS= read -r pattern; do
+            if [[ -n "$pattern" ]]; then
+              if [[ -d "$pattern" ]]; then
+                cp -r "$pattern" _site/
+              elif [[ "$pattern" == *"*"* ]]; then
+                # Handle glob patterns
+                for file in $pattern; do
+                  if [[ -f "$file" ]]; then
+                    if [[ "$file" == *.html ]]; then
+                      # Add banner to HTML files
+                      sed "s|<body[^>]*>|&$banner|" "$file" > "_site/$(basename "$file")"
+                    else
+                      cp "$file" "_site/"
+                    fi
+                  fi
+                done
+              elif [[ -f "$pattern" ]]; then
+                if [[ "$pattern" == *.html ]]; then
+                  # Add banner to HTML files
+                  sed "s|<body[^>]*>|&$banner|" "$pattern" > "_site/$(basename "$pattern")"
+                else
+                  cp "$pattern" "_site/"
+                fi
+              fi
+            fi
+          done <<< "${{ steps.subsets.outputs.files }}"
+
+      - name: List files to publish (dry-run)
+        if: github.event.inputs.publish == 'false'
+        run: |
+          echo "## Files that would be published (subset: ${{ github.event.inputs.subset }})"
+          find _site -type f | sort | while read file; do
+            size=$(du -h "$file" | cut -f1)
+            echo "- $file ($size)"
+          done
+          echo ""
+          echo "Total files: $(find _site -type f | wc -l)"
+          echo "Total size: $(du -sh _site | cut -f1)"
+
+      - name: Setup Pages
+        if: github.event.inputs.publish == 'true'
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        if: github.event.inputs.publish == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+      - name: Deploy to GitHub Pages
+        if: github.event.inputs.publish == 'true'
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🚨 Critical Security Vulnerability
+    url: mailto:security@yourcompany.com
+    about: For critical security issues that need private reporting
+  - name: 💬 General Discussion
+    url: https://github.com/yourorg/DecisionGuideAI-Claude/discussions
+    about: Questions, ideas, and general discussion about the platform
+  - name: 📚 Documentation
+    url: https://docs.decisionguide.ai
+    about: Platform documentation and user guides
+  - name: 🆘 Production Emergency
+    url: https://on-call.yourcompany.com
+    about: For production issues affecting users right now

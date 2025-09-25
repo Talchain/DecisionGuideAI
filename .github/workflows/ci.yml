@@ -72,3 +72,31 @@ jobs:
         env:
           ENSURE_TESTS_JSON_SKIP_RUN: '1'
         continue-on-error: true
+
+  integration:
+    name: Integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run integration checks (simulation mode)
+        run: npm run integration:check
+        env:
+          INTEGRATION_SIM_MODE: '1'
+
+      - name: Upload integration report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-status
+          path: artifacts/integration-status.html

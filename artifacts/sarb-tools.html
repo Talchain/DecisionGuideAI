@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SARB Tools - Complete Toolkit</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .status {
+            text-align: center;
+            padding: 1rem;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            border-radius: 8px;
+            margin: 2rem 0;
+            font-weight: bold;
+        }
+
+        .command-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .command-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .command-card h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 1.25rem;
+        }
+
+        .command {
+            background: #2c3e50;
+            color: #fff;
+            padding: 1rem;
+            border-radius: 6px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.9rem;
+            margin: 0.5rem 0;
+            word-break: break-all;
+        }
+
+        .workflow {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin: 2rem 0;
+        }
+
+        .workflow h2 {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+        }
+
+        .step {
+            margin: 1.5rem 0;
+            padding-left: 2rem;
+            position: relative;
+        }
+
+        .step::before {
+            content: counter(step-counter);
+            counter-increment: step-counter;
+            position: absolute;
+            left: 0;
+            top: 0;
+            background: #007bff;
+            color: white;
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .workflow {
+            counter-reset: step-counter;
+        }
+
+        .step h4 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .files-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            margin: 2rem 0;
+        }
+
+        .file-list {
+            list-style: none;
+            margin: 1rem 0;
+        }
+
+        .file-list li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e9ecef;
+            font-family: monospace;
+        }
+
+        .file-list li:last-child {
+            border-bottom: none;
+        }
+
+        .file-list a {
+            color: #007bff;
+            text-decoration: none;
+        }
+
+        .file-list a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧰 SARB Complete Toolkit</h1>
+            <p>Scenario Run Bundles - Full workflow from pack to analysis</p>
+        </div>
+
+        <div class="status">
+            ✅ All 8 overnight tasks completed • TypeScript: PASS • Contract Wall: GREEN • No edits in PROTECTED folder
+        </div>
+
+        <div class="command-grid">
+            <div class="command-card">
+                <h3>📦 Pack & Replay</h3>
+                <div class="command">npm run sarb:pack -- scenarios/cloud-migration.yaml</div>
+                <div class="command">npm run sarb:replay -- runs/cloud-migration.sarb.zip</div>
+                <p>Create deterministic scenario bundles and replay them</p>
+            </div>
+
+            <div class="command-card">
+                <h3>🔄 Compare & Diff</h3>
+                <div class="command">npm run sarb:diff -- bundleA.zip bundleB.zip</div>
+                <p>Side-by-side comparison with HTML and markdown output</p>
+            </div>
+
+            <div class="command-card">
+                <h3>📄 Generate Transcript</h3>
+                <div class="command">npm run sarb:transcript -- runs/framework.sarb.zip</div>
+                <p>Self-contained HTML with token reveal animations</p>
+            </div>
+
+            <div class="command-card">
+                <h3>📊 Synthesize Report</h3>
+                <div class="command">npm run report:from-sarb -- runs/bundle.sarb.zip</div>
+                <p>Convert to OpenAPI-compliant JSON for UI consumption</p>
+            </div>
+
+            <div class="command-card">
+                <h3>🌱 Manage Seeds</h3>
+                <div class="command">npm run seeds:new</div>
+                <div class="command">npm run seeds:check -- bundle.sarb.zip</div>
+                <p>Generate seeds and validate deterministic behavior</p>
+            </div>
+
+            <div class="command-card">
+                <h3>💰 Budget Check</h3>
+                <div class="command">BUDGET_PREFLIGHT_ENABLED=1 npm run preflight:budget -- scenario.yaml --prices prices.dev.json</div>
+                <p>Advisory cost and token estimation (OFF by default)</p>
+            </div>
+
+            <div class="command-card">
+                <h3>🛡️ Policy Check</h3>
+                <div class="command">POLICY_CHECK_ENABLED=1 npm run policy:check -- bundle.sarb.zip</div>
+                <p>Dry-run policy validation (OFF by default)</p>
+            </div>
+
+            <div class="command-card">
+                <h3>📱 SARB Explorer</h3>
+                <div class="command">open artifacts/sarb-explorer.html</div>
+                <p>Interactive browser-based bundle exploration</p>
+            </div>
+        </div>
+
+        <div class="workflow">
+            <h2>🚀 Complete Workflow Example</h2>
+
+            <div class="step">
+                <h4>Pack a scenario</h4>
+                <div class="command">npm run sarb:pack -- artifacts/scenarios/cloud-migration.yaml</div>
+            </div>
+
+            <div class="step">
+                <h4>Verify determinism</h4>
+                <div class="command">npm run seeds:check -- artifacts/runs/cloud-migration.sarb.zip</div>
+            </div>
+
+            <div class="step">
+                <h4>Run budget preflight (optional)</h4>
+                <div class="command">BUDGET_PREFLIGHT_ENABLED=1 npm run preflight:budget -- artifacts/scenarios/cloud-migration.yaml --prices artifacts/prices.dev.json</div>
+            </div>
+
+            <div class="step">
+                <h4>Generate transcript</h4>
+                <div class="command">npm run sarb:transcript -- artifacts/runs/cloud-migration.sarb.zip</div>
+            </div>
+
+            <div class="step">
+                <h4>Create UI report</h4>
+                <div class="command">npm run report:from-sarb -- artifacts/runs/cloud-migration.sarb.zip</div>
+            </div>
+
+            <div class="step">
+                <h4>Policy check (optional)</h4>
+                <div class="command">POLICY_CHECK_ENABLED=1 npm run policy:check -- artifacts/runs/cloud-migration.sarb.zip</div>
+            </div>
+
+            <div class="step">
+                <h4>Explore in browser</h4>
+                <div class="command">open artifacts/sarb-explorer.html</div>
+                <p>Drag & drop the .sarb.zip bundle into the explorer</p>
+            </div>
+        </div>
+
+        <div class="files-section">
+            <h2>📚 Scenario Library</h2>
+            <ul class="file-list">
+                <li>📄 <a href="scenarios/sample-framework.yaml">sample-framework.yaml</a> - JavaScript framework selection (seed: 42)</li>
+                <li>☁️ <a href="scenarios/cloud-migration.yaml">cloud-migration.yaml</a> - Cloud migration strategy (seed: 1001)</li>
+                <li>🗃️ <a href="scenarios/database-selection.yaml">database-selection.yaml</a> - Database technology choice (seed: 2002)</li>
+                <li>🔒 <a href="scenarios/security-architecture.yaml">security-architecture.yaml</a> - Security design patterns (seed: 3003)</li>
+                <li>📱 <a href="scenarios/mobile-strategy.yaml">mobile-strategy.yaml</a> - Mobile development approach (seed: 4004)</li>
+                <li>🔄 <a href="scenarios/ci-cd-pipeline.yaml">ci-cd-pipeline.yaml</a> - CI/CD architecture (seed: 5005)</li>
+                <li>🏢 <a href="scenarios/big-scenario.yaml">big-scenario.yaml</a> - Complex enterprise decision (seed: 12345)</li>
+            </ul>
+            <p><a href="scenarios/README.md">View full library documentation →</a></p>
+        </div>
+
+        <div class="files-section">
+            <h2>🔧 Configuration Files</h2>
+            <ul class="file-list">
+                <li>💰 <a href="prices.dev.json">prices.dev.json</a> - Model pricing and advisory thresholds</li>
+                <li>🛡️ <a href="policy.rules.yaml">policy.rules.yaml</a> - Content filtering and resource limits</li>
+                <li>⚙️ <a href=".budget-config.yaml">.budget-config.yaml</a> - Budget tracking configuration (generated)</li>
+            </ul>
+        </div>
+
+        <div class="files-section">
+            <h2>🎯 Generated Outputs</h2>
+            <ul class="file-list">
+                <li>📦 <a href="runs/">runs/</a> - SARB bundle files (.sarb.zip)</li>
+                <li>📄 <a href="transcripts/">transcripts/</a> - Self-contained HTML transcripts</li>
+                <li>📊 <a href="diffs/">diffs/</a> - Comparison reports (HTML & markdown)</li>
+                <li>📋 <a href="samples/">samples/</a> - OpenAPI-compliant JSON reports</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

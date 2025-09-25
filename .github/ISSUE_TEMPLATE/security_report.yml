@@ -1,0 +1,154 @@
+name: 🔒 Security Report
+description: Report a security vulnerability (use this for non-critical issues only)
+title: "[Security] "
+labels: ["security", "needs-immediate-attention"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **⚠️ CRITICAL SECURITY VULNERABILITIES**
+
+        If this is a **critical security vulnerability** that could lead to:
+        - Remote code execution
+        - Data breaches
+        - Authentication bypass
+        - Privilege escalation
+
+        **DO NOT create a public issue.** Instead:
+        1. Contact our security team directly at [security@yourcompany.com]
+        2. Use GitHub's private security reporting feature
+        3. Encrypt sensitive details with our PGP key
+
+        This public template is only for **low-risk security improvements** and **security hardening suggestions**.
+
+  - type: checkboxes
+    id: security-acknowledgment
+    attributes:
+      label: Security Reporting Acknowledgment
+      description: Please confirm you understand the reporting guidelines
+      options:
+        - label: I confirm this is NOT a critical security vulnerability
+          required: true
+        - label: I understand that critical vulnerabilities should be reported privately
+          required: true
+        - label: This report is for security improvements or low-risk findings only
+          required: true
+
+  - type: dropdown
+    id: security-type
+    attributes:
+      label: Security Issue Type
+      description: What kind of security issue is this?
+      options:
+        - Security Hardening
+        - Configuration Improvement
+        - Dependency Vulnerability (low/medium)
+        - Information Disclosure (low risk)
+        - Security Best Practice
+        - Compliance Issue
+        - Other (explain in description)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: risk-level
+    attributes:
+      label: Risk Assessment
+      description: How would you rate the risk level?
+      options:
+        - Low (informational, best practice)
+        - Medium (potential security improvement)
+        - High (should be addressed soon)
+    validations:
+      required: true
+
+  - type: textarea
+    id: security-description
+    attributes:
+      label: Security Issue Description
+      description: Describe the security concern
+      placeholder: |
+        Provide a clear description of the security issue or improvement opportunity.
+
+        Include:
+        - What is the current behavior?
+        - What security risk does this present?
+        - What improvement would you suggest?
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact-assessment
+    attributes:
+      label: Impact Assessment
+      description: What is the potential impact of this issue?
+      placeholder: |
+        Describe the potential impact:
+        - Who could be affected?
+        - What data or systems are at risk?
+        - What would an attacker need to exploit this?
+        - Are there any mitigating factors?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to Reproduce (if applicable)
+      description: How can this security issue be reproduced?
+      placeholder: |
+        If this is a vulnerability that can be demonstrated:
+        1. Step one...
+        2. Step two...
+        3. Observe the issue...
+
+        **Note**: Please be responsible and don't include actual exploitation details for high-risk issues.
+
+  - type: textarea
+    id: suggested-fix
+    attributes:
+      label: Suggested Fix
+      description: Do you have suggestions for how to address this?
+      placeholder: |
+        If you have ideas for how to fix or improve this security issue:
+        - Configuration changes
+        - Code improvements
+        - Process changes
+        - Additional security controls
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Any relevant security resources or documentation
+      placeholder: |
+        Include any relevant:
+        - Security guidelines (OWASP, NIST, etc.)
+        - CVE references
+        - Security research papers
+        - Best practice documentation
+
+  - type: checkboxes
+    id: responsible-disclosure
+    attributes:
+      label: Responsible Disclosure Agreement
+      description: Please confirm your commitment to responsible disclosure
+      options:
+        - label: I will not publicly disclose details until the issue is resolved
+          required: true
+        - label: I will not attempt to access data that doesn't belong to me
+          required: true
+        - label: I will not perform testing that could harm the system or other users
+          required: true
+        - label: I understand this may be closed if it's determined to be a critical issue that requires private handling
+          required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other information that might be helpful
+      placeholder: |
+        - Environment where this was discovered
+        - Tools or techniques used for discovery
+        - Any additional context that might help with resolution

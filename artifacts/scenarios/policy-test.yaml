@@ -1,0 +1,38 @@
+title: "API Security Implementation"
+description: "Choose authentication method - includes sensitive terms for policy testing"
+
+context:
+  timeline: "2 months"
+  budget: "$30K"
+  requirements:
+    - "Protect API endpoints"
+    - "User authentication required"
+    - "Token-based access control"
+
+options:
+  - name: "OAuth 2.0 with JWT"
+    description: "Standard OAuth flow with JWT tokens"
+    pros: ["Industry standard", "Token-based", "Scalable"]
+    cons: ["Complex setup", "Token management", "Secret rotation"]
+
+  - name: "API Key Authentication"
+    description: "Simple API key-based authentication"
+    pros: ["Simple implementation", "Easy key management"]
+    cons: ["Less secure", "Key exposure risk", "No user context"]
+
+  - name: "mTLS Certificate Authentication"
+    description: "Mutual TLS with client certificates"
+    pros: ["Strong security", "Certificate-based", "Private key protection"]
+    cons: ["Complex setup", "Certificate management"]
+
+constraints:
+  - "Must not expose API keys in logs"
+  - "Private key security is critical"
+  - "Password policies must be enforced"
+  - "No secrets in source code"
+
+params:
+  maxTokens: 12000  # Exceeds policy limit
+  steps: 18         # Exceeds policy limit
+  model: "gpt-4"
+  seed: 9999

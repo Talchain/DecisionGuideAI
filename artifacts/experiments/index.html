@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Experiment Dashboard - Decision Guide AI</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background: #f8f9fa;
+        }
+        .header {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 { color: #2c3e50; margin-bottom: 0.5rem; }
+        .subtitle { color: #6c757d; margin-bottom: 1rem; }
+        .guide {
+            background: #e3f2fd;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            border-left: 4px solid #1976d2;
+        }
+        .guide h3 { color: #1565c0; margin-top: 0; }
+        .experiments-grid {
+            display: grid;
+            gap: 1.5rem;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        }
+        .experiment-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transition: transform 0.2s ease;
+        }
+        .experiment-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+        .card-header {
+            padding: 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .card-title {
+            font-size: 1.2em;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        .card-subtitle {
+            opacity: 0.9;
+            font-size: 0.9em;
+        }
+        .card-body {
+            padding: 1.5rem;
+        }
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .stat-label {
+            font-size: 0.8em;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+        .links {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .link-btn {
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .primary-link {
+            background: #007bff;
+            color: white;
+        }
+        .primary-link:hover {
+            background: #0056b3;
+        }
+        .secondary-link {
+            background: #6c757d;
+            color: white;
+        }
+        .secondary-link:hover {
+            background: #545b62;
+        }
+        .empty-state {
+            background: white;
+            padding: 3rem;
+            border-radius: 8px;
+            text-align: center;
+            color: #6c757d;
+        }
+        .timestamp {
+            font-family: monospace;
+            font-size: 0.8em;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🧪 Experiment Dashboard</h1>
+        <div class="subtitle">Latest experiment runs with comparative analysis</div>
+        <div class="timestamp">Last updated: <span id="lastUpdated"></span></div>
+    </div>
+
+    <div class="guide">
+        <h3>📋 What to Look For</h3>
+        <ul>
+            <li><strong>Token Usage:</strong> Compare how different settings affect output length</li>
+            <li><strong>Duration:</strong> Identify performance impacts of parameter changes</li>
+            <li><strong>Cost:</strong> Track budget implications across variants</li>
+            <li><strong>Baseline Comparisons:</strong> Look for 📈 gains, 📉 losses, 🐌 slower, ⚡ faster indicators</li>
+            <li><strong>Success Rates:</strong> Monitor experiment reliability across different configurations</li>
+            <li><strong>Scoreboard Patterns:</strong> Identify consistent winners/losers in different scenarios</li>
+        </ul>
+    </div>
+
+    <div id="experimentsContainer">
+        <div class="empty-state">
+            <h3>No experiments found</h3>
+            <p>Run your first experiment with:</p>
+            <code>npm run exp:run -- --scenarios artifacts/scenarios --grid artifacts/exp-grid.yaml</code>
+        </div>
+    </div>
+
+    <script>
+        async function loadExperiments() {
+            try {
+                // Get all experiment directories
+                const experiments = [];
+
+                // Parse current directory structure
+                const expDirs = [
+                    'exp-2025-09-25T08-28-05-980Z',
+                    'exp-2025-09-25T08-28-35-572Z',
+                    'exp-2025-09-25T08-30-04-709Z'
+                ];
+
+                for (const dir of expDirs) {
+                    try {
+                        const response = await fetch(`./${dir}/results.json`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            experiments.push({
+                                id: dir,
+                                ...data
+                            });
+                        }
+                    } catch (e) {
+                        console.warn(`Could not load ${dir}/results.json:`, e);
+                    }
+                }
+
+                // Sort by timestamp (newest first)
+                experiments.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                renderExperiments(experiments.slice(0, 10)); // Show latest 10
+
+            } catch (error) {
+                console.error('Failed to load experiments:', error);
+                document.getElementById('experimentsContainer').innerHTML = `
+                    <div class="empty-state">
+                        <h3>Error loading experiments</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderExperiments(experiments) {
+            const container = document.getElementById('experimentsContainer');
+
+            if (experiments.length === 0) {
+                return; // Keep empty state
+            }
+
+            container.innerHTML = `
+                <div class="experiments-grid">
+                    ${experiments.map(exp => renderExperimentCard(exp)).join('')}
+                </div>
+            `;
+
+            document.getElementById('lastUpdated').textContent = new Date().toLocaleString();
+        }
+
+        function renderExperimentCard(exp) {
+            const successCount = exp.results?.filter(r => r.success).length || 0;
+            const totalCount = exp.results?.length || 0;
+            const successRate = totalCount > 0 ? Math.round((successCount / totalCount) * 100) : 0;
+
+            const avgTokens = totalCount > 0 ?
+                Math.round(exp.results.reduce((sum, r) => sum + (r.metadata?.tokens || 0), 0) / totalCount) : 0;
+
+            const avgDuration = totalCount > 0 ?
+                Math.round(exp.results.reduce((sum, r) => sum + (r.metadata?.duration || 0), 0) / totalCount) : 0;
+
+            const timestamp = new Date(exp.timestamp).toLocaleString();
+            const timeAgo = getTimeAgo(exp.timestamp);
+
+            return `
+                <div class="experiment-card">
+                    <div class="card-header">
+                        <div class="card-title">${exp.grid?.name || 'Unnamed Experiment'}</div>
+                        <div class="card-subtitle">${timeAgo} • ${timestamp}</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="stats-row">
+                            <div class="stat">
+                                <div class="stat-value">${successCount}/${totalCount}</div>
+                                <div class="stat-label">Success</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">${avgTokens}</div>
+                                <div class="stat-label">Avg Tokens</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">${avgDuration}s</div>
+                                <div class="stat-label">Avg Duration</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">${successRate}%</div>
+                                <div class="stat-label">Rate</div>
+                            </div>
+                        </div>
+
+                        <div class="links">
+                            <a href="./${exp.id}/scoreboard.html" class="link-btn primary-link">📊 Scoreboard</a>
+                            <a href="./${exp.id}/scoreboard.md" class="link-btn secondary-link">📄 Markdown</a>
+                            <a href="./${exp.id}/results.json" class="link-btn secondary-link">📋 Raw Data</a>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getTimeAgo(timestamp) {
+            const now = new Date();
+            const then = new Date(timestamp);
+            const diffMs = now - then;
+            const diffMins = Math.floor(diffMs / (1000 * 60));
+
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return `${diffMins}m ago`;
+
+            const diffHours = Math.floor(diffMins / 60);
+            if (diffHours < 24) return `${diffHours}h ago`;
+
+            const diffDays = Math.floor(diffHours / 24);
+            return `${diffDays}d ago`;
+        }
+
+        // Load experiments when page loads
+        document.addEventListener('DOMContentLoaded', loadExperiments);
+    </script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "suite": "Decision Guide AI Golden Suite",
+  "timestamp": "2025-09-25T08:48:22.613Z",
+  "duration": 972,
+  "summary": {
+    "total": 1,
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0,
+    "errors": 0
+  },
+  "results": [
+    {
+      "test": "framework-selection-baseline",
+      "status": "fail",
+      "duration": 962,
+      "hash": "44338b9f92931c29",
+      "expectedHash": "00cbff0234c61b25",
+      "error": "Hash mismatch: expected 00cbff0234c61b25, got 44338b9f92931c29",
+      "metadata": {
+        "tokens": 378,
+        "cost": 0.756,
+        "steps": 5
+      }
+    }
+  ]
+}

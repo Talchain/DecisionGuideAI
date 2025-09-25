@@ -1,0 +1,22 @@
+{
+  "exportedAt": "2025-09-25T08:40:40.459Z",
+  "format": "json",
+  "version": "1.0",
+  "meta": {
+    "seed": 42,
+    "timestamp": "2025-09-25T09:30:00.000Z",
+    "duration": 15000,
+    "route": "/decision/analyze",
+    "totalTokens": 1250,
+    "totalCost": 0.025,
+    "model": "gpt-4-turbo",
+    "status": "completed"
+  },
+  "totals": {
+    "totalSteps": 3,
+    "completedSteps": 3,
+    "totalTokens": 1250,
+    "totalCost": 0.025,
+    "totalDuration": 15000
+  }
+}

@@ -583,5 +583,248 @@ class ScorecardGenerator {
     console.log(`💾 Saved scorecard JSON: ${relative(PROJECT_ROOT, jsonPath)}`);
   }
 
-  // Continue to Chunk 4...
+  /**
+   * Chunk 4/4: HTML generation, index updates, and CLI interface
+   */
+
+  private async generateHTML(scorecard: ScorecardData): Promise<void> {
+    const htmlPath = join(ARTIFACTS_DIR, 'integration-scorecard.html');
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integration Scorecard - DecisionGuide AI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #2c3e50; background: #f8f9fa; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+        .header { background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+        .header h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        .header .meta { color: #6c757d; font-size: 0.9rem; }
+
+        .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+        .summary-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+        .summary-card h3 { font-size: 2rem; margin-bottom: 0.5rem; }
+        .summary-card p { color: #6c757d; }
+        .coverage { font-size: 3rem; font-weight: bold; color: #28a745; }
+
+        .filters { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+        .filter-group { display: inline-block; margin-right: 2rem; }
+        .filter-group label { font-weight: 500; margin-right: 0.5rem; }
+        select, input { padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; }
+
+        .items { display: grid; gap: 1.5rem; }
+        .item { background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden; }
+        .item-header { padding: 1.5rem; border-left: 4px solid #ddd; }
+        .item-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .item-meta { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+        .badge { padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.8rem; font-weight: 500; color: white; }
+        .owner-chip { background: #6c757d; color: white; padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.8rem; }
+        .priority { font-weight: bold; }
+        .how-to-finish { background: #f8f9fa; padding: 1rem 1.5rem; border-top: 1px solid #eee; font-style: italic; color: #495057; }
+        .evidence { padding: 1rem 1.5rem; border-top: 1px solid #eee; }
+        .evidence-section { margin-bottom: 0.5rem; }
+        .evidence-section strong { color: #495057; }
+        .evidence-list { margin-left: 1rem; color: #6c757d; font-size: 0.9rem; }
+        .links { margin-top: 0.5rem; }
+        .links a { color: #007bff; text-decoration: none; margin-right: 1rem; font-size: 0.9rem; }
+        .links a:hover { text-decoration: underline; }
+
+        .status-NOT_STARTED { border-left-color: #6c757d !important; }
+        .status-SCAFFOLDING { border-left-color: #ffc107 !important; }
+        .status-WIRED_SIM { border-left-color: #17a2b8 !important; }
+        .status-WIRED_LIVE { border-left-color: #6f42c1 !important; }
+        .status-VERIFIED_E2E { border-left-color: #28a745 !important; }
+        .status-BLOCKED { border-left-color: #dc3545 !important; }
+
+        .badge.NOT_STARTED { background: #6c757d; }
+        .badge.SCAFFOLDING { background: #ffc107; color: #212529; }
+        .badge.WIRED_SIM { background: #17a2b8; }
+        .badge.WIRED_LIVE { background: #6f42c1; }
+        .badge.VERIFIED_E2E { background: #28a745; }
+        .badge.BLOCKED { background: #dc3545; }
+
+        .hidden { display: none; }
+        footer { text-align: center; padding: 2rem; color: #6c757d; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗺️ Integration Scorecard</h1>
+            <div class="meta">
+                Generated: ${new Date(scorecard.generatedAt).toLocaleString()} •
+                Coverage: ${scorecard.totals.coveragePercent}% •
+                Items: ${scorecard.totals.total}
+            </div>
+        </div>
+
+        <div class="summary">
+            <div class="summary-card">
+                <div class="coverage">${scorecard.totals.coveragePercent}%</div>
+                <p>Coverage</p>
+            </div>
+            <div class="summary-card">
+                <h3>${scorecard.totals.verified}</h3>
+                <p>Verified E2E</p>
+            </div>
+            <div class="summary-card">
+                <h3>${scorecard.totals.total}</h3>
+                <p>Total Integrations</p>
+            </div>
+            <div class="summary-card">
+                <h3>${Object.keys(this.owners).length}</h3>
+                <p>Teams</p>
+            </div>
+        </div>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label for="team-filter">Team:</label>
+                <select id="team-filter" onchange="filterItems()">
+                    <option value="">All Teams</option>
+                    ${Object.keys(this.owners).map(owner =>
+                        `<option value="${owner}">${this.owners[owner]}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="status-filter">Status:</label>
+                <select id="status-filter" onchange="filterItems()">
+                    <option value="">All Statuses</option>
+                    ${Object.keys(this.statuses).map(status =>
+                        `<option value="${status}">${status.replace('_', ' ')}</option>`
+                    ).join('')}
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="priority-filter">Priority:</label>
+                <select id="priority-filter" onchange="filterItems()">
+                    <option value="">All Priorities</option>
+                    <option value="P0">P0</option>
+                    <option value="P1">P1</option>
+                    <option value="P2">P2</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="items">
+            ${scorecard.items.map(item => `
+                <div class="item status-${item.status}" data-owner="${item.owner}" data-status="${item.status}" data-priority="${item.priority}">
+                    <div class="item-header">
+                        <div class="item-title">${item.name}</div>
+                        <div class="item-meta">
+                            <span class="badge ${item.status}">${item.status.replace('_', ' ')}</span>
+                            <span class="owner-chip">${item.ownerName}</span>
+                            <span class="priority">${item.priority}</span>
+                        </div>
+                        <p>${item.acceptance}</p>
+                        ${item.links.length > 0 ? `
+                            <div class="links">
+                                ${item.links.map(link => `<a href="./${link}" target="_blank">${link.split('/').pop()}</a>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="how-to-finish">${item.howToFinish}</div>
+                    <div class="evidence">
+                        ${Object.entries(item.evidence).map(([layer, files]) =>
+                            files.length > 0 ? `
+                                <div class="evidence-section">
+                                    <strong>${layer.toUpperCase()}:</strong>
+                                    <div class="evidence-list">
+                                        ${files.slice(0, 3).map(file =>
+                                            file.startsWith('script:') ?
+                                                `• ${file.replace('script:', 'npm run ')}` :
+                                                `• ${file.split(':')[0]}`
+                                        ).join('<br>')}
+                                        ${files.length > 3 ? `<br>• ... and ${files.length - 3} more` : ''}
+                                    </div>
+                                </div>
+                            ` : ''
+                        ).join('')}
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    </div>
+
+    <footer>
+        Integration Scorecard • DecisionGuide AI • No servers required
+    </footer>
+
+    <script>
+        function filterItems() {
+            const teamFilter = document.getElementById('team-filter').value;
+            const statusFilter = document.getElementById('status-filter').value;
+            const priorityFilter = document.getElementById('priority-filter').value;
+
+            const items = document.querySelectorAll('.item');
+
+            items.forEach(item => {
+                const owner = item.dataset.owner;
+                const status = item.dataset.status;
+                const priority = item.dataset.priority;
+
+                const matchesTeam = !teamFilter || owner === teamFilter;
+                const matchesStatus = !statusFilter || status === statusFilter;
+                const matchesPriority = !priorityFilter || priority === priorityFilter;
+
+                if (matchesTeam && matchesStatus && matchesPriority) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+        }
+
+        // URL query param filtering
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('team')) document.getElementById('team-filter').value = urlParams.get('team');
+        if (urlParams.get('status')) document.getElementById('status-filter').value = urlParams.get('status');
+        if (urlParams.get('priority')) document.getElementById('priority-filter').value = urlParams.get('priority');
+        filterItems();
+    </script>
+</body>
+</html>`;
+
+    writeFileSync(htmlPath, html);
+    console.log(`🎨 Generated HTML scorecard: ${relative(PROJECT_ROOT, htmlPath)}`);
+  }
+
+  private updateArtifactsIndex(): void {
+    const indexPath = join(ARTIFACTS_DIR, 'index.html');
+
+    if (!existsSync(indexPath)) return;
+
+    try {
+      let content = readFileSync(indexPath, 'utf-8');
+
+      // Add scorecard link if not present
+      if (!content.includes('integration-scorecard.html')) {
+        // Find a good place to insert (after existing links)
+        const insertPoint = content.indexOf('</ul>');
+        if (insertPoint !== -1) {
+          const linkHtml = '                    <li><a href="./integration-scorecard.html" target="_blank">Integration Scorecard</a></li>\n';
+          content = content.slice(0, insertPoint) + linkHtml + content.slice(insertPoint);
+          writeFileSync(indexPath, content);
+          console.log('🔗 Added scorecard link to artifacts index');
+        }
+      }
+    } catch (error) {
+      console.log('⚠️  Could not update artifacts index');
+    }
+  }
 }
+
+// CLI interface
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const generator = new ScorecardGenerator();
+  generator.generateScorecard().catch(error => {
+    console.error('Scorecard generation failed:', error);
+    process.exit(1);
+  });
+}
+
+export { ScorecardGenerator };

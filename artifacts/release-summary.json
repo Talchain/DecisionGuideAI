@@ -1,0 +1,62 @@
+{
+  "release": {
+    "timestamp": "2025-09-25T16:03:11.087Z",
+    "version": "PoC-2025-09-25T16-03-04",
+    "branch": "platform/overnight-ui-fixtures",
+    "commit": "ae749d9a",
+    "duration": 6154
+  },
+  "validation": {
+    "results": [
+      {
+        "step": "TypeScript compilation",
+        "status": "pass",
+        "output": "> decision-mind@0.0.0 typecheck\n> tsc -p tsconfig.ci.json --noEmit"
+      },
+      {
+        "step": "Unit tests",
+        "status": "pass",
+        "output": "> decision-mind@0.0.0 test\n> vitest run --reporter=verbose\n\n\n RUN  v1.6.1 /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude\n\n ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should generate valid sample report\n ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should apply redaction correctly\n ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should cancel within ≤150ms target\n ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should handle real report fetching when enabled\n ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should use sample report when real reports disabled\n ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should always use sample for \"sample\" reportId\n ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should validate report structure\n ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should handle custom redaction config\n ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should log report access without payload data\n ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should check real report flag correctly\n ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should handle deep nested redaction\n ✓ src/lib/__tests__/sse-panel.hints.test.tsx > SandboxStreamPanel terminal hints > limited with hints ON shows chip title and limited tip\n ✓ src/lib/__tests__/md.copycode.test.tsx > Markdown Copy Code (flags OFF) > does not render copy buttons when preview/copy flags are OFF\n ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should handle multiple concurrent cancels\n ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should return not_found for unknown sessions\n ✓ src/lib/__tests__/sse-panel.hints.test.tsx > SandboxStreamPanel terminal hints > error with hints ON shows chip title only; no limited tip\n ✓ src/lib/__tests__/export.transcript.test.tsx > Export transcript > happy path export .txt contains metadata and transcript\n ✓ src/lib/__tests__/session.defaults.test.ts > session defaults and overrides > default base values are used: sessionId=sandbox, org=local\n ✓ src/lib/__tests__/session.defaults.test.ts > session defaults and overrides > env overrides VITE_SESSION_ID/VITE_ORG are used when provided\n ✓ src/lib/__tests__/session.defaults.test.ts > session defaults and overrides > localStorage overrides session.id/session.org when present\n ✓ src/lib/__tests__/session.defaults.test.ts > session defaults and overrides > explicit overrides pass through fetchRunReport\n ✓ src/lib/__tests__/md.copycode.test.tsx > Markdown Copy Code (flags ON) > renders copy buttons for fenced blocks and copies exact code\n ✓ src/lib/__tests__/sse-panel.hints.test.tsx > SandboxStreamPanel terminal hints > hints OFF shows no title and no limited tip\n ✓ src/lib/__tests__/export.transcript.test.tsx > Export transcript > JSON export has meta and token list\nstdout | src/lib/__tests__/export.transcript.test.tsx > Export transcript > Stop → Aborted gating excludes tokens after stop\n[SandboxStreamPanel] Cancel latency (ms): 0\n\n ✓ src/lib/__tests__/export.transcript.test.tsx > Export transcript > Stop → Aborted gating excludes tokens after stop\n ✓ src/lib/__tests__/export.transcript.test.tsx > Export transcript > export buttons hidden when not terminal\n ✓ src/lib/__tests__/history.drawer.test.tsx > RunHistoryDrawer > records an entry on Done and opens report with params\n ✓ src/lib/__tests__/history.drawer.test.tsx > RunHistoryDrawer > caps at MAX=5 newest-first\n ✓ src/lib/__tests__/history.drawer.test.tsx > RunHistoryDrawer > empty state when no runs yet and Esc returns focus\n ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should track latency metrics correctly 517ms\n ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should create proper cancelled events\n ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should handle EventSource cleanup\n ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should respect custom timeout values\n ✓ src/lib/__tests__/history.rerun.test.tsx > Run History Re-run > clicking Re-run snaps params, starts streaming, URL includes params, and new entry appends at terminal\n ✓ src/lib/__tests__/md.preview.test.tsx > Markdown preview > allows only safe links and blocks javascript: URLs\n ✓ src/lib/__tests__/md.preview.test.tsx > Markdown preview > updates on microtask flush when buffer is ON\n ✓ src/lib/__tests__/md.preview.test.tsx > Markdown preview > sanitizes HTML content\n ✓ src/lib/__tests__/md.preview.test.tsx > Markdown preview > updates on terminal flush when buffer is OFF\nstdout | src/lib/__tests__/sse-panel.test.tsx > SandboxStreamPanel > streams tokens, shows cost, reconnects once, and focuses status on terminal\n[SandboxStreamPanel] Cancel latency (ms): 0\n\n ✓ src/lib/__tests__/sse-panel.test.tsx > SandboxStreamPanel > streams tokens, shows cost, reconnects once, and focuses status on terminal\n ✓ src/lib/__tests__/shortcuts.test.tsx > Shortcuts and cheat sheet > Cmd/Ctrl+Enter starts and Esc stops\n ✓ src/lib/__tests__/sse-buffer.test.ts > SandboxStreamPanel rAF token buffer > batches multiple tokens within a frame into one flush\n ✓ src/lib/__tests__/sse-buffer.test.ts > SandboxStreamPanel rAF token buffer > flushes buffered tokens on terminal (done)\n ✓ src/lib/__tests__/sse-buffer.test.ts > SandboxStreamPanel rAF token buffer > stop gates tokens after flushing any pending buffer\n ✓ src/lib/__tests__/shortcuts.test.tsx > Shortcuts and cheat sheet > r opens report after terminal and h opens history; ? toggles sheet\n ✓ src/lib/__tests__/run-report.drawer.test.tsx > RunReportDrawer via SandboxStreamPanel > enables View report after terminal and renders mock data; Esc closes and returns focus\n ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should track target compliance metrics 727ms\n ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should cleanup all sessions properly\n ✓ src/lib/__tests__/sse-reconnect.test.ts > sseClient reconnect and dedupe > reconnects once with resume and dedupes by lastEventId\n ✓ src/lib/__tests__/run-report.source.test.tsx > Run Report source selection > uses mock fixture when real flag is OFF\n ✓ src/lib/__tests__/run-report.source.test.tsx > Run Report source selection > falls back to mock when real flag ON but fetch errors\n ✓ src/lib/__tests__/sse-panel.idle.test.tsx > SandboxStreamPanel idle hint > shows hint when idle; disappears on Start; stays hidden after terminal\n ✓ src/lib/__tests__/sse-params.test.tsx > SandboxStreamPanel with params > passes seed/budget/model to SSE URL and fetchRunReport\n ✓ src/lib/__tests__/jobs-panel.test.tsx > JobsProgressPanel > advances progress and cancels cleanly\n ✓ src/lib/__tests__/sse-panel.labels.test.tsx > SandboxStreamPanel terminal labels > announces Limited by budget\n ✓ src/lib/__tests__/sse-panel.labels.test.tsx > SandboxStreamPanel terminal labels > announces Error\n ✓ src/lib/__tests__/sse-crlf.test.ts > sseClient CRLF normalization > normalizes \r\n and \r to \n in token text\n ✓ src/lib/__tests__/telemetry.test.ts > telemetry counters > OFF → no increments\n ✓ src/lib/__tests__/telemetry.test.ts > telemetry counters > ON → increments; no payloads\nstdout | src/lib/__tests__/telemetry.test.ts > telemetry counters > ON → increments; no payloads\n[TLM] edge.stream.start\n[TLM] edge.stream.token\n[TLM] edge.stream.token\n[TLM] edge.stream.done\n\n ✓ src/plotLite/tests/ghost.blocker.buttons.test.tsx > GhostPanel BLOCKER action buttons > renders Accept/Edit/Dismiss buttons only for BLOCKER items\n\n Test Files  22 passed (22)\n      Tests  59 passed (59)\n   Start at  17:03:06\n   Duration  3.64s (transform 665ms, setup 2ms, collect 3.28s, tests 3.49s, environment 9.16s, prepare 2.53s)"
+      },
+      {
+        "step": "Integration tests (simulation mode)",
+        "status": "fail",
+        "error": "Command failed: npm run integration:check"
+      },
+      {
+        "step": "Deterministic analysis validation",
+        "status": "pass",
+        "output": "> decision-mind@0.0.0 determinism:check\n> tsx ./tools/determinism-check.ts\n\n🎯 Determinism Check Suite\n========================================\n🔬 Testing determinism for seed 42 (3 runs)...\n✅ Seed 42: ✅ All 3 runs produced identical output\n🔬 Testing determinism for seed 123 (3 runs)...\n✅ Seed 123: ✅ All 3 runs produced identical output\n🔬 Testing determinism for seed 999 (3 runs)...\n✅ Seed 999: ✅ All 3 runs produced identical output\n🔬 Testing determinism for seed 1337 (3 runs)...\n✅ Seed 1337: ✅ All 3 runs produced identical output\n🔬 Testing determinism for seed 2024 (3 runs)...\n✅ Seed 2024: ✅ All 3 runs produced identical output\n\n📊 Determinism Test Summary\n========================================\nResult: PASS\nTests: 5/5 passed\nVerdict: deterministic OK\n📄 Report saved: /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/determinism-check.json"
+      },
+      {
+        "step": "Configuration security check",
+        "status": "pass",
+        "output": "> decision-mind@0.0.0 config:lint\n> tsx ./tools/config-lint.ts\n\n🔍 Config/Environment Lint Check\n========================================\n📄 Checking .env.example...\n📄 Checking vite.config.ts...\n📄 Checking package.json...\n📁 Checking source files for hardcoded configs...\n\n📄 Reports saved:\n   JSON: /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/config-lint.json\n   Markdown: /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/config-lint.md\n\n📊 Configuration Lint Summary\n========================================\nResult: PASS\nFiles: 3 checked\nIssues: 0 errors, 0 warnings\nSummary: ✅ No configuration issues detected"
+      }
+    ],
+    "critical": [],
+    "warnings": [
+      "No contract:check script found - skipping contract validation",
+      "Integration tests (simulation mode) failed: Command failed: npm run integration:check"
+    ],
+    "decision": "GO"
+  },
+  "configuration": {
+    "flags": {
+      "summary": "📊 Flag Configuration Summary\n========================================\nTotal Flags: 20\nChanged from Default: 0\nUsing Defaults: 16\n\n📂 By Category:\n  feature: 8\n  advanced: 2\n  performance: 5",
+      "violations": []
+    },
+    "safetyStatus": "SAFE",
+    "violations": []
+  },
+  "artifacts": [
+    "integration-status.html"
+  ],
+  "checklist": {
+    "powerfulFeaturesOff": true,
+    "noPayloadLogging": true,
+    "simulationAvailable": true,
+    "fastCancelImplemented": true,
+    "integrationPassing": false
+  }
+}
