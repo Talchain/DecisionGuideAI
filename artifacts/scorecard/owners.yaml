@@ -1,0 +1,7 @@
+# Owner Mapping for Integration Scorecard
+# Maps owner keys to human-readable team names
+
+owners:
+  Windsurf: "UI Team"
+  Warp: "Engine Team"
+  Platform: "Platform/Claude Team"

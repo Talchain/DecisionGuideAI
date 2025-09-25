@@ -1,0 +1,33 @@
+# Integration Status Definitions
+# Used by the Integration Scorecard to classify and color-code integration readiness
+
+statuses:
+  NOT_STARTED:
+    color: "#6c757d"  # grey
+    description: "Nothing detected - integration not yet started"
+    priority: 0
+
+  SCAFFOLDING:
+    color: "#ffc107"  # amber
+    description: "Some files exist but routes missing or incomplete"
+    priority: 1
+
+  WIRED_SIM:
+    color: "#17a2b8"  # blue
+    description: "Artefacts/fixtures exist and integration harness covers it, but no engine route or not live"
+    priority: 2
+
+  WIRED_LIVE:
+    color: "#6f42c1"  # purple
+    description: "Required routes exist across layers (OpenAPI present) but no passing E2E proof"
+    priority: 3
+
+  VERIFIED_E2E:
+    color: "#28a745"  # green
+    description: "Integration harness/tests indicate success with ACCEPTANCE markers or recent green artefacts"
+    priority: 4
+
+  BLOCKED:
+    color: "#dc3545"  # red
+    description: "Explicitly blocked or failing contract wall for required route"
+    priority: -1

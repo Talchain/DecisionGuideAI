@@ -1,0 +1,232 @@
+# Integration Catalog for DecisionGuide AI
+# Defines all integration points between Windsurf ↔ Gateway ↔ Warp
+# Used by the Integration Scorecard to track end-to-end wiring status
+
+integrations:
+  - id: "windsurf.stream.sse"
+    name: "Live token streaming with Stop and Resume-once"
+    layer_map:
+      ui: true
+      gateway: true
+      warp: true
+      jobs: false
+      usage: false
+    detection:
+      ui:
+        - "artifacts/ui-fixtures/*/sse-*.json"
+        - "artifacts/ui-viewmodels/**/stream*.json"
+        - "artifacts/sse-fixtures/"
+      gateway:
+        - "GET /stream"
+        - "GET /api/analysis/{id}/events"
+      warp:
+        - "POST /critique"
+        - "POST /analysis"
+      tests:
+        - "integration/integration-check.ts"
+        - "src/lib/__tests__/sse-*.test.*"
+    owner: "Windsurf"
+    priority: "P0"
+    acceptance: "User can start streaming, see tokens flow, and stop cleanly"
+
+  - id: "windsurf.jobs.progress"
+    name: "Jobs progress with Cancel"
+    layer_map:
+      ui: true
+      gateway: true
+      warp: false
+      jobs: true
+      usage: false
+    detection:
+      ui:
+        - "artifacts/ui-fixtures/*/jobs-*.json"
+        - "artifacts/ui-viewmodels/**/jobs*.json"
+      gateway:
+        - "GET /jobs/stream"
+        - "POST /jobs/cancel"
+        - "GET /api/jobs/{id}"
+      jobs:
+        - "POST /jobs"
+        - "DELETE /jobs/{id}"
+      tests:
+        - "src/lib/__tests__/jobs-*.test.*"
+    owner: "Platform"
+    priority: "P1"
+    acceptance: "Background jobs show progress and can be cancelled mid-flight"
+
+  - id: "windsurf.report.drawer"
+    name: "Run Report drawer"
+    layer_map:
+      ui: true
+      gateway: true
+      warp: true
+      jobs: false
+      usage: false
+    detection:
+      ui:
+        - "artifacts/report-v1-sample.json"
+        - "artifacts/ui-viewmodels/**/report*.json"
+        - "artifacts/samples/report*.json"
+      gateway:
+        - "GET /report"
+        - "GET /api/analysis/{id}/report"
+      warp:
+        - "Report v1"
+      tests:
+        - "src/lib/__tests__/run-report*.test.*"
+    owner: "Windsurf"
+    priority: "P0"
+    acceptance: "Report drawer opens with structured decision analysis after completion"
+
+  - id: "windsurf.replay.seeded"
+    name: "Replay this run (seed)"
+    layer_map:
+      ui: true
+      gateway: false
+      warp: false
+      jobs: false
+      usage: false
+    detection:
+      ui:
+        - "artifacts/ui-viewmodels/**/seed*.json"
+        - "tools/seed-manager.ts"
+      tests:
+        - "npm run seeds:*"
+    owner: "Windsurf"
+    priority: "P2"
+    acceptance: "User can replay exact same analysis with same seed value"
+
+  - id: "windsurf.sarb.import"
+    name: "Import SARB bundle locally"
+    layer_map:
+      ui: true
+      gateway: false
+      warp: false
+      jobs: false
+      usage: false
+    detection:
+      ui:
+        - "artifacts/sarb-explorer.html"
+        - "artifacts/ui-viewmodels/**/sarb*.json"
+        - "tools/sarb-*.ts"
+      tests:
+        - "npm run sarb:*"
+    owner: "Platform"
+    priority: "P2"
+    acceptance: "User can import and explore SARB bundles locally"
+
+  - id: "platform.preflight.budget"
+    name: "Budget pre-flight advisory"
+    layer_map:
+      ui: false
+      gateway: false
+      warp: false
+      jobs: false
+      usage: false
+    detection:
+      ui:
+        - "artifacts/*budget*.md"
+        - "tools/budget-checker.ts"
+      tests:
+        - "npm run preflight:budget"
+        - "npm run budget:*"
+    owner: "Platform"
+    priority: "P1"
+    acceptance: "Budget checker warns before expensive operations"
+
+  - id: "platform.policy.advisory"
+    name: "Policy rules advisory"
+    layer_map:
+      ui: false
+      gateway: false
+      warp: false
+      jobs: false
+      usage: false
+    detection:
+      ui:
+        - "artifacts/policy.rules.yaml"
+        - "tools/policy-checker.ts"
+      tests:
+        - "npm run policy:check"
+    owner: "Platform"
+    priority: "P1"
+    acceptance: "Policy checker validates configurations against safety rules"
+
+  - id: "warp.cancel.fast"
+    name: "Fast cancel honours AbortSignal, emits terminal cancelled"
+    layer_map:
+      ui: false
+      gateway: true
+      warp: true
+      jobs: false
+      usage: false
+    detection:
+      gateway:
+        - "AbortSignal"
+        - "cancelled event"
+      warp:
+        - "AbortController"
+      tests:
+        - "src/lib/__tests__/fast-cancel.test.ts"
+        - "integration/integration-check.ts"
+    owner: "Warp"
+    priority: "P0"
+    acceptance: "Cancel requests complete within ≤150ms target with proper cleanup"
+
+  - id: "warp.report.v1"
+    name: "Report v1 schema stable"
+    layer_map:
+      ui: false
+      gateway: true
+      warp: true
+      jobs: false
+      usage: false
+    detection:
+      gateway:
+        - "GET /api/analysis/{id}/report"
+        - "Report v1"
+      warp:
+        - "Report v1 schema"
+      tests:
+        - "contract wall green"
+        - "artifacts/contracts/"
+    owner: "Warp"
+    priority: "P0"
+    acceptance: "Report v1 schema is stable and Contract Wall stays green"
+
+  - id: "warp.headers.passthrough"
+    name: "x-org-id/x-user-id forwarded"
+    layer_map:
+      ui: false
+      gateway: true
+      warp: true
+      jobs: false
+      usage: false
+    detection:
+      gateway:
+        - "x-org-id header"
+        - "x-user-id header"
+      warp:
+        - "header middleware"
+      tests:
+        - "header forwarding tests"
+    owner: "Warp"
+    priority: "P1"
+    acceptance: "Organization and user context headers are forwarded correctly"
+
+  - id: "warp.cachecontrol.no-store"
+    name: "Cache-Control headers set"
+    layer_map:
+      ui: false
+      gateway: false
+      warp: true
+      jobs: false
+      usage: false
+    detection:
+      warp:
+        - "Cache-Control: no-store"
+      tests:
+        - "cache header tests"
+    owner: "Warp"
+    priority: "P2"
+    acceptance: "Responses include proper Cache-Control headers to prevent caching"
