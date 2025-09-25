@@ -1,0 +1,47 @@
+{
+  "sessionId": "session-cancel-003",
+  "status": "cancelled",
+  "tokens": [
+    {
+      "id": "token_000",
+      "text": "Based",
+      "timestamp": 1758791140871
+    },
+    {
+      "id": "token_001",
+      "text": " on",
+      "timestamp": 1758791140971
+    },
+    {
+      "id": "token_002",
+      "text": " your",
+      "timestamp": 1758791141071
+    },
+    {
+      "id": "token_003",
+      "text": " requirements",
+      "timestamp": 1758791141171
+    },
+    {
+      "id": "token_004",
+      "text": ",",
+      "timestamp": 1758791141271
+    },
+    {
+      "id": "token_005",
+      "text": " I",
+      "timestamp": 1758791141371
+    },
+    {
+      "id": "token_006",
+      "text": " would",
+      "timestamp": 1758791141471
+    }
+  ],
+  "metadata": {
+    "totalTokens": 7,
+    "totalCost": 0.014,
+    "duration": 700,
+    "model": "gpt-4-turbo"
+  }
+}

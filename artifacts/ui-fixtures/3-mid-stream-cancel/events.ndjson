@@ -1,0 +1,8 @@
+{"id":"token_000","event":"token","data":"{\"id\":\"token_000\",\"text\":\"Based\",\"timestamp\":1758791140871,\"sessionId\":\"session-cancel-003\"}"}
+{"id":"token_001","event":"token","data":"{\"id\":\"token_001\",\"text\":\" on\",\"timestamp\":1758791140971,\"sessionId\":\"session-cancel-003\"}"}
+{"id":"token_002","event":"token","data":"{\"id\":\"token_002\",\"text\":\" your\",\"timestamp\":1758791141071,\"sessionId\":\"session-cancel-003\"}"}
+{"id":"token_003","event":"token","data":"{\"id\":\"token_003\",\"text\":\" requirements\",\"timestamp\":1758791141171,\"sessionId\":\"session-cancel-003\"}"}
+{"id":"token_004","event":"token","data":"{\"id\":\"token_004\",\"text\":\",\",\"timestamp\":1758791141271,\"sessionId\":\"session-cancel-003\"}"}
+{"id":"token_005","event":"token","data":"{\"id\":\"token_005\",\"text\":\" I\",\"timestamp\":1758791141371,\"sessionId\":\"session-cancel-003\"}"}
+{"id":"token_006","event":"token","data":"{\"id\":\"token_006\",\"text\":\" would\",\"timestamp\":1758791141471,\"sessionId\":\"session-cancel-003\"}"}
+{"id":"cancel_001","event":"cancelled","data":"{\"sessionId\":\"session-cancel-003\",\"reason\":\"user_cancelled\",\"partialTokens\":7,\"timestamp\":1758791141571}"}

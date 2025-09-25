@@ -1,0 +1,21 @@
+{
+  "sessionId": "session-error-004",
+  "status": "error",
+  "tokens": [
+    {
+      "id": "token_000",
+      "text": "I",
+      "timestamp": 1758791140872
+    },
+    {
+      "id": "token_001",
+      "text": " am",
+      "timestamp": 1758791140972
+    }
+  ],
+  "error": {
+    "code": "RATE_LIMIT_EXCEEDED",
+    "message": "Request rate limit exceeded. Please try again in a few moments.",
+    "details": "You have exceeded the maximum number of requests per minute. Current limit: 60 requests/minute."
+  }
+}

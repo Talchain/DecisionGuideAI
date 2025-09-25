@@ -1,0 +1,13 @@
+{
+  "sessionId": "session-jobs-005",
+  "jobs": [
+    {
+      "id": "job_scenario_analysis_001",
+      "name": "Scenario Analysis",
+      "status": "cancelled",
+      "progress": 50,
+      "startTime": 1758791140872,
+      "endTime": 1758791143372
+    }
+  ]
+}

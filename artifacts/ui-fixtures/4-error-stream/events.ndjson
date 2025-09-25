@@ -1,0 +1,3 @@
+{"id":"token_000","event":"token","data":"{\"id\":\"token_000\",\"text\":\"I\",\"timestamp\":1758791140872,\"sessionId\":\"session-error-004\"}"}
+{"id":"token_001","event":"token","data":"{\"id\":\"token_001\",\"text\":\" am\",\"timestamp\":1758791140972,\"sessionId\":\"session-error-004\"}"}
+{"id":"error_001","event":"error","data":"{\"sessionId\":\"session-error-004\",\"error\":{\"code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Request rate limit exceeded. Please try again in a few moments.\",\"details\":\"You have exceeded the maximum number of requests per minute. Current limit: 60 requests/minute.\",\"timestamp\":1758791141072}}"}

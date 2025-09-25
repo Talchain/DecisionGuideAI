@@ -1,0 +1,11 @@
+{"id":"token_000","event":"token","data":"{\"id\":\"token_000\",\"text\":\"I\",\"timestamp\":1758791140871,\"sessionId\":\"session-resume-002\"}"}
+{"id":"token_001","event":"token","data":"{\"id\":\"token_001\",\"text\":\" need\",\"timestamp\":1758791140971,\"sessionId\":\"session-resume-002\"}"}
+{"id":"token_002","event":"token","data":"{\"id\":\"token_002\",\"text\":\" to\",\"timestamp\":1758791141071,\"sessionId\":\"session-resume-002\"}"}
+{"id":"token_003","event":"token","data":"{\"id\":\"token_003\",\"text\":\" analyze\",\"timestamp\":1758791141171,\"sessionId\":\"session-resume-002\"}"}
+{"id":"token_004","event":"token","data":"{\"id\":\"token_004\",\"text\":\" your\",\"timestamp\":1758791141271,\"sessionId\":\"session-resume-002\"}"}
+{"id":"disconnect_001","event":"disconnect","data":"{\"sessionId\":\"session-resume-002\",\"reason\":\"connection_lost\",\"lastTokenId\":\"token_004\"}"}
+{"id":"token_005","event":"token","data":"{\"id\":\"token_005\",\"text\":\" requirements\",\"timestamp\":1758791141371,\"sessionId\":\"session-resume-002\",\"resumed\":true}"}
+{"id":"token_006","event":"token","data":"{\"id\":\"token_006\",\"text\":\" more\",\"timestamp\":1758791141471,\"sessionId\":\"session-resume-002\",\"resumed\":true}"}
+{"id":"token_007","event":"token","data":"{\"id\":\"token_007\",\"text\":\" carefully\",\"timestamp\":1758791141571,\"sessionId\":\"session-resume-002\",\"resumed\":true}"}
+{"id":"token_008","event":"token","data":"{\"id\":\"token_008\",\"text\":\".\",\"timestamp\":1758791141671,\"sessionId\":\"session-resume-002\",\"resumed\":true}"}
+{"id":"complete_002","event":"complete","data":"{\"sessionId\":\"session-resume-002\",\"totalTokens\":9,\"totalCost\":0.018,\"duration\":900,\"model\":\"gpt-4-turbo\",\"resumed\":true}"}
