@@ -50,6 +50,7 @@
     "golden:update": "tsx ./tools/golden-suite.ts update",
     "fixtures:ui": "tsx ./tools/fixtures-ui.ts",
     "types:gen": "tsx ./tools/types-gen.ts",
+    "exp:tune": "tsx ./tools/exp-tuner.ts",
     "notes:prepare": "node ./tools/prepare-release-notes.cjs"
   },
   "dependencies": {
