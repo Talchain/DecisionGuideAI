@@ -369,5 +369,219 @@ class ScorecardGenerator {
     return found;
   }
 
-  // Continue to Chunk 3...
+  /**
+   * Chunk 3/4: Status computation and totals calculation
+   */
+
+  private identifyMissing(integration: Integration, evidence: Evidence): string[] {
+    const missing: string[] = [];
+
+    // Check required layers
+    if (integration.layer_map.ui && evidence.ui.length === 0) {
+      missing.push('UI fixtures/view-models');
+    }
+    if (integration.layer_map.gateway && evidence.gateway.length === 0) {
+      missing.push('Gateway routes');
+    }
+    if (integration.layer_map.warp && evidence.warp.length === 0) {
+      missing.push('Warp implementation');
+    }
+    if (integration.layer_map.jobs && evidence.jobs.length === 0) {
+      missing.push('Jobs layer');
+    }
+    if (integration.layer_map.usage && evidence.usage.length === 0) {
+      missing.push('Usage tracking');
+    }
+
+    // Check tests
+    if (evidence.tests.length === 0) {
+      missing.push('Tests/integration harness');
+    }
+
+    return missing;
+  }
+
+  private computeStatus(integration: Integration, evidence: Evidence, missing: string[]): string {
+    // Check for explicit blocks
+    if (this.isExplicitlyBlocked(integration, evidence)) {
+      return 'BLOCKED';
+    }
+
+    // No evidence at all
+    if (this.hasNoEvidence(evidence)) {
+      return 'NOT_STARTED';
+    }
+
+    // Check for E2E verification
+    if (this.hasE2EVerification(evidence)) {
+      return 'VERIFIED_E2E';
+    }
+
+    // All required routes exist but no E2E proof
+    if (missing.length === 0 || this.allRoutesExist(integration, evidence)) {
+      return 'WIRED_LIVE';
+    }
+
+    // Has fixtures/artefacts and test coverage but missing routes
+    if (evidence.ui.length > 0 && evidence.tests.length > 0) {
+      return 'WIRED_SIM';
+    }
+
+    // Some files exist but incomplete
+    if (evidence.ui.length > 0 || evidence.gateway.length > 0 || evidence.warp.length > 0) {
+      return 'SCAFFOLDING';
+    }
+
+    return 'NOT_STARTED';
+  }
+
+  private isExplicitlyBlocked(integration: Integration, evidence: Evidence): boolean {
+    // Check for failing contract wall (future)
+    // Check for explicit blocking markers (future)
+    return false;
+  }
+
+  private hasNoEvidence(evidence: Evidence): boolean {
+    return Object.values(evidence).every(arr => arr.length === 0);
+  }
+
+  private hasE2EVerification(evidence: Evidence): boolean {
+    // Look for ACCEPTANCE markers in test files
+    for (const testFile of evidence.tests) {
+      if (testFile.startsWith('script:')) continue;
+
+      try {
+        const content = readFileSync(join(PROJECT_ROOT, testFile), 'utf-8');
+        if (content.includes('ACCEPTANCE') || content.includes('green') || content.includes('✅')) {
+          return true;
+        }
+      } catch (error) {
+        // Skip unreadable files
+      }
+    }
+
+    // Check for recent integration status artifacts
+    try {
+      const integrationStatus = join(ARTIFACTS_DIR, 'integration-status.html');
+      if (existsSync(integrationStatus)) {
+        const content = readFileSync(integrationStatus, 'utf-8');
+        if (content.includes('green') || content.includes('✅') || content.includes('PASS')) {
+          return true;
+        }
+      }
+    } catch (error) {
+      // Skip if can't read
+    }
+
+    return false;
+  }
+
+  private allRoutesExist(integration: Integration, evidence: Evidence): boolean {
+    let requiredLayers = 0;
+    let coveredLayers = 0;
+
+    if (integration.layer_map.ui) {
+      requiredLayers++;
+      if (evidence.ui.length > 0) coveredLayers++;
+    }
+    if (integration.layer_map.gateway) {
+      requiredLayers++;
+      if (evidence.gateway.length > 0) coveredLayers++;
+    }
+    if (integration.layer_map.warp) {
+      requiredLayers++;
+      if (evidence.warp.length > 0) coveredLayers++;
+    }
+    if (integration.layer_map.jobs) {
+      requiredLayers++;
+      if (evidence.jobs.length > 0) coveredLayers++;
+    }
+    if (integration.layer_map.usage) {
+      requiredLayers++;
+      if (evidence.usage.length > 0) coveredLayers++;
+    }
+
+    return requiredLayers > 0 && coveredLayers >= requiredLayers * 0.8; // 80% threshold
+  }
+
+  private generateHowToFinish(integration: Integration, missing: string[], status: string): string {
+    if (status === 'VERIFIED_E2E') {
+      return '✅ Complete - integration verified end-to-end';
+    }
+
+    if (status === 'BLOCKED') {
+      return '🚫 Blocked - resolve blocking issues first';
+    }
+
+    if (missing.length === 0) {
+      return '🧪 Add E2E tests with ACCEPTANCE markers to verify integration';
+    }
+
+    const hints: string[] = [];
+
+    if (missing.includes('UI fixtures/view-models')) {
+      hints.push('Add UI fixtures under artifacts/ui-fixtures/ and view-models');
+    }
+    if (missing.includes('Gateway routes')) {
+      hints.push('Add OpenAPI spec under openapi/ or contract examples');
+    }
+    if (missing.includes('Warp implementation')) {
+      hints.push('Implement engine routes and add to contract examples');
+    }
+    if (missing.includes('Jobs layer')) {
+      hints.push('Add jobs endpoints to OpenAPI spec');
+    }
+    if (missing.includes('Tests/integration harness')) {
+      hints.push('Add integration tests or npm scripts');
+    }
+
+    return hints.slice(0, 2).join('; '); // Keep concise
+  }
+
+  private generateLinks(evidence: Evidence): string[] {
+    const links: string[] = [];
+
+    // Add top evidence files as quick links
+    [...evidence.ui.slice(0, 2), ...evidence.tests.slice(0, 2), ...evidence.gateway.slice(0, 1)]
+      .forEach(item => {
+        if (item && !item.startsWith('script:')) {
+          links.push(relative(ARTIFACTS_DIR, join(PROJECT_ROOT, item)));
+        }
+      });
+
+    return links;
+  }
+
+  private calculateTotals(items: ScorecardItem[]): ScorecardTotals {
+    const byStatus: { [status: string]: number } = {};
+
+    // Initialize all statuses to 0
+    for (const status of Object.keys(this.statuses)) {
+      byStatus[status] = 0;
+    }
+
+    // Count items by status
+    for (const item of items) {
+      byStatus[item.status] = (byStatus[item.status] || 0) + 1;
+    }
+
+    const verified = byStatus['VERIFIED_E2E'] || 0;
+    const total = items.length;
+    const coveragePercent = total > 0 ? Math.round((verified / total) * 100) : 0;
+
+    return {
+      byStatus,
+      coveragePercent,
+      total,
+      verified
+    };
+  }
+
+  private async saveScorecard(scorecard: ScorecardData): Promise<void> {
+    const jsonPath = join(ARTIFACTS_DIR, 'integration-scorecard.json');
+    writeFileSync(jsonPath, JSON.stringify(scorecard, null, 2));
+    console.log(`💾 Saved scorecard JSON: ${relative(PROJECT_ROOT, jsonPath)}`);
+  }
+
+  // Continue to Chunk 4...
 }
