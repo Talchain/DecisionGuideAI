@@ -1,0 +1,150 @@
+{
+  "status_lines": {
+    "hello": {
+      "text": "Connecting to analysis engine...",
+      "context": "Shown when SSE connection is establishing",
+      "tone": "reassuring"
+    },
+    "token": {
+      "text": "Analysis in progress",
+      "context": "Shown while tokens are streaming",
+      "tone": "active"
+    },
+    "cost": {
+      "text": "Optimising recommendations",
+      "context": "Shown during cost calculation phases",
+      "tone": "technical_friendly"
+    },
+    "done": {
+      "text": "Analysis complete",
+      "context": "Shown when stream finishes successfully",
+      "tone": "conclusive"
+    },
+    "cancelled": {
+      "text": "Analysis cancelled",
+      "context": "Shown when user stops the stream",
+      "tone": "neutral"
+    },
+    "limited": {
+      "text": "Service temporarily limited",
+      "context": "Shown when kill switch is active",
+      "tone": "informative"
+    },
+    "error": {
+      "text": "Unable to complete analysis",
+      "context": "Shown on stream errors",
+      "tone": "helpful"
+    }
+  },
+  "tooltips": {
+    "engine_mode": {
+      "text": "Choose analysis depth and speed",
+      "detail": "Balanced mode provides thorough analysis in under 30 seconds",
+      "context": "Hover/focus on engine mode selector"
+    },
+    "stop_button": {
+      "text": "Stop analysis immediately",
+      "detail": "You can resume from where you left off",
+      "context": "Hover/focus on cancel/stop button"
+    },
+    "resume_button": {
+      "text": "Continue from where you stopped",
+      "detail": "Reconnects to your previous analysis session",
+      "context": "Hover/focus on resume button"
+    },
+    "report_button": {
+      "text": "View structured recommendations",
+      "detail": "Opens detailed analysis with options comparison",
+      "context": "Hover/focus on report/results button"
+    }
+  },
+  "error_explanations": {
+    "connection_failed": {
+      "message": "Could not connect to analysis service",
+      "suggestion": "Check your internet connection and try again",
+      "action": "Retry"
+    },
+    "stream_interrupted": {
+      "message": "Analysis was interrupted",
+      "suggestion": "Click Resume to continue from where you left off",
+      "action": "Resume"
+    },
+    "invalid_scenario": {
+      "message": "Scenario format not recognised",
+      "suggestion": "Try loading one of the starter templates",
+      "action": "Load template"
+    },
+    "service_busy": {
+      "message": "Analysis service is temporarily busy",
+      "suggestion": "Please wait a moment and try again",
+      "action": "Try again"
+    },
+    "timeout_exceeded": {
+      "message": "Analysis is taking longer than expected",
+      "suggestion": "Try with a simpler scenario or contact support",
+      "action": "Simplify"
+    }
+  },
+  "progress_indicators": {
+    "starting": "Initialising analysis",
+    "processing": "Analysing options",
+    "comparing": "Weighing trade-offs",
+    "finalising": "Preparing recommendations",
+    "cancelling": "Stopping analysis",
+    "resuming": "Reconnecting"
+  },
+  "empty_states": {
+    "no_scenario": {
+      "title": "Ready to analyse your decision",
+      "subtitle": "Import a scenario or load a starter template to begin",
+      "action": "Load template"
+    },
+    "no_results": {
+      "title": "No analysis available",
+      "subtitle": "Start an analysis to see recommendations here",
+      "action": "Start analysis"
+    },
+    "cancelled_early": {
+      "title": "Analysis was stopped",
+      "subtitle": "Resume to continue or start a new analysis",
+      "action": "Resume"
+    }
+  },
+  "confirmation_dialogs": {
+    "cancel_analysis": {
+      "title": "Stop analysis?",
+      "message": "You can resume from where you left off",
+      "confirm": "Stop",
+      "cancel": "Continue"
+    },
+    "reset_scenario": {
+      "title": "Clear current scenario?",
+      "message": "Any unsaved changes will be lost",
+      "confirm": "Clear",
+      "cancel": "Keep"
+    }
+  },
+  "accessibility": {
+    "loading_analysis": "Analysis loading, please wait",
+    "analysis_complete": "Analysis complete, recommendations available",
+    "stream_cancelled": "Analysis stopped by user",
+    "connection_restored": "Connection restored, analysis continuing"
+  },
+  "british_spellings": {
+    "note": "This microcopy uses British English spellings",
+    "examples": {
+      "cancelled": "not canceled",
+      "optimising": "not optimizing",
+      "colour": "not color",
+      "recognise": "not recognize",
+      "analyse": "not analyze"
+    }
+  },
+  "tone_guidelines": {
+    "concise": "Keep messages under 6 words where possible",
+    "reassuring": "Acknowledge user control and provide next steps",
+    "non_technical": "Avoid internal terms like 'SSE', 'tokens', or 'endpoints'",
+    "british_english": "Use British spelling and phrasing conventions",
+    "progressive": "Use active voice and present continuous tense"
+  }
+}

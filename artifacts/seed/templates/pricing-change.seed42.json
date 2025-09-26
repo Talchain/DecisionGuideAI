@@ -1,0 +1,55 @@
+{
+  "template_name": "Pricing Change Decision",
+  "seed": 42,
+  "description": "Evaluate pricing strategy changes with customer impact analysis",
+  "created_for": "windsurf_poc_v0.1.0",
+  "scenario": {
+    "title": "Should we increase our Pro plan pricing by 20%?",
+    "context": "Our costs have risen 15% this year, but customer satisfaction remains high at 4.2/5. Competitors have raised prices 10-25% recently.",
+    "stakeholders": ["Product", "Finance", "Customer Success", "Sales"],
+    "options": [
+      {
+        "id": "gradual_increase",
+        "name": "Gradual 20% increase over 6 months",
+        "pros": ["Minimises churn", "Allows customer adjustment time", "Tests price sensitivity"],
+        "cons": ["Delayed revenue impact", "Complex communication", "May signal uncertainty"],
+        "financial_impact": "+£420k ARR by month 12",
+        "risk_level": "Medium"
+      },
+      {
+        "id": "immediate_increase",
+        "name": "Immediate 20% price increase",
+        "pros": ["Quick revenue boost", "Clear market positioning", "Simple implementation"],
+        "cons": ["Potential customer shock", "Higher churn risk", "Support burden"],
+        "financial_impact": "+£840k ARR by month 6",
+        "risk_level": "High"
+      },
+      {
+        "id": "selective_increase",
+        "name": "Increase only for new customers",
+        "pros": ["Protects existing relationships", "Gradual transition", "Competitive advantage"],
+        "cons": ["Revenue growth limited", "Creates pricing tiers", "Complex billing"],
+        "financial_impact": "+£180k ARR by month 12",
+        "risk_level": "Low"
+      },
+      {
+        "id": "value_add_increase",
+        "name": "Price increase with new features",
+        "pros": ["Justifies higher price", "Improves product value", "Reduces churn"],
+        "cons": ["Development costs", "Delayed implementation", "Feature adoption risk"],
+        "financial_impact": "+£650k ARR by month 9",
+        "risk_level": "Medium"
+      }
+    ],
+    "constraints": {
+      "budget": "£2M development budget available",
+      "timeline": "Decision needed by Q1 2025",
+      "compliance": "Must honour existing annual contracts"
+    },
+    "success_metrics": [
+      "Net revenue retention >95%",
+      "Customer churn <8%",
+      "Support ticket volume <+10%"
+    ]
+  }
+}

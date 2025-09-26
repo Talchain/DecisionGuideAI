@@ -132,6 +132,95 @@
             background: #e68900;
         }
 
+        .btn-test {
+            background: #9c27b0;
+            color: white;
+        }
+
+        .btn-test:hover {
+            background: #7b1fa2;
+        }
+
+        .resilience-controls {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            margin-bottom: 20px;
+        }
+
+        .resilience-controls h3 {
+            color: #9c27b0;
+            margin-bottom: 15px;
+        }
+
+        .test-badges {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 5px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .badge-pass {
+            background: #4caf50;
+            color: white;
+        }
+
+        .badge-fail {
+            background: #f44336;
+            color: white;
+        }
+
+        .badge-pending {
+            background: #ff9800;
+            color: white;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .toggle {
+            position: relative;
+            width: 50px;
+            height: 24px;
+            background: #555;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .toggle.active {
+            background: #9c27b0;
+        }
+
+        .toggle::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+
+        .toggle.active::after {
+            transform: translateX(26px);
+        }
+
         .status {
             margin: 20px 0;
             padding: 15px;
@@ -295,6 +384,23 @@
             </div>
         </div>
 
+        <div class="resilience-controls">
+            <h3>🧪 Resilience Testing</h3>
+            <div class="toggle-container">
+                <div class="toggle" id="networkBlipToggle" onclick="toggleNetworkBlip()"></div>
+                <label>Simulate network blip (auto-resume test)</label>
+            </div>
+            <div class="buttons">
+                <button class="btn-test" onclick="cancelTwice()">🔄 Cancel Twice</button>
+                <button class="btn-test" onclick="runResilienceTest()">🧪 Run Full Test</button>
+            </div>
+            <div class="test-badges">
+                <span class="badge badge-pending" id="firstTokenBadge">First token under budget</span>
+                <span class="badge badge-pending" id="singleResumeBadge">Single resume occurred</span>
+                <span class="badge badge-pending" id="cancelIdempotentBadge">Cancel idempotent</span>
+            </div>
+        </div>
+
         <div class="buttons">
             <button class="btn-primary" onclick="connect()">🔌 Connect</button>
             <button class="btn-danger" onclick="cancel()">⏹️ Cancel</button>
@@ -344,6 +450,11 @@
         let eventCount = 0;
         let currentSessionId = null;
         let lastReceivedEventId = null;
+        let networkBlipEnabled = false;
+        let hasReceivedFirstToken = false;
+        let resumeCount = 0;
+        let cancelCount = 0;
+        let connectionStartTime = null;
 
         function generateSessionId() {
             return 'viewer_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -398,6 +509,7 @@
             }
 
             currentSessionId = sessionId;
+            connectionStartTime = Date.now();
 
             const url = new URL('/stream', baseUrl);
             url.searchParams.set('route', route);
@@ -444,6 +556,33 @@
                             case 'token':
                                 logType = 'token';
                                 logMessage = `💬 Token: "${data.text}" (index: ${data.tokenIndex || 'unknown'})`;
+
+                                // Check first token timing for badge test
+                                if (!hasReceivedFirstToken) {
+                                    hasReceivedFirstToken = true;
+                                    const elapsed = Date.now() - connectionStartTime;
+                                    const budget = parseInt(document.getElementById('budget').value) || 1000;
+
+                                    if (elapsed <= budget) {
+                                        updateBadge('firstTokenBadge', 'pass');
+                                        addLogEntry('info', `✅ First token in ${elapsed}ms (under ${budget}ms budget)`);
+                                    } else {
+                                        updateBadge('firstTokenBadge', 'fail');
+                                        addLogEntry('error', `❌ First token in ${elapsed}ms (over ${budget}ms budget)`);
+                                    }
+                                }
+
+                                // Simulate network blip if enabled
+                                if (networkBlipEnabled && !lastEventId && Math.random() < 0.3) {
+                                    addLogEntry('info', '🌐 Simulating network blip...');
+                                    setTimeout(() => {
+                                        eventSource.close();
+                                        setTimeout(() => {
+                                            addLogEntry('info', '🔄 Auto-resuming after blip...');
+                                            resume();
+                                        }, 800 + Math.random() * 400); // 800-1200ms delay
+                                    }, 100);
+                                }
                                 break;
                             case 'done':
                                 logType = 'done';
@@ -520,6 +659,15 @@
                 return;
             }
 
+            resumeCount++;
+            if (resumeCount === 1) {
+                updateBadge('singleResumeBadge', 'pass');
+                addLogEntry('info', '✅ Single resume test passed');
+            } else if (resumeCount > 1) {
+                updateBadge('singleResumeBadge', 'fail');
+                addLogEntry('error', `❌ Multiple resumes detected (${resumeCount})`);
+            }
+
             document.getElementById('lastEventId').value = lastReceivedEventId;
             addLogEntry('info', `Resuming from Last-Event-ID: ${lastReceivedEventId}`);
             connect();
@@ -567,6 +715,99 @@
 
         // Auto-generate session ID on load
         document.getElementById('sessionId').value = generateSessionId();
+
+        // Resilience testing functions
+        function updateBadge(badgeId, status) {
+            const badge = document.getElementById(badgeId);
+            badge.className = `badge badge-${status}`;
+        }
+
+        function toggleNetworkBlip() {
+            networkBlipEnabled = !networkBlipEnabled;
+            const toggle = document.getElementById('networkBlipToggle');
+            toggle.classList.toggle('active', networkBlipEnabled);
+            addLogEntry('info', `Network blip simulation ${networkBlipEnabled ? 'enabled' : 'disabled'}`);
+        }
+
+        function cancelTwice() {
+            if (!currentSessionId) {
+                addLogEntry('error', 'No active session to test cancel');
+                return;
+            }
+
+            addLogEntry('info', '🧪 Testing cancel idempotence...');
+
+            // First cancel
+            fetch(document.getElementById('baseUrl').value + '/cancel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: currentSessionId })
+            })
+            .then(response => {
+                addLogEntry('info', `First cancel: HTTP ${response.status}`);
+                const firstStatus = response.status;
+
+                // Second cancel immediately
+                return fetch(document.getElementById('baseUrl').value + '/cancel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId: currentSessionId })
+                }).then(secondResponse => {
+                    addLogEntry('info', `Second cancel: HTTP ${secondResponse.status}`);
+
+                    // Check idempotence: 202 -> 409
+                    if (firstStatus === 202 && secondResponse.status === 409) {
+                        updateBadge('cancelIdempotentBadge', 'pass');
+                        addLogEntry('info', '✅ Cancel idempotence test passed (202 → 409)');
+                    } else {
+                        updateBadge('cancelIdempotentBadge', 'fail');
+                        addLogEntry('error', `❌ Expected 202 → 409, got ${firstStatus} → ${secondResponse.status}`);
+                    }
+                });
+            })
+            .catch(error => {
+                addLogEntry('error', 'Cancel test failed: ' + error.message);
+                updateBadge('cancelIdempotentBadge', 'fail');
+            });
+        }
+
+        function runResilienceTest() {
+            addLogEntry('info', '🧪 Starting full resilience test suite...');
+
+            // Reset all badges
+            updateBadge('firstTokenBadge', 'pending');
+            updateBadge('singleResumeBadge', 'pending');
+            updateBadge('cancelIdempotentBadge', 'pending');
+
+            // Reset counters
+            hasReceivedFirstToken = false;
+            resumeCount = 0;
+            cancelCount = 0;
+
+            // Enable network blip simulation
+            if (!networkBlipEnabled) {
+                toggleNetworkBlip();
+            }
+
+            // Start connection
+            connect();
+
+            // Schedule cancel test after a delay
+            setTimeout(() => {
+                if (currentSessionId) {
+                    cancelTwice();
+                }
+            }, 3000);
+        }
+
+        function resetTests() {
+            updateBadge('firstTokenBadge', 'pending');
+            updateBadge('singleResumeBadge', 'pending');
+            updateBadge('cancelIdempotentBadge', 'pending');
+            hasReceivedFirstToken = false;
+            resumeCount = 0;
+            cancelCount = 0;
+        }
     </script>
 </body>
 </html>

@@ -1,0 +1,56 @@
+{
+  "template_name": "Feature Launch Strategy",
+  "seed": 17,
+  "description": "Plan feature rollout with risk mitigation and success tracking",
+  "created_for": "windsurf_poc_v0.1.0",
+  "scenario": {
+    "title": "How should we launch the new collaboration workspace feature?",
+    "context": "Development is 90% complete. Beta testing shows 85% user satisfaction, but performance concerns exist for teams >50 members.",
+    "stakeholders": ["Engineering", "Product Marketing", "Customer Success", "Sales"],
+    "options": [
+      {
+        "id": "full_launch",
+        "name": "Full public launch to all users",
+        "pros": ["Maximum market impact", "Simple messaging", "Quick adoption"],
+        "cons": ["Performance risk at scale", "Support burden", "Hard to rollback"],
+        "timeline": "2 weeks",
+        "risk_level": "High"
+      },
+      {
+        "id": "phased_rollout",
+        "name": "Phased rollout by team size",
+        "pros": ["Controlled scaling", "Performance validation", "Gradual support ramp"],
+        "cons": ["Complex coordination", "Mixed messaging", "Delayed full impact"],
+        "timeline": "8 weeks",
+        "risk_level": "Medium"
+      },
+      {
+        "id": "invite_only",
+        "name": "Invite-only beta expansion",
+        "pros": ["Quality control", "Premium positioning", "Detailed feedback"],
+        "cons": ["Limited reach", "FOMO messaging risk", "Slow revenue impact"],
+        "timeline": "12 weeks",
+        "risk_level": "Low"
+      },
+      {
+        "id": "freemium_first",
+        "name": "Launch on free tier, then expand",
+        "pros": ["Broad testing base", "Viral potential", "Performance validation"],
+        "cons": ["Revenue delay", "Support costs", "Feature devaluation"],
+        "timeline": "6 weeks",
+        "risk_level": "Medium"
+      }
+    ],
+    "constraints": {
+      "resources": "2 engineers available for launch support",
+      "marketing_budget": "£150k allocated for Q4",
+      "technical_debt": "Performance optimisation needed for >100 user teams"
+    },
+    "success_metrics": [
+      "Feature adoption >40% within 30 days",
+      "Support tickets <5% of user base",
+      "Performance SLA maintained >99.5%",
+      "NPS score maintained >50"
+    ]
+  }
+}

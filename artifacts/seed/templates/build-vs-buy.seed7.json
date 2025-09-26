@@ -1,0 +1,60 @@
+{
+  "template_name": "Build vs Buy Decision",
+  "seed": 7,
+  "description": "Technology investment decision with TCO analysis and strategic alignment",
+  "created_for": "windsurf_poc_v0.1.0",
+  "scenario": {
+    "title": "Should we build our own analytics platform or purchase an existing solution?",
+    "context": "Current analytics tools are fragmented across 3 systems. Engineering team has bandwidth, but roadmap is packed until Q2 2025.",
+    "stakeholders": ["CTO", "Data Team", "Finance", "Product"],
+    "options": [
+      {
+        "id": "build_internal",
+        "name": "Build custom analytics platform",
+        "pros": ["Perfect fit for our needs", "IP ownership", "No vendor lock-in", "Learning opportunity"],
+        "cons": ["High development cost", "Long timeline", "Maintenance burden", "Opportunity cost"],
+        "cost_estimate": "£480k development + £120k/year maintenance",
+        "timeline": "12-18 months",
+        "risk_level": "High"
+      },
+      {
+        "id": "buy_enterprise",
+        "name": "Purchase enterprise analytics suite",
+        "pros": ["Quick deployment", "Proven reliability", "Vendor support", "Regular updates"],
+        "cons": ["High licensing cost", "Limited customisation", "Data privacy concerns", "Feature overlap"],
+        "cost_estimate": "£200k setup + £300k/year licensing",
+        "timeline": "3-6 months",
+        "risk_level": "Medium"
+      },
+      {
+        "id": "hybrid_approach",
+        "name": "Buy core platform, build integrations",
+        "pros": ["Balanced approach", "Faster time-to-value", "Custom extensions", "Risk mitigation"],
+        "cons": ["Integration complexity", "Dual maintenance", "Vendor dependency", "Higher coordination"],
+        "cost_estimate": "£150k setup + £180k/year + £200k development",
+        "timeline": "6-9 months",
+        "risk_level": "Medium"
+      },
+      {
+        "id": "saas_solution",
+        "name": "Cloud-based SaaS analytics",
+        "pros": ["Lowest upfront cost", "Quick setup", "Automatic scaling", "No maintenance"],
+        "cons": ["Data sovereignty", "Limited control", "Feature gaps", "Ongoing costs"],
+        "cost_estimate": "£60k setup + £150k/year",
+        "timeline": "1-2 months",
+        "risk_level": "Low"
+      }
+    ],
+    "constraints": {
+      "data_compliance": "Must meet GDPR and SOC2 requirements",
+      "team_capacity": "2 senior engineers available",
+      "budget_limit": "£500k capital, £250k/year operational"
+    },
+    "success_metrics": [
+      "Deployment within 9 months",
+      "90% reduction in manual reporting",
+      "Sub-3 second query response time",
+      "99.9% uptime SLA"
+    ]
+  }
+}

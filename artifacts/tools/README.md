@@ -100,13 +100,37 @@ curl http://localhost:3001/healthz
 3. Verify events appear: start → token → token → done
 4. Check Last-Event-ID is captured
 
-### 3. Cancel/Resume Testing
+### 3. 60-Second Resilience Test
+**Quick validation using enhanced SSE viewer:**
+
+1. **Enable Network Blip Toggle** (30 seconds)
+   - Toggle "Simulate network blip" ON
+   - Click "Connect"
+   - Wait for automatic disconnection and resume
+   - ✅ Badge: "Single resume occurred" should turn GREEN
+
+2. **Test Cancel Idempotence** (15 seconds)
+   - With active stream, click "Cancel Twice"
+   - Watch log for "First cancel: HTTP 202" then "Second cancel: HTTP 409"
+   - ✅ Badge: "Cancel idempotent" should turn GREEN
+
+3. **Verify Performance Budget** (15 seconds)
+   - Set Budget to 500ms
+   - Click "Connect"
+   - First token should arrive within budget
+   - ✅ Badge: "First token under budget" should turn GREEN
+
+**OR use the automated test:**
+- Click "Run Full Test" for complete 60-second validation
+- All three badges should turn GREEN if resilience tests pass
+
+### 4. Manual Cancel/Resume Testing
 1. Connect stream in SSE viewer
 2. Click "Cancel" - should see cancel event
 3. Click "Resume" - should reconnect from last position
 4. Verify HTTP responses: 202 → 409 for duplicate cancels
 
-### 4. Windsurf Integration Prep
+### 5. Windsurf Integration Prep
 ```bash
 # Test exact URLs Windsurf will use
 curl -N "http://localhost:3001/stream?route=critique&seed=42" \
@@ -118,7 +142,7 @@ curl -I "http://localhost:3001/report?scenarioId=demo"
 # Expected: Access-Control-Allow-Origin: *
 ```
 
-### 5. Report v1 Validation
+### 6. Report v1 Validation
 1. In SSE viewer, click "Test Report"
 2. Verify JSON structure contains:
    - `decision.title`
@@ -148,7 +172,10 @@ curl -I "http://localhost:3001/report?scenarioId=demo"
 Use this checklist when validating Windsurf integration:
 
 - [ ] **SSE Viewer**: Stream connects and shows events ✅
-- [ ] **Cancel/Resume**: Idempotent behavior working ✅
+- [ ] **Resilience Badges**: All three badges turn GREEN ✅
+  - [ ] First token under budget (performance)
+  - [ ] Single resume occurred (network resilience)
+  - [ ] Cancel idempotent (HTTP 202 → 409)
 - [ ] **Report API**: JSON structure matches contract ✅
 - [ ] **CORS Headers**: Cross-origin requests allowed ✅
 - [ ] **Security Headers**: Cache-Control: no-store present ✅
