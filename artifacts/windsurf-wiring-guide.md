@@ -4,6 +4,8 @@
 
 Quick integration snippets for wiring DecisionGuide AI into Windsurf locally without servers.
 
+> 💡 **Quick Start**: For copy-paste integration, see [Windsurf Drop-In Note](./windsurf-dropin-note.md) with 30 lines of code for complete Stream/Jobs/Report components.
+
 ## 🔌 1. SSE Stream Integration
 
 ```typescript
