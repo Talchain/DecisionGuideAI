@@ -1,0 +1,110 @@
+name: Flags Advisory Guard
+
+on:
+  push:
+    branches: [ main, platform/*, feature/* ]
+  pull_request:
+    branches: [ main, platform/* ]
+
+jobs:
+  flags-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run flags snapshot
+      id: flags
+      run: |
+        npm run flags:snapshot
+        echo "flags_status=completed" >> $GITHUB_OUTPUT
+
+    - name: Check for violations
+      run: |
+        # Read the JSON output for programmatic checks
+        if [ -f "artifacts/flags-snapshot.json" ]; then
+          VIOLATIONS=$(jq -r '.violations | length' artifacts/flags-snapshot.json)
+          ADVISORY=$(jq -r '.advisory | length' artifacts/flags-snapshot.json)
+
+          echo "🔍 Flags Analysis Results:"
+          echo "- Violations: $VIOLATIONS"
+          echo "- Advisory notices: $ADVISORY"
+
+          if [ "$VIOLATIONS" -gt 0 ]; then
+            echo "::warning::$VIOLATIONS flag violation(s) detected - see artifacts/flags-snapshot.md"
+
+            # In advisory mode, we warn but don't fail
+            # To enable blocking mode, uncomment the next line:
+            # exit 1
+          fi
+
+          if [ "$ADVISORY" -gt 0 ]; then
+            echo "::notice::$ADVISORY advisory notice(s) - review recommended"
+          fi
+        else
+          echo "::error::Flags snapshot file not generated"
+          exit 1
+        fi
+
+    - name: Upload flags report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: flags-snapshot-report
+        path: |
+          artifacts/flags-snapshot.md
+          artifacts/flags-snapshot.json
+        retention-days: 30
+
+    - name: Comment on PR (if violations found)
+      if: github.event_name == 'pull_request' && hashFiles('artifacts/flags-snapshot.json') != ''
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+
+          try {
+            const snapshot = JSON.parse(fs.readFileSync('artifacts/flags-snapshot.json', 'utf8'));
+
+            if (snapshot.violations.length > 0 || snapshot.advisory.length > 0) {
+              let comment = '## 🔍 Flags Advisory Report\n\n';
+
+              if (snapshot.violations.length > 0) {
+                comment += '### 🚨 Violations Detected\n\n';
+                snapshot.violations.forEach(v => {
+                  comment += `- ❌ ${v}\n`;
+                });
+                comment += '\n';
+              }
+
+              if (snapshot.advisory.length > 0) {
+                comment += '### ⚠️ Advisory Notices\n\n';
+                snapshot.advisory.forEach(a => {
+                  comment += `- ⚠️ ${a}\n`;
+                });
+                comment += '\n';
+              }
+
+              comment += '**Advisory Mode**: This check warns about potentially unsafe configurations but does not block the PR.\n\n';
+              comment += `Full report available in the [artifacts](https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}).`;
+
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+          } catch (error) {
+            console.log('Could not read flags snapshot or no issues found');
+          }

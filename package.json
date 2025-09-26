@@ -71,7 +71,8 @@
     "scorecard:diff": "tsx tools/scorecard-diff.ts",
     "scorecard:open": "node -e \"console.log('open artifacts/integration-scorecard.html')\"",
     "pack:ui": "npm pack ./artifacts/ui-kickstart-pack",
-    "conformance:warp": "tsx tools/warp-conformance.ts"
+    "conformance:warp": "tsx tools/warp-conformance.ts",
+    "flags:snapshot": "tsx ./tools/flags-snapshot.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
