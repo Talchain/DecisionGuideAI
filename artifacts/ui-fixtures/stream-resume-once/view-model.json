@@ -1,0 +1,126 @@
+{
+  "events": [
+    {
+      "id": "1",
+      "event": "token",
+      "data": {
+        "id": "token_001",
+        "text": "Hello",
+        "timestamp": "2024-01-15T10:30:00.100Z",
+        "sessionId": "session-resume-001"
+      }
+    },
+    {
+      "id": "2",
+      "event": "token",
+      "data": {
+        "id": "token_002",
+        "text": " there",
+        "timestamp": "2024-01-15T10:30:00.200Z",
+        "sessionId": "session-resume-001"
+      }
+    },
+    {
+      "id": "3",
+      "event": "token",
+      "data": {
+        "id": "token_003",
+        "text": ", this",
+        "timestamp": "2024-01-15T10:30:00.300Z",
+        "sessionId": "session-resume-001"
+      }
+    },
+    {
+      "id": "4",
+      "event": "token",
+      "data": {
+        "id": "token_004",
+        "text": " is",
+        "timestamp": "2024-01-15T10:30:00.400Z",
+        "sessionId": "session-resume-001"
+      }
+    },
+    {
+      "id": "5",
+      "event": "disconnect",
+      "data": {
+        "reason": "connection_lost",
+        "timestamp": "2024-01-15T10:30:00.450Z",
+        "sessionId": "session-resume-001"
+      }
+    },
+    {
+      "id": "6",
+      "event": "token",
+      "data": {
+        "id": "token_005",
+        "text": " a",
+        "timestamp": "2024-01-15T10:30:01.100Z",
+        "sessionId": "session-resume-001"
+      }
+    },
+    {
+      "id": "7",
+      "event": "token",
+      "data": {
+        "id": "token_006",
+        "text": " test",
+        "timestamp": "2024-01-15T10:30:01.200Z",
+        "sessionId": "session-resume-001"
+      }
+    },
+    {
+      "id": "8",
+      "event": "token",
+      "data": {
+        "id": "token_007",
+        "text": " of",
+        "timestamp": "2024-01-15T10:30:01.300Z",
+        "sessionId": "session-resume-001"
+      }
+    },
+    {
+      "id": "9",
+      "event": "token",
+      "data": {
+        "id": "token_008",
+        "text": " resume",
+        "timestamp": "2024-01-15T10:30:01.400Z",
+        "sessionId": "session-resume-001"
+      }
+    },
+    {
+      "id": "10",
+      "event": "token",
+      "data": {
+        "id": "token_009",
+        "text": " functionality",
+        "timestamp": "2024-01-15T10:30:01.500Z",
+        "sessionId": "session-resume-001"
+      }
+    },
+    {
+      "id": "11",
+      "event": "done",
+      "data": {
+        "reason": "completed",
+        "totalTokens": 9,
+        "timestamp": "2024-01-15T10:30:01.600Z",
+        "sessionId": "session-resume-001"
+      }
+    }
+  ],
+  "connectionState": "resumed",
+  "lastEventId": "5",
+  "tokens": [
+    "Hello",
+    " there",
+    ", this",
+    " is",
+    " a",
+    " test",
+    " of",
+    " resume",
+    " functionality"
+  ]
+}

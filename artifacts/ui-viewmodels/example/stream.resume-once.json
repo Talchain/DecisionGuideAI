@@ -1,0 +1,160 @@
+{
+  "events": [
+    {
+      "id": "1",
+      "event": "token",
+      "data": {
+        "id": "token_000",
+        "text": "Based",
+        "timestamp": "2025-09-25T20:41:15.800Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "2",
+      "event": "token",
+      "data": {
+        "id": "token_001",
+        "text": " on",
+        "timestamp": "2025-09-25T20:41:15.950Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "3",
+      "event": "token",
+      "data": {
+        "id": "token_002",
+        "text": " analysis",
+        "timestamp": "2025-09-25T20:41:16.100Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "4",
+      "event": "token",
+      "data": {
+        "id": "token_003",
+        "text": " of",
+        "timestamp": "2025-09-25T20:41:16.250Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "5",
+      "event": "token",
+      "data": {
+        "id": "token_004",
+        "text": " your",
+        "timestamp": "2025-09-25T20:41:16.400Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "6",
+      "event": "token",
+      "data": {
+        "id": "token_005",
+        "text": " requirements",
+        "timestamp": "2025-09-25T20:41:16.550Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "7",
+      "event": "disconnect",
+      "data": {
+        "reason": "connection_lost",
+        "timestamp": "2025-09-25T20:41:16.700Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "8",
+      "event": "token",
+      "data": {
+        "id": "token_007",
+        "text": " recommend",
+        "timestamp": "2025-09-25T20:41:16.850Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "9",
+      "event": "token",
+      "data": {
+        "id": "token_008",
+        "text": " **Vue.js**",
+        "timestamp": "2025-09-25T20:41:17.000Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "10",
+      "event": "token",
+      "data": {
+        "id": "token_009",
+        "text": " for",
+        "timestamp": "2025-09-25T20:41:17.150Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "11",
+      "event": "token",
+      "data": {
+        "id": "token_010",
+        "text": " this",
+        "timestamp": "2025-09-25T20:41:17.300Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "12",
+      "event": "token",
+      "data": {
+        "id": "token_011",
+        "text": " specific",
+        "timestamp": "2025-09-25T20:41:17.450Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "13",
+      "event": "token",
+      "data": {
+        "id": "token_012",
+        "text": " use",
+        "timestamp": "2025-09-25T20:41:17.600Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "14",
+      "event": "token",
+      "data": {
+        "id": "token_013",
+        "text": " case",
+        "timestamp": "2025-09-25T20:41:17.750Z",
+        "sessionId": "sample-scenario-session"
+      }
+    }
+  ],
+  "connectionState": "resumed",
+  "lastEventId": "6",
+  "tokens": [
+    "Based",
+    " on",
+    " analysis",
+    " of",
+    " your",
+    " requirements",
+    " recommend",
+    " **Vue.js**",
+    " for",
+    " this",
+    " specific",
+    " use",
+    " case"
+  ]
+}

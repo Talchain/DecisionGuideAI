@@ -1,0 +1,67 @@
+{
+  "events": [
+    {
+      "id": "1",
+      "event": "token",
+      "data": {
+        "id": "token_001",
+        "text": "The",
+        "timestamp": "2024-01-15T10:30:00.100Z",
+        "sessionId": "session-cancel-001"
+      }
+    },
+    {
+      "id": "2",
+      "event": "token",
+      "data": {
+        "id": "token_002",
+        "text": " quick",
+        "timestamp": "2024-01-15T10:30:00.200Z",
+        "sessionId": "session-cancel-001"
+      }
+    },
+    {
+      "id": "3",
+      "event": "token",
+      "data": {
+        "id": "token_003",
+        "text": " brown",
+        "timestamp": "2024-01-15T10:30:00.300Z",
+        "sessionId": "session-cancel-001"
+      }
+    },
+    {
+      "id": "4",
+      "event": "token",
+      "data": {
+        "id": "token_004",
+        "text": " fox",
+        "timestamp": "2024-01-15T10:30:00.400Z",
+        "sessionId": "session-cancel-001"
+      }
+    },
+    {
+      "id": "5",
+      "event": "token",
+      "data": {
+        "id": "token_005",
+        "text": " jumps",
+        "timestamp": "2024-01-15T10:30:00.500Z",
+        "sessionId": "session-cancel-001"
+      }
+    },
+    {
+      "id": "6",
+      "event": "done",
+      "data": {
+        "reason": "cancelled",
+        "partialTokens": 5,
+        "timestamp": "2024-01-15T10:30:00.550Z",
+        "sessionId": "session-cancel-001"
+      }
+    }
+  ],
+  "state": "cancelled",
+  "reason": "cancelled",
+  "partialContent": "The quick brown fox jumps"
+}

@@ -1,0 +1,9 @@
+{
+  "report": null,
+  "state": "empty",
+  "placeholder": {
+    "title": "No Report Available",
+    "subtitle": "Run an analysis to generate your first report",
+    "action": "Start Analysis"
+  }
+}

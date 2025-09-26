@@ -90,7 +90,6 @@ export class FastCancelManager {
 
       const warpResponsePromise = warpCancelPromise.then((warpResponse): CancelResponse => {
         const latency = Date.now() - cancelStartTime;
-        this.recordLatency(latency);
 
         return {
           sessionId: request.sessionId,
@@ -103,6 +102,10 @@ export class FastCancelManager {
       // Return whichever completes first (should be local cancellation)
       const result = await Promise.race([warpResponsePromise, timeoutPromise]);
 
+      // Always record latency regardless of which promise won the race
+      const actualLatency = Date.now() - cancelStartTime;
+      this.recordLatency(actualLatency);
+
       // Clean up session
       this.activeSessions.delete(request.sessionId);
 
@@ -110,6 +113,7 @@ export class FastCancelManager {
 
     } catch (error) {
       const latency = Date.now() - cancelStartTime;
+      this.recordLatency(latency);
       this.activeSessions.delete(request.sessionId);
 
       return {

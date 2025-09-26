@@ -288,6 +288,13 @@
                 <div class="link-action">Open Release Kit →</div>
             </a>
 
+            <a href="./windsurf-handover.zip" class="link-card">
+                <div class="link-icon">🎯</div>
+                <div class="link-title">Windsurf Handover Bundle</div>
+                <div class="link-description">Complete integration package for Windsurf developers: NPM pack, view models, offline demo, and installation guide</div>
+                <div class="link-action">Download Bundle →</div>
+            </a>
+
             <a href="./demo-kit-20250924-161831.zip" class="link-card">
                 <div class="link-icon">📦</div>
                 <div class="link-title">Demo Kit</div>
@@ -330,6 +337,23 @@
                 <div class="link-action">View Installation Guide →</div>
             </a>
 
+            <div class="link-card" style="background: #f0fdf4; border: 2px solid #22c55e;">
+                <div class="link-icon">⚡</div>
+                <div style="margin: 0 0 1rem 0;">
+                    <div class="link-title" style="color: #15803d;">Quick Install Command</div>
+                    <div class="link-description" style="color: #166534;">Copy-paste command for Windsurf projects:</div>
+                </div>
+                <div style="background: #1f2937; color: #f9fafb; padding: 0.75rem; border-radius: 6px; font-family: monospace; font-size: 0.9rem; margin: 0.5rem 0; cursor: pointer;"
+                     onclick="navigator.clipboard.writeText('npm install ./artifacts/decisionguide-ui-kickstart-pack-1.0.0.tgz').then(() => alert('✅ Command copied!'))"
+                     title="Click to copy">
+                    npm install ./artifacts/decisionguide-ui-kickstart-pack-1.0.0.tgz
+                </div>
+                <div style="font-size: 0.85rem; color: #166534; margin-top: 0.5rem;">
+                    <strong>Usage:</strong> import { openStreamSim, TokenEventData } from '@decisionguide/ui-kickstart-pack'<br>
+                    <strong>Example:</strong> for await (const event of openStreamSim()) { /* handle tokens */ }
+                </div>
+            </div>
+
             <a href="../docs/OPERATOR_HANDBOOK.md" class="link-card">
                 <div class="link-icon">📖</div>
                 <div class="link-title">Operator Handbook</div>
@@ -370,6 +394,13 @@
                 <div class="link-title">Simulation Mode Guide</div>
                 <div class="link-description">Instructions for using simulation mode for safe testing and demonstrations</div>
                 <div class="link-action">Learn Simulation Mode →</div>
+            </a>
+
+            <a href="./pilot-readiness.html" class="link-card">
+                <div class="link-icon">📈</div>
+                <div class="link-title">Pilot Readiness Metrics</div>
+                <div class="link-description">Track pilot preparation progress with automated readiness indicators and completion tracking</div>
+                <div class="link-action">View Readiness Report →</div>
             </a>
 
             <a href="./live-swap-checklist.md" class="link-card">

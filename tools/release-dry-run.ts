@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 import { execSync } from 'child_process';
-import { writeFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
+import { writeFileSync, existsSync, readFileSync, statSync } from 'fs';
+import { resolve, basename, relative } from 'path';
+import { sync as globSync } from 'glob';
 
 interface CheckResult {
   name: string;
@@ -251,41 +252,67 @@ class ReleaseDryRun {
     this.log('🏆 Release Wins & Highlights');
     this.log('===========================');
 
-    // 1. Top SARB winner
-    const sarbWinner = this.findLatestSARBWinner();
-    if (sarbWinner) {
-      this.log(`🥇 Top SARB variant: ${sarbWinner}`);
+    // 1. Integration Scorecard coverage
+    const scorecardCoverage = this.getScorecardCoverage();
+    if (scorecardCoverage) {
+      this.log(`🗺️ Scorecard coverage: ${scorecardCoverage} — artifacts/integration-scorecard.html`);
     }
 
     // 2. UI kick-start pack
     const uiKickstart = this.findLatestUIKickstartPack();
     if (uiKickstart) {
-      this.log(`📦 UI kick-start pack: ${uiKickstart}`);
+      this.log(`🚀 UI kick-start: ${basename(uiKickstart)} — ${uiKickstart}`);
     }
 
-    // 3. Latest tuning notes
+    // 3. Top SARB winner
+    const sarbWinner = this.findLatestSARBWinner();
+    if (sarbWinner) {
+      this.log(`🥇 Top SARB variant: ${sarbWinner}`);
+    }
+
+    // 4. Latest tuning notes
     const tuningNotes = this.findLatestTuningNotes();
     if (tuningNotes) {
       this.log(`🔧 Latest tuning notes: ${tuningNotes}`);
     }
+
+    // 5. Live Swap Assessment
+    const liveSwapStatus = this.assessLiveSwapReadiness();
+    this.log(`🔄 Live Swap: ${liveSwapStatus}`);
+  }
+
+  private getScorecardCoverage(): string | null {
+    try {
+      const scorecardPath = resolve(this.projectRoot, 'artifacts/integration-scorecard.json');
+
+      if (!existsSync(scorecardPath)) return null;
+
+      const scorecard = JSON.parse(readFileSync(scorecardPath, 'utf-8'));
+      const coverage = scorecard.totals.coveragePercent;
+      const verified = scorecard.totals.verified;
+      const total = scorecard.totals.total;
+
+      return `${coverage}% (${verified}/${total} verified)`;
+    } catch (error) {
+      // Ignore errors, just skip this signal
+    }
+    return null;
   }
 
   private findLatestSARBWinner(): string | null {
     try {
-      const glob = require('glob');
-      const fs = require('fs');
-      const rankFiles = glob.sync(resolve(this.projectRoot, 'artifacts/diffs/rank-*.md'));
+      const rankFiles = globSync(resolve(this.projectRoot, 'artifacts/diffs/rank-*.md'));
 
       if (rankFiles.length === 0) return null;
 
       // Get the most recent rank file
       const latestRankFile = rankFiles.sort().reverse()[0];
-      const content = fs.readFileSync(latestRankFile, 'utf-8');
+      const content = readFileSync(latestRankFile, 'utf-8');
 
       // Extract winner from markdown
       const winnerMatch = content.match(/## 🏆 Winner\s*\*\*([^*]+)\*\*/);
       if (winnerMatch) {
-        return `${winnerMatch[1]} (see artifacts/diffs/${require('path').basename(latestRankFile)})`;
+        return `${winnerMatch[1]} (see artifacts/diffs/${basename(latestRankFile)})`;
       }
     } catch (error) {
       // Ignore errors, just skip this signal
@@ -295,14 +322,13 @@ class ReleaseDryRun {
 
   private findLatestUIKickstartPack(): string | null {
     try {
-      const glob = require('glob');
-      const uiPacks = glob.sync(resolve(this.projectRoot, 'artifacts/ui-kickstart-*.zip'));
+      const uiPacks = globSync(resolve(this.projectRoot, 'artifacts/ui-kickstart-*.zip'));
 
       if (uiPacks.length === 0) return null;
 
       // Get the most recent pack
       const latestPack = uiPacks.sort().reverse()[0];
-      return `artifacts/${require('path').basename(latestPack)}`;
+      return `artifacts/${basename(latestPack)}`;
     } catch (error) {
       // Ignore errors, just skip this signal
     }
@@ -311,19 +337,43 @@ class ReleaseDryRun {
 
   private findLatestTuningNotes(): string | null {
     try {
-      const glob = require('glob');
-      const tuningFiles = glob.sync(resolve(this.projectRoot, 'artifacts/experiments/*/tuning.md'));
+      const tuningFiles = globSync(resolve(this.projectRoot, 'artifacts/experiments/*/tuning.md'));
 
       if (tuningFiles.length === 0) return null;
 
       // Get the most recent tuning file
       const latestTuning = tuningFiles.sort().reverse()[0];
-      const relativePath = require('path').relative(this.projectRoot, latestTuning);
+      const relativePath = relative(this.projectRoot, latestTuning);
       return relativePath;
     } catch (error) {
       // Ignore errors, just skip this signal
     }
     return null;
+  }
+
+  private assessLiveSwapReadiness(): string {
+    try {
+      // Check if live swap checklist exists
+      const checklistPath = resolve(this.projectRoot, 'artifacts/live-swap-checklist.md');
+      if (!existsSync(checklistPath)) {
+        return 'NOT_READY - No checklist found';
+      }
+
+      // Check for LIVE_SWAP_READY marker in environment or branch metadata
+      const liveSwapReady = process.env.LIVE_SWAP_READY === 'true';
+
+      // Check current branch for live swap indicators
+      const branchName = execSync('git branch --show-current', { encoding: 'utf-8', cwd: this.projectRoot }).trim();
+      const isLiveSwapBranch = branchName.includes('live-swap') || branchName.includes('windsurf-integration');
+
+      if (liveSwapReady || isLiveSwapBranch) {
+        return 'READY - Windsurf live wiring confirmed in branch';
+      } else {
+        return 'STANDBY - Checklist available, awaiting Windsurf confirmation';
+      }
+    } catch (error) {
+      return 'UNKNOWN - Assessment failed';
+    }
   }
 
   async createReleasePackage(): Promise<string> {
@@ -356,7 +406,6 @@ class ReleaseDryRun {
         this.log(`📦 Release package created: ${zipPath}`);
 
         // Get zip size
-        const { statSync } = await import('fs');
         const stats = statSync(zipPath);
         const sizeKB = Math.round(stats.size / 1024);
         this.log(`   Size: ${sizeKB}KB`);

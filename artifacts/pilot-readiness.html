@@ -1,0 +1,101 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pilot Readiness Report</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 2rem; background: #f8f9fa; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 2rem; }
+        .overall-score { font-size: 3rem; font-weight: bold; color: #e74c3c; }
+        .categories { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
+        .category-card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .category-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .category-header h3 { margin: 0; }
+        .score { background: #007bff; color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-weight: bold; }
+        .progress-bar { height: 8px; background: #e9ecef; border-radius: 4px; margin: 0.5rem 0; overflow: hidden; }
+        .progress-fill { height: 100%; transition: width 0.3s ease; }
+        .category-summary { color: #6c757d; font-size: 0.9rem; margin: 0.5rem 0 1rem 0; }
+        .items-list { list-style: none; padding: 0; margin: 0; }
+        .items-list li { padding: 0.25rem 0; font-size: 0.9rem; }
+        .footer { text-align: center; margin-top: 2rem; color: #6c757d; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Pilot Readiness Report</h1>
+            <div class="overall-score">65%</div>
+            <p>Generated: 26/09/2025, 14:57:55</p>
+        </div>
+        <div class="categories">
+            
+      <div class="category-card">
+        <div class="category-header">
+          <h3>Core Platform</h3>
+          <div class="score" style="background: #f39c12">75%</div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: 75%; background: #f39c12"></div>
+        </div>
+        <p class="category-summary">3 of 4 completed</p>
+        <ul class="items-list"><li>✅ Artifacts scan clean (zero critical issues) <em>(Verified clean in recent runs)</em></li><li>✅ TypeScript compilation green <em>(Auto-detected)</em></li><li>✅ Integration tests passing <em>(Tests passing in CI and local runs)</em></li><li>⏳ Contract coverage >80%</li></ul>
+      </div>
+    
+      <div class="category-card">
+        <div class="category-header">
+          <h3>UI Integration</h3>
+          <div class="score" style="background: #27ae60">100%</div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: 100%; background: #27ae60"></div>
+        </div>
+        <p class="category-summary">4 of 4 completed</p>
+        <ul class="items-list"><li>✅ Kickstart pack built and verified <em>(Auto-detected)</em></li><li>✅ View models available for all scenarios <em>(Auto-detected)</em></li><li>✅ Fixture packs complete (happy/error/cancel paths) <em>(Stream/jobs/report fixtures available in ui-fixtures)</em></li><li>✅ Live-swap checklist validated <em>(Created comprehensive checklist with commands)</em></li></ul>
+      </div>
+    
+      <div class="category-card">
+        <div class="category-header">
+          <h3>Documentation</h3>
+          <div class="score" style="background: #f39c12">50%</div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: 50%; background: #f39c12"></div>
+        </div>
+        <p class="category-summary">2 of 4 completed</p>
+        <ul class="items-list"><li>✅ Operator handbook up-to-date <em>(Auto-detected)</em></li><li>⏳ API documentation current</li><li>✅ Demo scripts tested <em>(60s demo script in release kit tested)</em></li><li>⏳ Troubleshooting guide complete</li></ul>
+      </div>
+    
+      <div class="category-card">
+        <div class="category-header">
+          <h3>Safety & Compliance</h3>
+          <div class="score" style="background: #f39c12">75%</div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: 75%; background: #f39c12"></div>
+        </div>
+        <p class="category-summary">3 of 4 completed</p>
+        <ul class="items-list"><li>✅ Feature flags default to OFF <em>(Auto-detected)</em></li><li>✅ Simulation mode working <em>(Auto-detected)</em></li><li>✅ No sensitive data in artifacts <em>(Artifacts scanned, no PII or secrets detected)</em></li><li>⏳ Rate limiting configured</li></ul>
+      </div>
+    
+      <div class="category-card">
+        <div class="category-header">
+          <h3>Pilot Preparation</h3>
+          <div class="score" style="background: #e74c3c">25%</div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width: 25%; background: #e74c3c"></div>
+        </div>
+        <p class="category-summary">1 of 4 completed</p>
+        <ul class="items-list"><li>⏳ Demo environment ready</li><li>✅ Stakeholder materials prepared <em>(PoC release kit, demo scripts, and handover bundle ready)</em></li><li>⏳ Success criteria defined</li><li>⏳ Rollback plan documented</li></ul>
+      </div>
+    
+        </div>
+        <div class="footer">
+            <p>Advisory metrics only • Use <code>npx tsx tools/pilot-readiness.ts update</code> to update status</p>
+        </div>
+    </div>
+</body>
+</html>

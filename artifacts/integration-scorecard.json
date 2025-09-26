@@ -1,17 +1,17 @@
 {
-  "generatedAt": "2025-09-25T16:39:29.875Z",
+  "generatedAt": "2025-09-25T21:54:06.507Z",
   "totals": {
     "byStatus": {
-      "NOT_STARTED": 1,
+      "NOT_STARTED": 0,
       "SCAFFOLDING": 0,
       "WIRED_SIM": 0,
       "WIRED_LIVE": 0,
-      "VERIFIED_E2E": 10,
+      "VERIFIED_E2E": 11,
       "BLOCKED": 0
     },
-    "coveragePercent": 91,
+    "coveragePercent": 100,
     "total": 11,
-    "verified": 10
+    "verified": 11
   },
   "items": [
     {
@@ -30,12 +30,23 @@
       },
       "evidence": {
         "ui": [
-          "artifacts/ui-viewmodels/sample-example/stream-view-model.json",
-          "artifacts/sse-fixtures"
+          "artifacts/ui-fixtures/stream-resume-once/events.ndjson",
+          "artifacts/ui-fixtures/stream-cancel-mid/events.ndjson",
+          "artifacts/ui-fixtures/stream-error/events.ndjson",
+          "artifacts/ui-viewmodels/sample-framework/stream-view-model.json",
+          "artifacts/ui-viewmodels/example/stream.resume-once.json",
+          "artifacts/ui-viewmodels/example/stream.happy.json",
+          "artifacts/ui-viewmodels/example/stream.error.json",
+          "artifacts/ui-viewmodels/example/stream.cancelled.json",
+          "artifacts/ui-viewmodels/sample-example/stream-view-model.json"
         ],
         "gateway": [
+          "artifacts/contracts/examples/warp-cache-control.json:GET /stream",
+          "artifacts/contracts/examples/warp-cache-control.json:GET /api/analysis/{id}/events",
           "artifacts/contracts/examples/sse-examples.json:GET /stream",
           "artifacts/contracts/examples/sse-examples.json:GET /api/analysis/{id}/events",
+          "artifacts/contracts/examples/seed-echo.json:GET /stream",
+          "artifacts/contracts/examples/seed-echo.json:GET /api/analysis/{id}/events",
           "artifacts/contracts/examples/report-v1-payload.json:GET /stream",
           "artifacts/contracts/examples/report-v1-payload.json:GET /api/analysis/{id}/events",
           "artifacts/contracts/examples/cancel-request.json:GET /stream",
@@ -63,11 +74,11 @@
       ],
       "acceptance": "User can start streaming, see tokens flow, and stop cleanly",
       "links": [
-        "ui-viewmodels/sample-example/stream-view-model.json",
-        "sse-fixtures",
+        "ui-fixtures/stream-resume-once/events.ndjson",
+        "ui-fixtures/stream-cancel-mid/events.ndjson",
         "../integration/integration-check.ts",
         "../src/lib/__tests__/sse-reconnect.test.ts",
-        "contracts/examples/sse-examples.json:GET /stream"
+        "contracts/examples/warp-cache-control.json:GET /stream"
       ],
       "howToFinish": "✅ Complete - integration verified end-to-end"
     },
@@ -87,10 +98,20 @@
       },
       "evidence": {
         "ui": [
+          "artifacts/ui-fixtures/jobs-cancel-50/events.ndjson",
+          "artifacts/ui-fixtures/jobs-cancel-50/view-model.json",
+          "artifacts/ui-viewmodels/sample-framework/jobs-view-model.json",
+          "artifacts/ui-viewmodels/example/jobs.progress.json",
+          "artifacts/ui-viewmodels/example/jobs.cancelled.json",
           "artifacts/ui-viewmodels/sample-example/jobs-view-model.json"
         ],
         "gateway": [
+          "artifacts/contracts/examples/warp-cache-control.json:GET /jobs/stream",
+          "artifacts/contracts/examples/warp-cache-control.json:POST /jobs/cancel",
+          "artifacts/contracts/examples/warp-cache-control.json:GET /api/jobs/{id}",
           "artifacts/contracts/examples/sse-examples.json:GET /jobs/stream",
+          "artifacts/contracts/examples/seed-echo.json:GET /jobs/stream",
+          "artifacts/contracts/examples/seed-echo.json:GET /api/jobs/{id}",
           "artifacts/contracts/examples/report-v1-payload.json:GET /jobs/stream",
           "artifacts/contracts/examples/report-v1-payload.json:GET /api/jobs/{id}",
           "artifacts/contracts/examples/cancel-request.json:GET /jobs/stream",
@@ -102,6 +123,7 @@
         ],
         "warp": [],
         "jobs": [
+          "artifacts/contracts/examples/warp-cache-control.json:POST /jobs",
           "artifacts/contracts/examples/cancel-request.json:POST /jobs",
           "artifacts/contracts/examples/api-examples.json:POST /jobs"
         ],
@@ -113,9 +135,10 @@
       "missing": [],
       "acceptance": "Background jobs show progress and can be cancelled mid-flight",
       "links": [
-        "ui-viewmodels/sample-example/jobs-view-model.json",
+        "ui-fixtures/jobs-cancel-50/events.ndjson",
+        "ui-fixtures/jobs-cancel-50/view-model.json",
         "../src/lib/__tests__/jobs-panel.test.tsx",
-        "contracts/examples/sse-examples.json:GET /jobs/stream"
+        "contracts/examples/warp-cache-control.json:GET /jobs/stream"
       ],
       "howToFinish": "✅ Complete - integration verified end-to-end"
     },
@@ -135,13 +158,22 @@
       },
       "evidence": {
         "ui": [
+          "artifacts/ui-fixtures/report-no-data/view-model.json",
+          "artifacts/ui-fixtures/report-no-data/events.ndjson",
           "artifacts/report-v1-sample.json",
+          "artifacts/ui-viewmodels/sample-framework/report-view-model.json",
+          "artifacts/ui-viewmodels/example/report.ready.json",
+          "artifacts/ui-viewmodels/example/report.empty.json",
           "artifacts/ui-viewmodels/sample-example/report-view-model.json",
           "artifacts/samples/report-v1.json"
         ],
         "gateway": [
+          "artifacts/contracts/examples/warp-cache-control.json:GET /report",
+          "artifacts/contracts/examples/warp-cache-control.json:GET /api/analysis/{id}/report",
           "artifacts/contracts/examples/sse-examples.json:GET /report",
           "artifacts/contracts/examples/sse-examples.json:GET /api/analysis/{id}/report",
+          "artifacts/contracts/examples/seed-echo.json:GET /report",
+          "artifacts/contracts/examples/seed-echo.json:GET /api/analysis/{id}/report",
           "artifacts/contracts/examples/report-v1-payload.json:GET /report",
           "artifacts/contracts/examples/report-v1-payload.json:GET /api/analysis/{id}/report",
           "artifacts/contracts/examples/cancel-request.json:GET /report",
@@ -164,11 +196,11 @@
       "missing": [],
       "acceptance": "Report drawer opens with structured decision analysis after completion",
       "links": [
-        "report-v1-sample.json",
-        "ui-viewmodels/sample-example/report-view-model.json",
+        "ui-fixtures/report-no-data/view-model.json",
+        "ui-fixtures/report-no-data/events.ndjson",
         "../src/lib/__tests__/run-report.source.test.tsx",
         "../src/lib/__tests__/run-report.drawer.test.tsx",
-        "contracts/examples/sse-examples.json:GET /report"
+        "contracts/examples/warp-cache-control.json:GET /report"
       ],
       "howToFinish": "✅ Complete - integration verified end-to-end"
     },
@@ -181,8 +213,8 @@
       "status": "VERIFIED_E2E",
       "layer_map": {
         "ui": true,
-        "gateway": false,
-        "warp": false,
+        "gateway": true,
+        "warp": true,
         "jobs": false,
         "usage": false
       },
@@ -190,8 +222,19 @@
         "ui": [
           "tools/seed-manager.ts"
         ],
-        "gateway": [],
-        "warp": [],
+        "gateway": [
+          "artifacts/contracts/examples/warp-cache-control.json:artifacts/contracts/examples/seed-echo.json",
+          "artifacts/contracts/examples/sse-examples.json:artifacts/contracts/examples/seed-echo.json",
+          "artifacts/contracts/examples/seed-echo.json:artifacts/contracts/examples/seed-echo.json",
+          "artifacts/contracts/examples/cancel-request.json:artifacts/contracts/examples/seed-echo.json",
+          "artifacts/contracts/examples/api-examples.json:artifacts/contracts/examples/seed-echo.json"
+        ],
+        "warp": [
+          "artifacts/contracts/examples/seed-echo.json:seed echo",
+          "src/lib/__tests__/seed-echo.test.ts:seed echo",
+          "artifacts/contracts/examples/seed-echo.json:deterministic replay",
+          "src/lib/__tests__/seed-echo.test.ts:deterministic replay"
+        ],
         "jobs": [],
         "usage": [],
         "tests": []
@@ -201,7 +244,8 @@
       ],
       "acceptance": "User can replay exact same analysis with same seed value",
       "links": [
-        "../tools/seed-manager.ts"
+        "../tools/seed-manager.ts",
+        "contracts/examples/warp-cache-control.json:artifacts/contracts/examples/seed-echo.json"
       ],
       "howToFinish": "✅ Complete - integration verified end-to-end"
     },
@@ -329,7 +373,9 @@
       "evidence": {
         "ui": [],
         "gateway": [
+          "artifacts/contracts/examples/warp-cache-control.json:cancelled event",
           "artifacts/contracts/examples/sse-examples.json:cancelled event",
+          "artifacts/contracts/examples/seed-echo.json:cancelled event",
           "artifacts/contracts/examples/cancel-request.json:cancelled event",
           "artifacts/contracts/examples/api-examples.json:cancelled event"
         ],
@@ -348,7 +394,7 @@
       "links": [
         "../src/lib/__tests__/fast-cancel.test.ts",
         "../integration/integration-check.ts",
-        "contracts/examples/sse-examples.json:cancelled event"
+        "contracts/examples/warp-cache-control.json:cancelled event"
       ],
       "howToFinish": "✅ Complete - integration verified end-to-end"
     },
@@ -369,8 +415,12 @@
       "evidence": {
         "ui": [],
         "gateway": [
+          "artifacts/contracts/examples/warp-cache-control.json:GET /api/analysis/{id}/report",
+          "artifacts/contracts/examples/warp-cache-control.json:Report v1",
           "artifacts/contracts/examples/sse-examples.json:GET /api/analysis/{id}/report",
           "artifacts/contracts/examples/sse-examples.json:Report v1",
+          "artifacts/contracts/examples/seed-echo.json:GET /api/analysis/{id}/report",
+          "artifacts/contracts/examples/seed-echo.json:Report v1",
           "artifacts/contracts/examples/report-v1-payload.json:GET /api/analysis/{id}/report",
           "artifacts/contracts/examples/cancel-request.json:GET /api/analysis/{id}/report",
           "artifacts/contracts/examples/api-examples.json:GET /api/analysis/{id}/report"
@@ -388,7 +438,7 @@
       "acceptance": "Report v1 schema is stable and Contract Wall stays green",
       "links": [
         "contracts",
-        "contracts/examples/sse-examples.json:GET /api/analysis/{id}/report"
+        "contracts/examples/warp-cache-control.json:GET /api/analysis/{id}/report"
       ],
       "howToFinish": "✅ Complete - integration verified end-to-end"
     },
@@ -409,6 +459,10 @@
       "evidence": {
         "ui": [],
         "gateway": [
+          "artifacts/contracts/examples/warp-cache-control.json:x-org-id header",
+          "artifacts/contracts/examples/warp-cache-control.json:x-user-id header",
+          "artifacts/contracts/examples/seed-echo.json:x-org-id header",
+          "artifacts/contracts/examples/seed-echo.json:x-user-id header",
           "artifacts/contracts/examples/cancel-request.json:x-org-id header",
           "artifacts/contracts/examples/cancel-request.json:x-user-id header",
           "artifacts/contracts/examples/api-examples.json:x-user-id header"
@@ -424,7 +478,7 @@
       ],
       "acceptance": "Organization and user context headers are forwarded correctly",
       "links": [
-        "contracts/examples/cancel-request.json:x-org-id header"
+        "contracts/examples/warp-cache-control.json:x-org-id header"
       ],
       "howToFinish": "✅ Complete - integration verified end-to-end"
     },
@@ -434,7 +488,7 @@
       "owner": "Warp",
       "ownerName": "Engine Team",
       "priority": "P2",
-      "status": "NOT_STARTED",
+      "status": "VERIFIED_E2E",
       "layer_map": {
         "ui": false,
         "gateway": false,
@@ -445,18 +499,19 @@
       "evidence": {
         "ui": [],
         "gateway": [],
-        "warp": [],
+        "warp": [
+          "src/lib/__tests__/cache-control.test.ts:Cache-Control: no-store"
+        ],
         "jobs": [],
         "usage": [],
         "tests": []
       },
       "missing": [
-        "Warp implementation",
         "Tests/integration harness"
       ],
       "acceptance": "Responses include proper Cache-Control headers to prevent caching",
       "links": [],
-      "howToFinish": "Implement engine routes and add to contract examples; Add integration tests or npm scripts"
+      "howToFinish": "✅ Complete - integration verified end-to-end"
     }
   ]
 }

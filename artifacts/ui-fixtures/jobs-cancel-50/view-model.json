@@ -1,0 +1,103 @@
+{
+  "progress": {
+    "current": 50,
+    "total": 100,
+    "percent": 50
+  },
+  "state": "cancelled",
+  "events": [
+    {
+      "id": "1",
+      "event": "progress",
+      "data": {
+        "jobId": "job-001",
+        "progress": 0,
+        "total": 100,
+        "percent": 0,
+        "status": "running",
+        "timestamp": "2024-01-15T10:30:00.100Z"
+      }
+    },
+    {
+      "id": "2",
+      "event": "progress",
+      "data": {
+        "jobId": "job-001",
+        "progress": 10,
+        "total": 100,
+        "percent": 10,
+        "status": "running",
+        "timestamp": "2024-01-15T10:30:00.200Z"
+      }
+    },
+    {
+      "id": "3",
+      "event": "progress",
+      "data": {
+        "jobId": "job-001",
+        "progress": 20,
+        "total": 100,
+        "percent": 20,
+        "status": "running",
+        "timestamp": "2024-01-15T10:30:00.200Z"
+      }
+    },
+    {
+      "id": "4",
+      "event": "progress",
+      "data": {
+        "jobId": "job-001",
+        "progress": 30,
+        "total": 100,
+        "percent": 30,
+        "status": "running",
+        "timestamp": "2024-01-15T10:30:00.400Z"
+      }
+    },
+    {
+      "id": "5",
+      "event": "progress",
+      "data": {
+        "jobId": "job-001",
+        "progress": 40,
+        "total": 100,
+        "percent": 40,
+        "status": "running",
+        "timestamp": "2024-01-15T10:30:00.500Z"
+      }
+    },
+    {
+      "id": "6",
+      "event": "progress",
+      "data": {
+        "jobId": "job-001",
+        "progress": 50,
+        "total": 100,
+        "percent": 50,
+        "status": "running",
+        "timestamp": "2024-01-15T10:30:00.600Z"
+      }
+    },
+    {
+      "id": "7",
+      "event": "cancel",
+      "data": {
+        "jobId": "job-001",
+        "reason": "user_cancelled",
+        "finalProgress": 50,
+        "timestamp": "2024-01-15T10:30:00.650Z"
+      }
+    },
+    {
+      "id": "8",
+      "event": "done",
+      "data": {
+        "jobId": "job-001",
+        "status": "cancelled",
+        "reason": "user_cancelled",
+        "finalProgress": 50,
+        "timestamp": "2024-01-15T10:30:00.700Z"
+      }
+    }
+  ]
+}

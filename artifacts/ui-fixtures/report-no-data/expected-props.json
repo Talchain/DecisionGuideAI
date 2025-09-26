@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "report": {
+      "type": "null"
+    },
+    "state": {
+      "type": "string",
+      "enum": ["empty", "loading", "error"]
+    },
+    "placeholder": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "action": { "type": "string" }
+      },
+      "required": ["title", "subtitle"]
+    }
+  },
+  "required": ["report", "state", "placeholder"]
+}

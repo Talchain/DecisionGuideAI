@@ -1,0 +1,12 @@
+{
+  "name": "stream-error",
+  "description": "NDJSON SSE that emits a clear, UI-safe error event with friendly message and retry hint, then terminates cleanly",
+  "version": "v3",
+  "seed": "deterministic-error-001",
+  "baseTimestamp": "2024-01-15T10:30:00.000Z",
+  "totalEvents": 3,
+  "tokenEvents": 2,
+  "errorEvent": 1,
+  "finalState": "error",
+  "deterministic": true
+}

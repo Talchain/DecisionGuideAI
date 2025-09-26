@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "event": { "type": "string" },
+          "data": { "type": "object" }
+        },
+        "required": ["id", "event", "data"]
+      }
+    },
+    "connectionState": {
+      "type": "string",
+      "enum": ["connected", "disconnected", "resumed"]
+    },
+    "lastEventId": {
+      "type": ["string", "null"]
+    },
+    "tokens": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["events", "connectionState", "lastEventId", "tokens"]
+}

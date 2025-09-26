@@ -1,0 +1,348 @@
+{
+  "events": [
+    {
+      "id": "1",
+      "event": "token",
+      "data": {
+        "id": "token_000",
+        "text": "I",
+        "timestamp": "2025-09-25T20:41:13.400Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "2",
+      "event": "token",
+      "data": {
+        "id": "token_001",
+        "text": " recommend",
+        "timestamp": "2025-09-25T20:41:13.550Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "3",
+      "event": "token",
+      "data": {
+        "id": "token_002",
+        "text": " **React**",
+        "timestamp": "2025-09-25T20:41:13.700Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "4",
+      "event": "token",
+      "data": {
+        "id": "token_003",
+        "text": " for",
+        "timestamp": "2025-09-25T20:41:13.850Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "5",
+      "event": "token",
+      "data": {
+        "id": "token_004",
+        "text": " your",
+        "timestamp": "2025-09-25T20:41:14.000Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "6",
+      "event": "token",
+      "data": {
+        "id": "token_005",
+        "text": " project",
+        "timestamp": "2025-09-25T20:41:14.150Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "7",
+      "event": "token",
+      "data": {
+        "id": "token_006",
+        "text": ".",
+        "timestamp": "2025-09-25T20:41:14.300Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "8",
+      "event": "token",
+      "data": {
+        "id": "token_007",
+        "text": "\n\n",
+        "timestamp": "2025-09-25T20:41:14.450Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "9",
+      "event": "token",
+      "data": {
+        "id": "token_008",
+        "text": "##",
+        "timestamp": "2025-09-25T20:41:14.600Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "10",
+      "event": "token",
+      "data": {
+        "id": "token_009",
+        "text": " Analysis",
+        "timestamp": "2025-09-25T20:41:14.750Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "11",
+      "event": "token",
+      "data": {
+        "id": "token_010",
+        "text": "\n\n",
+        "timestamp": "2025-09-25T20:41:14.900Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "12",
+      "event": "token",
+      "data": {
+        "id": "token_011",
+        "text": "React",
+        "timestamp": "2025-09-25T20:41:15.050Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "13",
+      "event": "token",
+      "data": {
+        "id": "token_012",
+        "text": " offers",
+        "timestamp": "2025-09-25T20:41:15.200Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "14",
+      "event": "token",
+      "data": {
+        "id": "token_013",
+        "text": ":\n\n",
+        "timestamp": "2025-09-25T20:41:15.350Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "15",
+      "event": "token",
+      "data": {
+        "id": "token_014",
+        "text": "- ",
+        "timestamp": "2025-09-25T20:41:15.500Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "16",
+      "event": "token",
+      "data": {
+        "id": "token_015",
+        "text": "Strong",
+        "timestamp": "2025-09-25T20:41:15.650Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "17",
+      "event": "token",
+      "data": {
+        "id": "token_016",
+        "text": " ecosystem",
+        "timestamp": "2025-09-25T20:41:15.800Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "18",
+      "event": "token",
+      "data": {
+        "id": "token_017",
+        "text": "\n",
+        "timestamp": "2025-09-25T20:41:15.950Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "19",
+      "event": "token",
+      "data": {
+        "id": "token_018",
+        "text": "- ",
+        "timestamp": "2025-09-25T20:41:16.100Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "20",
+      "event": "token",
+      "data": {
+        "id": "token_019",
+        "text": "TypeScript",
+        "timestamp": "2025-09-25T20:41:16.250Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "21",
+      "event": "token",
+      "data": {
+        "id": "token_020",
+        "text": " support",
+        "timestamp": "2025-09-25T20:41:16.400Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "22",
+      "event": "token",
+      "data": {
+        "id": "token_021",
+        "text": "\n",
+        "timestamp": "2025-09-25T20:41:16.550Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "23",
+      "event": "token",
+      "data": {
+        "id": "token_022",
+        "text": "- ",
+        "timestamp": "2025-09-25T20:41:16.700Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "24",
+      "event": "token",
+      "data": {
+        "id": "token_023",
+        "text": "Active",
+        "timestamp": "2025-09-25T20:41:16.850Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "25",
+      "event": "token",
+      "data": {
+        "id": "token_024",
+        "text": " community",
+        "timestamp": "2025-09-25T20:41:17.000Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "26",
+      "event": "token",
+      "data": {
+        "id": "token_025",
+        "text": "\n\n",
+        "timestamp": "2025-09-25T20:41:17.150Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "27",
+      "event": "token",
+      "data": {
+        "id": "token_026",
+        "text": "**Decision:** ",
+        "timestamp": "2025-09-25T20:41:17.300Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "28",
+      "event": "token",
+      "data": {
+        "id": "token_027",
+        "text": "React",
+        "timestamp": "2025-09-25T20:41:17.450Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "29",
+      "event": "token",
+      "data": {
+        "id": "token_028",
+        "text": " with",
+        "timestamp": "2025-09-25T20:41:17.600Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "30",
+      "event": "token",
+      "data": {
+        "id": "token_029",
+        "text": " TypeScript",
+        "timestamp": "2025-09-25T20:41:17.750Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "31",
+      "event": "done",
+      "data": {
+        "reason": "completed",
+        "totalTokens": 30,
+        "timestamp": "2025-09-25T20:41:17.900Z",
+        "sessionId": "sample-scenario-session"
+      }
+    }
+  ],
+  "connectionState": "connected",
+  "lastEventId": null,
+  "tokens": [
+    "I",
+    " recommend",
+    " **React**",
+    " for",
+    " your",
+    " project",
+    ".",
+    "\n\n",
+    "##",
+    " Analysis",
+    "\n\n",
+    "React",
+    " offers",
+    ":\n\n",
+    "- ",
+    "Strong",
+    " ecosystem",
+    "\n",
+    "- ",
+    "TypeScript",
+    " support",
+    "\n",
+    "- ",
+    "Active",
+    " community",
+    "\n\n",
+    "**Decision:** ",
+    "React",
+    " with",
+    " TypeScript"
+  ]
+}

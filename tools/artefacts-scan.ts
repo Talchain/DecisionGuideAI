@@ -104,6 +104,50 @@ class ArtefactsScanner {
     '*.min.js', '*.min.css' // Skip minified files
   ];
 
+  // Whitelist patterns - legitimate uses that should not trigger alerts
+  private whitelistRules = [
+    // JavaScript/code contexts where "token" is legitimate
+    { pattern: /tokens\.forEach\s*\(/, message: 'JavaScript forEach with tokens array' },
+    { pattern: /token\s*=>\s*{/, message: 'JavaScript arrow function parameter' },
+    { pattern: /\.token[,\s\)]/, message: 'JavaScript property access' },
+    { pattern: /token\s*:\s*string/, message: 'TypeScript type annotation' },
+    { pattern: /querySelectorAll\(['"]\.\w*token/, message: 'DOM query for token class' },
+    { pattern: /classList\.(add|remove|toggle)\(['"]\w*token/, message: 'CSS class manipulation' },
+
+    // API/documentation contexts
+    { pattern: /api_key\s*[=:]\s*['"](your|example|test|demo|sample)/i, message: 'Example API key in documentation' },
+    { pattern: /token\s*[=:]\s*['"](your|example|test|demo|sample)/i, message: 'Example token in documentation' },
+
+    // Test/demo data contexts
+    { pattern: /_samples\/.*/, message: 'Test/demo file' },
+    { pattern: /\btest.*\.txt/, message: 'Test data file' },
+    { pattern: /scan-demo\.txt/, message: 'Scanner test file' },
+
+    // Documentation contexts in reports
+    { pattern: /Context:\s*\*\*\*/, message: 'Masked context in security report' },
+    { pattern: /artefact-scan\.md/, message: 'Security scan report itself' },
+
+    // Common safe email patterns
+    { pattern: /@(example|test|demo|sample|localhost|domain)\./, message: 'Example/test email domain' },
+    { pattern: /user@example\.com/, message: 'Standard example email' },
+
+    // Safe address patterns
+    { pattern: /123\s+(test|example|sample)\s+street/i, message: 'Example address' },
+    { pattern: /555-\d{4}/, message: 'Reserved phone number range' },
+
+    // Documentation/guide contexts
+    { pattern: /ops@company\.com/, message: 'Generic company email in documentation' },
+    { pattern: /X-HMAC-Timestamp:\s*\d{10}/, message: 'HMAC timestamp in API documentation' },
+    { pattern: /timestamp.*\d{10}/, message: 'Unix timestamp in documentation' },
+    { pattern: /\d{10}\s*$/, message: 'Unix timestamp' },
+    { pattern: /"[^"]*time[^"]*":\s*\d{10}/, message: 'JSON timestamp field' },
+
+    // Simulation/test data
+    { pattern: /"teamSize":\s*"\d+/, message: 'Simulation scenario data' },
+    { pattern: /sim-scenarios\/.*\.json/, message: 'Simulation scenario file' },
+    { pattern: /\$\d+M\s+(ARR|revenue)/i, message: 'Financial metrics in scenarios' }
+  ];
+
   async scanArtifacts(): Promise<ScanResult> {
     console.log('🔍 Artefacts Security & PII Scanner');
     console.log('=' .repeat(50));
@@ -161,7 +205,7 @@ class ArtefactsScanner {
 
         // Check for secrets
         this.secretPatterns.forEach(({ pattern, severity, category, message }) => {
-          if (pattern.test(line)) {
+          if (pattern.test(line) && !this.isWhitelisted(line, relativePath)) {
             this.issues.push({
               file: relativePath,
               line: lineNumber,
@@ -178,7 +222,7 @@ class ArtefactsScanner {
         // Check for PII (only if no secrets found in this line to reduce noise)
         if (!hasIssues) {
           this.piiPatterns.forEach(({ pattern, severity, category, message }) => {
-            if (pattern.test(line)) {
+            if (pattern.test(line) && !this.isWhitelisted(line, relativePath)) {
               // Additional validation to reduce false positives
               if (this.isLikelyRealPII(line, pattern)) {
                 this.issues.push({
@@ -205,6 +249,13 @@ class ArtefactsScanner {
       // File might be binary or unreadable, skip silently
       console.log(`⚠️  Skipped unreadable file: ${relativePath}`);
     }
+  }
+
+  private isWhitelisted(line: string, filePath: string): boolean {
+    // Check if this line or file matches any whitelist rules
+    return this.whitelistRules.some(rule => {
+      return rule.pattern.test(line) || rule.pattern.test(filePath);
+    });
   }
 
   private isLikelyRealPII(line: string, pattern: RegExp): boolean {

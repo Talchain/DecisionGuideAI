@@ -35,6 +35,7 @@ That's it. Everything else is plumbing to make this happen safely and reliably.
 - New features are **OFF by default** (safety first)
 - Use feature flags to gradually roll out changes
 - Test in simulation mode before touching real AI services
+- For UI development, use deterministic fixtures in `artifacts/ui-fixtures/` (see UI Fixture Packs v3)
 
 **🚨 Incident Response**
 - If users report issues: check recent deployments first

@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "bundleId": "test-bundle-001",
+    "created": "2025-09-26T08:00:00.000Z",
+    "seed": 42,
+    "duration": 5250,
+    "totalTokens": 1500,
+    "costUsd": 0.025,
+    "model": "claude-3-sonnet",
+    "route": "critique",
+    "deterministic": true,
+    "apiKey": "sk-test123456789012345678901234567890",
+    "userAgent": "DecisionGuide/1.0",
+    "ipAddress": "192.168.1.100"
+  },
+  "sessions": [
+    {
+      "sessionId": "session-001",
+      "userId": "user123@example.com",
+      "secret": "very-secret-key-12345",
+      "traces": [
+        {
+          "timestamp": "2025-09-26T08:00:01.000Z",
+          "event": "start",
+          "data": {
+            "input": "Analyze this decision...",
+            "authorization": "Bearer token-12345"
+          }
+        },
+        {
+          "timestamp": "2025-09-26T08:00:05.000Z",
+          "event": "complete",
+          "data": {
+            "output": "Analysis complete",
+            "tokens": 1500
+          }
+        }
+      ]
+    }
+  ]
+}

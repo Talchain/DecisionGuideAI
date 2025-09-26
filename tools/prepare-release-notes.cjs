@@ -60,6 +60,7 @@ class ReleaseNotesPreparator {
 
     return {
       releaseValidation: artifactFiles.releaseSummary || `${baseUrl}/release-summary.json`,
+      integrationScorecard: artifactFiles.integrationScorecard || `${baseUrl}/integration-scorecard.html`,
       integrationStatus: artifactFiles.integrationStatus || `${baseUrl}/integration-status.html`,
       evidencePack: artifactFiles.evidencePack || `${baseUrl}/index.html`,
       determinismCheck: artifactFiles.determinismCheck || `${baseUrl}/determinism-check.json`,
@@ -95,6 +96,9 @@ class ReleaseNotesPreparator {
       }
 
       // Check for standard artifacts
+      if (files.includes('integration-scorecard.html')) {
+        artifacts.integrationScorecard = './artifacts/integration-scorecard.html';
+      }
       if (files.includes('integration-status.html')) {
         artifacts.integrationStatus = './artifacts/integration-status.html';
       }
@@ -155,6 +159,7 @@ class ReleaseNotesPreparator {
     // Replace placeholders
     template = template
       .replace(/RELEASE_VALIDATION_LINK/g, links.releaseValidation)
+      .replace(/INTEGRATION_SCORECARD_LINK/g, links.integrationScorecard)
       .replace(/INTEGRATION_STATUS_LINK/g, links.integrationStatus)
       .replace(/EVIDENCE_PACK_LINK/g, links.evidencePack)
       .replace(/DETERMINISM_CHECK_LINK/g, links.determinismCheck)

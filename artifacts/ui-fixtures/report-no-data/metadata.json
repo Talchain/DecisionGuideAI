@@ -1,0 +1,10 @@
+{
+  "name": "report-no-data",
+  "description": "A minimal JSON sample representing no report yet (empty state) with the right shape for the drawer",
+  "version": "v3",
+  "seed": "deterministic-empty-001",
+  "baseTimestamp": "2024-01-15T10:30:00.000Z",
+  "totalEvents": 1,
+  "finalState": "empty",
+  "deterministic": true
+}

@@ -1,0 +1,58 @@
+{
+  "progress": {
+    "current": 75,
+    "total": 100,
+    "percent": 75
+  },
+  "state": "running",
+  "events": [
+    {
+      "id": "1",
+      "event": "progress",
+      "data": {
+        "jobId": "job-001",
+        "progress": 0,
+        "total": 100,
+        "percent": 0,
+        "status": "running",
+        "timestamp": "2025-09-25T20:41:17.100Z"
+      }
+    },
+    {
+      "id": "2",
+      "event": "progress",
+      "data": {
+        "jobId": "job-001",
+        "progress": 25,
+        "total": 100,
+        "percent": 25,
+        "status": "running",
+        "timestamp": "2025-09-25T20:41:17.300Z"
+      }
+    },
+    {
+      "id": "3",
+      "event": "progress",
+      "data": {
+        "jobId": "job-001",
+        "progress": 50,
+        "total": 100,
+        "percent": 50,
+        "status": "running",
+        "timestamp": "2025-09-25T20:41:17.500Z"
+      }
+    },
+    {
+      "id": "4",
+      "event": "progress",
+      "data": {
+        "jobId": "job-001",
+        "progress": 75,
+        "total": 100,
+        "percent": 75,
+        "status": "running",
+        "timestamp": "2025-09-25T20:41:17.700Z"
+      }
+    }
+  ]
+}

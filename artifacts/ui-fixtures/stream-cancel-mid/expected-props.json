@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "event": { "type": "string" },
+          "data": { "type": "object" }
+        },
+        "required": ["id", "event", "data"]
+      }
+    },
+    "state": {
+      "type": "string",
+      "enum": ["streaming", "cancelled", "done"]
+    },
+    "reason": {
+      "type": "string",
+      "enum": ["cancelled", "completed", "error"]
+    },
+    "partialContent": {
+      "type": "string"
+    }
+  },
+  "required": ["events", "state", "partialContent"]
+}

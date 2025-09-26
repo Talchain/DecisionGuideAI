@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DecisionGuide AI - Offline Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: #f8f9fa;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .demo-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border: 2px solid #e9ecef;
+        }
+
+        .demo-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: #2c3e50;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .demo-description {
+            color: #6c757d;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .demo-output {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9rem;
+            min-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-bottom: 1rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        button.danger {
+            background: #dc3545;
+        }
+
+        button.danger:hover {
+            background: #c82333;
+        }
+
+        .status {
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+        }
+
+        .status.idle { background: #e9ecef; color: #495057; }
+        .status.running { background: #d4edda; color: #155724; }
+        .status.completed { background: #cce5ff; color: #004085; }
+        .status.cancelled { background: #fff3cd; color: #856404; }
+        .status.error { background: #f8d7da; color: #721c24; }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 4px;
+            margin: 0.5rem 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #007bff;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .metrics {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin-top: 0.5rem;
+        }
+
+        .report-section {
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background: #fff;
+        }
+
+        .report-section h4 {
+            margin: 0 0 0.5rem 0;
+            color: #495057;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid #dee2e6;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .demo-grid {
+                grid-template-columns: 1fr;
+            }
+            body {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 DecisionGuide AI - Offline Demo</h1>
+            <p>Complete UI simulation without server dependencies</p>
+        </div>
+
+        <div class="demo-grid">
+            <!-- Stream Demo -->
+            <div class="demo-card">
+                <div class="demo-title">
+                    <span>💬</span> Stream Simulation
+                </div>
+                <div class="demo-description">
+                    Real-time token streaming with cancellation support. Simulates GPT-style text generation.
+                </div>
+                <div class="status idle" id="stream-status">Ready to start</div>
+                <div class="controls">
+                    <button onclick="startStream()" id="stream-start">Start Stream</button>
+                    <button onclick="cancelStream()" id="stream-cancel" disabled>Cancel</button>
+                    <button onclick="clearStream()">Clear</button>
+                </div>
+                <div class="demo-output" id="stream-output">Click "Start Stream" to begin simulation...</div>
+                <div class="metrics" id="stream-metrics">
+                    Tokens: <span id="token-count">0</span> |
+                    Speed: <span id="token-speed">0</span> tok/s |
+                    Duration: <span id="stream-duration">0</span>s
+                </div>
+            </div>
+
+            <!-- Jobs Demo -->
+            <div class="demo-card">
+                <div class="demo-title">
+                    <span>⚙️</span> Jobs Progress
+                </div>
+                <div class="demo-description">
+                    Long-running job simulation with progress tracking and cancellation.
+                </div>
+                <div class="status idle" id="job-status">Ready to start</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="job-progress" style="width: 0%"></div>
+                </div>
+                <div class="controls">
+                    <button onclick="startJob()" id="job-start">Start Job</button>
+                    <button onclick="cancelJob()" id="job-cancel" disabled>Cancel Job</button>
+                    <button onclick="clearJob()">Clear</button>
+                </div>
+                <div class="demo-output" id="job-output">Click "Start Job" to begin processing...</div>
+                <div class="metrics" id="job-metrics">
+                    Progress: <span id="job-percent">0</span>% |
+                    Step: <span id="job-step">-</span> |
+                    ETA: <span id="job-eta">-</span>
+                </div>
+            </div>
+
+            <!-- Report Demo -->
+            <div class="demo-card">
+                <div class="demo-title">
+                    <span>📊</span> Report Simulation
+                </div>
+                <div class="demo-description">
+                    Complete analysis report with structured data and recommendations.
+                </div>
+                <div class="status idle" id="report-status">Ready to load</div>
+                <div class="controls">
+                    <button onclick="loadReport()" id="report-load">Load Report</button>
+                    <button onclick="clearReport()">Clear</button>
+                </div>
+                <div class="demo-output" id="report-output">Click "Load Report" to see analysis results...</div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p><strong>🔧 For Development:</strong> Install the NPM package and import these simulation functions</p>
+            <p><code>import { openStreamSim, openJobStreamSim, loadReportSim } from '@decisionguide/ui-kickstart-pack';</code></p>
+            <p><em>This demo runs entirely offline • No server required • Safe for presentations</em></p>
+        </div>
+    </div>
+
+    <script>
+        // Simulation state
+        let streamController = null;
+        let jobController = null;
+        let streamStartTime = 0;
+        let tokenCount = 0;
+
+        // Stream simulation functions
+        async function* openStreamSim(config = {}) {
+            const {
+                sessionId = 'sim-' + Date.now(),
+                tokenCount = 15,
+                tokenDelay = 150,
+                shouldCancel = false,
+                shouldError = false
+            } = config;
+
+            const sampleTokens = [
+                "Based ", "on ", "your ", "scenario ", "analysis, ", "I ", "recommend ",
+                "the ", "following ", "approach: ", "\n\n", "1. ", "**Immediate ",
+                "Actions**: ", "Focus ", "on ", "risk ", "mitigation ", "strategies ",
+                "that ", "can ", "be ", "implemented ", "quickly.\n\n", "2. ", "**Medium-term ",
+                "Planning**: ", "Develop ", "contingency ", "plans ", "for ", "identified ",
+                "scenarios.\n\n", "3. ", "**Long-term ", "Strategy**: ", "Build ",
+                "resilient ", "systems ", "that ", "adapt ", "to ", "changing ", "conditions."
+            ];
+
+            yield { type: 'open', data: JSON.stringify({ sessionId, timestamp: Date.now() }) };
+
+            for (let i = 0; i < Math.min(tokenCount, sampleTokens.length); i++) {
+                if (shouldCancel && i > tokenCount / 2) {
+                    yield { type: 'error', data: JSON.stringify({ error: 'Stream cancelled by user' }) };
+                    return;
+                }
+
+                if (shouldError && i === Math.floor(tokenCount * 0.8)) {
+                    yield { type: 'error', data: JSON.stringify({ error: 'Simulated processing error' }) };
+                    return;
+                }
+
+                yield {
+                    type: 'data',
+                    data: JSON.stringify({
+                        token: sampleTokens[i],
+                        tokenIndex: i,
+                        timestamp: Date.now(),
+                        model: 'gpt-4-simulation'
+                    })
+                };
+
+                await new Promise(resolve => setTimeout(resolve, tokenDelay));
+            }
+
+            yield {
+                type: 'close',
+                data: JSON.stringify({
+                    sessionId,
+                    totalTokens: Math.min(tokenCount, sampleTokens.length),
+                    timestamp: Date.now()
+                })
+            };
+        }
+
+        async function* openJobStreamSim(config = {}) {
+            const {
+                jobId = 'job-' + Date.now(),
+                totalSteps = 10,
+                stepDelay = 800,
+                shouldCancel = false
+            } = config;
+
+            const steps = [
+                'Initializing analysis...',
+                'Loading scenario data...',
+                'Processing risk factors...',
+                'Evaluating alternatives...',
+                'Running simulations...',
+                'Calculating probabilities...',
+                'Generating insights...',
+                'Validating results...',
+                'Preparing recommendations...',
+                'Finalizing report...'
+            ];
+
+            yield { type: 'open', data: JSON.stringify({ jobId, totalSteps }) };
+
+            for (let i = 0; i < totalSteps; i++) {
+                if (shouldCancel && i > totalSteps / 2) {
+                    yield {
+                        type: 'data',
+                        data: JSON.stringify({
+                            jobId,
+                            progress: Math.round((i / totalSteps) * 100),
+                            step: 'Job cancelled',
+                            status: 'cancelled',
+                            timestamp: Date.now()
+                        })
+                    };
+                    return;
+                }
+
+                yield {
+                    type: 'data',
+                    data: JSON.stringify({
+                        jobId,
+                        progress: Math.round(((i + 1) / totalSteps) * 100),
+                        step: steps[i] || `Step ${i + 1}`,
+                        status: i === totalSteps - 1 ? 'completed' : 'running',
+                        eta: Math.round((totalSteps - i - 1) * (stepDelay / 1000)),
+                        timestamp: Date.now()
+                    })
+                };
+
+                await new Promise(resolve => setTimeout(resolve, stepDelay));
+            }
+        }
+
+        async function loadReportSim() {
+            return {
+                id: 'report-' + Date.now(),
+                title: 'Scenario Analysis Report',
+                summary: 'Comprehensive analysis of decision scenarios with risk assessment and recommendations.',
+                timestamp: new Date().toISOString(),
+                analysis: {
+                    scenarios: [
+                        {
+                            name: 'Base Case',
+                            probability: 0.65,
+                            impact: 'Medium',
+                            recommendation: 'Proceed with current strategy'
+                        },
+                        {
+                            name: 'Optimistic',
+                            probability: 0.20,
+                            impact: 'High',
+                            recommendation: 'Accelerate investment'
+                        },
+                        {
+                            name: 'Pessimistic',
+                            probability: 0.15,
+                            impact: 'Low',
+                            recommendation: 'Implement risk controls'
+                        }
+                    ],
+                    riskFactors: [
+                        'Market volatility: 7.2/10',
+                        'Regulatory changes: 4.8/10',
+                        'Competitive pressure: 6.1/10'
+                    ],
+                    recommendations: [
+                        'Diversify risk exposure across scenarios',
+                        'Establish monitoring triggers for key variables',
+                        'Prepare contingency plans for edge cases'
+                    ]
+                }
+            };
+        }
+
+        // Demo control functions
+        async function startStream() {
+            const statusEl = document.getElementById('stream-status');
+            const outputEl = document.getElementById('stream-output');
+            const startBtn = document.getElementById('stream-start');
+            const cancelBtn = document.getElementById('stream-cancel');
+
+            statusEl.textContent = 'Streaming...';
+            statusEl.className = 'status running';
+            startBtn.disabled = true;
+            cancelBtn.disabled = false;
+            outputEl.textContent = '';
+
+            streamStartTime = Date.now();
+            tokenCount = 0;
+
+            streamController = new AbortController();
+
+            try {
+                for await (const event of openStreamSim({ tokenCount: 25, tokenDelay: 120 })) {
+                    if (streamController.signal.aborted) break;
+
+                    if (event.type === 'data' && event.data) {
+                        const tokenData = JSON.parse(event.data);
+                        outputEl.textContent += tokenData.token;
+                        tokenCount++;
+                        updateStreamMetrics();
+                    }
+
+                    if (event.type === 'close') {
+                        statusEl.textContent = 'Stream completed';
+                        statusEl.className = 'status completed';
+                        break;
+                    }
+
+                    if (event.type === 'error') {
+                        statusEl.textContent = 'Stream error';
+                        statusEl.className = 'status error';
+                        break;
+                    }
+                }
+            } catch (error) {
+                statusEl.textContent = 'Stream cancelled';
+                statusEl.className = 'status cancelled';
+            }
+
+            startBtn.disabled = false;
+            cancelBtn.disabled = true;
+            streamController = null;
+        }
+
+        function cancelStream() {
+            if (streamController) {
+                streamController.abort();
+                document.getElementById('stream-status').textContent = 'Stream cancelled';
+                document.getElementById('stream-status').className = 'status cancelled';
+            }
+        }
+
+        function clearStream() {
+            document.getElementById('stream-output').textContent = 'Click "Start Stream" to begin simulation...';
+            document.getElementById('stream-status').textContent = 'Ready to start';
+            document.getElementById('stream-status').className = 'status idle';
+            tokenCount = 0;
+            updateStreamMetrics();
+        }
+
+        function updateStreamMetrics() {
+            const duration = (Date.now() - streamStartTime) / 1000;
+            const speed = duration > 0 ? (tokenCount / duration).toFixed(1) : '0';
+
+            document.getElementById('token-count').textContent = tokenCount;
+            document.getElementById('token-speed').textContent = speed;
+            document.getElementById('stream-duration').textContent = duration.toFixed(1);
+        }
+
+        async function startJob() {
+            const statusEl = document.getElementById('job-status');
+            const outputEl = document.getElementById('job-output');
+            const progressEl = document.getElementById('job-progress');
+            const startBtn = document.getElementById('job-start');
+            const cancelBtn = document.getElementById('job-cancel');
+
+            statusEl.textContent = 'Processing...';
+            statusEl.className = 'status running';
+            startBtn.disabled = true;
+            cancelBtn.disabled = false;
+            outputEl.textContent = '';
+            progressEl.style.width = '0%';
+
+            jobController = new AbortController();
+
+            try {
+                for await (const event of openJobStreamSim({ totalSteps: 8, stepDelay: 600 })) {
+                    if (jobController.signal.aborted) break;
+
+                    if (event.type === 'data' && event.data) {
+                        const jobData = JSON.parse(event.data);
+
+                        if (jobData.status === 'cancelled') {
+                            statusEl.textContent = 'Job cancelled';
+                            statusEl.className = 'status cancelled';
+                            break;
+                        }
+
+                        progressEl.style.width = jobData.progress + '%';
+                        outputEl.textContent += `[${new Date().toLocaleTimeString()}] ${jobData.step}\n`;
+                        outputEl.scrollTop = outputEl.scrollHeight;
+
+                        document.getElementById('job-percent').textContent = jobData.progress;
+                        document.getElementById('job-step').textContent = jobData.step;
+                        document.getElementById('job-eta').textContent = jobData.eta + 's';
+
+                        if (jobData.status === 'completed') {
+                            statusEl.textContent = 'Job completed';
+                            statusEl.className = 'status completed';
+                            break;
+                        }
+                    }
+                }
+            } catch (error) {
+                statusEl.textContent = 'Job cancelled';
+                statusEl.className = 'status cancelled';
+            }
+
+            startBtn.disabled = false;
+            cancelBtn.disabled = true;
+            jobController = null;
+        }
+
+        function cancelJob() {
+            if (jobController) {
+                jobController.abort();
+                document.getElementById('job-status').textContent = 'Job cancelled';
+                document.getElementById('job-status').className = 'status cancelled';
+            }
+        }
+
+        function clearJob() {
+            document.getElementById('job-output').textContent = 'Click "Start Job" to begin processing...';
+            document.getElementById('job-status').textContent = 'Ready to start';
+            document.getElementById('job-status').className = 'status idle';
+            document.getElementById('job-progress').style.width = '0%';
+            document.getElementById('job-percent').textContent = '0';
+            document.getElementById('job-step').textContent = '-';
+            document.getElementById('job-eta').textContent = '-';
+        }
+
+        async function loadReport() {
+            const statusEl = document.getElementById('report-status');
+            const outputEl = document.getElementById('report-output');
+            const loadBtn = document.getElementById('report-load');
+
+            statusEl.textContent = 'Loading...';
+            statusEl.className = 'status running';
+            loadBtn.disabled = true;
+
+            // Simulate loading delay
+            await new Promise(resolve => setTimeout(resolve, 800));
+
+            try {
+                const report = await loadReportSim();
+
+                let output = `📊 ${report.title}\n`;
+                output += `📅 Generated: ${new Date(report.timestamp).toLocaleString()}\n`;
+                output += `📋 ${report.summary}\n\n`;
+
+                output += `🎯 SCENARIOS:\n`;
+                report.analysis.scenarios.forEach(scenario => {
+                    output += `  • ${scenario.name}: ${(scenario.probability * 100).toFixed(0)}% probability, ${scenario.impact} impact\n`;
+                    output += `    → ${scenario.recommendation}\n`;
+                });
+
+                output += `\n⚠️ RISK FACTORS:\n`;
+                report.analysis.riskFactors.forEach(factor => {
+                    output += `  • ${factor}\n`;
+                });
+
+                output += `\n💡 RECOMMENDATIONS:\n`;
+                report.analysis.recommendations.forEach((rec, index) => {
+                    output += `  ${index + 1}. ${rec}\n`;
+                });
+
+                outputEl.textContent = output;
+                statusEl.textContent = 'Report loaded';
+                statusEl.className = 'status completed';
+            } catch (error) {
+                outputEl.textContent = 'Error loading report: ' + error.message;
+                statusEl.textContent = 'Load error';
+                statusEl.className = 'status error';
+            }
+
+            loadBtn.disabled = false;
+        }
+
+        function clearReport() {
+            document.getElementById('report-output').textContent = 'Click "Load Report" to see analysis results...';
+            document.getElementById('report-status').textContent = 'Ready to load';
+            document.getElementById('report-status').className = 'status idle';
+        }
+
+        // Initialize demo
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎯 DecisionGuide AI Offline Demo loaded');
+            console.log('📦 Simulation functions available for development integration');
+        });
+    </script>
+</body>
+</html>

@@ -13,9 +13,10 @@ integrations:
       usage: false
     detection:
       ui:
-        - "artifacts/ui-fixtures/*/sse-*.json"
+        - "artifacts/ui-fixtures/stream-resume-once/events.ndjson"
+        - "artifacts/ui-fixtures/stream-cancel-mid/events.ndjson"
+        - "artifacts/ui-fixtures/stream-error/events.ndjson"
         - "artifacts/ui-viewmodels/**/stream*.json"
-        - "artifacts/sse-fixtures/"
       gateway:
         - "GET /stream"
         - "GET /api/analysis/{id}/events"
@@ -39,7 +40,8 @@ integrations:
       usage: false
     detection:
       ui:
-        - "artifacts/ui-fixtures/*/jobs-*.json"
+        - "artifacts/ui-fixtures/jobs-cancel-50/events.ndjson"
+        - "artifacts/ui-fixtures/jobs-cancel-50/view-model.json"
         - "artifacts/ui-viewmodels/**/jobs*.json"
       gateway:
         - "GET /jobs/stream"
@@ -64,6 +66,8 @@ integrations:
       usage: false
     detection:
       ui:
+        - "artifacts/ui-fixtures/report-no-data/view-model.json"
+        - "artifacts/ui-fixtures/report-no-data/events.ndjson"
         - "artifacts/report-v1-sample.json"
         - "artifacts/ui-viewmodels/**/report*.json"
         - "artifacts/samples/report*.json"
@@ -82,16 +86,22 @@ integrations:
     name: "Replay this run (seed)"
     layer_map:
       ui: true
-      gateway: false
-      warp: false
+      gateway: true
+      warp: true
       jobs: false
       usage: false
     detection:
       ui:
         - "artifacts/ui-viewmodels/**/seed*.json"
         - "tools/seed-manager.ts"
+      gateway:
+        - "artifacts/contracts/examples/seed-echo.json"
+      warp:
+        - "seed echo"
+        - "deterministic replay"
       tests:
         - "npm run seeds:*"
+        - "seed-echo.test.ts"
     owner: "Windsurf"
     priority: "P2"
     acceptance: "User can replay exact same analysis with same seed value"
@@ -226,7 +236,7 @@ integrations:
       warp:
         - "Cache-Control: no-store"
       tests:
-        - "cache header tests"
+        - "cache-control.test.ts"
     owner: "Warp"
     priority: "P2"
     acceptance: "Responses include proper Cache-Control headers to prevent caching"

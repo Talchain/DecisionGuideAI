@@ -1,0 +1,43 @@
+{
+  "events": [
+    {
+      "id": "1",
+      "event": "token",
+      "data": {
+        "id": "token_000",
+        "text": "Starting",
+        "timestamp": "2025-09-25T20:41:17.600Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "2",
+      "event": "token",
+      "data": {
+        "id": "token_001",
+        "text": " analysis",
+        "timestamp": "2025-09-25T20:41:17.750Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "3",
+      "event": "error",
+      "data": {
+        "error": {
+          "code": "RATE_LIMIT_EXCEEDED",
+          "message": "Request rate limit exceeded. Please try again in a few minutes.",
+          "retryHint": "Wait 60 seconds before retrying"
+        },
+        "timestamp": "2025-09-25T20:41:17.900Z",
+        "sessionId": "sample-scenario-session"
+      }
+    }
+  ],
+  "error": {
+    "message": "Request rate limit exceeded. Please try again in a few minutes.",
+    "retryHint": "Wait 60 seconds before retrying",
+    "code": "RATE_LIMIT_EXCEEDED"
+  },
+  "state": "error"
+}

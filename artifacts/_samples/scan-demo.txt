@@ -1,0 +1,26 @@
+# Scan Demo File
+# This file contains dummy patterns to test the artefacts scanner
+
+## Safe Examples (should be ignored by smart filters)
+- Email: user@example.com
+- Email: test@demo.com
+- Phone: 555-0123 (obviously fake)
+- Sample ID: sample-12345
+
+## Potential Findings (for testing detection)
+# Note: These are dummy/example values for testing only
+
+# Medium severity PII-like patterns (advisory only)
+Contact: john.smith@realcompany.co.uk
+Phone: +44-7700-900123
+
+# Low severity patterns
+NI: AB123456C
+Address: 123 Test Street, Sample City
+
+## Notes
+This file is used to validate that the scanner can detect various patterns
+while being smart about obvious examples and test data.
+
+The scanner should report these as advisory findings only, not critical issues.
+All values above are fake/dummy data for testing purposes.

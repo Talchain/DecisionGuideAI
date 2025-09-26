@@ -436,6 +436,10 @@ class ScorecardGenerator {
   }
 
   private isExplicitlyBlocked(integration: Integration, evidence: Evidence): boolean {
+    // Check for explicit status: "BLOCKED" in YAML
+    if ((integration as any).status === 'BLOCKED') {
+      return true;
+    }
     // Check for failing contract wall (future)
     // Check for explicit blocking markers (future)
     return false;

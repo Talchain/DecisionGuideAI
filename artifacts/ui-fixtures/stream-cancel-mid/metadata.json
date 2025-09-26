@@ -1,0 +1,11 @@
+{
+  "name": "stream-cancel-mid",
+  "description": "NDJSON SSE that stops mid-run and ends with a terminal done carrying reason: cancelled",
+  "version": "v3",
+  "seed": "deterministic-cancel-001",
+  "baseTimestamp": "2024-01-15T10:30:00.000Z",
+  "totalEvents": 6,
+  "tokenEvents": 5,
+  "finalState": "cancelled",
+  "deterministic": true
+}

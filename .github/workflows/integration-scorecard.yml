@@ -1,0 +1,190 @@
+name: Integration Scorecard
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'openapi/**'
+      - 'integration/**'
+      - 'artifacts/**'
+      - 'package.json'
+      - 'tools/scorecard-*.ts'
+      - 'artifacts/scorecard/*.yaml'
+
+  workflow_dispatch:
+    inputs:
+      COMMENT_ENABLED:
+        description: 'Post PR comment with scorecard changes'
+        type: boolean
+        default: false
+        required: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scorecard:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.COMMENT_ENABLED == 'true')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate integration scorecard
+        run: |
+          echo "🔍 Generating integration scorecard..."
+          npm run scorecard:generate
+
+      - name: Generate scorecard diff
+        run: |
+          echo "📊 Generating scorecard diff..."
+          npm run scorecard:diff
+
+      - name: Upload scorecard HTML as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-scorecard-${{ github.run_number }}
+          path: artifacts/integration-scorecard.html
+          retention-days: 30
+
+      - name: Read scorecard data
+        id: scorecard
+        run: |
+          # Read scorecard JSON for summary data
+          COVERAGE=$(jq -r '.totals.coveragePercent' artifacts/integration-scorecard.json)
+          TOTAL=$(jq -r '.totals.total' artifacts/integration-scorecard.json)
+          VERIFIED=$(jq -r '.totals.verified' artifacts/integration-scorecard.json)
+
+          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "verified=$VERIFIED" >> $GITHUB_OUTPUT
+
+          # Read diff summary if available
+          if [ -f artifacts/integration-scorecard-diff.md ]; then
+            SUMMARY=$(grep "^\*\*Summary\*\*:" artifacts/integration-scorecard-diff.md | sed 's/\*\*Summary\*\*: //')
+            echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
+          else
+            echo "summary=Scorecard generated" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Extract diff highlights
+        id: diff_highlights
+        run: |
+          if [ -f artifacts/integration-scorecard-diff.md ]; then
+            # Extract key sections from diff
+            NEW_COUNT=$(grep -c "^- \*\*.*\*\* (P[0-9])" artifacts/integration-scorecard-diff.md || echo "0")
+            IMPROVED_COUNT=$(grep -c "→" artifacts/integration-scorecard-diff.md || echo "0")
+
+            echo "new_count=$NEW_COUNT" >> $GITHUB_OUTPUT
+            echo "improved_count=$IMPROVED_COUNT" >> $GITHUB_OUTPUT
+
+            # Get first few items for display
+            HIGHLIGHTS=""
+            if [ -f artifacts/integration-scorecard-diff.md ]; then
+              HIGHLIGHTS=$(grep -A1 "^- \*\*" artifacts/integration-scorecard-diff.md | head -10 | sed 's/^- \*\*/• /' | tr '\n' ' ')
+            fi
+            echo "highlights=$HIGHLIGHTS" >> $GITHUB_OUTPUT
+          else
+            echo "new_count=0" >> $GITHUB_OUTPUT
+            echo "improved_count=0" >> $GITHUB_OUTPUT
+            echo "highlights=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Post or update PR comment
+        if: github.event_name == 'pull_request' || github.event.inputs.COMMENT_ENABLED == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const coverage = '${{ steps.scorecard.outputs.coverage }}';
+            const total = '${{ steps.scorecard.outputs.total }}';
+            const verified = '${{ steps.scorecard.outputs.verified }}';
+            const summary = '${{ steps.scorecard.outputs.summary }}';
+            const newCount = '${{ steps.diff_highlights.outputs.new_count }}';
+            const improvedCount = '${{ steps.diff_highlights.outputs.improved_count }}';
+
+            // Determine coverage direction
+            let coverageIcon = '📊';
+            if (summary.includes('↑')) coverageIcon = '📈';
+            if (summary.includes('↓')) coverageIcon = '📉';
+
+            // Build comment
+            let commentBody = `## 🗺️ Integration Scorecard Updated
+
+            ${coverageIcon} **Coverage: ${coverage}%** (${verified}/${total} verified)
+
+            **Summary**: ${summary}
+
+            `;
+
+            // Add change highlights
+            if (newCount > 0 || improvedCount > 0) {
+              commentBody += `### 📋 Changes in this PR\n\n`;
+              if (newCount > 0) commentBody += `• **${newCount}** new integrations\n`;
+              if (improvedCount > 0) commentBody += `• **${improvedCount}** status improvements\n`;
+              commentBody += `\n`;
+            }
+
+            // Add artifact link
+            commentBody += `### 🔗 Resources
+
+            • [📊 View Full Scorecard](../actions/runs/${{ github.run_id }}) (see artifacts)
+            • [📝 Detailed Changes](../blob/${{ github.head_ref || github.ref_name }}/artifacts/integration-scorecard-diff.md)
+
+            ---
+            <sub>Integration scorecard generated automatically • No secrets or PII included</sub>`;
+
+            // Check for existing comment
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existingComment = comments.data.find(comment =>
+              comment.user.login === 'github-actions[bot]' &&
+              comment.body.includes('🗺️ Integration Scorecard Updated')
+            );
+
+            if (existingComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: commentBody
+              });
+              console.log('Updated existing integration scorecard comment');
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: commentBody
+              });
+              console.log('Created new integration scorecard comment');
+            }
+
+      - name: Summary
+        run: |
+          echo "✅ Integration Scorecard workflow completed"
+          echo "Coverage: ${{ steps.scorecard.outputs.coverage }}%"
+          echo "Summary: ${{ steps.scorecard.outputs.summary }}"

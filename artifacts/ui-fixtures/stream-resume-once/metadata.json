@@ -1,0 +1,12 @@
+{
+  "name": "stream-resume-once",
+  "description": "NDJSON SSE with event ids (monotonic), a simulated disconnect, then a single resume using Last-Event-ID, and no duplicated tokens",
+  "version": "v3",
+  "seed": "deterministic-resume-001",
+  "baseTimestamp": "2024-01-15T10:30:00.000Z",
+  "totalEvents": 11,
+  "disconnectEventId": "5",
+  "resumeFromEventId": "5",
+  "totalTokens": 9,
+  "deterministic": true
+}

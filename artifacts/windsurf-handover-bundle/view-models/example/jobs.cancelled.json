@@ -1,0 +1,67 @@
+{
+  "progress": {
+    "current": 50,
+    "total": 100,
+    "percent": 50
+  },
+  "state": "cancelled",
+  "events": [
+    {
+      "id": "1",
+      "event": "progress",
+      "data": {
+        "jobId": "job-001",
+        "progress": 0,
+        "total": 100,
+        "percent": 0,
+        "status": "running",
+        "timestamp": "2025-09-25T20:41:17.300Z"
+      }
+    },
+    {
+      "id": "2",
+      "event": "progress",
+      "data": {
+        "jobId": "job-001",
+        "progress": 25,
+        "total": 100,
+        "percent": 25,
+        "status": "running",
+        "timestamp": "2025-09-25T20:41:17.500Z"
+      }
+    },
+    {
+      "id": "3",
+      "event": "progress",
+      "data": {
+        "jobId": "job-001",
+        "progress": 50,
+        "total": 100,
+        "percent": 50,
+        "status": "running",
+        "timestamp": "2025-09-25T20:41:17.700Z"
+      }
+    },
+    {
+      "id": "4",
+      "event": "cancel",
+      "data": {
+        "jobId": "job-001",
+        "reason": "user_cancelled",
+        "finalProgress": 50,
+        "timestamp": "2025-09-25T20:41:17.900Z"
+      }
+    },
+    {
+      "id": "5",
+      "event": "done",
+      "data": {
+        "jobId": "job-001",
+        "status": "cancelled",
+        "reason": "user_cancelled",
+        "finalProgress": 50,
+        "timestamp": "2025-09-25T20:41:17.900Z"
+      }
+    }
+  ]
+}

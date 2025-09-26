@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SARB Diff Report</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 2rem; line-height: 1.6; }
+        .header { background: #f8f9fa; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; }
+        .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 2rem 0; }
+        .bundle { background: #fff; border: 1px solid #e9ecef; border-radius: 8px; padding: 1.5rem; }
+        .metrics { background: #f8f9fa; padding: 1rem; border-radius: 6px; margin: 1rem 0; }
+        .result { padding: 0.5rem 1rem; border-radius: 6px; margin: 0.5rem 0; }
+        .better { background: #d4edda; border-left: 4px solid #28a745; }
+        .worse { background: #f8d7da; border-left: 4px solid #dc3545; }
+        .same { background: #e2e3e5; border-left: 4px solid #6c757d; }
+        .verdict { font-size: 1.25rem; font-weight: bold; text-align: center; padding: 1rem; border-radius: 8px; }
+        .transcript { background: #f8f9fa; padding: 1rem; border-radius: 6px; font-family: monospace; font-size: 0.9rem; max-height: 400px; overflow-y: auto; white-space: pre-wrap; }
+        .side-by-side { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .side-by-side h3 { margin-top: 0; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 SARB Diff Report</h1>
+        <p><strong>Generated:</strong> 26/09/2025, 09:16:48</p>
+    </div>
+
+    <div class="comparison">
+        <div class="bundle">
+            <h2>📦 Bundle A</h2>
+            <p><strong>Title:</strong> API Security Implementation</p>
+            <p><strong>Created:</strong> 25/09/2025, 00:22:34</p>
+            <p><strong>Path:</strong> <code>/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/runs/policy-test.sarb.zip</code></p>
+        </div>
+        <div class="bundle">
+            <h2>📦 Bundle B</h2>
+            <p><strong>Title:</strong> Database Technology Selection</p>
+            <p><strong>Created:</strong> 25/09/2025, 00:17:24</p>
+            <p><strong>Path:</strong> <code>/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/runs/database-selection.sarb.zip</code></p>
+        </div>
+    </div>
+
+    <div class="metrics">
+        <h2>📈 Key Metrics</h2>
+        <ul>
+            <li><strong>Token Delta:</strong> -11339 tokens</li>
+            <li><strong>Cost Delta:</strong> $-22.6780</li>
+            <li><strong>Time Delta:</strong> +1s</li>
+            <li><strong>Content Similarity:</strong> 85%</li>
+        </ul>
+    </div>
+
+    <h2>🔍 Detailed Comparison</h2>
+    
+    <div class="result better">
+        <h3>Performance</h3>
+        <p><strong>Status:</strong> BETTER</p>
+        <p><strong>Reason:</strong> B uses 11339 fewer tokens and is 1s faster</p>
+        <p><strong>Details:</strong> A: 12109 tokens in 15s | B: 770 tokens in 16s</p>
+    </div>
+    
+    <div class="result better">
+        <h3>Cost</h3>
+        <p><strong>Status:</strong> BETTER</p>
+        <p><strong>Reason:</strong> B costs $22.6780 less</p>
+        <p><strong>Details:</strong> A: $24.2180 | B: $1.5400</p>
+    </div>
+    
+    <div class="result same">
+        <h3>Content</h3>
+        <p><strong>Status:</strong> SAME</p>
+        <p><strong>Reason:</strong> Highly similar content</p>
+        <p><strong>Details:</strong> 85% similarity</p>
+    </div>
+    
+    <div class="result same">
+        <h3>Timing</h3>
+        <p><strong>Status:</strong> SAME</p>
+        <p><strong>Reason:</strong> Consistent step timing</p>
+        <p><strong>Details:</strong> Average step time: A=3001ms | B=3229ms</p>
+    </div>
+    
+    <div class="result better">
+        <h3>Overall</h3>
+        <p><strong>Status:</strong> BETTER</p>
+        <p><strong>Reason:</strong> B is better in 2 areas, worse in 0</p>
+        <p><strong>Details:</strong> Better: 2, Same: 2, Worse: 0</p>
+    </div>
+    
+
+    <div class="verdict better">
+        <h2>🎯 Overall Verdict</h2>
+        <p>B is better in 2 areas, worse in 0</p>
+        <p><small>Better: 2, Same: 2, Worse: 0</small></p>
+    </div>
+
+    <h2>📝 Side-by-Side Transcripts</h2>
+    <div class="side-by-side">
+        <div>
+            <h3>Bundle A</h3>
+            <div class="transcript" id="transcriptA">Loading...</div>
+        </div>
+        <div>
+            <h3>Bundle B</h3>
+            <div class="transcript" id="transcriptB">Loading...</div>
+        </div>
+    </div>
+
+    <script>
+        // This would load full transcripts in a real implementation
+        document.getElementById('transcriptA').textContent = 'Transcript A content would be here...';
+        document.getElementById('transcriptB').textContent = 'Transcript B content would be here...';
+    </script>
+</body>
+</html>

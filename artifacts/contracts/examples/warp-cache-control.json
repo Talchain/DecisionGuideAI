@@ -1,0 +1,74 @@
+{
+  "info": {
+    "title": "Warp Cache-Control Headers",
+    "description": "Warp service responses with proper cache control headers",
+    "version": "1.0",
+    "generated": "2025-09-25T22:00:00.000Z",
+    "source": "warp_service"
+  },
+  "examples": {
+    "warp_analysis_request": {
+      "name": "Process Analysis via Warp",
+      "method": "POST",
+      "path": "/api/warp/analysis",
+      "description": "Submit analysis request to Warp engine",
+      "request": {
+        "sessionId": "sess_demo_001",
+        "analysisType": "decision_critique",
+        "context": {
+          "decisionTitle": "Choose Framework",
+          "options": ["React", "Vue", "Angular"]
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "warpId": "warp_ana_001",
+          "status": "processing",
+          "estimatedDuration": "30s"
+        }
+      }
+    },
+    "warp_stream_response": {
+      "name": "Warp Stream Response",
+      "method": "GET",
+      "path": "/api/warp/stream/{sessionId}",
+      "description": "Stream analysis tokens from Warp engine",
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-store",
+          "Connection": "keep-alive"
+        },
+        "body": "data: {\"id\":\"tok_1\",\"text\":\"Analyzing...\"}\n\ndata: {\"id\":\"done\",\"type\":\"done\"}\n\n"
+      }
+    },
+    "warp_report_response": {
+      "name": "Warp Report Generation",
+      "method": "GET",
+      "path": "/api/warp/report/{analysisId}",
+      "description": "Get analysis report from Warp engine",
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "reportId": "rep_001",
+          "analysisId": "ana_001",
+          "generatedAt": "2025-09-25T22:00:00Z",
+          "analysis": {
+            "summary": "Decision analysis complete",
+            "recommendation": "Proceed with React framework"
+          }
+        }
+      }
+    }
+  }
+}

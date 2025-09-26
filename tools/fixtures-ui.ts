@@ -1,53 +1,52 @@
 #!/usr/bin/env tsx
+/**
+ * UI Fixtures Generator v3
+ * Generates deterministic edge-case fixtures for Windsurf UI development
+ * Usage: npm run fixtures:ui
+ */
 
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { writeFileSync, readFileSync, existsSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-interface SSEEvent {
-  id?: string;
-  event?: string;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const PROJECT_ROOT = dirname(__dirname);
+const FIXTURES_DIR = join(PROJECT_ROOT, 'artifacts', 'ui-fixtures');
+
+interface FixtureEvent {
+  id: string;
+  event: string;
   data: string;
-  timestamp?: number;
 }
 
-interface StreamViewModel {
-  sessionId: string;
-  status: 'idle' | 'streaming' | 'completed' | 'cancelled' | 'error';
-  tokens: Array<{
-    id: string;
-    text: string;
-    timestamp: number;
-  }>;
-  metadata?: {
-    totalTokens: number;
-    totalCost: number;
-    duration: number;
-    model: string;
-  };
-  error?: {
-    code: string;
-    message: string;
-    details?: string;
-  };
+interface ParsedEventData {
+  [key: string]: any;
 }
 
-interface JobsViewModel {
-  sessionId: string;
-  jobs: Array<{
-    id: string;
-    name: string;
-    status: 'pending' | 'running' | 'completed' | 'cancelled' | 'error';
-    progress: number; // 0-100
-    startTime?: number;
-    endTime?: number;
-    error?: string;
-  }>;
+interface FixtureSet {
+  name: string;
+  events: FixtureEvent[];
+  viewModel: any;
+  expectedProps: any;
+  metadata: any;
 }
 
-interface ReportViewModel {
-  reportId: string;
-  meta: {
-    seed: number;
+class UIFixturesGenerator {
+
+  constructor() {
+    this.log('🎨 UI Fixtures Generator v3');
+    this.log('=' .repeat(35));
+  }
+
+  log(message: string): void {
+    console.log(message);
+  }
+
+  // Base timestamp for deterministic fixtures
+  getBaseTimestamp(): Date {
+    return new Date('2024-01-15T10:30:00.000Z');
+  }
     timestamp: string;
     duration: number;
     status: 'completed' | 'cancelled' | 'error';

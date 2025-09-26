@@ -1,0 +1,89 @@
+{
+  "info": {
+    "title": "Seed Echo Examples",
+    "description": "Demonstrates deterministic replay via seed parameter echo",
+    "generated": "2025-09-25T22:31:00.000Z"
+  },
+  "examples": {
+    "analysis_with_seed": {
+      "request": {
+        "method": "GET",
+        "path": "/stream?route=critique&sessionId=test&seed=42&budget=500",
+        "headers": {
+          "Accept": "text/event-stream"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-store"
+        },
+        "events": [
+          {
+            "event": "start",
+            "data": {
+              "analysisId": "ana_seed_42_001",
+              "seed": 42,
+              "timestamp": "2025-09-25T22:31:00.000Z"
+            }
+          },
+          {
+            "event": "complete",
+            "data": {
+              "analysisId": "ana_seed_42_001",
+              "seed": 42,
+              "status": "completed",
+              "timestamp": "2025-09-25T22:31:05.000Z"
+            }
+          }
+        ]
+      }
+    },
+    "report_with_seed": {
+      "request": {
+        "method": "GET",
+        "path": "/api/analysis/ana_seed_42_001/report?seed=42",
+        "headers": {
+          "Accept": "application/json"
+        }
+      },
+      "response": {
+        "status": 200,
+        "headers": {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-store"
+        },
+        "body": {
+          "seed": 42,
+          "orgId": "local",
+          "userId": "tester",
+          "route": "critique",
+          "traceId": "trace-seed-42",
+          "startedAt": "2025-09-25T22:31:00.000Z",
+          "finishedAt": "2025-09-25T22:31:05.000Z",
+          "totals": {
+            "inputTokens": 1200,
+            "outputTokens": 256,
+            "costUsd": 0.0123
+          },
+          "steps": [
+            {
+              "id": "step_001",
+              "type": "analysis",
+              "status": "completed",
+              "attempts": 1,
+              "durationMs": 2500,
+              "outcome": "success"
+            }
+          ],
+          "metadata": {
+            "deterministic": true,
+            "seedUsed": 42,
+            "replayable": true
+          }
+        }
+      }
+    }
+  }
+}

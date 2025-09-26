@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "event": { "type": "string" },
+          "data": { "type": "object" }
+        },
+        "required": ["id", "event", "data"]
+      }
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "message": { "type": "string" },
+        "retryHint": { "type": "string" },
+        "code": { "type": "string" }
+      },
+      "required": ["message", "retryHint", "code"]
+    },
+    "state": {
+      "type": "string",
+      "enum": ["error"]
+    }
+  },
+  "required": ["events", "error", "state"]
+}
