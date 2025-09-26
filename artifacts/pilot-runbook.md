@@ -62,16 +62,19 @@ If anything breaks: **Switch to offline demo page**
 
 ## 📝 Capture Notes (No Personal Data)
 
-During or after the demo:
+During or after the demo, capture feedback safely:
 
 ```bash
 # Quick note capture (terminal)
 npm run pilot:note "Great response to stream cancellation demo"
 npm run pilot:note "Questions about integration complexity"
+npm run pilot:note "Stream performance was excellent"
 
-# Generate summary after demo
+# Generate summary after demo session
 npm run pilot:notes:summary
 ```
+
+**Note Format**: All notes are timestamped and stored in `artifacts/reports/pilot-notes.md`. The summary tool automatically categorizes feedback and generates insights in `artifacts/reports/pilot-notes-summary.md`.
 
 **Safe to capture:**
 - ✅ Feature feedback ("loved the real-time aspect")

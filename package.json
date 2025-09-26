@@ -42,6 +42,8 @@
     "budget:check": "tsx ./tools/budget-checker.ts check",
     "budget:update": "tsx ./tools/budget-checker.ts update",
     "preflight:budget": "tsx ./tools/budget-checker.ts check",
+    "pilot:note": "tsx ./tools/pilot-notes.ts",
+    "pilot:notes:summary": "tsx ./tools/pilot-notes-summary.ts",
     "report:from-sarb": "tsx ./tools/report-synthesiser.ts",
     "policy:check": "tsx ./tools/policy-checker.ts",
     "exp:run": "tsx ./tools/exp-runner.ts",
