@@ -84,13 +84,12 @@ Pre-approved commands (read-only or local build/test only):
 - `npm run artefacts:scan`, `npm run artefacts:scan:strict`
 - `npm run typecheck`, `npm test`
 
-Read-only shell utilities on files INSIDE this worktree:
+Shell utilities:
+- `tar -tzf <file.tgz>` ; `zip -r <zipname> <dir under /artifacts>`
 - `cat`, `head`, `tail`, `grep`, `sed`, `jq`, simple `bash` loops and pipes
+- `chmod +x tools/** artifacts/**`
 - Example: parse `/artifacts/pages-manifest-demo.json` or `/artifacts/reports/artefact-scan.md`
 
-Pre-approved EDIT PATHS (writes allowed inside these only):
-- `artifacts/**`, `tools/**`, `integration/**`, `openapi/**`, `.github/**`, `docs/**`
-- Specifically allowed: `artifacts/poc-v1-release-kit.html`
+Approved edit paths: `artifacts/**`, `tools/**`, `integration/**`, `openapi/**`, `.github/**`, `docs/**`
 
-Still NOT allowed without asking:
-- Starting servers, publishing, force pushes, editing the PROTECTED Windsurf folder, writing secrets/env files, tagging/releases.
+Not allowed without asking: starting servers, publishing, force pushes, tags/releases, editing PROTECTED Windsurf, writing secrets/env files.
