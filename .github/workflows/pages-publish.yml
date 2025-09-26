@@ -1,21 +1,26 @@
-name: GitHub Pages Publisher
+name: Publish GitHub Pages (Manual)
 
+# OFF by default - requires manual workflow_dispatch
 on:
   workflow_dispatch:
     inputs:
       publish:
-        description: 'Actually publish to GitHub Pages'
+        description: 'Actually publish to GitHub Pages (default: false = dry-run)'
         type: boolean
         default: false
-        required: true
+        required: false
       subset:
-        description: 'Which subset of artifacts to publish'
+        description: 'Content subset to publish'
         type: choice
         options:
           - demo
-          - all-safe
         default: demo
-        required: true
+        required: false
+      strict_scan:
+        description: 'Enable strict scanning (blocks on Critical findings)'
+        type: boolean
+        default: false
+        required: false
 
 permissions:
   contents: read
@@ -46,91 +51,166 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Define file subsets
-        id: subsets
+      - name: Run artefacts scan and get summary
         run: |
-          if [ "${{ github.event.inputs.subset }}" = "demo" ]; then
-            echo "files<<EOF" >> $GITHUB_OUTPUT
-            echo "artifacts/start-here.html" >> $GITHUB_OUTPUT
-            echo "artifacts/index.html" >> $GITHUB_OUTPUT
-            echo "artifacts/sarb-explorer.html" >> $GITHUB_OUTPUT
-            echo "artifacts/experiments/index.html" >> $GITHUB_OUTPUT
-            echo "artifacts/transcripts/framework-test.html" >> $GITHUB_OUTPUT
-            echo "artifacts/samples/sample-report.json" >> $GITHUB_OUTPUT
-            echo "artifacts/ui-viewmodels/" >> $GITHUB_OUTPUT
-            echo "artifacts/types/README.md" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+          if [ "${{ github.event.inputs.strict_scan }}" = "true" ]; then
+            echo "🔒 Running in strict scan mode"
+            npm run artefacts:scan:strict
           else
-            echo "files<<EOF" >> $GITHUB_OUTPUT
-            echo "artifacts/*.html" >> $GITHUB_OUTPUT
-            echo "artifacts/*.md" >> $GITHUB_OUTPUT
-            echo "artifacts/experiments/" >> $GITHUB_OUTPUT
-            echo "artifacts/transcripts/" >> $GITHUB_OUTPUT
-            echo "artifacts/ui-viewmodels/" >> $GITHUB_OUTPUT
-            echo "artifacts/ui-copy/" >> $GITHUB_OUTPUT
-            echo "artifacts/types/" >> $GITHUB_OUTPUT
-            echo "artifacts/samples/" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            echo "🔍 Running in advisory scan mode (non-blocking)"
+            npm run artefacts:scan || true
           fi
 
-      - name: Prepare publish directory
+          # Extract scan results for summary
+          if [ -f "artifacts/reports/artefact-scan.md" ]; then
+            SCAN_FILES=$(grep "Files Scanned:" artifacts/reports/artefact-scan.md | head -1 | sed 's/.*Files Scanned.*: \([0-9]*\).*/\1/' || echo "0")
+            SCAN_ISSUES=$(grep "Total Issues:" artifacts/reports/artefact-scan.md | head -1 | sed 's/.*Total Issues.*: \([0-9]*\).*/\1/' || echo "0")
+            echo "SCAN_FILES=$SCAN_FILES" >> $GITHUB_ENV
+            echo "SCAN_ISSUES=$SCAN_ISSUES" >> $GITHUB_ENV
+          else
+            echo "SCAN_FILES=0" >> $GITHUB_ENV
+            echo "SCAN_ISSUES=0" >> $GITHUB_ENV
+          fi
+
+          # Get contract coverage
+          npm run contract:coverage > /dev/null 2>&1 || true
+          if [ -f "artifacts/reports/contract-coverage.html" ]; then
+            COVERAGE_PERCENT=$(grep -o "Average Coverage: [0-9]*%" artifacts/reports/contract-coverage.html | head -1 | sed 's/Average Coverage: \([0-9]*\)%.*/\1/' || echo "0")
+            echo "COVERAGE_PERCENT=$COVERAGE_PERCENT" >> $GITHUB_ENV
+          else
+            echo "COVERAGE_PERCENT=0" >> $GITHUB_ENV
+          fi
+
+          echo "📊 Scan completed: $SCAN_FILES files, $SCAN_ISSUES issues"
+          echo "📊 Coverage: $COVERAGE_PERCENT%"
+
+      - name: Prepare demo subset from manifest
+        if: inputs.subset == 'demo'
         run: |
           mkdir -p _site
 
-          # Add demo banner to all HTML files
-          banner='<div style="background: #ffeaa7; padding: 8px; text-align: center; font-family: monospace; border-bottom: 2px solid #fdcb6e; margin-bottom: 16px;"><strong>🚀 Demo artefacts only — no personal data</strong></div>'
-
-          # Copy and process files based on subset
-          while IFS= read -r pattern; do
-            if [[ -n "$pattern" ]]; then
-              if [[ -d "$pattern" ]]; then
-                cp -r "$pattern" _site/
-              elif [[ "$pattern" == *"*"* ]]; then
-                # Handle glob patterns
-                for file in $pattern; do
-                  if [[ -f "$file" ]]; then
-                    if [[ "$file" == *.html ]]; then
-                      # Add banner to HTML files
-                      sed "s|<body[^>]*>|&$banner|" "$file" > "_site/$(basename "$file")"
-                    else
-                      cp "$file" "_site/"
-                    fi
-                  fi
-                done
-              elif [[ -f "$pattern" ]]; then
-                if [[ "$pattern" == *.html ]]; then
-                  # Add banner to HTML files
-                  sed "s|<body[^>]*>|&$banner|" "$pattern" > "_site/$(basename "$pattern")"
-                else
-                  cp "$pattern" "_site/"
-                fi
-              fi
-            fi
-          done <<< "${{ steps.subsets.outputs.files }}"
-
-      - name: List files to publish (dry-run)
-        if: github.event.inputs.publish == 'false'
-        run: |
-          echo "## Files that would be published (subset: ${{ github.event.inputs.subset }})"
-          find _site -type f | sort | while read file; do
-            size=$(du -h "$file" | cut -f1)
-            echo "- $file ($size)"
-          done
+          echo "📋 Reading demo manifest: artifacts/pages-manifest-demo.json"
+          echo "📊 Artefacts scan: $SCAN_FILES files scanned, $SCAN_ISSUES issues found"
+          echo "📊 Contract coverage: $COVERAGE_PERCENT%"
           echo ""
-          echo "Total files: $(find _site -type f | wc -l)"
-          echo "Total size: $(du -sh _site | cut -f1)"
 
-      - name: Setup Pages
-        if: github.event.inputs.publish == 'true'
-        uses: actions/configure-pages@v4
+          if [ ! -f "artifacts/pages-manifest-demo.json" ]; then
+            echo "❌ Demo manifest not found, falling back to basic files"
+            cp artifacts/start-here.html _site/index.html 2>/dev/null || echo "⚠️ start-here.html not found"
+            exit 0
+          fi
 
-      - name: Upload artifact
-        if: github.event.inputs.publish == 'true'
+          echo "🏗️ Preparing demo subset using manifest (curated safe files only)"
+
+          # Read allowed files from manifest and copy them
+          cat artifacts/pages-manifest-demo.json | jq -r '.allowedFiles[]' 2>/dev/null | while read file; do
+            if [ -f "$file" ]; then
+              # Create directory structure
+              target_dir="_site/$(dirname "$file")"
+              mkdir -p "$target_dir"
+
+              # Copy file
+              cp "$file" "_site/$file"
+              echo "✅ Copied: $file"
+            else
+              echo "⚠️ Not found: $file"
+            fi
+          done
+
+          # Copy sample files
+          cat artifacts/pages-manifest-demo.json | jq -r '.sampleFiles[]' 2>/dev/null | while read file; do
+            if [ -f "$file" ]; then
+              target_dir="_site/$(dirname "$file")"
+              mkdir -p "$target_dir"
+              cp "$file" "_site/$file"
+              echo "✅ Sample: $file"
+            else
+              echo "⚠️ Sample not found: $file"
+            fi
+          done
+
+          # Set start-here.html as index.html
+          if [ -f "_site/artifacts/start-here.html" ]; then
+            cp "_site/artifacts/start-here.html" "_site/index.html"
+            echo "✅ Set start-here.html as index.html"
+          fi
+
+          echo ""
+          echo "📁 Demo subset prepared using manifest"
+
+      - name: Add demo banner to HTML files
+        run: |
+          # Add banner to all HTML files
+          find _site -name "*.html" -type f -exec sed -i.bak 's|<body[^>]*>|&\
+          <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 8px; margin: 10px 0; border-radius: 4px; font-size: 14px; color: #856404;">\
+          <strong>🏷️ Demo artefacts only</strong> — No personal data included. Generated from DecisionGuide AI integration tests.\
+          </div>|' {} \; && rm -f _site/*.bak
+
+      - name: List files and show summary (dry-run or publish)
+        run: |
+          echo "📊 Publication Summary"
+          echo "======================"
+          echo "📊 Artefacts scan: $SCAN_FILES files scanned, $SCAN_ISSUES issues found"
+          echo "📊 Contract coverage: $COVERAGE_PERCENT%"
+          echo "🎯 Publish mode: ${{ inputs.publish }}"
+          echo "📦 Subset: ${{ inputs.subset }}"
+          echo ""
+
+          echo "📋 Files to be published:"
+          TOTAL_FILES=0
+          TOTAL_SIZE=0
+          find _site -type f 2>/dev/null | sort | sed 's|_site/||' | while read file; do
+            if [ -f "_site/$file" ]; then
+              size=$(wc -c "_site/$file" 2>/dev/null | awk '{print $1}' || echo "0")
+              echo "  📄 $file (${size} bytes)"
+              TOTAL_FILES=$((TOTAL_FILES + 1))
+              TOTAL_SIZE=$((TOTAL_SIZE + size))
+            fi
+          done || echo "No files found"
+
+          FILE_COUNT=$(find _site -type f 2>/dev/null | wc -l || echo "0")
+          TOTAL_SIZE_KB=$(du -sk _site 2>/dev/null | awk '{print $1}' || echo "0")
+
+          echo ""
+          echo "📊 Total: $FILE_COUNT files, ${TOTAL_SIZE_KB}KB"
+
+          # Reference scan report
+          if [ -f "_site/artifacts/reports/artefact-scan.md" ]; then
+            echo "🔗 Security scan report included: artifacts/reports/artefact-scan.md"
+          fi
+
+      - name: Setup Pages (only if publishing)
+        if: inputs.publish == true
+        uses: actions/configure-pages@v5
+
+      - name: Upload to GitHub Pages (only if publishing)
+        if: inputs.publish == true
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '_site'
+          path: _site/
 
-      - name: Deploy to GitHub Pages
-        if: github.event.inputs.publish == 'true'
-        id: deployment
+      - name: Deploy to GitHub Pages (only if publishing)
+        if: inputs.publish == true
         uses: actions/deploy-pages@v4
+        id: deployment
+
+      - name: Summary
+        run: |
+          echo "## 📊 Pages Publisher Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Publish**: ${{ inputs.publish }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Subset**: ${{ inputs.subset }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Strict Scan**: ${{ inputs.strict_scan }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Files prepared**: $(find _site -type f 2>/dev/null | wc -l || echo 0)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ inputs.publish }}" = "true" ]; then
+            echo "✅ **Published** to GitHub Pages" >> $GITHUB_STEP_SUMMARY
+            echo "🔗 Site URL: ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "🏃 **Dry-run completed** - no files published" >> $GITHUB_STEP_SUMMARY
+            echo "💡 Set \`publish: true\` to actually publish" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 [Artefacts scan report](./reports/artefact-scan.md)" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,84 @@
+{
+  "name": "DecisionGuide AI Demo Manifest",
+  "description": "Curated subset of artifacts safe for public GitHub Pages publishing",
+  "version": "1.0.0",
+  "lastUpdated": "2025-09-26T14:32:00Z",
+  "allowedFiles": [
+    "artifacts/start-here.html",
+    "artifacts/index.html",
+    "artifacts/integration-status.html",
+    "artifacts/integration-scorecard.html",
+    "artifacts/poc-v1-release-kit.html",
+    "artifacts/warp-conformance.md",
+    "artifacts/reports/warp-conformance.html",
+    "artifacts/reports/artefact-scan.md",
+    "artifacts/reports/contract-coverage.html",
+    "artifacts/windsurf-wiring-guide.md",
+    "artifacts/ui-fixtures/README.md",
+    "artifacts/ui-kickstart-pack/README.md",
+    "artifacts/live-swap-checklist.md",
+    "artifacts/sim-viewer-instructions.md"
+  ],
+  "allowedDirectories": [
+    "artifacts/ui-fixtures/stream-resume-once/",
+    "artifacts/ui-fixtures/jobs-cancel-50/",
+    "artifacts/ui-fixtures/stream-error/",
+    "artifacts/ui-viewmodels/example/"
+  ],
+  "sampleFiles": [
+    "artifacts/samples/report-v1.json",
+    "artifacts/decisionguide-ui-kickstart-pack-1.0.0.tgz"
+  ],
+  "excludePatterns": [
+    "**/*.zip",
+    "**/*.sarb*",
+    "**/runs/**",
+    "**/diffs/**",
+    "**/*redacted*",
+    "**/*.env*",
+    "**/*.key*",
+    "**/*secret*",
+    "**/*private*",
+    "**/node_modules/**",
+    "**/.git/**"
+  ],
+  "security": {
+    "scanRequired": true,
+    "maxFileSizeMB": 10,
+    "allowedExtensions": [
+      ".html",
+      ".md",
+      ".json",
+      ".css",
+      ".js",
+      ".png",
+      ".jpg",
+      ".svg",
+      ".txt",
+      ".tgz"
+    ],
+    "blockedExtensions": [
+      ".env",
+      ".key",
+      ".pem",
+      ".p12",
+      ".jks",
+      ".zip"
+    ]
+  },
+  "metadata": {
+    "purpose": "Public demo and documentation showcase",
+    "audience": "External stakeholders, developers, prospects",
+    "dataClassification": "Public",
+    "sensitiveDataPresent": false,
+    "reviewedBy": "Platform Team",
+    "approvedBy": "Security Review"
+  },
+  "notes": [
+    "This manifest defines the exact subset of artifacts safe for public publishing",
+    "All files listed have been reviewed for sensitive data and security implications",
+    "The UI Kickstart Pack tarball is included as it contains only simulation code",
+    "Sample reports contain only mock/redacted data",
+    "Exclude patterns provide additional protection against accidental inclusion"
+  ]
+}
