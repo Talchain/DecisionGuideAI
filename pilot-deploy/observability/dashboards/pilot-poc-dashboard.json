@@ -1,0 +1,98 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Pilot PoC Overview",
+    "tags": ["pilot", "poc", "scenario-sandbox"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Success Metrics",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"pilot-gateway\",handler=\"/stream\"}[5m]))",
+            "legendFormat": "TTFF P95 (ms)"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(cancel_latency_seconds_bucket{job=\"pilot-gateway\"}[5m]))",
+            "legendFormat": "Cancel P95 (ms)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 100},
+                {"color": "red", "value": 500}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Request Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"pilot-gateway\"}[5m])",
+            "legendFormat": "{{method}} {{handler}}"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Error Rate",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"pilot-gateway\",status=~\"5..\"}[5m])",
+            "legendFormat": "5xx Errors"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
+      },
+      {
+        "id": 4,
+        "title": "Service Health",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"pilot-gateway\"}",
+            "legendFormat": "Gateway"
+          },
+          {
+            "expr": "up{job=\"pilot-engine\"}",
+            "legendFormat": "Engine"
+          },
+          {
+            "expr": "up{job=\"pilot-jobs\"}",
+            "legendFormat": "Jobs"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"options": {"0": {"text": "DOWN"}}, "type": "value"},
+              {"options": {"1": {"text": "UP"}}, "type": "value"}
+            ],
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            }
+          }
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      }
+    ],
+    "time": {"from": "now-1h", "to": "now"},
+    "refresh": "5s"
+  }
+}

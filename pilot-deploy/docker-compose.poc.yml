@@ -1,0 +1,125 @@
+version: '3.8'
+
+services:
+  gateway:
+    image: scenario-gateway:latest
+    container_name: pilot-gateway
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=pilot
+      - PORT=3001
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+      - ENGINE_URL=http://engine:3002
+      - JOBS_URL=http://jobs:3003
+      - ENABLE_RATE_LIMITING=false
+      - ENABLE_CACHE=false
+      - ENABLE_USAGE_TRACKING=false
+      - ENABLE_MONITORING=false
+      - ENABLE_SECRET_HYGIENE_BLOCKING=false
+      - ENABLE_SLOS=false
+      - USE_MOCK_DATA=true
+      - ENABLE_SEED_ECHO=true
+      - QUOTA_PER_RUN=1000
+      - QUOTA_PER_MINUTE=60
+      - GLOBAL_KILL_SWITCH=false
+      - LOG_LEVEL=info
+    depends_on:
+      - engine
+      - jobs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  engine:
+    image: scenario-engine:latest
+    container_name: pilot-engine
+    ports:
+      - "3002:3002"
+    environment:
+      - NODE_ENV=pilot
+      - PORT=3002
+      - USE_SIMULATION=true
+      - DEFAULT_SEED=42
+      - MAX_TOKENS_PER_RUN=1000
+      - ENABLE_DETERMINISTIC_REPLAY=true
+      - LOG_LEVEL=info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  jobs:
+    image: scenario-jobs:latest
+    container_name: pilot-jobs
+    ports:
+      - "3003:3003"
+    environment:
+      - NODE_ENV=pilot
+      - PORT=3003
+      - ENGINE_URL=http://engine:3002
+      - MAX_CONCURRENT_JOBS=5
+      - JOB_TIMEOUT_MS=300000
+      - USE_SIMULATION=true
+      - LOG_LEVEL=info
+    depends_on:
+      - engine
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pilot-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    profiles:
+      - observability
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: pilot-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=pilot123
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/dashboards:/etc/grafana/provisioning/dashboards
+      - ./observability/datasources:/etc/grafana/provisioning/datasources
+    profiles:
+      - observability
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  default:
+    name: pilot-network

@@ -1,0 +1,29 @@
+{
+  "scenarioId": "pilot_demo",
+  "seed": 42,
+  "title": "Pilot Demo Scenario",
+  "description": "Standard demo scenario for PoC validation",
+  "parameters": {
+    "route": "critique",
+    "budget": 1000,
+    "model": "gpt-4-simulation",
+    "options": [
+      {
+        "id": "option_a",
+        "name": "Conservative Approach",
+        "description": "Lower risk, slower rollout"
+      },
+      {
+        "id": "option_b",
+        "name": "Aggressive Approach",
+        "description": "Higher risk, faster rollout"
+      }
+    ]
+  },
+  "expectedResults": {
+    "ttff_ms": "< 500",
+    "cancel_latency_ms": "< 150",
+    "tokens": ["Analyzing", " scenario", " options", "..."],
+    "deterministic": true
+  }
+}
