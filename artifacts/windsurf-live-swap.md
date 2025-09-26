@@ -24,6 +24,65 @@ const LIVE_CONFIG = {
 CORS_ORIGINS: "http://localhost:3000,http://localhost:5173,http://localhost:8080"
 ```
 
+## 🌐 Origins Matrix
+
+### Pre-configured Origins
+| Origin | Purpose | Status |
+|--------|---------|--------|
+| `http://localhost:3000` | Windsurf default dev server | ✅ Enabled |
+| `http://localhost:5173` | Vite dev server | ✅ Enabled |
+| `http://localhost:8080` | Alternative dev port | ✅ Enabled |
+
+### Adding Custom Origins
+To add your development origin to the pilot deployment:
+
+1. **Edit Environment File**:
+   ```bash
+   # In pilot-deploy/.env.poc
+   CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://localhost:8080,http://localhost:YOUR_PORT
+   ```
+
+2. **Restart Services**:
+   ```bash
+   cd pilot-deploy
+   ./scripts/pilot-down.sh
+   ./scripts/pilot-up.sh
+   ```
+
+3. **Verify CORS Headers**:
+   ```bash
+   curl -I "http://localhost:3001/report?scenarioId=demo" \
+     -H "Origin: http://localhost:YOUR_PORT"
+
+   # Expected response header:
+   # Access-Control-Allow-Origin: *
+   ```
+
+### Windsurf Development Ports
+Common ports used by Windsurf and related tools:
+
+| Port | Service | Origin | Notes |
+|------|---------|---------|-------|
+| 3000 | React/Next.js | `http://localhost:3000` | Most common dev server |
+| 5173 | Vite | `http://localhost:5173` | Fast dev server |
+| 8080 | Alt dev server | `http://localhost:8080` | Alternative port |
+| 3001 | Pilot Gateway | `http://localhost:3001` | **Target server** |
+| 4173 | Vite preview | `http://localhost:4173` | Production preview |
+
+### CORS Validation
+```bash
+# Test preflight request
+curl -X OPTIONS "http://localhost:3001/stream" \
+  -H "Access-Control-Request-Method: GET" \
+  -H "Access-Control-Request-Headers: Last-Event-ID" \
+  -H "Origin: http://localhost:3000"
+
+# Expected response headers:
+# Access-Control-Allow-Origin: *
+# Access-Control-Allow-Methods: GET, POST, OPTIONS
+# Access-Control-Allow-Headers: Last-Event-ID
+```
+
 ## 🚦 Flags to Flip for Live Mode
 
 ### Switch from Simulation to Live

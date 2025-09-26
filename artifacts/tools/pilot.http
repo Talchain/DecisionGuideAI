@@ -1,0 +1,147 @@
+### Scenario Sandbox Pilot HTTP Collection
+### VS Code REST Client / Postman compatible
+### Base URL: http://localhost:3001
+
+@baseUrl = http://localhost:3001
+@seed = 42
+@sessionId = pilot_test_{{$timestamp}}
+@scenarioId = demo
+
+### Health Check - Verify Gateway is running
+GET {{baseUrl}}/healthz
+Accept: application/json
+
+### Stream Analysis - Start SSE stream with seed
+# @name startStream
+GET {{baseUrl}}/stream?route=critique&seed={{seed}}&sessionId={{sessionId}}&budget=1000
+Accept: text/event-stream
+
+### Cancel Stream - Idempotent cancellation (202 -> 409)
+# @name cancelStream
+POST {{baseUrl}}/cancel
+Content-Type: application/json
+
+{
+  "sessionId": "{{sessionId}}"
+}
+
+### Resume Stream - Using Last-Event-ID header
+# @name resumeStream
+GET {{baseUrl}}/stream?route=critique&seed={{seed}}&sessionId={{sessionId}}_resume
+Accept: text/event-stream
+Last-Event-ID: msg_001
+
+### Jobs Stream - Long-running analysis progress
+# @name jobsStream
+GET {{baseUrl}}/jobs/stream?scenarioId={{scenarioId}}&seed={{seed}}
+Accept: text/event-stream
+
+### Cancel Job - Stop long-running analysis
+# @name cancelJob
+POST {{baseUrl}}/jobs/cancel
+Content-Type: application/json
+
+{
+  "jobId": "{{scenarioId}}"
+}
+
+### Get Report - Structured decision analysis (Report v1)
+# @name getReport
+GET {{baseUrl}}/report?scenarioId={{scenarioId}}&seed={{seed}}
+Accept: application/json
+
+### Get Report with Session - Alternative with session parameter
+# @name getReportWithSession
+GET {{baseUrl}}/report?sessionId={{sessionId}}&seed={{seed}}
+Accept: application/json
+
+### Stream with Custom Parameters - Extended configuration
+# @name streamWithParams
+GET {{baseUrl}}/stream?route=analysis&seed=123&sessionId=custom_session&budget=2000&model=gpt-4-simulation
+Accept: text/event-stream
+
+### Test CORS Headers - Verify cross-origin configuration
+# @name testCORS
+OPTIONS {{baseUrl}}/stream
+Access-Control-Request-Method: GET
+Access-Control-Request-Headers: Last-Event-ID
+Origin: http://localhost:3000
+
+### Test Security Headers - Verify no-cache policies
+# @name testSecurityHeaders
+HEAD {{baseUrl}}/report?scenarioId={{scenarioId}}
+Accept: application/json
+
+### Deterministic Replay Test - Same seed should give identical results
+# Run this twice to verify determinism
+# @name deterministicTest
+GET {{baseUrl}}/stream?route=critique&seed=999&sessionId=deterministic_{{$timestamp}}
+Accept: text/event-stream
+
+### Multiple Scenario Types
+# @name scenarioCritique
+GET {{baseUrl}}/stream?route=critique&seed={{seed}}&sessionId=critique_{{$timestamp}}
+Accept: text/event-stream
+
+###
+# @name scenarioAnalysis
+GET {{baseUrl}}/stream?route=analysis&seed={{seed}}&sessionId=analysis_{{$timestamp}}
+Accept: text/event-stream
+
+###
+# @name scenarioDecision
+GET {{baseUrl}}/stream?route=decision&seed={{seed}}&sessionId=decision_{{$timestamp}}
+Accept: text/event-stream
+
+### Error Testing - Invalid parameters
+# @name testInvalidSeed
+GET {{baseUrl}}/stream?route=critique&seed=invalid&sessionId=error_test
+Accept: text/event-stream
+
+###
+# @name testMissingRoute
+GET {{baseUrl}}/stream?seed={{seed}}&sessionId=error_test2
+Accept: text/event-stream
+
+### Load Testing - Multiple concurrent sessions
+# @name loadTest1
+GET {{baseUrl}}/stream?route=critique&seed={{seed}}&sessionId=load_1_{{$timestamp}}
+Accept: text/event-stream
+
+###
+# @name loadTest2
+GET {{baseUrl}}/stream?route=critique&seed={{seed}}&sessionId=load_2_{{$timestamp}}
+Accept: text/event-stream
+
+###
+# @name loadTest3
+GET {{baseUrl}}/stream?route=critique&seed={{seed}}&sessionId=load_3_{{$timestamp}}
+Accept: text/event-stream
+
+### Admin Endpoints (if available)
+# @name adminHealth
+GET {{baseUrl}}/admin/health
+Accept: application/json
+
+###
+# @name adminMetrics
+GET {{baseUrl}}/admin/metrics
+Accept: application/json
+
+###
+# @name adminSessions
+GET {{baseUrl}}/admin/sessions
+Accept: application/json
+
+### Environment-specific tests
+### Development
+@devUrl = http://localhost:3001
+GET {{devUrl}}/healthz
+
+### Staging (if available)
+@stagingUrl = https://staging-pilot.example.com
+# GET {{stagingUrl}}/healthz
+
+### Production (not for pilot)
+@prodUrl = https://pilot.example.com
+# GET {{prodUrl}}/healthz

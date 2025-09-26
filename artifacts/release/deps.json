@@ -1,0 +1,181 @@
+{
+  "version": "0.0.0",
+  "name": "decision-mind",
+  "dependencies": {
+    "@dnd-kit/core": {
+      "version": "6.1.0",
+      "resolved": "https://registry.npmjs.org/@dnd-kit/core/-/core-6.1.0.tgz",
+      "overridden": false
+    },
+    "@dnd-kit/modifiers": {
+      "version": "7.0.0",
+      "resolved": "https://registry.npmjs.org/@dnd-kit/modifiers/-/modifiers-7.0.0.tgz",
+      "overridden": false
+    },
+    "@dnd-kit/sortable": {
+      "version": "8.0.0",
+      "resolved": "https://registry.npmjs.org/@dnd-kit/sortable/-/sortable-8.0.0.tgz",
+      "overridden": false
+    },
+    "@floating-ui/react": {
+      "version": "0.26.28",
+      "resolved": "https://registry.npmjs.org/@floating-ui/react/-/react-0.26.28.tgz",
+      "overridden": false
+    },
+    "@playwright/test": {
+      "version": "1.55.1",
+      "resolved": "https://registry.npmjs.org/@playwright/test/-/test-1.55.1.tgz",
+      "overridden": false
+    },
+    "@supabase/supabase-js": {
+      "version": "2.48.1",
+      "resolved": "https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.48.1.tgz",
+      "overridden": false
+    },
+    "@testing-library/dom": {
+      "version": "9.3.4",
+      "resolved": "https://registry.npmjs.org/@testing-library/dom/-/dom-9.3.4.tgz",
+      "overridden": false
+    },
+    "@testing-library/react": {
+      "version": "14.3.1",
+      "resolved": "https://registry.npmjs.org/@testing-library/react/-/react-14.3.1.tgz",
+      "overridden": false
+    },
+    "@types/react-dom": {
+      "version": "18.3.1",
+      "resolved": "https://registry.npmjs.org/@types/react-dom/-/react-dom-18.3.1.tgz",
+      "overridden": false
+    },
+    "@types/react": {
+      "version": "18.3.12",
+      "resolved": "https://registry.npmjs.org/@types/react/-/react-18.3.12.tgz",
+      "overridden": false
+    },
+    "@types/uuid": {
+      "version": "9.0.8",
+      "resolved": "https://registry.npmjs.org/@types/uuid/-/uuid-9.0.8.tgz",
+      "overridden": false
+    },
+    "@vitejs/plugin-react": {
+      "version": "4.3.3",
+      "resolved": "https://registry.npmjs.org/@vitejs/plugin-react/-/plugin-react-4.3.3.tgz",
+      "overridden": false
+    },
+    "ajv": {
+      "version": "8.17.1",
+      "resolved": "https://registry.npmjs.org/ajv/-/ajv-8.17.1.tgz",
+      "overridden": false
+    },
+    "autoprefixer": {
+      "version": "10.4.20",
+      "resolved": "https://registry.npmjs.org/autoprefixer/-/autoprefixer-10.4.20.tgz",
+      "overridden": false
+    },
+    "date-fns": {
+      "version": "3.6.0",
+      "resolved": "https://registry.npmjs.org/date-fns/-/date-fns-3.6.0.tgz",
+      "overridden": false
+    },
+    "dotenv": {
+      "version": "16.5.0",
+      "resolved": "https://registry.npmjs.org/dotenv/-/dotenv-16.5.0.tgz",
+      "overridden": false
+    },
+    "glob": {
+      "version": "11.0.3",
+      "resolved": "https://registry.npmjs.org/glob/-/glob-11.0.3.tgz",
+      "overridden": false
+    },
+    "jsdom": {
+      "version": "24.1.3",
+      "resolved": "https://registry.npmjs.org/jsdom/-/jsdom-24.1.3.tgz",
+      "overridden": false
+    },
+    "lucide-react": {
+      "version": "0.344.0",
+      "resolved": "https://registry.npmjs.org/lucide-react/-/lucide-react-0.344.0.tgz",
+      "overridden": false
+    },
+    "openai": {
+      "version": "4.71.0",
+      "resolved": "https://registry.npmjs.org/openai/-/openai-4.71.0.tgz",
+      "overridden": false
+    },
+    "postcss": {
+      "version": "8.4.47",
+      "resolved": "https://registry.npmjs.org/postcss/-/postcss-8.4.47.tgz",
+      "overridden": false
+    },
+    "react-dom": {
+      "version": "18.3.1",
+      "resolved": "https://registry.npmjs.org/react-dom/-/react-dom-18.3.1.tgz",
+      "overridden": false
+    },
+    "react-is": {
+      "version": "18.3.1",
+      "resolved": "https://registry.npmjs.org/react-is/-/react-is-18.3.1.tgz",
+      "overridden": false
+    },
+    "react-router-dom": {
+      "version": "6.27.0",
+      "resolved": "https://registry.npmjs.org/react-router-dom/-/react-router-dom-6.27.0.tgz",
+      "overridden": false
+    },
+    "react": {
+      "version": "18.3.1",
+      "resolved": "https://registry.npmjs.org/react/-/react-18.3.1.tgz",
+      "overridden": false
+    },
+    "tailwindcss": {
+      "version": "3.4.14",
+      "resolved": "https://registry.npmjs.org/tailwindcss/-/tailwindcss-3.4.14.tgz",
+      "overridden": false
+    },
+    "ts-node": {
+      "version": "10.9.2",
+      "resolved": "https://registry.npmjs.org/ts-node/-/ts-node-10.9.2.tgz",
+      "overridden": false
+    },
+    "tsx": {
+      "version": "4.20.5",
+      "resolved": "https://registry.npmjs.org/tsx/-/tsx-4.20.5.tgz",
+      "overridden": false
+    },
+    "typescript": {
+      "version": "5.6.3",
+      "resolved": "https://registry.npmjs.org/typescript/-/typescript-5.6.3.tgz",
+      "overridden": false
+    },
+    "ulid": {
+      "version": "3.0.1",
+      "resolved": "https://registry.npmjs.org/ulid/-/ulid-3.0.1.tgz",
+      "overridden": false
+    },
+    "uuid": {
+      "version": "9.0.1",
+      "resolved": "https://registry.npmjs.org/uuid/-/uuid-9.0.1.tgz",
+      "overridden": false
+    },
+    "vite": {
+      "version": "5.4.10",
+      "resolved": "https://registry.npmjs.org/vite/-/vite-5.4.10.tgz",
+      "overridden": false
+    },
+    "vitest": {
+      "version": "1.6.1",
+      "resolved": "https://registry.npmjs.org/vitest/-/vitest-1.6.1.tgz",
+      "overridden": false
+    },
+    "yaml": {
+      "version": "2.8.1",
+      "resolved": "https://registry.npmjs.org/yaml/-/yaml-2.8.1.tgz",
+      "overridden": false
+    },
+    "zod": {
+      "version": "3.24.2",
+      "resolved": "https://registry.npmjs.org/zod/-/zod-3.24.2.tgz",
+      "overridden": false
+    }
+  }
+}

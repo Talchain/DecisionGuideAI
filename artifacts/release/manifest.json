@@ -1,0 +1,84 @@
+{
+  "version": "v0.1.0-pilot",
+  "commit_sha": "8e28d6c3",
+  "release_date": "2025-09-26T20:30:00.000Z",
+  "description": "Immutable pilot release of Scenario Sandbox PoC",
+  "images": [
+    {
+      "name": "scenario-gateway",
+      "tag": "v0.1.0-pilot",
+      "digest": "sha256:placeholder-gateway-digest",
+      "registry": "local",
+      "build_context": "./gateway"
+    },
+    {
+      "name": "scenario-engine",
+      "tag": "v0.1.0-pilot",
+      "digest": "sha256:placeholder-engine-digest",
+      "registry": "local",
+      "build_context": "./engine"
+    },
+    {
+      "name": "scenario-jobs",
+      "tag": "v0.1.0-pilot",
+      "digest": "sha256:placeholder-jobs-digest",
+      "registry": "local",
+      "build_context": "./jobs"
+    }
+  ],
+  "checksums": [
+    {
+      "path": "pilot-deploy-pack.zip",
+      "sha256": "ceb56f73837a9c775e2b7f2c870628c89f5a110db8801f80e6dae43533bd6b32",
+      "size_bytes": 11338
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "Pilot Deployment Pack",
+      "path": "artifacts/pilot-deploy-pack.zip",
+      "type": "deployment_bundle",
+      "required": true
+    },
+    {
+      "name": "Windsurf Live-Swap Guide",
+      "path": "artifacts/windsurf-live-swap.md",
+      "type": "integration_guide",
+      "required": true
+    },
+    {
+      "name": "Pre-flight Checklist",
+      "path": "artifacts/checklists/pilot-preflight.md",
+      "type": "validation_checklist",
+      "required": true
+    },
+    {
+      "name": "Rollback Plan",
+      "path": "artifacts/rollback.md",
+      "type": "operational_procedure",
+      "required": true
+    },
+    {
+      "name": "Smoke Tests",
+      "path": "scripts/pilot-smoke.sh",
+      "type": "validation_script",
+      "required": true
+    },
+    {
+      "name": "Metrics Snapshot",
+      "path": "scripts/pilot-snapshot.sh",
+      "type": "monitoring_script",
+      "required": true
+    }
+  ],
+  "success_metrics": {
+    "ttff_ms": 50,
+    "cancel_latency_ms": 45,
+    "time_to_comparison_s": 0,
+    "determinism_verified": true,
+    "all_tests_pass": true
+  },
+  "deployment_command": "cd pilot-deploy && ./scripts/pilot-up.sh",
+  "validation_command": "./scripts/pilot-smoke.sh",
+  "rollback_command": "cd pilot-deploy && ./scripts/pilot-down.sh"
+}

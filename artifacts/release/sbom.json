@@ -1,0 +1,117 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "serialNumber": "urn:uuid:pilot-sbom-2025-09-26",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2025-09-26T20:30:00.000Z",
+    "tools": [
+      {
+        "vendor": "DecisionGuide AI",
+        "name": "Pilot SBOM Generator",
+        "version": "1.0.0"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "bom-ref": "scenario-sandbox-pilot",
+      "name": "Scenario Sandbox PoC",
+      "version": "v0.1.0-pilot",
+      "description": "Pilot deployment of Scenario Sandbox decision analysis platform"
+    }
+  },
+  "components": [
+    {
+      "type": "container",
+      "bom-ref": "scenario-gateway",
+      "name": "scenario-gateway",
+      "version": "v0.1.0-pilot",
+      "description": "API Gateway service for Scenario Sandbox",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "placeholder-will-be-generated-on-build"
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "bom-ref": "scenario-engine",
+      "name": "scenario-engine",
+      "version": "v0.1.0-pilot",
+      "description": "Analysis Engine service for Scenario Sandbox",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "placeholder-will-be-generated-on-build"
+        }
+      ]
+    },
+    {
+      "type": "container",
+      "bom-ref": "scenario-jobs",
+      "name": "scenario-jobs",
+      "version": "v0.1.0-pilot",
+      "description": "Jobs service for Scenario Sandbox",
+      "scope": "required",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "placeholder-will-be-generated-on-build"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "react",
+      "name": "react",
+      "version": "18.3.1",
+      "description": "React JavaScript library",
+      "scope": "required"
+    },
+    {
+      "type": "library",
+      "bom-ref": "typescript",
+      "name": "typescript",
+      "version": "5.5.3",
+      "description": "TypeScript language and compiler",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "bom-ref": "vite",
+      "name": "vite",
+      "version": "5.4.2",
+      "description": "Build tool and dev server",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "bom-ref": "vitest",
+      "name": "vitest",
+      "version": "1.6.0",
+      "description": "Testing framework",
+      "scope": "optional"
+    },
+    {
+      "type": "library",
+      "bom-ref": "openai",
+      "name": "openai",
+      "version": "4.28.0",
+      "description": "OpenAI SDK",
+      "scope": "required"
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "scenario-sandbox-pilot",
+      "dependsOn": [
+        "scenario-gateway",
+        "scenario-engine",
+        "scenario-jobs"
+      ]
+    }
+  ]
+}
