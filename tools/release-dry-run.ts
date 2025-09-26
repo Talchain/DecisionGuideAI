@@ -224,6 +224,9 @@ class ReleaseDryRun {
     this.log(`🌿 Branch: ${versionInfo.branch}`);
     this.log(`📝 Commit: ${versionInfo.commit}`);
 
+    // Success Checks section
+    this.printSuccessChecks();
+
     // Surface the wins
     this.printWinSignals();
 
@@ -244,6 +247,51 @@ class ReleaseDryRun {
           this.log(`   - ${check.name}: ${check.message}`);
         });
       }
+    }
+  }
+
+  private printSuccessChecks(): void {
+    this.log('');
+    this.log('🎯 Success Checks');
+    this.log('=================');
+
+    try {
+      const metricsPath = resolve(this.projectRoot, 'artifacts/reports/pilot-metrics.json');
+
+      if (!existsSync(metricsPath)) {
+        this.log('⚠️ Pilot metrics not found - run pilot demo first');
+        return;
+      }
+
+      const metrics = JSON.parse(readFileSync(metricsPath, 'utf-8'));
+
+      // TTFF Check
+      const ttffPass = metrics.ttff_ms <= 500;
+      const ttffIcon = ttffPass ? '✅' : '❌';
+      this.log(`${ttffIcon} Time-to-First-Token: ${metrics.ttff_ms}ms — ${ttffPass ? 'PASS' : 'FAIL'} (≤500ms)`);
+
+      // Cancel Latency Check
+      const cancelPass = metrics.cancel_latency_ms <= 150;
+      const cancelIcon = cancelPass ? '✅' : '❌';
+      this.log(`${cancelIcon} Cancel latency: ${metrics.cancel_latency_ms}ms — ${cancelPass ? 'PASS' : 'FAIL'} (≤150ms)`);
+
+      // Time to Comparison Check
+      const comparisonPass = metrics.time_to_comparison_s <= 600; // 10 minutes
+      const comparisonIcon = comparisonPass ? '✅' : '❌';
+      this.log(`${comparisonIcon} Time-to-comparison: ${metrics.time_to_comparison_s}s — ${comparisonPass ? 'PASS' : 'FAIL'} (≤600s)`);
+
+      // Determinism Check
+      const determinismPass = metrics.determinism_ok === true;
+      const determinismIcon = determinismPass ? '✅' : '❌';
+      this.log(`${determinismIcon} Deterministic replay: ${determinismPass ? 'PASS' : 'FAIL'} — ${determinismPass ? 'Identical results' : metrics.determinism_notes || 'Failed'}`);
+
+      // Overall Success Status
+      const allPass = ttffPass && cancelPass && comparisonPass && determinismPass;
+      const overallIcon = allPass ? '✅' : '❌';
+      this.log(`${overallIcon} **Overall pilot success: ${allPass ? 'PASS' : 'FAIL'}**`);
+
+    } catch (error) {
+      this.log(`⚠️ Could not load pilot metrics: ${error}`);
     }
   }
 

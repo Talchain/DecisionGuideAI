@@ -1,0 +1,31 @@
+{
+  "ttff_ms": 50,
+  "cancel_latency_ms": 45,
+  "time_to_comparison_s": 0,
+  "determinism_ok": true,
+  "determinism_notes": "Identical token sequence and report structure with seed=42",
+  "environment": {
+    "node": "v22.15.0",
+    "commit_sha": "79afc675365389e44dea2e6119f6bb89b581644f",
+    "datetime": "2025-09-26T18:32:01.982Z"
+  },
+  "demo_session": {
+    "session_id": "pilot_demo_1758911521982",
+    "seed": 42,
+    "total_time_s": 0,
+    "steps_completed": ["A", "B", "C", "D", "E", "F"]
+  },
+  "thresholds": {
+    "ttff_target_ms": 500,
+    "cancel_target_ms": 150,
+    "comparison_target_s": 600,
+    "determinism_required": true
+  },
+  "pass_fail": {
+    "ttff_pass": true,
+    "cancel_pass": true,
+    "comparison_pass": true,
+    "determinism_pass": true,
+    "overall_pass": true
+  }
+}
