@@ -1,0 +1,33 @@
+{
+  "name": "@decisionguide/ui-kickstart-pack",
+  "version": "1.0.0",
+  "description": "Drop-in pack for Windsurf UI development with types, view-models, and simulation adapters",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "files": [
+    "src/",
+    "view-models/",
+    "fixtures/",
+    "README.md"
+  ],
+  "keywords": [
+    "decisionguide",
+    "windsurf",
+    "ui",
+    "simulation",
+    "fixtures"
+  ],
+  "author": "DecisionGuide AI Platform",
+  "license": "MIT",
+  "dependencies": {
+    "@types/node": "^20.0.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=4.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "prepack": "tsc -p tsconfig.json"
+  }
+}

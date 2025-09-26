@@ -1,0 +1,42 @@
+{
+  "reportId": "unknown-report",
+  "meta": {
+    "seed": 42,
+    "timestamp": "2025-09-25T09:42:14.544Z",
+    "duration": 10000,
+    "status": "completed",
+    "model": "gpt-4-turbo"
+  },
+  "totals": {
+    "totalTokens": 1000,
+    "totalCost": 0.02,
+    "totalSteps": 3,
+    "completedSteps": 3
+  },
+  "steps": [
+    {
+      "id": "step_1",
+      "type": "analysis",
+      "duration": 4254,
+      "status": "completed",
+      "tokens": 357,
+      "cost": 0.0079
+    },
+    {
+      "id": "step_2",
+      "type": "generation",
+      "duration": 3832,
+      "status": "completed",
+      "tokens": 375,
+      "cost": 0.0059
+    },
+    {
+      "id": "step_3",
+      "type": "validation",
+      "duration": 3838,
+      "status": "completed",
+      "tokens": 395,
+      "cost": 0.0066
+    }
+  ]
+}

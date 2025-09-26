@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "progress": {
+      "type": "object",
+      "properties": {
+        "current": { "type": "number" },
+        "total": { "type": "number" },
+        "percent": { "type": "number" }
+      },
+      "required": ["current", "total", "percent"]
+    },
+    "state": {
+      "type": "string",
+      "enum": ["running", "cancelled", "completed"]
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "event": { "type": "string" },
+          "data": { "type": "object" }
+        },
+        "required": ["id", "event", "data"]
+      }
+    }
+  },
+  "required": ["progress", "state", "events"]
+}

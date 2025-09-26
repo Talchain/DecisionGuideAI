@@ -235,7 +235,27 @@
         </div>
 
         <div class="quick-start">
+            <h2>🔄 Reset Demo (Essential First Step)</h2>
+
+            <div style="background: #fff3cd; border: 3px solid #ffc107; border-radius: 8px; padding: 2rem; margin-bottom: 2rem; text-align: center;">
+                <h3 style="color: #856404; margin: 0 0 1rem 0; font-size: 1.4rem;">⚡ ALWAYS START HERE</h3>
+                <p style="margin: 0 0 1.5rem 0; color: #856404; font-weight: 600; font-size: 1.1rem;">Before any demo, testing, or presentation - run this command:</p>
+                <div style="background: #2c3e50; color: #ecf0f1; padding: 1rem; border-radius: 6px; font-family: monospace; font-size: 1.2rem; font-weight: 600; margin-bottom: 1.5rem; cursor: pointer;"
+                     onclick="navigator.clipboard.writeText('./tools/demo-reset.sh').then(() => alert('✅ Command copied to clipboard!'))"
+                     title="Click to copy command">
+                    ./tools/demo-reset.sh
+                </div>
+                <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                    <span style="color: #27ae60;">✅ Clears artifacts</span>
+                    <span style="color: #27ae60;">✅ Verifies defaults OFF</span>
+                    <span style="color: #27ae60;">✅ Resets checklist state</span>
+                    <span style="color: #27ae60;">✅ Clean environment</span>
+                </div>
+                <p style="margin: 0; color: #856404; font-size: 0.95rem; font-style: italic;">💡 Click the command above to copy to clipboard</p>
+            </div>
+
             <h2>🚀 Quick Start (Choose Your Path)</h2>
+
             <div class="steps">
                 <div class="step">
                     <div class="step-number">1</div>
@@ -261,6 +281,13 @@
         </div>
 
         <div class="links-grid">
+            <a href="./poc-v1-release-kit.html" class="link-card">
+                <div class="link-icon">🎯</div>
+                <div class="link-title">PoC v1 Release Kit</div>
+                <div class="link-description">Stakeholder-ready demo guide with 60-90s run-of-show, presenter checklist, and quick troubleshooting</div>
+                <div class="link-action">Open Release Kit →</div>
+            </a>
+
             <a href="./demo-kit-20250924-161831.zip" class="link-card">
                 <div class="link-icon">📦</div>
                 <div class="link-title">Demo Kit</div>
@@ -280,6 +307,27 @@
                 <div class="link-title">Integration Status</div>
                 <div class="link-description">Real-time system health monitoring and integration test results</div>
                 <div class="link-action">Check System Status →</div>
+            </a>
+
+            <a href="./ui-fixtures/README.md" class="link-card">
+                <div class="link-icon">🎨</div>
+                <div class="link-title">UI Fixture Packs v3</div>
+                <div class="link-description">Deterministic edge-case fixtures for Windsurf UI development without live Warp endpoints</div>
+                <div class="link-action">Browse Fixtures →</div>
+            </a>
+
+            <a href="./decisionguide-ui-kickstart-pack-1.0.0.tgz" class="link-card">
+                <div class="link-icon">🚀</div>
+                <div class="link-title">UI Kickstart Pack v1.0</div>
+                <div class="link-description">NPM package for Windsurf: TypeScript types, simulation adapters, view models, and fixtures - completely offline-ready</div>
+                <div class="link-action">Download NPM Pack →</div>
+            </a>
+
+            <a href="./ui-kickstart-pack/README.md" class="link-card">
+                <div class="link-icon">📚</div>
+                <div class="link-title">UI Kickstart Installation Guide</div>
+                <div class="link-description">Complete installation and usage instructions for the UI Kickstart Pack with React examples</div>
+                <div class="link-action">View Installation Guide →</div>
             </a>
 
             <a href="../docs/OPERATOR_HANDBOOK.md" class="link-card">
@@ -322,6 +370,13 @@
                 <div class="link-title">Simulation Mode Guide</div>
                 <div class="link-description">Instructions for using simulation mode for safe testing and demonstrations</div>
                 <div class="link-action">Learn Simulation Mode →</div>
+            </a>
+
+            <a href="./live-swap-checklist.md" class="link-card">
+                <div class="link-icon">🔄</div>
+                <div class="link-title">Live Swap Safeguards</div>
+                <div class="link-description">Pre-flight checklist for Windsurf live swapping between simulated and real endpoints</div>
+                <div class="link-action">View Checklist →</div>
             </a>
         </div>
 

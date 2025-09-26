@@ -1,0 +1,12 @@
+{
+  "name": "jobs-cancel-50",
+  "description": "NDJSON SSE progress from 0→100 in 10 steps; cancel at 50 and emit a terminal cancelled state",
+  "version": "v3",
+  "seed": "deterministic-job-cancel-001",
+  "baseTimestamp": "2024-01-15T10:30:00.000Z",
+  "totalEvents": 8,
+  "progressEvents": 6,
+  "cancelAtPercent": 50,
+  "finalState": "cancelled",
+  "deterministic": true
+}
