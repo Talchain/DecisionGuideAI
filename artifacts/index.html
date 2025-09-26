@@ -245,7 +245,10 @@
                 </div>
                 <ul class="links">
                     <li><a href="./start-here.html" target="_blank">Open Start Here Page</a></li>
-                                    <li><a href="./integration-scorecard.html" target="_blank">Integration Scorecard</a></li>
+                    <li><a href="./poc-v1-release-kit.html" target="_blank">PoC v1 Release Kit</a></li>
+                    <li><a href="./integration-scorecard.html" target="_blank">Integration Scorecard</a></li>
+                    <li><a href="./ui-fixtures/README.md" target="_blank">UI Fixture Packs v3</a></li>
+                    <li><a href="./ui-kickstart-2025-09-25-944111.zip" target="_blank">UI Kick-start Pack</a></li>
 </ul>
                 <div style="margin-top: 1rem;">
                     <span class="status info">Ready</span>
@@ -263,6 +266,8 @@
                 <ul class="links">
                     <li><a href="./release-validation.json" data-file="release-validation.json">Release Validation Report</a></li>
                     <li><a href="../tools/release-poc.cjs" target="_blank">Release Script Source</a></li>
+                    <li><a href="./warp-conformance.md" target="_blank">Warp Conformance Suite</a></li>
+                    <li><a href="./reports/warp-conformance.html" target="_blank">Latest Conformance Report</a></li>
                 </ul>
                 <div style="margin-top: 1rem;">
                     <span class="status info" id="release-status">Unknown</span>
@@ -353,6 +358,60 @@
                 </ul>
                 <div style="margin-top: 1rem;">
                     <span class="status pass" id="config-status">PASS</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🛡️</div>
+                    <h2>Artefacts Security Scan</h2>
+                </div>
+                <div class="description">
+                    Scans artifacts directory for secrets, API keys, and PII patterns. Pre-publish gate for GitHub Pages.
+                </div>
+                <ul class="links">
+                    <li><a href="./reports/artefact-scan.md" data-file="artefact-scan.md">Security Scan Report</a></li>
+                    <li><a href="./pages-publish-notes.md" data-file="pages-publish-notes.md">Publisher Notes</a></li>
+                    <li><a href="../tools/artefacts-scan.ts" target="_blank">Scanner Source</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status amber" id="scan-status">AMBER</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🗺️</div>
+                    <h2>Contract Coverage Map</h2>
+                </div>
+                <div class="description">
+                    Visual map showing API route coverage across examples, mocks, UI fixtures, and tests for clarity and completeness.
+                </div>
+                <ul class="links">
+                    <li><a href="./reports/contract-coverage.html" data-file="contract-coverage.html">Contract Coverage Report</a></li>
+                    <li><a href="../tools/contract-coverage.ts" target="_blank">Coverage Tool Source</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status pass" id="coverage-status">98% Coverage</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-icon">🏆</div>
+                    <h2>Ranker + Tuner Tools</h2>
+                </div>
+                <div class="description">
+                    SARB bundle ranker surfaces experiment winners and auto-tuner provides parameter optimization suggestions with visible value.
+                </div>
+                <ul class="links">
+                    <li><a href="./diffs/" target="_blank">SARB Ranking Reports</a></li>
+                    <li><a href="./experiments/" target="_blank">Experiment Results & Tuning</a></li>
+                    <li><a href="../tools/sarb-rank.ts" target="_blank">SARB Ranker Source</a></li>
+                    <li><a href="../tools/exp-tuner.ts" target="_blank">Auto-Tuner Source</a></li>
+                </ul>
+                <div style="margin-top: 1rem;">
+                    <span class="status info" id="ranker-status">Ready</span>
                 </div>
             </div>
 

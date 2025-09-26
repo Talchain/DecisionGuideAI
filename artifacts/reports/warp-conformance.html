@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warp Conformance Report</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #374151; background: #f9fafb; padding: 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07); }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 12px 12px 0 0; text-align: center; }
+        .header h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+        .header .subtitle { opacity: 0.9; font-size: 1.1rem; }
+        .summary { padding: 2rem; border-bottom: 1px solid #e5e7eb; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
+        .summary-card { text-align: center; padding: 1rem; background: #f8fafc; border-radius: 8px; }
+        .summary-card .number { font-size: 2rem; font-weight: bold; color: #22c55e; }
+        .summary-card .label { color: #6b7280; font-size: 0.9rem; margin-top: 0.5rem; }
+        .overall-status { text-align: center; padding: 1.5rem; background: #f0fdf4; color: #22c55e; font-size: 1.3rem; font-weight: 600; }
+        .results { padding: 2rem; }
+        .result-item { margin-bottom: 1.5rem; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+        .result-header { padding: 1rem; background: #f0fdf4; display: flex; align-items: center; gap: 0.75rem; }
+        .result-status { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; font-size: 0.8rem; }
+        .status-pass { background: #22c55e; }
+        .status-fail { background: #ef4444; }
+        .status-skip { background: #f59e0b; }
+        .result-name { font-weight: 600; flex-grow: 1; }
+        .result-details { padding: 1rem; background: #fafafa; }
+        .result-details table { width: 100%; border-collapse: collapse; }
+        .result-details td { padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb; }
+        .result-details td:first-child { font-weight: 600; width: 30%; }
+        .footer { padding: 1rem 2rem; background: #f8fafc; border-radius: 0 0 12px 12px; text-align: center; color: #6b7280; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Warp Conformance Report</h1>
+            <div class="subtitle">Engine Compliance Verification</div>
+        </div>
+
+        <div class="summary">
+            <h2>Test Summary</h2>
+            <div class="summary-grid">
+                <div class="summary-card">
+                    <div class="number">4</div>
+                    <div class="label">Total Tests</div>
+                </div>
+                <div class="summary-card">
+                    <div class="number">4</div>
+                    <div class="label">Passed</div>
+                </div>
+                <div class="summary-card">
+                    <div class="number">0</div>
+                    <div class="label">Failed</div>
+                </div>
+                <div class="summary-card">
+                    <div class="number">0</div>
+                    <div class="label">Skipped</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="overall-status">
+            ✅ Overall Status: PASS
+        </div>
+
+        <div class="results">
+            <h2>Test Results</h2>
+            
+                <div class="result-item">
+                    <div class="result-header">
+                        <div class="result-status status-pass">
+                            ✓
+                        </div>
+                        <div class="result-name">Cancel Speed ≤150ms & Terminal Event</div>
+                        <div class="duration">120ms</div>
+                    </div>
+                    <div class="result-details">
+                        <table>
+                            <tr><td>Status</td><td>PASS</td></tr>
+                            <tr><td>Message</td><td>Cancellation in 120ms with terminal done event</td></tr>
+                            <tr><td>Expected</td><td>≤150ms + terminal event</td></tr>
+                            <tr><td>Actual</td><td>120ms + terminal event present</td></tr>
+                            <tr><td>Duration</td><td>120ms</td></tr>
+                        </table>
+                    </div>
+                </div>
+            
+                <div class="result-item">
+                    <div class="result-header">
+                        <div class="result-status status-pass">
+                            ✓
+                        </div>
+                        <div class="result-name">Determinism by Seed</div>
+                        
+                    </div>
+                    <div class="result-details">
+                        <table>
+                            <tr><td>Status</td><td>PASS</td></tr>
+                            <tr><td>Message</td><td>Same seed produces identical results</td></tr>
+                            <tr><td>Expected</td><td>Identical hashes for same seed</td></tr>
+                            <tr><td>Actual</td><td>Run 1: hash_abc123, Run 2: hash_abc123</td></tr>
+                            
+                        </table>
+                    </div>
+                </div>
+            
+                <div class="result-item">
+                    <div class="result-header">
+                        <div class="result-status status-pass">
+                            ✓
+                        </div>
+                        <div class="result-name">Cache-Control: no-store</div>
+                        
+                    </div>
+                    <div class="result-details">
+                        <table>
+                            <tr><td>Status</td><td>PASS</td></tr>
+                            <tr><td>Message</td><td>Cache-Control: no-store header present</td></tr>
+                            <tr><td>Expected</td><td>Cache-Control: no-store</td></tr>
+                            <tr><td>Actual</td><td>no-store</td></tr>
+                            
+                        </table>
+                    </div>
+                </div>
+            
+                <div class="result-item">
+                    <div class="result-header">
+                        <div class="result-status status-pass">
+                            ✓
+                        </div>
+                        <div class="result-name">Seed Echo in Metadata</div>
+                        
+                    </div>
+                    <div class="result-details">
+                        <table>
+                            <tr><td>Status</td><td>PASS</td></tr>
+                            <tr><td>Message</td><td>Seed correctly echoed in response metadata</td></tr>
+                            <tr><td>Expected</td><td>9876</td></tr>
+                            <tr><td>Actual</td><td>9876</td></tr>
+                            
+                        </table>
+                    </div>
+                </div>
+            
+        </div>
+
+        <div class="footer">
+            <p><strong>Generated:</strong> 2025-09-26T13:30:49.442Z</p>
+            <p><strong>Mode:</strong> SIMULATION</p>
+            <p><em>DecisionGuide AI Platform - Warp Conformance Suite</em></p>
+        </div>
+    </div>
+</body>
+</html>
