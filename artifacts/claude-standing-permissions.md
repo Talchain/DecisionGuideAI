@@ -59,3 +59,16 @@ You will operate autonomously to advance the Scenario Sandbox PoC with zero hand
 ## FINISHING STATEMENT
 At the end of your session print exactly:
 ACCEPTANCE: Autopilot session completed through <last-task-name>; tests/typecheck green; defaults OFF; artefacts updated; no edits in the PROTECTED folder.
+
+### Extra No-Prompt Allowlist (this worktree only)
+I pre-approve these routine commands in /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude:
+- npm run artefacts:scan
+- npm run artefacts:scan:strict
+- npm run typecheck
+- npm test
+
+I also pre-approve edits to the following paths during this session:
+- artifacts/poc-v1-release-kit.html
+- artifacts/**, tools/**, integration/**, .github/**, docs/**, openapi/**
+
+Not allowed without asking: starting servers, publishing, force pushes, editing the PROTECTED Windsurf folder, writing secrets/env files.
