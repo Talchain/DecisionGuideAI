@@ -72,3 +72,25 @@ I also pre-approve edits to the following paths during this session:
 - artifacts/**, tools/**, integration/**, .github/**, docs/**, openapi/**
 
 Not allowed without asking: starting servers, publishing, force pushes, editing the PROTECTED Windsurf folder, writing secrets/env files.
+
+### Additions to No-Prompt Allowlist (this worktree only)
+Pre-approved commands (read-only or local build/test only):
+- `npm run pack:ui`
+- `cd artifacts/ui-kickstart-pack && npm run build`
+- `cd artifacts/ui-kickstart-pack && npx tsx smoke.test.ts`
+- `node artifacts/ui-kickstart-pack-smoke-test.ts`
+- `npm run contract:check`
+- `npm run | grep contract` (listing scripts only)
+- `npm run artefacts:scan`, `npm run artefacts:scan:strict`
+- `npm run typecheck`, `npm test`
+
+Read-only shell utilities on files INSIDE this worktree:
+- `cat`, `head`, `tail`, `grep`, `sed`, `jq`, simple `bash` loops and pipes
+- Example: parse `/artifacts/pages-manifest-demo.json` or `/artifacts/reports/artefact-scan.md`
+
+Pre-approved EDIT PATHS (writes allowed inside these only):
+- `artifacts/**`, `tools/**`, `integration/**`, `openapi/**`, `.github/**`, `docs/**`
+- Specifically allowed: `artifacts/poc-v1-release-kit.html`
+
+Still NOT allowed without asking:
+- Starting servers, publishing, force pushes, editing the PROTECTED Windsurf folder, writing secrets/env files, tagging/releases.
