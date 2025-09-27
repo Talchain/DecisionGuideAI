@@ -1,5 +1,35 @@
 # Changelog - Scenario Sandbox PoC
 
+## [v0.1.1] - 2025-09-27
+
+### 🔧 Maintenance Release - Docs/Tools Only
+
+Frozen SSE preserved; experimental stream fenced; schemas + conformance updated; no API changes.
+
+#### Added
+- JSON schemas for current contracts (`docs/schema/stream.events.v1.json`, `docs/schema/report.v1.json`)
+- Stream conformance testing for frozen contract (`scripts/stream-conformance.mjs`)
+- Correlation header alignment documentation (`artifacts/reports/correlation.md`)
+- Experimental API documentation (`artifacts/reports/stream-alt.md`)
+
+#### Changed
+- **Rescued stream contract**: Fenced experimental API behind `STREAM_ALT_EVENTS=0`
+- **Correlation headers**: Added `X-Olumi-Correlation-Id` as canonical header with `X-Correlation-ID` compatibility
+- **Conformance harness**: Updated to validate frozen events (hello|token|cost|done|cancelled|limited|error)
+- **Report v1**: Confirmed compatibility with existing `"schema":"report.v1"` and `meta.seed` echo
+
+#### Fixed
+- Experimental streaming API properly fenced off from production paths
+- Stream conformance tests now validate current contract instead of experimental events
+- Security headers module (`src/lib/security-headers.ts`) remains purely additive
+
+#### Security
+- Experimental APIs disabled by default (`STREAM_ALT_EVENTS=0`, `REPORT_V1_STUB_ENABLE=0`)
+- No request bodies or secrets logged (payload logging guard enforced)
+- CORS remains closed by default with explicit allow-list support
+
+---
+
 ## [v0.1.0-pilot] - 2025-09-26
 
 ### 🎯 Pilot Release
