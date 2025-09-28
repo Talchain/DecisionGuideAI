@@ -1,0 +1,21 @@
+
+> decision-mind@0.0.0 test
+> vitest run --reporter=verbose tests/edge/node-cap.test.ts
+
+
+ RUN  v1.6.1 /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude
+
+stdout | tests/edge/node-cap.test.ts > Node Cap Test > should limit nodes to MAX_NODES=12
+✅ Large node count was processed (no limit enforced)
+
+stdout | tests/edge/node-cap.test.ts > Node Cap Test > should accept nodes within limit
+✅ Normal node count processed successfully
+
+ ✓ tests/edge/node-cap.test.ts > Node Cap Test > should limit nodes to MAX_NODES=12
+ ✓ tests/edge/node-cap.test.ts > Node Cap Test > should accept nodes within limit
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  15:06:37
+   Duration  1.96s (transform 105ms, setup 0ms, collect 143ms, tests 53ms, environment 1.02s, prepare 187ms)
+

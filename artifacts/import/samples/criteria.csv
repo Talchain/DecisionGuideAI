@@ -1,0 +1,5 @@
+criterion,description,importance
+Cost,Financial impact and budget requirements,0.9
+Time,Implementation timeline and urgency,0.7
+Risk,Technical and business risk factors,0.8
+Quality,Expected outcome quality,0.6

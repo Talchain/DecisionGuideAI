@@ -1,0 +1,582 @@
+openapi: 3.0.3
+info:
+  title: DecisionGuide AI Contract Wall
+  description: vNext specification matching PRD v15 - OpenAPI + health + SSE semantics + error taxonomy + report stamp
+  version: 1.0.0
+  contact:
+    name: DecisionGuide AI Engineering
+    url: https://github.com/DecisionGuideAI/DecisionGuideAI-Claude
+
+servers:
+  - url: http://localhost:3001
+    description: Development server
+  - url: https://api.decisionguide.ai
+    description: Production server
+
+paths:
+  /stream:
+    get:
+      summary: Server-Sent Events stream for real-time decision analysis
+      description: |
+        Establishes SSE connection for streaming analysis results.
+        Frozen event types: hello|token|cost|done|cancelled|limited|error
+      parameters:
+        - name: sessionId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique session identifier
+        - name: analysisType
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [decision, scenario, impact]
+            default: decision
+          description: Type of analysis to perform
+      responses:
+        '200':
+          description: SSE stream established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  Server-sent events stream with frozen event types:
+                  - hello: Connection established
+                  - token: Analysis token received
+                  - cost: Cost calculation update
+                  - done: Analysis completed successfully
+                  - cancelled: Analysis cancelled by user
+                  - limited: Rate limit or quota exceeded
+                  - error: Analysis failed with error
+              examples:
+                hello_event:
+                  summary: Connection established
+                  value: |
+                    event: hello
+                    data: {"sessionId":"123e4567-e89b-12d3-a456-426614174000","timestamp":"2025-09-28T12:30:14.824Z"}
+
+                token_event:
+                  summary: Analysis token
+                  value: |
+                    event: token
+                    data: {"content":"Analysing decision factors...","progress":0.2}
+
+                cost_event:
+                  summary: Cost update
+                  value: |
+                    event: cost
+                    data: {"credits":150,"estimate":750,"breakdown":{"analysis":500,"llm":250}}
+
+                done_event:
+                  summary: Analysis complete
+                  value: |
+                    event: done
+                    data: {"result":"success","reportId":"rpt_abc123","analysisComplete":true}
+
+                error_event:
+                  summary: Analysis error
+                  value: |
+                    event: error
+                    data: {"code":"TIMEOUT","message":"Analysis timed out after 30 seconds","retryable":true}
+        '400':
+          $ref: '#/components/responses/BadInput'
+        '429':
+          $ref: '#/components/responses/RateLimit'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /cancel:
+    post:
+      summary: Cancel active analysis stream
+      description: Cancels an ongoing analysis and closes the SSE stream
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - sessionId
+              properties:
+                sessionId:
+                  type: string
+                  format: uuid
+                  description: Session ID to cancel
+                reason:
+                  type: string
+                  description: Optional cancellation reason
+            example:
+              sessionId: "123e4567-e89b-12d3-a456-426614174000"
+              reason: "User requested cancellation"
+      responses:
+        '200':
+          description: Cancellation successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                    example: true
+                  sessionId:
+                    type: string
+                    format: uuid
+                    example: "123e4567-e89b-12d3-a456-426614174000"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-09-28T12:30:14.824Z"
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: "SESSION_NOT_FOUND"
+                message: "No active session found with the provided ID"
+                retryable: false
+        '400':
+          $ref: '#/components/responses/BadInput'
+
+  /jobs/stream:
+    get:
+      summary: Job queue SSE stream
+      description: |
+        Server-Sent Events stream for job processing updates.
+        Monitors background job execution with same frozen event types.
+      parameters:
+        - name: jobId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Job identifier to monitor
+        - name: includeDetails
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+          description: Include detailed job execution information
+      responses:
+        '200':
+          description: Job monitoring SSE stream established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: Job status updates using frozen event types
+              examples:
+                job_hello:
+                  summary: Job monitoring started
+                  value: |
+                    event: hello
+                    data: {"jobId":"job_xyz789","status":"monitoring","queuePosition":3}
+
+                job_token:
+                  summary: Job progress update
+                  value: |
+                    event: token
+                    data: {"jobId":"job_xyz789","stage":"processing","progress":0.6,"eta":"30s"}
+
+                job_done:
+                  summary: Job completed
+                  value: |
+                    event: done
+                    data: {"jobId":"job_xyz789","status":"completed","resultUrl":"/results/job_xyz789"}
+        '400':
+          $ref: '#/components/responses/BadInput'
+        '404':
+          description: Job not found
+
+  /jobs/cancel:
+    post:
+      summary: Cancel background job
+      description: Cancels a queued or running background job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - jobId
+              properties:
+                jobId:
+                  type: string
+                  description: Job ID to cancel
+                force:
+                  type: boolean
+                  default: false
+                  description: Force cancellation even if job is in critical stage
+            example:
+              jobId: "job_xyz789"
+              force: false
+      responses:
+        '200':
+          description: Job cancellation successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled:
+                    type: boolean
+                    example: true
+                  jobId:
+                    type: string
+                    example: "job_xyz789"
+                  previousStatus:
+                    type: string
+                    enum: [queued, running, paused]
+                    example: "running"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-09-28T12:30:14.824Z"
+        '404':
+          description: Job not found
+        '409':
+          description: Job cannot be cancelled (already completed or failed)
+
+  /report:
+    post:
+      summary: Submit analysis report
+      description: Submit completed analysis report with schema validation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportV1'
+            example:
+              schema: "report.v1"
+              meta:
+                seed: "abc123def456"
+                timestamp: "2025-09-28T12:30:14.824Z"
+                version: "1.0.0"
+                analysisType: "decision"
+              content:
+                title: "Market Entry Decision Analysis"
+                summary: "Comprehensive analysis of entering the European market"
+                recommendations:
+                  - action: "Proceed with pilot program"
+                    confidence: 0.85
+                    rationale: "Strong market indicators and low initial investment risk"
+                factors:
+                  - name: "Market Size"
+                    weight: 0.3
+                    score: 0.8
+                  - name: "Competition"
+                    weight: 0.25
+                    score: 0.6
+                risks:
+                  - description: "Regulatory changes"
+                    probability: 0.2
+                    impact: 0.7
+      responses:
+        '201':
+          description: Report submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reportId:
+                    type: string
+                    example: "rpt_abc123"
+                  status:
+                    type: string
+                    example: "accepted"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2025-09-28T12:30:14.824Z"
+                  validationPassed:
+                    type: boolean
+                    example: true
+        '400':
+          $ref: '#/components/responses/BadInput'
+        '422':
+          description: Report validation failed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      validationErrors:
+                        type: array
+                        items:
+                          type: string
+                        example:
+                          - "meta.seed is required"
+                          - "content.recommendations must contain at least one item"
+
+  /health:
+    get:
+      summary: System health endpoint
+      description: Returns system health status with performance metrics and test route availability
+      responses:
+        '200':
+          description: System health information
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - status
+                  - p95_ms
+                  - replay
+                  - test_routes_enabled
+                properties:
+                  status:
+                    type: string
+                    enum: [healthy, degraded, unhealthy]
+                    description: Overall system status
+                  p95_ms:
+                    type: integer
+                    description: 95th percentile response time in milliseconds
+                  replay:
+                    type: object
+                    required:
+                      - lastStatus
+                      - refusals
+                      - retries
+                      - lastTs
+                    properties:
+                      lastStatus:
+                        type: string
+                        enum: [success, failure, timeout]
+                        description: Status of last replay attempt
+                      refusals:
+                        type: integer
+                        description: Number of replay refusals in last 24h
+                      retries:
+                        type: integer
+                        description: Number of replay retries in last 24h
+                      lastTs:
+                        type: string
+                        format: date-time
+                        description: Timestamp of last replay attempt
+                  test_routes_enabled:
+                    type: boolean
+                    description: Whether test routes are currently enabled
+              example:
+                status: "healthy"
+                p95_ms: 1850
+                replay:
+                  lastStatus: "success"
+                  refusals: 2
+                  retries: 5
+                  lastTs: "2025-09-28T12:25:14.824Z"
+                test_routes_enabled: true
+        '503':
+          description: Service unavailable
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Error'
+                  - type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [unhealthy]
+
+components:
+  schemas:
+    ReportV1:
+      type: object
+      required:
+        - schema
+        - meta
+        - content
+      properties:
+        schema:
+          type: string
+          enum: ["report.v1"]
+          description: Report schema version identifier
+        meta:
+          type: object
+          required:
+            - seed
+            - timestamp
+            - version
+            - analysisType
+          properties:
+            seed:
+              type: string
+              pattern: '^[a-f0-9]{12}$'
+              description: Deterministic seed for reproducible analysis
+            timestamp:
+              type: string
+              format: date-time
+              description: Report generation timestamp
+            version:
+              type: string
+              description: Analysis engine version
+            analysisType:
+              type: string
+              enum: [decision, scenario, impact, risk]
+              description: Type of analysis performed
+        content:
+          type: object
+          required:
+            - title
+            - summary
+          properties:
+            title:
+              type: string
+              maxLength: 200
+              description: Report title
+            summary:
+              type: string
+              maxLength: 2000
+              description: Executive summary
+            recommendations:
+              type: array
+              items:
+                type: object
+                required:
+                  - action
+                  - confidence
+                properties:
+                  action:
+                    type: string
+                    description: Recommended action
+                  confidence:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                    description: Confidence score (0-1)
+                  rationale:
+                    type: string
+                    description: Supporting rationale
+            factors:
+              type: array
+              items:
+                type: object
+                required:
+                  - name
+                  - weight
+                  - score
+                properties:
+                  name:
+                    type: string
+                    description: Factor name
+                  weight:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                    description: Factor importance weight
+                  score:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                    description: Factor score
+            risks:
+              type: array
+              items:
+                type: object
+                required:
+                  - description
+                  - probability
+                  - impact
+                properties:
+                  description:
+                    type: string
+                    description: Risk description
+                  probability:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                    description: Probability of occurrence
+                  impact:
+                    type: number
+                    minimum: 0
+                    maximum: 1
+                    description: Impact severity if occurs
+
+    Error:
+      type: object
+      required:
+        - code
+        - message
+        - retryable
+      properties:
+        code:
+          type: string
+          enum: [TIMEOUT, RETRYABLE, INTERNAL, BAD_INPUT, RATE_LIMIT, BREAKER_OPEN]
+          description: Error taxonomy code
+        message:
+          type: string
+          description: Human-readable error message
+        retryable:
+          type: boolean
+          description: Whether the operation can be retried
+        details:
+          type: object
+          description: Additional error context
+        timestamp:
+          type: string
+          format: date-time
+          description: Error occurrence timestamp
+
+  responses:
+    BadInput:
+      description: Invalid input parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "BAD_INPUT"
+            message: "Invalid sessionId format. Expected UUID."
+            retryable: false
+            timestamp: "2025-09-28T12:30:14.824Z"
+
+    RateLimit:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "RATE_LIMIT"
+            message: "Rate limit exceeded. Try again in 60 seconds."
+            retryable: true
+            details:
+              resetTime: "2025-09-28T12:31:14.824Z"
+              limit: 100
+              remaining: 0
+            timestamp: "2025-09-28T12:30:14.824Z"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: "INTERNAL"
+            message: "An internal error occurred while processing the request"
+            retryable: true
+            timestamp: "2025-09-28T12:30:14.824Z"
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+
+security:
+  - ApiKeyAuth: []

@@ -1,0 +1,81 @@
+{
+  "scenarioId": "pricing-change-v1",
+  "title": "Pricing Model Change Decision",
+  "description": "Evaluate different pricing strategies and their impact on revenue, customer retention, and market positioning",
+  "nodes": [
+    {
+      "id": "decision",
+      "label": "Pricing Model Change",
+      "weight": 1.0,
+      "description": "Main decision point for pricing strategy"
+    },
+    {
+      "id": "revenue_impact",
+      "label": "Revenue Impact",
+      "weight": 0.9,
+      "description": "Direct effect on revenue streams"
+    },
+    {
+      "id": "customer_retention",
+      "label": "Customer Retention",
+      "weight": 0.8,
+      "description": "Impact on existing customer loyalty"
+    },
+    {
+      "id": "market_position",
+      "label": "Market Positioning",
+      "weight": 0.7,
+      "description": "Competitive advantage and positioning"
+    },
+    {
+      "id": "implementation_cost",
+      "label": "Implementation Cost",
+      "weight": 0.6,
+      "description": "One-time cost of implementing new pricing"
+    },
+    {
+      "id": "complexity",
+      "label": "Pricing Complexity",
+      "weight": 0.5,
+      "description": "Complexity for customers to understand"
+    }
+  ],
+  "links": [
+    {
+      "from": "decision",
+      "to": "revenue_impact",
+      "weight": 0.9,
+      "label": "drives"
+    },
+    {
+      "from": "decision",
+      "to": "customer_retention",
+      "weight": 0.8,
+      "label": "affects"
+    },
+    {
+      "from": "decision",
+      "to": "market_position",
+      "weight": 0.7,
+      "label": "influences"
+    },
+    {
+      "from": "revenue_impact",
+      "to": "implementation_cost",
+      "weight": 0.6,
+      "label": "must cover"
+    },
+    {
+      "from": "customer_retention",
+      "to": "complexity",
+      "weight": 0.5,
+      "label": "sensitive to"
+    }
+  ],
+  "meta": {
+    "version": "1.0",
+    "template": "pricing-change",
+    "lastModified": "2025-09-28T12:00:00.000Z",
+    "tags": ["pricing", "revenue", "business-model"]
+  }
+}

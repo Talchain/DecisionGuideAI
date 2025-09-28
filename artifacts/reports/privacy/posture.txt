@@ -1,0 +1,46 @@
+
+> decision-mind@0.0.0 test
+> vitest run --reporter=verbose tests/privacy/posture-check.test.ts
+
+
+ RUN  v1.6.1 /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude
+
+stdout | tests/privacy/posture-check.test.ts > Privacy Posture Tests > should not log request bodies in captured logs
+✅ No sensitive request body data found in 9 checked files
+
+ ✓ tests/privacy/posture-check.test.ts > Privacy Posture Tests > should not log request bodies in captured logs
+stderr | tests/privacy/posture-check.test.ts > Privacy Posture Tests > should prevent client/API key injection from browser context
+⚠️ XSS in seed parameter: Potential reflection detected (for security review)
+
+stderr | tests/privacy/posture-check.test.ts > Privacy Posture Tests > should prevent client/API key injection from browser context
+<empty line>
+stdout | tests/privacy/posture-check.test.ts > Privacy Posture Tests > should prevent client/API key injection from browser context
+✅ API key in query parameter: No injection detected
+
+stderr | tests/privacy/posture-check.test.ts > Privacy Posture Tests > should prevent client/API key injection from browser context
+<empty line>
+stdout | tests/privacy/posture-check.test.ts > Privacy Posture Tests > should prevent client/API key injection from browser context
+✅ JavaScript injection in data: No injection detected
+
+stdout | tests/privacy/posture-check.test.ts > Privacy Posture Tests > should validate authentication header handling
+✅ Bearer token: No header reflection
+
+ ✓ tests/privacy/posture-check.test.ts > Privacy Posture Tests > should prevent client/API key injection from browser context 3020ms
+stdout | tests/privacy/posture-check.test.ts > Privacy Posture Tests > should validate authentication header handling
+✅ API key header: No header reflection
+
+stdout | tests/privacy/posture-check.test.ts > Privacy Posture Tests > should validate authentication header handling
+✅ Custom auth header: No header reflection
+
+stdout | tests/privacy/posture-check.test.ts > Privacy Posture Tests > should handle CORS securely
+✅ CORS: Wildcard origin (acceptable for public API)
+✅ CORS configuration appears secure
+
+ ✓ tests/privacy/posture-check.test.ts > Privacy Posture Tests > should validate authentication header handling
+ ✓ tests/privacy/posture-check.test.ts > Privacy Posture Tests > should handle CORS securely
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  15:08:54
+   Duration  5.61s (transform 61ms, setup 0ms, collect 69ms, tests 3.07s, environment 1.65s, prepare 113ms)
+

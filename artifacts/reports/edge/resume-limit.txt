@@ -1,0 +1,17 @@
+
+> decision-mind@0.0.0 test
+> vitest run --reporter=verbose tests/edge/resume-limit.test.ts
+
+
+ RUN  v1.6.1 /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude
+
+ ✓ tests/edge/resume-limit.test.ts > Resume-Once Limit Test > should refuse second resume attempt
+stdout | tests/edge/resume-limit.test.ts > Resume-Once Limit Test > should refuse second resume attempt
+✅ Resume-once limit enforced correctly
+
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  15:05:27
+   Duration  2.82s (transform 46ms, setup 0ms, collect 54ms, tests 236ms, environment 837ms, prepare 103ms)
+

@@ -1,0 +1,105 @@
+{
+  "scenarioId": "feature-launch-v1",
+  "title": "New Feature Launch Decision",
+  "description": "Assess readiness and timing for launching a new product feature, considering market demand, technical readiness, and resource requirements",
+  "nodes": [
+    {
+      "id": "decision",
+      "label": "Feature Launch",
+      "weight": 1.0,
+      "description": "Main decision to launch the new feature"
+    },
+    {
+      "id": "market_demand",
+      "label": "Market Demand",
+      "weight": 0.9,
+      "description": "Customer demand and market opportunity"
+    },
+    {
+      "id": "technical_readiness",
+      "label": "Technical Readiness",
+      "weight": 0.8,
+      "description": "Feature completeness and stability"
+    },
+    {
+      "id": "competitive_advantage",
+      "label": "Competitive Advantage",
+      "weight": 0.7,
+      "description": "Unique value proposition vs competitors"
+    },
+    {
+      "id": "resource_requirements",
+      "label": "Resource Requirements",
+      "weight": 0.6,
+      "description": "Development, support, and maintenance resources"
+    },
+    {
+      "id": "user_experience",
+      "label": "User Experience",
+      "weight": 0.8,
+      "description": "Integration with existing UX and ease of use"
+    },
+    {
+      "id": "support_readiness",
+      "label": "Support Readiness",
+      "weight": 0.5,
+      "description": "Customer support team preparedness"
+    },
+    {
+      "id": "rollback_plan",
+      "label": "Rollback Plan",
+      "weight": 0.4,
+      "description": "Ability to revert if issues arise"
+    }
+  ],
+  "links": [
+    {
+      "from": "decision",
+      "to": "market_demand",
+      "weight": 0.9,
+      "label": "driven by"
+    },
+    {
+      "from": "decision",
+      "to": "technical_readiness",
+      "weight": 0.8,
+      "label": "requires"
+    },
+    {
+      "from": "decision",
+      "to": "competitive_advantage",
+      "weight": 0.7,
+      "label": "delivers"
+    },
+    {
+      "from": "technical_readiness",
+      "to": "user_experience",
+      "weight": 0.8,
+      "label": "ensures"
+    },
+    {
+      "from": "technical_readiness",
+      "to": "rollback_plan",
+      "weight": 0.4,
+      "label": "enables"
+    },
+    {
+      "from": "market_demand",
+      "to": "resource_requirements",
+      "weight": 0.6,
+      "label": "justifies"
+    },
+    {
+      "from": "user_experience",
+      "to": "support_readiness",
+      "weight": 0.5,
+      "label": "needs"
+    }
+  ],
+  "meta": {
+    "version": "1.0",
+    "template": "feature-launch",
+    "lastModified": "2025-09-28T12:00:00.000Z",
+    "tags": ["product", "feature", "launch", "go-to-market"]
+  }
+}

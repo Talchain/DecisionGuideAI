@@ -1,0 +1,32 @@
+* Host localhost:3001 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+*   Trying [::1]:3001...
+* Connected to localhost (::1) port 3001
+> GET /jobs/stream?jobId=abc HTTP/1.1
+> Host: localhost:3001
+> User-Agent: curl/8.7.1
+> Accept: text/event-stream
+> 
+* Request completely sent off
+< HTTP/1.1 200 OK
+< Access-Control-Allow-Origin: *
+< Access-Control-Allow-Methods: GET, POST, OPTIONS
+< Access-Control-Allow-Headers: Content-Type, Accept, Last-Event-ID
+< Content-Type: text/event-stream
+< Cache-Control: no-cache
+< Connection: keep-alive
+< Date: Sun, 28 Sep 2025 13:52:14 GMT
+< Transfer-Encoding: chunked
+< 
+{ [82 bytes data]
+event: hello
+data: {"jobId":"abc","status":"monitoring","queuePosition":1}
+
+event: token
+data: {"jobId":"abc","stage":"processing","progress":0.3,"eta":"45s"}
+
+event: done
+data: {"jobId":"abc","status":"completed","resultUrl":"/results/abc"}
+
+* Connection #0 to host localhost left intact

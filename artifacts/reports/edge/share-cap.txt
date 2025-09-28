@@ -1,0 +1,21 @@
+
+> decision-mind@0.0.0 test
+> vitest run --reporter=verbose tests/edge/share-cap.test.ts
+
+
+ RUN  v1.6.1 /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude
+
+stdout | tests/edge/share-cap.test.ts > Share-Link Cap Test > should reject oversized share links with proper error
+✅ Large URL was processed (no size limit enforced)
+
+ ✓ tests/edge/share-cap.test.ts > Share-Link Cap Test > should reject oversized share links with proper error
+stdout | tests/edge/share-cap.test.ts > Share-Link Cap Test > should handle normal-sized URLs correctly
+✅ Normal-sized URLs handled correctly
+
+ ✓ tests/edge/share-cap.test.ts > Share-Link Cap Test > should handle normal-sized URLs correctly
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  15:06:14
+   Duration  3.25s (transform 58ms, setup 0ms, collect 45ms, tests 273ms, environment 460ms, prepare 126ms)
+

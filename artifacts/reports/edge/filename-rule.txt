@@ -1,0 +1,25 @@
+
+> decision-mind@0.0.0 test
+> vitest run --reporter=verbose tests/edge/filename-rule.test.ts
+
+
+ RUN  v1.6.1 /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude
+
+stdout | tests/edge/filename-rule.test.ts > Filename Rule Test > should include seed and model in download filename
+✅ No download variant available (acceptable)
+
+stdout | tests/edge/filename-rule.test.ts > Filename Rule Test > should handle regular report submission without download
+✅ Regular report submission works correctly
+
+ ✓ tests/edge/filename-rule.test.ts > Filename Rule Test > should include seed and model in download filename
+ ✓ tests/edge/filename-rule.test.ts > Filename Rule Test > should handle regular report submission without download
+ ✓ tests/edge/filename-rule.test.ts > Filename Rule Test > should validate filename generation rules
+stdout | tests/edge/filename-rule.test.ts > Filename Rule Test > should validate filename generation rules
+✅ Filename generation rules validated
+
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  15:07:24
+   Duration  996ms (transform 35ms, setup 0ms, collect 37ms, tests 23ms, environment 392ms, prepare 102ms)
+

@@ -1,0 +1,21 @@
+
+> decision-mind@0.0.0 test
+> vitest run --reporter=verbose tests/edge/jobs-idempotent.test.ts
+
+
+ RUN  v1.6.1 /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude
+
+stdout | tests/edge/jobs-idempotent.test.ts > Jobs Cancel Idempotency Test > should handle multiple cancel calls idempotently
+✅ Cancel times: 48ms, 3ms, 5ms - all idempotent
+
+stdout | tests/edge/jobs-idempotent.test.ts > Jobs Cancel Idempotency Test > should handle missing jobId consistently
+✅ Missing jobId handled consistently
+
+ ✓ tests/edge/jobs-idempotent.test.ts > Jobs Cancel Idempotency Test > should handle multiple cancel calls idempotently
+ ✓ tests/edge/jobs-idempotent.test.ts > Jobs Cancel Idempotency Test > should handle missing jobId consistently
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  15:06:59
+   Duration  1.99s (transform 50ms, setup 0ms, collect 67ms, tests 63ms, environment 459ms, prepare 156ms)
+

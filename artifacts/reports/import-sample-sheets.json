@@ -1,0 +1,21 @@
+{
+  "schema": "import-dryrun.v1",
+  "summary": {
+    "nodes": 0,
+    "links": 0,
+    "warnings": ["Google Sheets integration not yet implemented"],
+    "errors": []
+  },
+  "scenarioPreview": {
+    "scenarioId": "sheets_import_1727520000000",
+    "title": "Google Sheets Import Preview",
+    "description": "Sheets ID: 1abc123def456, Range: A1:Z100",
+    "nodes": [],
+    "links": []
+  },
+  "mappingEcho": {
+    "title": "Column A",
+    "description": "Column B",
+    "weight": "Column C"
+  }
+}

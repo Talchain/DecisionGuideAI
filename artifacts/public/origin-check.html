@@ -242,9 +242,37 @@
         </div>
 
         <div class="content">
+            <!-- Quick Checklist -->
+            <div class="explanation" style="margin-bottom: 20px;">
+                <h3>⏱️ One-Minute Checklist</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px;">
+                    <div>
+                        <strong>🚀 Server Status</strong>
+                        <ul style="margin: 5px 0; padding-left: 20px;">
+                            <li>✅ <code>npm run dev</code> running?</li>
+                            <li>✅ Port 3001 responding?</li>
+                            <li>✅ Health endpoint available?</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <strong>🌐 CORS Configuration</strong>
+                        <ul style="margin: 5px 0; padding-left: 20px;">
+                            <li>✅ Origin in allowed list?</li>
+                            <li>✅ Credentials configured?</li>
+                            <li>✅ Headers whitelisted?</li>
+                        </ul>
+                    </div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <strong>🔧 Quick tests:</strong>
+                    <code style="display: block; margin: 5px 0;">curl -H "Origin: http://localhost:5173" http://localhost:3001/healthz</code>
+                    <code style="display: block; margin: 5px 0;">lsof -i :3001</code>
+                </div>
+            </div>
+
             <div class="form-group">
                 <label for="baseUrl">Base URL (API Server):</label>
-                <input type="url" id="baseUrl" placeholder="http://localhost:3000" />
+                <input type="url" id="baseUrl" placeholder="http://localhost:3001" />
             </div>
 
             <div class="form-group">
@@ -255,6 +283,7 @@
             <div class="button-group">
                 <button class="btn-primary" onclick="checkOrigin()">🔍 Check Origin</button>
                 <button class="btn-secondary" onclick="useCurrentOrigin()">📍 Use Current Page Origin</button>
+                <button class="btn-secondary" onclick="runQuickTests()">⚡ Quick Tests</button>
                 <button class="btn-secondary" onclick="clearResults()">🗑️ Clear Results</button>
             </div>
 
@@ -269,7 +298,7 @@
     <script>
         // Set default values
         document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('baseUrl').value = 'http://localhost:3000';
+            document.getElementById('baseUrl').value = 'http://localhost:3001';
             document.getElementById('testOrigin').value = window.location.origin;
         });
 
@@ -279,6 +308,121 @@
 
         function clearResults() {
             document.getElementById('results').innerHTML = '';
+        }
+
+        async function runQuickTests() {
+            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const testOrigin = document.getElementById('testOrigin').value.trim();
+            const resultsDiv = document.getElementById('results');
+
+            if (!baseUrl) {
+                showError('Please provide a base URL for quick tests');
+                return;
+            }
+
+            resultsDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Running quick connectivity tests...
+                </div>
+            `;
+
+            const tests = [];
+
+            // Test 1: Basic connectivity
+            try {
+                const response = await fetch(baseUrl.replace(/\/$/, '') + '/healthz', {
+                    method: 'HEAD',
+                    signal: AbortSignal.timeout(3000)
+                });
+                tests.push({
+                    name: 'Server Connectivity',
+                    status: response.ok ? 'PASS' : 'FAIL',
+                    message: response.ok ? `HTTP ${response.status}` : `HTTP ${response.status} - Server error`
+                });
+            } catch (error) {
+                tests.push({
+                    name: 'Server Connectivity',
+                    status: 'FAIL',
+                    message: error.message.includes('fetch') ? 'Server not running' : error.message
+                });
+            }
+
+            // Test 2: Health endpoint
+            try {
+                const response = await fetch(baseUrl.replace(/\/$/, '') + '/healthz', {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    signal: AbortSignal.timeout(3000)
+                });
+                tests.push({
+                    name: 'Health Endpoint',
+                    status: response.ok ? 'PASS' : 'FAIL',
+                    message: response.ok ? 'Health check responding' : `HTTP ${response.status}`
+                });
+            } catch (error) {
+                tests.push({
+                    name: 'Health Endpoint',
+                    status: 'FAIL',
+                    message: 'Health endpoint not accessible'
+                });
+            }
+
+            // Test 3: CORS preflight (if origin provided)
+            if (testOrigin) {
+                try {
+                    const response = await fetch(baseUrl.replace(/\/$/, '') + '/healthz', {
+                        method: 'OPTIONS',
+                        headers: {
+                            'Origin': testOrigin,
+                            'Access-Control-Request-Method': 'GET'
+                        },
+                        signal: AbortSignal.timeout(3000)
+                    });
+
+                    const corsHeader = response.headers.get('Access-Control-Allow-Origin');
+                    tests.push({
+                        name: 'CORS Preflight',
+                        status: corsHeader ? 'PASS' : 'FAIL',
+                        message: corsHeader ? `Origin allowed: ${corsHeader}` : 'CORS not configured'
+                    });
+                } catch (error) {
+                    tests.push({
+                        name: 'CORS Preflight',
+                        status: 'FAIL',
+                        message: 'CORS preflight failed'
+                    });
+                }
+            }
+
+            // Display results
+            const testsHtml = tests.map(test => {
+                const statusIcon = test.status === 'PASS' ? '✅' : '❌';
+                const statusClass = test.status === 'PASS' ? 'success' : 'error';
+                return `
+                    <div class="result ${statusClass}" style="margin-bottom: 10px; padding: 10px;">
+                        <strong>${statusIcon} ${test.name}</strong><br>
+                        <small>${test.message}</small>
+                    </div>
+                `;
+            }).join('');
+
+            const passCount = tests.filter(t => t.status === 'PASS').length;
+            const totalTests = tests.length;
+
+            resultsDiv.innerHTML = `
+                <div class="result ${passCount === totalTests ? 'success' : 'info'}">
+                    <h3>⚡ Quick Test Results (${passCount}/${totalTests} passed)</h3>
+                    ${testsHtml}
+                    <div style="margin-top: 15px;">
+                        <strong>Next Steps:</strong><br>
+                        ${passCount === totalTests
+                            ? '🎉 All tests passed! Your server is ready for CORS requests.'
+                            : '🔧 Fix failing tests above, then run the full origin check.'
+                        }
+                    </div>
+                </div>
+            `;
         }
 
         async function checkOrigin() {

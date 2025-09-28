@@ -1,0 +1,41 @@
+* Host localhost:3001 was resolved.
+* IPv6: ::1
+* IPv4: 127.0.0.1
+*   Trying [::1]:3001...
+* Connected to localhost (::1) port 3001
+> GET /stream?seed=olumi-123 HTTP/1.1
+> Host: localhost:3001
+> User-Agent: curl/8.7.1
+> Accept: text/event-stream
+> 
+* Request completely sent off
+< HTTP/1.1 200 OK
+< Access-Control-Allow-Origin: *
+< Access-Control-Allow-Methods: GET, POST, OPTIONS
+< Access-Control-Allow-Headers: Content-Type, Accept, Last-Event-ID
+< Content-Type: text/event-stream
+< Cache-Control: no-cache
+< Connection: keep-alive
+< Date: Sun, 28 Sep 2025 13:47:51 GMT
+< Transfer-Encoding: chunked
+< 
+{ [91 bytes data]
+event: hello
+data: {"sessionId":"olumi-123","timestamp":"2025-09-28T13:47:51.307Z"}
+
+event: token
+data: {"content":"Starting analysis...","progress":0.1}
+
+event: cost
+data: {"credits":100,"estimate":500,"breakdown":{"analysis":300,"llm":200}}
+
+event: token
+data: {"content":"Processing data...","progress":0.5}
+
+event: token
+data: {"content":"Finalising...","progress":0.9}
+
+event: done
+data: {"result":"success","reportId":"rpt_olumi-123","analysisComplete":true}
+
+* Connection #0 to host localhost left intact

@@ -35,6 +35,9 @@ const LIVE_CONFIG = {
   COMPARE_URL: 'http://localhost:3001/compare',
   LINT_URL: 'http://localhost:3001/lint/scenario',          // 🔍 Requires LINT_ENABLE=1
   SWEEP_URL: 'http://localhost:3001/compare/sweep',         // 📊 Requires SWEEP_ENABLE=1
+  IMPORT_DRYRUN_URL: 'http://localhost:3001/import/dry-run', // 📋 Requires IMPORT_ENABLE=1
+  INSIGHTS_DRIVERS_URL: 'http://localhost:3001/insights/top-drivers', // 💡 Requires INSIGHTS_ENABLE=1
+  INSIGHTS_RISKS_URL: 'http://localhost:3001/insights/risk-hotspots', // ⚠️ Requires INSIGHTS_ENABLE=1
   TEMPLATES_ENCODE_URL: 'http://localhost:3001/templates/encode',
   TEMPLATES_DECODE_URL: 'http://localhost:3001/templates/decode',
   HEALTH_URL: 'http://localhost:3001/healthz'
@@ -145,7 +148,9 @@ const SAFETY_FLAGS = {
 // Optional features (OFF by default)
 const FEATURE_FLAGS = {
   LINT_ENABLE: false,           // ✅ Enable scenario linting/validation
-  SWEEP_ENABLE: false           // ✅ Enable parameter sweeps
+  SWEEP_ENABLE: false,          // ✅ Enable parameter sweeps
+  IMPORT_ENABLE: false,         // 📋 Enable import dry-run (CSV/Sheets/Jira)
+  INSIGHTS_ENABLE: false        // 💡 Enable insights v0 (drivers/risks)
 };
 ```
 
@@ -329,6 +334,108 @@ console.log(comparison.key_drivers); // ["Higher risk tolerance", "Market timing
   },
   "headline": "Moderate improvement: up ~8.5% in Right vs Left",
   "key_drivers": ["Higher risk tolerance", "Market timing"]
+}
+```
+
+## 📋 Import Dry-Run API (Read-Only Helper)
+
+**Flag:** `IMPORT_ENABLE=1` (default OFF)
+**Purpose:** Convert external data sources into scenario format without persisting data
+
+### CSV Import
+```javascript
+async function importFromCSV(csvData, mapping) {
+  const response = await fetch('/import/dry-run', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      csv: csvData,
+      mapping: {
+        title: 'title',
+        description: 'description',
+        weight: 'weight'
+      }
+    })
+  });
+
+  const result = await response.json();
+  return result; // Schema: import-dryrun.v1
+}
+
+// Example usage
+const csvData = `title,description,weight
+Option A,First choice,0.8
+Option B,Second choice,0.6`;
+
+const importResult = await importFromCSV(csvData, {
+  title: 'title',
+  description: 'description',
+  weight: 'weight'
+});
+
+console.log(importResult.summary.nodes); // 2
+console.log(importResult.scenarioPreview.nodes); // Array of imported nodes
+```
+
+### CLI Usage
+```bash
+# Import from CSV
+node scripts/import-dryrun.mjs csv --csv data.csv --mapping artifacts/import/mappings/basic.json
+
+# Google Sheets (placeholder)
+node scripts/import-dryrun.mjs sheets --sheet-id 1abc123 --range A1:Z100 --mapping basic.json
+
+# Jira (placeholder)
+node scripts/import-dryrun.mjs jira --jql "project = PROJ" --mapping basic.json
+```
+
+## 💡 Insights v0 API (Read-Only Helper)
+
+**Flag:** `INSIGHTS_ENABLE=1` (default OFF)
+**Purpose:** Derive deterministic insights from existing reports (no LLMs)
+
+### Top Performance Drivers
+```javascript
+async function getTopDrivers(runId) {
+  const response = await fetch(`/insights/top-drivers?runId=${runId}`);
+  const insights = await response.json();
+  return insights; // Schema: insights.v1
+}
+
+// Example usage
+const drivers = await getTopDrivers('sample-framework');
+console.log(drivers.drivers);
+// [{ name: 'validation', weight: 1.0, contribution: 0.43 }, ...]
+```
+
+### Risk Hotspots Analysis
+```javascript
+async function getRiskHotspots(runId) {
+  const response = await fetch(`/insights/risk-hotspots?runId=${runId}`);
+  const insights = await response.json();
+  return insights; // Schema: insights.v1
+}
+
+// Example usage
+const risks = await getRiskHotspots('sample-risks');
+console.log(risks.hotspots);
+// [{ name: 'generation', rationale: 'Risk factors: execution failure, high token cost' }, ...]
+```
+
+### Insights Response Structure
+```javascript
+{
+  "schema": "insights.v1",
+  "runId": "sample-framework",
+  "meta": {
+    "analysisType": "top-drivers", // or "risk-hotspots"
+    "timestamp": "2025-09-28T12:00:00.000Z",
+    "reportVersion": "report.v1"
+  },
+  "drivers": [
+    { "name": "validation", "weight": 1.0, "contribution": 0.43 }
+  ],
+  "notes": ["Top 3 performance drivers identified"]
 }
 ```
 

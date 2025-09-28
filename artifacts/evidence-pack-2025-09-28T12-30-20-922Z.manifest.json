@@ -1,0 +1,67 @@
+{
+  "created": "2025-09-28T12:30:20.928Z",
+  "total_files": 15,
+  "total_bytes": 121657,
+  "files": [
+    {
+      "path": "evidence-manifest.json",
+      "size": 1621
+    },
+    {
+      "path": "artifacts/config-lint.json",
+      "size": 206
+    },
+    {
+      "path": "artifacts/config-lint.md",
+      "size": 178
+    },
+    {
+      "path": "artifacts/determinism-check.json",
+      "size": 5333
+    },
+    {
+      "path": "artifacts/integration-scorecard.json",
+      "size": 18844
+    },
+    {
+      "path": "artifacts/integration-scorecard.html",
+      "size": 34722
+    },
+    {
+      "path": "artifacts/integration-scorecard.md",
+      "size": 5328
+    },
+    {
+      "path": "artifacts/reports/artefact-scan.md",
+      "size": 1480
+    },
+    {
+      "path": "artifacts/start-here.html",
+      "size": 18784
+    },
+    {
+      "path": "package.json",
+      "size": 5618
+    },
+    {
+      "path": "README.md",
+      "size": 3786
+    },
+    {
+      "path": "docs/OPERATOR_HANDBOOK.md",
+      "size": 18304
+    },
+    {
+      "path": "artifacts/ops/ops-console.md",
+      "size": 4903
+    },
+    {
+      "path": "artifacts/snapshots/run-example-demo-report.json",
+      "size": 1171
+    },
+    {
+      "path": "artifacts/snapshots/run-test-123-report.json",
+      "size": 1379
+    }
+  ]
+}

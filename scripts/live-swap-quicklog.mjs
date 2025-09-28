@@ -67,7 +67,7 @@ function logResult(status, duration, details) {
 }
 
 /**
- * Check if Gateway server is running
+ * Check if Gateway server is running with detailed diagnostics
  */
 async function checkGatewayServer() {
   try {
@@ -75,9 +75,19 @@ async function checkGatewayServer() {
       method: 'HEAD',
       signal: AbortSignal.timeout(5000)
     });
-    return response.ok;
+    return {
+      available: response.ok,
+      status: response.status,
+      headers: Object.fromEntries(response.headers.entries())
+    };
   } catch (error) {
-    return false;
+    // Return detailed error information for diagnostics
+    return {
+      available: false,
+      error: error.name,
+      message: error.message,
+      code: error.code
+    };
   }
 }
 
@@ -138,6 +148,49 @@ async function checkStreamEndpoint() {
 }
 
 /**
+ * Generate diagnostic message with catalogue phrases
+ */
+function generateDiagnosticMessage(gatewayResult, healthResult) {
+  const messages = [];
+
+  if (!gatewayResult.available) {
+    if (gatewayResult.error === 'TypeError' && gatewayResult.message.includes('fetch')) {
+      messages.push('CONNECTION_REFUSED: Backend server is not running on localhost:3001');
+      messages.push('FIX: Start the development server with `npm run dev`');
+    } else if (gatewayResult.code === 'ENOTFOUND') {
+      messages.push('DNS_RESOLUTION_FAILED: Cannot resolve localhost');
+      messages.push('FIX: Check network configuration and host file');
+    } else if (gatewayResult.message.includes('timeout')) {
+      messages.push('REQUEST_TIMEOUT: Server is not responding within 5 seconds');
+      messages.push('FIX: Check server performance and network latency');
+    } else {
+      messages.push(`GATEWAY_ERROR: ${gatewayResult.message}`);
+      messages.push('FIX: Check server logs and network connectivity');
+    }
+    return messages.join(' | ');
+  }
+
+  if (!healthResult.available) {
+    if (healthResult.error.includes('404')) {
+      messages.push('HEALTH_ENDPOINT_MISSING: /healthz endpoint not found');
+      messages.push('FIX: Check API routing configuration');
+    } else if (healthResult.error.includes('CORS')) {
+      messages.push('CORS_POLICY_VIOLATION: Origin not allowed by CORS policy');
+      messages.push('FIX: Configure CORS to allow client origin');
+    } else if (healthResult.error.includes('403')) {
+      messages.push('ACCESS_FORBIDDEN: Client is not authorised to access health endpoint');
+      messages.push('FIX: Check authentication and authorisation settings');
+    } else {
+      messages.push(`HEALTH_CHECK_FAILED: ${healthResult.error}`);
+      messages.push('FIX: Check health endpoint implementation');
+    }
+    return messages.join(' | ');
+  }
+
+  return '';
+}
+
+/**
  * Run comprehensive live swap smoke test
  */
 async function runSmokeTest() {
@@ -151,15 +204,16 @@ async function runSmokeTest() {
   try {
     // Step 1: Check Gateway server
     console.log('\n1️⃣ Checking Gateway server...');
-    const gatewayOk = await checkGatewayServer();
+    const gatewayResult = await checkGatewayServer();
 
-    if (!gatewayOk) {
+    if (!gatewayResult.available) {
       const duration = Date.now() - startTime;
-      logResult('FAIL', duration, 'Gateway server not responding at localhost:3001');
-      return { success: false, reason: 'Gateway unavailable' };
+      const diagnostic = generateDiagnosticMessage(gatewayResult, null);
+      logResult('FAIL', duration, diagnostic || `Gateway server not responding: ${gatewayResult.message}`);
+      return { success: false, reason: 'Gateway unavailable', diagnostic };
     }
 
-    console.log('   ✅ Gateway server responding');
+    console.log(`   ✅ Gateway server responding (HTTP ${gatewayResult.status})`);
 
     // Step 2: Check health endpoint
     console.log('\n2️⃣ Checking health endpoint...');
@@ -167,8 +221,9 @@ async function runSmokeTest() {
 
     if (!health.available) {
       const duration = Date.now() - startTime;
-      logResult('FAIL', duration, `Health endpoint unavailable: ${health.error}`);
-      return { success: false, reason: 'Health endpoint unavailable' };
+      const diagnostic = generateDiagnosticMessage(gatewayResult, health);
+      logResult('FAIL', duration, diagnostic || `Health endpoint unavailable: ${health.error}`);
+      return { success: false, reason: 'Health endpoint unavailable', diagnostic };
     }
 
     console.log(`   ✅ Health: ${health.status} (P95: ${health.p95}ms)`);
@@ -279,10 +334,16 @@ async function main() {
   } else {
     console.log('❌ Status: FAIL');
     console.log(`❗ Reason: ${result.reason}`);
-    console.log('\n💡 Check that:');
-    console.log('   - npm run dev is running');
-    console.log('   - Backend Gateway is available');
-    console.log('   - Network connectivity is stable');
+
+    if (result.diagnostic) {
+      console.log(`🔍 Diagnostic: ${result.diagnostic}`);
+    }
+
+    console.log('\n💡 Quick fixes:');
+    console.log('   - Start server: npm run dev');
+    console.log('   - Check port: lsof -i :3001');
+    console.log('   - Test connectivity: curl http://localhost:3001/healthz');
+    console.log('   - Check CORS config in server settings');
   }
 
   console.log(`\n📝 Result logged to: ${logFile}`);

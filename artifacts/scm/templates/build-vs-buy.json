@@ -1,0 +1,117 @@
+{
+  "scenarioId": "build-vs-buy-v1",
+  "title": "Build vs Buy Decision",
+  "description": "Evaluate whether to build a solution in-house or purchase an existing solution, considering cost, time, control, and strategic alignment",
+  "nodes": [
+    {
+      "id": "decision",
+      "label": "Build vs Buy",
+      "weight": 1.0,
+      "description": "Main decision between building or buying a solution"
+    },
+    {
+      "id": "total_cost",
+      "label": "Total Cost of Ownership",
+      "weight": 0.9,
+      "description": "Complete cost including development, licensing, maintenance"
+    },
+    {
+      "id": "time_to_market",
+      "label": "Time to Market",
+      "weight": 0.8,
+      "description": "Speed of delivery and business value realisation"
+    },
+    {
+      "id": "control_flexibility",
+      "label": "Control & Flexibility",
+      "weight": 0.7,
+      "description": "Ability to customise and control the solution"
+    },
+    {
+      "id": "strategic_fit",
+      "label": "Strategic Alignment",
+      "weight": 0.8,
+      "description": "Alignment with long-term business strategy"
+    },
+    {
+      "id": "technical_expertise",
+      "label": "Technical Expertise",
+      "weight": 0.6,
+      "description": "In-house capability to build and maintain"
+    },
+    {
+      "id": "vendor_risk",
+      "label": "Vendor Risk",
+      "weight": 0.5,
+      "description": "Dependency on external vendor for critical functionality"
+    },
+    {
+      "id": "maintenance_burden",
+      "label": "Maintenance Burden",
+      "weight": 0.6,
+      "description": "Ongoing support and update requirements"
+    },
+    {
+      "id": "competitive_advantage",
+      "label": "Competitive Advantage",
+      "weight": 0.7,
+      "description": "Potential for differentiation and competitive edge"
+    }
+  ],
+  "links": [
+    {
+      "from": "decision",
+      "to": "total_cost",
+      "weight": 0.9,
+      "label": "constrained by"
+    },
+    {
+      "from": "decision",
+      "to": "time_to_market",
+      "weight": 0.8,
+      "label": "prioritises"
+    },
+    {
+      "from": "decision",
+      "to": "strategic_fit",
+      "weight": 0.8,
+      "label": "guided by"
+    },
+    {
+      "from": "total_cost",
+      "to": "maintenance_burden",
+      "weight": 0.6,
+      "label": "includes"
+    },
+    {
+      "from": "time_to_market",
+      "to": "technical_expertise",
+      "weight": 0.6,
+      "label": "depends on"
+    },
+    {
+      "from": "control_flexibility",
+      "to": "vendor_risk",
+      "weight": 0.5,
+      "label": "trades off"
+    },
+    {
+      "from": "strategic_fit",
+      "to": "competitive_advantage",
+      "weight": 0.7,
+      "label": "enables"
+    },
+    {
+      "from": "competitive_advantage",
+      "to": "control_flexibility",
+      "weight": 0.7,
+      "label": "requires"
+    }
+  ],
+  "meta": {
+    "version": "1.0",
+    "template": "build-vs-buy",
+    "lastModified": "2025-09-28T12:00:00.000Z",
+    "tags": ["architecture", "procurement", "strategy", "investment"]
+  }
+}

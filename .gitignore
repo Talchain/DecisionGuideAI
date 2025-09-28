@@ -32,3 +32,23 @@ dist-ssr
 
 # Keep the example file tracked
 !.env.example
+
+# Large generated files and build artifacts
+*.zip
+*.tgz
+*.ndjson
+
+# Large generated directories
+artifacts/release/**/evidence-*.zip
+artifacts/evidence-pack-*.zip
+artifacts/release-dry-run-*.zip
+artifacts/pilot-pack/*.tgz
+artifacts/ui-kickstart-*.zip
+artifacts/demo-kit-*.zip
+
+# Keep documentation and smaller artifacts
+!artifacts/**/*.md
+!artifacts/**/*.json
+!artifacts/**/*.yaml
+!artifacts/**/*.html
+!artifacts/**/*.txt

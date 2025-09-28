@@ -1,0 +1,3 @@
+{"cancelled":true,"jobId":"abc","timestamp":"2025-09-28T13:51:53.697Z"}real 0.11
+user 0.00
+sys 0.00

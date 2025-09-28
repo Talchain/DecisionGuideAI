@@ -1,0 +1,21 @@
+
+> decision-mind@0.0.0 test
+> vitest run --reporter=verbose tests/edge/event-guard.test.ts
+
+
+ RUN  v1.6.1 /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude
+
+ ✓ tests/edge/event-guard.test.ts > SSE Event Guard Test > should only allow frozen event types
+ ✓ tests/edge/event-guard.test.ts > SSE Event Guard Test > should prevent emission of non-frozen events
+stdout | tests/edge/event-guard.test.ts > SSE Event Guard Test > should only allow frozen event types
+✅ SSE event guard working correctly
+
+stdout | tests/edge/event-guard.test.ts > SSE Event Guard Test > should prevent emission of non-frozen events
+✅ Event emission guard validated
+
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  15:05:49
+   Duration  1.62s (transform 78ms, setup 1ms, collect 77ms, tests 3ms, environment 892ms, prepare 101ms)
+
