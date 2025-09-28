@@ -1,0 +1,1 @@
+axe: serious/critical → sandbox=0, reportDrawer=0
