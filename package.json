@@ -84,7 +84,8 @@
     "olumi": "node scripts/olumi.mjs",
     "audit:det": "node scripts/determinism-audit.mjs",
     "stability": "node scripts/stability-runner.mjs",
-    "contract:drift": "node scripts/contract-drift.mjs"
+    "contract:drift": "node scripts/contract-drift.mjs",
+    "pilot:rehearse": "node scripts/pilot-rehearsal.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
