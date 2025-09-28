@@ -1,0 +1,18 @@
+=== Testing /report endpoint (POST) ===
+Standard report request:
+{
+  "schema": "report.v1",
+  "meta": {
+    "seed": "test123",
+    "timestamp": "2025-09-28T19:16:15.481Z",
+    "version": "1.0.0",
+    "analysisType": "decision"
+  },
+  "reportId": "rpt_abeaaab2a4be",
+  "status": "accepted",
+  "validationPassed": true,
+  "timestamp": "2025-09-28T19:16:15.481Z"
+}
+
+Download report request (checking Content-Disposition):
+No Content-Disposition header found

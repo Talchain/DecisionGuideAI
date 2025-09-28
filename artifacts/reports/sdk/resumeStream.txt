@@ -1,0 +1,30 @@
+=== Test 2: Resume Stream (First Attempt) ===
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   122    0   122    0     0  42170      0 --:--:-- --:--:-- --:--:-- 61000
+HTTP/1.1 400 Bad Request
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Accept, Last-Event-ID
+Content-Type: application/json
+Date: Sun, 28 Sep 2025 18:18:44 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"code":"BAD_INPUT","message":"Missing required parameter: seed","retryable":false,"timestamp":"2025-09-28T18:18:44.378Z"}
+=== Test 3: Resume Stream (Second Attempt - Resume-Once Limit) ===
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   122    0   122    0     0  65839      0 --:--:-- --:--:-- --:--:--  119k
+HTTP/1.1 400 Bad Request
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Accept, Last-Event-ID
+Content-Type: application/json
+Date: Sun, 28 Sep 2025 18:18:44 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"code":"BAD_INPUT","message":"Missing required parameter: seed","retryable":false,"timestamp":"2025-09-28T18:18:44.388Z"}

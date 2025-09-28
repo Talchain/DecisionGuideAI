@@ -1,0 +1,15 @@
+=== Test 5: Health Check ===
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   158    0   158    0     0  85405      0 --:--:-- --:--:-- --:--:--  154k
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Accept, Last-Event-ID
+Content-Type: application/json
+Date: Sun, 28 Sep 2025 18:18:44 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"status":"unhealthy","p95_ms":1041,"replay":{"lastStatus":"success","refusals":2,"retries":4,"lastTs":"2025-09-28T18:03:40.353Z"},"test_routes_enabled":true}

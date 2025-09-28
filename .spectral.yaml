@@ -1,0 +1,44 @@
+extends: ["spectral:oas"]
+
+rules:
+  # Basic validation for SSE endpoints
+  sse-endpoint-examples:
+    description: "SSE endpoints must provide examples for frozen events"
+    given: "$.paths['/stream'].get.responses['200'].content['text/event-stream']"
+    severity: error
+    then:
+      field: "examples"
+      function: truthy
+
+  # Ensure frozen events are documented
+  sse-frozen-events-documented:
+    description: "SSE schema must mention frozen event types"
+    given: "$.paths['/stream'].get.responses['200'].content['text/event-stream'].schema.description"
+    severity: error
+    then:
+      function: pattern
+      functionOptions:
+        match: "hello.*token.*cost.*done.*cancelled.*limited.*error"
+
+  # Health endpoint must exist
+  health-endpoint-exists:
+    description: "Health endpoint must be defined"
+    given: "$.paths"
+    severity: error
+    then:
+      field: "/health"
+      function: truthy
+
+  # Error taxonomy validation
+  error-responses-taxonomy:
+    description: "Error responses should use standard taxonomy"
+    given: "$.components.responses[*].content['application/json'].schema.properties.type"
+    severity: warn
+    then:
+      field: "enum"
+      function: schema
+      functionOptions:
+        schema:
+          type: array
+          contains:
+            enum: ["BAD_INPUT", "RATE_LIMIT", "RESOURCE_LIMIT", "NOT_FOUND", "UNAUTHORIZED", "INTERNAL_ERROR"]

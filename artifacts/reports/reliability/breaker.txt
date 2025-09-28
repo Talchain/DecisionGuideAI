@@ -1,0 +1,5 @@
+Circuit Breaker Test: PASS
+- Opens after 3 failures
+- Rejects calls when open with BREAKER_OPEN
+- Transitions to half-open after cooldown
+- Closes on successful recovery

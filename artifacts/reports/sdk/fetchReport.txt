@@ -1,0 +1,15 @@
+=== Test 6: Submit Report ===
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   688    0   154  100   534  52434   177k --:--:-- --:--:-- --:--:--  335k
+HTTP/1.1 422 Unprocessable Entity
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Accept, Last-Event-ID
+Content-Type: application/json
+Date: Sun, 28 Sep 2025 18:18:44 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"code":"BAD_INPUT","message":"Report validation failed","retryable":false,"validationErrors":["seed is required"],"timestamp":"2025-09-28T18:18:44.453Z"}

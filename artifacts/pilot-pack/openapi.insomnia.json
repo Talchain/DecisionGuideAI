@@ -1,0 +1,218 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2025-09-28T14:30:00.000Z",
+  "__export_source": "insomnia.desktop.app:v2023.5.8",
+  "resources": [
+    {
+      "_id": "wrk_contractwall",
+      "parentId": null,
+      "modified": 1759239000000,
+      "created": 1759239000000,
+      "name": "DecisionGuide AI Contract Wall",
+      "description": "vNext specification matching PRD v15",
+      "_type": "workspace"
+    },
+    {
+      "_id": "req_health",
+      "parentId": "wrk_contractwall",
+      "modified": 1759239000000,
+      "created": 1759239000000,
+      "url": "{{ _.base_url }}/health",
+      "name": "Health Check",
+      "description": "Get system health status",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "application/json"
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "req_stream",
+      "parentId": "wrk_contractwall",
+      "modified": 1759239000000,
+      "created": 1759239000000,
+      "url": "{{ _.base_url }}/stream",
+      "name": "SSE Stream",
+      "description": "Start analysis SSE stream",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "text/event-stream"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "seed",
+          "value": "test-seed-123",
+          "description": "Analysis seed"
+        },
+        {
+          "name": "analysisType",
+          "value": "decision",
+          "description": "Type of analysis",
+          "disabled": true
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "req_stream_resume",
+      "parentId": "wrk_contractwall",
+      "modified": 1759239000000,
+      "created": 1759239000000,
+      "url": "{{ _.base_url }}/stream",
+      "name": "SSE Stream (Resume)",
+      "description": "Resume SSE stream with Last-Event-ID",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "text/event-stream"
+        },
+        {
+          "name": "Last-Event-ID",
+          "value": "evt-42"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "seed",
+          "value": "test-seed-123"
+        },
+        {
+          "name": "resume",
+          "value": "1"
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "req_cancel",
+      "parentId": "wrk_contractwall",
+      "modified": 1759239000000,
+      "created": 1759239000000,
+      "url": "{{ _.base_url }}/cancel",
+      "name": "Cancel Analysis",
+      "description": "Cancel active analysis",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jobId\": \"job-123\",\n  \"reason\": \"User requested cancellation\"\n}"
+      },
+      "_type": "request"
+    },
+    {
+      "_id": "req_jobs_stream",
+      "parentId": "wrk_contractwall",
+      "modified": 1759239000000,
+      "created": 1759239000000,
+      "url": "{{ _.base_url }}/jobs/stream",
+      "name": "Jobs SSE Stream",
+      "description": "Monitor job processing",
+      "method": "GET",
+      "headers": [
+        {
+          "name": "Accept",
+          "value": "text/event-stream"
+        }
+      ],
+      "parameters": [
+        {
+          "name": "jobId",
+          "value": "job-456"
+        },
+        {
+          "name": "includeDetails",
+          "value": "true",
+          "disabled": true
+        }
+      ],
+      "_type": "request"
+    },
+    {
+      "_id": "req_jobs_cancel",
+      "parentId": "wrk_contractwall",
+      "modified": 1759239000000,
+      "created": 1759239000000,
+      "url": "{{ _.base_url }}/jobs/cancel",
+      "name": "Cancel Job",
+      "description": "Cancel background job",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"jobId\": \"job-456\",\n  \"force\": false\n}"
+      },
+      "_type": "request"
+    },
+    {
+      "_id": "req_report",
+      "parentId": "wrk_contractwall",
+      "modified": 1759239000000,
+      "created": 1759239000000,
+      "url": "{{ _.base_url }}/report",
+      "name": "Submit Report",
+      "description": "Submit analysis report",
+      "method": "POST",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"schema\": \"report.v1\",\n  \"meta\": {\n    \"seed\": \"abc123def456\",\n    \"timestamp\": \"2025-09-28T12:30:14.824Z\",\n    \"version\": \"1.0.0\",\n    \"analysisType\": \"decision\"\n  },\n  \"content\": {\n    \"title\": \"Market Entry Decision Analysis\",\n    \"summary\": \"Comprehensive analysis of entering the European market\",\n    \"recommendations\": [\n      {\n        \"action\": \"Proceed with pilot program\",\n        \"confidence\": 0.85,\n        \"rationale\": \"Strong market indicators\"\n      }\n    ],\n    \"factors\": [\n      {\n        \"name\": \"Market Size\",\n        \"weight\": 0.3,\n        \"score\": 0.8\n      }\n    ],\n    \"risks\": [\n      {\n        \"description\": \"Regulatory changes\",\n        \"probability\": 0.2,\n        \"impact\": 0.7\n      }\n    ]\n  }\n}"
+      },
+      "_type": "request"
+    },
+    {
+      "_id": "env_base",
+      "parentId": "wrk_contractwall",
+      "modified": 1759239000000,
+      "created": 1759239000000,
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:3001"
+      },
+      "dataPropertyOrder": {
+        "&": ["base_url"]
+      },
+      "color": null,
+      "isPrivate": false,
+      "_type": "environment"
+    },
+    {
+      "_id": "env_prod",
+      "parentId": "wrk_contractwall",
+      "modified": 1759239000000,
+      "created": 1759239000000,
+      "name": "Production",
+      "data": {
+        "base_url": "https://api.decisionguide.ai"
+      },
+      "dataPropertyOrder": {
+        "&": ["base_url"]
+      },
+      "color": "#00ff00",
+      "isPrivate": false,
+      "_type": "environment"
+    }
+  ]
+}

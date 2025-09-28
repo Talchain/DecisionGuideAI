@@ -4,11 +4,19 @@ The Pilot Watcher is a continuous monitoring tool designed for live pilot operat
 
 ## Overview
 
-- **Purpose**: Continuous monitoring during pilot sessions
-- **Frequency**: Every 5 minutes
-- **Default Duration**: 1 hour (configurable)
+- **Purpose**: Continuous monitoring during pilot sessions with enhanced resilience
+- **Frequency**: Every 5 minutes (with exponential backoff on failures)
+- **Default Duration**: 1 hour (configurable via `--duration`)
 - **Log Output**: `artifacts/reports/live-swap.log`
 - **Status**: OFF by default (opt-in)
+
+### Enhanced Features
+
+- **Exponential Backoff**: Delays increase on consecutive failures (5min → 10min → 20min → 40min)
+- **Incident Stubs**: Automatic creation for 2+ consecutive failures
+- **Final Capsule**: Summary line with PASS/FAIL statistics for the monitoring window
+- **Bounded Runs**: Clean shutdown after specified duration
+- **Improved CLI**: `--duration` flag for easy time specification
 
 ## Quick Start
 
@@ -16,23 +24,35 @@ The Pilot Watcher is a continuous monitoring tool designed for live pilot operat
 # Start monitoring with defaults (1 hour, localhost:3001)
 node scripts/pilot-watcher.mjs
 
-# Monitor for 30 minutes
-DURATION_MS=1800000 node scripts/pilot-watcher.mjs
+# Monitor for 30 minutes using --duration flag
+node scripts/pilot-watcher.mjs --duration 30
 
-# Monitor different endpoint
-BASE_URL=https://pilot.example.com node scripts/pilot-watcher.mjs
+# Monitor for 2 hours
+node scripts/pilot-watcher.mjs --duration 120
+
+# Monitor different endpoint for 45 minutes
+BASE_URL=https://pilot.example.com node scripts/pilot-watcher.mjs --duration 45
+
+# Show help
+node scripts/pilot-watcher.mjs --help
 
 # Stop cleanly with Ctrl+C
 ```
 
 ## Configuration
 
+### Command Line Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--duration <minutes>` | How long to monitor | 60 minutes |
+| `--help`, `-h` | Show help message | - |
+
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `BASE_URL` | `http://localhost:3001` | Target endpoint to monitor |
-| `DURATION_MS` | `3600000` (1 hour) | Total monitoring duration |
 
 ### Monitoring Parameters
 
@@ -52,6 +72,21 @@ Each monitoring check appends a line to the log file:
 ```
 
 **Format**: `timestamp | check# | PASS/FAIL | duration | details`
+
+### Final Capsule Line
+
+At the end of each monitoring session, a summary capsule line is written:
+
+```
+CAPSULE: 2025-09-28T17:10:00.456Z | Window: 3600s | Checks: 12 | PASS: 11 | FAIL: 1 | Rate: 92% | Status: HEALTHY
+```
+
+**Capsule Format**: `CAPSULE: timestamp | Window: Xs | Checks: N | PASS: N | FAIL: N | Rate: N% | Status: HEALTHY/DEGRADED/UNHEALTHY`
+
+**Status Classification**:
+- `HEALTHY`: ≥90% pass rate
+- `DEGRADED`: 70-89% pass rate
+- `UNHEALTHY`: <70% pass rate
 
 ## Usage Scenarios
 

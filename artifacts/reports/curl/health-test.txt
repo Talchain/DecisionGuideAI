@@ -1,0 +1,13 @@
+=== Testing /health endpoint shape ===
+{
+  "status": "unhealthy",
+  "p95_ms": 1118,
+  "replay": {
+    "lastStatus": "success",
+    "refusals": 0,
+    "retries": 9,
+    "resumeRefused": 1,
+    "lastTs": "2025-09-28T18:50:29.274Z"
+  },
+  "test_routes_enabled": true
+}

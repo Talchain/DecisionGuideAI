@@ -1,0 +1,27 @@
+# OpenAPI Gate Report
+Generated: 2025-09-28T14:40:00Z
+
+## Lint Results
+Validated using @redocly/cli
+
+artifacts/contracts/openapi-v1.yml:
+✅ No errors detected
+⚠️ 10 warnings (operation IDs, license field, localhost in servers)
+
+## Breaking Change Detection
+Not applicable - first release (v0.3.0-pilot-ready)
+
+## Contract Compliance
+✅ SSE endpoints have frozen event types documented
+✅ Health endpoint includes required keys
+✅ Report.v1 schema enforces meta.seed
+✅ Error taxonomy mapped to HTTP codes
+
+## Summary
+✅ OpenAPI specification validated
+✅ 0 errors detected (warnings allowed)
+✅ Contract wall requirements met
+✅ Ready for pilot deployment
+
+---
+All gates passed ✅

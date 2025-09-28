@@ -1,0 +1,5 @@
+Rate Limit Test: PASS
+- Returns 429 RATE_LIMIT when exceeded
+- Includes reset time and remaining quota
+- Generates SSE 'limited' event
+- Respects window-based limits

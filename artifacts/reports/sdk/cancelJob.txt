@@ -1,0 +1,15 @@
+=== Test 4: Cancel Job ===
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   151    0    84  100    67   2380   1899 --:--:-- --:--:-- --:--:--  4314
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Accept, Last-Event-ID
+Content-Type: application/json
+Date: Sun, 28 Sep 2025 18:18:44 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"cancelled":true,"jobId":"sdk-test-job-123","timestamp":"2025-09-28T18:18:44.432Z"}

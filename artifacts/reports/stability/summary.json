@@ -1,0 +1,29 @@
+{
+  "results": [
+    {
+      "seed": "pricing-change",
+      "runs": 5,
+      "passed": true,
+      "drift": 0
+    },
+    {
+      "seed": "feature-launch",
+      "runs": 5,
+      "passed": true,
+      "drift": 0
+    },
+    {
+      "seed": "build-vs-buy",
+      "runs": 5,
+      "passed": true,
+      "drift": 0
+    }
+  ],
+  "summary": {
+    "totalSeeds": 3,
+    "totalRuns": 15,
+    "seedsPassed": 3,
+    "overallStability": 100,
+    "timestamp": "2025-09-28T19:00:24.950Z"
+  }
+}

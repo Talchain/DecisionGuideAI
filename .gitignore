@@ -38,13 +38,23 @@ dist-ssr
 *.tgz
 *.ndjson
 
-# Large generated directories
+# Large generated directories and evidence packs
 artifacts/release/**/evidence-*.zip
 artifacts/evidence-pack-*.zip
+artifacts/evidence-pack-*.manifest.json
+artifacts/evidence-summary-*.md
 artifacts/release-dry-run-*.zip
 artifacts/pilot-pack/*.tgz
 artifacts/ui-kickstart-*.zip
 artifacts/demo-kit-*.zip
+artifacts/pilot-deploy-pack.zip
+artifacts/artifacts/
+
+# Generated SCM versions
+artifacts/scm/versions/
+
+# Generated experimental results
+artifacts/experiments/**/*.sarb.zip
 
 # Keep documentation and smaller artifacts
 !artifacts/**/*.md
@@ -52,3 +62,6 @@ artifacts/demo-kit-*.zip
 !artifacts/**/*.yaml
 !artifacts/**/*.html
 !artifacts/**/*.txt
+
+# Note: CI will still package and upload evidence zips as build artifacts
+# This gitignore only prevents them from being committed to the repository

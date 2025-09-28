@@ -1,0 +1,16 @@
+# Chaos Testing Recipes (Dev Only)
+
+# Force circuit breaker open
+curl -X POST http://localhost:3001/chaos/breaker/open
+
+# Trigger rate limit
+curl -X POST http://localhost:3001/chaos/rate-limit
+
+# Initiate graceful shutdown
+curl -X POST http://localhost:3001/chaos/shutdown
+
+# Test breaker recovery
+for i in {1..10}; do
+  curl -s http://localhost:3001/health | jq '.status'
+  sleep 1
+done

@@ -1,0 +1,15 @@
+=== Fresh Health Check with resumeRefused ===
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   176    0   176    0     0  20417      0 --:--:-- --:--:-- --:--:-- 22000
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Accept, Last-Event-ID
+Content-Type: application/json
+Date: Sun, 28 Sep 2025 18:39:21 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"status":"unhealthy","p95_ms":1013,"replay":{"lastStatus":"success","refusals":3,"retries":3,"resumeRefused":1,"lastTs":"2025-09-28T18:23:42.361Z"},"test_routes_enabled":true}

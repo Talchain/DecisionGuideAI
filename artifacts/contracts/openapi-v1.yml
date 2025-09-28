@@ -1,7 +1,10 @@
 openapi: 3.0.3
 info:
   title: DecisionGuide AI Contract Wall
-  description: vNext specification matching PRD v15 - OpenAPI + health + SSE semantics + error taxonomy + report stamp
+  description: |
+    vNext specification matching PRD v15 - OpenAPI + health + SSE semantics + error taxonomy + report stamp
+
+    **Error Handling:** For comprehensive error handling guidance including SSE counterparts, retry strategies, and 429 rate limit header examples, see [Error Mapping Guide](../../docs/ERROR-MAPPING-GUIDE.md).
   version: 1.0.0
   contact:
     name: DecisionGuide AI Engineering
@@ -10,6 +13,8 @@ info:
 servers:
   - url: http://localhost:3001
     description: Development server
+  - url: https://api-staging.decisionguide.ai
+    description: Staging server
   - url: https://api.decisionguide.ai
     description: Production server
 
@@ -320,6 +325,55 @@ paths:
                           - "meta.seed is required"
                           - "content.recommendations must contain at least one item"
 
+  /export/report.csv:
+    get:
+      summary: Download analysis report as CSV
+      description: |
+        Downloads a completed analysis report in CSV format with proper
+        Content-Disposition headers for file downloads
+      parameters:
+        - name: runId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Run ID of the completed analysis
+      responses:
+        '200':
+          description: CSV file download
+          headers:
+            Content-Disposition:
+              description: Attachment header with generated filename
+              schema:
+                type: string
+                example: 'attachment; filename="report_run-123_seed-abc123_v0.1.0_2025-09-28.csv"'
+            Cache-Control:
+              description: Cache control directive
+              schema:
+                type: string
+                example: 'no-store'
+          content:
+            text/csv:
+              schema:
+                type: string
+                description: CSV formatted report data
+              example: |
+                run_id,scenario_id,seed,title,option_id,option_name,option_score,option_description,primary_recommendation,confidence,currency,timestamp,version
+                run-123,market-entry,abc123def456,Market Entry Decision Analysis,opt-1,Proceed with pilot,0.85,Launch pilot program in target market,Proceed with pilot program,0.85,USD,2025-09-28T12:30:14.824Z,v0.1.0
+        '400':
+          $ref: '#/components/responses/BadInput'
+        '404':
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: "BAD_INPUT"
+                message: "Run run-123 not found"
+                retryable: false
+                timestamp: "2025-09-28T12:30:14.824Z"
+
   /health:
     get:
       summary: System health endpoint
@@ -545,6 +599,27 @@ components:
 
     RateLimit:
       description: Rate limit exceeded
+      headers:
+        Retry-After:
+          description: Number of seconds to wait before retrying
+          schema:
+            type: integer
+            example: 60
+        X-RateLimit-Limit:
+          description: Total number of requests allowed per window
+          schema:
+            type: integer
+            example: 100
+        X-RateLimit-Remaining:
+          description: Number of requests remaining in current window
+          schema:
+            type: integer
+            example: 0
+        X-RateLimit-Reset:
+          description: Unix timestamp when the rate limit window resets
+          schema:
+            type: integer
+            example: 1727520074
       content:
         application/json:
           schema:
@@ -557,6 +632,7 @@ components:
               resetTime: "2025-09-28T12:31:14.824Z"
               limit: 100
               remaining: 0
+              retryAfterSeconds: 60
             timestamp: "2025-09-28T12:30:14.824Z"
 
     InternalError:

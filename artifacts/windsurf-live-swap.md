@@ -377,6 +377,20 @@ console.log(importResult.summary.nodes); // 2
 console.log(importResult.scenarioPreview.nodes); // Array of imported nodes
 ```
 
+### cURL Example: Import CSV
+```bash
+curl -X POST "http://localhost:3001/import/dry-run" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "csv": "title,description,weight\nOption A,First choice,0.8\nOption B,Second choice,0.6",
+    "mapping": {
+      "title": "title",
+      "description": "description",
+      "weight": "weight"
+    }
+  }'
+```
+
 ### CLI Usage
 ```bash
 # Import from CSV
@@ -408,6 +422,12 @@ console.log(drivers.drivers);
 // [{ name: 'validation', weight: 1.0, contribution: 0.43 }, ...]
 ```
 
+### cURL Example: Top Drivers
+```bash
+curl "http://localhost:3001/insights/top-drivers?runId=sample-framework" \
+  -H "Accept: application/json"
+```
+
 ### Risk Hotspots Analysis
 ```javascript
 async function getRiskHotspots(runId) {
@@ -420,6 +440,12 @@ async function getRiskHotspots(runId) {
 const risks = await getRiskHotspots('sample-risks');
 console.log(risks.hotspots);
 // [{ name: 'generation', rationale: 'Risk factors: execution failure, high token cost' }, ...]
+```
+
+### cURL Example: Risk Hotspots
+```bash
+curl "http://localhost:3001/insights/risk-hotspots?runId=sample-risks" \
+  -H "Accept: application/json"
 ```
 
 ### Insights Response Structure

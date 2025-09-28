@@ -18,7 +18,8 @@ const healthMetrics = {
   p95_ms: 150,
   requestCount: 0,
   errorCount: 0,
-  startTime: Date.now()
+  startTime: Date.now(),
+  resumeRefused: 0
 };
 
 function sendSSE(res, event, data) {
@@ -120,6 +121,7 @@ function handleStream(req, res, url) {
       // Resume only once
       const sessionData = activeSessions.get(seed);
       if (sessionData.resumed) {
+        healthMetrics.resumeRefused++;
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
           code: 'BAD_INPUT',
@@ -367,6 +369,7 @@ function handleHealth(req, res) {
       lastStatus: 'success',
       refusals: Math.floor(Math.random() * 5),
       retries: Math.floor(Math.random() * 10),
+      resumeRefused: healthMetrics.resumeRefused,
       lastTs: new Date(Date.now() - Math.random() * 3600000).toISOString()
     },
     test_routes_enabled: process.env.NODE_ENV !== 'production'

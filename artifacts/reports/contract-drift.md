@@ -1,12 +1,12 @@
 # Contract Drift Report
 
-**Generated:** 2025-09-27T23:51:53.405Z
+**Generated:** 2025-09-28T17:17:24.793Z
 **Status:** ✅ SAFE CHANGES DETECTED
 
 ## Summary
 
 - **Breaking Changes:** 0
-- **Additive Changes:** 9
+- **Additive Changes:** 12
 - **Modifications:** 0
 
 ## OpenAPI Analysis
@@ -15,16 +15,19 @@
 
 ## Schema Stamps Analysis
 
-ℹ️  Found 9 schema stamps (baseline: 0)
+ℹ️  Found 12 schema stamps (baseline: 0)
 
 ## ✅ Additive Changes
 
 These are safe additions that should not break existing clients:
 
 - **schema_added** at `schema_stamps` (added: ".v1")
+- **schema_added** at `schema_stamps` (added: "import-dryrun.v1")
+- **schema_added** at `schema_stamps` (added: "insights.v1")
 - **schema_added** at `schema_stamps` (added: "proposal.v1")
 - **schema_added** at `schema_stamps` (added: "replay-cancel.v1")
 - **schema_added** at `schema_stamps` (added: "replay-snapshots.v1")
+- **schema_added** at `schema_stamps` (added: "report.v1")
 - **schema_added** at `schema_stamps` (added: "run-cancel.v1")
 - **schema_added** at `schema_stamps` (added: "run-status.v1")
 - **schema_added** at `schema_stamps` (added: "stream.v1")

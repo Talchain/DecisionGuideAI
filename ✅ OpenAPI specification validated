@@ -1,0 +1,1 @@
+# OpenAPI Gate Report echo Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ) echo  echo ## Lint Results npx @redocly/cli lint artifacts/contracts/openapi-v1.yml

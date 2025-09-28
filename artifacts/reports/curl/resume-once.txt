@@ -1,0 +1,12 @@
+=== Testing resume-once via Last-Event-ID ===
+First resume attempt:
+event: hello
+data: {"sessionId":"test123","timestamp":"2025-09-28T19:14:33.603Z"}
+
+event: token
+data: {"content":"Starting analysis...","progress":0.1}
+
+Second resume attempt:
+{"code":"BAD_INPUT","message":"Session already resumed - resume-once limit","retryable":false,"timestamp":"2025-09-28T19:14:33.835Z"}
+Health check after resume attempts:
+1

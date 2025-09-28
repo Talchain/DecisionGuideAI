@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operations Dashboard - DecisionGuide AI</title>
+    <style>
+        :root {
+            --bg-primary: #1a1a2e;
+            --bg-secondary: #16213e;
+            --text-primary: #eee;
+            --text-secondary: #aaa;
+            --accent: #0f94d2;
+            --success: #4caf50;
+            --warning: #ff9800;
+            --error: #f44336;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', monospace;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: var(--accent);
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .timestamp {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card h2 {
+            color: var(--accent);
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+            text-transform: uppercase;
+        }
+
+        .status-healthy { background: var(--success); color: white; }
+        .status-degraded { background: var(--warning); color: black; }
+        .status-unhealthy { background: var(--error); color: white; }
+        .status-draining { background: var(--warning); color: black; }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .metric {
+            background: var(--bg-primary);
+            padding: 10px;
+            border-radius: 4px;
+        }
+
+        .metric-label {
+            color: var(--text-secondary);
+            font-size: 0.85em;
+            text-transform: uppercase;
+        }
+
+        .metric-value {
+            color: var(--text-primary);
+            font-size: 1.5em;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+
+        .log-entry {
+            background: var(--bg-primary);
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            word-break: break-all;
+        }
+
+        .log-entry.pass { border-left: 3px solid var(--success); }
+        .log-entry.fail { border-left: 3px solid var(--error); }
+        .log-entry.info { border-left: 3px solid var(--accent); }
+
+        .json-viewer {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            overflow-x: auto;
+            max-height: 400px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-secondary);
+        }
+
+        .error-message {
+            background: var(--error);
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        button {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .footer {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔧 Operations Dashboard</h1>
+            <div class="timestamp">Last updated: <span id="last-update">Loading...</span></div>
+        </header>
+
+        <div class="dashboard">
+            <div class="card">
+                <h2>🏥 Health Status</h2>
+                <div id="health-content" class="loading">Fetching health data...</div>
+            </div>
+
+            <div class="card">
+                <h2>✅ Last Parity Badge</h2>
+                <div id="parity-content" class="loading">Loading parity status...</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📊 System Metrics</h2>
+            <div id="metrics-content" class="metrics">
+                <div class="metric">
+                    <div class="metric-label">P95 Response Time</div>
+                    <div class="metric-value" id="p95-metric">--</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Replay Status</div>
+                    <div class="metric-value" id="replay-status">--</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Test Routes</div>
+                    <div class="metric-value" id="test-routes">--</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Feature Flags</div>
+                    <div class="metric-value" id="feature-flags">--</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📝 Raw Health Response</h2>
+            <button onclick="refreshHealth()">🔄 Refresh</button>
+            <button onclick="toggleRaw()">👁️ Toggle Raw</button>
+            <div id="raw-health" class="json-viewer" style="display: none;">
+                <pre id="raw-json">Loading...</pre>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Contract Wall v1.0 | Pilot Ready | <span id="connection-status">🟢 Connected</span></p>
+        </div>
+    </div>
+
+    <script>
+        const BASE_URL = window.location.hostname === 'localhost'
+            ? 'http://localhost:3001'
+            : 'https://api.decisionguide.ai';
+
+        // Mock data for development/testing
+        const MOCK_HEALTH = {
+            status: "healthy",
+            p95_ms: 150,
+            replay: {
+                lastStatus: "success",
+                refusals: 2,
+                retries: 5,
+                lastTs: new Date().toISOString()
+            },
+            test_routes_enabled: true
+        };
+
+        const MOCK_PARITY = `2025-09-28T13:57:58Z | PARITY | flags_off=PASS p95_ms=4 budget_ms=600`;
+
+        async function fetchHealth() {
+            try {
+                const response = await fetch(`${BASE_URL}/health`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                console.warn('Using mock health data:', error);
+                return MOCK_HEALTH;
+            }
+        }
+
+        async function fetchParityBadge() {
+            try {
+                // In production, this would fetch from the server
+                // For now, using mock data
+                const response = await fetch('/artifacts/reports/live-swap.log');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const text = await response.text();
+                const lines = text.split('\n').filter(line => line.includes('PARITY'));
+                return lines[lines.length - 1] || MOCK_PARITY;
+            } catch (error) {
+                console.warn('Using mock parity data:', error);
+                return MOCK_PARITY;
+            }
+        }
+
+        function renderHealth(data) {
+            const statusClass = `status-${data.status.toLowerCase()}`;
+            const statusIcon = data.status === 'healthy' ? '🟢' :
+                              data.status === 'degraded' ? '🟡' : '🔴';
+
+            document.getElementById('health-content').innerHTML = `
+                <div>
+                    <span class="status-badge ${statusClass}">${statusIcon} ${data.status}</span>
+                </div>
+                <div class="metrics">
+                    <div class="metric">
+                        <div class="metric-label">P95 Latency</div>
+                        <div class="metric-value">${data.p95_ms}ms</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Replay</div>
+                        <div class="metric-value">${data.replay.lastStatus}</div>
+                    </div>
+                </div>
+            `;
+
+            // Update individual metrics
+            document.getElementById('p95-metric').textContent = `${data.p95_ms}ms`;
+            document.getElementById('replay-status').textContent = data.replay.lastStatus;
+            document.getElementById('test-routes').textContent = data.test_routes_enabled ? 'ON' : 'OFF';
+
+            // Update raw JSON
+            document.getElementById('raw-json').textContent = JSON.stringify(data, null, 2);
+        }
+
+        function renderParity(badge) {
+            if (!badge) {
+                document.getElementById('parity-content').innerHTML =
+                    '<div class="log-entry info">No parity badge found</div>';
+                return;
+            }
+
+            const isPassed = badge.includes('PASS');
+            const className = isPassed ? 'pass' : 'fail';
+
+            // Parse the badge line
+            const parts = badge.split('|').map(p => p.trim());
+            const timestamp = parts[0] || 'Unknown';
+            const status = parts[2] || badge;
+
+            document.getElementById('parity-content').innerHTML = `
+                <div class="log-entry ${className}">
+                    <div style="margin-bottom: 5px;">📅 ${timestamp}</div>
+                    <div>${status}</div>
+                </div>
+            `;
+
+            // Update feature flags based on badge
+            const flagsOff = badge.includes('flags_off=PASS');
+            document.getElementById('feature-flags').textContent = flagsOff ? 'OFF ✅' : 'MIXED';
+        }
+
+        async function refreshHealth() {
+            document.getElementById('health-content').innerHTML =
+                '<div class="loading">Refreshing...</div>';
+
+            const health = await fetchHealth();
+            renderHealth(health);
+
+            document.getElementById('last-update').textContent =
+                new Date().toLocaleString();
+        }
+
+        function toggleRaw() {
+            const raw = document.getElementById('raw-health');
+            raw.style.display = raw.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Initial load
+        async function init() {
+            try {
+                // Load health data
+                const health = await fetchHealth();
+                renderHealth(health);
+
+                // Load parity badge
+                const badge = await fetchParityBadge();
+                renderParity(badge);
+
+                // Update timestamp
+                document.getElementById('last-update').textContent =
+                    new Date().toLocaleString();
+
+                // Set connection status
+                document.getElementById('connection-status').textContent =
+                    '🟢 Connected';
+            } catch (error) {
+                console.error('Init error:', error);
+                document.getElementById('connection-status').textContent =
+                    '🔴 Offline Mode';
+            }
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(async () => {
+            await refreshHealth();
+        }, 30000);
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

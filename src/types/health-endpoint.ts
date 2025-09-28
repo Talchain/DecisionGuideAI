@@ -14,6 +14,8 @@ export interface ReplayMetrics {
   refusals: number;
   /** Number of replay retries in last 24h */
   retries: number;
+  /** Number of resume attempts refused (resume-once enforcement) */
+  resumeRefused: number;
   /** Timestamp of last replay attempt */
   lastTs: string;
 }
@@ -51,6 +53,7 @@ export class HealthService {
     lastStatus: 'success',
     refusals: 0,
     retries: 0,
+    resumeRefused: 0,
     lastTs: new Date().toISOString()
   };
 
@@ -109,6 +112,13 @@ export class HealthService {
     if (retries !== undefined) {
       this.replayMetrics.retries = retries;
     }
+  }
+
+  /**
+   * Increment resume refused counter
+   */
+  incrementResumeRefused(): void {
+    this.replayMetrics.resumeRefused++;
   }
 
   /**

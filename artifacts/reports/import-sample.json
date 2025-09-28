@@ -1,0 +1,76 @@
+{
+  "schema": "import-dryrun.v1",
+  "timestamp": "2025-09-28T16:00:00.000Z",
+  "source": {
+    "type": "csv",
+    "size": 245,
+    "records": 4
+  },
+  "summary": {
+    "nodes": 4,
+    "links": 0,
+    "warnings": [
+      "Weight value 1.2 clamped to 1.0 for Option D"
+    ],
+    "errors": []
+  },
+  "scenarioPreview": {
+    "scenarioId": "csv_import_pilot_demo",
+    "title": "Pilot Demo Import",
+    "description": "Imported 4 decision options from CSV data",
+    "nodes": [
+      {
+        "id": "node_1",
+        "title": "Conservative Approach",
+        "description": "Low-risk strategy with proven results",
+        "weight": 0.7,
+        "tags": ["low-risk", "proven"]
+      },
+      {
+        "id": "node_2",
+        "title": "Aggressive Growth",
+        "description": "High-reward strategy with market expansion",
+        "weight": 0.9,
+        "tags": ["high-reward", "expansion"]
+      },
+      {
+        "id": "node_3",
+        "title": "Hybrid Model",
+        "description": "Balanced approach combining both strategies",
+        "weight": 0.8,
+        "tags": ["balanced", "hybrid"]
+      },
+      {
+        "id": "node_4",
+        "title": "Wait and See",
+        "description": "Delay decision pending market analysis",
+        "weight": 0.4,
+        "tags": ["delayed", "analysis"]
+      }
+    ],
+    "links": [],
+    "stakeholders": [
+      {
+        "id": "finance",
+        "name": "Finance Team",
+        "influence": 0.8
+      },
+      {
+        "id": "product",
+        "name": "Product Team",
+        "influence": 0.7
+      }
+    ]
+  },
+  "mappingEcho": {
+    "title": "option_name",
+    "description": "description",
+    "weight": "priority_score",
+    "tags": "categories"
+  },
+  "validation": {
+    "passed": true,
+    "issues": [],
+    "score": 95
+  }
+}

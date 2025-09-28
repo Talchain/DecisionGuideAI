@@ -1,0 +1,96 @@
+=== Resume Stream Test (Corrected) ===
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   311    0   311    0     0    605      0 --:--:-- --:--:-- --:--:--   605
+=== First Resume Attempt ===
+100   464    0   464    0     0    457      0 --:--:--  0:00:01 --:--:--   457
+  HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Accept, Last-Event-ID
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+Date: Sun, 28 Sep 2025 18:33:29 GMT
+Transfer-Encoding: chunked
+
+event: hello
+data: {"sessionId":"sdk-test","timestamp":"2025-09-28T18:33:29.418Z"}
+
+event: token
+data: {"content":"Starting analysis...","progress":0.1}
+
+event: cost
+data: {"credits":100,"estimate":500,"breakdown":{"analysis":300,"llm":200}}
+
+event: token
+data: {"content":"Processing data...","progress":0.5}
+
+event: token
+data: {"content":"Finalising...","progress":0.9}
+
+event: done
+data: {"result":"success","reportId":"rpt_sdk-test","analysisComplete":true}
+
+% Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   311    0   311    0     0    608      0 --:--:-- --:--:-- --:--:--   608100   464    0   464    0     0    459      0 --:--:--  0:00:01 --:--:--   459
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Accept, Last-Event-ID
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+Date: Sun, 28 Sep 2025 18:33:30 GMT
+Transfer-Encoding: chunked
+
+event: hello
+data: {"sessionId":"sdk-test","timestamp":"2025-09-28T18:33:30.532Z"}
+
+event: token
+data: {"content":"Starting analysis...","progress":0.1}
+
+event: cost
+data: {"credits":100,"estimate":500,"breakdown":{"analysis":300,"llm":200}}
+
+event: token
+data: {"content":"Processing data...","progress":0.5}
+
+event: token
+data: {"content":"Finalising...","progress":0.9}
+
+event: done
+data: {"result":"success","reportId":"rpt_sdk-test","analysisComplete":true}
+
+
+=== Second Resume Attempt (Should Fail) ===
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   133    0   133    0     0  50207      0 --:--:-- --:--:-- --:--:-- 66500
+HTTP/1.1 400 Bad Request
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Accept, Last-Event-ID
+Content-Type: application/json
+Date: Sun, 28 Sep 2025 18:33:31 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"code":"BAD_INPUT","message":"Session already resumed - resume-once limit","retryable":false,"timestamp":"2025-09-28T18:33:31.453Z"}
+=== Health Check After Resume-Once Enforcement ===
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0100   158    0   158    0     0  61216      0 --:--:-- --:--:-- --:--:-- 79000
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type, Accept, Last-Event-ID
+Content-Type: application/json
+Date: Sun, 28 Sep 2025 18:33:31 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+Transfer-Encoding: chunked
+
+{"status":"unhealthy","p95_ms":1041,"replay":{"lastStatus":"success","refusals":2,"retries":7,"lastTs":"2025-09-28T17:47:51.082Z"},"test_routes_enabled":true}

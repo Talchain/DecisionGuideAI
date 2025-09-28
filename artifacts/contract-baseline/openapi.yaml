@@ -1428,6 +1428,219 @@ security: []
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /lint/scenario:
+    post:
+      summary: Lint scenario for structural integrity
+      description: "Validates scenario structure and provides quality recommendations (requires LINT_ENABLE=1)"
+      tags: [linting, analysis]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LintRequest'
+            examples:
+              scenario_lint:
+                summary: Basic scenario linting request
+                value:
+                  scenario:
+                    title: "Pricing Strategy Decision"
+                    options:
+                      - id: "conservative"
+                        name: "Conservative Pricing"
+                      - id: "aggressive"
+                        name: "Aggressive Pricing"
+                    stakeholders:
+                      - id: "sales"
+                        name: "Sales Team"
+                        influence: 0.8
+      responses:
+        '200':
+          description: Scenario linting completed
+          headers:
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LintResponse'
+              examples:
+                lint_results:
+                  summary: Scenario validation results
+                  value:
+                    schema: "lint.v1"
+                    timestamp: "2024-09-27T10:00:00.000Z"
+                    scenario:
+                      title: "Pricing Strategy Decision"
+                      id: "pricing-strategy"
+                    summary:
+                      score: 85
+                      issueCount: 2
+                      criticalCount: 0
+                      warningCount: 2
+                    issues:
+                      - id: "missing-metrics"
+                        severity: "warning"
+                        category: "completeness"
+                        message: "Consider adding success metrics for better decision tracking"
+                        suggestion: "Add metrics like 'Revenue impact' or 'Market share'"
+                    recommendations:
+                      - "Add 2-3 measurable success metrics"
+                      - "Include customer/market stakeholder"
+        '400':
+          description: Bad request - invalid scenario structure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_scenario:
+                  summary: Invalid scenario structure
+                  value:
+                    type: "BAD_INPUT"
+                    message: "Scenario must include title and options"
+                    timestamp: "2024-09-27T10:00:00.000Z"
+        '404':
+          description: Linter feature not enabled (LINT_ENABLE=0 or unset)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                feature_disabled:
+                  summary: Linter feature disabled
+                  value:
+                    type: "NOT_FOUND"
+                    message: "The requested resource could not be found."
+                    timestamp: "2024-09-27T10:00:00.000Z"
+
+  /compare/sweep:
+    post:
+      summary: Generate parameter sweep variants
+      description: "Creates multiple scenario variants by systematically varying specified parameters (requires SWEEP_ENABLE=1)"
+      tags: [analysis, comparison]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SweepRequest'
+            examples:
+              parameter_sweep:
+                summary: Parameter sweep request
+                value:
+                  baseScenario:
+                    title: "Pricing Decision"
+                    options:
+                      - id: "basic"
+                        name: "Basic Plan"
+                        price: 29
+                    stakeholders:
+                      - id: "finance"
+                        name: "Finance"
+                        weight: 0.3
+                  targetPaths:
+                    - "options[0].price"
+                    - "stakeholders[0].weight"
+                  variations: [-20, -10, 10, 20]
+                  maxVariants: 15
+      responses:
+        '200':
+          description: Parameter sweep generated successfully
+          headers:
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SweepResponse'
+              examples:
+                sweep_results:
+                  summary: Parameter sweep results
+                  value:
+                    schema: "sweep.v1"
+                    timestamp: "2024-09-27T10:00:00.000Z"
+                    baseScenario:
+                      id: "pricing-base"
+                      baseline:
+                        title: "Pricing Decision"
+                        options:
+                          - id: "basic"
+                            name: "Basic Plan"
+                            price: 29
+                    parameters:
+                      targetPaths: ["options[0].price", "stakeholders[0].weight"]
+                      variations: [-20, -10, 10, 20]
+                      maxVariants: 15
+                    variants:
+                      - id: "var-1"
+                        description: "options[0].price: 29.000 → 34.800 (+20%)"
+                        modifications:
+                          - path: "options[0].price"
+                            originalValue: 29
+                            newValue: 34.8
+                            changePercent: 20
+                        scenario:
+                          title: "Pricing Decision"
+                          options:
+                            - id: "basic"
+                              name: "Basic Plan"
+                              price: 34.8
+                    rankings:
+                      - variantId: "var-1"
+                        rank: 1
+                        score: 87.3
+                    summary:
+                      variantsGenerated: 12
+                      bestVariant: "var-1"
+                      worstVariant: "var-12"
+                      averageScore: 72.1
+        '400':
+          description: Bad request - invalid parameters or scenario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_paths:
+                  summary: Invalid target paths
+                  value:
+                    type: "BAD_INPUT"
+                    message: "No valid variants could be generated from the specified paths."
+                    timestamp: "2024-09-27T10:00:00.000Z"
+        '404':
+          description: Parameter sweeps not enabled (SWEEP_ENABLE=0 or unset)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                feature_disabled:
+                  summary: Sweep feature disabled
+                  value:
+                    type: "NOT_FOUND"
+                    message: "The requested resource could not be found."
+                    timestamp: "2024-09-27T10:00:00.000Z"
+        '500':
+          description: Internal error during sweep generation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                internal_error:
+                  summary: Sweep generation failed
+                  value:
+                    type: "INTERNAL_ERROR"
+                    message: "Unable to generate parameter sweep at this time."
+                    timestamp: "2024-09-27T10:00:00.000Z"
+
 components:
   schemas:
     LookupResponse:
@@ -2046,6 +2259,288 @@ components:
           minimum: 0
           description: Total estimated tokens used
 
+    # Overnight Pack - New endpoint schemas
+
+    LintRequest:
+      type: object
+      required:
+        - scenario
+      properties:
+        scenario:
+          $ref: '#/components/schemas/Scenario'
+
+    LintResponse:
+      type: object
+      required:
+        - schema
+        - timestamp
+        - scenario
+        - summary
+        - issues
+        - recommendations
+      properties:
+        schema:
+          type: string
+          enum: ["lint.v1"]
+          description: Response schema version
+        timestamp:
+          type: string
+          format: date-time
+          description: Analysis timestamp
+        scenario:
+          type: object
+          properties:
+            title:
+              type: string
+            id:
+              type: string
+              description: Generated scenario identifier
+        summary:
+          type: object
+          required:
+            - score
+            - issueCount
+            - criticalCount
+            - warningCount
+          properties:
+            score:
+              type: integer
+              minimum: 0
+              maximum: 100
+              description: Overall quality score
+            issueCount:
+              type: integer
+              minimum: 0
+              description: Total number of issues found
+            criticalCount:
+              type: integer
+              minimum: 0
+              description: Number of critical issues
+            warningCount:
+              type: integer
+              minimum: 0
+              description: Number of warning issues
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/LintIssue'
+          description: Detected issues and suggestions
+        recommendations:
+          type: array
+          items:
+            type: string
+          description: High-level improvement recommendations
+
+    LintIssue:
+      type: object
+      required:
+        - id
+        - severity
+        - category
+        - message
+      properties:
+        id:
+          type: string
+          description: Issue identifier
+          example: "missing-metrics"
+        severity:
+          type: string
+          enum: ["critical", "warning", "info"]
+          description: Issue severity level
+        category:
+          type: string
+          enum: ["completeness", "balance", "structure", "clarity"]
+          description: Issue category
+        message:
+          type: string
+          description: Human-readable issue description
+        suggestion:
+          type: string
+          description: Specific improvement suggestion
+
+    SweepRequest:
+      type: object
+      required:
+        - baseScenario
+        - targetPaths
+      properties:
+        baseScenario:
+          type: object
+          description: Base scenario to generate variants from
+          additionalProperties: true
+        targetPaths:
+          type: array
+          items:
+            type: string
+          minItems: 1
+          maxItems: 10
+          description: Parameter paths to vary (e.g., "options[0].price")
+          example: ["options[0].price", "stakeholders[0].weight"]
+        variations:
+          type: array
+          items:
+            type: number
+          default: [-15, -10, -5, 5, 10, 15]
+          description: Percentage variations to apply
+          example: [-20, -10, 10, 20]
+        maxVariants:
+          type: integer
+          minimum: 1
+          maximum: 50
+          default: 20
+          description: Maximum number of variants to generate
+
+    SweepResponse:
+      type: object
+      required:
+        - schema
+        - timestamp
+        - baseScenario
+        - parameters
+        - variants
+        - rankings
+        - summary
+      properties:
+        schema:
+          type: string
+          enum: ["sweep.v1"]
+          description: Response schema version
+        timestamp:
+          type: string
+          format: date-time
+          description: Sweep generation timestamp
+        baseScenario:
+          type: object
+          required:
+            - baseline
+          properties:
+            id:
+              type: string
+              description: Base scenario identifier
+            baseline:
+              type: object
+              description: Original scenario data
+              additionalProperties: true
+        parameters:
+          type: object
+          required:
+            - targetPaths
+            - variations
+            - maxVariants
+          properties:
+            targetPaths:
+              type: array
+              items:
+                type: string
+              description: Parameter paths that were varied
+            variations:
+              type: array
+              items:
+                type: number
+              description: Percentage variations applied
+            maxVariants:
+              type: integer
+              description: Maximum variants requested
+        variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/SweepVariant'
+          description: Generated scenario variants
+        rankings:
+          type: array
+          items:
+            $ref: '#/components/schemas/SweepRanking'
+          description: Variant rankings by quality score
+        summary:
+          type: object
+          required:
+            - variantsGenerated
+            - bestVariant
+            - worstVariant
+            - averageScore
+          properties:
+            variantsGenerated:
+              type: integer
+              minimum: 0
+              description: Number of variants actually generated
+            bestVariant:
+              type: string
+              description: ID of highest-scoring variant
+            worstVariant:
+              type: string
+              description: ID of lowest-scoring variant
+            averageScore:
+              type: number
+              description: Average quality score across variants
+
+    SweepVariant:
+      type: object
+      required:
+        - id
+        - description
+        - modifications
+        - scenario
+      properties:
+        id:
+          type: string
+          description: Unique variant identifier
+          example: "var-1"
+        description:
+          type: string
+          description: Human-readable variant description
+          example: "options[0].price: 29.000 → 34.800 (+20%)"
+        modifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/SweepModification'
+          description: Parameter modifications made
+        scenario:
+          type: object
+          description: Modified scenario data
+          additionalProperties: true
+
+    SweepModification:
+      type: object
+      required:
+        - path
+        - originalValue
+        - newValue
+        - changePercent
+      properties:
+        path:
+          type: string
+          description: Parameter path that was modified
+          example: "options[0].price"
+        originalValue:
+          type: number
+          description: Original parameter value
+        newValue:
+          type: number
+          description: New parameter value
+        changePercent:
+          type: number
+          description: Percentage change applied
+
+    SweepRanking:
+      type: object
+      required:
+        - variantId
+        - rank
+        - score
+      properties:
+        variantId:
+          type: string
+          description: Variant identifier
+        rank:
+          type: integer
+          minimum: 1
+          description: Ranking position (1 = best)
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Quality score
+
   securitySchemes: {}
 
 security: []
@@ -2073,3 +2568,7 @@ tags:
     description: Concurrency management and fair scheduling
   - name: usage
     description: Usage metrics and analytics
+  - name: linting
+    description: Scenario validation and quality analysis (requires LINT_ENABLE=1)
+  - name: analysis
+    description: Advanced analysis features including parameter sweeps (requires SWEEP_ENABLE=1)

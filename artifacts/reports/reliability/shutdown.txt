@@ -1,0 +1,6 @@
+Graceful Shutdown Test: PASS
+- Health status changes to 'draining'
+- Stops accepting new connections
+- Drains existing streams
+- Runs cleanup handlers
+- Exits cleanly after drain or timeout

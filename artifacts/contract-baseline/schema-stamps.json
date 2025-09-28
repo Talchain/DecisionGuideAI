@@ -1,10 +1,13 @@
 {
-  "timestamp": "2025-09-27T23:51:53.409Z",
+  "timestamp": "2025-09-28T17:17:24.802Z",
   "stamps": [
     ".v1",
+    "import-dryrun.v1",
+    "insights.v1",
     "proposal.v1",
     "replay-cancel.v1",
     "replay-snapshots.v1",
+    "report.v1",
     "run-cancel.v1",
     "run-status.v1",
     "stream.v1",

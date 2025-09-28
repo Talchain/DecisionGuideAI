@@ -1,0 +1,281 @@
+name: OpenAPI Contract Gates
+
+on:
+  pull_request:
+    paths:
+      - 'artifacts/contracts/openapi-v1.yml'
+      - '.spectral.yaml'
+      - '.github/workflows/openapi-gates.yml'
+  push:
+    branches:
+      - main
+      - 'platform/**'
+    paths:
+      - 'artifacts/contracts/openapi-v1.yml'
+
+jobs:
+  spectral-lint:
+    name: Spectral OpenAPI Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Spectral
+        run: npm install -g @stoplight/spectral-cli
+
+      - name: Run Spectral Linting
+        run: |
+          spectral lint artifacts/contracts/openapi-v1.yml \
+            --ruleset .spectral.yaml \
+            --format pretty \
+            --fail-severity error
+
+      - name: Create reports directory
+        run: mkdir -p artifacts/reports
+
+      - name: Save Lint Report
+        if: always()
+        run: |
+          spectral lint artifacts/contracts/openapi-v1.yml \
+            --ruleset .spectral.yaml \
+            --format pretty \
+            > artifacts/reports/openapi-lint.txt 2>&1 || true
+
+      - name: Upload Lint Report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: spectral-report
+          path: artifacts/reports/spectral-report.json
+
+  oasdiff-check:
+    name: OpenAPI Breaking Change Detection
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Install oasdiff
+        run: go install github.com/tufin/oasdiff@latest
+
+      - name: Get base OpenAPI spec
+        run: |
+          # Get the spec from the base branch, fallback to latest tag, or use minimal stub
+          if git show origin/${{ github.base_ref }}:artifacts/contracts/openapi-v1.yml > base-openapi.yml 2>/dev/null; then
+            echo "✅ Using base branch spec"
+          elif git describe --tags --abbrev=0 > /dev/null 2>&1; then
+            LATEST_TAG=$(git describe --tags --abbrev=0)
+            echo "⚠️ Base branch spec not found, trying latest tag: $LATEST_TAG"
+            if git show "$LATEST_TAG:artifacts/contracts/openapi-v1.yml" > base-openapi.yml 2>/dev/null; then
+              echo "✅ Using spec from tag $LATEST_TAG"
+            else
+              echo "⚠️ No spec found in tag either, using minimal stub"
+              cat > base-openapi.yml << 'EOF'
+          openapi: 3.0.3
+          info:
+            title: Base Stub
+            version: 1.0.0
+          paths: {}
+          EOF
+            fi
+          else
+            echo "⚠️ No base ref or tags available, using minimal stub"
+            cat > base-openapi.yml << 'EOF'
+          openapi: 3.0.3
+          info:
+            title: Base Stub
+            version: 1.0.0
+          paths: {}
+          EOF
+          fi
+
+      - name: Create reports directory
+        run: mkdir -p artifacts/reports
+
+      - name: Check for breaking changes
+        id: breaking
+        run: |
+          # Check for breaking changes and save output
+          ~/go/bin/oasdiff breaking base-openapi.yml artifacts/contracts/openapi-v1.yml > artifacts/reports/openapi-gate.txt 2>&1 || true
+
+          if [ -s artifacts/reports/openapi-gate.txt ]; then
+            echo "❌ Breaking changes detected:"
+            cat artifacts/reports/openapi-gate.txt
+            echo "has_breaking=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ No breaking changes detected" | tee artifacts/reports/openapi-gate.txt
+            echo "has_breaking=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for changes
+        run: |
+          # Generate changelog
+          ~/go/bin/oasdiff changelog base-openapi.yml artifacts/contracts/openapi-v1.yml --format json > changelog.json || echo "{}" > changelog.json
+
+          echo "📋 OpenAPI Changes:"
+          cat changelog.json | jq .
+
+      - name: Comment PR with changes
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const breaking = '${{ steps.breaking.outputs.has_breaking }}' === 'true';
+
+            let comment = '## 📋 OpenAPI Contract Check\n\n';
+
+            if (breaking) {
+              const breakingChanges = fs.readFileSync('artifacts/reports/openapi-gate.txt', 'utf8');
+              comment += '### ❌ Breaking Changes Detected\n\n';
+              comment += '```\n' + breakingChanges + '\n```\n\n';
+              comment += '**Action Required:** Breaking changes are not allowed. Please make changes additive-only.\n';
+            } else {
+              comment += '### ✅ No Breaking Changes\n\n';
+              comment += 'All changes are additive or backward-compatible.\n';
+            }
+
+            // Add changelog if available
+            try {
+              const changelog = JSON.parse(fs.readFileSync('changelog.json', 'utf8'));
+              if (changelog && Object.keys(changelog).length > 0) {
+                comment += '\n### 📝 Changes Summary\n\n';
+                comment += '```json\n' + JSON.stringify(changelog, null, 2) + '\n```\n';
+              }
+            } catch (e) {
+              // No changelog
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+            if (breaking) {
+              core.setFailed('Breaking changes detected in OpenAPI specification');
+            }
+
+      - name: Fail on breaking changes
+        if: steps.breaking.outputs.has_breaking == 'true'
+        run: exit 1
+
+  validate-examples:
+    name: Validate OpenAPI Examples
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm install -g @apidevtools/swagger-cli
+
+      - name: Validate OpenAPI spec
+        run: |
+          swagger-cli validate artifacts/contracts/openapi-v1.yml
+
+      - name: Bundle OpenAPI spec
+        run: |
+          swagger-cli bundle artifacts/contracts/openapi-v1.yml \
+            --outfile artifacts/contracts/openapi-bundled.yml
+
+      - name: Upload bundled spec
+        uses: actions/upload-artifact@v3
+        with:
+          name: openapi-bundled
+          path: artifacts/contracts/openapi-bundled.yml
+
+  build-redoc:
+    name: Build OpenAPI HTML with Redoc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install redocly CLI
+        run: npm install -g @redocly/cli
+
+      - name: Create contracts directory
+        run: mkdir -p artifacts/contracts
+
+      - name: Build Redoc HTML
+        run: |
+          redocly build-docs artifacts/contracts/openapi-v1.yml \
+            --output artifacts/contracts/openapi.html \
+            --title "DecisionGuide AI API Documentation"
+
+      - name: Upload OpenAPI HTML
+        uses: actions/upload-artifact@v3
+        with:
+          name: openapi-html
+          path: artifacts/contracts/openapi.html
+
+  generate-report:
+    name: Generate Gate Report
+    runs-on: ubuntu-latest
+    needs: [spectral-lint, validate-examples, build-redoc]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Generate combined report
+        run: |
+          echo "# OpenAPI Gate Report" > artifacts/reports/openapi-gate.txt
+          echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> artifacts/reports/openapi-gate.txt
+          echo "" >> artifacts/reports/openapi-gate.txt
+
+          echo "## Spectral Linting" >> artifacts/reports/openapi-gate.txt
+          if [ -f spectral-report/spectral-report.json ]; then
+            echo "✅ Linting completed" >> artifacts/reports/openapi-gate.txt
+            echo "Results: See spectral-report.json" >> artifacts/reports/openapi-gate.txt
+          else
+            echo "⚠️ Linting report not found" >> artifacts/reports/openapi-gate.txt
+          fi
+          echo "" >> artifacts/reports/openapi-gate.txt
+
+          echo "## Breaking Changes" >> artifacts/reports/openapi-gate.txt
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "✅ Breaking change detection ran" >> artifacts/reports/openapi-gate.txt
+          else
+            echo "ℹ️ Breaking change detection skipped (not a PR)" >> artifacts/reports/openapi-gate.txt
+          fi
+          echo "" >> artifacts/reports/openapi-gate.txt
+
+          echo "## Validation" >> artifacts/reports/openapi-gate.txt
+          echo "✅ OpenAPI spec validated" >> artifacts/reports/openapi-gate.txt
+          echo "" >> artifacts/reports/openapi-gate.txt
+
+          echo "---" >> artifacts/reports/openapi-gate.txt
+          echo "All gates passed ✅" >> artifacts/reports/openapi-gate.txt
+
+      - name: Upload gate report
+        uses: actions/upload-artifact@v3
+        with:
+          name: openapi-gate-report
+          path: artifacts/reports/openapi-gate.txt

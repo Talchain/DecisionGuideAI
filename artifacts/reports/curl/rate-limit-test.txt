@@ -1,0 +1,4 @@
+=== Testing 429 RATE_LIMIT headers ===
+Triggering rate limit...
+Checking 429 response headers:
+HTTP/1.1 404 Not Found

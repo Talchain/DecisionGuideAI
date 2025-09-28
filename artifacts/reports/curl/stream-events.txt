@@ -1,0 +1,20 @@
+=== Testing /stream frozen events ===
+event: hello
+data: {"sessionId":"test123","timestamp":"2025-09-28T19:09:37.145Z"}
+
+event: token
+data: {"content":"Starting analysis...","progress":0.1}
+
+event: cost
+data: {"credits":100,"estimate":500,"breakdown":{"analysis":300,"llm":200}}
+
+event: token
+data: {"content":"Processing data...","progress":0.5}
+
+event: token
+data: {"content":"Finalising...","progress":0.9}
+
+event: done
+data: {"result":"success","reportId":"rpt_test123","analysisComplete":true}
+
+Stream test completed

@@ -1,0 +1,74 @@
+{
+  "schema": "insights.v1",
+  "runId": "sample-comprehensive",
+  "meta": {
+    "analysisType": "comprehensive",
+    "timestamp": "2025-09-28T16:00:00.000Z",
+    "reportVersion": "report.v1"
+  },
+  "drivers": [
+    {
+      "name": "validation",
+      "weight": 1.0,
+      "contribution": 0.43,
+      "description": "Data validation and quality checks"
+    },
+    {
+      "name": "analysis",
+      "weight": 1.0,
+      "contribution": 0.42,
+      "description": "Core analytical processing"
+    },
+    {
+      "name": "generation",
+      "weight": 1.0,
+      "contribution": 0.42,
+      "description": "Content and result generation"
+    },
+    {
+      "name": "stakeholder_weighting",
+      "weight": 0.8,
+      "contribution": 0.35,
+      "description": "Stakeholder influence calculations"
+    },
+    {
+      "name": "option_scoring",
+      "weight": 0.9,
+      "contribution": 0.38,
+      "description": "Option evaluation and scoring"
+    }
+  ],
+  "hotspots": [
+    {
+      "name": "generation",
+      "severity": "medium",
+      "rationale": "Risk factors: execution failure, high token cost",
+      "impact": 0.35,
+      "likelihood": 0.25
+    },
+    {
+      "name": "stakeholder_alignment",
+      "severity": "low",
+      "rationale": "Potential for conflicting stakeholder priorities",
+      "impact": 0.20,
+      "likelihood": 0.15
+    },
+    {
+      "name": "data_quality",
+      "severity": "high",
+      "rationale": "Input validation critical for accurate results",
+      "impact": 0.50,
+      "likelihood": 0.30
+    }
+  ],
+  "recommendations": [
+    "Focus validation processes to maintain data quality",
+    "Monitor generation costs and performance",
+    "Establish clear stakeholder priority frameworks"
+  ],
+  "notes": [
+    "Comprehensive analysis combining performance drivers and risk assessment",
+    "Based on deterministic report analysis",
+    "Top 5 drivers and 3 risk hotspots identified"
+  ]
+}

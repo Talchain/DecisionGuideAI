@@ -17,7 +17,6 @@ const __dirname = dirname(__filename);
 // Configuration
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3001';
 const INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-const DURATION_MS = parseInt(process.env.DURATION_MS || (60 * 60 * 1000)); // 1 hour default
 const LOG_FILE = join(__dirname, '..', 'artifacts', 'reports', 'live-swap.log');
 
 // Health check timeout
@@ -26,7 +25,12 @@ const HEALTH_TIMEOUT = 10000; // 10 seconds
 let intervalId = null;
 let running = false;
 let checks = 0;
+let passes = 0;
+let failures = 0;
 let lastResults = []; // Store last few results to detect consecutive failures
+let consecutiveFailures = 0;
+let sessionStartTime = 0;
+let durationMs = 60 * 60 * 1000; // Default 1 hour, will be overridden by CLI args
 
 /**
  * Format timestamp for log entries
@@ -163,6 +167,17 @@ async function quickHealthCheck() {
 }
 
 /**
+ * Calculate exponential backoff delay for consecutive failures
+ */
+function calculateBackoffDelay(failures) {
+  // Base delay is the normal interval (5 minutes)
+  // Exponential backoff: 5min, 10min, 20min, 40min (max)
+  const baseDelay = INTERVAL_MS;
+  const multiplier = Math.min(Math.pow(2, failures - 1), 8); // Cap at 8x
+  return baseDelay * multiplier;
+}
+
+/**
  * Perform monitoring check and log result
  */
 async function performCheck() {
@@ -177,6 +192,15 @@ async function performCheck() {
     lastResults.shift(); // Keep only last 5 results
   }
 
+  // Update counters
+  if (result.status === 'PASS') {
+    passes++;
+    consecutiveFailures = 0; // Reset consecutive failure counter
+  } else {
+    failures++;
+    consecutiveFailures++;
+  }
+
   const logEntry = `${timestamp()} | Check #${checks} | ${result.status} | ${result.duration}ms | ${result.details}`;
 
   // Log to file
@@ -186,12 +210,34 @@ async function performCheck() {
   const statusIcon = result.status === 'PASS' ? '✅' : '❌';
   console.log(`${statusIcon} ${result.status} (${result.duration}ms) - ${result.details}`);
 
-  // Check for consecutive failures
+  // Handle consecutive failures with exponential backoff
   if (result.status === 'FAIL') {
-    const consecutiveFailures = getConsecutiveFailures();
     if (consecutiveFailures >= 2) {
       console.log(`⚠️ ${consecutiveFailures} consecutive failures detected`);
       createIncidentStub(consecutiveFailures);
+
+      // Calculate exponential backoff delay
+      const backoffDelay = calculateBackoffDelay(consecutiveFailures);
+      const extraDelay = backoffDelay - INTERVAL_MS;
+
+      if (extraDelay > 0) {
+        console.log(`🔄 Applying exponential backoff: +${extraDelay/1000}s (total interval: ${backoffDelay/1000}s)`);
+        appendToLog(`# BACKOFF: Next check delayed by ${extraDelay/1000}s due to ${consecutiveFailures} consecutive failures`);
+
+        // Extend the next interval
+        if (intervalId) {
+          clearInterval(intervalId);
+          intervalId = setTimeout(async () => {
+            if (running) {
+              await performCheck();
+              // Resume normal interval
+              intervalId = setInterval(async () => {
+                if (running) await performCheck();
+              }, INTERVAL_MS);
+            }
+          }, backoffDelay);
+        }
+      }
     }
   }
 
@@ -217,10 +263,12 @@ function getConsecutiveFailures() {
  * Start monitoring
  */
 async function startWatching() {
+  sessionStartTime = Date.now();
+
   console.log('🔍 Pilot Watcher Starting');
   console.log(`📍 Target: ${BASE_URL}`);
   console.log(`⏱️  Interval: ${INTERVAL_MS / 1000}s`);
-  console.log(`🕐 Duration: ${DURATION_MS / 1000}s`);
+  console.log(`🕐 Duration: ${durationMs / 1000}s (${Math.round(durationMs / 60000)} minutes)`);
   console.log(`📝 Log: ${LOG_FILE}`);
   console.log('');
   console.log('Press Ctrl+C to stop monitoring cleanly');
@@ -230,7 +278,7 @@ async function startWatching() {
 
   // Log start marker
   appendToLog(`# Pilot Watcher Session Started - ${timestamp()}`);
-  appendToLog(`# Target: ${BASE_URL}, Interval: ${INTERVAL_MS}ms, Duration: ${DURATION_MS}ms`);
+  appendToLog(`# Target: ${BASE_URL}, Interval: ${INTERVAL_MS}ms, Duration: ${durationMs}ms`);
 
   running = true;
 
@@ -250,7 +298,7 @@ async function startWatching() {
       console.log('\n⏰ Duration limit reached, stopping watcher...');
       stopWatching();
     }
-  }, DURATION_MS);
+  }, durationMs);
 }
 
 /**
@@ -266,12 +314,25 @@ function stopWatching() {
     intervalId = null;
   }
 
-  // Log stop marker
+  // Calculate session stats
+  const sessionDuration = Math.round((Date.now() - sessionStartTime) / 1000);
+  const passRate = checks > 0 ? Math.round((passes / checks) * 100) : 0;
+  const overallStatus = passRate >= 90 ? 'HEALTHY' : passRate >= 70 ? 'DEGRADED' : 'UNHEALTHY';
+
+  // Generate final capsule line
+  const capsuleLine = `CAPSULE: ${timestamp()} | Window: ${sessionDuration}s | Checks: ${checks} | PASS: ${passes} | FAIL: ${failures} | Rate: ${passRate}% | Status: ${overallStatus}`;
+
+  // Log session summary
   appendToLog(`# Pilot Watcher Session Ended - ${timestamp()} (${checks} checks completed)`);
+  appendToLog(`# Session Summary: ${sessionDuration}s runtime, ${passes}/${checks} passed (${passRate}%)`);
+  appendToLog(capsuleLine);
 
   console.log('\n🛑 Pilot Watcher Stopped');
-  console.log(`✅ Completed ${checks} health checks`);
+  console.log(`✅ Completed ${checks} health checks in ${sessionDuration}s`);
+  console.log(`📊 Results: ${passes} PASS, ${failures} FAIL (${passRate}% success rate)`);
+  console.log(`🏥 Overall Status: ${overallStatus}`);
   console.log(`📝 Results logged to: ${LOG_FILE}`);
+  console.log(`\n📋 Final Capsule: ${capsuleLine}`);
 
   process.exit(0);
 }
@@ -305,6 +366,36 @@ function setupSignalHandlers() {
 }
 
 /**
+ * Parse CLI arguments
+ */
+function parseArguments(args) {
+  const options = {
+    duration: 60, // Default 60 minutes
+    help: false
+  };
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === '--help' || arg === '-h') {
+      options.help = true;
+    } else if (arg === '--duration' || arg === '-d') {
+      const nextArg = args[i + 1];
+      if (nextArg && !isNaN(nextArg)) {
+        options.duration = parseInt(nextArg);
+        i++; // Skip next argument
+      } else {
+        throw new Error('--duration requires a numeric value in minutes');
+      }
+    } else {
+      throw new Error(`Unknown argument: ${arg}`);
+    }
+  }
+
+  return options;
+}
+
+/**
  * Display usage information
  */
 function showUsage() {
@@ -314,27 +405,36 @@ function showUsage() {
 Usage:
   node scripts/pilot-watcher.mjs [options]
 
+Options:
+  --duration <minutes>    How long to monitor (default: 60 minutes)
+  --help, -h             Show this help message
+
 Environment Variables:
-  BASE_URL      Target URL to monitor (default: http://localhost:3001)
-  DURATION_MS   How long to monitor in milliseconds (default: 3600000 = 1 hour)
+  BASE_URL               Target URL to monitor (default: http://localhost:3001)
 
 Examples:
   # Monitor for 1 hour (default)
   node scripts/pilot-watcher.mjs
 
   # Monitor for 30 minutes
-  DURATION_MS=1800000 node scripts/pilot-watcher.mjs
+  node scripts/pilot-watcher.mjs --duration 30
 
-  # Monitor different URL
-  BASE_URL=http://localhost:4001 node scripts/pilot-watcher.mjs
+  # Monitor for 2 hours
+  node scripts/pilot-watcher.mjs --duration 120
 
-The watcher will:
-- Perform health checks every 5 minutes
-- Log results to artifacts/reports/live-swap.log
-- Stop cleanly on Ctrl+C or after duration limit
-- Run until manually stopped or duration expires
+  # Monitor different URL for 45 minutes
+  BASE_URL=http://localhost:4001 node scripts/pilot-watcher.mjs --duration 45
+
+Features:
+- Performs health checks every 5 minutes
+- Exponential backoff on repeated failures (5min → 10min → 20min → 40min)
+- Incident stub creation for consecutive failures
+- Final capsule line summarising PASS/FAIL for the monitoring window
+- Clean shutdown on Ctrl+C or after duration limit
+- Comprehensive logging to artifacts/reports/live-swap.log
 
 Log format: timestamp | check# | PASS/FAIL | duration | details
+Capsule format: CAPSULE: timestamp | Window: Xs | Checks: N | PASS: N | FAIL: N | Rate: N% | Status: HEALTHY/DEGRADED/UNHEALTHY
 `);
 }
 
@@ -344,17 +444,28 @@ Log format: timestamp | check# | PASS/FAIL | duration | details
 async function main() {
   const args = process.argv.slice(2);
 
-  if (args.includes('--help') || args.includes('-h')) {
-    showUsage();
-    return;
-  }
-
-  // Setup signal handlers for clean shutdown
-  setupSignalHandlers();
-
   try {
+    const options = parseArguments(args);
+
+    if (options.help) {
+      showUsage();
+      return;
+    }
+
+    // Set duration from CLI argument
+    durationMs = options.duration * 60 * 1000; // Convert minutes to milliseconds
+
+    // Setup signal handlers for clean shutdown
+    setupSignalHandlers();
+
     await startWatching();
   } catch (error) {
+    if (error.message.includes('Unknown argument') || error.message.includes('requires a numeric value')) {
+      console.error(`❌ ${error.message}`);
+      console.log('\nUse --help for usage information');
+      process.exit(1);
+    }
+
     console.error('💥 Pilot watcher failed to start:', error.message);
     appendToLog(`# STARTUP ERROR: ${timestamp()} - ${error.message}`);
     process.exit(1);

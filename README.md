@@ -89,6 +89,15 @@ Troubleshooting:
 - Confirm flags are ON.
 - Use the bumped dev server port if 5176 changes.
 
+### Error Handling
+For comprehensive error handling guidance, see [Error Mapping Guide](docs/ERROR-MAPPING-GUIDE.md).
+
+The guide covers all error codes (BAD_INPUT, TIMEOUT, RATE_LIMIT, INTERNAL, RETRYABLE, BREAKER_OPEN) with:
+- HTTP status mappings and retry guidance
+- SSE counterparts and examples
+- Complete 429 rate limit header handling
+- Copy-paste curl and Node.js snippets
+
 ## Security Analysis (CodeQL)
 
 CodeQL security analysis runs automatically on PR and pushes to main. Results are available in the "Code scanning" section of the repository.
