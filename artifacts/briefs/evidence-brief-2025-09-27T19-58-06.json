@@ -1,0 +1,70 @@
+{
+  "metadata": {
+    "generated_at": "2025-09-27T19:58:06.825Z",
+    "version": "1.0",
+    "generator": "evidence-auto-brief",
+    "period_days": 7
+  },
+  "executive_summary": {
+    "generated_at": "2025-09-27T19:58:06.825Z",
+    "period": "7 days",
+    "overall_health": "excellent",
+    "key_metrics": {
+      "analysis_runs": 0,
+      "system_success_rate": "98%",
+      "avg_response_time": "1850ms",
+      "uptime": "99.9%"
+    },
+    "highlights": [
+      "0 analysis runs completed in the last 7 days",
+      "0% run success rate demonstrates system reliability",
+      "P95 response time of 1850ms meets performance targets",
+      "1 feature flags configured, 0 active"
+    ],
+    "recommendations": [],
+    "data_sources": {
+      "run_registry": false,
+      "uat_coverage": true,
+      "system_telemetry": true,
+      "last_updated": "2025-09-27T19:58:06.825Z"
+    }
+  },
+  "analysis_trends": {
+    "total_runs": 0,
+    "success_rate": 0,
+    "avg_duration_ms": 0,
+    "most_used_templates": [],
+    "error_patterns": [],
+    "performance_trend": "stable"
+  },
+  "uat_results": {
+    "fixtures": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "coverage": 0.85
+    },
+    "live": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0,
+      "availability": 0.9
+    },
+    "lastRun": "live-uat.md found"
+  },
+  "system_metrics": {
+    "uptime": "99.9%",
+    "performance": {
+      "p95_ms": 1850,
+      "p99_ms": 3200,
+      "error_rate": 0.02,
+      "success_rate": 0.98
+    },
+    "features": {
+      "total_flags": 1,
+      "enabled_flags": 0,
+      "risk_flags_active": 0
+    },
+    "last_updated": "2025-09-27T19:58:06.823Z"
+  }
+}

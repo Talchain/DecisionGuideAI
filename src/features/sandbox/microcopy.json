@@ -1,0 +1,152 @@
+{
+  "app": {
+    "title": "Decision Analysis Sandbox",
+    "description": "Explore decision scenarios with interactive templates and analysis"
+  },
+  "templates": {
+    "chooseprompt": "Choose a template to begin",
+    "lastused": "Last used",
+    "loadannouncement": "Template loaded. Seed {{seed}}."
+  },
+  "modes": {
+    "fixtures": "Fixtures",
+    "live": "Live Gateway",
+    "connected": "Live",
+    "disconnected": "Disconnected"
+  },
+  "views": {
+    "simplify": "Simplify",
+    "simplified": "Simplified",
+    "threshold": "≥{{value}} threshold",
+    "switchtocanvas": "Switch to Canvas",
+    "switchtolist": "Switch to List View"
+  },
+  "streaming": {
+    "analyse": "Analyse",
+    "streaming": "Streaming...",
+    "cancel": "Cancel",
+    "blip": "Blip"
+  },
+  "performance": {
+    "analysistime": "Analysis Time",
+    "firsttoken": "First Token",
+    "mode": "Mode",
+    "confidence": "Confidence",
+    "currency": "Currency",
+    "interruptions": "Interruptions"
+  },
+  "actions": {
+    "copyseed": "Copy Seed",
+    "copymodel": "Copy Model",
+    "compareoptions": "Compare Options",
+    "exportanalysis": "Export Analysis",
+    "downloadreport": "Download Report",
+    "close": "Close"
+  },
+  "results": {
+    "notemplateselected": "No template selected",
+    "noanalysisresults": "No analysis results yet",
+    "selecttemplate": "Select a template to see key drivers",
+    "keyfindings": "Key Finding",
+    "threekeydrivers": "Three Key Drivers",
+    "analysisdetails": "Analysis Details"
+  },
+  "accessibility": {
+    "livetimeouts": {
+      "templateloaded": "Template loaded. Seed {{seed}}.",
+      "reducedcomplexity": "Reduced visual complexity",
+      "resultsstreaming": "Results streaming",
+      "reportavailable": "Report available",
+      "streamcancelled": "Stream cancelled",
+      "connectionrestored": "Connection restored; continuing",
+      "resumelimitreached": "Resume limit reached"
+    },
+    "labels": {
+      "closedrawer": "Close {{type}} drawer",
+      "gatewayhealth": "Gateway health: {{status}}. Click to refresh.",
+      "dismiss": "Dismiss status message"
+    }
+  },
+  "export": {
+    "formats": {
+      "csv": "CSV",
+      "json": "JSON"
+    },
+    "filenames": {
+      "analysis": "analysis_{{type}}_seed{{seed}}_{{model}}.csv",
+      "compare": "compare_seed{{seed}}_{{model}}.csv"
+    }
+  },
+  "errors": {
+    "catalogue": {
+      "connectionLost": "Connection lost. We're attempting to reconnect automatically.",
+      "connectionRestored": "Connection restored. Analysis will continue.",
+      "networkError": "Network error occurred. Please check your connection and try again.",
+      "timeoutError": "Request timed out. The service may be experiencing high demand.",
+      "authRequired": "Authentication required. Please sign in to continue.",
+      "permissionDenied": "Access denied. You don't have permission for this action.",
+      "sessionExpired": "Your session has expired. Please refresh and try again.",
+      "rateLimited": "Too many requests. Please wait a moment before trying again.",
+      "capacityExceeded": "Service is at capacity. We're working to resolve this shortly.",
+      "quotaExceeded": "Usage limit reached. Please upgrade your plan or try again later.",
+      "invalidData": "Invalid data received. Please check your input and try again.",
+      "processingError": "Processing error occurred. Our team has been notified.",
+      "dataUnavailable": "Data temporarily unavailable. Please try again in a few moments.",
+      "analysisFailed": "Analysis could not be completed. Please try with a different template.",
+      "modelUnavailable": "Analysis model temporarily unavailable. Please try again shortly.",
+      "seedError": "Invalid seed value. Please select a different template."
+    },
+    "success": {
+      "analysisComplete": "Analysis completed successfully.",
+      "templateLoaded": "Template loaded successfully.",
+      "exportReady": "Export prepared and ready for download."
+    },
+    "loading": {
+      "analysing": "Analysing your scenario. This may take a few moments.",
+      "connecting": "Connecting to analysis service...",
+      "loadingTemplate": "Loading template data..."
+    }
+  },
+  "health": {
+    "status": {
+      "healthy": "Healthy",
+      "degraded": "Degraded",
+      "unhealthy": "Unhealthy",
+      "unknown": "Unknown"
+    },
+    "tooltip": {
+      "status": "Status: {{status}}",
+      "p95": "P95: {{time}}ms",
+      "correlation": "{{id}}..."
+    }
+  },
+  "mobile": {
+    "tapTargets": {
+      "minimum": "44px"
+    },
+    "listFirst": true,
+    "viewport": {
+      "mobile": 480
+    }
+  },
+  "compare": {
+    "title": "Compare Analysis",
+    "loading": "Analysing comparison...",
+    "schema": "compare.v1",
+    "leftOption": "Left Option",
+    "rightOption": "Right Option",
+    "scoreDifference": "Score Difference",
+    "confidence": {
+      "high": "HIGH",
+      "medium": "MEDIUM",
+      "low": "LOW"
+    }
+  },
+  "copy": {
+    "feedback": {
+      "seedCopied": "Seed copied!",
+      "modelCopied": "Model copied!",
+      "copyFailed": "Copy failed"
+    }
+  }
+}

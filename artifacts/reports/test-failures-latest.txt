@@ -1,0 +1,527 @@
+
+ RUN  v1.6.1 /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude
+
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Slot Management > should allow run within concurrency limit
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Slot Management > should queue run when at concurrency limit
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Slot Management > should reject when queue is full
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Slot Management > should handle different orgs independently
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Slot Management > should release slots properly
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > GET /queue/status > should require org parameter
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > GET /queue/status > should return queue status for org
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > GET /queue/status > should return zero counts for org with no activity
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > POST /queue/bump > should return 404 when TEST_ROUTES not enabled
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > POST /queue/bump > should process queued runs when TEST_ROUTES enabled
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Queue Statistics > should return comprehensive queue statistics
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Queue Statistics > should track per-org statistics correctly
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Queue Cleanup > should clean up expired entries
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Error Handling > should handle invalid run IDs gracefully
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Error Handling > should handle null org gracefully
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Error Handling > should include timestamp in error responses
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Environment Configuration > should respect MAX_CONCURRENCY_PER_ORG setting 407ms
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > Feature Toggle > should be disabled by default
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > Feature Toggle > should be enabled when signing key is set
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > POST /pilot/mint-session > should return 404 when feature disabled
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > POST /pilot/mint-session > should require org field
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > POST /pilot/mint-session > should require plan field
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > POST /pilot/mint-session > should require caps field
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > POST /pilot/mint-session > should validate caps.rpm
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > POST /pilot/mint-session > should validate caps.daily_tokens
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > POST /pilot/mint-session > should validate caps.max_concurrency
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > POST /pilot/mint-session > should validate ttlMin range
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > POST /pilot/mint-session > should mint valid session token when enabled
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > POST /pilot/mint-session > should use default TTL when not specified
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > Session Extraction > should extract from Authorization header
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > Session Extraction > should extract from X-Olumi-Session header
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > Session Extraction > should return null when no session headers present
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > Session Extraction > should return null when feature disabled
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > Rate Limit Checking > should allow request within limits
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > Rate Limit Checking > should return rate limit structure for exceeded limits
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > Error Handling > should handle null request body
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > Error Handling > should handle invalid JSON structure
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > Error Handling > should include timestamp in error responses
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > Response Format Validation > should return consistent session response structure
+ ✓ tests/contracts/tenant-sessions.contract.test.ts > Tenant Sessions Contract Tests > Response Format Validation > should return consistent error response structure
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Metadata Management > should add and retrieve snapshot metadata
+Snapshot index loaded: 0 entries
+
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Usage Data Recording > should record run completion
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Usage Data Recording > should record run completion without cancel time
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Usage Data Recording > should record multiple runs for same org
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Usage Data Recording > should record rate limit hits
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Usage Data Recording > should handle different orgs independently
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Usage Summary Generation > should generate summary for valid period
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Usage Summary Generation > should handle different time periods
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Usage Summary Generation > should return empty summary for org with no data
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Usage Summary Generation > should handle median calculation with even number of values
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Usage Summary Generation > should handle median calculation with single value
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Period Parsing > should throw error for invalid period format
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Period Parsing > should throw error for invalid period unit
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Period Parsing > should handle various valid period formats
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > GET /usage/summary > should require org parameter
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > GET /usage/summary > should require period parameter
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > GET /usage/summary > should validate org parameter type
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > GET /usage/summary > should validate period parameter type
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > GET /usage/summary > should validate period format
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > GET /usage/summary > should return usage summary when parameters are valid
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > GET /export/usage.csv > should require org parameter
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > GET /export/usage.csv > should require period parameter
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > GET /export/usage.csv > should return CSV when parameters are valid
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > GET /export/usage.csv > should generate proper CSV filename
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > GET /export/usage.csv > should escape CSV fields properly
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Usage Statistics > should return empty statistics initially
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Usage Statistics > should aggregate statistics across orgs
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Data Cleanup > should clean up old usage data
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Error Handling > should handle internal errors in summary generation
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Error Handling > should include timestamp in error responses
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Error Handling > should handle CSV generation errors gracefully
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Response Format Validation > should return consistent summary response structure
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Response Format Validation > should return consistent error response structure
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Response Format Validation > should return consistent CSV response structure
+ ✓ tests/contracts/usage-summary.contract.test.ts > Usage Summary Contract Tests > Time Window Filtering > should filter metrics by time window correctly
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Metadata Management > should return null for non-existent snapshot
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Metadata Management > should replace existing metadata with same runId
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Metadata Management > should sort snapshots by createdAt (newest first)
+Snapshot index loaded: 0 entries
+
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Metadata Management > should add and retrieve snapshot metadata
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Metadata Management > should return null for non-existent snapshot
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Metadata Management > should replace existing metadata with same runId
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Metadata Management > should sort snapshots by createdAt (newest first)
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Listing > should list all snapshots by default
+Snapshot index loaded: 0 entries
+
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Metadata Management > should sort snapshots by createdAt (newest first)
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Listing > should list all snapshots by default
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Listing > should filter by org
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Listing > should filter by since date
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Listing > should support pagination
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots > should return snapshot list with default parameters
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots > should validate page parameter
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots > should validate limit parameter
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots > should validate since parameter
+Snapshot index loaded: 0 entries
+
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > POST /compare/batch > should require items array
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > POST /compare/batch > should reject empty items array
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > POST /compare/batch > should reject too many items
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > POST /compare/batch > should require scenarioId for each item
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > POST /compare/batch > should require seed for each item
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > POST /compare/batch > should validate seed as integer
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > POST /compare/batch > should reject duplicate scenario IDs
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > POST /compare/batch > should return valid batch comparison for single item
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > POST /compare/batch > should return ranked comparison for multiple items
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > POST /compare/batch > should detect mixed seeds in notes
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > Response Schema Validation > should return compare-batch.v1 schema
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > Response Schema Validation > should include required ranked scenario fields
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > Response Schema Validation > should set baseline to highest value scenario
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > Response Schema Validation > should calculate percentage deltas correctly
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > Response Schema Validation > should round percentages to 1 decimal place
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > Response Schema Validation > should include currency note
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > Ranking Logic > should sort scenarios by most_likely value descending
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > Ranking Logic > should preserve all input scenarios in ranking
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > Error Handling > should handle null request body
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > Error Handling > should handle missing items property
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > Error Handling > should handle non-array items
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > Error Handling > should include timestamp in error responses
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > Budget Parameter > should accept optional budget parameter
+ ✓ tests/contracts/compare-batch.contract.test.ts > Batch Compare Contract Tests > Budget Parameter > should work without budget parameter
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots > should validate org parameter
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots > should handle filter parameters correctly
+Snapshot index loaded: 0 entries
+
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/report.csv > should require runId parameter
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/report.csv > should return 404 for non-existent run
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/report.csv > should return CSV for existing run
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/report.csv > should include CSV headers
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/report.csv > should include currency label
+ × tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/report.csv > should include version in filename and content
+   → expected 'run_id,scenario_id,seed,title,option_…' to contain 'v0.1.0'
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/compare.csv > should require left parameter
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/compare.csv > should require right parameter
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/compare.csv > should return 404 for non-existent runs
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/compare.csv > should return CSV for valid comparison
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/compare.csv > should include comparison CSV headers
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/batch.csv > should require baseline parameter
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/batch.csv > should require items parameter
+ × tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/batch.csv > should reject empty items
+   → expected 'baseline and items parameters required' to contain 'At least one item required'
+ × tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/batch.csv > should return CSV for valid batch request
+   → expected 'attachment; filename="batch_seed-42_v…' to contain 'scenario-a'
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/batch.csv > should include batch CSV headers
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > GET /export/batch.csv > should parse comma-separated items correctly
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > CSV Format Validation > should escape CSV special characters
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > CSV Format Validation > should handle null and undefined values
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > Filename Generation > should include seed in report filename
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > Filename Generation > should include scenario names in compare filename
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > Filename Generation > should include date in filename
+ × tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > Error Handling > should handle missing query parameters gracefully
+   → Cannot destructure property 'runId' of 'query' as it is null.
+ ✓ tests/contracts/exporters.contract.test.ts > Exporters Contract Tests > Error Handling > should include error timestamps
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots/{runId} > should return snapshot metadata for existing run
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots/{runId} > should return 404 for non-existent run
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots/{runId} > should validate runId parameter
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots/{runId} > should handle null runId
+Snapshot index loaded: 0 entries
+
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > POST /compare - Input Validation > should handle valid random inputs consistently
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > POST /compare - Input Validation > should reject invalid request bodies with BAD_INPUT
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > POST /compare - Input Validation > should handle missing left scenario
+ × tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > POST /compare - Input Validation > should handle missing right scenario
+   → expected 'Request validation failed' to contain 'right'
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > POST /compare - Input Validation > should validate scenario structure
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > POST /compare - Input Validation > should handle extreme values within limits
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > POST /compare/batch - Input Validation > should handle valid random batch inputs
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > POST /compare/batch - Input Validation > should reject oversized batches
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > POST /compare/batch - Input Validation > should reject empty batches
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > POST /compare/batch - Input Validation > should validate individual batch items
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > Response Consistency > should maintain consistent response format under load
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > Response Consistency > should handle concurrent requests without corruption
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > Error Taxonomy Consistency > should always use BAD_INPUT for client errors
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > Error Taxonomy Consistency > should include proper timestamps in all error responses
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > Size Limits and Resource Usage > should handle large scenario IDs gracefully
+ ✓ tests/fuzz/compare-fuzz.test.ts > Compare Endpoints Fuzz Tests > Size Limits and Resource Usage > should handle deeply nested objects
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Statistics > should return comprehensive statistics
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Cleanup and Retention > should clean up expired snapshots
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Cleanup and Retention > should return 0 when no cleanup needed
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Error Handling > should include timestamp in error responses
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Error Handling > should handle malformed query parameters gracefully
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Response Format Validation > should return consistent list response structure
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Response Format Validation > should return consistent metadata structure
+Snapshot index loaded: 0 entries
+
+stdout | tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Response Format Validation > should return consistent error response structure
+Snapshot index loaded: 0 entries
+
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Listing > should list all snapshots by default
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Listing > should filter by org
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Listing > should filter by since date
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Listing > should support pagination
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots > should return snapshot list with default parameters
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots > should validate page parameter
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots > should validate limit parameter
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots > should validate since parameter
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots > should validate org parameter
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots > should handle filter parameters correctly
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots/{runId} > should return snapshot metadata for existing run
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots/{runId} > should return 404 for non-existent run
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots/{runId} > should validate runId parameter
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > GET /snapshots/{runId} > should handle null runId
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Snapshot Statistics > should return comprehensive statistics
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Cleanup and Retention > should clean up expired snapshots
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Cleanup and Retention > should return 0 when no cleanup needed
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Error Handling > should include timestamp in error responses
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Error Handling > should handle malformed query parameters gracefully
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Response Format Validation > should return consistent list response structure
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Response Format Validation > should return consistent metadata structure
+ ✓ tests/contracts/snapshots-index.contract.test.ts > Snapshot Index Contract Tests > Response Format Validation > should return consistent error response structure
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Basic validation > should pass validation for valid minimal template
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Basic validation > should fail validation for missing template
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Basic validation > should fail validation for missing scenario
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Basic validation > should fail validation for missing title
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Basic validation > should fail validation for missing options
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Basic validation > should fail validation for empty options array
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Option validation > should validate option structure
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Option validation > should accept options with additional fields
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Node counting and limits > should count nodes correctly
+ × tests/limits/validator.test.ts > Scenario Validator > Node counting and limits > should respect custom MAX_NODES environment variable
+   → expected false to be true // Object.is equality
+ × tests/limits/validator.test.ts > Scenario Validator > Node counting and limits > should respect custom WARN_NODES environment variable
+   → expected [] to include 'Scenario approaching complexity limit…'
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Node counting and limits > should handle templates at exact node limit
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Node counting and limits > should handle templates just over node limit
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Edge cases > should handle empty arrays correctly
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Edge cases > should handle null and undefined fields
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Edge cases > should handle non-object constraints
+ ✓ tests/limits/validator.test.ts > Scenario Validator > Edge cases > should handle deeply nested structures
+ ✓ tests/limits/rate-limit.test.ts > Rate Limiting > checkRateLimit > should allow requests under RPM limit
+ × tests/limits/rate-limit.test.ts > Rate Limiting > checkRateLimit > should reject requests over RPM limit
+   → expected true to be false // Object.is equality
+ × tests/limits/rate-limit.test.ts > Rate Limiting > checkRateLimit > should reject requests over daily token budget
+   → expected true to be false // Object.is equality
+ ✓ tests/limits/rate-limit.test.ts > Rate Limiting > checkRateLimit > should track tokens correctly
+ × tests/limits/rate-limit.test.ts > Rate Limiting > checkRateLimit > should handle different origins separately
+   → expected true to be false // Object.is equality
+ ✓ tests/limits/rate-limit.test.ts > Rate Limiting > checkRateLimit > should reset daily counters on new date
+ × tests/limits/rate-limit.test.ts > Rate Limiting > checkRateLimit > should clean old requests from RPM tracking
+   → expected true to be false // Object.is equality
+ ✓ tests/limits/rate-limit.test.ts > Rate Limiting > Safety Middleware > should create middleware that allows valid requests
+ × tests/limits/rate-limit.test.ts > Rate Limiting > Safety Middleware > should reject requests over rate limit
+   → expected "spy" to be called with arguments: [ 429 ]
+
+Received: 
+
+
+
+Number of calls: 0
+
+ ✓ tests/limits/rate-limit.test.ts > Rate Limiting > Safety Middleware > should reject requests with invalid scenarios
+ ✓ tests/limits/rate-limit.test.ts > Rate Limiting > Safety Middleware > should handle different origin formats
+ ✓ tests/limits/rate-limit.test.ts > Rate Limiting > Rate Limit Status > should provide accurate status information
+ ✓ tests/limits/rate-limit.test.ts > Rate Limiting > Rate Limit Status > should track multiple origins
+ × tests/limits/rate-limit.test.ts > Rate Limiting > Rate Limit Status > should reflect current state accurately
+   → expected { rpm_current: 3, rpm_limit: 60, …(3) } to match object { rpm_current: 3, rpm_limit: 3, …(2) }
+(1 matching property omitted from actual)
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Feature Toggle > should be disabled by default
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Feature Toggle > should be enabled when OPS_CONSOLE_ENABLE=1
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Feature Toggle > should require string "1" to enable
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Authentication - Localhost > should allow access from localhost without token
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Authentication - Localhost > should allow access from 127.0.0.1 without token
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Authentication - Localhost > should allow bare localhost
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Authentication - Remote Access > should require token for non-localhost access
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Authentication - Remote Access > should accept valid Bearer token
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Authentication - Remote Access > should reject invalid token
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Authentication - Remote Access > should reject malformed authorization header
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Authentication - Remote Access > should handle case-insensitive headers
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > No Token Configured > should reject non-localhost when no token configured
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > No Token Configured > should still allow localhost when no token configured
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Response Security Headers > should include security headers
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Response Security Headers > should set correct content type
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Status Information > should provide comprehensive status
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Status Information > should show when token not configured
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Error Handling > should handle missing HTML file gracefully
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Error Handling > should include timestamp in error responses
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Response Format Validation > should return consistent success response structure
+ × tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Response Format Validation > should return consistent error response structure
+   → expected 401 to be 404 // Object.is equality
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Environment Edge Cases > should handle empty host header
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Environment Edge Cases > should handle missing host header
+ ✓ tests/contracts/ops-console.contract.test.ts > Operations Console Contract Tests > Environment Edge Cases > should handle localhost with port variations
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > GET /runs/lookup > should require scenarioId parameter
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > GET /runs/lookup > should require seed parameter
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > GET /runs/lookup > should validate seed as integer
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > GET /runs/lookup > should return new run for first lookup
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > GET /runs/lookup > should return cached run for duplicate lookup
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > GET /runs/lookup > should generate different runIds for different scenarios
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > GET /runs/lookup > should generate different runIds for different seeds
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > GET /runs/{runId}/events > should return 404 for non-existent run
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > GET /runs/{runId}/events > should return empty events for new run
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > GET /runs/{runId}/events > should return recorded events after execution
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > Run Registry Core Logic > should return cache hit for same parameters
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > Run Registry Core Logic > should store and retrieve events correctly
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > Run Registry Core Logic > should return null for non-existent run events
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > Cache Key Generation > should treat runs with same scenario and seed as identical
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > Cache Key Generation > should differentiate based on scenario ID
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > Cache Key Generation > should differentiate based on seed value
+ × tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > Error Handling > should handle malformed requests gracefully
+   → Cannot destructure property 'scenarioId' of 'query' as it is null.
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > Error Handling > should handle empty parameters
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > Error Handling > should handle non-string runId in events request
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > Response Format Validation > should return consistent lookup response structure
+ ✓ tests/contracts/run-registry.contract.test.ts > Run Registry Contract Tests > Response Format Validation > should return consistent events response structure
+ ✓ tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > POST /templates/encode > should encode valid template successfully
+ ✓ tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > POST /templates/encode > should return BAD_INPUT for missing template
+ ✓ tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > POST /templates/encode > should return BAD_INPUT for template without scenario
+ × tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > POST /templates/encode > should return BAD_INPUT for oversized template
+   → expected 400 to be 413 // Object.is equality
+ ✓ tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > POST /templates/encode > should return BAD_INPUT for template exceeding node cap
+ ✓ tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > GET /templates/decode > should decode valid data successfully
+ ✓ tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > GET /templates/decode > should return BAD_INPUT for missing data parameter
+ ✓ tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > GET /templates/decode > should return BAD_INPUT for invalid base64 data
+ ✓ tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > GET /templates/decode > should return BAD_INPUT for oversized data parameter
+ × tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > GET /templates/decode > should return BAD_INPUT for data that decompresses to invalid template
+   → expected 'Invalid compressed data format' to contain 'Template must contain a scenario'
+ ✓ tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > Round-trip validation > should maintain data integrity through encode/decode cycle
+ ✓ tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > Round-trip validation > should pass utility round-trip test
+ ✓ tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > Round-trip validation > should handle complex nested structures
+ ✓ tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > Size limits enforcement > should compress small templates efficiently
+ ✓ tests/contracts/sharelinks.contract.test.ts > Share Links API Contract > Size limits enforcement > should handle templates near the complexity limit
+ ✓ tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > GET /runs/{runId}/snapshot > should return 404 for non-existent run
+ ✓ tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > GET /runs/{runId}/snapshot > should return ZIP bundle for existing run
+ ✓ tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > GET /runs/{runId}/snapshot > should include all required files in bundle
+ ✓ tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > POST /compare/snapshot > should require both left and right scenarios
+ ✓ tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > POST /compare/snapshot > should return ZIP bundle for compare request
+ × tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > POST /compare/snapshot > should include compare files in bundle
+   → Cannot read properties of undefined (reading 'confidence')
+ ✓ tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > Bundle Content Validation > should contain scenario.json with valid structure
+ ✓ tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > Bundle Content Validation > should contain seed.txt with correct format
+ ✓ tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > Bundle Content Validation > should contain report.json with schema field
+ ✓ tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > Bundle Content Validation > should contain stream.ndjson with valid NDJSON format
+ ✓ tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > Bundle Content Validation > should contain timings.json with performance metrics
+ ✓ tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > Bundle Content Validation > should contain provenance.json with version info
+ ✓ tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > Error Handling > should handle invalid runId format gracefully
+ ✓ tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > Error Handling > should handle missing left scenario
+ ✓ tests/contracts/snapshots.contract.test.ts > Snapshots Contract Tests > Error Handling > should handle missing right scenario
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Error Normalisation > should map BAD_INPUT with missing items to catalogue phrase
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Error Normalisation > should map BAD_INPUT with missing scenarioId to catalogue phrase
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Error Normalisation > should map item-specific validation errors to catalogue phrases
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Error Normalisation > should map seed validation errors to catalogue phrases
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Error Normalisation > should map type validation errors to catalogue phrases
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Error Normalisation > should map rate limit errors to catalogue phrases
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Error Normalisation > should include timestamp in all error responses
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Error Normalisation > should preserve error taxonomy codes
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Error Normalisation > should fallback to generic message for unknown errors
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Catalogue Message Consistency > should have consistent message format for required fields
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Catalogue Message Consistency > should have consistent format for item-specific errors
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Catalogue Message Consistency > should use British English spelling and formatting
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Catalogue Message Consistency > should maintain stable error taxonomy mappings
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Response Format Stability > should return consistent error response structure
+ ✓ tests/contracts/error-messages.catalogue.test.ts > Error Messages Catalogue Contract > Response Format Stability > should not expose internal validation details in public message
+ ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should generate valid sample report
+ ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should apply redaction correctly
+ ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should cancel within ≤150ms target
+ ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should handle real report fetching when enabled
+ ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should use sample report when real reports disabled
+ ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should always use sample for "sample" reportId
+ ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should validate report structure
+ ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should handle custom redaction config
+ ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should log report access without payload data
+ ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should check real report flag correctly
+ ✓ src/lib/__tests__/run-report-v1.test.ts > Run Report v1 Pass-through > should handle deep nested redaction
+ ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should handle multiple concurrent cancels
+ ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should return not_found for unknown sessions
+ ✓ src/lib/__tests__/session.defaults.test.ts > session defaults and overrides > default base values are used: sessionId=sandbox, org=local
+ ✓ src/lib/__tests__/session.defaults.test.ts > session defaults and overrides > env overrides VITE_SESSION_ID/VITE_ORG are used when provided
+ ✓ src/lib/__tests__/export.transcript.test.tsx > Export transcript > happy path export .txt contains metadata and transcript
+ ✓ src/lib/__tests__/session.defaults.test.ts > session defaults and overrides > localStorage overrides session.id/session.org when present
+ ✓ src/lib/__tests__/session.defaults.test.ts > session defaults and overrides > explicit overrides pass through fetchRunReport
+ ✓ src/lib/__tests__/export.transcript.test.tsx > Export transcript > JSON export has meta and token list
+stdout | src/lib/__tests__/export.transcript.test.tsx > Export transcript > Stop → Aborted gating excludes tokens after stop
+[SandboxStreamPanel] Cancel latency (ms): 0
+
+ ✓ src/lib/__tests__/export.transcript.test.tsx > Export transcript > Stop → Aborted gating excludes tokens after stop
+ ✓ src/lib/__tests__/export.transcript.test.tsx > Export transcript > export buttons hidden when not terminal
+ ✓ src/lib/__tests__/history.drawer.test.tsx > RunHistoryDrawer > records an entry on Done and opens report with params
+ ✓ src/lib/__tests__/history.drawer.test.tsx > RunHistoryDrawer > caps at MAX=5 newest-first
+ ✓ src/lib/__tests__/history.drawer.test.tsx > RunHistoryDrawer > empty state when no runs yet and Esc returns focus
+ ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should track latency metrics correctly 450ms
+ ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should create proper cancelled events
+ ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should handle EventSource cleanup
+ ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should respect custom timeout values
+ ✓ src/lib/__tests__/sse-panel.hints.test.tsx > SandboxStreamPanel terminal hints > limited with hints ON shows chip title and limited tip
+ ✓ src/lib/__tests__/sse-panel.hints.test.tsx > SandboxStreamPanel terminal hints > error with hints ON shows chip title only; no limited tip
+ ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should track target compliance metrics 589ms
+ ✓ src/lib/__tests__/fast-cancel.test.ts > Fast-cancel handshake (Gateway ↔ Warp) > should cleanup all sessions properly
+ ✓ src/lib/__tests__/sse-panel.hints.test.tsx > SandboxStreamPanel terminal hints > hints OFF shows no title and no limited tip
+ ✓ src/lib/__tests__/md.copycode.test.tsx > Markdown Copy Code (flags OFF) > does not render copy buttons when preview/copy flags are OFF
+ ✓ src/lib/__tests__/md.copycode.test.tsx > Markdown Copy Code (flags ON) > renders copy buttons for fenced blocks and copies exact code
+ ✓ src/lib/__tests__/cancel-hardening.test.ts > Cancel Path P0 Hardening > should cancel 10-step task at step 5 with no partial writes
+ ✓ src/lib/__tests__/cancel-hardening.test.ts > Cancel Path P0 Hardening > should honor AbortSignal immediately when cancelled before start
+ ✓ src/lib/__tests__/cancel-hardening.test.ts > Cancel Path P0 Hardening > should complete normally when not cancelled
+ ✓ src/lib/__tests__/cancel-hardening.test.ts > Cancel Path P0 Hardening > should emit terminal cancelled event with proper reason
+ ✓ src/lib/__tests__/cancel-hardening.test.ts > Cancel Path P0 Hardening > should cancel within ≤150ms target latency
+ ✓ src/lib/__tests__/md.preview.test.tsx > Markdown preview > allows only safe links and blocks javascript: URLs
+ ✓ src/lib/__tests__/md.preview.test.tsx > Markdown preview > updates on microtask flush when buffer is ON
+ ✓ src/lib/__tests__/md.preview.test.tsx > Markdown preview > sanitizes HTML content
+ ✓ src/lib/__tests__/md.preview.test.tsx > Markdown preview > updates on terminal flush when buffer is OFF
+stdout | src/lib/__tests__/sse-panel.test.tsx > SandboxStreamPanel > streams tokens, shows cost, reconnects once, and focuses status on terminal
+[SandboxStreamPanel] Cancel latency (ms): 0
+
+ ✓ src/lib/__tests__/sse-panel.test.tsx > SandboxStreamPanel > streams tokens, shows cost, reconnects once, and focuses status on terminal
+ ✓ tests/contracts/compare.contract.test.ts > Compare API Contract > should return valid compare.v1 schema for valid request
+ ✓ tests/contracts/compare.contract.test.ts > Compare API Contract > should return BAD_INPUT for missing left scenario
+ × tests/contracts/compare.contract.test.ts > Compare API Contract > should return BAD_INPUT for missing scenarioId
+   → expected 'left and right scenarios required' to contain 'scenarioId required'
+ ✓ tests/contracts/compare.contract.test.ts > Compare API Contract > should return BAD_INPUT for non-numeric seed
+ ✓ tests/contracts/compare.contract.test.ts > Compare API Contract > should include proper headers
+ ✓ tests/contracts/compare.contract.test.ts > Compare API Contract > should generate deterministic results for same inputs
+ ✓ tests/contracts/compare.contract.test.ts > Compare API Contract > should handle budget parameter correctly
+ ✓ tests/contracts/synth-status.contract.test.ts > Synthetic Status Contract Tests > GET /_status/synth-latest > should return synthetic monitoring status
+ ✓ tests/contracts/synth-status.contract.test.ts > Synthetic Status Contract Tests > GET /_status/synth-latest > should handle missing monitoring data gracefully
+ ✓ tests/contracts/synth-status.contract.test.ts > Synthetic Status Contract Tests > GET /_status/synth-latest > should include proper headers
+ ✓ tests/contracts/synth-status.contract.test.ts > Synthetic Status Contract Tests > GET /_status/pilot-metrics > should return 404 when pilot metrics not available
+ ✓ tests/contracts/synth-status.contract.test.ts > Synthetic Status Contract Tests > GET /_status/pilot-metrics > should return pilot metrics when available
+ ✓ tests/contracts/synth-status.contract.test.ts > Synthetic Status Contract Tests > GET /_status/pilot-metrics > should handle file read errors gracefully
+ ✓ tests/contracts/synth-status.contract.test.ts > Synthetic Status Contract Tests > Error Handling > should include timestamps in error responses
+ ✓ tests/contracts/synth-status.contract.test.ts > Synthetic Status Contract Tests > Error Handling > should return consistent error structure
+ ✓ tests/contracts/synth-status.contract.test.ts > Synthetic Status Contract Tests > Response Format Validation > should return consistent synth-latest response structure
+ ✓ tests/contracts/synth-status.contract.test.ts > Synthetic Status Contract Tests > Response Format Validation > should have valid timestamp format
+ ✓ src/lib/__tests__/sse-buffer.test.ts > SandboxStreamPanel rAF token buffer > batches multiple tokens within a frame into one flush
+ ✓ src/lib/__tests__/sse-buffer.test.ts > SandboxStreamPanel rAF token buffer > flushes buffered tokens on terminal (done)
+ ✓ src/lib/__tests__/sse-buffer.test.ts > SandboxStreamPanel rAF token buffer > stop gates tokens after flushing any pending buffer
+ ✓ src/lib/__tests__/history.rerun.test.tsx > Run History Re-run > clicking Re-run snaps params, starts streaming, URL includes params, and new entry appends at terminal
+ ✓ src/lib/__tests__/run-report.drawer.test.tsx > RunReportDrawer via SandboxStreamPanel > enables View report after terminal and renders mock data; Esc closes and returns focus
+ ✓ tests/contracts/stream-events.frozen.test.ts > Frozen Stream Events Contract > should only emit frozen SSE events when STREAM_ALT_EVENTS=0 1004ms
+ ✓ tests/contracts/stream-events.frozen.test.ts > Frozen Stream Events Contract > should validate frozen event structure matches schema
+ ✓ tests/contracts/stream-events.frozen.test.ts > Frozen Stream Events Contract > should reject experimental events when feature flag is disabled
+ ✓ src/lib/__tests__/shortcuts.test.tsx > Shortcuts and cheat sheet > Cmd/Ctrl+Enter starts and Esc stops
+ ✓ src/lib/__tests__/shortcuts.test.tsx > Shortcuts and cheat sheet > r opens report after terminal and h opens history; ? toggles sheet
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Environment Configuration > should respect QUEUE_RETRY_AFTER_S setting 7069ms
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Response Format Validation > should return consistent queue status structure
+ ✓ tests/contracts/queue.contract.test.ts > Concurrency Queue Contract Tests > Response Format Validation > should return consistent error response structure
+ ✓ src/lib/__tests__/sse-params.test.tsx > SandboxStreamPanel with params > passes seed/budget/model to SSE URL and fetchRunReport
+ ✓ src/lib/__tests__/sse-panel.labels.test.tsx > SandboxStreamPanel terminal labels > announces Limited by budget 307ms
+ ✓ src/lib/__tests__/sse-panel.labels.test.tsx > SandboxStreamPanel terminal labels > announces Error
+ ✓ src/lib/__tests__/sse-reconnect.test.ts > sseClient reconnect and dedupe > reconnects once with resume and dedupes by lastEventId
+ ✓ src/lib/__tests__/sse-panel.idle.test.tsx > SandboxStreamPanel idle hint > shows hint when idle; disappears on Start; stays hidden after terminal
+stdout | src/lib/__tests__/sarb-redact.test.ts > SARB Redaction > should remove sensitive fields
+🔄 Redacting SARB bundle: /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/test-bundle.json
+
+ ✓ src/lib/__tests__/cache-control.test.ts > Warp Cache-Control Headers > should include Cache-Control: no-store in analysis response
+ ✓ src/lib/__tests__/cache-control.test.ts > Warp Cache-Control Headers > should include Cache-Control: no-store in stream response
+ ✓ src/lib/__tests__/cache-control.test.ts > Warp Cache-Control Headers > should include Cache-Control: no-store in report response
+ ✓ src/lib/__tests__/cache-control.test.ts > Warp Cache-Control Headers > should verify all Warp responses have proper caching headers
+ ✓ src/lib/__tests__/cache-control.test.ts > Warp Cache-Control Headers > should prevent caching of sensitive analysis data
+stdout | src/lib/__tests__/sarb-redact.test.ts > SARB Redaction > should remove sensitive fields
+✅ Redaction complete: /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/test-bundle-redacted.json
+📄 Note written: /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/test-bundle-redacted.redaction-note.md
+
+ ✓ src/lib/__tests__/sarb-redact.test.ts > SARB Redaction > should remove sensitive fields
+ ✓ src/lib/__tests__/sarb-redact.test.ts > SARB Redaction > should preserve safe metadata
+ ✓ src/lib/__tests__/sarb-redact.test.ts > SARB Redaction > should generate redaction note
+ ✓ src/lib/__tests__/seed-echo.test.ts > Seed Echo for Deterministic Replay > should echo seed in SSE stream start event
+ ✓ src/lib/__tests__/seed-echo.test.ts > Seed Echo for Deterministic Replay > should echo seed in SSE stream complete event
+ ✓ src/lib/__tests__/seed-echo.test.ts > Seed Echo for Deterministic Replay > should include seed in report response body
+ ✓ src/lib/__tests__/seed-echo.test.ts > Seed Echo for Deterministic Replay > should handle seed parameter extraction from URL
+ ✓ src/lib/__tests__/seed-echo.test.ts > Seed Echo for Deterministic Replay > should maintain seed consistency across request-response cycle
+ ✓ src/lib/__tests__/seed-echo.test.ts > Seed Echo for Deterministic Replay > should support deterministic replay validation
+ ✓ src/lib/__tests__/determinism-check.test.ts > Determinism Check on Representative Route > should produce identical results for same seed value
+ ✓ src/lib/__tests__/determinism-check.test.ts > Determinism Check on Representative Route > should return consistent mock data when real reports disabled
+ ✓ src/lib/__tests__/determinism-check.test.ts > Determinism Check on Representative Route > should demonstrate deterministic replay capability
+ ✓ src/lib/__tests__/determinism-check.test.ts > Determinism Check on Representative Route > should handle seed parameter in URL construction
+ ✓ src/lib/__tests__/jobs-panel.test.tsx > JobsProgressPanel > advances progress and cancels cleanly
+ ✓ src/lib/__tests__/run-report.source.test.tsx > Run Report source selection > uses mock fixture when real flag is OFF
+ ✓ src/lib/__tests__/run-report.source.test.tsx > Run Report source selection > falls back to mock when real flag ON but fetch errors
+ ✓ src/lib/__tests__/sse-crlf.test.ts > sseClient CRLF normalization > normalizes 
+ and  to 
+ in token text
+stdout | src/lib/__tests__/telemetry.test.ts > telemetry counters > ON → increments; no payloads
+[TLM] edge.stream.start
+[TLM] edge.stream.token
+[TLM] edge.stream.token
+[TLM] edge.stream.done
+
+ ✓ src/lib/__tests__/telemetry.test.ts > telemetry counters > OFF → no increments
+ ✓ src/lib/__tests__/telemetry.test.ts > telemetry counters > ON → increments; no payloads
+ ✓ src/plotLite/tests/ghost.blocker.buttons.test.tsx > GhostPanel BLOCKER action buttons > renders Accept/Edit/Dismiss buttons only for BLOCKER items
+
+ Test Files  9 failed | 35 passed (44)
+      Tests  19 failed | 371 passed (390)
+   Start at  12:42:59
+   Duration  14.16s (transform 4.91s, setup 4ms, collect 11.78s, tests 13.95s, environment 45.88s, prepare 11.28s)
+

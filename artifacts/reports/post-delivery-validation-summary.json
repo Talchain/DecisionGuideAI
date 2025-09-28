@@ -1,0 +1,61 @@
+{
+  "timestamp": "2025-09-27T16:31:15.340Z",
+  "total_validations": 11,
+  "passed": 8,
+  "failed": 3,
+  "results": {
+    "envContracts": {
+      "success": true,
+      "duration": 7,
+      "reportPath": "/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/reports/env-contract-validation.json"
+    },
+    "streamConformance": {
+      "success": true,
+      "duration": 1,
+      "reportPath": "/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/reports/stream-conformance.json"
+    },
+    "sloGuard": {
+      "success": true,
+      "duration": 1082,
+      "status": "FAIL",
+      "error": "\n> decision-mind@0.0.0 slo:guard\n> node scripts/slo-guard.mjs\n\n❌ SLO Guard: FAIL\n\n❌ SLO Violations:\n   Cancel Latency: 191ms (≤ 150ms)\n   Error Rate: 5% (≤ 5%)\n\n📊 Checks: 3/5 passed\n📈 Trend: insufficient_data (unknown)\n🎯 Recent failures: 0/7 days\n📍 Source: live-swap-log\n"
+    },
+    "privacyHeaders": {
+      "success": true,
+      "duration": 1,
+      "reportPath": "/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/reports/privacy-security-headers.json"
+    },
+    "corsDoctor": {
+      "success": false,
+      "error": "Cannot find module '/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/src/lib/cors-origin-doctor.js' imported from /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/scripts/post-delivery-validation.mjs"
+    },
+    "shareLinks": {
+      "success": true,
+      "duration": 0,
+      "reportPath": "/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/reports/share-links-validation.json"
+    },
+    "exporters": {
+      "success": true,
+      "duration": 0,
+      "reportPath": "/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/reports/exporters-validation.json"
+    },
+    "signedSnapshots": {
+      "success": false,
+      "error": "Cannot find module '/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/src/lib/signed-snapshot-manifest.js' imported from /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/scripts/post-delivery-validation.mjs"
+    },
+    "pilotControls": {
+      "success": false,
+      "error": "Cannot find module '/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/src/lib/ops-console.js' imported from /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/scripts/post-delivery-validation.mjs"
+    },
+    "determinism": {
+      "success": true,
+      "duration": 2,
+      "reportPath": "/Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/reports/determinism-validation.json"
+    },
+    "pilotBrief": {
+      "success": true,
+      "duration": 600,
+      "output": "\n> decision-mind@0.0.0 brief\n> node scripts/evidence-auto-brief.mjs\n\n🔍 Evidence Auto-Brief Generator\n================================\n\n📊 Collecting system data...\n   📈 Found 0 runs in registry\n   🧪 UAT status: live-uat.md found\n   🏥 System metrics: 1 flags configured\n\n🔬 Analysing trends...\n   📊 0 runs in last 7 days\n   ✅ 0% success rate\n\n📝 Generating briefing...\n\n📋 Briefing Complete\n==================\n📊 Overall Health: excellent\n📈 Analysis Runs: 0 (0% success)\n🎯 Performance: 1850ms P95\n🏗️  Feature Flags: 0/1 active\n\n📄 Files Generated:\n   📊 Data: /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/briefs/evidence-brief-2025-09-27T16-31-15.json\n   📝 Brief: /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/briefs/evidence-brief-2025-09-27T16-31-15.md\n\n🔗 Latest Brief:\n   📊 /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/briefs/latest-evidence-brief.json\n   📝 /Users/paulslee/Documents/GitHub/DecisionGuideAI-Claude/artifacts/briefs/latest-evidence-brief.md\n\n✅ Evidence auto-brief generation complete\n"
+    }
+  }
+}

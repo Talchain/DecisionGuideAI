@@ -1,0 +1,10 @@
+{
+  "timestamp": "2025-09-27T16:31:14.736Z",
+  "share_links": {
+    "caps_tested": true,
+    "round_trip_validation": true,
+    "filename_generation": true,
+    "url_encoding": true
+  },
+  "validation_status": "PASS"
+}

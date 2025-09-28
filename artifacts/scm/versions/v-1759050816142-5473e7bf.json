@@ -1,0 +1,9 @@
+{
+  "nodes": [
+    {
+      "id": "signed",
+      "label": "Signed Node"
+    }
+  ],
+  "links": []
+}

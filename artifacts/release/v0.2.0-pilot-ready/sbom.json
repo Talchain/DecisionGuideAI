@@ -1,0 +1,88 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.4",
+  "serialNumber": "urn:uuid:decision-mind-v0.2.0-pilot-ready",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2025-09-27T16:31:15.340Z",
+    "tools": [
+      {
+        "vendor": "DecisionMind",
+        "name": "manual-sbom-generator",
+        "version": "1.0.0"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "bom-ref": "decision-mind@0.0.0",
+      "name": "decision-mind",
+      "version": "0.0.0",
+      "description": "AI-powered decision analysis tool"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "react@18.3.1",
+      "name": "react",
+      "version": "18.3.1",
+      "scope": "required",
+      "licenses": [{"license": {"id": "MIT"}}]
+    },
+    {
+      "type": "library",
+      "bom-ref": "typescript@5.5.3",
+      "name": "typescript",
+      "version": "5.5.3",
+      "scope": "optional",
+      "licenses": [{"license": {"id": "Apache-2.0"}}]
+    },
+    {
+      "type": "library",
+      "bom-ref": "vite@5.4.2",
+      "name": "vite",
+      "version": "5.4.2",
+      "scope": "optional",
+      "licenses": [{"license": {"id": "MIT"}}]
+    },
+    {
+      "type": "library",
+      "bom-ref": "openai@4.28.0",
+      "name": "openai",
+      "version": "4.28.0",
+      "scope": "required",
+      "licenses": [{"license": {"id": "Apache-2.0"}}]
+    },
+    {
+      "type": "library",
+      "bom-ref": "supabase@2.39.7",
+      "name": "@supabase/supabase-js",
+      "version": "2.39.7",
+      "scope": "required",
+      "licenses": [{"license": {"id": "MIT"}}]
+    },
+    {
+      "type": "library",
+      "bom-ref": "vitest@1.6.0",
+      "name": "vitest",
+      "version": "1.6.0",
+      "scope": "optional",
+      "licenses": [{"license": {"id": "MIT"}}]
+    }
+  ],
+  "vulnerabilities": [],
+  "properties": [
+    {
+      "name": "pilot-features",
+      "value": "ops-console,evidence-brief,slo-guard,cors-doctor,signed-snapshots"
+    },
+    {
+      "name": "security-headers",
+      "value": "cors-closed-default,no-request-logging,cache-control-no-store"
+    },
+    {
+      "name": "frozen-contracts",
+      "value": "sse-events,report-v1-schema,api-endpoints"
+    }
+  ]
+}

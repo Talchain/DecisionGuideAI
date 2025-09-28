@@ -1,0 +1,52 @@
+EVIDENCE PATHS - v0.2.0-pilot-ready
+===================================
+
+Evidence Bundle: ./evidence-bundle.zip
+Size: Comprehensive archive of all validation artifacts
+
+Key Evidence Locations:
+========================
+
+Latest Pilot Brief (Markdown):
+artifacts/briefs/latest-evidence-brief.md
+
+Latest Pilot Brief (JSON):
+artifacts/briefs/latest-evidence-brief.json
+
+Timestamped Briefs:
+artifacts/briefs/evidence-brief-2025-09-27T16-31-15.md
+artifacts/briefs/evidence-brief-2025-09-27T16-31-15.json
+
+Validation Reports:
+artifacts/reports/post-delivery-validation-summary.json
+artifacts/reports/env-contract-validation.json
+artifacts/reports/stream-conformance.json
+artifacts/reports/privacy-security-headers.json
+artifacts/reports/cors-origin-doctor-validation.json
+artifacts/reports/share-links-validation.json
+artifacts/reports/exporters-validation.json
+artifacts/reports/signed-snapshot-validation.json
+artifacts/reports/pilot-controls-validation.json
+artifacts/reports/determinism-validation.json
+
+SLO Monitoring:
+artifacts/reports/slo-trend.json
+
+Public Assets:
+artifacts/public/demo.html
+artifacts/public/origin-check.html
+artifacts/public/ops-console.html
+
+Additional Documentation:
+artifacts/rc-walkthrough.md
+artifacts/pilot-readiness.html
+artifacts/windsurf-live-swap.md (updated with Pilot Day section)
+
+Quick Access URLs (when deployed):
+==================================
+Demo Interface: {BASE_URL}/demo.html
+CORS Diagnostic: {BASE_URL}/_tools/origin-check
+Ops Console: {BASE_URL}/ops-console.html (requires OPS_CONSOLE_ENABLE=1)
+Origin Helper: {BASE_URL}/origin-check.html
+
+Note: Replace {BASE_URL} with actual deployment URL during live swap.

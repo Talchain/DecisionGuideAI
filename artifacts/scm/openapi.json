@@ -1,0 +1,489 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "SCM-lite API",
+    "version": "1.0.0",
+    "description": "Version control and diff functionality for scenarios"
+  },
+  "servers": [
+    {
+      "url": "/scm",
+      "description": "SCM API base path"
+    }
+  ],
+  "paths": {
+    "/versions": {
+      "get": {
+        "summary": "List all versions",
+        "description": "Retrieve a list of all available scenario versions",
+        "tags": ["Versions"],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved versions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionsList"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "SCM not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/versions/{versionId}": {
+      "get": {
+        "summary": "Get a specific version",
+        "description": "Retrieve metadata and scenario payload for a specific version",
+        "tags": ["Versions"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "versionId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Version identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved version",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Version not found or SCM not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/diff": {
+      "post": {
+        "summary": "Calculate diff between scenarios",
+        "description": "Calculate the differences between a base scenario and a candidate scenario",
+        "tags": ["Diff"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiffRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully calculated diff",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiffResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Base reference not found or SCM not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/suggest": {
+      "post": {
+        "summary": "Create a proposal",
+        "description": "Create a proposal for scenario changes with automatic diff calculation",
+        "tags": ["Proposals"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuggestRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successfully created proposal",
+            "headers": {
+              "X-Proposal-Transient": {
+                "description": "Indicates if the proposal was not persisted (when SCM_WRITES=0)",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Base reference not found or SCM not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/proposals/{proposalId}": {
+      "get": {
+        "summary": "Get a specific proposal",
+        "description": "Retrieve a persisted proposal (only available when SCM_WRITES=1)",
+        "tags": ["Proposals"],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "proposalId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Proposal identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully retrieved proposal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Proposal not found, writes disabled, or SCM not enabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "VersionMetadata": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Version identifier"
+          },
+          "label": {
+            "type": "string",
+            "description": "Version label"
+          },
+          "scenarioId": {
+            "type": "string",
+            "description": "Associated scenario ID"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp"
+          },
+          "checksum": {
+            "type": "string",
+            "description": "SHA256 checksum of scenario content"
+          },
+          "signer": {
+            "type": "string",
+            "description": "Entity that signed the version (if signing enabled)"
+          }
+        },
+        "required": ["id", "label", "scenarioId", "createdAt", "checksum"]
+      },
+      "VersionsList": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "type": "string",
+            "enum": ["versions.v1"]
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VersionMetadata"
+            }
+          }
+        },
+        "required": ["schema", "versions"]
+      },
+      "VersionDetail": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "type": "string",
+            "enum": ["version.v1"]
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/VersionMetadata"
+          },
+          "scenario": {
+            "type": "object",
+            "description": "The scenario payload"
+          }
+        },
+        "required": ["schema", "metadata", "scenario"]
+      },
+      "DiffRequest": {
+        "type": "object",
+        "properties": {
+          "baseRef": {
+            "type": "string",
+            "description": "Reference to the base version"
+          },
+          "candidate": {
+            "type": "object",
+            "description": "Candidate specification",
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "inlineScenario": {
+                    "type": "object",
+                    "description": "Inline scenario object"
+                  }
+                },
+                "required": ["inlineScenario"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "versionId": {
+                    "type": "string",
+                    "description": "Version ID reference"
+                  }
+                },
+                "required": ["versionId"]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "proposalId": {
+                    "type": "string",
+                    "description": "Proposal ID reference"
+                  }
+                },
+                "required": ["proposalId"]
+              }
+            ]
+          }
+        },
+        "required": ["baseRef", "candidate"]
+      },
+      "DiffResult": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "type": "string",
+            "enum": ["diff.v1"]
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "baseRef": {
+                "type": "string"
+              },
+              "candidateRef": {
+                "type": "string"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              }
+            },
+            "required": ["baseRef", "candidateRef", "createdAt"]
+          },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "nodesAdded": {
+                "type": "integer"
+              },
+              "nodesRemoved": {
+                "type": "integer"
+              },
+              "nodesChanged": {
+                "type": "integer"
+              },
+              "linksAdded": {
+                "type": "integer"
+              },
+              "linksRemoved": {
+                "type": "integer"
+              },
+              "weightsChanged": {
+                "type": "integer"
+              }
+            },
+            "required": ["nodesAdded", "nodesRemoved", "nodesChanged", "linksAdded", "linksRemoved", "weightsChanged"]
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "description": "Path to the changed element"
+                },
+                "before": {
+                  "description": "Value before the change"
+                },
+                "after": {
+                  "description": "Value after the change"
+                }
+              },
+              "required": ["path"]
+            }
+          }
+        },
+        "required": ["schema", "meta", "summary", "changes"]
+      },
+      "SuggestRequest": {
+        "type": "object",
+        "properties": {
+          "baseRef": {
+            "type": "string",
+            "description": "Reference to the base version"
+          },
+          "title": {
+            "type": "string",
+            "description": "Proposal title"
+          },
+          "note": {
+            "type": "string",
+            "description": "Optional note describing the proposal"
+          },
+          "candidateScenario": {
+            "type": "object",
+            "description": "The proposed scenario"
+          }
+        },
+        "required": ["baseRef", "title", "candidateScenario"]
+      },
+      "ProposalMetadata": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Proposal identifier"
+          },
+          "baseRef": {
+            "type": "string",
+            "description": "Reference to the base version"
+          },
+          "title": {
+            "type": "string",
+            "description": "Proposal title"
+          },
+          "note": {
+            "type": "string",
+            "description": "Optional note"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO 8601 timestamp"
+          }
+        },
+        "required": ["id", "baseRef", "title", "createdAt"]
+      },
+      "ProposalResponse": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "type": "string",
+            "enum": ["proposal.v1"]
+          },
+          "proposal": {
+            "$ref": "#/components/schemas/ProposalMetadata"
+          },
+          "diff": {
+            "$ref": "#/components/schemas/DiffResult"
+          }
+        },
+        "required": ["schema", "proposal", "diff"]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message"
+          }
+        },
+        "required": ["error"]
+      }
+    }
+  }
+}

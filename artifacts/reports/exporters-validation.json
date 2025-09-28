@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-09-27T16:31:14.737Z",
+  "exporters": {
+    "seed_model_inclusion": true,
+    "usd_currency_labeling": true,
+    "filename_generation": true,
+    "formats_supported": [
+      "json",
+      "csv",
+      "markdown"
+    ]
+  },
+  "validation_status": "PASS"
+}

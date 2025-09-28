@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Origin Doctor</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background: #f8f9fa;
+            color: #2c3e50;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #34495e;
+        }
+
+        input[type="url"], input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e6ed;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+
+        input[type="url"]:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd8;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 6px;
+            border: 2px solid #e0e6ed;
+        }
+
+        .result.success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+
+        .result.info {
+            background: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+
+        .result h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .headers-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .headers-table th,
+        .headers-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .headers-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .code {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 4px solid #667eea;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+
+        .explanation {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .troubleshooting {
+            margin-top: 20px;
+        }
+
+        .troubleshooting h4 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .troubleshooting ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+
+        .troubleshooting li {
+            margin-bottom: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .footer {
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-top: 1px solid #e0e6ed;
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
+        }
+
+        @media (max-width: 600px) {
+            .button-group {
+                flex-direction: column;
+            }
+
+            .headers-table {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🩺 CORS Origin Doctor</h1>
+            <p>Diagnose CORS configuration and test origin compatibility</p>
+        </div>
+
+        <div class="content">
+            <div class="form-group">
+                <label for="baseUrl">Base URL (API Server):</label>
+                <input type="url" id="baseUrl" placeholder="http://localhost:3000" />
+            </div>
+
+            <div class="form-group">
+                <label for="testOrigin">Origin to Test:</label>
+                <input type="text" id="testOrigin" placeholder="http://localhost:5173" />
+            </div>
+
+            <div class="button-group">
+                <button class="btn-primary" onclick="checkOrigin()">🔍 Check Origin</button>
+                <button class="btn-secondary" onclick="useCurrentOrigin()">📍 Use Current Page Origin</button>
+                <button class="btn-secondary" onclick="clearResults()">🗑️ Clear Results</button>
+            </div>
+
+            <div id="results"></div>
+        </div>
+
+        <div class="footer">
+            CORS Origin Doctor • Part of Decision Guide AI toolkit
+        </div>
+    </div>
+
+    <script>
+        // Set default values
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('baseUrl').value = 'http://localhost:3000';
+            document.getElementById('testOrigin').value = window.location.origin;
+        });
+
+        function useCurrentOrigin() {
+            document.getElementById('testOrigin').value = window.location.origin;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function checkOrigin() {
+            const baseUrl = document.getElementById('baseUrl').value.trim();
+            const testOrigin = document.getElementById('testOrigin').value.trim();
+            const resultsDiv = document.getElementById('results');
+
+            if (!baseUrl) {
+                showError('Please provide a base URL');
+                return;
+            }
+
+            if (!testOrigin) {
+                showError('Please provide an origin to test');
+                return;
+            }
+
+            // Show loading state
+            resultsDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Checking CORS configuration...
+                </div>
+            `;
+
+            try {
+                const url = new URL('/_tools/origin-check', baseUrl);
+                url.searchParams.append('origin', testOrigin);
+
+                const response = await fetch(url.toString(), {
+                    method: 'GET',
+                    headers: {
+                        'Origin': testOrigin
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                displayResults(data);
+
+            } catch (error) {
+                showError(`Failed to check origin: ${error.message}`);
+            }
+        }
+
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            const statusClass = data.allowed ? 'success' : 'error';
+            const statusIcon = data.allowed ? '✅' : '❌';
+
+            let headersHtml = '';
+            if (data.required_headers && Object.keys(data.required_headers).length > 0) {
+                headersHtml = `
+                    <h4>Required CORS Headers:</h4>
+                    <table class="headers-table">
+                        <thead>
+                            <tr>
+                                <th>Header</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${Object.entries(data.required_headers).map(([header, value]) => `
+                                <tr>
+                                    <td><code>${header}</code></td>
+                                    <td><code>${value}</code></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            let troubleshootingHtml = '';
+            if (data.troubleshooting) {
+                const nextSteps = data.troubleshooting.next_steps || [];
+                const commonIssues = data.troubleshooting.common_issues || [];
+
+                troubleshootingHtml = `
+                    <div class="troubleshooting">
+                        ${nextSteps.length > 0 ? `
+                            <h4>Next Steps:</h4>
+                            <ul>
+                                ${nextSteps.map(step => `<li>${step}</li>`).join('')}
+                            </ul>
+                        ` : ''}
+
+                        ${commonIssues.length > 0 ? `
+                            <h4>Common CORS Issues:</h4>
+                            <ul>
+                                ${commonIssues.map(issue => `<li>${issue}</li>`).join('')}
+                            </ul>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            resultsDiv.innerHTML = `
+                <div class="result ${statusClass}">
+                    <h3>${statusIcon} CORS Check Result</h3>
+
+                    <div class="explanation">
+                        <strong>Origin:</strong> <code>${data.origin || 'None provided'}</code><br>
+                        <strong>Status:</strong> ${data.allowed ? 'Allowed' : 'Blocked'}<br>
+                        <strong>Explanation:</strong> ${data.explanation}
+                    </div>
+
+                    ${headersHtml}
+
+                    <div class="code">
+                        <strong>Test this with curl:</strong><br>
+                        curl -H "Origin: ${data.origin}" "${document.getElementById('baseUrl').value}/_tools/origin-check?origin=${encodeURIComponent(data.origin)}"
+                    </div>
+
+                    ${troubleshootingHtml}
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `
+                <div class="result error">
+                    <h3>❌ Error</h3>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+
+        // Allow Enter key to trigger check
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                checkOrigin();
+            }
+        });
+    </script>
+</body>
+</html>

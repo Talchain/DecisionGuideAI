@@ -1,0 +1,87 @@
+{
+  "events": [
+    {
+      "id": "1",
+      "event": "token",
+      "data": {
+        "id": "token_000",
+        "text": "Based",
+        "timestamp": "2025-09-25T20:41:16.850Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "2",
+      "event": "token",
+      "data": {
+        "id": "token_001",
+        "text": " on",
+        "timestamp": "2025-09-25T20:41:17.000Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "3",
+      "event": "token",
+      "data": {
+        "id": "token_002",
+        "text": " your",
+        "timestamp": "2025-09-25T20:41:17.150Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "4",
+      "event": "token",
+      "data": {
+        "id": "token_003",
+        "text": " requirements",
+        "timestamp": "2025-09-25T20:41:17.300Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "5",
+      "event": "token",
+      "data": {
+        "id": "token_004",
+        "text": ", I",
+        "timestamp": "2025-09-25T20:41:17.450Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "6",
+      "event": "token",
+      "data": {
+        "id": "token_005",
+        "text": " can",
+        "timestamp": "2025-09-25T20:41:17.600Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "7",
+      "event": "token",
+      "data": {
+        "id": "token_006",
+        "text": " analyze",
+        "timestamp": "2025-09-25T20:41:17.750Z",
+        "sessionId": "sample-scenario-session"
+      }
+    },
+    {
+      "id": "8",
+      "event": "done",
+      "data": {
+        "reason": "cancelled",
+        "partialTokens": 7,
+        "timestamp": "2025-09-25T20:41:17.900Z",
+        "sessionId": "sample-scenario-session"
+      }
+    }
+  ],
+  "state": "cancelled",
+  "reason": "cancelled",
+  "partialContent": "Based on your requirements, I can analyze"
+}

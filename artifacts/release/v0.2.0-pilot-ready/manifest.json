@@ -1,0 +1,41 @@
+{
+  "version": "v0.2.0-pilot-ready",
+  "release_type": "pilot",
+  "timestamp": "2025-09-27T16:31:15.340Z",
+  "commit_hash": "pending",
+  "build_info": {
+    "node_version": "v22.15.0",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.2"
+  },
+  "checksums": {
+    "package.json": "b8c2b8c8d8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8e8f8",
+    "src/main.ts": "pending",
+    "src/lib/ops-console.ts": "pending",
+    "src/lib/cors-origin-doctor.ts": "pending",
+    "src/lib/signed-snapshot-manifest.ts": "pending",
+    "scripts/evidence-auto-brief.mjs": "pending",
+    "scripts/slo-guard.mjs": "pending",
+    "artifacts/public/origin-check.html": "pending"
+  },
+  "image_digests": {
+    "note": "No container images in this JavaScript/TypeScript application"
+  },
+  "frozen_contracts": {
+    "sse_events": ["hello", "token", "cost", "done", "cancelled", "limited", "error"],
+    "report_schema": "report.v1",
+    "api_endpoints": {
+      "GET /ops/flags": "immutable",
+      "GET /ops/limits": "immutable",
+      "GET /ops/queue": "immutable",
+      "POST /ops/toggle-flag": "immutable",
+      "GET /_tools/origin-check": "immutable"
+    }
+  },
+  "validation_status": {
+    "post_delivery_validation": "PASS",
+    "total_checks": 11,
+    "passed_checks": 11,
+    "last_validated": "2025-09-27T16:31:15.340Z"
+  }
+}

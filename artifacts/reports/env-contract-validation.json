@@ -1,0 +1,25 @@
+{
+  "timestamp": "2025-09-27T16:31:13.644Z",
+  "environment": {
+    "node_env": "development",
+    "ops_console_enabled": false,
+    "snapshot_signing_enabled": false,
+    "cors_origins": "default",
+    "slo_thresholds": {
+      "ttff_ms": "500",
+      "cancel_ms": "150",
+      "p95_ms": "600"
+    }
+  },
+  "frozen_sse_events": [
+    "hello",
+    "token",
+    "cost",
+    "done",
+    "cancelled",
+    "limited",
+    "error"
+  ],
+  "report_v1_schema": "verified",
+  "validation_status": "PASS"
+}

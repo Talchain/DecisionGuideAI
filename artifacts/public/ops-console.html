@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operations Console - DecisionGuide AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8f9fa;
+            color: #212529;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: #fff;
+            border-bottom: 1px solid #dee2e6;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .header .subtitle {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid #e9ecef;
+        }
+
+        .card h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f8f9fa;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric .label {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .metric .value {
+            font-weight: 600;
+            color: #212529;
+        }
+
+        .status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .status.healthy {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .loading {
+            color: #6c757d;
+            font-style: italic;
+        }
+
+        .error-msg {
+            color: #dc3545;
+            font-size: 0.9rem;
+            padding: 0.5rem;
+            background: #f8d7da;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+        }
+
+        .refresh-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .refresh-btn:hover {
+            background: #0056b3;
+        }
+
+        .refresh-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .timestamp {
+            color: #6c757d;
+            font-size: 0.8rem;
+            text-align: right;
+            margin-top: 1rem;
+        }
+
+        .snapshots-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .snapshot-item {
+            padding: 0.5rem;
+            border-bottom: 1px solid #f8f9fa;
+            font-size: 0.85rem;
+        }
+
+        .snapshot-item:last-child {
+            border-bottom: none;
+        }
+
+        .snapshot-id {
+            font-family: monospace;
+            color: #495057;
+        }
+
+        .snapshot-meta {
+            color: #6c757d;
+            margin-top: 0.25rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Operations Console</h1>
+        <div class="subtitle">DecisionGuide AI - Read-only System Status</div>
+    </div>
+
+    <div class="container">
+        <button class="refresh-btn" onclick="refreshAll()" id="refreshBtn">
+            Refresh All Data
+        </button>
+
+        <div class="grid">
+            <!-- System Health -->
+            <div class="card">
+                <h2>System Health</h2>
+                <div id="health-content" class="loading">Loading...</div>
+            </div>
+
+            <!-- Queue Status -->
+            <div class="card">
+                <h2>Queue Status</h2>
+                <div id="queue-content" class="loading">Loading...</div>
+            </div>
+
+            <!-- Usage Summary -->
+            <div class="card">
+                <h2>Usage Summary (7d)</h2>
+                <div id="usage-content" class="loading">Loading...</div>
+            </div>
+
+            <!-- Synthetic Monitoring -->
+            <div class="card">
+                <h2>Latest Canary</h2>
+                <div id="canary-content" class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Recent Snapshots -->
+        <div class="card">
+            <h2>Recent Snapshots (7d)</h2>
+            <div id="snapshots-content" class="loading">Loading...</div>
+        </div>
+
+        <div class="timestamp" id="lastUpdate"></div>
+    </div>
+
+    <script>
+        const BASE_URL = window.location.origin;
+        const ORG = 'acme'; // Default org for ops console
+
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(`${BASE_URL}${endpoint}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                console.error(`Failed to fetch ${endpoint}:`, error);
+                throw error;
+            }
+        }
+
+        function formatStatus(status) {
+            const statusClass = status === 'healthy' ? 'healthy' :
+                               status === 'degraded' ? 'warning' : 'error';
+            return `<span class="status ${statusClass}">${status}</span>`;
+        }
+
+        function formatNumber(num) {
+            if (num === undefined || num === null) return 'N/A';
+            return num.toLocaleString();
+        }
+
+        function formatDuration(ms) {
+            if (ms === undefined || ms === null) return 'N/A';
+            if (ms < 1000) return `${ms}ms`;
+            return `${(ms / 1000).toFixed(1)}s`;
+        }
+
+        function formatTimestamp(iso) {
+            if (!iso) return 'Unknown';
+            try {
+                return new Date(iso).toLocaleString('en-GB');
+            } catch {
+                return 'Invalid date';
+            }
+        }
+
+        async function updateHealth() {
+            try {
+                const data = await fetchData('/healthz');
+                document.getElementById('health-content').innerHTML = `
+                    <div class="metric">
+                        <span class="label">Status</span>
+                        <span class="value">${formatStatus(data.status || 'unknown')}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Version</span>
+                        <span class="value">${data.version || 'N/A'}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Response Time</span>
+                        <span class="value">${formatDuration(data.p95_ms)}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Uptime</span>
+                        <span class="value">${data.uptime || 'N/A'}</span>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('health-content').innerHTML =
+                    `<div class="error-msg">Failed to load health data: ${error.message}</div>`;
+            }
+        }
+
+        async function updateQueue() {
+            try {
+                const data = await fetchData(`/queue/status?org=${ORG}`);
+                document.getElementById('queue-content').innerHTML = `
+                    <div class="metric">
+                        <span class="label">Queue Depth</span>
+                        <span class="value">${formatNumber(data.queue_depth)}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Active Runs</span>
+                        <span class="value">${formatNumber(data.active_runs)}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Max Concurrent</span>
+                        <span class="value">${formatNumber(data.max_concurrent)}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Est. Wait</span>
+                        <span class="value">${formatDuration(data.estimated_wait_s * 1000)}</span>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('queue-content').innerHTML =
+                    `<div class="error-msg">Failed to load queue data: ${error.message}</div>`;
+            }
+        }
+
+        async function updateUsage() {
+            try {
+                const data = await fetchData(`/usage/summary?org=${ORG}&period=7d`);
+                document.getElementById('usage-content').innerHTML = `
+                    <div class="metric">
+                        <span class="label">Total Runs</span>
+                        <span class="value">${formatNumber(data.runs)}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Median TTFF</span>
+                        <span class="value">${formatDuration(data.median_ttff_ms)}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Median Cancel</span>
+                        <span class="value">${formatDuration(data.median_cancel_ms)}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Rate Limits</span>
+                        <span class="value">${formatNumber(data.rate_limit_hits)}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Tokens Est.</span>
+                        <span class="value">${formatNumber(data.tokens_estimated)}</span>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('usage-content').innerHTML =
+                    `<div class="error-msg">Failed to load usage data: ${error.message}</div>`;
+            }
+        }
+
+        async function updateCanary() {
+            try {
+                const data = await fetchData('/_status/synth-latest');
+                const status = data.status === 'PASS' ? 'healthy' : 'error';
+                document.getElementById('canary-content').innerHTML = `
+                    <div class="metric">
+                        <span class="label">Status</span>
+                        <span class="value">${formatStatus(data.status || 'unknown')}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Last Run</span>
+                        <span class="value">${formatTimestamp(data.timestamp)}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Checks</span>
+                        <span class="value">${data.checks_passed || 0}/${data.checks_total || 0}</span>
+                    </div>
+                    <div class="metric">
+                        <span class="label">Duration</span>
+                        <span class="value">${formatDuration(data.duration_ms)}</span>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('canary-content').innerHTML =
+                    `<div class="error-msg">Failed to load canary data: ${error.message}</div>`;
+            }
+        }
+
+        async function updateSnapshots() {
+            try {
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+                const since = sevenDaysAgo.toISOString();
+
+                const data = await fetchData(`/snapshots?org=${ORG}&since=${since}&limit=10`);
+
+                if (data.items && data.items.length > 0) {
+                    const snapshotsList = data.items.map(snapshot => `
+                        <div class="snapshot-item">
+                            <div class="snapshot-id">${snapshot.runId}</div>
+                            <div class="snapshot-meta">
+                                ${snapshot.scenarioId} • Seed ${snapshot.seed} •
+                                TTFF ${formatDuration(snapshot.ttff_ms)} •
+                                ${formatTimestamp(snapshot.createdAt)}
+                            </div>
+                        </div>
+                    `).join('');
+
+                    document.getElementById('snapshots-content').innerHTML = `
+                        <div class="metric">
+                            <span class="label">Total Found</span>
+                            <span class="value">${formatNumber(data.total)}</span>
+                        </div>
+                        <div class="snapshots-list">
+                            ${snapshotsList}
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('snapshots-content').innerHTML =
+                        '<div class="metric"><span class="label">No snapshots found in the last 7 days</span></div>';
+                }
+            } catch (error) {
+                document.getElementById('snapshots-content').innerHTML =
+                    `<div class="error-msg">Failed to load snapshots: ${error.message}</div>`;
+            }
+        }
+
+        async function refreshAll() {
+            const btn = document.getElementById('refreshBtn');
+            btn.disabled = true;
+            btn.textContent = 'Refreshing...';
+
+            try {
+                await Promise.all([
+                    updateHealth(),
+                    updateQueue(),
+                    updateUsage(),
+                    updateCanary(),
+                    updateSnapshots()
+                ]);
+
+                document.getElementById('lastUpdate').textContent =
+                    `Last updated: ${new Date().toLocaleString('en-GB')}`;
+            } catch (error) {
+                console.error('Error during refresh:', error);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Refresh All Data';
+            }
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(refreshAll, 30000);
+
+        // Initial load
+        refreshAll();
+    </script>
+</body>
+</html>

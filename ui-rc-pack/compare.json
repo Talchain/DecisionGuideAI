@@ -1,0 +1,82 @@
+{
+  "compare": {
+    "pricing-vs-feature": {
+      "schema": "compare.v1",
+      "meta": {
+        "seed": 42,
+        "model": "claude-3-5-sonnet-20241022"
+      },
+      "summary": {
+        "headline": "Tiered Pricing is 15% more profitable than current pricing strategy",
+        "confidence": "HIGH"
+      },
+      "drivers": [
+        "Revenue impact of £2.4M annually with tiered approach",
+        "Customer retention improves by 12% with clearer value proposition",
+        "Implementation complexity manageable within 3-month timeline"
+      ],
+      "left": {
+        "scenario": "pricing-change",
+        "option": "current-pricing",
+        "score": 7.2
+      },
+      "right": {
+        "scenario": "pricing-change",
+        "option": "tier-pricing",
+        "score": 8.7
+      }
+    },
+    "launch-vs-beta": {
+      "schema": "compare.v1",
+      "meta": {
+        "seed": 101,
+        "model": "claude-3-5-sonnet-20241022"
+      },
+      "summary": {
+        "headline": "Staged Rollout reduces risk by 40% while maintaining 85% of full launch impact",
+        "confidence": "MEDIUM"
+      },
+      "drivers": [
+        "Risk mitigation through controlled geographic expansion",
+        "User feedback quality increases by 60% in staged approach",
+        "Revenue impact delayed by 2 months but more sustainable"
+      ],
+      "left": {
+        "scenario": "feature-launch",
+        "option": "full-launch",
+        "score": 6.9
+      },
+      "right": {
+        "scenario": "feature-launch",
+        "option": "staged-rollout",
+        "score": 8.4
+      }
+    },
+    "build-vs-buy": {
+      "schema": "compare.v1",
+      "meta": {
+        "seed": 789,
+        "model": "claude-3-5-sonnet-20241022"
+      },
+      "summary": {
+        "headline": "SaaS solution provides 30% faster time-to-value despite higher ongoing costs",
+        "confidence": "HIGH"
+      },
+      "drivers": [
+        "Total cost of ownership £1.8M over 3 years vs £2.2M for internal build",
+        "Time-to-market advantage of 6 months with proven SaaS platform",
+        "Reduced technical risk and vendor support reliability"
+      ],
+      "left": {
+        "scenario": "build-vs-buy",
+        "option": "build-internal",
+        "score": 7.5
+      },
+      "right": {
+        "scenario": "build-vs-buy",
+        "option": "buy-saas",
+        "score": 8.2
+      }
+    }
+  }
+}

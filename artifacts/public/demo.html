@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decision Guide AI - Stakeholder Demo</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #16a34a;
+            --warning: #ca8a04;
+            --error: #dc2626;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --border: #e2e8f0;
+            --text: #334155;
+            --text-muted: #64748b;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.5;
+            margin: 0;
+            padding: 20px;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            margin: 0;
+            color: var(--primary);
+            font-size: 2rem;
+        }
+
+        .header p {
+            margin: 10px 0 0;
+            color: var(--text-muted);
+        }
+
+        .grid {
+            display: grid;
+            gap: 20px;
+            grid-template-columns: 1fr;
+        }
+
+        @media (min-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .card h2 {
+            margin: 0 0 15px;
+            font-size: 1.25rem;
+            color: var(--primary);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        button {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            min-height: 44px; /* Mobile-friendly tap target */
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #1d4ed8;
+        }
+
+        .btn-secondary {
+            background: var(--text-muted);
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #475569;
+        }
+
+        .btn-warning {
+            background: var(--warning);
+            color: white;
+        }
+
+        .btn-warning:hover:not(:disabled) {
+            background: #a16207;
+        }
+
+        .btn-error {
+            background: var(--error);
+            color: white;
+        }
+
+        .btn-error:hover:not(:disabled) {
+            background: #b91c1c;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .stream-pane {
+            grid-column: 1 / -1;
+            max-height: 400px;
+            overflow-y: auto;
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .event-line {
+            margin-bottom: 8px;
+            padding: 4px 8px;
+            border-radius: 3px;
+        }
+
+        .event-hello { background: rgba(16, 185, 129, 0.1); }
+        .event-token { background: rgba(59, 130, 246, 0.1); }
+        .event-cost { background: rgba(245, 158, 11, 0.1); }
+        .event-done { background: rgba(16, 185, 129, 0.2); }
+        .event-cancelled { background: rgba(239, 68, 68, 0.1); }
+        .event-limited { background: rgba(245, 158, 11, 0.2); }
+        .event-error { background: rgba(239, 68, 68, 0.2); }
+
+        .badges {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: 500;
+            border: 2px solid;
+        }
+
+        .badge-pass {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .badge-fail {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--error);
+            color: var(--error);
+        }
+
+        .badge-pending {
+            background: rgba(107, 114, 128, 0.1);
+            border-color: var(--text-muted);
+            color: var(--text-muted);
+        }
+
+        .report-pane {
+            grid-column: 1 / -1;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .report-section {
+            margin-bottom: 20px;
+        }
+
+        .report-section h3 {
+            margin: 0 0 10px;
+            color: var(--primary);
+        }
+
+        .error-banner {
+            grid-column: 1 / -1;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--error);
+            border-radius: 6px;
+            padding: 15px;
+            color: var(--error);
+            font-weight: 500;
+        }
+
+        .correlation-id {
+            font-family: monospace;
+            background: rgba(59, 130, 246, 0.1);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        /* Mobile optimizations */
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+
+            .badges {
+                flex-direction: column;
+            }
+        }
+
+        /* Accessibility */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        .live-region {
+            position: absolute;
+            left: -10000px;
+            top: auto;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Decision Guide AI - Stakeholder Demo</h1>
+            <p>Live streaming analysis with frozen SSE events and resume semantics</p>
+        </header>
+
+        <!-- Live region for accessibility announcements -->
+        <div id="live-region" class="live-region" aria-live="polite"></div>
+
+        <div class="grid">
+            <!-- Connection Panel -->
+            <div class="card">
+                <h2>Connection Settings</h2>
+                <div class="form-group">
+                    <label for="base-url">Base URL</label>
+                    <input type="url" id="base-url" value="http://localhost:3001" placeholder="http://localhost:3001">
+                </div>
+                <div class="form-group">
+                    <label for="org">Organisation (optional)</label>
+                    <input type="text" id="org" placeholder="demo">
+                </div>
+                <div class="form-group">
+                    <label for="mode">Mode</label>
+                    <select id="mode">
+                        <option value="fixtures">Fixtures (offline)</option>
+                        <option value="live">Live Gateway</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Scenario Inputs -->
+            <div class="card">
+                <h2>Scenario Configuration</h2>
+                <div class="form-group">
+                    <label for="left-scenario">Left Scenario ID</label>
+                    <input type="text" id="left-scenario" value="pricing-comparison" placeholder="pricing-comparison">
+                </div>
+                <div class="form-group">
+                    <label for="right-scenario">Right Scenario ID</label>
+                    <input type="text" id="right-scenario" value="feature-comparison" placeholder="feature-comparison">
+                </div>
+                <div class="form-group">
+                    <label for="seed">Seed</label>
+                    <input type="number" id="seed" value="42" min="1" max="2147483647">
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="actions">
+            <button id="run-left" class="btn-primary">Run Left</button>
+            <button id="run-right" class="btn-primary">Run Right</button>
+            <button id="simulate-blip" class="btn-warning" disabled>Simulate Blip</button>
+            <button id="stop" class="btn-error" disabled>Stop</button>
+            <button id="compare" class="btn-secondary">Compare Left vs Right</button>
+            <button id="download-snapshot" class="btn-secondary" disabled>Download Snapshot</button>
+            <button id="download-evidence" class="btn-secondary" disabled title="Evidence pack not available">Download Evidence Pack</button>
+        </div>
+
+        <!-- Error Banner -->
+        <div id="error-banner" class="error-banner" style="display: none;"></div>
+
+        <!-- Stream Pane -->
+        <div class="card">
+            <h2>Stream Events</h2>
+            <div id="correlation-display" style="margin-bottom: 10px; display: none;">
+                Correlation ID: <span id="correlation-id" class="correlation-id"></span>
+            </div>
+            <div id="stream-pane" class="stream-pane">
+                <div class="event-line">Ready to stream. Select a scenario and click Run Left or Run Right.</div>
+            </div>
+        </div>
+
+        <!-- Status Badges -->
+        <div class="badges">
+            <div id="badge-ttff" class="badge badge-pending">
+                <span>⏱️</span>
+                <span>First token under budget (≤500ms)</span>
+            </div>
+            <div id="badge-resume" class="badge badge-pending">
+                <span>🔄</span>
+                <span>Single resume occurred</span>
+            </div>
+            <div id="badge-cancel" class="badge badge-pending">
+                <span>⛔</span>
+                <span>Cancel idempotent (≤150ms)</span>
+            </div>
+        </div>
+
+        <!-- Report/Compare Pane -->
+        <div id="report-pane" class="report-pane" style="display: none;">
+            <h2>Results</h2>
+            <div id="report-content"></div>
+        </div>
+    </div>
+
+    <script>
+        // Frozen SSE event fixtures for offline mode
+        const FIXTURES = {
+            happy: [
+                { event: 'hello', data: '{"type":"hello","sessionId":"demo-123","timestamp":"2025-09-27T12:00:00Z"}', id: 1 },
+                { event: 'token', data: '{"type":"token","text":"# Decision Analysis\\n\\n","sessionId":"demo-123","timestamp":"2025-09-27T12:00:00.100Z"}', id: 2 },
+                { event: 'token', data: '{"type":"token","text":"**Recommendation:** Option A provides","sessionId":"demo-123","timestamp":"2025-09-27T12:00:00.200Z"}', id: 3 },
+                { event: 'token', data: '{"type":"token","text":" the best value for money.\\n\\n","sessionId":"demo-123","timestamp":"2025-09-27T12:00:00.300Z"}', id: 4 },
+                { event: 'cost', data: '{"type":"cost","amount":0.001,"currency":"USD","sessionId":"demo-123","timestamp":"2025-09-27T12:00:01Z"}', id: 5 },
+                { event: 'done', data: '{"type":"done","sessionId":"demo-123","totalTokens":50,"totalCost":0.001,"duration":1000,"timestamp":"2025-09-27T12:00:01Z"}', id: 6 }
+            ],
+            resume: [
+                { event: 'hello', data: '{"type":"hello","sessionId":"demo-resume","timestamp":"2025-09-27T12:00:00Z"}', id: 1 },
+                { event: 'token', data: '{"type":"token","text":"Starting analysis","sessionId":"demo-resume","timestamp":"2025-09-27T12:00:00.100Z"}', id: 2 },
+                { event: 'token', data: '{"type":"token","text":"...processing","sessionId":"demo-resume","timestamp":"2025-09-27T12:00:00.200Z"}', id: 3 },
+                // Simulated disconnect here, then resume
+                { event: 'token', data: '{"type":"token","text":"...continuing","sessionId":"demo-resume","timestamp":"2025-09-27T12:00:00.700Z"}', id: 4 },
+                { event: 'token', data: '{"type":"token","text":" after reconnect","sessionId":"demo-resume","timestamp":"2025-09-27T12:00:00.800Z"}', id: 5 },
+                { event: 'done', data: '{"type":"done","sessionId":"demo-resume","totalTokens":30,"timestamp":"2025-09-27T12:00:01Z"}', id: 6 }
+            ],
+            cancel: [
+                { event: 'hello', data: '{"type":"hello","sessionId":"demo-cancel","timestamp":"2025-09-27T12:00:00Z"}', id: 1 },
+                { event: 'token', data: '{"type":"token","text":"Analysis starting","sessionId":"demo-cancel","timestamp":"2025-09-27T12:00:00.100Z"}', id: 2 },
+                { event: 'cancelled', data: '{"type":"cancelled","sessionId":"demo-cancel","reason":"user_cancelled","timestamp":"2025-09-27T12:00:00.250Z"}', id: 3 }
+            ]
+        };
+
+        const COMPARE_FIXTURE = {
+            schema: 'compare.v1',
+            meta: { seed: 42 },
+            summary: {
+                headline: 'Option A is 15% more cost-effective than Option B',
+                confidence: 'HIGH'
+            },
+            drivers: [
+                { factor: 'Total Cost', impact: 'Lower operational expenses by £2,400/year' },
+                { factor: 'Implementation Time', impact: '3 weeks faster deployment' },
+                { factor: 'Maintenance', impact: 'Reduced ongoing support requirements' }
+            ]
+        };
+
+        // State management
+        let currentEventSource = null;
+        let currentRunId = null;
+        let connectionStartTime = null;
+        let firstTokenTime = null;
+        let resumeCount = 0;
+        let cancelAttempts = 0;
+        let firstCancelTime = null;
+        let isFixtureMode = true;
+        let lastEventId = 0;
+
+        // DOM elements
+        const elements = {
+            baseUrl: document.getElementById('base-url'),
+            org: document.getElementById('org'),
+            mode: document.getElementById('mode'),
+            leftScenario: document.getElementById('left-scenario'),
+            rightScenario: document.getElementById('right-scenario'),
+            seed: document.getElementById('seed'),
+            runLeft: document.getElementById('run-left'),
+            runRight: document.getElementById('run-right'),
+            simulateBlip: document.getElementById('simulate-blip'),
+            stop: document.getElementById('stop'),
+            compare: document.getElementById('compare'),
+            downloadSnapshot: document.getElementById('download-snapshot'),
+            downloadEvidence: document.getElementById('download-evidence'),
+            errorBanner: document.getElementById('error-banner'),
+            correlationDisplay: document.getElementById('correlation-display'),
+            correlationId: document.getElementById('correlation-id'),
+            streamPane: document.getElementById('stream-pane'),
+            badgeTTFF: document.getElementById('badge-ttff'),
+            badgeResume: document.getElementById('badge-resume'),
+            badgeCancel: document.getElementById('badge-cancel'),
+            reportPane: document.getElementById('report-pane'),
+            reportContent: document.getElementById('report-content'),
+            liveRegion: document.getElementById('live-region')
+        };
+
+        // Utility functions
+        function announce(message) {
+            elements.liveRegion.textContent = message;
+            setTimeout(() => elements.liveRegion.textContent = '', 1000);
+        }
+
+        function addEventLine(eventType, data, isResume = false) {
+            const line = document.createElement('div');
+            line.className = `event-line event-${eventType}`;
+
+            const timestamp = new Date().toLocaleTimeString();
+            const resumePrefix = isResume ? '[RESUMED] ' : '';
+            let content = `[${timestamp}] ${resumePrefix}${eventType}: `;
+
+            try {
+                const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+                if (eventType === 'token') {
+                    content += parsed.text?.replace(/\n/g, '\\n') || 'empty token';
+                } else if (eventType === 'cost') {
+                    content += `${parsed.currency} ${parsed.amount}`;
+                } else if (eventType === 'done') {
+                    content += `${parsed.totalTokens || 0} tokens in ${parsed.duration || 0}ms`;
+                } else if (eventType === 'cancelled') {
+                    content += parsed.reason || 'no reason';
+                } else if (eventType === 'error') {
+                    content += parsed.error?.message || 'unknown error';
+                } else {
+                    content += JSON.stringify(parsed).substring(0, 100);
+                }
+            } catch {
+                content += data?.substring(0, 100) || 'no data';
+            }
+
+            line.textContent = content;
+            elements.streamPane.appendChild(line);
+            elements.streamPane.scrollTop = elements.streamPane.scrollHeight;
+        }
+
+        function updateBadge(badgeEl, status, text = null) {
+            badgeEl.className = `badge badge-${status}`;
+            if (text) {
+                badgeEl.querySelector('span:last-child').textContent = text;
+            }
+        }
+
+        function showError(message) {
+            elements.errorBanner.textContent = message;
+            elements.errorBanner.style.display = 'block';
+            announce(`Error: ${message}`);
+        }
+
+        function hideError() {
+            elements.errorBanner.style.display = 'none';
+        }
+
+        function resetState() {
+            currentRunId = null;
+            connectionStartTime = null;
+            firstTokenTime = null;
+            resumeCount = 0;
+            cancelAttempts = 0;
+            firstCancelTime = null;
+            lastEventId = 0;
+
+            elements.simulateBlip.disabled = true;
+            elements.stop.disabled = true;
+            elements.downloadSnapshot.disabled = true;
+
+            updateBadge(elements.badgeTTFF, 'pending', 'First token under budget (≤500ms)');
+            updateBadge(elements.badgeResume, 'pending', 'Single resume occurred');
+            updateBadge(elements.badgeCancel, 'pending', 'Cancel idempotent (≤150ms)');
+
+            hideError();
+        }
+
+        function closeConnection() {
+            if (currentEventSource) {
+                currentEventSource.close();
+                currentEventSource = null;
+            }
+        }
+
+        // Fixture mode simulation
+        function simulateFixtureStream(fixtureType) {
+            resetState();
+            announce('Results streaming');
+
+            const fixture = FIXTURES[fixtureType] || FIXTURES.happy;
+            currentRunId = `fixture-run-${Date.now()}`;
+            connectionStartTime = Date.now();
+
+            elements.simulateBlip.disabled = false;
+            elements.stop.disabled = false;
+            elements.downloadSnapshot.disabled = false;
+
+            let eventIndex = 0;
+            let isSimulatingBlip = false;
+
+            function processNextEvent() {
+                if (eventIndex >= fixture.length) return;
+
+                const event = fixture[eventIndex];
+                const isResume = eventIndex === 3 && fixtureType === 'resume' && resumeCount > 0;
+
+                // Handle resume scenario
+                if (fixtureType === 'resume' && eventIndex === 2 && !isSimulatingBlip) {
+                    // Don't auto-advance, wait for simulate blip
+                    return;
+                }
+
+                addEventLine(event.event, event.data, isResume);
+                lastEventId = event.id;
+
+                // Track first token for TTFF
+                if (event.event === 'token' && !firstTokenTime) {
+                    firstTokenTime = Date.now();
+                    const ttff = firstTokenTime - connectionStartTime;
+                    const status = ttff <= 500 ? 'pass' : 'fail';
+                    updateBadge(elements.badgeTTFF, status, `First token under budget (${ttff}ms)`);
+                }
+
+                // Handle terminal events
+                if (event.event === 'done' || event.event === 'cancelled') {
+                    elements.simulateBlip.disabled = true;
+                    elements.stop.disabled = true;
+
+                    if (event.event === 'done') {
+                        announce('Report available');
+                        showMockReport();
+                    } else {
+                        announce('Stream cancelled');
+                    }
+
+                    return;
+                }
+
+                eventIndex++;
+                if (eventIndex < fixture.length) {
+                    setTimeout(processNextEvent, 200);
+                }
+            }
+
+            // Start processing
+            setTimeout(processNextEvent, 100);
+
+            // Override simulate blip for resume scenario
+            if (fixtureType === 'resume') {
+                elements.simulateBlip.onclick = () => {
+                    if (resumeCount === 0 && eventIndex === 2) {
+                        resumeCount++;
+                        isSimulatingBlip = true;
+                        addEventLine('disconnect', '{"reason":"connection_lost"}');
+                        announce('Connection restored; continuing');
+
+                        setTimeout(() => {
+                            eventIndex = 3; // Resume from event 4
+                            processNextEvent();
+                            setTimeout(processNextEvent, 200);
+                            updateBadge(elements.badgeResume, 'pass', 'Single resume occurred');
+                        }, 500);
+                    } else {
+                        updateBadge(elements.badgeResume, 'fail', 'Multiple resumes attempted');
+                    }
+                };
+            }
+        }
+
+        // Live mode functions
+        function startLiveStream(scenarioId) {
+            resetState();
+            announce('Results streaming');
+
+            const baseUrl = elements.baseUrl.value;
+            const org = elements.org.value;
+            const seed = elements.seed.value;
+
+            currentRunId = `run-${scenarioId}-${seed}-${Date.now()}`;
+
+            const url = new URL('/stream', baseUrl);
+            url.searchParams.set('scenarioId', scenarioId);
+            url.searchParams.set('seed', seed);
+            if (org) url.searchParams.set('org', org);
+
+            connectionStartTime = Date.now();
+
+            try {
+                currentEventSource = new EventSource(url.toString());
+
+                currentEventSource.onopen = () => {
+                    elements.simulateBlip.disabled = false;
+                    elements.stop.disabled = false;
+                };
+
+                currentEventSource.onmessage = (event) => {
+                    lastEventId = event.lastEventId || lastEventId + 1;
+
+                    try {
+                        const data = JSON.parse(event.data);
+                        addEventLine(data.type, event.data);
+
+                        // Track first token for TTFF
+                        if (data.type === 'token' && !firstTokenTime) {
+                            firstTokenTime = Date.now();
+                            const ttff = firstTokenTime - connectionStartTime;
+                            const status = ttff <= 500 ? 'pass' : 'fail';
+                            updateBadge(elements.badgeTTFF, status, `First token under budget (${ttff}ms)`);
+                        }
+
+                        // Handle terminal events
+                        if (data.type === 'done' || data.type === 'cancelled') {
+                            elements.simulateBlip.disabled = true;
+                            elements.stop.disabled = true;
+                            elements.downloadSnapshot.disabled = false;
+
+                            if (data.type === 'done') {
+                                announce('Report available');
+                            } else {
+                                announce('Stream cancelled');
+                            }
+                        }
+
+                    } catch (e) {
+                        addEventLine('parse-error', event.data);
+                    }
+                };
+
+                currentEventSource.onerror = (event) => {
+                    addEventLine('error', '{"message":"Connection error"}');
+                    showError('Connection error. Check CORS settings and base URL.');
+                };
+
+                // Extract correlation ID from response headers if available
+                // Note: This may not work due to CORS restrictions
+
+            } catch (error) {
+                showError(`Failed to start stream: ${error.message}`);
+            }
+        }
+
+        function simulateBlip() {
+            if (!currentEventSource || resumeCount > 0) return;
+
+            resumeCount++;
+            closeConnection();
+            addEventLine('disconnect', '{"reason":"simulated_blip"}');
+            announce('Connection restored; continuing');
+
+            // Resume with Last-Event-ID
+            const baseUrl = elements.baseUrl.value;
+            const org = elements.org.value;
+            const seed = elements.seed.value;
+            const scenarioId = elements.leftScenario.value; // Assume left for now
+
+            const url = new URL('/stream', baseUrl);
+            url.searchParams.set('scenarioId', scenarioId);
+            url.searchParams.set('seed', seed);
+            if (org) url.searchParams.set('org', org);
+            if (lastEventId) url.searchParams.set('lastEventId', lastEventId);
+
+            setTimeout(() => {
+                try {
+                    currentEventSource = new EventSource(url.toString());
+
+                    currentEventSource.onmessage = (event) => {
+                        lastEventId = event.lastEventId || lastEventId + 1;
+
+                        try {
+                            const data = JSON.parse(event.data);
+                            addEventLine(data.type, event.data, true);
+
+                            if (data.type === 'done' || data.type === 'cancelled') {
+                                elements.simulateBlip.disabled = true;
+                                elements.stop.disabled = true;
+                                elements.downloadSnapshot.disabled = false;
+                            }
+                        } catch (e) {
+                            addEventLine('parse-error', event.data);
+                        }
+                    };
+
+                    updateBadge(elements.badgeResume, resumeCount === 1 ? 'pass' : 'fail',
+                              resumeCount === 1 ? 'Single resume occurred' : 'Multiple resumes attempted');
+
+                } catch (error) {
+                    showError(`Failed to resume: ${error.message}`);
+                }
+            }, 500);
+        }
+
+        function stopStream() {
+            cancelAttempts++;
+
+            if (cancelAttempts === 1) {
+                firstCancelTime = Date.now();
+            }
+
+            if (isFixtureMode) {
+                // Simulate cancel for fixtures
+                setTimeout(() => {
+                    addEventLine('cancelled', '{"type":"cancelled","reason":"user_cancelled"}');
+                    elements.stop.disabled = true;
+                    elements.simulateBlip.disabled = true;
+                    announce('Stream cancelled');
+
+                    if (cancelAttempts === 1) {
+                        const latency = Date.now() - firstCancelTime;
+                        updateBadge(elements.badgeCancel, latency <= 150 ? 'pass' : 'fail',
+                                  `Cancel idempotent (${latency}ms)`);
+                    }
+                }, 100);
+            } else {
+                // Live mode - make cancel request
+                const baseUrl = elements.baseUrl.value;
+                const cancelUrl = new URL(`/runs/${currentRunId}/cancel`, baseUrl);
+
+                fetch(cancelUrl.toString(), { method: 'POST' })
+                    .then(response => {
+                        if (response.status === 202) {
+                            // Wait for cancelled event via SSE
+                            if (cancelAttempts === 1) {
+                                const latency = Date.now() - firstCancelTime;
+                                updateBadge(elements.badgeCancel, latency <= 150 ? 'pass' : 'fail',
+                                          `Cancel idempotent (${latency}ms)`);
+                            }
+                        } else if (cancelAttempts > 1) {
+                            // Second cancel should be idempotent
+                            updateBadge(elements.badgeCancel, 'pass', 'Cancel idempotent (no-op)');
+                        }
+                    })
+                    .catch(error => {
+                        showError(`Cancel failed: ${error.message}`);
+                    });
+            }
+        }
+
+        // Compare and download functions
+        function performCompare() {
+            const leftId = elements.leftScenario.value;
+            const rightId = elements.rightScenario.value;
+            const seed = elements.seed.value;
+
+            if (isFixtureMode) {
+                // Show fixture compare result
+                elements.reportPane.style.display = 'block';
+                elements.reportContent.innerHTML = `
+                    <div class="report-section">
+                        <h3>Compare Results (Fixture)</h3>
+                        <p><strong>Headline:</strong> ${COMPARE_FIXTURE.summary.headline}</p>
+                        <p><strong>Confidence:</strong> ${COMPARE_FIXTURE.summary.confidence}</p>
+                        <h4>Key Drivers:</h4>
+                        <ul>
+                            ${COMPARE_FIXTURE.drivers.map(d => `<li><strong>${d.factor}:</strong> ${d.impact}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            } else {
+                // Live mode - make compare request
+                const baseUrl = elements.baseUrl.value;
+                const compareUrl = new URL('/compare', baseUrl);
+
+                const payload = {
+                    left: { scenarioId: leftId },
+                    right: { scenarioId: rightId },
+                    seed: parseInt(seed)
+                };
+
+                fetch(compareUrl.toString(), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => response.json())
+                .then(data => {
+                    elements.reportPane.style.display = 'block';
+                    elements.reportContent.innerHTML = `
+                        <div class="report-section">
+                            <h3>Compare Results</h3>
+                            <p><strong>Headline:</strong> ${data.summary?.headline || 'No headline available'}</p>
+                            <p><strong>Confidence:</strong> ${data.summary?.confidence || 'Unknown'}</p>
+                            ${data.drivers ? `
+                                <h4>Key Drivers:</h4>
+                                <ul>
+                                    ${data.drivers.map(d => `<li><strong>${d.factor}:</strong> ${d.impact}</li>`).join('')}
+                                </ul>
+                            ` : ''}
+                        </div>
+                    `;
+                })
+                .catch(error => {
+                    showError(`Compare failed: ${error.message}`);
+                });
+            }
+        }
+
+        function downloadSnapshot() {
+            if (!currentRunId) return;
+
+            if (isFixtureMode) {
+                showError('Snapshot download not available in fixtures mode');
+                return;
+            }
+
+            const baseUrl = elements.baseUrl.value;
+            const snapshotUrl = new URL(`/runs/${currentRunId}/snapshot`, baseUrl);
+
+            window.open(snapshotUrl.toString(), '_blank');
+        }
+
+        function checkEvidencePack() {
+            // Check if evidence pack is available
+            fetch('./pilot-evidence-pack.zip')
+                .then(response => {
+                    if (response.ok) {
+                        elements.downloadEvidence.disabled = false;
+                        elements.downloadEvidence.title = 'Download pilot evidence pack';
+                        elements.downloadEvidence.onclick = () => {
+                            window.open('./pilot-evidence-pack.zip', '_blank');
+                        };
+                    }
+                })
+                .catch(() => {
+                    // Evidence pack not available
+                });
+        }
+
+        function showMockReport() {
+            elements.reportPane.style.display = 'block';
+            elements.reportContent.innerHTML = `
+                <div class="report-section">
+                    <h3>Analysis Report (Fixture)</h3>
+                    <p><strong>Schema:</strong> report.v1</p>
+                    <p><strong>Seed:</strong> ${elements.seed.value}</p>
+                    <p><strong>Recommendation:</strong> Option A provides the best value for money</p>
+                    <p><strong>Confidence:</strong> HIGH (87%)</p>
+                    <p><strong>Total Tokens:</strong> 50</p>
+                    <p><strong>Duration:</strong> 1000ms</p>
+                </div>
+            `;
+        }
+
+        // Event listeners
+        elements.mode.addEventListener('change', () => {
+            isFixtureMode = elements.mode.value === 'fixtures';
+            resetState();
+            elements.streamPane.innerHTML = '<div class="event-line">Mode changed. Ready to stream.</div>';
+        });
+
+        elements.runLeft.addEventListener('click', () => {
+            closeConnection();
+            if (isFixtureMode) {
+                simulateFixtureStream('happy');
+            } else {
+                startLiveStream(elements.leftScenario.value);
+            }
+        });
+
+        elements.runRight.addEventListener('click', () => {
+            closeConnection();
+            if (isFixtureMode) {
+                simulateFixtureStream('resume');
+            } else {
+                startLiveStream(elements.rightScenario.value);
+            }
+        });
+
+        elements.simulateBlip.addEventListener('click', simulateBlip);
+        elements.stop.addEventListener('click', stopStream);
+        elements.compare.addEventListener('click', performCompare);
+        elements.downloadSnapshot.addEventListener('click', downloadSnapshot);
+
+        // Persistence
+        function loadSettings() {
+            const saved = localStorage.getItem('demo-settings');
+            if (saved) {
+                try {
+                    const settings = JSON.parse(saved);
+                    elements.baseUrl.value = settings.baseUrl || 'http://localhost:3001';
+                    elements.org.value = settings.org || '';
+                    elements.leftScenario.value = settings.leftScenario || 'pricing-comparison';
+                    elements.rightScenario.value = settings.rightScenario || 'feature-comparison';
+                    elements.seed.value = settings.seed || '42';
+                } catch (e) {
+                    // Ignore invalid saved settings
+                }
+            }
+        }
+
+        function saveSettings() {
+            const settings = {
+                baseUrl: elements.baseUrl.value,
+                org: elements.org.value,
+                leftScenario: elements.leftScenario.value,
+                rightScenario: elements.rightScenario.value,
+                seed: elements.seed.value
+            };
+            localStorage.setItem('demo-settings', JSON.stringify(settings));
+        }
+
+        // Auto-save settings on change
+        [elements.baseUrl, elements.org, elements.leftScenario, elements.rightScenario, elements.seed].forEach(el => {
+            el.addEventListener('change', saveSettings);
+        });
+
+        // Initialize
+        loadSettings();
+        checkEvidencePack();
+        announce('Stakeholder demo ready');
+    </script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "sessionId": "unknown-session",
+  "jobs": [
+    {
+      "id": "job_1",
+      "name": "Scenario Analysis",
+      "status": "completed",
+      "progress": 100,
+      "startTime": 1758793324552,
+      "endTime": 1758793327552
+    },
+    {
+      "id": "job_2",
+      "name": "Option Evaluation",
+      "status": "completed",
+      "progress": 100,
+      "startTime": 1758793327552,
+      "endTime": 1758793330552
+    },
+    {
+      "id": "job_3",
+      "name": "Decision Matrix",
+      "status": "completed",
+      "progress": 100,
+      "startTime": 1758793330552,
+      "endTime": 1758793333552
+    }
+  ]
+}

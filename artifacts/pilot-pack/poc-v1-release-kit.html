@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PoC v1 Release Kit - DecisionGuide AI</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 2.5rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 3px solid #3498db;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .header .subtitle {
+            font-size: 1.2rem;
+            color: #7f8c8d;
+            margin-bottom: 1rem;
+        }
+
+        .header .version {
+            background: #e8f6ff;
+            color: #2980b9;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .section {
+            margin-bottom: 3rem;
+            background: #fff;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #ecf0f1;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .timeline-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+
+        .timeline-time {
+            background: #3498db;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .timeline-content h3 {
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+
+        .timeline-content p {
+            color: #7f8c8d;
+            margin-bottom: 0.5rem;
+        }
+
+        .timeline-content .action {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        .checklist {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .checklist-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1.5rem;
+            border: 2px solid #ecf0f1;
+        }
+
+        .checklist-card h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+            padding: 0.5rem;
+            background: white;
+            border-radius: 4px;
+        }
+
+        .checklist-item input[type="checkbox"] {
+            margin-top: 0.2rem;
+        }
+
+        .troubleshooting {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 8px;
+            padding: 2rem;
+        }
+
+        .troubleshooting h3 {
+            color: #856404;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .problem {
+            background: white;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-left: 4px solid #dc3545;
+        }
+
+        .problem h4 {
+            color: #dc3545;
+            margin-bottom: 0.5rem;
+        }
+
+        .solution {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
+        }
+
+        .solution strong {
+            color: #155724;
+        }
+
+        .code {
+            background: #f1f3f4;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 0.5rem;
+            font-family: monospace;
+            font-size: 0.9rem;
+            margin: 0.5rem 0;
+        }
+
+        .navigation {
+            background: #e8f6ff;
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        .navigation h3 {
+            color: #2980b9;
+            margin-bottom: 1rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .nav-links a {
+            background: #3498db;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: background 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            background: #2980b9;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .container {
+                padding: 1.5rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .checklist {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 PoC v1 Release Kit</h1>
+            <div class="subtitle">DecisionGuide AI Scenario Sandbox</div>
+            <div class="version">Stakeholder Demo Ready</div>
+        </div>
+
+        <div class="section">
+            <h2>🔄 FIRST: Reset Demo Environment</h2>
+            <div style="background: #fff3cd; border: 2px solid #ffc107; border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem;">
+                <h3 style="color: #856404; margin: 0 0 1rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                    ⚡ Essential First Step
+                </h3>
+                <p style="margin: 0 0 1rem 0; color: #856404; font-weight: 500;">Always run this before any demo to ensure clean environment and checklist reset:</p>
+                <div style="background: #2c3e50; color: #ecf0f1; padding: 0.75rem; border-radius: 4px; font-family: monospace; font-size: 1.1rem; margin-bottom: 1rem;">
+                    ./tools/demo-reset.sh
+                </div>
+                <p style="margin: 0; color: #856404; font-size: 0.9rem;"><strong>What it does:</strong> Clears artifacts, verifies defaults OFF, resets checklist state, ensures clean demo</p>
+            </div>
+
+            <h2>🎬 Run-of-Show (60-90 seconds)</h2>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-time">0:00</div>
+                    <div class="timeline-content">
+                        <h3>Reset & Setup</h3>
+                        <p>Clean demo environment, confirm Sim Mode is ON (safe for demos)</p>
+                        <div class="action">Navigate to: artifacts/start-here.html</div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-time">0:15</div>
+                    <div class="timeline-content">
+                        <h3>Live Streaming Demo</h3>
+                        <p>Show real-time decision analysis with SSE streaming</p>
+                        <div class="action">Fixture: ui-fixtures/stream-resume-once/</div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-time">0:35</div>
+                    <div class="timeline-content">
+                        <h3>Resilience Features</h3>
+                        <p>Demonstrate cancellation and error recovery</p>
+                        <div class="action">Fixture: ui-fixtures/stream-cancel-mid/</div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-time">0:55</div>
+                    <div class="timeline-content">
+                        <h3>Progress Tracking</h3>
+                        <p>Show background job progress with cancellation</p>
+                        <div class="action">Fixture: ui-fixtures/jobs-cancel-50/</div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-time">1:15</div>
+                    <div class="timeline-content">
+                        <h3>Evidence Pack</h3>
+                        <p>Quick tour of test results, coverage, and documentation</p>
+                        <div class="action">Navigate to: artifacts/index.html</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📋 Presenter Checklist</h2>
+            <div class="checklist">
+                <div class="checklist-card">
+                    <h3>🖥️ Environment Setup</h3>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="browser">
+                        <label for="browser">Browser: Chrome/Safari (latest)</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="window-size">
+                        <label for="window-size">Window: 1400x900px minimum</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="zoom">
+                        <label for="zoom">Zoom: 110% for readability</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="dark-mode">
+                        <label for="dark-mode">Dark mode: OFF (better contrast)</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="sound">
+                        <label for="sound">Sound: OFF (no notification sounds)</label>
+                    </div>
+                </div>
+
+                <div class="checklist-card">
+                    <h3>📂 Files to Open (in order)</h3>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="start-here">
+                        <label for="start-here">1️⃣ Main: artifacts/start-here.html</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="evidence">
+                        <label for="evidence">2️⃣ Evidence: artifacts/index.html</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="fixtures">
+                        <label for="fixtures">3️⃣ Fixtures: ui-fixtures/README.md</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="backup">
+                        <label for="backup">4️⃣ Backup: artifacts/demo-script-60s.md</label>
+                    </div>
+                </div>
+
+                <div class="checklist-card">
+                    <h3>⚙️ Platform Status</h3>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="demo-reset">
+                        <label for="demo-reset">Demo Reset: Run ./tools/demo-reset.sh</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="sim-mode">
+                        <label for="sim-mode">Sim Mode: ON (safe demo mode)</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="defaults">
+                        <label for="defaults">Feature flags: ALL OFF by default</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="tests">
+                        <label for="tests">Tests: All passing (green status)</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="contracts">
+                        <label for="contracts">Contract Wall: Green</label>
+                    </div>
+                </div>
+
+                <div class="checklist-card">
+                    <h3>🎯 Demo Flow</h3>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="context">
+                        <label for="context">Context: Explain Sim Mode safety</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="streaming">
+                        <label for="streaming">Demo: Live streaming analysis</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="resilience">
+                        <label for="resilience">Demo: Error recovery & cancellation</label>
+                    </div>
+                    <div class="checklist-item">
+                        <input type="checkbox" id="evidence-tour">
+                        <label for="evidence-tour">Tour: Evidence pack & test results</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>⚠️ What Can Go Wrong - Quick Fixes</h2>
+            <div class="troubleshooting">
+                <h3>🔧 Common Issues & Solutions</h3>
+
+                <div class="problem">
+                    <h4>No Output / Blank Screen</h4>
+                    <p>The fixture isn't loading or JavaScript is disabled</p>
+                    <div class="solution">
+                        <strong>Quick Fix:</strong> Refresh page, check browser console (F12), ensure JavaScript enabled
+                        <div class="code">Hard refresh: Ctrl+Shift+R (Windows) / Cmd+Shift+R (Mac)</div>
+                    </div>
+                </div>
+
+                <div class="problem">
+                    <h4>Duplicate Tokens Appearing</h4>
+                    <p>Stream resume fixture showing token duplication</p>
+                    <div class="solution">
+                        <strong>Quick Fix:</strong> This is intentional - demonstrates deduplication feature
+                        <div class="code">Expected: Tokens repeat, then resume from last-event-id</div>
+                    </div>
+                </div>
+
+                <div class="problem">
+                    <h4>Empty Report Drawer</h4>
+                    <p>Report section shows "No data available"</p>
+                    <div class="solution">
+                        <strong>Quick Fix:</strong> Use the report-no-data fixture - this is the expected demo state
+                        <div class="code">Navigate: ui-fixtures/report-no-data/view-model.json</div>
+                    </div>
+                </div>
+
+                <div class="problem">
+                    <h4>Stream Won't Cancel</h4>
+                    <p>Cancellation button not working in demo</p>
+                    <div class="solution">
+                        <strong>Quick Fix:</strong> Switch to stream-cancel-mid fixture which shows pre-cancelled state
+                        <div class="code">Fixture shows: Stream stopped with reason: "cancelled"</div>
+                    </div>
+                </div>
+
+                <div class="problem">
+                    <h4>Jobs Progress Stuck</h4>
+                    <p>Progress bar not updating in jobs demo</p>
+                    <div class="solution">
+                        <strong>Quick Fix:</strong> Use jobs-cancel-50 fixture - shows progress 0→50→cancelled
+                        <div class="code">Expected: 10 steps progress, cancelled at 50%</div>
+                    </div>
+                </div>
+
+                <div class="problem">
+                    <h4>Error Stream Too Scary</h4>
+                    <p>Error message looks too technical for stakeholders</p>
+                    <div class="solution">
+                        <strong>Quick Fix:</strong> Emphasize the user-friendly error handling in stream-error fixture
+                        <div class="code">Show: "Analysis temporarily unavailable, please try again" message</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <h3>🔗 Quick Navigation</h3>
+            <div class="nav-links">
+                <a href="./start-here.html">Start Here Page</a>
+                <a href="./index.html">Evidence Pack</a>
+                <a href="./ui-fixtures/README.md">UI Fixtures</a>
+                <a href="./demo-script-60s.md">Demo Script</a>
+                <a href="./pilot-runbook.md">Pilot Runbook v1</a>
+                <a href="../tools/fixtures-ui.ts">Fixture Generator</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-save checklist state to localStorage
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+
+        // Load saved state
+        checkboxes.forEach(checkbox => {
+            const saved = localStorage.getItem(`checklist_${checkbox.id}`);
+            if (saved === 'true') {
+                checkbox.checked = true;
+            }
+        });
+
+        // Save state on change
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                localStorage.setItem(`checklist_${checkbox.id}`, checkbox.checked);
+            });
+        });
+
+        // Reset checklist function
+        function resetChecklist() {
+            if (confirm('Reset all checklist items? This will clear all checkboxes.')) {
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                    localStorage.removeItem(`checklist_${checkbox.id}`);
+                });
+                alert('✅ Checklist reset complete! All items cleared.');
+            }
+        }
+
+        // Quick reset button
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.shiftKey && e.key === 'R') {
+                resetChecklist();
+            }
+        });
+
+        // Add visible reset button
+        document.addEventListener('DOMContentLoaded', () => {
+            const resetButton = document.createElement('button');
+            resetButton.innerHTML = '🔄 Reset Checklist';
+            resetButton.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #e74c3c;
+                color: white;
+                border: none;
+                padding: 10px 15px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                z-index: 1000;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            `;
+            resetButton.onclick = resetChecklist;
+            document.body.appendChild(resetButton);
+        });
+    </script>
+</body>
+</html>

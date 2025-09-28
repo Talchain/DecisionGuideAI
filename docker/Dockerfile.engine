@@ -1,0 +1,29 @@
+# Engine Service Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY tsconfig*.json ./
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy source code
+COPY src/ src/
+COPY artifacts/ artifacts/
+COPY tools/ tools/
+
+# Build TypeScript
+RUN npm run build
+
+# Expose port
+EXPOSE 3002
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:3002/healthz || exit 1
+
+# Start command
+CMD ["npm", "run", "engine:start"]

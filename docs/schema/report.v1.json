@@ -1,0 +1,234 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://api.olumi.ai/schemas/report.v1.json",
+  "title": "Report v1 Schema",
+  "description": "Schema for decision analysis reports",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "report.v1",
+      "description": "Schema identifier - MUST be 'report.v1'"
+    },
+    "meta": {
+      "type": "object",
+      "properties": {
+        "seed": {
+          "type": "number",
+          "description": "Analysis seed value - MUST be echoed from request"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "duration": {
+          "type": "number",
+          "description": "Analysis duration in milliseconds"
+        },
+        "route": {
+          "type": "string",
+          "description": "API route used"
+        },
+        "totalTokens": {
+          "type": "number"
+        },
+        "totalCost": {
+          "type": "number"
+        },
+        "model": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["completed", "cancelled", "error", "timeout"]
+        }
+      },
+      "required": ["seed", "timestamp", "duration", "status"],
+      "description": "Report metadata including required seed echo"
+    },
+    "decision": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number"
+              },
+              "description": {
+                "type": "string"
+              }
+            },
+            "required": ["id", "name", "score"]
+          }
+        },
+        "recommendation": {
+          "type": "object",
+          "properties": {
+            "primary": {
+              "type": "string"
+            },
+            "confidence": {
+              "type": "string",
+              "enum": ["low", "medium", "high", "very high"]
+            }
+          }
+        }
+      },
+      "required": ["title", "options"]
+    },
+    "analysis": {
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "keyInsights": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {"type": "string"},
+              {"type": "number"}
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": ["analysis", "generation", "validation", "processing"]
+          },
+          "startTime": {
+            "type": "number"
+          },
+          "endTime": {
+            "type": "number"
+          },
+          "duration": {
+            "type": "number"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["completed", "cancelled", "error", "skipped"]
+          },
+          "tokens": {
+            "type": "number"
+          },
+          "cost": {
+            "type": "number"
+          }
+        },
+        "required": ["id", "type", "duration", "status"]
+      }
+    },
+    "totals": {
+      "type": "object",
+      "properties": {
+        "totalSteps": {
+          "type": "number"
+        },
+        "completedSteps": {
+          "type": "number"
+        },
+        "totalTokens": {
+          "type": "number"
+        },
+        "totalCost": {
+          "type": "number"
+        },
+        "totalDuration": {
+          "type": "number"
+        }
+      },
+      "required": ["totalSteps", "completedSteps", "totalTokens", "totalCost", "totalDuration"]
+    }
+  },
+  "required": ["schema", "meta"],
+  "examples": [
+    {
+      "schema": "report.v1",
+      "meta": {
+        "seed": 42,
+        "timestamp": "2024-01-01T12:00:00Z",
+        "duration": 5000,
+        "route": "/api/v1/analyze",
+        "totalTokens": 1250,
+        "totalCost": 0.025,
+        "model": "claude-3-5-sonnet",
+        "status": "completed"
+      },
+      "decision": {
+        "title": "Market Entry Strategy Analysis",
+        "options": [
+          {
+            "id": "option-1",
+            "name": "Direct Market Entry",
+            "score": 85,
+            "description": "Establish direct presence in target market"
+          },
+          {
+            "id": "option-2",
+            "name": "Partnership Strategy",
+            "score": 72,
+            "description": "Enter through strategic partnerships"
+          }
+        ],
+        "recommendation": {
+          "primary": "option-1",
+          "confidence": "high"
+        }
+      },
+      "analysis": {
+        "confidence": "high",
+        "summary": "Direct market entry shows strongest potential with manageable risks"
+      },
+      "steps": [
+        {
+          "id": "step-1",
+          "type": "analysis",
+          "startTime": 1640995200000,
+          "endTime": 1640995201500,
+          "duration": 1500,
+          "status": "completed",
+          "tokens": 450,
+          "cost": 0.009
+        }
+      ],
+      "totals": {
+        "totalSteps": 3,
+        "completedSteps": 3,
+        "totalTokens": 1250,
+        "totalCost": 0.025,
+        "totalDuration": 5000
+      }
+    }
+  ]
+}

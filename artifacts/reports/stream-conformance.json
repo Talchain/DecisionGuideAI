@@ -1,0 +1,17 @@
+{
+  "timestamp": "2025-09-27T16:31:13.651Z",
+  "conformance_results": {
+    "fixtures_mode": {
+      "tested": true,
+      "sse_events_valid": true,
+      "ndjson_format": true,
+      "resume_semantics": true
+    },
+    "live_mode": {
+      "available": false,
+      "tested": false,
+      "note": "Live Gateway not available for testing"
+    }
+  },
+  "validation_status": "PASS"
+}

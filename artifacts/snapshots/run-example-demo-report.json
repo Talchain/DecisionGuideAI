@@ -1,0 +1,50 @@
+{
+  "schema": "report.v1",
+  "runId": "example-demo",
+  "scenario": "Basic Decision Analysis",
+  "timestamp": "2025-01-16T10:00:10.000Z",
+  "seed": 42,
+  "duration": 10000,
+  "status": "completed",
+  "summary": {
+    "totalNodes": 5,
+    "totalLinks": 4,
+    "complexity": "medium",
+    "confidence": 0.85
+  },
+  "results": {
+    "recommendation": "Option A",
+    "score": 7.8,
+    "reasoning": "Based on cost-benefit analysis and risk assessment, Option A provides the best balance of value and feasibility.",
+    "alternatives": [
+      {
+        "option": "Option B",
+        "score": 6.2,
+        "reasoning": "Lower initial cost but higher long-term risk"
+      },
+      {
+        "option": "Option C",
+        "score": 5.9,
+        "reasoning": "Conservative approach with limited upside potential"
+      }
+    ]
+  },
+  "metrics": {
+    "processTime": 8500,
+    "engineCalls": 3,
+    "cacheHits": 12,
+    "confidence": {
+      "overall": 0.85,
+      "dataQuality": 0.90,
+      "modelReliability": 0.80
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "environment": "development",
+    "flags": {
+      "experimental": false,
+      "advanced": true
+    }
+  }
+}

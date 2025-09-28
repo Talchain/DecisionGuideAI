@@ -1,0 +1,207 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://api.olumi.ai/schemas/stream.events.v1.json",
+  "title": "Stream Events v1 - Frozen Contract",
+  "description": "Schema for Server-Sent Events in the frozen streaming contract",
+  "type": "object",
+  "properties": {
+    "event": {
+      "type": "string",
+      "enum": ["hello", "token", "cost", "done", "cancelled", "limited", "error"],
+      "description": "Event type - FROZEN set, must not change"
+    },
+    "id": {
+      "type": "string",
+      "description": "Event ID for resumption with Last-Event-ID header"
+    },
+    "data": {
+      "type": "string",
+      "description": "Event data payload as JSON string"
+    }
+  },
+  "required": ["data"],
+  "definitions": {
+    "HelloEventData": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "hello"
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "Session identifier"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["type", "sessionId", "timestamp"]
+    },
+    "TokenEventData": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "token"
+        },
+        "text": {
+          "type": "string",
+          "description": "Token text content"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["type", "text", "sessionId", "timestamp"]
+    },
+    "CostEventData": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "cost"
+        },
+        "amount": {
+          "type": "number",
+          "description": "Cost in USD"
+        },
+        "currency": {
+          "type": "string",
+          "const": "USD"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["type", "amount", "currency", "sessionId", "timestamp"]
+    },
+    "DoneEventData": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "done"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "totalTokens": {
+          "type": "number"
+        },
+        "totalCost": {
+          "type": "number"
+        },
+        "duration": {
+          "type": "number",
+          "description": "Duration in milliseconds"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["type", "sessionId", "timestamp"]
+    },
+    "CancelledEventData": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "cancelled"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["user_cancelled", "timeout", "error"]
+        },
+        "partialTokens": {
+          "type": "number"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["type", "sessionId", "reason", "timestamp"]
+    },
+    "LimitedEventData": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "limited"
+        },
+        "message": {
+          "type": "string",
+          "description": "Rate limit message"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["type", "message", "timestamp"]
+    },
+    "ErrorEventData": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "error"
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "details": {
+              "type": "string"
+            }
+          },
+          "required": ["code", "message"]
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["type", "error", "sessionId", "timestamp"]
+    }
+  },
+  "examples": [
+    {
+      "event": "hello",
+      "id": "1",
+      "data": "{\"type\":\"hello\",\"sessionId\":\"sess-123\",\"timestamp\":\"2024-01-01T12:00:00Z\"}"
+    },
+    {
+      "event": "token",
+      "id": "2",
+      "data": "{\"type\":\"token\",\"text\":\"Hello\",\"sessionId\":\"sess-123\",\"timestamp\":\"2024-01-01T12:00:01Z\"}"
+    },
+    {
+      "event": "done",
+      "id": "10",
+      "data": "{\"type\":\"done\",\"sessionId\":\"sess-123\",\"totalTokens\":50,\"totalCost\":0.001,\"duration\":5000,\"timestamp\":\"2024-01-01T12:00:05Z\"}"
+    }
+  ]
+}

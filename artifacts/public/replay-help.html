@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Replay Mode - Developer Guide</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .banner {
+            background: #fef3cd;
+            border: 1px solid #fad02c;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        .banner h2 {
+            margin: 0 0 8px 0;
+            color: #8a6914;
+        }
+        .banner p {
+            margin: 0;
+            color: #8a6914;
+        }
+        .code-block {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 16px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+        .endpoint {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 12px 16px;
+            margin: 16px 0;
+        }
+        .endpoint-title {
+            font-weight: bold;
+            color: #1976d2;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-enabled {
+            background-color: #4caf50;
+        }
+        .status-disabled {
+            background-color: #f44336;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #fad02c;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 16px 0;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 16px 0;
+        }
+        .file-structure {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 16px;
+            font-family: monospace;
+            white-space: pre-line;
+        }
+        .step {
+            background: #f8f9fa;
+            border-left: 3px solid #007bff;
+            padding: 12px 16px;
+            margin: 12px 0;
+        }
+        .step-number {
+            font-weight: bold;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎬 Edge Replay Mode</h1>
+
+    <div class="banner">
+        <h2>⚠️ Development Only</h2>
+        <p>Replay mode is designed for local development and testing. Never enable in production environments.</p>
+    </div>
+
+    <div id="status-check">
+        <h2>Current Status</h2>
+        <p>
+            <span class="status-indicator" id="status-indicator"></span>
+            <span id="status-text">Checking replay mode status...</span>
+        </p>
+    </div>
+
+    <h2>What is Replay Mode?</h2>
+    <p>
+        Edge Replay Mode allows you to replay previously recorded scenario runs without making actual engine calls.
+        It serves recorded NDJSON streams and reports from local snapshots, preserving resume and cancel semantics
+        for realistic testing.
+    </p>
+
+    <h2>Quick Start</h2>
+
+    <div class="step">
+        <div class="step-number">Step 1:</div>
+        Enable replay mode by setting the environment variable:
+        <div class="code-block">export REPLAY_MODE=1</div>
+    </div>
+
+    <div class="step">
+        <div class="step-number">Step 2:</div>
+        Ensure you have recorded snapshots in <code>artifacts/snapshots/</code>:
+        <div class="file-structure">artifacts/snapshots/
+├── run-abc123-stream.ndjson
+├── run-abc123-report.json
+├── run-def456-stream.ndjson
+└── run-def456-report.json</div>
+    </div>
+
+    <div class="step">
+        <div class="step-number">Step 3:</div>
+        Start a replay session using the standard streaming API:
+        <div class="code-block">curl -X POST http://localhost:3001/stream/run-abc123</div>
+    </div>
+
+    <h2>API Endpoints</h2>
+
+    <div class="endpoint">
+        <div class="endpoint-title">GET /replay/snapshots</div>
+        List available recorded snapshots for replay
+    </div>
+
+    <div class="endpoint">
+        <div class="endpoint-title">POST /stream/{runId}</div>
+        Start replaying a recorded session (when REPLAY_MODE=1)
+    </div>
+
+    <div class="endpoint">
+        <div class="endpoint-title">GET /stream/{runId}</div>
+        Get events from replay session (supports Last-Event-ID for resume)
+    </div>
+
+    <div class="endpoint">
+        <div class="endpoint-title">POST /stream/{runId}/cancel</div>
+        Cancel replay session (idempotent, ≤150ms target)
+    </div>
+
+    <div class="endpoint">
+        <div class="endpoint-title">GET /report/{runId}</div>
+        Get recorded report for replayed session
+    </div>
+
+    <h2>Usage Examples</h2>
+
+    <h3>List Available Snapshots</h3>
+    <div class="code-block">curl http://localhost:3001/replay/snapshots</div>
+
+    <h3>Start Replay Session</h3>
+    <div class="code-block">curl -X POST http://localhost:3001/stream/run-abc123</div>
+
+    <h3>Get Replay Events (SSE)</h3>
+    <div class="code-block">curl -N -H "Accept: text/event-stream" \
+     http://localhost:3001/stream/run-abc123</div>
+
+    <h3>Resume from Specific Event</h3>
+    <div class="code-block">curl -N -H "Accept: text/event-stream" \
+     -H "Last-Event-ID: event-123" \
+     http://localhost:3001/stream/run-abc123</div>
+
+    <h3>Cancel Replay</h3>
+    <div class="code-block">curl -X POST http://localhost:3001/stream/run-abc123/cancel</div>
+
+    <h3>Get Final Report</h3>
+    <div class="code-block">curl http://localhost:3001/report/run-abc123</div>
+
+    <h2>Creating Snapshots</h2>
+
+    <p>To create snapshots for replay:</p>
+
+    <div class="step">
+        <div class="step-number">1.</div>
+        Run normal scenarios with recording enabled
+    </div>
+
+    <div class="step">
+        <div class="step-number">2.</div>
+        Save the NDJSON stream to <code>artifacts/snapshots/run-{runId}-stream.ndjson</code>
+    </div>
+
+    <div class="step">
+        <div class="step-number">3.</div>
+        Save the final report to <code>artifacts/snapshots/run-{runId}-report.json</code>
+    </div>
+
+    <h2>Replay Behaviour</h2>
+
+    <div class="success">
+        <strong>Preserved Semantics:</strong>
+        <ul>
+            <li>✅ Resume with Last-Event-ID (one automatic resume only)</li>
+            <li>✅ Idempotent cancel (≤150ms target response)</li>
+            <li>✅ SSE event format and ordering</li>
+            <li>✅ Report availability after completion</li>
+        </ul>
+    </div>
+
+    <div class="warning">
+        <strong>Differences from Live Mode:</strong>
+        <ul>
+            <li>⚠️ No actual engine processing</li>
+            <li>⚠️ Events are pre-recorded, not generated</li>
+            <li>⚠️ Timing may differ from original run</li>
+            <li>⚠️ No new variations or randomness</li>
+        </ul>
+    </div>
+
+    <h2>Use Cases</h2>
+
+    <ul>
+        <li><strong>UI Development:</strong> Test frontend components with realistic data flows</li>
+        <li><strong>Integration Testing:</strong> Verify client behaviour without engine dependencies</li>
+        <li><strong>Demo Preparation:</strong> Ensure consistent, reliable demo scenarios</li>
+        <li><strong>Debugging:</strong> Reproduce specific runs for investigation</li>
+        <li><strong>Performance Testing:</strong> Test client-side performance without backend load</li>
+    </ul>
+
+    <h2>Safety and Limitations</h2>
+
+    <div class="warning">
+        <strong>Security Considerations:</strong>
+        <ul>
+            <li>🔒 Only enable in development environments</li>
+            <li>🔒 Snapshots may contain sensitive scenario data</li>
+            <li>🔒 No authentication bypass - use existing auth mechanisms</li>
+            <li>🔒 Consider data retention policies for snapshots</li>
+        </ul>
+    </div>
+
+    <h2>Troubleshooting</h2>
+
+    <h3>Replay Mode Not Working</h3>
+    <ul>
+        <li>Check that <code>REPLAY_MODE=1</code> is set</li>
+        <li>Verify snapshots exist in <code>artifacts/snapshots/</code></li>
+        <li>Ensure both NDJSON and report files are present</li>
+        <li>Check file permissions and accessibility</li>
+    </ul>
+
+    <h3>Events Not Playing</h3>
+    <ul>
+        <li>Verify NDJSON format is valid (one JSON object per line)</li>
+        <li>Check that events have proper structure</li>
+        <li>Ensure runId matches between request and filename</li>
+    </ul>
+
+    <h3>Resume Not Working</h3>
+    <ul>
+        <li>Confirm Last-Event-ID header is sent correctly</li>
+        <li>Check that event IDs exist in the recorded stream</li>
+        <li>Remember: only one automatic resume per session</li>
+    </ul>
+
+    <script>
+        // Check replay mode status
+        async function checkReplayStatus() {
+            const indicator = document.getElementById('status-indicator');
+            const text = document.getElementById('status-text');
+
+            try {
+                const response = await fetch('/replay/snapshots');
+                if (response.ok) {
+                    indicator.className = 'status-indicator status-enabled';
+                    text.textContent = 'Replay mode is ENABLED';
+                } else if (response.status === 404) {
+                    indicator.className = 'status-indicator status-disabled';
+                    text.textContent = 'Replay mode is DISABLED (set REPLAY_MODE=1 to enable)';
+                } else {
+                    indicator.className = 'status-indicator status-disabled';
+                    text.textContent = 'Replay mode status unknown';
+                }
+            } catch (error) {
+                indicator.className = 'status-indicator status-disabled';
+                text.textContent = 'Unable to check status (server may not be running)';
+            }
+        }
+
+        // Check status on page load
+        checkReplayStatus();
+    </script>
+</body>
+</html>

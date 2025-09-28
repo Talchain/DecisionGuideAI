@@ -1,0 +1,11 @@
+{
+  "timestamp": "2025-09-27T16:31:15.340Z",
+  "endpoint": "/_tools/origin-check",
+  "static_helper": "artifacts/public/origin-check.html",
+  "test_result": {
+    "status": 200,
+    "origin_allowed": true,
+    "explanation_provided": true
+  },
+  "validation_status": "PASS"
+}

@@ -1,321 +1,299 @@
-# Resilience Drills - Scenario Sandbox Pilot
+# Resilience Drills Checklist
 
-**Purpose**: Scripted resilience tests with clear PASS/FAIL criteria for demo preparation and operational confidence.
+**Purpose**: Verify fault tolerance and recovery behavior using dev-only chaos endpoints
 
-## 🎯 Overview
+## ⚠️ Development Only
 
-These drills validate the system's ability to handle network interruptions, client performance issues, and emergency procedures. Each drill has specific expected outcomes and timing requirements.
+**CRITICAL**: These endpoints are only available when:
+- `TEST_ROUTES=1` environment variable is set
+- `NODE_ENV` is NOT `production`
+- Never available in production deployments
 
-## 🌐 Drill 1: Network Blip Simulation
+## 🎯 Quick Setup
 
-### Objective
-Verify single-resume behaviour when EventSource connection drops briefly.
-
-### Setup
+### Prerequisites
 ```bash
-# 1. Start pilot services
+# Enable test routes
+export TEST_ROUTES=1
+
+# Ensure not in production
+export NODE_ENV=development
+
+# Start pilot services
 cd pilot-deploy && ./scripts/pilot-up.sh
 
-# 2. Open SSE viewer
-open artifacts/tools/sse-viewer.html
+# Verify chaos endpoints available
+curl -X POST "http://localhost:3001/_faults/network-blip-once"
+# Should return 200 (armed) not 404 (unavailable)
 ```
 
-### Execution Steps
-1. **Enable Network Blip Toggle**
-   - Toggle "Simulate network blip" to ON (purple)
-   - Verify toggle state shows active
+## 🧪 Fault Injection Tests
 
-2. **Start Stream with Known Seed**
-   - Set seed to 42 for deterministic results
-   - Set budget to 1000ms
-   - Click "Connect"
+### Test 1: Network Blip Recovery (2 minutes)
 
-3. **Observe Auto-Blip Behaviour**
-   - Wait for first token to arrive
-   - Watch for automatic disconnection message
-   - Network blip should occur randomly within first few tokens
+**Objective**: Verify stream reconnection after temporary network drop
 
-4. **Monitor Auto-Resume**
-   - System should auto-resume after 800-1200ms delay
-   - Resume should use Last-Event-ID header
-   - Stream should continue from interruption point
-
-### PASS Criteria
-- ✅ **Badge Test**: "Single resume occurred" turns GREEN
-- ✅ **Log Evidence**: Shows "Simulating network blip..." followed by "Auto-resuming after blip..."
-- ✅ **Continuity**: Tokens continue from last received ID (no duplicates)
-- ✅ **Timing**: Resume happens within 800-1200ms of disconnection
-
-### FAIL Indicators
-- ❌ Multiple resumes attempted
-- ❌ Stream restarts from beginning
-- ❌ Lost events or duplicate tokens
-- ❌ Resume takes >2 seconds
-
-### Expected Event Order
-```
-🚀 Stream started (session: viewer_...)
-💬 Token: "When" (index: 1)
-💬 Token: "considering" (index: 2)
-🌐 Simulating network blip...
-❌ SSE connection error
-🔄 Auto-resuming after blip...
-🚀 Stream started (session: viewer_...) [resume]
-💬 Token: "the" (index: 3) [continues from where left off]
-```
-
-## ⚡ Drill 2: Cancel Idempotence Test
-
-### Objective
-Verify HTTP 202 → 409 response pattern for duplicate cancel requests.
-
-### Setup
-- Use same SSE viewer session from Drill 1
-- Ensure active streaming session exists
-
-### Execution Steps
-1. **Start Fresh Stream**
-   - Clear previous session with "Clear Log"
-   - Set new session ID (or auto-generate)
-   - Click "Connect" and wait for tokens
-
-2. **Execute Double Cancel**
-   - Click "Cancel Twice" button
-   - Watch log for two sequential HTTP requests
-
-3. **Verify Response Pattern**
-   - First cancel should return HTTP 202
-   - Second cancel should return HTTP 409
-   - Both requests use same session ID
-
-### PASS Criteria
-- ✅ **Badge Test**: "Cancel idempotent" turns GREEN
-- ✅ **HTTP Sequence**: 202 (Accepted) → 409 (Conflict)
-- ✅ **Response Time**: Both requests complete within 500ms
-- ✅ **Session State**: Stream stops after first cancel
-
-### FAIL Indicators
-- ❌ Both requests return 202
-- ❌ Both requests return 409
-- ❌ Different HTTP status codes
-- ❌ Requests timeout or error
-
-### Expected Log Output
-```
-🧪 Testing cancel idempotence...
-First cancel: HTTP 202
-Second cancel: HTTP 409
-✅ Cancel idempotence test passed (202 → 409)
-```
-
-## 🚀 Drill 3: Performance Budget Validation
-
-### Objective
-Confirm first token arrives within specified time budget.
-
-### Setup
-- Reset SSE viewer session
-- Configure performance parameters
-
-### Execution Steps
-1. **Set Tight Budget**
-   - Set Budget field to 500ms
-   - Use seed 42 for consistent performance
-   - Ensure base URL points to pilot (localhost:3001)
-
-2. **Measure Time-to-First-Token**
-   - Click "Connect"
-   - System automatically measures from connection to first token
-   - Budget test runs automatically
-
-3. **Verify Performance**
-   - First token should arrive within 500ms budget
-   - Measurement includes full SSE handshake time
-
-### PASS Criteria
-- ✅ **Badge Test**: "First token under budget" turns GREEN
-- ✅ **Timing**: First token arrives ≤500ms after connection
-- ✅ **Consistency**: Repeated tests show similar performance
-- ✅ **Log Evidence**: Shows actual timing measurement
-
-### FAIL Indicators
-- ❌ First token takes >500ms
-- ❌ Connection takes excessive time to establish
-- ❌ Timing measurement shows negative or invalid values
-
-### Expected Timing
-- **Target**: <500ms for first token
-- **Typical**: 50-150ms on localhost
-- **Warning**: >300ms suggests performance issue
-- **Critical**: >1000ms indicates system problem
-
-## 🛑 Drill 4: Kill Switch Activation
-
-### Objective
-Test emergency service shutdown procedure.
-
-### Setup
+#### 1.1 Arm Network Blip Fault
 ```bash
-# Access pilot deployment directory
-cd pilot-deploy
+curl -X POST "http://localhost:3001/_faults/network-blip-once"
 ```
 
-### Execution Steps
-1. **Verify Current Service State**
-   ```bash
-   curl http://localhost:3001/healthz
-   # Expected: {"status": "healthy"}
-   ```
-
-2. **Activate Kill Switch**
-   ```bash
-   # Set environment variable
-   echo "GLOBAL_KILL_SWITCH=true" >> .env.poc
-   ```
-
-3. **Restart Service with Kill Switch**
-   ```bash
-   ./scripts/pilot-down.sh
-   ./scripts/pilot-up.sh
-   ```
-
-4. **Test Service Response**
-   ```bash
-   curl http://localhost:3001/stream?route=critique&seed=42
-   # Expected: HTTP 503 or "service unavailable"
-   ```
-
-5. **Rollback Kill Switch**
-   ```bash
-   # Remove kill switch
-   sed -i '' '/GLOBAL_KILL_SWITCH/d' .env.poc
-   ./scripts/pilot-down.sh
-   ./scripts/pilot-up.sh
-   ```
-
-### PASS Criteria
-- ✅ **Kill Switch Active**: All endpoints return 503/unavailable
-- ✅ **Health Check**: Reports service as limited/disabled
-- ✅ **Rollback Works**: Service resumes normal operation
-- ✅ **Timing**: Kill switch activation <30 seconds
-
-### FAIL Indicators
-- ❌ Service continues processing requests
-- ❌ Kill switch doesn't activate
-- ❌ Rollback doesn't restore service
-- ❌ Partial kill switch (some endpoints still work)
-
-## 🐌 Drill 5: Slow Client Simulation
-
-### Objective
-Verify stream behaviour when client processing is artificially slowed.
-
-### Setup
-- Use browser dev tools for CPU throttling
-- Chrome: DevTools > Performance > CPU throttling
-
-### Execution Steps
-1. **Enable CPU Throttling**
-   - Open browser DevTools (F12)
-   - Go to Performance tab
-   - Set CPU throttling to "4x slowdown"
-
-2. **Start Stream with Throttling**
-   - Connect to stream in SSE viewer
-   - Observe event processing behaviour
-   - Monitor for buffer overflow or lost events
-
-3. **Verify Graceful Degradation**
-   - Events should queue but not be lost
-   - UI should remain responsive
-   - Stream should continue flowing
-
-### PASS Criteria
-- ✅ **No Lost Events**: All events arrive in order
-- ✅ **UI Responsive**: Interface doesn't freeze
-- ✅ **Stream Continuity**: Connection maintained despite slow processing
-- ✅ **Memory Stable**: No excessive memory growth
-
-### FAIL Indicators
-- ❌ Events are lost or arrive out of order
-- ❌ UI becomes unresponsive
-- ❌ Connection drops due to client slowness
-- ❌ Memory usage grows unbounded
-
-## 🔄 Full Resilience Test Suite
-
-### Automated Execution
-Use the SSE viewer's "Run Full Test" button for automated testing:
-
-1. **Click "Run Full Test"**
-   - Automatically enables network blip simulation
-   - Starts connection with performance monitoring
-   - Schedules cancel test after 3 seconds
-
-2. **Monitor Badge Status**
-   - All three badges should turn GREEN within 60 seconds
-   - Watch log for detailed test progress
-
-3. **Manual Verification**
-   - Verify deterministic behaviour with same seed
-   - Check timing measurements are reasonable
-   - Confirm no unexpected errors in logs
-
-### Success Pattern
-```
-🧪 Starting full resilience test suite...
-🚀 Stream started...
-✅ First token in 87ms (under 1000ms budget)
-🌐 Simulating network blip...
-🔄 Auto-resuming after blip...
-✅ Single resume test passed
-🧪 Testing cancel idempotence...
-✅ Cancel idempotence test passed (202 → 409)
-
-Final Status: 🟢 🟢 🟢 (All badges GREEN)
+**Expected Response**:
+```json
+{
+  "status": "armed",
+  "fault": "network-blip-once",
+  "message": "Next new stream connection will drop once before resuming",
+  "timestamp": "2024-09-27T10:00:00.000Z"
+}
 ```
 
-## 📊 Drill Results Documentation
-
-### Test Log Template
-```
-Resilience Drill Results - [Date]
-=====================================
-
-Environment:
-- Pilot URL: http://localhost:3001
-- Browser: [Chrome/Firefox/Safari version]
-- Network: [Local/WiFi/etc]
-
-Drill 1 - Network Blip:
-- Status: [PASS/FAIL]
-- Resume Time: [XXXms]
-- Events Lost: [0/N]
-- Notes: [Any observations]
-
-Drill 2 - Cancel Idempotence:
-- Status: [PASS/FAIL]
-- Response Sequence: [202→409/other]
-- Timing: [XXXms]
-- Notes: [Any observations]
-
-Drill 3 - Performance Budget:
-- Status: [PASS/FAIL]
-- First Token Time: [XXXms]
-- Budget Setting: [XXXms]
-- Notes: [Any observations]
-
-Overall Assessment: [READY/NEEDS WORK]
-Next Steps: [Any follow-up actions]
+#### 1.2 Trigger Fault with Stream Connection
+```bash
+# Start SSE stream (will trigger armed fault)
+curl -N "http://localhost:3001/stream?route=critique&scenarioId=resilience-test&seed=999" \
+  -H "Accept: text/event-stream"
 ```
 
-## 🔗 Related Documentation
+**Expected Behavior**:
+- Connection established
+- Fault triggers: connection drops briefly
+- Automatic reconnection attempts
+- Stream resumes (possibly with Last-Event-ID)
+- Eventually receives `type: done` event
 
-- **Go/No-Go Decision**: `../release/GO-NO-GO.md`
-- **Live-Swap Guide**: `../windsurf-live-swap.md`
-- **Integration Harness**: `../tools/README.md`
-- **Rollback Procedures**: `../rollback.md`
+#### 1.3 Verify Single Use
+```bash
+# Second stream should work normally (fault consumed)
+curl -N "http://localhost:3001/stream?route=critique&scenarioId=resilience-test&seed=998" \
+  -H "Accept: text/event-stream"
+```
+
+**Expected**: Normal stream flow without drops
 
 ---
 
-**Note**: These drills should be run before any demo or stakeholder presentation to ensure system reliability and operator confidence.
+### Test 2: Slow First Token Tolerance (3 minutes)
+
+**Objective**: Verify TTFF remains acceptable despite artificial delays
+
+#### 2.1 Arm Slow First Token (300ms delay)
+```bash
+curl -X POST "http://localhost:3001/_faults/slow-first-token?ms=300"
+```
+
+**Expected Response**:
+```json
+{
+  "status": "armed",
+  "fault": "slow-first-token",
+  "delay_ms": 300,
+  "message": "Next stream will delay 300ms before first token",
+  "timestamp": "2024-09-27T10:00:00.000Z"
+}
+```
+
+#### 2.2 Measure TTFF with Delay
+```bash
+# Time the first token arrival
+time_start=$(date +%s%3N)
+curl -N "http://localhost:3001/stream?route=critique&scenarioId=ttff-test&seed=555" \
+  -H "Accept: text/event-stream" | head -5
+time_end=$(date +%s%3N)
+
+echo "TTFF with 300ms delay: $((time_end - time_start))ms"
+```
+
+**Expected Results**:
+- TTFF > 300ms (due to injected delay)
+- TTFF < 2000ms (within relaxed budget)
+- Subsequent tokens arrive normally
+- Complete stream execution
+
+#### 2.3 Test Different Delay Values
+```bash
+# Test with larger delay
+curl -X POST "http://localhost:3001/_faults/slow-first-token?ms=1000"
+
+# Verify still within tolerance
+curl -N "http://localhost:3001/stream?route=critique&scenarioId=ttff-test&seed=556" \
+  -H "Accept: text/event-stream" | head -1
+```
+
+---
+
+### Test 3: Automated Fault Drill Script (5 minutes)
+
+**Objective**: Run comprehensive resilience test suite
+
+#### 3.1 Execute Fault Drill Script
+```bash
+# Run the automated drill
+./scripts/fault-drill.mjs
+```
+
+**Expected Output**:
+```
+[2024-09-27T10:00:00.000Z] Starting fault drill...
+[2024-09-27T10:00:01.000Z] ✓ Armed network blip fault: Next new stream connection will drop once before resuming
+[2024-09-27T10:00:02.000Z] Starting network-blip-test...
+[2024-09-27T10:00:03.000Z] Connection dropped as expected (network-blip-test)
+[2024-09-27T10:00:04.000Z] ✓ Network blip test passed: 5 events, TTFF: 180ms
+[2024-09-27T10:00:05.000Z] ✓ Armed slow first token fault: Next stream will delay 300ms before first token
+[2024-09-27T10:00:06.000Z] Starting slow-first-token-test...
+[2024-09-27T10:00:07.000Z] ✓ Slow first token test passed: TTFF 450ms (within 2000ms budget)
+
+--- FAULT DRILL SUMMARY ---
+Health Check: PASS
+Network Blip Recovery: PASS
+Slow First Token: PASS
+TTFF Within Budget: PASS
+Overall: PASS (4/4 tests passed)
+
+FAULT_DRILL_RESULT: PASS
+```
+
+#### 3.2 Handle Drill Failures
+```bash
+# If drill fails, check specific issues
+./scripts/fault-drill.mjs 2>&1 | grep "FAIL"
+
+# Common failure modes:
+# - Chaos endpoints not available (TEST_ROUTES=0)
+# - TTFF exceeds budget (performance issue)
+# - Network blip not recovering (reconnection logic broken)
+```
+
+## 🔧 Manual Testing Scenarios
+
+### Scenario A: Resume with Last-Event-ID
+```bash
+# 1. Start stream and capture events
+curl -N "http://localhost:3001/stream?route=critique&scenarioId=resume-test&seed=777" \
+  -H "Accept: text/event-stream" > stream_log.txt &
+STREAM_PID=$!
+
+# 2. Kill after few seconds
+sleep 3 && kill $STREAM_PID
+
+# 3. Extract last event ID
+LAST_ID=$(grep "id:" stream_log.txt | tail -1 | cut -d: -f2 | tr -d ' ')
+
+# 4. Resume from last event
+curl -N "http://localhost:3001/stream?route=critique&scenarioId=resume-test&seed=777" \
+  -H "Accept: text/event-stream" \
+  -H "Last-Event-ID: $LAST_ID"
+```
+
+### Scenario B: Multiple Simultaneous Faults
+```bash
+# Arm multiple faults
+curl -X POST "http://localhost:3001/_faults/network-blip-once"
+curl -X POST "http://localhost:3001/_faults/slow-first-token?ms=500"
+
+# Start stream (should trigger both)
+curl -N "http://localhost:3001/stream?route=critique&scenarioId=multi-fault&seed=888" \
+  -H "Accept: text/event-stream"
+
+# Expected: Connection drop + slow first token when reconnected
+```
+
+### Scenario C: Fault Under Load
+```bash
+# Arm fault
+curl -X POST "http://localhost:3001/_faults/network-blip-once"
+
+# Start multiple concurrent streams
+for i in {1..5}; do
+  curl -N "http://localhost:3001/stream?route=critique&scenarioId=load-test-$i&seed=$i" \
+    -H "Accept: text/event-stream" > "stream_$i.log" &
+done
+
+# Wait for completion
+wait
+
+# Verify: Only first stream should experience fault
+grep -l "connection.*drop" stream_*.log | wc -l
+# Expected: 1 (only one stream affected)
+```
+
+## 📊 Success Criteria
+
+### Test Results Validation
+
+| Test | Success Criteria | Failure Indicators |
+|------|------------------|-------------------|
+| **Network Blip** | Stream reconnects, receives `done` event | Permanent connection failure, incomplete stream |
+| **Slow First Token** | TTFF < 2000ms despite delay | TTFF exceeds budget, timeout errors |
+| **Automated Drill** | All tests PASS, exit code 0 | Any test FAIL, non-zero exit |
+| **Resume** | Continues from Last-Event-ID | Restarts from beginning, duplicate events |
+
+### Performance Thresholds
+```bash
+# Relaxed budgets for fault conditions
+TTFF_BUDGET_MS=2000        # Normal: 500ms, Fault: 2000ms
+RECOVERY_TIME_MS=1000      # Max time to reconnect
+COMPLETION_TIMEOUT_S=30    # Max total time for stream
+```
+
+## 🚨 Common Issues & Fixes
+
+### Issue: Chaos Endpoints Return 404
+**Cause**: TEST_ROUTES not enabled or production mode
+**Fix**:
+```bash
+export TEST_ROUTES=1
+export NODE_ENV=development
+./scripts/pilot-down.sh && ./scripts/pilot-up.sh
+```
+
+### Issue: Network Blip Doesn't Trigger
+**Cause**: EventSource polyfill or client doesn't support auto-reconnect
+**Fix**: Use real browser or update EventSource implementation
+
+### Issue: TTFF Exceeds Budget
+**Cause**: System under load or delays compounding
+**Fix**:
+- Check system resources
+- Increase budget temporarily
+- Investigate other performance bottlenecks
+
+### Issue: Drill Script Times Out
+**Cause**: Mock EventSource not behaving correctly
+**Fix**: Use real SSE implementation or increase timeouts
+
+## 🔄 Integration with CI/CD
+
+### Pre-deployment Check
+```bash
+# Add to deployment pipeline
+if [ "$NODE_ENV" != "production" ]; then
+  echo "Running resilience drills..."
+  ./scripts/fault-drill.mjs
+  if [ $? -ne 0 ]; then
+    echo "❌ Resilience drills failed - deployment blocked"
+    exit 1
+  fi
+  echo "✅ Resilience drills passed"
+fi
+```
+
+### Weekly Regression Testing
+```bash
+# Cron job for regular resilience validation
+0 2 * * 1 cd /path/to/project && TEST_ROUTES=1 ./scripts/fault-drill.mjs >> /var/log/resilience-drill.log 2>&1
+```
+
+## 🔗 Related Tools
+
+- **Nightly Self-Test**: `scripts/nightly-selftest.mjs` (includes basic resilience)
+- **Health Endpoint**: Monitor fault injection status
+- **Run Registry**: Verify determinism after recovery
+- **Snapshots**: Evidence of fault behavior in ZIP bundles
+
+---
+
+**Safety**: Dev-only endpoints, never in production
+**Scope**: Connection resilience, TTFF tolerance, recovery behavior
+**Budget**: Relaxed thresholds during fault conditions
+**Automation**: `fault-drill.mjs` for comprehensive testing

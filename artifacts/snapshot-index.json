@@ -1,0 +1,47 @@
+[
+  {
+    "runId": "test-run",
+    "org": "test-org",
+    "scenarioId": "test-scenario",
+    "seed": 42,
+    "createdAt": "2025-09-27T08:07:26.733Z",
+    "ttff_ms": 1500,
+    "version": "v0.1.0"
+  },
+  {
+    "runId": "recent-run",
+    "org": "test-org",
+    "scenarioId": "test-scenario",
+    "seed": 1,
+    "createdAt": "2025-09-27T08:07:26.720Z",
+    "ttff_ms": 1000,
+    "version": "v0.1.0"
+  },
+  {
+    "runId": "existing-run",
+    "org": "test-org",
+    "scenarioId": "test-scenario",
+    "seed": 42,
+    "createdAt": "2025-09-27T08:07:26.705Z",
+    "ttff_ms": 1500,
+    "version": "v0.1.0"
+  },
+  {
+    "runId": "test-run-123",
+    "org": "acme-corp",
+    "scenarioId": "scenario-2",
+    "seed": 84,
+    "createdAt": "2025-09-27T08:07:26.639Z",
+    "ttff_ms": 2000,
+    "version": "v0.1.0"
+  },
+  {
+    "runId": "old-run",
+    "org": "test-org",
+    "scenarioId": "test-scenario",
+    "seed": 1,
+    "createdAt": "2025-09-17T08:07:26.718Z",
+    "ttff_ms": 1000,
+    "version": "v0.1.0"
+  }
+]

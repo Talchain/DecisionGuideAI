@@ -3,6 +3,9 @@ version: '3.8'
 services:
   gateway:
     image: scenario-gateway:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gateway
     container_name: pilot-gateway
     ports:
       - "3001:3001"
@@ -37,6 +40,9 @@ services:
 
   engine:
     image: scenario-engine:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.engine
     container_name: pilot-engine
     ports:
       - "3002:3002"
@@ -58,6 +64,9 @@ services:
 
   jobs:
     image: scenario-jobs:latest
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.jobs
     container_name: pilot-jobs
     ports:
       - "3003:3003"

@@ -1,0 +1,51 @@
+{
+  "nodes": [
+    {
+      "id": "decision",
+      "label": "Choose Cloud Provider",
+      "weight": 1.0
+    },
+    {
+      "id": "cost",
+      "label": "Cost",
+      "weight": 0.6
+    },
+    {
+      "id": "reliability",
+      "label": "Reliability",
+      "weight": 0.95
+    },
+    {
+      "id": "scalability",
+      "label": "Scalability",
+      "weight": 0.85
+    },
+    {
+      "id": "support",
+      "label": "Support Quality",
+      "weight": 0.7
+    }
+  ],
+  "links": [
+    {
+      "from": "decision",
+      "to": "cost",
+      "weight": 0.6
+    },
+    {
+      "from": "decision",
+      "to": "reliability",
+      "weight": 0.95
+    },
+    {
+      "from": "decision",
+      "to": "scalability",
+      "weight": 0.85
+    },
+    {
+      "from": "decision",
+      "to": "support",
+      "weight": 0.7
+    }
+  ]
+}

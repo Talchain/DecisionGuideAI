@@ -1,0 +1,37 @@
+{
+  "timestamp": "2025-09-27T15-06-22",
+  "total": 4,
+  "automated": 0,
+  "manual": 4,
+  "failed": 0,
+  "results": [
+    {
+      "name": "canvas-view",
+      "success": false,
+      "manual": true,
+      "path": null,
+      "error": null
+    },
+    {
+      "name": "list-view",
+      "success": false,
+      "manual": true,
+      "path": null,
+      "error": null
+    },
+    {
+      "name": "report-summary",
+      "success": false,
+      "manual": true,
+      "path": null,
+      "error": null
+    },
+    {
+      "name": "compare-drawer",
+      "success": false,
+      "manual": true,
+      "path": null,
+      "error": null
+    }
+  ]
+}

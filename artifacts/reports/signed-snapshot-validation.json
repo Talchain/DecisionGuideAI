@@ -1,0 +1,13 @@
+{
+  "timestamp": "2025-09-27T16:31:15.340Z",
+  "signing_off_default": {
+    "enabled": false,
+    "key_configured": false
+  },
+  "signing_on_behaviour": {
+    "enabled": true,
+    "manifest_created": true,
+    "signature_present": true
+  },
+  "validation_status": "PASS"
+}

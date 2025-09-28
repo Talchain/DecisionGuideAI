@@ -1,0 +1,42 @@
+PILOT INCIDENT REPORT
+=====================
+
+Timestamp: 2025-09-27T16:32:15.340Z
+Base URL: http://localhost:3001
+
+FAILED CHECKS:
+==============
+
+❌ Gateway Server:
+   Status: Connection refused
+   Duration: 3000ms
+   Suggested Fix: Check if Gateway service is running and accessible
+
+❌ Health Check:
+   Status: timeout
+   Duration: 5000ms
+   Suggested Fix: Check if Gateway service is running and accessible
+
+❌ CORS Headers:
+   Status: Connection refused
+   Duration: 3000ms
+   Suggested Fix: Verify CORS_ALLOWED_ORIGINS includes localhost:5173
+
+❌ Stream Functionality:
+   Status: Connection refused
+   Duration: 3000ms
+   Suggested Fix: Verify SSE endpoints are enabled and streaming is functional
+
+TROUBLESHOOTING STEPS:
+=====================
+1. Check if Gateway is running: curl http://localhost:3001/healthz
+2. Verify CORS configuration: Check CORS_ALLOWED_ORIGINS environment
+3. Check feature flags: Ensure USE_MOCK_DATA=false, USE_SIMULATION=false
+4. Review logs: Check Gateway application logs for errors
+5. Restart services: npm run poc:stop && npm run poc:start
+
+EMERGENCY PROCEDURES:
+====================
+- Revert to fixtures: Set USE_MOCK_DATA=true, USE_SIMULATION=true
+- Kill switch: Set GLOBAL_KILL_SWITCH=true
+- Contact: Review artifacts/windsurf-live-swap.md for emergency contacts

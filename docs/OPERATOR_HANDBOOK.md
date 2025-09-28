@@ -28,6 +28,8 @@ That's it. Everything else is plumbing to make this happen safely and reliably.
 
 **🌅 Morning Checklist (5 minutes)**
 - Check system health: `npm run release:poc`
+- Run synthetic monitoring: `node scripts/synth.mjs`
+- Review ops console: `/ops` (if enabled)
 - Review overnight error logs
 - Verify all services are green in monitoring dashboard
 
@@ -193,10 +195,13 @@ export const FLAGS = {
 
 **If the system is completely broken:**
 1. **Don't panic** - most issues aren't as bad as they seem
-2. **Put up maintenance page** (if needed)
-3. **Gather information** before changing anything
-4. **Contact engineering team** with details
-5. **Document what happened** for post-mortem
+2. **Check ops console** at `/ops` (if enabled) for immediate status
+3. **Run synthetic monitoring** with `node scripts/synth.mjs` to identify failing components
+4. **Generate evidence pack** with `node scripts/evidence-pack.mjs` for engineering team
+5. **Put up maintenance page** (if needed)
+6. **Gather information** before changing anything
+7. **Contact engineering team** with details and evidence pack
+8. **Document what happened** for post-mortem
 
 ---
 
@@ -306,7 +311,9 @@ export const FLAGS = {
 ### 📋 Before Demo
 - [ ] Run `npm run release:poc` → All green?
 - [ ] Check [Integration Status](../artifacts/integration-status.html) → Operational?
+- [ ] Generate evidence pack: `node scripts/evidence-pack.mjs`
 - [ ] Load [Evidence Pack](../artifacts/index.html) → Files available?
+- [ ] Run synthetic monitoring: `node scripts/synth.mjs` → All checks pass?
 - [ ] Test one analysis in sim mode → Streams properly?
 - [ ] Prepare fallback: "Let me show you our test results instead"
 
@@ -415,6 +422,149 @@ curl -X POST https://api.decisionguide.ai/simulate/analysis \
 - **Ignoring warnings** - small problems become big ones
 - **Changing multiple things at once** - makes debugging harder
 - **Forgetting to monitor after changes** - problems may appear later
+
+---
+
+## Overnight III Features (NEW)
+
+The following advanced features were added in the Overnight III release. **All features are OFF by default** for safety.
+
+### Tenant Sessions & Fair-Use Guardrails
+
+**Purpose**: Pilot session management with per-organisation quotas
+**Environment Variable**: `TENANT_SIGNING_KEY` (set to enable)
+**Default**: OFF (feature not available until signing key is set)
+
+**How it works:**
+1. Organisations request session tokens via `POST /pilot/mint-session`
+2. Tokens are HMAC-signed with configurable TTL and capabilities
+3. API endpoints enforce session validation when enabled
+4. Quotas prevent abuse with HTTP 429 responses
+
+**Operator tasks:**
+- Monitor quota usage in logs
+- Reset quotas if legitimate users are blocked
+- Watch for authentication failures (invalid tokens)
+
+**Environment variables:**
+```bash
+TENANT_SIGNING_KEY=your-hmac-key-here     # Enable tenant sessions
+TENANT_DEFAULT_TTL_MIN=60                 # Default token lifetime
+TENANT_MAX_REQUESTS_PER_HOUR=100         # Per-org quota
+```
+
+### Concurrency Queue & Fair Scheduling
+
+**Purpose**: Prevent system overload with fair per-org queueing
+**Environment Variable**: `QUEUE_MAX_CONCURRENT` (set to enable)
+**Default**: OFF (unlimited concurrency)
+
+**How it works:**
+1. Each organisation gets fair share of concurrent slots
+2. Excess requests are queued with position tracking
+3. Users can request priority bumps (limited allowance)
+4. Automatic cleanup of stale queue entries
+
+**Operator tasks:**
+- Monitor queue depths via `GET /queue/status`
+- Adjust concurrent limits based on system capacity
+- Clear stuck queue entries if needed
+
+**Environment variables:**
+```bash
+QUEUE_MAX_CONCURRENT=10                   # Total concurrent requests
+QUEUE_TIMEOUT_MS=30000                    # Queue timeout (30s)
+QUEUE_DAILY_BUMPS=3                       # Priority bumps per org/day
+```
+
+### Correlation IDs & Traceability
+
+**Purpose**: Track requests across system boundaries for debugging
+**Environment Variable**: Always enabled
+**Default**: ON (automatic UUIDv4 generation)
+
+**How it works:**
+1. Each API request gets unique correlation ID
+2. ID returned in `X-Olumi-Correlation-Id` response header
+3. Logged with all related operations
+4. Included in snapshot provenance files
+
+**Operator tasks:**
+- Use correlation IDs to trace issues across logs
+- Include in support tickets for faster debugging
+- Monitor for any missing correlation headers
+
+### Persistent Snapshot Index
+
+**Purpose**: Lightweight metadata storage for scenario evidence
+**Environment Variable**: `SNAPSHOT_INDEX_TTL_DAYS` (configure retention)
+**Default**: ON (14-day retention)
+
+**How it works:**
+1. Metadata stored for each scenario execution
+2. Provides searchable index via `GET /snapshots`
+3. Automatic cleanup of expired entries
+4. File-based storage in `artifacts/snapshot-index.json`
+
+**Operator tasks:**
+- Monitor index file size and performance
+- Backup snapshot metadata before cleanup
+- Check retention policy matches business needs
+
+**Environment variables:**
+```bash
+SNAPSHOT_INDEX_TTL_DAYS=14                # Retention period
+SNAPSHOT_INDEX_PATH=./artifacts/          # Storage location
+```
+
+### Usage Summary & Analytics
+
+**Purpose**: Read-only usage metrics with no personally identifiable information
+**Environment Variable**: Always enabled
+**Default**: ON (automatic data collection)
+
+**How it works:**
+1. Aggregates usage by organisation and time period
+2. Provides median metrics (TTFF, cancellation latency)
+3. CSV export for data analysis
+4. Automatic cleanup of old data (30 days)
+
+**Operator tasks:**
+- Generate usage reports for billing/planning
+- Monitor for unusual usage patterns
+- Export data for capacity planning
+
+**API endpoints:**
+- `GET /usage/summary?org=acme&period=7d`
+- `GET /export/usage.csv?org=acme&period=30d`
+
+### Quick Reference: Environment Variables
+
+```bash
+# Tenant Sessions (OFF by default)
+TENANT_SIGNING_KEY=your-secret-key
+TENANT_DEFAULT_TTL_MIN=60
+TENANT_MAX_REQUESTS_PER_HOUR=100
+
+# Concurrency Queue (OFF by default)
+QUEUE_MAX_CONCURRENT=10
+QUEUE_TIMEOUT_MS=30000
+QUEUE_DAILY_BUMPS=3
+
+# Snapshot Index (ON by default)
+SNAPSHOT_INDEX_TTL_DAYS=14
+SNAPSHOT_INDEX_PATH=./artifacts/
+
+# Usage Analytics (ON by default)
+# No configuration required
+```
+
+### Security Notes
+
+- **Tenant session keys**: Use strong, randomly generated keys
+- **Queue limits**: Set conservatively to prevent resource exhaustion
+- **Snapshot retention**: Balance debugging needs vs storage costs
+- **Usage data**: Contains no PII, safe for analytics
 
 ---
 

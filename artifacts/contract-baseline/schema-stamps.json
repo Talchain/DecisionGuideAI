@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-09-27T23:51:53.409Z",
+  "stamps": [
+    ".v1",
+    "proposal.v1",
+    "replay-cancel.v1",
+    "replay-snapshots.v1",
+    "run-cancel.v1",
+    "run-status.v1",
+    "stream.v1",
+    "version.v1",
+    "versions.v1"
+  ]
+}

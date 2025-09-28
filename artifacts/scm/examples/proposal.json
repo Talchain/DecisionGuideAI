@@ -1,0 +1,76 @@
+{
+  "schema": "proposal.v1",
+  "proposal": {
+    "id": "prop-1737038400000-example",
+    "baseRef": "v-1737038000000-base",
+    "title": "Adjust weights for cost optimization",
+    "note": "Reducing cost weight while maintaining quality standards",
+    "createdAt": "2025-01-16T12:00:00Z"
+  },
+  "diff": {
+    "schema": "diff.v1",
+    "meta": {
+      "baseRef": "abc12345",
+      "candidateRef": "def67890",
+      "createdAt": "2025-01-16T12:00:00Z"
+    },
+    "summary": {
+      "nodesAdded": 1,
+      "nodesRemoved": 0,
+      "nodesChanged": 3,
+      "linksAdded": 1,
+      "linksRemoved": 0,
+      "weightsChanged": 4
+    },
+    "changes": [
+      {
+        "path": "node[cost].weight",
+        "before": 0.7,
+        "after": 0.6
+      },
+      {
+        "path": "node[reliability].weight",
+        "before": 0.9,
+        "after": 0.95
+      },
+      {
+        "path": "node[scalability].weight",
+        "before": 0.8,
+        "after": 0.85
+      },
+      {
+        "path": "node[support]",
+        "before": null,
+        "after": {
+          "id": "support",
+          "label": "Support Quality",
+          "weight": 0.7
+        }
+      },
+      {
+        "path": "link[decision->cost].weight",
+        "before": 0.7,
+        "after": 0.6
+      },
+      {
+        "path": "link[decision->reliability].weight",
+        "before": 0.9,
+        "after": 0.95
+      },
+      {
+        "path": "link[decision->scalability].weight",
+        "before": 0.8,
+        "after": 0.85
+      },
+      {
+        "path": "link[decision->support]",
+        "before": null,
+        "after": {
+          "from": "decision",
+          "to": "support",
+          "weight": 0.7
+        }
+      }
+    ]
+  }
+}

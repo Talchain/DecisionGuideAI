@@ -1,0 +1,115 @@
+{
+  "templates": [
+    {
+      "id": "pricing-change",
+      "name": "Pricing Change",
+      "description": "Evaluate pricing strategy options",
+      "seed": 42,
+      "nodes": [
+        {
+          "id": "current-pricing",
+          "type": "option",
+          "title": "Keep Current Pricing",
+          "score": 7.2,
+          "pros": ["Stable revenue", "No customer confusion"],
+          "cons": ["Missing growth opportunity", "Competitive pressure"]
+        },
+        {
+          "id": "increase-pricing",
+          "type": "option",
+          "title": "Increase Pricing 15%",
+          "score": 8.1,
+          "pros": ["Higher margins", "Better positioning"],
+          "cons": ["Customer churn risk", "Sales team pushback"]
+        },
+        {
+          "id": "tier-pricing",
+          "type": "option",
+          "title": "Introduce Tiered Pricing",
+          "score": 8.7,
+          "pros": ["Market segmentation", "Upsell opportunities"],
+          "cons": ["Implementation complexity", "Support overhead"]
+        }
+      ],
+      "drivers": [
+        "Revenue impact of £2.4M annually",
+        "Customer retention rate 89%",
+        "Implementation timeline 3 months"
+      ]
+    },
+    {
+      "id": "feature-launch",
+      "name": "Feature Launch",
+      "description": "Decide on new feature rollout approach",
+      "seed": 101,
+      "nodes": [
+        {
+          "id": "beta-launch",
+          "type": "option",
+          "title": "Limited Beta Launch",
+          "score": 7.8,
+          "pros": ["Risk mitigation", "User feedback"],
+          "cons": ["Slower time to market", "Limited reach"]
+        },
+        {
+          "id": "full-launch",
+          "type": "option",
+          "title": "Full Public Launch",
+          "score": 6.9,
+          "pros": ["Maximum impact", "Clear messaging"],
+          "cons": ["Higher risk", "No feedback buffer"]
+        },
+        {
+          "id": "staged-rollout",
+          "type": "option",
+          "title": "Staged Geographic Rollout",
+          "score": 8.4,
+          "pros": ["Controlled expansion", "Regional adaptation"],
+          "cons": ["Resource coordination", "Marketing complexity"]
+        }
+      ],
+      "drivers": [
+        "User adoption rate 65%",
+        "Development cost £450K",
+        "Market window 6 months"
+      ]
+    },
+    {
+      "id": "build-vs-buy",
+      "name": "Build vs Buy",
+      "description": "Technology solution acquisition decision",
+      "seed": 789,
+      "nodes": [
+        {
+          "id": "build-internal",
+          "type": "option",
+          "title": "Build Internal Solution",
+          "score": 7.5,
+          "pros": ["Full control", "Custom fit"],
+          "cons": ["High development cost", "Long timeline"]
+        },
+        {
+          "id": "buy-saas",
+          "type": "option",
+          "title": "Buy SaaS Solution",
+          "score": 8.2,
+          "pros": ["Fast deployment", "Proven reliability"],
+          "cons": ["Ongoing costs", "Limited customisation"]
+        },
+        {
+          "id": "hybrid-approach",
+          "type": "option",
+          "title": "Hybrid Approach",
+          "score": 7.9,
+          "pros": ["Balanced risk", "Flexible integration"],
+          "cons": ["Complexity", "Vendor management"]
+        }
+      ],
+      "drivers": [
+        "Total cost of ownership £1.8M over 3 years",
+        "Implementation risk reduced by 40%",
+        "Team capability gap addressed"
+      ]
+    }
+  ]
+}

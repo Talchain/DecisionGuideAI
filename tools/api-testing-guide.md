@@ -169,6 +169,123 @@ USER_ID=dev-user-123
 
 Source with: `source .env.local`
 
+## Overnight III Features (NEW)
+
+### Tenant Session Authentication
+
+1. **Mint Session Token**:
+   ```bash
+   curl -X POST "$BASE_URL/pilot/mint-session" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "org": "acme-corp",
+       "plan": "pilot",
+       "caps": ["compare", "snapshot", "usage"],
+       "ttlMin": 60
+     }'
+   ```
+
+2. **Use Session Token**:
+   ```bash
+   # Option 1: Authorization header
+   -H "Authorization: Pilot eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+   # Option 2: Custom header
+   -H "X-Olumi-Session: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+   ```
+
+### Concurrency Queue Management
+
+1. **Check Queue Status**:
+   ```bash
+   curl "$BASE_URL/queue/status?org=acme-corp"
+   ```
+
+2. **Request Priority Bump**:
+   ```bash
+   curl -X POST "$BASE_URL/queue/bump" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "org": "acme-corp",
+       "reason": "urgent customer demo"
+     }'
+   ```
+
+### Snapshot Index & Metadata
+
+1. **List Snapshots**:
+   ```bash
+   curl "$BASE_URL/snapshots?org=acme-corp&since=2024-09-26T00:00:00Z&page=1&limit=20"
+   ```
+
+2. **Get Snapshot Metadata**:
+   ```bash
+   curl "$BASE_URL/snapshots/run_pricing-v1_42_1696000000000"
+   ```
+
+### Usage Analytics
+
+1. **Get Usage Summary**:
+   ```bash
+   curl "$BASE_URL/usage/summary?org=acme-corp&period=7d"
+   ```
+
+2. **Export Usage CSV**:
+   ```bash
+   curl "$BASE_URL/export/usage.csv?org=acme-corp&period=30d" \
+     -H "Accept: text/csv" \
+     -o "usage-report.csv"
+   ```
+
+### Correlation ID Tracking
+
+All API responses now include traceability headers:
+```bash
+# Look for this header in responses
+X-Olumi-Correlation-Id: 550e8400-e29b-41d4-a716-446655440000
+```
+
+### Environment Variables for Testing
+
+```bash
+# Enable tenant sessions (required for session endpoints)
+export TENANT_SIGNING_KEY="your-secret-signing-key"
+
+# Enable concurrency queue (optional)
+export QUEUE_MAX_CONCURRENT=10
+
+# Configure snapshot retention (optional)
+export SNAPSHOT_INDEX_TTL_DAYS=14
+```
+
+### Testing New Features Flow
+
+```bash
+#!/bin/bash
+# test-overnight-iii.sh
+
+echo "🎫 Testing tenant sessions..."
+SESSION_RESPONSE=$(curl -s -X POST "$BASE_URL/pilot/mint-session" \
+  -H "Content-Type: application/json" \
+  -d '{"org":"test-org","plan":"pilot","caps":["compare","usage"]}')
+
+SESSION_TOKEN=$(echo $SESSION_RESPONSE | jq -r '.session')
+echo "Session token: ${SESSION_TOKEN:0:20}..."
+
+echo "🚦 Testing queue status..."
+curl -s "$BASE_URL/queue/status?org=test-org" | jq '.queue_depth'
+
+echo "📊 Testing usage summary..."
+curl -s "$BASE_URL/usage/summary?org=test-org&period=24h" \
+  -H "X-Olumi-Session: $SESSION_TOKEN" | jq '.runs'
+
+echo "📋 Testing snapshot list..."
+curl -s "$BASE_URL/snapshots?org=test-org&limit=5" \
+  -H "X-Olumi-Session: $SESSION_TOKEN" | jq '.total'
+
+echo "✅ Overnight III features test complete!"
+```
+
 ## Next Steps
 
 1. **Start with health check** to verify connection
@@ -176,3 +293,4 @@ Source with: `source .env.local`
 3. **Test error scenarios** before production
 4. **Monitor rate limits** in real usage
 5. **Export analysis results** to verify full flow
+6. **Test new Overnight III features** with proper environment setup

@@ -1,5 +1,49 @@
 # Changelog - Scenario Sandbox PoC
 
+## [v0.2.1-overnight-pack] - 2025-09-28
+
+### 🌙 Overnight Pack - Zero-Failure Development Pack
+
+Maintenance release achieving zero test failures with new flagged features for advanced analysis workflows. All SSE/report.v1 contracts preserved; features OFF by default.
+
+#### Added
+- **Parameter Sweeps API**: `POST /compare/sweep` endpoint behind `SWEEP_ENABLE=1` flag
+- **Scenario Linter API**: `POST /lint/scenario` endpoint behind `LINT_ENABLE=1` flag
+- **Production Safety**: REPLAY_MODE blocked in production environments (NODE_ENV=production)
+- **Integration Tests**: Comprehensive parameter-sweeps-api.contract.test.ts with flagged testing
+- **OpenAPI Spec**: Complete endpoint definitions for lint/scenario and compare/sweep
+- **Documentation**: Updated windsurf-live-swap.md with Linter and Sweep API sections
+
+#### Fixed
+- **Zero Test Failures**: Fixed all 16 failing tests across React components and parameter sweeps
+- **Schema Validation**: Added /compare/sweep endpoint to schema validation with proper error handling
+- **React Components**: Fixed duplicate element selection in SandboxShell, CompareDrawer, HealthStatus tests
+- **Parameter Validation**: Corrected weight threshold logic (0.05 → skip, 0.01 → skip, 0.11 → valid)
+- **Error Handling**: Proper 500 vs 400 error responses for internal vs validation errors
+
+#### Changed
+- **Test Framework**: Enhanced parameter sweeps with weight filtering and variant generation logic
+- **British English**: Maintained UK spelling throughout all new documentation and error messages
+- **Schema Compliance**: All new APIs return versioned schemas (lint.v1, sweep.v1)
+
+#### Security
+- **Feature Flags OFF**: LINT_ENABLE=0, SWEEP_ENABLE=0 by default (return 404 when disabled)
+- **Replay Mode Guard**: Cannot enable REPLAY_MODE when NODE_ENV=production (case-insensitive)
+- **Production Tests**: 12 test cases verifying replay mode production blocking
+- **Schema Safety**: Validation middleware respects SCHEMA_VALIDATION_DISABLE=1 in tests
+
+#### Development
+- **Test Coverage**: 517/517 tests passing (100% success rate)
+- **Devstack Guide**: Complete smoke test procedure documented for USE_LOCAL_IMAGES=1
+- **Evidence Pack**: Fresh evidence pack generated with all new artifacts
+
+#### API Contracts
+- **Parameter Sweeps**: Returns schema "sweep.v1" with variant generation and ranking
+- **Linter**: Returns schema "lint.v1" with quality scoring and recommendations
+- **Backward Compatible**: No changes to existing stream/report/cancel contracts
+
+---
+
 ## [v0.1.1] - 2025-09-27
 
 ### 🔧 Maintenance Release - Docs/Tools Only

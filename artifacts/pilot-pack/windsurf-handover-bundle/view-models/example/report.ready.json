@@ -1,0 +1,9 @@
+{
+  "report": null,
+  "state": "loading",
+  "placeholder": {
+    "title": "Report Ready",
+    "subtitle": "Your analysis is complete",
+    "action": "View Report"
+  }
+}

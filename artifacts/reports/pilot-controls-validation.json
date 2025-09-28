@@ -1,0 +1,15 @@
+{
+  "timestamp": "2025-09-27T16:31:15.340Z",
+  "ops_console": {
+    "enabled": true,
+    "environment": "development",
+    "endpoints_available": true
+  },
+  "api_endpoints": {
+    "GET /ops/flags": "feature flags listing",
+    "GET /ops/limits": "effective limits",
+    "GET /ops/queue": "queue status",
+    "POST /ops/toggle-flag": "dev-only toggles"
+  },
+  "validation_status": "PASS"
+}

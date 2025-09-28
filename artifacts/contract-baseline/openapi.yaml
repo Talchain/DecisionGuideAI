@@ -1,0 +1,2075 @@
+openapi: 3.0.3
+info:
+  title: Scenario Sandbox PoC API
+  description: Decision analysis and scenario comparison endpoints for pilot deployment
+  version: v0.1.0
+  contact:
+    name: Scenario Sandbox Team
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3001
+    description: Pilot deployment (local)
+
+paths:
+  /healthz:
+    get:
+      summary: Health check endpoint
+      description: Returns service health status and basic metrics
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  version:
+                    type: string
+                    example: v0.1.0-pilot
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /compare:
+    post:
+      summary: Compare two scenarios
+      description: Generate comparative analysis between two scenarios with delta summary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompareRequest'
+            examples:
+              pricing_comparison:
+                summary: Pricing strategy comparison
+                value:
+                  left:
+                    scenarioId: "pricing-conservative"
+                    seed: 42
+                    budget: 200
+                  right:
+                    scenarioId: "pricing-aggressive"
+                    seed: 42
+                    budget: 200
+      responses:
+        '200':
+          description: Comparison completed successfully
+          headers:
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+            X-Olumi-Correlation-Id:
+              description: Request correlation identifier for traceability
+              schema:
+                type: string
+                example: "550e8400-e29b-41d4-a716-446655440000"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompareResponse'
+              examples:
+                successful_comparison:
+                  summary: Successful scenario comparison
+                  value:
+                    schema: "compare.v1"
+                    left:
+                      scenarioId: "pricing-conservative"
+                      runId: "run_pricing-conservative_42_1696000000000"
+                      report:
+                        decision:
+                          title: "Analysis for pricing-conservative"
+                          options:
+                            - id: "conservative"
+                              name: "Conservative Approach"
+                              score: 0.7
+                              description: "Lower risk, steady returns"
+                        recommendation:
+                          primary: "conservative"
+                        analysis:
+                          confidence: "high"
+                        meta:
+                          scenarioId: "pricing-conservative"
+                          seed: 42
+                          timestamp: "2024-09-27T10:00:00.000Z"
+                    right:
+                      scenarioId: "pricing-aggressive"
+                      runId: "run_pricing-aggressive_42_1696000000000"
+                      report:
+                        decision:
+                          title: "Analysis for pricing-aggressive"
+                          options:
+                            - id: "aggressive"
+                              name: "Aggressive Strategy"
+                              score: 0.8
+                              description: "Higher risk, potential high returns"
+                        recommendation:
+                          primary: "aggressive"
+                        analysis:
+                          confidence: "medium"
+                        meta:
+                          scenarioId: "pricing-aggressive"
+                          seed: 42
+                          timestamp: "2024-09-27T10:00:00.000Z"
+                    delta:
+                      most_likely_diff: 1200
+                      most_likely_pct: 0.012
+                      confidence_shift: "DOWN"
+                      threshold_events: []
+                    headline: "Moderate improvement: up ~1.2% in Right vs Left"
+                    key_drivers:
+                      - "Higher risk tolerance"
+                      - "Lower confidence in analysis"
+        '400':
+          description: Bad request - invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missing_scenario:
+                  summary: Missing scenario
+                  value:
+                    type: "BAD_INPUT"
+                    message: "Both left and right scenarios required"
+                    timestamp: "2024-09-27T10:00:00.000Z"
+        '429':
+          description: Rate limit exceeded
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /templates/encode:
+    post:
+      summary: Encode template to compressed share link
+      description: Compress template payload using base64+deflate with size validation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EncodeRequest'
+            examples:
+              simple_template:
+                summary: Simple decision template
+                value:
+                  template:
+                    template_name: "Simple Decision"
+                    seed: 42
+                    scenario:
+                      title: "Should we launch Feature X?"
+                      context: "Market research shows 70% interest"
+                      options:
+                        - id: "launch_now"
+                          name: "Launch immediately"
+                          pros: ["First mover advantage", "Revenue opportunity"]
+                          cons: ["Higher risk", "Limited testing"]
+                        - id: "launch_later"
+                          name: "Launch in Q2"
+                          pros: ["More preparation time", "Better testing"]
+                          cons: ["Competitive risk", "Delayed revenue"]
+      responses:
+        '200':
+          description: Template encoded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EncodeResponse'
+              examples:
+                encoded_template:
+                  summary: Compressed template data
+                  value:
+                    data: "eJyrVkrLL8pMTdVRqkxVsjLQUTIoqMxLzSvJTMvMSwcxjIqLk4t1FIqBrBLdnKrCaBMDAxMjZSKcxAAeaQUOkL4="
+        '400':
+          description: Invalid template or missing data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                size_exceeded:
+                  summary: Compressed size limit exceeded
+                  value:
+                    type: "BAD_INPUT"
+                    message: "Compressed payload exceeds 2048 byte limit"
+                    timestamp: "2024-09-27T10:00:00.000Z"
+
+  /templates/decode:
+    get:
+      summary: Decode compressed share link data
+      description: Decompress base64+deflate data back to template format
+      parameters:
+        - name: data
+          in: query
+          required: true
+          description: Base64-encoded compressed template data
+          schema:
+            type: string
+          example: "eJyrVkrLL8pMTdVRqkxVsjLQUTIoqMxLzSvJTMvMSwcxjIqLk4t1FIqBrBLdnKrCaBMDAxMjZSKcxAAeaQUOkL4="
+      responses:
+        '200':
+          description: Template decoded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DecodeResponse'
+              examples:
+                decoded_template:
+                  summary: Original template restored
+                  value:
+                    template:
+                      template_name: "Simple Decision"
+                      seed: 42
+                      scenario:
+                        title: "Should we launch Feature X?"
+                        context: "Market research shows 70% interest"
+                        options:
+                          - id: "launch_now"
+                            name: "Launch immediately"
+                          - id: "launch_later"
+                            name: "Launch in Q2"
+        '400':
+          description: Invalid or corrupted data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '413':
+          description: Data too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    CompareRequest:
+      type: object
+      required:
+        - left
+        - right
+      properties:
+        left:
+          $ref: '#/components/schemas/ScenarioParams'
+        right:
+          $ref: '#/components/schemas/ScenarioParams'
+
+    ScenarioParams:
+      type: object
+      required:
+        - scenarioId
+        - seed
+      properties:
+        scenarioId:
+          type: string
+          description: Unique identifier for the scenario
+          example: "pricing-strategy-v2"
+        seed:
+          type: integer
+          description: Deterministic seed for reproducible results
+          example: 42
+        budget:
+          type: integer
+          description: Time budget in milliseconds
+          default: 200
+          example: 500
+
+    CompareResponse:
+      type: object
+      properties:
+        schema:
+          type: string
+          enum: ["compare.v1"]
+          description: Response schema version
+        left:
+          $ref: '#/components/schemas/ScenarioResult'
+        right:
+          $ref: '#/components/schemas/ScenarioResult'
+        delta:
+          $ref: '#/components/schemas/ComparisonDelta'
+        headline:
+          type: string
+          description: Human-readable summary of the comparison
+          example: "Moderate improvement: up ~1.2% in Right vs Left"
+        key_drivers:
+          type: array
+          items:
+            type: string
+          description: Key factors driving the difference
+          example: ["Higher conversion", "Lower CAC"]
+
+    ScenarioResult:
+      type: object
+      properties:
+        scenarioId:
+          type: string
+        runId:
+          type: string
+        report:
+          $ref: '#/components/schemas/ReportV1'
+
+    ReportV1:
+      type: object
+      properties:
+        decision:
+          type: object
+          properties:
+            title:
+              type: string
+            options:
+              type: array
+              items:
+                $ref: '#/components/schemas/DecisionOption'
+        recommendation:
+          type: object
+          properties:
+            primary:
+              type: string
+        analysis:
+          type: object
+          properties:
+            confidence:
+              type: string
+              enum: ["low", "medium", "high", "very high"]
+        meta:
+          type: object
+          properties:
+            scenarioId:
+              type: string
+            seed:
+              type: integer
+            timestamp:
+              type: string
+              format: date-time
+
+    DecisionOption:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+        description:
+          type: string
+
+    ComparisonDelta:
+      type: object
+      properties:
+        most_likely_diff:
+          type: number
+          description: Absolute difference in most likely outcome
+        most_likely_pct:
+          type: number
+          description: Percentage difference in most likely outcome
+        confidence_shift:
+          type: string
+          enum: ["NONE", "UP", "DOWN"]
+          description: Direction of confidence change
+        threshold_events:
+          type: array
+          items:
+            type: object
+            properties:
+              threshold:
+                type: number
+              event:
+                type: string
+              significance:
+                type: string
+                enum: ["minor", "major"]
+
+    EncodeRequest:
+      type: object
+      required:
+        - template
+      properties:
+        template:
+          $ref: '#/components/schemas/Template'
+
+    EncodeResponse:
+      type: object
+      properties:
+        data:
+          type: string
+          description: Base64-encoded compressed template
+          example: "eJyrVkrLL8pMTdVRqkxVsjLQUTIoqMxLzSvJTMvMSwcxjIqLk4t1FIqBrBLdnKrCaBMDAxMjZSKcxAAeaQUOkL4="
+
+    DecodeResponse:
+      type: object
+      properties:
+        template:
+          $ref: '#/components/schemas/Template'
+
+    Template:
+      type: object
+      properties:
+        template_name:
+          type: string
+          example: "Pricing Decision Template"
+        seed:
+          type: integer
+          example: 42
+        description:
+          type: string
+        scenario:
+          $ref: '#/components/schemas/Scenario'
+
+    Scenario:
+      type: object
+      required:
+        - title
+        - options
+      properties:
+        title:
+          type: string
+          description: Decision question or scenario title
+          example: "Should we increase our Pro plan pricing by 20%?"
+        context:
+          type: string
+          description: Background information and context
+        stakeholders:
+          type: array
+          items:
+            type: string
+          example: ["Product", "Finance", "Customer Success"]
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateOption'
+          minItems: 1
+        constraints:
+          type: object
+          description: Scenario constraints and limitations
+          additionalProperties: true
+        success_metrics:
+          type: array
+          items:
+            type: string
+          description: Success criteria and metrics
+
+    TemplateOption:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Unique option identifier
+          example: "gradual_increase"
+        name:
+          type: string
+          description: Human-readable option name
+          example: "Gradual 20% increase over 6 months"
+        pros:
+          type: array
+          items:
+            type: string
+          description: Advantages of this option
+        cons:
+          type: array
+          items:
+            type: string
+          description: Disadvantages of this option
+
+    ErrorResponse:
+      type: object
+      required:
+        - type
+        - message
+        - timestamp
+      properties:
+        type:
+          type: string
+          enum: ["BAD_INPUT", "RATE_LIMIT", "INTERNAL_ERROR"]
+          description: Error category for consistent handling
+        message:
+          type: string
+          description: Human-readable error description
+          example: "Both left and right scenarios required"
+        timestamp:
+          type: string
+          format: date-time
+          description: When the error occurred
+
+  # Overnight III - New endpoints
+
+  /pilot/mint-session:
+    post:
+      summary: Mint pilot session token
+      description: Generate HMAC-signed session token for tenant access control (requires TENANT_SIGNING_KEY)
+      tags: [pilot, sessions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MintSessionRequest'
+            examples:
+              standard_session:
+                summary: Standard pilot session
+                value:
+                  org: "acme-corp"
+                  plan: "pilot"
+                  caps: ["compare", "snapshot", "usage"]
+                  ttlMin: 60
+      responses:
+        '200':
+          description: Session token generated
+          headers:
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MintSessionResponse'
+              examples:
+                minted_session:
+                  summary: Generated session token
+                  value:
+                    session: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                    exp: "2024-09-27T11:00:00.000Z"
+        '404':
+          description: Tenant sessions not enabled (TENANT_SIGNING_KEY not set)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Bad request - invalid org or capabilities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /queue/status:
+    get:
+      summary: Get concurrency queue status
+      description: Returns current queue depth and position for organization
+      tags: [queue]
+      parameters:
+        - name: org
+          in: query
+          required: true
+          description: Organization identifier
+          schema:
+            type: string
+          example: "acme-corp"
+      responses:
+        '200':
+          description: Queue status information
+          headers:
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueStatusResponse'
+              examples:
+                queue_status:
+                  summary: Current queue status
+                  value:
+                    org: "acme-corp"
+                    queue_depth: 2
+                    estimated_wait_s: 45
+                    active_runs: 1
+                    max_concurrent: 3
+        '400':
+          description: Missing or invalid org parameter
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /queue/bump:
+    post:
+      summary: Request priority queue bump
+      description: Request expedited processing (limited daily allowance)
+      tags: [queue]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueueBumpRequest'
+            examples:
+              bump_request:
+                summary: Priority bump request
+                value:
+                  org: "acme-corp"
+                  reason: "urgent customer demo"
+      responses:
+        '200':
+          description: Bump granted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueBumpResponse'
+              examples:
+                bump_granted:
+                  summary: Bump request granted
+                  value:
+                    status: "granted"
+                    message: "Queue position improved for urgent customer demo"
+                    remaining_bumps: 2
+        '429':
+          description: Daily bump limit exceeded
+          headers:
+            Retry-After:
+              description: Seconds until bump allowance resets
+              schema:
+                type: integer
+                example: 3600
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /snapshots:
+    get:
+      summary: List snapshot metadata
+      description: Paginated list of snapshot metadata with filtering
+      tags: [snapshots]
+      parameters:
+        - name: org
+          in: query
+          required: false
+          description: Filter by organization
+          schema:
+            type: string
+          example: "acme-corp"
+        - name: since
+          in: query
+          required: false
+          description: Filter snapshots created after this timestamp
+          schema:
+            type: string
+            format: date-time
+          example: "2024-09-26T00:00:00Z"
+        - name: page
+          in: query
+          required: false
+          description: Page number (1-based)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - name: limit
+          in: query
+          required: false
+          description: Items per page
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+          example: 20
+      responses:
+        '200':
+          description: Snapshot metadata list
+          headers:
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotListResponse'
+              examples:
+                snapshot_list:
+                  summary: Paginated snapshot list
+                  value:
+                    items:
+                      - runId: "run_pricing-v1_42_1696000000000"
+                        org: "acme-corp"
+                        scenarioId: "pricing-v1"
+                        seed: 42
+                        createdAt: "2024-09-27T10:00:00.000Z"
+                        ttff_ms: 1500
+                        version: "v0.1.0"
+                    total: 25
+                    page: 1
+                    limit: 20
+                    hasMore: true
+        '400':
+          description: Invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /snapshots/{runId}:
+    get:
+      summary: Get snapshot metadata
+      description: Retrieve metadata for specific snapshot run
+      tags: [snapshots]
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          description: Run identifier
+          schema:
+            type: string
+          example: "run_pricing-v1_42_1696000000000"
+      responses:
+        '200':
+          description: Snapshot metadata
+          headers:
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotMetadata'
+              examples:
+                snapshot_metadata:
+                  summary: Snapshot metadata
+                  value:
+                    runId: "run_pricing-v1_42_1696000000000"
+                    org: "acme-corp"
+                    scenarioId: "pricing-v1"
+                    seed: 42
+                    createdAt: "2024-09-27T10:00:00.000Z"
+                    ttff_ms: 1500
+                    version: "v0.1.0"
+                    correlationId: "550e8400-e29b-41d4-a716-446655440000"
+        '404':
+          description: Snapshot not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /usage/summary:
+    get:
+      summary: Get usage metrics summary
+      description: Aggregated usage metrics for organization over time period
+      tags: [usage]
+      parameters:
+        - name: org
+          in: query
+          required: true
+          description: Organization identifier
+          schema:
+            type: string
+          example: "acme-corp"
+        - name: period
+          in: query
+          required: true
+          description: Time period (e.g., "7d", "24h", "60m")
+          schema:
+            type: string
+            pattern: '^\\d+[dhm]$'
+          example: "7d"
+      responses:
+        '200':
+          description: Usage summary
+          headers:
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsageSummaryResponse'
+              examples:
+                usage_summary:
+                  summary: 7-day usage summary
+                  value:
+                    schema: "usage-summary.v1"
+                    org: "acme-corp"
+                    window: "last_7d"
+                    runs: 142
+                    median_ttff_ms: 1450
+                    median_cancel_ms: 250
+                    rate_limit_hits: 3
+                    tokens_estimated: 28400
+        '400':
+          description: Missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /export/usage.csv:
+    get:
+      summary: Export usage summary as CSV
+      description: CSV export of usage metrics for data analysis
+      tags: [export, usage]
+      parameters:
+        - name: org
+          in: query
+          required: true
+          description: Organization identifier
+          schema:
+            type: string
+          example: "acme-corp"
+        - name: period
+          in: query
+          required: true
+          description: Time period (e.g., "7d", "24h", "60m")
+          schema:
+            type: string
+            pattern: '^\\d+[dhm]$'
+          example: "30d"
+      responses:
+        '200':
+          description: Usage CSV export
+          headers:
+            Content-Type:
+              description: CSV content type
+              schema:
+                type: string
+                example: text/csv
+            Content-Disposition:
+              description: Attachment filename with org and period
+              schema:
+                type: string
+                example: 'attachment; filename="usage_acme-corp_30d_v0.1.0_2024-09-27.csv"'
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            text/csv:
+              schema:
+                type: string
+              example: |
+                org,window,runs,median_ttff_ms,median_cancel_ms,rate_limit_hits,tokens_estimated,generated_at,version
+                acme-corp,last_30d,425,1420,280,8,85000,2024-09-27T10:00:00.000Z,v0.1.0
+        '400':
+          description: Missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  securitySchemes:
+    PilotSession:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Pilot session token (Authorization: Pilot <token>)
+
+    OlumiSession:
+      type: apiKey
+      in: header
+      name: X-Olumi-Session
+      description: Pilot session token in custom header
+
+security: []
+
+  /runs/{runId}/snapshot:
+    get:
+      summary: Download scenario execution snapshot
+      description: Returns ZIP bundle containing scenario.json, seed.txt, report.json, stream.ndjson, timings.json, and provenance.json
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          description: Unique run identifier
+          schema:
+            type: string
+          example: "run_pricing-v1_42_1696000000000"
+      responses:
+        '200':
+          description: Snapshot ZIP bundle
+          headers:
+            Content-Type:
+              description: ZIP archive content type
+              schema:
+                type: string
+                example: application/zip
+            Content-Disposition:
+              description: Attachment filename with seed and version
+              schema:
+                type: string
+                example: 'attachment; filename="snapshot_run_pricing-v1_42_seed-42_v0.1.0.zip"'
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /runs/lookup:
+    get:
+      summary: Look up run by scenario and seed
+      description: Returns existing runId for deterministic cache hit or creates new run
+      parameters:
+        - name: scenarioId
+          in: query
+          required: true
+          description: Scenario identifier
+          schema:
+            type: string
+          example: "pricing-strategy-v2"
+        - name: seed
+          in: query
+          required: true
+          description: Deterministic seed
+          schema:
+            type: integer
+          example: 42
+      responses:
+        '200':
+          description: Run lookup result
+          headers:
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LookupResponse'
+              examples:
+                cache_hit:
+                  summary: Cache hit - existing run
+                  value:
+                    runId: "run_pricing-strategy-v2_42_1696000000000"
+                    source: "cache"
+                cache_miss:
+                  summary: Cache miss - new run
+                  value:
+                    runId: "run_pricing-strategy-v2_42_1696000000001"
+                    source: "new"
+        '400':
+          description: Missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /runs/{runId}/events:
+    get:
+      summary: Get recorded SSE events for run
+      description: Returns read-only SSE transcript for evidence and replay
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          description: Unique run identifier
+          schema:
+            type: string
+          example: "run_pricing-v1_42_1696000000000"
+      responses:
+        '200':
+          description: SSE events transcript
+          headers:
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventsResponse'
+              examples:
+                recorded_events:
+                  summary: Recorded SSE events
+                  value:
+                    runId: "run_pricing-v1_42_1696000000000"
+                    events:
+                      - type: "start"
+                        data:
+                          sessionId: "session_123"
+                          seed: 42
+                          timestamp: "2024-09-27T10:00:00.000Z"
+                      - type: "token"
+                        data:
+                          text: "Based"
+                          tokenIndex: 1
+                          timestamp: "2024-09-27T10:00:01.000Z"
+                      - type: "done"
+                        data:
+                          sessionId: "session_123"
+                          totalTokens: 150
+                          seed: 42
+                    count: 3
+        '404':
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /compare/snapshot:
+    post:
+      summary: Generate comparison snapshot ZIP
+      description: Returns ZIP bundle with both scenario reports plus compare.json and delta.csv
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompareRequest'
+            examples:
+              compare_snapshot:
+                summary: Compare snapshot request
+                value:
+                  left:
+                    scenarioId: "pricing-conservative"
+                    seed: 42
+                  right:
+                    scenarioId: "pricing-aggressive"
+                    seed: 42
+      responses:
+        '200':
+          description: Compare snapshot ZIP bundle
+          headers:
+            Content-Type:
+              description: ZIP archive content type
+              schema:
+                type: string
+                example: application/zip
+            Content-Disposition:
+              description: Attachment filename with scenario names and seed
+              schema:
+                type: string
+                example: 'attachment; filename="compare_pricing-conservative-vs-pricing-aggressive_seed-42_v0.1.0.zip"'
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+        '400':
+          description: Bad request - invalid scenarios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /compare/batch:
+    post:
+      summary: Rank multiple scenarios
+      description: Compare multiple scenarios and return ranked results with baseline
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchRequest'
+            examples:
+              batch_comparison:
+                summary: Batch scenario comparison
+                value:
+                  items:
+                    - scenarioId: "pricing-conservative"
+                      seed: 42
+                    - scenarioId: "pricing-moderate"
+                      seed: 42
+                    - scenarioId: "pricing-aggressive"
+                      seed: 42
+      responses:
+        '200':
+          description: Ranked comparison results
+          headers:
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchResponse'
+              examples:
+                ranked_scenarios:
+                  summary: Ranked scenarios with baseline
+                  value:
+                    schema: "compare-batch.v1"
+                    ranked:
+                      - scenarioId: "pricing-aggressive"
+                        most_likely: 1030000
+                        delta_vs_baseline_pct: 0.0
+                        confidence: "MEDIUM"
+                      - scenarioId: "pricing-moderate"
+                        most_likely: 1018000
+                        delta_vs_baseline_pct: -1.2
+                        confidence: "MEDIUM"
+                      - scenarioId: "pricing-conservative"
+                        most_likely: 987000
+                        delta_vs_baseline_pct: -4.2
+                        confidence: "HIGH"
+                    baseline: "pricing-aggressive"
+                    notes:
+                      - "All seeds 42"
+                      - "Currency: USD (unconverted)"
+        '400':
+          description: Bad request - invalid items or too many scenarios
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /pilot/sign-link:
+    post:
+      summary: Generate signed pilot access link
+      description: Create temporary shareable URL with HMAC signature (requires PILOT_SIGNING_KEY)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignLinkRequest'
+            examples:
+              sign_stream_link:
+                summary: Sign a stream endpoint link
+                value:
+                  path: "/stream"
+                  params:
+                    route: "critique"
+                    scenarioId: "pricing-v1"
+                    seed: 42
+                  ttlMin: 30
+      responses:
+        '200':
+          description: Signed URL generated
+          headers:
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignLinkResponse'
+              examples:
+                signed_url:
+                  summary: Generated signed URL
+                  value:
+                    url: "http://localhost:3001/stream?route=critique&scenarioId=pricing-v1&seed=42&olumi_signed=a1b2c3d4&exp=1696003600"
+        '404':
+          description: Signed links not enabled (PILOT_SIGNING_KEY not set)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Bad request - invalid path or params
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /export/report.csv:
+    get:
+      summary: Export run report as CSV
+      description: Flat CSV export of Report v1 fields with currency labels and versioned filename
+      parameters:
+        - name: runId
+          in: query
+          required: true
+          description: Run identifier to export
+          schema:
+            type: string
+          example: "run_pricing-v1_42_1696000000000"
+      responses:
+        '200':
+          description: Report CSV export
+          headers:
+            Content-Type:
+              description: CSV content type
+              schema:
+                type: string
+                example: text/csv
+            Content-Disposition:
+              description: Attachment filename with seed and version
+              schema:
+                type: string
+                example: 'attachment; filename="report_run_pricing-v1_42_seed-42_v0.1.0_2024-09-27.csv"'
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            text/csv:
+              schema:
+                type: string
+              example: |
+                run_id,scenario_id,seed,title,option_id,option_name,option_score,option_description,primary_recommendation,confidence,currency,timestamp,version
+                run_pricing-v1_42_1696000000000,pricing-v1,42,"Pricing Strategy Analysis",conservative,"Conservative Approach",0.7,"Lower risk approach",conservative,high,USD,2024-09-27T10:00:00.000Z,v0.1.0
+        '404':
+          description: Run not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /export/compare.csv:
+    get:
+      summary: Export comparison as CSV
+      description: Side-by-side comparison CSV with delta metrics and currency labels
+      parameters:
+        - name: left
+          in: query
+          required: true
+          description: Left run identifier
+          schema:
+            type: string
+          example: "run_pricing-conservative_42_1696000000000"
+        - name: right
+          in: query
+          required: true
+          description: Right run identifier
+          schema:
+            type: string
+          example: "run_pricing-aggressive_42_1696000000000"
+      responses:
+        '200':
+          description: Comparison CSV export
+          headers:
+            Content-Type:
+              description: CSV content type
+              schema:
+                type: string
+                example: text/csv
+            Content-Disposition:
+              description: Attachment filename with scenario names
+              schema:
+                type: string
+                example: 'attachment; filename="compare_pricing-conservative-vs-pricing-aggressive_seed-42_v0.1.0_2024-09-27.csv"'
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            text/csv:
+              schema:
+                type: string
+        '404':
+          description: One or both runs not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /export/batch.csv:
+    get:
+      summary: Export batch ranking as CSV
+      description: Ranked scenarios CSV with baseline deltas and currency labels
+      parameters:
+        - name: baseline
+          in: query
+          required: true
+          description: Baseline scenario identifier
+          schema:
+            type: string
+          example: "pricing-aggressive"
+        - name: items
+          in: query
+          required: true
+          description: Comma-separated scenario identifiers
+          schema:
+            type: string
+          example: "pricing-conservative,pricing-moderate,pricing-aggressive"
+      responses:
+        '200':
+          description: Batch ranking CSV export
+          headers:
+            Content-Type:
+              description: CSV content type
+              schema:
+                type: string
+                example: text/csv
+            Content-Disposition:
+              description: Attachment filename with baseline
+              schema:
+                type: string
+                example: 'attachment; filename="batch_pricing-aggressive_seed-42_v0.1.0_2024-09-27.csv"'
+            Cache-Control:
+              description: No caching directive
+              schema:
+                type: string
+                example: no-store
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /_faults/network-blip-once:
+    post:
+      summary: "[DEV-ONLY] Arm network blip fault"
+      description: "Next new stream connection will drop once before resuming (requires TEST_ROUTES=1 and non-production)"
+      responses:
+        '200':
+          description: Network blip fault armed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "armed"
+                  fault:
+                    type: string
+                    example: "network-blip-once"
+                  message:
+                    type: string
+                    example: "Next new stream connection will drop once before resuming"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '404':
+          description: Chaos endpoints not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /_faults/slow-first-token:
+    post:
+      summary: "[DEV-ONLY] Arm slow first token fault"
+      description: "Injects delay before first token event (requires TEST_ROUTES=1 and non-production)"
+      parameters:
+        - name: ms
+          in: query
+          required: false
+          description: Delay in milliseconds (default 300, max 10000)
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 10000
+            default: 300
+          example: 300
+      responses:
+        '200':
+          description: Slow first token fault armed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "armed"
+                  fault:
+                    type: string
+                    example: "slow-first-token"
+                  delay_ms:
+                    type: integer
+                    example: 300
+                  message:
+                    type: string
+                    example: "Next stream will delay 300ms before first token"
+                  timestamp:
+                    type: string
+                    format: date-time
+        '404':
+          description: Chaos endpoints not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Invalid delay value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    LookupResponse:
+      type: object
+      required:
+        - runId
+        - source
+      properties:
+        runId:
+          type: string
+          description: Unique run identifier
+          example: "run_pricing-strategy-v2_42_1696000000000"
+        source:
+          type: string
+          enum: ["cache", "new"]
+          description: Whether this is a cache hit or new run
+
+    EventsResponse:
+      type: object
+      required:
+        - runId
+        - events
+        - count
+      properties:
+        runId:
+          type: string
+          description: Run identifier
+        events:
+          type: array
+          items:
+            type: object
+          description: Recorded SSE events
+        count:
+          type: integer
+          description: Number of events
+
+    BatchRequest:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScenarioParams'
+          minItems: 1
+          maxItems: 10
+          description: Scenarios to compare (max 10)
+
+    BatchResponse:
+      type: object
+      required:
+        - schema
+        - ranked
+        - baseline
+        - notes
+      properties:
+        schema:
+          type: string
+          enum: ["compare-batch.v1"]
+          description: Response schema version
+        ranked:
+          type: array
+          items:
+            $ref: '#/components/schemas/RankedScenario'
+          description: Scenarios ranked by most_likely value (descending)
+        baseline:
+          type: string
+          description: Scenario ID used as baseline (highest value)
+        notes:
+          type: array
+          items:
+            type: string
+          description: Notes about the comparison
+          example: ["All seeds 42", "Currency: USD (unconverted)"]
+
+    RankedScenario:
+      type: object
+      required:
+        - scenarioId
+        - most_likely
+        - delta_vs_baseline_pct
+        - confidence
+      properties:
+        scenarioId:
+          type: string
+          description: Scenario identifier
+        most_likely:
+          type: number
+          description: Most likely outcome value
+        delta_vs_baseline_pct:
+          type: number
+          description: Percentage difference vs baseline (rounded to 1 decimal)
+        confidence:
+          type: string
+          enum: ["LOW", "MEDIUM", "HIGH", "VERY_HIGH"]
+          description: Confidence level
+
+    SignLinkRequest:
+      type: object
+      required:
+        - path
+        - params
+      properties:
+        path:
+          type: string
+          description: API path to sign (must start with /)
+          example: "/stream"
+        params:
+          type: object
+          description: Query parameters to include
+          additionalProperties: true
+          example:
+            route: "critique"
+            scenarioId: "pricing-v1"
+            seed: 42
+        ttlMin:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          default: 30
+          description: Time-to-live in minutes
+
+    SignLinkResponse:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Signed URL with HMAC signature and expiry
+          example: "http://localhost:3001/stream?route=critique&scenarioId=pricing-v1&seed=42&olumi_signed=a1b2c3d4&exp=1696003600"
+
+    CompareRequest:
+      type: object
+      required:
+        - left
+        - right
+      properties:
+        left:
+          $ref: '#/components/schemas/ScenarioParams'
+        right:
+          $ref: '#/components/schemas/ScenarioParams'
+
+    ScenarioParams:
+      type: object
+      required:
+        - scenarioId
+        - seed
+      properties:
+        scenarioId:
+          type: string
+          description: Unique identifier for the scenario
+          example: "pricing-strategy-v2"
+        seed:
+          type: integer
+          description: Deterministic seed for reproducible results
+          example: 42
+        budget:
+          type: integer
+          description: Time budget in milliseconds
+          default: 200
+          example: 500
+
+    CompareResponse:
+      type: object
+      properties:
+        schema:
+          type: string
+          enum: ["compare.v1"]
+          description: Response schema version
+        left:
+          $ref: '#/components/schemas/ScenarioResult'
+        right:
+          $ref: '#/components/schemas/ScenarioResult'
+        delta:
+          $ref: '#/components/schemas/ComparisonDelta'
+        headline:
+          type: string
+          description: Human-readable summary of the comparison
+          example: "Moderate improvement: up ~1.2% in Right vs Left"
+        key_drivers:
+          type: array
+          items:
+            type: string
+          description: Key factors driving the difference
+          example: ["Higher conversion", "Lower CAC"]
+
+    ScenarioResult:
+      type: object
+      properties:
+        scenarioId:
+          type: string
+        runId:
+          type: string
+        report:
+          $ref: '#/components/schemas/ReportV1'
+
+    ReportV1:
+      type: object
+      properties:
+        decision:
+          type: object
+          properties:
+            title:
+              type: string
+            options:
+              type: array
+              items:
+                $ref: '#/components/schemas/DecisionOption'
+        recommendation:
+          type: object
+          properties:
+            primary:
+              type: string
+        analysis:
+          type: object
+          properties:
+            confidence:
+              type: string
+              enum: ["low", "medium", "high", "very high"]
+        meta:
+          type: object
+          properties:
+            scenarioId:
+              type: string
+            seed:
+              type: integer
+            timestamp:
+              type: string
+              format: date-time
+
+    DecisionOption:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+        description:
+          type: string
+
+    ComparisonDelta:
+      type: object
+      properties:
+        most_likely_diff:
+          type: number
+          description: Absolute difference in most likely outcome
+        most_likely_pct:
+          type: number
+          description: Percentage difference in most likely outcome
+        confidence_shift:
+          type: string
+          enum: ["NONE", "UP", "DOWN"]
+          description: Direction of confidence change
+        threshold_events:
+          type: array
+          items:
+            type: object
+            properties:
+              threshold:
+                type: number
+              event:
+                type: string
+              significance:
+                type: string
+                enum: ["minor", "major"]
+
+    EncodeRequest:
+      type: object
+      required:
+        - template
+      properties:
+        template:
+          $ref: '#/components/schemas/Template'
+
+    EncodeResponse:
+      type: object
+      properties:
+        data:
+          type: string
+          description: Base64-encoded compressed template
+          example: "eJyrVkrLL8pMTdVRqkxVsjLQUTIoqMxLzSvJTMvMSwcxjIqLk4t1FIqBrBLdnKrCaBMDAxMjZSKcxAAeaQUOkL4="
+
+    DecodeResponse:
+      type: object
+      properties:
+        template:
+          $ref: '#/components/schemas/Template'
+
+    Template:
+      type: object
+      properties:
+        template_name:
+          type: string
+          example: "Pricing Decision Template"
+        seed:
+          type: integer
+          example: 42
+        description:
+          type: string
+        scenario:
+          $ref: '#/components/schemas/Scenario'
+
+    Scenario:
+      type: object
+      required:
+        - title
+        - options
+      properties:
+        title:
+          type: string
+          description: Decision question or scenario title
+          example: "Should we increase our Pro plan pricing by 20%?"
+        context:
+          type: string
+          description: Background information and context
+        stakeholders:
+          type: array
+          items:
+            type: string
+          example: ["Product", "Finance", "Customer Success"]
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateOption'
+          minItems: 1
+        constraints:
+          type: object
+          description: Scenario constraints and limitations
+          additionalProperties: true
+        success_metrics:
+          type: array
+          items:
+            type: string
+          description: Success criteria and metrics
+
+    TemplateOption:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Unique option identifier
+          example: "gradual_increase"
+        name:
+          type: string
+          description: Human-readable option name
+          example: "Gradual 20% increase over 6 months"
+        pros:
+          type: array
+          items:
+            type: string
+          description: Advantages of this option
+        cons:
+          type: array
+          items:
+            type: string
+          description: Disadvantages of this option
+
+    ErrorResponse:
+      type: object
+      required:
+        - type
+        - message
+        - timestamp
+      properties:
+        type:
+          type: string
+          enum: ["BAD_INPUT", "RATE_LIMIT", "INTERNAL_ERROR"]
+          description: Error category for consistent handling
+        message:
+          type: string
+          description: Human-readable error description
+          example: "Both left and right scenarios required"
+        timestamp:
+          type: string
+          format: date-time
+          description: When the error occurred
+
+    # Overnight III - New schemas
+
+    MintSessionRequest:
+      type: object
+      required:
+        - org
+        - plan
+        - caps
+      properties:
+        org:
+          type: string
+          description: Organization identifier
+          example: "acme-corp"
+        plan:
+          type: string
+          enum: ["pilot"]
+          description: Subscription plan
+          example: "pilot"
+        caps:
+          type: array
+          items:
+            type: string
+            enum: ["compare", "snapshot", "usage", "export"]
+          description: Permitted capabilities
+          example: ["compare", "snapshot", "usage"]
+        ttlMin:
+          type: integer
+          minimum: 1
+          maximum: 1440
+          default: 60
+          description: Token time-to-live in minutes
+
+    MintSessionResponse:
+      type: object
+      required:
+        - session
+        - exp
+      properties:
+        session:
+          type: string
+          description: HMAC-signed session token
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        exp:
+          type: string
+          format: date-time
+          description: Token expiration timestamp
+          example: "2024-09-27T11:00:00.000Z"
+
+    QueueStatusResponse:
+      type: object
+      required:
+        - org
+        - queue_depth
+        - estimated_wait_s
+        - active_runs
+        - max_concurrent
+      properties:
+        org:
+          type: string
+          description: Organization identifier
+        queue_depth:
+          type: integer
+          minimum: 0
+          description: Number of requests in queue
+        estimated_wait_s:
+          type: integer
+          minimum: 0
+          description: Estimated wait time in seconds
+        active_runs:
+          type: integer
+          minimum: 0
+          description: Currently active concurrent runs
+        max_concurrent:
+          type: integer
+          minimum: 1
+          description: Maximum concurrent requests allowed
+
+    QueueBumpRequest:
+      type: object
+      required:
+        - org
+      properties:
+        org:
+          type: string
+          description: Organization identifier
+          example: "acme-corp"
+        reason:
+          type: string
+          description: Justification for priority bump
+          example: "urgent customer demo"
+
+    QueueBumpResponse:
+      type: object
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: string
+          enum: ["granted", "denied"]
+          description: Bump request outcome
+        message:
+          type: string
+          description: Human-readable response
+        remaining_bumps:
+          type: integer
+          minimum: 0
+          description: Daily bump allowance remaining
+
+    SnapshotListResponse:
+      type: object
+      required:
+        - items
+        - total
+        - page
+        - limit
+        - hasMore
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SnapshotMetadata'
+          description: Snapshot metadata entries
+        total:
+          type: integer
+          minimum: 0
+          description: Total matching snapshots
+        page:
+          type: integer
+          minimum: 1
+          description: Current page number
+        limit:
+          type: integer
+          minimum: 1
+          description: Items per page
+        hasMore:
+          type: boolean
+          description: Whether more pages exist
+
+    SnapshotMetadata:
+      type: object
+      required:
+        - runId
+        - org
+        - scenarioId
+        - seed
+        - createdAt
+        - ttff_ms
+        - version
+      properties:
+        runId:
+          type: string
+          description: Unique run identifier
+          example: "run_pricing-v1_42_1696000000000"
+        org:
+          type: string
+          description: Organization identifier
+          example: "acme-corp"
+        scenarioId:
+          type: string
+          description: Scenario identifier
+          example: "pricing-v1"
+        seed:
+          type: integer
+          description: Deterministic seed
+          example: 42
+        createdAt:
+          type: string
+          format: date-time
+          description: Snapshot creation timestamp
+        ttff_ms:
+          type: integer
+          minimum: 0
+          description: Time to first token in milliseconds
+        cancel_ms:
+          type: integer
+          minimum: 0
+          description: Cancellation latency in milliseconds (if applicable)
+        version:
+          type: string
+          description: Engine version
+          example: "v0.1.0"
+        correlationId:
+          type: string
+          description: Request correlation identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+    UsageSummaryResponse:
+      type: object
+      required:
+        - schema
+        - org
+        - window
+        - runs
+        - median_ttff_ms
+        - median_cancel_ms
+        - rate_limit_hits
+        - tokens_estimated
+      properties:
+        schema:
+          type: string
+          enum: ["usage-summary.v1"]
+          description: Response schema version
+        org:
+          type: string
+          description: Organization identifier
+        window:
+          type: string
+          description: Time window label
+          example: "last_7d"
+        runs:
+          type: integer
+          minimum: 0
+          description: Number of completed runs
+        median_ttff_ms:
+          type: integer
+          minimum: 0
+          description: Median time to first token in milliseconds
+        median_cancel_ms:
+          type: integer
+          minimum: 0
+          description: Median cancellation latency in milliseconds
+        rate_limit_hits:
+          type: integer
+          minimum: 0
+          description: Number of rate limit encounters
+        tokens_estimated:
+          type: integer
+          minimum: 0
+          description: Total estimated tokens used
+
+  securitySchemes: {}
+
+security: []
+
+tags:
+  - name: comparison
+    description: Scenario comparison and analysis
+  - name: templates
+    description: Template encoding and sharing
+  - name: snapshots
+    description: Evidence packs and execution snapshots
+  - name: registry
+    description: Deterministic run registry and replay
+  - name: export
+    description: CSV and JSON data exports
+  - name: pilot
+    description: Signed pilot access links
+  - name: chaos
+    description: Development-only fault injection
+  - name: health
+    description: Service health and monitoring
+  - name: sessions
+    description: Tenant session management and authentication
+  - name: queue
+    description: Concurrency management and fair scheduling
+  - name: usage
+    description: Usage metrics and analytics

@@ -1,0 +1,57 @@
+{
+  "schema": "report.v1",
+  "runId": "test-123",
+  "scenario": "Complex Multi-Option Analysis",
+  "timestamp": "2025-01-16T09:30:15.000Z",
+  "seed": 101,
+  "duration": 15000,
+  "status": "completed",
+  "summary": {
+    "totalNodes": 12,
+    "totalLinks": 18,
+    "complexity": "high",
+    "confidence": 0.78
+  },
+  "results": {
+    "recommendation": "Hybrid Solution",
+    "score": 8.4,
+    "reasoning": "Combining elements from multiple options provides optimal risk-adjusted returns while maintaining operational flexibility.",
+    "alternatives": [
+      {
+        "option": "Pure Strategy A",
+        "score": 7.1,
+        "reasoning": "High potential but significant implementation risks"
+      },
+      {
+        "option": "Pure Strategy B",
+        "score": 6.8,
+        "reasoning": "Safer approach with moderate returns"
+      },
+      {
+        "option": "Pure Strategy C",
+        "score": 5.5,
+        "reasoning": "Low risk but limited growth potential"
+      }
+    ]
+  },
+  "metrics": {
+    "processTime": 13500,
+    "engineCalls": 5,
+    "cacheHits": 23,
+    "retries": 1,
+    "confidence": {
+      "overall": 0.78,
+      "dataQuality": 0.85,
+      "modelReliability": 0.72
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "environment": "development",
+    "flags": {
+      "experimental": true,
+      "advanced": true,
+      "multiOption": true
+    }
+  }
+}
