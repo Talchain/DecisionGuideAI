@@ -23,8 +23,18 @@ jobs:
         env:
           NPM_CONFIG_ENGINE_STRICT: 'false'
         run: |
-          npm ci --no-audit --no-fund --legacy-peer-deps || \
-          npm i  --no-audit --no-fund --legacy-peer-deps
+          npm ci --no-audit --no-fund --ignore-scripts --legacy-peer-deps
+
+      - name: Verify lockfile unchanged
+        run: |
+          git diff --exit-code -- package-lock.json
+
+      - name: Capture npm debug (on fail)
+        if: failure()
+        run: |
+          echo "## npm ci failure (tail of log)" >> $GITHUB_STEP_SUMMARY
+          ls -la npm-debug.log || true
+          tail -n 200 npm-debug.log 2>/dev/null || true
 
       - name: Typecheck
         run: npm run typecheck
