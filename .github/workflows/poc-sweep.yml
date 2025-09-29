@@ -42,13 +42,13 @@ jobs:
       - name: E2E WebKit smoke
         run: npm run test:e2e:webkit   -- e2e/flags-off.smoke.spec.ts
 
-      - name: Evidence: a11y
+      - name: "Evidence: a11y"
         run: npm run evidence:a11y
-      - name: Evidence: UI pack
+      - name: "Evidence: UI pack"
         run: npm run evidence:ui-pack
-      - name: Evidence: share-cap
+      - name: "Evidence: share-cap"
         run: npm run evidence:share-cap
-      - name: Evidence: immutability
+      - name: "Evidence: immutability"
         run: npm run test -- src/lib/__tests__/evidence.immutability.test.ts
 
       - name: Upload artefacts
