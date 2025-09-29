@@ -5,6 +5,10 @@ on:
     branches: [ feat/release-readiness ]
   workflow_dispatch:
 
+concurrency:
+  group: poc-sweep-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   sweep:
     runs-on: ubuntu-latest
@@ -16,7 +20,9 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - name: Install deps
-        run: npm ci
+        env:
+          NPM_CONFIG_ENGINE_STRICT: 'false'
+        run: npm ci --no-audit --no-fund --ignore-scripts
 
       - name: Typecheck
         run: npm run typecheck
