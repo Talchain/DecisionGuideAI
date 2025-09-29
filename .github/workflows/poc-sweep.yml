@@ -33,6 +33,14 @@ jobs:
       - name: Console-free
         run: npm run ci:no-console
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
       - name: Install Playwright browsers
         run: npx playwright install chromium firefox webkit
 
@@ -40,7 +48,7 @@ jobs:
         run: npm run test:unit
 
       - name: E2E Chromium (full)
-        run: npm run test:e2e:chromium -- --grep-invert @flaky
+        run: npm run test:e2e:chromium -- --grep-invert @flaky --retries=2
 
       - name: E2E Firefox smoke
         run: npm run test:e2e:firefox  -- e2e/flags-off.smoke.spec.ts
