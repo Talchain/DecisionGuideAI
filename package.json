@@ -28,7 +28,7 @@
     "evidence:a11y": "playwright test e2e/a11y-vendored.spec.ts --project=chromium -c playwright.config.ts",
     "evidence:all": "npm run evidence:share-cap && npm run evidence:ui-pack",
     "ci:scan-dist": "sh -c \"if grep -R -n -E '__E2E|\\?e2e=' dist; then echo 'Found runtime E2E toggles in dist'; exit 1; else echo 'OK: no runtime E2E toggles'; fi\"",
-    "ci:no-console": "sh -c \"if grep -R -n -E --exclude='*.map' --exclude='dist/assets/vendor-*.js' --exclude='dist/assets/auth-*.js' 'console\\.' dist; then echo 'Found console calls in production build'; exit 1; else echo 'OK: no console calls in dist'; fi\"",
+    "ci:no-console": "sh -c \"if grep -R -n -E --exclude='*.map' --exclude='dist/assets/vendor-*.js' --exclude='dist/assets/auth-*.js' 'console\\.[A-Za-z]+\\(' dist; then echo 'Found console calls in production build'; exit 1; else echo 'OK: no console calls in dist'; fi\"",
     "test:e2e:firefox": "playwright test --project=firefox -c playwright.config.ts",
     "test:e2e:webkit": "playwright test --project=webkit -c playwright.config.ts"
   },

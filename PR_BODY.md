@@ -25,6 +25,8 @@ Build
   npm run build
 Console-free
   npm run ci:no-console
+Bundle budget (gzipped)
+  node scripts/ci/scan-dist.mjs | tee docs/evidence/bundle/bundle_report.json
 Install Playwright browsers
   npx playwright install chromium firefox webkit
 Unit tests
@@ -52,6 +54,7 @@ Artefacts
 - Share-cap evidence: `docs/evidence/share/` (catalogue message file(s)).
 - A11y summary: `docs/evidence/a11y/axe_summary.txt` (Serious/Critical: 0).
 - UI Evidence Pack ZIP: `docs/evidence/ui/evidence-pack-seed777-model-local-sim.zip`.
+- Bundle budget report: `docs/evidence/bundle/bundle_report.json`.
 
 Acceptance
 
@@ -61,6 +64,7 @@ Acceptance
 - ACCEPTANCE: A11y checks pass (axe serious/critical = 0); Esc restores focus.
 - ACCEPTANCE: Production bundle drops console/debugger; no secrets or query strings logged.
 - ACCEPTANCE: Perf probe within budget; Compare deltas verified; Share-cap negative path documented.
+- ACCEPTANCE: Bundle budget gate green (≤ baseline +8% gzipped); docs/evidence/bundle/bundle_report.json present.
 
 Backout
 

@@ -1,11 +1,10 @@
-name: Open PR (Release Readiness)
+name: Open Release Readiness PR
 
 on:
-  push:
-    branches: [ feat/release-readiness ]
+  workflow_dispatch: {}
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: write
 
 jobs:
@@ -13,8 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Create or update PR to main
-        uses: actions/github-script@v7
+      - uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
@@ -25,16 +23,20 @@ jobs:
             const repo = context.repo.repo;
             const head = 'feat/release-readiness';
             const base = 'main';
-            // Check for existing open PR from head to base
+            // Gate on latest PoC UI Sweep being green for this branch
+            const { data: runs } = await github.rest.actions.listWorkflowRuns({ owner, repo, workflow_id: 'poc-sweep.yml', branch: head, per_page: 1 });
+            if (!runs.workflow_runs?.length || runs.workflow_runs[0].conclusion !== 'success') {
+              core.notice('Skipping PR open/update: latest PoC UI Sweep is not green.');
+              return;
+            }
+            // Find existing PR
             const { data: prs } = await github.rest.pulls.list({ owner, repo, state: 'open', head: `${owner}:${head}` });
-            if (prs && prs.length > 0) {
-              const pr = prs[0];
-              // Update title/body if needed
-              await github.rest.pulls.update({ owner, repo, pull_number: pr.number, title, body });
-              core.setOutput('pr_number', pr.number);
-              core.notice(`PR already open: #${pr.number}`);
+            if (prs.length) {
+              await github.rest.pulls.update({ owner, repo, pull_number: prs[0].number, title, body });
+              core.setOutput('pr_url', prs[0].html_url);
+              core.notice(`PR updated: ${prs[0].html_url}`);
             } else {
-              const { data: pr } = await github.rest.pulls.create({ owner, repo, head, base, title, body });
-              core.setOutput('pr_number', pr.number);
-              core.notice(`PR created: #${pr.number}`);
+              const { data: pr } = await github.rest.pulls.create({ owner, repo, title, body, head, base });
+              core.setOutput('pr_url', pr.html_url);
+              core.notice(`PR created: ${pr.html_url}`);
             }
