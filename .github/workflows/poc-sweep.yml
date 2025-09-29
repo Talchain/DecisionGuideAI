@@ -22,7 +22,9 @@ jobs:
       - name: Install deps
         env:
           NPM_CONFIG_ENGINE_STRICT: 'false'
-        run: npm ci --no-audit --no-fund --ignore-scripts
+        run: |
+          npm ci --no-audit --no-fund --legacy-peer-deps || \
+          npm i  --no-audit --no-fund --legacy-peer-deps
 
       - name: Typecheck
         run: npm run typecheck
