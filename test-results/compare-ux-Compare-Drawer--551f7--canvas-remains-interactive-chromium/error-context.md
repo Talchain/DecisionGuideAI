@@ -1,0 +1,80 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - generic [ref=e4]:
+    - button "🧩" [ref=e6] [cursor=pointer]
+    - button "Start" [disabled] [ref=e7]
+    - button "Stop" [ref=e8] [cursor=pointer]
+    - generic [ref=e9]:
+      - checkbox "Hide weaker links (<0.3)" [checked] [ref=e10]
+      - generic [ref=e11]: Hide weaker links (<0.3)
+    - generic [ref=e12]: Simplify on. 2 links hidden (threshold 0.3).
+    - 'generic "Run status: Streaming" [ref=e13]': Streaming
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - button "Snapshot" [ref=e16] [cursor=pointer]
+        - status [ref=e17]
+      - generic [ref=e18]:
+        - generic [ref=e19]: Snapshots
+        - list [ref=e20]:
+          - listitem [ref=e21]:
+            - generic [ref=e22]: 30/09/2025, 00:20:30
+            - button "Copy share link" [ref=e23] [cursor=pointer]
+          - listitem [ref=e24]:
+            - generic [ref=e25]: 30/09/2025, 00:20:30
+      - generic [ref=e26]:
+        - generic [ref=e27]: Change log
+        - list [ref=e28]:
+          - listitem [ref=e29]: Added 0
+          - listitem [ref=e30]: Removed 2
+          - listitem [ref=e31]: Changed 0
+        - status [ref=e32]: Change log available since last snapshot.
+    - generic [ref=e33]:
+      - generic [ref=e34]: Compare Snapshots
+      - generic [ref=e35]:
+        - combobox [ref=e36]:
+          - option "(A)"
+          - option "30/09/2025, 00:20:30"
+          - option "30/09/2025, 00:20:30" [selected]
+        - generic [ref=e37]: vs
+        - combobox [ref=e38]:
+          - option "(B)"
+          - option "30/09/2025, 00:20:30" [selected]
+          - option "30/09/2025, 00:20:30"
+      - status [ref=e39]: "Comparison updated: 0 added, 2 removed, 0 changed."
+      - list [ref=e40]:
+        - listitem [ref=e41]: ↓ e2
+        - listitem [ref=e42]: ↓ e4
+  - generic [ref=e44]:
+    - generic [ref=e45]:
+      - heading "Engine Audit" [level=2] [ref=e46]
+      - generic [ref=e47]:
+        - button "Fetch" [ref=e48] [cursor=pointer]
+        - button "Re-fetch" [ref=e49] [cursor=pointer]
+    - generic [ref=e50]:
+      - generic [ref=e51]:
+        - generic [ref=e52]: Last status
+        - generic [ref=e53]: —
+      - generic [ref=e54]:
+        - generic [ref=e55]: Cached ETag
+        - generic [ref=e56]: —
+      - generic [ref=e57]:
+        - generic [ref=e58]: Last data hash
+        - generic [ref=e59]: —
+      - generic [ref=e60]:
+        - generic [ref=e61]: Headers (last /draft-flows)
+        - generic [ref=e62]:
+          - generic [ref=e63]:
+            - generic [ref=e64]: "ETag:"
+            - generic [ref=e65]: —
+          - generic [ref=e66]:
+            - generic [ref=e67]: "Content-Length:"
+            - generic [ref=e68]: —
+          - generic [ref=e69]:
+            - generic [ref=e70]: "Cache-Control:"
+            - generic [ref=e71]: —
+          - generic [ref=e72]:
+            - generic [ref=e73]: "Vary:"
+            - generic [ref=e74]: —
+```
