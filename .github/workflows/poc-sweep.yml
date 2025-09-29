@@ -45,6 +45,11 @@ jobs:
       - name: Console-free
         run: npm run ci:no-console
 
+      - name: Bundle budget (gzipped)
+        run: |
+          mkdir -p docs/evidence/bundle
+          node scripts/ci/scan-dist.mjs | tee docs/evidence/bundle/bundle_report.json
+
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
