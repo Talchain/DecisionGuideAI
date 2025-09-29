@@ -6,6 +6,7 @@ import {
   useLocation
 } from 'react-router-dom'
 import { supabase } from './lib/supabase'
+import { isE2EEnabled } from './flags'
 import { checkAccessValidation } from './lib/auth/accessValidation'
 import { useAuth } from './contexts/AuthContext'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -51,7 +52,9 @@ export default function App() {
   // quick sanity check
   useEffect(() => {
     supabase.auth.getSession().then(({ data, error }) => {
-      console.log('session:', { data, error })
+      if (import.meta.env.DEV && (typeof localStorage !== 'undefined') && localStorage.getItem('debug.logging') === '1') {
+        console.log('session: [redacted]', { hasData: !!data, hasError: !!error })
+      }
     })
   }, [])
 
@@ -64,7 +67,20 @@ export default function App() {
     !isAuthRoute &&
     (authenticated || hasValidAccess)
 
-  if (loading) return <LoadingSpinner />
+  if (!isE2EEnabled() && loading) return <LoadingSpinner />
+
+  // E2E test-mode (non-prod only): minimal, deterministic surface
+  if (!import.meta.env.PROD && isE2EEnabled()) {
+    return (
+      <ErrorBoundary>
+        <div className="min-h-screen bg-white" data-testid="e2e-surface">
+          <main className="container mx-auto px-4 py-6">
+            <SandboxStreamPanel />
+          </main>
+        </div>
+      </ErrorBoundary>
+    )
+  }
 
   return (
     <ErrorBoundary>

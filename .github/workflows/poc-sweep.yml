@@ -1,0 +1,68 @@
+name: PoC UI Sweep
+
+on:
+  push:
+    branches: [ feat/release-readiness ]
+  workflow_dispatch:
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install deps
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint (temporary JS-only)
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Console-free
+        run: npm run ci:no-console
+
+      - name: Install Playwright browsers
+        run: npx playwright install chromium firefox webkit
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: E2E Chromium (full)
+        run: npm run test:e2e:chromium -- --grep-invert @flaky
+
+      - name: E2E Firefox smoke
+        run: npm run test:e2e:firefox  -- e2e/flags-off.smoke.spec.ts
+
+      - name: E2E WebKit smoke
+        run: npm run test:e2e:webkit   -- e2e/flags-off.smoke.spec.ts
+
+      - name: Evidence: a11y
+        run: npm run evidence:a11y
+      - name: Evidence: UI pack
+        run: npm run evidence:ui-pack
+      - name: Evidence: share-cap
+        run: npm run evidence:share-cap
+      - name: Evidence: immutability
+        run: npm run test -- src/lib/__tests__/evidence.immutability.test.ts
+
+      - name: Upload artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: poc-ui-evidence
+          path: |
+            docs/evidence/**
+            playwright-report/**
+          if-no-files-found: ignore
+
+      - name: Summary
+        run: |
+          echo "### PoC UI Sweep ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Typecheck/Lint/Build/Console-free ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Unit ✅  | E2E: Chromium ✅  FF ✅  WK ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Evidence uploaded as artifacts" >> $GITHUB_STEP_SUMMARY

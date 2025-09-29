@@ -5,19 +5,22 @@ import React from 'react'
 // Base mocks for flags so components render
 vi.mock('../../flags', () => ({
   isSseEnabled: () => true,
-  isRunReportEnabled: () => true,
-  isJobsProgressEnabled: () => true,
+  isRunReportEnabled: () => false,
+  isConfigDrawerEnabled: () => false,
+  isCanvasEnabled: () => false,
+  isJobsProgressEnabled: () => false,
   isConfidenceChipsEnabled: () => false,
   isTelemetryEnabled: () => false,
+  isParamsEnabled: () => false,
   isRealReportEnabled: () => true,
   isHintsEnabled: () => false,
-  isParamsEnabled: () => false,
   isHistoryEnabled: () => false,
   isHistoryRerunEnabled: () => false,
   isExportEnabled: () => false,
   isMarkdownPreviewEnabled: () => false,
   isShortcutsEnabled: () => false,
   isCopyCodeEnabled: () => false,
+  isScenariosEnabled: () => false,
 }))
 
 class FakeEventSource {

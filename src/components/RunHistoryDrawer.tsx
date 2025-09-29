@@ -87,7 +87,7 @@ export default function RunHistoryDrawer({ open, onClose, onOpenReport, onRerun,
                   >{statusLabel(m.status)}</span>
                   {m.seed && <span className="text-xs border rounded px-1" data-testid="history-seed">seed: {m.seed}</span>}
                   {m.model && <span className="text-xs border rounded px-1" data-testid="history-model">model: {m.model}</span>}
-                  {typeof m.estCost === 'number' && <span className="text-xs border rounded px-1" data-testid="history-cost">£{m.estCost.toFixed(2)}</span>}
+                  {typeof m.estCost === 'number' && <span className="text-xs border rounded px-1" data-testid="history-cost">${m.estCost.toFixed(2)}</span>}
                   {typeof m.durationMs === 'number' && <span className="text-xs border rounded px-1" data-testid="history-duration">{m.durationMs}ms</span>}
                   {rerunFlag && onRerun && (
                     <button

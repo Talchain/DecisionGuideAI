@@ -1,4 +1,5 @@
 {
+  "version": 1,
   "seed": 1234,
   "orgId": "local",
   "userId": "tester",
@@ -17,6 +18,8 @@
     "calibration": "C",
     "diversity": "D"
   },
+  "meta": {},
+  "sections": [],
   "steps": [
     {
       "id": "step-1",

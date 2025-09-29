@@ -65,6 +65,29 @@ Flags (all OFF by default; enable via env or localStorage):
 // Markdown preview and Copy code buttons:
 - VITE_FEATURE_MD_PREVIEW=1          // or localStorage.setItem('feature.mdPreview','1')
 - VITE_FEATURE_COPY_CODE=1           // or localStorage.setItem('feature.copyCode','1')
+// Transcript export buttons (.txt/.json/.md):
+- VITE_FEATURE_EXPORT=1              // or localStorage.setItem('feature.export','1')
+// Run Report: Copy JSON button
+- VITE_FEATURE_REPORT_COPY=1         // or localStorage.setItem('feature.reportCopy','1')
+// Run Report: Download JSON button
+- VITE_FEATURE_REPORT_DOWNLOAD=1     // or localStorage.setItem('feature.reportDownload','1')
+// Run Report: Pretty JSON toggle
+- VITE_FEATURE_REPORT_PRETTY=1       // or localStorage.setItem('feature.reportPretty','1')
+
+Copy/Download JSON are developer aids. They're off by default and must be explicitly enabled via env or localStorage.
+
+// TLdraw adapter (optional; requires package)
+- VITE_FEATURE_TLDRAW=1              // or localStorage.setItem('feature.tldraw','1')
+  TLdraw support is OFF by default and requires installing @tldraw/tldraw. When not installed, the app falls back to the built-in canvas.
+
+// Scenarios (templates)
+- VITE_FEATURE_SCENARIOS=1           // or localStorage.setItem('feature.scenarios','1')
+  Templates are local. Share links encode data in the URL — no server storage.
+
+> **Tip:** See `.env.example`  for the common flags you can toggle locally.
+
+E2E test mode:
+- VITE_E2E=1 mounts the Sandbox surface directly in dev/test builds (no auth/providers). Playwright navigates to `/#/sandbox` (may include `/?e2e=1` in URLs for clarity; the query is ignored at runtime when VITE_E2E drives build-time checks).
 
 Required env:
 - VITE_EDGE_GATEWAY_URL=http://localhost:3001
@@ -77,19 +100,78 @@ Notes:
 - “Stop” feels instant; tokens stop locally, server later confirms with “Aborted”.
 - Run Report is read-only: seed, route, duration, totals, steps. Real report is used when `VITE_USE_REAL_REPORT=1` , otherwise a safe mock is shown.
 - No PII is logged. Telemetry (if enabled) emits counters only.
+- Developer aids (Replay and Report JSON Copy/Download/Pretty) are behind flags and OFF by default.
 
-Troubleshooting:
-- Confirm gateway URL (`VITE_EDGE_GATEWAY_URL`).
-- Confirm flags are ON.
-- Use the bumped dev server port if 5176 changes.
+## Testing quickstart (Playwright + Chromium)
 
-## Security Analysis (CodeQL)
+Prereqs: Node 18+, npm (or pnpm/yarn), dependencies installed.
 
-CodeQL security analysis runs automatically on PR and pushes to main. Results are available in the "Code scanning" section of the repository.
-
-Local analysis:
+1) Install the browser engine (one-time)
 ```bash
-./tools/codeql-local.sh
+npx playwright install chromium
 ```
 
-This creates a database and SARIF report in `artifacts/` for local security review.
+2) Run the full E2E suite (Chromium)
+```bash
+npx playwright test --project=chromium -c playwright.config.ts
+```
+
+3) Run a few targeted specs
+```bash
+# Core sandbox + drawer flows
+npx playwright test e2e/report-drawer.spec.ts   --project=chromium -c playwright.config.ts
+npx playwright test e2e/export-md.spec.ts       --project=chromium -c playwright.config.ts
+npx playwright test e2e/sandbox-resume.spec.ts  --project=chromium -c playwright.config.ts
+
+# Jobs + canvas + replay
+npx playwright test e2e/jobs-progress.spec.ts   --project=chromium -c playwright.config.ts
+npx playwright test e2e/canvas-drawer.spec.ts   --project=chromium -c playwright.config.ts
+npx playwright test e2e/replay-run.spec.ts      --project=chromium -c playwright.config.ts
+
+# TLdraw adapter (auto-skips if @tldraw/tldraw isn’t installed)
+npx playwright test e2e/tldraw-adapter.spec.ts  --project=chromium -c playwright.config.ts
+```
+
+_Tip:_ check `.env.example`  for handy feature flags while developing.
+
+4) Useful dev runs
+```bash
+# Headed, slow-mo for debugging
+npx playwright test --project=chromium -c playwright.config.ts --headed --debug
+
+# Re-run failing tests only
+npx playwright test --project=chromium -c playwright.config.ts --last-failed
+```
+
+### Feature flags (developer aids)
+Some features are OFF by default and gated for development. You can toggle them at runtime in DevTools Console:
+
+```js
+// Report tools
+localStorage.setItem('feature.reportCopy', '1');
+localStorage.setItem('feature.reportDownload', '1');
+localStorage.setItem('feature.reportPretty', '1');
+
+// Replay + Canvas (shim) + TLdraw adapter
+localStorage.setItem('feature.replay', '1');
+localStorage.setItem('feature.canvas', '1');
+localStorage.setItem('feature.tldraw', '1'); // requires @tldraw/tldraw; otherwise falls back to built-in canvas
+
+// Optional: set a gateway base URL (leave blank for relative)
+localStorage.setItem('cfg.gateway', 'http://localhost:8787');
+```
+
+To reset:
+```js
+['feature.reportCopy','feature.reportDownload','feature.reportPretty',
+ 'feature.replay','feature.canvas','feature.tldraw','cfg.gateway',
+ 'report.pretty','canvas.snapshot','canvas.autosave']
+ .forEach(k => localStorage.removeItem(k));
+```
+
+### Troubleshooting
+- “panel_not_ready” timeouts: make sure specs navigate to `/?e2e=1#/sandbox` (the suite does this via shared helpers) and that the dev server port used by Playwright isn’t occupied.
+- Focus assertions after Esc: tests allow a brief (~20ms) settle for focus restoration—keep that pattern if you add new drawer specs.
+- Report actions: “Copy JSON”, “Download JSON”, and “Pretty JSON” are dev aids; enable their flags when testing locally.
+- TLdraw: If `@tldraw/tldraw` isn’t installed, the TLdraw spec auto-skips and the app falls back to the built-in canvas.
+

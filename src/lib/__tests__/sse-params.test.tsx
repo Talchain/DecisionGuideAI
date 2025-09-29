@@ -2,20 +2,24 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
 import React from 'react'
 
-// Enable SSE + Params + Chips
+// Enable SSE + Params + chips
 vi.mock('../../flags', () => ({
   isSseEnabled: () => true,
-  isRunReportEnabled: () => false,
+  isRunReportEnabled: () => true,
+  isJobsProgressEnabled: () => false,
+  isConfigDrawerEnabled: () => false,
+  isCanvasEnabled: () => false,
   isConfidenceChipsEnabled: () => true,
   isTelemetryEnabled: () => false,
   isHintsEnabled: () => false,
   isParamsEnabled: () => true,
+  isExportEnabled: () => false,
   isHistoryEnabled: () => false,
   isHistoryRerunEnabled: () => false,
-  isExportEnabled: () => false,
   isMarkdownPreviewEnabled: () => false,
   isShortcutsEnabled: () => false,
   isCopyCodeEnabled: () => false,
+  isScenariosEnabled: () => false,
 }))
 
 // Spy for fetchRunReport to capture params

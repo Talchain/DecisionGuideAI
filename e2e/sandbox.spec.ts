@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { waitForPanel } from './helpers'
 
 // Helper to set flags and stub EventSource before app scripts run
 async function primePage(page: import('@playwright/test').Page) {
@@ -11,8 +12,46 @@ async function primePage(page: import('@playwright/test').Page) {
       localStorage.setItem('feature.runReport', '1')
       // Bypass access guard for E2E: treat user as authenticated
       localStorage.setItem('sb-auth-token', '1')
+      // Also mark early access as validated to bypass navigation guard in non-E2E dev
+      localStorage.setItem('dga_access_validated', 'true')
+      localStorage.setItem('dga_access_validation_time', String(Date.now()))
+      localStorage.setItem('dga_access_code', btoa('dga_v1_DGAIV01'))
     } catch {}
   })
+
+  await page.addInitScript(() => {
+    // Pure-JS FakeEventSource stub for browser context
+    function FakeEventSource(url) {
+      this.url = url
+      this.closed = false
+      this.onopen = null
+      this.onmessage = null
+      this.onerror = null
+      this._listeners = new Map()
+      const FE = FakeEventSource as any
+      ;(FE.instances || (FE.instances = [])).push(this)
+    }
+    FakeEventSource.prototype.addEventListener = function(type, cb) {
+      const set = this._listeners.get(type) || new Set()
+      set.add(cb)
+      this._listeners.set(type, set)
+    }
+    FakeEventSource.prototype.close = function() { this.closed = true }
+    FakeEventSource.prototype.emit = function(type, data, id) {
+      if (this.closed) return
+      if (type === 'open') { if (this.onopen) this.onopen({}); return }
+      if (type === 'error') { if (this.onerror) this.onerror({}); return }
+      const ev = { data, lastEventId: id }
+      if (type === 'message' && this.onmessage) this.onmessage(ev)
+      const set = this._listeners.get(type)
+      if (set) set.forEach((cb) => cb(ev))
+    }
+    ;(window as any).FakeEventSource = FakeEventSource
+    ;(window as any).EventSource = FakeEventSource as any
+  })
+}
+
+// waitForPanel provided by helpers.ts
 
 // Re-run from History: snap params and start immediately
 test('Re-run from History starts streaming with snapped params', async ({ page }) => {
@@ -27,7 +66,8 @@ test('Re-run from History starts streaming with snapped params', async ({ page }
     } catch {}
   })
   await page.route('http://localhost:54321/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
-  await page.goto('/#/sandbox')
+  await page.goto('/?e2e=1#/sandbox')
+  await waitForPanel(page)
 
   // Run once to record into history
   await page.getByTestId('start-btn').click()
@@ -55,39 +95,7 @@ test('Re-run from History starts streaming with snapped params', async ({ page }
   await expect(page.getByTestId('status-chip')).toHaveText('Done')
 })
 
-  await page.addInitScript(() => {
-    class FakeEventSource {
-      static instances: any[] = []
-      url: string
-      closed = false
-      onopen: ((ev: any) => void) | null = null
-      onmessage: ((ev: any) => void) | null = null
-      onerror: ((ev: any) => void) | null = null
-      private listeners = new Map<string, Set<(ev: any) => void>>()
-      constructor(url: string) {
-        this.url = url
-        ;(FakeEventSource as any).instances.push(this)
-      }
-      addEventListener(type: string, cb: (ev: any) => void) {
-        const set = this.listeners.get(type) || new Set()
-        set.add(cb)
-        this.listeners.set(type, set)
-      }
-      close() { this.closed = true }
-      emit(type: string, data?: string, id?: string) {
-        if (this.closed) return
-        if (type === 'open') { this.onopen?.({}); return }
-        if (type === 'error') { this.onerror?.({}); return }
-        const ev: any = { data, lastEventId: id }
-        if (type === 'message') this.onmessage?.(ev)
-        const set = this.listeners.get(type)
-        if (set) set.forEach((cb) => cb(ev))
-      }
-    }
-    ;(window as any).FakeEventSource = FakeEventSource
-    ;(window as any).EventSource = FakeEventSource as any
-  })
-}
+ 
 
 // Happy path: Start -> tokens -> Done
 test('Sandbox happy path renders tokens and Done', async ({ page }) => {
@@ -95,7 +103,8 @@ test('Sandbox happy path renders tokens and Done', async ({ page }) => {
   await page.route('http://localhost:54321/**', (route) => {
     route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
   })
-  await page.goto('/#/sandbox')
+  await page.goto('/?e2e=1#/sandbox')
+  await waitForPanel(page)
   await page.waitForLoadState('domcontentloaded')
   await page.waitForLoadState('networkidle')
   await page.waitForSelector('[data-testid="start-btn"]', { timeout: 15000 })
@@ -125,7 +134,8 @@ test('Sandbox Stop then Aborted UX', async ({ page }) => {
   await page.route('http://localhost:54321/**', (route) => {
     route.fulfill({ status: 200, contentType: 'application/json', body: '{}' })
   })
-  await page.goto('/#/sandbox')
+  await page.goto('/?e2e=1#/sandbox')
+  await waitForPanel(page)
   await page.waitForLoadState('domcontentloaded')
   await page.waitForLoadState('networkidle')
   await expect(page.getByTestId('start-btn')).toBeVisible()
@@ -152,7 +162,8 @@ test('Sandbox Stop then Aborted UX', async ({ page }) => {
 test('Sandbox limited by budget shows limited tip', async ({ page }) => {
   await primePage(page)
   await page.route('http://localhost:54321/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
-  await page.goto('/#/sandbox')
+  await page.goto('/?e2e=1#/sandbox')
+  await waitForPanel(page)
   await page.waitForSelector('[data-testid="start-btn"]')
   await page.getByTestId('start-btn').click()
   await page.evaluate(() => {
@@ -167,7 +178,8 @@ test('Sandbox limited by budget shows limited tip', async ({ page }) => {
 test('Sandbox retry then terminal Error', async ({ page }) => {
   await primePage(page)
   await page.route('http://localhost:54321/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
-  await page.goto('/#/sandbox')
+  await page.goto('/?e2e=1#/sandbox')
+  await waitForPanel(page)
   await page.waitForSelector('[data-testid="start-btn"]')
   await page.getByTestId('start-btn').click()
   await page.evaluate(() => { const es = (window as any).FakeEventSource.instances[0]; es.emit('open'); es.emit('error') })
@@ -181,7 +193,8 @@ test('Sandbox retry then terminal Error', async ({ page }) => {
 test('Sandbox params persist and stream URL includes them', async ({ page }) => {
   await primePage(page)
   await page.route('http://localhost:54321/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
-  await page.goto('/#/sandbox')
+  await page.goto('/?e2e=1#/sandbox')
+  await waitForPanel(page)
   await page.waitForSelector('[data-testid="param-seed"]')
   await page.getByTestId('param-seed').fill('42')
   await page.getByTestId('param-budget').fill('3.5')
@@ -202,7 +215,8 @@ test('Sandbox params persist and stream URL includes them', async ({ page }) => 
 test('Report drawer basic open and Esc returns focus', async ({ page }) => {
   await primePage(page)
   await page.route('http://localhost:54321/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
-  await page.goto('/#/sandbox')
+  await page.goto('/?e2e=1#/sandbox')
+  await waitForPanel(page)
   await page.getByTestId('start-btn').click()
   await page.evaluate(() => { const es = (window as any).FakeEventSource.instances[0]; es.emit('open'); es.emit('done') })
   const btn = page.getByTestId('view-report-btn')
@@ -217,7 +231,8 @@ test('Report drawer basic open and Esc returns focus', async ({ page }) => {
 test('Keyboard-only start and status chip focus at terminal', async ({ page }) => {
   await primePage(page)
   await page.route('http://localhost:54321/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
-  await page.goto('/#/sandbox')
+  await page.goto('/?e2e=1#/sandbox')
+  await waitForPanel(page)
   await page.keyboard.press('Tab') // focus Start
   await page.keyboard.press('Enter')
   await page.evaluate(() => { const es = (window as any).FakeEventSource.instances[0]; es.emit('open'); es.emit('done') })
@@ -231,7 +246,8 @@ test('Run History drawer shows entries and persists', async ({ page }) => {
   // Enable history flag before app scripts run
   await page.addInitScript(() => { try { localStorage.setItem('feature.history', '1') } catch {} })
   await page.route('http://localhost:54321/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
-  await page.goto('/#/sandbox')
+  await page.goto('/?e2e=1#/sandbox')
+  await waitForPanel(page)
   await page.waitForSelector('[data-testid="start-btn"]')
 
   // Seed one quick run
@@ -250,8 +266,10 @@ test('Run History drawer shows entries and persists', async ({ page }) => {
   // Has an entry with Done status
   await expect(page.getByTestId('history-status').first()).toHaveText('Done')
 
-  // Esc closes and focus returns to trigger
+  // Esc closes and focus returns to trigger (focus drawer first to ensure key handler fires)
+  await page.getByTestId('history-drawer').click({ position: { x: 10, y: 10 } })
   await page.keyboard.press('Escape')
+  await expect(histBtn).toBeEnabled()
   await expect(histBtn).toBeFocused()
 
   // Reload and verify persistence

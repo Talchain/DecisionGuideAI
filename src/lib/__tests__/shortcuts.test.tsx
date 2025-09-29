@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
-import React from 'react'
+import { render, screen, act, cleanup } from '@testing-library/react'
 
 // Flags: enable SSE + Shortcuts + History + RunReport
 vi.mock('../../flags', () => ({
   isSseEnabled: () => true,
   isRunReportEnabled: () => true,
+  isConfigDrawerEnabled: () => false,
+  isCanvasEnabled: () => false,
+  isJobsProgressEnabled: () => false,
   isConfidenceChipsEnabled: () => false,
   isTelemetryEnabled: () => false,
   isHintsEnabled: () => false,
@@ -16,6 +18,7 @@ vi.mock('../../flags', () => ({
   isShortcutsEnabled: () => true,
   isHistoryRerunEnabled: () => false,
   isCopyCodeEnabled: () => false,
+  isScenariosEnabled: () => false,
 }))
 
 class FakeEventSource {

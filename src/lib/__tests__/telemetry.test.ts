@@ -9,7 +9,7 @@ describe('telemetry counters', () => {
   })
 
   it('OFF → no increments', async () => {
-    vi.doMock('../../flags', () => ({ isTelemetryEnabled: () => false }))
+    vi.doMock('../../flags', () => ({ isTelemetryEnabled: () => false, isScenariosEnabled: () => false }))
     const mod = await import('../telemetry')
     const { track, __getTelemetryCounters, __resetTelemetryCounters } = mod
     __resetTelemetryCounters()
@@ -21,7 +21,7 @@ describe('telemetry counters', () => {
   })
 
   it('ON → increments; no payloads', async () => {
-    vi.doMock('../../flags', () => ({ isTelemetryEnabled: () => true }))
+    vi.doMock('../../flags', () => ({ isTelemetryEnabled: () => true, isScenariosEnabled: () => false }))
     const mod = await import('../telemetry')
     const { track, __getTelemetryCounters, __resetTelemetryCounters } = mod
     __resetTelemetryCounters()

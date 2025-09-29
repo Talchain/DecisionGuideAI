@@ -13,6 +13,9 @@ describe('Markdown Copy Code (flags OFF)', () => {
     vi.doMock('../../flags', () => ({
       isSseEnabled: () => true,
       isRunReportEnabled: () => false,
+      isJobsProgressEnabled: () => false,
+      isConfigDrawerEnabled: () => false,
+      isCanvasEnabled: () => false,
       isConfidenceChipsEnabled: () => false,
       isTelemetryEnabled: () => false,
       isHintsEnabled: () => false,
@@ -23,6 +26,7 @@ describe('Markdown Copy Code (flags OFF)', () => {
       isMarkdownPreviewEnabled: () => false,
       isShortcutsEnabled: () => false,
       isCopyCodeEnabled: () => false,
+      isScenariosEnabled: () => false,
     }))
   })
   afterEach(() => {
@@ -85,6 +89,9 @@ describe('Markdown Copy Code (flags ON)', () => {
     vi.doMock('../../flags', () => ({
       isSseEnabled: () => true,
       isRunReportEnabled: () => false,
+      isJobsProgressEnabled: () => false,
+      isConfigDrawerEnabled: () => false,
+      isCanvasEnabled: () => false,
       isConfidenceChipsEnabled: () => false,
       isTelemetryEnabled: () => false,
       isHintsEnabled: () => false,
@@ -95,6 +102,7 @@ describe('Markdown Copy Code (flags ON)', () => {
       isMarkdownPreviewEnabled: () => true,
       isShortcutsEnabled: () => false,
       isCopyCodeEnabled: () => true,
+      isScenariosEnabled: () => false,
     }))
 
     savedRAF = (globalThis as any).requestAnimationFrame

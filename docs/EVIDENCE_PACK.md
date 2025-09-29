@@ -31,23 +31,25 @@
   - "Suggestion applied. You can press Undo."
   - "Undone."
   - "Comment deleted"
+- Vendored axe scan (Playwright): see `docs/evidence/a11y/axe_summary.txt`; target 0 serious/critical issues on scanned surfaces.
 - Drawers restore focus to triggering control on close (Esc).
 
 ## Health Tooltip Examples
 - Minimal: `status: ok, p95: 123ms`
 - Extended: `status: ok, p95: 123ms, v1.2.3, replay: idle`
 - Never shows the literal word "undefined".
-
 ## Captured Artefacts
 - Playwright HTML report: run `npx playwright show-report`
 - Download filename captured (report): `report_v1_seed-4242_model-local-sim.json`
 - Summary v2 screenshot (local): open `/#/sandbox` with `feature.summaryV2=1` and capture the main panel showing chips + three cards.
+- Engine Audit Panel screenshot (200 → 304): `docs/evidence/audit/audit_panel_200_304.png`
+- Perf probe (worker layout 20 nodes): `docs/evidence/perf/worker_20_nodes.json` (target ≤ 150 ms)
+- Compare UX screenshot (headline deltas + canvas affordance): `docs/evidence/compare/compare_headline_deltas.png`
 
 ## Share-link cap evidence
 - Evidence path: `docs/evidence/share/url_cap_evidence.txt`
 - Expected catalogue message: `Link too large; please use Export/Import JSON`
 
-## UI Evidence Pack (ZIP)
 - Path: `docs/evidence/ui/evidence-pack-seed777-model-local-sim.zip`
 - Contents:
   - `snapshot.json`
@@ -59,13 +61,28 @@
 ## A11y quick scan
 - Summary file: `docs/evidence/a11y/axe_summary.txt`
 - Target: `0` critical/serious; otherwise list succinctly.
+ - Reduced-motion honoured (microtask fallback): `docs/evidence/a11y/reduced_motion_note.txt`
+
+## Cross-browser spot checks
+- Chromium (full suite) is the primary target.
+- Firefox/WebKit spot checks cover: `summary-v2.spec.ts`, `report-download.spec.ts`, `report-drawer.spec.ts`, `snapshots.spec.ts`, `engine-audit-panel.spec.ts`.
+- Known quirks will be noted here if encountered (pointer events/focus restore).
+
+## CI jobs summary
+- lint_typecheck: Lint + Typecheck (tsconfig.ci.json targets src/** only)
+- build: Build + ci:no-console + ci:scan-dist
+- e2e-chromium: Full E2E (Chromium) with retries
+- e2e-firefox: Smoke + summary-v2 (flags-OFF parity + one feature-ON path)
+- e2e-webkit: Smoke + summary-v2 (flags-OFF parity + one feature-ON path)
+- evidence: Vendored a11y + UI pack + share-cap + perf probe p95 + immutability unit
 
 
 ## Mobile baselines (≤480 px)
 - List-first baseline: `docs/evidence/mobile/mobile_list-first_390x844.png`
 - Simplify SR announcement baseline: `docs/evidence/mobile/mobile_simplify_sr_announcement_390x844.png`
 - SR string asserted (polite):
-  - `Simplify on: X links hidden under 0.2; press H to toggle.`
+  - Dynamic: `Simplify on. X links hidden (threshold T).`
+  - At 390×844, T = 0.4 (auto-raised for ≤480 px)
 
 ## Loadcheck (STRICT)
 - Artefact pointer: `docs/evidence/loadcheck/p95.json` (added when the Engine run lands)

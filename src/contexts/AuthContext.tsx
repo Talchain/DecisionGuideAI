@@ -5,6 +5,7 @@ import { supabase, getProfile } from '../lib/supabase';
 import type { UserProfile } from '../types/database';
 import { authLogger } from '../lib/auth/authLogger';
 import { clearAuthStates } from '../lib/auth/authUtils';
+import { isE2EEnabled } from '../flags';
 
 interface AuthContextType {
   user: User | null;
@@ -29,6 +30,30 @@ const AuthContext = createContext<AuthContextType>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
+
+  // E2E test-mode hardening: disallow in production bundles
+  if (import.meta.env.PROD && isE2EEnabled()) {
+    throw new Error('E2E test mode is forbidden in production bundles')
+  }
+
+  // E2E test-mode (non-prod builds): provide an immediately-ready auth context
+  if (!import.meta.env.PROD && isE2EEnabled()) {
+    const value: AuthContextType = {
+      user: null,
+      profile: null,
+      loading: false,
+      authenticated: true,
+      signIn: async () => ({ error: null, data: null }),
+      signUp: async () => ({ error: null, data: null }),
+      signOut: async () => ({ error: null }),
+      updateProfile: async () => ({ error: null }),
+    } as any
+    return (
+      <AuthContext.Provider value={value}>
+        {children}
+      </AuthContext.Provider>
+    )
+  }
   const [state, setState] = React.useState<{
     user: User | null;
     profile: UserProfile | null;

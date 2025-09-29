@@ -1,5 +1,11 @@
 // Navigation debugging utility
-const DEBUG_NAV = true; // Enable/disable debug logging
+// Emission gated behind explicit dev flag to avoid noise and any accidental leakage.
+const ENABLE: boolean = (() => {
+  try {
+    const env: any = (import.meta as any)?.env || {}
+    return !!(env?.DEV) && String(env?.VITE_DEBUG_NAV) === '1'
+  } catch { return false }
+})()
 
 interface NavDebugEvent {
   type: 'auth' | 'render' | 'state' | 'error';
@@ -37,7 +43,7 @@ class NavDebugger {
   }
 
   log(type: NavDebugEvent['type'], component: string, action: string, data?: any) {
-    if (!DEBUG_NAV) return;
+    if (!ENABLE) return;
 
     const event: NavDebugEvent = {
       type,

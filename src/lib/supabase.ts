@@ -1,6 +1,7 @@
 // src/lib/supabase.ts
 
 import { createClient } from '@supabase/supabase-js'
+import { isE2EEnabled } from '../flags'
 import type { Database } from '../types/database'
  
 
@@ -19,8 +20,13 @@ if (import.meta.env.DEV) {
 // —————————————————————————————————————————————————————————————————————————————
 // Validate environment variables
 // —————————————————————————————————————————————————————————————————————————————
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL!
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY!
+let supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined
+let supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+// E2E test-mode: allow safe fallbacks to avoid blocking UI mounting
+if ((!supabaseUrl || !supabaseKey) && isE2EEnabled()) {
+  supabaseUrl = supabaseUrl || 'http://localhost:54321'
+  supabaseKey = supabaseKey || 'test_anon_key'
+}
 if (!supabaseUrl || !supabaseKey) {
   console.error('CRITICAL: Missing Supabase environment variables')
   throw new Error('Missing Supabase environment variables')
@@ -33,8 +39,8 @@ if (!supabaseUrl || !supabaseKey) {
 //  • force fetchOptions: keepalive & no-store
 // —————————————————————————————————————————————————————————————————————————————
 export const supabase = createClient<Database>(
-  supabaseUrl,
-  supabaseKey,
+  supabaseUrl as string,
+  supabaseKey as string,
   {
     auth: {
       autoRefreshToken: true,

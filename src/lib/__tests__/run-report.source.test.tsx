@@ -10,6 +10,7 @@ describe('Run Report source selection', () => {
   it('uses mock fixture when real flag is OFF', async () => {
     vi.mock('../../flags', () => ({
       isRealReportEnabled: () => false,
+      isScenariosEnabled: () => false,
     }))
 
     const fetchSpy = vi.spyOn(globalThis as any, 'fetch').mockImplementation(async (url: any) => {
@@ -32,6 +33,7 @@ describe('Run Report source selection', () => {
   it('falls back to mock when real flag ON but fetch errors', async () => {
     vi.mock('../../flags', () => ({
       isRealReportEnabled: () => true,
+      isScenariosEnabled: () => false,
     }))
 
     const fetchSpy = vi.spyOn(globalThis as any, 'fetch').mockImplementation(async (url: any) => {

@@ -19,6 +19,7 @@
     "src/contexts/**",
     "src/types/**",
     "src/lib/supabase.ts",
-    "src/lib/api.ts"
+    "src/lib/api.ts",
+    "e2e/**"
   ]
 }

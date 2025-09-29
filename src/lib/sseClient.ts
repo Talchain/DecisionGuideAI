@@ -1,4 +1,5 @@
 // src/lib/sseClient.ts
+import { getGatewayBaseUrl } from './config'
 
 export type Handlers = {
   onHello?: () => void
@@ -9,6 +10,8 @@ export type Handlers = {
   onLimit?: () => void
   onError?: (err?: unknown) => void
   onAborted?: () => void
+  onResume?: () => void
+  onSseId?: (id?: string) => void
 }
 
 export type JobsStreamOptions = {
@@ -20,11 +23,12 @@ export type JobsStreamOptions = {
   onDone?: () => void
   onCancelled?: () => void
   onError?: (err?: unknown) => void
+  onStatus?: (s: 'queued' | 'running' | 'done' | 'failed' | 'cancelled') => void
 }
 
 // Subscribe to jobs progress stream: GET /jobs/stream?jobId=&org=
 export function openJobsStream(opts: JobsStreamOptions): StreamHandle {
-  const base = getBaseUrl()
+  const base = getGatewayBaseUrl()
   const jobId = opts.jobId
   const org = opts.org || 'demo'
   const autoReconnect = opts.autoReconnect !== false
@@ -34,13 +38,21 @@ export function openJobsStream(opts: JobsStreamOptions): StreamHandle {
   let closed = false
   let retries = 0
   let lastProcessedId: string | undefined
+  let resumePending = false
 
   const makeUrl = (resumeId?: string): string => {
-    const u = new URL('/jobs/stream', base)
-    u.searchParams.set('jobId', jobId)
-    u.searchParams.set('org', org)
-    if (resumeId) u.searchParams.set('lastEventId', resumeId)
-    return u.toString()
+    if (typeof base === 'string' && base.trim().length > 0) {
+      const u = new URL('/jobs/stream', base)
+      u.searchParams.set('jobId', jobId)
+      u.searchParams.set('org', org)
+      if (resumeId) u.searchParams.set('lastEventId', resumeId)
+      return u.toString()
+    }
+    const qs = new URLSearchParams()
+    qs.set('jobId', jobId)
+    qs.set('org', org)
+    if (resumeId) qs.set('lastEventId', resumeId)
+    return `/jobs/stream?${qs.toString()}`
   }
 
   const cleanup = () => {
@@ -58,18 +70,34 @@ export function openJobsStream(opts: JobsStreamOptions): StreamHandle {
       const id = (ev as any)?.lastEventId as string | undefined
       if (id && id === lastProcessedId) return
       if (id) lastProcessedId = id
+      try { (opts as any).onSseId?.(id) } catch {}
+      if (resumePending) { try { (opts as any).onResume?.() } catch {} resumePending = false }
 
-      if (type === 'progress') {
+      if (type === 'queued') {
+        opts.onStatus?.('queued')
+        return
+      }
+      if (type === 'running') {
+        opts.onStatus?.('running')
+        return
+      }
+      if (type === 'failed') {
+        opts.onStatus?.('failed')
+        return
+      }
+      if (type === 'progress' || type === 'message') {
         const n = parseFloat(String(ev.data ?? ''))
         if (!Number.isNaN(n)) opts.onProgress?.(n)
         return
       }
       if (type === 'done') {
+        opts.onStatus?.('done')
         opts.onDone?.()
         cleanup()
         return
       }
       if (type === 'cancelled') {
+        opts.onStatus?.('cancelled')
         opts.onCancelled?.()
         cleanup()
         return
@@ -77,10 +105,13 @@ export function openJobsStream(opts: JobsStreamOptions): StreamHandle {
     }
 
     const add = (type: string) => es?.addEventListener(type, (ev: any) => handleMessage(ev, type))
+    add('queued')
+    add('running')
+    add('failed')
     add('progress')
     add('done')
     add('cancelled')
-    es!.onmessage = (ev: MessageEvent) => handleMessage(ev, 'progress')
+    es!.onmessage = (ev: MessageEvent) => handleMessage(ev, 'message')
 
     es!.onerror = (err: any) => {
       if (closed) return
@@ -90,6 +121,7 @@ export function openJobsStream(opts: JobsStreamOptions): StreamHandle {
       if (!willRetry) { cleanup(); return }
       retries += 1
       cleanup()
+      resumePending = true
       setTimeout(() => start(), 50)
     }
   }
@@ -101,10 +133,19 @@ export function openJobsStream(opts: JobsStreamOptions): StreamHandle {
       closed = true
       cleanup()
       try {
-        const u = new URL('/jobs/cancel', base)
-        u.searchParams.set('jobId', jobId)
-        u.searchParams.set('org', org)
-        await fetch(u.toString(), { method: 'POST' })
+        const urlStr = (() => {
+          if (typeof base === 'string' && base.trim().length > 0) {
+            const u = new URL('/jobs/cancel', base)
+            u.searchParams.set('jobId', jobId)
+            u.searchParams.set('org', org)
+            return u.toString()
+          }
+          const qs = new URLSearchParams()
+          qs.set('jobId', jobId)
+          qs.set('org', org)
+          return `/jobs/cancel?${qs.toString()}`
+        })()
+        await fetch(urlStr, { method: 'POST' })
       } catch {}
     },
     close: () => { closed = true; cleanup() },
@@ -125,14 +166,7 @@ export type StreamOptions = Handlers & {
 
 export type StreamHandle = { cancel: () => Promise<void>; close: () => void }
 
-function getBaseUrl(): string {
-  try {
-    const env = (import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL
-    if (typeof env === 'string' && env.length > 0) return env
-  } catch (_e) {}
-  // Fallback for local dev
-  return 'http://localhost:3001'
-}
+// base URL comes from config helper (localStorage cfg.gateway > env > relative)
 
 // Normalise token text to avoid CRLF surprises
 function normaliseCRLF(s: string): string {
@@ -140,7 +174,7 @@ function normaliseCRLF(s: string): string {
 }
 
 export function openStream(opts: StreamOptions): StreamHandle {
-  const base = getBaseUrl()
+  const base = getGatewayBaseUrl()
   const route = opts.route || 'critique'
   const sessionId = opts.sessionId || 'demo'
   const org = opts.org || 'demo'
@@ -152,23 +186,35 @@ export function openStream(opts: StreamOptions): StreamHandle {
   let retries = 0
   let cancelRequested = false
   let lastProcessedId: string | undefined
+  let resumePending = false
 
   const makeUrl = (resumeId?: string): string => {
-    const u = new URL('/stream', base)
-    u.searchParams.set('route', route)
-    u.searchParams.set('sessionId', sessionId)
-    u.searchParams.set('org', org)
-    if (opts.seed != null && String(opts.seed).length > 0) {
-      u.searchParams.set('seed', String(opts.seed))
+    if (typeof base === 'string' && base.trim().length > 0) {
+      const u = new URL('/stream', base)
+      u.searchParams.set('route', route)
+      u.searchParams.set('sessionId', sessionId)
+      u.searchParams.set('org', org)
+      if (opts.seed != null && String(opts.seed).length > 0) {
+        u.searchParams.set('seed', String(opts.seed))
+      }
+      if (typeof opts.budget === 'number') {
+        u.searchParams.set('budget', String(opts.budget))
+      }
+      if (typeof opts.model === 'string' && opts.model.length > 0) {
+        u.searchParams.set('model', opts.model)
+      }
+      if (resumeId) u.searchParams.set('lastEventId', resumeId)
+      return u.toString()
     }
-    if (typeof opts.budget === 'number') {
-      u.searchParams.set('budget', String(opts.budget))
-    }
-    if (typeof opts.model === 'string' && opts.model.length > 0) {
-      u.searchParams.set('model', opts.model)
-    }
-    if (resumeId) u.searchParams.set('lastEventId', resumeId)
-    return u.toString()
+    const qs = new URLSearchParams()
+    qs.set('route', route)
+    qs.set('sessionId', sessionId)
+    qs.set('org', org)
+    if (opts.seed != null && String(opts.seed).length > 0) qs.set('seed', String(opts.seed))
+    if (typeof opts.budget === 'number') qs.set('budget', String(opts.budget))
+    if (typeof opts.model === 'string' && opts.model.length > 0) qs.set('model', opts.model)
+    if (resumeId) qs.set('lastEventId', resumeId)
+    return `/stream?${qs.toString()}`
   }
 
   const cleanup = () => {
@@ -197,6 +243,8 @@ export function openStream(opts: StreamOptions): StreamHandle {
       const id = (ev as any)?.lastEventId as string | undefined
       if (id && id === lastProcessedId) return
       if (id) lastProcessedId = id
+      try { (opts as any).onSseId?.(id) } catch {}
+      if (resumePending) { try { opts.onResume?.() } catch {} resumePending = false }
 
       if (type === 'token') {
         const token = normaliseCRLF(String(ev.data ?? ''))
@@ -265,6 +313,7 @@ export function openStream(opts: StreamOptions): StreamHandle {
       // but we take control to keep determinism and single retry semantics.
       cleanup()
       // Small micro-delay to avoid tight loop; do not use real timers in tests
+      resumePending = true
       setTimeout(() => start(), 50)
     }
   }
@@ -275,12 +324,22 @@ export function openStream(opts: StreamOptions): StreamHandle {
     cancel: async () => {
       cancelRequested = true
       try {
-        const u = new URL('/cancel', base)
-        u.searchParams.set('route', route)
-        u.searchParams.set('sessionId', sessionId)
-        u.searchParams.set('org', org)
+        const urlStr = (() => {
+          if (typeof base === 'string' && base.trim().length > 0) {
+            const u = new URL('/cancel', base)
+            u.searchParams.set('route', route)
+            u.searchParams.set('sessionId', sessionId)
+            u.searchParams.set('org', org)
+            return u.toString()
+          }
+          const qs = new URLSearchParams()
+          qs.set('route', route)
+          qs.set('sessionId', sessionId)
+          qs.set('org', org)
+          return `/cancel?${qs.toString()}`
+        })()
         // Accept idempotent 202/409
-        await fetch(u.toString(), { method: 'POST' })
+        await fetch(urlStr, { method: 'POST' })
       } catch {
         // swallow; UI state remains consistent
       }

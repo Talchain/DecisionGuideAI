@@ -5,6 +5,9 @@ import { render, screen, fireEvent, act, cleanup } from '@testing-library/react'
 vi.mock('../../flags', () => ({
   isSseEnabled: () => true,
   isRunReportEnabled: () => false,
+  isConfigDrawerEnabled: () => false,
+  isCanvasEnabled: () => false,
+  isJobsProgressEnabled: () => false,
   isConfidenceChipsEnabled: () => false,
   isTelemetryEnabled: () => false,
   isHintsEnabled: () => false,
@@ -15,6 +18,7 @@ vi.mock('../../flags', () => ({
   isMarkdownPreviewEnabled: () => false,
   isShortcutsEnabled: () => false,
   isCopyCodeEnabled: () => false,
+  isScenariosEnabled: () => false,
 }))
 
 class FakeEventSource {

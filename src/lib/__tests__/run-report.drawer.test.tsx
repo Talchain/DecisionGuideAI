@@ -4,6 +4,10 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 vi.mock('../../flags', () => ({
   isSseEnabled: () => true,
   isRunReportEnabled: () => true,
+  isReportCopyEnabled: () => false,
+  isConfigDrawerEnabled: () => false,
+  isCanvasEnabled: () => false,
+  isJobsProgressEnabled: () => false,
   isConfidenceChipsEnabled: () => false,
   isTelemetryEnabled: () => false,
   isHintsEnabled: () => false,
@@ -14,6 +18,7 @@ vi.mock('../../flags', () => ({
   isMarkdownPreviewEnabled: () => false,
   isShortcutsEnabled: () => false,
   isCopyCodeEnabled: () => false,
+  isScenariosEnabled: () => false,
 }))
 
 vi.mock('../../lib/runReport', () => ({

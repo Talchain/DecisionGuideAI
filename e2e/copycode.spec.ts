@@ -1,19 +1,22 @@
 import { test, expect } from '@playwright/test'
+import { waitForPanel, gotoSandbox, installFakeEventSource } from './_helpers'
 
-// Prime page with flags, FakeEventSource, and clipboard stub before app scripts run
-async function primeCopyPage(page: import('@playwright/test').Page) {
+test('Markdown preview Copy code copies fenced contents and announces', async ({ page }) => {
   await page.addInitScript(() => {
     try {
       localStorage.setItem('feature.sseStreaming', '1')
       localStorage.setItem('feature.hints', '1')
       localStorage.setItem('feature.mdPreview', '1')
       localStorage.setItem('feature.copyCode', '1')
-      localStorage.setItem('feature.streamBuffer', '0') // deterministic preview flush on terminal
+      localStorage.setItem('feature.streamBuffer', '0')
       localStorage.setItem('feature.params', '1')
       localStorage.setItem('feature.runReport', '1')
       localStorage.setItem('feature.shortcuts', '1')
-      // Treat as authenticated for E2E
       localStorage.setItem('sb-auth-token', '1')
+      localStorage.setItem('dga_access_validated', 'true')
+      localStorage.setItem('dga_access_validation_time', String(Date.now()))
+      localStorage.setItem('dga_access_code', btoa('dga_v1_DGAIV01'))
+      ;(window as any).__E2E = '1'
     } catch {}
   })
   await page.addInitScript(() => {
@@ -29,58 +32,35 @@ async function primeCopyPage(page: import('@playwright/test').Page) {
     })
     ;(window as any).__lastCopied = ''
   })
-  await page.addInitScript(() => {
-    // Stub EventSource in-page (mirrors existing E2E usage)
-    class FakeEventSource {
-      static instances: any[] = []
-      url: string
-      closed = false
-      onopen: ((ev: any) => void) | null = null
-      onmessage: ((ev: any) => void) | null = null
-      onerror: ((ev: any) => void) | null = null
-      private listeners = new Map<string, Set<(ev: any) => void>>()
-      constructor(url: string) {
-        this.url = url
-        ;(FakeEventSource as any).instances.push(this)
-      }
-      addEventListener(type: string, cb: (ev: any) => void) {
-        const set = this.listeners.get(type) || new Set()
-        set.add(cb)
-        this.listeners.set(type, set)
-      }
-      close() { this.closed = true }
-      emit(type: string, data?: string, id?: string) {
-        if (this.closed) return
-        if (type === 'open') { this.onopen?.({}); return }
-        if (type === 'error') { this.onerror?.({}); return }
-        const ev: any = { data, lastEventId: id }
-        if (type === 'message') this.onmessage?.(ev)
-        const set = this.listeners.get(type)
-        if (set) set.forEach((cb) => cb(ev))
-      }
-    }
-    ;(window as any).FakeEventSource = FakeEventSource
-    ;(window as any).EventSource = FakeEventSource as any
-  })
-}
-
-test('Markdown preview Copy code copies fenced contents and announces', async ({ page }) => {
-  await primeCopyPage(page)
+  await installFakeEventSource(page)
   // Stub any Supabase calls the app may attempt
   await page.route('http://localhost:54321/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
 
-  // Navigate to sandbox
-  await page.goto('/#/sandbox')
-  await page.waitForLoadState('domcontentloaded')
-  await page.waitForLoadState('networkidle')
-  // Click Start (robust: testid or role)
+  // Navigate to Sandbox via shared helper and wait for mount
+  await gotoSandbox(page)
+  await waitForPanel(page)
+  // Wait for Start button and click
   await page.waitForSelector('[data-testid="start-btn"]', { timeout: 15000 })
-  if (await page.getByTestId('start-btn').isVisible().catch(() => false)) {
-    await page.getByTestId('start-btn').click()
+  const startBtn = page.getByTestId('start-btn')
+  const clicked = await startBtn.click({ trial: true }).then(() => true).catch(() => false)
+  if (clicked) {
+    await startBtn.click()
   } else {
-    await page.getByRole('button', { name: 'Start' }).click()
+    const startByRole = page.getByRole('button', { name: 'Start' })
+    if (await startByRole.isVisible().catch(() => false)) {
+      await startByRole.click()
+    } else {
+      // Fallback: dispatch keyboard shortcut directly on window (Ctrl/Cmd+Enter)
+      await page.evaluate(() => {
+        const isMac = navigator.platform.toLowerCase().includes('mac')
+        const ev = new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: !isMac, metaKey: isMac, bubbles: true })
+        window.dispatchEvent(ev)
+      })
+    }
   }
-  // Wait for FakeEventSource instance to be created by the app
+  // Ensure UI transitioned to streaming state: Start becomes disabled quickly
+  await expect(startBtn).toBeDisabled()
+  // Wait for FakeEventSource instance to be created by the app (begin() called)
   await page.waitForFunction(() => (window as any).FakeEventSource?.instances?.length > 0, { timeout: 20000 })
 
   // Drive a minimal fenced block stream: ```js, body, ``` then done
@@ -96,11 +76,9 @@ test('Markdown preview Copy code copies fenced contents and announces', async ({
   // Preview rendered (aria-hidden=true is expected)
   await expect(page.getByTestId('md-preview')).toBeVisible()
 
-  // Find the copy button (language-aware accessible label)
-  let copyBtn = page.getByRole('button', { name: /Copy (js|JavaScript) code/i })
-  if (!(await copyBtn.isVisible().catch(() => false))) {
-    copyBtn = page.getByRole('button', { name: /Copy code/i })
-  }
+  // Find the copy button by test id (preview is aria-hidden, so prefer DOM query)
+  await page.waitForSelector('[data-testid="copy-code-btn"]', { timeout: 15000 })
+  const copyBtn = page.getByTestId('copy-code-btn').first()
   await expect(copyBtn).toBeVisible()
 
   await copyBtn.click()

@@ -42,6 +42,9 @@ describe('SandboxStreamPanel terminal hints', () => {
     vi.mock('../../flags', () => ({
       isSseEnabled: () => true,
       isRunReportEnabled: () => true,
+      isConfigDrawerEnabled: () => false,
+      isCanvasEnabled: () => false,
+      isJobsProgressEnabled: () => false,
       isConfidenceChipsEnabled: () => false,
       isTelemetryEnabled: () => false,
       isHintsEnabled: () => true,
@@ -52,6 +55,7 @@ describe('SandboxStreamPanel terminal hints', () => {
       isMarkdownPreviewEnabled: () => false,
       isShortcutsEnabled: () => false,
       isCopyCodeEnabled: () => false,
+      isScenariosEnabled: () => false,
     }))
   })
   afterEach(() => {
@@ -122,6 +126,9 @@ describe('SandboxStreamPanel terminal hints', () => {
     vi.doMock('../../flags', () => ({
       isSseEnabled: () => true,
       isRunReportEnabled: () => true,
+      isConfigDrawerEnabled: () => false,
+      isCanvasEnabled: () => false,
+      isJobsProgressEnabled: () => false,
       isConfidenceChipsEnabled: () => false,
       isTelemetryEnabled: () => false,
       isHintsEnabled: () => false,
@@ -132,6 +139,7 @@ describe('SandboxStreamPanel terminal hints', () => {
       isMarkdownPreviewEnabled: () => false,
       isShortcutsEnabled: () => false,
       isCopyCodeEnabled: () => false,
+      isScenariosEnabled: () => false,
     }))
     try {
       window.localStorage.setItem('feature.sseStreaming', '1')

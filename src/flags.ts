@@ -15,6 +15,252 @@ export function isSseEnabled(): boolean {
   return false
 }
 
+// Results Summary v2 (OFF by default)
+export function isSummaryV2Enabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_SUMMARY_V2
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.summaryV2')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Guided Mode v1 (OFF by default)
+export function isGuidedV1Enabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_GUIDED_V1
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.guidedV1')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Comments (OFF by default)
+export function isCommentsEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_COMMENTS
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.comments')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Snapshots (OFF by default)
+export function isSnapshotsEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_SNAPSHOTS
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.snapshots')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Compare (OFF by default)
+export function isCompareEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_COMPARE
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.compare')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Scorecard (OFF by default)
+export function isScorecardEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_SCORECARD
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.scorecard')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Diagnostics (OFF by default)
+export function isDiagnosticsEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_DIAGNOSTICS
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.diagnostics')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Scenarios v2 polish (OFF by default)
+export function isScenariosV2Enabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_SCENARIOS_V2
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.scenariosV2')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// A11y polish (OFF by default)
+export function isA11yPolishEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_A11Y_POLISH
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.a11yPolish')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Performance probes (OFF by default)
+export function isPerfProbesEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_PERF_PROBES
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.perfProbes')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+ 
+
+// Simplify View for canvas/list edges (OFF by default)
+export function isCanvasSimplifyEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_CANVAS_SIMPLIFY
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.canvasSimplify')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Read-only List View that mirrors nodes/edges (OFF by default)
+export function isListViewEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_LIST_VIEW
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.listView')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Engine Mode adapter (fixtures vs live) (OFF by default)
+export function isEngineModeEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_ENGINE_MODE
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.engineMode')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Mobile guardrails (≤480px list-first, caps) (OFF by default)
+export function isMobileGuardrailsEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_MOBILE_GUARDRAILS
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.mobileGuardrails')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Config Drawer feature (OFF by default)
+export function isConfigDrawerEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_CONFIG_DRAWER
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.configDrawer')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// E2E test-mode (OFF by default). Build-time only: relies exclusively on import.meta.env.
+export function isE2EEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_E2E
+    if (env === '1' || env === 1 || env === true) return true
+  } catch {}
+  try {
+    // Window opt-in (Playwright can set this via addInitScript if needed)
+    const w = (globalThis as any)
+    const winFlag = w?.__E2E
+    if (winFlag === '1' || winFlag === 1 || winFlag === true) return true
+  } catch {}
+  try {
+    // URL query opt-in (?e2e=1)
+    const href = (globalThis as any)?.location?.href
+    if (typeof href === 'string' && href.includes('e2e=1')) return true
+  } catch {}
+  return false
+}
+
 // Real Report source (OFF by default)
 export function isRealReportEnabled(): boolean {
   try {
@@ -101,6 +347,21 @@ export function isJobsProgressEnabled(): boolean {
   return false
 }
 
+// Error Banners (OFF by default)
+export function isErrorBannersEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_ERROR_BANNERS
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.errorBanners')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
 // Run Report drawer feature (OFF by default)
 export function isRunReportEnabled(): boolean {
   try {
@@ -176,6 +437,22 @@ export function isExportEnabled(): boolean {
   return false
 }
 
+// Replay run feature (OFF by default)
+export function isReplayEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_REPLAY
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.replay')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+
 // History re-run button (OFF by default)
 export function isHistoryRerunEnabled(): boolean {
   try {
@@ -230,6 +507,81 @@ export function isCopyCodeEnabled(): boolean {
   try {
     if (typeof localStorage !== 'undefined') {
       const raw = localStorage.getItem('feature.copyCode')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Canvas feature (OFF by default)
+export function isCanvasEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_CANVAS
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.canvas')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Canvas-first default split view (OFF by default)
+export function isCanvasDefaultEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_CANVAS_DEFAULT
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.canvasDefault')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// TLdraw adapter (OFF by default)
+export function isTldrawEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_TLDRAW
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.tldraw')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Scenarios (templates) feature (OFF by default)
+export function isScenariosEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_SCENARIOS
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.scenarios')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Scenario import preview (OFF by default)
+export function isScenarioImportPreviewEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_SCENARIO_IMPORT_PREVIEW
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.scenarioImportPreview')
       if (raw && raw !== '0' && raw !== 'false') return true
     }
   } catch (_e) {}

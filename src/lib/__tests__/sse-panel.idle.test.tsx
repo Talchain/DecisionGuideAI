@@ -1,20 +1,25 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 // Mock flags ON so the panel renders, run-report remains ON but unused here
 vi.mock('../../flags', () => ({
   isSseEnabled: () => true,
+  isReportCopyEnabled: () => false,
   isRunReportEnabled: () => true,
   isConfidenceChipsEnabled: () => false,
+  isParamsEnabled: () => false,
+  isConfigDrawerEnabled: () => false,
+  isCanvasEnabled: () => false,
+  isJobsProgressEnabled: () => false,
   isTelemetryEnabled: () => false,
   isHintsEnabled: () => false,
-  isParamsEnabled: () => false,
   isHistoryEnabled: () => false,
   isHistoryRerunEnabled: () => false,
   isExportEnabled: () => false,
   isMarkdownPreviewEnabled: () => false,
   isShortcutsEnabled: () => false,
   isCopyCodeEnabled: () => false,
+  isScenariosEnabled: () => false,
 }))
 
 class FakeEventSource {

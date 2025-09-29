@@ -6,6 +6,9 @@ import React from 'react'
 vi.mock('../../flags', () => ({
   isSseEnabled: () => true,
   isRunReportEnabled: () => false,
+  isJobsProgressEnabled: () => false,
+  isConfigDrawerEnabled: () => false,
+  isCanvasEnabled: () => false,
   isConfidenceChipsEnabled: () => false,
   isHintsEnabled: () => false,
   isParamsEnabled: () => true,
@@ -16,6 +19,7 @@ vi.mock('../../flags', () => ({
   isMarkdownPreviewEnabled: () => false,
   isShortcutsEnabled: () => false,
   isCopyCodeEnabled: () => false,
+  isScenariosEnabled: () => false,
 }))
 
 // Prime session defaults

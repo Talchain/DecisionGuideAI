@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, act } from '@testing-library/react'
-
 // Mock the flags so the panel renders. This must be defined before importing the component.
 vi.mock('../../flags', () => ({
   isSseEnabled: () => true,
   isRunReportEnabled: () => true,
+  isConfigDrawerEnabled: () => false,
+  isJobsProgressEnabled: () => false,
   isConfidenceChipsEnabled: () => false,
   isTelemetryEnabled: () => false,
   isHintsEnabled: () => false,
@@ -12,9 +13,13 @@ vi.mock('../../flags', () => ({
   isHistoryEnabled: () => false,
   isHistoryRerunEnabled: () => false,
   isExportEnabled: () => false,
+  isCanvasEnabled: () => false,
+  isCanvasDefaultEnabled: () => false,
+  isScenarioImportPreviewEnabled: () => false,
   isMarkdownPreviewEnabled: () => false,
   isShortcutsEnabled: () => false,
   isCopyCodeEnabled: () => false,
+  isScenariosEnabled: () => false,
 }))
 
 class FakeEventSource {
@@ -101,7 +106,7 @@ describe('SandboxStreamPanel', () => {
     const outEl = screen.getByTestId('stream-output')
     expect(outEl.textContent).toBe('Hello world')
     const cost = screen.getByTestId('cost-badge')
-    expect(cost.textContent).toBe('£0.01')
+    expect(cost.textContent).toBe('$0.01')
 
     // Transient error triggers reconnect hint and single retry
     act(() => {

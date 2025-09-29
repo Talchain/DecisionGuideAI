@@ -6,6 +6,10 @@ import React from 'react'
 vi.mock('../../flags', () => ({
   isSseEnabled: () => true,
   isRunReportEnabled: () => false,
+  isJobsProgressEnabled: () => false,
+  isConfigDrawerEnabled: () => false,
+  isCanvasEnabled: () => false,
+  isCanvasDefaultEnabled: () => false,
   isConfidenceChipsEnabled: () => false,
   isTelemetryEnabled: () => false,
   isHintsEnabled: () => false,
@@ -13,9 +17,11 @@ vi.mock('../../flags', () => ({
   isHistoryEnabled: () => false,
   isHistoryRerunEnabled: () => false,
   isExportEnabled: () => true,
+  isScenarioImportPreviewEnabled: () => false,
   isMarkdownPreviewEnabled: () => false,
   isShortcutsEnabled: () => false,
   isCopyCodeEnabled: () => false,
+  isScenariosEnabled: () => false,
 }))
 
 let triggerSpy: ReturnType<typeof vi.fn>
@@ -105,7 +111,7 @@ describe('Export transcript', () => {
     const txt = args[2] as string
     expect(txt).toContain('DecisionGuideAI transcript')
     expect(txt).toContain('Status: Done')
-    expect(txt).toContain('Cost: £0.02')
+    expect(txt).toContain('Cost: $0.02')
     expect(txt).toContain('Seed: 42')
     expect(txt).toContain('Model: local-sim')
     expect(txt.trim().endsWith('Hello!')).toBe(true)

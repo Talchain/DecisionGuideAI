@@ -6,6 +6,9 @@ import React from 'react'
 vi.mock('../../flags', () => ({
   isSseEnabled: () => true,
   isRunReportEnabled: () => true,
+  isJobsProgressEnabled: () => false,
+  isConfigDrawerEnabled: () => false,
+  isCanvasEnabled: () => false,
   isConfidenceChipsEnabled: () => false,
   isTelemetryEnabled: () => false,
   isHintsEnabled: () => false,
@@ -16,6 +19,7 @@ vi.mock('../../flags', () => ({
   isMarkdownPreviewEnabled: () => false,
   isShortcutsEnabled: () => false,
   isCopyCodeEnabled: () => false,
+  isScenariosEnabled: () => false,
 }))
 
 // Spy fetchRunReport to assert call params
@@ -104,7 +108,7 @@ describe('RunHistoryDrawer', () => {
     expect(rowStatus.textContent).toContain('Done')
     expect(screen.getByTestId('history-seed').textContent).toContain('42')
     expect(screen.getByTestId('history-model').textContent).toContain('local-sim')
-    expect(screen.getByTestId('history-cost').textContent).toContain('£0.02')
+    expect(screen.getByTestId('history-cost').textContent).toContain('$0.02')
 
     // Open report for the row
     fireEvent.click(screen.getByTestId('open-report-btn'))

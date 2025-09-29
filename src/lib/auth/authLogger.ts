@@ -15,7 +15,6 @@ class AuthLogger {
   private static instance: AuthLogger;
   private logs: LogEntry[] = [];
   private readonly MAX_LOGS = 100;
-  private readonly DEBUG = true;
 
   private constructor() {}
 
@@ -47,17 +46,16 @@ class AuthLogger {
       this.logs.shift();
     }
 
-    if (!this.DEBUG) return;
-
-    // Format console output
-    const prefix = `[Auth ${entry.event}]`;
-    const style = this.getLogStyle(entry.level);
-    
-    console.groupCollapsed(`%c${prefix} ${entry.message}`, style);
-    console.log('Timestamp:', entry.timestamp);
-    if (entry.data) console.log('Data:', entry.data);
-    console.trace(); // Add stack trace
-    console.groupEnd();
+    // Dev-only logging: compiled out in production builds
+    if ((import.meta as any)?.env?.DEV) {
+      const prefix = `[Auth ${entry.event}]`;
+      const style = this.getLogStyle(entry.level);
+      console.groupCollapsed(`%c${prefix} ${entry.message}`, style);
+      console.log('Timestamp:', entry.timestamp);
+      if (entry.data) console.log('Data:', entry.data);
+      console.trace();
+      console.groupEnd();
+    }
   }
 
   private getLogStyle(level: LogLevel): string {
