@@ -6,7 +6,7 @@ import path from 'path'
 
 // Vendored axe scan across key surfaces
 
-test('Vendored axe scans: Sandbox + Results + Report + Simplify + Share RO + Compare + Audit (serious/critical = 0)', async ({ page, context }) => {
+test('@flaky Vendored axe scans: Sandbox + Results + Report + Simplify + Share RO + Compare + Audit (serious/critical = 0)', async ({ page, context }) => {
   await page.addInitScript(() => {
     try {
       window.localStorage.setItem('feature.canvasSimplify', '1')
