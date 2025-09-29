@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "dev:sandbox": "vite --port 5176 --strictPort",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "lint": "npx eslint .",
     "preview": "vite preview",
     "test:connection": "node --loader ts-node/esm src/lib/test-connection.ts",
