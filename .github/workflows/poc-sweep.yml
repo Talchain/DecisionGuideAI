@@ -62,6 +62,8 @@ jobs:
         run: npx playwright install chromium firefox webkit
 
       - name: Unit tests
+        env:
+          TZ: UTC
         run: npm run test:unit
 
       - name: E2E Chromium (full)
