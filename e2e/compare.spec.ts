@@ -39,6 +39,7 @@ test.describe('Compare', () => {
 
     // Expect diff list has removed e2 and e4 (hidden by simplify); ordering by id
     const diff = page.getByTestId('compare-diff-list')
+    await expect(diff).toBeVisible()
     await expect(diff).toContainText('↓ e2')
     await expect(diff).toContainText('↓ e4')
 
