@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { waitForPanel } from './helpers'
+import { waitForPanel } from './_helpers'
 
 // Helper to set flags and stub EventSource before app scripts run
 async function primePage(page: import('@playwright/test').Page) {
