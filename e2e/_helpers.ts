@@ -52,6 +52,8 @@ export async function waitForPanel(page: Page) {
 }
 
 export async function gotoSandbox(page: Page) {
+  // Ensure provider-independent streaming in E2E
+  try { await installFakeEventSource(page) } catch {}
   // Warm-up navigation to base E2E URL first, then go to the hash route
   await page.goto('/?e2e=1', { waitUntil: 'domcontentloaded' })
   try { await page.waitForLoadState('networkidle', { timeout: 5000 }) } catch {}
