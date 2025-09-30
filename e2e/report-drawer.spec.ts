@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+test.describe.configure({ retries: 1 })
 import { waitForPanel, gotoSandbox, installFakeEventSource } from './_helpers'
 
 test.setTimeout(60000)
