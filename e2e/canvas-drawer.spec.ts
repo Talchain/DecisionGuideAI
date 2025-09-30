@@ -36,7 +36,7 @@ test.describe('Canvas drawer and autosave', () => {
 
     // Send to canvas
     await page.getByTestId('canvas-send-btn').click()
-    await page.getByTestId('canvas-drawer')
+    await expect(page.getByTestId('canvas-drawer')).toBeVisible()
     // Allow microtask
     await page.waitForTimeout(50)
     // Note should be present
