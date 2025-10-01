@@ -1,0 +1,12 @@
+{
+  "samples": [
+    {
+      "id": "copy-1",
+      "text": "Sample SR copy A"
+    },
+    {
+      "id": "copy-2",
+      "text": "Sample SR copy B"
+    }
+  ]
+}

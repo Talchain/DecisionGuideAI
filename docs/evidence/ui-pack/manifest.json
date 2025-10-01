@@ -1,0 +1,45 @@
+{
+  "component": "ui",
+  "build": "0f292ac",
+  "features_on": [],
+  "privacy": {
+    "no_queries_in_logs": true
+  },
+  "slos": {
+    "ui_layout_p95_ms": 130
+  },
+  "checksums": [
+    {
+      "path": "headers.txt",
+      "sha256": "9919e64324209e0c778e451de07cf686ff407da2dc30e0f92905e37f0b02f145"
+    },
+    {
+      "path": "health.json",
+      "sha256": "a57facdecc9831f2bcf63f59684c58c11c25842f3daf4705593cf18f40d92fb0"
+    },
+    {
+      "path": "report.json",
+      "sha256": "a6d5d3fd8df37336b0fccf8fb15e97f57d21ec0198c4043045df5af8305b2eff"
+    },
+    {
+      "path": "screenshot.desktop.png",
+      "sha256": "555f06287f8f7b4b5ccf1e9cacdd0c12c05bc3f501c521e46ae16d21a82b382b"
+    },
+    {
+      "path": "screenshot.mobile.png",
+      "sha256": "555f06287f8f7b4b5ccf1e9cacdd0c12c05bc3f501c521e46ae16d21a82b382b"
+    },
+    {
+      "path": "snapshot.json",
+      "sha256": "0778bdd5d0a5b811b9416f7f3fb393aeee952fbdbda1a59e4ad875cbffd20bf9"
+    },
+    {
+      "path": "sr_copy_samples.json",
+      "sha256": "22d2dad155e380de3e2fa3a3641383facae7659a2cb05c4cf1ba37a52ee45514"
+    },
+    {
+      "path": "version.json",
+      "sha256": "c483764ec43448891348c6d4e2b76983352cd85a9b81fcd70e5b5f3018c3645c"
+    }
+  ]
+}

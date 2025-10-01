@@ -1,0 +1,49 @@
+name: UI Evidence Self-Test
+on:
+  workflow_dispatch:
+    inputs:
+      ui_p95_ms:
+        description: 'Deterministic UI p95 (ms)'
+        required: true
+        default: '130'
+      ui_features_on:
+        description: 'Comma-separated features_on (leave blank for all OFF)'
+        required: false
+        default: ''
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run typecheck || true
+      - run: npm run build
+      - name: Determinism
+        run: echo "TZ=UTC" >> $GITHUB_ENV
+      - name: Install Playwright
+        run: npx playwright install chromium
+      - name: Screenshots
+        run: npx playwright test e2e/unified/ui-pack.screenshots.spec.ts --project=chromium --retries=1
+      - name: Runtime inputs
+        run: |
+          if [ -n "${{ github.event.inputs.ui_features_on }}" ]; then echo "UI_FEATURES_ON=${{ github.event.inputs.ui_features_on }}" >> $GITHUB_ENV; fi
+          echo "UI_P95_MS=${{ github.event.inputs.ui_p95_ms }}" >> $GITHUB_ENV
+      - run: npm run evidence:ui
+      - run: npm run evidence:unified
+      - name: Guards
+        run: |
+          npx playwright test e2e/unified/unified.smoke.spec.ts --project=chromium --grep @evidence --retries=1
+          npm run ci:guard:sandbox
+          npm run ci:guard:flags
+          npm run ci:no-console
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui-evidence
+          path: |
+            docs/evidence/unified/**
+            docs/evidence/ui-pack/**
+            evidence/pack/**

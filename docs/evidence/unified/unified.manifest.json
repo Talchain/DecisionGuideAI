@@ -1,0 +1,47 @@
+{
+  "generatedAt": "2025-10-01T13:11:22.913Z",
+  "status": "OK",
+  "packs": {
+    "claude": {
+      "name": "claude_pack_2025-09-30_499e955.zip",
+      "path": "/Users/paulslee/Documents/GitHub/DecisionGuideAI/docs/evidence/incoming/claude/claude_pack_2025-09-30_499e955.zip",
+      "size": 6521,
+      "features_on": [],
+      "slos": {
+        "claude_ttff_ms": 263,
+        "claude_cancel_ms": 119
+      },
+      "checksumsOk": true,
+      "privacy": true
+    },
+    "engine": {
+      "name": "engine_pack_2025-10-01_4814df3.zip",
+      "path": "/Users/paulslee/Documents/GitHub/DecisionGuideAI/docs/evidence/incoming/engine/engine_pack_2025-10-01_4814df3.zip",
+      "size": 1455506,
+      "features_on": [],
+      "slos": {
+        "engine_get_p95_ms": 1.9209590000009484
+      },
+      "checksumsOk": true,
+      "privacy": true
+    },
+    "ui": {
+      "name": "ui_pack_2025-10-01_0f292ac.zip",
+      "path": "/Users/paulslee/Documents/GitHub/DecisionGuideAI/docs/evidence/incoming/ui/ui_pack_2025-10-01_0f292ac.zip",
+      "size": 2369,
+      "features_on": [],
+      "slos": {
+        "ui_layout_p95_ms": 130
+      },
+      "checksumsOk": true,
+      "privacy": true
+    }
+  },
+  "slos": {
+    "ui_layout_p95_ms": 130,
+    "engine_get_p95_ms": 1.9209590000009484,
+    "claude_ttff_ms": 263,
+    "claude_cancel_ms": 119
+  },
+  "privacy": "PASS"
+}
