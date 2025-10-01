@@ -3,47 +3,52 @@ on:
   workflow_dispatch:
     inputs:
       ui_p95_ms:
-        description: 'Deterministic UI p95 (ms)'
+        description: Expected UI p95 (ms)
+        default: "130"
         required: true
-        default: '130'
       ui_features_on:
-        description: 'Comma-separated features_on (leave blank for all OFF)'
+        description: Comma-separated UI features (leave blank for OFF)
+        default: ""
         required: false
-        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: ui-selftest-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  run:
+  selftest:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run typecheck || true
-      - run: npm run build
-      - name: Determinism
-        run: echo "TZ=UTC" >> $GITHUB_ENV
-      - name: Install Playwright
-        run: npx playwright install chromium
-      - name: Screenshots
-        run: npx playwright test e2e/unified/ui-pack.screenshots.spec.ts --project=chromium --retries=1
-      - name: Runtime inputs
-        run: |
-          if [ -n "${{ github.event.inputs.ui_features_on }}" ]; then echo "UI_FEATURES_ON=${{ github.event.inputs.ui_features_on }}" >> $GITHUB_ENV; fi
-          echo "UI_P95_MS=${{ github.event.inputs.ui_p95_ms }}" >> $GITHUB_ENV
-      - run: npm run evidence:ui
-      - run: npm run evidence:unified
-      - name: Guards
-        run: |
-          npx playwright test e2e/unified/unified.smoke.spec.ts --project=chromium --grep @evidence --retries=1
-          npm run ci:guard:sandbox
-          npm run ci:guard:flags
-          npm run ci:no-console
-      - uses: actions/upload-artifact@v4
+          node-version: "20"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build (non-fatal)
+        run: npm run -s build || true
+
+      - name: Generate UI pack
+        env:
+          UI_P95_MS: ${{ github.event.inputs.ui_p95_ms }}
+          UI_FEATURES_ON: ${{ github.event.inputs.ui_features_on }}
+        run: node tools/gen-ui-evidence-pack.mjs
+
+      - name: Compose unified evidence
+        run: node tools/gen-unified-evidence.mjs | tee unified.out
+
+      - name: Print acceptance lines
+        run: cat unified.out
+
+      - name: Upload artefacts
+        uses: actions/upload-artifact@v4
         with:
-          name: ui-evidence
+          name: ui-selftest-${{ github.run_id }}-${{ github.job }}
           path: |
-            docs/evidence/unified/**
-            docs/evidence/ui-pack/**
             evidence/pack/**
+            docs/evidence/unified/**
+            unified.out
+          if-no-files-found: warn

@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["component", "build", "slos", "checksums"],
+  "properties": {
+    "component": {
+      "type": "string",
+      "enum": ["ui", "engine", "claude"]
+    },
+    "build": {
+      "type": "string"
+    },
+    "slos": {
+      "type": "object"
+    },
+    "checksums": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["file", "sha256"],
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "component": { "const": "ui" },
+        "slos": {
+          "type": "object",
+          "required": ["ui_layout_p95_ms"],
+          "properties": {
+            "ui_layout_p95_ms": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "component": { "const": "engine" },
+        "slos": {
+          "type": "object",
+          "required": ["engine_get_p95_ms"],
+          "properties": {
+            "engine_get_p95_ms": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "component": { "const": "claude" },
+        "slos": {
+          "type": "object",
+          "required": ["claude_ttff_ms", "claude_cancel_ms"],
+          "properties": {
+            "claude_ttff_ms": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "claude_cancel_ms": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          }
+        }
+      }
+    }
+  ]
+}

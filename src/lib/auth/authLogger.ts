@@ -1,4 +1,5 @@
 import { AuthError } from '@supabase/supabase-js';
+import { redact } from '../redact';
 
 type LogLevel = 'info' | 'warn' | 'error' | 'debug';
 type AuthEvent = 'SIGN_IN' | 'SIGN_UP' | 'SIGN_OUT' | 'SESSION' | 'PROFILE' | 'ERROR' | 'STATE' | 'INIT';
@@ -52,7 +53,7 @@ class AuthLogger {
       const style = this.getLogStyle(entry.level);
       console.groupCollapsed(`%c${prefix} ${entry.message}`, style);
       console.log('Timestamp:', entry.timestamp);
-      if (entry.data) console.log('Data:', entry.data);
+      if (entry.data) console.log('Data:', redact(entry.data));
       console.trace();
       console.groupEnd();
     }
