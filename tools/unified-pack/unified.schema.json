@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["generated_at_utc", "components", "slos", "totals"],
+  "properties": {
+    "generated_at_utc": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["component", "build", "slos", "fileCount", "bytes", "zip_sha256"],
+        "properties": {
+          "component": {
+            "type": "string",
+            "enum": ["ui", "engine", "claude"]
+          },
+          "build": {
+            "type": "string"
+          },
+          "slos": {
+            "type": "object"
+          },
+          "fileCount": {
+            "type": "number"
+          },
+          "bytes": {
+            "type": "number"
+          },
+          "zip_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "slos": {
+      "type": "object",
+      "required": ["ui_layout_p95_ms", "engine_get_p95_ms", "claude_ttff_ms", "claude_cancel_ms"],
+      "properties": {
+        "ui_layout_p95_ms": {
+          "type": ["number", "null"]
+        },
+        "engine_get_p95_ms": {
+          "type": ["number", "null"]
+        },
+        "claude_ttff_ms": {
+          "type": ["number", "null"]
+        },
+        "claude_cancel_ms": {
+          "type": ["number", "null"]
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "required": ["files", "bytes"],
+      "properties": {
+        "files": {
+          "type": "number"
+        },
+        "bytes": {
+          "type": "number"
+        }
+      }
+    }
+  }
+}

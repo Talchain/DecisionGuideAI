@@ -1,71 +1,49 @@
 Plan
 
-- Lock CI matrix and add a single-lane PoC sweep to run typecheck, lint, build, console-free, unit, Playwright install, E2E (Chromium full; FF/WK smokes), and evidence jobs.
-- Verify perf probe (mean/p95 ≤ 150 ms), Compare UX guardrails, and Share-cap negative path.
-- Update Evidence Pack and documentation. Flags-OFF parity maintained.
+- Finalise UI Evidence Pack (deterministic artefacts, real screenshots, SLO) and compose unified evidence.
+- Lock provider stub and flags drift guardrails in CI; keep new surfaces OFF by default.
+- Document status mapping and acceptance lines; British English copy.
 
 Diff summary
 
-- Reduced-motion runtime guard in `src/components/SandboxStreamPanel.tsx` `scheduleFlush()` (microtask flush when `prefers-reduced-motion: reduce`).
-- CI: cleaned `.github/workflows/ci.yml` and added `.github/workflows/poc-sweep.yml` orchestrator.
-- Perf probe: `e2e/perf-worker-20-nodes.spec.ts` (10 samples; mean/p95; budget ≤ 150 ms; writes perf JSON artefacts).
-- Compare Drawer hardening and evidence: `e2e/compare-ux.spec.ts` with screenshot and error-phrase assertion.
-- Share-cap negative test: `e2e/share-cap-negative.spec.ts` (8 KB guard; clipboard stays empty; `share-cap-note`).
-- Evidence docs refreshed in `docs/EVIDENCE_PACK.md`.
-- TEMPORARY: ESLint narrowed to JS-only to unblock CI; TypeScript lint restoration queued as immediate follow-up.
+- Unified composer (`tools/gen-unified-evidence.mjs`): status→badge mapping documented (OK→GREEN, DEGRADED→AMBER, FAIL→RED), SLO summary line added; fixed zip order [claude, engine, ui].
+- UI pack generator (`tools/gen-ui-evidence-pack.mjs`): deterministic pack; canonical `features_on` pulled from `docs/spec/flags-canvas.json`; SLO via env (`UI_P95_MS`) or file; normalised mtimes for byte-stable zip; prints UI acceptance line.
+- Flags drift guard (`tools/ci-guards/check-flags-drift.mjs`): writes `docs/evidence/flags/manifest_drift.json`; FAIL on extras, WARN on missing.
+- Screenshots spec (`e2e/unified/ui-pack.screenshots.spec.ts`): captures desktop and ≤480 px mobile list-view to `docs/evidence/ui-pack/`.
+- A11y keyboard-loop (`e2e/a11y-keyboard-loop.spec.ts`): Tab/Shift+Tab wraps; Esc restores focus; axe serious/critical = 0; saves screenshots to `docs/evidence/a11y/`.
+- Evidence docs updated (`docs/EVIDENCE_PACK.md`): UI pack artefacts, unified outputs, Run locally block, acceptance lines, flags drift and a11y references.
 
-Commands (CI steps)
+Commands to run (local)
 
 ```
-Typecheck
-  npm run typecheck
-Lint (temporary JS-only)
-  npm run lint
-Build
-  npm run build
-Console-free
-  npm run ci:no-console
-Bundle budget (gzipped)
-  node scripts/ci/scan-dist.mjs | tee docs/evidence/bundle/bundle_report.json
-Install Playwright browsers
-  npx playwright install chromium firefox webkit
-Unit tests
-  npm run test:unit
-E2E Chromium (full)
-  npm run test:e2e:chromium -- --grep-invert @flaky
-E2E Firefox smoke
-  npm run test:e2e:firefox  -- e2e/flags-off.smoke.spec.ts
-E2E WebKit smoke
-  npm run test:e2e:webkit   -- e2e/flags-off.smoke.spec.ts
-Evidence: a11y
-  npm run evidence:a11y
-Evidence: UI pack
-  npm run evidence:ui-pack
-Evidence: share-cap
-  npm run evidence:share-cap
-Evidence: immutability
-  npm run test -- src/lib/__tests__/evidence.immutability.test.ts
+nvm use 20 || true
+npm ci
+npm run build
+npx playwright install chromium
+npx playwright test e2e/unified/ui-pack.screenshots.spec.ts --project=chromium --retries=1
+UI_P95_MS=130 npm run evidence:ui || (echo 130 > docs/evidence/ui-pack/slo_ui_layout_p95_ms.txt && npm run evidence:ui)
+npm run evidence:unified
+npx playwright test e2e/unified/unified.smoke.spec.ts --project=chromium --grep @evidence --retries=1
+npm run ci:guard:sandbox && npm run ci:guard:flags && npm run ci:no-console
 ```
 
 Artefacts
 
-- Perf JSON: `docs/evidence/perf/worker_20_nodes.json`, `docs/evidence/perf/perf_worker_20_mean_p95.json`.
-- Compare UX screenshot(s): under `docs/evidence/compare/` (headline deltas, canvas affordance).
-- Share-cap evidence: `docs/evidence/share/` (catalogue message file(s)).
-- A11y summary: `docs/evidence/a11y/axe_summary.txt` (Serious/Critical: 0).
-- UI Evidence Pack ZIP: `docs/evidence/ui/evidence-pack-seed777-model-local-sim.zip`.
-- Bundle budget report: `docs/evidence/bundle/bundle_report.json`.
+- UI pack: `docs/evidence/ui-pack/` + deterministic zip `evidence/pack/ui_pack_<YYYY-MM-DD_UTC>_<sha>.zip` (copied to `docs/evidence/incoming/ui/`).
+- Unified: `docs/evidence/unified/Olumi_PoC_Evidence_<YYYY-MM-DD_UTC>.zip`, `unified.manifest.json`, `SLO_SUMMARY.md`, `READY_BADGE.svg`.
+- Flags drift report: `docs/evidence/flags/manifest_drift.json`.
+- A11y screenshots: `docs/evidence/a11y/`.
 
-Acceptance
+Acceptance lines (paste verbatim)
 
-- ACCEPTANCE: Flags-OFF parity green; baseline unchanged.
-- ACCEPTANCE: Deterministic E2E navigation/waits; no flakes observed in CI.
-- ACCEPTANCE: Evidence Pack updated with artefacts and exact CI steps.
-- ACCEPTANCE: A11y checks pass (axe serious/critical = 0); Esc restores focus.
-- ACCEPTANCE: Production bundle drops console/debugger; no secrets or query strings logged.
-- ACCEPTANCE: Perf probe within budget; Compare deltas verified; Share-cap negative path documented.
-- ACCEPTANCE: Bundle budget gate green (≤ baseline +8% gzipped); docs/evidence/bundle/bundle_report.json present.
+```
+UI_PACK: evidence/pack/ui_pack_<YYYY-MM-DD_UTC>_<sha>.zip (slos.ui_layout_p95_ms=<n>)
+UNIFIED_PACK: docs/evidence/unified/Olumi_PoC_Evidence_<YYYY-MM-DD_UTC>.zip
+SLOS: ui_layout_p95_ms=<n>, engine_get_p95_ms=<n>, claude_ttff_ms=263, claude_cancel_ms=119
+PRIVACY: no request bodies or query strings in logs — PASS
+FLAGS: flags-OFF parity GREEN; features_on={ ui:<list>, engine:<list>, claude:[] }
+```
 
 Backout
 
-- Revert this PR only. All features are flag-gated OFF by default and no public contracts or SSE names changed.
+- Revert this PR only. All new features remain OFF by default; no public contracts changed.

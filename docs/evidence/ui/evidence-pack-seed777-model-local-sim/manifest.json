@@ -1,0 +1,14 @@
+{
+  "component": "ui",
+  "build": "0f292ac",
+  "slos": {
+    "ui_layout_p95_ms": 42
+  },
+  "checksums": [
+    "0778bdd5d0a5b811b9416f7f3fb393aeee952fbdbda1a59e4ad875cbffd20bf9  ./snapshot.json",
+    "a6d5d3fd8df37336b0fccf8fb15e97f57d21ec0198c4043045df5af8305b2eff  ./report.json",
+    "4446465da48c7955eb03ad89cc4324a68cf8377956c4c8ff6affe55f1ef1133e  ./health.json",
+    "c28e825ddf7b8f50278c79e490c13c4ca67f35e1ac1a79af47042fb2be44b154  ./version.json",
+    "9919e64324209e0c778e451de07cf686ff407da2dc30e0f92905e37f0b02f145  ./headers.txt"
+  ]
+}
