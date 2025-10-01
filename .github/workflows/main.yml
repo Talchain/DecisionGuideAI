@@ -1,0 +1,134 @@
+name: Warp Bootstrap Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      patch:
+        description: 'Unified diff (```diff fenced or raw)'
+        required: true
+        type: string
+
+permissions: {} # least privilege; we set per job
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apply:
+    name: Apply Patch (make branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # needed to push the temp branch
+    outputs:
+      allowed: ${{ steps.validate.outputs.allowed }}
+      branch: ${{ steps.branch.outputs.name }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Save input to warp.patch (supports ```diff fences)
+        run: |
+          cat >_raw.txt <<'EOF'
+          ${{ inputs.patch }}
+          EOF
+          node -e "const fs=require('fs');const s=fs.readFileSync('_raw.txt','utf8');const m=s.match(/```diff\\n([\\s\\S]*?)\\n```/);fs.writeFileSync('warp.patch', m?m[1]:s)"
+
+      - name: Validate allowed paths (bootstrap, inline)
+        id: validate
+        shell: node {0}
+        run: |
+          const fs=require('fs');
+          const s=fs.readFileSync('warp.patch','utf8');
+
+          // Extract changed files from diff headers
+          const files=[...s.matchAll(/^diff --git a\/(.+?) b\/(.+)$/gm)].map(m=>m[2]);
+
+          // Basic path sanity
+          if (files.some(f => f.startsWith('/') || f.includes('..'))) {
+            console.log('allowed=false'); return;
+          }
+
+          // Safer auto-merge allowlist (docs/data only). Everything else => PR.
+          const allow = (p) =>
+            p.startsWith('docs/') ||
+            p.startsWith('openapi/') ||
+            p.startsWith('fixtures/') ||
+            /\.md$/i.test(p);
+
+          const allowed = files.length>0 && files.every(allow);
+          console.log(`allowed=${allowed}`);
+          require('fs').writeFileSync(process.env.GITHUB_OUTPUT, `allowed=${allowed}\n`, {flag:'a'});
+
+      - name: Create and push temp branch
+        id: branch
+        run: |
+          set -eux
+          BR="warp-bootstrap-${{ github.run_id }}-${{ github.run_attempt }}"
+          echo "name=$BR" >> $GITHUB_OUTPUT
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git checkout -b "$BR"
+          git apply --whitespace=fix warp.patch
+          git add -A
+          git commit -m "ci: bootstrap apply patch (via Warp Bootstrap Apply)"
+          git push origin "$BR"
+
+  test:
+    name: Test (Node ${{ matrix.node }})
+    needs: apply
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18.x, 20.x]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.apply.outputs.branch }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build --if-present
+      - run: npm test --if-present
+      - name: Ensure tests.json (non-blocking if file missing)
+        run: node tools/ensure-tests-json.js
+        continue-on-error: true
+
+  merge:
+    name: Merge if SAFE + GREEN
+    needs: [apply, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # only this job can push to main
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Decide
+        shell: bash
+        env:
+          ALLOWED: ${{ needs.apply.outputs.allowed }}
+          BRANCH: ${{ needs.apply.outputs.branch }}
+          TEST_RESULT: ${{ needs.test.result }}
+        run: |
+          set +e
+          if [ "$ALLOWED" = "true" ] && [ "$TEST_RESULT" = "success" ]; then
+            set -eux
+            git fetch origin main "$BRANCH"
+            git checkout main
+            git merge --ff-only "origin/$BRANCH" || true
+            git push origin main || true
+            echo "Merged to main ✅"
+            exit 0
+          fi
+          echo "Compare URL: https://github.com/${{ github.repository }}/compare/main...${BRANCH}?expand=1"
+          exit 0

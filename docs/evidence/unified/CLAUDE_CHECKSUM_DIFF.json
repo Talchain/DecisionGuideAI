@@ -1,0 +1,26 @@
+{
+  "zip": "docs/evidence/incoming/claude/claude_pack_2025-09-30_499e955.zip",
+  "manifestPath": "manifest.json",
+  "filesCount": 10,
+  "checksCount": 8,
+  "missingCount": 8,
+  "mismatchedCount": 0,
+  "missing": [
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    null
+  ],
+  "mismatched": [],
+  "slos": {
+    "claude_cancel_ms": 119,
+    "claude_ttff_ms": 263
+  },
+  "privacy": {
+    "no_queries_in_logs": true
+  }
+}

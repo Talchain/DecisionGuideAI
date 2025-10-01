@@ -1,0 +1,238 @@
+# CI for DecisionGuideAI — runs on pushes and pull requests to main.
+# It creates two required checks: "TypeScript" and "Tests".
+# Safe dummy env vars are provided so no real secrets are needed in CI.
+
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+# Cancel older runs of the same branch/PR to save time.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Safe defaults so builds/tests do not need real keys.
+env:
+  TZ: UTC
+  CI: "1"
+  VITE_OPENAI_API_KEY: "test"
+  VITE_SUPABASE_URL: "http://localhost"
+  VITE_SUPABASE_ANON_KEY: "test"
+  VITE_FEATURE_SSE: "0"
+  VITE_EDGE_GATEWAY_URL: "http://localhost:3001"
+  VITE_PLOT_LITE_BASE_URL: "/plot-lite"
+
+jobs:
+  tsc:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type check (no emit)
+        run: npm run typecheck
+
+  vitest:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests (Vitest)
+        run: npm run test:unit
+      - name: Ensure tests.json (non-blocking)
+        run: node tools/ensure-tests-json.js
+        env:
+          ENSURE_TESTS_JSON_SKIP_RUN: '1'
+        continue-on-error: true
+
+  build:
+    name: Build + No-Console
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Scan dist for console/debugger and E2E toggles
+        run: |
+          npm run ci:no-console
+          npm run ci:scan-dist
+
+  e2e-chromium:
+    name: E2E (Chromium)
+    runs-on: ubuntu-latest
+    env:
+      VITE_E2E: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium (Playwright)
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E (Chromium)
+        run: npx playwright test --project=chromium -c playwright.config.ts --retries=1
+
+      - name: Upload Playwright test-results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: test-results
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload Playwright HTML report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 7
+          if-no-files-found: ignore
+
+  e2e-firefox:
+    name: E2E Smoke (Firefox)
+    runs-on: ubuntu-latest
+    env:
+      VITE_E2E: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Firefox (Playwright)
+        run: npx playwright install --with-deps firefox
+      - name: Run smoke + summary-v2 on Firefox
+        run: >-
+          npx playwright test
+          e2e/flags-off.smoke.spec.ts
+          e2e/summary-v2.spec.ts
+          --project=firefox -c playwright.config.ts
+
+  e2e-webkit:
+    name: E2E Smoke (WebKit)
+    runs-on: ubuntu-latest
+    env:
+      VITE_E2E: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Install WebKit (Playwright)
+        run: npx playwright install --with-deps webkit
+      - name: Run smoke + summary-v2 on WebKit
+        run: >-
+          npx playwright test
+          e2e/flags-off.smoke.spec.ts
+          e2e/summary-v2.spec.ts
+          --project=webkit -c playwright.config.ts
+
+  evidence:
+    name: Evidence (Perf, A11y, UI-Pack, Share-Cap, Immutability)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Install Chromium (Playwright)
+        run: npx playwright install --with-deps chromium
+      - name: Perf probe (worker layout, p95)
+        run: npx playwright test e2e/perf-worker-20-nodes.spec.ts --project=chromium -c playwright.config.ts
+      - name: Vendored a11y (axe)
+        run: npm run evidence:a11y
+      - name: UI evidence pack
+        run: npm run evidence:ui-pack
+      - name: Share-link cap evidence
+        run: npm run evidence:share-cap
+      - name: Immutability unit test (report.json hash)
+        run: npm run test -- src/lib/__tests__/evidence.immutability.test.ts
+      - name: Upload evidence artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-artifacts
+          path: |
+            docs/evidence/**
+          if-no-files-found: warn
+
+      - name: Upload Playwright HTML report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+          retention-days: 7
+          if-no-files-found: ignore

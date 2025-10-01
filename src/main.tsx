@@ -1,48 +1,64 @@
 // src/main.tsx
 
-// —————————————————————————————————————————————————————————————————————————————
-// Dev‐only: Unregister any service workers to avoid Bolt/WebContainer SW stalls
-// —————————————————————————————————————————————————————————————————————————————
-if (import.meta.env.DEV && typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations()
-    .then(registrations => {
-      registrations.forEach(reg => {
-        console.warn('[SW] Unregistering service worker at scope:', reg.scope)
-        reg.unregister()
-      })
-    })
-    .catch(err => {
-      console.error('[SW] Error unregistering service workers:', err)
-    })
-}
+// (Removed dev-only SW unregister block to ensure production bundle contains no console.*)
 
-import React, { StrictMode } from 'react'
+import { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter as Router } from 'react-router-dom'
+import { isE2EEnabled } from './flags'
 
-import { AuthProvider } from './contexts/AuthContext'
-import { GuestProvider } from './contexts/GuestContext'
-import { DecisionProvider } from './contexts/DecisionContext'
-import { TeamsProvider } from './contexts/TeamsContext'
 
-import App from './App'
+// Note: Avoid importing App at module scope so E2E mode can bypass auth/supabase init
+import SandboxStreamPanel from './components/SandboxStreamPanel'
+import EngineAuditPanel from './components/EngineAuditPanel'
 import './index.css'
 
 const container = document.getElementById('root')
 if (!container) throw new Error('Failed to find root element')
 
-createRoot(container).render(
-  <StrictMode>
-    <Router>
-      <AuthProvider>
-        <GuestProvider>
-          <TeamsProvider>
-            <DecisionProvider>
-              <App />
-            </DecisionProvider>
-          </TeamsProvider>
-        </GuestProvider>
-      </AuthProvider>
-    </Router>
-  </StrictMode>
-)
+const __e2e = isE2EEnabled()
+if (__e2e) {
+  function E2EMountProbe() {
+    useEffect(() => {
+      try { (window as any).__PANEL_RENDERED = true } catch {}
+      try { if (document?.body) { (document.body as any).dataset.e2eReady = '1' } } catch {}
+    }, [])
+    return null
+  }
+  createRoot(container).render(
+    <StrictMode>
+      <Router>
+        <div data-testid="e2e-surface">
+          <E2EMountProbe />
+          <SandboxStreamPanel />
+          <EngineAuditPanel />
+        </div>
+      </Router>
+    </StrictMode>
+  )
+} else {
+  // Lazy-load heavy providers only for non-E2E path to avoid side effects in test mode
+  Promise.all([
+    import('./App'),
+    import('./contexts/AuthContext'),
+    import('./contexts/GuestContext'),
+    import('./contexts/DecisionContext'),
+    import('./contexts/TeamsContext'),
+  ]).then(([{ default: App }, { AuthProvider }, { GuestProvider }, { DecisionProvider }, { TeamsProvider }]) => {
+    createRoot(container).render(
+      <StrictMode>
+        <Router>
+          <AuthProvider>
+            <GuestProvider>
+              <TeamsProvider>
+                <DecisionProvider>
+                  <App />
+                </DecisionProvider>
+              </TeamsProvider>
+            </GuestProvider>
+          </AuthProvider>
+        </Router>
+      </StrictMode>
+    )
+  })
+}

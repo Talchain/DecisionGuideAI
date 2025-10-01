@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { ArrowLeft, AlertCircle, Users, Loader2 } from 'lucide-react';
 import BiasesCarousel from './BiasesCarousel';
@@ -9,6 +9,7 @@ import type { Bias } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { saveDecisionAnalysis, supabase, createDecision } from '../lib/supabase';
 import AnalysisContent from './Analysis/AnalysisContent';
+import type { Database } from '../types/database';
 
 // Define types
 interface LocationState {
@@ -19,6 +20,24 @@ interface LocationState {
   importance: string;
   goals?: string[];
   skipGoalsReason?: string;
+}
+
+// Extend LocationState locally for extra fields used in this component
+type LocationStateExt = LocationState & {
+  collaboration_settings?: Record<string, boolean>;
+};
+
+// Local DB row aliases (keep only what's used to satisfy noUnusedLocals)
+type CollaboratorRow = Database['public']['Tables']['decision_collaborators']['Row'];
+
+// (RPC helper types not required explicitly here; we narrow results inline as needed)
+
+// Decision type union guard
+const decisionTypes = ['professional','financial','health','career','relationships','other'] as const;
+type DecisionType = typeof decisionTypes[number];
+function toDecisionType(value: string | null | undefined): DecisionType {
+  const v = (value ?? '').toLowerCase() as DecisionType;
+  return (decisionTypes as readonly string[]).includes(v) ? (v as DecisionType) : 'other';
 }
 
 // Interface for the raw collaborator row + fetched email
@@ -49,7 +68,7 @@ export default function Analysis() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const location = useLocation();
-  const state = location.state as LocationState;
+  const state = (location.state ?? {}) as LocationStateExt;
 
   // Helper function to check if a decision ID is a valid UUID
   const isValidDecisionId = useCallback((id: string | null): id is string => {
@@ -162,16 +181,20 @@ export default function Analysis() {
      }
      console.log("Creating permanent decision...");
      try {
-       const { data, error } = await createDecision({
-         user_id: user.id, title: state.decision, type: state.decisionType,
-         reversibility: state.reversibility, importance: state.importance,
-         status: 'in_progress', description: state.goals?.join("; ")
-       });
-       if (error) throw error;
-       if (!data || !data.id) throw new Error("No ID returned");
-       hasCreatedPermanentDecisionRef.current = true;
-       if (componentMountedRef.current) setPermanentId(data.id);
-       return data.id;
+      const safeType: DecisionType = toDecisionType(state.decisionType);
+      const { data, error } = await createDecision({
+        user_id: user.id, title: state.decision, type: safeType,
+        reversibility: state.reversibility, importance: state.importance,
+        status: 'in_progress', description: state.goals?.join("; ")
+      });
+      if (error) throw error;
+      const newId = (data && typeof data === 'object' && data !== null && 'id' in (data as any))
+        ? ((data as any).id as string)
+        : null;
+      if (!newId) throw new Error("No ID returned");
+      hasCreatedPermanentDecisionRef.current = true;
+      if (componentMountedRef.current) setPermanentId(newId);
+      return newId;
      } catch (err) {
        console.error("Error creating permanent decision:", err);
        if (componentMountedRef.current) setSaveError("Failed to initialize decision saving.");
@@ -197,20 +220,20 @@ export default function Analysis() {
     try {
       console.log(`Fetching collaborator user IDs for decision ID: ${decisionId}`);
       
-      let collabData;
+      let collabData: CollaboratorRow[] = [];
       
       // First try the RPC function
       try {
         // Use the get_decision_collaborators function to avoid RLS recursion issues
-        const { data, error } = await supabase
-          .rpc('get_decision_collaborators', { decision_id_param: decisionId });
+        const { data, error } = await (supabase as any)
+          .rpc('get_decision_collaborators', { decision_id_param: decisionId as CollaboratorRow['decision_id'] });
   
         if (error) {
           console.warn(`RPC error fetching collaborators: ${error.message}`);
           throw error;
         }
         
-        collabData = data;
+        collabData = (Array.isArray(data) ? data : []) as unknown as CollaboratorRow[];
       } catch (rpcError) {
         console.error('RPC method failed, falling back to direct query:', rpcError);
         
@@ -218,10 +241,11 @@ export default function Analysis() {
         const { data, error } = await supabase
           .from('decision_collaborators')
           .select('*')
-          .eq('decision_id', decisionId);
+          .eq('decision_id', decisionId as any)
+          .returns<CollaboratorRow[]>();
           
         if (error) throw error;
-        collabData = data;
+        collabData = (data ?? []) as CollaboratorRow[];
       }
 
       if (!collabData || collabData.length === 0) {
@@ -233,10 +257,10 @@ export default function Analysis() {
       }
 
       // Step 2: Extract user IDs and fetch user details
-      const userIds = collabData.map(c => c.user_id).filter(id => id);
+      const userIds = collabData.map((c: CollaboratorRow) => c.user_id).filter((id): id is string => Boolean(id));
       if (userIds.length === 0) {
           console.log("Collaborator rows found, but no valid user IDs associated.");
-          if (componentMountedRef.current) setCollaborators(collabData); // Set data without emails
+          if (componentMountedRef.current) setCollaborators(collabData as unknown as Collaborator[]); // Set data without emails
           if (componentMountedRef.current) setCollaboratorsLoading(false);
           return;
       }
@@ -246,13 +270,14 @@ export default function Analysis() {
       const { data: usersData, error: usersError } = await supabase
         .from('user_profiles')
         .select('id, email:auth.users!user_profiles_id_fkey(email)')
-        .in('id', userIds);
+        .in('id', userIds as any)
+        .returns<any[]>();
 
       if (usersError) throw usersError;
 
       // Step 3: Map user emails back to collaborator data
-      const usersMap = new Map(usersData?.map(u => [u.id, u.email?.email]));
-      const combinedData = collabData.map(collab => ({
+      const usersMap = new Map(((usersData ?? []) as any[]).map((u: any) => [u.id as string, (u?.email?.email as string | undefined)]));
+      const combinedData: Collaborator[] = collabData.map((collab: CollaboratorRow) => ({
           ...collab,
           email: usersMap.get(collab.user_id) || undefined // Add email if found
       }));
@@ -302,25 +327,29 @@ export default function Analysis() {
     
     try {
       // First check if user exists
-      const { data: userCheck, error: userCheckError } = await supabase
+      const { data: userCheck } = await (supabase as any)
         .rpc('check_user_email_exists', { email_to_check: email });
         
       // Create the collaborator record
+      const userId: string | null = (userCheck && typeof userCheck === 'object' && userCheck !== null && 'id' in (userCheck as any))
+        ? ((userCheck as any).id as string)
+        : null;
+      const insertPayload = {
+        decision_id: permanentId,
+        user_id: userId,
+        email: email,
+        role: role,
+        status: 'invited',
+        permissions: {
+          can_comment: role === 'collaborator',
+          can_suggest: role === 'collaborator',
+          can_rate: role === 'collaborator'
+        },
+        invited_at: new Date().toISOString()
+      } as any;
       const { error: inviteError } = await supabase
         .from('decision_collaborators')
-        .insert({
-          decision_id: permanentId,
-          user_id: userCheck ? userCheck.id : null,
-          email: email,
-          role: role,
-          status: 'invited',
-          permissions: {
-            can_comment: role === 'collaborator',
-            can_suggest: role === 'collaborator',
-            can_rate: role === 'collaborator'
-          },
-          invited_at: new Date().toISOString()
-        });
+        .insert(insertPayload as any);
         
       if (inviteError) throw inviteError;
       
@@ -333,27 +362,8 @@ export default function Analysis() {
     }
   }, [permanentId, isValidDecisionId, fetchCollaborators, supabase]);
   
-  // Function to update collaborator
-  const updateCollaborator = useCallback(async (collaboratorId: string, updates: Partial<Collaborator>) => {
-    if (!permanentId) return;
-    
-    try {
-      const { error } = await supabase
-        .from('decision_collaborators')
-        .update(updates)
-        .eq('id', collaboratorId);
-        
-      if (error) throw error;
-      
-      // Refresh collaborator list
-      fetchCollaborators(permanentId);
-      
-    } catch (err) {
-      console.error('Error updating collaborator:', err);
-      setSaveError(err instanceof Error ? err.message : 'Failed to update collaborator');
-    }
-  }, [permanentId, fetchCollaborators, supabase]);
-  
+  // (updateCollaborator removed – unused)
+
   // Function to remove collaborator
   const removeCollaborator = useCallback(async (collaboratorId: string) => {
     if (!permanentId) return;
@@ -362,7 +372,7 @@ export default function Analysis() {
       const { error } = await supabase
         .from('decision_collaborators')
         .delete()
-        .eq('id', collaboratorId);
+        .eq('id', collaboratorId as any);
         
       if (error) throw error;
       
@@ -380,13 +390,14 @@ export default function Analysis() {
     if (!permanentId) return;
     
     try {
+      const payload: Database['public']['Tables']['decisions']['Update'] = {
+        collaboration_settings: settings as unknown as Database['public']['Tables']['decisions']['Row']['collaboration_settings'],
+        is_collaborative: true,
+      };
       const { error } = await supabase
         .from('decisions')
-        .update({
-          collaboration_settings: settings,
-          is_collaborative: true
-        })
-        .eq('id', permanentId);
+        .update(payload as any)
+        .eq('id', permanentId as any);
         
       if (error) throw error;
       
@@ -682,9 +693,7 @@ export default function Analysis() {
                             <button 
                               onClick={() => removeCollaborator(collab.id)}
                               className="p-1 text-gray-400 hover:text-red-500 rounded-full hover:bg-gray-100"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
+                            />
                           </div>
                         </div>
                       ))}

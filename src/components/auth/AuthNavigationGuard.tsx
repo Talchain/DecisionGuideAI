@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 // import { clearAuthStates } from '../../lib/auth/authUtils';  ← no longer needed here
 import { checkAccessValidation } from '../../lib/auth/accessValidation';
 import { authLogger } from '../../lib/auth/authLogger';
+import { isE2EEnabled } from '../../flags';
 
 export default function AuthNavigationGuard() {
   const { authenticated, loading } = useAuth();
@@ -13,8 +14,16 @@ export default function AuthNavigationGuard() {
   const location = useLocation();
   const initialLoadRef = useRef(true);
 
+  // Public routes (Sandbox remains protected in normal mode)
   const publicRoutes = ['/', '/about'];
   const authRoutes   = ['/login', '/signup', '/forgot-password', '/reset-password'];
+
+  // E2E hardening: forbid guard bypass in production bundles
+  if (import.meta.env.PROD && isE2EEnabled()) {
+    throw new Error('E2E test mode is forbidden in production bundles')
+  }
+  // In non-prod E2E builds, disable navigation guards for deterministic routing
+  if (!import.meta.env.PROD && isE2EEnabled()) return null;
 
   useEffect(() => {
     if (loading) return;
