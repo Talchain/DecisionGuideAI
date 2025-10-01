@@ -1,0 +1,123 @@
+name: Compose Evidence (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ui_p95_ms:
+        description: Deterministic UI p95 (ms)
+        required: false
+        default: '130'
+      ui_features_on:
+        description: Comma-separated UI features to turn ON (leave blank for all OFF)
+        required: false
+        default: ''
+
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck (soft)
+        run: npm run typecheck || true
+
+      - name: Build
+        run: npm run build
+
+      - name: Set determinism (UTC)
+        run: echo "TZ=UTC" >> $GITHUB_ENV
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+
+      - name: Capture UI screenshots
+        run: npx playwright test e2e/unified/ui-pack.screenshots.spec.ts --project=chromium --retries=1
+
+      - name: Set runtime features (optional)
+        if: ${{ inputs.ui_features_on != '' }}
+        run: echo "UI_FEATURES_ON=${{ inputs.ui_features_on }}" >> $GITHUB_ENV
+
+      - name: Set deterministic UI SLO
+        run: echo "UI_P95_MS=${{ inputs.ui_p95_ms }}" >> $GITHUB_ENV
+
+      - name: Emit UI pack
+        run: |
+          set -o pipefail
+          npm run evidence:ui | tee evidence.ui.log
+
+      - name: Compose unified evidence
+        run: |
+          set -o pipefail
+          npm run evidence:unified | tee evidence.unified.log
+
+      - name: Unified smoke and guards
+        run: |
+          npx playwright test e2e/unified/unified.smoke.spec.ts --project=chromium --grep @evidence --retries=1
+          npm run ci:guard:sandbox
+          npm run ci:guard:flags
+          npm run ci:no-console
+
+      - name: Print acceptance lines
+        run: |
+          echo "Acceptance lines:" 
+          grep -E '^UI_PACK:' -m 1 evidence.ui.log || true
+          grep -E '^(UNIFIED_PACK:|SLOS:|PRIVACY:|FLAGS:)' evidence.unified.log || true
+
+      - name: Upload unified artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-unified
+          path: |
+            docs/evidence/unified/**
+
+      - name: Upload UI pack artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-ui-pack
+          path: |
+            docs/evidence/ui-pack/**
+            evidence/pack/**
+            docs/evidence/flags/manifest_drift.json
+
+      - name: Upload Playwright report (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          if-no-files-found: ignore
+
+  # auto_commit:
+  #   needs: compose
+  #   if: ${{ always() }}
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #       with:
+  #         persist-credentials: true
+  #     - name: Commit evidence (guarded on OK)
+  #       run: |
+  #         status=$(jq -r .status docs/evidence/unified/unified.manifest.json || echo '')
+  #         if [ "$status" = "OK" ]; then
+  #           git config user.email "github-actions[bot]@users.noreply.github.com"
+  #           git config user.name "github-actions[bot]"
+  #           git add docs/evidence/** evidence/pack/**
+  #           git commit -m "Evidence: unified OK (auto-commit)" || true
+  #           git push
+  #         else
+  #           echo "Unified status is not OK; skipping commit."
+  #         fi

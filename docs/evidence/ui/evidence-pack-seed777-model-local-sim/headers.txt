@@ -1,0 +1,3 @@
+GET /report
+Accept: application/json
+User-Agent: EvidenceGen/1.0
