@@ -9,7 +9,16 @@ import React, {
   useRef,
   useCallback
 } from 'react'
-import { supabase } from '../lib/supabase'
+import { 
+  supabase, 
+  saveDecisionGoals, 
+  getDecisionGoals,
+  saveDecisionOptions,
+  getDecisionOptions,
+  saveEvaluationMethod,
+  getEvaluationMethod
+} from '../lib/supabase'
+import { withErrorHandling } from '../lib/errors'
 
 export interface Criterion {
   id: string
@@ -47,6 +56,11 @@ export interface DecisionContextType {
   criteria: Criterion[]
   collaboratorsError: string | null
   teamIds: string[]
+  // New methods for Supabase persistence
+  saveGoalsToSupabase: (goals: string[]) => Promise<void>
+  saveOptionsToSupabase: (options: Option[]) => Promise<void>
+  saveEvaluationMethodToSupabase: (method: string) => Promise<void>
+  loadDecisionData: (decisionId: string) => Promise<void>
   setDecisionId: (id: string | null) => void
   setActiveDecisionId: (id: string | null) => void
   setDecisionType: (type: string | null) => void
@@ -126,10 +140,115 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
   // Track subscriptions to clean up properly
   const subscriptionsRef = useRef<{[key: string]: any}>({})
 
+  // New methods for Supabase persistence
+  const saveGoalsToSupabase = useCallback(async (goalsToSave: string[]) => {
+    if (!decisionId) {
+      console.warn('[DecisionContext] Cannot save goals: no decision ID');
+      return;
+    }
+    
+    const { error } = await withErrorHandling(
+      () => saveDecisionGoals(decisionId, goalsToSave),
+      { decisionId, goalsCount: goalsToSave.length }
+    );
+    
+    if (error) {
+      console.error('[DecisionContext] Failed to save goals:', error);
+      throw error;
+    }
+    
+    console.log('[DecisionContext] Goals saved to Supabase successfully');
+  }, [decisionId]);
+
+  const saveOptionsToSupabase = useCallback(async (optionsToSave: Option[]) => {
+    if (!decisionId) {
+      console.warn('[DecisionContext] Cannot save options: no decision ID');
+      return;
+    }
+    
+    const { error } = await withErrorHandling(
+      () => saveDecisionOptions(decisionId, optionsToSave),
+      { decisionId, optionsCount: optionsToSave.length }
+    );
+    
+    if (error) {
+      console.error('[DecisionContext] Failed to save options:', error);
+      throw error;
+    }
+    
+    console.log('[DecisionContext] Options saved to Supabase successfully');
+  }, [decisionId]);
+
+  const saveEvaluationMethodToSupabase = useCallback(async (method: string) => {
+    if (!decisionId) {
+      console.warn('[DecisionContext] Cannot save evaluation method: no decision ID');
+      return;
+    }
+    
+    const { error } = await withErrorHandling(
+      () => saveEvaluationMethod(decisionId, method),
+      { decisionId, evaluationMethod: method }
+    );
+    
+    if (error) {
+      console.error('[DecisionContext] Failed to save evaluation method:', error);
+      throw error;
+    }
+    
+    console.log('[DecisionContext] Evaluation method saved to Supabase successfully');
+  }, [decisionId]);
+
+  const loadDecisionData = useCallback(async (loadDecisionId: string) => {
+    console.log('[DecisionContext] Loading decision data from Supabase:', loadDecisionId);
+    
+    try {
+      // Load goals
+      const { data: goalsData, error: goalsError } = await withErrorHandling(
+        () => getDecisionGoals(loadDecisionId),
+        { decisionId: loadDecisionId }
+      );
+      
+      if (goalsError) {
+        console.warn('[DecisionContext] Failed to load goals:', goalsError);
+      } else if (goalsData) {
+        setGoals(goalsData);
+      }
+      
+      // Load options
+      const { data: optionsData, error: optionsError } = await withErrorHandling(
+        () => getDecisionOptions(loadDecisionId),
+        { decisionId: loadDecisionId }
+      );
+      
+      if (optionsError) {
+        console.warn('[DecisionContext] Failed to load options:', optionsError);
+      } else if (optionsData) {
+        setOptions(optionsData);
+      }
+      
+      // Load evaluation method
+      const { data: methodData, error: methodError } = await withErrorHandling(
+        () => getEvaluationMethod(loadDecisionId),
+        { decisionId: loadDecisionId }
+      );
+      
+      if (methodError) {
+        console.warn('[DecisionContext] Failed to load evaluation method:', methodError);
+      } else if (methodData) {
+        setEvaluationMethod(methodData);
+      }
+      
+      console.log('[DecisionContext] Decision data loaded successfully');
+    } catch (err) {
+      console.error('[DecisionContext] Error loading decision data:', err);
+    }
+  }, []);
   // Subscribe to collaborator changes when decisionId changes
   useEffect(() => {
     if (!decisionId) return
 
+    // Load decision data from Supabase when decisionId changes
+    loadDecisionData(decisionId);
     // Initial fetch
     const fetchCollaborators = async () => {
       setCollaboratorsError(null)
@@ -274,26 +393,20 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
       // Reset subscriptions object
       subscriptionsRef.current = {}
     }
-  }, [decisionId])
+  }, [decisionId, loadDecisionData])
 
   // Helper function to fetch options
   const fetchOptions = useCallback(async (decisionId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('options')
-        .select('*')
-        .eq('decision_id', decisionId)
-        
-      if (error) throw error
+      const { data, error } = await withErrorHandling(
+        () => getDecisionOptions(decisionId),
+        { decisionId }
+      );
       
-      if (data) {
-        // Map to expected format
-        const formattedOptions = data.map(option => ({
-          label: option.name,
-          description: option.description || ''
-        }))
-        
-        setOptions(formattedOptions)
+      if (error) {
+        console.error('Error fetching options:', error);
+      } else if (data) {
+        setOptions(data);
       }
     } catch (err) {
       console.error('Error fetching options:', err)
@@ -319,8 +432,8 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [])
 
-  // Persist on *every* change to keep LS in sync
-  useEffect(() => {
+  // Debounced localStorage persistence to avoid excessive writes
+  const persistToLocalStorage = useCallback(() => {
     const state = {
       decisionId,
       activeDecisionId,
@@ -331,6 +444,8 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
       goals,
       options,
       collaborators,
+      evaluationMethod,
+      criteria,
       collaboratorsError,
       teamIds
     }
@@ -344,12 +459,18 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     reversibility,
     goals,
     options,
-    evaluationMethod,
-    evaluationMethod,
     collaborators,
+    evaluationMethod,
+    criteria,
     collaboratorsError,
     teamIds
-  ])
+  ]);
+
+  // Debounce localStorage updates
+  useEffect(() => {
+    const timeoutId = setTimeout(persistToLocalStorage, 500);
+    return () => clearTimeout(timeoutId);
+  }, [persistToLocalStorage]);
 
   // Clears everything for a brand-new decision
   const resetDecisionContext = () => {
@@ -401,6 +522,10 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
         criteria,
         collaboratorsError,
         teamIds,
+        saveGoalsToSupabase,
+        saveOptionsToSupabase,
+        saveEvaluationMethodToSupabase,
+        loadDecisionData,
         setTeamIds,
         setDecisionId,
         setActiveDecisionId,

@@ -11,6 +11,8 @@ import {
 import { useDecision } from '../contexts/DecisionContext';
 import { evaluationMethods, getRecommendedMethods, getMethodById } from '../utils/evaluationMethods';
 import Tooltip from './Tooltip';
+import Button from './shared/Button';
+import { AppErrorHandler } from '../lib/errors';
 
 interface HelpModalProps {
   onClose: () => void;
@@ -55,12 +57,11 @@ function HelpModal({ onClose }: HelpModalProps) {
         </div>
         
         <div className="flex justify-end p-6 border-t">
-          <button
+          <Button
             onClick={onClose}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
           >
             Got it
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -78,12 +79,14 @@ export default function EvaluationMethodSelector() {
     goals,
     options,
     criteria,
-    setEvaluationMethod
+    setEvaluationMethod,
+    saveEvaluationMethodToSupabase
   } = useDecision();
   
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   
   // Get recommended methods based on decision context
   const hasCriteria = Array.isArray(criteria) && criteria.length > 0;
@@ -109,24 +112,37 @@ export default function EvaluationMethodSelector() {
     setError(null);
   };
   
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!selectedMethodId) return;
     
-    // Update context with selected method
-    setEvaluationMethod(selectedMethodId);
+    setSaving(true);
+    setError(null);
     
-    // Navigate to analysis
-    navigate('/decision/analysis', {
-      state: {
-        decisionId,
-        decision,
-        decisionType,
-        importance,
-        reversibility,
-        goals,
-        options
-      }
-    });
+    try {
+      // Update context with selected method
+      setEvaluationMethod(selectedMethodId);
+      
+      // Save to Supabase
+      await saveEvaluationMethodToSupabase(selectedMethodId);
+      
+      // Navigate to analysis
+      navigate('/decision/analysis', {
+        state: {
+          decisionId,
+          decision,
+          decisionType,
+          importance,
+          reversibility,
+          goals,
+          options
+        }
+      });
+    } catch (err) {
+      const errorMessage = AppErrorHandler.getUserFriendlyMessage(err as any);
+      setError(errorMessage);
+    } finally {
+      setSaving(false);
+    }
   };
   
   const handleBack = () => {
@@ -257,14 +273,15 @@ export default function EvaluationMethodSelector() {
         
         {/* Continue Button */}
         <div className="flex justify-end pt-4">
-          <button
+          <Button
             onClick={handleContinue}
             disabled={!selectedMethodId}
-            className="flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            loading={saving}
+            icon={ArrowRight}
+            size="lg"
           >
             Continue to Analysis
-            <ArrowRight className="ml-2 h-5 w-5" />
-          </button>
+          </Button>
         </div>
       </div>
       

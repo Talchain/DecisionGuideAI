@@ -6,6 +6,55 @@ import { useAuth } from '../../contexts/AuthContext';
 import { checkAccessValidation } from '../../lib/auth/accessValidation';
 import { authLogger } from '../../lib/auth/authLogger'; 
 
+// Route configuration for cleaner logic
+const ROUTE_CONFIG = {
+  public: ['/', '/about'],
+  auth: ['/login', '/signup', '/forgot-password', '/reset-password'],
+  decisionFlow: [
+    '/decision/intake',
+    '/decision/goals',
+    '/decision/options',
+    '/decision/criteria',
+    '/decision/analysis'
+  ]
+} as const;
+
+interface NavigationState {
+  authenticated: boolean;
+  hasValidAccess: boolean;
+  currentPath: string;
+  isAuthRoute: boolean;
+  isPublicRoute: boolean;
+  isDecisionFlowRoute: boolean;
+}
+
+function getNavigationState(
+  authenticated: boolean,
+  pathname: string
+): NavigationState {
+  return {
+    authenticated,
+    hasValidAccess: !authenticated && checkAccessValidation(),
+    currentPath: pathname,
+    isAuthRoute: ROUTE_CONFIG.auth.includes(pathname as any),
+    isPublicRoute: ROUTE_CONFIG.public.includes(pathname as any),
+    isDecisionFlowRoute: ROUTE_CONFIG.decisionFlow.includes(pathname as any)
+  };
+}
+
+function shouldRedirectToDecisionFlow(state: NavigationState): boolean {
+  return state.authenticated && (
+    state.currentPath === '/' || 
+    state.isAuthRoute
+  );
+}
+
+function shouldRedirectToLanding(state: NavigationState): boolean {
+  return !state.authenticated && 
+         !state.hasValidAccess && 
+         !state.isPublicRoute && 
+         !state.isAuthRoute;
+}
 export default function AuthNavigationGuard() {
   const { authenticated, loading, user } = useAuth();
   const navigate = useNavigate();
@@ -14,34 +63,16 @@ export default function AuthNavigationGuard() {
   // Simplified state tracking
   const initialLoadRef = useRef(true);
 
-  const publicRoutes = ['/', '/about'];
-  const authRoutes   = ['/login', '/signup', '/forgot-password', '/reset-password'];
-  const decisionFlowRoutes = [
-    '/decision/intake',
-    '/decision/goals',
-    '/decision/options',
-    '/decision/criteria',
-    '/decision/analysis'
-  ];
 
   useEffect(() => {
     if (loading) return;
 
-    const isAuthRoute    = authRoutes.includes(location.pathname);
-    const isPublicRoute  = publicRoutes.includes(location.pathname);
-    const isDecisionFlowRoute = decisionFlowRoutes.includes(location.pathname);
-    const hasValidAccess = !authenticated && checkAccessValidation();
+    const navState = getNavigationState(authenticated, location.pathname);
     
     // Log navigation state for debugging
     authLogger.debug('AUTH', 'Navigation check', {
-      path: location.pathname,
-      previousPath: location.pathname,
+      ...navState,
       hasUser: !!user,
-      isAuthRoute,
-      isPublicRoute,
-      isDecisionFlowRoute,
-      authenticated,
-      hasValidAccess,
       initialLoad: initialLoadRef.current
     });
 
@@ -49,13 +80,10 @@ export default function AuthNavigationGuard() {
     if (initialLoadRef.current) {
       initialLoadRef.current = false;
       authLogger.debug('AUTH', 'Initial load navigation check', {
-        authenticated,
-        path: location.pathname,
-        hasValidAccess
+        ...navState
       });
 
-      // If we're landing *and* authenticated, jump straight into the flow
-      if (authenticated && location.pathname === '/') {
+      if (shouldRedirectToDecisionFlow(navState)) {
         authLogger.info('AUTH', 'Redirecting authenticated user to decision intake', {
           from: location.pathname
         });
@@ -63,8 +91,7 @@ export default function AuthNavigationGuard() {
         return;
       }
 
-      // If un-authed and no early-access, any protected URL → landing
-      if (!authenticated && !hasValidAccess && !isPublicRoute && !isAuthRoute) {
+      if (shouldRedirectToLanding(navState)) {
         authLogger.info('AUTH', 'Redirecting unauthenticated user without access', {
           from: location.pathname,
           to: '/'
@@ -75,8 +102,7 @@ export default function AuthNavigationGuard() {
       }
     }
 
-    // If on an auth page but already signed in, send them to the flow
-    if (isAuthRoute && authenticated) {
+    if (shouldRedirectToDecisionFlow(navState)) {
       authLogger.info('AUTH', 'Redirecting authenticated user to decision flow', {
         from: location.pathname
       });
@@ -85,28 +111,13 @@ export default function AuthNavigationGuard() {
       return;
     }
 
-    // Non-public routes require auth or early access
-    if (!isPublicRoute && !isAuthRoute) {
-      if (!authenticated && !hasValidAccess) {
-        authLogger.info('AUTH', 'Redirecting unauthenticated user without access', {
-          from: location.pathname,
-          to: '/',
-          hasUser: !!user
-        });
 
-        navigate('/', { replace: true });
-        return;
-      }
-      // else: they've got access → let them through
-    }
-
-    // Public landing page: if you're already authed, bounce to /decision/intake
-    if (location.pathname === '/' && authenticated) {
-      authLogger.info('AUTH', 'Redirecting authenticated user to decision flow', {
+    if (shouldRedirectToLanding(navState)) {
+      authLogger.info('AUTH', 'Redirecting unauthenticated user without access', {
         from: location.pathname
       });
 
-      navigate('/decision/intake', { replace: true });
+      navigate('/', { replace: true });
     }
   }, [authenticated, loading, location.pathname, navigate, user]);
 

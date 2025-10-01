@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
-import { ArrowLeft, Plus, X, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Plus, X, AlertTriangle, Save } from 'lucide-react'
 import ChatBox from './ChatBox'
 import { useDecision } from '../contexts/DecisionContext'
 import InviteCollaborators from './InviteCollaborators'
+import Button from './shared/Button'
+import { AppErrorHandler } from '../lib/errors'
 
 export default function GoalClarificationScreen() {
   const navigate = useNavigate()
@@ -16,12 +18,15 @@ export default function GoalClarificationScreen() {
     importance,
     reversibility,
     goals,
-    setGoals
+    setGoals,
+    saveGoalsToSupabase
   } = useDecision()
 
   const [newGoal, setNewGoal] = useState('')
   const [skipConfirm, setSkipConfirm] = useState(false)
   const [inviteOpen, setInviteOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   // Flow guards
   if (!decisionId) return <Navigate to="/decision/intake" replace />
@@ -39,25 +44,60 @@ export default function GoalClarificationScreen() {
   }, [importance, reversibility, navigate])
 
   const back   = () => navigate('/decision/intake')
-  const next   = () => navigate('/decision/options')
+  
+  const next = async () => {
+    if (goals.length > 0) {
+      setSaving(true);
+      setError(null);
+      try {
+        await saveGoalsToSupabase(goals);
+        navigate('/decision/options');
+      } catch (err) {
+        const errorMessage = AppErrorHandler.getUserFriendlyMessage(err as any);
+        setError(errorMessage);
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      navigate('/decision/options');
+    }
+  };
+  
   const add    = () => {
     console.log("[GoalClarificationScreen] Adding goal:", newGoal);
     if (!newGoal.trim()) return
     setGoals([...goals, newGoal.trim()])
     setNewGoal('')
+    setError(null)
   }
   const remove = (i: number) => {
     console.log("[GoalClarificationScreen] Removing goal at index:", i);
     const arr = [...goals]
     arr.splice(i, 1)
     setGoals(arr)
+    setError(null)
   }
-  const skip   = () => {
+  const skip = async () => {
     console.log("[GoalClarificationScreen] Skipping goals");
-    if (!skipConfirm) return setSkipConfirm(true)
-    setSkipConfirm(false)
-    navigate('/decision/options')
-  }
+    if (!skipConfirm) {
+      setSkipConfirm(true);
+      return;
+    }
+    
+    // Save empty goals array to Supabase when skipping
+    setSaving(true);
+    setError(null);
+    try {
+      await saveGoalsToSupabase([]);
+      setSkipConfirm(false);
+      navigate('/decision/options');
+    } catch (err) {
+      const errorMessage = AppErrorHandler.getUserFriendlyMessage(err as any);
+      setError(errorMessage);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <>
@@ -100,6 +140,13 @@ export default function GoalClarificationScreen() {
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-6">
+          {error && (
+            <div className="mb-4 bg-red-50 p-4 rounded-lg flex items-start gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
+              <p className="text-red-700">{error}</p>
+            </div>
+          )}
+
           {goals.length > 0 && (
             <ul className="space-y-2 mb-4">
               {goals.map((g,i) => (
@@ -122,13 +169,13 @@ export default function GoalClarificationScreen() {
               placeholder="Enter a goal…"
               className="flex-1 px-3 py-2 border rounded focus:ring-2 focus:ring-indigo-500"
             />
-            <button
+            <Button
               onClick={add}
               disabled={!newGoal.trim()}
-              className="px-4 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
+              icon={Plus}
             >
-              <Plus className="h-5 w-5"/>
-            </button>
+              Add
+            </Button>
           </div>
 
           {skipConfirm && (
@@ -139,8 +186,19 @@ export default function GoalClarificationScreen() {
                   <p className="font-medium text-yellow-800">Skip setting goals?</p>
                   <p className="text-yellow-700">Goals help keep your analysis on track.</p>
                   <div className="mt-3 flex gap-2">
-                    <button onClick={skip} className="px-4 py-2 bg-yellow-100 rounded">Yes, skip</button>
-                    <button onClick={() => setSkipConfirm(false)} className="px-4 py-2 bg-white border rounded">No, add</button>
+                    <Button 
+                      onClick={skip} 
+                      variant="outline"
+                      loading={saving}
+                    >
+                      Yes, skip
+                    </Button>
+                    <Button 
+                      onClick={() => setSkipConfirm(false)}
+                      variant="outline"
+                    >
+                      No, add goals
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -148,14 +206,20 @@ export default function GoalClarificationScreen() {
           )}
 
           <div className="flex justify-end gap-2">
-            <button
+            <Button
               onClick={next}
-              disabled={goals.length===0}
-              className="px-6 py-2 bg-indigo-600 text-white rounded disabled:opacity-50"
+              disabled={goals.length === 0}
+              loading={saving}
             >
               Continue
-            </button>
-            <button onClick={skip} className="px-6 py-2 border rounded">Skip Goals</button>
+            </Button>
+            <Button 
+              onClick={skip} 
+              variant="outline"
+              loading={saving}
+            >
+              Skip Goals
+            </Button>
           </div>
         </div>
       </div>

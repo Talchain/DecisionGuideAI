@@ -469,6 +469,201 @@ export async function saveDecisionAnalysis(
   }
 }
 
+// ---------------- Goals Management ----------------
+
+export async function saveDecisionGoals(
+  decisionId: string,
+  goals: string[]
+): Promise<{ error: any }> {
+  try {
+    if (!decisionId) throw new Error('Valid decision ID required')
+    if (!Array.isArray(goals)) throw new Error('Goals must be an array')
+    
+    const { error } = await supabase
+      .from('decisions')
+      .update({ 
+        goals: goals.filter(goal => goal.trim()),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', decisionId)
+
+    if (error) throw error
+    return { error: null }
+  } catch (err) {
+    console.error('saveDecisionGoals exception:', err)
+    return {
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error saving goals'),
+    }
+  }
+}
+
+export async function getDecisionGoals(
+  decisionId: string
+): Promise<{ data: string[] | null; error: any }> {
+  try {
+    if (!decisionId) throw new Error('Valid decision ID required')
+    
+    const { data, error } = await supabase
+      .from('decisions')
+      .select('goals')
+      .eq('id', decisionId)
+      .single()
+
+    if (error) throw error
+    return { data: data?.goals || [], error: null }
+  } catch (err) {
+    console.error('getDecisionGoals exception:', err)
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error fetching goals'),
+    }
+  }
+}
+
+// ---------------- Options Management ----------------
+
+export async function saveDecisionOptions(
+  decisionId: string,
+  options: Array<{ label: string; description: string }>
+): Promise<{ error: any }> {
+  try {
+    if (!decisionId) throw new Error('Valid decision ID required')
+    if (!Array.isArray(options)) throw new Error('Options must be an array')
+    
+    // First, delete existing options for this decision
+    await supabase
+      .from('options')
+      .delete()
+      .eq('decision_id', decisionId)
+    
+    // Then insert new options
+    if (options.length > 0) {
+      const optionsToInsert = options
+        .filter(opt => opt.label.trim())
+        .map(opt => ({
+          decision_id: decisionId,
+          name: opt.label.trim(),
+          description: opt.description.trim() || null
+        }))
+      
+      if (optionsToInsert.length > 0) {
+        const { error } = await supabase
+          .from('options')
+          .insert(optionsToInsert)
+        
+        if (error) throw error
+      }
+    }
+    
+    // Update decision timestamp
+    await supabase
+      .from('decisions')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', decisionId)
+
+    return { error: null }
+  } catch (err) {
+    console.error('saveDecisionOptions exception:', err)
+    return {
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error saving options'),
+    }
+  }
+}
+
+export async function getDecisionOptions(
+  decisionId: string
+): Promise<{ data: Array<{ label: string; description: string }> | null; error: any }> {
+  try {
+    if (!decisionId) throw new Error('Valid decision ID required')
+    
+    const { data, error } = await supabase
+      .from('options')
+      .select('name, description')
+      .eq('decision_id', decisionId)
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+    
+    const formattedOptions = (data || []).map(option => ({
+      label: option.name,
+      description: option.description || ''
+    }))
+    
+    return { data: formattedOptions, error: null }
+  } catch (err) {
+    console.error('getDecisionOptions exception:', err)
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error fetching options'),
+    }
+  }
+}
+
+// ---------------- Evaluation Method Management ----------------
+
+export async function saveEvaluationMethod(
+  decisionId: string,
+  evaluationMethod: string
+): Promise<{ error: any }> {
+  try {
+    if (!decisionId) throw new Error('Valid decision ID required')
+    if (!evaluationMethod) throw new Error('Evaluation method is required')
+    
+    const { error } = await supabase
+      .from('decision_analysis')
+      .upsert(
+        {
+          decision_id: decisionId,
+          evaluation_method: evaluationMethod,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'decision_id' }
+      )
+
+    if (error) throw error
+    return { error: null }
+  } catch (err) {
+    console.error('saveEvaluationMethod exception:', err)
+    return {
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error saving evaluation method'),
+    }
+  }
+}
+
+export async function getEvaluationMethod(
+  decisionId: string
+): Promise<{ data: string | null; error: any }> {
+  try {
+    if (!decisionId) throw new Error('Valid decision ID required')
+    
+    const { data, error } = await supabase
+      .from('decision_analysis')
+      .select('evaluation_method')
+      .eq('decision_id', decisionId)
+      .single()
+
+    if (error && error.code !== 'PGRST116') throw error // PGRST116 is "no rows returned"
+    return { data: data?.evaluation_method || null, error: null }
+  } catch (err) {
+    console.error('getEvaluationMethod exception:', err)
+    return {
+      data: null,
+      error: err instanceof Error
+        ? err
+        : new Error('Unknown error fetching evaluation method'),
+    }
+  }
+}
 // ---------------- fetchDecisionCollaborators ----------------
 
 export async function fetchDecisionCollaborators(decisionId: string) {
