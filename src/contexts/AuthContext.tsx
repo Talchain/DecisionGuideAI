@@ -6,6 +6,7 @@ import type { UserProfile } from '../types/database';
 import { authLogger } from '../lib/auth/authLogger';
 import { clearAuthStates } from '../lib/auth/authUtils';
 import { isE2EEnabled } from '../flags';
+import { isGuestAuth } from '../lib/poc';
 
 interface AuthContextType {
   user: User | null;
@@ -34,6 +35,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // E2E test-mode hardening: disallow in production bundles
   if (import.meta.env.PROD && isE2EEnabled()) {
     throw new Error('E2E test mode is forbidden in production bundles')
+  }
+
+  // Guest/PoC mode: provide an immediately-ready auth context with no network calls
+  if (isGuestAuth) {
+    const value: AuthContextType = {
+      user: { id: 'guest', email: 'guest@poc' } as User,
+      profile: null,
+      loading: false,
+      authenticated: true,
+      signIn: async () => ({ error: null, data: { id: 'guest', email: 'guest@poc' } }),
+      signUp: async () => ({ error: null, data: { id: 'guest', email: 'guest@poc' } }),
+      signOut: async () => ({ error: null }),
+      updateProfile: async () => ({ error: null }),
+    }
+    return (
+      <AuthContext.Provider value={value}>
+        {children}
+      </AuthContext.Provider>
+    )
   }
 
   // E2E test-mode (non-prod builds): provide an immediately-ready auth context
