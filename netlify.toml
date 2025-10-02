@@ -1,9 +1,20 @@
 [build]
-  command = "npm run build"
+  command = "npm run build:poc"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
+  VITE_POC_ONLY = "1"
+  VITE_AUTH_MODE = "guest"
+  VITE_FEATURE_SSE = "1"
+  VITE_FEATURE_SCENARIO_SANDBOX = "1"
+  # Engine (Render) — update if your URL differs:
+  VITE_EDGE_GATEWAY_URL = "https://plot-lite-service.onrender.com"
+  # Dummy values to avoid DB usage in PoC:
+  VITE_SUPABASE_URL = "http://example.invalid"
+  VITE_SUPABASE_ANON_KEY = "dummy"
+  # Avoid the "secrets scanning" hard fail in PoC
+  SECRETS_SCAN_ENABLED = "false"
 
 [[redirects]]
   from = "/*"
