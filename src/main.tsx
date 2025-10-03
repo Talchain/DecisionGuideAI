@@ -16,8 +16,14 @@ import './index.css'
 // PoC acceptance logging
 const isPoc = (import.meta as any)?.env?.VITE_POC_ONLY === '1'
 try {
+  const poc = (import.meta as any)?.env?.VITE_POC_ONLY
+  const auth = (import.meta as any)?.env?.VITE_AUTH_MODE
+  const edge = (import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL || '(unset)'
+  // eslint-disable-next-line no-undef
+  const buildId = typeof __BUILD_ID__ !== 'undefined' ? __BUILD_ID__ : 'unknown'
+  ;(window as any).__BUILD_ID__ = buildId
   if (isPoc) {
-    console.info(`UI_POC: url=${window.location.href}, poc=${(import.meta as any)?.env?.VITE_POC_ONLY}, auth=${(import.meta as any)?.env?.VITE_AUTH_MODE}, edge=${(import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL || '(unset)'}`)
+    console.info(`UI_POC: build=${buildId}, url=${window.location.href}, poc=${poc}, auth=${auth}, edge=${edge}`)
   }
   // Expose flags for inspection
   (window as any).__DBG__ = (window as any).__DBG__ || {};
