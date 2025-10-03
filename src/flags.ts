@@ -728,3 +728,24 @@ export const pocFlags = {
   voting: on(env?.VITE_FEATURE_SANDBOX_VOTING),
   whiteboard: on(env?.VITE_FEATURE_WHITEBOARD),
 }
+
+// Debug helper: dump all flags for inspection
+export function dumpFlags() {
+  const isPoc = env?.VITE_POC_ONLY === '1'
+  const on = (v?: string) => v === '1' || (isPoc && v !== '0')
+  return {
+    raw: { ...env },
+    resolved: {
+      isPoc,
+      sse: on(env?.VITE_FEATURE_SSE),
+      sandbox: on(env?.VITE_FEATURE_SCENARIO_SANDBOX),
+      mapping: on(env?.VITE_FEATURE_SANDBOX_MAPPING),
+      projections: on(env?.VITE_FEATURE_SANDBOX_PROJECTIONS),
+      realtime: on(env?.VITE_FEATURE_SANDBOX_REALTIME),
+      strategyBridge: on(env?.VITE_FEATURE_SANDBOX_STRATEGY_BRIDGE),
+      triggers: on(env?.VITE_FEATURE_SANDBOX_TRIGGERS_BASIC),
+      voting: on(env?.VITE_FEATURE_SANDBOX_VOTING),
+      whiteboard: on(env?.VITE_FEATURE_WHITEBOARD),
+    }
+  }
+}

@@ -5,7 +5,7 @@
 import { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import { HashRouter as Router } from 'react-router-dom'
-import { isE2EEnabled } from './flags'
+import { isE2EEnabled, dumpFlags } from './flags'
 
 
 // Note: Avoid importing App at module scope so E2E mode can bypass auth/supabase init
@@ -15,8 +15,15 @@ import './index.css'
 
 // PoC acceptance logging
 const isPoc = (import.meta as any)?.env?.VITE_POC_ONLY === '1'
-if (isPoc) {
-  console.info(`UI_POC: url=${window.location.href}, poc=ON, auth=guest, edge=${(import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL || 'not-set'}`)
+try {
+  if (isPoc) {
+    console.info(`UI_POC: url=${window.location.href}, poc=${(import.meta as any)?.env?.VITE_POC_ONLY}, auth=${(import.meta as any)?.env?.VITE_AUTH_MODE}, edge=${(import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL || '(unset)'}`)
+  }
+  // Expose flags for inspection
+  (window as any).__DBG__ = (window as any).__DBG__ || {};
+  (window as any).__DBG__.flags = dumpFlags();
+} catch (e) {
+  console.error('Failed to log PoC acceptance:', e)
 }
 
 const container = document.getElementById('root')
@@ -31,7 +38,8 @@ if (__e2e) {
     }, [])
     return null
   }
-  createRoot(container).render(
+  const root = createRoot(container)
+  root.render(
     <StrictMode>
       <Router>
         <div data-testid="e2e-surface">
@@ -42,6 +50,18 @@ if (__e2e) {
       </Router>
     </StrictMode>
   )
+  setTimeout(() => { (window as any).__APP_MOUNTED__?.() }, 0)
+} else if (isPoc) {
+  // PoC-only mode: render Sandbox directly, bypass all providers/auth/landing
+  const root = createRoot(container)
+  root.render(
+    <StrictMode>
+      <Router>
+        <SandboxStreamPanel />
+      </Router>
+    </StrictMode>
+  )
+  setTimeout(() => { (window as any).__APP_MOUNTED__?.() }, 0)
 } else {
   // Lazy-load heavy providers only for non-E2E path to avoid side effects in test mode
   Promise.all([
@@ -51,7 +71,8 @@ if (__e2e) {
     import('./contexts/DecisionContext'),
     import('./contexts/TeamsContext'),
   ]).then(([{ default: App }, { AuthProvider }, { GuestProvider }, { DecisionProvider }, { TeamsProvider }]) => {
-    createRoot(container).render(
+    const root = createRoot(container)
+    root.render(
       <StrictMode>
         <Router>
           <AuthProvider>
@@ -66,5 +87,6 @@ if (__e2e) {
         </Router>
       </StrictMode>
     )
+    setTimeout(() => { (window as any).__APP_MOUNTED__?.() }, 0)
   })
 }
