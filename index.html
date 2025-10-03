@@ -4,48 +4,10 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="x-build-id" content="%BUILD_ID%" />
     <title>DecisionGuide.AI - Better decisions faster</title>
-
-    <!-- Dev-only Service-Worker Unregister -->
-    <script type="module">
-      if (import.meta.env.DEV && 'serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations()
-          .then((regs) => {
-            regs.forEach((reg) => {
-              console.warn('[SW] Unregistering service worker at scope:', reg.scope)
-              reg.unregister()
-            })
-          })
-          .catch((err) => {
-            console.error('[SW] Error unregistering service workers:', err)
-          })
-      }
-    </script>
   </head>
-
   <body>
     <div id="root"></div>
-    
-    <!-- Boot failsafe: show error if app doesn't mount in 2s -->
-    <script>
-      /* APP_FAILSAFE v1 */
-      (function() {
-        window.__DBG__ = window.__DBG__ || {};
-        const T = setTimeout(function() {
-          const root = document.getElementById('root');
-          if (!root || root.children.length === 0) {
-            const overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui,sans-serif;font-size:18px;z-index:999999;text-align:center;padding:20px;';
-            const buildId = window.__BUILD_ID__ || 'unknown';
-            overlay.innerHTML = '<div>The app did not start.<br>Open DevTools → Console for details.</div><div style="margin-top:20px;font-family:monospace;font-size:12px;opacity:0.7;">build: ' + buildId + '</div>';
-            document.body.appendChild(overlay);
-          }
-        }, 2000);
-        window.__APP_MOUNTED__ = function() { clearTimeout(T); };
-      })();
-    </script>
-    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
