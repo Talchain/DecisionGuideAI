@@ -8,15 +8,16 @@ import { supabase } from './supabase'
 // Environment variables & OpenAI client
 // —————————————————————————————————————————————————————————————————————————————
 const VITE_OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY
-if (!VITE_OPENAI_API_KEY) {
-  console.error('Missing OpenAI API key')
-  throw new Error('Missing OpenAI API key')
+const useEngineOnly = !VITE_OPENAI_API_KEY
+
+if (useEngineOnly) {
+  console.warn('⚠️ VITE_OPENAI_API_KEY not set - OpenAI client-side calls disabled. Using Engine service only.')
 }
 
-const openai = new OpenAI({
+const openai = VITE_OPENAI_API_KEY ? new OpenAI({
   apiKey: VITE_OPENAI_API_KEY,
   dangerouslyAllowBrowser: true,
-})
+}) : null
 
 // —————————————————————————————————————————————————————————————————————————————
 // Helper: create chat completion with retries (no response_format)
@@ -30,6 +31,10 @@ async function createChatCompletion(
   } = {},
   retries = 3
 ): Promise<{ content: string; prompt: any; rawResponse: any }> {
+  if (!openai) {
+    throw new Error('OpenAI client not initialized. Set VITE_OPENAI_API_KEY or use Engine service.')
+  }
+
   let lastError: Error | null = null
   let delay = 1000
 

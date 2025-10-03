@@ -587,3 +587,144 @@ export function isScenarioImportPreviewEnabled(): boolean {
   } catch (_e) {}
   return false
 }
+
+// Sandbox Decision CTA (OFF by default)
+export function isSandboxDecisionCtaEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_SANDBOX_DECISION_CTA
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.sandboxDecisionCta')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Sandbox Mapping (OFF by default)
+export function isSandboxMappingEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_SANDBOX_MAPPING
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.sandboxMapping')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Sandbox Projections (OFF by default)
+export function isSandboxProjectionsEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_SANDBOX_PROJECTIONS
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.sandboxProjections')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Sandbox Realtime (OFF by default)
+export function isSandboxRealtimeEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_SANDBOX_REALTIME
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.sandboxRealtime')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Sandbox Strategy Bridge (OFF by default)
+export function isSandboxStrategyBridgeEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_SANDBOX_STRATEGY_BRIDGE
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.sandboxStrategyBridge')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Sandbox Triggers Basic (OFF by default)
+export function isSandboxTriggersBasicEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_SANDBOX_TRIGGERS_BASIC
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.sandboxTriggersBasic')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Sandbox Voting (OFF by default)
+export function isSandboxVotingEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_SANDBOX_VOTING
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.sandboxVoting')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// Whiteboard (OFF by default)
+export function isWhiteboardEnabled(): boolean {
+  try {
+    const env = (import.meta as any)?.env?.VITE_FEATURE_WHITEBOARD
+    if (env === '1' || env === 1 || env === true) return true
+  } catch (_e) {}
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('feature.whiteboard')
+      if (raw && raw !== '0' && raw !== 'false') return true
+    }
+  } catch (_e) {}
+  return false
+}
+
+// PoC-aware flags system - defaults to ON when VITE_POC_ONLY=1
+const env = (import.meta as any)?.env
+const isPoc = env?.VITE_POC_ONLY === '1'
+
+// Helper: returns true if explicitly enabled OR (PoC mode AND not explicitly disabled)
+const on = (v?: string) => v === '1' || (isPoc && v !== '0')
+
+// PoC-aware flags - default to ON in PoC mode
+export const pocFlags = {
+  sse: on(env?.VITE_FEATURE_SSE),
+  scenarioSandbox: on(env?.VITE_FEATURE_SCENARIO_SANDBOX),
+  decisionCta: on(env?.VITE_FEATURE_SANDBOX_DECISION_CTA),
+  mapping: on(env?.VITE_FEATURE_SANDBOX_MAPPING),
+  projections: on(env?.VITE_FEATURE_SANDBOX_PROJECTIONS),
+  realtime: on(env?.VITE_FEATURE_SANDBOX_REALTIME),
+  strategyBridge: on(env?.VITE_FEATURE_SANDBOX_STRATEGY_BRIDGE),
+  triggersBasic: on(env?.VITE_FEATURE_SANDBOX_TRIGGERS_BASIC),
+  voting: on(env?.VITE_FEATURE_SANDBOX_VOTING),
+  whiteboard: on(env?.VITE_FEATURE_WHITEBOARD),
+}

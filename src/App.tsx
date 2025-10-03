@@ -7,6 +7,7 @@ import {
 } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import { isE2EEnabled } from './flags'
+import { isPocOnly } from './lib/poc'
 import { checkAccessValidation } from './lib/auth/accessValidation'
 import { useAuth } from './contexts/AuthContext'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -68,6 +69,20 @@ export default function App() {
     (authenticated || hasValidAccess)
 
   if (!isE2EEnabled() && loading) return <LoadingSpinner />
+
+  // PoC-only mode: render only the Sandbox, no nav/login/landing
+  if (isPocOnly) {
+    return (
+      <ErrorBoundary>
+        <div className="min-h-screen bg-white">
+          <Routes>
+            <Route path="/sandbox" element={<SandboxStreamPanel />} />
+            <Route path="*" element={<Navigate to="/sandbox" replace />} />
+          </Routes>
+        </div>
+      </ErrorBoundary>
+    )
+  }
 
   // E2E test-mode (non-prod only): minimal, deterministic surface
   if (!import.meta.env.PROD && isE2EEnabled()) {

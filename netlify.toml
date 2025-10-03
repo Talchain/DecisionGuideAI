@@ -1,0 +1,17 @@
+[build]
+  command = "npm run build:poc"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  VITE_POC_ONLY = "1"
+  VITE_AUTH_MODE = "guest"
+  VITE_EDGE_GATEWAY_URL = "/engine"
+  VITE_DISABLE_OPENAI = "1"
+  VITE_FORCE_ENGINE = "1"
+  SECRETS_SCAN_ENABLED = "false"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

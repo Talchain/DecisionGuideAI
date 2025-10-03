@@ -48,7 +48,7 @@ export default defineConfig(({ mode }) => ({
     strictPort: true,
     port: 5173,
     hmr: {
-      clientPort: 443,
+      // Use default port for local dev (remove clientPort: 443)
       timeout: 10000,
       overlay: true
     },
