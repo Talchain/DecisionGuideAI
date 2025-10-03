@@ -15,11 +15,6 @@ try {
   console.error('Failed to expose flags:', e)
 }
 
-// Note: Avoid importing App at module scope so E2E mode can bypass auth/supabase init
-import SandboxStreamPanel from './components/SandboxStreamPanel'
-import EngineAuditPanel from './components/EngineAuditPanel'
-import PoCShell from './lib/PoCShell'
-
 const container = document.getElementById('root')
 if (!container) throw new Error('Failed to find root element')
 
@@ -27,6 +22,10 @@ const __e2e = isE2EEnabled()
 const isPoc = (import.meta as any)?.env?.VITE_POC_ONLY === '1'
 
 if (__e2e) {
+  // E2E mode: minimal surface for testing
+  const { default: SandboxStreamPanel } = await import('./components/SandboxStreamPanel')
+  const { default: EngineAuditPanel } = await import('./components/EngineAuditPanel')
+  
   function E2EMountProbe() {
     useEffect(() => {
       try { (window as any).__PANEL_RENDERED = true } catch {}
@@ -48,7 +47,8 @@ if (__e2e) {
   )
   logAcceptance()
 } else if (isPoc) {
-  // PoC-only mode: render PoC shell with error boundary and lazy-loaded sandbox
+  // PoC-only mode: render PoC shell with NO auth imports
+  const { default: PoCShell } = await import('./lib/PoCShell')
   const root = createRoot(container)
   root.render(
     <StrictMode>
@@ -56,7 +56,7 @@ if (__e2e) {
     </StrictMode>
   )
 } else {
-  // Lazy-load heavy providers only for non-E2E path to avoid side effects in test mode
+  // Normal mode: lazy-load auth and providers
   Promise.all([
     import('./App'),
     import('./contexts/AuthContext'),
