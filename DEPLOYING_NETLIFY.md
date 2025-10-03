@@ -1,6 +1,6 @@
-# Deploying to Netlify
+# Deploying to Netlify (PoC Mode)
 
-This guide covers deploying the DecisionGuideAI PoC to Netlify with the sandbox enabled.
+This guide covers deploying the DecisionGuideAI PoC to Netlify with all sandbox features enabled by default.
 
 ## Prerequisites
 
@@ -10,18 +10,25 @@ This guide covers deploying the DecisionGuideAI PoC to Netlify with the sandbox 
 
 ---
 
-## Environment Variables
+## Environment Variables (Minimal Set)
 
-Set these in **Netlify Dashboard** → **Site settings** → **Environment variables**:
+**All sandbox features are enabled by default in PoC mode via `src/flags.ts`.**
+
+Set **only these** in **Netlify Dashboard** → **Site settings** → **Environment variables**:
 
 | Variable | Value | Required | Notes |
 |----------|-------|----------|-------|
-| `VITE_EDGE_GATEWAY_URL` | `https://plot-lite-service.onrender.com` | ✅ Yes | Your Engine service URL |
-| `VITE_FEATURE_SCENARIO_SANDBOX` | `1` | ✅ Yes | Enables sandbox route |
-| `VITE_FEATURE_SSE` | `1` | ✅ Yes | Enables SSE streaming panel |
-| `VITE_SUPABASE_URL` | `https://example.supabase.co` | ⚠️ Optional | Placeholder if not using auth |
-| `VITE_SUPABASE_ANON_KEY` | `dummy` | ⚠️ Optional | Placeholder if not using auth |
-| `VITE_OPENAI_API_KEY` | _(leave unset)_ | ❌ No | Not needed when using Engine service |
+| `NODE_VERSION` | `20` | ✅ Yes | Set in netlify.toml |
+| `VITE_POC_ONLY` | `1` | ✅ Yes | Enables PoC mode (set in netlify.toml) |
+| `VITE_AUTH_MODE` | `guest` | ✅ Yes | Guest auth, no Supabase (set in netlify.toml) |
+| `VITE_EDGE_GATEWAY_URL` | `/engine` | ✅ Yes | Proxied via _redirects (set in netlify.toml) |
+| `VITE_SUPABASE_URL` | `http://example.invalid` | ✅ Yes | Dummy value (set in netlify.toml) |
+| `VITE_SUPABASE_ANON_KEY` | `dummy` | ✅ Yes | Dummy value (set in netlify.toml) |
+| `VITE_DISABLE_OPENAI` | `1` | ✅ Yes | Engine-only mode (set in netlify.toml) |
+| `VITE_FORCE_ENGINE` | `1` | ✅ Yes | Force Engine adapter (set in netlify.toml) |
+| `SECRETS_SCAN_ENABLED` | `false` | ✅ Yes | Disable Netlify secret scanning (set in netlify.toml) |
+
+**⚠️ DO NOT set any `VITE_FEATURE_*` variables in Netlify.** All features default to ON in PoC mode via code.
 
 ---
 
@@ -29,7 +36,7 @@ Set these in **Netlify Dashboard** → **Site settings** → **Environment varia
 
 Netlify will auto-detect from `netlify.toml`, but verify:
 
-- **Build command**: `npm run build`
+- **Build command**: `npm run build:poc`
 - **Publish directory**: `dist`
 - **Node version**: `20` (set in netlify.toml)
 
