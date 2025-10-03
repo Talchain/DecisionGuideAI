@@ -6,14 +6,27 @@
   NODE_VERSION = "20"
   VITE_POC_ONLY = "1"
   VITE_AUTH_MODE = "guest"
+  
+  # Turn ALL sandbox features ON:
   VITE_FEATURE_SSE = "1"
   VITE_FEATURE_SCENARIO_SANDBOX = "1"
-  # Engine (Render) — update if your URL differs:
-  VITE_EDGE_GATEWAY_URL = "https://plot-lite-service.onrender.com"
-  # Dummy values to avoid DB usage in PoC:
+  VITE_FEATURE_SANDBOX_DECISION_CTA = "1"
+  VITE_FEATURE_SANDBOX_MAPPING = "1"
+  VITE_FEATURE_SANDBOX_PROJECTIONS = "1"
+  VITE_FEATURE_SANDBOX_REALTIME = "1"
+  VITE_FEATURE_SANDBOX_STRATEGY_BRIDGE = "1"
+  VITE_FEATURE_SANDBOX_TRIGGERS_BASIC = "1"
+  VITE_FEATURE_SANDBOX_VOTING = "1"
+  VITE_FEATURE_WHITEBOARD = "1"
+  
+  # Engine proxy (relative path to avoid CORS):
+  VITE_EDGE_GATEWAY_URL = "/engine"
+  
+  # PoC defaults:
   VITE_SUPABASE_URL = "http://example.invalid"
   VITE_SUPABASE_ANON_KEY = "dummy"
-  # Avoid the "secrets scanning" hard fail in PoC
+  VITE_DISABLE_OPENAI = "1"
+  VITE_FORCE_ENGINE = "1"
   SECRETS_SCAN_ENABLED = "false"
 
 [[redirects]]

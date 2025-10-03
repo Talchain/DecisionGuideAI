@@ -13,6 +13,12 @@ import SandboxStreamPanel from './components/SandboxStreamPanel'
 import EngineAuditPanel from './components/EngineAuditPanel'
 import './index.css'
 
+// PoC acceptance logging
+const isPoc = (import.meta as any)?.env?.VITE_POC_ONLY === '1'
+if (isPoc) {
+  console.info(`UI_POC: url=${window.location.href}, poc=ON, auth=guest, edge=${(import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL || 'not-set'}`)
+}
+
 const container = document.getElementById('root')
 if (!container) throw new Error('Failed to find root element')
 
