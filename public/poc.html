@@ -18,9 +18,9 @@
 <body>
   <div class="bar">PoC Static · build: <span id="b"></span></div>
   <div class="wrap">
-    <div><b>edge:</b> <span id="edge">/engine</span></div>
+    <div><b>edge:</b> <span id="edge"></span></div>
     <div style="margin:10px 0;">
-      <button id="proxy">Check Engine (proxy)</button>
+      <button id="proxy">Check Engine (edge)</button>
       <button id="direct">Check Engine (direct)</button>
       <button id="sandbox">Open SPA Sandbox</button>
     </div>
@@ -28,10 +28,17 @@
   </div>
   <script>
     const out = document.getElementById('out');
-    const build = document.querySelector('meta[name="x-build-id"]')?.content || '(unknown)';
-    const edge = '/engine';
+    const build = document.querySelector('meta[name="x-build-id"]')?.content || '(none)';
+    // POC: default to direct (no 502)
+    const direct = 'https://plot-lite-service.onrender.com';
+    const qp = new URLSearchParams(location.search).get('edge');
+    const edge = (qp && qp.trim()) || direct;
+    
     document.getElementById('b').textContent = build;
     document.getElementById('edge').textContent = edge;
+
+    // POC: loud acceptance log
+    console.info('POC_STATIC:', { build, edge });
 
     function print(label, v) {
       out.textContent = label + "\n" + JSON.stringify(v, null, 2);
@@ -39,17 +46,17 @@
     document.getElementById('proxy').onclick = async () => {
       try {
         const r = await fetch(edge.replace(/\/$/, '') + '/health', { cache: 'no-store' });
-        print('OK via proxy', await r.json());
-      } catch (e) { print('FAIL via proxy', String(e)); }
+        print('OK via edge', await r.json());
+      } catch (e) { print('FAIL via edge', String(e)); }
     };
     document.getElementById('direct').onclick = async () => {
       try {
-        const r = await fetch('https://plot-lite-service.onrender.com/health', { cache: 'no-store' });
+        const r = await fetch(direct + '/health', { cache: 'no-store' });
         print('OK via direct', await r.json());
       } catch (e) { print('FAIL via direct', String(e)); }
     };
     document.getElementById('sandbox').onclick = () => { location.href = '/#/sandbox?from=poc-static'; };
-    // auto-run proxy check once:
+    // POC: auto-run edge check once
     document.getElementById('proxy').click();
   </script>
 </body>

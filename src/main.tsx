@@ -11,10 +11,11 @@ const isPoc =
   if (!root) { console.error('POC_MIN: #root not found'); return; }
 
   // POC: Read edge from query param or env (defaults to direct Render URL)
+  const direct = 'https://plot-lite-service.onrender.com';
   const urlParams = new URLSearchParams(location.search);
-  const edgeOverride = urlParams.get('edge');
-  const edge = edgeOverride || (import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL || 'https://plot-lite-service.onrender.com';
-  const build = (document.querySelector('meta[name="x-build-id"]') as HTMLMetaElement)?.content || '(unknown)';
+  const qp = urlParams.get('edge');
+  const edge = (qp && qp.trim()) || (import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL || direct;
+  const build = (document.querySelector('meta[name="x-build-id"]') as HTMLMetaElement)?.content || '(none)';
 
   if (isPoc) {
     // POC: inline panel – guaranteed visible, no imports
@@ -26,7 +27,7 @@ const isPoc =
         <div style="padding:14px 16px">
           <div><b>edge:</b> <code>${edge}</code></div>
           <div style="margin:10px 0;">
-            <button id="btn-proxy" style="padding:8px 10px;border:1px solid #ccc;background:#f8f8f8;margin-right:8px;">Check Engine (proxy)</button>
+            <button id="btn-edge" style="padding:8px 10px;border:1px solid #ccc;background:#f8f8f8;margin-right:8px;">Check Engine (edge)</button>
             <button id="btn-direct" style="padding:8px 10px;border:1px solid #ccc;background:#f8f8f8;margin-right:8px;">Check Engine (direct)</button>
             <button id="btn-sandbox" style="padding:8px 10px;border:1px solid #ccc;background:#f8f8f8;">Try Sandbox</button>
           </div>
@@ -38,24 +39,36 @@ const isPoc =
     const print = (label: string, v: unknown) =>
       (out as HTMLElement).textContent = label + "\n" + JSON.stringify(v, null, 2);
 
-    document.getElementById('btn-proxy')?.addEventListener('click', async () => {
+    document.getElementById('btn-edge')?.addEventListener('click', async () => {
       try {
         const r = await fetch(edge.replace(/\/$/, '') + '/health', { cache: 'no-store' });
-        print('OK via proxy', await r.json());
-      } catch (e) { print('FAIL via proxy', String(e)); }
+        const j = await r.json();
+        print('OK via edge', j);
+      } catch (e) { 
+        try {
+          print('FAIL via edge', { error: String(e) });
+        } catch {}
+      }
     });
     document.getElementById('btn-direct')?.addEventListener('click', async () => {
       try {
-        const r = await fetch('https://plot-lite-service.onrender.com/health', { cache: 'no-store' });
-        print('OK via direct', await r.json());
-      } catch (e) { print('FAIL via direct', String(e)); }
+        const r = await fetch(direct + '/health', { cache: 'no-store' });
+        const j = await r.json();
+        print('OK via direct', j);
+      } catch (e) { 
+        try {
+          print('FAIL via direct', { error: String(e) });
+        } catch {}
+      }
     });
     document.getElementById('btn-sandbox')?.addEventListener('click', () => {
       location.hash = '#/sandbox?from=poc-minimal';
     });
 
-    // POC: auto-run proxy check on load
-    (document.getElementById('btn-proxy') as HTMLButtonElement)?.click();
+    // POC: auto-run edge check on load
+    try {
+      (document.getElementById('btn-edge') as HTMLButtonElement)?.click();
+    } catch {}
     
     // POC: signal HTML failsafe to stay hidden
     try { (window as any).__APP_MOUNTED__?.(); } catch {}
