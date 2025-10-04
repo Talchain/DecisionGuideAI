@@ -1,16 +1,19 @@
 /* POC: minimal import-free main.tsx that always paints */
 const root = document.getElementById('root')!;
-const isPoc = (globalThis as any).__VITE_POC__ ?? (
-  (import.meta as any)?.env?.VITE_POC_ONLY === '1' ||
-  (import.meta as any)?.env?.VITE_AUTH_MODE === 'guest'
-);
+const forceSandbox = location.hash.startsWith('#/sandbox'); // POC: route-first safety
+const isPoc =
+  forceSandbox ||
+  (typeof import.meta !== 'undefined' &&
+   (import.meta as any)?.env?.VITE_POC_ONLY === '1') ||
+  (typeof import.meta !== 'undefined' &&
+   (import.meta as any)?.env?.VITE_AUTH_MODE === 'guest');
 
 (function boot() {
   try { (window as any).__APP_MOUNTED__?.(); } catch {}
   if (isPoc) {
     const build = document.querySelector('meta[name="x-build-id"]')?.getAttribute('content') || '(unknown)';
     const edge = (import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL || '/engine';
-    console.info(`UI_POC_MIN: build=${build}, edge=${edge}` );
+    console.info(`UI_POC_MIN: build=${build}, edge=${edge}, route=${location.hash||'/'}` );
 
     root.innerHTML = `
       <div style="position:fixed;inset:0;z-index:2147483647;background:#fff">
@@ -49,15 +52,15 @@ const isPoc = (globalThis as any).__VITE_POC__ ?? (
     return;
   }
 
-  // Non-PoC: preserve existing boot path (lazy import your real app)
-  (async () => {
-    try {
-      // POC: placeholder - replace with your real app entry
-      console.info('UI_NON_POC: boot placeholder');
-      root.innerHTML = `<pre style="padding:12px;background:#f0f0f0">Non-PoC mode placeholder.\nRestore your real app boot here.</pre>`;
-    } catch (e) {
-      console.error('UI_NON_POC: boot failed', e);
-      root.innerHTML = `<pre style="padding:12px;background:#fee">App failed to boot.\n${String(e)}</pre>` ;
-    }
-  })();
+  // Non-PoC: tiny message with links (never blank)
+  root.innerHTML = `
+    <div style="padding:20px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial">
+      <h2 style="margin:0 0 12px 0">DecisionGuide.AI</h2>
+      <p>PoC surfaces:</p>
+      <ul>
+        <li><a href="/poc" style="color:#10b981">Static PoC</a> (zero dependencies)</li>
+        <li><a href="/#/sandbox" style="color:#10b981">SPA Sandbox</a> (minimal panel)</li>
+      </ul>
+    </div>
+  `;
 })();
