@@ -11,4 +11,4 @@
   VITE_FORCE_ENGINE = "1"
   SECRETS_SCAN_ENABLED = "false"
 
-# POC: no [[redirects]] in toml; redirects live in public/_redirects only.
+# POC: redirects live in /public/_redirects only

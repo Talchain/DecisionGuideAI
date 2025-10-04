@@ -1,4 +1,4 @@
 /engine/*  https://plot-lite-service.onrender.com/:splat  200
 /poc       /poc.html                                       200
 /*         /index.html                                     200
-# POC: proxy before SPA catch-all; /poc is a static, no-build page.
+# POC: proxy before SPA; /poc is static page that always paints
