@@ -1,10 +1,25 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'node:path';
+
+// POC: Detect PoC mode from environment
+const isPoc =
+  process.env.VITE_POC_ONLY === '1' ||
+  process.env.VITE_AUTH_MODE === 'guest';
 
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
   define: {
     __BUILD_ID__: JSON.stringify(process.env.BUILD_ID || new Date().toISOString()),
+  },
+  resolve: {
+    alias: [
+      // POC: In PoC mode, alias Supabase packages to stubs to prevent bundling
+      ...(isPoc ? [
+        { find: '@supabase/supabase-js', replacement: path.resolve(__dirname, 'src/stubs/supabase-stub.mjs') },
+        { find: '@supabase/gotrue-js', replacement: path.resolve(__dirname, 'src/stubs/gotrue-stub.mjs') },
+      ] : []),
+    ],
   },
   build: {
     target: 'esnext',
