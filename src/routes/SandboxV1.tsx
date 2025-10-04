@@ -159,7 +159,7 @@ export default function SandboxV1() {
       // Start SSE
       setStreamTokens('')
       try {
-        const stop = openSSE('/demo/stream?hello=1', {
+        const stop = openSSE(`${edge.replace(/\/$/, '')}/demo/stream?hello=1`, {
           onToken: (token) => setStreamTokens(prev => prev + (prev ? ' ' : '') + token),
           onDone: () => {
             setStreamTokens(prev => prev + '\n[done]')
@@ -197,6 +197,17 @@ export default function SandboxV1() {
           </div>
           <div className="text-xs text-gray-500">
             This preview is hard-enabled for PoC demo purposes. All features active.
+          </div>
+        </div>
+
+        {/* Diagnostics (PoC only) */}
+        <div className="mb-4 text-xs text-gray-600">
+          <div className="inline-flex items-center gap-3 px-2 py-1 rounded border border-gray-200 bg-white">
+            <span className="font-semibold">Diagnostics</span>
+            <span>edge: <code>{edge}</code></span>
+            <span>template: <code>{template}</code></span>
+            <span>seed: <code>{seed}</code></span>
+            <span>sections: <code>{[...visibleSections].join(',') || 'all'}</code></span>
           </div>
         </div>
 
