@@ -1,12 +1,10 @@
 <!doctype html>
-<!-- POC: always-paints, no-build PoC surface. Zero dependencies, instant paint. -->
 <html>
 <head>
   <meta charset="utf-8" />
   <title>PoC Static</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- POC: optional build id; harmless if absent -->
-  <meta name="x-build-id" content="%BUILD_ID%">
+  <meta name="x-build-id" content="%BUILD_ID%"><!-- POC: harmless if literal -->
   <style>
     body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial }
     .bar { background:#10b981; color:#fff; padding:10px 14px; font-weight:600 }
@@ -18,7 +16,7 @@
 <body>
   <div class="bar">PoC Static · build: <span id="b"></span></div>
   <div class="wrap">
-    <div><b>edge:</b> <span id="edge">/engine</span></div>
+    <div><b>edge:</b> <span id="edge"></span></div>
     <div style="margin:10px 0;">
       <button id="proxy">Check Engine (proxy)</button>
       <button id="direct">Check Engine (direct)</button>
@@ -27,15 +25,14 @@
     <pre id="out">{ "status": "idle" }</pre>
   </div>
   <script>
+    // POC: zero-dep health checks. Always paints.
     const out = document.getElementById('out');
     const build = document.querySelector('meta[name="x-build-id"]')?.content || '(unknown)';
-    const edge = '/engine';
+    const edge = new URLSearchParams(location.search).get('edge') || '/engine';
     document.getElementById('b').textContent = build;
     document.getElementById('edge').textContent = edge;
+    const print = (label, v) => out.textContent = label + "\n" + JSON.stringify(v, null, 2);
 
-    function print(label, v) {
-      out.textContent = label + "\n" + JSON.stringify(v, null, 2);
-    }
     document.getElementById('proxy').onclick = async () => {
       try {
         const r = await fetch(edge.replace(/\/$/, '') + '/health', { cache: 'no-store' });
@@ -49,7 +46,7 @@
       } catch (e) { print('FAIL via direct', String(e)); }
     };
     document.getElementById('sandbox').onclick = () => { location.href = '/#/sandbox?from=poc-static'; };
-    // auto-run proxy check once:
+    // Auto-run proxy check:
     document.getElementById('proxy').click();
   </script>
 </body>
