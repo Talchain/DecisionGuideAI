@@ -2,12 +2,13 @@
 // POC: Full PoC UI (no auth, no Supabase) mounting real components with safe providers
 
 import { StrictMode, useState, useEffect, Suspense } from 'react'
-import { HashRouter as Router } from 'react-router-dom'
+import { HashRouter as Router, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'
 import { feature } from '../lib/pocFlags'
 import { fetchFlow as fetchFlowEngine, openSSE } from '../lib/pocEngine'
 import GraphCanvas, { type Node, type Edge, type LocalEdits } from '../components/GraphCanvas'
+import SandboxV1 from '../routes/SandboxV1'
 
 // POC: Read feature flags from env
 const FEATURE_SANDBOX = feature('VITE_FEATURE_SCENARIO_SANDBOX')
@@ -218,34 +219,31 @@ export default function AppPoC() {
 
   const { SandboxStreamPanel, EngineAuditPanel, Whiteboard } = components
 
-  return (
-    <StrictMode>
-      {/* @ts-expect-error POC: stub may not match exact QueryClientProvider API */}
-      <QueryClientProvider client={queryClient}>
-        <Router>
-          <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
-            {/* POC: Banner */}
-            <div style={{
-              background: '#10b981',
-              color: '#fff',
-              padding: '8px 16px',
-              fontSize: '14px',
-              fontWeight: 600,
-              display: 'flex',
-              gap: '16px',
-              alignItems: 'center',
-              flexWrap: 'wrap'
-            }}>
-              <span>PoC Mode</span>
-              <span style={{ opacity: 0.8 }}>build: {build}</span>
-              <span style={{ opacity: 0.8 }}>edge: {edge}</span>
-              <span style={{ marginLeft: 'auto', fontSize: '12px', opacity: 0.8 }}>
-                No auth • No Supabase • Real Engine
-              </span>
-            </div>
+  // POC: Main sandbox content component
+  const MainSandboxContent = () => (
+    <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
+      {/* POC: Banner */}
+      <div style={{
+        background: '#10b981',
+        color: '#fff',
+        padding: '8px 16px',
+        fontSize: '14px',
+        fontWeight: 600,
+        display: 'flex',
+        gap: '16px',
+        alignItems: 'center',
+        flexWrap: 'wrap'
+      }}>
+        <span>PoC Mode</span>
+        <span style={{ opacity: 0.8 }}>build: {build}</span>
+        <span style={{ opacity: 0.8 }}>edge: {edge}</span>
+        <span style={{ marginLeft: 'auto', fontSize: '12px', opacity: 0.8 }}>
+          No auth • No Supabase • Real Engine
+        </span>
+      </div>
 
-            {/* POC: Main content */}
-            <div style={{ padding: '16px', display: 'grid', gap: '16px', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* POC: Main content */}
+      <div style={{ padding: '16px', display: 'grid', gap: '16px', maxWidth: '1400px', margin: '0 auto' }}>
               
               {/* POC: Mock Stream Card */}
               <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px' }}>
@@ -565,6 +563,19 @@ export default function AppPoC() {
               </div>
             </div>
           </div>
+  )
+
+  return (
+    <StrictMode>
+      {/* @ts-expect-error POC: stub may not match exact QueryClientProvider API */}
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <Routes>
+            {/* POC: New preview route (hard-enabled features) */}
+            <Route path="/sandbox-v1" element={<SandboxV1 />} />
+            {/* POC: Main sandbox route (flag-gated features) */}
+            <Route path="*" element={<MainSandboxContent />} />
+          </Routes>
         </Router>
       </QueryClientProvider>
     </StrictMode>
