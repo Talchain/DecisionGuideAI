@@ -18,6 +18,8 @@ export default defineConfig(({ mode }) => ({
       ...(isPoc ? [
         { find: '@supabase/supabase-js', replacement: path.resolve(__dirname, 'src/stubs/supabase-stub.mjs') },
         { find: '@supabase/gotrue-js', replacement: path.resolve(__dirname, 'src/stubs/gotrue-stub.mjs') },
+        // POC: prevent bundling the real react-query in PoC mode
+        { find: '@tanstack/react-query', replacement: path.resolve(__dirname, 'src/stubs/react-query-stub.mjs') },
       ] : []),
     ],
   },
