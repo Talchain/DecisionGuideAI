@@ -27,6 +27,7 @@
       (function () {
         var shown = false;
         var SAFE_DELAY_MS = 1200;
+        var SAFE_TO = null; // POC: store timeout id
         var build = document.querySelector('meta[name="x-build-id"]')?.content || new Date().toISOString();
         var edge = '/engine';
         var safeEl = document.getElementById('poc-safe');
@@ -58,14 +59,16 @@
 
         // Called by React once it mounts
         window.__APP_MOUNTED__ = function(){
-          if (!shown) {
+          try {
+            if (SAFE_TO) clearTimeout(SAFE_TO);       // POC: cancel timer
+            shown = true;                              // POC: prevent future show
+            if (safeEl) safeEl.style.display = 'none'; // POC: ensure hidden
             console.info('POC_HTML_SAFE: React mounted, no need for Safe Screen');
-            // keep safe screen hidden
-          }
+          } catch {}
         };
 
         // If React never tells us it mounted, show the safe screen
-        setTimeout(function(){
+        SAFE_TO = setTimeout(function(){
           if (!shown) showSafe('timeout');
         }, SAFE_DELAY_MS);
 
