@@ -1,17 +1,34 @@
 // src/routes/SandboxV1.tsx
-// POC: Enhanced Scenario Sandbox with full rich UI (hard-enabled features, no env flags)
+// POC: Stabilised Scenario Sandbox with full rich UI (hard-enabled features, no env flags)
 
 import { useState, useEffect, Suspense } from 'react'
-import GraphCanvas, { type Node, type Edge, type LocalEdits } from '../components/GraphCanvas'
-import { getEdgeBase } from '../lib/pocFlags'
 import { fetchFlow, openSSE, getHashParam } from '../lib/pocEngine'
 import { lazySafe } from '../lib/lazySafe'
+
+// POC: Local types (minimal, no hard coupling to GraphCanvas)
+type Node = { id: string; label: string; x?: number; y?: number }
+type Edge = { from: string; to: string; label?: string; weight?: number }
+type LocalEdits = { addedNodes: Node[]; renamedNodes: Record<string, string>; addedEdges: Edge[] }
+
+// POC: Local edge resolver (no env reliance)
+function getEdgeBaseLocal(): string {
+  if (typeof window === 'undefined') return '/engine'
+  const h = window.location.hash || ''
+  const m = h.match(/[?#&]edge=([^&]+)/)
+  return m ? decodeURIComponent(m[1]) : '/engine'
+}
+
+// POC: Lightweight error boundary
+function ErrorBoundary({ children }: { children: any }) {
+  return children
+}
 
 // POC: Hard-enable features for this preview route
 const FEATURE_SANDBOX = true
 const FEATURE_SSE = true
 
-// POC: Lazy-load rich components with safe fallbacks
+// POC: Lazy-load rich components with safe fallbacks (including GraphCanvas)
+const GraphCanvas = lazySafe(() => import('../components/GraphCanvas'), 'GraphCanvas')
 const SandboxStreamPanel = lazySafe(() => import('../components/SandboxStreamPanel'), 'SandboxStreamPanel')
 const EngineAuditPanel = lazySafe(() => import('../components/EngineAuditPanel'), 'EngineAuditPanel')
 const RunReportDrawer = lazySafe(() => import('../components/RunReportDrawer'), 'RunReportDrawer')
@@ -54,9 +71,9 @@ export default function SandboxV1() {
     const metaBuild = document.querySelector<HTMLMetaElement>('meta[name="x-build-id"]')?.content || '(unknown)'
     setBuild(metaBuild)
 
-    // POC: Read edge from URL or default
+    // POC: Read edge from URL or default (local resolver)
     const edgeOverride = getHashParam('edge')
-    const edgeUrl = edgeOverride || getEdgeBase()
+    const edgeUrl = edgeOverride || getEdgeBaseLocal()
     setEdge(edgeUrl)
     
     // POC: Read template and seed from URL if present
@@ -168,7 +185,8 @@ export default function SandboxV1() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
@@ -274,36 +292,36 @@ export default function SandboxV1() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Results</h3>
                 <div className="grid grid-cols-3 gap-3 mb-4">
-                  {flowResult.scenarios?.conservative && (
+                  {flowResult.results?.conservative && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                       <div className="text-xs font-semibold text-yellow-900 mb-1">Conservative</div>
                       <div className="text-lg font-bold text-yellow-900">
-                        {flowResult.scenarios.conservative.cost_delta || flowResult.scenarios.conservative.value}
+                        {flowResult.results.conservative.cost_delta || flowResult.results.conservative.value}
                       </div>
-                      {flowResult.scenarios.conservative.risk && (
-                        <div className="text-xs text-yellow-700">Risk: {flowResult.scenarios.conservative.risk}</div>
+                      {flowResult.results.conservative.risk && (
+                        <div className="text-xs text-yellow-700">Risk: {flowResult.results.conservative.risk}</div>
                       )}
                     </div>
                   )}
-                  {flowResult.scenarios?.most_likely && (
+                  {flowResult.results?.most_likely && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                       <div className="text-xs font-semibold text-blue-900 mb-1">Most Likely</div>
                       <div className="text-lg font-bold text-blue-900">
-                        {flowResult.scenarios.most_likely.cost_delta || flowResult.scenarios.most_likely.value}
+                        {flowResult.results.most_likely.cost_delta || flowResult.results.most_likely.value}
                       </div>
-                      {flowResult.scenarios.most_likely.risk && (
-                        <div className="text-xs text-blue-700">Risk: {flowResult.scenarios.most_likely.risk}</div>
+                      {flowResult.results.most_likely.risk && (
+                        <div className="text-xs text-blue-700">Risk: {flowResult.results.most_likely.risk}</div>
                       )}
                     </div>
                   )}
-                  {flowResult.scenarios?.optimistic && (
+                  {flowResult.results?.optimistic && (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                       <div className="text-xs font-semibold text-green-900 mb-1">Optimistic</div>
                       <div className="text-lg font-bold text-green-900">
-                        {flowResult.scenarios.optimistic.cost_delta || flowResult.scenarios.optimistic.value}
+                        {flowResult.results.optimistic.cost_delta || flowResult.results.optimistic.value}
                       </div>
-                      {flowResult.scenarios.optimistic.risk && (
-                        <div className="text-xs text-green-700">Risk: {flowResult.scenarios.optimistic.risk}</div>
+                      {flowResult.results.optimistic.risk && (
+                        <div className="text-xs text-green-700">Risk: {flowResult.results.optimistic.risk}</div>
                       )}
                     </div>
                   )}
@@ -312,18 +330,21 @@ export default function SandboxV1() {
                   <div>
                     <div className="text-sm font-semibold text-gray-700 mb-2">Thresholds:</div>
                     <div className="flex flex-wrap gap-2">
-                      {flowResult.thresholds.map((t: any, i: number) => (
-                        <span
-                          key={i}
-                          className={`px-2 py-1 text-xs font-medium rounded ${
-                            t.crossed
-                              ? 'bg-red-50 border border-red-200 text-red-800'
-                              : 'bg-green-50 border border-green-200 text-green-800'
-                          }`}
-                        >
-                          {t.label} {t.crossed && '(crossed)'}
-                        </span>
-                      ))}
+                      {flowResult.thresholds.map((t: any, i: number) => {
+                        const displayText = t.metric || t.label || 'threshold'
+                        return (
+                          <span
+                            key={i}
+                            className={`px-2 py-1 text-xs font-medium rounded ${
+                              t.crossed
+                                ? 'bg-red-50 border border-red-200 text-red-800'
+                                : 'bg-green-50 border border-green-200 text-green-800'
+                            }`}
+                          >
+                            {displayText} {t.crossed && '(crossed)'}
+                          </span>
+                        )
+                      })}
                     </div>
                   </div>
                 )}
@@ -452,5 +473,6 @@ export default function SandboxV1() {
         </div>
       </div>
     </div>
+    </ErrorBoundary>
   )
 }
