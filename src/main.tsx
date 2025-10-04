@@ -27,23 +27,40 @@ const isPoc =
 const isPocSafe = isPoc || forceSafe
 const __e2e = isE2EEnabled()
 
-// POC: Boot sequence wrapped in async IIFE
+// POC: Boot sequence wrapped in async IIFE with error handling
 ;(async () => {
-  // eslint-disable-next-line no-console
-  console.info(
-    `UI_POC: build=${(window as any).__BUILD_ID__ || 'n/a'}, url=${location.href}, poc=${
-      isPoc ? '1' : '0'
-    }, auth=${(import.meta as any)?.env?.VITE_AUTH_MODE || 'n/a'}, edge=${
-      (import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL || '/engine'
-    }, safe=${isPocSafe ? '1' : '0'}`
-  )
+  try {
+    // eslint-disable-next-line no-console
+    console.info(
+      `UI_POC: build=${(window as any).__BUILD_ID__ || 'n/a'}, url=${location.href}, poc=${
+        isPoc ? '1' : '0'
+      }, auth=${(import.meta as any)?.env?.VITE_AUTH_MODE || 'n/a'}, edge=${
+        (import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL || '/engine'
+      }, safe=${isPocSafe ? '1' : '0'}`
+    )
 
-  if (isPocSafe) {
-    // POC: Safe mode - minimal UI that always renders
-    const { default: SafeMode } = await import('./poc/SafeMode')
-    const root = createRoot(container)
-    root.render(<SafeMode />)
-    ;(window as any).__APP_MOUNTED__?.() // let the overlay know we mounted
+    if (isPocSafe) {
+      // POC: Safe mode - minimal UI that always renders
+      const { default: SafeMode } = await import('./poc/SafeMode')
+      const root = createRoot(container)
+      root.render(<SafeMode />)
+      ;(window as any).__APP_MOUNTED__?.() // let the overlay know we mounted
+      return
+    }
+  } catch (err) {
+    // POC: If Safe Mode fails, show readable error box
+    console.error('Failed to render Safe Mode:', err)
+    container.innerHTML = `
+      <div style="font-family:system-ui;padding:20px;background:#fee;color:#900;border-radius:8px;margin:20px;">
+        <h2 style="margin:0 0 12px 0;">Boot Error</h2>
+        <p><strong>Message:</strong> ${err instanceof Error ? err.message : String(err)}</p>
+        <pre style="background:#fff;padding:12px;border-radius:4px;overflow:auto;font-size:12px;">${
+          err instanceof Error ? err.stack : 'No stack trace'
+        }</pre>
+        <p style="opacity:0.7;margin-top:12px;">Open DevTools → Console for more details</p>
+      </div>
+    `
+    ;(window as any).__APP_MOUNTED__?.()
     return
   }
 
