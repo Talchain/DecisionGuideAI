@@ -8,6 +8,7 @@ export interface FlowResult {
   ms: number
   data?: any
   error?: string
+  edge?: string
 }
 
 export async function fetchFlow(params: { template: string; seed: number }): Promise<FlowResult> {
@@ -20,20 +21,28 @@ export async function fetchFlow(params: { template: string; seed: number }): Pro
     const ms = Math.round(performance.now() - t0)
     
     if (!r.ok) {
-      return { ok: false, ms, error: `${r.status} ${r.statusText}` }
+      return { ok: false, ms, error: `${r.status} ${r.statusText}`, edge }
     }
     
     const text = await r.text()
     try {
       const data = JSON.parse(text)
-      return { ok: true, ms, data }
+      return { ok: true, ms, data, edge }
     } catch {
-      return { ok: false, ms, error: 'Invalid JSON', data: text.slice(0, 200) }
+      return { ok: false, ms, error: 'Invalid JSON', data: text.slice(0, 200), edge }
     }
   } catch (e) {
     const ms = Math.round(performance.now() - t0)
-    return { ok: false, ms, error: String(e) }
+    return { ok: false, ms, error: String(e), edge }
   }
+}
+
+// POC: Parse hash query params for overrides
+export function getHashParam(name: string): string | null {
+  if (typeof window === 'undefined') return null
+  const hash = window.location.hash
+  const match = hash.match(new RegExp(`[?#&]${name}=([^&]+)`))
+  return match ? decodeURIComponent(match[1]) : null
 }
 
 export interface SSECallbacks {
