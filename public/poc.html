@@ -27,6 +27,8 @@
       <span class="label">edge:</span>
       <span id="edge"></span>
       <span class="hint">(defaults to /engine — override via ?edge= )</span>
+      <button id="copyLink" style="margin-left:auto">Copy Share Link</button>
+      <button id="reset">Reset</button>
     </div>
 
     <!-- POC: Engine health checks -->
@@ -70,34 +72,78 @@
     // POC: zero-dep utilities
     const $ = (id) => document.getElementById(id);
     const build = document.querySelector('meta[name="x-build-id"]')?.content || '(unknown)';
-    const edge = new URLSearchParams(location.search).get('edge') || '/engine';
+    const urlParams = new URLSearchParams(location.search);
+    const edge = urlParams.get('edge') || '/engine';
+    const defaultPath = '/draft-flows?template=pricing_change&seed=101';
+    
     $('b').textContent = build;
     $('edge').textContent = edge;
 
+    // POC: deep-link friendly - prefill path from ?path=
+    const pathFromUrl = urlParams.get('path');
+    if (pathFromUrl) {
+      $('path').value = pathFromUrl;
+    }
+
     // POC: loud acceptance log
-    console.info('POC_STATIC:', { build, edge });
+    console.info('POC_STATIC:', { build, edge, path: $('path').value });
 
     const print = (el, label, v) => el.textContent = label + "\n" + (
       typeof v === 'string' ? v : JSON.stringify(v, null, 2)
     );
 
-    // --- Health checks ---
+    // POC: Copy Share Link - includes ?edge= and ?path=
+    $('copyLink').onclick = () => {
+      try {
+        const url = new URL(location.href);
+        url.searchParams.set('edge', edge);
+        url.searchParams.set('path', $('path').value);
+        navigator.clipboard.writeText(url.toString()).then(() => {
+          const orig = $('copyLink').textContent;
+          $('copyLink').textContent = 'Copied!';
+          setTimeout(() => { $('copyLink').textContent = orig; }, 1500);
+        });
+      } catch (e) {
+        alert('Copy failed: ' + e);
+      }
+    };
+
+    // POC: Reset - restore defaults and clear outputs
+    $('reset').onclick = () => {
+      $('path').value = defaultPath;
+      $('out').textContent = '{ "status": "idle" }';
+      $('streamOut').textContent = '[stream idle]';
+      $('fetchOut').textContent = '[fetch idle]';
+      // Update URL without reload
+      const url = new URL(location.href);
+      url.searchParams.delete('edge');
+      url.searchParams.delete('path');
+      history.replaceState(null, '', url.toString());
+    };
+
+    // --- Health checks with timing ---
     $('proxy').onclick = async () => {
+      const t0 = performance.now();
       try {
         const r = await fetch(edge.replace(/\/$/, '') + '/health', { cache: 'no-store' });
         const data = await r.json();
-        print($('out'), 'OK via proxy', data);
+        const ms = Math.round(performance.now() - t0);
+        print($('out'), `OK via proxy (${ms} ms)`, data);
       } catch (e) {
-        print($('out'), 'FAIL via proxy', String(e));
+        const ms = Math.round(performance.now() - t0);
+        print($('out'), `FAIL via proxy (${ms} ms)`, String(e));
       }
     };
     $('direct').onclick = async () => {
+      const t0 = performance.now();
       try {
         const r = await fetch('https://plot-lite-service.onrender.com/health', { cache: 'no-store' });
         const data = await r.json();
-        print($('out'), 'OK via direct', data);
+        const ms = Math.round(performance.now() - t0);
+        print($('out'), `OK via direct (${ms} ms)`, data);
       } catch (e) {
-        print($('out'), 'FAIL via direct', String(e));
+        const ms = Math.round(performance.now() - t0);
+        print($('out'), `FAIL via direct (${ms} ms)`, String(e));
       }
     };
 
@@ -125,10 +171,11 @@
       $('streamOut').textContent += '\n[stopped]';
     };
 
-    // --- Real GET to Engine (safe endpoint) ---
+    // --- Real GET to Engine (safe endpoint) with timing ---
     $('fetchBtn').onclick = async () => {
       const path = $('path').value.trim().replace(/^\/+/, '/');
       const url = edge.replace(/\/$/, '') + path;
+      const t0 = performance.now();
       try {
         const r = await fetch(url, { cache: 'no-store' });
         const ct = r.headers.get('content-type') || '';
@@ -138,9 +185,11 @@
           throw new Error('Expected JSON, got: ' + ct + '\n' + txt.slice(0,200));
         }
         const data = await r.json();
-        print($('fetchOut'), 'OK ' + path, data);
+        const ms = Math.round(performance.now() - t0);
+        print($('fetchOut'), `OK ${path} (${ms} ms)`, data);
       } catch (e) {
-        print($('fetchOut'), 'FAIL ' + path, String(e));
+        const ms = Math.round(performance.now() - t0);
+        print($('fetchOut'), `FAIL ${path} (${ms} ms)`, String(e));
       }
     };
 
