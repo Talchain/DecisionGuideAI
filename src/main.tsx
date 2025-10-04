@@ -44,7 +44,10 @@ const __e2e = isE2EEnabled()
       const { default: SafeMode } = await import('./poc/SafeMode')
       const root = createRoot(container)
       root.render(<SafeMode />)
-      ;(window as any).__APP_MOUNTED__?.() // let the overlay know we mounted
+      // POC: Signal HTML safe screen that React mounted
+      try {
+        window.__APP_MOUNTED__ && window.__APP_MOUNTED__()
+      } catch {}
       return
     }
   } catch (err) {
@@ -60,7 +63,10 @@ const __e2e = isE2EEnabled()
         <p style="opacity:0.7;margin-top:12px;">Open DevTools → Console for more details</p>
       </div>
     `
-    ;(window as any).__APP_MOUNTED__?.()
+    // POC: Signal HTML safe screen even on error
+    try {
+      window.__APP_MOUNTED__ && window.__APP_MOUNTED__()
+    } catch {}
     return
   }
 
@@ -95,6 +101,10 @@ const __e2e = isE2EEnabled()
       </StrictMode>
     )
     logAcceptance()
+    // POC: Signal HTML safe screen that React mounted
+    try {
+      ;(window as any).__APP_MOUNTED__ && (window as any).__APP_MOUNTED__()
+    } catch {}
     return
   }
 
@@ -123,5 +133,9 @@ const __e2e = isE2EEnabled()
       </StrictMode>
     )
     logAcceptance()
+    // POC: Signal HTML safe screen that React mounted
+    try {
+      ;(window as any).__APP_MOUNTED__ && (window as any).__APP_MOUNTED__()
+    } catch {}
   })
 })()
