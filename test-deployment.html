@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DecisionGuide PoC - Deployment Test</title>
+    <style>
+        body { font-family: system-ui; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .test { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin-right: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 DecisionGuide PoC Deployment Test</h1>
+    
+    <div class="test">
+        <h3>Engine Base URL</h3>
+        <p id="baseUrl">Loading...</p>
+    </div>
+
+    <div>
+        <button onclick="testHealth()">Test /health</button>
+        <button onclick="testDraftFlows()">Test /draft-flows</button>
+        <button onclick="clearResults()">Clear</button>
+    </div>
+
+    <div id="healthResult"></div>
+    <div id="flowsResult"></div>
+
+    <script>
+        // Display the configured engine URL
+        const engineUrl = import.meta.env.VITE_EDGE_GATEWAY_URL || '(not set - using relative)';
+        document.getElementById('baseUrl').innerHTML = `<strong>${engineUrl}</strong>`;
+
+        async function testHealth() {
+            const resultDiv = document.getElementById('healthResult');
+            resultDiv.innerHTML = '<div class="test"><p>Testing /health...</p></div>';
+            
+            try {
+                const url = engineUrl ? `${engineUrl}/health` : '/health';
+                console.log('Fetching:', url);
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <div class="test ${response.ok ? 'success' : 'error'}">
+                        <h3>✅ /health Response</h3>
+                        <p><strong>Status:</strong> ${response.status} ${response.statusText}</p>
+                        <p><strong>URL:</strong> ${url}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                        <p style="color: green;"><strong>✓ No CORS errors</strong></p>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="test error">
+                        <h3>❌ /health Failed</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <pre>${error.stack}</pre>
+                    </div>
+                `;
+                console.error('Health check failed:', error);
+            }
+        }
+
+        async function testDraftFlows() {
+            const resultDiv = document.getElementById('flowsResult');
+            resultDiv.innerHTML = '<div class="test"><p>Testing /draft-flows...</p></div>';
+            
+            try {
+                const url = engineUrl ? `${engineUrl}/draft-flows` : '/draft-flows';
+                console.log('Fetching:', url);
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                resultDiv.innerHTML = `
+                    <div class="test ${response.ok ? 'success' : 'error'}">
+                        <h3>✅ /draft-flows Response</h3>
+                        <p><strong>Status:</strong> ${response.status} ${response.statusText}</p>
+                        <p><strong>URL:</strong> ${url}</p>
+                        <pre>${JSON.stringify(data, null, 2).substring(0, 500)}...</pre>
+                        <p style="color: green;"><strong>✓ No CORS errors</strong></p>
+                    </div>
+                `;
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="test error">
+                        <h3>❌ /draft-flows Failed</h3>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <pre>${error.stack}</pre>
+                    </div>
+                `;
+                console.error('Draft flows failed:', error);
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('healthResult').innerHTML = '';
+            document.getElementById('flowsResult').innerHTML = '';
+        }
+
+        // Auto-run health check on load
+        window.addEventListener('load', () => {
+            setTimeout(testHealth, 500);
+        });
+    </script>
+</body>
+</html>

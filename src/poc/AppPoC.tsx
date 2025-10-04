@@ -5,11 +5,18 @@ import { StrictMode, useState, useEffect, Suspense } from 'react'
 import { HashRouter as Router } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'
+import { feature } from '../lib/pocFlags'
+import { fetchFlow as fetchFlowEngine, openSSE } from '../lib/pocEngine'
+import GraphCanvas, { type Node, type Edge, type LocalEdits } from '../components/GraphCanvas'
 
-// POC: hard-enable features for PoC shell
+// POC: Read feature flags from env
+const FEATURE_SANDBOX = feature('VITE_FEATURE_SCENARIO_SANDBOX')
+const FEATURE_SSE = feature('VITE_FEATURE_SSE')
+
+// POC: hard-enable features for PoC shell (legacy)
 const FEATURES = {
-  sse: false, // no real SSE yet
-  scenarioSandbox: true,
+  sse: FEATURE_SSE,
+  scenarioSandbox: FEATURE_SANDBOX,
   sandboxDecisionCTA: true,
   sandboxMapping: true,
   sandboxProjections: true,
@@ -46,6 +53,24 @@ export default function AppPoC() {
     EngineAuditPanel?: any
     Whiteboard?: any
   }>({})
+
+  // POC: Scenario Sandbox state
+  const [template, setTemplate] = useState('pricing_change')
+  const [seed, setSeed] = useState(101)
+  const [flowResult, setFlowResult] = useState<any>(null)
+  const [flowError, setFlowError] = useState<string>('')
+  const [flowTiming, setFlowTiming] = useState<number>(0)
+  const [lastUpdated, setLastUpdated] = useState<string>('')
+  const [nodes, setNodes] = useState<Node[]>([])
+  const [edges, setEdges] = useState<Edge[]>([])
+  const [localEdits, setLocalEdits] = useState<LocalEdits>({
+    addedNodes: [],
+    renamedNodes: {},
+    addedEdges: []
+  })
+  const [liveStream, setLiveStream] = useState(false)
+  const [sseTokens, setSseTokens] = useState<string>('')
+  const [sseStopFn, setSseStopFn] = useState<(() => void) | null>(null)
 
   useEffect(() => {
     // POC: Read build ID from meta tag
@@ -126,6 +151,68 @@ export default function AppPoC() {
       }
     } catch (e) {
       setFetchResult(`ERROR\n${String(e)}`)
+    }
+  }
+
+  // POC: Scenario Sandbox - Run flow
+  const runFlow = async () => {
+    setFlowError('')
+    try {
+      const result = await fetchFlowEngine({ template, seed })
+      setFlowTiming(result.ms)
+      setLastUpdated(new Date().toLocaleTimeString('en-GB'))
+      
+      if (result.ok && result.data) {
+        setFlowResult(result.data)
+        // POC: Extract graph from report.v1 schema
+        if (result.data.graph) {
+          setNodes(result.data.graph.nodes || [])
+          setEdges(result.data.graph.edges || [])
+        }
+        console.info('UI_POC_SANDBOX', { edge, template, seed, flags: { sandbox: FEATURE_SANDBOX, sse: FEATURE_SSE } })
+      } else {
+        setFlowError(result.error || 'Unknown error')
+      }
+    } catch (e) {
+      setFlowError(String(e))
+    }
+  }
+
+  // POC: SSE streaming toggle
+  const toggleLiveStream = () => {
+    if (liveStream) {
+      // Stop SSE
+      if (sseStopFn) {
+        sseStopFn()
+        setSseStopFn(null)
+      }
+      setLiveStream(false)
+    } else {
+      // Start SSE
+      setSseTokens('')
+      try {
+        const stop = openSSE('/demo/stream?hello=1', {
+          onToken: (token) => setSseTokens(prev => prev + (prev ? ' ' : '') + token),
+          onDone: () => {
+            setSseTokens(prev => prev + '\n[done]')
+            setSseStopFn(null)
+            setLiveStream(false)
+          },
+          onError: (error) => {
+            setSseTokens(prev => prev + `\n[SSE unavailable — using mock]\n${error}`)
+            setSseStopFn(null)
+            setLiveStream(false)
+            // Fallback to mock
+            startStream()
+          }
+        })
+        setSseStopFn(() => stop)
+        setLiveStream(true)
+      } catch (e) {
+        setSseTokens(`SSE failed: ${String(e)}\nFalling back to mock stream`)
+        setLiveStream(false)
+        startStream()
+      }
     }
   }
 
@@ -247,6 +334,177 @@ export default function AppPoC() {
                   {fetchResult || '[fetch idle]'}
                 </pre>
               </div>
+
+              {/* POC: Scenario Sandbox (flag-gated) */}
+              {FEATURE_SANDBOX && (
+                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px' }}>
+                  <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 600 }}>Scenario Sandbox (PoC)</h3>
+                  
+                  {/* Controls */}
+                  <div style={{ display: 'grid', gap: '12px', marginBottom: '16px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 500 }}>Template:</span>
+                      <input
+                        type="text"
+                        value={template}
+                        onChange={(e) => setTemplate(e.target.value)}
+                        style={{
+                          padding: '6px 10px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          minWidth: '200px'
+                        }}
+                      />
+                      <span style={{ fontSize: '14px', fontWeight: 500, marginLeft: '12px' }}>Seed:</span>
+                      <input
+                        type="number"
+                        value={seed}
+                        onChange={(e) => setSeed(Number(e.target.value))}
+                        style={{
+                          padding: '6px 10px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '14px',
+                          width: '100px'
+                        }}
+                      />
+                      <button
+                        onClick={runFlow}
+                        style={{
+                          padding: '8px 16px',
+                          border: '1px solid #10b981',
+                          borderRadius: '6px',
+                          background: '#10b981',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          marginLeft: '8px'
+                        }}
+                      >
+                        Run
+                      </button>
+                      {FEATURE_SSE && (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '12px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={liveStream}
+                            onChange={toggleLiveStream}
+                            style={{ cursor: 'pointer' }}
+                          />
+                          <span style={{ fontSize: '14px' }}>Live stream</span>
+                        </label>
+                      )}
+                    </div>
+                    {lastUpdated && (
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                        Last updated: {lastUpdated} ({flowTiming}ms) • Edge: {edge} • Template: {template} • Seed: {seed}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Error */}
+                  {flowError && (
+                    <div style={{
+                      background: '#fee',
+                      border: '1px solid #fcc',
+                      borderRadius: '6px',
+                      padding: '12px',
+                      marginBottom: '12px',
+                      fontSize: '14px',
+                      color: '#991b1b'
+                    }}>
+                      <strong>Error:</strong> {flowError}
+                    </div>
+                  )}
+
+                  {/* Results */}
+                  {flowResult && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 600 }}>Results</h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px', marginBottom: '12px' }}>
+                        {flowResult.scenarios?.conservative && (
+                          <div style={{ padding: '8px', background: '#fef3c7', borderRadius: '6px' }}>
+                            <div style={{ fontSize: '12px', color: '#92400e', fontWeight: 600 }}>Conservative</div>
+                            <div style={{ fontSize: '16px', fontWeight: 700, color: '#92400e' }}>
+                              {flowResult.scenarios.conservative.value}
+                            </div>
+                          </div>
+                        )}
+                        {flowResult.scenarios?.most_likely && (
+                          <div style={{ padding: '8px', background: '#dbeafe', borderRadius: '6px' }}>
+                            <div style={{ fontSize: '12px', color: '#1e40af', fontWeight: 600 }}>Most Likely</div>
+                            <div style={{ fontSize: '16px', fontWeight: 700, color: '#1e40af' }}>
+                              {flowResult.scenarios.most_likely.value}
+                            </div>
+                          </div>
+                        )}
+                        {flowResult.scenarios?.optimistic && (
+                          <div style={{ padding: '8px', background: '#d1fae5', borderRadius: '6px' }}>
+                            <div style={{ fontSize: '12px', color: '#065f46', fontWeight: 600 }}>Optimistic</div>
+                            <div style={{ fontSize: '16px', fontWeight: 700, color: '#065f46' }}>
+                              {flowResult.scenarios.optimistic.value}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      {flowResult.thresholds && flowResult.thresholds.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '6px' }}>Thresholds:</div>
+                          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                            {flowResult.thresholds.map((t: any, i: number) => (
+                              <span
+                                key={i}
+                                style={{
+                                  padding: '4px 8px',
+                                  background: t.crossed ? '#fee' : '#f0fdf4',
+                                  border: `1px solid ${t.crossed ? '#fcc' : '#bbf7d0'}`,
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  color: t.crossed ? '#991b1b' : '#065f46'
+                                }}
+                              >
+                                {t.label} {t.crossed && '(crossed)'}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Graph */}
+                  {nodes.length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 600 }}>Decision Graph</h4>
+                      <GraphCanvas
+                        nodes={nodes}
+                        edges={edges}
+                        localEdits={localEdits}
+                        onEditsChange={setLocalEdits}
+                      />
+                    </div>
+                  )}
+
+                  {/* SSE Stream Output */}
+                  {liveStream && sseTokens && (
+                    <div>
+                      <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 600 }}>Live Stream</h4>
+                      <pre style={{
+                        background: '#f6f8fa',
+                        padding: '12px',
+                        borderRadius: '6px',
+                        overflow: 'auto',
+                        whiteSpace: 'pre-wrap',
+                        fontSize: '14px',
+                        margin: 0
+                      }}>
+                        {sseTokens}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* POC: Real Components */}
               {SandboxStreamPanel && (
