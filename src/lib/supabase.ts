@@ -1,9 +1,20 @@
 // src/lib/supabase.ts
+// POC: Supabase client - aliased to stub in PoC mode via vite.config.ts
 
 import { createClient } from '@supabase/supabase-js'
 import { isE2EEnabled } from '../flags'
 import type { Database } from '../types/database'
- 
+
+// POC: Detect PoC mode and log binding type
+const isPoc =
+  (import.meta as any)?.env?.VITE_POC_ONLY === '1' ||
+  (import.meta as any)?.env?.VITE_AUTH_MODE === 'guest'
+
+// POC: Acceptance hint in console
+try {
+  // eslint-disable-next-line no-console
+  console.info(`SUPABASE_BINDING: ${isPoc ? 'mock' : 'real'}`)
+} catch {}
 
 // —————————————————————————————————————————————————————————————————————————————
 // DEV-only env logging
