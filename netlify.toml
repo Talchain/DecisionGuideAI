@@ -6,9 +6,9 @@
   NODE_VERSION = "20"
   VITE_POC_ONLY = "1"
   VITE_AUTH_MODE = "guest"
-  # POC: default to direct Render URL (avoids Netlify proxy 502s)
-  # POC: proxy /engine remains optional and can be forced with ?edge=/engine query flag
-  VITE_EDGE_GATEWAY_URL = "https://plot-lite-service.onrender.com"
+  VITE_EDGE_GATEWAY_URL = "/engine"
   VITE_DISABLE_OPENAI = "1"
   VITE_FORCE_ENGINE = "1"
   SECRETS_SCAN_ENABLED = "false"
+
+# POC: no [[redirects]] in toml; redirects live in public/_redirects only.
