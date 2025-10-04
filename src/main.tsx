@@ -1,5 +1,6 @@
 // src/main.tsx
-// POC: minimal import-free boot to guarantee paint in PoC mode
+// POC: Import-free boot in PoC mode to prevent parse/bundle errors causing blank page
+// POC: Force proxy via ?edge=/engine query param (read from location.search and override edge)
 
 const isPoc =
   (import.meta as any)?.env?.VITE_POC_ONLY === '1' ||
@@ -9,11 +10,14 @@ const isPoc =
   const root = document.getElementById('root');
   if (!root) { console.error('POC_MIN: #root not found'); return; }
 
-  const edge = ((import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL || '/engine') as string;
+  // POC: Read edge from query param or env (defaults to direct Render URL)
+  const urlParams = new URLSearchParams(location.search);
+  const edgeOverride = urlParams.get('edge');
+  const edge = edgeOverride || (import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL || 'https://plot-lite-service.onrender.com';
   const build = (document.querySelector('meta[name="x-build-id"]') as HTMLMetaElement)?.content || '(unknown)';
 
   if (isPoc) {
-    // POC: inline panel – guaranteed visible
+    // POC: inline panel – guaranteed visible, no imports
     root.innerHTML = `
       <div style="position:fixed;inset:0;background:#fff;z-index:2147483647;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial">
         <div style="background:#10b981;color:#fff;padding:10px 14px;font-weight:600">
@@ -50,10 +54,16 @@ const isPoc =
       location.hash = '#/sandbox?from=poc-minimal';
     });
 
+    // POC: auto-run proxy check on load
     (document.getElementById('btn-proxy') as HTMLButtonElement)?.click();
+    
+    // POC: signal HTML failsafe to stay hidden
     try { (window as any).__APP_MOUNTED__?.(); } catch {}
-    try { console.info(`UI_POC_MIN: build=${build}, edge=${edge}` ); } catch {}
+    
+    // POC: loud acceptance log
+    try { console.info('UI_POC_MIN:', { build, edge }); } catch {}
   } else {
+    // Non-PoC: signal HTML failsafe
     try { (window as any).__APP_MOUNTED__?.(); } catch {}
     console.info('UI_NON_POC_MIN: placeholder loaded');
   }

@@ -24,6 +24,7 @@
 
     <script>
       // POC: HTML-level failsafe that can't fail to parse
+      // POC: Contract: window.__APP_MOUNTED__() clears timeout, marks shown=true, hides overlay
       (function () {
         var shown = false;
         var SAFE_DELAY_MS = 1200;
