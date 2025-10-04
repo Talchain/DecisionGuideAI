@@ -4,10 +4,76 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="x-build-id" content="%BUILD_ID%" />
     <title>DecisionGuide.AI - Better decisions faster</title>
   </head>
   <body>
     <div id="root"></div>
+
+    <!-- POC: HTML-level Safe Screen (zero-dependency, can't fail to parse) -->
+    <div id="poc-safe" style="display:none;position:fixed;inset:0;background:#0b1e11;color:#d7ffe0;font-family:system-ui,Arial,sans-serif;z-index:99999;padding:16px;overflow:auto">
+      <div style="background:#12b886;color:#052a1f;padding:8px 12px;border-radius:8px;display:inline-block;font-weight:600">
+        PoC HTML Safe Screen
+      </div>
+      <div style="margin-top:12px;font-size:14px">
+        <div>build: <span id="poc-build"></span></div>
+        <div>edge: <span id="poc-edge"></span></div>
+      </div>
+      <pre id="poc-health" style="margin-top:12px;background:#062016;color:#abffcd;padding:12px;border-radius:8px;white-space:pre-wrap"></pre>
+    </div>
+
+    <script>
+      // POC: HTML-level failsafe that can't fail to parse
+      (function () {
+        var shown = false;
+        var SAFE_DELAY_MS = 1200;
+        var build = document.querySelector('meta[name="x-build-id"]')?.content || new Date().toISOString();
+        var edge = '/engine';
+        var safeEl = document.getElementById('poc-safe');
+        var healthEl = document.getElementById('poc-health');
+        var buildEl = document.getElementById('poc-build');
+        var edgeEl = document.getElementById('poc-edge');
+        buildEl && (buildEl.textContent = build);
+        edgeEl && (edgeEl.textContent = edge);
+
+        function showSafe(reason){
+          if (shown) return;
+          shown = true;
+          if (safeEl) safeEl.style.display = 'block';
+          console.info('POC_HTML_SAFE: showing ('+reason+') build='+build+' edge='+edge);
+          // try proxy first, then direct
+          fetch(edge + '/health').then(function(r){ return r.json(); }).then(function(d){
+            healthEl && (healthEl.textContent = 'OK via proxy\n' + JSON.stringify(d, null, 2));
+            console.info('POC_HTML_SAFE: OK via proxy', d);
+          }).catch(function(){
+            fetch('https://plot-lite-service.onrender.com/health').then(function(r){ return r.json(); }).then(function(d){
+              healthEl && (healthEl.textContent = 'OK via direct\n' + JSON.stringify(d, null, 2));
+              console.info('POC_HTML_SAFE: OK via direct', d);
+            }).catch(function(e2){
+              healthEl && (healthEl.textContent = 'FAIL\n' + String(e2));
+              console.error('POC_HTML_SAFE: FAIL', e2);
+            });
+          });
+        }
+
+        // Called by React once it mounts
+        window.__APP_MOUNTED__ = function(){
+          if (!shown) {
+            console.info('POC_HTML_SAFE: React mounted, no need for Safe Screen');
+            // keep safe screen hidden
+          }
+        };
+
+        // If React never tells us it mounted, show the safe screen
+        setTimeout(function(){
+          if (!shown) showSafe('timeout');
+        }, SAFE_DELAY_MS);
+
+        // Also show it on a hard error very early
+        window.addEventListener('error', function(){ showSafe('early-error'); }, { once: true });
+      })();
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
