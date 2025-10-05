@@ -1,9 +1,9 @@
 // src/routes/PlotWorkspace.tsx
 // Unified canvas workspace - whiteboard as background, graph overlay, shared camera
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchFlow, loadFixture } from '../lib/pocEngine'
-import { CameraProvider } from '../components/PlotCamera'
+import { CameraProvider, useCamera, Camera } from '../components/PlotCamera'
 import WhiteboardCanvas from '../components/WhiteboardCanvas'
 import DecisionGraphLayer from '../components/DecisionGraphLayer'
 import PlotToolbar, { Tool, NodeType } from '../components/PlotToolbar'
@@ -13,7 +13,9 @@ import ResultsPanel from '../components/ResultsPanel'
 type Node = { id: string; label: string; x?: number; y?: number; type?: string }
 type Edge = { from: string; to: string; label?: string; weight?: number }
 
-export default function PlotWorkspace() {
+// Inner component that has access to camera
+function PlotWorkspaceInner() {
+  const { camera } = useCamera()
   // Version & health
   const [deployCommit, setDeployCommit] = useState<string>('')
   const [checkEngine, setCheckEngine] = useState<'pending' | 'ok' | 'fail'>('pending')
@@ -121,18 +123,24 @@ export default function PlotWorkspace() {
     setCurrentTool(tool)
   }, [])
 
-  // Handle add node
+  // Handle add node at viewport center
   const handleAddNode = useCallback((type: NodeType) => {
+    // Calculate viewport center in world coordinates
+    const viewportCenterX = window.innerWidth / 2
+    const viewportCenterY = window.innerHeight / 2
+    const worldX = (viewportCenterX - camera.x) / camera.zoom
+    const worldY = (viewportCenterY - camera.y) / camera.zoom
+
     const newNode: Node = {
       id: `node_${Date.now()}`,
       label: `New ${type}`,
-      x: 0, // Center of current viewport
-      y: 0,
+      x: worldX,
+      y: worldY,
       type
     }
     setNodes(prev => [...prev, newNode])
     setSelectedNodeId(newNode.id)
-  }, [])
+  }, [camera])
 
   // Handle node click
   const handleNodeClick = useCallback((node: Node) => {
@@ -200,66 +208,73 @@ export default function PlotWorkspace() {
 
       {/* Canvas Workspace */}
       <div className="flex-1 relative overflow-hidden">
-        <CameraProvider>
-          {/* Layer 0: Whiteboard background */}
-          <WhiteboardCanvas />
-          
-          {/* Layer 1: Decision graph */}
-          <DecisionGraphLayer
-            nodes={nodes}
-            edges={edges}
-            selectedNodeId={selectedNodeId || undefined}
-            onNodeClick={handleNodeClick}
-          />
-          
-          {/* Toolbar (left) */}
-          <PlotToolbar
-            currentTool={currentTool}
-            onToolChange={handleToolChange}
-            onAddNode={handleAddNode}
-          />
-          
-          {/* Results Panel (right) */}
-          <ResultsPanel
-            flowResult={flowResult}
-            isLiveData={isLiveData}
-            biases={biases}
-            biasesSource={biasesSource}
-          />
+        {/* Layer 0: Whiteboard background */}
+        <WhiteboardCanvas />
+        
+        {/* Layer 1: Decision graph */}
+        <DecisionGraphLayer
+          nodes={nodes}
+          edges={edges}
+          selectedNodeId={selectedNodeId || undefined}
+          onNodeClick={handleNodeClick}
+        />
+        
+        {/* Toolbar (left) */}
+        <PlotToolbar
+          currentTool={currentTool}
+          onToolChange={handleToolChange}
+          onAddNode={handleAddNode}
+        />
+        
+        {/* Results Panel (right) */}
+        <ResultsPanel
+          flowResult={flowResult}
+          isLiveData={isLiveData}
+          biases={biases}
+          biasesSource={biasesSource}
+        />
 
-          {/* Top controls bar */}
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20">
-            <div className="bg-white rounded-lg shadow-lg border border-gray-200 px-4 py-2 flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-medium text-gray-700">Template:</label>
-                <select
-                  value={template}
-                  onChange={(e) => setTemplate(e.target.value)}
-                  className="text-xs border border-gray-300 rounded px-2 py-1"
-                >
-                  <option value="pricing_change">Pricing Change</option>
-                  <option value="feature_launch">Feature Launch</option>
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-medium text-gray-700">Seed:</label>
-                <input
-                  type="number"
-                  value={seed}
-                  onChange={(e) => setSeed(parseInt(e.target.value) || 101)}
-                  className="text-xs border border-gray-300 rounded px-2 py-1 w-20"
-                />
-              </div>
-              <button
-                onClick={runFlow}
-                className="px-3 py-1 text-xs font-medium bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+        {/* Top controls bar */}
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20">
+          <div className="bg-white rounded-lg shadow-lg border border-gray-200 px-4 py-2 flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-700">Template:</label>
+              <select
+                value={template}
+                onChange={(e) => setTemplate(e.target.value)}
+                className="text-xs border border-gray-300 rounded px-2 py-1"
               >
-                Run Scenario
-              </button>
+                <option value="pricing_change">Pricing Change</option>
+                <option value="feature_launch">Feature Launch</option>
+              </select>
             </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-700">Seed:</label>
+              <input
+                type="number"
+                value={seed}
+                onChange={(e) => setSeed(parseInt(e.target.value) || 101)}
+                className="text-xs border border-gray-300 rounded px-2 py-1 w-20"
+              />
+            </div>
+            <button
+              onClick={runFlow}
+              className="px-3 py-1 text-xs font-medium bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+            >
+              Run Scenario
+            </button>
           </div>
-        </CameraProvider>
+        </div>
       </div>
     </div>
+  )
+}
+
+// Outer wrapper provides camera context
+export default function PlotWorkspace() {
+  return (
+    <CameraProvider>
+      <PlotWorkspaceInner />
+    </CameraProvider>
   )
 }

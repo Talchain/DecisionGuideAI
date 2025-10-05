@@ -162,15 +162,16 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, selected
     ctx.restore()
   }, [camera, nodes, edges, selectedNodeId])
 
-  const handleCanvasClick = (e: React.MouseEvent) => {
+  // Check if point hits a node (returns node or null)
+  const getNodeAtPoint = (screenX: number, screenY: number) => {
     const canvas = canvasRef.current
-    if (!canvas) return
+    if (!canvas) return null
 
     const rect = canvas.getBoundingClientRect()
-    const x = (e.clientX - rect.left - camera.x) / camera.zoom
-    const y = (e.clientY - rect.top - camera.y) / camera.zoom
+    const x = (screenX - rect.left - camera.x) / camera.zoom
+    const y = (screenY - rect.top - camera.y) / camera.zoom
 
-    // Check if click hit a node
+    // Check if point hit a node
     const layoutNodes = nodes.map((n, i) => {
       if (n.x !== undefined && n.y !== undefined) {
         return { ...n, x: n.x, y: n.y }
@@ -184,15 +185,28 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, selected
       }
     })
 
-    const clickedNode = layoutNodes.find(n => {
+    return layoutNodes.find(n => {
       const dx = x - n.x!
       const dy = y - n.y!
       return Math.sqrt(dx * dx + dy * dy) <= 40
-    })
+    }) || null
+  }
 
+  const handleCanvasClick = (e: React.MouseEvent) => {
+    const clickedNode = getNodeAtPoint(e.clientX, e.clientY)
     if (clickedNode && onNodeClick) {
+      e.stopPropagation()
       onNodeClick(clickedNode)
     }
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    // Change cursor if hovering over a node
+    const node = getNodeAtPoint(e.clientX, e.clientY)
+    canvas.style.cursor = node ? 'pointer' : 'default'
   }
 
   if (nodes.length === 0) {
@@ -207,11 +221,47 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, selected
   }
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 pointer-events-auto"
-      style={{ zIndex: 10 }}
-      onClick={handleCanvasClick}
-    />
+    <div 
+      className="absolute inset-0"
+      style={{ zIndex: 10, pointerEvents: 'none' }}
+    >
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0"
+        style={{ pointerEvents: 'none' }}
+      />
+      {/* Invisible hit areas for nodes */}
+      {nodes.length > 0 && nodes.map((node, i) => {
+        // Calculate screen position
+        const n = node.x !== undefined && node.y !== undefined ? node : {
+          ...node,
+          x: Math.cos((i / nodes.length) * Math.PI * 2) * 200,
+          y: Math.sin((i / nodes.length) * Math.PI * 2) * 200
+        }
+        const screenX = n.x! * camera.zoom + camera.x
+        const screenY = n.y! * camera.zoom + camera.y
+        const radius = 40 * camera.zoom
+
+        return (
+          <div
+            key={node.id}
+            className="absolute cursor-pointer"
+            style={{
+              left: screenX - radius,
+              top: screenY - radius,
+              width: radius * 2,
+              height: radius * 2,
+              pointerEvents: 'auto',
+              borderRadius: '50%'
+            }}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (onNodeClick) onNodeClick(node)
+            }}
+            title={node.label}
+          />
+        )
+      })}
+    </div>
   )
 }
