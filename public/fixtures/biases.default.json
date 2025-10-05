@@ -1,0 +1,39 @@
+{
+  "biases": [
+    {
+      "id": "anchoring",
+      "name": "Anchoring Bias",
+      "description": "Over-relying on the first piece of information encountered",
+      "severity": "medium",
+      "mitigation": "Consider multiple data points before making decisions"
+    },
+    {
+      "id": "confirmation",
+      "name": "Confirmation Bias",
+      "description": "Seeking information that confirms existing beliefs",
+      "severity": "high",
+      "mitigation": "Actively seek contradictory evidence and diverse viewpoints"
+    },
+    {
+      "id": "status_quo",
+      "name": "Status Quo Bias",
+      "description": "Preference for the current state of affairs",
+      "severity": "medium",
+      "mitigation": "Evaluate changes objectively against current baseline"
+    },
+    {
+      "id": "sunk_cost",
+      "name": "Sunk Cost Fallacy",
+      "description": "Continuing investment based on past costs rather than future value",
+      "severity": "high",
+      "mitigation": "Focus on future returns, not past investments"
+    },
+    {
+      "id": "optimism",
+      "name": "Optimism Bias",
+      "description": "Overestimating positive outcomes and underestimating risks",
+      "severity": "medium",
+      "mitigation": "Use conservative estimates and scenario planning"
+    }
+  ]
+}

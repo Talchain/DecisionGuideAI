@@ -1,51 +1,41 @@
 // src/routes/SandboxV1.tsx
-// POC: Stabilised Scenario Sandbox with full rich UI (hard-enabled features, no env flags)
+// POC: Full Showcase - All features visible by default, no URL toggles
 
 import { useState, useEffect, Suspense } from 'react'
-import { fetchFlow, openSSE, getHashParam, resolveEdge } from '../lib/pocEngine'
+import { fetchFlow, openSSE, resolveEdge, loadFixture } from '../lib/pocEngine'
 import { lazySafe } from '../lib/lazySafe'
 
-// POC: Local types (minimal, no hard coupling to GraphCanvas)
+// POC: Local types
 type Node = { id: string; label: string; x?: number; y?: number }
 type Edge = { from: string; to: string; label?: string; weight?: number }
 type LocalEdits = { addedNodes: Node[]; renamedNodes: Record<string, string>; addedEdges: Edge[] }
 
-// POC: Local edge resolver (unified via pocEngine)
-function getEdgeBaseLocal(): string {
-  return resolveEdge('/engine')
-}
-
-// POC: Lightweight error boundary
-function ErrorBoundary({ children }: { children: any }) {
-  return children
-}
-
-// POC: Hard-enable features for this preview route
-const FEATURE_SANDBOX = true
-const FEATURE_SSE = true
-
-// POC: Lazy-load rich components with safe fallbacks (including GraphCanvas)
+// POC: Lazy-load components with graceful fallbacks
 const GraphCanvas = lazySafe(() => import('../components/GraphCanvas'), 'GraphCanvas')
 const SandboxStreamPanel = lazySafe(() => import('../components/SandboxStreamPanel'), 'SandboxStreamPanel')
 const EngineAuditPanel = lazySafe(() => import('../components/EngineAuditPanel'), 'EngineAuditPanel')
 const RunReportDrawer = lazySafe(() => import('../components/RunReportDrawer'), 'RunReportDrawer')
 const ConfigDrawer = lazySafe(() => import('../components/ConfigDrawer'), 'ConfigDrawer')
 const ScenarioDrawer = lazySafe(() => import('../components/ScenarioDrawer'), 'ScenarioDrawer')
-const HealthIndicator = lazySafe(() => import('../components/HealthIndicator'), 'HealthIndicator')
-const JobsProgressPanel = lazySafe(() => import('../components/JobsProgressPanel'), 'JobsProgressPanel')
-const BiasesCarousel = lazySafe(() => import('../components/BiasesCarousel'), 'BiasesCarousel')
 
 export default function SandboxV1() {
-  const [build, setBuild] = useState('(unknown)')
+  // Version info
   const [deployCommit, setDeployCommit] = useState<string>('')
   const [deployTimestamp, setDeployTimestamp] = useState<string>('')
-  const [edge, setEdge] = useState('/engine')
+  
+  // Flow controls
+  const [edge] = useState('/engine')
   const [template, setTemplate] = useState('pricing_change')
   const [seed, setSeed] = useState(101)
+  
+  // Flow results
   const [flowResult, setFlowResult] = useState<any>(null)
   const [flowError, setFlowError] = useState<string>('')
   const [flowTiming, setFlowTiming] = useState<number>(0)
   const [lastUpdated, setLastUpdated] = useState<string>('')
+  const [isLiveData, setIsLiveData] = useState(false)
+  
+  // Graph
   const [nodes, setNodes] = useState<Node[]>([])
   const [edges, setEdges] = useState<Edge[]>([])
   const [localEdits, setLocalEdits] = useState<LocalEdits>({
@@ -53,29 +43,29 @@ export default function SandboxV1() {
     renamedNodes: {},
     addedEdges: []
   })
+  
+  // Streaming
   const [liveStream, setLiveStream] = useState(false)
   const [streamTokens, setStreamTokens] = useState<string>('')
   const [sseStopFn, setSseStopFn] = useState<(() => void) | null>(null)
   
-  // POC: Drawer states
+  // Biases
+  const [biases, setBiases] = useState<any[]>([])
+  const [biasesSource, setBiasesSource] = useState<'live' | 'demo'>('demo')
+  
+  // Diagnostics
+  const [lastUrl, setLastUrl] = useState<string>('')
+  const [lastStatus, setLastStatus] = useState<number | undefined>(undefined)
+  const [lastHeaders, setLastHeaders] = useState<Record<string, string>>({})
+  
+  // Drawers
   const [reportDrawerOpen, setReportDrawerOpen] = useState(false)
   const [configDrawerOpen, setConfigDrawerOpen] = useState(false)
   const [scenarioDrawerOpen, setScenarioDrawerOpen] = useState(false)
-  
-  // POC: Section visibility (URL-based toggles)
-  const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set())
-  
-  // POC: Debug state for diagnostics
-  const [lastUrl, setLastUrl] = useState<string>('')
-  const [lastStatus, setLastStatus] = useState<number | undefined>(undefined)
-  const [lastRaw, setLastRaw] = useState<any>(null)
 
+  // Initialize on mount: version info, auto-run flow, auto-start stream, load biases
   useEffect(() => {
-    // POC: Read build ID from meta tag
-    const metaBuild = document.querySelector<HTMLMetaElement>('meta[name="x-build-id"]')?.content || '(unknown)'
-    setBuild(metaBuild)
-
-    // POC: Fetch deployment version info
+    // Fetch version info
     fetch('/version.json')
       .then(r => r.json())
       .then(v => {
@@ -84,53 +74,40 @@ export default function SandboxV1() {
       })
       .catch(() => {})
 
-    // POC: Read edge from URL or default (local resolver)
-    const edgeOverride = getHashParam('edge')
-    const edgeUrl = edgeOverride || getEdgeBaseLocal()
-    setEdge(edgeUrl)
+    // Auto-run flow on mount
+    runFlow()
     
-    // POC: Read template and seed from URL if present
-    const templateOverride = getHashParam('template')
-    const seedOverride = getHashParam('seed')
-    if (templateOverride) setTemplate(templateOverride)
-    if (seedOverride) setSeed(Number(seedOverride))
+    // Auto-start streaming
+    setTimeout(() => {
+      if (!liveStream) toggleLiveStream()
+    }, 800)
     
-    // POC: Read sections to show/hide
-    const sectionsParam = getHashParam('sections')
-    if (sectionsParam) {
-      const sectionsList = sectionsParam.split(',').map(s => s.trim())
-      setVisibleSections(new Set(sectionsList))
-    } else {
-      // Default: show all sections
-      setVisibleSections(new Set(['stream', 'audit', 'canvas', 'report', 'biases', 'config', 'scenario', 'jobs', 'health']))
-    }
+    // Load default biases
+    loadBiases()
 
-    // POC: Loud acceptance log
-    console.info('UI_POC_SANDBOX_V1_ENHANCED', {
-      edge: edgeUrl,
-      template: templateOverride || 'pricing_change',
-      seed: seedOverride || 101,
-      hardcoded: { sandbox: true, sse: true },
-      sections: sectionsParam || 'all'
+    // Acceptance log
+    console.info('UI_POC_SANDBOX_V1_SHOWCASE', {
+      edge: '/engine',
+      template: 'pricing_change',
+      seed: 101,
+      mode: 'all_features_on',
+      fixtures: true
     })
 
-    // POC: Signal HTML failsafe
+    // Signal mount
     try { (window as any).__APP_MOUNTED__?.() } catch {}
   }, [])
 
-  // POC: Auto-run on mount for instant validation
-  useEffect(() => {
-    runFlow()
-    // POC: Auto-start SSE if ?autostart=1 present
-    const autostart = getHashParam('autostart')
-    if (autostart === '1' && !liveStream) {
-      setTimeout(() => toggleLiveStream(), 500)
+  // Load biases (fixture fallback)
+  const loadBiases = async () => {
+    const fixture = await loadFixture('biases.default.json')
+    if (fixture?.biases) {
+      setBiases(fixture.biases)
+      setBiasesSource('demo')
     }
-  }, [])
+  }
 
-  const isVisible = (section: string) => visibleSections.size === 0 || visibleSections.has(section)
-
-  // POC: Run flow
+  // Run flow - live first, fixture fallback
   const runFlow = async () => {
     setFlowError('')
     const result = await fetchFlow({ edge, template, seed })
@@ -138,23 +115,40 @@ export default function SandboxV1() {
     setLastUpdated(new Date().toLocaleTimeString('en-GB'))
     setLastUrl(result.url || '')
     setLastStatus(result.status)
-    setLastRaw(result.data ?? null)
+    setLastHeaders(result.headers || {})
 
-    if (result.ok && result.data) {
+    // Check if we have valid data
+    const hasValidData = result.ok && result.data && (result.data.results || result.data.graph)
+    
+    if (hasValidData) {
       setFlowResult(result.data)
-      // POC: Extract graph from report.v1 schema
+      setIsLiveData(true)
       if (result.data.graph) {
         setNodes(result.data.graph.nodes || [])
         setEdges(result.data.graph.edges || [])
-      } else {
-        setNodes([])
-        setEdges([])
+      }
+      // Check for live biases
+      if (result.data.biases?.length > 0) {
+        setBiases(result.data.biases)
+        setBiasesSource('live')
       }
     } else {
-      setFlowResult(null)
-      setNodes([])
-      setEdges([])
-      setFlowError(result.error || `Fetch failed (status ${result.status ?? 'n/a'})`)
+      // Fallback to fixture
+      const fixture = await loadFixture('report_pricing_change.json')
+      if (fixture) {
+        setFlowResult(fixture)
+        setIsLiveData(false)
+        if (fixture.graph) {
+          setNodes(fixture.graph.nodes || [])
+          setEdges(fixture.graph.edges || [])
+        }
+        setFlowError('Using demo data (live engine unavailable)')
+      } else {
+        setFlowResult(null)
+        setNodes([])
+        setEdges([])
+        setFlowError(result.error || `Fetch failed (status ${result.status ?? 'n/a'})`)
+      }
     }
   }
 
@@ -216,8 +210,7 @@ export default function SandboxV1() {
   }
 
   return (
-    <ErrorBoundary>
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
@@ -229,7 +222,7 @@ export default function SandboxV1() {
           </h1>
           <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-2">
             <div><span className="font-semibold">Edge:</span> {edge}</div>
-            <div><span className="font-semibold">Build:</span> {build}</div>
+            <div><span className="font-semibold">Build:</span> {deployCommit || '(n/a)'}</div>
             {deployTimestamp && (
               <div><span className="font-semibold">Deployed:</span> {new Date(deployTimestamp).toLocaleString('en-GB')}</div>
             )}
@@ -246,7 +239,7 @@ export default function SandboxV1() {
             <span>edge: <code>{edge}</code></span>
             <span>template: <code>{template}</code></span>
             <span>seed: <code>{seed}</code></span>
-            <span>sections: <code>{[...visibleSections].join(',') || 'all'}</code></span>
+            <span>mode: <code>showcase</code></span>
           </div>
         </div>
 
@@ -279,42 +272,34 @@ export default function SandboxV1() {
             >
               Run
             </button>
-            {FEATURE_SSE && (
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={liveStream}
-                  onChange={toggleLiveStream}
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="text-sm font-medium text-gray-700">Live stream</span>
-              </label>
-            )}
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={liveStream}
+                onChange={toggleLiveStream}
+                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Live stream</span>
+            </label>
             <div className="ml-auto flex gap-2">
-              {isVisible('report') && (
-                <button
-                  onClick={() => setReportDrawerOpen(true)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200"
-                >
-                  Report
-                </button>
-              )}
-              {isVisible('config') && (
-                <button
-                  onClick={() => setConfigDrawerOpen(true)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200"
-                >
-                  Config
-                </button>
-              )}
-              {isVisible('scenario') && (
-                <button
-                  onClick={() => setScenarioDrawerOpen(true)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200"
-                >
-                  Scenarios
-                </button>
-              )}
+              <button
+                onClick={() => setReportDrawerOpen(true)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200"
+              >
+                Report
+              </button>
+              <button
+                onClick={() => setConfigDrawerOpen(true)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200"
+              >
+                Config
+              </button>
+              <button
+                onClick={() => setScenarioDrawerOpen(true)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-200"
+              >
+                Scenarios
+              </button>
             </div>
           </div>
           {lastUpdated && (
@@ -345,7 +330,14 @@ export default function SandboxV1() {
             {/* Results */}
             {flowResult && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Results</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Results</h3>
+                  {isLiveData ? (
+                    <span className="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">Live</span>
+                  ) : (
+                    <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800 rounded">Demo data</span>
+                  )}
+                </div>
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   {flowResult.results?.conservative && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
@@ -381,22 +373,48 @@ export default function SandboxV1() {
                     </div>
                   )}
                 </div>
+                
+                {/* Mini SVG Chart */}
+                {flowResult.results && (
+                  <div className="mb-4">
+                    <div className="text-sm font-semibold text-gray-700 mb-2">Scenario Values</div>
+                    <svg width="100%" height="24" className="border border-gray-200 rounded">
+                      {(() => {
+                        const cons = parseFloat(flowResult.results.conservative?.cost_delta || flowResult.results.conservative?.value || 0)
+                        const likely = parseFloat(flowResult.results.most_likely?.cost_delta || flowResult.results.most_likely?.value || 0)
+                        const opt = parseFloat(flowResult.results.optimistic?.cost_delta || flowResult.results.optimistic?.value || 0)
+                        const max = Math.max(Math.abs(cons), Math.abs(likely), Math.abs(opt), 1)
+                        const w1 = (Math.abs(cons) / max) * 30
+                        const w2 = (Math.abs(likely) / max) * 30
+                        const w3 = (Math.abs(opt) / max) * 30
+                        return (
+                          <>
+                            <rect x="2" y="4" width={w1 + '%'} height="6" fill="#fbbf24" />
+                            <rect x="2" y="11" width={w2 + '%'} height="6" fill="#3b82f6" />
+                            <rect x="2" y="18" width={w3 + '%'} height="6" fill="#10b981" />
+                          </>
+                        )
+                      })()}
+                    </svg>
+                  </div>
+                )}
+                
                 {flowResult.thresholds && flowResult.thresholds.length > 0 && (
                   <div>
-                    <div className="text-sm font-semibold text-gray-700 mb-2">Thresholds:</div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="text-sm font-semibold text-gray-700 mb-2">Thresholds</div>
+                    <div className="flex flex-wrap">
                       {flowResult.thresholds.map((t: any, i: number) => {
                         const displayText = t.metric || t.label || 'threshold'
                         return (
                           <span
                             key={i}
-                            className={`px-2 py-1 text-xs font-medium rounded ${
+                            className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded border mr-2 mb-2 ${
                               t.crossed
-                                ? 'bg-red-50 border border-red-200 text-red-800'
-                                : 'bg-green-50 border border-green-200 text-green-800'
+                                ? 'bg-red-50 border-red-200 text-red-800'
+                                : 'bg-green-50 border-green-200 text-green-800'
                             }`}
                           >
-                            {displayText} {t.crossed && '(crossed)'}
+                            {displayText}{t.crossed ? ' (crossed)' : ''}
                           </span>
                         )
                       })}
@@ -406,24 +424,34 @@ export default function SandboxV1() {
               </div>
             )}
 
-            {/* BiasesCarousel */}
-            {isVisible('biases') && (
-              <Suspense fallback={<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-gray-500">Loading biases...</div>}>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Cognitive Biases</h3>
-                  <BiasesCarousel />
+            {/* Cognitive Biases */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Cognitive Biases</h3>
+                {biasesSource === 'demo' && (
+                  <span className="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-800 rounded">Demo</span>
+                )}
+              </div>
+              {biases.length > 0 ? (
+                <div className="space-y-2">
+                  {biases.slice(0, 3).map((bias: any, i: number) => (
+                    <div key={i} className="p-3 bg-gray-50 rounded border border-gray-200">
+                      <div className="font-medium text-sm text-gray-900">{bias.name}</div>
+                      <div className="text-xs text-gray-600 mt-1">{bias.description}</div>
+                    </div>
+                  ))}
                 </div>
-              </Suspense>
-            )}
+              ) : (
+                <div className="text-sm text-gray-600">No biases detected</div>
+              )}
+            </div>
 
             {/* SandboxStreamPanel */}
-            {isVisible('stream') && (
-              <Suspense fallback={<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-gray-500">Loading stream panel...</div>}>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  <SandboxStreamPanel />
-                </div>
-              </Suspense>
-            )}
+            <Suspense fallback={<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-gray-500">Loading stream panel...</div>}>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                <SandboxStreamPanel />
+              </div>
+            </Suspense>
 
             {/* Stream Output */}
             {(liveStream || streamTokens) && (
@@ -437,16 +465,11 @@ export default function SandboxV1() {
               </div>
             )}
 
-            {/* Debug Panel - shows when no Results but we have raw data or error */}
-            {!flowResult && (flowError || lastRaw) && (
+            {/* Debug Panel */}
+            {!flowResult && flowError && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Debug</h3>
-                {flowError && <div className="mb-2 text-sm text-red-700">Error: {flowError}</div>}
-                {lastRaw && (
-                  <pre className="bg-gray-50 border border-gray-200 rounded p-3 overflow-auto text-xs">
-                    {JSON.stringify(lastRaw, null, 2)}
-                  </pre>
-                )}
+                <div className="mb-2 text-sm text-red-700">Error: {flowError}</div>
               </div>
             )}
           </div>
@@ -457,23 +480,14 @@ export default function SandboxV1() {
             {nodes.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Decision Graph</h3>
-                {isVisible('canvas') ? (
-                  <Suspense fallback={<div className="text-gray-500">Loading canvas...</div>}>
-                    <GraphCanvas
-                      nodes={nodes}
-                      edges={edges}
-                      localEdits={localEdits}
-                      onEditsChange={setLocalEdits}
-                    />
-                  </Suspense>
-                ) : (
+                <Suspense fallback={<div className="text-gray-500">Loading canvas...</div>}>
                   <GraphCanvas
                     nodes={nodes}
                     edges={edges}
                     localEdits={localEdits}
                     onEditsChange={setLocalEdits}
                   />
-                )}
+                </Suspense>
               </div>
             )}
 
@@ -501,49 +515,52 @@ export default function SandboxV1() {
             )}
 
             {/* EngineAuditPanel */}
-            {isVisible('audit') && (
-              <Suspense fallback={<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-gray-500">Loading audit panel...</div>}>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Engine Audit</h3>
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Engine Audit</h3>
+                {Object.keys(lastHeaders).length > 0 && (
+                  <div className="mb-4">
+                    <div className="text-sm font-medium text-gray-700 mb-2">Last Response Headers</div>
+                    <div className="bg-gray-50 border border-gray-200 rounded p-3 space-y-1">
+                      {Object.entries(lastHeaders).map(([key, val]) => (
+                        <div key={key} className="text-xs">
+                          <span className="font-mono text-gray-600">{key}:</span>{' '}
+                          <span className="font-mono text-gray-900">{val}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <Suspense fallback={<div className="text-gray-500 text-sm">Loading audit panel...</div>}>
                   <EngineAuditPanel />
-                </div>
-              </Suspense>
-            )}
+                </Suspense>
+            </div>
 
-            {/* HealthIndicator */}
-            {isVisible('health') && (
-              <Suspense fallback={<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-gray-500">Loading health...</div>}>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">System Health</h3>
-                  <HealthIndicator />
-                </div>
-              </Suspense>
-            )}
+            {/* System Health */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">System Health</h3>
+              <div className="text-sm text-gray-600">Not instrumented in PoC</div>
+            </div>
 
-            {/* JobsProgressPanel */}
-            {isVisible('jobs') && (
-              <Suspense fallback={<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-gray-500">Loading jobs...</div>}>
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Jobs Progress</h3>
-                  <JobsProgressPanel />
-                </div>
-              </Suspense>
-            )}
+            {/* Jobs Progress */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Jobs Progress</h3>
+              <div className="text-sm text-gray-600">Not instrumented in PoC</div>
+            </div>
           </div>
         </div>
 
         {/* Drawers */}
-        {isVisible('report') && reportDrawerOpen && (
+        {reportDrawerOpen && (
           <Suspense fallback={null}>
             <RunReportDrawer isOpen={reportDrawerOpen} onClose={() => setReportDrawerOpen(false)} />
           </Suspense>
         )}
-        {isVisible('config') && configDrawerOpen && (
+        {configDrawerOpen && (
           <Suspense fallback={null}>
             <ConfigDrawer isOpen={configDrawerOpen} onClose={() => setConfigDrawerOpen(false)} />
           </Suspense>
         )}
-        {isVisible('scenario') && scenarioDrawerOpen && (
+        {scenarioDrawerOpen && (
           <Suspense fallback={null}>
             <ScenarioDrawer isOpen={scenarioDrawerOpen} onClose={() => setScenarioDrawerOpen(false)} />
           </Suspense>
@@ -564,6 +581,5 @@ export default function SandboxV1() {
         </div>
       </div>
     </div>
-    </ErrorBoundary>
   )
 }

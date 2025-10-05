@@ -1,8 +1,6 @@
 // src/lib/pocEngine.ts
 // POC: Engine integration helpers (no auth, no external deps)
 
-import { getEdgeBase } from './pocFlags'
-
 // POC: Parse hash query params for overrides
 export function getHashParam(name: string): string | null {
   if (typeof window === 'undefined') return null
@@ -25,6 +23,7 @@ export interface FlowResult {
   error?: string
   url?: string
   status?: number
+  headers?: Record<string, string>
 }
 
 export async function fetchFlow(params: { edge: string; template: string; seed: number }): Promise<FlowResult> {
@@ -37,12 +36,21 @@ export async function fetchFlow(params: { edge: string; template: string; seed: 
     const ms = Math.round(performance.now() - t0)
     const data = await r.json().catch(() => ({}))
     
+    // Capture selected response headers
+    const headers: Record<string, string> = {}
+    const headerKeys = ['etag', 'cache-control', 'content-length', 'vary', 'content-type']
+    headerKeys.forEach(key => {
+      const val = r.headers.get(key)
+      if (val) headers[key] = val
+    })
+    
     return {
       ok: r.ok,
       ms,
       data,
       url,
-      status: r.status
+      status: r.status,
+      headers
     }
   } catch (e: any) {
     const ms = Math.round(performance.now() - t0)
@@ -104,5 +112,16 @@ export function openSSE(
   return () => {
     stopped = true
     eventSource?.close()
+  }
+}
+
+// POC: Load fixture data for fallbacks
+export async function loadFixture(path: string): Promise<any> {
+  try {
+    const response = await fetch(`/fixtures/${path}`)
+    if (!response.ok) return null
+    return await response.json()
+  } catch {
+    return null
   }
 }

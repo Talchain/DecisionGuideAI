@@ -1,0 +1,97 @@
+{
+  "template": "pricing_change",
+  "seed": 101,
+  "results": {
+    "conservative": {
+      "cost_delta": "-$45k",
+      "value": -45000,
+      "risk": "High"
+    },
+    "most_likely": {
+      "cost_delta": "-$12k",
+      "value": -12000,
+      "risk": "Medium"
+    },
+    "optimistic": {
+      "cost_delta": "+$23k",
+      "value": 23000,
+      "risk": "Low"
+    }
+  },
+  "thresholds": [
+    {
+      "metric": "cost_impact",
+      "label": "Cost Impact",
+      "value": 15000,
+      "crossed": false
+    },
+    {
+      "metric": "customer_churn",
+      "label": "Customer Churn",
+      "value": 0.05,
+      "crossed": true
+    },
+    {
+      "metric": "revenue_growth",
+      "label": "Revenue Growth",
+      "value": 0.1,
+      "crossed": false
+    }
+  ],
+  "graph": {
+    "nodes": [
+      {
+        "id": "start",
+        "label": "Price Change Decision",
+        "type": "decision"
+      },
+      {
+        "id": "analysis",
+        "label": "Market Analysis",
+        "type": "process"
+      },
+      {
+        "id": "impact",
+        "label": "Revenue Impact",
+        "type": "outcome"
+      },
+      {
+        "id": "customer",
+        "label": "Customer Response",
+        "type": "outcome"
+      },
+      {
+        "id": "final",
+        "label": "Final Decision",
+        "type": "decision"
+      }
+    ],
+    "edges": [
+      {
+        "from": "start",
+        "to": "analysis",
+        "label": "Initiate"
+      },
+      {
+        "from": "analysis",
+        "to": "impact",
+        "label": "Forecast"
+      },
+      {
+        "from": "analysis",
+        "to": "customer",
+        "label": "Survey"
+      },
+      {
+        "from": "impact",
+        "to": "final",
+        "label": "Review"
+      },
+      {
+        "from": "customer",
+        "to": "final",
+        "label": "Assess"
+      }
+    ]
+  }
+}
