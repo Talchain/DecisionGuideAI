@@ -3,6 +3,21 @@
 
 import { getEdgeBase } from './pocFlags'
 
+// POC: Parse hash query params for overrides
+export function getHashParam(name: string): string | null {
+  if (typeof window === 'undefined') return null
+  const hash = window.location.hash
+  const match = hash.match(new RegExp(`[?#&]${name}=([^&]+)`))
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+// POC: Unified edge resolver (single source of truth)
+export function resolveEdge(input?: string): string {
+  const fromHash = getHashParam('edge')
+  const base = (input || fromHash || '/engine').replace(/\/$/, '')
+  return base
+}
+
 export interface FlowResult {
   ok: boolean
   ms: number
@@ -13,7 +28,7 @@ export interface FlowResult {
 }
 
 export async function fetchFlow(params: { edge: string; template: string; seed: number }): Promise<FlowResult> {
-  const base = (params.edge || '/engine').replace(/\/$/, '')
+  const base = resolveEdge(params.edge)
   const url = `${base}/draft-flows?template=${encodeURIComponent(params.template)}&seed=${params.seed}`
   const t0 = performance.now()
   
@@ -40,23 +55,20 @@ export async function fetchFlow(params: { edge: string; template: string; seed: 
   }
 }
 
-// POC: Parse hash query params for overrides
-export function getHashParam(name: string): string | null {
-  if (typeof window === 'undefined') return null
-  const hash = window.location.hash
-  const match = hash.match(new RegExp(`[?#&]${name}=([^&]+)`))
-  return match ? decodeURIComponent(match[1]) : null
-}
-
 export interface SSECallbacks {
   onToken: (token: string) => void
   onDone: () => void
   onError: (error: string) => void
 }
 
-export function openSSE(path: string, callbacks: SSECallbacks): () => void {
-  const edge = getEdgeBase()
-  const url = `${edge.replace(/\/$/, '')}${path}`
+// POC: SSE with explicit edge + path (prevents double /engine)
+export function openSSE(
+  opts: { edge?: string; path: string },
+  callbacks: SSECallbacks
+): () => void {
+  const base = resolveEdge(opts.edge)
+  const path = opts.path.startsWith('/') ? opts.path : `/${opts.path}`
+  const url = `${base}${path}`
   
   let stopped = false
   let eventSource: EventSource | null = null

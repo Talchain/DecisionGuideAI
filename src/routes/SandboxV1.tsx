@@ -2,7 +2,7 @@
 // POC: Stabilised Scenario Sandbox with full rich UI (hard-enabled features, no env flags)
 
 import { useState, useEffect, Suspense } from 'react'
-import { fetchFlow, openSSE, getHashParam } from '../lib/pocEngine'
+import { fetchFlow, openSSE, getHashParam, resolveEdge } from '../lib/pocEngine'
 import { lazySafe } from '../lib/lazySafe'
 
 // POC: Local types (minimal, no hard coupling to GraphCanvas)
@@ -10,12 +10,9 @@ type Node = { id: string; label: string; x?: number; y?: number }
 type Edge = { from: string; to: string; label?: string; weight?: number }
 type LocalEdits = { addedNodes: Node[]; renamedNodes: Record<string, string>; addedEdges: Edge[] }
 
-// POC: Local edge resolver (no env reliance)
+// POC: Local edge resolver (unified via pocEngine)
 function getEdgeBaseLocal(): string {
-  if (typeof window === 'undefined') return '/engine'
-  const h = window.location.hash || ''
-  const m = h.match(/[?#&]edge=([^&]+)/)
-  return m ? decodeURIComponent(m[1]) : '/engine'
+  return resolveEdge('/engine')
 }
 
 // POC: Lightweight error boundary
@@ -113,6 +110,11 @@ export default function SandboxV1() {
   // POC: Auto-run on mount for instant validation
   useEffect(() => {
     runFlow()
+    // POC: Auto-start SSE if ?autostart=1 present
+    const autostart = getHashParam('autostart')
+    if (autostart === '1' && !liveStream) {
+      setTimeout(() => toggleLiveStream(), 500)
+    }
   }, [])
 
   const isVisible = (section: string) => visibleSections.size === 0 || visibleSections.has(section)
@@ -174,21 +176,24 @@ export default function SandboxV1() {
       // Start SSE
       setStreamTokens('')
       try {
-        const stop = openSSE(`${edge.replace(/\/$/, '')}/demo/stream?hello=1`, {
-          onToken: (token) => setStreamTokens(prev => prev + (prev ? ' ' : '') + token),
-          onDone: () => {
-            setStreamTokens(prev => prev + '\n[done]')
-            setSseStopFn(null)
-            setLiveStream(false)
-          },
-          onError: (error) => {
-            setStreamTokens(`Live stream unavailable — falling back to simulated output.\n${error}\n\n`)
-            setSseStopFn(null)
-            setLiveStream(false)
-            // Fallback to mock
-            startMockStream()
+        const stop = openSSE(
+          { edge, path: '/demo/stream?hello=1' },
+          {
+            onToken: (token) => setStreamTokens(prev => prev + (prev ? ' ' : '') + token),
+            onDone: () => {
+              setStreamTokens(prev => prev + '\n[done]')
+              setSseStopFn(null)
+              setLiveStream(false)
+            },
+            onError: (error) => {
+              setStreamTokens(`Live stream unavailable — falling back to simulated output.\n${error}\n\n`)
+              setSseStopFn(null)
+              setLiveStream(false)
+              // Fallback to mock
+              startMockStream()
+            }
           }
-        })
+        )
         setSseStopFn(() => stop)
         setLiveStream(true)
       } catch (e) {
@@ -450,6 +455,29 @@ export default function SandboxV1() {
                     onEditsChange={setLocalEdits}
                   />
                 )}
+              </div>
+            )}
+
+            {/* Text Graph Fallback */}
+            {nodes.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Graph Data (Text)</h3>
+                <div className="space-y-2">
+                  <div>
+                    <div className="text-sm font-medium text-gray-700 mb-1">Nodes ({nodes.length})</div>
+                    <pre className="bg-gray-50 border border-gray-200 rounded p-2 text-xs overflow-auto">
+                      {nodes.map((n, i) => `${i + 1}. ${n.id}: ${n.label}`).join('\n')}
+                    </pre>
+                  </div>
+                  {edges.length > 0 && (
+                    <div>
+                      <div className="text-sm font-medium text-gray-700 mb-1">Edges ({edges.length})</div>
+                      <pre className="bg-gray-50 border border-gray-200 rounded p-2 text-xs overflow-auto">
+                        {edges.map((e, i) => `${i + 1}. ${e.from} → ${e.to}${e.label ? ` (${e.label})` : ''}`).join('\n')}
+                      </pre>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
