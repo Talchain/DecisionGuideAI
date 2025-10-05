@@ -8,32 +8,35 @@ export interface FlowResult {
   ms: number
   data?: any
   error?: string
-  edge?: string
+  url?: string
+  status?: number
 }
 
-export async function fetchFlow(params: { template: string; seed: number }): Promise<FlowResult> {
-  const edge = getEdgeBase()
-  const url = `${edge.replace(/\/$/, '')}/draft-flows?template=${encodeURIComponent(params.template)}&seed=${params.seed}`
+export async function fetchFlow(params: { edge: string; template: string; seed: number }): Promise<FlowResult> {
+  const base = (params.edge || '/engine').replace(/\/$/, '')
+  const url = `${base}/draft-flows?template=${encodeURIComponent(params.template)}&seed=${params.seed}`
   const t0 = performance.now()
   
   try {
-    const r = await fetch(url, { cache: 'no-store' })
+    const r = await fetch(url, { method: 'GET', cache: 'no-store' })
     const ms = Math.round(performance.now() - t0)
+    const data = await r.json().catch(() => ({}))
     
-    if (!r.ok) {
-      return { ok: false, ms, error: `${r.status} ${r.statusText}`, edge }
+    return {
+      ok: r.ok,
+      ms,
+      data,
+      url,
+      status: r.status
     }
-    
-    const text = await r.text()
-    try {
-      const data = JSON.parse(text)
-      return { ok: true, ms, data, edge }
-    } catch {
-      return { ok: false, ms, error: 'Invalid JSON', data: text.slice(0, 200), edge }
-    }
-  } catch (e) {
+  } catch (e: any) {
     const ms = Math.round(performance.now() - t0)
-    return { ok: false, ms, error: String(e), edge }
+    return {
+      ok: false,
+      ms,
+      error: String(e?.message || e),
+      url
+    }
   }
 }
 

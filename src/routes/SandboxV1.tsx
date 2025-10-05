@@ -65,6 +65,11 @@ export default function SandboxV1() {
   
   // POC: Section visibility (URL-based toggles)
   const [visibleSections, setVisibleSections] = useState<Set<string>>(new Set())
+  
+  // POC: Debug state for diagnostics
+  const [lastUrl, setLastUrl] = useState<string>('')
+  const [lastStatus, setLastStatus] = useState<number | undefined>(undefined)
+  const [lastRaw, setLastRaw] = useState<any>(null)
 
   useEffect(() => {
     // POC: Read build ID from meta tag
@@ -105,28 +110,38 @@ export default function SandboxV1() {
     try { (window as any).__APP_MOUNTED__?.() } catch {}
   }, [])
 
+  // POC: Auto-run on mount for instant validation
+  useEffect(() => {
+    runFlow()
+  }, [])
+
   const isVisible = (section: string) => visibleSections.size === 0 || visibleSections.has(section)
 
   // POC: Run flow
   const runFlow = async () => {
     setFlowError('')
-    try {
-      const result = await fetchFlow({ template, seed })
-      setFlowTiming(result.ms)
-      setLastUpdated(new Date().toLocaleTimeString('en-GB'))
-      
-      if (result.ok && result.data) {
-        setFlowResult(result.data)
-        // POC: Extract graph from report.v1 schema
-        if (result.data.graph) {
-          setNodes(result.data.graph.nodes || [])
-          setEdges(result.data.graph.edges || [])
-        }
+    const result = await fetchFlow({ edge, template, seed })
+    setFlowTiming(result.ms)
+    setLastUpdated(new Date().toLocaleTimeString('en-GB'))
+    setLastUrl(result.url || '')
+    setLastStatus(result.status)
+    setLastRaw(result.data ?? null)
+
+    if (result.ok && result.data) {
+      setFlowResult(result.data)
+      // POC: Extract graph from report.v1 schema
+      if (result.data.graph) {
+        setNodes(result.data.graph.nodes || [])
+        setEdges(result.data.graph.edges || [])
       } else {
-        setFlowError(result.error || 'Unknown error')
+        setNodes([])
+        setEdges([])
       }
-    } catch (e) {
-      setFlowError(String(e))
+    } else {
+      setFlowResult(null)
+      setNodes([])
+      setEdges([])
+      setFlowError(result.error || `Fetch failed (status ${result.status ?? 'n/a'})`)
     }
   }
 
@@ -283,6 +298,11 @@ export default function SandboxV1() {
               Last updated: {lastUpdated} ({flowTiming}ms) • Template: {template} • Seed: {seed}
             </div>
           )}
+          {lastUrl && (
+            <div className="text-xs text-gray-500 mt-1">
+              Request: <code>{lastUrl}</code>{lastStatus ? ` • status ${lastStatus}` : ''}
+            </div>
+          )}
         </div>
 
         {/* Error */}
@@ -390,6 +410,19 @@ export default function SandboxV1() {
                 <pre className="bg-gray-50 border border-gray-200 rounded p-3 overflow-auto text-sm font-mono whitespace-pre-wrap min-h-[60px]">
                   {streamTokens || '[stream idle]'}
                 </pre>
+              </div>
+            )}
+
+            {/* Debug Panel - shows when no Results but we have raw data or error */}
+            {!flowResult && (flowError || lastRaw) && (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Debug</h3>
+                {flowError && <div className="mb-2 text-sm text-red-700">Error: {flowError}</div>}
+                {lastRaw && (
+                  <pre className="bg-gray-50 border border-gray-200 rounded p-3 overflow-auto text-xs">
+                    {JSON.stringify(lastRaw, null, 2)}
+                  </pre>
+                )}
               </div>
             )}
           </div>
