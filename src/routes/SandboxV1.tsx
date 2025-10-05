@@ -226,29 +226,32 @@ export default function SandboxV1() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Self-Check Banner */}
         {(() => {
+          const allPending = checkEngine === 'pending' || checkFixtures === 'pending' || checkVersion === 'pending'
           const allOk = checkEngine === 'ok' && checkFixtures === 'ok' && checkVersion === 'ok'
           const firstFailure = 
             checkEngine === 'fail' ? 'engine' : 
             checkFixtures === 'fail' ? 'fixtures' : 
             checkVersion === 'fail' ? 'version.json' : null
           
+          const bannerClass = allOk ? 'bg-green-50 border-green-200 text-green-900' : 
+                             allPending ? 'bg-blue-50 border-blue-200 text-blue-900' :
+                             'bg-amber-50 border-amber-200 text-amber-900'
+          
           return (
-            <div className={`rounded-lg p-3 mb-4 text-sm ${
-              allOk ? 'bg-green-50 border border-green-200 text-green-900' : 'bg-amber-50 border border-amber-200 text-amber-900'
-            }`}>
+            <div className={`rounded-lg p-3 mb-4 text-sm border ${bannerClass}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <span className="font-semibold">
-                    {allOk ? '✓ Showcase Ready' : `⚠ ${firstFailure}: FAIL`}
+                    {allPending ? '🔄 Checking...' : allOk ? '✓ Showcase Ready' : `⚠ ${firstFailure}: FAIL`}
                   </span>
                   <div className="flex items-center gap-3 text-xs">
-                    <span className={checkEngine === 'ok' ? 'text-green-700' : checkEngine === 'fail' ? 'text-red-700' : 'text-gray-500'}>
+                    <span className={checkEngine === 'ok' ? 'text-green-700' : checkEngine === 'fail' ? 'text-amber-700' : 'text-gray-500'}>
                       engine: {checkEngine === 'ok' ? 'OK' : checkEngine === 'fail' ? 'FAIL' : '...'}
                     </span>
-                    <span className={checkFixtures === 'ok' ? 'text-green-700' : checkFixtures === 'fail' ? 'text-red-700' : 'text-gray-500'}>
+                    <span className={checkFixtures === 'ok' ? 'text-green-700' : checkFixtures === 'fail' ? 'text-amber-700' : 'text-gray-500'}>
                       fixtures: {checkFixtures === 'ok' ? 'OK' : checkFixtures === 'fail' ? 'FAIL' : '...'}
                     </span>
-                    <span className={checkVersion === 'ok' ? 'text-green-700' : checkVersion === 'fail' ? 'text-red-700' : 'text-gray-500'}>
+                    <span className={checkVersion === 'ok' ? 'text-green-700' : checkVersion === 'fail' ? 'text-amber-700' : 'text-gray-500'}>
                       version.json: {checkVersion === 'ok' ? 'OK' : checkVersion === 'fail' ? 'FAIL' : '...'}
                     </span>
                   </div>
@@ -280,8 +283,8 @@ export default function SandboxV1() {
               <div><span className="font-semibold">Deployed:</span> {new Date(deployTimestamp).toLocaleString('en-GB')}</div>
             )}
           </div>
-          <div className="text-xs text-gray-500">
-            This preview is hard-enabled for PoC demo purposes. All features active.
+          <div className="text-xs text-indigo-600">
+            💡 <strong>Quick start:</strong> All features are live. Try "Start" in the Stream section to see real-time updates, or explore the Decision Graph below.
           </div>
         </div>
 
@@ -367,11 +370,19 @@ export default function SandboxV1() {
           )}
         </div>
 
-        {/* Error */}
-        {flowError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <div className="text-sm text-red-800">
-              <strong>Error:</strong> {flowError}
+        {/* Info Notice (Demo Fallback) */}
+        {flowError && flowError.includes('demo data') && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="text-sm text-blue-900">
+              <strong>ℹ️ Demo Mode:</strong> {flowError}
+            </div>
+          </div>
+        )}
+        {/* Error (True Failures) */}
+        {flowError && !flowError.includes('demo data') && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+            <div className="text-sm text-amber-900">
+              <strong>⚠️ Notice:</strong> {flowError}
             </div>
           </div>
         )}
@@ -393,35 +404,41 @@ export default function SandboxV1() {
                 </div>
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   {flowResult.results?.conservative && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                      <div className="text-xs font-semibold text-yellow-900 mb-1">Conservative</div>
-                      <div className="text-lg font-bold text-yellow-900">
+                    <div className="bg-amber-50 border border-amber-300 rounded-lg p-3">
+                      <div className="text-xs font-semibold text-amber-900 mb-1">Conservative</div>
+                      <div className="text-lg font-bold text-amber-900">
                         {flowResult.results.conservative.cost_delta || flowResult.results.conservative.value}
                       </div>
-                      {flowResult.results.conservative.risk && (
-                        <div className="text-xs text-yellow-700">Risk: {flowResult.results.conservative.risk}</div>
+                      {(flowResult.results.conservative.risk || flowResult.results.conservative.confidence) && (
+                        <div className="text-xs text-amber-700">
+                          {flowResult.results.conservative.confidence ? `Confidence: ${flowResult.results.conservative.confidence}` : `Risk: ${flowResult.results.conservative.risk}`}
+                        </div>
                       )}
                     </div>
                   )}
                   {flowResult.results?.most_likely && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <div className="text-xs font-semibold text-blue-900 mb-1">Most Likely</div>
-                      <div className="text-lg font-bold text-blue-900">
+                    <div className="bg-indigo-50 border border-indigo-300 rounded-lg p-3">
+                      <div className="text-xs font-semibold text-indigo-900 mb-1">Most Likely</div>
+                      <div className="text-lg font-bold text-indigo-900">
                         {flowResult.results.most_likely.cost_delta || flowResult.results.most_likely.value}
                       </div>
-                      {flowResult.results.most_likely.risk && (
-                        <div className="text-xs text-blue-700">Risk: {flowResult.results.most_likely.risk}</div>
+                      {(flowResult.results.most_likely.risk || flowResult.results.most_likely.confidence) && (
+                        <div className="text-xs text-indigo-700">
+                          {flowResult.results.most_likely.confidence ? `Confidence: ${flowResult.results.most_likely.confidence}` : `Risk: ${flowResult.results.most_likely.risk}`}
+                        </div>
                       )}
                     </div>
                   )}
                   {flowResult.results?.optimistic && (
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <div className="text-xs font-semibold text-green-900 mb-1">Optimistic</div>
-                      <div className="text-lg font-bold text-green-900">
+                    <div className="bg-teal-50 border border-teal-300 rounded-lg p-3">
+                      <div className="text-xs font-semibold text-teal-900 mb-1">Optimistic</div>
+                      <div className="text-lg font-bold text-teal-900">
                         {flowResult.results.optimistic.cost_delta || flowResult.results.optimistic.value}
                       </div>
-                      {flowResult.results.optimistic.risk && (
-                        <div className="text-xs text-green-700">Risk: {flowResult.results.optimistic.risk}</div>
+                      {(flowResult.results.optimistic.risk || flowResult.results.optimistic.confidence) && (
+                        <div className="text-xs text-teal-700">
+                          {flowResult.results.optimistic.confidence ? `Confidence: ${flowResult.results.optimistic.confidence}` : `Risk: ${flowResult.results.optimistic.risk}`}
+                        </div>
                       )}
                     </div>
                   )}
@@ -439,9 +456,9 @@ export default function SandboxV1() {
                         const max = Math.max(Math.abs(cons), Math.abs(likely), Math.abs(opt), 1)
                         
                         const scenarios = [
-                          { label: 'Conservative', value: cons, color: 'bg-yellow-400', textColor: 'text-yellow-900' },
-                          { label: 'Most Likely', value: likely, color: 'bg-blue-500', textColor: 'text-blue-900' },
-                          { label: 'Optimistic', value: opt, color: 'bg-green-500', textColor: 'text-green-900' }
+                          { label: 'Conservative', value: cons, color: 'bg-amber-400', textColor: 'text-amber-900' },
+                          { label: 'Most Likely', value: likely, color: 'bg-indigo-500', textColor: 'text-indigo-900' },
+                          { label: 'Optimistic', value: opt, color: 'bg-teal-500', textColor: 'text-teal-900' }
                         ]
                         
                         return scenarios.map((s, i) => {
@@ -502,11 +519,16 @@ export default function SandboxV1() {
                 )}
               </div>
               {biases.length > 0 ? (
-                <div className="space-y-2">
-                  {biases.slice(0, 3).map((bias: any, i: number) => (
-                    <div key={i} className="p-3 bg-gray-50 rounded border border-gray-200">
-                      <div className="font-medium text-sm text-gray-900">{bias.name}</div>
-                      <div className="text-xs text-gray-600 mt-1">{bias.description}</div>
+                <div className="space-y-3">
+                  {biases.slice(0, 5).map((bias: any, i: number) => (
+                    <div key={i} className="p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200">
+                      <div className="font-semibold text-sm text-gray-900 mb-1">{bias.name}</div>
+                      <div className="text-xs text-gray-700 mb-2">{bias.description}</div>
+                      {bias.mitigation && (
+                        <div className="text-xs text-indigo-700 font-medium">
+                          💡 <span className="font-semibold">Counter it:</span> {bias.mitigation}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
