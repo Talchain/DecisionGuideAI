@@ -21,6 +21,11 @@ export default function SandboxV1() {
   const [deployCommit, setDeployCommit] = useState<string>('')
   const [deployTimestamp, setDeployTimestamp] = useState<string>('')
   
+  // Self-check status
+  const [checkEngine, setCheckEngine] = useState<'pending' | 'ok' | 'fail'>('pending')
+  const [checkFixtures, setCheckFixtures] = useState<'pending' | 'ok' | 'fail'>('pending')
+  const [checkVersion, setCheckVersion] = useState<'pending' | 'ok' | 'fail'>('pending')
+  
   // Flow controls
   const [edge] = useState('/engine')
   const [template, setTemplate] = useState('pricing_change')
@@ -61,18 +66,30 @@ export default function SandboxV1() {
   const [configDrawerOpen, setConfigDrawerOpen] = useState(false)
   const [scenarioDrawerOpen, setScenarioDrawerOpen] = useState(false)
 
-  // Initialize on mount: version info, auto-run flow, auto-start stream, load biases
+  // Initialize on mount: version info, auto-run flow, load biases
   useEffect(() => {
     // Fetch version info
     fetch('/version.json')
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error('version.json not found')
+        return r.json()
+      })
       .then(v => {
         setDeployCommit(v.short || v.commit || '')
         setDeployTimestamp(v.timestamp || '')
+        setCheckVersion('ok')
       })
-      .catch(() => {})
+      .catch(() => setCheckVersion('fail'))
 
-    // Auto-run flow on mount
+    // Check fixtures availability
+    Promise.all([
+      fetch('/fixtures/report_pricing_change.json').then(r => r.ok),
+      fetch('/fixtures/biases.default.json').then(r => r.ok)
+    ]).then(([report, biases]) => {
+      setCheckFixtures(report && biases ? 'ok' : 'fail')
+    }).catch(() => setCheckFixtures('fail'))
+
+    // Auto-run flow on mount (engine check happens in runFlow)
     runFlow()
     
     // Load default biases
@@ -114,6 +131,7 @@ export default function SandboxV1() {
     const hasValidData = result.ok && result.data && (result.data.results || result.data.graph)
     
     if (hasValidData) {
+      setCheckEngine('ok')
       setFlowResult(result.data)
       setIsLiveData(true)
       if (result.data.graph) {
@@ -126,7 +144,8 @@ export default function SandboxV1() {
         setBiasesSource('live')
       }
     } else {
-      // Fallback to fixture
+      // Engine failed - mark it and fallback to fixture
+      setCheckEngine('fail')
       const fixture = await loadFixture('report_pricing_change.json')
       if (fixture) {
         setFlowResult(fixture)
@@ -205,6 +224,47 @@ export default function SandboxV1() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Self-Check Banner */}
+        {(() => {
+          const allOk = checkEngine === 'ok' && checkFixtures === 'ok' && checkVersion === 'ok'
+          const firstFailure = 
+            checkEngine === 'fail' ? 'engine' : 
+            checkFixtures === 'fail' ? 'fixtures' : 
+            checkVersion === 'fail' ? 'version.json' : null
+          
+          return (
+            <div className={`rounded-lg p-3 mb-4 text-sm ${
+              allOk ? 'bg-green-50 border border-green-200 text-green-900' : 'bg-amber-50 border border-amber-200 text-amber-900'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="font-semibold">
+                    {allOk ? '✓ Showcase Ready' : `⚠ ${firstFailure}: FAIL`}
+                  </span>
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className={checkEngine === 'ok' ? 'text-green-700' : checkEngine === 'fail' ? 'text-red-700' : 'text-gray-500'}>
+                      engine: {checkEngine === 'ok' ? 'OK' : checkEngine === 'fail' ? 'FAIL' : '...'}
+                    </span>
+                    <span className={checkFixtures === 'ok' ? 'text-green-700' : checkFixtures === 'fail' ? 'text-red-700' : 'text-gray-500'}>
+                      fixtures: {checkFixtures === 'ok' ? 'OK' : checkFixtures === 'fail' ? 'FAIL' : '...'}
+                    </span>
+                    <span className={checkVersion === 'ok' ? 'text-green-700' : checkVersion === 'fail' ? 'text-red-700' : 'text-gray-500'}>
+                      version.json: {checkVersion === 'ok' ? 'OK' : checkVersion === 'fail' ? 'FAIL' : '...'}
+                    </span>
+                  </div>
+                </div>
+                {deployCommit && deployTimestamp && (
+                  <div className="text-xs">
+                    <span className="font-mono">{deployCommit}</span>
+                    <span className="mx-2">•</span>
+                    <span>{new Date(deployTimestamp).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
