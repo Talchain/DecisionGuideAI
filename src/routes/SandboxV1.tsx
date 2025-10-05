@@ -12,8 +12,6 @@ type LocalEdits = { addedNodes: Node[]; renamedNodes: Record<string, string>; ad
 
 // POC: Lazy-load components with graceful fallbacks
 const GraphCanvas = lazySafe(() => import('../components/GraphCanvas'), 'GraphCanvas')
-const SandboxStreamPanel = lazySafe(() => import('../components/SandboxStreamPanel'), 'SandboxStreamPanel')
-const EngineAuditPanel = lazySafe(() => import('../components/EngineAuditPanel'), 'EngineAuditPanel')
 const RunReportDrawer = lazySafe(() => import('../components/RunReportDrawer'), 'RunReportDrawer')
 const ConfigDrawer = lazySafe(() => import('../components/ConfigDrawer'), 'ConfigDrawer')
 const ScenarioDrawer = lazySafe(() => import('../components/ScenarioDrawer'), 'ScenarioDrawer')
@@ -76,11 +74,6 @@ export default function SandboxV1() {
 
     // Auto-run flow on mount
     runFlow()
-    
-    // Auto-start streaming
-    setTimeout(() => {
-      if (!liveStream) toggleLiveStream()
-    }, 800)
     
     // Load default biases
     loadBiases()
@@ -446,24 +439,30 @@ export default function SandboxV1() {
               )}
             </div>
 
-            {/* SandboxStreamPanel */}
-            <Suspense fallback={<div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-gray-500">Loading stream panel...</div>}>
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                <SandboxStreamPanel />
+            {/* Stream Controls + Output */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Live Stream</h3>
+                <div className="flex items-center gap-3">
+                  <span className={`text-xs font-medium ${liveStream ? 'text-green-600' : 'text-gray-500'}`}>
+                    {liveStream ? 'On' : 'Off'}
+                  </span>
+                  <button
+                    onClick={toggleLiveStream}
+                    className={`px-4 py-2 text-sm font-medium rounded-md ${
+                      liveStream
+                        ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}
+                  >
+                    {liveStream ? 'Stop' : 'Start'}
+                  </button>
+                </div>
               </div>
-            </Suspense>
-
-            {/* Stream Output */}
-            {(liveStream || streamTokens) && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  {liveStream ? 'Live Stream' : 'Stream Output'}
-                </h3>
-                <pre className="bg-gray-50 border border-gray-200 rounded p-3 overflow-auto text-sm font-mono whitespace-pre-wrap min-h-[60px]">
-                  {streamTokens || '[stream idle]'}
-                </pre>
-              </div>
-            )}
+              <pre className="bg-gray-50 border border-gray-200 rounded p-3 overflow-auto text-sm font-mono whitespace-pre-wrap min-h-[60px]">
+                {streamTokens || '[stream idle - click Start to begin]'}
+              </pre>
+            </div>
 
             {/* Debug Panel */}
             {!flowResult && flowError && (
@@ -514,25 +513,24 @@ export default function SandboxV1() {
               </div>
             )}
 
-            {/* EngineAuditPanel */}
+            {/* Engine Audit */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Engine Audit</h3>
-                {Object.keys(lastHeaders).length > 0 && (
-                  <div className="mb-4">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Last Response Headers</div>
-                    <div className="bg-gray-50 border border-gray-200 rounded p-3 space-y-1">
-                      {Object.entries(lastHeaders).map(([key, val]) => (
-                        <div key={key} className="text-xs">
-                          <span className="font-mono text-gray-600">{key}:</span>{' '}
-                          <span className="font-mono text-gray-900">{val}</span>
-                        </div>
-                      ))}
-                    </div>
+              {Object.keys(lastHeaders).length > 0 ? (
+                <div>
+                  <div className="text-sm font-medium text-gray-700 mb-2">Response Headers</div>
+                  <div className="bg-gray-50 border border-gray-200 rounded p-3 space-y-1">
+                    {Object.entries(lastHeaders).map(([key, val]) => (
+                      <div key={key} className="text-xs">
+                        <span className="font-mono text-gray-600">{key}:</span>{' '}
+                        <span className="font-mono text-gray-900">{val}</span>
+                      </div>
+                    ))}
                   </div>
-                )}
-                <Suspense fallback={<div className="text-gray-500 text-sm">Loading audit panel...</div>}>
-                  <EngineAuditPanel />
-                </Suspense>
+                </div>
+              ) : (
+                <div className="text-sm text-gray-600">No headers captured yet</div>
+              )}
             </div>
 
             {/* System Health */}
