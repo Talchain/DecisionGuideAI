@@ -37,6 +37,8 @@ const BiasesCarousel = lazySafe(() => import('../components/BiasesCarousel'), 'B
 
 export default function SandboxV1() {
   const [build, setBuild] = useState('(unknown)')
+  const [deployCommit, setDeployCommit] = useState<string>('')
+  const [deployTimestamp, setDeployTimestamp] = useState<string>('')
   const [edge, setEdge] = useState('/engine')
   const [template, setTemplate] = useState('pricing_change')
   const [seed, setSeed] = useState(101)
@@ -72,6 +74,15 @@ export default function SandboxV1() {
     // POC: Read build ID from meta tag
     const metaBuild = document.querySelector<HTMLMetaElement>('meta[name="x-build-id"]')?.content || '(unknown)'
     setBuild(metaBuild)
+
+    // POC: Fetch deployment version info
+    fetch('/version.json')
+      .then(r => r.json())
+      .then(v => {
+        setDeployCommit(v.short || v.commit || '')
+        setDeployTimestamp(v.timestamp || '')
+      })
+      .catch(() => {})
 
     // POC: Read edge from URL or default (local resolver)
     const edgeOverride = getHashParam('edge')
@@ -210,10 +221,18 @@ export default function SandboxV1() {
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Scenario Sandbox (Preview)</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            Scenario Sandbox (Preview)
+            {deployCommit && (
+              <span className="ml-3 text-sm font-mono text-gray-500">@{deployCommit}</span>
+            )}
+          </h1>
           <div className="flex flex-wrap gap-4 text-sm text-gray-600 mb-2">
             <div><span className="font-semibold">Edge:</span> {edge}</div>
             <div><span className="font-semibold">Build:</span> {build}</div>
+            {deployTimestamp && (
+              <div><span className="font-semibold">Deployed:</span> {new Date(deployTimestamp).toLocaleString('en-GB')}</div>
+            )}
           </div>
           <div className="text-xs text-gray-500">
             This preview is hard-enabled for PoC demo purposes. All features active.

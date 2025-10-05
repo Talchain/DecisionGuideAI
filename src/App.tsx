@@ -41,6 +41,7 @@ import CriteriaForm from './components/CriteriaForm'
 import Analysis from './components/Analysis'
 
 import SandboxStreamPanel from './components/SandboxStreamPanel'
+import SandboxV1 from './routes/SandboxV1'
 import GhostPanel from './plotLite/GhostPanel'
 import { DecisionProvider } from './contexts/DecisionContext'
 import { TeamsProvider }  from './contexts/TeamsContext'
@@ -111,6 +112,7 @@ export default function App() {
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/about" element={<About />} />
                   <Route path="/sandbox" element={<SandboxStreamPanel />} />
+                  <Route path="/sandbox-v1" element={<SandboxV1 />} />
                   <Route path="/ghost" element={<GhostPanel />} />
 
                   {/* Auth */}

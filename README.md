@@ -156,22 +156,14 @@ localStorage.setItem('feature.reportPretty', '1');
 localStorage.setItem('feature.replay', '1');
 localStorage.setItem('feature.canvas', '1');
 localStorage.setItem('feature.tldraw', '1'); // requires @tldraw/tldraw; otherwise falls back to built-in canvas
-
-// Optional: set a gateway base URL (leave blank for relative)
 localStorage.setItem('cfg.gateway', 'http://localhost:8787');
-```
 
-To reset:
-```js
-['feature.reportCopy','feature.reportDownload','feature.reportPretty',
- 'feature.replay','feature.canvas','feature.tldraw','cfg.gateway',
- 'report.pretty','canvas.snapshot','canvas.autosave']
+// To reset:
+['feature.reportCopy','feature.reportDownload','feature.reportPretty']
  .forEach(k => localStorage.removeItem(k));
-```
 
-### Troubleshooting
-- “panel_not_ready” timeouts: make sure specs navigate to `/?e2e=1#/sandbox` (the suite does this via shared helpers) and that the dev server port used by Playwright isn’t occupied.
-- Focus assertions after Esc: tests allow a brief (~20ms) settle for focus restoration—keep that pattern if you add new drawer specs.
-- Report actions: “Copy JSON”, “Download JSON”, and “Pretty JSON” are dev aids; enable their flags when testing locally.
-- TLdraw: If `@tldraw/tldraw` isn’t installed, the TLdraw spec auto-skips and the app falls back to the built-in canvas.
-
+// Deployment Verification
+// 1. Check Version Fingerprint
+// 2. Check Route Guard
+// 3. Verify Rich UI Route
+// 4. Compare with GitHub
