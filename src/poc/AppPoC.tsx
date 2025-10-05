@@ -10,6 +10,7 @@ import { fetchFlow as fetchFlowEngine, openSSE } from '../lib/pocEngine'
 import GraphCanvas, { type Node, type Edge, type LocalEdits } from '../components/GraphCanvas'
 import SandboxV1 from '../routes/SandboxV1'
 import PlotShowcase from '../routes/PlotShowcase'
+import PlotWorkspace from '../routes/PlotWorkspace'
 
 // POC: Read feature flags from env
 const FEATURE_SANDBOX = feature('VITE_FEATURE_SCENARIO_SANDBOX')
@@ -572,8 +573,10 @@ export default function AppPoC() {
       <QueryClientProvider client={queryClient}>
         <Router>
           <Routes>
-            {/* Plot Showcase - User-facing, fully styled */}
-            <Route path="/plot" element={<PlotShowcase />} />
+            {/* Plot Workspace - Unified canvas with whiteboard background */}
+            <Route path="/plot" element={<PlotWorkspace />} />
+            {/* Plot Showcase - Legacy panels layout */}
+            <Route path="/plot-legacy" element={<PlotShowcase />} />
             {/* POC: New preview route (hard-enabled features) */}
             <Route path="/sandbox-v1" element={<SandboxV1 />} />
             {/* POC: Main sandbox route (flag-gated features) */}
