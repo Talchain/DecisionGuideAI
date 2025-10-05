@@ -9,7 +9,6 @@ const isPoc =
 
 export default defineConfig(({ mode }) => ({
   plugins: [react()],
-  publicDir: 'public',
   define: {
     __BUILD_ID__: JSON.stringify(process.env.BUILD_ID || new Date().toISOString()),
   },
