@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whiteboard</title>
+  <style>
+    * {
+      padding: 0;
+      margin: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: #ffffff;
+      overflow: hidden;
+    }
+    #whiteboard {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #6b7280;
+      font-size: 14px;
+    }
+  </style>
+  <script src="https://unpkg.com/tldraw@2.0.0-beta.2/dist/index.umd.js"></script>
+</head>
+<body>
+  <div id="whiteboard">
+    <div class="loading">Loading whiteboard...</div>
+  </div>
+  <script>
+    try {
+      // Initialize tldraw when library is loaded
+      if (window.Tldraw && window.Tldraw.Tldraw) {
+        const container = document.getElementById('whiteboard');
+        container.innerHTML = '';
+        
+        // Create tldraw instance
+        const app = new window.Tldraw.Tldraw({
+          container: container,
+          options: {
+            showPages: false,
+            showMenu: true,
+            showTools: true,
+            showZoom: true,
+            showStyles: true
+          }
+        });
+        
+        console.log('Whiteboard loaded successfully');
+      } else {
+        throw new Error('Tldraw library not loaded');
+      }
+    } catch (err) {
+      console.error('Failed to initialize whiteboard:', err);
+      document.getElementById('whiteboard').innerHTML = `
+        <div class="loading">
+          <div style="text-align: center;">
+            <div style="color: #ef4444; font-weight: 600; margin-bottom: 8px;">⚠ Whiteboard unavailable</div>
+            <div style="font-size: 12px;">Simple sketch canvas coming soon</div>
+          </div>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>

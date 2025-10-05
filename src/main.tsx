@@ -1,6 +1,7 @@
 // src/main.tsx
 // POC: Route to full PoC UI (no auth, no Supabase) or normal app
 
+import './index.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
