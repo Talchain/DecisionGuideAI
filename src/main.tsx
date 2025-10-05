@@ -6,7 +6,10 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 const root = document.getElementById('root')!
-const forceSandbox = location.hash.startsWith('#/sandbox') // POC: route-first safety
+// POC: Boot full app for /plot, /sandbox, and /sandbox-v1
+const forceSandbox = 
+  location.hash.startsWith('#/plot') ||
+  location.hash.startsWith('#/sandbox')
 const isPoc =
   forceSandbox ||
   (typeof import.meta !== 'undefined' &&
@@ -48,6 +51,7 @@ if (isPoc) {
       <p>PoC surfaces:</p>
       <ul>
         <li><a href="/poc" style="color:#10b981">Static PoC</a> (zero dependencies)</li>
+        <li><a href="/#/plot" style="color:#10b981">Plot Showcase</a> (full styled UI)</li>
         <li><a href="/#/sandbox" style="color:#10b981">SPA Sandbox</a> (full PoC UI)</li>
       </ul>
     </div>
