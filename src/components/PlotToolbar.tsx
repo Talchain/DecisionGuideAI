@@ -97,10 +97,19 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode }: Pl
         </button>
       </div>
 
+      {/* Mode state chip */}
+      <div className="mt-3 bg-white border border-gray-300 rounded-lg px-3 py-2 text-xs font-medium text-gray-700">
+        Mode: <span className="text-indigo-600">
+          {currentTool === 'select' ? 'Select' : 
+           currentTool === 'pan' ? 'Pan' : 
+           'Add Node'}
+        </span>
+      </div>
+
       {/* Hint chip */}
-      <div className="mt-3 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-xs text-indigo-900 max-w-[180px]">
+      <div className="mt-2 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-xs text-indigo-900 max-w-[180px]">
         <div className="font-semibold mb-1">💡 Tip</div>
-        <div>Drag to draw, Shift+drag to pan. Press N to add a node.</div>
+        <div>Drag nodes to move. Del to delete. Esc to deselect.</div>
       </div>
     </div>
   )

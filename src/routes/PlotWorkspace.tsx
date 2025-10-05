@@ -1,9 +1,9 @@
 // src/routes/PlotWorkspace.tsx
 // Unified canvas workspace - whiteboard as background, graph overlay, shared camera
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { fetchFlow, loadFixture } from '../lib/pocEngine'
-import { CameraProvider, useCamera, Camera } from '../components/PlotCamera'
+import { CameraProvider, useCamera } from '../components/PlotCamera'
 import WhiteboardCanvas from '../components/WhiteboardCanvas'
 import DecisionGraphLayer from '../components/DecisionGraphLayer'
 import PlotToolbar, { Tool, NodeType } from '../components/PlotToolbar'
@@ -147,6 +147,29 @@ function PlotWorkspaceInner() {
     setSelectedNodeId(node.id)
   }, [])
 
+  // Handle node move (dragging)
+  const handleNodeMove = useCallback((nodeId: string, x: number, y: number) => {
+    setNodes(prev => prev.map(n => 
+      n.id === nodeId ? { ...n, x, y } : n
+    ))
+  }, [])
+
+  // Handle node delete
+  const handleNodeDelete = useCallback((nodeId: string) => {
+    setNodes(prev => prev.filter(n => n.id !== nodeId))
+    setEdges(prev => prev.filter(e => e.from !== nodeId && e.to !== nodeId))
+    if (selectedNodeId === nodeId) {
+      setSelectedNodeId(null)
+    }
+  }, [selectedNodeId])
+
+  // Handle node rename
+  const handleNodeRename = useCallback((nodeId: string, newLabel: string) => {
+    setNodes(prev => prev.map(n =>
+      n.id === nodeId ? { ...n, label: newLabel } : n
+    ))
+  }, [])
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -158,6 +181,11 @@ function PlotWorkspaceInner() {
         setCurrentTool('pan')
       } else if (e.key === 'n' || e.key === 'N') {
         handleAddNode('decision')
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedNodeId) {
+          e.preventDefault()
+          handleNodeDelete(selectedNodeId)
+        }
       } else if (e.key === 'Escape') {
         setSelectedNodeId(null)
         setCurrentTool('select')
@@ -166,7 +194,7 @@ function PlotWorkspaceInner() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleAddNode])
+  }, [handleAddNode, selectedNodeId, handleNodeDelete])
 
   // Banner status
   const allPending = checkEngine === 'pending' || checkFixtures === 'pending' || checkVersion === 'pending'
@@ -217,6 +245,7 @@ function PlotWorkspaceInner() {
           edges={edges}
           selectedNodeId={selectedNodeId || undefined}
           onNodeClick={handleNodeClick}
+          onNodeMove={handleNodeMove}
         />
         
         {/* Toolbar (left) */}

@@ -1,7 +1,7 @@
 // src/components/DecisionGraphLayer.tsx
 // Decision graph overlay that shares camera with whiteboard
 
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { useCamera } from './PlotCamera'
 
 interface Node {
@@ -23,12 +23,42 @@ interface DecisionGraphLayerProps {
   nodes: Node[]
   edges: Edge[]
   onNodeClick?: (node: Node) => void
+  onNodeMove?: (nodeId: string, x: number, y: number) => void
   selectedNodeId?: string
 }
 
-export default function DecisionGraphLayer({ nodes, edges, onNodeClick, selectedNodeId }: DecisionGraphLayerProps) {
+export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeMove, selectedNodeId }: DecisionGraphLayerProps) {
   const { camera } = useCamera()
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null)
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  // Handle dragging with document-level listeners
+  useEffect(() => {
+    if (!draggingNodeId) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!draggingNodeId || !onNodeMove) return
+      
+      // Convert mouse position to world coordinates
+      const worldX = (e.clientX - camera.x) / camera.zoom - dragOffset.x
+      const worldY = (e.clientY - camera.y) / camera.zoom - dragOffset.y
+      
+      onNodeMove(draggingNodeId, worldX, worldY)
+    }
+
+    const handleMouseUp = () => {
+      setDraggingNodeId(null)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [draggingNodeId, dragOffset, camera, onNodeMove])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -241,11 +271,13 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, selected
         const screenX = n.x! * camera.zoom + camera.x
         const screenY = n.y! * camera.zoom + camera.y
         const radius = 40 * camera.zoom
+        
+        const isDragging = draggingNodeId === node.id
 
         return (
           <div
             key={node.id}
-            className="absolute cursor-pointer"
+            className={`absolute ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
             style={{
               left: screenX - radius,
               top: screenY - radius,
@@ -254,9 +286,22 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, selected
               pointerEvents: 'auto',
               borderRadius: '50%'
             }}
+            onMouseDown={(e) => {
+              e.stopPropagation()
+              setDraggingNodeId(node.id)
+              // Store offset from node center to click point in world coords
+              const clickWorldX = (e.clientX - camera.x) / camera.zoom
+              const clickWorldY = (e.clientY - camera.y) / camera.zoom
+              setDragOffset({
+                x: clickWorldX - n.x!,
+                y: clickWorldY - n.y!
+              })
+            }}
             onClick={(e) => {
               e.stopPropagation()
-              if (onNodeClick) onNodeClick(node)
+              if (!isDragging && onNodeClick) {
+                onNodeClick(node)
+              }
             }}
             title={node.label}
           />
