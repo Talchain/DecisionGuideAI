@@ -367,28 +367,44 @@ export default function SandboxV1() {
                   )}
                 </div>
                 
-                {/* Mini SVG Chart */}
+                {/* Scenario Values Chart - Always Visible */}
                 {flowResult.results && (
                   <div className="mb-4">
-                    <div className="text-sm font-semibold text-gray-700 mb-2">Scenario Values</div>
-                    <svg width="100%" height="24" className="border border-gray-200 rounded">
+                    <div className="text-sm font-semibold text-gray-700 mb-3">Scenario Values</div>
+                    <div className="space-y-2">
                       {(() => {
                         const cons = parseFloat(flowResult.results.conservative?.cost_delta || flowResult.results.conservative?.value || 0)
                         const likely = parseFloat(flowResult.results.most_likely?.cost_delta || flowResult.results.most_likely?.value || 0)
                         const opt = parseFloat(flowResult.results.optimistic?.cost_delta || flowResult.results.optimistic?.value || 0)
                         const max = Math.max(Math.abs(cons), Math.abs(likely), Math.abs(opt), 1)
-                        const w1 = (Math.abs(cons) / max) * 30
-                        const w2 = (Math.abs(likely) / max) * 30
-                        const w3 = (Math.abs(opt) / max) * 30
-                        return (
-                          <>
-                            <rect x="2" y="4" width={w1 + '%'} height="6" fill="#fbbf24" />
-                            <rect x="2" y="11" width={w2 + '%'} height="6" fill="#3b82f6" />
-                            <rect x="2" y="18" width={w3 + '%'} height="6" fill="#10b981" />
-                          </>
-                        )
+                        
+                        const scenarios = [
+                          { label: 'Conservative', value: cons, color: 'bg-yellow-400', textColor: 'text-yellow-900' },
+                          { label: 'Most Likely', value: likely, color: 'bg-blue-500', textColor: 'text-blue-900' },
+                          { label: 'Optimistic', value: opt, color: 'bg-green-500', textColor: 'text-green-900' }
+                        ]
+                        
+                        return scenarios.map((s, i) => {
+                          const width = (Math.abs(s.value) / max) * 100
+                          const isNegative = s.value < 0
+                          return (
+                            <div key={i} className="flex items-center gap-2">
+                              <div className="w-24 text-xs font-medium text-gray-600 flex-shrink-0">{s.label}</div>
+                              <div className="flex-1 h-6 bg-gray-100 rounded relative overflow-hidden">
+                                <div 
+                                  className={`h-full ${s.color} flex items-center justify-end px-2`}
+                                  style={{ width: `${width}%` }}
+                                >
+                                  <span className="text-xs font-bold text-white">
+                                    {isNegative ? '-' : ''}{Math.abs(s.value).toFixed(1)}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })
                       })()}
-                    </svg>
+                    </div>
                   </div>
                 )}
                 

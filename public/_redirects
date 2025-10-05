@@ -1,4 +1,5 @@
-/engine/*  https://plot-lite-service.onrender.com/:splat  200
-/poc       /poc.html                                       200
-/*         /index.html                                     200
-# POC: proxy before SPA; /poc is static page that always paints
+/engine/*   https://plot-lite-service.onrender.com/:splat  200
+/poc        /poc.html                                       200
+/fixtures/* /fixtures/:splat                                200
+/*          /index.html                                     200
+# POC: engine proxy first, then static /poc, then fixtures (no SPA rewrite), then SPA catch-all
