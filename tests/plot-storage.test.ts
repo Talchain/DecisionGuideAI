@@ -122,3 +122,76 @@ describe('Plot Storage', () => {
     expect(loaded!.edges[0].weight).toBe(1.0)
   })
 })
+
+describe('Workspace Restoration Logic', () => {
+  beforeEach(() => {
+    localStorageMock.clear()
+  })
+
+  it('should restore workspace when saved state exists', () => {
+    const savedState = {
+      camera: { x: 100, y: 50, zoom: 1.5 },
+      nodes: [
+        { id: 'restored1', label: 'Restored Node', x: 200, y: 100 }
+      ],
+      edges: [],
+      lastSaved: Date.now()
+    }
+
+    saveWorkspaceState(savedState)
+    const loaded = loadWorkspaceState()
+
+    expect(loaded).toBeTruthy()
+    expect(loaded!.nodes).toHaveLength(1)
+    expect(loaded!.nodes[0].id).toBe('restored1')
+    expect(loaded!.camera.x).toBe(100)
+  })
+
+  it('should indicate fresh fetch needed when no saved state', () => {
+    const loaded = loadWorkspaceState()
+    expect(loaded).toBeNull()
+  })
+
+  it('should indicate fresh fetch needed when saved state has no nodes', () => {
+    const savedState = {
+      camera: { x: 0, y: 0, zoom: 1 },
+      nodes: [],
+      edges: [],
+      lastSaved: Date.now()
+    }
+
+    saveWorkspaceState(savedState)
+    const loaded = loadWorkspaceState()
+
+    // Loaded state exists but has no nodes
+    expect(loaded).toBeTruthy()
+    expect(loaded!.nodes).toHaveLength(0)
+  })
+
+  it('protects restored nodes from being overwritten', () => {
+    // Simulate: save workspace, reload page, check if nodes are preserved
+    const originalState = {
+      camera: { x: 50, y: 30, zoom: 1.2 },
+      nodes: [
+        { id: 'custom1', label: 'My Custom Node', x: 150, y: 200 },
+        { id: 'custom2', label: 'Another Node', x: 300, y: 250 }
+      ],
+      edges: [
+        { from: 'custom1', to: 'custom2' }
+      ],
+      lastSaved: Date.now() - 5000 // 5 seconds ago
+    }
+
+    saveWorkspaceState(originalState)
+
+    // Simulate page reload - load state
+    const loaded = loadWorkspaceState()
+
+    // Decision logic: should we fetch fresh scenario?
+    const shouldFetchFresh = !loaded || !loaded.nodes || loaded.nodes.length === 0
+
+    expect(shouldFetchFresh).toBe(false) // Should NOT fetch fresh
+    expect(loaded!.nodes).toHaveLength(2) // Our custom nodes preserved
+    expect(loaded!.nodes[0].label).toBe('My Custom Node')
+  })
+})

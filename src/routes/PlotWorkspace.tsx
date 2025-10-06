@@ -53,23 +53,28 @@ function PlotWorkspaceInner() {
   // Load saved workspace state on mount
   useEffect(() => {
     const savedState = loadWorkspaceState()
-    if (savedState) {
+    if (savedState && savedState.nodes && savedState.nodes.length > 0) {
+      // Restore saved workspace
       if (savedState.camera) {
         setCamera(savedState.camera)
       }
-      if (savedState.nodes) {
-        setNodes(savedState.nodes)
-      }
+      setNodes(savedState.nodes)
       if (savedState.edges) {
         setEdges(savedState.edges)
       }
-      console.info('Restored workspace state from', new Date(savedState.lastSaved || 0))
+      console.info('✅ Restored workspace:', savedState.nodes.length, 'nodes from', new Date(savedState.lastSaved || 0))
+      setWorkspaceLoaded(true) // Mark as loaded with data
+    } else {
+      // No saved workspace - will fetch fresh scenario
+      console.info('No saved workspace - will fetch fresh scenario')
+      setWorkspaceLoaded(true)
     }
-    setWorkspaceLoaded(true)
   }, [setCamera])
 
   // Initialize on mount: version info, auto-run flow, load biases
   useEffect(() => {
+    if (!workspaceLoaded) return // Wait for workspace load check
+
     // Fetch version info
     fetch('/version.json')
       .then(r => {
@@ -90,9 +95,12 @@ function PlotWorkspaceInner() {
       setCheckFixtures(report && biases ? 'ok' : 'fail')
     }).catch(() => setCheckFixtures('fail'))
 
-    // Run flow (only if no saved nodes)
-    if (!workspaceLoaded || nodes.length === 0) {
+    // Only fetch fresh scenario if we have no nodes
+    if (nodes.length === 0) {
+      console.info('🔄 No nodes found - fetching fresh scenario')
       runFlow()
+    } else {
+      console.info('✅ Using restored workspace -', nodes.length, 'nodes')
     }
     
     // Load biases
@@ -103,9 +111,10 @@ function PlotWorkspaceInner() {
       mode: 'canvas_workspace',
       unified_camera: true,
       whiteboard_bundled: true,
-      autosave: true
+      autosave: true,
+      restored: nodes.length > 0
     })
-  }, [workspaceLoaded])
+  }, [workspaceLoaded, nodes.length])
 
   // Autosave workspace state
   useEffect(() => {
