@@ -4,7 +4,8 @@ export default defineConfig({
   test: {
     include: [
       'src/**/__tests__/**/*.{test,spec}.?(c|m)[jt]s?(x)',
-      'src/**/tests/**/*.{test,spec}.?(c|m)[jt]s?(x)'
+      'src/**/tests/**/*.{test,spec}.?(c|m)[jt]s?(x)',
+      'tests/**/*.{test,spec}.?(c|m)[jt]s?(x)'
     ],
     exclude: [
       'src/__tests__/sanity.test.ts'
