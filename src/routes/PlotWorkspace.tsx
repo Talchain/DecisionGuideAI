@@ -8,6 +8,7 @@ import WhiteboardCanvas from '../components/WhiteboardCanvas'
 import DecisionGraphLayer from '../components/DecisionGraphLayer'
 import PlotToolbar, { Tool, NodeType } from '../components/PlotToolbar'
 import ResultsPanel from '../components/ResultsPanel'
+import { saveWorkspaceState, loadWorkspaceState, createAutosaver, clearWorkspaceState } from '../lib/plotStorage'
 
 // Types
 type Node = { id: string; label: string; x?: number; y?: number; type?: string }
@@ -15,7 +16,9 @@ type Edge = { from: string; to: string; label?: string; weight?: number }
 
 // Inner component that has access to camera
 function PlotWorkspaceInner() {
-  const { camera } = useCamera()
+  const { camera, setCamera } = useCamera()
+  const [workspaceLoaded, setWorkspaceLoaded] = useState(false)
+  
   // Version & health
   const [deployCommit, setDeployCommit] = useState<string>('')
   const [checkEngine, setCheckEngine] = useState<'pending' | 'ok' | 'fail'>('pending')
@@ -42,11 +45,32 @@ function PlotWorkspaceInner() {
   // Toolbar
   const [currentTool, setCurrentTool] = useState<Tool>('select')
 
-  // Initialize
+  // Load saved workspace state on mount
   useEffect(() => {
-    // Version check
+    const savedState = loadWorkspaceState()
+    if (savedState) {
+      if (savedState.camera) {
+        setCamera(savedState.camera)
+      }
+      if (savedState.nodes) {
+        setNodes(savedState.nodes)
+      }
+      if (savedState.edges) {
+        setEdges(savedState.edges)
+      }
+      console.info('Restored workspace state from', new Date(savedState.lastSaved || 0))
+    }
+    setWorkspaceLoaded(true)
+  }, [setCamera])
+
+  // Initialize on mount: version info, auto-run flow, load biases
+  useEffect(() => {
+    // Fetch version info
     fetch('/version.json')
-      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(r => {
+        if (!r.ok) throw new Error('version.json not found')
+        return r.json()
+      })
       .then(v => {
         setDeployCommit(v.short || v.commit || '')
         setCheckVersion('ok')
@@ -61,8 +85,10 @@ function PlotWorkspaceInner() {
       setCheckFixtures(report && biases ? 'ok' : 'fail')
     }).catch(() => setCheckFixtures('fail'))
 
-    // Run flow
-    runFlow()
+    // Run flow (only if no saved nodes)
+    if (!workspaceLoaded || nodes.length === 0) {
+      runFlow()
+    }
     
     // Load biases
     loadBiases()
@@ -71,9 +97,23 @@ function PlotWorkspaceInner() {
       route: '/plot',
       mode: 'canvas_workspace',
       unified_camera: true,
-      whiteboard_bundled: true
+      whiteboard_bundled: true,
+      autosave: true
     })
-  }, [])
+  }, [workspaceLoaded])
+
+  // Autosave workspace state
+  useEffect(() => {
+    if (!workspaceLoaded) return
+
+    const stopAutosave = createAutosaver(() => ({
+      camera,
+      nodes,
+      edges
+    }))
+
+    return stopAutosave
+  }, [workspaceLoaded, camera, nodes, edges])
 
   // Load biases from fixtures
   const loadBiases = async () => {
@@ -169,6 +209,22 @@ function PlotWorkspaceInner() {
       n.id === nodeId ? { ...n, label: newLabel } : n
     ))
   }, [])
+
+  // Reset view to origin
+  const handleResetView = useCallback(() => {
+    setCamera({ x: 0, y: 0, zoom: 1 })
+  }, [setCamera])
+
+  // Clear workspace
+  const handleClearWorkspace = useCallback(() => {
+    if (confirm('Clear all nodes, edges, and drawings? This cannot be undone.')) {
+      setNodes([])
+      setEdges([])
+      setSelectedNodeId(null)
+      setCamera({ x: 0, y: 0, zoom: 1 })
+      clearWorkspaceState()
+    }
+  }, [setCamera])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -291,6 +347,21 @@ function PlotWorkspaceInner() {
               className="px-3 py-1 text-xs font-medium bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
             >
               Run Scenario
+            </button>
+            <div className="border-l border-gray-300 h-6"></div>
+            <button
+              onClick={handleResetView}
+              className="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+              title="Reset camera to origin"
+            >
+              Reset View
+            </button>
+            <button
+              onClick={handleClearWorkspace}
+              className="px-3 py-1 text-xs font-medium bg-red-50 text-red-700 rounded hover:bg-red-100 transition-colors"
+              title="Clear all workspace data"
+            >
+              Clear
             </button>
           </div>
         </div>
