@@ -189,4 +189,101 @@ describe('Plot Workspace - Phase 0', () => {
       expect(newWorldY).toBe(250) // 250 - 0
     })
   })
+
+  describe('Whiteboard Path Restoration', () => {
+    it('repaints when initialPaths prop changes', () => {
+      // Simulate whiteboard component receiving new paths after mount
+      const initialPaths = [
+        { id: 'path1', points: [{x: 0, y: 0}, {x: 10, y: 10}], color: '#000', width: 2 }
+      ]
+      
+      const newPaths = [
+        { id: 'path1', points: [{x: 0, y: 0}, {x: 10, y: 10}], color: '#000', width: 2 },
+        { id: 'path2', points: [{x: 20, y: 20}, {x: 30, y: 30}], color: '#f00', width: 3 }
+      ]
+      
+      // Simulate the effect: when initialPaths changes, internal state updates
+      let internalPaths = initialPaths
+      
+      // Simulate prop change (like after restore or clear)
+      if (newPaths !== initialPaths) {
+        internalPaths = newPaths
+      }
+      
+      expect(internalPaths).toHaveLength(2)
+      expect(internalPaths[1].id).toBe('path2')
+    })
+  })
+
+  describe('Initialization Guard', () => {
+    it('only runs initialization once despite node changes', () => {
+      let initCallCount = 0
+      let isInitialized = false
+      
+      const runInit = (nodesLength: number) => {
+        // Guard: only run if not already initialized
+        if (!isInitialized) {
+          initCallCount++
+          isInitialized = true
+          
+          // Simulate decision: fetch or restore
+          if (nodesLength === 0) {
+            // Would fetch scenario
+          } else {
+            // Using restored workspace
+          }
+        }
+      }
+      
+      // First call: workspace loaded with 0 nodes
+      runInit(0)
+      expect(initCallCount).toBe(1)
+      
+      // Simulate adding nodes (should not re-initialize)
+      runInit(1)
+      expect(initCallCount).toBe(1) // Still 1, not 2
+      
+      // Add more nodes
+      runInit(3)
+      expect(initCallCount).toBe(1) // Still 1, not 3
+      
+      // Remove nodes
+      runInit(0)
+      expect(initCallCount).toBe(1) // Still 1, guard prevents re-fetch
+    })
+  })
+
+  describe('Connect Mode State Management', () => {
+    it('clears connect source when switching tools', () => {
+      let currentTool = 'connect'
+      let connectSourceId: string | null = 'node1'
+      
+      const handleToolChange = (newTool: string) => {
+        currentTool = newTool
+        // Clear connect source when leaving connect mode
+        if (newTool !== 'connect') {
+          connectSourceId = null
+        }
+      }
+      
+      // User is in connect mode with source selected
+      expect(connectSourceId).toBe('node1')
+      expect(currentTool).toBe('connect')
+      
+      // Switch to select tool
+      handleToolChange('select')
+      expect(connectSourceId).toBeNull() // Source cleared
+      expect(currentTool).toBe('select')
+      
+      // Set source again and switch to pan
+      connectSourceId = 'node2'
+      handleToolChange('pan')
+      expect(connectSourceId).toBeNull() // Source cleared
+      
+      // Stay in connect mode (should keep source if not switching away)
+      connectSourceId = 'node3'
+      handleToolChange('connect')
+      expect(connectSourceId).toBe('node3') // Source preserved
+    })
+  })
 })

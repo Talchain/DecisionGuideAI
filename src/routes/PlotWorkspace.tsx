@@ -20,6 +20,7 @@ type Edge = { from: string; to: string; label?: string; weight?: number }
 function PlotWorkspaceInner() {
   const { camera, setCamera } = useCamera()
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false)
+  const [initializationComplete, setInitializationComplete] = useState(false)
   
   // Version & health
   const [deployCommit, setDeployCommit] = useState<string>('')
@@ -84,9 +85,9 @@ function PlotWorkspaceInner() {
     }
   }, [setCamera])
 
-  // Initialize on mount: version info, auto-run flow, load biases
+  // Initialize on mount: version info, auto-run flow, load biases (ONE TIME ONLY)
   useEffect(() => {
-    if (!workspaceLoaded) return // Wait for workspace load check
+    if (!workspaceLoaded || initializationComplete) return // Wait for workspace load, run once only
 
     // Fetch version info
     fetch('/version.json')
@@ -127,7 +128,10 @@ function PlotWorkspaceInner() {
       autosave: true,
       restored: nodes.length > 0
     })
-  }, [workspaceLoaded, nodes.length])
+
+    // Mark initialization as complete
+    setInitializationComplete(true)
+  }, [workspaceLoaded, initializationComplete, nodes.length])
 
   // Autosave workspace state
   useEffect(() => {
@@ -189,6 +193,10 @@ function PlotWorkspaceInner() {
   // Handle tool change
   const handleToolChange = useCallback((tool: Tool) => {
     setCurrentTool(tool)
+    // Clear connect source when leaving connect mode
+    if (tool !== 'connect') {
+      setConnectSourceId(null)
+    }
   }, [])
 
   // Handle add node at viewport center

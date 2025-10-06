@@ -34,6 +34,13 @@ export default function WhiteboardCanvas({ initialPaths, onPathsChange }: Whiteb
   const [isPanning, setIsPanning] = useState(false)
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 })
 
+  // Sync paths when initialPaths changes (e.g., after restore or clear)
+  useEffect(() => {
+    if (initialPaths) {
+      setPaths(initialPaths)
+    }
+  }, [initialPaths])
+
   // Notify parent when paths change
   useEffect(() => {
     if (onPathsChange) {
