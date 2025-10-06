@@ -341,14 +341,22 @@ function PlotWorkspaceInner() {
   // Banner status
   const allPending = checkEngine === 'pending' || checkFixtures === 'pending' || checkVersion === 'pending'
   const allOk = checkEngine === 'ok' && checkFixtures === 'ok' && checkVersion === 'ok'
+  const hasFailure = checkEngine === 'fail' || checkFixtures === 'fail' || checkVersion === 'fail'
   const firstFailure = 
     checkEngine === 'fail' ? 'engine' : 
     checkFixtures === 'fail' ? 'fixtures' : 
     checkVersion === 'fail' ? 'version.json' : null
 
-  const bannerClass = allOk ? 'bg-green-50 border-green-200 text-green-900' : 
-                     allPending ? 'bg-blue-50 border-blue-200 text-blue-900' :
+  // Determine banner appearance
+  const bannerClass = allPending ? 'bg-blue-50 border-blue-200 text-blue-900' :
+                     allOk && isLiveData ? 'bg-green-50 border-green-200 text-green-900' : 
+                     allOk && !isLiveData ? 'bg-teal-50 border-teal-200 text-teal-900' :
                      'bg-amber-50 border-amber-200 text-amber-900'
+  
+  const bannerMessage = allPending ? '🔄 Checking...' :
+                       hasFailure ? `⚠ ${firstFailure}: FAIL` :
+                       isLiveData ? '✓ Ready' :
+                       '📋 Demo Mode'
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -358,7 +366,7 @@ function PlotWorkspaceInner() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <span className="font-semibold">
-                {allPending ? '🔄 Checking...' : allOk ? '✓ Ready' : `⚠ ${firstFailure}: FAIL`}
+                {bannerMessage}
               </span>
               <div className="flex items-center gap-2 text-[10px]">
                 <span className={checkEngine === 'ok' ? 'text-green-700' : checkEngine === 'fail' ? 'text-amber-700' : 'text-gray-500'}>
