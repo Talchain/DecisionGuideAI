@@ -121,4 +121,72 @@ describe('Plot Workspace - Phase 0', () => {
       expect(distance).toBeGreaterThan(radius)
     })
   })
+
+  describe('Drag Accuracy', () => {
+    it('converts client coordinates to canvas coordinates correctly', () => {
+      // Simulate canvas at position (100, 50) on the page
+      const canvasRect = { left: 100, top: 50 }
+      const clientX = 300
+      const clientY = 200
+      
+      // Convert to canvas coordinates
+      const canvasX = clientX - canvasRect.left
+      const canvasY = clientY - canvasRect.top
+      
+      expect(canvasX).toBe(200) // 300 - 100
+      expect(canvasY).toBe(150) // 200 - 50
+    })
+
+    it('calculates correct world position after canvas offset', () => {
+      // Canvas at (100, 50), camera at (10, 20), zoom 2
+      const canvasRect = { left: 100, top: 50 }
+      const camera = { x: 10, y: 20, zoom: 2 }
+      const clientX = 300
+      const clientY = 200
+      
+      // Step 1: Client to canvas
+      const canvasX = clientX - canvasRect.left
+      const canvasY = clientY - canvasRect.top
+      
+      // Step 2: Canvas to world
+      const worldX = (canvasX - camera.x) / camera.zoom
+      const worldY = (canvasY - camera.y) / camera.zoom
+      
+      expect(worldX).toBe(95) // (200 - 10) / 2
+      expect(worldY).toBe(65) // (150 - 20) / 2
+    })
+
+    it('preserves node position after drag with canvas offset', () => {
+      const canvasRect = { left: 100, top: 50 }
+      const camera = { x: 0, y: 0, zoom: 1 }
+      const node = { x: 200, y: 150 }
+      
+      // Mouse down at node center
+      const mouseDownClientX = canvasRect.left + node.x
+      const mouseDownClientY = canvasRect.top + node.y
+      
+      const canvasXDown = mouseDownClientX - canvasRect.left
+      const canvasYDown = mouseDownClientY - canvasRect.top
+      
+      const clickWorldX = (canvasXDown - camera.x) / camera.zoom
+      const clickWorldY = (canvasYDown - camera.y) / camera.zoom
+      
+      const dragOffsetX = clickWorldX - node.x
+      const dragOffsetY = clickWorldY - node.y
+      
+      // Drag to new position
+      const mouseMoveClientX = 400
+      const mouseMoveClientY = 300
+      
+      const canvasXMove = mouseMoveClientX - canvasRect.left
+      const canvasYMove = mouseMoveClientY - canvasRect.top
+      
+      const newWorldX = (canvasXMove - camera.x) / camera.zoom - dragOffsetX
+      const newWorldY = (canvasYMove - camera.y) / camera.zoom - dragOffsetY
+      
+      // Node should be at new position
+      expect(newWorldX).toBe(300) // 300 - 0
+      expect(newWorldY).toBe(250) // 250 - 0
+    })
+  })
 })

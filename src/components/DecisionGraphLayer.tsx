@@ -39,10 +39,17 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeMo
 
     const handleMouseMove = (e: MouseEvent) => {
       if (!draggingNodeId || !onNodeMove) return
+      const canvas = canvasRef.current
+      if (!canvas) return
       
-      // Convert mouse position to world coordinates
-      const worldX = (e.clientX - camera.x) / camera.zoom - dragOffset.x
-      const worldY = (e.clientY - camera.y) / camera.zoom - dragOffset.y
+      // Get canvas position on page
+      const rect = canvas.getBoundingClientRect()
+      const canvasX = e.clientX - rect.left
+      const canvasY = e.clientY - rect.top
+      
+      // Convert to world coordinates
+      const worldX = (canvasX - camera.x) / camera.zoom - dragOffset.x
+      const worldY = (canvasY - camera.y) / camera.zoom - dragOffset.y
       
       onNodeMove(draggingNodeId, worldX, worldY)
     }
@@ -288,10 +295,19 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeMo
             }}
             onMouseDown={(e) => {
               e.stopPropagation()
+              const canvas = canvasRef.current
+              if (!canvas) return
+              
               setDraggingNodeId(node.id)
+              
+              // Get canvas position on page
+              const rect = canvas.getBoundingClientRect()
+              const canvasX = e.clientX - rect.left
+              const canvasY = e.clientY - rect.top
+              
               // Store offset from node center to click point in world coords
-              const clickWorldX = (e.clientX - camera.x) / camera.zoom
-              const clickWorldY = (e.clientY - camera.y) / camera.zoom
+              const clickWorldX = (canvasX - camera.x) / camera.zoom
+              const clickWorldY = (canvasY - camera.y) / camera.zoom
               setDragOffset({
                 x: clickWorldX - n.x!,
                 y: clickWorldY - n.y!
