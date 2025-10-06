@@ -50,6 +50,8 @@ function PlotWorkspaceInner() {
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editingNoteText, setEditingNoteText] = useState('')
+  const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null)
+  const [noteDragOffset, setNoteDragOffset] = useState({ x: 0, y: 0 })
   
   // Biases
   const [biases, setBiases] = useState<any[]>([])
@@ -388,6 +390,36 @@ function PlotWorkspaceInner() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleAddNode, handleAddNote, selectedNodeId, handleNodeDelete, showShortcuts, connectSourceId, editingNodeId, handleCommitRename, handleCancelRename])
 
+  // Note dragging
+  useEffect(() => {
+    if (!draggingNoteId) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault()
+      
+      // Convert screen position to world coordinates
+      const worldX = (e.clientX - camera.x) / camera.zoom
+      const worldY = (e.clientY - camera.y) / camera.zoom
+      
+      setStickyNotes(prev => prev.map(n =>
+        n.id === draggingNoteId
+          ? { ...n, x: worldX, y: worldY }
+          : n
+      ))
+    }
+
+    const handleMouseUp = () => {
+      setDraggingNoteId(null)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [draggingNoteId, camera])
+
   // Banner status
   const allPending = checkEngine === 'pending' || checkFixtures === 'pending' || checkVersion === 'pending'
   const allOk = checkEngine === 'ok' && checkFixtures === 'ok' && checkVersion === 'ok'
@@ -544,7 +576,13 @@ function PlotWorkspaceInner() {
                 if (isEditing) return // Don't drag while editing
                 e.stopPropagation()
                 setSelectedNoteId(note.id)
-                // TODO: Add drag logic
+                setDraggingNoteId(note.id)
+                
+                // Calculate drag offset in world coordinates
+                const rect = e.currentTarget.getBoundingClientRect()
+                const canvasX = e.clientX - rect.left
+                const canvasY = e.clientY - rect.top
+                setNoteDragOffset({ x: canvasX, y: canvasY })
               }}
               onDoubleClick={(e) => {
                 e.stopPropagation()
