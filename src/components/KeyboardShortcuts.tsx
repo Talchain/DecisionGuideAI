@@ -15,6 +15,7 @@ export default function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcuts
       { key: 'H', description: 'Pan tool' },
       { key: 'C', description: 'Connect mode (link nodes)' },
       { key: 'N', description: 'Add node (at viewport center)' },
+      { key: 'M', description: 'Add note (at viewport center)' },
     ]},
     { category: 'Actions', items: [
       { key: 'Del / ⌫', description: 'Delete selected node' },

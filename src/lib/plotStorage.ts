@@ -26,6 +26,13 @@ export interface PlotWorkspaceState {
     color: string
     width: number
   }>
+  stickyNotes?: Array<{
+    id: string
+    x: number
+    y: number
+    text: string
+    color: string
+  }>
   lastSaved?: number
 }
 

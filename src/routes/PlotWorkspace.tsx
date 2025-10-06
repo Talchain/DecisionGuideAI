@@ -15,6 +15,7 @@ import { saveWorkspaceState, loadWorkspaceState, createAutosaver, clearWorkspace
 // Types
 type Node = { id: string; label: string; x?: number; y?: number; type?: string }
 type Edge = { from: string; to: string; label?: string; weight?: number }
+type StickyNote = { id: string; x: number; y: number; text: string; color: string }
 
 // Inner component that has access to camera
 function PlotWorkspaceInner() {
@@ -43,6 +44,12 @@ function PlotWorkspaceInner() {
   
   // Whiteboard
   const [whiteboardPaths, setWhiteboardPaths] = useState<DrawPath[]>([])
+  
+  // Sticky Notes
+  const [stickyNotes, setStickyNotes] = useState<StickyNote[]>([])
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null)
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [editingNoteText, setEditingNoteText] = useState('')
   
   // Biases
   const [biases, setBiases] = useState<any[]>([])
@@ -76,7 +83,10 @@ function PlotWorkspaceInner() {
       if (savedState.whiteboardPaths) {
         setWhiteboardPaths(savedState.whiteboardPaths)
       }
-      console.info('✅ Restored workspace:', savedState.nodes.length, 'nodes,', (savedState.whiteboardPaths?.length || 0), 'paths from', new Date(savedState.lastSaved || 0))
+      if (savedState.stickyNotes) {
+        setStickyNotes(savedState.stickyNotes)
+      }
+      console.info('✅ Restored workspace:', savedState.nodes.length, 'nodes,', (savedState.stickyNotes?.length || 0), 'notes,', (savedState.whiteboardPaths?.length || 0), 'paths from', new Date(savedState.lastSaved || 0))
       setWorkspaceLoaded(true) // Mark as loaded with data
     } else {
       // No saved workspace - will fetch fresh scenario
@@ -141,11 +151,12 @@ function PlotWorkspaceInner() {
       camera,
       nodes,
       edges,
-      whiteboardPaths
+      whiteboardPaths,
+      stickyNotes
     }))
 
     return stopAutosave
-  }, [workspaceLoaded, camera, nodes, edges, whiteboardPaths])
+  }, [workspaceLoaded, camera, nodes, edges, whiteboardPaths, stickyNotes])
 
   // Load biases from fixtures
   const loadBiases = async () => {
@@ -218,6 +229,32 @@ function PlotWorkspaceInner() {
     setSelectedNodeId(newNode.id)
   }, [camera])
 
+  // Handle add note at viewport center
+  const handleAddNote = useCallback(() => {
+    // Calculate viewport center in world coordinates
+    const canvasRect = { width: window.innerWidth, height: window.innerHeight }
+    const viewCenterScreen = { x: canvasRect.width / 2, y: canvasRect.height / 2 }
+    const viewCenterWorld = {
+      x: (viewCenterScreen.x - camera.x) / camera.zoom,
+      y: (viewCenterScreen.y - camera.y) / camera.zoom
+    }
+
+    const noteColors = ['#fef3c7', '#fde68a', '#fed7aa', '#fecaca', '#ddd6fe']
+    const newNote: StickyNote = {
+      id: `note_${Date.now()}`,
+      x: viewCenterWorld.x,
+      y: viewCenterWorld.y,
+      text: 'New note',
+      color: noteColors[Math.floor(Math.random() * noteColors.length)]
+    }
+    
+    setStickyNotes(prev => [...prev, newNote])
+    setSelectedNoteId(newNote.id)
+    // Start editing immediately
+    setEditingNoteId(newNote.id)
+    setEditingNoteText(newNote.text)
+  }, [camera])
+
   // Handle node click
   const handleNodeClick = useCallback((node: Node) => {
     if (currentTool === 'connect') {
@@ -287,10 +324,12 @@ function PlotWorkspaceInner() {
 
   // Clear workspace
   const handleClearWorkspace = useCallback(() => {
-    if (confirm('Clear all nodes, edges, and drawings? This cannot be undone.')) {
+    if (confirm('Clear all nodes, edges, notes, and drawings? This cannot be undone.')) {
       setNodes([])
       setEdges([])
       setSelectedNodeId(null)
+      setStickyNotes([])
+      setSelectedNoteId(null)
       setWhiteboardPaths([])
       setCamera({ x: 0, y: 0, zoom: 1 })
       clearWorkspaceState()
@@ -313,6 +352,9 @@ function PlotWorkspaceInner() {
         setConnectSourceId(null) // Start fresh
       } else if (e.key === 'n' || e.key === 'N') {
         handleAddNode('decision')
+        setConnectSourceId(null) // Clear connect state
+      } else if (e.key === 'm' || e.key === 'M') {
+        handleAddNote()
         setConnectSourceId(null) // Clear connect state
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedNodeId) {
@@ -344,7 +386,7 @@ function PlotWorkspaceInner() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleAddNode, selectedNodeId, handleNodeDelete, showShortcuts, connectSourceId, editingNodeId, handleCommitRename, handleCancelRename])
+  }, [handleAddNode, handleAddNote, selectedNodeId, handleNodeDelete, showShortcuts, connectSourceId, editingNodeId, handleCommitRename, handleCancelRename])
 
   // Banner status
   const allPending = checkEngine === 'pending' || checkFixtures === 'pending' || checkVersion === 'pending'
@@ -416,6 +458,7 @@ function PlotWorkspaceInner() {
           currentTool={currentTool}
           onToolChange={handleToolChange}
           onAddNode={handleAddNode}
+          onAddNote={handleAddNote}
           onHelpClick={() => setShowShortcuts(true)}
         />
         
@@ -479,6 +522,65 @@ function PlotWorkspaceInner() {
 
         {/* Keyboard shortcuts modal */}
         <KeyboardShortcuts isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
+        {/* Sticky Notes (z-30, above graph nodes) */}
+        {stickyNotes.map(note => {
+          const screenX = note.x * camera.zoom + camera.x
+          const screenY = note.y * camera.zoom + camera.y
+          const isEditing = editingNoteId === note.id
+          const isSelected = selectedNoteId === note.id
+          
+          return (
+            <div
+              key={note.id}
+              className="absolute z-30 cursor-move"
+              style={{
+                left: screenX - 75,
+                top: screenY - 60,
+                width: 150,
+                minHeight: 120
+              }}
+              onMouseDown={(e) => {
+                if (isEditing) return // Don't drag while editing
+                e.stopPropagation()
+                setSelectedNoteId(note.id)
+                // TODO: Add drag logic
+              }}
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                setEditingNoteId(note.id)
+                setEditingNoteText(note.text)
+              }}
+            >
+              <div
+                className={`w-full h-full p-3 rounded-lg shadow-lg border-2 ${
+                  isSelected ? 'border-amber-500' : 'border-amber-200'
+                }`}
+                style={{ backgroundColor: note.color }}
+              >
+                {isEditing ? (
+                  <textarea
+                    value={editingNoteText}
+                    onChange={(e) => setEditingNoteText(e.target.value)}
+                    onBlur={() => {
+                      setStickyNotes(prev => prev.map(n =>
+                        n.id === note.id ? { ...n, text: editingNoteText } : n
+                      ))
+                      setEditingNoteId(null)
+                    }}
+                    autoFocus
+                    className="w-full h-full bg-transparent text-sm resize-none focus:outline-none font-handwriting"
+                    style={{ fontFamily: 'Comic Sans MS, cursive' }}
+                  />
+                ) : (
+                  <div className="text-sm whitespace-pre-wrap font-handwriting" style={{ fontFamily: 'Comic Sans MS, cursive' }}>
+                    {note.text}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
 
         {/* Inline rename input */}
         {editingNodeId && (() => {

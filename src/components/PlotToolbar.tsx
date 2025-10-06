@@ -3,17 +3,18 @@
 
 import { useState } from 'react'
 
-export type Tool = 'select' | 'pan' | 'add-node' | 'connect'
+export type Tool = 'select' | 'pan' | 'add-node' | 'add-note' | 'connect'
 export type NodeType = 'goal' | 'decision' | 'option' | 'risk' | 'outcome'
 
 interface PlotToolbarProps {
   currentTool: Tool
   onToolChange: (tool: Tool) => void
   onAddNode?: (type: NodeType) => void
+  onAddNote?: () => void
   onHelpClick?: () => void
 }
 
-export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onHelpClick }: PlotToolbarProps) {
+export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onAddNote, onHelpClick }: PlotToolbarProps) {
   const [showNodeMenu, setShowNodeMenu] = useState(false)
 
   const tools = [
@@ -90,6 +91,23 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onHe
           )}
         </div>
 
+        {/* Add Note button */}
+        <button
+          onClick={() => {
+            onAddNote?.()
+            onToolChange('select')
+          }}
+          className={`w-12 h-12 rounded-lg flex flex-col items-center justify-center transition-colors ${
+            currentTool === 'add-note'
+              ? 'bg-amber-100 border-2 border-amber-400'
+              : 'bg-white border border-gray-200 hover:bg-gray-50'
+          }`}
+          title="Add Note (M)"
+        >
+          <span className="text-xl">📝</span>
+          <span className="text-[8px] text-gray-600 mt-0.5">Note</span>
+        </button>
+
         {/* Help button */}
         <button
           onClick={onHelpClick}
@@ -106,6 +124,7 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onHe
           {currentTool === 'select' ? 'Select' : 
            currentTool === 'pan' ? 'Pan' : 
            currentTool === 'connect' ? 'Connect' :
+           currentTool === 'add-note' ? 'Add Note' :
            'Add Node'}
         </span>
       </div>
@@ -116,6 +135,8 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onHe
         <div>
           {currentTool === 'connect'
             ? 'Click source, then target node to connect. Esc to cancel.'
+            : currentTool === 'add-note'
+            ? 'Note will appear in the center of your view.'
             : 'Drag nodes to move. Del to delete. C to connect.'}
         </div>
       </div>
