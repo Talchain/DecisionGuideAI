@@ -8,6 +8,8 @@ import WhiteboardCanvas from '../components/WhiteboardCanvas'
 import DecisionGraphLayer from '../components/DecisionGraphLayer'
 import PlotToolbar, { Tool, NodeType } from '../components/PlotToolbar'
 import ResultsPanel from '../components/ResultsPanel'
+import OnboardingHints from '../components/OnboardingHints'
+import KeyboardShortcuts from '../components/KeyboardShortcuts'
 import { saveWorkspaceState, loadWorkspaceState, createAutosaver, clearWorkspaceState } from '../lib/plotStorage'
 
 // Types
@@ -44,6 +46,9 @@ function PlotWorkspaceInner() {
   
   // Toolbar
   const [currentTool, setCurrentTool] = useState<Tool>('select')
+  
+  // UI state
+  const [showShortcuts, setShowShortcuts] = useState(false)
 
   // Load saved workspace state on mount
   useEffect(() => {
@@ -243,14 +248,20 @@ function PlotWorkspaceInner() {
           handleNodeDelete(selectedNodeId)
         }
       } else if (e.key === 'Escape') {
-        setSelectedNodeId(null)
-        setCurrentTool('select')
+        if (showShortcuts) {
+          setShowShortcuts(false)
+        } else {
+          setSelectedNodeId(null)
+          setCurrentTool('select')
+        }
+      } else if (e.key === '?') {
+        setShowShortcuts(true)
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleAddNode, selectedNodeId, handleNodeDelete])
+  }, [handleAddNode, selectedNodeId, handleNodeDelete, showShortcuts])
 
   // Banner status
   const allPending = checkEngine === 'pending' || checkFixtures === 'pending' || checkVersion === 'pending'
@@ -309,6 +320,7 @@ function PlotWorkspaceInner() {
           currentTool={currentTool}
           onToolChange={handleToolChange}
           onAddNode={handleAddNode}
+          onHelpClick={() => setShowShortcuts(true)}
         />
         
         {/* Results Panel (right) */}
@@ -365,6 +377,12 @@ function PlotWorkspaceInner() {
             </button>
           </div>
         </div>
+
+        {/* Onboarding hints (dismissible) */}
+        <OnboardingHints />
+
+        {/* Keyboard shortcuts modal */}
+        <KeyboardShortcuts isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
       </div>
     </div>
   )

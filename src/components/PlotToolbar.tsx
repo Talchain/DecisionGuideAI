@@ -10,9 +10,10 @@ interface PlotToolbarProps {
   currentTool: Tool
   onToolChange: (tool: Tool) => void
   onAddNode?: (type: NodeType) => void
+  onHelpClick?: () => void
 }
 
-export default function PlotToolbar({ currentTool, onToolChange, onAddNode }: PlotToolbarProps) {
+export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onHelpClick }: PlotToolbarProps) {
   const [showNodeMenu, setShowNodeMenu] = useState(false)
 
   const tools = [
@@ -90,6 +91,7 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode }: Pl
 
         {/* Help button */}
         <button
+          onClick={onHelpClick}
           className="w-12 h-12 rounded-lg flex items-center justify-center bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
           title="Keyboard shortcuts"
         >
