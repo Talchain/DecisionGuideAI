@@ -25,9 +25,10 @@ interface DecisionGraphLayerProps {
   onNodeClick?: (node: Node) => void
   onNodeMove?: (nodeId: string, x: number, y: number) => void
   selectedNodeId?: string
+  connectSourceId?: string
 }
 
-export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeMove, selectedNodeId }: DecisionGraphLayerProps) {
+export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeMove, selectedNodeId, connectSourceId }: DecisionGraphLayerProps) {
   const { camera } = useCamera()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null)
@@ -159,12 +160,23 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeMo
       const x = node.x!
       const y = node.y!
       const isSelected = node.id === selectedNodeId
+      const isConnectSource = node.id === connectSourceId
       const nodeRadius = 40
 
-      // Node background
-      ctx.fillStyle = isSelected ? '#e0e7ff' : '#ffffff'
-      ctx.strokeStyle = isSelected ? '#6366f1' : '#cbd5e1'
-      ctx.lineWidth = isSelected ? 3 : 2
+      // Node background (connect source gets teal highlight)
+      if (isConnectSource) {
+        ctx.fillStyle = '#ccfbf1' // teal-100
+        ctx.strokeStyle = '#14b8a6' // teal-500
+        ctx.lineWidth = 3
+      } else if (isSelected) {
+        ctx.fillStyle = '#e0e7ff' // indigo-100
+        ctx.strokeStyle = '#6366f1' // indigo-500
+        ctx.lineWidth = 3
+      } else {
+        ctx.fillStyle = '#ffffff'
+        ctx.strokeStyle = '#cbd5e1' // slate-300
+        ctx.lineWidth = 2
+      }
       ctx.beginPath()
       ctx.arc(x, y, nodeRadius, 0, Math.PI * 2)
       ctx.fill()
@@ -197,7 +209,7 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeMo
     })
 
     ctx.restore()
-  }, [camera, nodes, edges, selectedNodeId])
+  }, [camera, nodes, edges, selectedNodeId, connectSourceId])
 
   // Check if point hits a node (returns node or null)
   const getNodeAtPoint = (screenX: number, screenY: number) => {

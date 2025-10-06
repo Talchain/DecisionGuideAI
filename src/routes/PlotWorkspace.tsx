@@ -47,6 +47,9 @@ function PlotWorkspaceInner() {
   // Toolbar
   const [currentTool, setCurrentTool] = useState<Tool>('select')
   
+  // Connect mode state
+  const [connectSourceId, setConnectSourceId] = useState<string | null>(null)
+  
   // UI state
   const [showShortcuts, setShowShortcuts] = useState(false)
 
@@ -198,8 +201,26 @@ function PlotWorkspaceInner() {
 
   // Handle node click
   const handleNodeClick = useCallback((node: Node) => {
-    setSelectedNodeId(node.id)
-  }, [])
+    if (currentTool === 'connect') {
+      if (!connectSourceId) {
+        // First click: set source
+        setConnectSourceId(node.id)
+        setSelectedNodeId(node.id)
+      } else if (connectSourceId !== node.id) {
+        // Second click: create edge if not same node
+        const newEdge: Edge = {
+          from: connectSourceId,
+          to: node.id
+        }
+        setEdges(prev => [...prev, newEdge])
+        setConnectSourceId(null) // Reset for next connection
+        setSelectedNodeId(node.id)
+      }
+    } else {
+      // Normal select mode
+      setSelectedNodeId(node.id)
+    }
+  }, [currentTool, connectSourceId])
 
   // Handle node move (dragging)
   const handleNodeMove = useCallback((nodeId: string, x: number, y: number) => {
@@ -247,10 +268,16 @@ function PlotWorkspaceInner() {
       
       if (e.key === 'v' || e.key === 'V') {
         setCurrentTool('select')
+        setConnectSourceId(null) // Clear connect state
       } else if (e.key === 'h' || e.key === 'H') {
         setCurrentTool('pan')
+        setConnectSourceId(null) // Clear connect state
+      } else if (e.key === 'c' || e.key === 'C') {
+        setCurrentTool('connect')
+        setConnectSourceId(null) // Start fresh
       } else if (e.key === 'n' || e.key === 'N') {
         handleAddNode('decision')
+        setConnectSourceId(null) // Clear connect state
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedNodeId) {
           e.preventDefault()
@@ -259,6 +286,10 @@ function PlotWorkspaceInner() {
       } else if (e.key === 'Escape') {
         if (showShortcuts) {
           setShowShortcuts(false)
+        } else if (connectSourceId) {
+          // Cancel connection in progress
+          setConnectSourceId(null)
+          setSelectedNodeId(null)
         } else {
           setSelectedNodeId(null)
           setCurrentTool('select')
@@ -270,7 +301,7 @@ function PlotWorkspaceInner() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleAddNode, selectedNodeId, handleNodeDelete, showShortcuts])
+  }, [handleAddNode, selectedNodeId, handleNodeDelete, showShortcuts, connectSourceId])
 
   // Banner status
   const allPending = checkEngine === 'pending' || checkFixtures === 'pending' || checkVersion === 'pending'
@@ -320,6 +351,7 @@ function PlotWorkspaceInner() {
           nodes={nodes}
           edges={edges}
           selectedNodeId={selectedNodeId || undefined}
+          connectSourceId={connectSourceId || undefined}
           onNodeClick={handleNodeClick}
           onNodeMove={handleNodeMove}
         />

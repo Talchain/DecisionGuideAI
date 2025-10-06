@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 
-export type Tool = 'select' | 'pan' | 'add-node'
+export type Tool = 'select' | 'pan' | 'add-node' | 'connect'
 export type NodeType = 'goal' | 'decision' | 'option' | 'risk' | 'outcome'
 
 interface PlotToolbarProps {
@@ -19,6 +19,7 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onHe
   const tools = [
     { id: 'select' as Tool, icon: '⚡', label: 'Select', key: 'V' },
     { id: 'pan' as Tool, icon: '✋', label: 'Pan', key: 'H' },
+    { id: 'connect' as Tool, icon: '🔗', label: 'Connect', key: 'C' },
   ]
 
   const nodeTypes: { type: NodeType; icon: string; label: string; color: string }[] = [
@@ -104,6 +105,7 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onHe
         Mode: <span className="text-indigo-600">
           {currentTool === 'select' ? 'Select' : 
            currentTool === 'pan' ? 'Pan' : 
+           currentTool === 'connect' ? 'Connect' :
            'Add Node'}
         </span>
       </div>
@@ -111,7 +113,11 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onHe
       {/* Hint chip */}
       <div className="mt-2 bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-xs text-indigo-900 max-w-[180px]">
         <div className="font-semibold mb-1">💡 Tip</div>
-        <div>Drag nodes to move. Del to delete. Esc to deselect.</div>
+        <div>
+          {currentTool === 'connect'
+            ? 'Click source, then target node to connect. Esc to cancel.'
+            : 'Drag nodes to move. Del to delete. C to connect.'}
+        </div>
       </div>
     </div>
   )

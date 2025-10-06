@@ -13,6 +13,7 @@ export default function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcuts
     { category: 'Tools', items: [
       { key: 'V', description: 'Select tool' },
       { key: 'H', description: 'Pan tool' },
+      { key: 'C', description: 'Connect mode (link nodes)' },
       { key: 'N', description: 'Add node (at viewport center)' },
     ]},
     { category: 'Actions', items: [
