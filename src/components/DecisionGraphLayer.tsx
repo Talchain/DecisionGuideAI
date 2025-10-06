@@ -23,12 +23,13 @@ interface DecisionGraphLayerProps {
   nodes: Node[]
   edges: Edge[]
   onNodeClick?: (node: Node) => void
+  onNodeDoubleClick?: (node: Node) => void
   onNodeMove?: (nodeId: string, x: number, y: number) => void
   selectedNodeId?: string
   connectSourceId?: string
 }
 
-export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeMove, selectedNodeId, connectSourceId }: DecisionGraphLayerProps) {
+export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeDoubleClick, onNodeMove, selectedNodeId, connectSourceId }: DecisionGraphLayerProps) {
   const { camera } = useCamera()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null)
@@ -329,6 +330,12 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeMo
               e.stopPropagation()
               if (!isDragging && onNodeClick) {
                 onNodeClick(node)
+              }
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation()
+              if (onNodeDoubleClick) {
+                onNodeDoubleClick(node)
               }
             }}
             title={node.label}

@@ -50,6 +50,10 @@ function PlotWorkspaceInner() {
   // Connect mode state
   const [connectSourceId, setConnectSourceId] = useState<string | null>(null)
   
+  // Rename state
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null)
+  const [editingLabel, setEditingLabel] = useState('')
+  
   // UI state
   const [showShortcuts, setShowShortcuts] = useState(false)
 
@@ -238,11 +242,27 @@ function PlotWorkspaceInner() {
     }
   }, [selectedNodeId])
 
-  // Handle node rename
-  const handleNodeRename = useCallback((nodeId: string, newLabel: string) => {
-    setNodes(prev => prev.map(n =>
-      n.id === nodeId ? { ...n, label: newLabel } : n
-    ))
+  // Start renaming a node (double-click)
+  const handleStartRename = useCallback((node: Node) => {
+    setEditingNodeId(node.id)
+    setEditingLabel(node.label)
+  }, [])
+
+  // Commit rename on Enter
+  const handleCommitRename = useCallback(() => {
+    if (editingNodeId && editingLabel.trim()) {
+      setNodes(prev => prev.map(n =>
+        n.id === editingNodeId ? { ...n, label: editingLabel.trim() } : n
+      ))
+    }
+    setEditingNodeId(null)
+    setEditingLabel('')
+  }, [editingNodeId, editingLabel])
+
+  // Cancel rename on Esc
+  const handleCancelRename = useCallback(() => {
+    setEditingNodeId(null)
+    setEditingLabel('')
   }, [])
 
   // Reset view to origin
@@ -283,8 +303,15 @@ function PlotWorkspaceInner() {
           e.preventDefault()
           handleNodeDelete(selectedNodeId)
         }
+      } else if (e.key === 'Enter') {
+        if (editingNodeId) {
+          handleCommitRename()
+        }
       } else if (e.key === 'Escape') {
-        if (showShortcuts) {
+        if (editingNodeId) {
+          // Cancel rename in progress
+          handleCancelRename()
+        } else if (showShortcuts) {
           setShowShortcuts(false)
         } else if (connectSourceId) {
           // Cancel connection in progress
@@ -301,7 +328,7 @@ function PlotWorkspaceInner() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleAddNode, selectedNodeId, handleNodeDelete, showShortcuts, connectSourceId])
+  }, [handleAddNode, selectedNodeId, handleNodeDelete, showShortcuts, connectSourceId, editingNodeId, handleCommitRename, handleCancelRename])
 
   // Banner status
   const allPending = checkEngine === 'pending' || checkFixtures === 'pending' || checkVersion === 'pending'
@@ -353,6 +380,7 @@ function PlotWorkspaceInner() {
           selectedNodeId={selectedNodeId || undefined}
           connectSourceId={connectSourceId || undefined}
           onNodeClick={handleNodeClick}
+          onNodeDoubleClick={handleStartRename}
           onNodeMove={handleNodeMove}
         />
         
@@ -424,6 +452,37 @@ function PlotWorkspaceInner() {
 
         {/* Keyboard shortcuts modal */}
         <KeyboardShortcuts isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
+        {/* Inline rename input */}
+        {editingNodeId && (() => {
+          const node = nodes.find(n => n.id === editingNodeId)
+          if (!node || node.x === undefined || node.y === undefined) return null
+          
+          // Calculate screen position
+          const screenX = node.x * camera.zoom + camera.x
+          const screenY = node.y * camera.zoom + camera.y
+          
+          return (
+            <div
+              className="absolute z-50"
+              style={{
+                left: screenX - 80,
+                top: screenY - 20,
+                width: 160
+              }}
+            >
+              <input
+                type="text"
+                value={editingLabel}
+                onChange={(e) => setEditingLabel(e.target.value)}
+                onBlur={handleCommitRename}
+                autoFocus
+                className="w-full px-3 py-2 text-sm font-semibold text-center bg-white border-2 border-indigo-500 rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                placeholder="Node name..."
+              />
+            </div>
+          )
+        })()}
       </div>
     </div>
   )

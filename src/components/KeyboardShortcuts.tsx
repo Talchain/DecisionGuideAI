@@ -26,6 +26,7 @@ export default function KeyboardShortcuts({ isOpen, onClose }: KeyboardShortcuts
       { key: 'Drag', description: 'Draw on whiteboard' },
       { key: 'Drag Node', description: 'Move node' },
       { key: 'Click Node', description: 'Select node' },
+      { key: 'Double-Click', description: 'Rename node (Enter to save)' },
     ]},
   ]
 
