@@ -4,7 +4,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import { useCamera } from './PlotCamera'
 
-interface DrawPath {
+export interface DrawPath {
   id: string
   points: { x: number; y: number }[]
   color: string
@@ -19,15 +19,27 @@ interface StickyNote {
   color: string
 }
 
-export default function WhiteboardCanvas() {
+interface WhiteboardCanvasProps {
+  initialPaths?: DrawPath[]
+  onPathsChange?: (paths: DrawPath[]) => void
+}
+
+export default function WhiteboardCanvas({ initialPaths, onPathsChange }: WhiteboardCanvasProps) {
   const { camera, pan, zoomAt } = useCamera()
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [paths, setPaths] = useState<DrawPath[]>([])
+  const [paths, setPaths] = useState<DrawPath[]>(initialPaths || [])
   const [notes, setNotes] = useState<StickyNote[]>([])
   const [isDrawing, setIsDrawing] = useState(false)
   const [currentPath, setCurrentPath] = useState<{ x: number; y: number }[]>([])
   const [isPanning, setIsPanning] = useState(false)
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 })
+
+  // Notify parent when paths change
+  useEffect(() => {
+    if (onPathsChange) {
+      onPathsChange(paths)
+    }
+  }, [paths, onPathsChange])
 
   // Screen to world coordinates
   const screenToWorld = useCallback((screenX: number, screenY: number) => {

@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { fetchFlow, loadFixture } from '../lib/pocEngine'
 import { CameraProvider, useCamera } from '../components/PlotCamera'
-import WhiteboardCanvas from '../components/WhiteboardCanvas'
+import WhiteboardCanvas, { type DrawPath } from '../components/WhiteboardCanvas'
 import DecisionGraphLayer from '../components/DecisionGraphLayer'
 import PlotToolbar, { Tool, NodeType } from '../components/PlotToolbar'
 import ResultsPanel from '../components/ResultsPanel'
@@ -40,6 +40,9 @@ function PlotWorkspaceInner() {
   const [edges, setEdges] = useState<Edge[]>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   
+  // Whiteboard
+  const [whiteboardPaths, setWhiteboardPaths] = useState<DrawPath[]>([])
+  
   // Biases
   const [biases, setBiases] = useState<any[]>([])
   const [biasesSource, setBiasesSource] = useState<'live' | 'demo'>('demo')
@@ -69,7 +72,10 @@ function PlotWorkspaceInner() {
       if (savedState.edges) {
         setEdges(savedState.edges)
       }
-      console.info('✅ Restored workspace:', savedState.nodes.length, 'nodes from', new Date(savedState.lastSaved || 0))
+      if (savedState.whiteboardPaths) {
+        setWhiteboardPaths(savedState.whiteboardPaths)
+      }
+      console.info('✅ Restored workspace:', savedState.nodes.length, 'nodes,', (savedState.whiteboardPaths?.length || 0), 'paths from', new Date(savedState.lastSaved || 0))
       setWorkspaceLoaded(true) // Mark as loaded with data
     } else {
       // No saved workspace - will fetch fresh scenario
@@ -130,11 +136,12 @@ function PlotWorkspaceInner() {
     const stopAutosave = createAutosaver(() => ({
       camera,
       nodes,
-      edges
+      edges,
+      whiteboardPaths
     }))
 
     return stopAutosave
-  }, [workspaceLoaded, camera, nodes, edges])
+  }, [workspaceLoaded, camera, nodes, edges, whiteboardPaths])
 
   // Load biases from fixtures
   const loadBiases = async () => {
@@ -276,6 +283,7 @@ function PlotWorkspaceInner() {
       setNodes([])
       setEdges([])
       setSelectedNodeId(null)
+      setWhiteboardPaths([])
       setCamera({ x: 0, y: 0, zoom: 1 })
       clearWorkspaceState()
     }
@@ -371,7 +379,10 @@ function PlotWorkspaceInner() {
       {/* Canvas Workspace */}
       <div className="flex-1 relative overflow-hidden">
         {/* Layer 0: Whiteboard background */}
-        <WhiteboardCanvas />
+        <WhiteboardCanvas 
+          initialPaths={whiteboardPaths}
+          onPathsChange={setWhiteboardPaths}
+        />
         
         {/* Layer 1: Decision graph */}
         <DecisionGraphLayer
