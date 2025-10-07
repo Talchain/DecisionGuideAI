@@ -161,7 +161,8 @@ export default function AppPoC() {
   const runFlow = async () => {
     setFlowError('')
     try {
-      const result = await fetchFlowEngine({ template, seed })
+      // Provide explicit edge per fetchFlow signature { edge, template, seed }
+      const result = await fetchFlowEngine({ edge, template, seed })
       setFlowTiming(result.ms)
       setLastUpdated(new Date().toLocaleTimeString('en-GB'))
       
@@ -194,7 +195,8 @@ export default function AppPoC() {
       // Start SSE
       setSseTokens('')
       try {
-        const stop = openSSE('/demo/stream?hello=1', {
+        // Use new openSSE signature: opts object with { edge?, path }
+        const stop = openSSE({ edge, path: '/demo/stream?hello=1' }, {
           onToken: (token) => setSseTokens(prev => prev + (prev ? ' ' : '') + token),
           onDone: () => {
             setSseTokens(prev => prev + '\n[done]')
