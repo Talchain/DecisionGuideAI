@@ -2,65 +2,46 @@
 // Tests for unified canvas workspace
 
 import { describe, it, expect } from 'vitest'
+import { toCanvas, toWorld, viewportCenterWorld, type Camera } from '../src/utils/cameraMath'
+import { isTypingTarget } from '../src/utils/inputGuards'
 
 describe('Plot Workspace - Phase 0', () => {
   describe('Camera Math', () => {
-    it('converts screen coordinates to world coordinates', () => {
-      const camera = { x: 100, y: 50, zoom: 2 }
-      const screenX = 400
-      const screenY = 300
-      
-      // Formula: worldX = (screenX - camera.x) / camera.zoom
-      const worldX = (screenX - camera.x) / camera.zoom
-      const worldY = (screenY - camera.y) / camera.zoom
-      
-      expect(worldX).toBe(150) // (400 - 100) / 2 = 150
-      expect(worldY).toBe(125) // (300 - 50) / 2 = 125
+    it('round-trips world -> canvas -> world within 2px for multiple cameras', () => {
+      const cameras: Camera[] = [
+        { x: 0, y: 0, zoom: 1 },
+        { x: 100, y: -50, zoom: 0.5 },
+        { x: -200, y: 300, zoom: 2 },
+      ]
+      const rect = { left: 10, top: 20, width: 1200, height: 800 } as unknown as DOMRect
+      const points = [ {x: 0, y: 0}, {x: 100, y: 50}, {x: -250, y: 400}, {x: 999, y: -321} ]
+
+      for (const camera of cameras) {
+        for (const p of points) {
+          const screenX = p.x * camera.zoom + camera.x + rect.left
+          const screenY = p.y * camera.zoom + camera.y + rect.top
+          const c = toCanvas(screenX, screenY, rect)
+          const w = toWorld(c.x, c.y, camera)
+          expect(w.x).toBeCloseTo(p.x, 2)
+          expect(w.y).toBeCloseTo(p.y, 2)
+        }
+      }
     })
 
-    it('converts world coordinates to screen coordinates', () => {
-      const camera = { x: 100, y: 50, zoom: 2 }
-      const worldX = 150
-      const worldY = 125
-      
-      // Formula: screenX = worldX * camera.zoom + camera.x
-      const screenX = worldX * camera.zoom + camera.x
-      const screenY = worldY * camera.zoom + camera.y
-      
-      expect(screenX).toBe(400) // 150 * 2 + 100 = 400
-      expect(screenY).toBe(300) // 125 * 2 + 50 = 300
-    })
-
-    it('calculates viewport center in world coordinates', () => {
-      const camera = { x: 0, y: 0, zoom: 1 }
-      const viewportWidth = 1920
-      const viewportHeight = 1080
-      
-      const centerX = viewportWidth / 2
-      const centerY = viewportHeight / 2
-      
-      const worldCenterX = (centerX - camera.x) / camera.zoom
-      const worldCenterY = (centerY - camera.y) / camera.zoom
-      
-      expect(worldCenterX).toBe(960)
-      expect(worldCenterY).toBe(540)
+    it('viewportCenterWorld computes world center from rect + camera', () => {
+      const camera: Camera = { x: 0, y: 0, zoom: 1 }
+      const rect = { left: 0, top: 0, width: 1920, height: 1080 } as unknown as DOMRect
+      const c = viewportCenterWorld(rect, camera)
+      expect(c.x).toBe(960)
+      expect(c.y).toBe(540)
     })
 
     it('handles zoomed viewport center correctly', () => {
-      const camera = { x: 200, y: 100, zoom: 0.5 }
-      const viewportWidth = 1920
-      const viewportHeight = 1080
-      
-      const centerX = viewportWidth / 2
-      const centerY = viewportHeight / 2
-      
-      const worldCenterX = (centerX - camera.x) / camera.zoom
-      const worldCenterY = (centerY - camera.y) / camera.zoom
-      
-      // (960 - 200) / 0.5 = 1520
-      // (540 - 100) / 0.5 = 880
-      expect(worldCenterX).toBe(1520)
-      expect(worldCenterY).toBe(880)
+      const camera: Camera = { x: 200, y: 100, zoom: 0.5 }
+      const rect = { left: 0, top: 0, width: 1920, height: 1080 } as unknown as DOMRect
+      const c = viewportCenterWorld(rect, camera)
+      expect(c.x).toBe(1520)
+      expect(c.y).toBe(880)
     })
   })
 
@@ -130,8 +111,7 @@ describe('Plot Workspace - Phase 0', () => {
       const clientY = 200
       
       // Convert to canvas coordinates
-      const canvasX = clientX - canvasRect.left
-      const canvasY = clientY - canvasRect.top
+      const { x: canvasX, y: canvasY } = toCanvas(clientX, clientY, canvasRect as any)
       
       expect(canvasX).toBe(200) // 300 - 100
       expect(canvasY).toBe(150) // 200 - 50
@@ -140,36 +120,32 @@ describe('Plot Workspace - Phase 0', () => {
     it('calculates correct world position after canvas offset', () => {
       // Canvas at (100, 50), camera at (10, 20), zoom 2
       const canvasRect = { left: 100, top: 50 }
-      const camera = { x: 10, y: 20, zoom: 2 }
+      const camera: Camera = { x: 10, y: 20, zoom: 2 }
       const clientX = 300
       const clientY = 200
       
       // Step 1: Client to canvas
-      const canvasX = clientX - canvasRect.left
-      const canvasY = clientY - canvasRect.top
+      const { x: canvasX, y: canvasY } = toCanvas(clientX, clientY, canvasRect as any)
       
       // Step 2: Canvas to world
-      const worldX = (canvasX - camera.x) / camera.zoom
-      const worldY = (canvasY - camera.y) / camera.zoom
+      const { x: worldX, y: worldY } = toWorld(canvasX, canvasY, camera)
       
       expect(worldX).toBe(95) // (200 - 10) / 2
       expect(worldY).toBe(65) // (150 - 20) / 2
     })
 
-    it('preserves node position after drag with canvas offset', () => {
+    it('preserves node position after drag with canvas offset (drag glue)', () => {
       const canvasRect = { left: 100, top: 50 }
-      const camera = { x: 0, y: 0, zoom: 1 }
+      const camera: Camera = { x: 0, y: 0, zoom: 1 }
       const node = { x: 200, y: 150 }
       
       // Mouse down at node center
       const mouseDownClientX = canvasRect.left + node.x
       const mouseDownClientY = canvasRect.top + node.y
       
-      const canvasXDown = mouseDownClientX - canvasRect.left
-      const canvasYDown = mouseDownClientY - canvasRect.top
+      const { x: canvasXDown, y: canvasYDown } = toCanvas(mouseDownClientX, mouseDownClientY, canvasRect as any)
       
-      const clickWorldX = (canvasXDown - camera.x) / camera.zoom
-      const clickWorldY = (canvasYDown - camera.y) / camera.zoom
+      const { x: clickWorldX, y: clickWorldY } = toWorld(canvasXDown, canvasYDown, camera)
       
       const dragOffsetX = clickWorldX - node.x
       const dragOffsetY = clickWorldY - node.y
@@ -178,15 +154,35 @@ describe('Plot Workspace - Phase 0', () => {
       const mouseMoveClientX = 400
       const mouseMoveClientY = 300
       
-      const canvasXMove = mouseMoveClientX - canvasRect.left
-      const canvasYMove = mouseMoveClientY - canvasRect.top
+      const { x: canvasXMove, y: canvasYMove } = toCanvas(mouseMoveClientX, mouseMoveClientY, canvasRect as any)
       
-      const newWorldX = (canvasXMove - camera.x) / camera.zoom - dragOffsetX
-      const newWorldY = (canvasYMove - camera.y) / camera.zoom - dragOffsetY
+      const worldAtCursor = toWorld(canvasXMove, canvasYMove, camera)
+      const newWorldX = worldAtCursor.x - dragOffsetX
+      const newWorldY = worldAtCursor.y - dragOffsetY
       
       // Node should be at new position
       expect(newWorldX).toBe(300) // 300 - 0
       expect(newWorldY).toBe(250) // 250 - 0
+    })
+  })
+
+  describe('Space-pan typing guard', () => {
+    it('detects typing targets correctly', () => {
+      const input = document.createElement('input')
+      const textarea = document.createElement('textarea')
+      const div = document.createElement('div')
+      div.setAttribute('contenteditable', 'true')
+      const other = document.createElement('div')
+      document.body.append(input, textarea, div, other)
+
+      input.focus()
+      expect(isTypingTarget(input)).toBe(true)
+      textarea.focus()
+      expect(isTypingTarget(textarea)).toBe(true)
+      div.focus()
+      expect(isTypingTarget(div)).toBe(true)
+      other.focus()
+      expect(isTypingTarget(other)).toBe(false)
     })
   })
 

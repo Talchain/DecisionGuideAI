@@ -32,7 +32,7 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onAd
   ]
 
   return (
-    <div className="absolute left-4 top-24 z-20">
+    <div className="absolute left-4 top-24 z-50" data-testid="plot-toolbar">
       <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-2 space-y-2">
         {/* Tool buttons */}
         {tools.map(tool => (

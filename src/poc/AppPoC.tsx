@@ -579,6 +579,8 @@ export default function AppPoC() {
             <Route path="/plot-legacy" element={<PlotShowcase />} />
             {/* POC: New preview route (hard-enabled features) */}
             <Route path="/sandbox-v1" element={<SandboxV1 />} />
+            {/* POC: Scenario Sandbox test route */}
+            <Route path="/test" element={<MainSandboxContent />} />
             {/* POC: Main sandbox route (flag-gated features) */}
             <Route path="*" element={<MainSandboxContent />} />
           </Routes>

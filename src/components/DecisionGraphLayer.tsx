@@ -195,7 +195,7 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeDo
       let line = ''
       let lineY = y - 5
       
-      words.forEach((word, i) => {
+      words.forEach((word) => {
         const testLine = line + (line ? ' ' : '') + word
         const metrics = ctx.measureText(testLine)
         if (metrics.width > maxWidth && line) {
@@ -212,52 +212,11 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeDo
     ctx.restore()
   }, [camera, nodes, edges, selectedNodeId, connectSourceId])
 
-  // Check if point hits a node (returns node or null)
-  const getNodeAtPoint = (screenX: number, screenY: number) => {
-    const canvas = canvasRef.current
-    if (!canvas) return null
+  // (hit testing is handled by invisible hit areas per node)
 
-    const rect = canvas.getBoundingClientRect()
-    const x = (screenX - rect.left - camera.x) / camera.zoom
-    const y = (screenY - rect.top - camera.y) / camera.zoom
+  // Removed unused handleCanvasClick
 
-    // Check if point hit a node
-    const layoutNodes = nodes.map((n, i) => {
-      if (n.x !== undefined && n.y !== undefined) {
-        return { ...n, x: n.x, y: n.y }
-      }
-      const angle = (i / nodes.length) * Math.PI * 2
-      const radius = 200
-      return {
-        ...n,
-        x: Math.cos(angle) * radius,
-        y: Math.sin(angle) * radius
-      }
-    })
-
-    return layoutNodes.find(n => {
-      const dx = x - n.x!
-      const dy = y - n.y!
-      return Math.sqrt(dx * dx + dy * dy) <= 40
-    }) || null
-  }
-
-  const handleCanvasClick = (e: React.MouseEvent) => {
-    const clickedNode = getNodeAtPoint(e.clientX, e.clientY)
-    if (clickedNode && onNodeClick) {
-      e.stopPropagation()
-      onNodeClick(clickedNode)
-    }
-  }
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-
-    // Change cursor if hovering over a node
-    const node = getNodeAtPoint(e.clientX, e.clientY)
-    canvas.style.cursor = node ? 'pointer' : 'default'
-  }
+  // Removed unused handleMouseMove
 
   if (nodes.length === 0) {
     return (
@@ -279,6 +238,7 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeDo
         ref={canvasRef}
         className="absolute inset-0"
         style={{ pointerEvents: 'none' }}
+        data-testid="graph-canvas"
       />
       {/* Invisible hit areas for nodes */}
       {nodes.length > 0 && nodes.map((node, i) => {
@@ -306,6 +266,8 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeDo
               pointerEvents: 'auto',
               borderRadius: '50%'
             }}
+            data-testid="node-hit-area"
+            data-node-id={node.id}
             onMouseDown={(e) => {
               e.stopPropagation()
               const canvas = canvasRef.current
@@ -332,6 +294,7 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeDo
                 onNodeClick(node)
               }
             }}
+            onMouseUp={() => {}}
             onDoubleClick={(e) => {
               e.stopPropagation()
               if (onNodeDoubleClick) {
