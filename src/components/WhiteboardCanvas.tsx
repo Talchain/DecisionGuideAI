@@ -2,6 +2,7 @@
 // Whiteboard base layer with pan/zoom and simple drawing
 
 import { useRef, useEffect, useState, useCallback } from 'react'
+import { isTypingTarget } from '../utils/inputGuards'
 import { useCamera } from './PlotCamera'
 
 export interface DrawPath {
@@ -28,11 +29,12 @@ export default function WhiteboardCanvas({ initialPaths, onPathsChange }: Whiteb
   const { camera, pan, zoomAt } = useCamera()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [paths, setPaths] = useState<DrawPath[]>(initialPaths || [])
-  const [notes, setNotes] = useState<StickyNote[]>([])
+  const [notes] = useState<StickyNote[]>([])
   const [isDrawing, setIsDrawing] = useState(false)
   const [currentPath, setCurrentPath] = useState<{ x: number; y: number }[]>([])
   const [isPanning, setIsPanning] = useState(false)
   const [lastPos, setLastPos] = useState({ x: 0, y: 0 })
+  const [spacePressed, setSpacePressed] = useState(false)
 
   // Sync paths when initialPaths changes (e.g., after restore or clear)
   useEffect(() => {
@@ -64,7 +66,7 @@ export default function WhiteboardCanvas({ initialPaths, onPathsChange }: Whiteb
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
 
-    if (e.button === 1 || e.shiftKey || e.metaKey) {
+    if (e.button === 1 || e.shiftKey || e.metaKey || spacePressed) {
       // Pan mode
       setIsPanning(true)
       setLastPos({ x: e.clientX, y: e.clientY })
@@ -74,7 +76,7 @@ export default function WhiteboardCanvas({ initialPaths, onPathsChange }: Whiteb
       setIsDrawing(true)
       setCurrentPath([worldPos])
     }
-  }, [screenToWorld])
+  }, [screenToWorld, spacePressed])
 
   // Handle mouse move
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -205,21 +207,55 @@ export default function WhiteboardCanvas({ initialPaths, onPathsChange }: Whiteb
     ctx.restore()
   }, [camera, paths, currentPath, notes])
 
+  // Handle Space key for pan (but NOT while typing in inputs)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept Space if user is typing in an input/textarea/contenteditable
+      const typing = isTypingTarget(e.target as HTMLElement)
+      
+      if (e.code === 'Space' && !e.repeat && !typing) {
+        e.preventDefault()
+        setSpacePressed(true)
+      }
+    }
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        setSpacePressed(false)
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [])
+
+  // Prevent context menu on canvas
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+  }, [])
+
+  const cursorClass = isPanning || spacePressed ? 'cursor-grab' : isDrawing ? 'cursor-crosshair' : 'cursor-crosshair'
+
   return (
-    <div className="absolute inset-0 overflow-hidden" style={{ zIndex: 0 }}>
+    <div className="absolute inset-0 overflow-hidden" style={{ zIndex: 0 }} data-testid="whiteboard-container">
       <canvas
         ref={canvasRef}
-        className="w-full h-full cursor-crosshair"
+        className={`w-full h-full ${cursorClass}`}
+        data-testid="whiteboard-canvas"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
+        onContextMenu={handleContextMenu}
       />
       
       {/* Fallback message if canvas fails */}
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-xs text-gray-400 pointer-events-none">
-        Whiteboard ready • Drag to draw • Shift+drag to pan • Scroll to zoom
+        Whiteboard ready • Drag to draw • Space/Shift+drag to pan • Scroll to zoom
       </div>
     </div>
   )

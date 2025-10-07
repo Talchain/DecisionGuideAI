@@ -9,7 +9,8 @@ const root = document.getElementById('root')!
 // POC: Boot full app for /plot, /sandbox, and /sandbox-v1
 const forceSandbox = 
   location.hash.startsWith('#/plot') ||
-  location.hash.startsWith('#/sandbox')
+  location.hash.startsWith('#/sandbox') ||
+  location.hash.startsWith('#/test')
 const isPoc =
   forceSandbox ||
   (typeof import.meta !== 'undefined' &&

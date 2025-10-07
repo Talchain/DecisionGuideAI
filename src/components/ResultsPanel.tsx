@@ -67,7 +67,7 @@ function ScenarioChart({ results }: { results: any }) {
 export default function ResultsPanel({ flowResult, isLiveData, biases, biasesSource }: ResultsPanelProps) {
   if (!flowResult) {
     return (
-      <div className="absolute right-4 top-24 w-80 z-20">
+      <div className="absolute right-4 top-24 w-80 z-50" data-testid="results-panel">
         <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-3">Results</h3>
           <div className="text-sm text-gray-500">Run a scenario to see results</div>
@@ -77,7 +77,7 @@ export default function ResultsPanel({ flowResult, isLiveData, biases, biasesSou
   }
 
   return (
-    <div className="absolute right-4 top-24 w-80 z-20 max-h-[calc(100vh-120px)] overflow-y-auto space-y-4">
+    <div className="absolute right-4 top-24 w-80 z-50 max-h-[calc(100vh-120px)] overflow-y-auto space-y-4" data-testid="results-panel">
       {/* Results Card */}
       <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-4">
         <div className="flex items-center justify-between mb-3">
