@@ -10,7 +10,7 @@ import PlotToolbar, { Tool, NodeType } from '../components/PlotToolbar'
 import ResultsPanel from '../components/ResultsPanel'
 import OnboardingHints from '../components/OnboardingHints'
 import KeyboardShortcuts from '../components/KeyboardShortcuts'
-import { saveWorkspaceState, loadWorkspaceState, createAutosaver, clearWorkspaceState } from '../lib/plotStorage'
+import { loadWorkspaceState, createAutosaver, clearWorkspaceState } from '../lib/plotStorage'
 
 // Types
 type Node = { id: string; label: string; x?: number; y?: number; type?: string }
@@ -34,7 +34,7 @@ function PlotWorkspaceInner() {
   const [template, setTemplate] = useState('pricing_change')
   const [seed, setSeed] = useState(101)
   const [flowResult, setFlowResult] = useState<any>(null)
-  const [flowError, setFlowError] = useState<string>('')
+  const [_flowError, setFlowError] = useState<string>('')
   const [isLiveData, setIsLiveData] = useState(false)
   
   // Graph
@@ -51,7 +51,7 @@ function PlotWorkspaceInner() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editingNoteText, setEditingNoteText] = useState('')
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null)
-  const [noteDragOffset, setNoteDragOffset] = useState({ x: 0, y: 0 })
+  const [, setNoteDragOffset] = useState({ x: 0, y: 0 })
   
   // Biases
   const [biases, setBiases] = useState<any[]>([])
@@ -624,7 +624,6 @@ function PlotWorkspaceInner() {
         {editingNodeId && (() => {
           const node = nodes.find(n => n.id === editingNodeId)
           if (!node || node.x === undefined || node.y === undefined) return null
-          
           // Calculate screen position
           const screenX = node.x * camera.zoom + camera.x
           const screenY = node.y * camera.zoom + camera.y
@@ -650,8 +649,8 @@ function PlotWorkspaceInner() {
             </div>
           )
         })()}
+        </div>
       </div>
-    </div>
   )
 }
 

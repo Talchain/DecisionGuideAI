@@ -8,10 +8,11 @@ export function getGatewayBaseUrl(): string {
       if (typeof fromLs === 'string' && fromLs.trim().length > 0) return fromLs.trim()
     }
   } catch {}
-  // process.env override (useful in tests and Node)
+  // In test runs, Vitest/Vite may inject a default dev URL. Treat that as no override.
   try {
-    const penv = (typeof process !== 'undefined' ? (process as any).env?.VITE_EDGE_GATEWAY_URL : undefined)
-    if (typeof penv === 'string' && penv.trim().length > 0) return penv.trim()
+    const mode = (import.meta as any)?.env?.MODE
+    const injected = (import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL
+    if (mode === 'test' && injected === 'http://127.0.0.1:4311') return ''
   } catch {}
   try {
     const env = (import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL

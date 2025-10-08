@@ -28,6 +28,7 @@ async function createChatCompletion(
     model?: string
     temperature?: number
     max_tokens?: number
+    response_format?: { type: 'json_object' | 'text' }
   } = {},
   retries = 3
 ): Promise<{ content: string; prompt: any; rawResponse: any }> {
@@ -48,7 +49,9 @@ async function createChatCompletion(
         model: options.model ?? 'gpt-4',
         messages,
         temperature: options.temperature ?? 0.7,
-        max_tokens: options.max_tokens ?? 1500
+        max_tokens: options.max_tokens ?? 1500,
+        // Pass through response_format when callers request JSON-object mode
+        ...(options.response_format ? { response_format: options.response_format } : {})
       })
 
       const content = completion.choices[0].message.content
@@ -352,7 +355,7 @@ export const analyzeGoalClarification = async ({
   importance
 }: AnalysisRequest): Promise<GoalClarificationResponse> => {
   try {
-    const { content, prompt, rawResponse } = await createChatCompletion(
+    const { content } = await createChatCompletion(
       [
         {
           role: 'system',

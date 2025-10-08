@@ -37,7 +37,8 @@
     "ci:guard:sandbox": "node tools/ci-guards/check-gotosandbox.mjs",
     "ci:guard:flags": "node tools/ci-guards/check-flags-drift.mjs",
     "test:e2e:firefox": "playwright test --project=firefox -c playwright.config.ts",
-    "test:e2e:webkit": "playwright test --project=webkit -c playwright.config.ts"
+    "test:e2e:webkit": "playwright test --project=webkit -c playwright.config.ts",
+    "ci:all": "npm run typecheck && npm run lint && npm run test && npm run e2e"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -62,6 +63,7 @@
     "@playwright/test": "^1.47.2",
     "@testing-library/dom": "^9.3.1",
     "@testing-library/react": "^14.3.1",
+    "@types/node": "^20.19.19",
     "@types/pako": "^2.0.4",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",

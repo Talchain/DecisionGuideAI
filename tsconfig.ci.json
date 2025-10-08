@@ -1,5 +1,8 @@
 {
   "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"]
+  },
   "include": [
     "src/flags.ts",
     "src/lib/sseClient.ts",

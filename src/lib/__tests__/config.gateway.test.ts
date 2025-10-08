@@ -1,12 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 describe('getGatewayBaseUrl precedence', () => {
   let origEnv: any
   let mod: any
 
   beforeEach(async () => {
+    vi.resetModules()
     origEnv = (import.meta as any).env
     ;(import.meta as any).env = { ...(origEnv || {}) }
+    // Ensure no default override leaks into the default-case test
+    delete (import.meta as any).env.VITE_EDGE_GATEWAY_URL
     // fresh import each test to ensure fresh localStorage read
     mod = await import('../config')
     try { localStorage.clear() } catch {}

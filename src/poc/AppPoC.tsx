@@ -1,16 +1,29 @@
 // src/poc/AppPoC.tsx
 // POC: Full PoC UI (no auth, no Supabase) mounting real components with safe providers
 
-import { StrictMode, useState, useEffect, Suspense } from 'react'
+import { StrictMode, useState, useEffect, Suspense, useMemo, useCallback } from 'react'
 import { HashRouter as Router, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'
 import { feature } from '../lib/pocFlags'
 import { fetchFlow as fetchFlowEngine, openSSE } from '../lib/pocEngine'
-import GraphCanvas, { type Node, type Edge, type LocalEdits } from '../components/GraphCanvas'
+import GraphCanvas from '../components/GraphCanvas'
 import SandboxV1 from '../routes/SandboxV1'
 import PlotShowcase from '../routes/PlotShowcase'
 import PlotWorkspace from '../routes/PlotWorkspace'
+import SandboxHeader, { type SandboxMode } from './components/SandboxHeader'
+import { exportCanvas, formatSandboxPngName } from './export/exportCanvas'
+import { isTypingTarget } from './utils/inputGuards'
+import { initialHistory, push, doUndo, doRedo, type History as SamHistory, type SamState, type Op } from './state/history'
+import { loadState, saveState, clearState } from './state/persist'
+import './styles/focus.css'
+
+type Scenario = Record<string, unknown>
+interface FlowResult {
+  graph?: { nodes: Array<{ id: string; x?: number; y?: number; label?: string }>; edges: Array<{ id?: string; from: string; to: string; label?: string }> }
+  scenarios?: { conservative?: Scenario; most_likely?: Scenario; optimistic?: Scenario }
+  thresholds?: Array<{ label: string; crossed: boolean }>
+}
 
 // POC: Read feature flags from env
 const FEATURE_SANDBOX = feature('VITE_FEATURE_SCENARIO_SANDBOX')
@@ -47,6 +60,7 @@ export default function AppPoC() {
   const [build, setBuild] = useState('(unknown)')
   const [edge, setEdge] = useState('/engine')
   const [streamMode, setStreamMode] = useState<'off' | 'simulated'>('off')
+  const [sandboxMode, setSandboxMode] = useState<SandboxMode>('draw')
   const [fetchResult, setFetchResult] = useState<string>('')
   const [fetchPath, setFetchPath] = useState('/draft-flows?template=pricing_change&seed=101')
   const [streamTokens, setStreamTokens] = useState<string>('')
@@ -57,23 +71,50 @@ export default function AppPoC() {
     Whiteboard?: any
   }>({})
 
+
+  // Persist sandbox mode across sessions (localStorage)
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('sandbox.mode')
+      if (saved === 'draw' || saved === 'connect' || saved === 'inspect') {
+        setSandboxMode(saved as SandboxMode)
+      }
+    } catch {}
+  }, [])
+
+  // Keyboard shortcuts: Cmd/Ctrl+Z (undo), Cmd/Ctrl+Shift+Z (redo)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      try {
+        if (isTypingTarget(e.target as Element)) return
+        const isZ = e.key === 'z' || e.key === 'Z'
+        const meta = e.ctrlKey || e.metaKey
+        if (!meta || !isZ) return
+        e.preventDefault()
+        setHist(prev => (e.shiftKey ? doRedo(prev) : doUndo(prev)))
+      } catch {}
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  useEffect(() => {
+    try { localStorage.setItem('sandbox.mode', sandboxMode) } catch {}
+  }, [sandboxMode])
+
   // POC: Scenario Sandbox state
   const [template, setTemplate] = useState('pricing_change')
   const [seed, setSeed] = useState(101)
-  const [flowResult, setFlowResult] = useState<any>(null)
+  const [flowResult, setFlowResult] = useState<FlowResult | null>(null)
   const [flowError, setFlowError] = useState<string>('')
   const [flowTiming, setFlowTiming] = useState<number>(0)
   const [lastUpdated, setLastUpdated] = useState<string>('')
-  const [nodes, setNodes] = useState<Node[]>([])
-  const [edges, setEdges] = useState<Edge[]>([])
-  const [localEdits, setLocalEdits] = useState<LocalEdits>({
-    addedNodes: [],
-    renamedNodes: {},
-    addedEdges: []
-  })
+  const [hist, setHist] = useState<SamHistory>(initialHistory())
   const [liveStream, setLiveStream] = useState(false)
   const [sseTokens, setSseTokens] = useState<string>('')
   const [sseStopFn, setSseStopFn] = useState<(() => void) | null>(null)
+  const [exporting, setExporting] = useState(false)
+  const [exportStatus, setExportStatus] = useState<string>('')
 
   useEffect(() => {
     // POC: Read build ID from meta tag
@@ -89,6 +130,12 @@ export default function AppPoC() {
 
     // POC: Signal HTML failsafe
     try { (window as any).__APP_MOUNTED__?.() } catch {}
+
+    // POC: Load persisted sandbox state (if any)
+    try {
+      const loaded = loadState()
+      if (loaded) setHist(initialHistory(loaded))
+    } catch {}
 
     // POC: Try to load real components (guarded dynamic imports)
     ;(async () => {
@@ -161,7 +208,7 @@ export default function AppPoC() {
   const runFlow = async () => {
     setFlowError('')
     try {
-      const result = await fetchFlowEngine({ template, seed })
+      const result = await fetchFlowEngine({ edge, template, seed })
       setFlowTiming(result.ms)
       setLastUpdated(new Date().toLocaleTimeString('en-GB'))
       
@@ -169,8 +216,12 @@ export default function AppPoC() {
         setFlowResult(result.data)
         // POC: Extract graph from report.v1 schema
         if (result.data.graph) {
-          setNodes(result.data.graph.nodes || [])
-          setEdges(result.data.graph.edges || [])
+          const base: SamState = {
+            nodes: (result.data.graph.nodes || []).map((n: any) => ({ id: n.id, x: n.x ?? 0, y: n.y ?? 0, label: n.label })),
+            edges: (result.data.graph.edges || []).map((e: any) => ({ id: e.id, from: e.from, to: e.to, label: e.label })),
+            renames: {}
+          }
+          setHist(initialHistory(base))
         }
         console.info('UI_POC_SANDBOX', { edge, template, seed, flags: { sandbox: FEATURE_SANDBOX, sse: FEATURE_SSE } })
       } else {
@@ -194,7 +245,7 @@ export default function AppPoC() {
       // Start SSE
       setSseTokens('')
       try {
-        const stop = openSSE('/demo/stream?hello=1', {
+        const stop = openSSE({ edge, path: '/demo/stream?hello=1' }, {
           onToken: (token) => setSseTokens(prev => prev + (prev ? ' ' : '') + token),
           onDone: () => {
             setSseTokens(prev => prev + '\n[done]')
@@ -220,10 +271,72 @@ export default function AppPoC() {
   }
 
   const { SandboxStreamPanel, EngineAuditPanel, Whiteboard } = components
+  const canUndo = hist.undo.length > 0
+  const canRedo = hist.redo.length > 0
+  const viewNodes = useMemo(
+    () => hist.present.nodes.map(n => ({ id: n.id, x: n.x, y: n.y, label: (hist.present.renames[n.id] ?? n.label) || n.label || 'Node' })),
+    [hist.present.nodes, hist.present.renames]
+  )
+  const viewEdges = useMemo(() => hist.present.edges, [hist.present.edges])
+
+  const handleOp = useCallback((op: Op) => {
+    setHist(prev => {
+      const next = push(prev, op)
+      try { saveState(next.present) } catch {}
+      return next
+    })
+  }, [])
 
   // POC: Main sandbox content component
   const MainSandboxContent = () => (
-    <div style={{ minHeight: '100vh', background: '#f9fafb' }}>
+    <div style={{ minHeight: '100vh', background: '#f9fafb' }} data-mode={sandboxMode}>
+      <SandboxHeader
+        mode={sandboxMode}
+        onModeChange={setSandboxMode}
+        onUndo={() => setHist(prev => doUndo(prev))}
+        onRedo={() => setHist(prev => doRedo(prev))}
+        onClear={() => {
+          if (typeof window !== 'undefined') {
+            const ok = window.confirm('Clear sandbox state? This only affects your browser.')
+            if (!ok) return
+          }
+          try { clearState() } catch {}
+          setHist(initialHistory())
+        }}
+        onExport={async () => {
+          if (exporting) return
+          setExporting(true)
+          setExportStatus('')
+          try {
+            const blob = await exportCanvas({ fit: true })
+            const name = formatSandboxPngName(new Date())
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = name
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            URL.revokeObjectURL(url)
+            setExportStatus('✓ Export successful')
+            window.setTimeout(() => setExportStatus(''), 3000)
+          } catch (e) {
+            console.error('Export PNG failed', e)
+            setExportStatus('✗ Export failed')
+            window.setTimeout(() => setExportStatus(''), 5000)
+          } finally {
+            setExporting(false)
+          }
+        }}
+        exporting={exporting}
+        canUndo={canUndo}
+        canRedo={canRedo}
+      />
+      {exportStatus && (
+        <div style={{ background: exportStatus.startsWith('✓') ? '#10b981' : '#ef4444', color: '#fff', padding: '8px 16px', textAlign: 'center' }} aria-live="polite">
+          {exportStatus}
+        </div>
+      )}
       {/* POC: Banner */}
       <div style={{
         background: '#10b981',
@@ -427,7 +540,7 @@ export default function AppPoC() {
                           <div style={{ padding: '8px', background: '#fef3c7', borderRadius: '6px' }}>
                             <div style={{ fontSize: '12px', color: '#92400e', fontWeight: 600 }}>Conservative</div>
                             <div style={{ fontSize: '16px', fontWeight: 700, color: '#92400e' }}>
-                              {flowResult.scenarios.conservative.value}
+                              {String((flowResult.scenarios.conservative as any).value ?? '')}
                             </div>
                           </div>
                         )}
@@ -435,7 +548,7 @@ export default function AppPoC() {
                           <div style={{ padding: '8px', background: '#dbeafe', borderRadius: '6px' }}>
                             <div style={{ fontSize: '12px', color: '#1e40af', fontWeight: 600 }}>Most Likely</div>
                             <div style={{ fontSize: '16px', fontWeight: 700, color: '#1e40af' }}>
-                              {flowResult.scenarios.most_likely.value}
+                              {String((flowResult.scenarios.most_likely as any).value ?? '')}
                             </div>
                           </div>
                         )}
@@ -443,7 +556,7 @@ export default function AppPoC() {
                           <div style={{ padding: '8px', background: '#d1fae5', borderRadius: '6px' }}>
                             <div style={{ fontSize: '12px', color: '#065f46', fontWeight: 600 }}>Optimistic</div>
                             <div style={{ fontSize: '16px', fontWeight: 700, color: '#065f46' }}>
-                              {flowResult.scenarios.optimistic.value}
+                              {String((flowResult.scenarios.optimistic as any).value ?? '')}
                             </div>
                           </div>
                         )}
@@ -473,18 +586,17 @@ export default function AppPoC() {
                     </div>
                   )}
 
-                  {/* Graph */}
-                  {nodes.length > 0 && (
-                    <div style={{ marginBottom: '16px' }}>
-                      <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 600 }}>Decision Graph</h4>
-                      <GraphCanvas
-                        nodes={nodes}
-                        edges={edges}
-                        localEdits={localEdits}
-                        onEditsChange={setLocalEdits}
-                      />
-                    </div>
-                  )}
+                  {/* Graph (always render so E2E can add-first) */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 600 }}>Decision Graph</h4>
+                    <GraphCanvas
+                      nodes={viewNodes as any}
+                      edges={viewEdges as any}
+                      localEdits={{ addedNodes: [], renamedNodes: {}, addedEdges: [] }}
+                      onEditsChange={() => {}}
+                      onOp={handleOp}
+                    />
+                  </div>
 
                   {/* SSE Stream Output */}
                   {liveStream && sseTokens && (
@@ -554,6 +666,20 @@ export default function AppPoC() {
                 </div>
               )}
 
+              {/* Fallback: Always render a minimal GraphCanvas when FEATURE_SANDBOX is OFF for E2E */}
+              {!FEATURE_SANDBOX && (
+                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '16px' }}>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 600 }}>Decision Graph (Fallback)</h3>
+                  <GraphCanvas
+                    nodes={viewNodes as any}
+                    edges={viewEdges as any}
+                    localEdits={{ addedNodes: [], renamedNodes: {}, addedEdges: [] }}
+                    onEditsChange={() => {}}
+                    onOp={handleOp}
+                  />
+                </div>
+              )}
+
               {/* POC: Fallback link */}
               <div style={{ textAlign: 'center', padding: '16px', color: '#6b7280', fontSize: '14px' }}>
                 <p>
@@ -579,6 +705,8 @@ export default function AppPoC() {
             <Route path="/plot-legacy" element={<PlotShowcase />} />
             {/* POC: New preview route (hard-enabled features) */}
             <Route path="/sandbox-v1" element={<SandboxV1 />} />
+            {/* POC: Scenario Sandbox test route */}
+            <Route path="/test" element={<MainSandboxContent />} />
             {/* POC: Main sandbox route (flag-gated features) */}
             <Route path="*" element={<MainSandboxContent />} />
           </Routes>
