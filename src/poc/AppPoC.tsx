@@ -1,7 +1,7 @@
 // src/poc/AppPoC.tsx
 // POC: Full PoC UI (no auth, no Supabase) mounting real components with safe providers
 
-import { StrictMode, useState, useEffect, Suspense, useMemo, useCallback } from 'react'
+import { StrictMode, useState, useEffect, Suspense, useMemo, useCallback, useRef } from 'react'
 import { HashRouter as Router, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'
@@ -12,11 +12,13 @@ import SandboxV1 from '../routes/SandboxV1'
 import PlotShowcase from '../routes/PlotShowcase'
 import PlotWorkspace from '../routes/PlotWorkspace'
 import SandboxHeader, { type SandboxMode } from './components/SandboxHeader'
+import OnboardingHints from './components/OnboardingHints'
 import { exportCanvas, formatSandboxPngName } from './export/exportCanvas'
 import { isTypingTarget } from './utils/inputGuards'
 import { initialHistory, push, doUndo, doRedo, type History as SamHistory, type SamState, type Op } from './state/history'
 import { loadState, saveState, clearState } from './state/persist'
 import './styles/focus.css'
+import './styles/onboarding.css'
 
 type Scenario = Record<string, unknown>
 interface FlowResult {
@@ -82,6 +84,58 @@ export default function AppPoC() {
     } catch {}
   }, [])
 
+  // JSON export handler is defined below after history state
+
+  const validateImport = (obj: any): SamState | null => {
+    try {
+      if (!obj || typeof obj !== 'object') return null
+      if (obj.schemaVersion !== 1 && obj.schemaVersion !== undefined) return null
+      const nodes = Array.isArray(obj.nodes) ? obj.nodes : null
+      const edges = Array.isArray(obj.edges) ? obj.edges : null
+      const renames = obj.renames && typeof obj.renames === 'object' ? obj.renames : {}
+      if (!nodes || !edges) return null
+      return { nodes: nodes as any, edges: edges as any, renames }
+    } catch { return null }
+  }
+
+  // Hidden input used for import JSON (stable for E2E)
+  const importInputRef = useRef<HTMLInputElement | null>(null)
+
+  const onImportInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.currentTarget
+    const f = input.files && input.files[0]
+    if (!f) return
+    try {
+      const text = await f.text()
+      const parsed = JSON.parse(text)
+      const valid = validateImport(parsed)
+      if (!valid) throw new Error('Invalid JSON schema')
+      setHist(initialHistory(valid))
+      try { saveState(valid) } catch {}
+      setExportStatus('✓ JSON imported')
+      window.setTimeout(() => setExportStatus(''), 3000)
+    } catch (err) {
+      console.error('Import JSON failed', err)
+      setExportStatus('✗ Import JSON failed')
+      window.setTimeout(() => setExportStatus(''), 5000)
+    } finally {
+      input.value = ''
+    }
+  }, [])
+
+  const importJSON = useCallback(async () => {
+    try {
+      const input = importInputRef.current
+      if (!input) throw new Error('Import input missing')
+      input.value = ''
+      input.click()
+    } catch (e) {
+      console.error('Import JSON failed (setup)', e)
+      setExportStatus('✗ Import JSON failed')
+      window.setTimeout(() => setExportStatus(''), 5000)
+    }
+  }, [])
+
   // Keyboard shortcuts: Cmd/Ctrl+Z (undo), Cmd/Ctrl+Shift+Z (redo)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -89,9 +143,17 @@ export default function AppPoC() {
         if (isTypingTarget(e.target as Element)) return
         const isZ = e.key === 'z' || e.key === 'Z'
         const meta = e.ctrlKey || e.metaKey
-        if (!meta || !isZ) return
-        e.preventDefault()
-        setHist(prev => (e.shiftKey ? doRedo(prev) : doUndo(prev)))
+        if (meta && isZ) {
+          e.preventDefault()
+          setHist(prev => (e.shiftKey ? doRedo(prev) : doUndo(prev)))
+          return
+        }
+        // Toggle help with '?'
+        if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+          e.preventDefault()
+          setHelpOpen(prev => !prev)
+          return
+        }
       } catch {}
     }
     window.addEventListener('keydown', onKey)
@@ -101,6 +163,7 @@ export default function AppPoC() {
   useEffect(() => {
     try { localStorage.setItem('sandbox.mode', sandboxMode) } catch {}
   }, [sandboxMode])
+
 
   // POC: Scenario Sandbox state
   const [template, setTemplate] = useState('pricing_change')
@@ -115,6 +178,17 @@ export default function AppPoC() {
   const [sseStopFn, setSseStopFn] = useState<(() => void) | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exportStatus, setExportStatus] = useState<string>('')
+  const [helpOpen, setHelpOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem('sandbox.help.open') === '1' } catch { return false }
+  })
+  const [onboardingDismissed, setOnboardingDismissed] = useState<boolean>(() => {
+    try { return localStorage.getItem('sandbox.onboarding.dismissed') === '1' } catch { return false }
+  })
+
+  // Persist help open state
+  useEffect(() => {
+    try { localStorage.setItem('sandbox.help.open', helpOpen ? '1' : '0') } catch {}
+  }, [helpOpen])
 
   useEffect(() => {
     // POC: Read build ID from meta tag
@@ -287,14 +361,45 @@ export default function AppPoC() {
     })
   }, [])
 
+  const exportJSON = useCallback(() => {
+    try {
+      const payload = { schemaVersion: 1, nodes: hist.present.nodes, edges: hist.present.edges, renames: hist.present.renames }
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+      const name = `sandbox_state_${new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '')}.json`
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = name
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      setExportStatus('✓ JSON exported')
+      window.setTimeout(() => setExportStatus(''), 3000)
+    } catch (e) {
+      console.error('Export JSON failed', e)
+      setExportStatus('✗ Export JSON failed')
+      window.setTimeout(() => setExportStatus(''), 5000)
+    }
+  }, [hist.present])
+
   // POC: Main sandbox content component
   const MainSandboxContent = () => (
     <div style={{ minHeight: '100vh', background: '#f9fafb' }} data-mode={sandboxMode}>
+      <input
+        ref={importInputRef}
+        type="file"
+        accept="application/json"
+        style={{ display: 'none' }}
+        data-testid="import-json-input"
+        onChange={onImportInputChange}
+      />
       <SandboxHeader
         mode={sandboxMode}
         onModeChange={setSandboxMode}
         onUndo={() => setHist(prev => doUndo(prev))}
         onRedo={() => setHist(prev => doRedo(prev))}
+        onHelp={() => setHelpOpen(prev => !prev)}
         onClear={() => {
           if (typeof window !== 'undefined') {
             const ok = window.confirm('Clear sandbox state? This only affects your browser.')
@@ -331,13 +436,15 @@ export default function AppPoC() {
         exporting={exporting}
         canUndo={canUndo}
         canRedo={canRedo}
+        onExportJSON={exportJSON}
+        onImportJSON={importJSON}
       />
       {exportStatus && (
         <div style={{ background: exportStatus.startsWith('✓') ? '#10b981' : '#ef4444', color: '#fff', padding: '8px 16px', textAlign: 'center' }} aria-live="polite">
           {exportStatus}
         </div>
       )}
-      {/* POC: Banner */}
+      {/* Export/Import feedback banner */}
       <div style={{
         background: '#10b981',
         color: '#fff',
@@ -509,6 +616,17 @@ export default function AppPoC() {
                         </label>
                       )}
                     </div>
+
+                  {/* Onboarding and Help overlays */}
+                  <OnboardingHints
+                    showOverlay={!onboardingDismissed && (hist.present.nodes.length === 0)}
+                    onDismissOverlay={() => {
+                      setOnboardingDismissed(true)
+                      try { localStorage.setItem('sandbox.onboarding.dismissed', '1') } catch {}
+                    }}
+                    helpOpen={helpOpen}
+                    onToggleHelp={() => setHelpOpen(prev => !prev)}
+                  />
                     {lastUpdated && (
                       <div style={{ fontSize: '12px', color: '#6b7280' }}>
                         Last updated: {lastUpdated} ({flowTiming}ms) • Edge: {edge} • Template: {template} • Seed: {seed}

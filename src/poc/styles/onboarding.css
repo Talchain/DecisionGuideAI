@@ -1,0 +1,36 @@
+/* src/poc/styles/onboarding.css */
+.poc-onboarding-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.poc-onboarding-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  width: 320px;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+}
+.poc-onboarding-title { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+.poc-onboarding-body { font-size: 14px; color: #374151; margin-bottom: 12px; }
+.poc-onboarding-dismiss { padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; background: #f8f8f8; cursor: pointer; }
+
+.poc-help-popover {
+  position: fixed;
+  right: 16px;
+  top: 64px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 14px;
+  z-index: 51;
+  width: 260px;
+}
+.poc-help-title { font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+.poc-help-list { margin: 0; padding-left: 18px; font-size: 13px; color: #374151; }
+.poc-help-close { margin-top: 8px; padding: 4px 8px; border: 1px solid #d1d5db; border-radius: 6px; background: #f8f8f8; cursor: pointer; }

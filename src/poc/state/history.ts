@@ -40,6 +40,9 @@ export interface History {
   undo: Pair[]
   redo: Pair[]
   cap: number
+  meta?: {
+    lastMove?: { id: Id; at: number }
+  }
 }
 
 export function cloneState(s: SamState): SamState {
@@ -48,7 +51,7 @@ export function cloneState(s: SamState): SamState {
 
 export function initialHistory(present?: SamState, cap = 50): History {
   const base: SamState = present ? cloneState(present) : { nodes: [], edges: [], renames: {} }
-  return { present: base, undo: [], redo: [], cap }
+  return { present: base, undo: [], redo: [], cap, meta: {} }
 }
 
 export function applyOp(state: SamState, op: Op): SamState {
@@ -142,12 +145,37 @@ export function canUndo(h: History): boolean { return h.undo.length > 0 }
 export function canRedo(h: History): boolean { return h.redo.length > 0 }
 
 export function push(h: History, forward: Op): History {
+  const now = Date.now()
+
+  // Coalesce rapid successive move ops on the same node into one
+  if (forward.type === 'move' && h.undo.length > 0) {
+    const last = h.undo[h.undo.length - 1]
+    if (last.forward.type === 'move' && last.forward.payload.id === forward.payload.id) {
+      const within = (h.meta?.lastMove && (now - h.meta.lastMove.at) <= 500)
+      if (within) {
+        // Merge: from stays as the original last.from; to becomes the new forward.to
+        const mergedForward: Op = {
+          type: 'move',
+          payload: { id: forward.payload.id, from: last.forward.payload.from, to: forward.payload.to }
+        }
+        const mergedInverse = inverse(mergedForward, h.present)
+        const mergedPair: Pair = { forward: mergedForward, inverse: mergedInverse }
+        const undoPrefix = h.undo.slice(0, -1)
+        const nextPresentMerged = applyOp(h.present, mergedForward)
+        const nextUndoMerged = [...undoPrefix, mergedPair]
+        const cappedUndoMerged = nextUndoMerged.length > h.cap ? nextUndoMerged.slice(nextUndoMerged.length - h.cap) : nextUndoMerged
+        return { present: nextPresentMerged, undo: cappedUndoMerged, redo: [], cap: h.cap, meta: { ...h.meta, lastMove: { id: forward.payload.id, at: now } } }
+      }
+    }
+  }
+
   const inv = inverse(forward, h.present)
   const nextPresent = applyOp(h.present, forward)
   const pair: Pair = { forward, inverse: inv }
   const nextUndo = [...h.undo, pair]
   const cappedUndo = nextUndo.length > h.cap ? nextUndo.slice(nextUndo.length - h.cap) : nextUndo
-  return { present: nextPresent, undo: cappedUndo, redo: [], cap: h.cap }
+  const nextMeta = forward.type === 'move' ? { ...h.meta, lastMove: { id: forward.payload.id, at: now } } : { ...h.meta, lastMove: undefined }
+  return { present: nextPresent, undo: cappedUndo, redo: [], cap: h.cap, meta: nextMeta }
 }
 
 export function doUndo(h: History): History {

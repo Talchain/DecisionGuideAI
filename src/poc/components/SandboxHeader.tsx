@@ -9,6 +9,8 @@ export function SandboxHeader({
   onUndo,
   onRedo,
   onExport,
+  onExportJSON,
+  onImportJSON,
   exporting = false,
   onClear,
   canUndo = false,
@@ -20,6 +22,8 @@ export function SandboxHeader({
   onUndo?: () => void
   onRedo?: () => void
   onExport?: () => void
+  onExportJSON?: () => void
+  onImportJSON?: () => void
   exporting?: boolean
   onClear?: () => void
   canUndo?: boolean
@@ -102,6 +106,30 @@ export function SandboxHeader({
         >
           {exporting ? 'Exporting…' : 'Export PNG'}
         </button>
+        {onExportJSON && (
+          <button
+            type="button"
+            onClick={onExportJSON}
+            className="px-2 py-1 text-xs rounded border bg-white text-gray-700 border-gray-300"
+            aria-label="Export JSON"
+            data-testid="export-json-btn"
+            title="Export JSON"
+          >
+            Export JSON
+          </button>
+        )}
+        {onImportJSON && (
+          <button
+            type="button"
+            onClick={onImportJSON}
+            className="px-2 py-1 text-xs rounded border bg-white text-gray-700 border-gray-300"
+            aria-label="Import JSON"
+            data-testid="import-json-btn"
+            title="Import JSON"
+          >
+            Import JSON
+          </button>
+        )}
         <button
           type="button"
           onClick={onHelp}

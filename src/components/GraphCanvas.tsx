@@ -326,8 +326,9 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
             const isDragging = dragPos && dragPos.id === node.id
             const nx = isDragging ? dragPos!.x : node.x
             const ny = isDragging ? dragPos!.y : node.y
+            const isSelected = selectedNode === node.id
             return (
-            <g key={node.id} data-testid="graph-node" data-node-id={node.id}>
+            <g key={node.id} data-testid="graph-node" data-node-id={node.id} data-selected={isSelected ? '1' : undefined}>
               <rect
                 x={nx}
                 y={ny}
@@ -335,8 +336,8 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
                 height="40"
                 rx="8"
                 fill={connectFrom === node.id ? '#10b981' : '#f8f8f8'}
-                stroke={connectFrom === node.id ? '#10b981' : '#d1d5db'}
-                strokeWidth="2"
+                stroke={isSelected ? '#6366f1' : (connectFrom === node.id ? '#10b981' : '#d1d5db')}
+                strokeWidth={isSelected ? 3 : 2}
                 style={{ cursor: 'pointer' }}
                 onMouseDown={onNodeMouseDown(node)}
                 onClick={() => handleNodeClick(node.id)}
