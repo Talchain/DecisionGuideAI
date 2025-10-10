@@ -38,15 +38,9 @@ test('shift-click — multi-select drag applies one batchMove; undo/redo works',
   const node = (i: number) => page.getByTestId('graph-node').nth(i);
   const rect = (i: number) => node(i).locator('rect');
 
-  // Shift-select nodes 0 and 2 by clicking inside rects (avoid text intercept)
-  const b0 = await rect(0).boundingBox();
-  if (!b0) throw new Error('bbox 0 unavailable');
-  await page.mouse.move(b0.x + 10, b0.y + 10); await page.mouse.click(b0.x + 10, b0.y + 10);
-  const b2 = await rect(2).boundingBox();
-  if (!b2) throw new Error('bbox 2 unavailable');
-  await page.keyboard.down('Shift');
-  await page.mouse.click(b2.x + 10, b2.y + 10);
-  await page.keyboard.up('Shift');
+  // Shift-select nodes 0 and 2 by clicking inside rects using position offsets + modifiers
+  await rect(0).click({ position: { x: 10, y: 10 } });
+  await rect(2).click({ modifiers: ['Shift'], position: { x: 10, y: 10 } });
   // Wait for selection state to settle to avoid racing React state before drag begins
   await expect(node(0)).toHaveAttribute('aria-selected', 'true');
   await expect(node(2)).toHaveAttribute('aria-selected', 'true');
