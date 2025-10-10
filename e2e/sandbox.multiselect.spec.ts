@@ -50,9 +50,12 @@ test('shift-click — multi-select drag applies one batchMove; undo/redo works',
   // Drag node 0 by ~(+40,+30)
   const box0 = await rect(0).boundingBox();
   if (!box0) throw new Error('bbox unavailable');
-  await page.mouse.move(box0.x + box0.width / 2, box0.y + box0.height / 2);
+  // Move to an interior point away from centered label text to avoid intercept
+  const startX = box0.x + 10;
+  const startY = box0.y + 10;
+  await page.mouse.move(startX, startY);
   await mouseDownStable(page);
-  await page.mouse.move(box0.x + box0.width / 2 + 40, box0.y + box0.height / 2 + 30);
+  await page.mouse.move(startX + 40, startY + 30);
   await page.mouse.up();
 
   // Read positions after drag
