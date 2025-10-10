@@ -13,6 +13,12 @@ function platformModifier() {
   return process.platform === 'darwin' ? 'Meta' : 'Control';
 }
 
+// Small stability helper: pause after mouse.down() to avoid drag-init flakes on CI
+async function mouseDownStable(page: import('@playwright/test').Page) {
+  await page.mouse.down();
+  await page.waitForTimeout(50);
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto(route, { waitUntil: 'domcontentloaded' });
   await page.getByTestId('whiteboard-canvas').waitFor({ state: 'visible' });
@@ -44,7 +50,7 @@ test('shift-click — multi-select drag applies one batchMove; undo/redo works',
   const box0 = await rect(0).boundingBox();
   if (!box0) throw new Error('bbox unavailable');
   await page.mouse.move(box0.x + box0.width / 2, box0.y + box0.height / 2);
-  await page.mouse.down();
+  await mouseDownStable(page);
   await page.mouse.move(box0.x + box0.width / 2 + 40, box0.y + box0.height / 2 + 30);
   await page.mouse.up();
 
@@ -98,7 +104,7 @@ test('marquee delete — select two by marquee, Delete removes, Undo restores', 
 
   // Convert svg coords (approx) to page coords using bbox offsets
   await page.mouse.move(bbox.x + minX, bbox.y + minY);
-  await page.mouse.down();
+  await mouseDownStable(page);
   await page.mouse.move(bbox.x + maxX, bbox.y + maxY);
   await page.mouse.up();
 
