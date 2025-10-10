@@ -129,6 +129,8 @@ test('select all esc — Cmd/Ctrl+A selects all; Esc clears', async ({ page }) =
   await expect(page.getByTestId('graph-node')).toHaveCount(3);
 
   const mod = platformModifier();
+  // Ensure canvas has focus so its onKeyDown handler receives shortcuts
+  await page.getByTestId('graph-canvas').focus();
   await page.keyboard.press(`${mod}+KeyA` );
 
   for (let i = 0; i < 3; i++) {
