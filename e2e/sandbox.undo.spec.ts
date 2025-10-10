@@ -22,6 +22,12 @@ const getRectXY = async (rect: any) => {
 
 test.setTimeout(10000)
 
+// Small stability helper to avoid drag-init flakes on CI
+async function mouseDownStable(page: any) {
+  await page.mouse.down()
+  await page.waitForTimeout(50)
+}
+
 test('add → undo → redo restores node presence; header disabled states are correct', async ({ page }) => {
   await gotoTest(page)
 
@@ -71,7 +77,7 @@ test('drag → undo/redo returns to precise coords; typing guard prevents undo w
   if (!rbox || !sbox) throw new Error('missing boxes')
 
   await page.mouse.move(rbox.x + rbox.width / 2, rbox.y + rbox.height / 2)
-  await page.mouse.down()
+  await mouseDownStable(page)
   await page.mouse.move(rbox.x + rbox.width / 2 + 30, rbox.y + rbox.height / 2 + 20)
   await page.mouse.up()
 

@@ -37,10 +37,11 @@ test('shift-click — multi-select drag applies one batchMove; undo/redo works',
 
   const node = (i: number) => page.getByTestId('graph-node').nth(i);
   const rect = (i: number) => node(i).locator('rect');
+  const label = (i: number) => node(i).locator('text');
 
-  // Shift+Click nodes 0 and 2 to select them both
-  await rect(0).click(); // first selects 0
-  await rect(2).click({ modifiers: ['Shift'] });
+  // Shift+Click nodes 0 and 2 to select them both (click label to avoid rect click interception by text)
+  await label(0).click(); // first selects 0
+  await label(2).click({ modifiers: ['Shift'] });
 
   // Capture initial positions
   const a0 = await rectXY(rect(0));
