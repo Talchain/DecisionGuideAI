@@ -24,7 +24,7 @@ test('UX: selection cue without size change; toolbar titles/aria present', async
 
   // Click to select and verify attribute + no size change
   await node.click()
-  await expect(node).toHaveAttribute('data-selected', '1')
+  await expect(node).toHaveAttribute('aria-selected', 'true')
   const after = await rect.boundingBox()
   if (!before || !after) throw new Error('missing bbox')
   expect(after.width).toBeCloseTo(before.width!, 1)
