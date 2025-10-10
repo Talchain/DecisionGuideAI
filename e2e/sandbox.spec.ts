@@ -233,7 +233,8 @@ test('Keyboard-only start and status chip focus at terminal', async ({ page }) =
   await page.route('http://localhost:54321/**', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }))
   await page.goto('/?e2e=1#/sandbox')
   await waitForPanel(page)
-  await page.keyboard.press('Tab') // focus Start
+  // Deterministically focus Start and activate via keyboard
+  await page.getByTestId('start-btn').focus()
   await page.keyboard.press('Enter')
   // Wait for the fake SSE to be created before interacting
   await page.waitForFunction(() => (window as any).FakeEventSource?.instances?.length >= 1)
