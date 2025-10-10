@@ -62,10 +62,12 @@ export function SandboxHeader({
           onClick={onUndo}
           disabled={!canUndo}
           aria-label="Undo"
+          aria-disabled={!canUndo}
           data-testid="undo-btn"
           className={`px-2 py-1 text-xs rounded border ${
             canUndo ? 'bg-white text-gray-700 border-gray-300' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
           }`}
+          title="Undo (Cmd/Ctrl+Z)"
         >
           ↶ Undo
         </button>
@@ -74,10 +76,12 @@ export function SandboxHeader({
           onClick={onRedo}
           disabled={!canRedo}
           aria-label="Redo"
+          aria-disabled={!canRedo}
           data-testid="redo-btn"
           className={`px-2 py-1 text-xs rounded border ${
             canRedo ? 'bg-white text-gray-700 border-gray-300' : 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed'
           }`}
+          title="Redo (Cmd/Ctrl+Shift+Z)"
         >
           ↷ Redo
         </button>
@@ -101,6 +105,7 @@ export function SandboxHeader({
             exporting ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-gray-700 border-gray-300'
           }`}
           aria-label="Export PNG"
+          aria-disabled={!!exporting}
           data-testid="export-png-btn"
           title="Export PNG"
         >

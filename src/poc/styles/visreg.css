@@ -1,0 +1,3 @@
+/* src/poc/styles/visreg.css */
+* { transition: none !important; animation: none !important; }
+[aria-live="polite"] { visibility: hidden !important; }

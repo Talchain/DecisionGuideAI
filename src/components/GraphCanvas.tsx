@@ -49,6 +49,19 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
   const [ghostPos, setGhostPos] = useState<{ x: number; y: number } | null>(null)
   const [selectedNode, setSelectedNode] = useState<string | null>(null)
   const [selectedEdgeKey, setSelectedEdgeKey] = useState<string | null>(null)
+  // Multi-select
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  // Group drag for multi-select
+  const [dragSel, setDragSel] = useState<{
+    anchorId: string
+    anchorFrom: { x: number; y: number }
+    offset: { dx: number; dy: number }
+    items: Array<{ id: string; from: { x: number; y: number } }>
+  } | null>(null)
+  const [dragDelta, setDragDelta] = useState<{ dx: number; dy: number } | null>(null)
+  // Marquee selection
+  const marqueeRef = useRef<null | { x0: number; y0: number; x1: number; y1: number }>(null)
+  const [, forceMarqueeTick] = useState(0)
 
   // Merge server nodes with local additions (PoC: if parent manages state, localEdits will be empty)
   const allNodes = [
@@ -80,10 +93,22 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
 
   const getSvgPoint = (e: React.MouseEvent | MouseEvent) => {
     const svg = svgRef.current
+    const cx = 'clientX' in e ? e.clientX : 0
+    const cy = 'clientY' in e ? e.clientY : 0
+    if (svg && 'createSVGPoint' in svg) {
+      try {
+        const pt = (svg as any).createSVGPoint()
+        pt.x = cx; pt.y = cy
+        const m = (svg as any).getScreenCTM()
+        if (m && (m as any).inverse) {
+          const inv = m.inverse()
+          const { x, y } = pt.matrixTransform(inv)
+          return { x, y }
+        }
+      } catch {}
+    }
     const rect = svg?.getBoundingClientRect()
-    const x = 'clientX' in e ? e.clientX : 0
-    const y = 'clientY' in e ? e.clientY : 0
-    return { x: rect ? x - rect.left : 0, y: rect ? y - rect.top : 0 }
+    return { x: rect ? cx - rect.left : 0, y: rect ? cy - rect.top : 0 }
   }
 
   const addNode = useCallback(() => {
@@ -101,7 +126,7 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
     setEditingNode(null)
   }, [onOp])
 
-  const handleNodeClick = (nodeId: string) => {
+  const handleNodeClick = (e: React.MouseEvent, nodeId: string) => {
     if (mode === 'connect') {
       if (!connectFrom) {
         setConnectFrom(nodeId)
@@ -112,8 +137,19 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
         setMode('view')
       }
     } else {
-      // select node in view mode
-      setSelectedNode(nodeId)
+      // Multi-select with Shift; single-select otherwise
+      if (e.shiftKey) {
+        setSelectedIds(prev => {
+          const next = new Set(prev)
+          if (next.has(nodeId)) next.delete(nodeId)
+          else next.add(nodeId)
+          return next
+        })
+        setSelectedNode(null)
+      } else {
+        setSelectedIds(new Set([nodeId]))
+        setSelectedNode(nodeId)
+      }
       setSelectedEdgeKey(null)
     }
   }
@@ -124,11 +160,39 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
   }
 
   const onNodeMouseDown = (node: { id: string; x?: number; y?: number }) => (e: React.MouseEvent) => {
+    if (mode === 'connect') return
+    e.stopPropagation()
     const p = getSvgPoint(e)
     const nx = node.x ?? 0
     const ny = node.y ?? 0
-    setDragging({ id: node.id, from: { x: nx, y: ny }, offset: { dx: p.x - nx, dy: p.y - ny } })
+    // Determine selection set for drag (fallback to this node)
+    const ids = new Set(selectedIds.size ? selectedIds : new Set<string>())
+    if (!e.shiftKey && !ids.has(node.id)) {
+      // Plain drag on an unselected node replaces selection
+      setSelectedIds(new Set([node.id]))
+      ids.clear(); ids.add(node.id)
+    } else if (!ids.has(node.id)) {
+      ids.add(node.id)
+    }
+    const items = nodePositions.filter(n => ids.has(n.id)).map(n => ({ id: n.id, from: { x: n.x!, y: n.y! } }))
+    if (items.length > 1) {
+      setDragSel({ anchorId: node.id, anchorFrom: { x: nx, y: ny }, offset: { dx: p.x - nx, dy: p.y - ny }, items })
+      setDragDelta({ dx: 0, dy: 0 })
+    } else {
+      setDragging({ id: node.id, from: { x: nx, y: ny }, offset: { dx: p.x - nx, dy: p.y - ny } })
+    }
   }
+
+  // Start marquee selection on empty-canvas mousedown (not in connect mode)
+  const onSvgMouseDown = useCallback((e: React.MouseEvent) => {
+    if (mode === 'connect') return
+    if (e.target !== e.currentTarget) return
+    const { x, y } = getSvgPoint(e)
+    marqueeRef.current = { x0: x, y0: y, x1: x, y1: y }
+    setSelectedNode(null)
+    setSelectedEdgeKey(null)
+    forceMarqueeTick(t => t + 1)
+  }, [mode])
 
   const onSvgMouseMove = useCallback((e: React.MouseEvent) => {
     const p = getSvgPoint(e)
@@ -137,20 +201,60 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
       const y = p.y - dragging.offset.dy
       setDragPos({ id: dragging.id, x, y })
     }
+    if (dragSel) {
+      const nx = p.x - dragSel.offset.dx
+      const ny = p.y - dragSel.offset.dy
+      setDragDelta({ dx: nx - dragSel.anchorFrom.x, dy: ny - dragSel.anchorFrom.y })
+    }
+    if (marqueeRef.current) {
+      marqueeRef.current.x1 = p.x
+      marqueeRef.current.y1 = p.y
+      forceMarqueeTick(t => t + 1)
+    }
     if (mode === 'connect' && connectFrom) {
       setGhostPos({ x: p.x, y: p.y })
     }
-  }, [dragging, mode, connectFrom])
+  }, [dragging, dragSel, mode, connectFrom])
 
   const onSvgMouseUp = useCallback(() => {
-    if (!dragging) return
-    const final = dragPos && dragPos.id === dragging.id ? { x: dragPos.x, y: dragPos.y } : dragging.from
-    if (final.x !== dragging.from.x || final.y !== dragging.from.y) {
-      onOp?.({ type: 'move', payload: { id: dragging.id, from: dragging.from, to: final } })
+    // Finalize group drag
+    if (dragSel) {
+      const dx = dragDelta?.dx ?? 0
+      const dy = dragDelta?.dy ?? 0
+      if (Math.abs(dx) + Math.abs(dy) > 0) {
+        const moves = dragSel.items.map(it => ({ id: it.id, from: it.from, to: { x: it.from.x + dx, y: it.from.y + dy } }))
+        onOp?.({ type: 'batchMove', payload: { moves } as any })
+      }
+      setDragSel(null)
+      setDragDelta(null)
     }
-    setDragging(null)
-    setDragPos(null)
-  }, [dragging, dragPos, onOp])
+    // Finalize single-node drag
+    if (dragging) {
+      const final = dragPos && dragPos.id === dragging.id ? { x: dragPos.x, y: dragPos.y } : dragging.from
+      if (final.x !== dragging.from.x || final.y !== dragging.from.y) {
+        onOp?.({ type: 'move', payload: { id: dragging.id, from: dragging.from, to: final } })
+      }
+      setDragging(null)
+      setDragPos(null)
+    }
+    // Finalize marquee
+    if (marqueeRef.current) {
+      const { x0, y0, x1, y1 } = marqueeRef.current
+      const rx = Math.min(x0, x1), ry = Math.min(y0, y1)
+      const rw = Math.abs(x1 - x0), rh = Math.abs(y1 - y0)
+      const hits: string[] = []
+      for (const n of nodePositions) {
+        const nx = n.x ?? 0, ny = n.y ?? 0
+        const w = 120, h = 40
+        const overlap = !(nx > rx + rw || nx + w < rx || ny > ry + rh || ny + h < ry)
+        if (overlap) hits.push(n.id)
+      }
+      setSelectedIds(new Set(hits))
+      setSelectedNode(hits.length === 1 ? hits[0] : null)
+      marqueeRef.current = null
+      forceMarqueeTick(t => t + 1)
+    }
+  }, [dragSel, dragDelta, dragging, dragPos, nodePositions, onOp])
 
   const onKeyDown = useCallback((e: React.KeyboardEvent) => {
     const target = e.target as HTMLElement
@@ -162,6 +266,7 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
       setConnectFrom(null)
       setGhostPos(null)
       e.preventDefault()
+      e.stopPropagation()
       return
     }
     // Esc cancels ghost/connect
@@ -169,14 +274,34 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
       setConnectFrom(null)
       setGhostPos(null)
       setMode('view')
+      setSelectedIds(new Set())
+      marqueeRef.current = null
+      setDragSel(null)
+      setDragDelta(null)
       e.preventDefault()
+      e.stopPropagation()
+      return
+    }
+    // Select All
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
+      setSelectedIds(new Set(allNodes.map(n => n.id)))
+      e.preventDefault()
+      e.stopPropagation()
       return
     }
     if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (selectedIds.size > 0) {
+        onOp?.({ type: 'batchRemove', payload: { nodeIds: Array.from(selectedIds) } as any })
+        setSelectedIds(new Set())
+        e.preventDefault()
+        e.stopPropagation()
+        return
+      }
       if (selectedNode) {
         onOp?.({ type: 'remove', payload: { kind: 'node', id: selectedNode } })
         setSelectedNode(null)
         e.preventDefault()
+        e.stopPropagation()
         return
       }
       if (selectedEdgeKey) {
@@ -185,11 +310,12 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
           onOp?.({ type: 'disconnect', payload: { id: (match as any).id, from: match.from as any, to: match.to as any } })
           setSelectedEdgeKey(null)
           e.preventDefault()
+          e.stopPropagation()
           return
         }
       }
     }
-  }, [selectedNode, selectedEdgeKey, allEdges, onOp])
+  }, [selectedIds, selectedNode, selectedEdgeKey, allEdges, allNodes, onOp])
 
   return (
     <div
@@ -249,10 +375,17 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
           width="600"
           height={Math.max(300, Math.ceil(allNodes.length / 3) * 120 + 80)}
           style={{ border: '1px solid #e5e7eb', borderRadius: '4px' }}
+          onMouseDown={onSvgMouseDown}
           onMouseMove={onSvgMouseMove}
           onMouseUp={onSvgMouseUp}
           data-testid="whiteboard-canvas"
         >
+          {/* Selection glow filter (no layout shift) */}
+          <defs>
+            <filter id="nodeGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="0" stdDeviation="2" floodColor="#6366f1" floodOpacity="0.9" />
+            </filter>
+          </defs>
           {/* Arrow marker */}
           <defs>
             <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
@@ -321,14 +454,37 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
             )
           })()}
 
+          {/* Marquee rectangle */}
+          {marqueeRef.current && (() => {
+            const { x0, y0, x1, y1 } = marqueeRef.current!
+            const x = Math.min(x0, x1)
+            const y = Math.min(y0, y1)
+            const w = Math.abs(x1 - x0)
+            const h = Math.abs(y1 - y0)
+            return (
+              <rect
+                data-testid="marquee-rect"
+                x={x}
+                y={y}
+                width={w}
+                height={h}
+                fill="rgba(99,102,241,0.08)"
+                stroke="rgba(99,102,241,0.6)"
+                strokeDasharray="4 3"
+              />
+            )
+          })()}
+
           {/* Nodes */}
           {nodePositions.map((node) => {
             const isDragging = dragPos && dragPos.id === node.id
-            const nx = isDragging ? dragPos!.x : node.x
-            const ny = isDragging ? dragPos!.y : node.y
-            const isSelected = selectedNode === node.id
+            const selected = selectedIds.has(node.id) || selectedNode === node.id
+            const dx = (dragSel && selectedIds.has(node.id) ? (dragDelta?.dx ?? 0) : 0)
+            const dy = (dragSel && selectedIds.has(node.id) ? (dragDelta?.dy ?? 0) : 0)
+            const nx = isDragging ? dragPos!.x : ((node.x ?? 0) + dx)
+            const ny = isDragging ? dragPos!.y : ((node.y ?? 0) + dy)
             return (
-            <g key={node.id} data-testid="graph-node" data-node-id={node.id} data-selected={isSelected ? '1' : undefined}>
+            <g key={node.id} data-testid="graph-node" data-node-id={node.id} aria-selected={selected ? 'true' : undefined}>
               <rect
                 x={nx}
                 y={ny}
@@ -336,11 +492,12 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
                 height="40"
                 rx="8"
                 fill={connectFrom === node.id ? '#10b981' : '#f8f8f8'}
-                stroke={isSelected ? '#6366f1' : (connectFrom === node.id ? '#10b981' : '#d1d5db')}
-                strokeWidth={isSelected ? 3 : 2}
+                stroke={connectFrom === node.id ? '#10b981' : '#d1d5db'}
+                strokeWidth={2}
+                filter={selected ? 'url(#nodeGlow)' : undefined}
                 style={{ cursor: 'pointer' }}
                 onMouseDown={onNodeMouseDown(node)}
-                onClick={() => handleNodeClick(node.id)}
+                onClick={(e) => handleNodeClick(e, node.id)}
               />
               {editingNode === node.id ? (
                 <foreignObject x={nx} y={ny} width="120" height="40">
@@ -372,7 +529,7 @@ export default function GraphCanvas({ nodes, edges, localEdits, onEditsChange: _
                   fill={connectFrom === node.id ? '#fff' : '#000'}
                   textAnchor="middle"
                   style={{ cursor: 'pointer', userSelect: 'none' }}
-                  onClick={() => handleNodeClick(node.id)}
+                  onClick={(e) => handleNodeClick(e, node.id)}
                   onDoubleClick={() => startRename(node.id, node.label)}
                 >
                   {node.label.length > 15 ? node.label.slice(0, 15) + '...' : node.label}

@@ -16,6 +16,7 @@ import OnboardingHints from './components/OnboardingHints'
 import { exportCanvas, formatSandboxPngName } from './export/exportCanvas'
 import { isTypingTarget } from './utils/inputGuards'
 import { initialHistory, push, doUndo, doRedo, type History as SamHistory, type SamState, type Op } from './state/history'
+import { validateState } from './io/validate'
 import { loadState, saveState, clearState } from './state/persist'
 import './styles/focus.css'
 import './styles/onboarding.css'
@@ -86,55 +87,24 @@ export default function AppPoC() {
 
   // JSON export handler is defined below after history state
 
+  // Superseded by Ajv; normalize into internal SamState shape
   const validateImport = (obj: any): SamState | null => {
+    const r = validateState(obj)
+    if (!r.ok || !r.data) return null
     try {
-      if (!obj || typeof obj !== 'object') return null
-      if (obj.schemaVersion !== 1 && obj.schemaVersion !== undefined) return null
-      const nodes = Array.isArray(obj.nodes) ? obj.nodes : null
-      const edges = Array.isArray(obj.edges) ? obj.edges : null
-      const renames = obj.renames && typeof obj.renames === 'object' ? obj.renames : {}
-      if (!nodes || !edges) return null
-      return { nodes: nodes as any, edges: edges as any, renames }
-    } catch { return null }
+      const src: any = r.data
+      const nodes = Array.isArray(src.nodes) ? src.nodes.map((n: any) => ({ id: String(n.id), x: Number(n.x ?? 0), y: Number(n.y ?? 0), label: n.label })) : []
+      const edges = Array.isArray(src.edges) ? src.edges.map((e: any) => ({ id: e.id, from: String(e.from), to: String(e.to), label: e.label })) : []
+      const renames = (src.renames && typeof src.renames === 'object') ? src.renames as Record<string, string> : {}
+      return { nodes, edges, renames }
+    } catch {
+      return null
+    }
   }
 
   // Hidden input used for import JSON (stable for E2E)
   const importInputRef = useRef<HTMLInputElement | null>(null)
 
-  const onImportInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const input = e.currentTarget
-    const f = input.files && input.files[0]
-    if (!f) return
-    try {
-      const text = await f.text()
-      const parsed = JSON.parse(text)
-      const valid = validateImport(parsed)
-      if (!valid) throw new Error('Invalid JSON schema')
-      setHist(initialHistory(valid))
-      try { saveState(valid) } catch {}
-      setExportStatus('✓ JSON imported')
-      window.setTimeout(() => setExportStatus(''), 3000)
-    } catch (err) {
-      console.error('Import JSON failed', err)
-      setExportStatus('✗ Import JSON failed')
-      window.setTimeout(() => setExportStatus(''), 5000)
-    } finally {
-      input.value = ''
-    }
-  }, [])
-
-  const importJSON = useCallback(async () => {
-    try {
-      const input = importInputRef.current
-      if (!input) throw new Error('Import input missing')
-      input.value = ''
-      input.click()
-    } catch (e) {
-      console.error('Import JSON failed (setup)', e)
-      setExportStatus('✗ Import JSON failed')
-      window.setTimeout(() => setExportStatus(''), 5000)
-    }
-  }, [])
 
   // Keyboard shortcuts: Cmd/Ctrl+Z (undo), Cmd/Ctrl+Shift+Z (redo)
   useEffect(() => {
@@ -178,6 +148,61 @@ export default function AppPoC() {
   const [sseStopFn, setSseStopFn] = useState<(() => void) | null>(null)
   const [exporting, setExporting] = useState(false)
   const [exportStatus, setExportStatus] = useState<string>('')
+  // P0: Deduplicate aria-live banners — single announcer with timer
+  const bannerTimerRef = useRef<number | null>(null)
+  const lastBannerRef = useRef<string>('')
+  const announce = useCallback((msg: string, ms = 3000) => {
+    if (msg === lastBannerRef.current && exportStatus) {
+      // same message currently shown — restart timer only
+      if (bannerTimerRef.current) window.clearTimeout(bannerTimerRef.current)
+      bannerTimerRef.current = window.setTimeout(() => setExportStatus(''), ms)
+      return
+    }
+    lastBannerRef.current = msg
+    setExportStatus(msg)
+    if (bannerTimerRef.current) window.clearTimeout(bannerTimerRef.current)
+    bannerTimerRef.current = window.setTimeout(() => setExportStatus(''), ms)
+  }, [exportStatus])
+
+  // Cleanup: clear banner timeout on unmount to avoid dangling timers
+  useEffect(() => {
+    return () => {
+      if (bannerTimerRef.current) window.clearTimeout(bannerTimerRef.current)
+    }
+  }, [])
+  // Now that announce is defined, declare import handlers
+  // P0: Import JSON handler — accepts {schemaVersion:1,...}, validates, strips schemaVersion into internal state
+  const onImportInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.currentTarget
+    const f = input.files && input.files[0]
+    if (!f) return
+    try {
+      const text = await f.text()
+      const parsed = JSON.parse(text)
+      const valid = validateImport(parsed)
+      if (!valid) throw new Error('Invalid JSON schema')
+      setHist(initialHistory(valid))
+      try { saveState(valid) } catch {}
+      announce('✓ JSON imported', 3000)
+    } catch (err) {
+      console.error('Import JSON failed', err)
+      announce('✗ Import JSON failed', 5000)
+    } finally {
+      input.value = ''
+    }
+  }, [announce])
+
+  const importJSON = useCallback(async () => {
+    try {
+      const input = importInputRef.current
+      if (!input) throw new Error('Import input missing')
+      input.value = ''
+      input.click()
+    } catch (e) {
+      console.error('Import JSON failed (setup)', e)
+      announce('✗ Import JSON failed', 5000)
+    }
+  }, [announce])
   const [helpOpen, setHelpOpen] = useState<boolean>(() => {
     try { return localStorage.getItem('sandbox.help.open') === '1' } catch { return false }
   })
@@ -374,14 +399,12 @@ export default function AppPoC() {
       a.click()
       a.remove()
       URL.revokeObjectURL(url)
-      setExportStatus('✓ JSON exported')
-      window.setTimeout(() => setExportStatus(''), 3000)
+      announce('✓ JSON exported', 3000)
     } catch (e) {
       console.error('Export JSON failed', e)
-      setExportStatus('✗ Export JSON failed')
-      window.setTimeout(() => setExportStatus(''), 5000)
+      announce('✗ Export JSON failed', 5000)
     }
-  }, [hist.present])
+  }, [hist.present, announce])
 
   // POC: Main sandbox content component
   const MainSandboxContent = () => (
@@ -423,12 +446,10 @@ export default function AppPoC() {
             a.click()
             a.remove()
             URL.revokeObjectURL(url)
-            setExportStatus('✓ Export successful')
-            window.setTimeout(() => setExportStatus(''), 3000)
+            announce('✓ Export successful', 3000)
           } catch (e) {
             console.error('Export PNG failed', e)
-            setExportStatus('✗ Export failed')
-            window.setTimeout(() => setExportStatus(''), 5000)
+            announce('✗ Export failed', 5000)
           } finally {
             setExporting(false)
           }

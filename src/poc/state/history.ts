@@ -32,6 +32,9 @@ export type Op =
   | { type: 'edit'; payload: { id: Id; from?: string; to?: string } }
   | { type: 'connect'; payload: { edge: SamEdge } }
   | { type: 'disconnect'; payload: { id?: Id; from?: Id; to?: Id } }
+  | { type: 'batchMove'; payload: { moves: Array<{ id: Id; from: { x: number; y: number }; to: { x: number; y: number } }> } }
+  | { type: 'batchRemove'; payload: { nodeIds?: Id[]; nodes?: SamNode[] } }
+  | { type: 'batchRestore'; payload: { nodes: SamNode[]; edges: SamEdge[] } }
 
 export interface Pair { forward: Op; inverse: Op }
 
@@ -42,6 +45,7 @@ export interface History {
   cap: number
   meta?: {
     lastMove?: { id: Id; at: number }
+    lastBatchMove?: { ids: Id[]; at: number }
   }
 }
 
@@ -100,6 +104,36 @@ export function applyOp(state: SamState, op: Op): SamState {
         s.edges = s.edges.filter(e => !(e.from === op.payload.from && e.to === op.payload.to))
       }
       return s
+    case 'batchMove': {
+      const map = new Map<string, { x: number; y: number }>()
+      for (const m of op.payload.moves) map.set(m.id, m.to)
+      s.nodes = s.nodes.map(n => (map.has(n.id) ? { ...n, x: map.get(n.id)!.x, y: map.get(n.id)!.y } : n))
+      return s
+    }
+    case 'batchRemove': {
+      if (op.payload.nodes && (!op.payload.nodeIds || op.payload.nodeIds.length === 0)) {
+        // restore nodes
+        const addIds = new Set(op.payload.nodes.map(n => n.id))
+        const filtered = s.nodes.filter(n => !addIds.has(n.id))
+        s.nodes = [...filtered, ...op.payload.nodes.map(n => ({ ...n }))]
+        return s
+      }
+      const ids = new Set(op.payload.nodeIds || [])
+      if (ids.size === 0) return s
+      s.nodes = s.nodes.filter(n => !ids.has(n.id))
+      s.edges = s.edges.filter(e => !ids.has(e.from) && !ids.has(e.to))
+      return s
+    }
+    case 'batchRestore': {
+      // PoC: naive restore (no dedupe beyond IDs)
+      const restoredNodes = op.payload.nodes.map(n => ({ ...n }))
+      const restoredEdges = op.payload.edges.map(e => ({ ...e }))
+      // Remove any existing with same IDs then append
+      const restoreIds = new Set(restoredNodes.map(n => n.id))
+      s.nodes = [...s.nodes.filter(n => !restoreIds.has(n.id)), ...restoredNodes]
+      s.edges = [...s.edges, ...restoredEdges]
+      return s
+    }
   }
 }
 
@@ -138,6 +172,29 @@ export function inverse(op: Op, prev: SamState): Op {
         ? { type: 'connect', payload: { edge: { ...edge } } }
         : op
     }
+    case 'batchMove': {
+      const invMoves = op.payload.moves.map(m => ({ id: m.id, from: m.to, to: m.from }))
+      return { type: 'batchMove', payload: { moves: invMoves } }
+    }
+    case 'batchRemove': {
+      if (op.payload.nodeIds && (!op.payload.nodes || op.payload.nodes.length === 0)) {
+        const ids = new Set(op.payload.nodeIds)
+        const nodes = prev.nodes.filter(n => ids.has(n.id)).map(n => ({ ...n }))
+        // P0: restore only edges whose BOTH endpoints were removed to avoid orphan edges on undo
+        const edges = prev.edges.filter(e => ids.has(e.from) && ids.has(e.to)).map(e => ({ ...e }))
+        return { type: 'batchRestore', payload: { nodes, edges } }
+      } else if (op.payload.nodes && (!op.payload.nodeIds || op.payload.nodeIds.length === 0)) {
+        // Back-compat: inverse of restore variant is a remove
+        const nodeIds = op.payload.nodes.map(n => n.id)
+        return { type: 'batchRemove', payload: { nodeIds } }
+      }
+      return op
+    }
+    case 'batchRestore': {
+      // Inverse of restore is a remove of these node IDs
+      const nodeIds = op.payload.nodes.map(n => n.id)
+      return { type: 'batchRemove', payload: { nodeIds } }
+    }
   }
 }
 
@@ -147,13 +204,12 @@ export function canRedo(h: History): boolean { return h.redo.length > 0 }
 export function push(h: History, forward: Op): History {
   const now = Date.now()
 
-  // Coalesce rapid successive move ops on the same node into one
+  // 1) Coalesce single-node move within 500ms
   if (forward.type === 'move' && h.undo.length > 0) {
     const last = h.undo[h.undo.length - 1]
     if (last.forward.type === 'move' && last.forward.payload.id === forward.payload.id) {
-      const within = (h.meta?.lastMove && (now - h.meta.lastMove.at) <= 500)
+      const within = !!h.meta?.lastMove && (now - (h.meta!.lastMove!.at)) <= 500
       if (within) {
-        // Merge: from stays as the original last.from; to becomes the new forward.to
         const mergedForward: Op = {
           type: 'move',
           payload: { id: forward.payload.id, from: last.forward.payload.from, to: forward.payload.to }
@@ -161,23 +217,59 @@ export function push(h: History, forward: Op): History {
         const mergedInverse = inverse(mergedForward, h.present)
         const mergedPair: Pair = { forward: mergedForward, inverse: mergedInverse }
         const undoPrefix = h.undo.slice(0, -1)
-        const nextPresentMerged = applyOp(h.present, mergedForward)
-        const nextUndoMerged = [...undoPrefix, mergedPair]
-        const cappedUndoMerged = nextUndoMerged.length > h.cap ? nextUndoMerged.slice(nextUndoMerged.length - h.cap) : nextUndoMerged
-        return { present: nextPresentMerged, undo: cappedUndoMerged, redo: [], cap: h.cap, meta: { ...h.meta, lastMove: { id: forward.payload.id, at: now } } }
+        const nextPresent = applyOp(h.present, mergedForward)
+        const nextUndo = [...undoPrefix, mergedPair]
+        const cappedUndo = nextUndo.length > h.cap ? nextUndo.slice(nextUndo.length - h.cap) : nextUndo
+        const meta = { ...(h.meta || {}), lastMove: { id: forward.payload.id, at: now }, lastBatchMove: undefined as any }
+        return { present: nextPresent, undo: cappedUndo, redo: [], cap: h.cap, meta }
       }
     }
   }
 
+  // 2) Coalesce batchMove within 500ms for identical selection set
+  if (forward.type === 'batchMove' && h.undo.length > 0) {
+    const last = h.undo[h.undo.length - 1]
+    if (last.forward.type === 'batchMove') {
+      const lastIds = last.forward.payload.moves.map(m => m.id).sort()
+      const curIds = forward.payload.moves.map(m => m.id).sort()
+      const sameSet = lastIds.length === curIds.length && lastIds.every((v, i) => v === curIds[i])
+      const within = !!h.meta?.lastBatchMove && (now - (h.meta!.lastBatchMove!.at)) <= 500
+      if (sameSet && within) {
+        const fromMap = new Map<string, { x: number; y: number }>()
+        for (const m of last.forward.payload.moves) fromMap.set(m.id, m.from)
+        const mergedMoves = forward.payload.moves.map(m => ({ id: m.id, from: fromMap.get(m.id) || m.from, to: m.to }))
+        const mergedForward: Op = { type: 'batchMove', payload: { moves: mergedMoves } }
+        const mergedInverse = inverse(mergedForward, h.present)
+        const mergedPair: Pair = { forward: mergedForward, inverse: mergedInverse }
+        const undoPrefix = h.undo.slice(0, -1)
+        const nextPresent = applyOp(h.present, mergedForward)
+        const nextUndo = [...undoPrefix, mergedPair]
+        const cappedUndo = nextUndo.length > h.cap ? nextUndo.slice(nextUndo.length - h.cap) : nextUndo
+        const meta = { ...(h.meta || {}), lastMove: undefined as any, lastBatchMove: { ids: curIds, at: now } }
+        return { present: nextPresent, undo: cappedUndo, redo: [], cap: h.cap, meta }
+      }
+    }
+  }
+
+  // 3) Default: compute inverse, apply, push new frame, clear redo, cap, update meta
   const inv = inverse(forward, h.present)
   const nextPresent = applyOp(h.present, forward)
   const pair: Pair = { forward, inverse: inv }
   const nextUndo = [...h.undo, pair]
   const cappedUndo = nextUndo.length > h.cap ? nextUndo.slice(nextUndo.length - h.cap) : nextUndo
-  const nextMeta = forward.type === 'move' ? { ...h.meta, lastMove: { id: forward.payload.id, at: now } } : { ...h.meta, lastMove: undefined }
-  return { present: nextPresent, undo: cappedUndo, redo: [], cap: h.cap, meta: nextMeta }
+  const meta = { ...(h.meta || {}) } as any
+  if (forward.type === 'move') {
+    meta.lastMove = { id: forward.payload.id, at: now }
+    meta.lastBatchMove = undefined
+  } else if (forward.type === 'batchMove') {
+    meta.lastMove = undefined
+    meta.lastBatchMove = { ids: forward.payload.moves.map(m => m.id).sort(), at: now }
+  } else {
+    meta.lastMove = undefined
+    meta.lastBatchMove = undefined
+  }
+  return { present: nextPresent, undo: cappedUndo, redo: [], cap: h.cap, meta }
 }
-
 export function doUndo(h: History): History {
   if (!canUndo(h)) return h
   const pair = h.undo[h.undo.length - 1]
