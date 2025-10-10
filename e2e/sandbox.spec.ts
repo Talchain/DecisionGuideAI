@@ -235,6 +235,8 @@ test('Keyboard-only start and status chip focus at terminal', async ({ page }) =
   await waitForPanel(page)
   await page.keyboard.press('Tab') // focus Start
   await page.keyboard.press('Enter')
+  // Wait for the fake SSE to be created before interacting
+  await page.waitForFunction(() => (window as any).FakeEventSource?.instances?.length >= 1)
   await page.evaluate(() => { const es = (window as any).FakeEventSource.instances[0]; es.emit('open'); es.emit('done') })
   await page.waitForTimeout(10)
   await expect(page.getByTestId('status-chip')).toBeFocused()

@@ -76,9 +76,12 @@ test('drag → undo/redo returns to precise coords; typing guard prevents undo w
   const sbox = await svg.boundingBox()
   if (!rbox || !sbox) throw new Error('missing boxes')
 
-  await page.mouse.move(rbox.x + rbox.width / 2, rbox.y + rbox.height / 2)
+  // Start inside rect (avoid centered label interception) and pause after down
+  const startX = rbox.x + 10
+  const startY = rbox.y + 10
+  await page.mouse.move(startX, startY)
   await mouseDownStable(page)
-  await page.mouse.move(rbox.x + rbox.width / 2 + 30, rbox.y + rbox.height / 2 + 20)
+  await page.mouse.move(startX + 30, startY + 20)
   await page.mouse.up()
 
   const after = await getRectXY(rect)
