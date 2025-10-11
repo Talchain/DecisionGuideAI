@@ -12,6 +12,7 @@ function plcRects(page: import('@playwright/test').Page) {
 }
 
 test('PLC Snap-to-Grid: off vs on changes coordinates; undo/redo restores', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('PLC_ENABLED', '1') } catch {} })
   await page.goto(ROUTE, { waitUntil: 'domcontentloaded' })
   const canvas = page.getByTestId('plc-whiteboard')
   await canvas.waitFor({ state: 'visible' })

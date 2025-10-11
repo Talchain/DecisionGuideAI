@@ -14,6 +14,7 @@ function plcRects(page: import('@playwright/test').Page) {
 }
 
 test('PLC VisReg: empty, two nodes, selection', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('PLC_ENABLED', '1') } catch {} })
   await page.goto(ROUTE, { waitUntil: 'domcontentloaded' })
   await injectVisregCSS(page)
 

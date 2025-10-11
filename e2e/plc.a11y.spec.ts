@@ -4,6 +4,7 @@ import AxeBuilder from '@axe-core/playwright'
 const ROUTE = process.env.E2E_ROUTE ?? '/?e2e=1#/plc'
 
 test('PLC A11y: axe serious violations = 0', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('PLC_ENABLED', '1') } catch {} })
   await page.goto(ROUTE, { waitUntil: 'domcontentloaded' })
   await page.getByTestId('plc-whiteboard').waitFor({ state: 'visible' })
 

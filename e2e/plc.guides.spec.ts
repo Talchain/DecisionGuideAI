@@ -15,6 +15,7 @@ function plcRects(page: import('@playwright/test').Page) {
 // Acceptance: guide lines render; node snaps to guide; undo/redo is one frame
 
 test('PLC Guides: render lines and snap within tolerance; undo/redo single frame', async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem('PLC_ENABLED', '1') } catch {} })
   await page.goto(ROUTE, { waitUntil: 'domcontentloaded' })
   const canvas = page.getByTestId('plc-whiteboard')
   await canvas.waitFor({ state: 'visible' })
