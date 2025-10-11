@@ -6,6 +6,17 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 const root = document.getElementById('root')!
+// PLC: Dedicated route independent of PoC surfaces
+const isPlc = location.hash.startsWith('#/plc')
+const plcEnabled = (() => {
+  try {
+    const qs = new URLSearchParams(location.search)
+    if (qs.get('plc') === '1' || qs.get('dev') === '1' || qs.get('e2e') === '1') return true
+    return localStorage.getItem('PLC_ENABLED') === '1'
+  } catch {
+    return false
+  }
+})()
 // POC: Boot full app for /plot, /sandbox, and /sandbox-v1
 const forceSandbox = 
   location.hash.startsWith('#/plot') ||
@@ -21,7 +32,34 @@ const isPoc =
 // POC: Signal HTML failsafe immediately
 try { (window as any).__APP_MOUNTED__?.() } catch {}
 
-if (isPoc) {
+if (isPlc && plcEnabled) {
+  ;(async () => {
+    try {
+      const { default: PlcLab } = await import('./routes/PlcLab')
+      const reactRoot = createRoot(root)
+      reactRoot.render(
+        <StrictMode>
+          <PlcLab />
+        </StrictMode>
+      )
+    } catch (e) {
+      console.error('PLC: Failed to load PlcLab', e)
+      root.innerHTML = `
+        <div style="padding:20px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial">
+          <h2 style="margin:0 0 12px 0;color:#991b1b">PLC UI Failed to Load</h2>
+          <p>Error: ${String(e)}</p>
+        </div>
+      `
+    }
+  })()
+} else if (isPlc) {
+  root.innerHTML = `
+    <div style="padding:20px;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial">
+      <h2 style="margin:0 0 12px 0">PLC Lab</h2>
+      <p>PLC is disabled. Enable via <code>localStorage.PLC_ENABLED = '1'</code> or add <code>?dev=1</code> to the URL.</p>
+    </div>
+  `
+} else if (isPoc) {
   // POC: Load full PoC UI (no auth, no Supabase)
   ;(async () => {
     try {
