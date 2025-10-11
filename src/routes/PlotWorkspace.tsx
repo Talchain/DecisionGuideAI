@@ -1,7 +1,8 @@
 // src/routes/PlotWorkspace.tsx
 // Unified canvas workspace - whiteboard as background, graph overlay, shared camera
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { toCanvas, toWorld, viewportCenterWorld } from '../utils/cameraMath'
 import { fetchFlow, loadFixture } from '../lib/pocEngine'
 import { CameraProvider, useCamera } from '../components/PlotCamera'
 import WhiteboardCanvas, { type DrawPath } from '../components/WhiteboardCanvas'
@@ -20,6 +21,8 @@ type StickyNote = { id: string; x: number; y: number; text: string; color: strin
 // Inner component that has access to camera
 function PlotWorkspaceInner() {
   const { camera, setCamera } = useCamera()
+  const containerRef = useRef<HTMLDivElement>(null)
+  const createNoteTimeoutRef = useRef<number | null>(null)
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false)
   const [initializationComplete, setInitializationComplete] = useState(false)
   
@@ -34,7 +37,6 @@ function PlotWorkspaceInner() {
   const [template, setTemplate] = useState('pricing_change')
   const [seed, setSeed] = useState(101)
   const [flowResult, setFlowResult] = useState<any>(null)
-  const [_flowError, setFlowError] = useState<string>('')
   const [isLiveData, setIsLiveData] = useState(false)
   
   // Graph
@@ -51,7 +53,8 @@ function PlotWorkspaceInner() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [editingNoteText, setEditingNoteText] = useState('')
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null)
-  const [, setNoteDragOffset] = useState({ x: 0, y: 0 })
+  const [noteDragOffset, setNoteDragOffset] = useState({ dx: 0, dy: 0 })
+  const creatingNoteRef = useRef(false)
   
   // Biases
   const [biases, setBiases] = useState<any[]>([])
@@ -171,7 +174,6 @@ function PlotWorkspaceInner() {
 
   // Run flow - live first, fixture fallback
   const runFlow = async () => {
-    setFlowError('')
     const result = await fetchFlow({ edge, template, seed })
     
     const hasValidData = result.ok && result.data && (result.data.results || result.data.graph)
@@ -185,7 +187,6 @@ function PlotWorkspaceInner() {
         setEdges(result.data.graph.edges || [])
       }
       if (result.data.biases?.length > 0) {
-        setBiases(result.data.biases)
         setBiasesSource('live')
       }
     } else {
@@ -198,11 +199,9 @@ function PlotWorkspaceInner() {
           setNodes(fixture.graph.nodes || [])
           setEdges(fixture.graph.edges || [])
         }
-        setFlowError('Using demo data (live engine unavailable)')
       }
     }
   }
-
   // Handle tool change
   const handleToolChange = useCallback((tool: Tool) => {
     setCurrentTool(tool)
@@ -214,17 +213,13 @@ function PlotWorkspaceInner() {
 
   // Handle add node at viewport center
   const handleAddNode = useCallback((type: NodeType) => {
-    // Calculate viewport center in world coordinates
-    const viewportCenterX = window.innerWidth / 2
-    const viewportCenterY = window.innerHeight / 2
-    const worldX = (viewportCenterX - camera.x) / camera.zoom
-    const worldY = (viewportCenterY - camera.y) / camera.zoom
-
+    const rect = containerRef.current?.getBoundingClientRect() || null
+    const center = viewportCenterWorld(rect, camera)
     const newNode: Node = {
       id: `node_${Date.now()}`,
       label: `New ${type}`,
-      x: worldX,
-      y: worldY,
+      x: center.x,
+      y: center.y,
       type
     }
     setNodes(prev => [...prev, newNode])
@@ -233,13 +228,13 @@ function PlotWorkspaceInner() {
 
   // Handle add note at viewport center
   const handleAddNote = useCallback(() => {
-    // Calculate viewport center in world coordinates
-    const canvasRect = { width: window.innerWidth, height: window.innerHeight }
-    const viewCenterScreen = { x: canvasRect.width / 2, y: canvasRect.height / 2 }
-    const viewCenterWorld = {
-      x: (viewCenterScreen.x - camera.x) / camera.zoom,
-      y: (viewCenterScreen.y - camera.y) / camera.zoom
-    }
+    // Debounce creation to avoid double-fires from key repeat or rapid clicks
+    if ((creatingNoteRef as React.MutableRefObject<boolean>).current) return
+    (creatingNoteRef as React.MutableRefObject<boolean>).current = true
+
+    // Calculate viewport center using the workspace container rect
+    const rect = containerRef.current?.getBoundingClientRect() || null
+    const viewCenterWorld = viewportCenterWorld(rect, camera)
 
     const noteColors = ['#fef3c7', '#fde68a', '#fed7aa', '#fecaca', '#ddd6fe']
     const newNote: StickyNote = {
@@ -249,13 +244,29 @@ function PlotWorkspaceInner() {
       text: 'New note',
       color: noteColors[Math.floor(Math.random() * noteColors.length)]
     }
-    
+
     setStickyNotes(prev => [...prev, newNote])
     setSelectedNoteId(newNote.id)
     // Start editing immediately
     setEditingNoteId(newNote.id)
     setEditingNoteText(newNote.text)
+
+    // Release guard shortly after
+    createNoteTimeoutRef.current = window.setTimeout(() => {
+      (creatingNoteRef as React.MutableRefObject<boolean>).current = false
+      createNoteTimeoutRef.current = null
+    }, 150)
   }, [camera])
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (createNoteTimeoutRef.current) {
+        clearTimeout(createNoteTimeoutRef.current)
+        createNoteTimeoutRef.current = null
+      }
+    }
+  }, [])
 
   // Handle node click
   const handleNodeClick = useCallback((node: Node) => {
@@ -353,9 +364,11 @@ function PlotWorkspaceInner() {
         setCurrentTool('connect')
         setConnectSourceId(null) // Start fresh
       } else if (e.key === 'n' || e.key === 'N') {
+        if ((e as any).repeat) return
         handleAddNode('decision')
         setConnectSourceId(null) // Clear connect state
       } else if (e.key === 'm' || e.key === 'M') {
+        if ((e as any).repeat) return
         handleAddNote()
         setConnectSourceId(null) // Clear connect state
       } else if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -371,6 +384,10 @@ function PlotWorkspaceInner() {
         if (editingNodeId) {
           // Cancel rename in progress
           handleCancelRename()
+        } else if (editingNoteId) {
+          // Cancel note editing without saving changes
+          setEditingNoteId(null)
+          setEditingNoteText('')
         } else if (showShortcuts) {
           setShowShortcuts(false)
         } else if (connectSourceId) {
@@ -397,13 +414,14 @@ function PlotWorkspaceInner() {
     const handleMouseMove = (e: MouseEvent) => {
       e.preventDefault()
       
-      // Convert screen position to world coordinates
-      const worldX = (e.clientX - camera.x) / camera.zoom
-      const worldY = (e.clientY - camera.y) / camera.zoom
+      // Convert screen position to world coordinates using container rect
+      const rect = containerRef.current?.getBoundingClientRect() || null
+      const { x: cx, y: cy } = toCanvas(e.clientX, e.clientY, rect)
+      const { x: wx, y: wy } = toWorld(cx, cy, camera)
       
       setStickyNotes(prev => prev.map(n =>
         n.id === draggingNoteId
-          ? { ...n, x: worldX, y: worldY }
+          ? { ...n, x: wx - noteDragOffset.dx, y: wy - noteDragOffset.dy }
           : n
       ))
     }
@@ -467,7 +485,7 @@ function PlotWorkspaceInner() {
       </div>
 
       {/* Canvas Workspace */}
-      <div className="flex-1 relative overflow-hidden">
+      <div ref={containerRef} className="flex-1 relative overflow-hidden">
         {/* Layer 0: Whiteboard background */}
         <WhiteboardCanvas 
           initialPaths={whiteboardPaths}
@@ -503,7 +521,7 @@ function PlotWorkspaceInner() {
         />
 
         {/* Top controls bar */}
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20">
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
           <div className="bg-white rounded-lg shadow-lg border border-gray-200 px-4 py-2 flex items-center gap-4">
             <div className="flex items-center gap-2">
               <label className="text-xs font-medium text-gray-700">Template:</label>
@@ -566,6 +584,7 @@ function PlotWorkspaceInner() {
             <div
               key={note.id}
               className="absolute z-30 cursor-move"
+              data-testid="sticky-note"
               style={{
                 left: screenX - 75,
                 top: screenY - 60,
@@ -578,11 +597,11 @@ function PlotWorkspaceInner() {
                 setSelectedNoteId(note.id)
                 setDraggingNoteId(note.id)
                 
-                // Calculate drag offset in world coordinates
-                const rect = e.currentTarget.getBoundingClientRect()
-                const canvasX = e.clientX - rect.left
-                const canvasY = e.clientY - rect.top
-                setNoteDragOffset({ x: canvasX, y: canvasY })
+                // Calculate drag offset in world coordinates using container rect
+                const rect = containerRef.current?.getBoundingClientRect() || null
+                const { x: cx, y: cy } = toCanvas(e.clientX, e.clientY, rect)
+                const { x: wx, y: wy } = toWorld(cx, cy, camera)
+                setNoteDragOffset({ dx: wx - note.x, dy: wy - note.y })
               }}
               onDoubleClick={(e) => {
                 e.stopPropagation()

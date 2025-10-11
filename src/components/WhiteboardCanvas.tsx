@@ -2,6 +2,7 @@
 // Whiteboard base layer with pan/zoom and simple drawing
 
 import { useRef, useEffect, useState, useCallback } from 'react'
+import { isTypingTarget } from '../utils/inputGuards'
 import { useCamera } from './PlotCamera'
 
 export interface DrawPath {
@@ -28,7 +29,7 @@ export default function WhiteboardCanvas({ initialPaths, onPathsChange }: Whiteb
   const { camera, pan, zoomAt } = useCamera()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [paths, setPaths] = useState<DrawPath[]>(initialPaths || [])
-  const [notes, setNotes] = useState<StickyNote[]>([])
+  const [notes] = useState<StickyNote[]>([])
   const [isDrawing, setIsDrawing] = useState(false)
   const [currentPath, setCurrentPath] = useState<{ x: number; y: number }[]>([])
   const [isPanning, setIsPanning] = useState(false)
@@ -206,10 +207,13 @@ export default function WhiteboardCanvas({ initialPaths, onPathsChange }: Whiteb
     ctx.restore()
   }, [camera, paths, currentPath, notes])
 
-  // Handle Space key for pan
+  // Handle Space key for pan (but NOT while typing in inputs)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !e.repeat) {
+      // Don't intercept Space if user is typing in an input/textarea/contenteditable
+      const typing = isTypingTarget(e.target as HTMLElement)
+      
+      if (e.code === 'Space' && !e.repeat && !typing) {
         e.preventDefault()
         setSpacePressed(true)
       }
@@ -236,10 +240,11 @@ export default function WhiteboardCanvas({ initialPaths, onPathsChange }: Whiteb
   const cursorClass = isPanning || spacePressed ? 'cursor-grab' : isDrawing ? 'cursor-crosshair' : 'cursor-crosshair'
 
   return (
-    <div className="absolute inset-0 overflow-hidden" style={{ zIndex: 0 }}>
+    <div className="absolute inset-0 overflow-hidden" style={{ zIndex: 0 }} data-testid="whiteboard-container">
       <canvas
         ref={canvasRef}
         className={`w-full h-full ${cursorClass}`}
+        data-testid="whiteboard-canvas"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
