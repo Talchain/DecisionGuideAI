@@ -1,6 +1,6 @@
 // src/plc/state/history.ts
 export type MoveOp = { type: 'move'; payload: { id: string; from: { x: number; y: number }; to: { x: number; y: number } } }
-export type BatchMoveOp = { type: 'batchMove'; payload: { moves: Array<{ id: string; from: { x: number; y: number }; to: { x: number; y: number }> } } }
+export type BatchMoveOp = { type: 'batchMove'; payload: { moves: Array<{ id: string; from: { x: number; y: number }; to: { x: number; y: number } }> } }
 export type Op = MoveOp | BatchMoveOp
 
 export interface PlcState {
