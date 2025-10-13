@@ -4,6 +4,10 @@
 import { useState, useEffect, Suspense } from 'react'
 import { fetchFlow, openSSE, loadFixture } from '../lib/pocEngine'
 import { lazySafe } from '../lib/lazySafe'
+import { PlcCanvasAdapter } from '../plot/adapters/PlcCanvasAdapter'
+
+// POC: Feature flag - read once at module level
+const USE_PLC_CANVAS = (import.meta as any)?.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS === '1'
 
 // POC: Local types
 type Node = { id: string; label: string; x?: number; y?: number }
@@ -580,12 +584,22 @@ export default function PlotShowcase() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Decision Graph</h3>
                 <Suspense fallback={<div className="text-gray-500">Loading canvas...</div>}>
-                  <GraphCanvas
-                    nodes={nodes}
-                    edges={edges}
-                    localEdits={localEdits}
-                    onEditsChange={setLocalEdits}
-                  />
+                  {USE_PLC_CANVAS ? (
+                    <PlcCanvasAdapter
+                      nodes={nodes}
+                      edges={edges}
+                      localEdits={localEdits}
+                      onNodesChange={setNodes}
+                      onEdgesChange={setEdges}
+                    />
+                  ) : (
+                    <GraphCanvas
+                      nodes={nodes}
+                      edges={edges}
+                      localEdits={localEdits}
+                      onEditsChange={setLocalEdits}
+                    />
+                  )}
                 </Suspense>
               </div>
             )}
