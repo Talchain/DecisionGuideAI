@@ -1,5 +1,6 @@
 // scripts/assert-plc-bundle.cjs
 // Postbuild assertion: fails CI if PLC chunks are missing from dist/assets
+/* eslint-disable */
 
 const fs = require('fs');
 const path = require('path');
