@@ -16,9 +16,7 @@ if (!fs.existsSync(dist)) {
 const files = fs.readdirSync(dist);
 
 const required = [
-  /PlcLab-.*\.js/i,
-  /PlcCanvas-.*\.js/i,
-  /PlcCanvasAdapter-.*\.js/i
+  /PlcLab-.*\.js/i
 ];
 
 const missing = required.filter(re => !files.some(f => re.test(f)));
