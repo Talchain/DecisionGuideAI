@@ -1,14 +1,26 @@
 [build]
-  command = "npm run build:poc && echo '{\"commit\":\"'$(git rev-parse HEAD)'\",\"short\":\"'$(git rev-parse --short HEAD)'\",\"branch\":\"'$(git rev-parse --abbrev-ref HEAD)'\",\"timestamp\":\"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'\"}' > dist/version.json"
+  command = "npm run build:ci && echo '{\"commit\":\"'$(git rev-parse HEAD)'\",\"short\":\"'$(git rev-parse --short HEAD)'\",\"branch\":\"'$(git rev-parse --abbrev-ref HEAD)'\",\"timestamp\":\"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'\"}' > dist/version.json"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
-  VITE_POC_ONLY = "1"
+  VITE_PLC_LAB = "1"
+  VITE_FEATURE_PLOT_USES_PLC_CANVAS = "1"
+  VITE_POC_ONLY = "0"
   VITE_AUTH_MODE = "guest"
   VITE_EDGE_GATEWAY_URL = "/engine"
   VITE_DISABLE_OPENAI = "1"
   VITE_FORCE_ENGINE = "1"
+  VITE_FEATURE_SSE = "1"
+  VITE_FEATURE_SCENARIO_SANDBOX = "1"
+  VITE_FEATURE_SANDBOX_DECISION_CTA = "1"
+  VITE_FEATURE_SANDBOX_MAPPING = "1"
+  VITE_FEATURE_SANDBOX_PROJECTIONS = "1"
+  VITE_FEATURE_SANDBOX_REALTIME = "1"
+  VITE_FEATURE_SANDBOX_STRATEGY_BRIDGE = "1"
+  VITE_FEATURE_SANDBOX_TRIGGERS_BASIC = "1"
+  VITE_FEATURE_SANDBOX_VOTING = "1"
+  VITE_FEATURE_WHITEBOARD = "1"
   SECRETS_SCAN_ENABLED = "false"
 
 # POC: redirects live in /public/_redirects only
