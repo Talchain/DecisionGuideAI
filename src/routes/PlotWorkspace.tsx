@@ -28,8 +28,8 @@ function PlotWorkspaceInner() {
     String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS)
   )
 
-  // TEMP HOTFIX: force adapter ON to prove path in production
-  const USE_PLC_CANVAS = true
+  // Hardened flag: Vite env vars are strings; compare to "1"
+  const USE_PLC_CANVAS = String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS) === '1'
 
   const { camera, setCamera } = useCamera()
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false)
