@@ -6,8 +6,9 @@ import { fetchFlow, openSSE, loadFixture } from '../lib/pocEngine'
 import { lazySafe } from '../lib/lazySafe'
 import { PlcCanvasAdapter } from '../plot/adapters/PlcCanvasAdapter'
 
-// POC: Feature flag - read once at module level
-const USE_PLC_CANVAS = (import.meta as any)?.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS === '1'
+// TEMP HOTFIX: force adapter ON to prove path in production.
+// We'll revert to the env flag after validation.
+const USE_PLC_CANVAS = true
 
 // POC: Local types
 type Node = { id: string; label: string; x?: number; y?: number }
@@ -21,14 +22,12 @@ const ConfigDrawer = lazySafe(() => import('../components/ConfigDrawer'), 'Confi
 const ScenarioDrawer = lazySafe(() => import('../components/ScenarioDrawer'), 'ScenarioDrawer')
 
 export default function PlotShowcase() {
-  // --- BOOT DIAGNOSTIC: visible in prod console ---
-  // Helps confirm flags/wiring at runtime
-  // Example expected: [BOOT] mode=POC route=#/plot PLC_LAB=1 POC_ONLY=0 PLOT_PLC_CANVAS=1
+  // BOOT DIAGNOSTIC: visible in browser console on /#/plot
   console.log(
     '[BOOT] mode=POC route=#/plot PLC_LAB=%s POC_ONLY=%s PLOT_PLC_CANVAS=%s',
-    import.meta.env.VITE_PLC_LAB,
-    import.meta.env.VITE_POC_ONLY,
-    import.meta.env.VITE_FEATURE_PLOT_USES_PLC_CANVAS
+    String(import.meta.env?.VITE_PLC_LAB),
+    String(import.meta.env?.VITE_POC_ONLY),
+    String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS)
   )
 
   // Version info
@@ -590,29 +589,29 @@ export default function PlotShowcase() {
           {/* Right column */}
           <div className="space-y-6">
             {/* Graph */}
-            {nodes.length > 0 && (
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Decision Graph</h3>
-                <Suspense fallback={<div className="text-gray-500">Loading canvas...</div>}>
-                  {USE_PLC_CANVAS ? (
-                    <PlcCanvasAdapter
-                      nodes={nodes}
-                      edges={edges}
-                      localEdits={localEdits}
-                      onNodesChange={setNodes}
-                      onEdgesChange={setEdges}
-                    />
-                  ) : (
-                    <GraphCanvas
-                      nodes={nodes}
-                      edges={edges}
-                      localEdits={localEdits}
-                      onEditsChange={setLocalEdits}
-                    />
-                  )}
-                </Suspense>
-              </div>
-            )}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Decision Graph</h3>
+              <Suspense fallback={<div className="text-gray-500">Loading canvas...</div>}>
+                {USE_PLC_CANVAS ? (
+                  <PlcCanvasAdapter
+                    data-testid="plc-canvas-adapter"
+                    nodes={nodes}
+                    edges={edges}
+                    localEdits={localEdits}
+                    onNodesChange={setNodes}
+                    onEdgesChange={setEdges}
+                    onError={(e: any) => setFlowError(String(e))}
+                  />
+                ) : (
+                  <GraphCanvas
+                    nodes={nodes}
+                    edges={edges}
+                    localEdits={localEdits}
+                    onEditsChange={setLocalEdits}
+                  />
+                )}
+              </Suspense>
+            </div>
 
             {/* Text Graph Fallback */}
             {nodes.length > 0 && (
