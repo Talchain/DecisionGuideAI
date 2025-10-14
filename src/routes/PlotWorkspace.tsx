@@ -6,6 +6,7 @@ import { fetchFlow, loadFixture } from '../lib/pocEngine'
 import { CameraProvider, useCamera } from '../components/PlotCamera'
 import WhiteboardCanvas, { type DrawPath } from '../components/WhiteboardCanvas'
 import DecisionGraphLayer from '../components/DecisionGraphLayer'
+import { PlcCanvasAdapter } from '../plot/adapters/PlcCanvasAdapter'
 import PlotToolbar, { Tool, NodeType } from '../components/PlotToolbar'
 import ResultsPanel from '../components/ResultsPanel'
 import OnboardingHints from '../components/OnboardingHints'
@@ -19,6 +20,17 @@ type StickyNote = { id: string; x: number; y: number; text: string; color: strin
 
 // Inner component that has access to camera
 function PlotWorkspaceInner() {
+  // BOOT DIAGNOSTIC: visible in browser console on /#/plot
+  console.log(
+    '[BOOT] mode=POC route=#/plot PLC_LAB=%s POC_ONLY=%s PLOT_PLC_CANVAS=%s',
+    String(import.meta.env?.VITE_PLC_LAB),
+    String(import.meta.env?.VITE_POC_ONLY),
+    String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS)
+  )
+
+  // TEMP HOTFIX: force adapter ON to prove path in production
+  const USE_PLC_CANVAS = true
+
   const { camera, setCamera } = useCamera()
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false)
   const [initializationComplete, setInitializationComplete] = useState(false)
@@ -442,6 +454,11 @@ function PlotWorkspaceInner() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
+      {/* DEBUG BADGE: Proves this component is mounted on /#/plot */}
+      <div style={{position:'fixed',top:8,right:8,zIndex:9999,fontSize:10,padding:'2px 6px',borderRadius:4,background:'#0ea5e9',color:'#fff'}}>
+        PLOT ROUTE LIVE · PLC_LAB={String(import.meta.env?.VITE_PLC_LAB)} · POC_ONLY={String(import.meta.env?.VITE_POC_ONLY)} · PLOT_PLC_CANVAS={String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS)}
+      </div>
+
       {/* Top Banner */}
       <div className="bg-white border-b border-gray-200 px-4 py-2">
         <div className={`rounded-lg p-2 text-xs border ${bannerClass}`}>
@@ -475,15 +492,27 @@ function PlotWorkspaceInner() {
         />
         
         {/* Layer 1: Decision graph */}
-        <DecisionGraphLayer
-          nodes={nodes}
-          edges={edges}
-          selectedNodeId={selectedNodeId || undefined}
-          connectSourceId={connectSourceId || undefined}
-          onNodeClick={handleNodeClick}
-          onNodeDoubleClick={handleStartRename}
-          onNodeMove={handleNodeMove}
-        />
+        {USE_PLC_CANVAS ? (
+          <div data-testid="plc-canvas-adapter" style={{ position: 'relative', zIndex: 10 }}>
+            <PlcCanvasAdapter
+              nodes={nodes}
+              edges={edges}
+              localEdits={{ addedNodes: [], renamedNodes: {}, addedEdges: [] }}
+              onNodesChange={setNodes}
+              onEdgesChange={setEdges}
+            />
+          </div>
+        ) : (
+          <DecisionGraphLayer
+            nodes={nodes}
+            edges={edges}
+            selectedNodeId={selectedNodeId || undefined}
+            connectSourceId={connectSourceId || undefined}
+            onNodeClick={handleNodeClick}
+            onNodeDoubleClick={handleStartRename}
+            onNodeMove={handleNodeMove}
+          />
+        )}
         
         {/* Toolbar (left) */}
         <PlotToolbar
