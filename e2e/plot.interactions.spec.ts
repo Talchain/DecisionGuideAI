@@ -32,11 +32,11 @@ test.describe('Plot Canvas Interactions', () => {
       const p = (x: number, y: number) => document.elementsFromPoint(x, y)
         .map(e => ({ id: e.id, pe: getComputedStyle(e).pointerEvents }))
       return p(innerWidth * 0.75, innerHeight * 0.5)
-    })
+    }) as Array<{ id: string; pe: string }>
     
     // Find rail and canvas in hit test
-    const rail = result.find((r: any) => r.id === 'plot-right-rail')
-    const canvas = result.find((r: any) => r.id === 'plot-canvas-root')
+    const rail = result.find(r => r.id === 'plot-right-rail')
+    const canvas = result.find(r => r.id === 'plot-canvas-root')
     
     // Rail container must be transparent
     expect(rail?.pe).toBe('none')
@@ -71,7 +71,7 @@ test.describe('Plot Canvas Interactions', () => {
         zIndex: styles.zIndex,
         position: styles.position
       }
-    })
+    }) as { pointerEvents: string; zIndex: string; position: string } | null
     
     expect(canvasStyles).toBeTruthy()
     expect(canvasStyles?.pointerEvents).not.toBe('none')
