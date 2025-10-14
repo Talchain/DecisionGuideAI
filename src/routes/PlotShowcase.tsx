@@ -6,9 +6,9 @@ import { fetchFlow, openSSE, loadFixture } from '../lib/pocEngine'
 import { lazySafe } from '../lib/lazySafe'
 import { PlcCanvasAdapter } from '../plot/adapters/PlcCanvasAdapter'
 
-// TEMP HOTFIX: force adapter ON to prove path in production.
-// We'll revert to the env flag after validation.
-const USE_PLC_CANVAS = true
+// Hardened flag: Vite env vars are strings; compare to "1"
+const USE_PLC_CANVAS =
+  String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS) === '1'
 
 // POC: Local types
 type Node = { id: string; label: string; x?: number; y?: number }
