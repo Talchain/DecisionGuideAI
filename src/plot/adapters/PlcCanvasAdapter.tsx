@@ -18,7 +18,10 @@ export function PlcCanvasAdapter({ nodes, edges, localEdits, onNodesChange, onEd
   }, [nodes, edges, onNodesChange, onEdgesChange])
 
   return (
-    <div data-testid="plc-canvas-adapter">
+    <div 
+      data-testid="plc-canvas-adapter"
+      style={{ position: 'relative', zIndex: 10 }}
+    >
       <PlcCanvas
         nodes={nodes}
         edges={edges}
