@@ -1,0 +1,29 @@
+/* Plot canvas pointer events guardrails */
+/* Prevents regressions where overlays steal canvas events */
+
+/* Canvas root: always interactive */
+#plot-canvas-root {
+  pointer-events: auto !important;
+  z-index: 10;
+  position: absolute;
+  inset: 0;
+}
+
+/* Whiteboard: always visual-only */
+#whiteboard-layer {
+  pointer-events: none !important;
+}
+
+/* Right rail: container transparent, inner content interactive */
+#plot-right-rail {
+  pointer-events: none !important;
+}
+
+#plot-right-rail > .plot-rail-content {
+  pointer-events: auto !important;
+}
+
+/* Chrome layer: transparent by default */
+#plot-chrome {
+  pointer-events: none !important;
+}

@@ -1,6 +1,7 @@
 // src/routes/PlotWorkspace.tsx
 // Unified canvas workspace - whiteboard as background, graph overlay, shared camera
 
+import '../styles/plot.css'
 import { useState, useEffect, useCallback } from 'react'
 import { fetchFlow, loadFixture } from '../lib/pocEngine'
 import { CameraProvider, useCamera } from '../components/PlotCamera'
@@ -24,6 +25,47 @@ function PlotWorkspaceInner() {
   const { camera, setCamera } = useCamera()
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false)
   const [initializationComplete, setInitializationComplete] = useState(false)
+
+  // Mount log: proves we're in the right component
+  useEffect(() => {
+    console.log('[PLOT] route=/plot component=PlotWorkspace build=%s flags=%o',
+      import.meta.env?.VITE_BUILD_SHA || 'unknown',
+      {
+        PLC_LAB: String(import.meta.env?.VITE_PLC_LAB),
+        POC_ONLY: String(import.meta.env?.VITE_POC_ONLY),
+        PLOT_PLC_CANVAS: String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS),
+      })
+  }, [])
+
+  // Runtime diagnostics: probe pointer events and DOM state
+  useEffect(() => {
+    const at = (x: number, y: number) => document.elementsFromPoint(x, y)
+      .map(e => ({ id: e.id, z: getComputedStyle(e).zIndex, pe: getComputedStyle(e).pointerEvents }))
+    const rm = at(innerWidth * 0.75, innerHeight * 0.5) // right-middle
+
+    const diag = {
+      build: (window as any).__BUILD__ || 'unknown',
+      flags: {
+        PLC_LAB: String(import.meta.env?.VITE_PLC_LAB),
+        POC_ONLY: String(import.meta.env?.VITE_POC_ONLY),
+        PLOT_PLC_CANVAS: String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS),
+      },
+      dom: {
+        hasPlc: !!document.querySelector('[data-testid="plc-canvas-adapter"]'),
+        whiteboardPE: getComputedStyle(document.getElementById('whiteboard-layer') || document.body).pointerEvents,
+        railPE: getComputedStyle(document.getElementById('plot-right-rail') || document.body).pointerEvents,
+      },
+      hitRightMid: rm.slice(0, 4),
+    }
+    console.log('[PLOT:DIAG]', diag)
+
+    // Hard assertion to surface regressions during QA
+    const railTop = rm.find(r => r.id === 'plot-right-rail')
+    const canvasTopIndex = rm.findIndex(r => r.id === 'plot-canvas-root')
+    if (railTop?.pe === 'auto' && canvasTopIndex > -1) {
+      console.error('[PLOT:ASSERT] Right rail is capturing events at right-middle — should be pe:none')
+    }
+  }, [])
   
   // Version & health
   const [deployCommit, setDeployCommit] = useState<string>('')
@@ -542,11 +584,11 @@ function PlotWorkspaceInner() {
             bottom: 0,
             width: '360px',
             overflowY: 'auto',
-            zIndex: 20,
-            pointerEvents: 'none'  // Container: no capture
+            zIndex: 20
+            // pointerEvents set by CSS: container none, inner auto
           }}
         >
-          <div style={{ pointerEvents: 'auto' }}>  {/* Inner content: restore events */}
+          <div className="plot-rail-content">
             <ResultsPanel
               flowResult={flowResult}
               isLiveData={isLiveData}
