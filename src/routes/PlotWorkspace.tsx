@@ -301,7 +301,9 @@ function PlotWorkspaceInner() {
     setEditingNoteText(newNote.text)
   }, [camera])
 
-  // Handle node click
+  // Legacy handlers (kept for potential PLC event wiring)
+  // Note: These were used by DecisionGraphLayer (removed). May be wired to PLC events in future.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleNodeClick = useCallback((node: Node) => {
     if (currentTool === 'connect') {
       if (!connectSourceId) {
@@ -324,7 +326,7 @@ function PlotWorkspaceInner() {
     }
   }, [currentTool, connectSourceId])
 
-  // Handle node move (dragging)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleNodeMove = useCallback((nodeId: string, x: number, y: number) => {
     setNodes(prev => prev.map(n => 
       n.id === nodeId ? { ...n, x, y } : n
@@ -340,7 +342,7 @@ function PlotWorkspaceInner() {
     }
   }, [selectedNodeId])
 
-  // Start renaming a node (double-click)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleStartRename = useCallback((node: Node) => {
     setEditingNodeId(node.id)
     setEditingLabel(node.label)
