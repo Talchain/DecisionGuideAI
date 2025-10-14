@@ -484,16 +484,36 @@ function PlotWorkspaceInner() {
       </div>
 
       {/* Canvas Workspace */}
-      <div className="flex-1 relative overflow-hidden">
-        {/* Layer 0: Whiteboard background */}
-        <WhiteboardCanvas 
-          initialPaths={whiteboardPaths}
-          onPathsChange={setWhiteboardPaths}
-        />
+      <div className="flex-1 relative overflow-visible">
+        {/* Layer 0: Whiteboard background - visual only, no pointer capture */}
+        <div
+          id="whiteboard-layer"
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 1,
+            pointerEvents: 'none'
+          }}
+        >
+          <WhiteboardCanvas 
+            initialPaths={whiteboardPaths}
+            onPathsChange={setWhiteboardPaths}
+          />
+        </div>
         
-        {/* Layer 1: Decision graph */}
+        {/* Layer 1: PLC Canvas - single source of truth */}
         {USE_PLC_CANVAS ? (
-          <div data-testid="plc-canvas-adapter" style={{ position: 'relative', zIndex: 10 }}>
+          <div
+            id="plot-canvas-root"
+            data-testid="plc-canvas-adapter"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 10,
+              overflow: 'hidden'
+            }}
+          >
             <PlcCanvasAdapter
               nodes={nodes}
               edges={edges}
@@ -514,25 +534,52 @@ function PlotWorkspaceInner() {
           />
         )}
         
-        {/* Toolbar (left) */}
-        <PlotToolbar
-          currentTool={currentTool}
-          onToolChange={handleToolChange}
-          onAddNode={handleAddNode}
-          onAddNote={handleAddNote}
-          onHelpClick={() => setShowShortcuts(true)}
-        />
+        {/* Interactive chrome layer - above canvas */}
+        <div
+          id="plot-chrome"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 15,
+            pointerEvents: 'none'
+          }}
+        >
+          {/* Toolbar (left) - restore pointer events */}
+          <div style={{ pointerEvents: 'auto' }}>
+            <PlotToolbar
+              currentTool={currentTool}
+              onToolChange={handleToolChange}
+              onAddNode={handleAddNode}
+              onAddNote={handleAddNote}
+              onHelpClick={() => setShowShortcuts(true)}
+            />
+          </div>
+        </div>
         
-        {/* Results Panel (right) */}
-        <ResultsPanel
-          flowResult={flowResult}
-          isLiveData={isLiveData}
-          biases={biases}
-          biasesSource={biasesSource}
-        />
+        {/* Results Panel (right) - fixed positioning with own scroll */}
+        <div
+          id="plot-right-rail"
+          style={{
+            position: 'absolute',
+            top: 'var(--topbar-h, 56px)',
+            right: 0,
+            bottom: 0,
+            width: '360px',
+            overflowY: 'auto',
+            zIndex: 20,
+            pointerEvents: 'auto'
+          }}
+        >
+          <ResultsPanel
+            flowResult={flowResult}
+            isLiveData={isLiveData}
+            biases={biases}
+            biasesSource={biasesSource}
+          />
+        </div>
 
-        {/* Top controls bar */}
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20">
+        {/* Top controls bar - restore pointer events */}
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20" style={{ pointerEvents: 'auto' }}>
           <div className="bg-white rounded-lg shadow-lg border border-gray-200 px-4 py-2 flex items-center gap-4">
             <div className="flex items-center gap-2">
               <label className="text-xs font-medium text-gray-700">Template:</label>
