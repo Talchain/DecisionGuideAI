@@ -26,44 +26,28 @@ function PlotWorkspaceInner() {
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false)
   const [initializationComplete, setInitializationComplete] = useState(false)
 
+  // Parse diag query param (/#/plot?diag=1)
+  const isDiagMode = new URLSearchParams(window.location.hash.split('?')[1] || '').get('diag') === '1'
+
   // Mount log: proves we're in the right component
   useEffect(() => {
-    console.log('[PLOT] route=/plot component=PlotWorkspace build=%s flags=%o',
-      import.meta.env?.VITE_BUILD_SHA || 'unknown',
-      {
-        PLC_LAB: String(import.meta.env?.VITE_PLC_LAB),
-        POC_ONLY: String(import.meta.env?.VITE_POC_ONLY),
-        PLOT_PLC_CANVAS: String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS),
-      })
+    console.log('[PLOT] route=/plot component=PlotWorkspace flags=', {
+      PLC_LAB: String(import.meta.env?.VITE_PLC_LAB),
+      POC_ONLY: String(import.meta.env?.VITE_POC_ONLY),
+      PLOT_PLC_CANVAS: String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS),
+    })
   }, [])
 
-  // Runtime diagnostics: probe pointer events and DOM state
+  // Runtime hit-test probe + assert
   useEffect(() => {
-    const at = (x: number, y: number) => document.elementsFromPoint(x, y)
+    const elm = (x: number, y: number) => document.elementsFromPoint(x, y)
       .map(e => ({ id: e.id, z: getComputedStyle(e).zIndex, pe: getComputedStyle(e).pointerEvents }))
-    const rm = at(innerWidth * 0.75, innerHeight * 0.5) // right-middle
-
-    const diag = {
-      build: (window as any).__BUILD__ || 'unknown',
-      flags: {
-        PLC_LAB: String(import.meta.env?.VITE_PLC_LAB),
-        POC_ONLY: String(import.meta.env?.VITE_POC_ONLY),
-        PLOT_PLC_CANVAS: String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS),
-      },
-      dom: {
-        hasPlc: !!document.querySelector('[data-testid="plc-canvas-adapter"]'),
-        whiteboardPE: getComputedStyle(document.getElementById('whiteboard-layer') || document.body).pointerEvents,
-        railPE: getComputedStyle(document.getElementById('plot-right-rail') || document.body).pointerEvents,
-      },
-      hitRightMid: rm.slice(0, 4),
-    }
-    console.log('[PLOT:DIAG]', diag)
-
-    // Hard assertion to surface regressions during QA
-    const railTop = rm.find(r => r.id === 'plot-right-rail')
-    const canvasTopIndex = rm.findIndex(r => r.id === 'plot-canvas-root')
-    if (railTop?.pe === 'auto' && canvasTopIndex > -1) {
-      console.error('[PLOT:ASSERT] Right rail is capturing events at right-middle — should be pe:none')
+    const rightMid = elm(innerWidth * 0.75, innerHeight * 0.5)
+    console.log('[PLOT:DIAG]', { hitRightMid: rightMid.slice(0, 4) })
+    
+    const top = rightMid[0]
+    if (top?.id !== 'plot-canvas-root') {
+      console.error('[PLOT:ASSERT] Canvas not top at right-middle. Top=', top)
     }
   }, [])
   
@@ -486,8 +470,27 @@ function PlotWorkspaceInner() {
                        isLiveData ? '✓ Ready' :
                        '📋 Demo Mode'
 
+  const shortSha = import.meta.env?.VITE_BUILD_SHA?.substring(0, 7) || 'unknown'
+
   return (
     <>
+      {/* Loud badge: proves component identity */}
+      <div
+        id="__plot_component_name__"
+        style={{
+          position: 'fixed',
+          top: 8,
+          left: 8,
+          zIndex: 99999,
+          background: '#111',
+          color: '#0ff',
+          padding: '6px 8px',
+          fontSize: 12,
+          fontFamily: 'monospace'
+        }}
+      >
+        ROUTE=/plot • COMPONENT=PlotWorkspace • COMMIT={shortSha}
+      </div>
       <BuildBadge />
       <DebugOverlays />
       <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -577,28 +580,31 @@ function PlotWorkspaceInner() {
         </div>
         
         {/* Results Panel (right) - fixed positioning with own scroll */}
-        <aside
-          id="plot-right-rail"
-          style={{
-            position: 'absolute',
-            top: 'var(--topbar-h, 56px)',
-            right: 0,
-            bottom: 0,
-            width: '360px',
-            overflowY: 'auto',
-            zIndex: 20
-            // pointerEvents set by CSS: container none, inner auto
-          }}
-        >
-          <div className="plot-rail-content">
-            <ResultsPanel
-              flowResult={flowResult}
-              isLiveData={isLiveData}
-              biases={biases}
-              biasesSource={biasesSource}
-            />
-          </div>
-        </aside>
+        {/* Diag mode: remove rail to prove canvas is accessible */}
+        {!isDiagMode && (
+          <aside
+            id="plot-right-rail"
+            className="plot-rail"
+            style={{
+              position: 'absolute',
+              top: 'var(--topbar-h, 56px)',
+              right: 0,
+              bottom: 0,
+              width: '360px',
+              overflowY: 'auto'
+              // z-index and pointerEvents set by CSS
+            }}
+          >
+            <div className="plot-rail-content">
+              <ResultsPanel
+                flowResult={flowResult}
+                isLiveData={isLiveData}
+                biases={biases}
+                biasesSource={biasesSource}
+              />
+            </div>
+          </aside>
+        )}
 
         {/* Top controls bar - restore pointer events */}
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20" style={{ pointerEvents: 'auto' }}>
