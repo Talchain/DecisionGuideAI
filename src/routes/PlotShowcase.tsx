@@ -21,6 +21,16 @@ const ConfigDrawer = lazySafe(() => import('../components/ConfigDrawer'), 'Confi
 const ScenarioDrawer = lazySafe(() => import('../components/ScenarioDrawer'), 'ScenarioDrawer')
 
 export default function PlotShowcase() {
+  // --- BOOT DIAGNOSTIC: visible in prod console ---
+  // Helps confirm flags/wiring at runtime
+  // Example expected: [BOOT] mode=POC route=#/plot PLC_LAB=1 POC_ONLY=0 PLOT_PLC_CANVAS=1
+  console.log(
+    '[BOOT] mode=POC route=#/plot PLC_LAB=%s POC_ONLY=%s PLOT_PLC_CANVAS=%s',
+    import.meta.env.VITE_PLC_LAB,
+    import.meta.env.VITE_POC_ONLY,
+    import.meta.env.VITE_FEATURE_PLOT_USES_PLC_CANVAS
+  )
+
   // Version info
   const [deployCommit, setDeployCommit] = useState<string>('')
   const [deployTimestamp, setDeployTimestamp] = useState<string>('')
