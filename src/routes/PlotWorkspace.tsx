@@ -11,6 +11,7 @@ import ResultsPanel from '../components/ResultsPanel'
 import OnboardingHints from '../components/OnboardingHints'
 import KeyboardShortcuts from '../components/KeyboardShortcuts'
 import BuildBadge from '../components/BuildBadge'
+import DebugOverlays from '../components/DebugOverlays'
 import { loadWorkspaceState, createAutosaver, clearWorkspaceState } from '../lib/plotStorage'
 
 // Types
@@ -444,6 +445,7 @@ function PlotWorkspaceInner() {
   return (
     <>
       <BuildBadge />
+      <DebugOverlays />
       <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* Top Banner */}
       <div className="bg-white border-b border-gray-200 px-4 py-2">
@@ -531,7 +533,7 @@ function PlotWorkspaceInner() {
         </div>
         
         {/* Results Panel (right) - fixed positioning with own scroll */}
-        <div
+        <aside
           id="plot-right-rail"
           style={{
             position: 'absolute',
@@ -541,16 +543,18 @@ function PlotWorkspaceInner() {
             width: '360px',
             overflowY: 'auto',
             zIndex: 20,
-            pointerEvents: 'auto'
+            pointerEvents: 'none'  // Container: no capture
           }}
         >
-          <ResultsPanel
-            flowResult={flowResult}
-            isLiveData={isLiveData}
-            biases={biases}
-            biasesSource={biasesSource}
-          />
-        </div>
+          <div style={{ pointerEvents: 'auto' }}>  {/* Inner content: restore events */}
+            <ResultsPanel
+              flowResult={flowResult}
+              isLiveData={isLiveData}
+              biases={biases}
+              biasesSource={biasesSource}
+            />
+          </div>
+        </aside>
 
         {/* Top controls bar - restore pointer events */}
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20" style={{ pointerEvents: 'auto' }}>
