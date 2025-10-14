@@ -21,6 +21,23 @@ type Node = { id: string; label: string; x?: number; y?: number; type?: string }
 type Edge = { from: string; to: string; label?: string; weight?: number }
 type StickyNote = { id: string; x: number; y: number; text: string; color: string }
 
+// Canvas selection: URL ?plc → localStorage → env
+// Support both query params and hash params (/#/plot?plc=1)
+const hashQuery = typeof window !== 'undefined' ? window.location.hash.split('?')[1] || '' : ''
+const searchQuery = typeof window !== 'undefined' ? window.location.search.substring(1) : ''
+const qp = new URLSearchParams(hashQuery || searchQuery)
+const override = qp.get('plc')
+const ls = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem('PLOT_USE_PLC') : null
+const ENV_USE_PLC = String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS) === '1'
+const USE_PLC = override === '0' ? false : override === '1' ? true : ls === '0' ? false : ls === '1' ? true : ENV_USE_PLC
+
+console.log('[PLOT] route=/plot component=PlotWorkspace canvas=%s flags={PLC_LAB:%s,POC_ONLY:%s,PLOT_PLC_CANVAS:%s} override=%s ls=%s',
+  USE_PLC ? 'PLC' : 'DecisionGraphLayer',
+  String(import.meta.env?.VITE_PLC_LAB),
+  String(import.meta.env?.VITE_POC_ONLY),
+  String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS),
+  override, ls)
+
 // Inner component that has access to camera
 function PlotWorkspaceInner() {
   const { camera, setCamera } = useCamera()
@@ -29,15 +46,6 @@ function PlotWorkspaceInner() {
 
   // Parse diag query param (/#/plot?diag=1)
   const isDiagMode = new URLSearchParams(window.location.hash.split('?')[1] || '').get('diag') === '1'
-
-  // Mount log: proves we're in the right component
-  useEffect(() => {
-    console.log('[PLOT] route=/plot component=PlotWorkspace flags=', {
-      PLC_LAB: String(import.meta.env?.VITE_PLC_LAB),
-      POC_ONLY: String(import.meta.env?.VITE_POC_ONLY),
-      PLOT_PLC_CANVAS: String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS),
-    })
-  }, [])
 
   // Runtime hit-test probe + assert
   useEffect(() => {
@@ -472,6 +480,7 @@ function PlotWorkspaceInner() {
                        '📋 Demo Mode'
 
   const shortSha = import.meta.env?.VITE_BUILD_SHA?.substring(0, 7) || 'unknown'
+  const canvasName = USE_PLC ? 'PLC' : 'DecisionGraphLayer'
 
   return (
     <>
@@ -490,7 +499,7 @@ function PlotWorkspaceInner() {
           fontFamily: 'monospace'
         }}
       >
-        ROUTE=/plot • COMPONENT=PlotWorkspace • COMMIT={shortSha}
+        ROUTE=/plot • COMPONENT=PlotWorkspace • CANVAS={canvasName} • COMMIT={shortSha}
       </div>
       <BuildBadge />
       <DebugOverlays />
@@ -538,7 +547,7 @@ function PlotWorkspaceInner() {
           />
         </div>
         
-        {/* Layer 1: Decision graph - PLC gated behind feature flag */}
+        {/* Layer 1: Canvas - gated by USE_PLC (URL ?plc → localStorage → env) */}
         <div
           id="plot-canvas-root"
           style={{
@@ -548,7 +557,7 @@ function PlotWorkspaceInner() {
             overflow: 'hidden'
           }}
         >
-          {String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS) === '1' ? (
+          {USE_PLC ? (
             <PlcCanvasAdapter
               data-testid="plc-canvas-adapter"
               nodes={nodes}
@@ -559,6 +568,7 @@ function PlotWorkspaceInner() {
             />
           ) : (
             <DecisionGraphLayer
+              data-testid="legacy-decision-graph"
               nodes={nodes}
               edges={edges}
               selectedNodeId={selectedNodeId || undefined}

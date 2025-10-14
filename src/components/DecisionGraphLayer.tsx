@@ -27,9 +27,10 @@ interface DecisionGraphLayerProps {
   onNodeMove?: (nodeId: string, x: number, y: number) => void
   selectedNodeId?: string
   connectSourceId?: string
+  'data-testid'?: string
 }
 
-export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeDoubleClick, onNodeMove, selectedNodeId, connectSourceId }: DecisionGraphLayerProps) {
+export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeDoubleClick, onNodeMove, selectedNodeId, connectSourceId, 'data-testid': testId }: DecisionGraphLayerProps) {
   const { camera } = useCamera()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null)
@@ -274,6 +275,7 @@ export default function DecisionGraphLayer({ nodes, edges, onNodeClick, onNodeDo
     <div 
       className="absolute inset-0"
       style={{ zIndex: 10, pointerEvents: 'none' }}
+      data-testid={testId}
     >
       <canvas
         ref={canvasRef}

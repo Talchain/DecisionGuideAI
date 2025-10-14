@@ -2,7 +2,7 @@
 import { useCallback } from 'react'
 import PlcCanvas from '../../plc/components/PlcCanvas'
 
-export function PlcCanvasAdapter({ nodes, edges, localEdits, onNodesChange, onEdgesChange }: any) {
+export function PlcCanvasAdapter({ nodes, edges, localEdits, onNodesChange, onEdgesChange, 'data-testid': testId }: any) {
   const handleOp = useCallback((op: any) => {
     if (!op) return
     if (op.type === 'add' && op.payload?.node) {
@@ -19,7 +19,7 @@ export function PlcCanvasAdapter({ nodes, edges, localEdits, onNodesChange, onEd
 
   return (
     <div 
-      data-testid="plc-canvas-adapter"
+      data-testid={testId || "plc-canvas-adapter"}
       style={{ position: 'relative', zIndex: 10 }}
     >
       <PlcCanvas
