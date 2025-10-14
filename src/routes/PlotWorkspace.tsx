@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { fetchFlow, loadFixture } from '../lib/pocEngine'
 import { CameraProvider, useCamera } from '../components/PlotCamera'
 import WhiteboardCanvas, { type DrawPath } from '../components/WhiteboardCanvas'
+import DecisionGraphLayer from '../components/DecisionGraphLayer'
 import { PlcCanvasAdapter } from '../plot/adapters/PlcCanvasAdapter'
 import PlotToolbar, { Tool, NodeType } from '../components/PlotToolbar'
 import ResultsPanel from '../components/ResultsPanel'
@@ -537,10 +538,9 @@ function PlotWorkspaceInner() {
           />
         </div>
         
-        {/* Layer 1: PLC Canvas - single source of truth */}
+        {/* Layer 1: Decision graph - PLC gated behind feature flag */}
         <div
           id="plot-canvas-root"
-          data-testid="plc-canvas-adapter"
           style={{
             position: 'absolute',
             inset: 0,
@@ -548,13 +548,26 @@ function PlotWorkspaceInner() {
             overflow: 'hidden'
           }}
         >
-          <PlcCanvasAdapter
-            nodes={nodes}
-            edges={edges}
-            localEdits={{ addedNodes: [], renamedNodes: {}, addedEdges: [] }}
-            onNodesChange={setNodes}
-            onEdgesChange={setEdges}
-          />
+          {String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS) === '1' ? (
+            <PlcCanvasAdapter
+              data-testid="plc-canvas-adapter"
+              nodes={nodes}
+              edges={edges}
+              localEdits={{ addedNodes: [], renamedNodes: {}, addedEdges: [] }}
+              onNodesChange={setNodes}
+              onEdgesChange={setEdges}
+            />
+          ) : (
+            <DecisionGraphLayer
+              nodes={nodes}
+              edges={edges}
+              selectedNodeId={selectedNodeId || undefined}
+              connectSourceId={connectSourceId || undefined}
+              onNodeClick={handleNodeClick}
+              onNodeDoubleClick={handleStartRename}
+              onNodeMove={handleNodeMove}
+            />
+          )}
         </div>
         
         {/* Interactive chrome layer - above canvas */}
