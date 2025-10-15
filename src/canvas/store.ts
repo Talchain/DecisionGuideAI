@@ -41,6 +41,12 @@ interface CanvasState {
 let historyTimer: ReturnType<typeof setTimeout> | null = null
 const MAX_HISTORY = 50
 
+function pushToHistory(get: () => CanvasState, set: (fn: (s: CanvasState) => Partial<CanvasState>) => void) {
+  const { nodes, edges, history } = get()
+  const past = [...history.past, { nodes, edges }].slice(-MAX_HISTORY)
+  set(() => ({ history: { past, future: [] } }))
+}
+
 export const useCanvasStore = create<CanvasState>((set, get) => ({
   nodes: initialNodes,
   edges: initialEdges,
@@ -55,14 +61,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   addNode: (pos) => {
+    pushToHistory(get, set)
     const id = get().createNodeId()
     set((s) => ({ nodes: [...s.nodes, { id, type: 'decision', position: pos || { x: 200, y: 200 }, data: { label: `Node ${id}` } }] }))
-    get().pushHistory()
   },
 
   updateNodeLabel: (id, label) => {
+    pushToHistory(get, set)
     set((s) => ({ nodes: s.nodes.map(n => n.id === id ? { ...n, data: { ...n.data, label } } : n) }))
-    get().pushHistory()
   },
 
   onNodesChange: (changes) => {
@@ -81,19 +87,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   addEdge: (edge) => {
+    pushToHistory(get, set)
     set((s) => ({ edges: [...s.edges, edge] }))
-    get().pushHistory()
   },
 
   pushHistory: (debounced = false) => {
     if (debounced) {
       if (historyTimer) clearTimeout(historyTimer)
-      historyTimer = setTimeout(() => get().pushHistory(false), 200)
+      historyTimer = setTimeout(() => pushToHistory(get, set), 200)
       return
     }
-    const { nodes, edges, history } = get()
-    const past = [...history.past, { nodes, edges }].slice(-MAX_HISTORY)
-    set({ history: { past, future: [] } })
+    pushToHistory(get, set)
   },
 
   undo: () => {
@@ -118,13 +122,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   canRedo: () => get().history.future.length > 0,
 
   deleteSelected: () => {
+    pushToHistory(get, set)
     const { selection } = get()
     set((s) => ({
       nodes: s.nodes.filter(n => !selection.nodeIds.has(n.id)),
       edges: s.edges.filter(e => !selection.nodeIds.has(e.source) && !selection.nodeIds.has(e.target) && !selection.edgeIds.has(e.id)),
       selection: { nodeIds: new Set(), edgeIds: new Set() }
     }))
-    get().pushHistory()
   },
 
   reset: () => {
