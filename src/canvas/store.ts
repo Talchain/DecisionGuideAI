@@ -16,11 +16,17 @@ const initialEdges: Edge[] = [
   { id: 'e4', source: '3', target: '4' }
 ]
 
+interface ClipboardData {
+  nodes: Node[]
+  edges: Edge[]
+}
+
 interface CanvasState {
   nodes: Node[]
   edges: Edge[]
   history: { past: { nodes: Node[]; edges: Edge[] }[]; future: { nodes: Node[]; edges: Edge[] }[] }
   selection: { nodeIds: Set<string>; edgeIds: Set<string> }
+  clipboard: ClipboardData | null
   nextNodeId: number
   nextEdgeId: number
   addNode: (pos?: { x: number; y: number }) => void
@@ -35,6 +41,13 @@ interface CanvasState {
   canUndo: () => boolean
   canRedo: () => boolean
   deleteSelected: () => void
+  duplicateSelected: () => void
+  copySelected: () => void
+  pasteClipboard: () => void
+  cutSelected: () => void
+  selectAll: () => void
+  nudgeSelected: (dx: number, dy: number) => void
+  saveSnapshot: () => void
   createNodeId: () => string
   createEdgeId: () => string
   reseedIds: (nodes: Node[], edges: Edge[]) => void
@@ -70,6 +83,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   edges: initialEdges,
   history: { past: [], future: [] },
   selection: { nodeIds: new Set(), edgeIds: new Set() },
+  clipboard: null,
   nextNodeId: 5,
   nextEdgeId: 5,
 
@@ -166,6 +180,114 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       edges: s.edges.filter(e => !selection.nodeIds.has(e.source) && !selection.nodeIds.has(e.target) && !selection.edgeIds.has(e.id)),
       selection: { nodeIds: new Set(), edgeIds: new Set() }
     }))
+  },
+
+  duplicateSelected: () => {
+    pushToHistory(get, set)
+    const { nodes, edges, selection } = get()
+    const selectedNodes = nodes.filter(n => selection.nodeIds.has(n.id))
+    if (selectedNodes.length === 0) return
+
+    const idMap: Record<string, string> = {}
+    const newNodes: Node[] = []
+    
+    selectedNodes.forEach(node => {
+      const newId = get().createNodeId()
+      idMap[node.id] = newId
+      newNodes.push({
+        ...node,
+        id: newId,
+        position: { x: node.position.x + 50, y: node.position.y + 50 },
+        data: { ...node.data }
+      })
+    })
+
+    const selectedEdges = edges.filter(e => selection.nodeIds.has(e.source) && selection.nodeIds.has(e.target))
+    const newEdges: Edge[] = selectedEdges.map(edge => ({
+      ...edge,
+      id: get().createEdgeId(),
+      source: idMap[edge.source],
+      target: idMap[edge.target]
+    }))
+
+    set((s) => ({
+      nodes: [...s.nodes, ...newNodes],
+      edges: [...s.edges, ...newEdges],
+      selection: { nodeIds: new Set(newNodes.map(n => n.id)), edgeIds: new Set() }
+    }))
+  },
+
+  copySelected: () => {
+    const { nodes, edges, selection } = get()
+    const selectedNodes = nodes.filter(n => selection.nodeIds.has(n.id))
+    const selectedEdges = edges.filter(e => selection.nodeIds.has(e.source) && selection.nodeIds.has(e.target))
+    set({ clipboard: { nodes: selectedNodes, edges: selectedEdges } })
+  },
+
+  pasteClipboard: () => {
+    const { clipboard } = get()
+    if (!clipboard || clipboard.nodes.length === 0) return
+
+    pushToHistory(get, set)
+    const idMap: Record<string, string> = {}
+    const newNodes: Node[] = []
+
+    clipboard.nodes.forEach(node => {
+      const newId = get().createNodeId()
+      idMap[node.id] = newId
+      newNodes.push({
+        ...node,
+        id: newId,
+        position: { x: node.position.x + 50, y: node.position.y + 50 },
+        data: { ...node.data }
+      })
+    })
+
+    const newEdges: Edge[] = clipboard.edges.map(edge => ({
+      ...edge,
+      id: get().createEdgeId(),
+      source: idMap[edge.source],
+      target: idMap[edge.target]
+    }))
+
+    set((s) => ({
+      nodes: [...s.nodes, ...newNodes],
+      edges: [...s.edges, ...newEdges],
+      selection: { nodeIds: new Set(newNodes.map(n => n.id)), edgeIds: new Set() }
+    }))
+  },
+
+  cutSelected: () => {
+    get().copySelected()
+    get().deleteSelected()
+  },
+
+  selectAll: () => {
+    const { nodes } = get()
+    set({ selection: { nodeIds: new Set(nodes.map(n => n.id)), edgeIds: new Set() } })
+  },
+
+  nudgeSelected: (dx, dy) => {
+    const { selection } = get()
+    if (selection.nodeIds.size === 0) return
+
+    pushToHistory(get, set)
+    set((s) => ({
+      nodes: s.nodes.map(n => 
+        selection.nodeIds.has(n.id)
+          ? { ...n, position: { x: n.position.x + dx, y: n.position.y + dy } }
+          : n
+      )
+    }))
+  },
+
+  saveSnapshot: () => {
+    const { nodes, edges } = get()
+    try {
+      localStorage.setItem('canvas-snapshot', JSON.stringify({ nodes, edges }))
+    } catch (e) {
+      console.warn('[CANVAS] Failed to save snapshot:', e)
+    }
   },
 
   reset: () => {

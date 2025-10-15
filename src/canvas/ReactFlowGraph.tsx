@@ -1,25 +1,23 @@
-import { useCallback, useEffect } from 'react'
-import { ReactFlow, Background, Controls, MiniMap, Panel, Connection, BackgroundVariant } from '@xyflow/react'
+import { useCallback, useEffect, useState } from 'react'
+import { ReactFlow, Background, MiniMap, Connection, BackgroundVariant, ReactFlowProvider } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import DecisionNode from './nodes/DecisionNode'
 import { useCanvasStore } from './store'
 import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { loadState, saveState } from './persist'
+import { ContextMenu } from './ContextMenu'
+import { CanvasToolbar } from './CanvasToolbar'
 
 const nodeTypes = { decision: DecisionNode }
 
-export default function ReactFlowGraph() {
+function ReactFlowGraphInner() {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const onNodesChange = useCanvasStore(s => s.onNodesChange)
   const onEdgesChange = useCanvasStore(s => s.onEdgesChange)
   const onSelectionChange = useCanvasStore(s => s.onSelectionChange)
-  const addNode = useCanvasStore(s => s.addNode)
-  const reset = useCanvasStore(s => s.reset)
-  const undo = useCanvasStore(s => s.undo)
-  const redo = useCanvasStore(s => s.redo)
-  const canUndo = useCanvasStore(s => s.canUndo)
-  const canRedo = useCanvasStore(s => s.canRedo)
+  
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
 
   useKeyboardShortcuts()
 
@@ -54,6 +52,16 @@ export default function ReactFlowGraph() {
     useCanvasStore.getState().addEdge({ source: conn.source!, target: conn.target! })
   }, [])
 
+  const onPaneContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault()
+    setContextMenu({ x: event.clientX, y: event.clientY })
+  }, [])
+
+  const onNodeContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault()
+    setContextMenu({ x: event.clientX, y: event.clientY })
+  }, [])
+
   return (
     <div className="w-full h-full" data-testid="react-flow-graph">
       <ReactFlow
@@ -63,19 +71,39 @@ export default function ReactFlowGraph() {
         onEdgesChange={onEdgesChange}
         onSelectionChange={onSelectionChange}
         onConnect={onConnect}
+        onPaneContextMenu={onPaneContextMenu}
+        onNodeContextMenu={onNodeContextMenu}
         nodeTypes={nodeTypes}
         fitView
+        snapToGrid
+        snapGrid={[16, 16]}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#e5e7eb" />
-        <Controls position="bottom-right" />
-        <MiniMap nodeColor="#EA7B4B" position="bottom-left" style={{ width: 120, height: 80 }} />
-        <Panel position="top-left" className="flex flex-col gap-2">
-          <button onClick={() => addNode()} className="px-3 py-2 bg-[#EA7B4B] text-white text-sm rounded-lg">+ Node</button>
-          <button onClick={reset} className="px-3 py-2 bg-gray-700 text-white text-sm rounded-lg">Reset</button>
-          <button onClick={undo} disabled={!canUndo()} className="px-3 py-2 bg-gray-600 text-white text-sm rounded-lg disabled:opacity-50">↶ Undo</button>
-          <button onClick={redo} disabled={!canRedo()} className="px-3 py-2 bg-gray-600 text-white text-sm rounded-lg disabled:opacity-50">↷ Redo</button>
-        </Panel>
+        <MiniMap 
+          nodeColor="#EA7B4B" 
+          position="bottom-left" 
+          style={{ width: 120, height: 80 }} 
+          className="rounded-lg shadow-lg"
+        />
+        
+        <CanvasToolbar />
       </ReactFlow>
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
+  )
+}
+
+export default function ReactFlowGraph() {
+  return (
+    <ReactFlowProvider>
+      <ReactFlowGraphInner />
+    </ReactFlowProvider>
   )
 }
