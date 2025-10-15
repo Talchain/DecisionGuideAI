@@ -8,12 +8,12 @@ import ReactFlowGraph from '../canvas/ReactFlowGraph'
 export default function CanvasMVP() {
   // Console boot line
   useEffect(() => {
-    const commit = import.meta.env?.VITE_BUILD_SHA?.substring(0, 7) || 'unknown'
+    const commit = import.meta.env?.VITE_GIT_SHORT || 'dev'
     // eslint-disable-next-line no-console
     console.log('[CANVAS] route=/canvas component=CanvasMVP graph=ReactFlow commit=%s', commit)
   }, [])
 
-  const commit = import.meta.env?.VITE_BUILD_SHA?.substring(0, 7) || 'unknown'
+  const commit = import.meta.env?.VITE_GIT_SHORT || 'dev'
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden">

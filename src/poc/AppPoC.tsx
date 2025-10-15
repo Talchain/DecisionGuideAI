@@ -823,6 +823,11 @@ export default function AppPoC() {
               {/* POC: Fallback link */}
               <div style={{ textAlign: 'center', padding: '16px', color: '#6b7280', fontSize: '14px' }}>
                 <p>
+                  <a href="/#/canvas" style={{ color: '#EA7B4B', textDecoration: 'underline', fontWeight: 600, fontSize: '16px' }}>
+                    Open Canvas (React Flow Graph Editor)
+                  </a>
+                </p>
+                <p style={{ marginTop: '8px' }}>
                   Static fallback:{' '}
                   <a href="/poc" style={{ color: '#10b981', textDecoration: 'underline' }}>
                     /poc (zero dependencies)
