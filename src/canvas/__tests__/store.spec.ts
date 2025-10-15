@@ -1,9 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useCanvasStore } from '../store'
 
 describe('Canvas Store', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     useCanvasStore.getState().reset()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.useRealTimers()
   })
 
   it('initializes with 4 demo nodes', () => {
@@ -12,18 +18,49 @@ describe('Canvas Store', () => {
   })
 
   it('adds node with stable ID', () => {
-    const { addNode, nodes } = useCanvasStore.getState()
+    const { addNode } = useCanvasStore.getState()
     addNode()
     const newNodes = useCanvasStore.getState().nodes
     expect(newNodes).toHaveLength(5)
     expect(newNodes[4].id).toBe('5')
   })
 
-  it('generates monotonic IDs', () => {
+  it('generates monotonic node IDs', () => {
     const { createNodeId } = useCanvasStore.getState()
     const id1 = createNodeId()
     const id2 = createNodeId()
     expect(parseInt(id2)).toBeGreaterThan(parseInt(id1))
+  })
+
+  it('generates monotonic edge IDs', () => {
+    const { createEdgeId } = useCanvasStore.getState()
+    const id1 = createEdgeId()
+    const id2 = createEdgeId()
+    expect(id1).toBe('e5')
+    expect(id2).toBe('e6')
+  })
+
+  it('supports multiple edges between same nodes', () => {
+    const { addEdge } = useCanvasStore.getState()
+    addEdge({ source: '1', target: '2' })
+    addEdge({ source: '1', target: '2' })
+    const { edges } = useCanvasStore.getState()
+    const between1and2 = edges.filter(e => e.source === '1' && e.target === '2')
+    expect(between1and2.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('reseeds IDs on hydrate', () => {
+    const { reseedIds } = useCanvasStore.getState()
+    const nodes = [
+      { id: '1', type: 'decision', position: { x: 0, y: 0 }, data: {} },
+      { id: '2', type: 'decision', position: { x: 0, y: 0 }, data: {} },
+      { id: '7', type: 'decision', position: { x: 0, y: 0 }, data: {} }
+    ]
+    const edges = [{ id: 'e10', source: '1', target: '2' }]
+    reseedIds(nodes, edges)
+    const { nextNodeId, nextEdgeId } = useCanvasStore.getState()
+    expect(nextNodeId).toBe(8)
+    expect(nextEdgeId).toBe(11)
   })
 
   it('pushes history on add', () => {
@@ -41,6 +78,23 @@ describe('Canvas Store', () => {
     }
     const { history } = useCanvasStore.getState()
     expect(history.past.length).toBeLessThanOrEqual(50)
+  })
+
+  it('debounces history push on drag', () => {
+    const { onNodesChange } = useCanvasStore.getState()
+    onNodesChange([{ id: '1', type: 'position', dragging: true, position: { x: 10, y: 10 } }])
+    expect(useCanvasStore.getState().history.past).toHaveLength(0)
+    vi.advanceTimersByTime(200)
+    expect(useCanvasStore.getState().history.past).toHaveLength(1)
+  })
+
+  it('clears timer on reset', () => {
+    const { onNodesChange, reset } = useCanvasStore.getState()
+    onNodesChange([{ id: '1', type: 'position', dragging: true, position: { x: 10, y: 10 } }])
+    reset()
+    vi.advanceTimersByTime(300)
+    // History should still be empty because reset cleared the timer
+    expect(useCanvasStore.getState().history.past).toHaveLength(0)
   })
 
   it('undo restores previous state', () => {
@@ -62,7 +116,7 @@ describe('Canvas Store', () => {
   })
 
   it('purges future on new change after undo', () => {
-    const { addNode, undo, history } = useCanvasStore.getState()
+    const { addNode, undo } = useCanvasStore.getState()
     addNode()
     addNode()
     undo()
@@ -72,7 +126,7 @@ describe('Canvas Store', () => {
   })
 
   it('tracks selection', () => {
-    const { onSelectionChange, selection, nodes } = useCanvasStore.getState()
+    const { onSelectionChange, nodes } = useCanvasStore.getState()
     onSelectionChange({ nodes: [nodes[0]], edges: [] })
     const newSelection = useCanvasStore.getState().selection
     expect(newSelection.nodeIds.has(nodes[0].id)).toBe(true)
@@ -89,7 +143,7 @@ describe('Canvas Store', () => {
   })
 
   it('updates node label', () => {
-    const { updateNodeLabel, nodes } = useCanvasStore.getState()
+    const { updateNodeLabel } = useCanvasStore.getState()
     updateNodeLabel('1', 'New Label')
     const updated = useCanvasStore.getState().nodes.find(n => n.id === '1')
     expect(updated?.data.label).toBe('New Label')
@@ -104,5 +158,13 @@ describe('Canvas Store', () => {
     expect(nodes).toHaveLength(4)
     expect(history.past).toHaveLength(0)
     expect(history.future).toHaveLength(0)
+  })
+
+  it('cleanup clears pending timers', () => {
+    const { onNodesChange, cleanup } = useCanvasStore.getState()
+    onNodesChange([{ id: '1', type: 'position', dragging: true, position: { x: 10, y: 10 } }])
+    cleanup()
+    vi.advanceTimersByTime(300)
+    expect(useCanvasStore.getState().history.past).toHaveLength(0)
   })
 })

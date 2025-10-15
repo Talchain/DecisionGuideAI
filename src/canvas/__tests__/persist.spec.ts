@@ -4,6 +4,7 @@ import { loadState, saveState, clearState } from '../persist'
 describe('Persistence', () => {
   beforeEach(() => {
     localStorage.clear()
+    vi.clearAllTimers()
   })
 
   it('returns null when no saved state', () => {

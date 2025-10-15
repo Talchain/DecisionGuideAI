@@ -1,4 +1,4 @@
-// Hardened store with past/future history, selection, stable IDs
+// Hardened store with timer cleanup, ID reseeding, edge debouncing
 import { create } from 'zustand'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
 
@@ -10,10 +10,10 @@ const initialNodes: Node[] = [
 ]
 
 const initialEdges: Edge[] = [
-  { id: 'e1-2', source: '1', target: '2', label: 'Path A' },
-  { id: 'e1-3', source: '1', target: '3', label: 'Path B' },
-  { id: 'e2-4', source: '2', target: '4' },
-  { id: 'e3-4', source: '3', target: '4' }
+  { id: 'e1', source: '1', target: '2', label: 'Path A' },
+  { id: 'e2', source: '1', target: '3', label: 'Path B' },
+  { id: 'e3', source: '2', target: '4' },
+  { id: 'e4', source: '3', target: '4' }
 ]
 
 interface CanvasState {
@@ -22,12 +22,13 @@ interface CanvasState {
   history: { past: { nodes: Node[]; edges: Edge[] }[]; future: { nodes: Node[]; edges: Edge[] }[] }
   selection: { nodeIds: Set<string>; edgeIds: Set<string> }
   nextNodeId: number
+  nextEdgeId: number
   addNode: (pos?: { x: number; y: number }) => void
   updateNodeLabel: (id: string, label: string) => void
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
   onSelectionChange: (params: { nodes: Node[]; edges: Edge[] }) => void
-  addEdge: (edge: Edge) => void
+  addEdge: (edge: Omit<Edge, 'id'>) => void
   pushHistory: (debounced?: boolean) => void
   undo: () => void
   redo: () => void
@@ -35,16 +36,33 @@ interface CanvasState {
   canRedo: () => boolean
   deleteSelected: () => void
   createNodeId: () => string
+  createEdgeId: () => string
+  reseedIds: (nodes: Node[], edges: Edge[]) => void
   reset: () => void
+  cleanup: () => void
 }
 
 let historyTimer: ReturnType<typeof setTimeout> | null = null
 const MAX_HISTORY = 50
 
+function clearTimers() {
+  if (historyTimer) {
+    clearTimeout(historyTimer)
+    historyTimer = null
+  }
+}
+
 function pushToHistory(get: () => CanvasState, set: (fn: (s: CanvasState) => Partial<CanvasState>) => void) {
   const { nodes, edges, history } = get()
   const past = [...history.past, { nodes, edges }].slice(-MAX_HISTORY)
   set(() => ({ history: { past, future: [] } }))
+}
+
+function getMaxNumericId(ids: string[]): number {
+  return ids.reduce((max, id) => {
+    const num = parseInt(id.replace(/\D/g, ''), 10)
+    return isNaN(num) ? max : Math.max(max, num)
+  }, 0)
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => ({
@@ -53,11 +71,27 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   history: { past: [], future: [] },
   selection: { nodeIds: new Set(), edgeIds: new Set() },
   nextNodeId: 5,
+  nextEdgeId: 5,
 
   createNodeId: () => {
     const { nextNodeId } = get()
     set({ nextNodeId: nextNodeId + 1 })
     return String(nextNodeId)
+  },
+
+  createEdgeId: () => {
+    const { nextEdgeId } = get()
+    set({ nextEdgeId: nextEdgeId + 1 })
+    return `e${nextEdgeId}`
+  },
+
+  reseedIds: (nodes, edges) => {
+    const maxNodeId = getMaxNumericId(nodes.map(n => n.id))
+    const maxEdgeId = getMaxNumericId(edges.map(e => e.id))
+    set({ 
+      nextNodeId: Math.max(maxNodeId + 1, 5),
+      nextEdgeId: Math.max(maxEdgeId + 1, 5)
+    })
   },
 
   addNode: (pos) => {
@@ -79,7 +113,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   onEdgesChange: (changes) => {
     set((s) => ({ edges: applyEdgeChanges(changes, s.edges) }))
-    get().pushHistory()
+    // Detect edge drag/manipulation (select changes during drag are common)
+    const isEdgeUpdate = changes.some(c => c.type === 'select' || c.type === 'remove' || c.type === 'add')
+    get().pushHistory(isEdgeUpdate)
   },
 
   onSelectionChange: ({ nodes, edges }) => {
@@ -88,12 +124,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   addEdge: (edge) => {
     pushToHistory(get, set)
-    set((s) => ({ edges: [...s.edges, edge] }))
+    const id = get().createEdgeId()
+    set((s) => ({ edges: [...s.edges, { id, ...edge }] }))
   },
 
   pushHistory: (debounced = false) => {
     if (debounced) {
-      if (historyTimer) clearTimeout(historyTimer)
+      clearTimers()
       historyTimer = setTimeout(() => pushToHistory(get, set), 200)
       return
     }
@@ -132,6 +169,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   reset: () => {
-    set({ nodes: initialNodes, edges: initialEdges, history: { past: [], future: [] }, selection: { nodeIds: new Set(), edgeIds: new Set() }, nextNodeId: 5 })
-  }
+    clearTimers()
+    set({ 
+      nodes: initialNodes, 
+      edges: initialEdges, 
+      history: { past: [], future: [] }, 
+      selection: { nodeIds: new Set(), edgeIds: new Set() }, 
+      nextNodeId: 5,
+      nextEdgeId: 5
+    })
+  },
+
+  cleanup: clearTimers
 }))

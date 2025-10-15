@@ -23,9 +23,11 @@ export default function ReactFlowGraph() {
 
   useKeyboardShortcuts()
 
+  // Hydrate from localStorage on mount
   useEffect(() => {
     const saved = loadState()
     if (saved) {
+      useCanvasStore.getState().reseedIds(saved.nodes, saved.edges)
       useCanvasStore.setState({ nodes: saved.nodes, edges: saved.edges })
       const msg = document.createElement('div')
       msg.setAttribute('role', 'status')
@@ -37,13 +39,19 @@ export default function ReactFlowGraph() {
     }
   }, [])
 
+  // Debounced autosave (2s after changes settle)
   useEffect(() => {
-    const timer = setInterval(() => saveState({ nodes, edges }), 2000)
-    return () => clearInterval(timer)
+    const timer = setTimeout(() => saveState({ nodes, edges }), 2000)
+    return () => clearTimeout(timer)
   }, [nodes, edges])
 
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => useCanvasStore.getState().cleanup()
+  }, [])
+
   const onConnect = useCallback((conn: Connection) => {
-    useCanvasStore.getState().addEdge({ id: `e${conn.source}-${conn.target}`, ...conn })
+    useCanvasStore.getState().addEdge({ source: conn.source!, target: conn.target! })
   }, [])
 
   return (
