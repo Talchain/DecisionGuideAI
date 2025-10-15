@@ -8,6 +8,7 @@ import { CameraProvider, useCamera } from '../components/PlotCamera'
 import WhiteboardCanvas, { type DrawPath } from '../components/WhiteboardCanvas'
 import DecisionGraphLayer from '../components/DecisionGraphLayer'
 import { PlcCanvasAdapter } from '../plot/adapters/PlcCanvasAdapter'
+import ReactFlowGraph from '../components/ReactFlowGraph'
 import PlotToolbar, { Tool, NodeType } from '../components/PlotToolbar'
 import ResultsPanel from '../components/ResultsPanel'
 import OnboardingHints from '../components/OnboardingHints'
@@ -56,8 +57,11 @@ function PlotWorkspaceInner() {
     console.log('[PLOT] route=/plot component=PlotWorkspace canvas=%s source=%s', sel.usePlc ? 'PLC' : 'Legacy', sel.source)
   }, [sel])
 
-  // Parse diag query param (/#/plot?diag=1)
-  const isDiagMode = new URLSearchParams(window.location.hash.split('?')[1] || '').get('diag') === '1'
+  // Parse query params
+  const queryParams = new URLSearchParams(window.location.hash.split('?')[1] || '')
+  const isDiagMode = queryParams.get('diag') === '1'
+  const useReactFlow = queryParams.get('rf') === '1' || 
+                      String(import.meta.env?.VITE_FEATURE_REACT_FLOW_GRAPH) === '1'
 
   // Runtime hit-test probe + assert
   useEffect(() => {
@@ -544,8 +548,31 @@ function PlotWorkspaceInner() {
         </div>
         
         {/* Layer 1: Canvas - reactive gating */}
-        <div id="plot-canvas-root">
-          {sel.usePlc ? (
+        <div 
+          id="plot-canvas-root"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            overflow: 'hidden'
+          }}
+        >
+          {useReactFlow ? (
+            <ReactFlowGraph
+              data-testid="react-flow-graph"
+              initialNodes={nodes.map(n => ({
+                id: n.id,
+                type: 'decision',
+                position: { x: n.x || 100, y: n.y || 100 },
+                data: { label: n.label }
+              }))}
+              initialEdges={edges.map((e, i) => ({
+                id: `edge-${i}`,
+                source: e.from,
+                target: e.to,
+                label: e.label
+              }))}
+            />
+          ) : sel.usePlc ? (
             <PlcCanvasAdapter
               data-testid="plc-canvas-adapter"
               nodes={nodes}

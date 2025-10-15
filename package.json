@@ -48,9 +48,12 @@
     "@floating-ui/react": "0.26.9",
     "@supabase/supabase-js": "2.39.7",
     "@tanstack/react-query": "^5.90.2",
+    "@xyflow/react": "^12.8.6",
     "ajv": "^8.12.0",
+    "class-variance-authority": "^0.7.1",
     "date-fns": "2.30.0",
     "dotenv": "^16.5.0",
+    "framer-motion": "^12.23.24",
     "lucide-react": "^0.344.0",
     "openai": "^4.28.0",
     "pako": "^2.1.0",
@@ -61,7 +64,8 @@
     "uuid": "^9.0.1",
     "y-websocket": "^3.0.0",
     "yjs": "^13.6.27",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.0",
