@@ -5,91 +5,57 @@ import {
   Controls,
   MiniMap,
   Panel,
-  useNodesState,
-  useEdgesState,
-  addEdge,
   Connection,
-  Edge,
-  Node,
   BackgroundVariant,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import DecisionNode from './nodes/DecisionNode'
+import { useCanvasStore } from './store'
+import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 
 const nodeTypes = {
   decision: DecisionNode,
 }
 
-const initialDemoNodes: Node[] = [
-  {
-    id: '1',
-    type: 'decision',
-    position: { x: 250, y: 100 },
-    data: { label: 'Start' }
-  },
-  {
-    id: '2',
-    type: 'decision',
-    position: { x: 100, y: 250 },
-    data: { label: 'Option A' }
-  },
-  {
-    id: '3',
-    type: 'decision',
-    position: { x: 400, y: 250 },
-    data: { label: 'Option B' }
-  },
-  {
-    id: '4',
-    type: 'decision',
-    position: { x: 250, y: 400 },
-    data: { label: 'Outcome' }
-  }
-]
+export default function ReactFlowGraph() {
+  // Use Zustand store
+  const nodes = useCanvasStore((state) => state.nodes)
+  const edges = useCanvasStore((state) => state.edges)
+  const onNodesChange = useCanvasStore((state) => state.onNodesChange)
+  const onEdgesChange = useCanvasStore((state) => state.onEdgesChange)
+  const addNode = useCanvasStore((state) => state.addNode)
+  const reset = useCanvasStore((state) => state.reset)
+  const undo = useCanvasStore((state) => state.undo)
+  const redo = useCanvasStore((state) => state.redo)
+  const canUndo = useCanvasStore((state) => state.canUndo)
+  const canRedo = useCanvasStore((state) => state.canRedo)
 
-const initialDemoEdges: Edge[] = [
-  { id: 'e1-2', source: '1', target: '2', label: 'Path A' },
-  { id: 'e1-3', source: '1', target: '3', label: 'Path B' },
-  { id: 'e2-4', source: '2', target: '4' },
-  { id: 'e3-4', source: '3', target: '4' }
-]
+  // Enable keyboard shortcuts
+  useKeyboardShortcuts()
 
-interface ReactFlowGraphProps {
-  initialNodes?: Node[]
-  initialEdges?: Edge[]
-}
-
-export default function ReactFlowGraph({
-  initialNodes = initialDemoNodes,
-  initialEdges = initialDemoEdges,
-}: ReactFlowGraphProps) {
-  const [nodes, setNodes, handleNodesChange] = useNodesState(initialNodes)
-  const [edges, setEdges, handleEdgesChange] = useEdgesState(initialEdges)
   const [nodeId, setNodeId] = useState(5)
 
   const onConnect = useCallback(
     (connection: Connection) => {
-      setEdges((eds) => addEdge(connection, eds))
+      const newEdge = {
+        id: `e${connection.source}-${connection.target}`,
+        ...connection
+      }
+      useCanvasStore.getState().addEdge(newEdge)
     },
-    [setEdges]
+    []
   )
 
   const handleAddNode = useCallback(() => {
-    const newNode: Node = {
+    const newNode = {
       id: String(nodeId),
       type: 'decision',
       position: { x: Math.random() * 400 + 100, y: Math.random() * 400 + 100 },
       data: { label: `Node ${nodeId}` }
     }
-    setNodes((nds) => [...nds, newNode])
+    addNode(newNode)
     setNodeId(nodeId + 1)
-  }, [nodeId, setNodes])
-
-  const handleReset = useCallback(() => {
-    setNodes(initialDemoNodes)
-    setEdges(initialDemoEdges)
-    setNodeId(5)
-  }, [setNodes, setEdges])
+  }, [nodeId, addNode])
 
 
   return (
@@ -97,8 +63,8 @@ export default function ReactFlowGraph({
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={handleEdgesChange}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         nodeTypes={nodeTypes}
         fitView
@@ -121,11 +87,29 @@ export default function ReactFlowGraph({
             + Node
           </button>
           <button
-            onClick={handleReset}
+            onClick={reset}
             className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg shadow-md transition-colors"
             aria-label="Reset Demo"
           >
             Reset
+          </button>
+          <button
+            onClick={undo}
+            disabled={!canUndo()}
+            className="px-3 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Undo"
+            title="Cmd/Ctrl+Z"
+          >
+            ↶ Undo
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo()}
+            className="px-3 py-2 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Redo"
+            title="Cmd/Ctrl+Shift+Z"
+          >
+            ↷ Redo
           </button>
         </Panel>
       </ReactFlow>
