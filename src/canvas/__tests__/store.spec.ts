@@ -167,4 +167,106 @@ describe('Canvas Store', () => {
     vi.advanceTimersByTime(300)
     expect(useCanvasStore.getState().history.past).toHaveLength(0)
   })
+
+  // Authoring feature tests
+  it('duplicates selected nodes with offset', () => {
+    const { nodes, selection, duplicateSelected } = useCanvasStore.getState()
+    
+    // Select first node
+    useCanvasStore.setState({ 
+      selection: { nodeIds: new Set(['1']), edgeIds: new Set() } 
+    })
+    
+    duplicateSelected()
+    
+    const newNodes = useCanvasStore.getState().nodes
+    expect(newNodes).toHaveLength(5)
+    
+    // New node should be offset
+    const original = nodes[0]
+    const duplicate = newNodes[4]
+    expect(duplicate.position.x).toBe(original.position.x + 50)
+    expect(duplicate.position.y).toBe(original.position.y + 50)
+  })
+
+  it('copies selected nodes to clipboard', () => {
+    const { copySelected } = useCanvasStore.getState()
+    
+    useCanvasStore.setState({ 
+      selection: { nodeIds: new Set(['1', '2']), edgeIds: new Set() } 
+    })
+    
+    copySelected()
+    
+    const { clipboard } = useCanvasStore.getState()
+    expect(clipboard?.nodes).toHaveLength(2)
+  })
+
+  it('pastes from clipboard with offset', () => {
+    const { copySelected, pasteClipboard } = useCanvasStore.getState()
+    
+    useCanvasStore.setState({ 
+      selection: { nodeIds: new Set(['1']), edgeIds: new Set() } 
+    })
+    
+    copySelected()
+    pasteClipboard()
+    
+    const { nodes } = useCanvasStore.getState()
+    expect(nodes).toHaveLength(5)
+  })
+
+  it('cuts selected nodes', () => {
+    const { cutSelected } = useCanvasStore.getState()
+    
+    useCanvasStore.setState({ 
+      selection: { nodeIds: new Set(['1']), edgeIds: new Set() } 
+    })
+    
+    cutSelected()
+    
+    const { nodes, clipboard } = useCanvasStore.getState()
+    expect(nodes).toHaveLength(3)
+    expect(clipboard?.nodes).toHaveLength(1)
+  })
+
+  it('selects all nodes', () => {
+    const { selectAll } = useCanvasStore.getState()
+    
+    selectAll()
+    
+    const { selection } = useCanvasStore.getState()
+    expect(selection.nodeIds.size).toBe(4)
+  })
+
+  it('nudges selected nodes', () => {
+    const { nodes, nudgeSelected } = useCanvasStore.getState()
+    const originalX = nodes[0].position.x
+    
+    useCanvasStore.setState({ 
+      selection: { nodeIds: new Set(['1']), edgeIds: new Set() } 
+    })
+    
+    nudgeSelected(10, 0)
+    
+    const { nodes: newNodes } = useCanvasStore.getState()
+    expect(newNodes[0].position.x).toBe(originalX + 10)
+  })
+
+  it('saves snapshot to localStorage', () => {
+    const { saveSnapshot } = useCanvasStore.getState()
+    
+    const mockSetItem = vi.fn()
+    const originalSetItem = Storage.prototype.setItem
+    Storage.prototype.setItem = mockSetItem
+    
+    saveSnapshot()
+    
+    expect(mockSetItem).toHaveBeenCalledWith(
+      'canvas-snapshot',
+      expect.stringContaining('"nodes"')
+    )
+    
+    Storage.prototype.setItem = originalSetItem
+  })
 })
