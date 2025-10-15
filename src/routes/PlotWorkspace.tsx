@@ -15,34 +15,46 @@ import KeyboardShortcuts from '../components/KeyboardShortcuts'
 import BuildBadge from '../components/BuildBadge'
 import DebugOverlays from '../components/DebugOverlays'
 import { loadWorkspaceState, createAutosaver, clearWorkspaceState } from '../lib/plotStorage'
+import { resolvePlcOverride } from '../lib/resolvePlcOverride'
 
 // Types
 type Node = { id: string; label: string; x?: number; y?: number; type?: string }
 type Edge = { from: string; to: string; label?: string; weight?: number }
 type StickyNote = { id: string; x: number; y: number; text: string; color: string }
 
-// Canvas selection: URL ?plc → localStorage → env
-// Support both query params and hash params (/#/plot?plc=1)
-const hashQuery = typeof window !== 'undefined' ? window.location.hash.split('?')[1] || '' : ''
-const searchQuery = typeof window !== 'undefined' ? window.location.search.substring(1) : ''
-const qp = new URLSearchParams(hashQuery || searchQuery)
-const override = qp.get('plc')
-const ls = (typeof window !== 'undefined' && window.localStorage) ? window.localStorage.getItem('PLOT_USE_PLC') : null
-const ENV_USE_PLC = String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS) === '1'
-const USE_PLC = override === '0' ? false : override === '1' ? true : ls === '0' ? false : ls === '1' ? true : ENV_USE_PLC
-
-console.log('[PLOT] route=/plot component=PlotWorkspace canvas=%s flags={PLC_LAB:%s,POC_ONLY:%s,PLOT_PLC_CANVAS:%s} override=%s ls=%s',
-  USE_PLC ? 'PLC' : 'DecisionGraphLayer',
-  String(import.meta.env?.VITE_PLC_LAB),
-  String(import.meta.env?.VITE_POC_ONLY),
-  String(import.meta.env?.VITE_FEATURE_PLOT_USES_PLC_CANVAS),
-  override, ls)
-
 // Inner component that has access to camera
 function PlotWorkspaceInner() {
   const { camera, setCamera } = useCamera()
   const [workspaceLoaded, setWorkspaceLoaded] = useState(false)
   const [initializationComplete, setInitializationComplete] = useState(false)
+
+  // Reactive canvas selection
+  const [sel, setSel] = useState(() =>
+    resolvePlcOverride(typeof window !== 'undefined' ? window : undefined)
+  )
+
+  useEffect(() => {
+    const refresh = () => setSel(resolvePlcOverride(window))
+    window.addEventListener('hashchange', refresh)
+    window.addEventListener('popstate', refresh)
+
+    // micro-poller to catch client-side navigations that don't push state
+    const id = setInterval(() => {
+      const next = resolvePlcOverride(window)
+      setSel(prev => (prev.usePlc === next.usePlc && prev.source === next.source ? prev : next))
+    }, 400)
+
+    return () => {
+      window.removeEventListener('hashchange', refresh)
+      window.removeEventListener('popstate', refresh)
+      clearInterval(id)
+    }
+  }, [])
+
+  useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log('[PLOT] route=/plot component=PlotWorkspace canvas=%s source=%s', sel.usePlc ? 'PLC' : 'Legacy', sel.source)
+  }, [sel])
 
   // Parse diag query param (/#/plot?diag=1)
   const isDiagMode = new URLSearchParams(window.location.hash.split('?')[1] || '').get('diag') === '1'
@@ -479,27 +491,11 @@ function PlotWorkspaceInner() {
                        isLiveData ? '✓ Ready' :
                        '📋 Demo Mode'
 
-  const shortSha = import.meta.env?.VITE_BUILD_SHA?.substring(0, 7) || 'unknown'
-  const canvasName = USE_PLC ? 'PLC' : 'DecisionGraphLayer'
-
   return (
     <>
-      {/* Loud badge: proves component identity */}
-      <div
-        id="__plot_component_name__"
-        style={{
-          position: 'fixed',
-          top: 8,
-          left: 8,
-          zIndex: 99999,
-          background: '#111',
-          color: '#0ff',
-          padding: '6px 8px',
-          fontSize: 12,
-          fontFamily: 'monospace'
-        }}
-      >
-        ROUTE=/plot • COMPONENT=PlotWorkspace • CANVAS={canvasName} • COMMIT={shortSha}
+      {/* Informative badge */}
+      <div className="fixed left-2 top-2 z-[9999] rounded bg-black/80 px-2 py-1 text-[11px] text-cyan-300">
+        CANVAS={sel.usePlc ? 'PLC' : 'Legacy'} • SRC={sel.source}
       </div>
       <BuildBadge />
       <DebugOverlays />
@@ -547,17 +543,9 @@ function PlotWorkspaceInner() {
           />
         </div>
         
-        {/* Layer 1: Canvas - gated by USE_PLC (URL ?plc → localStorage → env) */}
-        <div
-          id="plot-canvas-root"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 10,
-            overflow: 'hidden'
-          }}
-        >
-          {USE_PLC ? (
+        {/* Layer 1: Canvas - reactive gating */}
+        <div id="plot-canvas-root">
+          {sel.usePlc ? (
             <PlcCanvasAdapter
               data-testid="plc-canvas-adapter"
               nodes={nodes}
@@ -568,7 +556,7 @@ function PlotWorkspaceInner() {
             />
           ) : (
             <DecisionGraphLayer
-              data-testid="legacy-decision-graph"
+              data-testid="legacy-canvas"
               nodes={nodes}
               edges={edges}
               selectedNodeId={selectedNodeId || undefined}

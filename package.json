@@ -57,7 +57,10 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.22.3",
+    "reactflow": "^11.11.4",
     "uuid": "^9.0.1",
+    "y-websocket": "^3.0.0",
+    "yjs": "^13.6.27",
     "zod": "^3.22.4"
   },
   "devDependencies": {
@@ -80,6 +83,7 @@
     "eslint-plugin-react": "7.35.0",
     "jsdom": "^24.0.0",
     "postcss": "^8.4.35",
+    "prelude-ls": "^1.2.1",
     "react-is": "^18.3.1",
     "rimraf": "^6.0.1",
     "tailwindcss": "^3.4.1",
