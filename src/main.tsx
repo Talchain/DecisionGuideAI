@@ -17,8 +17,9 @@ const plcEnabled = (() => {
     return false
   }
 })()
-// POC: Boot full app for /plot, /sandbox, and /sandbox-v1
+// POC: Boot full app for /plot, /canvas, /sandbox, and /sandbox-v1
 const forceSandbox = 
+  location.hash.startsWith('#/canvas') ||
   location.hash.startsWith('#/plot') ||
   location.hash.startsWith('#/sandbox') ||
   location.hash.startsWith('#/test')
