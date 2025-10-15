@@ -25,10 +25,12 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      // Redo: Cmd/Ctrl + Shift + Z
-      if (cmdOrCtrl && event.key === 'z' && event.shiftKey && canRedo()) {
-        event.preventDefault()
-        redo()
+      // Redo: Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y
+      if ((cmdOrCtrl && event.key === 'z' && event.shiftKey) || (cmdOrCtrl && event.key === 'y')) {
+        if (canRedo()) {
+          event.preventDefault()
+          redo()
+        }
         return
       }
 
