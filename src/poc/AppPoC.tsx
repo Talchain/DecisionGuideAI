@@ -844,17 +844,11 @@ export default function AppPoC() {
       <QueryClientProvider client={queryClient}>
         <Router>
           <Routes>
-            {/* Plot Workspace - Unified canvas with whiteboard background */}
-            <Route path="/plot" element={<PlotWorkspace />} />
-            {/* Canvas MVP - React Flow graph editor */}
             <Route path="/canvas" element={<CanvasMVP />} />
-            {/* Plot Showcase - Legacy panels layout */}
+            <Route path="/plot" element={<PlotWorkspace />} />
             <Route path="/plot-legacy" element={<PlotShowcase />} />
-            {/* POC: New preview route (hard-enabled features) */}
             <Route path="/sandbox-v1" element={<SandboxV1 />} />
-            {/* POC: Scenario Sandbox test route */}
             <Route path="/test" element={<MainSandboxContent />} />
-            {/* POC: Main sandbox route (flag-gated features) */}
             <Route path="*" element={<MainSandboxContent />} />
           </Routes>
         </Router>

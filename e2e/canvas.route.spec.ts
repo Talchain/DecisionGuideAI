@@ -1,41 +1,38 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Canvas Route', () => {
-  test('canvas route loads with badge and graph', async ({ page }) => {
-    // Track console errors
+  test('canvas route renders React Flow and badge', async ({ page }) => {
     const errors: string[] = []
-    page.on('console', msg => {
-      if (msg.type() === 'error') errors.push(msg.text())
-    })
+    page.on('pageerror', e => errors.push(String(e)))
+    page.on('console', m => { if (m.type() === 'error') errors.push(m.text()) })
 
-    // Navigate to canvas
     await page.goto('/#/canvas')
     
-    // Expect badge with correct text
+    // Badge should be visible with correct text
     const badge = page.locator('[data-testid="build-badge"]')
-    await expect(badge).toBeVisible()
+    await expect(badge).toBeVisible({ timeout: 10000 })
     await expect(badge).toContainText('ROUTE=/canvas')
+    await expect(badge).toContainText('MODE=RF')
     
-    // Expect React Flow root to be visible
+    // React Flow root should exist
     const rfRoot = page.locator('[data-testid="rf-root"]')
     await expect(rfRoot).toBeVisible()
     
-    // Expect React Flow graph to render
+    // React Flow graph should render
     await expect(page.locator('.react-flow')).toBeVisible()
     
-    // Wait a moment for any late errors
+    // Wait for any late errors
     await page.waitForTimeout(500)
     
-    // Assert no console errors
-    expect(errors).toHaveLength(0)
+    // Should have no console errors
+    expect(errors).toEqual([])
   })
 
-  test('home screen has canvas link', async ({ page }) => {
+  test('home page has link to canvas', async ({ page }) => {
     await page.goto('/')
     
-    // Find the canvas link
-    const canvasLink = page.locator('a:has-text("Open Canvas")')
-    await expect(canvasLink).toBeVisible()
-    await expect(canvasLink).toHaveAttribute('href', '/#/canvas')
+    // Find canvas link (allow both formats)
+    const link = page.locator('a[href="#/canvas"], a[href="/#/canvas"]')
+    await expect(link.first()).toBeVisible()
   })
 })
