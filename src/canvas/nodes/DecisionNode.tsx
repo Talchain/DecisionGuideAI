@@ -9,7 +9,7 @@ export interface DecisionNodeData {
 }
 
 function DecisionNode({ data, selected }: NodeProps) {
-  const nodeData = data as DecisionNodeData
+  const nodeData = data as unknown as DecisionNodeData
   return (
     <div
       className={`
@@ -17,7 +17,7 @@ function DecisionNode({ data, selected }: NodeProps) {
         ${selected ? 'border-[#EA7B4B] shadow-lg' : 'border-gray-200'}
         hover:shadow-lg min-w-[150px]
       `}
-      data-testid="decision-node"
+      data-testid="rf-node"
     >
       <Handle
         type="target"

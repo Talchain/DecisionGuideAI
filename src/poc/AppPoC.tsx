@@ -11,6 +11,7 @@ import GraphCanvas from '../components/GraphCanvas'
 import SandboxV1 from '../routes/SandboxV1'
 import PlotShowcase from '../routes/PlotShowcase'
 import PlotWorkspace from '../routes/PlotWorkspace'
+import CanvasMVP from '../routes/CanvasMVP'
 import SandboxHeader, { type SandboxMode } from './components/SandboxHeader'
 import OnboardingHints from './components/OnboardingHints'
 import { exportCanvas, formatSandboxPngName } from './export/exportCanvas'
@@ -840,6 +841,8 @@ export default function AppPoC() {
           <Routes>
             {/* Plot Workspace - Unified canvas with whiteboard background */}
             <Route path="/plot" element={<PlotWorkspace />} />
+            {/* Canvas MVP - React Flow graph editor */}
+            <Route path="/canvas" element={<CanvasMVP />} />
             {/* Plot Showcase - Legacy panels layout */}
             <Route path="/plot-legacy" element={<PlotShowcase />} />
             {/* POC: New preview route (hard-enabled features) */}
