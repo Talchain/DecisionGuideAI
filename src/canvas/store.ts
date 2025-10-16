@@ -56,12 +56,17 @@ interface CanvasState {
 }
 
 let historyTimer: ReturnType<typeof setTimeout> | null = null
+let nudgeTimer: ReturnType<typeof setTimeout> | null = null
 const MAX_HISTORY = 50
 
 function clearTimers() {
   if (historyTimer) {
     clearTimeout(historyTimer)
     historyTimer = null
+  }
+  if (nudgeTimer) {
+    clearTimeout(nudgeTimer)
+    nudgeTimer = null
   }
 }
 
@@ -258,8 +263,22 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   cutSelected: () => {
-    get().copySelected()
-    get().deleteSelected()
+    // Atomic operation: copy + delete in single history frame
+    // This prevents double-frame if copySelected ever mutates in future
+    const { nodes, edges, selection } = get()
+    const selectedNodes = nodes.filter(n => selection.nodeIds.has(n.id))
+    const selectedEdges = edges.filter(e => selection.nodeIds.has(e.source) && selection.nodeIds.has(e.target))
+    
+    // Push history once before mutation
+    pushToHistory(get, set)
+    
+    // Set clipboard and delete in same transaction
+    set((s) => ({
+      clipboard: { nodes: selectedNodes, edges: selectedEdges },
+      nodes: s.nodes.filter(n => !selection.nodeIds.has(n.id)),
+      edges: s.edges.filter(e => !selection.nodeIds.has(e.source) && !selection.nodeIds.has(e.target) && !selection.edgeIds.has(e.id)),
+      selection: { nodeIds: new Set(), edgeIds: new Set() }
+    }))
   },
 
   selectAll: () => {
@@ -271,7 +290,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const { selection } = get()
     if (selection.nodeIds.size === 0) return
 
-    pushToHistory(get, set)
+    // On first nudge in burst, push current state to history
+    // Subsequent nudges within 500ms window won't push (coalesced into single undo frame)
+    if (!nudgeTimer) {
+      pushToHistory(get, set)
+    }
+
+    // Apply nudge immediately (responsive)
     set((s) => ({
       nodes: s.nodes.map(n => 
         selection.nodeIds.has(n.id)
@@ -279,6 +304,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           : n
       )
     }))
+
+    // Reset debounce timer: if 500ms passes without another nudge, burst is complete
+    if (nudgeTimer) clearTimeout(nudgeTimer)
+    nudgeTimer = setTimeout(() => {
+      nudgeTimer = null
+    }, 500)
   },
 
   saveSnapshot: () => {

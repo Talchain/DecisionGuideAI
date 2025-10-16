@@ -36,13 +36,16 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   }, [x, y])
 
   // Close on click outside
+  // Note: Listener added synchronously to avoid race condition where
+  // unmount happens before setTimeout callback, leaving orphaned listener
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         onClose()
       }
     }
-    setTimeout(() => document.addEventListener('mousedown', handleClick), 0)
+    // Add listener immediately (menu already rendered in this tick)
+    document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [onClose])
 

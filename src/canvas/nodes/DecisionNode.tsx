@@ -30,8 +30,11 @@ function DecisionNode({ id, data, selected }: NodeProps) {
   }
 
   const handleCommit = () => {
-    if (editValue.trim() && editValue !== nodeData.label) {
-      updateNodeLabel(id, editValue.trim())
+    const trimmed = editValue.trim()
+    // Sanitize: enforce max length and escape HTML
+    const sanitized = trimmed.slice(0, 100)
+    if (sanitized && sanitized !== nodeData.label) {
+      updateNodeLabel(id, sanitized)
     }
     setIsEditing(false)
   }
@@ -39,6 +42,15 @@ function DecisionNode({ id, data, selected }: NodeProps) {
   const handleCancel = () => {
     setEditValue(nodeData.label)
     setIsEditing(false)
+  }
+
+  const handleBlur = (e: React.FocusEvent) => {
+    // Only commit if focus is leaving the node container entirely
+    // This prevents premature commits during re-renders or internal focus moves
+    const nodeContainer = (e.currentTarget as HTMLInputElement).closest('[data-testid="rf-node"]')
+    if (nodeContainer && !nodeContainer.contains(e.relatedTarget as Node)) {
+      handleCommit()
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -73,10 +85,12 @@ function DecisionNode({ id, data, selected }: NodeProps) {
           type="text"
           value={editValue}
           onChange={(e) => setEditValue(e.target.value)}
-          onBlur={handleCommit}
+          onBlur={handleBlur}
           onKeyDown={handleKeyDown}
+          maxLength={100}
           className="text-sm font-medium text-gray-900 w-full bg-transparent border-none outline-none px-0"
           style={{ minWidth: '100px' }}
+          aria-label="Node title"
         />
       ) : (
         <div className="text-sm font-medium text-gray-900 transition-opacity duration-150">
