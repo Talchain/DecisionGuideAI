@@ -9,6 +9,7 @@ import { ContextMenu } from './ContextMenu'
 import { CanvasToolbar } from './CanvasToolbar'
 import { AlignmentGuides } from './components/AlignmentGuides'
 import { PropertiesPanel } from './components/PropertiesPanel'
+import { CommandPalette } from './components/CommandPalette'
 
 const nodeTypes = { decision: DecisionNode }
 
@@ -22,8 +23,25 @@ function ReactFlowGraphInner() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
+  const [showCommandPalette, setShowCommandPalette] = useState(false)
 
   useKeyboardShortcuts()
+
+  // Command Palette shortcut (⌘/Ctrl+K)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey
+      
+      if (cmdOrCtrl && e.key === 'k') {
+        e.preventDefault()
+        setShowCommandPalette(true)
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   // Hydrate from localStorage on mount
   useEffect(() => {
@@ -136,6 +154,7 @@ function ReactFlowGraphInner() {
       )}
 
       <PropertiesPanel />
+      <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />
     </div>
   )
 }
