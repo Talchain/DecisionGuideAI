@@ -1,6 +1,7 @@
 // Hardened store with timer cleanup, ID reseeding, edge debouncing
 import { create } from 'zustand'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
+import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
 
 const initialNodes: Node[] = [
   { id: '1', type: 'decision', position: { x: 250, y: 100 }, data: { label: 'Start' } },
@@ -47,7 +48,9 @@ interface CanvasState {
   cutSelected: () => void
   selectAll: () => void
   nudgeSelected: (dx: number, dy: number) => void
-  saveSnapshot: () => void
+  saveSnapshot: () => boolean
+  importCanvas: (json: string) => boolean
+  exportCanvas: () => string
   createNodeId: () => string
   createEdgeId: () => string
   reseedIds: (nodes: Node[], edges: Edge[]) => void
@@ -314,11 +317,32 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   saveSnapshot: () => {
     const { nodes, edges } = get()
-    try {
-      localStorage.setItem('canvas-snapshot', JSON.stringify({ nodes, edges }))
-    } catch (e) {
-      console.warn('[CANVAS] Failed to save snapshot:', e)
-    }
+    return persistSnapshot({ nodes, edges })
+  },
+
+  importCanvas: (json: string) => {
+    const imported = persistImport(json)
+    if (!imported) return false
+
+    // Clear history since this is a full import
+    clearTimers()
+    
+    // Reseed IDs to avoid collisions
+    get().reseedIds(imported.nodes, imported.edges)
+    
+    set({
+      nodes: imported.nodes,
+      edges: imported.edges,
+      history: { past: [], future: [] },
+      selection: { nodeIds: new Set(), edgeIds: new Set() }
+    })
+    
+    return true
+  },
+
+  exportCanvas: () => {
+    const { nodes, edges } = get()
+    return persistExport({ nodes, edges })
   },
 
   reset: () => {
