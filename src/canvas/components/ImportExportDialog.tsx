@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { exportCanvas as exportCanvasData, sanitizeLabel } from '../persist'
+import { useToast } from '../ToastContext'
 
 interface ImportExportDialogProps {
   isOpen: boolean
