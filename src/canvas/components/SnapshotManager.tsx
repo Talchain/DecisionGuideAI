@@ -94,6 +94,11 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
     setEditingKey(null)
   }
 
+  const handleRenameCancel = () => {
+    setEditingKey(null)
+    setEditName('')
+  }
+
   const handleCopyJSON = (key: string) => {
     const data = loadSnapshot(key)
     if (data) {
@@ -184,11 +189,17 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
                       type="text"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      onBlur={() => handleRenameCommit(snapshot.key)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleRenameCommit(snapshot.key)
-                        if (e.key === 'Escape') setEditingKey(null)
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleRenameCommit(snapshot.key)
+                        }
+                        if (e.key === 'Escape') {
+                          e.preventDefault()
+                          handleRenameCancel()
+                        }
                       }}
+                      onBlur={handleRenameCancel}
                       maxLength={50}
                       autoFocus
                       className="font-medium text-gray-900 w-full border border-[#EA7B4B] rounded px-2 py-1 outline-none"
