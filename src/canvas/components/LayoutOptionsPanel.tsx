@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useLayoutStore } from '../layoutStore'
 import { useCanvasStore } from '../store'
+import { useToast } from '../ToastContext'
 
 export function LayoutOptionsPanel() {
   const [isOpen, setIsOpen] = useState(false)
@@ -18,12 +19,21 @@ export function LayoutOptionsPanel() {
   } = useLayoutStore()
   
   const applyLayout = useCanvasStore(s => s.applyLayout)
+  const { showToast } = useToast()
 
   const handleApplyLayout = async () => {
     setIsApplying(true)
+    
+    // Show loading toast for first-time ELK load
+    const loadingToast = showToast('Loading layout engine...', 'info')
+    
     try {
       await applyLayout()
       setIsOpen(false)
+      showToast('Layout applied successfully', 'success')
+    } catch (error) {
+      console.error('Layout failed:', error)
+      showToast('Layout failed. Please try again.', 'error')
     } finally {
       setIsApplying(false)
     }
