@@ -16,6 +16,7 @@ import { SettingsPanel } from './components/SettingsPanel'
 import { useSettingsStore } from './settingsStore'
 import { CanvasErrorBoundary } from './ErrorBoundary'
 import { ToastProvider } from './ToastContext'
+import { DiagnosticsOverlay } from './DiagnosticsOverlay'
 
 const nodeTypes = { decision: DecisionNode }
 
@@ -186,6 +187,7 @@ function ReactFlowGraphInner() {
       <EmptyStateOverlay onDismiss={() => setShowEmptyState(false)} />
       <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />
       <SettingsPanel />
+      <DiagnosticsOverlay />
     </div>
   )
 }
