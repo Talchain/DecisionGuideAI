@@ -66,10 +66,15 @@ function DecisionNode({ id, data, selected }: NodeProps) {
   return (
     <div
       className={`
-        px-4 py-3 rounded-2xl shadow-md bg-white border-2 transition-all
+        px-4 py-3 rounded-2xl shadow-md bg-white border-2 min-w-[150px]
+        transition-all duration-150 ease-out
         ${selected ? 'border-[#EA7B4B] shadow-lg scale-[1.02]' : 'border-gray-200'}
-        hover:shadow-lg min-w-[150px]
+        hover:shadow-lg hover:scale-[1.02]
       `}
+      style={{
+        willChange: 'transform',
+        transform: 'translateZ(0)', // GPU acceleration
+      }}
       data-testid="rf-node"
       onDoubleClick={handleDoubleClick}
     >
