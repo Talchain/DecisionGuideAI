@@ -1,3 +1,4 @@
+/* eslint-disable no-console, no-undef */
 const fs = require('fs')
 const path = require('path')
 const { gzipSync } = require('zlib')

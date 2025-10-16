@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { SnapshotManager } from '../SnapshotManager'
+import { ToastProvider } from '../../ToastContext'
 import * as persist from '../../persist'
 import * as store from '../../store'
 
@@ -10,6 +11,10 @@ vi.mock('../../store')
 
 describe('SnapshotManager', () => {
   const mockOnClose = vi.fn()
+  
+  const renderWithToast = (component: React.ReactElement) => {
+    return render(<ToastProvider>{component}</ToastProvider>)
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -33,7 +38,7 @@ describe('SnapshotManager', () => {
   it('renders when open', () => {
     vi.mocked(persist.listSnapshots).mockReturnValue([])
     
-    const { container } = render(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
+    const { container } = renderWithToast(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
     
     expect(screen.getByText('Snapshot Manager')).toBeTruthy()
     expect(screen.getByText('💾 Save Current Canvas')).toBeTruthy()
@@ -41,14 +46,14 @@ describe('SnapshotManager', () => {
   })
 
   it('does not render when closed', () => {
-    const { container } = render(<SnapshotManager isOpen={false} onClose={mockOnClose} />)
+    const { container } = renderWithToast(<SnapshotManager isOpen={false} onClose={mockOnClose} />)
     expect(container.firstChild).toBeNull()
   })
 
   it('displays empty state when no snapshots', () => {
     vi.mocked(persist.listSnapshots).mockReturnValue([])
     
-    render(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
+    renderWithToast(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
     
     expect(screen.getByText('No snapshots yet')).toBeTruthy()
     expect(screen.getByText(/Save your current canvas/)).toBeTruthy()
@@ -72,7 +77,7 @@ describe('SnapshotManager', () => {
       return null
     })
     
-    render(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
+    renderWithToast(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
     
     expect(screen.getByText('My Snapshot')).toBeTruthy()
     expect(screen.getByText(/1 nodes, 0 edges/)).toBeTruthy()
@@ -83,7 +88,7 @@ describe('SnapshotManager', () => {
     vi.mocked(persist.listSnapshots).mockReturnValue([])
     vi.mocked(persist.saveSnapshot).mockReturnValue(true)
     
-    render(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
+    renderWithToast(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
     
     const saveButton = screen.getByText('💾 Save Current Canvas')
     fireEvent.click(saveButton)
@@ -106,7 +111,7 @@ describe('SnapshotManager', () => {
     
     vi.mocked(persist.listSnapshots).mockReturnValue([])
     
-    render(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
+    renderWithToast(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
     
     const saveButton = screen.getByText('💾 Save Current Canvas')
     fireEvent.click(saveButton)
@@ -135,7 +140,7 @@ describe('SnapshotManager', () => {
     
     Storage.prototype.getItem = vi.fn(() => 'Test Snapshot')
     
-    render(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
+    renderWithToast(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
     
     const deleteButton = screen.getByText('Delete')
     fireEvent.click(deleteButton)
@@ -162,7 +167,7 @@ describe('SnapshotManager', () => {
     
     Storage.prototype.getItem = vi.fn(() => 'Test')
     
-    render(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
+    renderWithToast(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
     
     expect(screen.getByText(/2\/10 snapshots/)).toBeTruthy()
   })
@@ -170,7 +175,7 @@ describe('SnapshotManager', () => {
   it('closes on close button click', () => {
     vi.mocked(persist.listSnapshots).mockReturnValue([])
     
-    const { container } = render(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
+    const { container } = renderWithToast(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
     
     const closeButton = container.querySelector('[aria-label="Close snapshot manager"]')
     if (closeButton) {
