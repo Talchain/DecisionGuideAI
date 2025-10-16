@@ -30,12 +30,13 @@ function isValidState(data: unknown): data is PersistedState {
   )
 }
 
-function sanitizeLabel(label: unknown): string {
+export function sanitizeLabel(label: unknown): string {
   if (typeof label !== 'string') return 'Untitled'
-  // Strip HTML tags and limit length
+  // Strip HTML tags, control characters, and limit length
   return label
-    .replace(/<[^>]*>/g, '')
-    .replace(/[<>]/g, '')
+    .replace(/<[^>]*>/g, '') // Remove HTML tags
+    .replace(/[<>]/g, '') // Remove angle brackets
+    .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
     .slice(0, 100)
     .trim() || 'Untitled'
 }

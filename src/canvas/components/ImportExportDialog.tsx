@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { useCanvasStore } from '../store'
-import { exportCanvas as exportCanvasData } from '../persist'
+import { exportCanvas as exportCanvasData, sanitizeLabel } from '../persist'
 
 interface ImportExportDialogProps {
   isOpen: boolean
@@ -106,23 +106,31 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
         if (!data.version) data.version = 1
         if (!data.timestamp) data.timestamp = Date.now()
 
-        // Auto-fix: generate missing IDs
+        // Auto-fix: generate missing IDs and sanitize labels
         if (Array.isArray(data.nodes)) {
-          data.nodes = data.nodes.map((node: any, i: number) => ({
-            ...node,
-            id: node.id || `node-${i + 1}`,
-            position: node.position || { x: i * 100, y: i * 100 },
-            type: node.type || 'decision',
-            data: node.data || { label: `Node ${i + 1}` }
-          }))
+          data.nodes = data.nodes.map((node: any, i: number) => {
+            const nodeData = node.data || {}
+            const rawLabel = nodeData.label || `Node ${i + 1}`
+            return {
+              ...node,
+              id: node.id || `node-${i + 1}`,
+              position: node.position || { x: i * 100, y: i * 100 },
+              type: node.type || 'decision',
+              data: {
+                ...nodeData,
+                label: sanitizeLabel(rawLabel)
+              }
+            }
+          })
         }
 
-        // Auto-fix: generate missing edge IDs
+        // Auto-fix: generate missing edge IDs and sanitize labels
         if (Array.isArray(data.edges)) {
           data.edges = data.edges.filter((e: any) => e.source && e.target)
           data.edges = data.edges.map((edge: any, i: number) => ({
             ...edge,
-            id: edge.id || `edge-${i + 1}`
+            id: edge.id || `edge-${i + 1}`,
+            label: edge.label ? sanitizeLabel(edge.label) : undefined
           }))
         }
 
