@@ -14,6 +14,7 @@ import { EmptyStateOverlay } from './components/EmptyStateOverlay'
 import { KeyboardCheatsheet } from './components/KeyboardCheatsheet'
 import { SettingsPanel } from './components/SettingsPanel'
 import { useSettingsStore } from './settingsStore'
+import { useLayoutStore } from './layoutStore'
 import { CanvasErrorBoundary } from './ErrorBoundary'
 import { ToastProvider } from './ToastContext'
 import { DiagnosticsOverlay } from './DiagnosticsOverlay'
@@ -41,7 +42,6 @@ function ReactFlowGraphInner() {
   // Load settings and layout options on mount
   useEffect(() => {
     loadSettings()
-    const { useLayoutStore } = require('./layoutStore')
     useLayoutStore.getState().loadOptions()
   }, [loadSettings])
 
