@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ReactFlow, ReactFlowProvider, Controls, MiniMap, Background, BackgroundVariant, useReactFlow, type Connection, type NodeChange } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import DecisionNode from './nodes/DecisionNode'
 import { useCanvasStore } from './store'
@@ -31,7 +31,7 @@ function ReactFlowGraphInner() {
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
-  const [showEmptyState, setShowEmptyState] = useState(true)
+  const [, setShowEmptyState] = useState(true)
   const [showCheatsheet, setShowCheatsheet] = useState(false)
   
   const { showGrid, gridSize, snapToGrid, showAlignmentGuides, loadSettings } = useSettingsStore()
@@ -104,12 +104,12 @@ function ReactFlowGraphInner() {
     useCanvasStore.getState().addEdge({ source: conn.source!, target: conn.target! })
   }, [])
 
-  const onPaneContextMenu = useCallback((event: React.MouseEvent) => {
+  const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault()
     setContextMenu({ x: event.clientX, y: event.clientY })
   }, [])
 
-  const onNodeContextMenu = useCallback((event: React.MouseEvent) => {
+  const onNodeContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault()
     setContextMenu({ x: event.clientX, y: event.clientY })
   }, [])

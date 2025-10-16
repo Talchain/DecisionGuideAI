@@ -170,7 +170,7 @@ describe('Canvas Store', () => {
 
   // Authoring feature tests
   it('duplicates selected nodes with offset', () => {
-    const { nodes, selection, duplicateSelected } = useCanvasStore.getState()
+    const { nodes, duplicateSelected } = useCanvasStore.getState()
     
     // Select first node
     useCanvasStore.setState({ 
