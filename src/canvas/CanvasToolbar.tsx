@@ -2,11 +2,14 @@ import { useState } from 'react'
 import { useCanvasStore } from './store'
 import { useReactFlow } from '@xyflow/react'
 import { SnapshotManager } from './components/SnapshotManager'
+import { ImportExportDialog } from './components/ImportExportDialog'
 
 export function CanvasToolbar() {
   const [isMinimized, setIsMinimized] = useState(false)
   const [isLayouting, setIsLayouting] = useState(false)
   const [showSnapshots, setShowSnapshots] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const [showExport, setShowExport] = useState(false)
   const { undo, redo, canUndo, canRedo, addNode, applyLayout } = useCanvasStore()
   const { fitView, zoomIn, zoomOut } = useReactFlow()
 
@@ -129,7 +132,7 @@ export function CanvasToolbar() {
           {isLayouting ? 'Tidying...' : 'Tidy Layout'}
         </button>
 
-        {/* Save / Snapshots */}
+        {/* Snapshots */}
         <button
           onClick={() => setShowSnapshots(true)}
           className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -137,6 +140,28 @@ export function CanvasToolbar() {
           aria-label="Open snapshot manager"
         >
           Snapshots
+        </button>
+
+        <div className="w-px h-6 bg-gray-300" role="separator" />
+
+        {/* Import */}
+        <button
+          onClick={() => setShowImport(true)}
+          className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+          title="Import Canvas"
+          aria-label="Import canvas from file"
+        >
+          Import
+        </button>
+
+        {/* Export */}
+        <button
+          onClick={() => setShowExport(true)}
+          className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+          title="Export Canvas"
+          aria-label="Export canvas to file"
+        >
+          Export
         </button>
 
         {/* Minimize */}
@@ -152,8 +177,10 @@ export function CanvasToolbar() {
         </button>
       </div>
 
-      {/* Snapshot Manager Modal */}
+      {/* Modals */}
       <SnapshotManager isOpen={showSnapshots} onClose={() => setShowSnapshots(false)} />
+      <ImportExportDialog isOpen={showImport} onClose={() => setShowImport(false)} mode="import" />
+      <ImportExportDialog isOpen={showExport} onClose={() => setShowExport(false)} mode="export" />
     </div>
   )
 }
