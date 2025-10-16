@@ -4,8 +4,18 @@ import { useReactFlow } from '@xyflow/react'
 
 export function CanvasToolbar() {
   const [isMinimized, setIsMinimized] = useState(false)
-  const { undo, redo, canUndo, canRedo, saveSnapshot, addNode } = useCanvasStore()
+  const [isLayouting, setIsLayouting] = useState(false)
+  const { undo, redo, canUndo, canRedo, saveSnapshot, addNode, applyLayout } = useCanvasStore()
   const { fitView, zoomIn, zoomOut } = useReactFlow()
+
+  const handleTidyLayout = async () => {
+    setIsLayouting(true)
+    try {
+      await applyLayout()
+    } finally {
+      setIsLayouting(false)
+    }
+  }
 
   if (isMinimized) {
     return (
@@ -105,6 +115,17 @@ export function CanvasToolbar() {
         </button>
 
         <div className="w-px h-6 bg-gray-300" role="separator" />
+
+        {/* Tidy Layout */}
+        <button
+          onClick={handleTidyLayout}
+          disabled={isLayouting}
+          className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Tidy Layout (ELK)"
+          aria-label="Apply automatic layout"
+        >
+          {isLayouting ? 'Tidying...' : 'Tidy Layout'}
+        </button>
 
         {/* Save */}
         <button

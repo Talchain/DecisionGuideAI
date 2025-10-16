@@ -51,6 +51,7 @@ interface CanvasState {
   saveSnapshot: () => boolean
   importCanvas: (json: string) => boolean
   exportCanvas: () => string
+  applyLayout: () => Promise<void>
   createNodeId: () => string
   createEdgeId: () => string
   reseedIds: (nodes: Node[], edges: Edge[]) => void
@@ -343,6 +344,28 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   exportCanvas: () => {
     const { nodes, edges } = get()
     return persistExport({ nodes, edges })
+  },
+
+  applyLayout: async () => {
+    const { nodes, edges } = get()
+    
+    // Dynamic import to avoid bundling ELK if not used
+    const { layoutGraph } = await import('./utils/layout')
+    
+    // Push to history before layout
+    pushToHistory(get, set)
+    
+    try {
+      const { nodes: layoutedNodes } = await layoutGraph(nodes, edges, {
+        direction: 'DOWN',
+        spacing: 50,
+        preserveLocked: true
+      })
+      
+      set({ nodes: layoutedNodes })
+    } catch (err) {
+      console.error('[CANVAS] Layout failed:', err)
+    }
   },
 
   reset: () => {
