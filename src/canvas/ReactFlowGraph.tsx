@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ReactFlow, Background, MiniMap, Connection, BackgroundVariant, ReactFlowProvider, NodeChange } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, Controls, MiniMap, Background, BackgroundVariant, useReactFlow, type Connection, type NodeChange } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import DecisionNode from './nodes/DecisionNode'
 import { useCanvasStore } from './store'
@@ -12,6 +12,8 @@ import { PropertiesPanel } from './components/PropertiesPanel'
 import { CommandPalette } from './components/CommandPalette'
 import { EmptyStateOverlay } from './components/EmptyStateOverlay'
 import { KeyboardCheatsheet } from './components/KeyboardCheatsheet'
+import { SettingsPanel } from './components/SettingsPanel'
+import { useSettingsStore } from './settingsStore'
 
 const nodeTypes = { decision: DecisionNode }
 
@@ -28,8 +30,15 @@ function ReactFlowGraphInner() {
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showEmptyState, setShowEmptyState] = useState(true)
   const [showCheatsheet, setShowCheatsheet] = useState(false)
+  
+  const { showGrid, gridSize, snapToGrid, showAlignmentGuides, loadSettings } = useSettingsStore()
 
   useKeyboardShortcuts()
+  
+  // Load settings on mount
+  useEffect(() => {
+    loadSettings()
+  }, [loadSettings])
 
   // Keyboard shortcuts (⌘K for palette, ? for cheatsheet)
   useEffect(() => {
@@ -132,8 +141,8 @@ function ReactFlowGraphInner() {
         onNodeContextMenu={onNodeContextMenu}
         nodeTypes={nodeTypes}
         fitView
-        snapToGrid
-        snapGrid={[16, 16]}
+        snapToGrid={snapToGrid}
+        snapGrid={[gridSize, gridSize]}
         minZoom={0.2}
         maxZoom={4}
         defaultEdgeOptions={{
@@ -142,7 +151,7 @@ function ReactFlowGraphInner() {
           style: { strokeWidth: 2 }
         }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#e5e7eb" />
+        {showGrid && <Background variant={BackgroundVariant.Dots} gap={gridSize} size={1} color="#e5e7eb" />}
         <MiniMap 
           nodeColor="#EA7B4B" 
           position="bottom-left" 
@@ -151,11 +160,11 @@ function ReactFlowGraphInner() {
           aria-label="Mini map"
         />
         
-        <AlignmentGuides 
+        {showAlignmentGuides && <AlignmentGuides 
           nodes={nodes}
           draggingNodeIds={draggingNodeIds}
           isActive={isDragging}
-        />
+        />}
         
         <CanvasToolbar />
       </ReactFlow>
@@ -172,6 +181,7 @@ function ReactFlowGraphInner() {
       <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />
       <EmptyStateOverlay onDismiss={() => setShowEmptyState(false)} />
       <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />
+      <SettingsPanel />
     </div>
   )
 }
