@@ -12,6 +12,12 @@ export function PropertiesPanel() {
     : null
 
   useEffect(() => {
+    // Clear any pending timer when switching nodes
+    if (updateTimerRef.current) {
+      clearTimeout(updateTimerRef.current)
+      updateTimerRef.current = null
+    }
+    
     if (selectedNode) {
       setEditLabel(selectedNode.data?.label || '')
       setEditLocked(selectedNode.data?.locked || false)
