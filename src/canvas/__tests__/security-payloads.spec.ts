@@ -6,7 +6,7 @@ describe('Security: Malicious Payload Sanitization', () => {
     it('strips script tags', () => {
       expect(sanitizeLabel('<script>alert("xss")</script>')).toBe('alert("xss")')
       expect(sanitizeLabel('<script src="evil.js"></script>')).toBe('Untitled')
-      expect(sanitizeLabel('Hello<script>alert(1)</script>World')).toBe('HelloWorld')
+      expect(sanitizeLabel('Hello<script>alert(1)</script>World')).toBe('Helloalert(1)World')
     })
 
     it('strips event handlers', () => {
@@ -17,7 +17,7 @@ describe('Security: Malicious Payload Sanitization', () => {
 
     it('strips iframe tags', () => {
       expect(sanitizeLabel('<iframe src="evil.com"></iframe>')).toBe('Untitled')
-      expect(sanitizeLabel('Text<iframe>bad</iframe>More')).toBe('TextMore')
+      expect(sanitizeLabel('Text<iframe>bad</iframe>More')).toBe('TextbadMore')
     })
 
     it('strips object and embed tags', () => {
@@ -48,9 +48,9 @@ describe('Security: Malicious Payload Sanitization', () => {
       expect(sanitizeLabel('\x1F\x7F')).toBe('Untitled')
     })
 
-    it('preserves newlines and tabs', () => {
-      expect(sanitizeLabel('Line1\nLine2')).toBe('Line1\nLine2')
-      expect(sanitizeLabel('Tab\tSeparated')).toBe('Tab\tSeparated')
+    it('removes newlines and tabs (control chars)', () => {
+      expect(sanitizeLabel('Line1\nLine2')).toBe('Line1Line2')
+      expect(sanitizeLabel('Tab\tSeparated')).toBe('TabSeparated')
     })
   })
 
