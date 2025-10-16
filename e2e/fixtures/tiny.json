@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "timestamp": 1697500000000,
+  "nodes": [
+    {"id": "1", "type": "decision", "position": {"x": 100, "y": 100}, "data": {"label": "Start"}},
+    {"id": "2", "type": "decision", "position": {"x": 100, "y": 250}, "data": {"label": "Option A"}},
+    {"id": "3", "type": "decision", "position": {"x": 300, "y": 250}, "data": {"label": "Option B"}}
+  ],
+  "edges": [
+    {"id": "e1", "source": "1", "target": "2"},
+    {"id": "e2", "source": "1", "target": "3"}
+  ]
+}
