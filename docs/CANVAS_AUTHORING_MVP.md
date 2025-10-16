@@ -386,3 +386,189 @@ Canvas authoring delivers a **professional, delightful editing experience** with
 **Built with**: React Flow, Zustand, TailwindCSS  
 **Design**: Olumi Brand Palette  
 **UX Inspiration**: Figma, Miro, FigJam, Obsidian Canvas
+
+---
+
+## 💾 Import & Export (v2.0)
+
+### Export Your Canvas
+
+**Keyboard**: ⌘/Ctrl+E (coming soon)  
+**Store Method**:
+```javascript
+const json = useCanvasStore.getState().exportCanvas()
+console.log(json) // Copy to clipboard or save to file
+```
+
+**What's Exported:**
+- All nodes (positions, labels, data)
+- All edges (connections, labels)
+- Version metadata
+- Timestamp
+
+**File Format:**
+```json
+{
+  "version": 1,
+  "timestamp": 1697500800000,
+  "nodes": [...],
+  "edges": [...]
+}
+```
+
+### Import a Canvas
+
+**Store Method**:
+```javascript
+const json = '...' // Paste JSON or load from file
+const success = useCanvasStore.getState().importCanvas(json)
+if (!success) {
+  console.error('Import failed - check JSON format')
+}
+```
+
+**Safety:**
+- All labels sanitized (HTML stripped)
+- Schema validated (rejects malformed JSON)
+- ID collision prevented (automatic reseeding)
+- History cleared (fresh start)
+
+**What's Validated:**
+- Valid JSON syntax
+- Required fields present
+- Node structure (id, position)
+- Edge structure (source, target)
+
+### Share Your Work
+
+**Method 1: Copy JSON**
+```
+1. Open browser console
+2. Run: copy(useCanvasStore.getState().exportCanvas())
+3. Share JSON string via email/Slack/file
+4. Recipient: paste into importCanvas()
+```
+
+**Method 2: File Download** (future)
+- Export button → downloads `.olumi-canvas.json`
+- Drag & drop to import
+
+### Collaboration Tips
+
+**Version Control:**
+- Export to JSON file
+- Commit to Git repo
+- Team members can import and iterate
+
+**Snapshots:**
+- Press ⌘S to save snapshot
+- Up to 10 snapshots kept automatically
+- Oldest snapshots auto-deleted
+
+---
+
+## �� Security & Privacy
+
+### Your Data
+
+**Where It's Stored:**
+- LocalStorage (browser-only, never sent to server)
+- Max 5MB per canvas
+- Automatically cleared if you clear browser data
+
+**What's Sanitized:**
+- All labels (HTML tags removed)
+- Max 100 chars per label
+- No script execution possible
+
+**Privacy:**
+- No analytics on your canvas content
+- No server upload (100% local)
+- Safe to use with sensitive diagrams
+
+### Quota Limits
+
+**What Happens If Full:**
+- Save returns `false` (check console)
+- Warning logged: "Payload exceeds 5MB"
+- Solution: Export to file, clear old snapshots
+
+**How to Free Space:**
+- Delete old snapshots manually
+- Export large diagrams to files
+- Use browser DevTools → Storage → LocalStorage
+
+---
+
+## 🐛 Troubleshooting (Updated)
+
+### "Import failed"
+- **Check JSON syntax** (use JSON validator)
+- **Verify required fields** (version, nodes, edges)
+- **Check node structure** (each must have id, position)
+- **Check edge structure** (each must have source, target)
+
+### "Quota exceeded"
+- **Current size**: Check console for payload size
+- **Solution**: Export to file, clear old snapshots
+- **Alternative**: Split into multiple smaller canvases
+
+### "Snapshots not rotating"
+- **Check**: Run `listSnapshots()` in console
+- **Expected**: Max 10 snapshots shown
+- **If more**: Manually delete via localStorage panel
+
+---
+
+## 📊 Metrics & Limits (Updated)
+
+| Metric | Value |
+|--------|-------|
+| Max Undo History | 50 steps |
+| Max Snapshots | 10 (auto-rotate) |
+| Max Label Length | 100 chars |
+| Max Payload Size | 5 MB |
+| Grid Size | 16px |
+| Nudge Small | 1px |
+| Nudge Large (Shift) | 10px |
+| Duplicate Offset | +50px x, +50px y |
+| Autosave Delay | 2 seconds |
+| Nudge Debounce | 500ms |
+| Max Tested Nodes | 500 (smooth) |
+
+---
+
+## 🎉 What's New in v2.0
+
+### Security & Robustness
+- ✅ HTML sanitization (prevent XSS)
+- ✅ Max label length enforcement (100 chars)
+- ✅ Quota exceeded handling (5MB limit)
+- ✅ Import validation (reject malformed JSON)
+- ✅ Snapshot rotation (keep 10, delete oldest)
+
+### Accessibility
+- ✅ Context menu keyboard navigation (arrows, Enter, Esc)
+- ✅ ARIA roles and labels
+- ✅ Toolbar focus management
+- ✅ Visible focus rings
+
+### UX Improvements
+- ✅ Alignment guides during drag
+- ✅ Toolbar minimize toggle
+- ✅ Cut operation atomic (single undo)
+- ✅ Nudge debouncing (burst → single undo)
+- ✅ Better blur handling (no premature commits)
+
+### API Additions
+- `exportCanvas()` → JSON string
+- `importCanvas(json)` → boolean
+- `saveSnapshot()` → boolean (with rotation)
+- `listSnapshots()` → metadata array
+
+---
+
+**Built with**: React Flow, Zustand, TailwindCSS, Playwright  
+**Design**: Olumi Brand Palette (#EA7B4B, #67C89E, #63ADCF)  
+**UX Inspiration**: Figma, Miro, FigJam, Obsidian Canvas  
+**Engineering**: See CANVAS_ENGINEERING_NOTES.md
