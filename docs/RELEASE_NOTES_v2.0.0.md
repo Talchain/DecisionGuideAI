@@ -299,3 +299,107 @@ Special thanks to:
 **Release Date**: October 16, 2025  
 **Status**: ✅ Production Ready  
 **License**: MIT
+
+---
+
+## Monitoring & Rollback
+
+### Error Tracking (Sentry)
+**Target**: <0.1% session error rate
+
+**Alerts**:
+- **Warning**: >5 errors/hour
+- **Critical**: >10 errors/hour
+- **Action**: Investigate within 30 minutes
+
+**Metrics**:
+- Session error rate (%)
+- Unique errors count
+- Error frequency by type
+- Affected users count
+
+### Web Vitals (Datadog/Google Analytics RUM)
+**Targets** (75th percentile):
+- **LCP** (Largest Contentful Paint): <2.5s
+- **FID** (First Input Delay): <100ms
+- **CLS** (Cumulative Layout Shift): <0.1
+
+**Alerts**:
+- **Warning**: Any metric breached for >3 minutes
+- **Critical**: Any metric breached for >5 minutes
+- **Action**: Check performance dashboard, investigate regressions
+
+**Additional Metrics**:
+- Time to Interactive (TTI): <3.5s (p75)
+- Total Blocking Time (TBT): <300ms (p75)
+- Bundle load time: <2s (p75)
+
+### User Feedback (Hotjar/In-App Survey)
+**Target**: >80% positive sentiment
+
+**Collection**:
+- In-app feedback widget (Canvas toolbar)
+- Post-session survey (10% sample)
+- Support ticket analysis
+
+**Triage**:
+- Daily review of negative feedback
+- Weekly sentiment trend analysis
+- Monthly feature request prioritization
+
+**Alerts**:
+- **Warning**: <75% positive for 2 days
+- **Critical**: <70% positive for 1 day
+- **Action**: Emergency UX review, hotfix if needed
+
+### Rollback Criteria (Automatic)
+Trigger immediate rollback if any of:
+1. **Error rate >1%** for 10 consecutive minutes
+2. **LCP >5s** (p75) for 10 consecutive minutes
+3. **Security incident** (XSS, data breach, auth bypass)
+4. **>10 support complaints/hour** for 2 hours
+
+### Rollback Procedure
+1. **Revert deployment** to v1.x via Netlify
+2. **Notify team** via Slack #incidents
+3. **Create incident report** with root cause
+4. **Fix forward** in hotfix branch
+5. **Re-deploy** after fix verification
+
+### On-Call Cadence
+**Week 1** (Oct 16-22):
+- Daily checks at 9am and 5pm UTC
+- Monitor all metrics
+- Respond to alerts within 30 minutes
+
+**Weeks 2-4** (Oct 23 - Nov 12):
+- Checks every 2 days
+- Monitor error rate and Web Vitals
+- Respond to critical alerts within 1 hour
+
+**Thereafter**:
+- Normal rotation (weekly on-call)
+- Automated alerts only
+- Respond to critical alerts within 2 hours
+
+### Success Criteria (Week 1)
+- ✅ Error rate <0.1%
+- ✅ LCP <2.5s (p75)
+- ✅ FID <100ms (p75)
+- ✅ CLS <0.1 (p75)
+- ✅ >80% positive feedback
+- ✅ <5 support tickets
+- ✅ Zero rollbacks
+
+### Dashboard Links
+- **Sentry**: https://sentry.io/organizations/olumi/issues/
+- **Datadog RUM**: https://app.datadoghq.com/rum/
+- **Google Analytics**: https://analytics.google.com/
+- **Netlify**: https://app.netlify.com/sites/olumi-canvas/deploys
+- **Support**: https://support.olumi.com/tickets
+
+---
+
+**Monitoring Owner**: DevOps Team  
+**On-Call Rotation**: See PagerDuty schedule  
+**Escalation**: CTO (critical incidents only)
