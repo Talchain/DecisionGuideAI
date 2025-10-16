@@ -14,6 +14,8 @@ import { EmptyStateOverlay } from './components/EmptyStateOverlay'
 import { KeyboardCheatsheet } from './components/KeyboardCheatsheet'
 import { SettingsPanel } from './components/SettingsPanel'
 import { useSettingsStore } from './settingsStore'
+import { CanvasErrorBoundary } from './ErrorBoundary'
+import { ToastProvider } from './ToastContext'
 
 const nodeTypes = { decision: DecisionNode }
 
@@ -190,8 +192,12 @@ function ReactFlowGraphInner() {
 
 export default function ReactFlowGraph() {
   return (
-    <ReactFlowProvider>
-      <ReactFlowGraphInner />
-    </ReactFlowProvider>
+    <CanvasErrorBoundary>
+      <ToastProvider>
+        <ReactFlowProvider>
+          <ReactFlowGraphInner />
+        </ReactFlowProvider>
+      </ToastProvider>
+    </CanvasErrorBoundary>
   )
 }
