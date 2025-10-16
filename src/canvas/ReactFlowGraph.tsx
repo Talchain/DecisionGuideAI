@@ -10,6 +10,8 @@ import { CanvasToolbar } from './CanvasToolbar'
 import { AlignmentGuides } from './components/AlignmentGuides'
 import { PropertiesPanel } from './components/PropertiesPanel'
 import { CommandPalette } from './components/CommandPalette'
+import { EmptyStateOverlay } from './components/EmptyStateOverlay'
+import { KeyboardCheatsheet } from './components/KeyboardCheatsheet'
 
 const nodeTypes = { decision: DecisionNode }
 
@@ -24,18 +26,31 @@ function ReactFlowGraphInner() {
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [showEmptyState, setShowEmptyState] = useState(true)
+  const [showCheatsheet, setShowCheatsheet] = useState(false)
 
   useKeyboardShortcuts()
 
-  // Command Palette shortcut (⌘/Ctrl+K)
+  // Keyboard shortcuts (⌘K for palette, ? for cheatsheet)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey
       
+      // Ignore if typing in input
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return
+      }
+      
       if (cmdOrCtrl && e.key === 'k') {
         e.preventDefault()
         setShowCommandPalette(true)
+      }
+      
+      if (e.key === '?' && !e.shiftKey) {
+        e.preventDefault()
+        setShowCheatsheet(true)
       }
     }
     
@@ -155,6 +170,8 @@ function ReactFlowGraphInner() {
 
       <PropertiesPanel />
       <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />
+      <EmptyStateOverlay onDismiss={() => setShowEmptyState(false)} />
+      <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />
     </div>
   )
 }
