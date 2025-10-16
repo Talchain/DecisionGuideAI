@@ -85,4 +85,87 @@ test.describe('Canvas Snapshot Manager', () => {
     
     expectNoConsoleErrors(errors)
   })
+
+  test('Rename commits on Enter, cancels on Esc', async ({ page }) => {
+    const errors = setupConsoleErrorTracking(page)
+    
+    await clickToolbarButton(page, 'Snapshots')
+    
+    // Save a snapshot first
+    await page.locator('button:has-text("💾 Save Current Canvas")').click()
+    await page.waitForTimeout(500)
+    
+    // Click rename
+    await page.locator('button:has-text("Rename")').first().click()
+    
+    // Input should be visible
+    const input = page.locator('input[type="text"]').first()
+    await expect(input).toBeVisible()
+    
+    // Type new name
+    await input.fill('Test Snapshot Name')
+    
+    // Press Enter to commit
+    await input.press('Enter')
+    
+    // Should show new name
+    await expect(page.locator('text=Test Snapshot Name')).toBeVisible()
+    
+    expectNoConsoleErrors(errors)
+  })
+
+  test('Rename cancels on Escape', async ({ page }) => {
+    const errors = setupConsoleErrorTracking(page)
+    
+    await clickToolbarButton(page, 'Snapshots')
+    
+    // Save a snapshot
+    await page.locator('button:has-text("💾 Save Current Canvas")').click()
+    await page.waitForTimeout(500)
+    
+    // Get original name
+    const originalName = await page.locator('h3.font-medium').first().textContent()
+    
+    // Click rename
+    await page.locator('button:has-text("Rename")').first().click()
+    
+    const input = page.locator('input[type="text"]').first()
+    await input.fill('Should Not Save')
+    
+    // Press Escape to cancel
+    await input.press('Escape')
+    
+    // Should still show original name
+    await expect(page.locator(`text=${originalName}`)).toBeVisible()
+    await expect(page.locator('text=Should Not Save')).not.toBeVisible()
+    
+    expectNoConsoleErrors(errors)
+  })
+
+  test('Rename survives background autosave', async ({ page }) => {
+    const errors = setupConsoleErrorTracking(page)
+    
+    await clickToolbarButton(page, 'Snapshots')
+    
+    // Save a snapshot
+    await page.locator('button:has-text("💾 Save Current Canvas")').click()
+    await page.waitForTimeout(500)
+    
+    // Start rename
+    await page.locator('button:has-text("Rename")').first().click()
+    const input = page.locator('input[type="text"]').first()
+    
+    // Type slowly to simulate user thinking
+    await input.fill('New')
+    await page.waitForTimeout(100)
+    await input.fill('New Name')
+    
+    // Commit
+    await input.press('Enter')
+    
+    // Should show new name
+    await expect(page.locator('text=New Name')).toBeVisible()
+    
+    expectNoConsoleErrors(errors)
+  })
 })
