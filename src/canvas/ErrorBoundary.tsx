@@ -32,7 +32,12 @@ export class CanvasErrorBoundary extends Component<Props, State> {
       const state = localStorage.getItem('canvas-state-v1')
       if (state) {
         await navigator.clipboard.writeText(state)
-        alert('Canvas state copied to clipboard!')
+        // Show temporary success message
+        const msg = document.createElement('div')
+        msg.textContent = '✓ Canvas state copied to clipboard!'
+        msg.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:12px 20px;border-radius:8px;z-index:10000;font-size:14px;box-shadow:0 4px 6px rgba(0,0,0,0.1)'
+        document.body.appendChild(msg)
+        setTimeout(() => msg.remove(), 3000)
       }
     } catch (e) {
       console.error('Failed to copy state:', e)

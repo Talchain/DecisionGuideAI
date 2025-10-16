@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { listSnapshots, loadSnapshot, deleteSnapshot, saveSnapshot } from '../persist'
 import { useCanvasStore } from '../store'
+import { useToast } from '../ToastContext'
 
 interface SnapshotManagerProps {
   isOpen: boolean
@@ -21,6 +22,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const { nodes, edges } = useCanvasStore()
+  const { showToast } = useToast()
 
   const refreshSnapshots = () => {
     const rawSnapshots = listSnapshots()
@@ -49,7 +51,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
     const currentSize = JSON.stringify({ nodes, edges }).length
     
     if (currentSize > 5 * 1024 * 1024) {
-      alert('Canvas too large (>5MB). Please export to file instead.')
+      showToast('Canvas too large (>5MB). Please export to file instead.', 'error')
       return
     }
 
@@ -57,7 +59,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
     if (success) {
       refreshSnapshots()
     } else {
-      alert('Failed to save snapshot. Storage quota may be exceeded.')
+      showToast('Failed to save snapshot. Storage quota may be exceeded.', 'error')
     }
   }
 
@@ -104,7 +106,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
     if (data) {
       const json = JSON.stringify(data, null, 2)
       navigator.clipboard.writeText(json).then(() => {
-        alert('JSON copied to clipboard')
+        showToast('JSON copied to clipboard', 'success')
       })
     }
   }

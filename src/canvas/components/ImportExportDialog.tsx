@@ -22,6 +22,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
   const [exportFormat, setExportFormat] = useState<'json' | 'png' | 'svg'>('json')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { nodes, edges } = useCanvasStore()
+  const { showToast } = useToast()
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -136,7 +137,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
 
         jsonToImport = JSON.stringify(data)
       } catch (e) {
-        alert('Failed to apply auto-fix')
+        showToast('Failed to apply auto-fix', 'error')
         return
       }
     }
@@ -145,9 +146,9 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
     const result = importCanvas(jsonToImport)
     if (result) {
       onClose()
-      alert('Canvas imported successfully!')
+      showToast('Canvas imported successfully!', 'success')
     } else {
-      alert('Import failed. Please check the file format.')
+      showToast('Import failed. Please check the file format.', 'error')
     }
   }
 
@@ -169,7 +170,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
       const canvasElement = document.querySelector('[data-testid="rf-root"]') as HTMLElement
       
       if (!canvasElement) {
-        alert('Canvas not found. Please try again.')
+        showToast('Canvas not found. Please try again.', 'error')
         return
       }
 
@@ -187,12 +188,12 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
           a.click()
           URL.revokeObjectURL(url)
         } else {
-          alert('Failed to generate PNG. Please try again.')
+          showToast('Failed to generate PNG. Please try again.', 'error')
         }
       })
     } catch (error) {
       console.error('PNG export failed:', error)
-      alert('PNG export failed. This feature requires a modern browser. Please try JSON export instead.')
+      showToast('PNG export failed. Try JSON export instead.', 'error')
     }
   }
 
