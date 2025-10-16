@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ReactFlow, Background, MiniMap, Connection, BackgroundVariant, ReactFlowProvider } from '@xyflow/react'
+import { ReactFlow, Background, MiniMap, Connection, BackgroundVariant, ReactFlowProvider, NodeChange } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import DecisionNode from './nodes/DecisionNode'
 import { useCanvasStore } from './store'
@@ -7,6 +7,7 @@ import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { loadState, saveState } from './persist'
 import { ContextMenu } from './ContextMenu'
 import { CanvasToolbar } from './CanvasToolbar'
+import { AlignmentGuides } from './components/AlignmentGuides'
 
 const nodeTypes = { decision: DecisionNode }
 
@@ -18,6 +19,8 @@ function ReactFlowGraphInner() {
   const onSelectionChange = useCanvasStore(s => s.onSelectionChange)
   
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
+  const [isDragging, setIsDragging] = useState(false)
 
   useKeyboardShortcuts()
 
@@ -31,13 +34,14 @@ function ReactFlowGraphInner() {
       msg.setAttribute('role', 'status')
       msg.setAttribute('aria-live', 'polite')
       msg.className = 'sr-only'
-      msg.textContent = 'Restored'
+      msg.textContent = 'Canvas restored'
       document.body.appendChild(msg)
       setTimeout(() => msg.remove(), 1000)
     }
   }, [])
 
   // Debounced autosave (2s after changes settle)
+  // Note: waitForTimeout exception - this is legitimate debounced persistence
   useEffect(() => {
     const timer = setTimeout(() => saveState({ nodes, edges }), 2000)
     return () => clearTimeout(timer)
@@ -62,12 +66,31 @@ function ReactFlowGraphInner() {
     setContextMenu({ x: event.clientX, y: event.clientY })
   }, [])
 
+  // Track dragging state for alignment guides
+  const handleNodesChange = useCallback((changes: NodeChange[]) => {
+    const dragChanges = changes.filter(c => c.type === 'position')
+    
+    if (dragChanges.length > 0) {
+      const dragging = dragChanges.some((c: any) => c.dragging === true)
+      setIsDragging(dragging)
+      
+      if (dragging) {
+        const dragIds = new Set(dragChanges.map(c => c.id))
+        setDraggingNodeIds(dragIds)
+      } else {
+        setDraggingNodeIds(new Set())
+      }
+    }
+
+    onNodesChange(changes)
+  }, [onNodesChange])
+
   return (
-    <div className="w-full h-full" data-testid="react-flow-graph">
+    <div className="w-full h-full relative" data-testid="react-flow-graph">
       <ReactFlow
         nodes={nodes}
         edges={edges}
-        onNodesChange={onNodesChange}
+        onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         onSelectionChange={onSelectionChange}
         onConnect={onConnect}
@@ -77,6 +100,13 @@ function ReactFlowGraphInner() {
         fitView
         snapToGrid
         snapGrid={[16, 16]}
+        minZoom={0.2}
+        maxZoom={4}
+        defaultEdgeOptions={{
+          type: 'smoothstep',
+          animated: false,
+          style: { strokeWidth: 2 }
+        }}
       >
         <Background variant={BackgroundVariant.Dots} gap={16} size={1} color="#e5e7eb" />
         <MiniMap 
@@ -84,6 +114,13 @@ function ReactFlowGraphInner() {
           position="bottom-left" 
           style={{ width: 120, height: 80 }} 
           className="rounded-lg shadow-lg"
+          aria-label="Mini map"
+        />
+        
+        <AlignmentGuides 
+          nodes={nodes}
+          draggingNodeIds={draggingNodeIds}
+          isActive={isDragging}
         />
         
         <CanvasToolbar />

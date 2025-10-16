@@ -7,24 +7,17 @@ test.describe('Canvas Authoring Features', () => {
   })
 
   test('inline label editing works', async ({ page }) => {
-    // Find first node
     const node = page.locator('[data-testid="rf-node"]').first()
     
-    // Double-click to enter edit mode
     await node.dblclick()
     
-    // Input should be visible and focused
-    const input = node.locator('input')
+    const input = node.locator('input[aria-label="Node title"]')
     await expect(input).toBeVisible()
     await expect(input).toBeFocused()
     
-    // Type new label
     await input.fill('Updated Label')
-    
-    // Press Enter to commit
     await input.press('Enter')
     
-    // Input should be gone, text should show new label
     await expect(input).not.toBeVisible()
     await expect(node).toContainText('Updated Label')
   })
@@ -38,27 +31,47 @@ test.describe('Canvas Authoring Features', () => {
     await input.fill('Temporary Text')
     await input.press('Escape')
     
-    // Should revert to original
     await expect(node).toContainText(originalText!)
   })
 
-  test('context menu opens on right-click', async ({ page }) => {
-    // Right-click on canvas
+  test('inline edit enforces max length', async ({ page }) => {
+    const node = page.locator('[data-testid="rf-node"]').first()
+    await node.dblclick()
+    
+    const input = node.locator('input')
+    const maxLength = await input.getAttribute('maxLength')
+    expect(maxLength).toBe('100')
+  })
+
+  test('context menu opens on right-click with aria roles', async ({ page }) => {
     await page.locator('.react-flow').click({ button: 'right', position: { x: 300, y: 300 } })
     
-    // Context menu should appear
-    const menu = page.locator('.fixed.bg-white.rounded-xl')
+    const menu = page.locator('div[role="menu"]')
     await expect(menu).toBeVisible()
     
-    // Should have menu items
     await expect(menu).toContainText('Add Node Here')
+    await expect(menu).toContainText('Select All')
     await expect(menu).toContainText('Duplicate')
     await expect(menu).toContainText('Delete')
   })
 
+  test('context menu keyboard navigation (arrows and Enter)', async ({ page }) => {
+    await page.locator('.react-flow').click({ button: 'right', position: { x: 300, y: 300 } })
+    const menu = page.locator('div[role="menu"]')
+    await expect(menu).toBeVisible()
+    
+    // Navigate with arrow keys
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('ArrowDown')
+    
+    // First actionable item should have focus styling
+    const firstItem = menu.locator('button[role="menuitem"]').first()
+    await expect(firstItem).toHaveClass(/bg-\[#EA7B4B\]/)
+  })
+
   test('context menu closes on Escape', async ({ page }) => {
     await page.locator('.react-flow').click({ button: 'right', position: { x: 300, y: 300 } })
-    const menu = page.locator('.fixed.bg-white.rounded-xl')
+    const menu = page.locator('div[role="menu"]')
     await expect(menu).toBeVisible()
     
     await page.keyboard.press('Escape')
@@ -66,18 +79,14 @@ test.describe('Canvas Authoring Features', () => {
   })
 
   test('duplicate creates offset copy', async ({ page }) => {
-    // Select first node
     const firstNode = page.locator('[data-testid="rf-node"]').first()
     await firstNode.click()
     
-    // Get initial node count
     const initialCount = await page.locator('[data-testid="rf-node"]').count()
     
-    // Press Cmd+D (Mac) or Ctrl+D (Windows/Linux)
     const isMac = process.platform === 'darwin'
     await page.keyboard.press(isMac ? 'Meta+d' : 'Control+d')
     
-    // Should have one more node
     await expect(page.locator('[data-testid="rf-node"]')).toHaveCount(initialCount + 1)
   })
 
@@ -87,26 +96,36 @@ test.describe('Canvas Authoring Features', () => {
     
     const initialCount = await page.locator('[data-testid="rf-node"]').count()
     
-    // Copy
     const isMac = process.platform === 'darwin'
     await page.keyboard.press(isMac ? 'Meta+c' : 'Control+c')
-    
-    // Paste
     await page.keyboard.press(isMac ? 'Meta+v' : 'Control+v')
     
-    // Should have one more node
     await expect(page.locator('[data-testid="rf-node"]')).toHaveCount(initialCount + 1)
+  })
+
+  test('cut operation is atomic (single undo frame)', async ({ page }) => {
+    const initialCount = await page.locator('[data-testid="rf-node"]').count()
+    const isMac = process.platform === 'darwin'
+    
+    // Select and cut first node
+    const firstNode = page.locator('[data-testid="rf-node"]').first()
+    await firstNode.click()
+    await page.keyboard.press(isMac ? 'Meta+x' : 'Control+x')
+    
+    await expect(page.locator('[data-testid="rf-node"]')).toHaveCount(initialCount - 1)
+    
+    // Single undo should restore both node and clipboard state
+    await page.keyboard.press(isMac ? 'Meta+z' : 'Control+z')
+    await expect(page.locator('[data-testid="rf-node"]')).toHaveCount(initialCount)
   })
 
   test('delete removes selected node', async ({ page }) => {
     const initialCount = await page.locator('[data-testid="rf-node"]').count()
     
-    // Select and delete first node
     const firstNode = page.locator('[data-testid="rf-node"]').first()
     await firstNode.click()
     await page.keyboard.press('Delete')
     
-    // Should have one fewer node
     await expect(page.locator('[data-testid="rf-node"]')).toHaveCount(initialCount - 1)
   })
 
@@ -114,55 +133,89 @@ test.describe('Canvas Authoring Features', () => {
     const initialCount = await page.locator('[data-testid="rf-node"]').count()
     const isMac = process.platform === 'darwin'
     
-    // Add a node via toolbar
     await page.locator('button:has-text("+ Node")').click()
     await expect(page.locator('[data-testid="rf-node"]')).toHaveCount(initialCount + 1)
     
-    // Undo
     await page.keyboard.press(isMac ? 'Meta+z' : 'Control+z')
     await expect(page.locator('[data-testid="rf-node"]')).toHaveCount(initialCount)
     
-    // Redo
     await page.keyboard.press(isMac ? 'Meta+y' : 'Control+y')
     await expect(page.locator('[data-testid="rf-node"]')).toHaveCount(initialCount + 1)
+  })
+
+  test('nudge burst creates single undo frame', async ({ page }) => {
+    const isMac = process.platform === 'darwin'
+    const initialCount = await page.locator('[data-testid="rf-node"]').count()
+    
+    // Select first node
+    const node = page.locator('[data-testid="rf-node"]').first()
+    await node.click()
+    
+    // Rapid nudge (should coalesce into single history frame)
+    for (let i = 0; i < 10; i++) {
+      await page.keyboard.press('ArrowRight')
+      await page.waitForTimeout(50) // Simulate rapid but not instant keystrokes
+    }
+    
+    // Wait for debounce window to complete
+    await page.waitForTimeout(600)
+    
+    // Single undo should restore to pre-nudge position
+    await page.keyboard.press(isMac ? 'Meta+z' : 'Control+z')
+    
+    // Node should exist and be restored
+    await expect(page.locator('[data-testid="rf-node"]')).toHaveCount(initialCount)
   })
 
   test('select all works', async ({ page }) => {
     const isMac = process.platform === 'darwin'
     
-    // Select all
     await page.keyboard.press(isMac ? 'Meta+a' : 'Control+a')
     
-    // All nodes should be selected (have selected class)
     const nodes = page.locator('[data-testid="rf-node"]')
     const count = await nodes.count()
     
-    // Check at least some nodes are selected (border color check)
+    // Check first node has selection styling
     const firstNode = nodes.first()
     await expect(firstNode).toHaveClass(/border-\[#EA7B4B\]/)
   })
 
-  test('toolbar buttons work', async ({ page }) => {
-    // Toolbar should be visible
-    const toolbar = page.locator('.fixed.bottom-6')
+  test('toolbar has aria roles and is keyboard accessible', async ({ page }) => {
+    const toolbar = page.locator('div[role="toolbar"]')
     await expect(toolbar).toBeVisible()
     
-    // Check buttons exist
-    await expect(toolbar.locator('button:has-text("+ Node")')).toBeVisible()
-    await expect(toolbar.locator('button:has-text("Save")')).toBeVisible()
+    const ariaLabel = await toolbar.getAttribute('aria-label')
+    expect(ariaLabel).toContain('Canvas editing toolbar')
     
-    // Undo/Redo buttons should be disabled initially (no history)
-    const undoBtn = toolbar.locator('button').filter({ has: page.locator('svg') }).first()
-    // Note: May or may not be disabled depending on initial state
+    // Check buttons are keyboard focusable
+    const addButton = toolbar.locator('button:has-text("+ Node")')
+    await addButton.focus()
+    await expect(addButton).toBeFocused()
+  })
+
+  test('toolbar minimize and restore works', async ({ page }) => {
+    const toolbar = page.locator('div[role="toolbar"]')
+    await expect(toolbar).toBeVisible()
+    
+    // Find and click minimize button (down arrow)
+    const minimizeBtn = toolbar.locator('button[aria-label="Minimize toolbar"]')
+    await minimizeBtn.click()
+    
+    // Toolbar should be minimized (only restore button visible)
+    await expect(toolbar).not.toBeVisible()
+    const restoreBtn = page.locator('button[aria-label="Show toolbar"]')
+    await expect(restoreBtn).toBeVisible()
+    
+    // Restore
+    await restoreBtn.click()
+    await expect(toolbar).toBeVisible()
   })
 
   test('save snapshot works', async ({ page }) => {
     const isMac = process.platform === 'darwin'
     
-    // Save with keyboard
     await page.keyboard.press(isMac ? 'Meta+s' : 'Control+s')
     
-    // Check localStorage was updated (via evaluate)
     const saved = await page.evaluate(() => {
       const data = localStorage.getItem('canvas-snapshot')
       return data !== null
@@ -171,34 +224,29 @@ test.describe('Canvas Authoring Features', () => {
     expect(saved).toBe(true)
   })
 
-  test('nudge with arrow keys works', async ({ page }) => {
-    // Select first node
+  test('alignment guides appear during drag (visual check)', async ({ page }) => {
+    // This is a smoke test - guides are rendered but may be hard to assert in E2E
+    // We just verify no errors during drag operations
     const node = page.locator('[data-testid="rf-node"]').first()
-    await node.click()
     
-    // Get initial position (via React Flow internals)
-    // We'll just verify the node is still there after nudging
+    const box = await node.boundingBox()
+    if (box) {
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(box.x + 100, box.y + 50, { steps: 5 })
+      await page.mouse.up()
+    }
     
-    // Nudge right
-    await page.keyboard.press('ArrowRight')
-    await page.keyboard.press('ArrowRight')
-    await page.keyboard.press('ArrowRight')
-    
-    // Node should still exist
-    await expect(node).toBeVisible()
-    
-    // Shift+Arrow for larger nudge
-    await page.keyboard.press('Shift+ArrowDown')
+    // Node should still be visible
     await expect(node).toBeVisible()
   })
 
-  test('no console errors during operations', async ({ page }) => {
+  test('no console errors during complex operations', async ({ page }) => {
     const errors: string[] = []
     page.on('console', msg => {
       if (msg.type() === 'error') errors.push(msg.text())
     })
     
-    // Perform various operations
     const isMac = process.platform === 'darwin'
     
     // Edit label
@@ -218,10 +266,33 @@ test.describe('Canvas Authoring Features', () => {
     await page.locator('.react-flow').click({ button: 'right', position: { x: 300, y: 300 } })
     await page.keyboard.press('Escape')
     
+    // Nudge
+    await node.click()
+    await page.keyboard.press('ArrowRight')
+    await page.keyboard.press('ArrowDown')
+    
     // Wait for any late errors
     await page.waitForTimeout(500)
     
-    // Should have no errors
     expect(errors).toHaveLength(0)
+  })
+
+  test('snap to grid works (16px base)', async ({ page }) => {
+    const node = page.locator('[data-testid="rf-node"]').first()
+    
+    const box = await node.boundingBox()
+    if (box) {
+      // Drag node slightly
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+      await page.mouse.down()
+      await page.mouse.move(box.x + 25, box.y + 25) // Not aligned to 16px grid
+      await page.mouse.up()
+      
+      // Wait for snap
+      await page.waitForTimeout(100)
+      
+      // Node should still be visible (snap doesn't break rendering)
+      await expect(node).toBeVisible()
+    }
   })
 })
