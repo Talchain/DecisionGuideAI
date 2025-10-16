@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useCanvasStore } from './store'
 import { useReactFlow } from '@xyflow/react'
+import { SnapshotManager } from './components/SnapshotManager'
 
 export function CanvasToolbar() {
   const [isMinimized, setIsMinimized] = useState(false)
   const [isLayouting, setIsLayouting] = useState(false)
-  const { undo, redo, canUndo, canRedo, saveSnapshot, addNode, applyLayout } = useCanvasStore()
+  const [showSnapshots, setShowSnapshots] = useState(false)
+  const { undo, redo, canUndo, canRedo, addNode, applyLayout } = useCanvasStore()
   const { fitView, zoomIn, zoomOut } = useReactFlow()
 
   const handleTidyLayout = async () => {
@@ -127,14 +129,14 @@ export function CanvasToolbar() {
           {isLayouting ? 'Tidying...' : 'Tidy Layout'}
         </button>
 
-        {/* Save */}
+        {/* Save / Snapshots */}
         <button
-          onClick={saveSnapshot}
+          onClick={() => setShowSnapshots(true)}
           className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
-          title="Save Snapshot (⌘S)"
-          aria-label="Save canvas snapshot"
+          title="Manage Snapshots (⌘S)"
+          aria-label="Open snapshot manager"
         >
-          Save
+          Snapshots
         </button>
 
         {/* Minimize */}
@@ -149,6 +151,9 @@ export function CanvasToolbar() {
           </svg>
         </button>
       </div>
+
+      {/* Snapshot Manager Modal */}
+      <SnapshotManager isOpen={showSnapshots} onClose={() => setShowSnapshots(false)} />
     </div>
   )
 }
