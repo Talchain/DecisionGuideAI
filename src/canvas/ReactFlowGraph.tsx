@@ -8,6 +8,7 @@ import { loadState, saveState } from './persist'
 import { ContextMenu } from './ContextMenu'
 import { CanvasToolbar } from './CanvasToolbar'
 import { AlignmentGuides } from './components/AlignmentGuides'
+import { PropertiesPanel } from './components/PropertiesPanel'
 
 const nodeTypes = { decision: DecisionNode }
 
@@ -133,6 +134,8 @@ function ReactFlowGraphInner() {
           onClose={() => setContextMenu(null)}
         />
       )}
+
+      <PropertiesPanel />
     </div>
   )
 }

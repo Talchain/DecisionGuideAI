@@ -32,6 +32,7 @@ interface CanvasState {
   nextEdgeId: number
   addNode: (pos?: { x: number; y: number }) => void
   updateNodeLabel: (id: string, label: string) => void
+  updateNode: (id: string, updates: Partial<Node>) => void
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
   onSelectionChange: (params: { nodes: Node[]; edges: Edge[] }) => void
@@ -126,6 +127,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   updateNodeLabel: (id, label) => {
     pushToHistory(get, set)
     set((s) => ({ nodes: s.nodes.map(n => n.id === id ? { ...n, data: { ...n.data, label } } : n) }))
+  },
+
+  updateNode: (id, updates) => {
+    pushToHistory(get, set)
+    set((s) => ({ 
+      nodes: s.nodes.map(n => n.id === id ? { ...n, ...updates, data: { ...n.data, ...updates.data } } : n) 
+    }))
   },
 
   onNodesChange: (changes) => {
