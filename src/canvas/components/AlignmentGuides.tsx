@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Node } from '@xyflow/react'
 
 interface Guide {
@@ -19,15 +19,25 @@ const FADE_DURATION = 200 // ms
 
 export function AlignmentGuides({ nodes, draggingNodeIds, isActive }: AlignmentGuidesProps) {
   const [guides, setGuides] = useState<Guide[]>([])
+  const fadeTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
+    // Clear any pending fade timer on every effect run
+    if (fadeTimerRef.current) {
+      clearTimeout(fadeTimerRef.current)
+      fadeTimerRef.current = null
+    }
+
     if (!isActive || draggingNodeIds.size === 0) {
       // Fade out existing guides
       setGuides((prev) =>
         prev.map((g) => ({ ...g, opacity: 0 }))
       )
-      // Clear after fade
-      setTimeout(() => setGuides([]), FADE_DURATION)
+      // Clear after fade with cleanup
+      fadeTimerRef.current = setTimeout(() => {
+        setGuides([])
+        fadeTimerRef.current = null
+      }, FADE_DURATION)
       return
     }
 
@@ -83,6 +93,16 @@ export function AlignmentGuides({ nodes, draggingNodeIds, isActive }: AlignmentG
 
     setGuides(uniqueGuides)
   }, [nodes, draggingNodeIds, isActive])
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (fadeTimerRef.current) {
+        clearTimeout(fadeTimerRef.current)
+        fadeTimerRef.current = null
+      }
+    }
+  }, [])
 
   if (guides.length === 0) return null
 
