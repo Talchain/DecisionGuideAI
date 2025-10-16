@@ -359,15 +359,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     
     // Dynamic import to avoid bundling ELK if not used
     const { layoutGraph } = await import('./utils/layout')
+    const { useLayoutStore } = await import('./layoutStore')
+    const layoutOptions = useLayoutStore.getState()
     
     // Push to history before layout
     pushToHistory(get, set)
     
     try {
       const { nodes: layoutedNodes } = await layoutGraph(nodes, edges, {
-        direction: 'DOWN',
-        spacing: 50,
-        preserveLocked: true
+        direction: layoutOptions.direction,
+        spacing: layoutOptions.nodeSpacing,
+        preserveLocked: layoutOptions.respectLocked
       })
       
       set({ nodes: layoutedNodes })

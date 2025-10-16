@@ -3,24 +3,15 @@ import { useCanvasStore } from './store'
 import { useReactFlow } from '@xyflow/react'
 import { SnapshotManager } from './components/SnapshotManager'
 import { ImportExportDialog } from './components/ImportExportDialog'
+import { LayoutOptionsPanel } from './components/LayoutOptionsPanel'
 
 export function CanvasToolbar() {
   const [isMinimized, setIsMinimized] = useState(false)
-  const [isLayouting, setIsLayouting] = useState(false)
   const [showSnapshots, setShowSnapshots] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [showExport, setShowExport] = useState(false)
-  const { undo, redo, canUndo, canRedo, addNode, applyLayout } = useCanvasStore()
+  const { undo, redo, canUndo, canRedo, addNode } = useCanvasStore()
   const { fitView, zoomIn, zoomOut } = useReactFlow()
-
-  const handleTidyLayout = async () => {
-    setIsLayouting(true)
-    try {
-      await applyLayout()
-    } finally {
-      setIsLayouting(false)
-    }
-  }
 
   if (isMinimized) {
     return (
@@ -121,16 +112,8 @@ export function CanvasToolbar() {
 
         <div className="w-px h-6 bg-gray-300" role="separator" />
 
-        {/* Tidy Layout */}
-        <button
-          onClick={handleTidyLayout}
-          disabled={isLayouting}
-          className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
-          title="Tidy Layout (ELK)"
-          aria-label="Apply automatic layout"
-        >
-          {isLayouting ? 'Tidying...' : 'Tidy Layout'}
-        </button>
+        {/* Layout Options */}
+        <LayoutOptionsPanel />
 
         {/* Snapshots */}
         <button

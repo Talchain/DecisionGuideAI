@@ -35,9 +35,11 @@ function ReactFlowGraphInner() {
 
   useKeyboardShortcuts()
   
-  // Load settings on mount
+  // Load settings and layout options on mount
   useEffect(() => {
     loadSettings()
+    const { useLayoutStore } = require('./layoutStore')
+    useLayoutStore.getState().loadOptions()
   }, [loadSettings])
 
   // Keyboard shortcuts (⌘K for palette, ? for cheatsheet)
