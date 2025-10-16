@@ -163,30 +163,37 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
   }
 
   const handleExportPNG = async () => {
-    // Import html2canvas dynamically
-    const html2canvas = (await import('html2canvas')).default
-    const canvasElement = document.querySelector('[data-testid="rf-root"]') as HTMLElement
-    
-    if (!canvasElement) {
-      alert('Canvas not found')
-      return
-    }
-
-    const canvas = await html2canvas(canvasElement, {
-      backgroundColor: '#ffffff',
-      scale: 2 // 2x resolution for clarity
-    })
-
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `canvas-export-${Date.now()}.png`
-        a.click()
-        URL.revokeObjectURL(url)
+    try {
+      // Import html2canvas dynamically
+      const html2canvas = (await import('html2canvas')).default
+      const canvasElement = document.querySelector('[data-testid="rf-root"]') as HTMLElement
+      
+      if (!canvasElement) {
+        alert('Canvas not found. Please try again.')
+        return
       }
-    })
+
+      const canvas = await html2canvas(canvasElement, {
+        backgroundColor: '#ffffff',
+        scale: 2 // 2x resolution for clarity
+      })
+
+      canvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `canvas-export-${Date.now()}.png`
+          a.click()
+          URL.revokeObjectURL(url)
+        } else {
+          alert('Failed to generate PNG. Please try again.')
+        }
+      })
+    } catch (error) {
+      console.error('PNG export failed:', error)
+      alert('PNG export failed. This feature requires a modern browser. Please try JSON export instead.')
+    }
   }
 
   const handleExportSVG = async () => {
@@ -203,13 +210,24 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
   }
 
   const generateSVG = (nodes: any[], edges: any[]): string => {
-    // Calculate bounds
+    // Estimate node dimensions based on label length
+    const estimateNodeWidth = (label: string) => {
+      const baseWidth = 150
+      const charWidth = 8 // approximate pixels per character
+      const estimatedWidth = Math.max(baseWidth, (label?.length || 0) * charWidth + 40)
+      return Math.min(estimatedWidth, 400) // cap at 400px
+    }
+
+    // Calculate bounds with dynamic node sizes
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    const nodeHeights = 80 // fixed height
+    
     nodes.forEach(node => {
+      const nodeWidth = estimateNodeWidth(node.data?.label || 'Node')
       minX = Math.min(minX, node.position.x)
       minY = Math.min(minY, node.position.y)
-      maxX = Math.max(maxX, node.position.x + 150) // node width
-      maxY = Math.max(maxY, node.position.y + 80) // node height
+      maxX = Math.max(maxX, node.position.x + nodeWidth)
+      maxY = Math.max(maxY, node.position.y + nodeHeights)
     })
 
     const padding = 50
@@ -224,10 +242,12 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
       const sourceNode = nodes.find(n => n.id === edge.source)
       const targetNode = nodes.find(n => n.id === edge.target)
       if (sourceNode && targetNode) {
-        const x1 = sourceNode.position.x - minX + padding + 75
-        const y1 = sourceNode.position.y - minY + padding + 40
-        const x2 = targetNode.position.x - minX + padding + 75
-        const y2 = targetNode.position.y - minY + padding + 40
+        const sourceWidth = estimateNodeWidth(sourceNode.data?.label || 'Node')
+        const targetWidth = estimateNodeWidth(targetNode.data?.label || 'Node')
+        const x1 = sourceNode.position.x - minX + padding + sourceWidth / 2
+        const y1 = sourceNode.position.y - minY + padding + nodeHeights / 2
+        const x2 = targetNode.position.x - minX + padding + targetWidth / 2
+        const y2 = targetNode.position.y - minY + padding + nodeHeights / 2
         svg += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#94a3b8" stroke-width="2"/>`
       }
     })
@@ -236,9 +256,10 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
     nodes.forEach(node => {
       const x = node.position.x - minX + padding
       const y = node.position.y - minY + padding
-      const label = node.data?.label || 'Node'
-      svg += `<rect x="${x}" y="${y}" width="150" height="80" rx="16" fill="white" stroke="#EA7B4B" stroke-width="2"/>`
-      svg += `<text x="${x + 75}" y="${y + 45}" text-anchor="middle" font-family="system-ui" font-size="14" fill="#1f2937">${label}</text>`
+      const label = (node.data?.label || 'Node').replace(/[<>&'"]/g, '') // Escape XML special chars
+      const nodeWidth = estimateNodeWidth(label)
+      svg += `<rect x="${x}" y="${y}" width="${nodeWidth}" height="${nodeHeights}" rx="16" fill="white" stroke="#EA7B4B" stroke-width="2"/>`
+      svg += `<text x="${x + nodeWidth / 2}" y="${y + nodeHeights / 2 + 5}" text-anchor="middle" font-family="system-ui" font-size="14" fill="#1f2937">${label}</text>`
     })
 
     svg += `</svg>`

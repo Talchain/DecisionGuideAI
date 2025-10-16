@@ -17,13 +17,21 @@ interface CommandPaletteProps {
 export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [isExecuting, setIsExecuting] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const { addNode, selectAll, saveSnapshot, applyLayout } = useCanvasStore()
   const { fitView } = useReactFlow()
 
   const actions: Action[] = [
     { id: 'add-node', label: 'Add Node Here', execute: () => addNode() },
-    { id: 'tidy-layout', label: 'Tidy Layout', execute: async () => await applyLayout() },
+    { id: 'tidy-layout', label: 'Tidy Layout', execute: async () => {
+      setIsExecuting(true)
+      try {
+        await applyLayout()
+      } finally {
+        setIsExecuting(false)
+      }
+    }},
     { id: 'select-all', label: 'Select All', shortcut: '⌘A', execute: () => selectAll() },
     { id: 'zoom-fit', label: 'Zoom to Fit', execute: () => fitView({ padding: 0.2, duration: 300 }) },
     { id: 'save-snapshot', label: 'Save Snapshot', shortcut: '⌘S', execute: () => saveSnapshot() },
@@ -93,7 +101,12 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
 
         {/* Actions List */}
         <div className="max-h-96 overflow-y-auto">
-          {filteredActions.length === 0 ? (
+          {isExecuting ? (
+            <div className="px-4 py-8 text-center text-gray-500">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#EA7B4B]"></div>
+              <p className="mt-2">Executing...</p>
+            </div>
+          ) : filteredActions.length === 0 ? (
             <div className="px-4 py-8 text-center text-gray-500">
               No actions found
             </div>
@@ -101,11 +114,12 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
             filteredActions.map((action, index) => (
               <button
                 key={action.id}
-                onClick={() => {
-                  action.execute()
-                  onClose()
+                onClick={async () => {
+                  await action.execute()
+                  if (!isExecuting) onClose()
                 }}
-                className={`w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                disabled={isExecuting}
+                className={`w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                   index === selectedIndex ? 'bg-[#EA7B4B]/10' : ''
                 }`}
               >
