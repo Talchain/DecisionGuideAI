@@ -6,6 +6,17 @@
  * This function MUST NOT import any React/Zustand/React Flow dependencies.
  */
 export function showSafe(): void {
+  // Add Sentry breadcrumb for field triage (safe, doesn't throw)
+  try {
+    (window as any).Sentry?.addBreadcrumb?.({
+      category: 'safe',
+      level: 'info',
+      message: 'safe-screen:shown'
+    })
+  } catch {
+    // Ignore - Sentry may not be loaded
+  }
+  
   const root = document.getElementById('root') || document.body
   const el = document.createElement('div')
   el.id = 'safe-screen'

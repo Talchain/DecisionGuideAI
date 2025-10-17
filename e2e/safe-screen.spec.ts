@@ -2,28 +2,14 @@
 // Regression tests for safe screen isolation
 
 import { test, expect } from '@playwright/test'
+import { attachConsoleGuard, CONSOLE_GUARDS } from './utils/consoleGuard'
 
 test('happy path: canvas loads, no safe screen, no sync-external-store errors', async ({ page }) => {
-  const errors: string[] = []
-  const warnings: string[] = []
-  
-  page.on('console', (msg) => {
-    const text = msg.text()
-    
-    if (msg.type() === 'error') {
-      // Capture errors related to sync-external-store or safe screen
-      if (text.includes('use-sync-external-store') || 
-          text.includes('POC_HTML_SAFE: showing (early-error)')) {
-        errors.push(text)
-      }
-    }
-    
-    if (msg.type() === 'warning') {
-      if (text.includes('use-sync-external-store')) {
-        warnings.push(text)
-      }
-    }
-  })
+  // Use console guard to detect disallowed patterns
+  const getHits = attachConsoleGuard(page, [
+    CONSOLE_GUARDS.SYNC_EXTERNAL_STORE,
+    CONSOLE_GUARDS.SAFE_SCREEN_EARLY
+  ])
 
   await page.goto('/#/canvas')
   
@@ -41,30 +27,16 @@ test('happy path: canvas loads, no safe screen, no sync-external-store errors', 
   const safeScreen = page.locator('[data-testid="safe-screen"]')
   await expect(safeScreen).toBeHidden({ timeout: 2000 })
 
-  // No sync-external-store errors
-  expect(errors, `Unexpected console errors:\n${errors.join('\n')}`).toHaveLength(0)
-  expect(warnings, `Unexpected console warnings:\n${warnings.join('\n')}`).toHaveLength(0)
+  // No disallowed console messages
+  const hits = getHits()
+  expect(hits, `Unexpected console issues:\n${hits.join('\n')}`).toHaveLength(0)
 })
 
 test('forced safe: safe screen renders without importing React (no sync-external-store errors)', async ({ page }) => {
-  const errors: string[] = []
-  const warnings: string[] = []
-  
-  page.on('console', (msg) => {
-    const text = msg.text()
-    
-    if (msg.type() === 'error') {
-      if (text.includes('use-sync-external-store')) {
-        errors.push(text)
-      }
-    }
-    
-    if (msg.type() === 'warning') {
-      if (text.includes('use-sync-external-store')) {
-        warnings.push(text)
-      }
-    }
-  })
+  // Use console guard to detect sync-external-store errors
+  const getHits = attachConsoleGuard(page, [
+    CONSOLE_GUARDS.SYNC_EXTERNAL_STORE
+  ])
 
   // Query params go before the hash in SPAs
   await page.goto('/?forceSafe=1#/canvas')
@@ -77,8 +49,8 @@ test('forced safe: safe screen renders without importing React (no sync-external
   await page.waitForTimeout(2000)
 
   // No sync-external-store errors in safe mode
-  expect(errors, `Safe path must not trigger sync-external-store errors:\n${errors.join('\n')}`).toHaveLength(0)
-  expect(warnings, `Safe path must not trigger sync-external-store warnings:\n${warnings.join('\n')}`).toHaveLength(0)
+  const hits = getHits()
+  expect(hits, `Safe path must not trigger sync-external-store errors:\n${hits.join('\n')}`).toHaveLength(0)
   
   // Verify safe screen content
   await expect(safeScreen).toContainText('PoC HTML Safe Screen')
@@ -89,12 +61,10 @@ test('safe screen shows on timeout if React fails to mount', async ({ page }) =>
   await page.route('**/main.tsx', route => route.abort())
   await page.route('**/src/main.tsx', route => route.abort())
   
-  const errors: string[] = []
-  page.on('console', (msg) => {
-    if (msg.type() === 'error' && msg.text().includes('use-sync-external-store')) {
-      errors.push(msg.text())
-    }
-  })
+  // Use console guard
+  const getHits = attachConsoleGuard(page, [
+    CONSOLE_GUARDS.SYNC_EXTERNAL_STORE
+  ])
 
   await page.goto('/#/canvas')
   
@@ -104,5 +74,6 @@ test('safe screen shows on timeout if React fails to mount', async ({ page }) =>
   
   // Even in failure case, should not have sync-external-store errors
   // (because safe screen doesn't import React)
-  expect(errors, `Safe screen on timeout should not have sync-external-store errors:\n${errors.join('\n')}`).toHaveLength(0)
+  const hits = getHits()
+  expect(hits, `Safe screen on timeout should not have sync-external-store errors:\n${hits.join('\n')}`).toHaveLength(0)
 })
