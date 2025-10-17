@@ -38,13 +38,43 @@ export default defineConfig(({ mode }) => ({
     },
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor': ['react', 'react-dom', 'react-router-dom'],
-          'auth': ['@supabase/supabase-js'],
-          'decisions': [
-            './src/components/decisions/DecisionList',
-            './src/components/decisions/DecisionForm'
-          ]
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+          
+          // Core React libraries
+          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+            return 'react-vendor'
+          }
+          // ReactFlow (large, used only in Canvas)
+          if (id.includes('reactflow') || id.includes('@xyflow')) {
+            return 'rf-vendor'
+          }
+          // Sentry monitoring
+          if (id.includes('@sentry')) {
+            return 'sentry-vendor'
+          }
+          // Lucide icons
+          if (id.includes('lucide-react')) {
+            return 'icons-vendor'
+          }
+          // Supabase auth
+          if (id.includes('@supabase') || id.includes('openid') || id.includes('@auth')) {
+            return 'auth-vendor'
+          }
+          
+          // 🔥 Heavy lazy-loaded libraries - separate chunks
+          if (id.includes('tldraw') || id.includes('@tldraw')) {
+            return 'tldraw-vendor'
+          }
+          if (id.includes('html2canvas')) {
+            return 'html2canvas-vendor'
+          }
+          if (id.includes('elkjs') || id.includes('elk')) {
+            return 'elk-vendor'
+          }
+          
+          // Everything else
+          return 'vendor'
         }
       }
     }

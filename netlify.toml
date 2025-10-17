@@ -5,8 +5,8 @@
 [build.environment]
   NODE_VERSION = "20"
   VITE_PLC_LAB = "1"
-  VITE_FEATURE_PLOT_USES_PLC_CANVAS = "1"
   VITE_POC_ONLY = "0"
+  VITE_FEATURE_PLOT_USES_PLC_CANVAS = "1"
   VITE_AUTH_MODE = "guest"
   VITE_EDGE_GATEWAY_URL = "/engine"
   VITE_DISABLE_OPENAI = "1"
@@ -24,10 +24,3 @@
   SECRETS_SCAN_ENABLED = "false"
 
 # POC: redirects live in /public/_redirects only
-
-# Security headers for monitoring (Sentry, Hotjar)
-[[headers]]
-  for = "/*"
-  [headers.values]
-    # CSP for monitoring services
-    Content-Security-Policy = "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.hotjar.com https://script.hotjar.com; connect-src 'self' https://sentry.io https://*.sentry.io https://*.hotjar.com https://*.hotjar.io; img-src 'self' data: https:; style-src 'self' 'unsafe-inline';"

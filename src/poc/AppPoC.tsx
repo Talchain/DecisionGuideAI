@@ -1,7 +1,7 @@
 // src/poc/AppPoC.tsx
 // POC: Full PoC UI (no auth, no Supabase) mounting real components with safe providers
 
-import { StrictMode, useState, useEffect, Suspense, useMemo, useCallback, useRef } from 'react'
+import { StrictMode, useState, useEffect, Suspense, useMemo, useCallback, useRef, lazy } from 'react'
 import { HashRouter as Router, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'
@@ -9,10 +9,13 @@ import { feature } from '../lib/pocFlags'
 import { fetchFlow as fetchFlowEngine, openSSE } from '../lib/pocEngine'
 import { initMonitoring } from '../lib/monitoring'
 import GraphCanvas from '../components/GraphCanvas'
-import SandboxV1 from '../routes/SandboxV1'
-import PlotShowcase from '../routes/PlotShowcase'
-import PlotWorkspace from '../routes/PlotWorkspace'
-import CanvasMVP from '../routes/CanvasMVP'
+import RouteLoadingFallback from '../components/RouteLoadingFallback'
+
+// Lazy-loaded routes for code splitting
+const CanvasMVP = lazy(() => import('../routes/CanvasMVP'))
+const SandboxV1 = lazy(() => import('../routes/SandboxV1'))
+const PlotShowcase = lazy(() => import('../routes/PlotShowcase'))
+const PlotWorkspace = lazy(() => import('../routes/PlotWorkspace'))
 import SandboxHeader, { type SandboxMode } from './components/SandboxHeader'
 import OnboardingHints from './components/OnboardingHints'
 import { exportCanvas, formatSandboxPngName } from './export/exportCanvas'
@@ -847,14 +850,16 @@ export default function AppPoC() {
       {/* @ts-expect-error POC: stub may not match exact QueryClientProvider API */}
       <QueryClientProvider client={queryClient}>
         <Router>
-          <Routes>
-            <Route path="/canvas" element={<CanvasMVP />} />
-            <Route path="/plot" element={<PlotWorkspace />} />
-            <Route path="/plot-legacy" element={<PlotShowcase />} />
-            <Route path="/sandbox-v1" element={<SandboxV1 />} />
-            <Route path="/test" element={<MainSandboxContent />} />
-            <Route path="*" element={<MainSandboxContent />} />
-          </Routes>
+          <Suspense fallback={<RouteLoadingFallback routeName="route" />}>
+            <Routes>
+              <Route path="/canvas" element={<CanvasMVP />} />
+              <Route path="/plot" element={<PlotWorkspace />} />
+              <Route path="/plot-legacy" element={<PlotShowcase />} />
+              <Route path="/sandbox-v1" element={<SandboxV1 />} />
+              <Route path="/test" element={<MainSandboxContent />} />
+              <Route path="*" element={<MainSandboxContent />} />
+            </Routes>
+          </Suspense>
         </Router>
       </QueryClientProvider>
     </StrictMode>
