@@ -22,6 +22,8 @@ export default defineConfig(({ mode }) => ({
         { find: '@tanstack/react-query', replacement: path.resolve(__dirname, 'src/stubs/react-query-stub.mjs') },
       ] : []),
     ],
+    // Dedupe React to avoid multi-React edge cases
+    dedupe: ['react', 'react-dom', 'use-sync-external-store'],
   },
   build: {
     target: 'esnext',
@@ -85,7 +87,8 @@ export default defineConfig(({ mode }) => ({
       'react-dom',
       'react-router-dom',
       '@supabase/supabase-js',
-      'date-fns'
+      'date-fns',
+      'use-sync-external-store'
     ],
     exclude: []
   },

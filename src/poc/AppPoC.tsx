@@ -10,6 +10,7 @@ import { fetchFlow as fetchFlowEngine, openSSE } from '../lib/pocEngine'
 import { initMonitoring } from '../lib/monitoring'
 import GraphCanvas from '../components/GraphCanvas'
 import RouteLoadingFallback from '../components/RouteLoadingFallback'
+import { CanvasErrorBoundary } from '../canvas/ErrorBoundary'
 
 // Lazy-loaded routes for code splitting
 const CanvasMVP = lazy(() => import('../routes/CanvasMVP'))
@@ -850,16 +851,18 @@ export default function AppPoC() {
       {/* @ts-expect-error POC: stub may not match exact QueryClientProvider API */}
       <QueryClientProvider client={queryClient}>
         <Router>
-          <Suspense fallback={<RouteLoadingFallback routeName="route" />}>
-            <Routes>
+          <CanvasErrorBoundary>
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <Routes>
               <Route path="/canvas" element={<CanvasMVP />} />
               <Route path="/plot" element={<PlotWorkspace />} />
               <Route path="/plot-legacy" element={<PlotShowcase />} />
               <Route path="/sandbox-v1" element={<SandboxV1 />} />
               <Route path="/test" element={<MainSandboxContent />} />
               <Route path="*" element={<MainSandboxContent />} />
-            </Routes>
-          </Suspense>
+              </Routes>
+            </Suspense>
+          </CanvasErrorBoundary>
         </Router>
       </QueryClientProvider>
     </StrictMode>

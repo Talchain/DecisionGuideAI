@@ -1,0 +1,42 @@
+
+> decision-mind@2.0.0 ci:bundle-budget
+> node scripts/ci-bundle-budget.mjs
+
+📊 Bundle Budget Enforcement
+
+Route budget: 200 KB
+Vendor budget: 250 KB
+Lazy vendor budget: 500 KB (elk, tldraw, html2canvas)
+Total budget: 2.0 MB
+
+✅ AppPoC-Bo4rRka0.js: 15.5 KB (8% of 200 KB route budget)
+✅ CanvasMVP-LxkB0P0n.js: 0.6 KB (0% of 200 KB route budget)
+✅ ConfigDrawer-BLHo4Uml.js: 1.8 KB (1% of 200 KB route budget)
+✅ EngineAuditPanel-D4KdV0cY.js: 1.0 KB (0% of 200 KB route budget)
+✅ PlcCanvas-CPzWmS3q.js: 1.7 KB (1% of 200 KB route budget)
+✅ PlcCanvasAdapter-B7Y4DzqS.js: 0.5 KB (0% of 200 KB route budget)
+✅ PlcLab-53sX_juE.js: 1.5 KB (1% of 200 KB route budget)
+✅ PlotShowcase-XGJ31sGh.js: 5.0 KB (3% of 200 KB route budget)
+✅ PlotWorkspace-DD_-8Drp.js: 10.4 KB (5% of 200 KB route budget)
+✅ ReactFlowGraph-uzkEGb--.js: 14.7 KB (7% of 200 KB route budget)
+✅ RunReportDrawer-DC3hgBOD.js: 4.6 KB (2% of 200 KB route budget)
+✅ SandboxStreamPanel-BOL6Dev9.js: 18.2 KB (9% of 200 KB route budget)
+✅ SandboxV1-C3i9WhQV.js: 4.8 KB (2% of 200 KB route budget)
+✅ ScenarioDrawer-DuHsTWjA.js: 2.6 KB (1% of 200 KB route budget)
+✅ Whiteboard-CUxmkocn.js: 0.5 KB (0% of 200 KB route budget)
+✅ config-BC8VQ4gA.js: 0.3 KB (0% of 200 KB route budget)
+✅ elk-vendor-17YAkb0Z.js: 430.7 KB (86% of 500 KB lazy vendor budget)
+✅ engine.adapter-rX9bFILy.js: 0.6 KB (0% of 200 KB route budget)
+✅ html2canvas-vendor-BT-X_Vmd.js: 45.0 KB (9% of 500 KB lazy vendor budget)
+✅ index-CzXQFQAA.js: 1.9 KB (1% of 200 KB route budget)
+✅ layout-BMkzSZnA.js: 0.5 KB (0% of 200 KB route budget)
+✅ lazySafe-DdS_pTxF.js: 0.3 KB (0% of 200 KB route budget)
+✅ react-vendor-DZE1SyPU.js: 67.9 KB (27% of 250 KB vendor budget)
+✅ rf-vendor-DahZbDoe.js: 15.6 KB (6% of 250 KB vendor budget)
+✅ sentry-vendor-C-XEitoU.js: 24.4 KB (10% of 250 KB vendor budget)
+✅ tldrawAdapter-CQWGLqgx.js: 0.7 KB (0% of 200 KB route budget)
+✅ vendor-Dxayp_Mn.js: 76.9 KB (31% of 250 KB vendor budget)
+
+Total: 748.2 KB (0.73 MB)
+
+✅ All budgets met!

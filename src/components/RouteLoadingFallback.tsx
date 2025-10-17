@@ -2,17 +2,22 @@
 // Accessible loading fallback for lazy-loaded routes
 
 import { useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 
 interface RouteLoadingFallbackProps {
-  routeName?: string
   minDelay?: number
 }
 
 export default function RouteLoadingFallback({ 
-  routeName = 'page',
   minDelay = 200 
 }: RouteLoadingFallbackProps) {
   const [show, setShow] = useState(false)
+  const location = useLocation()
+  
+  // Derive route name from pathname with safer parsing
+  const path = location.pathname.replace(/^\/+/, '')
+  const top = path.split('/')[0] || 'page'
+  const routeName = top.charAt(0).toUpperCase() + top.slice(1)
 
   // Delay showing spinner to avoid flash for fast loads
   useEffect(() => {
@@ -33,7 +38,7 @@ export default function RouteLoadingFallback({
     >
       <div className="text-center">
         <div 
-          className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent"
+          className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-indigo-600 border-r-transparent motion-reduce:animate-none"
           aria-hidden="true"
         />
         <p className="mt-4 text-sm text-gray-600">

@@ -38,6 +38,9 @@
         var edgeEl = document.getElementById('poc-edge');
         buildEl && (buildEl.textContent = build);
         edgeEl && (edgeEl.textContent = edge);
+        
+        // Add data-testid for E2E tests
+        if (safeEl) safeEl.setAttribute('data-testid', 'safe-screen');
 
         function showSafe(reason){
           if (shown) return;
@@ -68,17 +71,45 @@
             console.info('POC_HTML_SAFE: React mounted, no need for Safe Screen');
           } catch {}
         };
+        
+        // Check for forceSafe parameter - must happen BEFORE setting timeout
+        var params = new URLSearchParams(window.location.search);
+        var forceSafe = params.get('forceSafe') === '1';
+        
+        if (forceSafe) {
+          showSafe('forced');
+          // Don't set timeout or load React
+        } else {
+          // If React never tells us it mounted, show the safe screen
+          SAFE_TO = setTimeout(function(){
+            if (!shown) showSafe('timeout');
+          }, SAFE_DELAY_MS);
 
-        // If React never tells us it mounted, show the safe screen
-        SAFE_TO = setTimeout(function(){
-          if (!shown) showSafe('timeout');
-        }, SAFE_DELAY_MS);
-
-        // Also show it on a hard error very early
-        window.addEventListener('error', function(){ showSafe('early-error'); }, { once: true });
+          // Also show it on a hard error very early
+          window.addEventListener('error', function(e){ 
+            // Only show safe screen for critical errors, not React errors
+            if (!shown && e.message && !e.message.includes('React')) {
+              showSafe('early-error');
+            }
+          }, { once: true });
+        }
       })();
     </script>
 
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module">
+      // Boot logic: check forceSafe before loading React
+      (async () => {
+        const params = new URLSearchParams(window.location.search);
+        const forceSafe = params.get('forceSafe') === '1';
+        
+        if (forceSafe) {
+          // Safe screen already shown by inline script, don't load React
+          return;
+        }
+        
+        // Load React app
+        await import('/src/main.tsx');
+      })();
+    </script>
   </body>
 </html>

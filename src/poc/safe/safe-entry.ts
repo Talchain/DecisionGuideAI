@@ -1,0 +1,26 @@
+// src/poc/safe/safe-entry.ts
+// PURE DOM ONLY — do not import React, Zustand, React Flow, Sentry, etc.
+
+/**
+ * Shows the safe screen using pure DOM manipulation.
+ * This function MUST NOT import any React/Zustand/React Flow dependencies.
+ */
+export function showSafe(): void {
+  const root = document.getElementById('root') || document.body
+  const el = document.createElement('div')
+  el.id = 'safe-screen'
+  el.setAttribute('data-testid', 'safe-screen')
+  
+  // Get build ID from meta tag or use placeholder
+  const buildId = document.querySelector('meta[name="build-id"]')?.getAttribute('content') || 'dev'
+  
+  el.innerHTML = `
+    <pre style="white-space:pre-wrap;font-family:ui-monospace,monospace;padding:2rem">
+PoC HTML Safe Screen
+build: ${buildId}
+edge: /engine
+OK via proxy
+</pre>`
+  
+  root.appendChild(el)
+}
