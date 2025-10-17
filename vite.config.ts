@@ -23,6 +23,8 @@ export default defineConfig(({ mode }) => ({
       ] : []),
     ],
     // Dedupe React to avoid multi-React edge cases
+    // CRITICAL: Prevents use-sync-external-store errors when safe screen
+    // and React app chunks load in different order. Ensures single React instance.
     dedupe: ['react', 'react-dom', 'use-sync-external-store'],
   },
   build: {

@@ -7,6 +7,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="x-build-id" content="%BUILD_ID%" />
     <title>DecisionGuide.AI - Better decisions faster</title>
+    <style>
+      /* Safe screen visibility controlled by data attribute */
+      #poc-safe { display: none; }
+      #poc-safe[data-visible="true"] { display: block; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
@@ -45,7 +50,10 @@
         function showSafe(reason){
           if (shown) return;
           shown = true;
-          if (safeEl) safeEl.style.display = 'block';
+          if (safeEl) {
+            safeEl.setAttribute('data-visible', 'true');
+            safeEl.style.display = 'block'; // Fallback for browsers without CSS
+          }
           console.info('POC_HTML_SAFE: showing ('+reason+') build='+build+' edge='+edge);
           // try proxy first, then direct
           fetch(edge + '/health').then(function(r){ return r.json(); }).then(function(d){
@@ -67,7 +75,10 @@
           try {
             if (SAFE_TO) clearTimeout(SAFE_TO);       // POC: cancel timer
             shown = true;                              // POC: prevent future show
-            if (safeEl) safeEl.style.display = 'none'; // POC: ensure hidden
+            if (safeEl) {
+              safeEl.setAttribute('data-visible', 'false');
+              safeEl.style.display = 'none'; // POC: ensure hidden
+            }
             console.info('POC_HTML_SAFE: React mounted, no need for Safe Screen');
           } catch {}
         };

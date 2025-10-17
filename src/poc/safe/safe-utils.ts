@@ -2,6 +2,12 @@
 // Keep safe utilities react-free
 
 /**
+ * Timeout in milliseconds before showing safe screen if React doesn't mount.
+ * Exported for easier tuning in CI/testing environments.
+ */
+export const SAFE_TIMEOUT_MS = 1200
+
+/**
  * Ping an edge endpoint to check if it's reachable.
  * Pure fetch - no React dependencies.
  */
