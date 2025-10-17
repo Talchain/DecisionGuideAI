@@ -30,6 +30,7 @@
     "evidence:ui-pack": "node tools/gen-ui-evidence-pack.mjs",
     "doctor:monitoring": "node scripts/doctor-monitoring.mjs",
     "measure:bundle": "npm run build && node scripts/measure-bundle.mjs",
+    "report:chunks": "node scripts/report-chunks.mjs",
     "evidence:a11y": "playwright test e2e/a11y-vendored.spec.ts --project=chromium -c playwright.config.ts",
     "evidence:unified": "node tools/gen-unified-evidence.mjs",
     "evidence:ui": "node tools/gen-ui-evidence-pack.mjs",
