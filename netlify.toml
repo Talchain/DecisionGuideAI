@@ -24,3 +24,10 @@
   SECRETS_SCAN_ENABLED = "false"
 
 # POC: redirects live in /public/_redirects only
+
+# Security headers for monitoring (Sentry, Hotjar)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # CSP for monitoring services
+    Content-Security-Policy = "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.hotjar.com https://script.hotjar.com; connect-src 'self' https://sentry.io https://*.sentry.io https://*.hotjar.com https://*.hotjar.io; img-src 'self' data: https:; style-src 'self' 'unsafe-inline';"

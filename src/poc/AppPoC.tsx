@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'
 import { feature } from '../lib/pocFlags'
 import { fetchFlow as fetchFlowEngine, openSSE } from '../lib/pocEngine'
+import { initMonitoring } from '../lib/monitoring'
 import GraphCanvas from '../components/GraphCanvas'
 import SandboxV1 from '../routes/SandboxV1'
 import PlotShowcase from '../routes/PlotShowcase'
@@ -21,6 +22,9 @@ import { validateState } from './io/validate'
 import { loadState, saveState, clearState } from './state/persist'
 import './styles/focus.css'
 import './styles/onboarding.css'
+
+// Initialize monitoring as early as possible
+initMonitoring()
 
 type Scenario = Record<string, unknown>
 interface FlowResult {
