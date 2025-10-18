@@ -2,49 +2,49 @@
 /* eslint-disable no-console */
 (function bootReactApp() {
   (window as any).__SAFE_DEBUG__ ||= { logs: [] };
-  const log = (msg: string, extra: any = undefined) => {
-    const row = { t: Date.now(), msg, extra };
-    (window as any).__SAFE_DEBUG__.logs.push(row);
+  const push = (msg: string, extra?: any) => {
+    (window as any).__SAFE_DEBUG__.logs.push({ t: Date.now(), msg, extra });
     console.log(`[reactApp] ${msg}`, extra ?? '');
   };
 
-  window.addEventListener('error', e => console.log('[reactApp][error]', e.message));
-  window.addEventListener('unhandledrejection', e => console.log('[reactApp][unhandled]', e.reason));
+  window.addEventListener('error', e => push('window.error', { message: e.message, stack: e.error?.stack }));
+  window.addEventListener('unhandledrejection', e => push('unhandledrejection', { reason: String(e.reason) }));
 
   (async () => {
-    log('boot:start');
+    push('boot:start');
 
     const rootEl = document.getElementById('root');
-    if (!rootEl) {
-      log('boot:missing-root');
-      return;
-    }
-    log('boot:found-root');
+    if (!rootEl) { push('boot:missing-root'); return; }
+    push('boot:found-root');
 
-    log('boot:importing-react-and-app');
-    const [{ createRoot }, React, { default: AppPoC }] = await Promise.all([
-      import('react-dom/client'),
-      import('react'),
-      import('../poc/AppPoC'),
+    // IMPORTANT: use dynamic imports so chunks load as separate files
+    push('boot:importing-react-and-app');
+    const [{ createRoot }, { default: AppPoC }] = await Promise.all([
+      import('react-dom/client'),  // -> bundled into react-vendor-*.js
+      import('../poc/AppPoC'),     // -> AppPoC-*.js
     ]);
-    log('boot:imports-resolved');
+    push('boot:imports-resolved', { AppPoC: typeof AppPoC });
 
     const root = createRoot(rootEl);
-    root.render(
-      <React.StrictMode>
-        <AppPoC />
-      </React.StrictMode>
-    );
-    log('boot:react-render-called');
+    root.render(<AppPoC />);
+    push('boot:react-render-called');
 
     try {
       (window as any).__APP_MOUNTED__?.('react-mounted');
-      log('boot:signal-mounted-called');
+      push('boot:signal-mounted-called');
     } catch (e) {
-      log('boot:signal-mounted-error', e);
+      push('boot:signal-mounted-error', { error: String(e) });
     }
   })().catch(err => {
-    console.log('[reactApp] boot:fatal', err);
     (window as any).__SAFE_DEBUG__.fatal = String(err?.stack || err);
+    push('boot:fatal', { error: String(err), stack: err?.stack });
   });
+
+  // Watchdog: if AppPoC hasn't imported in 3s, log it loudly
+  setTimeout(() => {
+    const logs = (window as any).__SAFE_DEBUG__.logs.map((x:any)=>x.msg);
+    if (!logs.includes('boot:imports-resolved')) {
+      push('watchdog:app-import-timeout', { hint: 'Check import("../poc/AppPoC") path & build output for AppPoC-*.js' });
+    }
+  }, 3000);
 })();
