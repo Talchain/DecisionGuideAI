@@ -1,8 +1,4 @@
-/* eslint-disable */
-import { createRoot } from 'react-dom/client';
-import * as React from 'react';
-
-// --- global diag ---
+// Pre-React proof-of-life
 declare global {
   interface Window {
     __SAFE_DEBUG__?: { logs: any[]; fatal?: any };
@@ -10,94 +6,67 @@ declare global {
   }
 }
 window.__SAFE_DEBUG__ ||= { logs: [] };
-const log = (msg: string, extra?: any) => {
-  const row = { t: Date.now(), msg, extra };
-  try { window.__SAFE_DEBUG__!.logs.push(row); } catch {}
+const plog = (msg: string, extra?: any) => {
+  try { window.__SAFE_DEBUG__!.logs.push({ t: Date.now(), msg, extra }); } catch {}
   try { console.log(`[BOOT] ${msg}`, extra ?? ''); } catch {}
 };
 
-// --- helpers ---
-const rootEl = document.getElementById('root') as HTMLElement | null;
-const safeEl = document.getElementById('poc-safe') as HTMLElement | null;
-const hideSafe = (reason: string) => {
-  if (!safeEl) return;
-  safeEl.setAttribute('data-hidden', 'true');
-  safeEl.style.display = 'none';
-  log('safe:hidden', { reason });
-  try { window.__APP_MOUNTED__?.(reason); } catch {}
-};
-const renderFallback = (title: string, body: string, tone: 'warn'|'error'='warn') => {
-  if (!rootEl) return;
-  const color = tone === 'error' ? '#a00' : '#665200';
-  rootEl.innerHTML = `
-    <div style="padding:16px;font:13px ui-monospace,monospace;line-height:1.4">
-      <div style="font-weight:600;color:${color};margin-bottom:8px">${title}</div>
-      <pre style="white-space:pre-wrap;margin:0">${body}</pre>
-    </div>`;
-};
+(() => {
+  plog('preboot:start', { hash: location.hash });
+  const safe = document.getElementById('poc-safe');
+  const root = document.getElementById('root');
 
-// --- Phase A: Unconditional proof-of-life render ---
-(function boot() {
-  log('boot:start', {
-    userAgent: navigator.userAgent,
-    hash: location.hash,
-  });
-
-  if (!rootEl) {
-    log('boot:no-root');
-    return;
+  if (root) {
+    root.innerHTML = `<div style="padding:12px;font:13px ui-monospace,monospace"><div style="font-weight:600">Hello from Boot ✅</div><div>Script executed; loading app…</div></div>`;
+    plog('preboot:painted-proof');
   }
 
+  if (safe) {
+    safe.setAttribute('data-hidden','true');
+    (safe as HTMLElement).style.display = 'none';
+    plog('preboot:safe-hidden');
+    try { window.__APP_MOUNTED__?.('preboot'); } catch {}
+  }
+})();
+
+import React, { Suspense } from 'react';
+import { createRoot } from 'react-dom/client';
+
+const AppPoC = React.lazy(() => import('../poc/AppPoC'));
+
+class BootErrorBoundary extends React.Component<{children: React.ReactNode}, {err?: any}> {
+  constructor(p:any){ super(p); this.state = { err: undefined }; }
+  static getDerivedStateFromError(err: any){ return { err }; }
+  render() {
+    if (this.state.err) {
+      const msg = String(this.state.err?.stack || this.state.err);
+      window.__SAFE_DEBUG__!.fatal = msg;
+      return <div style={{padding:12,fontFamily:'ui-monospace,monospace',color:'#a00'}}><div style={{fontWeight:600}}>App render failed ❌</div><pre style={{whiteSpace:'pre-wrap',margin:0}}>{msg}</pre></div>;
+    }
+    return this.props.children;
+  }
+}
+
+(function bootReact() {
   try {
+    const rootEl = document.getElementById('root');
+    if (!rootEl) { plog('react:no-root'); return; }
+
     const root = createRoot(rootEl);
-
-    // Immediately render a proof-of-life panel so we KNOW React mounted.
     root.render(
-      React.createElement('div', { style: { padding: 12, fontFamily: 'ui-monospace,monospace' } }, [
-        React.createElement('div', { key: 'h', style: { fontWeight: 600 }}, 'Hello from Boot ✅'),
-        React.createElement('div', { key: 'p' }, 'If you see this, React mounted and the boot file executed.'),
-      ])
+      <BootErrorBoundary>
+        <Suspense fallback={<div style={{padding:12,fontFamily:'ui-monospace,monospace'}}>Loading…</div>}>
+          <AppPoC />
+        </Suspense>
+      </BootErrorBoundary>
     );
-    log('boot:proof-render');
-    hideSafe('proof-render');
-
-    // Phase B: Try to import the real app and replace the panel.
-    import('../poc/AppPoC')
-      .then(mod => {
-        const App = (mod as any).default || (mod as any).AppPoC || (mod as any).AppEntry;
-        log('boot:app-imported', { typeofApp: typeof App });
-        if (typeof App !== 'function') {
-          log('boot:bad-app', { keys: Object.keys(mod || {}) });
-          renderFallback('App module invalid ⚠️',
-            `typeof App was ${typeof App}. Export default a React component.`);
-          return;
-        }
-
-        root.render(React.createElement(App, {}));
-        log('boot:render-app');
-        hideSafe('render-app');
-      })
-      .catch(err => {
-        const msg = String(err?.stack || err);
-        log('boot:app-import-failed', { error: msg });
-        renderFallback('App import failed ❌', msg, 'error');
-      });
-
-    // Watchdog: if app import hangs, we still have the hello panel
-    setTimeout(() => {
-      const msgs = (window.__SAFE_DEBUG__!.logs || []).map((x: any) => x.msg);
-      if (!msgs.includes('boot:render-app') && !msgs.includes('boot:app-import-failed')) {
-        log('boot:watchdog:app-still-not-rendered', {
-          sawReactVendor: performance.getEntriesByType('resource')
-            .some(e => /react-vendor-.*\.js/.test(e.name))
-        });
-      }
-    }, 4000);
-
-  } catch (e: any) {
+    plog('react:render-called');
+    setTimeout(() => { try { window.__APP_MOUNTED__?.('react-mounted'); } catch {} plog('react:mounted-signal'); }, 0);
+  } catch (e:any) {
     const msg = String(e?.stack || e);
     window.__SAFE_DEBUG__!.fatal = msg;
-    log('boot:fatal', { error: msg });
-    renderFallback('Boot fatal ❌', msg, 'error');
+    plog('react:fatal', { error: msg });
+    const root = document.getElementById('root');
+    if (root) root.innerHTML = `<div style="padding:12px;color:#a00"><div style="font-weight:600">Boot fatal ❌</div><pre>${msg}</pre></div>`;
   }
 })();
