@@ -5,6 +5,18 @@ All notable changes to the Olumi Canvas will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Safe-Screen Flash Elimination**: Eliminate transient safe-screen flash using 2s timeout + CPU quiet-window gate (long-task idle + visibility check)
+- **Memory Leak Prevention**: Clear polling interval on both mount and show paths to prevent lingering timers
+- **Field Diagnostics**: Add Sentry breadcrumb (`safe-screen:shown`) and `performance.mark('safe-screen:suppressed')` for production monitoring
+
+### Tests / CI
+- **Network Spy**: Strengthened force-safe E2E with comprehensive network spy to ensure no React or shim chunks load
+- **Required Checks**: CI now requires production E2E (`e2e:prod-safe`) and bundle policy (`ci:bundle-policy`) checks
+- **Bundle Policy**: Enforce React-free safe chunks in production builds
+
 ## [2.0.0] - 2025-10-16
 
 ### 🎉 Major Release: Canvas 2.0 - Production Ready

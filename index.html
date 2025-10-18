@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- POC: The SPA will call window.__APP_MOUNTED__() ASAP; if it doesn't within ~1200ms, we show the HTML safe screen. -->
+<!-- POC: The SPA will call window.__APP_MOUNTED__() ASAP; if it doesn't within ~2000ms (and CPU is quiet), we show the HTML safe screen. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -7,10 +7,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="x-build-id" content="%BUILD_ID%" />
     <title>DecisionGuide.AI - Better decisions faster</title>
+    
     <style>
       /* Safe screen visibility controlled by data attribute */
-      #poc-safe { display: none; }
-      #poc-safe[data-visible="true"] { display: block; }
+      #poc-safe { 
+        display: none; 
+        opacity: 0;
+        transition: opacity 150ms ease-in;
+      }
+      #poc-safe[data-visible="true"] { 
+        display: block; 
+        animation: fadeIn 150ms ease-in forwards;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      /* Respect reduced motion preference */
+      @media (prefers-reduced-motion: reduce) {
+        #poc-safe { transition: none; animation: none; }
+        #poc-safe[data-visible="true"] { opacity: 1; }
+      }
     </style>
   </head>
   <body>
@@ -33,7 +50,7 @@
       // POC: Contract: window.__APP_MOUNTED__() clears timeout, marks shown=true, hides overlay
       (function () {
         var shown = false;
-        var SAFE_DELAY_MS = 1200;
+        var SAFE_DELAY_MS = 2000; // Increased from 1200ms to handle production bundle load
         var SAFE_TO = null; // POC: store timeout id
         var build = document.querySelector('meta[name="x-build-id"]')?.content || new Date().toISOString();
         var edge = '/engine';
@@ -46,14 +63,81 @@
         
         // Add data-testid for E2E tests
         if (safeEl) safeEl.setAttribute('data-testid', 'safe-screen');
+        
+        // Quiet-window gate: track if CPU has been quiet for 500ms
+        window.__NO_LONGTASKS_500MS__ = false;
+        var lastLongTask = Date.now();
+        var quietCheckInterval = null;
+        
+        // Monitor long tasks to avoid showing safe screen during active loading
+        if (typeof PerformanceObserver !== 'undefined') {
+          try {
+            var observer = new PerformanceObserver(function(list) {
+              lastLongTask = Date.now();
+              window.__NO_LONGTASKS_500MS__ = false;
+            });
+            observer.observe({ entryTypes: ['longtask'] });
+          } catch (e) {
+            // PerformanceObserver not supported, continue without it
+            window.__NO_LONGTASKS_500MS__ = true; // Graceful fallback
+          }
+        } else {
+          // No PerformanceObserver support, assume quiet
+          window.__NO_LONGTASKS_500MS__ = true;
+        }
+        
+        // Check quiet window every 100ms
+        quietCheckInterval = setInterval(function() {
+          if (Date.now() - lastLongTask > 500) {
+            window.__NO_LONGTASKS_500MS__ = true;
+          }
+        }, 100);
 
         function showSafe(reason){
           if (shown) return;
+          
+          var isQuiet = window.__NO_LONGTASKS_500MS__;
+          var isVisible = document.visibilityState === 'visible';
+          var isMounted = !!window.__APP_MOUNTED__;
+          
+          // Quiet-window gate: only show if CPU quiet, tab visible, and React not mounted
+          if (!isQuiet || !isVisible || isMounted) {
+            // Log when gate suppresses safe screen (measure effectiveness)
+            try {
+              performance.mark('safe-screen:suppressed', {
+                detail: { reason: reason, quiet: isQuiet, visible: isVisible, mounted: isMounted }
+              });
+            } catch (e) {}
+            return;
+          }
+          
           shown = true;
+          
+          // Clear interval - no longer need to poll
+          try {
+            if (quietCheckInterval) {
+              clearInterval(quietCheckInterval);
+              quietCheckInterval = null;
+            }
+          } catch (e) {}
+          
           if (safeEl) {
             safeEl.setAttribute('data-visible', 'true');
             safeEl.style.display = 'block'; // Fallback for browsers without CSS
           }
+          
+          // Add Sentry breadcrumb for field triage
+          try {
+            if (window.Sentry && window.Sentry.addBreadcrumb) {
+              window.Sentry.addBreadcrumb({
+                category: 'safe-screen',
+                level: 'info',
+                message: 'safe-screen:shown',
+                data: { reason: reason, quiet: isQuiet, visible: isVisible, mounted: isMounted }
+              });
+            }
+          } catch (e) {}
+          
           console.info('POC_HTML_SAFE: showing ('+reason+') build='+build+' edge='+edge);
           // try proxy first, then direct
           fetch(edge + '/health').then(function(r){ return r.json(); }).then(function(d){
@@ -75,6 +159,13 @@
           try {
             if (SAFE_TO) clearTimeout(SAFE_TO);       // POC: cancel timer
             shown = true;                              // POC: prevent future show
+            
+            // Clear interval - React mounted, no longer need to poll
+            if (quietCheckInterval) {
+              clearInterval(quietCheckInterval);
+              quietCheckInterval = null;
+            }
+            
             if (safeEl) {
               safeEl.setAttribute('data-visible', 'false');
               safeEl.style.display = 'none'; // POC: ensure hidden
