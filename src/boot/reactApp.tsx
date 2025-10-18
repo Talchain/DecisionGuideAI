@@ -1,35 +1,33 @@
 // src/boot/reactApp.tsx
-import React from 'react';
-import { createRoot } from 'react-dom/client';
+/* eslint-disable no-console */
+(function bootReactApp() {
+  (window as any).__SAFE_DEBUG__ ||= { logs: [] };
+  const log = (msg: string, extra: any = undefined) => {
+    const row = { t: Date.now(), msg, extra };
+    (window as any).__SAFE_DEBUG__.logs.push(row);
+    console.log(`[reactApp] ${msg}`, extra ?? '');
+  };
 
-function log(msg: string, data?: any) {
-  try { console.log(`[reactApp] ${msg}`, data ?? ''); } catch {}
-}
+  window.addEventListener('error', e => console.log('[reactApp][error]', e.message));
+  window.addEventListener('unhandledrejection', e => console.log('[reactApp][unhandled]', e.reason));
 
-function signalMounted(tag: string) {
-  try {
-    const cb = (window as any).__APP_MOUNTED__;
-    if (typeof cb === 'function') cb(tag);
-    else {
-      (window as any).__APP_MOUNTED_FLAG__ = true;
-      console.warn('[reactApp] __APP_MOUNTED__ not a function; set flag instead');
-    }
-  } catch (e) {
-    console.error('[reactApp] signalMounted error', e);
-  }
-}
-
-(async function boot() {
-  try {
-    log('starting');
+  (async () => {
+    log('boot:start');
 
     const rootEl = document.getElementById('root');
-    if (!rootEl) { console.error('[reactApp] #root not found — cannot render'); return; }
-    log('#root exists');
+    if (!rootEl) {
+      log('boot:missing-root');
+      return;
+    }
+    log('boot:found-root');
 
-    // Import the actual top-level app component
-    const { default: AppPoC } = await import('../poc/AppPoC');
-    log('AppPoC import resolved');
+    log('boot:importing-react-and-app');
+    const [{ createRoot }, React, { default: AppPoC }] = await Promise.all([
+      import('react-dom/client'),
+      import('react'),
+      import('../poc/AppPoC'),
+    ]);
+    log('boot:imports-resolved');
 
     const root = createRoot(rootEl);
     root.render(
@@ -37,9 +35,16 @@ function signalMounted(tag: string) {
         <AppPoC />
       </React.StrictMode>
     );
-    log('rendered');
-    signalMounted('react-render-complete');
-  } catch (e) {
-    console.error('[reactApp] fatal error before/at render', e);
-  }
+    log('boot:react-render-called');
+
+    try {
+      (window as any).__APP_MOUNTED__?.('react-mounted');
+      log('boot:signal-mounted-called');
+    } catch (e) {
+      log('boot:signal-mounted-error', e);
+    }
+  })().catch(err => {
+    console.log('[reactApp] boot:fatal', err);
+    (window as any).__SAFE_DEBUG__.fatal = String(err?.stack || err);
+  });
 })();
