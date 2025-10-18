@@ -24,3 +24,15 @@
   SECRETS_SCAN_ENABLED = "false"
 
 # POC: redirects live in /public/_redirects only
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+  cache-control = "no-store, must-revalidate"
+  x-olumi = "index-no-store"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+  cache-control = "public, max-age=60, must-revalidate"
+  x-olumi = "assets-short-cache"
