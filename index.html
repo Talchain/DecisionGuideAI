@@ -45,198 +45,135 @@
     </div>
 
     <script>
-      // POC: HTML-level failsafe that can't fail to parse
-      // POC: Contract: window.__APP_MOUNTED__() clears timeout, marks shown=true, hides overlay
-      console.log('[BOOT] inline script start');
-      window.__APP_MOUNTED__ = false;
-      
+      // POC: Minimal inline script for build/edge display
       (function () {
-        var shown = false;
-        var SAFE_DELAY_MS = 2000; // Increased from 1200ms to handle production bundle load
-        var SAFE_TO = null; // POC: store timeout id
         var build = document.querySelector('meta[name="x-build-id"]')?.content || new Date().toISOString();
         var edge = '/engine';
-        var safeEl = document.getElementById('poc-safe');
-        var healthEl = document.getElementById('poc-health');
         var buildEl = document.getElementById('poc-build');
         var edgeEl = document.getElementById('poc-edge');
+        var safeEl = document.getElementById('poc-safe');
+        
         buildEl && (buildEl.textContent = build);
         edgeEl && (edgeEl.textContent = edge);
         
         // Add data-testid for E2E tests
         if (safeEl) safeEl.setAttribute('data-testid', 'safe-screen');
         
-        // Quiet-window gate: track if CPU has been quiet for 500ms
-        window.__NO_LONGTASKS_500MS__ = false;
-        var lastLongTask = Date.now();
-        var quietCheckInterval = null;
-        
-        // Monitor long tasks to avoid showing safe screen during active loading
-        if (typeof PerformanceObserver !== 'undefined') {
-          try {
-            var observer = new PerformanceObserver(function(list) {
-              lastLongTask = Date.now();
-              window.__NO_LONGTASKS_500MS__ = false;
-            });
-            observer.observe({ entryTypes: ['longtask'] });
-          } catch (e) {
-            // PerformanceObserver not supported, continue without it
-            window.__NO_LONGTASKS_500MS__ = true; // Graceful fallback
-          }
-        } else {
-          // No PerformanceObserver support, assume quiet
-          window.__NO_LONGTASKS_500MS__ = true;
-        }
-        
-        // Check quiet window every 100ms
-        quietCheckInterval = setInterval(function() {
-          if (Date.now() - lastLongTask > 500) {
-            window.__NO_LONGTASKS_500MS__ = true;
-          }
-        }, 100);
-
-        function showSafe(reason){
-          if (shown) return;
-          
-          var isQuiet = window.__NO_LONGTASKS_500MS__;
-          var isVisible = document.visibilityState === 'visible';
-          var isMounted = !!window.__APP_MOUNTED__;
-          
-          // Quiet-window gate: only show if CPU quiet, tab visible, and React not mounted
-          if (!isQuiet || !isVisible || isMounted) {
-            // Log when gate suppresses safe screen (measure effectiveness)
-            try {
-              performance.mark('safe-screen:suppressed', {
-                detail: { reason: reason, quiet: isQuiet, visible: isVisible, mounted: isMounted }
-              });
-            } catch (e) {}
-            return;
-          }
-          
-          shown = true;
-          
-          // Clear interval - no longer need to poll
-          try {
-            if (quietCheckInterval) {
-              clearInterval(quietCheckInterval);
-              quietCheckInterval = null;
-            }
-          } catch (e) {}
-          
-          // Safe screen is already visible by default, just ensure it's not hidden
-          if (safeEl) {
-            safeEl.removeAttribute('data-hidden');
-          }
-          
-          // Add Sentry breadcrumb for field triage
-          try {
-            if (window.Sentry && window.Sentry.addBreadcrumb) {
-              window.Sentry.addBreadcrumb({
-                category: 'safe-screen',
-                level: 'info',
-                message: 'safe-screen:shown',
-                data: { reason: reason, quiet: isQuiet, visible: isVisible, mounted: isMounted }
-              });
-            }
-          } catch (e) {}
-          
-          console.info('POC_HTML_SAFE: showing ('+reason+') build='+build+' edge='+edge);
-          // try proxy first, then direct
+        // Health check (only if safe screen is visible)
+        var healthEl = document.getElementById('poc-health');
+        if (healthEl) {
           fetch(edge + '/health').then(function(r){ return r.json(); }).then(function(d){
-            healthEl && (healthEl.textContent = 'OK via proxy\n' + JSON.stringify(d, null, 2));
-            console.info('POC_HTML_SAFE: OK via proxy', d);
+            healthEl.textContent = 'OK via proxy\n' + JSON.stringify(d, null, 2);
           }).catch(function(){
             fetch('https://plot-lite-service.onrender.com/health').then(function(r){ return r.json(); }).then(function(d){
-              healthEl && (healthEl.textContent = 'OK via direct\n' + JSON.stringify(d, null, 2));
-              console.info('POC_HTML_SAFE: OK via direct', d);
+              healthEl.textContent = 'OK via direct\n' + JSON.stringify(d, null, 2);
             }).catch(function(e2){
-              healthEl && (healthEl.textContent = 'FAIL\n' + String(e2));
-              console.error('POC_HTML_SAFE: FAIL', e2);
+              healthEl.textContent = 'FAIL\n' + String(e2);
             });
           });
-        }
-
-        // Called by React once it mounts
-        window.__APP_MOUNTED__ = function(){
-          try {
-            console.log('[BOOT] React mounted, hiding safe-screen');
-            window.__APP_MOUNTED__ = true;             // POC: mark as mounted
-            if (SAFE_TO) clearTimeout(SAFE_TO);       // POC: cancel timer
-            shown = true;                              // POC: prevent future show
-            
-            // Clear interval - React mounted, no longer need to poll
-            if (quietCheckInterval) {
-              clearInterval(quietCheckInterval);
-              quietCheckInterval = null;
-            }
-            
-            // Hide safe screen now that React is mounted
-            if (safeEl) {
-              safeEl.setAttribute('data-hidden', 'true');
-            }
-            console.info('POC_HTML_SAFE: React mounted, safe screen hidden');
-          } catch {}
-        };
-        
-        // Check for forceSafe parameter - must happen BEFORE setting timeout
-        var params = new URLSearchParams(window.location.search);
-        var forceSafe = params.get('forceSafe') === '1';
-        
-        if (forceSafe) {
-          showSafe('forced');
-          // Don't set timeout or load React
-        } else {
-          // If React never tells us it mounted, show the safe screen
-          SAFE_TO = setTimeout(function(){
-            if (!shown) showSafe('timeout');
-          }, SAFE_DELAY_MS);
-
-          // Also show it on a hard error very early
-          window.addEventListener('error', function(e){ 
-            // Only show safe screen for critical errors, not React errors
-            if (!shown && e.message && !e.message.includes('React')) {
-              showSafe('early-error');
-            }
-          }, { once: true });
         }
       })();
     </script>
 
     <script type="module">
-      // HARD AIR-GAP: Complete React isolation
-      // This is the ONLY place that decides whether to load React
-      console.log('[BOOT] module script start');
-      
-      (async () => {
-        const params = new URLSearchParams(window.location.search);
-        const forceSafe = params.get('forceSafe') === '1';
-        
-        if (forceSafe) {
-          // Safe path: NEVER import React/Zustand/ReactFlow
-          // Safe screen already shown by inline script
-          console.log('[BOOT] forceSafe mode - safe screen remains visible');
-          return;
+      // === ultra-early flags & DOM refs ===
+      const SAFE = document.getElementById('poc-safe');
+      const ROOT = document.getElementById('root');
+      window.__SAFE_DEBUG__ = { started: Date.now(), logs: [] };
+      const dbg = (m, data) => {
+        const line = `[BOOT] ${m}`;
+        window.__SAFE_DEBUG__.logs.push({ t: Date.now(), m: line, data });
+        try { console.log(line, data ?? ''); } catch {}
+      };
+
+      dbg('inline script start', { loc: location.href });
+      if (!SAFE) dbg('WARN: #poc-safe missing!');
+      if (!ROOT) dbg('WARN: #root missing or hidden?', { style: ROOT?.style });
+
+      // === network/resource introspection helpers ===
+      const listResources = (re) =>
+        performance.getEntriesByType('resource')
+          .filter(e => re.test(e.name)).map(e => e.name);
+
+      // === the one true hider ===
+      function hideSafe(reason) {
+        if (!SAFE) return;
+        SAFE.setAttribute('data-hidden','true');
+        dbg('safe-screen hidden', { reason });
+        try { performance.mark('safe-screen:hidden', { detail: { reason } }); } catch {}
+        if (window.__SAFE_INTERVAL__) {
+          clearInterval(window.__SAFE_INTERVAL__);
+          window.__SAFE_INTERVAL__ = null;
         }
-        
-        // Final watchdog: ensure safe-screen visible if React never mounts
-        setTimeout(() => {
-          if (!window.__APP_MOUNTED__) {
-            console.log('[BOOT] watchdog forcing safe-screen visible @3.5s');
-            const safe = document.getElementById('poc-safe');
-            if (safe) safe.removeAttribute('data-hidden'); // ensure visible
-          }
-        }, 3500);
-        
-        try {
-          console.log('[BOOT] importing React app...');
-          // App path: Load React via isolated boot entry
-          const { bootReactApp } = await import('/src/boot/reactApp.tsx');
-          await bootReactApp();
-        } catch (err) {
-          console.error('POC_HTML_SAFE: React boot failed', err);
-          // Fallback will be handled by timeout in inline script
+      }
+
+      // === define the mount callback expected by the app ===
+      // (works whether app CALLS it or only sets a boolean)
+      window.__APP_MOUNTED__ = function mountedCallback(reason='app-mounted-callback'){
+        dbg('__APP_MOUNTED__() called', { reason });
+        hideSafe(reason);
+        // also tag that app mounted for watchdogs/observers
+        window.__APP_MOUNTED_FLAG__ = true;
+      };
+
+      // If the app merely flips a boolean later, poll for it briefly:
+      window.__SAFE_INTERVAL__ = setInterval(() => {
+        if (window.__APP_MOUNTED_FLAG__ === true) {
+          dbg('detected boolean mount flag');
+          hideSafe('boolean-flag-detected');
         }
-      })();
+      }, 100);
+
+      // Also hide when #root actually receives children (DOM heuristic):
+      try {
+        if (ROOT) {
+          const mo = new MutationObserver(() => {
+            if (ROOT.childElementCount > 0) {
+              dbg('root has children; hiding safe');
+              hideSafe('root-has-children');
+              mo.disconnect();
+            }
+          });
+          mo.observe(ROOT, { childList: true });
+        }
+      } catch {}
+
+      // === kick the app import with full tracing (only when not forceSafe) ===
+      const qs = new URLSearchParams(location.search);
+      const forced = qs.get('forceSafe') === '1';
+      dbg('forceSafe?', { forced });
+
+      if (forced) {
+        dbg('forceSafe enabled: NOT importing app');
+      } else {
+        dbg('importing app entry…');
+
+        import('/src/boot/reactApp.tsx')
+          .then((mod) => {
+            dbg('app entry import resolved', {
+              reactAppRequests: listResources(/reactApp-|main-|react-vendor-|react-dom-|react-\w+/)
+            });
+            // If the app didn't call __APP_MOUNTED__ within 2.5s, we'll still hide when it renders (DOM observer),
+            // otherwise the boolean poll above will flip it.
+            setTimeout(() => {
+              if (!window.__APP_MOUNTED_FLAG__) {
+                dbg('NOTE: app import ok, but mount flag not set yet (waiting on DOM observer/poll)');
+              }
+            }, 2500);
+          })
+          .catch((err) => {
+            console.error('[BOOT] app entry import FAILED', err);
+            dbg('app entry import FAILED (keeping safe-screen visible)', { err: String(err) });
+          });
+      }
+
+      // === absolute last resort watchdog so we never get stuck blank ===
+      setTimeout(() => {
+        if (!window.__APP_MOUNTED_FLAG__) {
+          dbg('watchdog fired @3.5s; safe-screen stays visible unless user forced safe', { forced });
+          // (safe-screen is already visible-by-default in your hotfix)
+        }
+      }, 3500);
     </script>
   </body>
 </html>
