@@ -1,0 +1,9 @@
+{
+  "error": "rate_limit_exceeded",
+  "message": "Too many requests",
+  "headers": {
+    "Retry-After": "60",
+    "X-RateLimit-Reset": "1697241600",
+    "X-RateLimit-Reason": "quota_exceeded"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "schema": "report.v1",
+  "meta": {
+    "seed": 12345,
+    "trace_id": "trace-abc-123"
+  },
+  "summary": {
+    "bands": {
+      "p10": 0.21,
+      "p50": 0.47,
+      "p90": 0.72
+    }
+  },
+  "confidence": "medium",
+  "confidence_stability": {
+    "action_consistency": 1.0,
+    "sign_flip_rate": 0.0
+  }
+}
