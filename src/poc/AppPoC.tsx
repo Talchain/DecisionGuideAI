@@ -17,6 +17,7 @@ const CanvasMVP = lazy(() => import('../routes/CanvasMVP'))
 const SandboxV1 = lazy(() => import('../routes/SandboxV1'))
 const PlotShowcase = lazy(() => import('../routes/PlotShowcase'))
 const PlotWorkspace = lazy(() => import('../routes/PlotWorkspace'))
+const PlcLab = lazy(() => import('../routes/PlcLab'))
 import SandboxHeader, { type SandboxMode } from './components/SandboxHeader'
 import OnboardingHints from './components/OnboardingHints'
 import { exportCanvas, formatSandboxPngName } from './export/exportCanvas'
@@ -857,6 +858,7 @@ export default function AppPoC() {
               <Route path="/canvas" element={<CanvasMVP />} />
               <Route path="/plot" element={<PlotWorkspace />} />
               <Route path="/plot-legacy" element={<PlotShowcase />} />
+              <Route path="/plc" element={<PlcLab />} />
               <Route path="/sandbox-v1" element={<SandboxV1 />} />
               <Route path="/test" element={<MainSandboxContent />} />
               <Route path="*" element={<MainSandboxContent />} />
