@@ -9,24 +9,23 @@
     <title>DecisionGuide.AI - Better decisions faster</title>
     
     <style>
-      /* Safe screen visibility controlled by data attribute */
+      /* Safe screen visible by default, hidden when React mounts */
       #poc-safe { 
-        display: none; 
+        display: flex;
+        opacity: 1;
+        min-height: 100vh;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        transition: opacity 150ms ease-out;
+      }
+      #poc-safe[data-hidden="true"] { 
+        display: none;
         opacity: 0;
-        transition: opacity 150ms ease-in;
-      }
-      #poc-safe[data-visible="true"] { 
-        display: block; 
-        animation: fadeIn 150ms ease-in forwards;
-      }
-      @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
       }
       /* Respect reduced motion preference */
       @media (prefers-reduced-motion: reduce) {
-        #poc-safe { transition: none; animation: none; }
-        #poc-safe[data-visible="true"] { opacity: 1; }
+        #poc-safe { transition: none; }
       }
     </style>
   </head>
@@ -34,7 +33,7 @@
     <div id="root"></div>
 
     <!-- POC: HTML-level Safe Screen (zero-dependency, can't fail to parse) -->
-    <div id="poc-safe" style="display:none;position:fixed;inset:0;background:#0b1e11;color:#d7ffe0;font-family:system-ui,Arial,sans-serif;z-index:99999;padding:16px;overflow:auto">
+    <div id="poc-safe" style="position:fixed;inset:0;background:#0b1e11;color:#d7ffe0;font-family:system-ui,Arial,sans-serif;z-index:99999;padding:16px;overflow:auto">
       <div style="background:#12b886;color:#052a1f;padding:8px 12px;border-radius:8px;display:inline-block;font-weight:600">
         PoC HTML Safe Screen
       </div>
@@ -48,6 +47,9 @@
     <script>
       // POC: HTML-level failsafe that can't fail to parse
       // POC: Contract: window.__APP_MOUNTED__() clears timeout, marks shown=true, hides overlay
+      console.log('[BOOT] inline script start');
+      window.__APP_MOUNTED__ = false;
+      
       (function () {
         var shown = false;
         var SAFE_DELAY_MS = 2000; // Increased from 1200ms to handle production bundle load
@@ -121,9 +123,9 @@
             }
           } catch (e) {}
           
+          // Safe screen is already visible by default, just ensure it's not hidden
           if (safeEl) {
-            safeEl.setAttribute('data-visible', 'true');
-            safeEl.style.display = 'block'; // Fallback for browsers without CSS
+            safeEl.removeAttribute('data-hidden');
           }
           
           // Add Sentry breadcrumb for field triage
@@ -157,6 +159,8 @@
         // Called by React once it mounts
         window.__APP_MOUNTED__ = function(){
           try {
+            console.log('[BOOT] React mounted, hiding safe-screen');
+            window.__APP_MOUNTED__ = true;             // POC: mark as mounted
             if (SAFE_TO) clearTimeout(SAFE_TO);       // POC: cancel timer
             shown = true;                              // POC: prevent future show
             
@@ -166,11 +170,11 @@
               quietCheckInterval = null;
             }
             
+            // Hide safe screen now that React is mounted
             if (safeEl) {
-              safeEl.setAttribute('data-visible', 'false');
-              safeEl.style.display = 'none'; // POC: ensure hidden
+              safeEl.setAttribute('data-hidden', 'true');
             }
-            console.info('POC_HTML_SAFE: React mounted, no need for Safe Screen');
+            console.info('POC_HTML_SAFE: React mounted, safe screen hidden');
           } catch {}
         };
         
@@ -201,6 +205,8 @@
     <script type="module">
       // HARD AIR-GAP: Complete React isolation
       // This is the ONLY place that decides whether to load React
+      console.log('[BOOT] module script start');
+      
       (async () => {
         const params = new URLSearchParams(window.location.search);
         const forceSafe = params.get('forceSafe') === '1';
@@ -208,10 +214,21 @@
         if (forceSafe) {
           // Safe path: NEVER import React/Zustand/ReactFlow
           // Safe screen already shown by inline script
+          console.log('[BOOT] forceSafe mode - safe screen remains visible');
           return;
         }
         
+        // Final watchdog: ensure safe-screen visible if React never mounts
+        setTimeout(() => {
+          if (!window.__APP_MOUNTED__) {
+            console.log('[BOOT] watchdog forcing safe-screen visible @3.5s');
+            const safe = document.getElementById('poc-safe');
+            if (safe) safe.removeAttribute('data-hidden'); // ensure visible
+          }
+        }, 3500);
+        
         try {
+          console.log('[BOOT] importing React app...');
           // App path: Load React via isolated boot entry
           const { bootReactApp } = await import('/src/boot/reactApp.tsx');
           await bootReactApp();

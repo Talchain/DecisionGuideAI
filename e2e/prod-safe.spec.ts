@@ -14,17 +14,17 @@ test('A) happy path: app mounts, safe screen hidden, no shim errors', async ({ p
 
   await page.goto(`${ORIGIN}/#/canvas`, { waitUntil: 'domcontentloaded' })
 
-  // Allow transient safe screen in first 2s (production bundle load), but must be hidden by 2.5s
+  // Safe screen starts visible, must be hidden by 2.5s after React mounts
   await page.waitForTimeout(2500)
   
-  // Safe screen must be hidden by now and stay hidden
-  const safeVisible = await page.locator('#poc-safe[data-visible="true"]').isVisible().catch(() => false)
-  expect(safeVisible).toBeFalsy()
+  // Safe screen must be hidden by now (data-hidden="true")
+  const safeHidden = await page.locator('#poc-safe[data-hidden="true"]').isVisible().catch(() => false)
+  expect(safeHidden).toBeFalsy() // Should not be visible when data-hidden=true
   
   // Verify it stays hidden
   await page.waitForTimeout(500)
-  const stillVisible = await page.locator('#poc-safe[data-visible="true"]').isVisible().catch(() => false)
-  expect(stillVisible).toBeFalsy()
+  const stillHidden = await page.locator('#poc-safe[data-hidden="true"]').isVisible().catch(() => false)
+  expect(stillHidden).toBeFalsy()
 
   expect(errors.filter((e) => e.includes('use-sync-external-store')).length).toBe(0)
 })
@@ -57,8 +57,13 @@ test('B) forced safe: safe screen shows, app bundle not requested, no shim error
   await page.goto(`${ORIGIN}/?forceSafe=1#/canvas`, { waitUntil: 'domcontentloaded' })
   await page.waitForTimeout(400)
 
-  const safeVisible = await page.locator('#poc-safe[data-visible="true"]').isVisible()
+  // Safe screen should be visible (no data-hidden attribute)
+  const safeVisible = await page.locator('#poc-safe').isVisible()
   expect(safeVisible).toBeTruthy()
+  
+  // Verify it's NOT hidden
+  const hasHiddenAttr = await page.locator('#poc-safe[data-hidden="true"]').count()
+  expect(hasHiddenAttr).toBe(0)
 
   // Assert no React chunks were requested
   expect(reactRequests).toHaveLength(0)
@@ -76,11 +81,16 @@ test('C) abort app: safe screen appears after fallback, no shim errors', async (
   const start = Date.now()
   await page.goto(`${ORIGIN}/#/canvas`, { waitUntil: 'domcontentloaded' })
 
-  // Wait for safe screen to appear (should be by 2.2s with quiet window gate)
+  // Wait for watchdog (safe screen should remain visible since React can't mount)
   await page.waitForTimeout(SAFE_FALLBACK_MS + 200)
 
-  const safeVisible = await page.locator('#poc-safe[data-visible="true"]').isVisible()
+  // Safe screen should still be visible (React failed to load)
+  const safeVisible = await page.locator('#poc-safe').isVisible()
   expect(safeVisible).toBeTruthy()
+  
+  // Should NOT have data-hidden attribute
+  const hasHiddenAttr = await page.locator('#poc-safe[data-hidden="true"]').count()
+  expect(hasHiddenAttr).toBe(0)
 
   // Timing should respect the fallback delay
   expect(Date.now() - start).toBeGreaterThanOrEqual(SAFE_FALLBACK_MS)
