@@ -99,6 +99,7 @@
       function hideSafe(reason) {
         if (!SAFE) return;
         SAFE.setAttribute('data-hidden','true');
+        SAFE.style.display = 'none';  // Double-ensure hidden
         dbg('safe-screen hidden', { reason });
         try { performance.mark('safe-screen:hidden', { detail: { reason } }); } catch {}
         if (window.__SAFE_INTERVAL__) {
