@@ -30,9 +30,6 @@ const isPoc =
   (typeof import.meta !== 'undefined' &&
    (import.meta as any)?.env?.VITE_AUTH_MODE === 'guest')
 
-// POC: Signal HTML failsafe immediately
-try { (window as any).__APP_MOUNTED__?.() } catch {}
-
 if (isPlc && plcEnabled) {
   ;(async () => {
     try {
@@ -43,6 +40,8 @@ if (isPlc && plcEnabled) {
           <PlcLab />
         </StrictMode>
       )
+      // POC: Signal HTML failsafe after render
+      try { (window as any).__APP_MOUNTED__?.() } catch {}
     } catch (e) {
       console.error('PLC: Failed to load PlcLab', e)
       root.innerHTML = `
@@ -71,6 +70,8 @@ if (isPlc && plcEnabled) {
           <AppPoC />
         </StrictMode>
       )
+      // POC: Signal HTML failsafe after render
+      try { (window as any).__APP_MOUNTED__?.() } catch {}
     } catch (e) {
       console.error('POC: Failed to load AppPoC', e)
       // POC: Fallback to minimal panel

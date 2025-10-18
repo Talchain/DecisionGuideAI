@@ -18,23 +18,17 @@ module.exports = {
   },
   overrides: [
     {
-      // Safe entry must never import React/Zustand/React Flow
-      files: ['src/poc/safe/**/*.{ts,tsx}'],
+      // AIR-GAP: Safe entry and boot helpers must never import React/Zustand/React Flow/shim
+      files: ['src/poc/safe/**/*', 'src/boot/safe-*.ts'],
       rules: {
         'no-restricted-imports': ['error', {
-          paths: [
-            { name: 'react', message: 'Safe entry must not import React' },
-            { name: 'react-dom', message: 'Safe entry must not import React DOM' },
-            { name: 'zustand', message: 'Safe entry must not import Zustand' },
-            { name: 'reactflow', message: 'Safe entry must not import React Flow' },
-            { name: '@xyflow/react', message: 'Safe entry must not import React Flow' },
-            { name: '@xyflow/system', message: 'Safe entry must not import React Flow' },
-            { name: '@sentry/react', message: 'Safe entry must not import Sentry React' }
-          ],
           patterns: [
-            { group: ['**/store*'], message: 'Safe entry must not import app stores' },
-            { group: ['**/ReactFlow*'], message: 'Safe entry must not import graph components' },
-            { group: ['**/*ErrorBoundary*'], message: 'Safe entry must not import error boundaries' }
+            { group: ['react*'], message: 'Safe path must not import React' },
+            { group: ['react-dom*'], message: 'Safe path must not import React DOM' },
+            { group: ['zustand*'], message: 'Safe path must not import Zustand' },
+            { group: ['@xyflow/*'], message: 'Safe path must not import React Flow' },
+            { group: ['use-sync-external-store*'], message: 'Safe path must not import shim' },
+            { group: ['../**/*store*'], message: 'Safe path must not import app stores' }
           ]
         }]
       }

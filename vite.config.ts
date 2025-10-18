@@ -83,14 +83,15 @@ export default defineConfig(({ mode }) => ({
       }
     }
   },
-  optimizeDeps: {
+optimizeDeps: {
     include: [
       'react',
       'react-dom',
       'react-router-dom',
       '@supabase/supabase-js',
       'date-fns',
-      'use-sync-external-store'
+      'use-sync-external-store',
+      'use-sync-external-store/shim'
     ],
     exclude: []
   },

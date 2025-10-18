@@ -32,6 +32,10 @@
     "measure:bundle": "npm run build && node scripts/measure-bundle.mjs",
     "report:chunks": "node scripts/report-chunks.mjs",
     "ci:bundle-budget": "node scripts/ci-bundle-budget.mjs",
+    "build:prod": "vite build",
+    "serve:dist": "npx serve dist -l 4173",
+    "e2e:prod-safe": "concurrently -k \"npm:serve:dist\" \"wait-on http://localhost:4173 && playwright test e2e/prod-safe.spec.ts\"",
+    "ci:bundle-policy": "node scripts/assert-safe-bundle.cjs",
     "e2e:smoke": "playwright test e2e/smoke/",
     "e2e:safe": "playwright test e2e/safe-screen.spec.ts",
     "e2e:vitals": "playwright test e2e/webvitals.spec.ts",
@@ -95,6 +99,7 @@
     "@typescript-eslint/parser": "8.6.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
+    "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
     "eslint": "9.10.0",
     "eslint-config-prettier": "9.1.0",
@@ -104,12 +109,14 @@
     "prelude-ls": "^1.2.1",
     "react-is": "^18.3.1",
     "rimraf": "^6.0.1",
+    "serve": "^14.2.5",
     "tailwindcss": "^3.4.1",
     "terser": "5.31.6",
     "ts-api-utils": "1.3.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.3",
     "vite": "^5.4.2",
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.0",
+    "wait-on": "^9.0.1"
   }
 }

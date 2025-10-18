@@ -108,18 +108,26 @@
     </script>
 
     <script type="module">
-      // Boot logic: check forceSafe before loading React
+      // HARD AIR-GAP: Complete React isolation
+      // This is the ONLY place that decides whether to load React
       (async () => {
         const params = new URLSearchParams(window.location.search);
         const forceSafe = params.get('forceSafe') === '1';
         
         if (forceSafe) {
-          // Safe screen already shown by inline script, don't load React
+          // Safe path: NEVER import React/Zustand/ReactFlow
+          // Safe screen already shown by inline script
           return;
         }
         
-        // Load React app
-        await import('/src/main.tsx');
+        try {
+          // App path: Load React via isolated boot entry
+          const { bootReactApp } = await import('/src/boot/reactApp.tsx');
+          await bootReactApp();
+        } catch (err) {
+          console.error('POC_HTML_SAFE: React boot failed', err);
+          // Fallback will be handled by timeout in inline script
+        }
       })();
     </script>
   </body>
