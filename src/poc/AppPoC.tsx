@@ -852,8 +852,8 @@ export default function AppPoC() {
       {/* @ts-expect-error POC: stub may not match exact QueryClientProvider API */}
       <QueryClientProvider client={queryClient}>
         <Router>
-          <CanvasErrorBoundary>
-            <Suspense fallback={<RouteLoadingFallback />}>
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <CanvasErrorBoundary>
               <Routes>
               <Route path="/canvas" element={<CanvasMVP />} />
               <Route path="/plot" element={<PlotWorkspace />} />
@@ -863,8 +863,8 @@ export default function AppPoC() {
               <Route path="/test" element={<MainSandboxContent />} />
               <Route path="*" element={<MainSandboxContent />} />
               </Routes>
-            </Suspense>
-          </CanvasErrorBoundary>
+            </CanvasErrorBoundary>
+          </Suspense>
         </Router>
       </QueryClientProvider>
     </StrictMode>

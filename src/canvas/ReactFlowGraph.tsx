@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import DecisionNode from './nodes/DecisionNode'
 import { useCanvasStore } from './store'
@@ -24,12 +24,11 @@ const nodeTypes = { decision: DecisionNode }
 function ReactFlowGraphInner() {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
-  const onNodesChange = useCanvasStore(s => s.onNodesChange)
-  const onEdgesChange = useCanvasStore(s => s.onEdgesChange)
+  // Note: Do NOT extract store callbacks (onNodesChange, onEdgesChange, etc.)
+  // They return new references each render, causing infinite loops.
+  // Instead, create stable handlers with useCallback([]) that call getState().
   
-  // Wrap onSelectionChange in useCallback to prevent infinite loop
-  // The store's onSelectionChange calls set() which triggers re-renders,
-  // but we need a stable reference to avoid ReactFlow triggering it repeatedly
+  // Stable selection handler
   const handleSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
     useCanvasStore.getState().onSelectionChange(params)
   }, [])
@@ -120,7 +119,7 @@ function ReactFlowGraphInner() {
     setContextMenu({ x: event.clientX, y: event.clientY })
   }, [])
 
-  // Track dragging state for alignment guides
+  // Stable nodes change handler (keeps alignment guide logic)
   const handleNodesChange = useCallback((changes: NodeChange[]) => {
     const dragChanges = changes.filter(c => c.type === 'position')
     
@@ -136,8 +135,14 @@ function ReactFlowGraphInner() {
       }
     }
 
-    onNodesChange(changes)
-  }, [onNodesChange])
+    // Call store via getState() to avoid unstable dependency
+    useCanvasStore.getState().onNodesChange(changes)
+  }, [])
+
+  // Stable edges change handler
+  const handleEdgesChange = useCallback((changes: EdgeChange[]) => {
+    useCanvasStore.getState().onEdgesChange(changes)
+  }, [])
 
   return (
     <div className="w-full h-full relative" data-testid="react-flow-graph">
@@ -145,7 +150,7 @@ function ReactFlowGraphInner() {
         nodes={nodes}
         edges={edges}
         onNodesChange={handleNodesChange}
-        onEdgesChange={onEdgesChange}
+        onEdgesChange={handleEdgesChange}
         onSelectionChange={handleSelectionChange}
         onConnect={onConnect}
         onPaneContextMenu={onPaneContextMenu}
