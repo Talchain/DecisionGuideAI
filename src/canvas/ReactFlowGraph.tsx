@@ -26,7 +26,13 @@ function ReactFlowGraphInner() {
   const edges = useCanvasStore(s => s.edges)
   const onNodesChange = useCanvasStore(s => s.onNodesChange)
   const onEdgesChange = useCanvasStore(s => s.onEdgesChange)
-  const onSelectionChange = useCanvasStore(s => s.onSelectionChange)
+  
+  // Wrap onSelectionChange in useCallback to prevent infinite loop
+  // The store's onSelectionChange calls set() which triggers re-renders,
+  // but we need a stable reference to avoid ReactFlow triggering it repeatedly
+  const handleSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
+    useCanvasStore.getState().onSelectionChange(params)
+  }, [])
   
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
@@ -140,7 +146,7 @@ function ReactFlowGraphInner() {
         edges={edges}
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
-        onSelectionChange={onSelectionChange}
+        onSelectionChange={handleSelectionChange}
         onConnect={onConnect}
         onPaneContextMenu={onPaneContextMenu}
         onNodeContextMenu={onNodeContextMenu}
