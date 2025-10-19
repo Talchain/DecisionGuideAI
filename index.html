@@ -75,6 +75,23 @@
       })();
     </script>
 
+    <!-- PRE-REACT SAFE HIDE + BOOT TELEMETRY -->
+    <script>
+    (function () {
+      window.__SAFE_DEBUG__ = window.__SAFE_DEBUG__ || { logs: [] };
+      const log = (m, extra) => { __SAFE_DEBUG__.logs.push({ t: Date.now(), m, extra }); console.log('[BOOT]', m, extra ?? ''); };
+
+      // define & immediately call the safe-screen hide so overlay never blocks React
+      window.__APP_MOUNTED__ = function(reason = 'app-mounted-callback') {
+        log('__APP_MOUNTED__()', { reason });
+        const safe = document.getElementById('poc-safe');
+        if (safe) { safe.setAttribute('data-hidden', 'true'); safe.style.display = 'none'; }
+        window.__APP_MOUNTED_FLAG__ = true;
+      };
+      window.__APP_MOUNTED__('pre-react');
+    })();
+    </script>
+
     <script type="module">
       // === ultra-early flags & DOM refs ===
       const SAFE = document.getElementById('poc-safe');
