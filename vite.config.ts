@@ -2,6 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 
+const shimPath = path.resolve(__dirname, 'src/shims/useSyncExternalStoreShim.ts');
+
 // POC: Detect PoC mode from environment
 const isPoc =
   process.env.VITE_POC_ONLY === '1' ||
@@ -14,18 +16,24 @@ export default defineConfig(({ mode }) => ({
   },
   resolve: {
     alias: [
-      // Hard-alias shim to local file
-      { find: 'use-sync-external-store/shim', replacement: path.resolve(__dirname, 'src/shims/useSyncExternalStoreShim.ts') },
-      { find: 'use-sync-external-store', replacement: path.resolve(__dirname, 'src/shims/useSyncExternalStoreShim.ts') },
-      // POC: In PoC mode, alias Supabase packages to stubs to prevent bundling
+      // 🔒 Regex aliases to prevent subpath concatenation issues.
+      // Order matters: specific patterns first, then catch-all, then base.
+      { find: /^use-sync-external-store\/shim\/with-selector(\.js)?$/, replacement: shimPath },
+      { find: /^use-sync-external-store\/with-selector(\.js)?$/,       replacement: shimPath },
+      { find: /^use-sync-external-store\/shim(\/index(\.js)?)?$/,      replacement: shimPath },
+      // Catch-all for any other subpaths (must come after specific ones)
+      { find: /^use-sync-external-store\/.*$/,                         replacement: shimPath },
+      // Base package
+      { find: /^use-sync-external-store$/,                             replacement: shimPath },
+
+      // Preserve existing POC/test stubs (merge; do not overwrite)
       ...(isPoc ? [
         { find: '@supabase/supabase-js', replacement: path.resolve(__dirname, 'src/stubs/supabase-stub.mjs') },
-        { find: '@supabase/gotrue-js', replacement: path.resolve(__dirname, 'src/stubs/gotrue-stub.mjs') },
-        // POC: prevent bundling the real react-query in PoC mode
+        { find: '@supabase/gotrue-js',   replacement: path.resolve(__dirname, 'src/stubs/gotrue-stub.mjs') },
         { find: '@tanstack/react-query', replacement: path.resolve(__dirname, 'src/stubs/react-query-stub.mjs') },
       ] : []),
     ],
-    // Dedupe React to avoid multi-React edge cases
+    // Dedupe React to avoid multi-React edge cases (shim is local, no need to dedupe it)
     dedupe: ['react', 'react-dom'],
   },
   build: {
