@@ -1,5 +1,5 @@
 [build]
-  command = "npm run build:ci && echo '{\"commit\":\"'$(git rev-parse HEAD)'\",\"short\":\"'$(git rev-parse --short HEAD)'\",\"branch\":\"'$(git rev-parse --abbrev-ref HEAD)'\",\"timestamp\":\"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'\"}' > dist/version.json"
+  command = "npm run build:ci && node scripts/assert-entry.cjs && echo '{\"commit\":\"'$(git rev-parse HEAD)'\",\"short\":\"'$(git rev-parse --short HEAD)'\",\"branch\":\"'$(git rev-parse --abbrev-ref HEAD)'\",\"timestamp\":\"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'\"}' > dist/version.json"
   publish = "dist"
 
 [build.environment]

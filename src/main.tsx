@@ -1,6 +1,6 @@
 import React, { Component, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
-import AppPoC from './poc/AppPoC'; // STATIC import so we always execute render path
+import AppPoC from './poc/AppPoC';
 
 declare global {
   interface Window {
@@ -9,7 +9,8 @@ declare global {
   }
 }
 
-// ---- Top-of-file global traps (catch anything before React mounts) ----
+const ENTRY_PROOF_TOKEN = 'ENTRY_PROOF_TOKEN::MAIN_TSX';
+
 (() => {
   try {
     window.__SAFE_DEBUG__ = window.__SAFE_DEBUG__ || { logs: [] };
@@ -18,14 +19,13 @@ declare global {
       console.log('[main]', m, extra ?? '');
     };
 
-    // Prove main.tsx ran BEFORE React: paint a stamp into #root immediately
     const rootEl = document.getElementById('root');
     if (rootEl && !rootEl.firstChild) {
       rootEl.innerHTML =
         `<div style="padding:10px;font:13px ui-monospace,monospace;background:#eef;border:1px solid #99f;color:#225">
            main.tsx reached ✅
          </div>`;
-      push('entry:stamp-painted');
+      push('entry:stamp-painted', { token: ENTRY_PROOF_TOKEN });
     }
 
     // Global error hooks
