@@ -23,8 +23,7 @@ export default defineConfig(({ mode }) => ({
       ] : []),
     ],
     // Dedupe React to avoid multi-React edge cases
-    // CRITICAL: Prevents use-sync-external-store errors when safe screen
-    // and React app chunks load in different order. Ensures single React instance.
+    // CRITICAL: Ensures single React instance and prevents use-sync-external-store shim crash
     dedupe: ['react', 'react-dom', 'use-sync-external-store'],
   },
   build: {
@@ -41,6 +40,7 @@ export default defineConfig(({ mode }) => ({
       },
     },
     rollupOptions: {
+      external: [], // do NOT externalize react/react-dom
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return
@@ -84,6 +84,7 @@ export default defineConfig(({ mode }) => ({
     }
   },
 optimizeDeps: {
+    // Prebundle to ESM to avoid UMD/CJS variants and ensure stable evaluation order
     include: [
       'react',
       'react-dom',
