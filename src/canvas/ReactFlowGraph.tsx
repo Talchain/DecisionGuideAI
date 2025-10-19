@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo } from 'react'
+import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import DecisionNode from './nodes/DecisionNode'
@@ -53,6 +53,20 @@ function ReactFlowGraphInner() {
   }), [])
   
   const miniMapStyle = useMemo(() => ({ width: 120, height: 80 }), [])
+
+  // Dev-only render-storm sentinel (tree-shaken in production)
+  if (import.meta.env.DEV) {
+    const renderTimes = useRef<number[]>([])
+    useEffect(() => {
+      const now = Date.now()
+      renderTimes.current.push(now)
+      renderTimes.current = renderTimes.current.filter(t => now - t < 1000)
+      if (renderTimes.current.length > 50) {
+        console.error('[RENDER STORM] 50+ renders in 1s – likely infinite loop')
+        console.trace()
+      }
+    })
+  }
 
   useKeyboardShortcuts()
   

@@ -262,11 +262,101 @@ describe('Canvas Store', () => {
     
     saveSnapshot()
     
+    // Snapshot key includes timestamp: 'canvas-snapshot-{timestamp}'
     expect(mockSetItem).toHaveBeenCalledWith(
-      'canvas-snapshot',
+      expect.stringMatching(/^canvas-snapshot-\d+$/),
       expect.stringContaining('"nodes"')
     )
     
     Storage.prototype.setItem = originalSetItem
+  })
+
+  // Selection stability tests (prevent render loops)
+  describe('onSelectionChange stability', () => {
+    it('keeps same selection reference when IDs unchanged', () => {
+      const { nodes, onSelectionChange } = useCanvasStore.getState()
+      
+      // Set initial selection
+      onSelectionChange({ nodes: [nodes[0], nodes[1]], edges: [] })
+      const selection1 = useCanvasStore.getState().selection
+      
+      // Call again with same IDs
+      onSelectionChange({ nodes: [nodes[0], nodes[1]], edges: [] })
+      const selection2 = useCanvasStore.getState().selection
+      
+      // Should be the exact same reference (no update occurred)
+      expect(selection2).toBe(selection1)
+    })
+
+    it('creates new selection reference when node IDs change', () => {
+      const { nodes, onSelectionChange } = useCanvasStore.getState()
+      
+      // Set initial selection
+      onSelectionChange({ nodes: [nodes[0]], edges: [] })
+      const selection1 = useCanvasStore.getState().selection
+      
+      // Change selection
+      onSelectionChange({ nodes: [nodes[1]], edges: [] })
+      const selection2 = useCanvasStore.getState().selection
+      
+      // Should be different reference (update occurred)
+      expect(selection2).not.toBe(selection1)
+      
+      // Verify correct IDs
+      expect(selection2.nodeIds.has(nodes[1].id)).toBe(true)
+      expect(selection2.nodeIds.has(nodes[0].id)).toBe(false)
+    })
+
+    it('creates new selection reference when edge IDs change', () => {
+      const { edges, onSelectionChange } = useCanvasStore.getState()
+      
+      // Set initial selection with edge
+      onSelectionChange({ nodes: [], edges: [edges[0]] })
+      const selection1 = useCanvasStore.getState().selection
+      
+      // Change edge selection
+      onSelectionChange({ nodes: [], edges: [edges[1]] })
+      const selection2 = useCanvasStore.getState().selection
+      
+      // Should be different reference
+      expect(selection2).not.toBe(selection1)
+      
+      // Verify correct IDs
+      expect(selection2.edgeIds.has(edges[1].id)).toBe(true)
+      expect(selection2.edgeIds.has(edges[0].id)).toBe(false)
+    })
+
+    it('keeps same reference when clearing empty selection', () => {
+      const { onSelectionChange } = useCanvasStore.getState()
+      
+      // Set empty selection
+      onSelectionChange({ nodes: [], edges: [] })
+      const selection1 = useCanvasStore.getState().selection
+      
+      // Call again with empty selection
+      onSelectionChange({ nodes: [], edges: [] })
+      const selection2 = useCanvasStore.getState().selection
+      
+      // Should be the same reference (both empty)
+      expect(selection2).toBe(selection1)
+    })
+
+    it('handles rapid identical selection changes without updates', () => {
+      const { nodes, onSelectionChange } = useCanvasStore.getState()
+      
+      // Set initial selection
+      onSelectionChange({ nodes: [nodes[0]], edges: [] })
+      const selection1 = useCanvasStore.getState().selection
+      
+      // Simulate rapid identical calls (like ReactFlow might do)
+      for (let i = 0; i < 10; i++) {
+        onSelectionChange({ nodes: [nodes[0]], edges: [] })
+      }
+      
+      const selection2 = useCanvasStore.getState().selection
+      
+      // Should still be the same reference (no churn)
+      expect(selection2).toBe(selection1)
+    })
   })
 })

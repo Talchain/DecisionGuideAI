@@ -2,6 +2,7 @@
 import { create } from 'zustand'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
+import { setsEqual, arraysEqual } from './store/utils'
 
 const initialNodes: Node[] = [
   { id: '1', type: 'decision', position: { x: 250, y: 100 }, data: { label: 'Start' } },
@@ -153,25 +154,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const newNodeIds = new Set(nodes.map(n => n.id))
     const newEdgeIds = new Set(edges.map(e => e.id))
 
-    const { selection } = get()  // current selection from Zustand
+    const { selection } = get()
 
     // Handle initial state safely
     const prevNodeIds = selection?.nodeIds ?? new Set<string>()
     const prevEdgeIds = selection?.edgeIds ?? new Set<string>()
 
-    // Compare by value, not reference
-    const nodeIdsChanged =
-      newNodeIds.size !== prevNodeIds.size ||
-      [...newNodeIds].some(id => !prevNodeIds.has(id))
+    // Compare by value using setsEqual utility
+    const nodeIdsChanged = !setsEqual(newNodeIds, prevNodeIds)
+    const edgeIdsChanged = !setsEqual(newEdgeIds, prevEdgeIds)
 
-    const edgeIdsChanged =
-      newEdgeIds.size !== prevEdgeIds.size ||
-      [...newEdgeIds].some(id => !prevEdgeIds.has(id))
-
-    // 🚫 Do nothing if it didn't actually change
+    // Early return if selection didn't actually change (prevents render loop)
     if (!nodeIdsChanged && !edgeIdsChanged) return
 
-    // ✅ Only commit when different
+    // Only commit when different
     set({
       selection: {
         nodeIds: newNodeIds,
