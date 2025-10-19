@@ -14,6 +14,9 @@ export default defineConfig(({ mode }) => ({
   },
   resolve: {
     alias: [
+      // Hard-alias shim to local file
+      { find: 'use-sync-external-store/shim', replacement: path.resolve(__dirname, 'src/shims/useSyncExternalStoreShim.ts') },
+      { find: 'use-sync-external-store', replacement: path.resolve(__dirname, 'src/shims/useSyncExternalStoreShim.ts') },
       // POC: In PoC mode, alias Supabase packages to stubs to prevent bundling
       ...(isPoc ? [
         { find: '@supabase/supabase-js', replacement: path.resolve(__dirname, 'src/stubs/supabase-stub.mjs') },
@@ -23,8 +26,7 @@ export default defineConfig(({ mode }) => ({
       ] : []),
     ],
     // Dedupe React to avoid multi-React edge cases
-    // CRITICAL: Ensures single React instance and prevents use-sync-external-store shim crash
-    dedupe: ['react', 'react-dom', 'use-sync-external-store'],
+    dedupe: ['react', 'react-dom'],
   },
   build: {
     target: 'esnext',
@@ -84,15 +86,13 @@ export default defineConfig(({ mode }) => ({
     }
   },
 optimizeDeps: {
-    // Prebundle to ESM to avoid UMD/CJS variants and ensure stable evaluation order
+    // Prebundle core deps; shim is aliased to local file
     include: [
       'react',
       'react-dom',
       'react-router-dom',
       '@supabase/supabase-js',
-      'date-fns',
-      'use-sync-external-store',
-      'use-sync-external-store/shim'
+      'date-fns'
     ],
     exclude: []
   },
