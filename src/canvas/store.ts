@@ -150,7 +150,34 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   onSelectionChange: ({ nodes, edges }) => {
-    set({ selection: { nodeIds: new Set(nodes.map(n => n.id)), edgeIds: new Set(edges.map(e => e.id)) } })
+    const newNodeIds = new Set(nodes.map(n => n.id))
+    const newEdgeIds = new Set(edges.map(e => e.id))
+
+    const { selection } = get()  // current selection from Zustand
+
+    // Handle initial state safely
+    const prevNodeIds = selection?.nodeIds ?? new Set<string>()
+    const prevEdgeIds = selection?.edgeIds ?? new Set<string>()
+
+    // Compare by value, not reference
+    const nodeIdsChanged =
+      newNodeIds.size !== prevNodeIds.size ||
+      [...newNodeIds].some(id => !prevNodeIds.has(id))
+
+    const edgeIdsChanged =
+      newEdgeIds.size !== prevEdgeIds.size ||
+      [...newEdgeIds].some(id => !prevEdgeIds.has(id))
+
+    // 🚫 Do nothing if it didn't actually change
+    if (!nodeIdsChanged && !edgeIdsChanged) return
+
+    // ✅ Only commit when different
+    set({
+      selection: {
+        nodeIds: newNodeIds,
+        edgeIds: newEdgeIds,
+      },
+    })
   },
 
   addEdge: (edge) => {
