@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, useMemo } from 'react'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import DecisionNode from './nodes/DecisionNode'
@@ -41,6 +41,18 @@ function ReactFlowGraphInner() {
   const [showCheatsheet, setShowCheatsheet] = useState(false)
   
   const { showGrid, gridSize, snapToGrid, showAlignmentGuides, loadSettings } = useSettingsStore()
+
+  // Memoize ReactFlow props to prevent new objects/arrays on every render
+  // (which causes infinite loop in ReactFlow's internal StoreUpdater)
+  const snapGridValue = useMemo<[number, number]>(() => [gridSize, gridSize], [gridSize])
+  
+  const defaultEdgeOpts = useMemo(() => ({
+    type: 'smoothstep' as const,
+    animated: false,
+    style: { strokeWidth: 2 },
+  }), [])
+  
+  const miniMapStyle = useMemo(() => ({ width: 120, height: 80 }), [])
 
   useKeyboardShortcuts()
   
@@ -158,20 +170,16 @@ function ReactFlowGraphInner() {
         nodeTypes={nodeTypes}
         fitView
         snapToGrid={snapToGrid}
-        snapGrid={[gridSize, gridSize]}
+        snapGrid={snapGridValue}
         minZoom={0.2}
         maxZoom={4}
-        defaultEdgeOptions={{
-          type: 'smoothstep',
-          animated: false,
-          style: { strokeWidth: 2 }
-        }}
+        defaultEdgeOptions={defaultEdgeOpts}
       >
         {showGrid && <Background variant={BackgroundVariant.Dots} gap={gridSize} size={1} color="#e5e7eb" />}
         <MiniMap 
           nodeColor="#EA7B4B" 
           position="bottom-left" 
-          style={{ width: 120, height: 80 }} 
+          style={miniMapStyle}
           className="rounded-lg shadow-lg"
           aria-label="Mini map"
         />
