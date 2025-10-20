@@ -2,7 +2,7 @@
 // POC: Full PoC UI (no auth, no Supabase) mounting real components with safe providers
 
 import { StrictMode, useState, useEffect, Suspense, useMemo, useCallback, useRef, lazy } from 'react'
-import { HashRouter as Router, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'
 import { feature } from '../lib/pocFlags'
@@ -851,7 +851,7 @@ export default function AppPoC() {
     <StrictMode>
       {/* @ts-expect-error POC: stub may not match exact QueryClientProvider API */}
       <QueryClientProvider client={queryClient}>
-        <Router>
+        <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Suspense fallback={<RouteLoadingFallback />}>
             <CanvasErrorBoundary>
               <Routes>
@@ -865,7 +865,7 @@ export default function AppPoC() {
               </Routes>
             </CanvasErrorBoundary>
           </Suspense>
-        </Router>
+        </HashRouter>
       </QueryClientProvider>
     </StrictMode>
   )

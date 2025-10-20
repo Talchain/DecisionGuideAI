@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - PR-A: Rich Node Types & Edge Domain
+
+#### Node Type System
+- **5 Typed Nodes**: Goal (🎯), Decision (🎲), Option (💡), Risk (⚠️), Outcome (📊) with Lucide icons
+- **Type Switcher**: Properties panel dropdown to change node type in-place (preserves position & label)
+- **Toolbar Menu**: "+ Node ▾" dropdown with all 5 types
+- **Command Palette**: `⌘K` entries for quick node creation
+
+#### Edge Visualization
+- **Rich Properties**: Weight (1-5), Style (solid/dashed/dotted), Curvature (0-1), Label, Confidence
+- **Edge Inspector**: Right-hand panel for editing edge properties
+- **Visual Feedback**: Stroke width reflects weight, dash patterns for style, bezier curvature
+
+#### Data Layer
+- **Schema Migration**: V1→V2 auto-migration with backward compatibility
+- **Import/Export**: JSON import/export with version detection and migration
+- **Edge Label Precedence**: Top-level `edge.label` wins over `edge.data.label` in migration
+- **Persist Integration**: Routes through migration API for seamless upgrades
+
+#### Performance & Polish
+- **History Debounce**: Unified `HISTORY_DEBOUNCE_MS = 200ms` constant for drag operations
+- **Type Validation**: `updateNode()` rejects invalid node types
+- **Icon Fallback**: NodeInspector renders bullet (•) if icon missing
+- **Render-Storm Guard**: Limits console warnings to one per session during long drags
+
+#### Configuration
+- **Health Check Opt-In**: `VITE_ENABLE_PLOT_HEALTH=true` required (default: no network calls)
+- **Snapshot Management**: Up to 10 snapshots, 5MB limit, auto-rotation
+
+### Tests
+- **E2E Coverage**: Node types, edge properties, migration (v1→v2 + round-trip)
+- **Unit Tests**: Context menu leak prevention, snapshot size toast, health check gating
+- **No Fixed Sleeps**: All Playwright tests use deterministic locator-based assertions
+
 ### Fixed
 - **Safe-Screen Flash Elimination**: Eliminate transient safe-screen flash using 2s timeout + CPU quiet-window gate (long-task idle + visibility check)
 - **Memory Leak Prevention**: Clear polling interval on both mount and show paths to prevent lingering timers

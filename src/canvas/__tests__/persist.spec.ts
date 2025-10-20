@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { saveState, loadState, saveSnapshot, listSnapshots, importCanvas, exportCanvas } from '../persist'
 import type { Node, Edge } from '@xyflow/react'
+import type { EdgeData } from '../domain/edges'
 
 describe('Canvas Persistence', () => {
   beforeEach(() => {
@@ -8,11 +9,11 @@ describe('Canvas Persistence', () => {
   })
 
   const mockNodes: Node[] = [
-    { id: '1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Test' } }
+    { id: '1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Test', type: 'decision' } }
   ]
 
-  const mockEdges: Edge[] = [
-    { id: 'e1', source: '1', target: '2' }
+  const mockEdges: Edge<EdgeData>[] = [
+    { id: 'e1', source: '1', target: '2', data: { weight: 1, style: 'solid', curvature: 0.15, schemaVersion: 2 } }
   ]
 
   describe('saveState and loadState', () => {
@@ -101,13 +102,20 @@ describe('Canvas Persistence', () => {
       const json = exportCanvas({ nodes: mockNodes, edges: mockEdges })
       const parsed = JSON.parse(json)
 
-      expect(parsed.version).toBe(1)
+      expect(parsed.version).toBe(2) // Now exports v2 via migration API
       expect(parsed.nodes).toHaveLength(1)
       expect(parsed.edges).toHaveLength(1)
     })
 
     it('imports valid JSON', () => {
-      const json = exportCanvas({ nodes: mockNodes, edges: mockEdges })
+      // Create a proper v2 snapshot manually for testing
+      const v2Snapshot = {
+        version: 2,
+        timestamp: Date.now(),
+        nodes: mockNodes,
+        edges: mockEdges
+      }
+      const json = JSON.stringify(v2Snapshot)
       const imported = importCanvas(json)
 
       expect(imported).not.toBeNull()

@@ -1,17 +1,40 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useCanvasStore } from './store'
 import { useReactFlow } from '@xyflow/react'
 import { SnapshotManager } from './components/SnapshotManager'
 import { ImportExportDialog } from './components/ImportExportDialog'
 import { LayoutOptionsPanel } from './components/LayoutOptionsPanel'
+import { NODE_REGISTRY } from './domain/nodes'
+import type { NodeType } from './domain/nodes'
+import { renderIcon } from './helpers/renderIcon'
 
 export function CanvasToolbar() {
   const [isMinimized, setIsMinimized] = useState(false)
   const [showSnapshots, setShowSnapshots] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [showExport, setShowExport] = useState(false)
+  const [showNodeMenu, setShowNodeMenu] = useState(false)
+  const nodeMenuRef = useRef<HTMLDivElement>(null)
   const { undo, redo, canUndo, canRedo, addNode } = useCanvasStore()
   const { fitView, zoomIn, zoomOut } = useReactFlow()
+
+  // Close node menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (nodeMenuRef.current && !nodeMenuRef.current.contains(e.target as Node)) {
+        setShowNodeMenu(false)
+      }
+    }
+    if (showNodeMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showNodeMenu])
+
+  const handleAddNode = (type: NodeType) => {
+    addNode(undefined, type)
+    setShowNodeMenu(false)
+  }
 
   if (isMinimized) {
     return (
@@ -37,15 +60,44 @@ export function CanvasToolbar() {
         aria-label="Canvas editing toolbar"
         className="flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200"
       >
-        {/* Add Node */}
-        <button
-          onClick={() => addNode()}
-          className="px-3 py-1.5 text-sm font-medium text-white bg-[#EA7B4B] rounded-lg hover:bg-[#EA7B4B]/90 transition-colors focus:outline-none focus:ring-2 focus:ring-[#EA7B4B] focus:ring-offset-2"
-          title="Add Node"
-          aria-label="Add node to canvas"
-        >
-          + Node
-        </button>
+        {/* Add Node with Type Menu */}
+        <div className="relative" ref={nodeMenuRef}>
+          <button
+            onClick={() => setShowNodeMenu(!showNodeMenu)}
+            className="px-3 py-1.5 text-sm font-medium text-white bg-[#EA7B4B] rounded-lg hover:bg-[#EA7B4B]/90 transition-colors focus:outline-none focus:ring-2 focus:ring-[#EA7B4B] focus:ring-offset-2 flex items-center gap-1"
+            title="Add Node"
+            aria-label="Add node to canvas"
+            aria-expanded={showNodeMenu}
+            aria-haspopup="menu"
+          >
+            + Node
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          {showNodeMenu && (
+            <div
+              role="menu"
+              className="absolute bottom-full mb-2 left-0 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
+            >
+              {(Object.keys(NODE_REGISTRY) as NodeType[]).map((type) => {
+                const meta = NODE_REGISTRY[type]
+                return (
+                  <button
+                    key={type}
+                    role="menuitem"
+                    onClick={() => handleAddNode(type)}
+                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors flex items-center gap-2"
+                  >
+                    {renderIcon(meta.icon, 16)}
+                    <span>Add {meta.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
         <div className="w-px h-6 bg-gray-300" role="separator" />
 

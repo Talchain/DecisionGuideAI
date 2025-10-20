@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import DecisionNode from './nodes/DecisionNode'
 import { useCanvasStore } from './store'
+import { DEFAULT_EDGE_DATA } from './domain/edges'
+import { nodeTypes } from './nodes/registry'
+import { StyledEdge } from './edges/StyledEdge'
 import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { loadState, saveState } from './persist'
 import { ContextMenu } from './ContextMenu'
@@ -19,7 +21,7 @@ import { CanvasErrorBoundary } from './ErrorBoundary'
 import { ToastProvider } from './ToastContext'
 import { DiagnosticsOverlay } from './DiagnosticsOverlay'
 
-const nodeTypes = { decision: DecisionNode }
+// nodeTypes imported from registry
 
 function ReactFlowGraphInner() {
   const nodes = useCanvasStore(s => s.nodes)
@@ -46,10 +48,11 @@ function ReactFlowGraphInner() {
   // (which causes infinite loop in ReactFlow's internal StoreUpdater)
   const snapGridValue = useMemo<[number, number]>(() => [gridSize, gridSize], [gridSize])
   
+  const edgeTypes = useMemo(() => ({ styled: StyledEdge }), [])
+  
   const defaultEdgeOpts = useMemo(() => ({
-    type: 'smoothstep' as const,
+    type: 'styled' as const,
     animated: false,
-    style: { strokeWidth: 2 },
   }), [])
   
   const miniMapStyle = useMemo(() => ({ width: 120, height: 80 }), [])
@@ -61,9 +64,9 @@ function ReactFlowGraphInner() {
       const now = Date.now()
       renderTimes.current.push(now)
       renderTimes.current = renderTimes.current.filter(t => now - t < 1000)
-      if (renderTimes.current.length > 50) {
-        console.error('[RENDER STORM] 50+ renders in 1s – likely infinite loop')
-        console.trace()
+      if (renderTimes.current.length > 50 && !(window as any).__rfStormLogged) {
+        (window as any).__rfStormLogged = true
+        console.warn('[Canvas] Render burst detected. Check change handlers & history debounce.')
       }
     })
   }
@@ -132,7 +135,7 @@ function ReactFlowGraphInner() {
   }, [])
 
   const onConnect = useCallback((conn: Connection) => {
-    useCanvasStore.getState().addEdge({ source: conn.source!, target: conn.target! })
+    useCanvasStore.getState().addEdge({ source: conn.source!, target: conn.target!, data: DEFAULT_EDGE_DATA })
   }, [])
 
   const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
@@ -182,6 +185,7 @@ function ReactFlowGraphInner() {
         onPaneContextMenu={onPaneContextMenu}
         onNodeContextMenu={onNodeContextMenu}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         fitView
         snapToGrid={snapToGrid}
         snapGrid={snapGridValue}

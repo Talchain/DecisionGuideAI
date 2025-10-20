@@ -162,6 +162,128 @@ localStorage.setItem('cfg.gateway', 'http://localhost:8787');
 ['feature.reportCopy','feature.reportDownload','feature.reportPretty']
  .forEach(k => localStorage.removeItem(k));
 
+## Canvas (Rich Node Types & Edge Visualization)
+
+Interactive decision graph with typed nodes and rich edge properties.
+
+### Quick Start
+
+```bash
+npm run dev:sandbox
+# Open http://localhost:5176/#/canvas
+```
+
+### Features
+
+**5 Node Types** (with Lucide icons):
+- 🎯 **Goal** - Strategic objectives
+- 🎲 **Decision** - Choice points
+- 💡 **Option** - Alternatives
+- ⚠️ **Risk** - Potential issues
+- 📊 **Outcome** - Results
+
+**Edge Properties**:
+- Weight (1-5)
+- Style (solid/dashed/dotted)
+- Curvature (0-1)
+- Label & Confidence
+
+### Keyboard Shortcuts
+
+- `⌘K` - Command Palette (add nodes)
+- `⌘Z` - Undo
+- `⌘⇧Z` - Redo
+- `⌘S` - Save Snapshot
+- `⌘A` - Select All
+- `Delete` - Remove selected
+
+### Creating & Editing Nodes
+
+**Via Toolbar:**
+1. Click "+ Node ▾" button
+2. Select type (Goal/Decision/Option/Risk/Outcome)
+3. Node appears at viewport center
+
+**Via Command Palette:**
+1. Press `⌘K`
+2. Type node type (e.g., "goal")
+3. Press Enter
+
+**Change Node Type:**
+1. Click node to select
+2. Properties panel opens on right
+3. Use "Type" dropdown to switch
+4. Position & label preserved
+
+### Editing Edges
+
+1. Click edge to select
+2. Edge inspector opens
+3. Adjust weight, style, curvature, label, confidence
+4. Changes apply immediately
+5. Undo/Redo supported
+
+### Import/Export with Auto-Migration
+
+**Export:**
+- Click "Export" button
+- Copy JSON (v2 format)
+- Save to file
+
+**Import:**
+- Click "Import" button
+- Paste JSON (v1 or v2)
+- Auto-migrates v1→v2
+- Preserves node types & edge labels
+
+**V1 Format:**
+```json
+{
+  "version": 1,
+  "nodes": [{"id": "1", "position": {"x": 100, "y": 100}, "data": {"label": "Goal"}}],
+  "edges": [{"id": "e1", "source": "1", "target": "2", "label": "Path"}]
+}
+```
+
+**V2 Format** (current):
+- Includes node `type` field
+- Edge `data` with weight/style/curvature
+- Backward compatible via migration
+
+### Configuration
+
+**Health Check (Opt-In):**
+```bash
+# .env.local
+VITE_ENABLE_PLOT_HEALTH=true  # Default: false (no network calls)
+```
+
+**History Debounce:**
+- Drag operations debounced at 200ms
+- Configurable via `HISTORY_DEBOUNCE_MS` in store
+
+### Snapshots
+
+- Save up to 10 canvas snapshots
+- Stored in localStorage
+- Max 5MB per snapshot
+- Auto-rotation (oldest deleted)
+
+### Testing
+
+```bash
+# Unit tests
+npm run test:unit -- src/canvas
+
+# E2E tests
+npx playwright test e2e/canvas
+
+# TypeScript
+npx tsc --noEmit --skipLibCheck
+```
+
+---
+
 // Deployment Verification
 // 1. Check Version Fingerprint
 // 2. Check Route Guard

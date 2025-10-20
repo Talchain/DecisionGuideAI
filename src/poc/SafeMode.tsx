@@ -5,22 +5,30 @@ export default function SafeMode() {
   const [engine, setEngine] = React.useState<{ ok?: boolean; json?: any; err?: string }>({})
 
   React.useEffect(() => {
+    // Gate health check behind flag (default: disabled in dev to avoid CORS noise)
+    const enabled = (import.meta as any)?.env?.VITE_ENABLE_PLOT_HEALTH === 'true'
+    if (!enabled) {
+      setEngine({ ok: false, err: 'Health check disabled (set VITE_ENABLE_PLOT_HEALTH=true)' })
+      return
+    }
+    
     // Try proxy first, then direct
     const edge = (import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL || '/engine'
     const urls = [`${edge}/health`, 'https://plot-lite-service.onrender.com/health']
     ;(async () => {
       for (const u of urls) {
         try {
-          const r = await fetch(u, { cache: 'no-store' })
+          const r = await fetch(u, { cache: 'no-store', mode: 'cors' })
           const j = await r.json()
           setEngine({ ok: true, json: j })
-          // eslint-disable-next-line no-console
-          console.info('POC_SAFE: engine health OK via', u, j)
+          if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.debug('[plot-lite] health OK via', u)
+          }
           return
         } catch (e: any) {
           setEngine({ ok: false, err: String(e) })
-          // eslint-disable-next-line no-console
-          console.warn('POC_SAFE: engine health FAIL via', u, e)
+          // Silent failure - no console spam
         }
       }
     })()

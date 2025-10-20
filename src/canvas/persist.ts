@@ -1,5 +1,6 @@
 // Safe localStorage persistence with schema validation, versioning, and quota handling
 import { Node, Edge } from '@xyflow/react'
+import type { EdgeData } from './domain/edges'
 
 const STORAGE_KEY = 'canvas-storage'
 const SNAPSHOT_PREFIX = 'canvas-snapshot-'
@@ -10,7 +11,7 @@ interface PersistedState {
   version: number
   timestamp: number
   nodes: Node[]
-  edges: Edge[]
+  edges: Edge<EdgeData>[]
 }
 
 interface SnapshotMetadata {
@@ -76,7 +77,7 @@ export function loadState(): PersistedState | null {
   }
 }
 
-export function saveState(state: { nodes: Node[]; edges: Edge[] }): boolean {
+export function saveState(state: { nodes: Node[]; edges: Edge<EdgeData>[] }): boolean {
   try {
     const persisted: PersistedState = {
       version: 1,
@@ -113,7 +114,7 @@ export function clearState(): void {
 
 // Snapshot management (versioned saves)
 
-export function saveSnapshot(state: { nodes: Node[]; edges: Edge[] }): boolean {
+export function saveSnapshot(state: { nodes: Node[]; edges: Edge<EdgeData>[] }): boolean {
   try {
     const persisted: PersistedState = {
       version: 1,
@@ -205,35 +206,35 @@ function rotateSnapshots(): void {
 
 // Import/Export
 
+import { importSnapshot, exportSnapshot } from './domain/migrations'
+
 export interface ExportData {
   version: number
   timestamp: number
   nodes: Node[]
-  edges: Edge[]
+  edges: Edge<EdgeData>[]
 }
 
-export function exportCanvas(state: { nodes: Node[]; edges: Edge[] }): string {
-  const exportData: ExportData = {
-    version: 1,
-    timestamp: Date.now(),
-    ...state,
-  }
-  const sanitized = sanitizeState(exportData)
+export function exportCanvas(state: { nodes: Node[]; edges: Edge<EdgeData>[] }): string {
+  // Use migration API to produce current schema snapshot
+  const snapshot = exportSnapshot(state.nodes, state.edges)
+  const sanitized = sanitizeState(snapshot)
   return JSON.stringify(sanitized, null, 2)
 }
 
-export function importCanvas(json: string): { nodes: Node[]; edges: Edge[] } | null {
+export function importCanvas(json: string): { nodes: Node[]; edges: Edge<EdgeData>[] } | null {
   try {
-    const data = JSON.parse(json)
-
-    // Validate structure
-    if (!isValidState(data)) {
+    const parsed = JSON.parse(json)
+    
+    // Route through migration API for automatic v1→v2 upgrade
+    const normalized = importSnapshot(parsed)
+    if (!normalized) {
       console.error('[CANVAS] Invalid import data structure')
       return null
     }
 
     // Sanitize all strings
-    const sanitized = sanitizeState(data)
+    const sanitized = sanitizeState(normalized)
 
     // Basic validation
     if (!Array.isArray(sanitized.nodes) || !Array.isArray(sanitized.edges)) {

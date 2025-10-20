@@ -87,14 +87,15 @@ function migrateNodeV1ToV2(node: any): any {
 /**
  * Migrate v1 edge to v2 with default visual properties
  * Adds weight=1, style=solid, curvature=0.15
+ * Top-level edge.label takes precedence over edge.data.label
  */
 function migrateEdgeV1ToV2(edge: any): any {
   return {
     ...edge,
     data: {
       ...DEFAULT_EDGE_DATA,
-      label: edge.label, // Preserve existing label if present
-      ...edge.data, // Preserve any existing data
+      ...(edge.data || {}), // Preserve any existing data
+      label: edge.label, // Top-level label wins
     },
   }
 }

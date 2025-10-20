@@ -23,7 +23,13 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const { fitView } = useReactFlow()
 
   const actions: Action[] = [
-    { id: 'add-node', label: 'Add Node Here', execute: () => addNode() },
+    // Node type actions
+    { id: 'add-goal', label: 'Add Goal Node', execute: () => addNode(undefined, 'goal') },
+    { id: 'add-decision', label: 'Add Decision Node', execute: () => addNode(undefined, 'decision') },
+    { id: 'add-option', label: 'Add Option Node', execute: () => addNode(undefined, 'option') },
+    { id: 'add-risk', label: 'Add Risk Node', execute: () => addNode(undefined, 'risk') },
+    { id: 'add-outcome', label: 'Add Outcome Node', execute: () => addNode(undefined, 'outcome') },
+    // General actions
     { id: 'tidy-layout', label: 'Tidy Layout', execute: async () => {
       setIsExecuting(true)
       try {

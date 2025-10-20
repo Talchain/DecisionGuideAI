@@ -71,11 +71,23 @@ describe('ContextMenu - Leak Prevention', () => {
   })
 })
 
-// Helper to count event listeners (approximation via getEventListeners if available)
+// Helper to count event listeners by instrumenting addEventListener
+const listenerCounts = new Map<string, number>()
+
 function getEventListenerCount(eventType: string): number {
-  // In test environment, we can't directly count listeners
-  // This is a placeholder that would work with Chrome DevTools
-  // For vitest, we rely on the fact that leaks would cause test failures
-  // or we could instrument document.addEventListener
-  return 0
+  return listenerCounts.get(eventType) || 0
 }
+
+// Instrument addEventListener/removeEventListener before tests
+const originalAddEventListener = document.addEventListener.bind(document)
+const originalRemoveEventListener = document.removeEventListener.bind(document)
+
+document.addEventListener = function(type: string, listener: any, options?: any) {
+  listenerCounts.set(type, (listenerCounts.get(type) || 0) + 1)
+  return originalAddEventListener(type, listener, options)
+} as any
+
+document.removeEventListener = function(type: string, listener: any, options?: any) {
+  listenerCounts.set(type, Math.max(0, (listenerCounts.get(type) || 0) - 1))
+  return originalRemoveEventListener(type, listener, options)
+} as any

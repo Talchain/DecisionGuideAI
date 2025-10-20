@@ -8,10 +8,12 @@ import { memo, type ReactNode } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { getNodeTheme, NODE_SIZES, NODE_SHADOWS, NODE_TRANSITIONS } from '../theme/nodes'
 import type { NodeType } from '../domain/nodes'
+import { useIsDark } from '../hooks/useTheme'
+import type { LucideIcon } from 'lucide-react'
 
 interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
-  icon: string
+  icon: LucideIcon
   children?: ReactNode
 }
 
@@ -19,13 +21,13 @@ interface BaseNodeProps extends NodeProps {
  * Base node with shared header and structure
  * Includes connection handles and accessibility attributes
  */
-export const BaseNode = memo(({ nodeType, icon, data, selected, children }: BaseNodeProps) => {
-  const isDark = false // TODO: Get from theme context
+export const BaseNode = memo(({ nodeType, icon: Icon, data, selected, children }: BaseNodeProps) => {
+  const isDark = useIsDark()
   const theme = getNodeTheme(nodeType, isDark)
   const label = data?.label || 'Untitled'
   
-  // Accessible name combines icon meaning and label
-  const accessibleName = `${icon} ${label}`
+  // Accessible name combines node type and label
+  const accessibleName = `${nodeType} node: ${label}`
   
   return (
     <div
@@ -68,12 +70,13 @@ export const BaseNode = memo(({ nodeType, icon, data, selected, children }: Base
       >
         <span
           style={{
-            fontSize: '20px',
+            display: 'inline-flex',
+            alignItems: 'center',
             lineHeight: 1,
           }}
           aria-hidden="true"
         >
-          {icon}
+          <Icon size={16} strokeWidth={2} />
         </span>
         
         <span

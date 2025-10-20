@@ -1,160 +1,122 @@
+/**
+ * PropertiesPanel - Inspector Routing Tests
+ * Tests that panel correctly routes to NodeInspector/EdgeInspector based on selection
+ * Timer/debounce logic is now owned by inspectors (tested separately)
+ */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, fireEvent, cleanup } from '@testing-library/react'
+import { render, cleanup } from '@testing-library/react'
 import { PropertiesPanel } from '../PropertiesPanel'
-import * as store from '../../store'
+import { useCanvasStore } from '../../store'
 
-vi.mock('../../store')
+// Mock inspectors to avoid complex dependencies
+vi.mock('../../ui/NodeInspector', () => ({
+  NodeInspector: ({ nodeId }: { nodeId: string }) => (
+    <div data-testid="node-inspector" aria-label="Node properties">
+      Inspector for node {nodeId}
+    </div>
+  )
+}))
 
-describe('PropertiesPanel - Timer Leak Prevention', () => {
+vi.mock('../../ui/EdgeInspector', () => ({
+  EdgeInspector: ({ edgeId }: { edgeId: string }) => (
+    <div data-testid="edge-inspector" aria-label="Edge properties">
+      Inspector for edge {edgeId}
+    </div>
+  )
+}))
+
+vi.mock('../../store', () => ({
+  useCanvasStore: vi.fn((selector) => {
+    const state = {
+      selection: { nodeIds: new Set(), edgeIds: new Set() }
+    }
+    return selector ? selector(state) : state
+  })
+}))
+
+describe('PropertiesPanel - Inspector Routing', () => {
   beforeEach(() => {
-    vi.useFakeTimers()
     vi.clearAllMocks()
   })
 
   afterEach(() => {
     cleanup()
     vi.restoreAllMocks()
-    vi.useRealTimers()
   })
 
-  const mockNode1 = {
-    id: '1',
-    type: 'decision',
-    position: { x: 100, y: 100 },
-    data: { label: 'Node 1' }
-  }
-
-  const mockNode2 = {
-    id: '2',
-    type: 'decision',
-    position: { x: 200, y: 200 },
-    data: { label: 'Node 2' }
-  }
-
-  it('clears timer when switching nodes rapidly', () => {
-    const mockUpdateNode = vi.fn()
-    
-    // Start with node 1 selected
-    vi.mocked(store.useCanvasStore).mockReturnValue({
-      nodes: [mockNode1, mockNode2],
-      selection: { nodeIds: new Set(['1']), edgeIds: new Set() },
-      updateNode: mockUpdateNode
-    } as any)
-
-    const { rerender } = render(<PropertiesPanel />)
-
-    // Type in input (starts timer)
-    const input = document.querySelector('input[type="text"]') as HTMLInputElement
-    fireEvent.change(input, { target: { value: 'Updated Label' } })
-
-    // Should have 1 pending timer
-    expect(vi.getTimerCount()).toBe(1)
-
-    // Switch to node 2 before timer fires
-    vi.mocked(store.useCanvasStore).mockReturnValue({
-      nodes: [mockNode1, mockNode2],
-      selection: { nodeIds: new Set(['2']), edgeIds: new Set() },
-      updateNode: mockUpdateNode
-    } as any)
-
-    rerender(<PropertiesPanel />)
-
-    // Timer should be cleared
-    expect(vi.getTimerCount()).toBe(0)
-
-    // Advance time - should NOT call updateNode
-    vi.advanceTimersByTime(300)
-    expect(mockUpdateNode).not.toHaveBeenCalled()
-  })
-
-  it('does not cause stale updates after rapid node switching', () => {
-    const mockUpdateNode = vi.fn()
-    
-    // Node 1 selected
-    vi.mocked(store.useCanvasStore).mockReturnValue({
-      nodes: [mockNode1, mockNode2],
-      selection: { nodeIds: new Set(['1']), edgeIds: new Set() },
-      updateNode: mockUpdateNode
-    } as any)
-
-    const { rerender } = render(<PropertiesPanel />)
-
-    const input = document.querySelector('input[type="text"]') as HTMLInputElement
-
-    // Edit node 1
-    fireEvent.change(input, { target: { value: 'Node 1 Updated' } })
-
-    // Switch to node 2 immediately
-    vi.mocked(store.useCanvasStore).mockReturnValue({
-      nodes: [mockNode1, mockNode2],
-      selection: { nodeIds: new Set(['2']), edgeIds: new Set() },
-      updateNode: mockUpdateNode
-    } as any)
-    rerender(<PropertiesPanel />)
-
-    // Edit node 2
-    fireEvent.change(input, { target: { value: 'Node 2 Updated' } })
-
-    // Advance time past debounce
-    vi.advanceTimersByTime(250)
-
-    // Should only update node 2 (not node 1)
-    expect(mockUpdateNode).toHaveBeenCalledTimes(1)
-    expect(mockUpdateNode).toHaveBeenCalledWith('2', {
-      data: expect.objectContaining({ label: 'Node 2 Updated' })
+  it('shows NodeInspector when exactly one node is selected', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) => {
+      const state = {
+        selection: { nodeIds: new Set(['node-1']), edgeIds: new Set() }
+      }
+      return selector ? selector(state) : state
     })
+
+    const { getByLabelText, getByTestId } = render(<PropertiesPanel />)
+    
+    expect(getByTestId('node-inspector')).toBeDefined()
+    expect(getByLabelText('Node properties')).toBeDefined()
   })
 
-  it('clears timer on unmount', () => {
-    const mockUpdateNode = vi.fn()
+  it('shows EdgeInspector when exactly one edge is selected', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) => {
+      const state = {
+        selection: { nodeIds: new Set(), edgeIds: new Set(['edge-1']) }
+      }
+      return selector ? selector(state) : state
+    })
+
+    const { getByLabelText, getByTestId } = render(<PropertiesPanel />)
     
-    vi.mocked(store.useCanvasStore).mockReturnValue({
-      nodes: [mockNode1],
-      selection: { nodeIds: new Set(['1']), edgeIds: new Set() },
-      updateNode: mockUpdateNode
-    } as any)
-
-    const { unmount } = render(<PropertiesPanel />)
-
-    const input = document.querySelector('input[type="text"]') as HTMLInputElement
-    fireEvent.change(input, { target: { value: 'Updated' } })
-
-    expect(vi.getTimerCount()).toBe(1)
-
-    // Unmount before timer fires
-    unmount()
-
-    // Timer should be cleared
-    expect(vi.getTimerCount()).toBe(0)
-
-    // Advance time - should not crash or call updateNode
-    vi.advanceTimersByTime(300)
-    expect(mockUpdateNode).not.toHaveBeenCalled()
+    expect(getByTestId('edge-inspector')).toBeDefined()
+    expect(getByLabelText('Edge properties')).toBeDefined()
   })
 
-  it('handles 100 rapid node switches without timer accumulation', () => {
-    const mockUpdateNode = vi.fn()
+  it('shows empty guidance when nothing selected', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) => {
+      const state = {
+        selection: { nodeIds: new Set(), edgeIds: new Set() }
+      }
+      return selector ? selector(state) : state
+    })
+
+    const { getByText } = render(<PropertiesPanel />)
     
-    vi.mocked(store.useCanvasStore).mockReturnValue({
-      nodes: [mockNode1, mockNode2],
-      selection: { nodeIds: new Set(['1']), edgeIds: new Set() },
-      updateNode: mockUpdateNode
-    } as any)
+    expect(getByText('Select a node or edge to edit its details.')).toBeDefined()
+  })
 
-    const { rerender } = render(<PropertiesPanel />)
+  it('handles rapid selection switching without crashes', () => {
+    // Start with node selected
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) => {
+      const state = {
+        selection: { nodeIds: new Set(['node-1']), edgeIds: new Set() }
+      }
+      return selector ? selector(state) : state
+    })
 
-    // Rapidly switch between nodes 100 times
-    for (let i = 0; i < 100; i++) {
-      const nodeId = i % 2 === 0 ? '1' : '2'
-      vi.mocked(store.useCanvasStore).mockReturnValue({
-        nodes: [mockNode1, mockNode2],
-        selection: { nodeIds: new Set([nodeId]), edgeIds: new Set() },
-        updateNode: mockUpdateNode
-      } as any)
-      rerender(<PropertiesPanel />)
-    }
+    const { rerender, getByTestId, getByText } = render(<PropertiesPanel />)
+    expect(getByTestId('node-inspector')).toBeDefined()
 
-    // Should have at most 0 pending timers (all cleared)
-    expect(vi.getTimerCount()).toBe(0)
+    // Switch to edge
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) => {
+      const state = {
+        selection: { nodeIds: new Set(), edgeIds: new Set(['edge-1']) }
+      }
+      return selector ? selector(state) : state
+    })
+    rerender(<PropertiesPanel />)
+    expect(getByTestId('edge-inspector')).toBeDefined()
+
+    // Switch to empty
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) => {
+      const state = {
+        selection: { nodeIds: new Set(), edgeIds: new Set() }
+      }
+      return selector ? selector(state) : state
+    })
+    rerender(<PropertiesPanel />)
+    expect(getByText('Select a node or edge to edit its details.')).toBeDefined()
+
+    // No crashes - test passes
   })
 })

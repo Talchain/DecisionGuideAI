@@ -2,7 +2,9 @@
 import { create } from 'zustand'
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from '@xyflow/react'
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
-import { setsEqual, arraysEqual } from './store/utils'
+import { setsEqual } from './store/utils'
+import { DEFAULT_EDGE_DATA, type EdgeData } from './domain/edges'
+import { NODE_REGISTRY, type NodeType } from './domain/nodes'
 
 const initialNodes: Node[] = [
   { id: '1', type: 'decision', position: { x: 250, y: 100 }, data: { label: 'Start' } },
@@ -11,33 +13,35 @@ const initialNodes: Node[] = [
   { id: '4', type: 'decision', position: { x: 250, y: 400 }, data: { label: 'Outcome' } }
 ]
 
-const initialEdges: Edge[] = [
-  { id: 'e1', source: '1', target: '2', label: 'Path A' },
-  { id: 'e2', source: '1', target: '3', label: 'Path B' },
-  { id: 'e3', source: '2', target: '4' },
-  { id: 'e4', source: '3', target: '4' }
+const initialEdges: Edge<EdgeData>[] = [
+  { id: 'e1', source: '1', target: '2', label: 'Path A', data: DEFAULT_EDGE_DATA },
+  { id: 'e2', source: '1', target: '3', label: 'Path B', data: DEFAULT_EDGE_DATA },
+  { id: 'e3', source: '2', target: '4', data: DEFAULT_EDGE_DATA },
+  { id: 'e4', source: '3', target: '4', data: DEFAULT_EDGE_DATA }
 ]
 
 interface ClipboardData {
   nodes: Node[]
-  edges: Edge[]
+  edges: Edge<EdgeData>[]
 }
 
 interface CanvasState {
   nodes: Node[]
-  edges: Edge[]
-  history: { past: { nodes: Node[]; edges: Edge[] }[]; future: { nodes: Node[]; edges: Edge[] }[] }
+  edges: Edge<EdgeData>[]
+  history: { past: { nodes: Node[]; edges: Edge<EdgeData>[] }[]; future: { nodes: Node[]; edges: Edge<EdgeData>[] }[] }
   selection: { nodeIds: Set<string>; edgeIds: Set<string> }
   clipboard: ClipboardData | null
   nextNodeId: number
   nextEdgeId: number
-  addNode: (pos?: { x: number; y: number }) => void
+  _internal: { lastHistoryHash: string }
+  addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
+  updateEdge: (id: string, updates: Partial<Edge<EdgeData>>) => void
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
-  onSelectionChange: (params: { nodes: Node[]; edges: Edge[] }) => void
-  addEdge: (edge: Omit<Edge, 'id'>) => void
+  onSelectionChange: (params: { nodes: Node[]; edges: Edge<EdgeData>[] }) => void
+  addEdge: (edge: Omit<Edge<EdgeData>, 'id'>) => void
   pushHistory: (debounced?: boolean) => void
   undo: () => void
   redo: () => void
@@ -64,6 +68,7 @@ interface CanvasState {
 let historyTimer: ReturnType<typeof setTimeout> | null = null
 let nudgeTimer: ReturnType<typeof setTimeout> | null = null
 const MAX_HISTORY = 50
+export const HISTORY_DEBOUNCE_MS = 200
 
 function clearTimers() {
   if (historyTimer) {
@@ -76,10 +81,35 @@ function clearTimers() {
   }
 }
 
+function historyHash(nodes: Node[], edges: Edge[]): string {
+  const n = nodes.map(n => `${n.id}@${n.position.x},${n.position.y}:${n.type ?? ''}:${n.data?.label ?? ''}`).join('|')
+  const e = edges.map(e => `${e.id}:${e.source}>${e.target}:${e.label ?? ''}:${(e.data as any)?.schemaVersion ?? ''}`).join('|')
+  return `${n}#${e}`
+}
+
 function pushToHistory(get: () => CanvasState, set: (fn: (s: CanvasState) => Partial<CanvasState>) => void) {
-  const { nodes, edges, history } = get()
+  const { nodes, edges, history, _internal } = get()
+  
+  // Guard: only push if state actually changed
+  const h = historyHash(nodes, edges)
+  if (h === _internal.lastHistoryHash) {
+    // Even if no change, clear future (user took new action after undo)
+    if (history.future.length > 0) {
+      set(() => ({ history: { ...history, future: [] } }))
+    }
+    return
+  }
+  
   const past = [...history.past, { nodes, edges }].slice(-MAX_HISTORY)
-  set(() => ({ history: { past, future: [] } }))
+  set(() => ({
+    history: { past, future: [] },
+    _internal: { lastHistoryHash: h }
+  }))
+}
+
+function scheduleHistoryPush(get: () => CanvasState, set: (fn: (s: CanvasState) => Partial<CanvasState>) => void) {
+  if (historyTimer) clearTimeout(historyTimer)
+  historyTimer = setTimeout(() => pushToHistory(get, set), HISTORY_DEBOUNCE_MS)
 }
 
 function getMaxNumericId(ids: string[]): number {
@@ -94,6 +124,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   edges: initialEdges,
   history: { past: [], future: [] },
   selection: { nodeIds: new Set(), edgeIds: new Set() },
+  _internal: { lastHistoryHash: '' },
   clipboard: null,
   nextNodeId: 5,
   nextEdgeId: 5,
@@ -119,10 +150,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     })
   },
 
-  addNode: (pos) => {
+  addNode: (pos, type = 'decision') => {
     pushToHistory(get, set)
     const id = get().createNodeId()
-    set((s) => ({ nodes: [...s.nodes, { id, type: 'decision', position: pos || { x: 200, y: 200 }, data: { label: `Node ${id}` } }] }))
+    set((s) => ({ nodes: [...s.nodes, { id, type, position: pos || { x: 200, y: 200 }, data: { label: `Node ${id}` } }] }))
   },
 
   updateNodeLabel: (id, label) => {
@@ -131,23 +162,57 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   updateNode: (id, updates) => {
+    // Validate node type if being updated
+    if (updates.type && !NODE_REGISTRY[updates.type as NodeType]) {
+      console.warn(`[Canvas] Invalid node type: ${updates.type}`)
+      return
+    }
     pushToHistory(get, set)
     set((s) => ({ 
       nodes: s.nodes.map(n => n.id === id ? { ...n, ...updates, data: { ...n.data, ...updates.data } } : n) 
     }))
   },
 
+  updateEdge: (id, updates) => {
+    pushToHistory(get, set)
+    set((s) => ({
+      edges: s.edges.map(e => {
+        if (e.id !== id) return e
+        // Merge updates, ensuring required EdgeData fields are preserved
+        const updatedEdge: Edge<EdgeData> = {
+          ...e,
+          ...updates,
+          data: updates.data ? { ...e.data, ...updates.data } : e.data
+        }
+        return updatedEdge
+      })
+    }))
+  },
+
   onNodesChange: (changes) => {
+    // Guard no-op changes
+    if (!changes || changes.length === 0) return
+    
     set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) }))
-    const isDrag = changes.some(c => c.type === 'position' && c.dragging)
-    get().pushHistory(isDrag)
+    
+    // Debounce history for drag operations
+    const isDrag = changes.some(c => c.type === 'position' && (c as any).dragging)
+    if (isDrag) {
+      scheduleHistoryPush(get, set)
+    } else {
+      // Immediate push for non-drag changes (select, remove, add)
+      pushToHistory(get, set)
+    }
   },
 
   onEdgesChange: (changes) => {
-    set((s) => ({ edges: applyEdgeChanges(changes, s.edges) }))
-    // Detect edge drag/manipulation (select changes during drag are common)
-    const isEdgeUpdate = changes.some(c => c.type === 'select' || c.type === 'remove' || c.type === 'add')
-    get().pushHistory(isEdgeUpdate)
+    // Guard no-op changes
+    if (!changes || changes.length === 0) return
+    
+    set((s) => ({ edges: applyEdgeChanges(changes, s.edges) as Edge<EdgeData>[] }))
+    
+    // Edges don't have position changes, always push immediately
+    pushToHistory(get, set)
   },
 
   onSelectionChange: ({ nodes, edges }) => {
@@ -185,7 +250,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   pushHistory: (debounced = false) => {
     if (debounced) {
       clearTimers()
-      historyTimer = setTimeout(() => pushToHistory(get, set), 200)
+      historyTimer = setTimeout(() => pushToHistory(get, set), HISTORY_DEBOUNCE_MS)
       return
     }
     pushToHistory(get, set)
@@ -198,6 +263,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const past = history.past.slice(0, -1)
     const future = [{ nodes, edges }, ...history.future]
     set({ nodes: prev.nodes, edges: prev.edges, history: { past, future } })
+    // Reset hash after undo
+    const { nodes: newNodes, edges: newEdges } = get()
+    set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
   },
 
   redo: () => {
@@ -207,6 +275,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const past = [...history.past, { nodes, edges }]
     const future = history.future.slice(1)
     set({ nodes: next.nodes, edges: next.edges, history: { past, future } })
+    // Reset hash after redo
+    const { nodes: newNodes, edges: newEdges } = get()
+    set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
   },
 
   canUndo: () => get().history.past.length > 0,
@@ -243,7 +314,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     })
 
     const selectedEdges = edges.filter(e => selection.nodeIds.has(e.source) && selection.nodeIds.has(e.target))
-    const newEdges: Edge[] = selectedEdges.map(edge => ({
+    const newEdges: Edge<EdgeData>[] = selectedEdges.map(edge => ({
       ...edge,
       id: get().createEdgeId(),
       source: idMap[edge.source],
@@ -283,7 +354,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       })
     })
 
-    const newEdges: Edge[] = clipboard.edges.map(edge => ({
+    const newEdges: Edge<EdgeData>[] = clipboard.edges.map(edge => ({
       ...edge,
       id: get().createEdgeId(),
       source: idMap[edge.source],

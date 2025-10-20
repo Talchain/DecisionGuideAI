@@ -4,6 +4,8 @@
  */
 
 import { z } from 'zod'
+import { Target, Crosshair, Lightbulb, AlertTriangle, TrendingUp } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 /**
  * Node type taxonomy for decision trees
@@ -83,7 +85,7 @@ export type OutcomeNodeData = z.infer<typeof OutcomeNodeDataSchema>
  * Node metadata for rendering and accessibility
  */
 export interface NodeMetadata {
-  icon: string
+  icon: LucideIcon
   label: string
   ariaRole: string
   defaultSize: { width: number; height: number }
@@ -95,31 +97,31 @@ export interface NodeMetadata {
  */
 export const NODE_REGISTRY: Record<NodeType, NodeMetadata> = {
   goal: {
-    icon: '🎯',
+    icon: Target,
     label: 'Goal',
     ariaRole: 'group',
     defaultSize: { width: 200, height: 80 },
   },
   decision: {
-    icon: '🔀',
+    icon: Crosshair,
     label: 'Decision',
     ariaRole: 'group',
     defaultSize: { width: 200, height: 80 },
   },
   option: {
-    icon: '💡',
+    icon: Lightbulb,
     label: 'Option',
     ariaRole: 'group',
     defaultSize: { width: 180, height: 70 },
   },
   risk: {
-    icon: '⚠️',
+    icon: AlertTriangle,
     label: 'Risk',
     ariaRole: 'group',
     defaultSize: { width: 180, height: 70 },
   },
   outcome: {
-    icon: '📈',
+    icon: TrendingUp,
     label: 'Outcome',
     ariaRole: 'group',
     defaultSize: { width: 200, height: 80 },

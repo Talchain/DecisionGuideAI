@@ -99,9 +99,7 @@ describe('SnapshotManager', () => {
     })
   })
 
-  it('shows alert when canvas exceeds 5MB', () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    
+  it('shows toast when canvas exceeds 5MB', async () => {
     // Mock very large canvas
     const largeLabel = 'x'.repeat(1000)
     vi.mocked(store.useCanvasStore).mockReturnValue({
@@ -116,10 +114,9 @@ describe('SnapshotManager', () => {
     const saveButton = screen.getByText('💾 Save Current Canvas')
     fireEvent.click(saveButton)
     
-    expect(alertSpy).toHaveBeenCalled()
-    expect(alertSpy.mock.calls[0][0]).toContain('>5MB')
-    
-    alertSpy.mockRestore()
+    // Verify toast message appears (component uses showToast, not alert)
+    const toastMessage = await screen.findByText(/Canvas too large.*5MB/i, {}, { timeout: 1000 })
+    expect(toastMessage).toBeDefined()
   })
 
   it('deletes snapshot after confirmation', () => {
