@@ -7,9 +7,11 @@ import { useState } from 'react'
 import { useCanvasStore } from '../store'
 import { useToast } from '../ToastContext'
 import type { LayoutPreset, LayoutSpacing } from '../layout/types'
+import { LayoutGuidedModal } from './LayoutGuidedModal'
 
 export function LayoutPopover() {
   const [isOpen, setIsOpen] = useState(false)
+  const [showGuidedModal, setShowGuidedModal] = useState(false)
   const [spacing, setSpacing] = useState<LayoutSpacing>('medium')
   const applySimpleLayout = useCanvasStore(s => s.applySimpleLayout)
   const nodes = useCanvasStore(s => s.nodes)
@@ -124,7 +126,22 @@ export function LayoutPopover() {
             ))}
           </div>
         </div>
+
+        {/* Guided Layout */}
+        <div className="pt-2 border-t border-gray-200">
+          <button
+            onClick={() => {
+              setIsOpen(false)
+              setShowGuidedModal(true)
+            }}
+            className="w-full px-3 py-2 text-sm text-[#EA7B4B] hover:bg-[#EA7B4B]/10 rounded transition-colors"
+          >
+            Guided Layout…
+          </button>
+        </div>
       </div>
+
+      <LayoutGuidedModal isOpen={showGuidedModal} onClose={() => setShowGuidedModal(false)} />
     </div>
   )
 }

@@ -14,8 +14,9 @@ export function CanvasToolbar() {
   const [showImport, setShowImport] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [showNodeMenu, setShowNodeMenu] = useState(false)
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
   const nodeMenuRef = useRef<HTMLDivElement>(null)
-  const { undo, redo, canUndo, canRedo, addNode } = useCanvasStore()
+  const { undo, redo, canUndo, canRedo, addNode, resetCanvas, nodes, edges } = useCanvasStore()
   const { fitView, zoomIn, zoomOut } = useReactFlow()
 
   // Close node menu on outside click
@@ -201,6 +202,20 @@ export function CanvasToolbar() {
           Export
         </button>
 
+        <div className="w-px h-6 bg-gray-300" role="separator" />
+
+        {/* Reset */}
+        <button
+          onClick={() => setShowResetConfirm(true)}
+          disabled={nodes.length === 0 && edges.length === 0}
+          className="px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors focus:outline-none focus:ring-2 focus:ring-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Reset Canvas"
+          aria-label="Reset canvas"
+          data-testid="btn-reset-canvas"
+        >
+          Reset
+        </button>
+
         {/* Minimize */}
         <button
           onClick={() => setIsMinimized(true)}
@@ -218,6 +233,34 @@ export function CanvasToolbar() {
       <SnapshotManager isOpen={showSnapshots} onClose={() => setShowSnapshots(false)} />
       <ImportExportDialog isOpen={showImport} onClose={() => setShowImport(false)} mode="import" />
       <ImportExportDialog isOpen={showExport} onClose={() => setShowExport(false)} mode="export" />
+      
+      {/* Reset Confirmation */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowResetConfirm(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-96 p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold mb-2">Reset canvas?</h2>
+            <p className="text-sm text-gray-600 mb-4">This clears all nodes and edges. You can still undo.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  resetCanvas()
+                  setShowResetConfirm(false)
+                }}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+                data-testid="btn-confirm-reset"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
