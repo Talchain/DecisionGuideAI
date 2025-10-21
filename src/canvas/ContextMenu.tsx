@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCanvasStore } from './store'
+import { useToast } from './ToastContext'
 
 interface ContextMenuProps {
   x: number
@@ -13,8 +14,9 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const { 
     addNode, deleteSelected, duplicateSelected,
     copySelected, pasteClipboard, cutSelected, selectAll,
-    clipboard, selection
+    clipboard, selection, deleteEdge, beginReconnect, edges
   } = useCanvasStore()
+  const { showToast } = useToast()
 
   const [position, setPosition] = useState({ x, y })
 

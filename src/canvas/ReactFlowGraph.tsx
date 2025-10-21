@@ -13,6 +13,7 @@ import { AlignmentGuides } from './components/AlignmentGuides'
 import { PropertiesPanel } from './components/PropertiesPanel'
 import { CommandPalette } from './components/CommandPalette'
 import { EmptyStateOverlay } from './components/EmptyStateOverlay'
+import { ReconnectBanner } from './components/ReconnectBanner'
 import { KeyboardCheatsheet } from './components/KeyboardCheatsheet'
 import { SettingsPanel } from './components/SettingsPanel'
 import { useSettingsStore } from './settingsStore'
@@ -225,6 +226,7 @@ function ReactFlowGraphInner() {
       <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />
       <SettingsPanel />
       <DiagnosticsOverlay />
+      <ReconnectBanner />
     </div>
   )
 }
@@ -240,3 +242,21 @@ export default function ReactFlowGraph() {
     </CanvasErrorBoundary>
   )
 }
+
+// Add after line 37 (after handleSelectionChange):
+const reconnecting = useCanvasStore(s => s.reconnecting)
+const completeReconnect = useCanvasStore(s => s.completeReconnect)
+const updateEdgeEndpoints = useCanvasStore(s => s.updateEdgeEndpoints)
+
+const handleNodeClick = useCallback((_: any, node: any) => {
+  if (reconnecting) {
+    completeReconnect(node.id)
+  }
+}, [reconnecting, completeReconnect])
+
+const handleEdgeUpdate = useCallback((oldEdge: any, newConnection: any) => {
+  updateEdgeEndpoints(oldEdge.id, { 
+    source: newConnection.source, 
+    target: newConnection.target 
+  })
+}, [updateEdgeEndpoints])

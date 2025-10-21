@@ -140,6 +140,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       role="region" 
       aria-label="Edge properties"
       data-testid="panel-edge-properties"
+      onKeyDown={handleKeyDown}
     >
       {/* Live region for announcements */}
       <div
@@ -283,6 +284,56 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
             {formatConfidence(confidence)}
           </span>
         </div>
+      </div>
+      
+      {/* Connection endpoints */}
+      <div className="mb-4 pb-4 border-t border-gray-200 pt-4">
+        <label className="block text-xs font-medium text-gray-700 mb-2">
+          Connection
+        </label>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-600">Source:</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium">
+                {nodes.find(n => n.id === edge.source)?.data?.label || edge.source}
+              </span>
+              <button
+                onClick={handleReconnectSource}
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+                data-testid="btn-edge-reconnect-source"
+              >
+                Change…
+              </button>
+            </div>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-600">Target:</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium">
+                {nodes.find(n => n.id === edge.target)?.data?.label || edge.target}
+              </span>
+              <button
+                onClick={handleReconnectTarget}
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+                data-testid="btn-edge-reconnect-target"
+              >
+                Change…
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Delete button */}
+      <div className="pt-2 border-t border-gray-200">
+        <button
+          onClick={handleDelete}
+          className="w-full px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+          data-testid="btn-edge-delete"
+        >
+          Delete Connector
+        </button>
       </div>
     </div>
   )
