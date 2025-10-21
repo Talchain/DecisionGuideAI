@@ -18,8 +18,10 @@ const SandboxV1 = lazy(() => import('../routes/SandboxV1'))
 const PlotShowcase = lazy(() => import('../routes/PlotShowcase'))
 const PlotWorkspace = lazy(() => import('../routes/PlotWorkspace'))
 const PlcLab = lazy(() => import('../routes/PlcLab'))
+const DecisionTemplates = lazy(() => import('../routes/templates/DecisionTemplates').then(m => ({ default: m.DecisionTemplates })))
 import SandboxHeader, { type SandboxMode } from './components/SandboxHeader'
 import OnboardingHints from './components/OnboardingHints'
+import { BottomNav } from '../components/BottomNav'
 import { exportCanvas, formatSandboxPngName } from './export/exportCanvas'
 import { isTypingTarget } from './utils/inputGuards'
 import { initialHistory, push, doUndo, doRedo, type History as SamHistory, type SamState, type Op } from './state/history'
@@ -856,6 +858,7 @@ export default function AppPoC() {
             <CanvasErrorBoundary>
               <Routes>
               <Route path="/canvas" element={<CanvasMVP />} />
+              <Route path="/templates" element={<DecisionTemplates />} />
               <Route path="/plot" element={<PlotWorkspace />} />
               <Route path="/plot-legacy" element={<PlotShowcase />} />
               <Route path="/plc" element={<PlcLab />} />
@@ -865,6 +868,7 @@ export default function AppPoC() {
               </Routes>
             </CanvasErrorBoundary>
           </Suspense>
+          <BottomNav />
         </HashRouter>
       </QueryClientProvider>
     </StrictMode>
