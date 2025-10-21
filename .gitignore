@@ -41,3 +41,4 @@ Thumbs.db
 # docs/evidence/**
 # evidence/pack/**
 # docs/evidence/unified/**
+tests/p2-1-stream-canary.test.ts

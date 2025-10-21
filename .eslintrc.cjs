@@ -11,12 +11,20 @@ module.exports = {
   ],
   env: { browser: true, es2022: true, node: true, jest: true },
   settings: { react: { version: 'detect' } },
-  ignorePatterns: ['dist/', 'node_modules/', 'coverage/', '.vite/'],
+  ignorePatterns: ['dist/', 'node_modules/', 'coverage/', '.vite/', 'scripts/'],
   rules: {
     'no-console': 'warn',
     '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }]
   },
   overrides: [
+    {
+      // Enable Node.js globals for .cjs files
+      files: ['**/*.cjs'],
+      env: { node: true },
+      rules: {
+        'no-console': 'off'
+      }
+    },
     {
       // AIR-GAP: Safe entry and boot helpers must never import React/Zustand/React Flow/shim
       files: ['src/poc/safe/**/*', 'src/boot/safe-*.ts'],
