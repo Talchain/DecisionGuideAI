@@ -18,6 +18,7 @@ export interface LayoutNode {
   width: number
   height: number
   locked?: boolean
+  kind?: 'goal' | 'decision' | 'option' | 'risk' | 'outcome'
 }
 
 export interface LayoutEdge {

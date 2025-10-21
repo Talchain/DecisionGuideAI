@@ -7,6 +7,7 @@ import { DEFAULT_EDGE_DATA, type EdgeData } from './domain/edges'
 import { NODE_REGISTRY, type NodeType } from './domain/nodes'
 import { applyLayout } from './layout'
 import { mergePolicy } from './layout/policy'
+import { policyToPreset, policyToSpacing } from './layout/adapters'
 
 const initialNodes: Node[] = [
   { id: '1', type: 'decision', position: { x: 250, y: 100 }, data: { label: 'Start' } },
@@ -525,15 +526,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return
     }
     
-    const fullPolicy = mergePolicy(policy)
+    const effectivePolicy = mergePolicy(policy)
     
-    // Convert to layout format with node types
+    // Convert to layout format with semantic node types
     const layoutNodes = nodes.map(n => ({
       id: n.id,
-      type: n.type || 'decision',
+      kind: (n.type || 'decision') as 'goal' | 'decision' | 'option' | 'risk' | 'outcome',
       width: n.width || 200,
       height: n.height || 80,
-      locked: fullPolicy.respectLocked && Boolean(n.data?.locked)
+      locked: effectivePolicy.respectLocked && Boolean(n.data?.locked)
     }))
     
     const layoutEdges = edges.map(e => ({
@@ -542,10 +543,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       target: e.target
     }))
     
-    // Apply semantic layout
+    // Apply semantic layout using policy
     const result = applyLayout(layoutNodes, layoutEdges, {
-      preset: 'hierarchy',
-      spacing: 'medium',
+      preset: policyToPreset(effectivePolicy),
+      spacing: policyToSpacing(effectivePolicy),
       preserveSelection: false,
       minimizeCrossings: true
     })
