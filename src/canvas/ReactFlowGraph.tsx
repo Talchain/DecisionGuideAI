@@ -17,7 +17,7 @@ import { ReconnectBanner } from './components/ReconnectBanner'
 import { KeyboardCheatsheet } from './components/KeyboardCheatsheet'
 import { SettingsPanel } from './components/SettingsPanel'
 import { useSettingsStore } from './settingsStore'
-import { useLayoutStore } from './layoutStore'
+// import { useLayoutStore } from './layoutStore' // unused
 import { CanvasErrorBoundary } from './ErrorBoundary'
 import { ToastProvider, useToast } from './ToastContext'
 import { DiagnosticsOverlay } from './DiagnosticsOverlay'
@@ -94,12 +94,12 @@ function ReactFlowGraphInner() {
     useCanvasStore.getState().addEdge({ ...connection, data: DEFAULT_EDGE_DATA })
   }, [])
 
-  const onPaneContextMenu = useCallback((event: React.MouseEvent) => {
+  const onPaneContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault()
     setContextMenu({ x: event.clientX, y: event.clientY })
   }, [])
 
-  const onNodeContextMenu = useCallback((event: React.MouseEvent) => {
+  const onNodeContextMenu = useCallback((event: React.MouseEvent | MouseEvent) => {
     event.preventDefault()
     setContextMenu({ x: event.clientX, y: event.clientY })
   }, [])
@@ -126,7 +126,6 @@ function ReactFlowGraphInner() {
         onPaneContextMenu={onPaneContextMenu}
         onNodeContextMenu={onNodeContextMenu}
         onNodeClick={handleNodeClick}
-        onEdgeUpdate={handleEdgeUpdate}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes as any}
         fitView
@@ -140,7 +139,7 @@ function ReactFlowGraphInner() {
       >
         {showGrid && <Background variant={BackgroundVariant.Dots} gap={gridSize} size={1} color="#e5e7eb" />}
         <MiniMap nodeColor="#EA7B4B" style={miniMapStyle} />
-        {showAlignmentGuides && <AlignmentGuides draggingNodeIds={draggingNodeIds} isDragging={isDragging} />}
+        {showAlignmentGuides && <AlignmentGuides draggingNodeIds={draggingNodeIds} />}
         <CanvasToolbar />
       </ReactFlow>
 
