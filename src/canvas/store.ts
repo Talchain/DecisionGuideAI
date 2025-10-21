@@ -6,6 +6,7 @@ import { setsEqual } from './store/utils'
 import { DEFAULT_EDGE_DATA, type EdgeData } from './domain/edges'
 import { NODE_REGISTRY, type NodeType } from './domain/nodes'
 import { applyLayout } from './layout'
+import { mergePolicy } from './layout/policy'
 
 const initialNodes: Node[] = [
   { id: '1', type: 'decision', position: { x: 250, y: 100 }, data: { label: 'Start' } },
@@ -60,6 +61,8 @@ interface CanvasState {
   exportCanvas: () => string
   applyLayout: () => Promise<void>
   applySimpleLayout: (preset: 'grid' | 'hierarchy' | 'flow', spacing: 'small' | 'medium' | 'large') => void
+  applyGuidedLayout: (policy?: Partial<import('./layout/policy').LayoutPolicy>) => void
+  resetCanvas: () => void
   createNodeId: () => string
   createEdgeId: () => string
   reseedIds: (nodes: Node[], edges: Edge[]) => void
@@ -513,6 +516,59 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     })
     
     set({ nodes: updatedNodes })
+  },
+
+  applyGuidedLayout: (policy) => {
+    const { nodes, edges } = get()
+    
+    if (nodes.length < 2) {
+      return
+    }
+    
+    const fullPolicy = mergePolicy(policy)
+    
+    // Convert to layout format with node types
+    const layoutNodes = nodes.map(n => ({
+      id: n.id,
+      type: n.type || 'decision',
+      width: n.width || 200,
+      height: n.height || 80,
+      locked: fullPolicy.respectLocked && Boolean(n.data?.locked)
+    }))
+    
+    const layoutEdges = edges.map(e => ({
+      id: e.id,
+      source: e.source,
+      target: e.target
+    }))
+    
+    // Apply semantic layout
+    const result = applyLayout(layoutNodes, layoutEdges, {
+      preset: 'hierarchy',
+      spacing: 'medium',
+      preserveSelection: false,
+      minimizeCrossings: true
+    })
+    
+    pushToHistory(get, set)
+    
+    const updatedNodes = nodes.map(node => {
+      const newPos = result.positions[node.id]
+      return newPos ? { ...node, position: newPos } : node
+    })
+    
+    set({ nodes: updatedNodes })
+  },
+
+  resetCanvas: () => {
+    const { nodes, edges } = get()
+    
+    if (nodes.length === 0 && edges.length === 0) {
+      return
+    }
+    
+    pushToHistory(get, set)
+    set({ nodes: [], edges: [] })
   },
 
   reset: () => {
