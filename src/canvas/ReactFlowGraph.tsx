@@ -48,7 +48,6 @@ function ReactFlowGraphInner() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
-  const nodes = useCanvasStore(s => s.nodes)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [, setShowEmptyState] = useState(true)
   const [showCheatsheet, setShowCheatsheet] = useState(false)

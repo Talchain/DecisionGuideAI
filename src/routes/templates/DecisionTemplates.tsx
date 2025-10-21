@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react'
 import { runTemplate, fetchLimits, validateGraph, type RunResponse, type BeliefMode, type ApiLimits } from '../../lib/plotApi'
 import { formatApiError } from '../../lib/plotErrors'
-import { useAuth } from '../../auth/AuthContext'
+import { useAuth } from '../../contexts/AuthContext'
 
 // Import templates
 import pricingTemplate from './data/pricing-v1.json'
