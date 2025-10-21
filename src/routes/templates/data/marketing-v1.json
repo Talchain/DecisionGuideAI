@@ -1,0 +1,28 @@
+{
+  "id": "marketing-v1",
+  "name": "Marketing Campaign",
+  "description": "Maximize campaign conversion rate",
+  "seed": 202,
+  "graph": {
+    "goalNodeId": "g1",
+    "nodes": [
+      { "id": "g1", "kind": "goal", "label": "Increase Conversions" },
+      { "id": "d1", "kind": "decision", "label": "Choose Channel" },
+      { "id": "o1", "kind": "option", "label": "Social Media" },
+      { "id": "o2", "kind": "option", "label": "Email Campaign" },
+      { "id": "o3", "kind": "option", "label": "Content Marketing" },
+      { "id": "r1", "kind": "risk", "label": "Low Engagement" },
+      { "id": "out1", "kind": "outcome", "label": "Target Conversions" }
+    ],
+    "edges": [
+      { "id": "e1", "source": "g1", "target": "d1", "weight": 1.0, "belief": 0.9 },
+      { "id": "e2", "source": "d1", "target": "o1", "weight": 0.7, "belief": 0.75 },
+      { "id": "e3", "source": "d1", "target": "o2", "weight": 0.8, "belief": 0.8 },
+      { "id": "e4", "source": "d1", "target": "o3", "weight": 0.75, "belief": 0.7 },
+      { "id": "e5", "source": "o1", "target": "r1", "weight": 0.4, "belief": 0.6 },
+      { "id": "e6", "source": "o1", "target": "out1", "weight": 0.8, "belief": 0.75 },
+      { "id": "e7", "source": "o2", "target": "out1", "weight": 0.85, "belief": 0.85 },
+      { "id": "e8", "source": "o3", "target": "out1", "weight": 0.75, "belief": 0.7 }
+    ]
+  }
+}

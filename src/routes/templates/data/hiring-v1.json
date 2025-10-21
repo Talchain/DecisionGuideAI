@@ -1,0 +1,26 @@
+{
+  "id": "hiring-v1",
+  "name": "Hiring Decision",
+  "description": "Select the best candidate for the role",
+  "seed": 101,
+  "graph": {
+    "goalNodeId": "g1",
+    "nodes": [
+      { "id": "g1", "kind": "goal", "label": "Hire Best Candidate" },
+      { "id": "d1", "kind": "decision", "label": "Evaluate Candidates" },
+      { "id": "o1", "kind": "option", "label": "Candidate A" },
+      { "id": "o2", "kind": "option", "label": "Candidate B" },
+      { "id": "r1", "kind": "risk", "label": "Culture Fit" },
+      { "id": "out1", "kind": "outcome", "label": "Successful Hire" }
+    ],
+    "edges": [
+      { "id": "e1", "source": "g1", "target": "d1", "weight": 1.0, "belief": 0.95 },
+      { "id": "e2", "source": "d1", "target": "o1", "weight": 0.85, "belief": 0.8 },
+      { "id": "e3", "source": "d1", "target": "o2", "weight": 0.75, "belief": 0.75 },
+      { "id": "e4", "source": "o1", "target": "r1", "weight": 0.2, "belief": 0.7 },
+      { "id": "e5", "source": "o2", "target": "r1", "weight": 0.3, "belief": 0.65 },
+      { "id": "e6", "source": "o1", "target": "out1", "weight": 0.9, "belief": 0.85 },
+      { "id": "e7", "source": "o2", "target": "out1", "weight": 0.8, "belief": 0.8 }
+    ]
+  }
+}

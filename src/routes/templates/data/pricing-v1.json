@@ -1,0 +1,30 @@
+{
+  "id": "pricing-v1",
+  "name": "Pricing Decision",
+  "description": "Optimize pricing strategy for maximum revenue",
+  "seed": 42,
+  "graph": {
+    "goalNodeId": "g1",
+    "nodes": [
+      { "id": "g1", "kind": "goal", "label": "Maximize Revenue" },
+      { "id": "d1", "kind": "decision", "label": "Choose Pricing Model" },
+      { "id": "o1", "kind": "option", "label": "Premium Tier" },
+      { "id": "o2", "kind": "option", "label": "Freemium Model" },
+      { "id": "o3", "kind": "option", "label": "Usage-Based" },
+      { "id": "r1", "kind": "risk", "label": "Market Rejection" },
+      { "id": "r2", "kind": "risk", "label": "Churn Risk" },
+      { "id": "out1", "kind": "outcome", "label": "Revenue Target Met" }
+    ],
+    "edges": [
+      { "id": "e1", "source": "g1", "target": "d1", "weight": 1.0, "belief": 0.9 },
+      { "id": "e2", "source": "d1", "target": "o1", "weight": 0.8, "belief": 0.7 },
+      { "id": "e3", "source": "d1", "target": "o2", "weight": 0.6, "belief": 0.8 },
+      { "id": "e4", "source": "d1", "target": "o3", "weight": 0.7, "belief": 0.75 },
+      { "id": "e5", "source": "o1", "target": "r1", "weight": 0.3, "belief": 0.6 },
+      { "id": "e6", "source": "o2", "target": "r2", "weight": 0.4, "belief": 0.65 },
+      { "id": "e7", "source": "o1", "target": "out1", "weight": 0.9, "belief": 0.85 },
+      { "id": "e8", "source": "o2", "target": "out1", "weight": 0.7, "belief": 0.75 },
+      { "id": "e9", "source": "o3", "target": "out1", "weight": 0.8, "belief": 0.8 }
+    ]
+  }
+}

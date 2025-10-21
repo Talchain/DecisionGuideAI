@@ -1,0 +1,26 @@
+{
+  "id": "feature-v1",
+  "name": "Feature Trade-off",
+  "description": "Ship fastest with best impact",
+  "seed": 404,
+  "graph": {
+    "goalNodeId": "g1",
+    "nodes": [
+      { "id": "g1", "kind": "goal", "label": "Ship Fastest" },
+      { "id": "d1", "kind": "decision", "label": "Feature Priority" },
+      { "id": "o1", "kind": "option", "label": "Feature A" },
+      { "id": "o2", "kind": "option", "label": "Feature B" },
+      { "id": "r1", "kind": "risk", "label": "Technical Debt" },
+      { "id": "out1", "kind": "outcome", "label": "Launch Success" }
+    ],
+    "edges": [
+      { "id": "e1", "source": "g1", "target": "d1", "weight": 1.0, "belief": 0.95 },
+      { "id": "e2", "source": "d1", "target": "o1", "weight": 0.9, "belief": 0.85 },
+      { "id": "e3", "source": "d1", "target": "o2", "weight": 0.7, "belief": 0.75 },
+      { "id": "e4", "source": "o1", "target": "r1", "weight": 0.2, "belief": 0.7 },
+      { "id": "e5", "source": "o2", "target": "r1", "weight": 0.4, "belief": 0.6 },
+      { "id": "e6", "source": "o1", "target": "out1", "weight": 0.95, "belief": 0.9 },
+      { "id": "e7", "source": "o2", "target": "out1", "weight": 0.75, "belief": 0.75 }
+    ]
+  }
+}
