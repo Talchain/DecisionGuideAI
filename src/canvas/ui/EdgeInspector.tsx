@@ -8,6 +8,7 @@ import { memo, useState, useCallback, useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { EDGE_CONSTRAINTS, type EdgeStyle, DEFAULT_EDGE_DATA } from '../domain/edges'
 import { formatConfidence } from '../domain/edges'
+import { useToast } from '../ToastContext'
 
 interface EdgeInspectorProps {
   edgeId: string
@@ -20,7 +21,11 @@ interface EdgeInspectorProps {
  */
 export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   const edges = useCanvasStore(s => s.edges)
+  const nodes = useCanvasStore(s => s.nodes)
   const updateEdge = useCanvasStore(s => s.updateEdge)
+  const deleteEdge = useCanvasStore(s => s.deleteEdge)
+  const beginReconnect = useCanvasStore(s => s.beginReconnect)
+  const { showToast } = useToast()
   
   const edge = edges.find(e => e.id === edgeId)
   
@@ -94,6 +99,24 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       setAnnouncement(`Confidence set to ${formatConfidence(value)}`)
     }, 120)
   }, [edgeId, edge?.data, updateEdge])
+  
+  // Delete edge
+  const handleDelete = useCallback(() => {
+    deleteEdge(edgeId)
+    showToast('Connector deleted — press ⌘Z to undo.', 'success')
+    onClose()
+  }, [edgeId, deleteEdge, showToast, onClose])
+  
+  // Begin reconnect mode
+  const handleReconnectSource = useCallback(() => {
+    beginReconnect(edgeId, 'source')
+    showToast('Reconnect source: click a node or press Esc to cancel.', 'info')
+  }, [edgeId, beginReconnect, showToast])
+  
+  const handleReconnectTarget = useCallback(() => {
+    beginReconnect(edgeId, 'target')
+    showToast('Reconnect target: click a node or press Esc to cancel.', 'info')
+  }, [edgeId, beginReconnect, showToast])
   
   // Keyboard: Esc closes and returns focus
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
