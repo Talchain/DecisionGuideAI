@@ -4,6 +4,7 @@ import { useReactFlow } from '@xyflow/react'
 import { SnapshotManager } from './components/SnapshotManager'
 import { ImportExportDialog } from './components/ImportExportDialog'
 import { LayoutPopover } from './components/LayoutPopover'
+import { BottomSheet } from './components/BottomSheet'
 import { NODE_REGISTRY } from './domain/nodes'
 import type { NodeType } from './domain/nodes'
 import { renderIcon } from './helpers/renderIcon'
@@ -235,32 +236,29 @@ export function CanvasToolbar() {
       <ImportExportDialog isOpen={showExport} onClose={() => setShowExport(false)} mode="export" />
       
       {/* Reset Confirmation */}
-      {showResetConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowResetConfirm(false)}>
-          <div className="bg-white rounded-lg shadow-xl w-96 p-6" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold mb-2">Reset canvas?</h2>
-            <p className="text-sm text-gray-600 mb-4">This clears all nodes and edges. You can still undo.</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowResetConfirm(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  resetCanvas()
-                  setShowResetConfirm(false)
-                }}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                data-testid="btn-confirm-reset"
-              >
-                Reset
-              </button>
-            </div>
+      <BottomSheet isOpen={showResetConfirm} onClose={() => setShowResetConfirm(false)} title="Reset canvas?">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">This clears all nodes and edges. You can still undo.</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowResetConfirm(false)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                resetCanvas()
+                setShowResetConfirm(false)
+              }}
+              className="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+              data-testid="btn-confirm-reset"
+            >
+              Reset
+            </button>
           </div>
         </div>
-      )}
+      </BottomSheet>
     </div>
   )
 }
