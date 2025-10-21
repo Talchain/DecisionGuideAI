@@ -28,12 +28,20 @@ interface ClipboardData {
   edges: Edge<EdgeData>[]
 }
 
+type ReconnectEnd = 'source' | 'target'
+
+interface ReconnectState {
+  edgeId: string
+  end: ReconnectEnd
+}
+
 interface CanvasState {
   nodes: Node[]
   edges: Edge<EdgeData>[]
   history: { past: { nodes: Node[]; edges: Edge<EdgeData>[] }[]; future: { nodes: Node[]; edges: Edge<EdgeData>[] }[] }
   selection: { nodeIds: Set<string>; edgeIds: Set<string> }
   clipboard: ClipboardData | null
+  reconnecting: ReconnectState | null
   nextNodeId: number
   nextEdgeId: number
   _internal: { lastHistoryHash: string }
@@ -67,6 +75,11 @@ interface CanvasState {
   createNodeId: () => string
   createEdgeId: () => string
   reseedIds: (nodes: Node[], edges: Edge[]) => void
+  deleteEdge: (id: string) => void
+  updateEdgeEndpoints: (id: string, updates: { source?: string; target?: string }) => void
+  beginReconnect: (edgeId: string, end: ReconnectEnd) => void
+  completeReconnect: (nodeId: string) => void
+  cancelReconnect: () => void
   reset: () => void
   cleanup: () => void
 }
@@ -132,6 +145,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   selection: { nodeIds: new Set(), edgeIds: new Set() },
   _internal: { lastHistoryHash: '' },
   clipboard: null,
+  reconnecting: null,
   nextNodeId: 5,
   nextEdgeId: 5,
 
@@ -568,13 +582,94 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   resetCanvas: () => {
     const { nodes, edges } = get()
-    
-    if (nodes.length === 0 && edges.length === 0) {
-      return
-    }
+    if (nodes.length === 0 && edges.length === 0) return
     
     pushToHistory(get, set)
     set({ nodes: [], edges: [] })
+  },
+
+  deleteEdge: (id) => {
+    const { edges, selection } = get()
+    const edge = edges.find(e => e.id === id)
+    if (!edge) return
+
+    pushToHistory(get, set)
+    
+    const newEdges = edges.filter(e => e.id !== id)
+    const newEdgeIds = new Set(selection.edgeIds)
+    newEdgeIds.delete(id)
+    
+    set({ 
+      edges: newEdges,
+      selection: { ...selection, edgeIds: newEdgeIds }
+    })
+  },
+
+  updateEdgeEndpoints: (id, updates) => {
+    const { edges, nodes } = get()
+    const edge = edges.find(e => e.id === id)
+    if (!edge) return
+
+    const newSource = updates.source ?? edge.source
+    const newTarget = updates.target ?? edge.target
+
+    // Validate: no self-loops
+    if (newSource === newTarget) {
+      return // Caller should show toast: "That connection isn't allowed."
+    }
+
+    // Validate: no duplicates
+    const duplicate = edges.find(e => 
+      e.id !== id && e.source === newSource && e.target === newTarget
+    )
+    if (duplicate) {
+      return // Caller should show toast: "A connector already exists between those nodes."
+    }
+
+    // Validate: nodes exist
+    const sourceExists = nodes.some(n => n.id === newSource)
+    const targetExists = nodes.some(n => n.id === newTarget)
+    if (!sourceExists || !targetExists) {
+      return
+    }
+
+    pushToHistory(get, set)
+
+    const newEdges = edges.map(e => 
+      e.id === id 
+        ? { ...e, source: newSource, target: newTarget }
+        : e
+    )
+
+    set({ 
+      edges: newEdges,
+      selection: { ...get().selection, edgeIds: new Set([id]) }
+    })
+  },
+
+  beginReconnect: (edgeId, end) => {
+    const { edges } = get()
+    const edge = edges.find(e => e.id === edgeId)
+    if (!edge) return
+
+    set({ reconnecting: { edgeId, end } })
+  },
+
+  completeReconnect: (nodeId) => {
+    const { reconnecting } = get()
+    if (!reconnecting) return
+
+    const { edgeId, end } = reconnecting
+    const updates = end === 'source' 
+      ? { source: nodeId }
+      : { target: nodeId }
+
+    get().updateEdgeEndpoints(edgeId, updates)
+    set({ reconnecting: null })
+  },
+
+  cancelReconnect: () => {
+    set({ reconnecting: null })
   },
 
   reset: () => {
