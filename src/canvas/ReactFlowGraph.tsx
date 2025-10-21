@@ -42,17 +42,13 @@ function ReactFlowGraphInner() {
     }
   }, [reconnecting, completeReconnect, showToast])
   
-  const handleEdgeUpdate = useCallback((oldEdge: any, newConnection: any) => {
-    updateEdgeEndpoints(oldEdge.id, { 
-      source: newConnection.source, 
-      target: newConnection.target 
-    })
-    showToast('Connector updated — press ⌘Z to undo.', 'success')
-  }, [updateEdgeEndpoints, showToast])
+  // Note: onEdgeUpdate not supported by React Flow v11+
+  // Reconnect via inspector or context menu instead
   
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
+  const nodes = useCanvasStore(s => s.nodes)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [, setShowEmptyState] = useState(true)
   const [showCheatsheet, setShowCheatsheet] = useState(false)
@@ -139,7 +135,7 @@ function ReactFlowGraphInner() {
       >
         {showGrid && <Background variant={BackgroundVariant.Dots} gap={gridSize} size={1} color="#e5e7eb" />}
         <MiniMap nodeColor="#EA7B4B" style={miniMapStyle} />
-        {showAlignmentGuides && <AlignmentGuides draggingNodeIds={draggingNodeIds} />}
+        {showAlignmentGuides && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
         <CanvasToolbar />
       </ReactFlow>
 
