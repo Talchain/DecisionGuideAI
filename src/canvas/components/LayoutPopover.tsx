@@ -8,6 +8,7 @@ import { useCanvasStore } from '../store'
 import { useToast } from '../ToastContext'
 import type { LayoutPreset, LayoutSpacing } from '../layout/types'
 import { LayoutGuidedModal } from './LayoutGuidedModal'
+import { BottomSheet } from './BottomSheet'
 
 export function LayoutPopover() {
   const [isOpen, setIsOpen] = useState(false)
@@ -33,8 +34,8 @@ export function LayoutPopover() {
     }
   }
 
-  if (!isOpen) {
-    return (
+  return (
+    <>
       <button
         onClick={() => setIsOpen(true)}
         className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
@@ -44,37 +45,8 @@ export function LayoutPopover() {
       >
         Layout
       </button>
-    )
-  }
 
-  return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(false)}
-        className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
-        aria-label="Close layout options"
-        data-testid="btn-layout"
-      >
-        Layout
-      </button>
-
-      <div
-        className="absolute bottom-full mb-2 left-0 w-64 bg-white rounded-lg shadow-xl border border-gray-200 p-4 z-50"
-        data-testid="layout-popover"
-        role="dialog"
-        aria-label="Layout options"
-      >
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-gray-900">Auto-Layout</h3>
-          <button
-            onClick={() => setIsOpen(false)}
-            className="text-gray-400 hover:text-gray-600"
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
-
+      <BottomSheet isOpen={isOpen} onClose={() => setIsOpen(false)} title="Auto-Layout">
         {/* Presets */}
         <div className="space-y-2 mb-4">
           <button
@@ -139,9 +111,9 @@ export function LayoutPopover() {
             Guided Layout…
           </button>
         </div>
-      </div>
+      </BottomSheet>
 
       <LayoutGuidedModal isOpen={showGuidedModal} onClose={() => setShowGuidedModal(false)} />
-    </div>
+    </>
   )
 }
