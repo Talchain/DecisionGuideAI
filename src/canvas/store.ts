@@ -5,11 +5,9 @@ import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportC
 import { setsEqual } from './store/utils'
 import { DEFAULT_EDGE_DATA, type EdgeData } from './domain/edges'
 import { NODE_REGISTRY, type NodeType } from './domain/nodes'
-import { applyLayout } from './layout'
+import { applyLayout, applyLayoutWithPolicy } from './layout'
 import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
-import { semanticPreOrder, adjustRiskPositions } from './layout/semantic'
-import { SPACING_VALUES } from './layout/types'
 
 const initialNodes: Node[] = [
   { id: '1', type: 'decision', position: { x: 250, y: 100 }, data: { label: 'Start' } },
@@ -531,7 +529,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const effectivePolicy = mergePolicy(policy)
     
     // Convert to layout format with semantic node types
-    let layoutNodes = nodes.map(n => ({
+    const layoutNodes = nodes.map(n => ({
       id: n.id,
       kind: (n.type || 'decision') as 'goal' | 'decision' | 'option' | 'risk' | 'outcome',
       width: n.width || 200,
@@ -539,26 +537,24 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       locked: effectivePolicy.respectLocked && Boolean(n.data?.locked)
     }))
     
-    // Pre-order: goals first, outcomes last
-    layoutNodes = semanticPreOrder(layoutNodes)
-    
     const layoutEdges = edges.map(e => ({
       id: e.id,
       source: e.source,
       target: e.target
     }))
     
-    // Apply semantic layout using policy
-    const result = applyLayout(layoutNodes, layoutEdges, {
-      preset: policyToPreset(effectivePolicy),
-      spacing: policyToSpacing(effectivePolicy),
-      preserveSelection: false,
-      minimizeCrossings: true
-    })
-    
-    // Post-adjust: nudge risks adjacent to their source
-    const spacingLevel = policyToSpacing(effectivePolicy)
-    adjustRiskPositions(result.positions, layoutNodes, layoutEdges, SPACING_VALUES[spacingLevel])
+    // Apply semantic layout with full policy support
+    const result = applyLayoutWithPolicy(
+      layoutNodes,
+      layoutEdges,
+      {
+        preset: policyToPreset(effectivePolicy),
+        spacing: policyToSpacing(effectivePolicy),
+        preserveSelection: false,
+        minimizeCrossings: true
+      },
+      effectivePolicy
+    )
     
     pushToHistory(get, set)
     

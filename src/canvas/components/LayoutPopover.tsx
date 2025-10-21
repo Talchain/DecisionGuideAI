@@ -3,13 +3,13 @@ import { useCanvasStore } from '../store'
 import { useToast } from '../ToastContext'
 import type { LayoutPreset, LayoutSpacing } from '../layout/types'
 import { BottomSheet } from './BottomSheet'
+import { GuidedLayoutDialog } from './GuidedLayoutDialog'
 
 export function LayoutPopover() {
   const [isOpen, setIsOpen] = useState(false)
+  const [showGuidedModal, setShowGuidedModal] = useState(false)
   const [spacing, setSpacing] = useState<LayoutSpacing>('medium')
-  const [direction, setDirection] = useState<'LR' | 'TB'>('LR')
   const applySimpleLayout = useCanvasStore(s => s.applySimpleLayout)
-  const applyGuidedLayout = useCanvasStore(s => s.applyGuidedLayout)
   const nodes = useCanvasStore(s => s.nodes)
   const { showToast } = useToast()
 
@@ -29,13 +29,8 @@ export function LayoutPopover() {
   }
 
   const handleGuidedLayout = () => {
-    if (nodes.length < 2) {
-      showToast('Nothing to arrange yet — add at least 2 nodes', 'info')
-      return
-    }
-    applyGuidedLayout({ direction })
     setIsOpen(false)
-    showToast('Layout applied — press ⌘Z to undo.', 'success')
+    setShowGuidedModal(true)
   }
 
   return (
@@ -52,15 +47,6 @@ export function LayoutPopover() {
 
       <BottomSheet isOpen={isOpen} onClose={() => setIsOpen(false)} title="Auto-Layout">
         <div className="space-y-4">
-          {/* Direction */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Direction</label>
-            <div className="flex gap-2">
-              <button onClick={() => setDirection('LR')} className={direction === 'LR' ? 'flex-1 px-3 py-2 bg-[#EA7B4B] text-white rounded text-sm' : 'flex-1 px-3 py-2 bg-gray-100 rounded text-sm'}>Left → Right</button>
-              <button onClick={() => setDirection('TB')} className={direction === 'TB' ? 'flex-1 px-3 py-2 bg-[#EA7B4B] text-white rounded text-sm' : 'flex-1 px-3 py-2 bg-gray-100 rounded text-sm'}>Top → Bottom</button>
-            </div>
-          </div>
-
           {/* Presets */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Layout Style</label>
@@ -97,6 +83,11 @@ export function LayoutPopover() {
           </div>
         </div>
       </BottomSheet>
+
+      <GuidedLayoutDialog 
+        isOpen={showGuidedModal} 
+        onClose={() => setShowGuidedModal(false)} 
+      />
     </>
   )
 }

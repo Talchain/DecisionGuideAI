@@ -5,7 +5,9 @@
 import { applyGridLayout } from './engines/grid'
 import { applyHierarchyLayout } from './engines/hierarchy'
 import { applyFlowLayout } from './engines/flow'
+import { applySemanticLayout } from './engines/semantic'
 import type { LayoutNode, LayoutEdge, LayoutOptions, LayoutResult } from './types'
+import type { LayoutPolicy } from './policy'
 
 /**
  * Apply layout based on selected preset
@@ -34,5 +36,21 @@ export function applyLayout(
   }
 }
 
+/**
+ * Apply semantic layout with full policy support
+ */
+export function applyLayoutWithPolicy(
+  nodes: LayoutNode[],
+  edges: LayoutEdge[],
+  options: LayoutOptions,
+  policy: LayoutPolicy
+): LayoutResult {
+  const preserveIds = options.preserveSelection 
+    ? new Set(nodes.filter(n => n.locked).map(n => n.id))
+    : new Set<string>()
+  
+  return applySemanticLayout(nodes, edges, options.spacing, policy, preserveIds)
+}
+
 export * from './types'
-export { applyGridLayout, applyHierarchyLayout, applyFlowLayout }
+export { applyGridLayout, applyHierarchyLayout, applyFlowLayout, applySemanticLayout }
