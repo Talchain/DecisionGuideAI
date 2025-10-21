@@ -58,6 +58,7 @@ interface CanvasState {
   importCanvas: (json: string) => boolean
   exportCanvas: () => string
   applyLayout: () => Promise<void>
+  applySimpleLayout: (preset: 'grid' | 'hierarchy' | 'flow', spacing: 'small' | 'medium' | 'large') => void
   createNodeId: () => string
   createEdgeId: () => string
   reseedIds: (nodes: Node[], edges: Edge[]) => void
@@ -470,6 +471,50 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     } catch (err) {
       console.error('[CANVAS] Layout failed:', err)
     }
+  },
+
+  applySimpleLayout: (preset, spacing) => {
+    const { nodes, edges, selection } = get()
+    
+    if (nodes.length < 2) {
+      return // Nothing to layout
+    }
+    
+    // Import layout engine
+    const { applyLayout } = require('./layout')
+    
+    // Convert nodes to layout format
+    const layoutNodes = nodes.map(n => ({
+      id: n.id,
+      width: n.width || 200,
+      height: n.height || 80,
+      locked: selection.nodeIds.has(n.id) // Preserve selected nodes
+    }))
+    
+    const layoutEdges = edges.map(e => ({
+      id: e.id,
+      source: e.source,
+      target: e.target
+    }))
+    
+    // Apply layout
+    const result = applyLayout(layoutNodes, layoutEdges, {
+      preset,
+      spacing,
+      preserveSelection: false,
+      minimizeCrossings: true
+    })
+    
+    // Push to history before applying
+    pushToHistory(get, set)
+    
+    // Update node positions
+    const updatedNodes = nodes.map(node => {
+      const newPos = result.positions[node.id]
+      return newPos ? { ...node, position: newPos } : node
+    })
+    
+    set({ nodes: updatedNodes })
   },
 
   reset: () => {

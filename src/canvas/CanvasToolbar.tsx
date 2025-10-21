@@ -3,7 +3,7 @@ import { useCanvasStore } from './store'
 import { useReactFlow } from '@xyflow/react'
 import { SnapshotManager } from './components/SnapshotManager'
 import { ImportExportDialog } from './components/ImportExportDialog'
-import { LayoutOptionsPanel } from './components/LayoutOptionsPanel'
+import { LayoutPopover } from './components/LayoutPopover'
 import { NODE_REGISTRY } from './domain/nodes'
 import type { NodeType } from './domain/nodes'
 import { renderIcon } from './helpers/renderIcon'
@@ -167,7 +167,7 @@ export function CanvasToolbar() {
         <div className="w-px h-6 bg-gray-300" role="separator" />
 
         {/* Layout Options */}
-        <LayoutOptionsPanel />
+        <LayoutPopover />
 
         {/* Snapshots */}
         <button
