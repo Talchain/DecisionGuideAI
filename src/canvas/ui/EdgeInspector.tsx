@@ -112,11 +112,11 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   }
   
   return (
-    <div
-      className="p-4 border-t border-gray-200"
-      onKeyDown={handleKeyDown}
-      role="region"
+    <div 
+      className="p-4 border-t border-gray-200" 
+      role="region" 
       aria-label="Edge properties"
+      data-testid="panel-edge-properties"
     >
       {/* Live region for announcements */}
       <div

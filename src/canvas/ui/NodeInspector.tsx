@@ -76,6 +76,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           value={currentType}
           onChange={(e) => handleTypeChange(e.target.value as NodeType)}
           className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 bg-white"
+          data-testid="select-node-type"
         >
           {(Object.keys(NODE_REGISTRY) as NodeType[]).map((type) => (
             <option key={type} value={type}>

@@ -69,6 +69,7 @@ export function CanvasToolbar() {
             aria-label="Add node to canvas"
             aria-expanded={showNodeMenu}
             aria-haspopup="menu"
+            data-testid="btn-node-menu"
           >
             + Node
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -89,6 +90,7 @@ export function CanvasToolbar() {
                     role="menuitem"
                     onClick={() => handleAddNode(type)}
                     className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors flex items-center gap-2"
+                    aria-label={`Add ${meta.label} node`}
                   >
                     {renderIcon(meta.icon, 16)}
                     <span>Add {meta.label}</span>

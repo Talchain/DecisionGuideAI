@@ -359,4 +359,40 @@ describe('Canvas Store', () => {
       expect(selection2).toBe(selection1)
     })
   })
+
+  describe('Type Validation', () => {
+    it('rejects invalid node type in updateNode', () => {
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const { nodes, updateNode } = useCanvasStore.getState()
+      const initialNode = nodes[0]
+      const initialNodeCount = nodes.length
+      
+      // Attempt to update with invalid type
+      updateNode(initialNode.id, { type: 'invalid-type' as any })
+      
+      const updatedNodes = useCanvasStore.getState().nodes
+      const updatedNode = updatedNodes.find(n => n.id === initialNode.id)
+      
+      // State should be unchanged
+      expect(updatedNodes).toHaveLength(initialNodeCount)
+      expect(updatedNode?.type).toBe(initialNode.type)
+      
+      // Should log warning once
+      expect(consoleWarnSpy).toHaveBeenCalledWith('[Canvas] Invalid node type: invalid-type')
+      expect(consoleWarnSpy).toHaveBeenCalledTimes(1)
+      
+      consoleWarnSpy.mockRestore()
+    })
+
+    it('allows valid node type updates', () => {
+      const { nodes, updateNode } = useCanvasStore.getState()
+      const initialNode = nodes[0]
+      
+      // Update with valid type
+      updateNode(initialNode.id, { type: 'goal' })
+      
+      const updatedNode = useCanvasStore.getState().nodes.find(n => n.id === initialNode.id)
+      expect(updatedNode?.type).toBe('goal')
+    })
+  })
 })

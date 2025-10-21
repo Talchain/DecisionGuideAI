@@ -25,7 +25,7 @@ export function LayoutOptionsPanel() {
     setIsApplying(true)
     
     // Show loading toast for first-time ELK load
-    const loadingToast = showToast('Loading layout engine...', 'info')
+    showToast('Loading layout engine...', 'info')
     
     try {
       await applyLayout()
@@ -39,14 +39,21 @@ export function LayoutOptionsPanel() {
     }
   }
 
+  const handleLayoutClick = () => {
+    showToast('Auto-layout is in progress — coming soon.', 'info')
+  }
+
   if (!isOpen) {
     return (
       <button
-        onClick={() => setIsOpen(true)}
-        className="px-3 py-2 bg-white rounded-lg shadow border border-gray-200 hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700"
-        aria-label="Layout options"
+        onClick={handleLayoutClick}
+        className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+        aria-label="Auto-layout (coming soon)"
+        aria-disabled="true"
+        data-testid="btn-layout"
+        title="Auto-layout (coming soon)"
       >
-        🔧 Layout
+        Layout
       </button>
     )
   }
