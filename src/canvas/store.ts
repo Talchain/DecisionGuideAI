@@ -5,6 +5,7 @@ import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportC
 import { setsEqual } from './store/utils'
 import { DEFAULT_EDGE_DATA, type EdgeData } from './domain/edges'
 import { NODE_REGISTRY, type NodeType } from './domain/nodes'
+import { applyLayout } from './layout'
 
 const initialNodes: Node[] = [
   { id: '1', type: 'decision', position: { x: 250, y: 100 }, data: { label: 'Start' } },
@@ -479,9 +480,6 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (nodes.length < 2) {
       return // Nothing to layout
     }
-    
-    // Import layout engine
-    const { applyLayout } = require('./layout')
     
     // Convert nodes to layout format
     const layoutNodes = nodes.map(n => ({

@@ -25,6 +25,14 @@ test.describe('Auto-Layout', () => {
   })
 
   test('applies grid layout and changes node positions', async ({ page }) => {
+    // Listen for console errors
+    const consoleErrors: string[] = []
+    page.on('console', msg => {
+      if (msg.type() === 'error') {
+        consoleErrors.push(msg.text())
+      }
+    })
+    
     // Get initial position of first node
     const node = page.locator('.react-flow__node').first()
     const initialBox = await node.boundingBox()
@@ -36,15 +44,16 @@ test.describe('Auto-Layout', () => {
     // Apply grid layout
     await page.locator('[data-testid="layout-preset-grid"]').click()
     
-    // Wait for layout to apply
-    await page.waitForTimeout(500) // Allow animation
+    // Wait for success toast (deterministic)
+    await expect(page.locator('text=Grid layout applied')).toBeVisible({ timeout: 3000 })
     
     // Position should have changed
     const newBox = await node.boundingBox()
     expect(newBox).not.toEqual(initialBox)
     
-    // Success toast should appear
-    await expect(page.locator('text=Grid layout applied')).toBeVisible({ timeout: 3000 })
+    // Should not have "require is not defined" error
+    const hasRequireError = consoleErrors.some(err => err.includes('require is not defined'))
+    expect(hasRequireError).toBe(false)
   })
 
   test('applies hierarchy layout', async ({ page }) => {
@@ -82,11 +91,10 @@ test.describe('Auto-Layout', () => {
     // Apply layout
     await page.locator('[data-testid="btn-layout"]').click()
     await page.locator('[data-testid="layout-preset-grid"]').click()
-    await page.waitForTimeout(500)
+    await expect(page.locator('text=Grid layout applied')).toBeVisible({ timeout: 3000 })
     
     // Undo
     await page.keyboard.press('Meta+z')
-    await page.waitForTimeout(300)
     
     // Nodes should still exist
     await expect(nodes).toHaveCount(initialCount)
@@ -99,19 +107,18 @@ test.describe('Auto-Layout', () => {
     // Select small spacing
     await page.locator('button:has-text("Small")').click()
     await page.locator('[data-testid="layout-preset-grid"]').click()
-    await page.waitForTimeout(500)
+    await expect(page.locator('text=Grid layout applied')).toBeVisible({ timeout: 3000 })
     
     const smallBox = await page.locator('.react-flow__node').last().boundingBox()
     
     // Undo
     await page.keyboard.press('Meta+z')
-    await page.waitForTimeout(300)
     
     // Apply with large spacing
     await page.locator('[data-testid="btn-layout"]').click()
     await page.locator('button:has-text("Large")').click()
     await page.locator('[data-testid="layout-preset-grid"]').click()
-    await page.waitForTimeout(500)
+    await expect(page.locator('text=Grid layout applied')).toBeVisible({ timeout: 3000 })
     
     const largeBox = await page.locator('.react-flow__node').last().boundingBox()
     
