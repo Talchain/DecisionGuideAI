@@ -9,6 +9,8 @@ import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import { useFocusManagement } from '../../hooks/useFocusManagement'
 import { useNotesStore } from '../../notes/notesStore'
 import { Toast } from '../../components/Toast'
+import { useAuth } from '../../contexts/AuthContext'
+import { supabase } from '../../lib/supabase'
 import { DeterminismTool } from './DeterminismTool'
 import { OfflineBanner } from './components/OfflineBanner'
 import { EmptyState } from './components/EmptyState'
@@ -44,12 +46,28 @@ export function DecisionTemplates() {
   const headingRef = useFocusManagement('templates')
   const addBlock = useNotesStore(s => s.addBlock)
   const undo = useNotesStore(s => s.undo)
+  const { user } = useAuth()
+  const [sessionToken, setSessionToken] = useState<string | null>(null)
 
   const template = TEMPLATES.find(t => t.id === selectedTemplate)
-  // TODO: Get token from session when auth is fully integrated
-  const token = import.meta.env.VITE_PLOT_API_TOKEN || 'dev-token'
+  // Use session token with fallback to env
+  const token = sessionToken || import.meta.env.VITE_PLOT_API_TOKEN || 'dev-token'
   
   const hasTemplates = TEMPLATES.length > 0
+
+  // Fetch session token
+  useEffect(() => {
+    const getSessionToken = async () => {
+      if (user) {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.access_token) {
+          setSessionToken(session.access_token)
+        }
+      }
+    }
+    
+    getSessionToken()
+  }, [user])
 
   // Fetch limits on mount
   useEffect(() => {
@@ -125,9 +143,16 @@ export function DecisionTemplates() {
         elapsed_ms: response.meta.elapsed_ms
       })
     } catch (err: any) {
-      const errorMessage = err.code ? formatApiError(err) : 'Something went wrong. Please try again.'
-      setError(errorMessage)
-      if (liveRegion) liveRegion.textContent = errorMessage
+      // Handle 401 specially - prompt to re-authenticate
+      if (err.code === 'UNAUTHORIZED') {
+        const errorMessage = 'Authentication required. Please sign in to run templates.'
+        setError(errorMessage)
+        if (liveRegion) liveRegion.textContent = errorMessage
+      } else {
+        const errorMessage = err.code ? formatApiError(err) : 'Something went wrong. Please try again.'
+        setError(errorMessage)
+        if (liveRegion) liveRegion.textContent = errorMessage
+      }
     } finally {
       setLoading(false)
     }
