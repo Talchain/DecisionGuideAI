@@ -7,6 +7,8 @@ import { formatApiError } from '../../lib/plotErrors'
 import { logPlotRun } from '../../lib/plotTelemetry'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import { useFocusManagement } from '../../hooks/useFocusManagement'
+import { useNotesStore } from '../../notes/notesStore'
+import { Toast } from '../../components/Toast'
 import { DeterminismTool } from './DeterminismTool'
 import { OfflineBanner } from './components/OfflineBanner'
 import { EmptyState } from './components/EmptyState'
@@ -37,8 +39,11 @@ export function DecisionTemplates() {
   const [loading, setLoading] = useState(false)
   const [limits, setLimits] = useState<ApiLimits | null>(null)
   const [limitsLoading, setLimitsLoading] = useState(true)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
   const isOnline = useOnlineStatus()
   const headingRef = useFocusManagement('templates')
+  const addBlock = useNotesStore(s => s.addBlock)
+  const undo = useNotesStore(s => s.undo)
 
   const template = TEMPLATES.find(t => t.id === selectedTemplate)
   // TODO: Get token from session when auth is fully integrated
@@ -66,6 +71,19 @@ export function DecisionTemplates() {
     
     loadLimits()
   }, [token])
+
+  // Handle keyboard shortcuts (⌘Z for undo)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault()
+        undo()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [undo])
 
   const handleRun = async () => {
     if (!template || !token) return
@@ -134,17 +152,29 @@ export function DecisionTemplates() {
   const handleAddToNote = () => {
     if (!result || !template) return
     
-    const block = `### Decision Result — ${template.id}
-- Seed: ${seed}
-- Response hash: ${result.model_card.response_hash}
-- Bands: Conservative ${result.summary.bands.p10}, Likely ${result.summary.bands.p50}, Optimistic ${result.summary.bands.p90}
-- Confidence: ${result.summary.confidence.level} (${result.summary.confidence.score})
-`
+    // Create structured block
+    const block = {
+      id: `plot-${Date.now()}`,
+      type: 'plot_result' as const,
+      timestamp: new Date().toISOString(),
+      data: {
+        template_id: template.id,
+        seed,
+        response_hash: result.model_card.response_hash,
+        bands: result.summary.bands,
+        confidence: {
+          level: result.summary.confidence.level,
+          score: result.summary.confidence.score
+        },
+        belief_mode: beliefMode
+      }
+    }
     
-    // TODO: Insert into Decision Note
-    console.log('[AddToNote]', block)
-    navigator.clipboard.writeText(block)
-    alert('Copied to clipboard! Paste into your Decision Note.')
+    // Add to notes store (creates undo frame)
+    addBlock(block)
+    
+    // Show toast with undo hint
+    setToastMessage('Result added to Decision Note — press ⌘Z to undo')
   }
 
   if (!token) {
@@ -360,6 +390,13 @@ export function DecisionTemplates() {
             graph: template.graph as any
           }}
           token={token}
+        />
+      )}
+      
+      {toastMessage && (
+        <Toast
+          message={toastMessage}
+          onClose={() => setToastMessage(null)}
         />
       )}
     </div>
