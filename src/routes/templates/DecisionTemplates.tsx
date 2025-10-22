@@ -214,14 +214,14 @@ export function DecisionTemplates() {
             <div className="flex gap-2">
               <button
                 onClick={() => setBeliefMode('strict')}
-                className={`px-3 py-1 rounded text-sm ${beliefMode === 'strict' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                className={`px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 ${beliefMode === 'strict' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
                 aria-pressed={beliefMode === 'strict'}
               >
                 Strict
               </button>
               <button
                 onClick={() => setBeliefMode('as_provided')}
-                className={`px-3 py-1 rounded text-sm ${beliefMode === 'as_provided' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+                className={`px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 ${beliefMode === 'as_provided' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
                 aria-pressed={beliefMode === 'as_provided'}
               >
                 Uncertainty
@@ -239,7 +239,7 @@ export function DecisionTemplates() {
               type="number"
               value={seed}
               onChange={e => setSeed(Number(e.target.value))}
-              className="border rounded px-2 py-1 w-32"
+              className="border rounded px-2 py-1 w-32 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-1"
               aria-label="Determinism seed"
             />
           </div>
@@ -247,8 +247,9 @@ export function DecisionTemplates() {
           <button
             onClick={handleRun}
             disabled={loading || !isOnline}
-            className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
             data-testid="btn-run-template"
+            aria-disabled={loading || !isOnline}
             aria-label={loading ? 'Running template' : !isOnline ? 'Offline - cannot run' : 'Run template'}
           >
             {loading ? 'Running…' : 'Run'}
@@ -309,21 +310,21 @@ export function DecisionTemplates() {
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-600">Template ID:</span>
                 <code className="text-xs bg-gray-100 px-2 py-1 rounded">{template?.id}</code>
-                <button onClick={handleCopyTemplateId} className="text-xs text-blue-600 hover:underline" aria-label="Copy template ID">
+                <button onClick={handleCopyTemplateId} className="text-xs text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-1" aria-label="Copy template ID">
                   Copy
                 </button>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-600">Seed:</span>
                 <code className="text-xs bg-gray-100 px-2 py-1 rounded">{seed}</code>
-                <button onClick={handleCopySeed} className="text-xs text-blue-600 hover:underline" aria-label="Copy seed">
+                <button onClick={handleCopySeed} className="text-xs text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-1" aria-label="Copy seed">
                   Copy
                 </button>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-600">Hash:</span>
                 <code className="text-xs bg-gray-100 px-2 py-1 rounded">{result.model_card.response_hash.slice(0, 16)}...</code>
-                <button onClick={handleCopyHash} className="text-xs text-blue-600 hover:underline" aria-label="Copy response hash">
+                <button onClick={handleCopyHash} className="text-xs text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-1" aria-label="Copy response hash">
                   Copy
                 </button>
               </div>
@@ -332,14 +333,14 @@ export function DecisionTemplates() {
             <div className="mt-4 flex gap-2">
               <button
                 onClick={() => handleRun()}
-                className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
+                className="px-3 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
                 aria-label="Run again with same seed"
               >
                 Run Again (Same Seed)
               </button>
               <button
                 onClick={handleAddToNote}
-                className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded"
+                className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
                 data-testid="btn-add-to-note"
                 aria-label="Add to Decision Note"
               >
