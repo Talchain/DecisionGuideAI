@@ -237,7 +237,7 @@ export function DecisionTemplates() {
             <button
               key={t.id}
               onClick={() => setSelectedTemplate(t.id)}
-              disabled={exceedsLimits}
+              disabled={exceedsLimits || undefined}
               className={`p-4 border rounded text-left transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                 selectedTemplate === t.id 
                   ? 'border-blue-500 bg-blue-50' 

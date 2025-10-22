@@ -32,7 +32,6 @@ function ReactFlowGraphInner() {
   
   const reconnecting = useCanvasStore(s => s.reconnecting)
   const completeReconnect = useCanvasStore(s => s.completeReconnect)
-  const updateEdgeEndpoints = useCanvasStore(s => s.updateEdgeEndpoints)
   const { showToast } = useToast()
   
   const handleNodeClick = useCallback((_: any, node: any) => {
