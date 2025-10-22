@@ -4,7 +4,8 @@
 import { useState, useEffect } from 'react'
 import { runTemplate, fetchLimits, validateGraph, type RunResponse, type BeliefMode, type ApiLimits } from '../../lib/plotApi'
 import { formatApiError } from '../../lib/plotErrors'
-import { useAuth } from '../../contexts/AuthContext'
+import { logPlotRun } from '../../lib/plotTelemetry'
+import { DeterminismTool } from './DeterminismTool'
 
 // Import templates
 import pricingTemplate from './data/pricing-v1.json'
@@ -24,7 +25,6 @@ const TEMPLATES = [
 ]
 
 export function DecisionTemplates() {
-  const { user } = useAuth()
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null)
   const [beliefMode, setBeliefMode] = useState<BeliefMode>('strict')
   const [seed, setSeed] = useState(42)
@@ -35,7 +35,8 @@ export function DecisionTemplates() {
   const [limitsLoading, setLimitsLoading] = useState(true)
 
   const template = TEMPLATES.find(t => t.id === selectedTemplate)
-  const token = user?.access_token ?? import.meta.env.VITE_PLOT_API_TOKEN
+  // TODO: Get token from session when auth is fully integrated
+  const token = import.meta.env.VITE_PLOT_API_TOKEN || 'dev-token'
 
   // Fetch limits on mount
   useEffect(() => {
@@ -71,7 +72,7 @@ export function DecisionTemplates() {
     try {
       // Validate against limits
       if (limits) {
-        const validationError = validateGraph(template.graph, limits)
+        const validationError = validateGraph(template.graph as any, limits)
         if (validationError) {
           setError(formatApiError(validationError))
           if (liveRegion) liveRegion.textContent = formatApiError(validationError)
@@ -83,11 +84,20 @@ export function DecisionTemplates() {
         template_id: template.id,
         seed,
         belief_mode: beliefMode,
-        graph: template.graph
+        graph: template.graph as any
       }, token)
       
       setResult(response)
       if (liveRegion) liveRegion.textContent = 'Results ready'
+      
+      // Telemetry (dev mode only, no PII)
+      logPlotRun({
+        template_id: response.meta.template_id,
+        seed: response.meta.seed,
+        belief_mode: beliefMode,
+        response_hash: response.model_card.response_hash,
+        elapsed_ms: response.meta.elapsed_ms
+      })
     } catch (err: any) {
       const errorMessage = err.code ? formatApiError(err) : 'Something went wrong. Please try again.'
       setError(errorMessage)
@@ -324,6 +334,18 @@ export function DecisionTemplates() {
             </div>
           </div>
         </div>
+      )}
+      
+      {result && template && (
+        <DeterminismTool
+          request={{
+            template_id: template.id,
+            seed,
+            belief_mode: beliefMode,
+            graph: template.graph as any
+          }}
+          token={token}
+        />
       )}
     </div>
   )
