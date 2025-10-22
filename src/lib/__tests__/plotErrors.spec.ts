@@ -7,14 +7,19 @@ describe('PLoT Error Mapping', () => {
       .toBe('Looks like graph is invalid or missing.')
   })
 
-  it('formats LIMIT_EXCEEDED with details', () => {
+  it('formats LIMIT_EXCEEDED with remediation', () => {
     expect(formatApiError({ code: 'LIMIT_EXCEEDED', message: '', field: 'nodes', max: 12 }))
-      .toBe('This template exceeds the limit (nodes, max 12).')
+      .toBe('This template exceeds the limit (nodes, max 12). Reduce nodes below 12 and try again.')
   })
 
   it('formats RATE_LIMITED with retry_after', () => {
     expect(formatApiError({ code: 'RATE_LIMITED', message: '', retry_after: 30 }))
       .toBe('A bit busy. Try again in ~30s.')
+  })
+
+  it('clamps retry_after to max 60s', () => {
+    expect(formatApiError({ code: 'RATE_LIMITED', message: '', retry_after: 120 }))
+      .toBe('A bit busy. Try again in ~60s.')
   })
 
   it('formats UNAUTHORIZED', () => {

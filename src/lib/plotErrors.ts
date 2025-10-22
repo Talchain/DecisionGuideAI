@@ -11,14 +11,15 @@ export function formatApiError(error: ApiError): string {
         : 'Some input is invalid or missing.'
     
     case 'LIMIT_EXCEEDED':
-      return error.field && error.max
-        ? `This template exceeds the limit (${error.field}, max ${error.max}).`
-        : 'This template exceeds a limit.'
+      if (error.field && error.max) {
+        return `This template exceeds the limit (${error.field}, max ${error.max}). Reduce ${error.field} below ${error.max} and try again.`
+      }
+      return 'This template exceeds a limit.'
     
-    case 'RATE_LIMITED':
-      return error.retry_after
-        ? `A bit busy. Try again in ~${error.retry_after}s.`
-        : 'A bit busy. Try again soon.'
+    case 'RATE_LIMITED': {
+      const retryAfter = Math.min(error.retry_after || 30, 60)
+      return `A bit busy. Try again in ~${retryAfter}s.`
+    }
     
     case 'UNAUTHORIZED':
       return 'Sign in again to continue.'

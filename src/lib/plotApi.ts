@@ -1,5 +1,5 @@
 /**
- * PLoT API Client - Phase A: Sync /v1/run
+ * PLoT API Client - Phase A: Production Quality
  */
 
 export type NodeKind = 'goal' | 'decision' | 'option' | 'risk' | 'outcome'
@@ -34,15 +34,29 @@ export type ApiLimits = { max_nodes: number; max_edges: number }
 export type ApiError = { code: string; message: string; field?: string; max?: number; retry_after?: number }
 
 const API_BASE = import.meta.env.VITE_PLOT_API_BASE_URL || 'https://plot-api.example.com'
+const UI_BUILD = import.meta.env.VITE_BUILD_ID || 'dev'
 const DEFAULT_LIMITS: ApiLimits = { max_nodes: 12, max_edges: 20 }
+const CACHE_TTL_MS = 60_000
 
 let cachedLimits: ApiLimits | null = null
 let limitsETag: string | null = null
+let cacheTimestamp = 0
 
-const redactToken = (token: string) => token.slice(0, 8) + '...'
+const redactToken = (token: string) => token ? token.slice(0, 8) + '...' : '[no-token]'
+
+function getHeaders(token: string): HeadersInit {
+  return {
+    'Authorization': `Bearer ${token}`,
+    'X-UI-Build': UI_BUILD,
+    'Content-Type': 'application/json'
+  }
+}
 
 export async function fetchLimits(token: string): Promise<ApiLimits> {
-  const headers: HeadersInit = { 'Authorization': `Bearer ${token}` }
+  const now = Date.now()
+  if (cachedLimits && (now - cacheTimestamp) < CACHE_TTL_MS) return cachedLimits
+  
+  const headers = getHeaders(token)
   if (limitsETag) headers['If-None-Match'] = limitsETag
   
   try {
@@ -50,13 +64,14 @@ export async function fetchLimits(token: string): Promise<ApiLimits> {
     if (res.status === 304 && cachedLimits) return cachedLimits
     if (!res.ok) return DEFAULT_LIMITS
     
-    const newETag = res.headers.get('ETag')
-    if (newETag) limitsETag = newETag
+    const etag = res.headers.get('ETag') || res.headers.get('etag')
+    if (etag) limitsETag = etag
     
     cachedLimits = await res.json()
+    cacheTimestamp = now
     return cachedLimits!
   } catch (err) {
-    console.warn('[plotApi] Limits fetch failed:', redactToken(token), err)
+    console.warn('[plotApi] Limits failed:', redactToken(token))
     return DEFAULT_LIMITS
   }
 }
@@ -75,19 +90,20 @@ export async function runTemplate(req: RunRequest, token: string): Promise<RunRe
   try {
     const res = await fetch(`${API_BASE}/v1/run`, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      headers: getHeaders(token),
       body: JSON.stringify(req)
     })
     
     if (!res.ok) {
       const error: ApiError = await res.json()
-      console.error('[plotApi] Run failed:', redactToken(token), error.code)
+      console.error('[plotApi] Run failed:', error.code)
       throw error
     }
     
     return await res.json()
-  } catch (err) {
-    console.error('[plotApi] Request error:', redactToken(token), err)
-    throw err
+  } catch (err: any) {
+    if (err.code) throw err
+    console.error('[plotApi] Request error')
+    throw { code: 'SERVER_ERROR', message: 'Request failed' }
   }
 }
