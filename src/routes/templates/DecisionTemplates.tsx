@@ -6,6 +6,7 @@ import { runTemplate, fetchLimits, validateGraph, type RunResponse, type BeliefM
 import { formatApiError } from '../../lib/plotErrors'
 import { logPlotRun } from '../../lib/plotTelemetry'
 import { useOnlineStatus } from '../../hooks/useOnlineStatus'
+import { useFocusManagement } from '../../hooks/useFocusManagement'
 import { DeterminismTool } from './DeterminismTool'
 import { OfflineBanner } from './components/OfflineBanner'
 import { EmptyState } from './components/EmptyState'
@@ -37,6 +38,7 @@ export function DecisionTemplates() {
   const [limits, setLimits] = useState<ApiLimits | null>(null)
   const [limitsLoading, setLimitsLoading] = useState(true)
   const isOnline = useOnlineStatus()
+  const headingRef = useFocusManagement('templates')
 
   const template = TEMPLATES.find(t => t.id === selectedTemplate)
   // TODO: Get token from session when auth is fully integrated
@@ -159,7 +161,7 @@ export function DecisionTemplates() {
     <div className="p-6" data-testid="decision-templates">
       <div id="plot-live-region" className="sr-only" aria-live="polite" aria-atomic="true"></div>
       
-      <h1 className="text-2xl font-bold mb-2">Decision Templates</h1>
+      <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold mb-2 focus:outline-none">Decision Templates</h1>
       <p className="text-gray-600 mb-6">Run deterministic analysis on canonical decision scenarios</p>
       
       {!isOnline && <OfflineBanner />}
@@ -181,7 +183,7 @@ export function DecisionTemplates() {
               key={t.id}
               onClick={() => setSelectedTemplate(t.id)}
               disabled={exceedsLimits}
-              className={`p-4 border rounded text-left transition-colors ${
+              className={`p-4 border rounded text-left transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
                 selectedTemplate === t.id 
                   ? 'border-blue-500 bg-blue-50' 
                   : exceedsLimits

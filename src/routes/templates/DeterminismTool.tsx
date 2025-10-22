@@ -2,7 +2,7 @@
  * Determinism Verification Tool
  * Runs same template+seed 5× and verifies identical response_hash
  */
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { runTemplate, type RunRequest } from '../../lib/plotApi'
 import { Check, X, Loader2 } from 'lucide-react'
 
@@ -14,6 +14,15 @@ interface DeterminismToolProps {
 export function DeterminismTool({ request, token }: DeterminismToolProps) {
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<{ passed: boolean; hashes: string[]; proof: string } | null>(null)
+  const [announcement, setAnnouncement] = useState('')
+
+  useEffect(() => {
+    if (running) {
+      setAnnouncement('Determinism verification in progress')
+    } else if (result) {
+      setAnnouncement(result.passed ? 'Determinism verified successfully' : 'Determinism verification failed')
+    }
+  }, [running, result])
 
   const handleVerify = async () => {
     setRunning(true)
@@ -43,6 +52,7 @@ Timestamp: ${new Date().toISOString()}`
       setResult({ passed, hashes, proof })
     } catch (err) {
       console.error('[DeterminismTool] Verification failed:', err)
+      setAnnouncement('Verification failed')
     } finally {
       setRunning(false)
     }
@@ -56,6 +66,10 @@ Timestamp: ${new Date().toISOString()}`
 
   return (
     <div className="border rounded p-4 mt-4" data-testid="determinism-tool">
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announcement}
+      </div>
+      
       <h3 className="text-sm font-semibold mb-2">Determinism Verification</h3>
       <p className="text-xs text-gray-600 mb-3">
         Run this template 5 times with the same seed to verify identical results.
@@ -64,7 +78,7 @@ Timestamp: ${new Date().toISOString()}`
       <button
         onClick={handleVerify}
         disabled={running}
-        className="px-3 py-1 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded disabled:opacity-50"
+        className="px-3 py-1 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
         aria-label="Verify determinism"
       >
         {running ? (
@@ -82,12 +96,12 @@ Timestamp: ${new Date().toISOString()}`
           <div className="flex items-center gap-2 mb-2">
             {result.passed ? (
               <>
-                <Check className="h-5 w-5 text-green-600" />
+                <Check className="h-5 w-5 text-green-600" aria-hidden="true" />
                 <span className="font-semibold text-green-800">Determinism Verified ✓</span>
               </>
             ) : (
               <>
-                <X className="h-5 w-5 text-red-600" />
+                <X className="h-5 w-5 text-red-600" aria-hidden="true" />
                 <span className="font-semibold text-red-800">Determinism Failed ✗</span>
               </>
             )}
@@ -101,8 +115,8 @@ Timestamp: ${new Date().toISOString()}`
           
           <button
             onClick={handleCopyProof}
-            className="text-xs text-blue-600 hover:underline"
-            aria-label="Copy proof"
+            className="text-xs text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+            aria-label="Copy proof to clipboard"
           >
             Copy Proof
           </button>
