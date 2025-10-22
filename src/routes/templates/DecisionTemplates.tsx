@@ -5,7 +5,10 @@ import { useState, useEffect } from 'react'
 import { runTemplate, fetchLimits, validateGraph, type RunResponse, type BeliefMode, type ApiLimits } from '../../lib/plotApi'
 import { formatApiError } from '../../lib/plotErrors'
 import { logPlotRun } from '../../lib/plotTelemetry'
+import { useOnlineStatus } from '../../hooks/useOnlineStatus'
 import { DeterminismTool } from './DeterminismTool'
+import { OfflineBanner } from './components/OfflineBanner'
+import { EmptyState } from './components/EmptyState'
 
 // Import templates
 import pricingTemplate from './data/pricing-v1.json'
@@ -33,10 +36,13 @@ export function DecisionTemplates() {
   const [loading, setLoading] = useState(false)
   const [limits, setLimits] = useState<ApiLimits | null>(null)
   const [limitsLoading, setLimitsLoading] = useState(true)
+  const isOnline = useOnlineStatus()
 
   const template = TEMPLATES.find(t => t.id === selectedTemplate)
   // TODO: Get token from session when auth is fully integrated
   const token = import.meta.env.VITE_PLOT_API_TOKEN || 'dev-token'
+  
+  const hasTemplates = TEMPLATES.length > 0
 
   // Fetch limits on mount
   useEffect(() => {
@@ -156,8 +162,13 @@ export function DecisionTemplates() {
       <h1 className="text-2xl font-bold mb-2">Decision Templates</h1>
       <p className="text-gray-600 mb-6">Run deterministic analysis on canonical decision scenarios</p>
       
+      {!isOnline && <OfflineBanner />}
+      
       {limitsLoading && <div className="text-sm text-gray-500 mb-4">Loading limits…</div>}
       
+      {!hasTemplates ? (
+        <EmptyState onRetry={() => window.location.reload()} />
+      ) : (
       <div className="grid grid-cols-2 gap-4 mb-6">
         {TEMPLATES.map(t => {
           const exceedsLimits = limits && (
@@ -190,8 +201,9 @@ export function DecisionTemplates() {
           )
         })}
       </div>
+      )}
 
-      {template && (
+      {hasTemplates && template && (
         <div className="border rounded p-4 mb-4" data-testid="run-panel">
           <h2 className="font-semibold mb-3">Run Configuration</h2>
           
@@ -232,10 +244,10 @@ export function DecisionTemplates() {
 
           <button
             onClick={handleRun}
-            disabled={loading}
+            disabled={loading || !isOnline}
             className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="btn-run-template"
-            aria-label={loading ? 'Running template' : 'Run template'}
+            aria-label={loading ? 'Running template' : !isOnline ? 'Offline - cannot run' : 'Run template'}
           >
             {loading ? 'Running…' : 'Run'}
           </button>
