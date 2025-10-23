@@ -1,0 +1,18 @@
+{
+  "id": "retention-v1",
+  "name": "Retention",
+  "version": "v1",
+  "description": "Churn, engagement loops, and LTV.",
+  "default_seed": 1337,
+  "graph": {
+    "nodes": [
+      { "id": "ltv", "kind": "goal", "label": "Increase LTV" },
+      { "id": "engagement", "kind": "decision", "label": "Improve engagement" },
+      { "id": "churn", "kind": "outcome", "label": "Churn" }
+    ],
+    "edges": [
+      { "source": "engagement", "target": "ltv", "weight": 0.5 },
+      { "source": "churn", "target": "ltv", "weight": -0.6 }
+    ]
+  }
+}

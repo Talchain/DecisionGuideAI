@@ -1,0 +1,7 @@
+{
+  "schema": "error.v1",
+  "code": "RATE_LIMITED",
+  "error": "You’re going fast — please retry shortly.",
+  "hint": "This protects the service during bursts.",
+  "retry_after": 15
+}

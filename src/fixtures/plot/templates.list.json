@@ -1,0 +1,40 @@
+{
+  "items": [
+    {
+      "id": "pricing-v1",
+      "name": "Pricing",
+      "version": "v1",
+      "description": "Price changes vs demand and revenue."
+    },
+    {
+      "id": "hiring-v1",
+      "name": "Hiring Plan",
+      "version": "v1",
+      "description": "Headcount, ramp, and delivery timelines."
+    },
+    {
+      "id": "marketing-v1",
+      "name": "Marketing Mix",
+      "version": "v1",
+      "description": "Spend vs reach vs sign-ups."
+    },
+    {
+      "id": "supply-v1",
+      "name": "Supply Planning",
+      "version": "v1",
+      "description": "Lead times, stockouts, and service levels."
+    },
+    {
+      "id": "feature-tradeoffs-v1",
+      "name": "Feature Trade-offs",
+      "version": "v1",
+      "description": "Scope, quality, and schedule choices."
+    },
+    {
+      "id": "retention-v1",
+      "name": "Retention",
+      "version": "v1",
+      "description": "Churn, engagement loops, and LTV."
+    }
+  ]
+}

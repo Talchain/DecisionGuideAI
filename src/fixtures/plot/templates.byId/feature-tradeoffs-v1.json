@@ -1,0 +1,18 @@
+{
+  "id": "feature-tradeoffs-v1",
+  "name": "Feature Trade-offs",
+  "version": "v1",
+  "description": "Scope, quality, and schedule choices.",
+  "default_seed": 1337,
+  "graph": {
+    "nodes": [
+      { "id": "impact", "kind": "goal", "label": "Maximize customer impact" },
+      { "id": "scope", "kind": "decision", "label": "Choose scope" },
+      { "id": "quality", "kind": "outcome", "label": "Quality" }
+    ],
+    "edges": [
+      { "source": "scope", "target": "impact", "weight": 0.5 },
+      { "source": "quality", "target": "impact", "weight": 0.4 }
+    ]
+  }
+}

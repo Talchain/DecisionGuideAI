@@ -1,0 +1,18 @@
+{
+  "id": "marketing-v1",
+  "name": "Marketing Mix",
+  "version": "v1",
+  "description": "Spend vs reach vs sign-ups.",
+  "default_seed": 1337,
+  "graph": {
+    "nodes": [
+      { "id": "signups", "kind": "goal", "label": "Increase sign-ups" },
+      { "id": "spend", "kind": "decision", "label": "Allocate spend" },
+      { "id": "reach", "kind": "outcome", "label": "Reach" }
+    ],
+    "edges": [
+      { "source": "spend", "target": "reach", "weight": 0.5 },
+      { "source": "reach", "target": "signups", "weight": 0.6 }
+    ]
+  }
+}

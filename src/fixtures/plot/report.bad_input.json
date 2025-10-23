@@ -1,0 +1,6 @@
+{
+  "schema": "error.v1",
+  "code": "BAD_INPUT",
+  "error": "Please set a goal node so we know what to optimize.",
+  "hint": "Add a goal node to anchor this plan."
+}

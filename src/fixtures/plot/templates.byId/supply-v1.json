@@ -1,0 +1,18 @@
+{
+  "id": "supply-v1",
+  "name": "Supply Planning",
+  "version": "v1",
+  "description": "Lead times, stockouts, and service levels.",
+  "default_seed": 1337,
+  "graph": {
+    "nodes": [
+      { "id": "service", "kind": "goal", "label": "Maintain service levels" },
+      { "id": "inventory", "kind": "decision", "label": "Set inventory" },
+      { "id": "leadtime", "kind": "outcome", "label": "Lead time" }
+    ],
+    "edges": [
+      { "source": "inventory", "target": "service", "weight": 0.6 },
+      { "source": "leadtime", "target": "service", "weight": -0.4 }
+    ]
+  }
+}

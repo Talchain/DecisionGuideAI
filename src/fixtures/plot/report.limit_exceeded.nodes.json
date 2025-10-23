@@ -1,0 +1,10 @@
+{
+  "schema": "error.v1",
+  "code": "LIMIT_EXCEEDED",
+  "error": "Too many items — please keep it to the limit.",
+  "hint": "Reduce nodes or connections to proceed.",
+  "fields": {
+    "field": "graph.nodes",
+    "max": 12
+  }
+}

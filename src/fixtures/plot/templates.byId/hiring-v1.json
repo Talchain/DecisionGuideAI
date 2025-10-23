@@ -1,0 +1,18 @@
+{
+  "id": "hiring-v1",
+  "name": "Hiring Plan",
+  "version": "v1",
+  "description": "Headcount, ramp, and delivery timelines.",
+  "default_seed": 2024,
+  "graph": {
+    "nodes": [
+      { "id": "delivery", "kind": "goal", "label": "Meet delivery targets" },
+      { "id": "headcount", "kind": "decision", "label": "Adjust headcount" },
+      { "id": "productivity", "kind": "outcome", "label": "Productivity" }
+    ],
+    "edges": [
+      { "source": "headcount", "target": "productivity", "weight": 0.5 },
+      { "source": "productivity", "target": "delivery", "weight": 0.6 }
+    ]
+  }
+}

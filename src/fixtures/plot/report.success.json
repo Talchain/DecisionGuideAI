@@ -1,0 +1,47 @@
+{
+  "schema": "report.v1",
+  "meta": {
+    "seed": 1337,
+    "response_id": "run-9f6c12",
+    "elapsed_ms": 214
+  },
+  "model_card": {
+    "response_hash": "sha256:abc123def4567890",
+    "response_hash_algo": "sha256",
+    "normalized": true
+  },
+  "results": {
+    "conservative": 120,
+    "likely": 150,
+    "optimistic": 182,
+    "units": "percent",
+    "unitSymbol": "%"
+  },
+  "confidence": {
+    "level": "medium",
+    "why": "Limited data on demand shifts"
+  },
+  "drivers": [
+    {
+      "label": "Price decreases demand sharply",
+      "polarity": "down",
+      "strength": "high",
+      "action": "Try reducing price by 3%"
+    },
+    {
+      "label": "Marketing spend raises awareness",
+      "polarity": "up",
+      "strength": "medium",
+      "action": "Try +5% marketing spend"
+    },
+    {
+      "label": "Churn risk offsets revenue",
+      "polarity": "down",
+      "strength": "low"
+    }
+  ],
+  "critique": [
+    "Demand elasticity assumes last quarter trend",
+    "Scenario lacks competitor response modeling"
+  ]
+}

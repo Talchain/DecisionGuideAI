@@ -1,0 +1,18 @@
+{
+  "id": "pricing-v1",
+  "name": "Pricing",
+  "version": "v1",
+  "description": "Price changes vs demand and revenue.",
+  "default_seed": 1337,
+  "graph": {
+    "nodes": [
+      { "id": "revenue", "kind": "goal", "label": "Increase revenue" },
+      { "id": "price", "kind": "decision", "label": "Adjust price" },
+      { "id": "demand", "kind": "outcome", "label": "Demand" }
+    ],
+    "edges": [
+      { "source": "price", "target": "demand", "weight": -0.6 },
+      { "source": "demand", "target": "revenue", "weight": 0.7 }
+    ]
+  }
+}
