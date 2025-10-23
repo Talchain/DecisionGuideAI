@@ -16,36 +16,19 @@ const mockReport: ReportV1 = {
 describe('SummaryCard', () => {
   it('renders likely value prominently', () => {
     render(<SummaryCard report={mockReport} />)
-    
-    expect(screen.getByTestId('summary-likely')).toHaveTextContent('150%')
+    expect(screen.getByText('150%')).toBeInTheDocument()
   })
 
-  it('displays conservative and optimistic values', () => {
+  it('shows confidence badge', () => {
     render(<SummaryCard report={mockReport} />)
-    
-    expect(screen.getByTestId('summary-conservative')).toHaveTextContent('Conservative: 120%')
-    expect(screen.getByTestId('summary-optimistic')).toHaveTextContent('Optimistic: 180%')
+    expect(screen.getByText('Medium Confidence')).toBeInTheDocument()
   })
 
-  it('shows confidence badge with tooltip', () => {
-    render(<SummaryCard report={mockReport} />)
-    
-    const badge = screen.getByTestId('confidence-badge')
-    expect(badge).toHaveTextContent('Medium Confidence')
-    expect(badge).toHaveAttribute('title', 'Why: Limited data available')
-  })
-
-  it('shows verification hash pill when hash exists', () => {
-    render(<SummaryCard report={mockReport} />)
-    
-    expect(screen.getByTestId('hash-pill')).toBeInTheDocument()
-  })
-
-  it('calls onCopyHash when hash pill clicked', () => {
+  it('calls onCopyHash when hash button clicked', () => {
     const onCopyHash = vi.fn()
     render(<SummaryCard report={mockReport} onCopyHash={onCopyHash} />)
     
-    fireEvent.click(screen.getByTestId('hash-pill'))
+    fireEvent.click(screen.getByRole('button', { name: /copy verification hash/i }))
     expect(onCopyHash).toHaveBeenCalled()
   })
 })

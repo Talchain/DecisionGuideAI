@@ -28,7 +28,7 @@ const cache = new Map<string, CacheEntry<unknown>>()
 const stableStringify = (obj: unknown): string =>
   JSON.stringify(
     obj,
-    (key, value) =>
+    (_key, value) =>
       value && typeof value === 'object' && !Array.isArray(value)
         ? Object.keys(value as Record<string, unknown>)
             .sort()
@@ -63,7 +63,13 @@ const mulberry32 = (seed: number) => {
   }
 }
 
+let DELAY_OVERRIDE_MS: number | null = null
+
 const seededDelay = async (seed: number, lo = 120, hi = 220) => {
+  if (DELAY_OVERRIDE_MS !== null) {
+    await new Promise(resolve => setTimeout(resolve, DELAY_OVERRIDE_MS as number))
+    return
+  }
   const prng = mulberry32(seed)
   const duration = Math.floor(lo + (hi - lo) * prng())
   await new Promise(resolve => setTimeout(resolve, duration))
@@ -156,6 +162,9 @@ export const plot = {
     },
     clearCache() {
       cache.clear()
+    },
+    setDelay(ms: number | null) {
+      DELAY_OVERRIDE_MS = ms
     }
   },
 

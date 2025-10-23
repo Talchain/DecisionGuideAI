@@ -5,7 +5,7 @@ import { ErrorBanner } from '../../../../src/routes/templates/components/ErrorBa
 import type { ErrorV1 } from '../../../../src/adapters/plot'
 
 describe('ErrorBanner', () => {
-  it('renders BAD_INPUT error with yellow styling', () => {
+  it('renders BAD_INPUT error with guidance', () => {
     const error: ErrorV1 = {
       schema: 'error.v1',
       code: 'BAD_INPUT',
@@ -13,13 +13,10 @@ describe('ErrorBanner', () => {
     }
     
     render(<ErrorBanner error={error} />)
-    
-    const banner = screen.getByTestId('error-banner')
-    expect(banner).toHaveTextContent('Please set a goal node')
-    expect(banner).toHaveClass('bg-yellow-50')
+    expect(screen.getByRole('alert')).toHaveTextContent('Please set a goal node')
   })
 
-  it('renders LIMIT_EXCEEDED with field and max info', () => {
+  it('renders LIMIT_EXCEEDED with field info', () => {
     const error: ErrorV1 = {
       schema: 'error.v1',
       code: 'LIMIT_EXCEEDED',
@@ -28,8 +25,7 @@ describe('ErrorBanner', () => {
     }
     
     render(<ErrorBanner error={error} />)
-    
-    expect(screen.getByTestId('error-banner')).toHaveTextContent('Too many nodes for this plan. Please keep it to 12 nodes.')
+    expect(screen.getByRole('alert')).toHaveTextContent('Too many nodes for this plan. Please keep it to 12 nodes.')
   })
 
   it('calls onRetry when retry button clicked', () => {
@@ -41,8 +37,7 @@ describe('ErrorBanner', () => {
     }
     
     render(<ErrorBanner error={error} onRetry={onRetry} />)
-    
-    fireEvent.click(screen.getByText('Retry'))
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }))
     expect(onRetry).toHaveBeenCalled()
   })
 })

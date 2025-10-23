@@ -14,7 +14,11 @@ export default defineConfig({
     watch: false,
     reporters: ['default'],
     css: false,
-    setupFiles: [],
+    setupFiles: ['tests/setup/rtl.ts'],
+    restoreMocks: true,
+    clearMocks: true,
+    mockReset: true,
+    isolate: true,
     passWithNoTests: true,
   },
 })
