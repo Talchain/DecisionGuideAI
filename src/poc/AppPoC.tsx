@@ -19,7 +19,6 @@ const PlotShowcase = lazy(() => import('../routes/PlotShowcase'))
 const PlotWorkspace = lazy(() => import('../routes/PlotWorkspace'))
 const PlcLab = lazy(() => import('../routes/PlcLab'))
 const DecisionTemplates = lazy(() => import('../routes/templates/DecisionTemplates').then(m => ({ default: m.DecisionTemplates })))
-const CanvasPage = lazy(() => import('../routes/canvas/CanvasPage').then(m => ({ default: m.CanvasPage })))
 import SandboxHeader, { type SandboxMode } from './components/SandboxHeader'
 import OnboardingHints from './components/OnboardingHints'
 import { BottomNav } from '../components/BottomNav'
@@ -858,7 +857,7 @@ export default function AppPoC() {
           <Suspense fallback={<RouteLoadingFallback />}>
             <CanvasErrorBoundary>
               <Routes>
-              <Route path="/canvas" element={<CanvasPage />} />
+              <Route path="/canvas" element={<CanvasMVP />} />
               <Route path="/templates" element={<DecisionTemplates />} />
               <Route path="/plot" element={<PlotWorkspace />} />
               <Route path="/plot-legacy" element={<PlotShowcase />} />

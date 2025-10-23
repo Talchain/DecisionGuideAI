@@ -290,11 +290,11 @@ npx tsc --noEmit --skipLibCheck
 // 3. Verify Rich UI Route
 // 4. Compare with GitHub
 
-## Local Preview - Whiteboard with Templates Panel
+## Local Preview - Templates Canvas
 
 ### Quick Start
 
-The Canvas route provides a React Flow whiteboard with an integrated Templates panel for answer-first decision templates using a mock adapter.
+The Templates Canvas provides an answer-first decision templates experience using a mock adapter for local development.
 
 **Prerequisites:**
 - Node.js 18-20
@@ -306,38 +306,26 @@ The Canvas route provides a React Flow whiteboard with an integrated Templates p
 # Install dependencies
 npm ci
 
-# Start dev server
-npm run dev
-# or
+# Configure mock adapter (optional - already defaults to mock in dev)
+cp .env.local.example .env.local
+echo "PLOT_ADAPTER=mock" >> .env.local
+
+# Start dev server and open Canvas
 npm run dev:canvas
 ```
 
-The browser will open to **http://localhost:5173/#/canvas**
+The browser will automatically open to **http://localhost:5173/#/canvas**
 
 ### Smoke Checklist
 
 After the Canvas loads, verify:
 
-- ✅ **Whiteboard** visible as the main surface (React Flow graph editor)
-- ✅ **Templates Button** in top-right corner
-- ✅ **Build Badge** in top-left showing commit and mode
+- ✅ **Dev Toolbar** visible with "Adapter: Mock" indicator
+- ✅ **Template Selector** populated with 6 templates
+- ✅ **Seed Input** prefilled with 1337
+- ✅ **Run Button** clickable
 
-**Open Templates Panel:**
-1. Click "Templates" button (top-right)
-2. Panel slides in from the right (desktop) or bottom (mobile)
-3. Verify:
-   - ✅ Panel header shows "Templates" with close button
-   - ✅ "Show dev controls" toggle (off by default)
-
-**Enable Dev Controls:**
-1. Toggle "Show dev controls" switch
-2. Yellow dev section appears with:
-   - ✅ "Adapter: Mock" indicator
-   - ✅ Template selector (6 templates)
-   - ✅ Seed input (prefilled with 1337)
-   - ✅ Run/Reset buttons
-
-**Run a Template:**
+**Run a template:**
 1. Select a template (e.g., "Pricing Strategy")
 2. Click "Run"
 3. Verify:
@@ -345,9 +333,8 @@ After the Canvas loads, verify:
    - ✅ Confidence badge shown
    - ✅ Verification hash pill displayed
    - ✅ Click hash pill → "Verification hash copied." toast
-   - ✅ "Pin to Canvas" button appears
 
-**Test Error Handling:**
+**Test error handling:**
 1. Set seed to `23` (triggers BAD_INPUT)
 2. Click "Run" → helpful error banner appears
 3. Set seed to `29` (triggers RATE_LIMITED)
@@ -355,15 +342,8 @@ After the Canvas loads, verify:
 
 **Accessibility:**
 - ✅ Tab through all controls (visible focus rings)
-- ✅ Screen reader announces panel open/close
-- ✅ Errors announced via role="alert"
-- ✅ Reduced motion respected (no animations)
-
-**Close Panel:**
-- Click X button in panel header
-- Click overlay (mobile)
-- Press Escape key
-- Focus returns to "Templates" button
+- ✅ Screen reader announces progress and errors
+- ✅ Reduced motion respected (no spinner animation)
 
 ### Troubleshooting
 
@@ -372,8 +352,8 @@ After the Canvas loads, verify:
 # Kill existing process
 lsof -ti:5173 | xargs kill -9
 
-# Restart dev server
-npm run dev
+# Or use a different port
+vite --port 5174 --open /#/canvas
 ```
 
 **HMR not working:**
@@ -382,14 +362,13 @@ npm run dev
 rm -rf node_modules/.vite
 
 # Restart dev server
-npm run dev
+npm run dev:canvas
 ```
 
-**Templates panel not loading:**
+**Templates not loading:**
 - Check browser console for errors
 - Verify `src/adapters/plot/mockAdapter.ts` exists
 - Ensure fixtures in `src/fixtures/plot/` are present
-- Check that `src/canvas/panels/TemplatesPanel.tsx` exists
 
 **Build fails:**
 ```bash
@@ -405,11 +384,8 @@ npm run build
 # Run all tests
 npm test
 
-# Run Templates panel tests only
-npm test -- tests/canvas/panels
-
-# Run all Templates + adapter tests
-npm test -- tests/routes/templates tests/adapters/plot.mockAdapter.test.ts tests/canvas/panels
+# Run Canvas tests only
+npm test -- tests/routes/canvas
 
 # Check bundle sizes
 npm run build && npm run size:check
@@ -421,36 +397,8 @@ npm run lint
 ### Architecture
 
 - **Route**: `/#/canvas` (hash-based routing)
-- **Main Surface**: React Flow whiteboard (`CanvasMVP`)
-- **Panel**: Templates panel (lazy-loaded, `TemplatesPanel`)
 - **Adapter**: Mock PLoT adapter (`src/adapters/plot/mockAdapter.ts`)
 - **Components**: Reuses Templates UI components from `src/routes/templates/components/`
 - **State**: `useTemplatesRun` hook manages run lifecycle
-
-**Bundle Sizes:**
-- CanvasMVP: 1.11 KB gzipped
-- TemplatesPanel: 2.05 KB gzipped
-- DecisionTemplates: 2.61 KB gzipped (well under 120 KB budget)
-
-**Panel Behavior:**
-- **Desktop (≥1024px)**: Fixed right drawer (360-420px width)
-- **Mobile (<1024px)**: Bottom sheet modal with overlay
-- **Focus Management**: Focus moves to panel on open, returns to button on close
-- **Keyboard**: Escape key closes panel, Tab navigates within panel
-
-### Features
-
-**Templates Panel:**
-- Answer-first decision templates
-- Mock adapter with deterministic runs
-- Dev controls (toggle on/off)
-- Error handling with friendly messages
-- Copy actions (hash, seed)
-- Pin to Canvas (creates summary node)
-
-**Whiteboard:**
-- React Flow graph editor
-- Pan, zoom, draw
-- Node creation and editing
-- Summary nodes from pinned templates (TODO)
+- **Bundle**: Lazy-loaded, 1.53 KB gzipped (well under 120 KB budget)
 

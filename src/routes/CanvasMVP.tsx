@@ -1,12 +1,16 @@
 // src/routes/CanvasMVP.tsx
-// Canvas MVP - React Flow graph editor on dedicated route
+// Canvas MVP - React Flow graph editor with integrated Templates panel
 
 import '../styles/plot.css'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
+import { FileText } from 'lucide-react'
 import ReactFlowGraph from '../canvas/ReactFlowGraph'
+
+const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
 
 export default function CanvasMVP() {
   const [short, setShort] = useState('dev')
+  const [isPanelOpen, setIsPanelOpen] = useState(false)
 
   // Fetch version from /version.json (runtime)
   useEffect(() => {
@@ -24,9 +28,14 @@ export default function CanvasMVP() {
     // Dev-only console log
     if (import.meta.env.DEV) {
       // eslint-disable-next-line no-console
-      console.log('[CANVAS]', { route: '/canvas', mode: 'RF' })
+      console.log('[CANVAS]', { route: '/canvas', mode: 'RF+Templates' })
     }
   }, [])
+
+  const handlePinToCanvas = (data: { template_id: string; seed: number; response_hash: string; likely_value: number }) => {
+    // TODO: Implement pinning summary node to canvas
+    console.log('[Canvas] Pin to canvas:', data)
+  }
 
   return (
     <div style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
@@ -50,10 +59,29 @@ export default function CanvasMVP() {
         ROUTE=/canvas • COMMIT={short} • MODE=RF
       </div>
 
+      {/* Templates Button - fixed top-right */}
+      <button
+        onClick={() => setIsPanelOpen(true)}
+        className="fixed top-4 right-4 z-[2147483646] flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
+        aria-label="Open templates panel"
+      >
+        <FileText className="w-5 h-5" />
+        <span className="hidden sm:inline">Templates</span>
+      </button>
+
       {/* React Flow Container */}
       <div data-testid="rf-root" style={{ height: '100%', width: '100%' }}>
         <ReactFlowGraph />
       </div>
+
+      {/* Templates Panel */}
+      <Suspense fallback={null}>
+        <TemplatesPanel 
+          isOpen={isPanelOpen} 
+          onClose={() => setIsPanelOpen(false)}
+          onPinToCanvas={handlePinToCanvas}
+        />
+      </Suspense>
     </div>
   )
 }
