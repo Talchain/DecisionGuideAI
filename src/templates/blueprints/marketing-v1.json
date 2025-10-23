@@ -1,0 +1,23 @@
+{
+  "id": "marketing-v1",
+  "name": "Marketing Campaign",
+  "description": "Compare channel ROI and reach",
+  "longDescription": "Evaluate marketing channels based on cost, reach, and conversion.",
+  "units": "currency",
+  "expectedInputs": ["Budget", "Target CAC"],
+  "assumptions": ["Conversion rates stable"],
+  "nodes": [
+    {"id": "start", "label": "Channel Decision", "kind": "decision", "position": {"x": 100, "y": 100}},
+    {"id": "channel-social", "label": "Social Media", "kind": "option", "position": {"x": 50, "y": 250}},
+    {"id": "channel-search", "label": "Search Ads", "kind": "option", "position": {"x": 250, "y": 250}},
+    {"id": "outcome-social", "label": "Social ROI", "kind": "outcome", "position": {"x": 50, "y": 400}},
+    {"id": "outcome-search", "label": "Search ROI", "kind": "outcome", "position": {"x": 250, "y": 400}}
+  ],
+  "edges": [
+    {"id": "e1", "from": "start", "to": "channel-social", "probability": 0.45},
+    {"id": "e2", "from": "start", "to": "channel-search", "probability": 0.55},
+    {"id": "e3", "from": "channel-social", "to": "outcome-social", "probability": 1.0},
+    {"id": "e4", "from": "channel-search", "to": "outcome-search", "probability": 1.0}
+  ],
+  "defaults": {"budget": 10000, "targetCAC": 50}
+}

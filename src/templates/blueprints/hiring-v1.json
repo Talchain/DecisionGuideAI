@@ -1,0 +1,23 @@
+{
+  "id": "hiring-v1",
+  "name": "Hiring Decision",
+  "description": "Evaluate candidate fit and team impact",
+  "longDescription": "Assess hiring candidates based on skills, culture fit, and team needs.",
+  "units": "score",
+  "expectedInputs": ["Technical score", "Culture fit"],
+  "assumptions": ["Team capacity available"],
+  "nodes": [
+    {"id": "start", "label": "Hire Decision", "kind": "decision", "position": {"x": 100, "y": 100}},
+    {"id": "candidate-a", "label": "Candidate A", "kind": "option", "position": {"x": 50, "y": 250}},
+    {"id": "candidate-b", "label": "Candidate B", "kind": "option", "position": {"x": 250, "y": 250}},
+    {"id": "outcome-a", "label": "Team Performance A", "kind": "outcome", "position": {"x": 50, "y": 400}},
+    {"id": "outcome-b", "label": "Team Performance B", "kind": "outcome", "position": {"x": 250, "y": 400}}
+  ],
+  "edges": [
+    {"id": "e1", "from": "start", "to": "candidate-a", "probability": 0.5},
+    {"id": "e2", "from": "start", "to": "candidate-b", "probability": 0.5},
+    {"id": "e3", "from": "candidate-a", "to": "outcome-a", "probability": 1.0},
+    {"id": "e4", "from": "candidate-b", "to": "outcome-b", "probability": 1.0}
+  ],
+  "defaults": {"techScore": 85, "cultureFit": 90}
+}

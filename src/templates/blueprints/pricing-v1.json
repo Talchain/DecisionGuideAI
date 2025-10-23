@@ -1,0 +1,23 @@
+{
+  "id": "pricing-v1",
+  "name": "Pricing Strategy",
+  "description": "Compare pricing tiers and revenue impact",
+  "longDescription": "Model different pricing strategies and their impact on revenue.",
+  "units": "currency",
+  "expectedInputs": ["Base price", "Premium price"],
+  "assumptions": ["Market size constant"],
+  "nodes": [
+    {"id": "start", "label": "Pricing Decision", "kind": "decision", "position": {"x": 100, "y": 100}},
+    {"id": "tier-basic", "label": "Basic ($49)", "kind": "option", "position": {"x": 50, "y": 250}},
+    {"id": "tier-premium", "label": "Premium ($99)", "kind": "option", "position": {"x": 250, "y": 250}},
+    {"id": "outcome-basic", "label": "Basic Revenue", "kind": "outcome", "position": {"x": 50, "y": 400}},
+    {"id": "outcome-premium", "label": "Premium Revenue", "kind": "outcome", "position": {"x": 250, "y": 400}}
+  ],
+  "edges": [
+    {"id": "e1", "from": "start", "to": "tier-basic", "probability": 0.6},
+    {"id": "e2", "from": "start", "to": "tier-premium", "probability": 0.4},
+    {"id": "e3", "from": "tier-basic", "to": "outcome-basic", "probability": 1.0},
+    {"id": "e4", "from": "tier-premium", "to": "outcome-premium", "probability": 1.0}
+  ],
+  "defaults": {"basePrice": 49, "premiumPrice": 99}
+}

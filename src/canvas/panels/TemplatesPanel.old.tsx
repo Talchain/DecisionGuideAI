@@ -1,73 +1,68 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { X, Search } from 'lucide-react'
+import { X } from 'lucide-react'
 import { plot } from '../../adapters/plot'
-import { getAllBlueprints, getBlueprintById } from '../../templates/blueprints'
-import type { Blueprint } from '../../templates/blueprints/types'
+import type { TemplateDetail } from '../../adapters/plot'
 import { useTemplatesRun } from '../../routes/templates/hooks/useTemplatesRun'
 import { SummaryCard } from '../../routes/templates/components/SummaryCard'
 import { WhyPanel } from '../../routes/templates/components/WhyPanel'
 import { ReproduceShareCard } from '../../routes/templates/components/ReproduceShareCard'
 import { ErrorBanner } from '../../routes/templates/components/ErrorBanner'
 import { ProgressStrip } from '../../routes/templates/components/ProgressStrip'
-import { TemplateCard } from './TemplateCard'
-import { TemplateAbout } from './TemplateAbout'
 
 interface TemplatesPanelProps {
   isOpen: boolean
   onClose: () => void
-  onInsertBlueprint?: (blueprint: Blueprint) => void
   onPinToCanvas?: (data: { template_id: string; seed: number; response_hash: string; likely_value: number }) => void
 }
 
-export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanvas }: TemplatesPanelProps): JSX.Element | null {
-  const [blueprints] = useState(() => getAllBlueprints())
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedBlueprintId, setSelectedBlueprintId] = useState<string | null>(null)
-  const [showDevControls, setShowDevControls] = useState(false)
+export function TemplatesPanel({ isOpen, onClose, onPinToCanvas }: TemplatesPanelProps): JSX.Element | null {
+  const [templates, setTemplates] = useState<TemplateDetail[]>([])
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [seed, setSeed] = useState<string>('1337')
+  const [showDevControls, setShowDevControls] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
   
   const { loading, result, error, run, clearError } = useTemplatesRun()
   
-  const selectedBlueprint = selectedBlueprintId ? getBlueprintById(selectedBlueprintId) : null
+  const selectedTemplate = templates.find(t => t.id === selectedTemplateId)
 
-  const filteredBlueprints = blueprints.filter(bp =>
-    bp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    bp.description.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const { items } = await plot.templates()
+        const details = await Promise.all(items.map(item => plot.template(item.id)))
+        setTemplates(details)
+        if (details.length > 0) setSelectedTemplateId(details[0].id)
+      } catch (err) {
+        console.warn('[TemplatesPanel] Failed to load templates', err)
+      }
+    }
+    loadTemplates()
+  }, [])
 
   // Focus management
   useEffect(() => {
     if (isOpen && panelRef.current) {
-      const firstFocusable = panelRef.current.querySelector<HTMLElement>('button, input')
+      const firstFocusable = panelRef.current.querySelector<HTMLElement>('button, input, select')
       firstFocusable?.focus()
     }
   }, [isOpen])
 
-  const handleInsert = useCallback((templateId: string) => {
-    const blueprint = getBlueprintById(templateId)
-    if (blueprint && onInsertBlueprint) {
-      onInsertBlueprint(blueprint)
-      setSelectedBlueprintId(templateId)
-      showToast('Inserted to canvas.')
-    }
-  }, [onInsertBlueprint])
-
   const handleRun = useCallback(async () => {
-    if (!selectedBlueprintId) return
+    if (!selectedTemplateId) return
     const seedNum = parseInt(seed, 10)
     if (isNaN(seedNum) || seedNum < 1) {
-      showToast('Please enter a valid seed (≥1)')
+      setToastMessage('Please enter a valid seed (≥1)')
       return
     }
-    await run({ template_id: selectedBlueprintId, seed: seedNum })
-  }, [selectedBlueprintId, seed, run])
+    await run({ template_id: selectedTemplateId, seed: seedNum })
+  }, [selectedTemplateId, seed, run])
 
   const handleReset = useCallback(() => {
     clearError()
     setSeed('1337')
-    setSelectedBlueprintId(null)
   }, [clearError])
 
   const showToast = useCallback((msg: string) => {
@@ -76,16 +71,16 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   }, [])
 
   const handlePinToCanvas = useCallback(() => {
-    if (result && selectedBlueprint && onPinToCanvas) {
+    if (result && selectedTemplate && onPinToCanvas) {
       onPinToCanvas({
-        template_id: selectedBlueprint.id,
+        template_id: selectedTemplate.id,
         seed: parseInt(seed, 10),
         response_hash: result.model_card.response_hash,
         likely_value: result.results.likely
       })
       showToast('Pinned to canvas.')
     }
-  }, [result, selectedBlueprint, seed, onPinToCanvas, showToast])
+  }, [result, selectedTemplate, seed, onPinToCanvas, showToast])
 
   const handleClose = useCallback(() => {
     onClose()
@@ -114,6 +109,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
           <h2 className="text-lg font-semibold text-gray-900">Templates</h2>
           <button
+            ref={closeButtonRef}
             onClick={handleClose}
             className="p-2 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Close templates panel"
@@ -124,78 +120,51 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Template Browser */}
-          {!selectedBlueprintId && (
-            <>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search templates..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              
-              <div className="space-y-3">
-                {filteredBlueprints.map(bp => (
-                  <TemplateCard
-                    key={bp.id}
-                    template={{ id: bp.id, name: bp.name, description: bp.description }}
-                    onInsert={handleInsert}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* About Section */}
-          {selectedBlueprint && (
-            <>
-              <TemplateAbout blueprint={selectedBlueprint} />
-              
-              <button
-                onClick={() => setSelectedBlueprintId(null)}
-                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
-              >
-                ← Back to templates
-              </button>
-            </>
-          )}
-
           {/* Dev Controls Toggle */}
-          {selectedBlueprintId && (
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <label htmlFor="dev-toggle" className="text-sm font-medium text-gray-700">
-                Show dev controls
-              </label>
-              <button
-                id="dev-toggle"
-                role="switch"
-                aria-checked={showDevControls}
-                onClick={() => setShowDevControls(!showDevControls)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  showDevControls ? 'bg-blue-600' : 'bg-gray-300'
+          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <label htmlFor="dev-toggle" className="text-sm font-medium text-gray-700">
+              Show dev controls
+            </label>
+            <button
+              id="dev-toggle"
+              role="switch"
+              aria-checked={showDevControls}
+              onClick={() => setShowDevControls(!showDevControls)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                showDevControls ? 'bg-blue-600' : 'bg-gray-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  showDevControls ? 'translate-x-6' : 'translate-x-1'
                 }`}
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    showDevControls ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
-            </div>
-          )}
+              />
+            </button>
+          </div>
 
           {/* Dev Toolbar (collapsible) */}
-          {showDevControls && selectedBlueprintId && (
+          {showDevControls && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-yellow-800 uppercase tracking-wide">Dev Controls</span>
                 <span className="text-xs bg-yellow-200 text-yellow-900 px-2 py-1 rounded font-mono">Adapter: Mock</span>
               </div>
               <div className="space-y-3">
+                <div>
+                  <label htmlFor="template-select" className="block text-sm font-medium text-gray-700 mb-1">
+                    Template
+                  </label>
+                  <select
+                    id="template-select"
+                    value={selectedTemplateId}
+                    onChange={(e) => setSelectedTemplateId(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {templates.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label htmlFor="seed-input" className="block text-sm font-medium text-gray-700 mb-1">
                     Seed
@@ -212,7 +181,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                 <div className="flex gap-2">
                   <button
                     onClick={handleRun}
-                    disabled={loading || !selectedBlueprintId}
+                    disabled={loading || !selectedTemplateId}
                     className="flex-1 px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? 'Running…' : 'Run'}
@@ -237,7 +206,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           )}
 
           {/* Results */}
-          {result && selectedBlueprint && (
+          {result && selectedTemplate && (
             <div className="space-y-4">
               <SummaryCard 
                 report={result} 
@@ -246,14 +215,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
               <WhyPanel report={result} />
               <ReproduceShareCard
                 report={result}
-                template={{ 
-                  id: selectedBlueprint.id,
-                  name: selectedBlueprint.name,
-                  version: '1.0',
-                  description: selectedBlueprint.description,
-                  default_seed: parseInt(seed, 10),
-                  graph: {}
-                }}
+                template={selectedTemplate}
                 seed={parseInt(seed, 10)}
                 onCopySeed={() => showToast('Seed copied.')}
                 onCopyHash={() => showToast('Verification hash copied.')}

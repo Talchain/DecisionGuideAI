@@ -1,0 +1,23 @@
+{
+  "id": "feature-tradeoffs-v1",
+  "name": "Feature Tradeoffs",
+  "description": "Prioritize features by impact and effort",
+  "longDescription": "Compare feature options based on user impact, development effort, and strategic value.",
+  "units": "score",
+  "expectedInputs": ["Impact score", "Effort estimate"],
+  "assumptions": ["Team velocity stable"],
+  "nodes": [
+    {"id": "start", "label": "Feature Priority", "kind": "decision", "position": {"x": 100, "y": 100}},
+    {"id": "feature-a", "label": "Feature A", "kind": "option", "position": {"x": 50, "y": 250}},
+    {"id": "feature-b", "label": "Feature B", "kind": "option", "position": {"x": 250, "y": 250}},
+    {"id": "outcome-a", "label": "Impact A", "kind": "outcome", "position": {"x": 50, "y": 400}},
+    {"id": "outcome-b", "label": "Impact B", "kind": "outcome", "position": {"x": 250, "y": 400}}
+  ],
+  "edges": [
+    {"id": "e1", "from": "start", "to": "feature-a", "probability": 0.55},
+    {"id": "e2", "from": "start", "to": "feature-b", "probability": 0.45},
+    {"id": "e3", "from": "feature-a", "to": "outcome-a", "probability": 1.0},
+    {"id": "e4", "from": "feature-b", "to": "outcome-b", "probability": 1.0}
+  ],
+  "defaults": {"impactScore": 8, "effortWeeks": 3}
+}

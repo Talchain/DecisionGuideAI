@@ -1,0 +1,23 @@
+{
+  "id": "retention-v1",
+  "name": "Customer Retention",
+  "description": "Reduce churn and improve LTV",
+  "longDescription": "Model retention strategies and their impact on customer lifetime value.",
+  "units": "percent",
+  "expectedInputs": ["Churn rate", "Retention spend"],
+  "assumptions": ["Customer behavior predictable"],
+  "nodes": [
+    {"id": "start", "label": "Retention Strategy", "kind": "decision", "position": {"x": 100, "y": 100}},
+    {"id": "strategy-email", "label": "Email Campaign", "kind": "option", "position": {"x": 50, "y": 250}},
+    {"id": "strategy-discount", "label": "Discount Offer", "kind": "option", "position": {"x": 250, "y": 250}},
+    {"id": "outcome-email", "label": "Email LTV", "kind": "outcome", "position": {"x": 50, "y": 400}},
+    {"id": "outcome-discount", "label": "Discount LTV", "kind": "outcome", "position": {"x": 250, "y": 400}}
+  ],
+  "edges": [
+    {"id": "e1", "from": "start", "to": "strategy-email", "probability": 0.5},
+    {"id": "e2", "from": "start", "to": "strategy-discount", "probability": 0.5},
+    {"id": "e3", "from": "strategy-email", "to": "outcome-email", "probability": 1.0},
+    {"id": "e4", "from": "strategy-discount", "to": "outcome-discount", "probability": 1.0}
+  ],
+  "defaults": {"churnRate": 5, "retentionSpend": 1000}
+}

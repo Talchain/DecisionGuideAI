@@ -1,0 +1,23 @@
+{
+  "id": "supply-v1",
+  "name": "Supply Chain",
+  "description": "Optimize inventory and fulfillment",
+  "longDescription": "Model supply chain decisions for inventory levels and fulfillment speed.",
+  "units": "count",
+  "expectedInputs": ["Order volume", "Lead time"],
+  "assumptions": ["Demand is predictable"],
+  "nodes": [
+    {"id": "start", "label": "Inventory Decision", "kind": "decision", "position": {"x": 100, "y": 100}},
+    {"id": "stock-low", "label": "Low Stock", "kind": "option", "position": {"x": 50, "y": 250}},
+    {"id": "stock-high", "label": "High Stock", "kind": "option", "position": {"x": 250, "y": 250}},
+    {"id": "outcome-low", "label": "Low Cost", "kind": "outcome", "position": {"x": 50, "y": 400}},
+    {"id": "outcome-high", "label": "High Availability", "kind": "outcome", "position": {"x": 250, "y": 400}}
+  ],
+  "edges": [
+    {"id": "e1", "from": "start", "to": "stock-low", "probability": 0.4},
+    {"id": "e2", "from": "start", "to": "stock-high", "probability": 0.6},
+    {"id": "e3", "from": "stock-low", "to": "outcome-low", "probability": 1.0},
+    {"id": "e4", "from": "stock-high", "to": "outcome-high", "probability": 1.0}
+  ],
+  "defaults": {"orderVolume": 1000, "leadTime": 7}
+}
