@@ -20,6 +20,7 @@ import { useSettingsStore } from './settingsStore'
 import { CanvasErrorBoundary } from './ErrorBoundary'
 import { ToastProvider, useToast } from './ToastContext'
 import { DiagnosticsOverlay } from './DiagnosticsOverlay'
+import { ConfirmDialog } from './components/ConfirmDialog'
 import type { Blueprint } from '../templates/blueprints/types'
 
 interface ReactFlowGraphProps {
@@ -34,6 +35,16 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
   const { getViewport } = useReactFlow()
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
+  
+  // State declarations
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
+  const [isDragging, setIsDragging] = useState(false)
+  const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [showEmptyState, setShowEmptyState] = useState(true)
+  const [showCheatsheet, setShowCheatsheet] = useState(false)
+  const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
+  const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
   
   const handleSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
     useCanvasStore.getState().onSelectionChange(params)
@@ -55,6 +66,24 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
     if (!blueprintEventBus) return
     
     const unsubscribe = blueprintEventBus.subscribe((blueprint: Blueprint) => {
+      // Check for existing template
+      const existingTemplateNode = nodes.find(n => n.data?.templateId)
+      if (existingTemplateNode) {
+        setPendingBlueprint(blueprint)
+        setExistingTemplate({
+          id: existingTemplateNode.data.templateId,
+          name: existingTemplateNode.data.templateName || 'Existing flow'
+        })
+        return
+      }
+      
+      insertBlueprint(blueprint)
+    })
+    
+    return unsubscribe
+  }, [blueprintEventBus, nodes])
+  
+  const insertBlueprint = useCallback((blueprint: Blueprint) => {
       const viewport = getViewport()
       const centerX = -viewport.x + (window.innerWidth / 2) / viewport.zoom
       const centerY = -viewport.y + (window.innerHeight / 2) / viewport.zoom
@@ -74,34 +103,43 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
       const blueprintCenterX = (minX + maxX) / 2
       const blueprintCenterY = (minY + maxY) / 2
       
-      // Create nodes
+      // Create nodes with correct types and template metadata
+      const templateCreatedAt = new Date().toISOString()
       const newNodes = blueprint.nodes.map(node => {
         const pos = node.position || { x: 0, y: 0 }
         return {
           id: nodeIdMap.get(node.id)!,
-          type: 'decision',
+          type: node.kind, // Use actual node kind: goal, option, risk, outcome, decision
           position: {
             x: centerX + (pos.x - blueprintCenterX),
             y: centerY + (pos.y - blueprintCenterY)
           },
           data: {
             label: node.label,
-            kind: node.kind
+            kind: node.kind,
+            templateId: blueprint.id,
+            templateName: blueprint.name,
+            templateCreatedAt
           }
         }
       })
       
-      // Create edges
-      const newEdges = blueprint.edges.map(edge => ({
-        id: createEdgeId(),
-        source: nodeIdMap.get(edge.from)!,
-        target: nodeIdMap.get(edge.to)!,
-        data: {
-          ...DEFAULT_EDGE_DATA,
-          probability: edge.probability,
-          weight: edge.weight
+      // Create edges with probability labels
+      const newEdges = blueprint.edges.map(edge => {
+        const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
+        return {
+          id: createEdgeId(),
+          source: nodeIdMap.get(edge.from)!,
+          target: nodeIdMap.get(edge.to)!,
+          label: pct != null ? `${pct}%` : undefined,
+          data: {
+            ...DEFAULT_EDGE_DATA,
+            probability: edge.probability,
+            weight: edge.weight,
+            label: pct != null ? `${pct}%` : undefined
+          }
         }
-      }))
+      })
       
       // Batch update
       const store = useCanvasStore.getState()
@@ -111,18 +149,38 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
         edges: [...state.edges, ...newEdges]
       }))
       
-      showToast('Inserted to canvas.', 'success')
+      showToast(`Inserted ${blueprint.name} to canvas.`, 'success')
+  }, [getViewport, createNodeId, createEdgeId, showToast])
+  
+  const handleConfirmReplace = useCallback(() => {
+    if (!pendingBlueprint) return
+    
+    // Remove all nodes/edges from existing template
+    const store = useCanvasStore.getState()
+    store.pushHistory()
+    
+    const remainingNodes = nodes.filter(n => !n.data?.templateId)
+    const remainingNodeIds = new Set(remainingNodes.map(n => n.id))
+    const remainingEdges = edges.filter(e => 
+      remainingNodeIds.has(e.source) && remainingNodeIds.has(e.target)
+    )
+    
+    useCanvasStore.setState({
+      nodes: remainingNodes,
+      edges: remainingEdges
     })
     
-    return unsubscribe
-  }, [blueprintEventBus, getViewport, createNodeId, createEdgeId, showToast])
+    // Insert new blueprint
+    insertBlueprint(pendingBlueprint)
+    
+    setPendingBlueprint(null)
+    setExistingTemplate(null)
+  }, [pendingBlueprint, nodes, edges, insertBlueprint])
   
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
-  const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
-  const [isDragging, setIsDragging] = useState(false)
-  const [showCommandPalette, setShowCommandPalette] = useState(false)
-  const [, setShowEmptyState] = useState(true)
-  const [showCheatsheet, setShowCheatsheet] = useState(false)
+  const handleCancelReplace = useCallback(() => {
+    setPendingBlueprint(null)
+    setExistingTemplate(null)
+  }, [])
   
   const { showGrid, gridSize, snapToGrid, showAlignmentGuides, loadSettings } = useSettingsStore()
   const snapGridValue = useMemo<[number, number]>(() => [gridSize, gridSize], [gridSize])
@@ -221,7 +279,18 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
       
       {showCommandPalette && <CommandPalette onClose={() => setShowCommandPalette(false)} />}
       {showCheatsheet && <KeyboardCheatsheet onClose={() => setShowCheatsheet(false)} />}
-      {nodes.length === 0 && <EmptyStateOverlay />}
+      {nodes.length === 0 && <EmptyStateOverlay onDismiss={() => setShowEmptyState(false)} />}
+      
+      {existingTemplate && pendingBlueprint && (
+        <ConfirmDialog
+          title="Replace existing flow?"
+          message={`This will replace the existing '${existingTemplate.name}' flow on the canvas.`}
+          confirmLabel="Replace"
+          cancelLabel="Cancel"
+          onConfirm={handleConfirmReplace}
+          onCancel={handleCancelReplace}
+        />
+      )}
     </div>
   )
 }
