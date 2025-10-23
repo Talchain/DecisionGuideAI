@@ -35,8 +35,6 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
   const { getViewport } = useReactFlow()
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
-  const addNode = useCanvasStore(s => s.addNode)
-  const addEdge = useCanvasStore(s => s.addEdge)
   
   // State declarations
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
@@ -64,71 +62,6 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
   }, [reconnecting, completeReconnect, showToast])
   
   // Blueprint insertion handler
-  const insertBlueprint = useCallback((blueprint: Blueprint) => {
-    const viewport = getViewport()
-    const centerX = -viewport.x + (window.innerWidth / 2) / viewport.zoom
-    const centerY = -viewport.y + (window.innerHeight / 2) / viewport.zoom
-    
-    // Create ID mapping
-    const nodeIdMap = new Map<string, string>()
-    blueprint.nodes.forEach(node => {
-      nodeIdMap.set(node.id, createNodeId())
-    })
-    
-    // Calculate blueprint center
-    const positions = blueprint.nodes.map(n => n.position || { x: 0, y: 0 })
-    const minX = Math.min(...positions.map(p => p.x))
-    const maxX = Math.max(...positions.map(p => p.x))
-    const minY = Math.min(...positions.map(p => p.y))
-    const maxY = Math.max(...positions.map(p => p.y))
-    const blueprintCenterX = (minX + maxX) / 2
-    const blueprintCenterY = (minY + maxY) / 2
-    
-    // Create nodes with correct types and template metadata
-    const templateCreatedAt = new Date().toISOString()
-    const store = useCanvasStore.getState()
-    store.pushHistory()
-    
-    blueprint.nodes.forEach(node => {
-      const pos = node.position || { x: 0, y: 0 }
-      const newNode = {
-        id: nodeIdMap.get(node.id)!,
-        type: node.kind,
-        position: {
-          x: centerX + (pos.x - blueprintCenterX),
-          y: centerY + (pos.y - blueprintCenterY)
-        },
-        data: {
-          label: node.label,
-          kind: node.kind,
-          templateId: blueprint.id,
-          templateName: blueprint.name,
-          templateCreatedAt
-        }
-      }
-      addNode(newNode.position, newNode.type, newNode.data)
-    })
-    
-    // Create edges with probability labels
-    blueprint.edges.forEach(edge => {
-      const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
-      const label = pct != null ? `${pct}%` : undefined
-      
-      addEdge({
-        source: nodeIdMap.get(edge.from)!,
-        target: nodeIdMap.get(edge.to)!,
-        data: {
-          ...DEFAULT_EDGE_DATA,
-          weight: edge.weight ?? DEFAULT_EDGE_DATA.weight,
-          label,
-          confidence: edge.probability
-        }
-      })
-    })
-    
-    showToast(`Inserted ${blueprint.name} to canvas.`, 'success')
-  }, [getViewport, createNodeId, addNode, addEdge, showToast])
-  
   useEffect(() => {
     if (!blueprintEventBus) return
     
@@ -148,7 +81,77 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
     })
     
     return unsubscribe
-  }, [blueprintEventBus, nodes, insertBlueprint])
+  }, [blueprintEventBus, nodes])
+  
+  const insertBlueprint = useCallback((blueprint: Blueprint) => {
+      const viewport = getViewport()
+      const centerX = -viewport.x + (window.innerWidth / 2) / viewport.zoom
+      const centerY = -viewport.y + (window.innerHeight / 2) / viewport.zoom
+      
+      // Create ID mapping
+      const nodeIdMap = new Map<string, string>()
+      blueprint.nodes.forEach(node => {
+        nodeIdMap.set(node.id, createNodeId())
+      })
+      
+      // Calculate blueprint center
+      const positions = blueprint.nodes.map(n => n.position || { x: 0, y: 0 })
+      const minX = Math.min(...positions.map(p => p.x))
+      const maxX = Math.max(...positions.map(p => p.x))
+      const minY = Math.min(...positions.map(p => p.y))
+      const maxY = Math.max(...positions.map(p => p.y))
+      const blueprintCenterX = (minX + maxX) / 2
+      const blueprintCenterY = (minY + maxY) / 2
+      
+      // Create nodes with correct types and template metadata
+      const templateCreatedAt = new Date().toISOString()
+      const newNodes = blueprint.nodes.map(node => {
+        const pos = node.position || { x: 0, y: 0 }
+        return {
+          id: nodeIdMap.get(node.id)!,
+          type: node.kind, // Use actual node kind: goal, option, risk, outcome, decision
+          position: {
+            x: centerX + (pos.x - blueprintCenterX),
+            y: centerY + (pos.y - blueprintCenterY)
+          },
+          data: {
+            label: node.label,
+            kind: node.kind,
+            templateId: blueprint.id,
+            templateName: blueprint.name,
+            templateCreatedAt
+          }
+        }
+      })
+      
+      // Create edges with probability labels
+      const newEdges = blueprint.edges.map(edge => {
+        const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
+        const label = pct != null ? `${pct}%` : undefined
+        return {
+          id: createEdgeId(),
+          source: nodeIdMap.get(edge.from)!,
+          target: nodeIdMap.get(edge.to)!,
+          label,
+          data: {
+            ...DEFAULT_EDGE_DATA,
+            weight: edge.weight ?? DEFAULT_EDGE_DATA.weight,
+            label,
+            confidence: edge.probability
+          }
+        }
+      })
+      
+      // Batch update
+      const store = useCanvasStore.getState()
+      store.pushHistory()
+      useCanvasStore.setState(state => ({
+        nodes: [...state.nodes, ...newNodes],
+        edges: [...state.edges, ...newEdges]
+      }))
+      
+      showToast(`Inserted ${blueprint.name} to canvas.`, 'success')
+  }, [getViewport, createNodeId, createEdgeId, showToast])
   
   const handleConfirmReplace = useCallback(() => {
     if (!pendingBlueprint) return
@@ -266,18 +269,18 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
         <MiniMap style={miniMapStyle} />
       </ReactFlow>
       
-      {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
+      {showAlignmentGuides && isDragging && <AlignmentGuides draggingNodeIds={draggingNodeIds} />}
       {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
       {reconnecting && <ReconnectBanner />}
       
-      <CanvasToolbar />
+      <CanvasToolbar onOpenCommandPalette={() => setShowCommandPalette(true)} onOpenCheatsheet={() => setShowCheatsheet(true)} />
       <PropertiesPanel />
       <SettingsPanel />
       <DiagnosticsOverlay />
       
-      {showCommandPalette && <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />}
-      {showCheatsheet && <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />}
-      {nodes.length === 0 && showEmptyState && <EmptyStateOverlay onDismiss={() => setShowEmptyState(false)} />}
+      {showCommandPalette && <CommandPalette onClose={() => setShowCommandPalette(false)} />}
+      {showCheatsheet && <KeyboardCheatsheet onClose={() => setShowCheatsheet(false)} />}
+      {nodes.length === 0 && <EmptyStateOverlay onDismiss={() => setShowEmptyState(false)} />}
       
       {existingTemplate && pendingBlueprint && (
         <ConfirmDialog
