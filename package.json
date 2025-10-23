@@ -21,6 +21,7 @@
     "test:e2e:chromium": "playwright test --project=chromium -c playwright.config.ts",
     "e2e:report": "playwright show-report",
     "e2e": "playwright test",
+    "size:check": "node scripts/check-bundle-size.js",
     "typecheck": "tsc -p tsconfig.ci.json --noEmit",
     "poc:start": "./tools/poc-start.sh",
     "poc:stop": "docker compose --profile poc down",
@@ -100,6 +101,7 @@
     "@typescript-eslint/parser": "8.6.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
+    "axe-core": "^4.11.0",
     "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
     "eslint": "9.10.0",
@@ -118,6 +120,7 @@
     "typescript": "^5.5.3",
     "vite": "^5.4.2",
     "vitest": "^1.6.0",
+    "vitest-axe": "^0.1.0",
     "wait-on": "^9.0.1"
   },
   "overrides": {

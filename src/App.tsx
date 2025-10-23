@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, lazy, Suspense } from 'react'
 import {
   Routes,
   Route,
@@ -45,6 +45,10 @@ import SandboxV1 from './routes/SandboxV1'
 import GhostPanel from './plotLite/GhostPanel'
 import { DecisionProvider } from './contexts/DecisionContext'
 import { TeamsProvider }  from './contexts/TeamsContext'
+import { TemplatesErrorBoundary } from './routes/templates/TemplatesErrorBoundary'
+
+// Lazy load Templates route for code splitting
+const DecisionTemplates = lazy(() => import('./routes/templates/DecisionTemplates').then(m => ({ default: m.DecisionTemplates })))
 
 export default function App() {
   const location = useLocation()
@@ -208,6 +212,20 @@ export default function App() {
                     element={
                       <ProtectedRoute>
                         <ProfileForm />
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Templates */}
+                  <Route
+                    path="/templates"
+                    element={
+                      <ProtectedRoute>
+                        <TemplatesErrorBoundary>
+                          <Suspense fallback={<LoadingSpinner />}>
+                            <DecisionTemplates />
+                          </Suspense>
+                        </TemplatesErrorBoundary>
                       </ProtectedRoute>
                     }
                   />
