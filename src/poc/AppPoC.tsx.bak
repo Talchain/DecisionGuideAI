@@ -858,7 +858,7 @@ export default function AppPoC() {
           <Suspense fallback={<RouteLoadingFallback />}>
             <CanvasErrorBoundary>
               <Routes>
-              <Route path="/canvas" element={<CanvasPage />} />
+              <Route path="/canvas" element={<CanvasMVP />} />
               <Route path="/templates" element={<DecisionTemplates />} />
               <Route path="/plot" element={<PlotWorkspace />} />
               <Route path="/plot-legacy" element={<PlotShowcase />} />
