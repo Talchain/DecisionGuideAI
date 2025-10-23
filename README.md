@@ -289,3 +289,116 @@ npx tsc --noEmit --skipLibCheck
 // 2. Check Route Guard
 // 3. Verify Rich UI Route
 // 4. Compare with GitHub
+
+## Local Preview - Templates Canvas
+
+### Quick Start
+
+The Templates Canvas provides an answer-first decision templates experience using a mock adapter for local development.
+
+**Prerequisites:**
+- Node.js 18-20
+- npm 8+
+
+**Setup:**
+
+```bash
+# Install dependencies
+npm ci
+
+# Configure mock adapter (optional - already defaults to mock in dev)
+cp .env.local.example .env.local
+echo "PLOT_ADAPTER=mock" >> .env.local
+
+# Start dev server and open Canvas
+npm run dev:canvas
+```
+
+The browser will automatically open to **http://localhost:5173/#/canvas**
+
+### Smoke Checklist
+
+After the Canvas loads, verify:
+
+- ✅ **Dev Toolbar** visible with "Adapter: Mock" indicator
+- ✅ **Template Selector** populated with 6 templates
+- ✅ **Seed Input** prefilled with 1337
+- ✅ **Run Button** clickable
+
+**Run a template:**
+1. Select a template (e.g., "Pricing Strategy")
+2. Click "Run"
+3. Verify:
+   - ✅ Conservative | Likely | Optimistic bands visible
+   - ✅ Confidence badge shown
+   - ✅ Verification hash pill displayed
+   - ✅ Click hash pill → "Verification hash copied." toast
+
+**Test error handling:**
+1. Set seed to `23` (triggers BAD_INPUT)
+2. Click "Run" → helpful error banner appears
+3. Set seed to `29` (triggers RATE_LIMITED)
+4. Click "Run" → countdown appears, retry disabled until 0
+
+**Accessibility:**
+- ✅ Tab through all controls (visible focus rings)
+- ✅ Screen reader announces progress and errors
+- ✅ Reduced motion respected (no spinner animation)
+
+### Troubleshooting
+
+**Port 5173 already in use:**
+```bash
+# Kill existing process
+lsof -ti:5173 | xargs kill -9
+
+# Or use a different port
+vite --port 5174 --open /#/canvas
+```
+
+**HMR not working:**
+```bash
+# Clear Vite cache
+rm -rf node_modules/.vite
+
+# Restart dev server
+npm run dev:canvas
+```
+
+**Templates not loading:**
+- Check browser console for errors
+- Verify `src/adapters/plot/mockAdapter.ts` exists
+- Ensure fixtures in `src/fixtures/plot/` are present
+
+**Build fails:**
+```bash
+# Clean and rebuild
+rm -rf dist node_modules/.vite
+npm ci
+npm run build
+```
+
+### Development Commands
+
+```bash
+# Run all tests
+npm test
+
+# Run Canvas tests only
+npm test -- tests/routes/canvas
+
+# Check bundle sizes
+npm run build && npm run size:check
+
+# Lint and format
+npm run lint
+```
+
+### Architecture
+
+- **Route**: `/#/canvas` (hash-based routing)
+- **Adapter**: Mock PLoT adapter (`src/adapters/plot/mockAdapter.ts`)
+- **Components**: Reuses Templates UI components from `src/routes/templates/components/`
+- **State**: `useTemplatesRun` hook manages run lifecycle
+- **Bundle**: Lazy-loaded, 1.53 KB gzipped (well under 120 KB budget)
+
