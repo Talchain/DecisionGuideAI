@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
-import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange, useReactFlow } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useCanvasStore } from './store'
 import { DEFAULT_EDGE_DATA } from './domain/edges'
@@ -17,23 +17,14 @@ import { ReconnectBanner } from './components/ReconnectBanner'
 import { KeyboardCheatsheet } from './components/KeyboardCheatsheet'
 import { SettingsPanel } from './components/SettingsPanel'
 import { useSettingsStore } from './settingsStore'
+// import { useLayoutStore } from './layoutStore' // unused
 import { CanvasErrorBoundary } from './ErrorBoundary'
 import { ToastProvider, useToast } from './ToastContext'
 import { DiagnosticsOverlay } from './DiagnosticsOverlay'
-import type { Blueprint } from '../templates/blueprints/types'
 
-interface ReactFlowGraphProps {
-  blueprintEventBus?: {
-    subscribe: (fn: (blueprint: Blueprint) => void) => () => void
-  }
-}
-
-function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
+function ReactFlowGraphInner() {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
-  const { getViewport } = useReactFlow()
-  const createNodeId = useCanvasStore(s => s.createNodeId)
-  const createEdgeId = useCanvasStore(s => s.createEdgeId)
   
   const handleSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
     useCanvasStore.getState().onSelectionChange(params)
@@ -50,72 +41,8 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
     }
   }, [reconnecting, completeReconnect, showToast])
   
-  // Blueprint insertion handler
-  useEffect(() => {
-    if (!blueprintEventBus) return
-    
-    const unsubscribe = blueprintEventBus.subscribe((blueprint: Blueprint) => {
-      const viewport = getViewport()
-      const centerX = -viewport.x + (window.innerWidth / 2) / viewport.zoom
-      const centerY = -viewport.y + (window.innerHeight / 2) / viewport.zoom
-      
-      // Create ID mapping
-      const nodeIdMap = new Map<string, string>()
-      blueprint.nodes.forEach(node => {
-        nodeIdMap.set(node.id, createNodeId())
-      })
-      
-      // Calculate blueprint center
-      const positions = blueprint.nodes.map(n => n.position || { x: 0, y: 0 })
-      const minX = Math.min(...positions.map(p => p.x))
-      const maxX = Math.max(...positions.map(p => p.x))
-      const minY = Math.min(...positions.map(p => p.y))
-      const maxY = Math.max(...positions.map(p => p.y))
-      const blueprintCenterX = (minX + maxX) / 2
-      const blueprintCenterY = (minY + maxY) / 2
-      
-      // Create nodes
-      const newNodes = blueprint.nodes.map(node => {
-        const pos = node.position || { x: 0, y: 0 }
-        return {
-          id: nodeIdMap.get(node.id)!,
-          type: 'decision',
-          position: {
-            x: centerX + (pos.x - blueprintCenterX),
-            y: centerY + (pos.y - blueprintCenterY)
-          },
-          data: {
-            label: node.label,
-            kind: node.kind
-          }
-        }
-      })
-      
-      // Create edges
-      const newEdges = blueprint.edges.map(edge => ({
-        id: createEdgeId(),
-        source: nodeIdMap.get(edge.from)!,
-        target: nodeIdMap.get(edge.to)!,
-        data: {
-          ...DEFAULT_EDGE_DATA,
-          probability: edge.probability,
-          weight: edge.weight
-        }
-      }))
-      
-      // Batch update
-      const store = useCanvasStore.getState()
-      store.pushHistory()
-      useCanvasStore.setState(state => ({
-        nodes: [...state.nodes, ...newNodes],
-        edges: [...state.edges, ...newEdges]
-      }))
-      
-      showToast('Inserted to canvas.', 'success')
-    })
-    
-    return unsubscribe
-  }, [blueprintEventBus, getViewport, createNodeId, createEdgeId, showToast])
+  // Note: onEdgeUpdate not supported by React Flow v11+
+  // Reconnect via inspector or context menu instead
   
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
@@ -171,67 +98,63 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
     setContextMenu({ x: event.clientX, y: event.clientY })
   }, [])
 
-  const onNodeDragStart = useCallback((_: React.MouseEvent | MouseEvent, node: any) => {
-    setDraggingNodeIds(prev => new Set([...prev, node.id]))
+  const handleNodeDragStart = useCallback((_: any, node: any) => {
     setIsDragging(true)
+    setDraggingNodeIds(new Set([node.id]))
   }, [])
 
-  const onNodeDragStop = useCallback(() => {
-    setDraggingNodeIds(new Set())
+  const handleNodeDragStop = useCallback(() => {
     setIsDragging(false)
+    setDraggingNodeIds(new Set())
   }, [])
-
-  const handleCloseContextMenu = useCallback(() => setContextMenu(null), [])
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div className="w-full h-full relative" data-testid="react-flow-graph">
       <ReactFlow
         nodes={nodes}
         edges={edges}
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
-        onConnect={onConnect}
         onSelectionChange={handleSelectionChange}
-        onNodeClick={handleNodeClick}
+        onConnect={onConnect}
         onPaneContextMenu={onPaneContextMenu}
         onNodeContextMenu={onNodeContextMenu}
-        onNodeDragStart={onNodeDragStart}
-        onNodeDragStop={onNodeDragStop}
+        onNodeClick={handleNodeClick}
         nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        defaultEdgeOptions={defaultEdgeOpts}
+        edgeTypes={edgeTypes as any}
+        fitView
         snapToGrid={snapToGrid}
         snapGrid={snapGridValue}
-        fitView
-        minZoom={0.1}
+        minZoom={0.2}
         maxZoom={4}
+        defaultEdgeOptions={defaultEdgeOpts}
+        onNodeDragStart={handleNodeDragStart}
+        onNodeDragStop={handleNodeDragStop}
       >
-        <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
-        <MiniMap style={miniMapStyle} />
+        {showGrid && <Background variant={BackgroundVariant.Dots} gap={gridSize} size={1} color="#e5e7eb" />}
+        <MiniMap nodeColor="#EA7B4B" style={miniMapStyle} />
+        {showAlignmentGuides && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
+        <CanvasToolbar />
       </ReactFlow>
-      
-      {showAlignmentGuides && isDragging && <AlignmentGuides draggingNodeIds={draggingNodeIds} />}
-      {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
-      {reconnecting && <ReconnectBanner />}
-      
-      <CanvasToolbar onOpenCommandPalette={() => setShowCommandPalette(true)} onOpenCheatsheet={() => setShowCheatsheet(true)} />
+
+      {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} />}
       <PropertiesPanel />
+      <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />
+      <EmptyStateOverlay onDismiss={() => setShowEmptyState(false)} />
+      <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />
       <SettingsPanel />
       <DiagnosticsOverlay />
-      
-      {showCommandPalette && <CommandPalette onClose={() => setShowCommandPalette(false)} />}
-      {showCheatsheet && <KeyboardCheatsheet onClose={() => setShowCheatsheet(false)} />}
-      {nodes.length === 0 && <EmptyStateOverlay />}
+      <ReconnectBanner />
     </div>
   )
 }
 
-export default function ReactFlowGraph(props: ReactFlowGraphProps) {
+export default function ReactFlowGraph() {
   return (
     <CanvasErrorBoundary>
       <ToastProvider>
         <ReactFlowProvider>
-          <ReactFlowGraphInner {...props} />
+          <ReactFlowGraphInner />
         </ReactFlowProvider>
       </ToastProvider>
     </CanvasErrorBoundary>

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, waitFor } from '@testing-library/react'
 import { axe, configureAxe } from 'vitest-axe'
 import { TemplatesPanel } from '../../../src/canvas/panels/TemplatesPanel'
-import * as plotAdapter from '../../../src/adapters/plot'
+import * as blueprintsModule from '../../../src/templates/blueprints'
 
 configureAxe({
   rules: {
@@ -19,22 +19,32 @@ vi.mock('../../../src/adapters/plot', () => ({
   }
 }))
 
-const mockPlot = vi.mocked(plotAdapter.plot)
+vi.mock('../../../src/templates/blueprints', () => ({
+  getAllBlueprints: vi.fn(),
+  getBlueprintById: vi.fn()
+}))
+
+const mockGetAllBlueprints = vi.mocked(blueprintsModule.getAllBlueprints)
+const mockGetBlueprintById = vi.mocked(blueprintsModule.getBlueprintById)
 
 describe('TemplatesPanel A11y', () => {
   beforeEach(() => {
-    mockPlot.templates.mockResolvedValue({
-      schema: 'templates.list.v1',
-      items: [{ id: 'pricing-v1', name: 'Pricing Strategy', version: '1.0' }]
-    })
+    mockGetAllBlueprints.mockReturnValue([
+      {
+        id: 'pricing-v1',
+        name: 'Pricing Strategy',
+        description: 'Compare pricing tiers',
+        nodes: [],
+        edges: []
+      }
+    ])
     
-    mockPlot.template.mockResolvedValue({
+    mockGetBlueprintById.mockReturnValue({
       id: 'pricing-v1',
       name: 'Pricing Strategy',
-      version: '1.0',
-      description: 'Test template',
-      default_seed: 1337,
-      graph: {}
+      description: 'Compare pricing tiers',
+      nodes: [],
+      edges: []
     })
   })
 
@@ -49,19 +59,32 @@ describe('TemplatesPanel A11y', () => {
     expect(results.violations).toEqual([])
   })
 
-  it('has no violations with dev controls enabled', async () => {
-    const { container, getByRole } = render(<TemplatesPanel isOpen={true} onClose={() => {}} />)
+  it('has no violations with template browser', async () => {
+    const { container } = render(<TemplatesPanel isOpen={true} onClose={() => {}} />)
     
     await waitFor(() => {
-      expect(container.querySelector('[role="complementary"]')).toBeInTheDocument()
+      expect(container.querySelector('input[placeholder*="Search"]')).toBeInTheDocument()
     })
     
-    // Enable dev controls
-    const toggle = getByRole('switch')
-    toggle.click()
+    const results = await axe(container)
+    expect(results.violations).toEqual([])
+  })
+
+  it('has no violations with dev controls enabled', async () => {
+    const { container, getByRole } = render(<TemplatesPanel isOpen={true} onClose={() => {}} onInsertBlueprint={() => {}} />)
     
     await waitFor(() => {
-      expect(toggle).toHaveAttribute('aria-checked', 'true')
+      const insertBtn = container.querySelector('button[aria-label*="Insert"]')
+      insertBtn?.click()
+    })
+    
+    await waitFor(() => {
+      const toggle = getByRole('switch')
+      toggle.click()
+    })
+    
+    await waitFor(() => {
+      expect(container.querySelector('[aria-checked="true"]')).toBeInTheDocument()
     })
     
     const results = await axe(container)
