@@ -4,11 +4,13 @@
  * British English: visualisation, colour
  */
 
-import { memo, useState, useCallback, useEffect, useRef } from 'react'
+import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { EDGE_CONSTRAINTS, type EdgeStyle, DEFAULT_EDGE_DATA } from '../domain/edges'
 import { formatConfidence } from '../domain/edges'
 import { useToast } from '../ToastContext'
+import { validateOutgoingProbabilities } from '../utils/probabilityValidation'
 
 interface EdgeInspectorProps {
   edgeId: string
@@ -99,6 +101,12 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       setAnnouncement(`Confidence set to ${formatConfidence(value)}`)
     }, 120)
   }, [edgeId, edge?.data, updateEdge])
+  
+  // Validate outgoing probabilities from source node
+  const probabilityValidation = useMemo(() => {
+    if (!edge) return null
+    return validateOutgoingProbabilities(edge.source, edges)
+  }, [edge, edges])
   
   // Delete edge
   const handleDelete = useCallback(() => {
@@ -263,7 +271,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       {/* Confidence control */}
       <div className="mb-4">
         <label htmlFor="edge-confidence" className="block text-xs font-medium text-gray-700 mb-1">
-          Confidence
+          Probability
         </label>
         <div className="flex items-center gap-2">
           <input
@@ -284,6 +292,16 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
             {formatConfidence(confidence)}
           </span>
         </div>
+        
+        {/* Probability validation warning */}
+        {probabilityValidation && !probabilityValidation.valid && (
+          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded flex items-start gap-2" role="alert">
+            <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-yellow-800">
+              {probabilityValidation.message}
+            </p>
+          </div>
+        )}
       </div>
       
       {/* Connection endpoints */}
