@@ -11,6 +11,7 @@ import type { NodeType } from '../domain/nodes'
 import { renderIcon } from '../helpers/renderIcon'
 import { validateOutgoingProbabilities } from '../utils/probabilityValidation'
 import { formatConfidence } from '../domain/edges'
+import { ProbabilityModal } from '../components/ProbabilityModal'
 
 interface NodeInspectorProps {
   nodeId: string
@@ -26,6 +27,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const node = nodes.find(n => n.id === nodeId)
   const [label, setLabel] = useState<string>(String(node?.data?.label ?? ''))
   const [description, setDescription] = useState<string>(String(node?.data?.description ?? ''))
+  const [showProbabilityModal, setShowProbabilityModal] = useState(false)
   
   // Get outgoing edges from this node
   const outgoingEdges = useMemo(() => 
@@ -188,7 +190,33 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               </p>
             </div>
           )}
+
+          {/* Edit Probabilities Button (only for 2+ outgoing edges) */}
+          {outgoingEdges.length >= 2 && (
+            <button
+              type="button"
+              onClick={() => setShowProbabilityModal(true)}
+              className="w-full mt-3 px-3 py-2 text-sm font-medium rounded text-white transition-all"
+              style={{ backgroundColor: 'var(--olumi-primary, #5B6CFF)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--olumi-primary-600, #4256F6)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'var(--olumi-primary, #5B6CFF)'
+              }}
+            >
+              Edit Probabilities…
+            </button>
+          )}
         </div>
+      )}
+
+      {/* Probability Modal */}
+      {showProbabilityModal && (
+        <ProbabilityModal
+          nodeId={nodeId}
+          onClose={() => setShowProbabilityModal(false)}
+        />
       )}
     </div>
   )
