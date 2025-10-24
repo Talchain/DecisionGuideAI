@@ -230,13 +230,59 @@ describe('Canvas Store', () => {
     expect(clipboard?.nodes).toHaveLength(1)
   })
 
-  it('selects all nodes', () => {
-    const { selectAll } = useCanvasStore.getState()
-    
+  it('selects all nodes and edges', () => {
+    const { selectAll, nodes, edges } = useCanvasStore.getState()
+
     selectAll()
-    
-    const { selection } = useCanvasStore.getState()
-    expect(selection.nodeIds.size).toBe(4)
+
+    const state = useCanvasStore.getState()
+    // Verify selection store is updated
+    expect(state.selection.nodeIds.size).toBe(4)
+    expect(state.selection.edgeIds.size).toBe(4)
+    // Verify nodes/edges have selected: true for React Flow
+    expect(state.nodes.every(n => n.selected)).toBe(true)
+    expect(state.edges.every(e => e.selected)).toBe(true)
+  })
+
+  it('select all → unselect some → delete removes only selected items', () => {
+    const { selectAll } = useCanvasStore.getState()
+
+    // Step 1: Select all
+    selectAll()
+    let state = useCanvasStore.getState()
+    expect(state.nodes.length).toBe(4)
+    expect(state.edges.length).toBe(4)
+
+    // Step 2: Manually unselect node '1' and edge 'e1' (simulating user clicking with modifier key)
+    useCanvasStore.setState(s => ({
+      nodes: s.nodes.map(n => n.id === '1' ? { ...n, selected: false } : n),
+      edges: s.edges.map(e => e.id === 'e1' ? { ...e, selected: false } : e),
+      selection: {
+        nodeIds: new Set(['2', '3', '4']),
+        edgeIds: new Set(['e2', 'e3', 'e4'])
+      }
+    }))
+
+    // Step 3: Delete selected
+    const { deleteSelected } = useCanvasStore.getState()
+    deleteSelected()
+
+    // Verify: Only node '1' should remain
+    state = useCanvasStore.getState()
+    expect(state.nodes.map(n => n.id)).toEqual(['1'])
+    // Verify: All edges removed (e1 was unselected but connects to deleted nodes, others were selected)
+    expect(state.edges.length).toBe(0)
+  })
+
+  it('select all → delete removes everything', () => {
+    const { selectAll, deleteSelected } = useCanvasStore.getState()
+
+    selectAll()
+    deleteSelected()
+
+    const state = useCanvasStore.getState()
+    expect(state.nodes).toHaveLength(0)
+    expect(state.edges).toHaveLength(0)
   })
 
   it('nudges selected nodes', () => {

@@ -408,8 +408,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   selectAll: () => {
-    const { nodes } = get()
-    set({ selection: { nodeIds: new Set(nodes.map(n => n.id)), edgeIds: new Set() } })
+    const { nodes, edges } = get()
+    // Set selected: true on all nodes and edges so React Flow shows them as selected
+    const updatedNodes = nodes.map(n => ({ ...n, selected: true }))
+    const updatedEdges = edges.map(e => ({ ...e, selected: true }))
+    set({
+      nodes: updatedNodes,
+      edges: updatedEdges,
+      selection: {
+        nodeIds: new Set(nodes.map(n => n.id)),
+        edgeIds: new Set(edges.map(e => e.id))
+      }
+    })
   },
 
   nudgeSelected: (dx, dy) => {
