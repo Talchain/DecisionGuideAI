@@ -62,12 +62,12 @@ export default function CanvasMVP() {
   return (
     <div style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
       {/* Badge - fixed top-left */}
-      <div 
+      <div
         style={{
           position: 'fixed',
           top: 8,
           left: 8,
-          zIndex: 2147483647,
+          zIndex: 50,
           padding: '6px 8px',
           background: '#111',
           color: '#0ff',
@@ -84,7 +84,7 @@ export default function CanvasMVP() {
       {/* Templates Button - fixed top-right */}
       <button
         onClick={() => setIsPanelOpen(true)}
-        className="fixed top-4 right-4 z-[2147483646] flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
+        className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
         aria-label="Open templates panel"
       >
         <FileText className="w-5 h-5" />
