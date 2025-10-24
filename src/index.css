@@ -131,4 +131,24 @@
   --olumi-hover: rgba(91,108,255,0.12);
   --olumi-radius: 14px;
   --olumi-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  
+  /* Node palette */
+  --node-goal-bg: #1A1E28;
+  --node-goal-border: #F7C948;
+  --node-decision-bg: #121A2A;
+  --node-decision-border: #5B6CFF;
+  --node-option-bg: #0F1F1B;
+  --node-option-border: #20C997;
+  --node-risk-bg: #241214;
+  --node-risk-border: #FF6B6B;
+  --node-outcome-bg: #171329;
+  --node-outcome-border: #7B46FF;
+  
+  /* Edge */
+  --edge-stroke: #5B6CFF;
+  --edge-label-bg: #0E1116;
+  --edge-label-text: #E8ECF5;
+  
+  /* UI */
+  --radius-lg: 14px;
 }
