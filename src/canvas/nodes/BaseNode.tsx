@@ -2,14 +2,20 @@
  * Base node component
  * Shared structure and styling for all node types
  * British English: visualisation, colour
+ *
+ * Features:
+ * - Double-click to expand/collapse
+ * - Expandable description with sanitized markdown
+ * - Smooth transitions
  */
 
-import { memo, type ReactNode } from 'react'
-import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { memo, useState, useCallback, type ReactNode } from 'react'
+import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
 import { getNodeTheme, NODE_SIZES, NODE_SHADOWS, NODE_TRANSITIONS } from '../theme/nodes'
 import type { NodeType } from '../domain/nodes'
 import { useIsDark } from '../hooks/useTheme'
 import type { LucideIcon } from 'lucide-react'
+import { sanitizeMarkdown } from '../utils/markdown'
 
 interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
@@ -20,30 +26,55 @@ interface BaseNodeProps extends NodeProps {
 /**
  * Base node with shared header and structure
  * Includes connection handles and accessibility attributes
+ * Double-click to expand/collapse description
  */
-export const BaseNode = memo(({ nodeType, icon: Icon, data, selected, children }: BaseNodeProps) => {
+export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, children }: BaseNodeProps) => {
   const isDark = useIsDark()
   const theme = getNodeTheme(nodeType, isDark)
   const label = data?.label || 'Untitled'
-  
+  const description = data?.description
+
+  // Local state for expand/collapse (no persistence per spec)
+  const [isExpanded, setIsExpanded] = useState(false)
+  const updateNodeInternals = useUpdateNodeInternals()
+
   // Accessible name combines node type and label
   const accessibleName = `${nodeType} node: ${label}`
-  
+
+  // Toggle expand on double-click
+  const handleDoubleClick = useCallback(() => {
+    if (!description) return  // Only expand if description exists
+
+    setIsExpanded(prev => !prev)
+
+    // Update node internals after layout change (debounced to avoid thrash)
+    setTimeout(() => {
+      updateNodeInternals(id)
+    }, 100)
+  }, [id, description, updateNodeInternals])
+
+  // Dynamic sizing based on expansion state
+  const nodeWidth = isExpanded ? 300 : NODE_SIZES.minWidth
+  const nodeMinHeight = isExpanded ? 120 : NODE_SIZES.minHeight
+
   return (
     <div
       role="group"
       aria-label={accessibleName}
+      aria-expanded={description ? isExpanded : undefined}
       className="base-node"
+      onDoubleClick={handleDoubleClick}
       style={{
         background: theme.background,
         border: `2px solid ${theme.border}`,
         borderRadius: NODE_SIZES.radius,
         padding: NODE_SIZES.padding,
-        minWidth: NODE_SIZES.minWidth,
-        minHeight: NODE_SIZES.minHeight,
+        width: nodeWidth,
+        minHeight: nodeMinHeight,
         boxShadow: selected ? NODE_SHADOWS.selected : NODE_SHADOWS.default,
         transition: NODE_TRANSITIONS.default,
         position: 'relative',
+        cursor: description ? 'pointer' : 'default',
       }}
     >
       {/* Connection handles */}
@@ -108,7 +139,26 @@ export const BaseNode = memo(({ nodeType, icon: Icon, data, selected, children }
       >
         {label}
       </div>
-      
+
+      {/* Expanded description (markdown) */}
+      {isExpanded && description && (
+        <div
+          style={{
+            marginTop: '12px',
+            fontSize: '12px',
+            color: theme.text,
+            opacity: 0.85,
+            lineHeight: 1.5,
+            maxHeight: '200px',
+            overflowY: 'auto',
+          }}
+          className="node-description"
+          dangerouslySetInnerHTML={{
+            __html: sanitizeMarkdown(description)
+          }}
+        />
+      )}
+
       {/* Optional children (description, metrics, etc.) */}
       {children && (
         <div
