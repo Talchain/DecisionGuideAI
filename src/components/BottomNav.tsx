@@ -7,7 +7,12 @@ import { Home, FileText, BookOpen, Settings } from 'lucide-react'
 
 export function BottomNav() {
   const location = useLocation()
-  
+
+  // Hide BottomNav on canvas route - it has its own toolbar
+  if (location.pathname === '/canvas') {
+    return null
+  }
+
   const isActive = (path: string) => location.pathname === path
   
   const linkClass = (path: string) => `
