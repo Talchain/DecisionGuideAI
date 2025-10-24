@@ -6,7 +6,8 @@
 
 import { memo, useCallback, useMemo } from 'react'
 import { AlertTriangle } from 'lucide-react'
-import { useCanvasStore, getInvalidNodes, getNextInvalidNode } from '../store'
+import { useCanvasStore, getNextInvalidNode } from '../store'
+import { getInvalidNodes as getInvalidNodesUtil } from '../utils/validateOutgoing'
 
 interface ValidationChipProps {
   onFocusNode?: (nodeId: string) => void
@@ -19,8 +20,9 @@ export const ValidationChip = memo(({ onFocusNode }: ValidationChipProps) => {
   const touchedNodeIds = useCanvasStore(s => s.touchedNodeIds)
 
   // Compute invalid nodes in useMemo with stable dependencies
+  // Call utility directly with properly typed arguments (no 'as any')
   const invalidNodes = useMemo(() => {
-    return getInvalidNodes({ nodes, edges, touchedNodeIds } as any)
+    return getInvalidNodesUtil(nodes, edges, touchedNodeIds)
   }, [nodes, edges, touchedNodeIds])
 
   const handleClick = useCallback(() => {

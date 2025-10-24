@@ -81,12 +81,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
 
     if (!targetNode) return
 
-    // Update store with selected nodes (React Flow requirement for visual highlight)
-    // Deselect all other nodes, select target node
-    store.onNodesChange([
-      ...store.nodes.filter(n => n.selected).map(n => ({ type: 'select' as const, id: n.id, selected: false })),
-      { type: 'select' as const, id: nodeId, selected: true }
-    ])
+    // Select node WITHOUT pushing to history (navigation-only, not structural change)
+    store.selectNodeWithoutHistory(nodeId)
 
     // Center viewport on the node with smooth animation
     const viewport = getViewport()

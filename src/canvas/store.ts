@@ -54,6 +54,7 @@ interface CanvasState {
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
   onSelectionChange: (params: { nodes: Node[]; edges: Edge<EdgeData>[] }) => void
+  selectNodeWithoutHistory: (nodeId: string) => void
   addEdge: (edge: Omit<Edge<EdgeData>, 'id'>) => void
   pushHistory: (debounced?: boolean) => void
   undo: () => void
@@ -280,6 +281,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         edgeIds: newEdgeIds,
       },
     })
+  },
+
+  // Select a node without pushing to history (for focus/navigation)
+  selectNodeWithoutHistory: (nodeId) => {
+    set(s => ({
+      nodes: s.nodes.map(n => ({
+        ...n,
+        selected: n.id === nodeId
+      })),
+      selection: {
+        nodeIds: new Set([nodeId]),
+        edgeIds: new Set()
+      }
+    }))
   },
 
   addEdge: (edge) => {
