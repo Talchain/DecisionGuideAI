@@ -101,4 +101,30 @@ describe('useBlueprintInsert', () => {
     expect(labels).toContain('Risk 1')
     expect(labels).toContain('Outcome')
   })
+
+  it('edges have styled type for rendering', () => {
+    const { result } = renderHook(() => useBlueprintInsert(), { wrapper })
+    
+    act(() => {
+      result.current.insertBlueprint(mockBlueprint)
+    })
+    
+    const edges = useCanvasStore.getState().edges
+    edges.forEach(edge => {
+      expect(edge.type).toBe('styled')
+    })
+  })
+
+  it('edges have templateId in data', () => {
+    const { result } = renderHook(() => useBlueprintInsert(), { wrapper })
+    
+    act(() => {
+      result.current.insertBlueprint(mockBlueprint)
+    })
+    
+    const edges = useCanvasStore.getState().edges
+    edges.forEach(edge => {
+      expect(edge.data?.templateId).toBe('test-blueprint')
+    })
+  })
 })

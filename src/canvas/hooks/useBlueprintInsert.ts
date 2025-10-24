@@ -69,6 +69,7 @@ export function useBlueprintInsert() {
       
       return {
         id: edgeId,
+        type: 'styled',
         source: nodeIdMap.get(edge.from)!,
         target: nodeIdMap.get(edge.to)!,
         label,
@@ -76,7 +77,8 @@ export function useBlueprintInsert() {
           ...DEFAULT_EDGE_DATA,
           weight: edge.weight ?? DEFAULT_EDGE_DATA.weight,
           label,
-          confidence: edge.probability
+          confidence: edge.probability,
+          templateId: blueprint.id
         }
       }
     })

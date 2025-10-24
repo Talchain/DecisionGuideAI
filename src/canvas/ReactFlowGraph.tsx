@@ -115,13 +115,15 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
       const label = pct != null ? `${pct}%` : undefined
       
       addEdge({
+        type: 'styled',
         source: nodeIdMap.get(edge.from)!,
         target: nodeIdMap.get(edge.to)!,
         data: {
           ...DEFAULT_EDGE_DATA,
           weight: edge.weight ?? DEFAULT_EDGE_DATA.weight,
           label,
-          confidence: edge.probability
+          confidence: edge.probability,
+          templateId: blueprint.id
         }
       })
     })
