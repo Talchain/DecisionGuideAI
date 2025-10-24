@@ -38,6 +38,29 @@ export function CanvasToolbar() {
     setShowNodeMenu(false)
   }
 
+  // Helper to close all panels
+  const closeAllPanels = () => {
+    setShowSnapshots(false)
+    setShowImport(false)
+    setShowExport(false)
+  }
+
+  // Helpers to open specific panels (closes others first)
+  const openSnapshots = () => {
+    closeAllPanels()
+    setShowSnapshots(true)
+  }
+
+  const openImport = () => {
+    closeAllPanels()
+    setShowImport(true)
+  }
+
+  const openExport = () => {
+    closeAllPanels()
+    setShowExport(true)
+  }
+
   if (isMinimized) {
     return (
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000]">
@@ -173,7 +196,7 @@ export function CanvasToolbar() {
 
         {/* Snapshots */}
         <button
-          onClick={() => setShowSnapshots(true)}
+          onClick={openSnapshots}
           className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
           title="Manage Snapshots (⌘S)"
           aria-label="Open snapshot manager"
@@ -185,7 +208,7 @@ export function CanvasToolbar() {
 
         {/* Import */}
         <button
-          onClick={() => setShowImport(true)}
+          onClick={openImport}
           className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
           title="Import Canvas"
           aria-label="Import canvas from file"
@@ -195,7 +218,7 @@ export function CanvasToolbar() {
 
         {/* Export */}
         <button
-          onClick={() => setShowExport(true)}
+          onClick={openExport}
           className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
           title="Export Canvas"
           aria-label="Export canvas to file"

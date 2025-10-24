@@ -57,7 +57,7 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
 
   const content = (
     <div
-      className="fixed inset-0 bg-black/50 flex items-end justify-center z-50"
+      className="fixed inset-0 bg-black/50 flex items-end justify-center z-[2000]"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
