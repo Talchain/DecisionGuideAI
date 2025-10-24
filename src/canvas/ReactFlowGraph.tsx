@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { useCanvasStore } from './store'
+import { useCanvasStore, hasValidationErrors } from './store'
 import { DEFAULT_EDGE_DATA } from './domain/edges'
 import { nodeTypes } from './nodes/registry'
 import { StyledEdge } from './edges/StyledEdge'
@@ -92,13 +92,30 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     })
   }, [getViewport, setCenter])
 
+  // Run simulation handler with validation gating
+  const handleRunSimulation = useCallback(() => {
+    const store = useCanvasStore.getState()
+
+    // Check if graph has any nodes
+    if (store.nodes.length === 0) {
+      showToast('Add nodes to the canvas before running', 'info')
+      return
+    }
+
+    // Check if graph has validation errors using shared utility
+    if (hasValidationErrors(store)) {
+      showToast('Fix probability errors before running (Alt+V to navigate)', 'warning')
+      return
+    }
+
+    // TODO: Implement actual run simulation
+    showToast('Run simulation feature coming soon!', 'info')
+  }, [showToast])
+
   // Setup keyboard shortcuts (Alt+V, Cmd/Ctrl+Enter)
   useCanvasKeyboardShortcuts({
     onFocusNode: handleFocusNode,
-    onRunSimulation: () => {
-      // TODO: Implement run simulation (future PR)
-      showToast('Run simulation coming soon!', 'info')
-    }
+    onRunSimulation: handleRunSimulation
   })
 
   // Blueprint insertion handler
