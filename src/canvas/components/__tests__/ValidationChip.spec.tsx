@@ -173,7 +173,7 @@ describe('ValidationChip', () => {
     expect(screen.queryByTestId('validation-chip')).not.toBeInTheDocument()
   })
 
-  it('uses Olumi warning color', () => {
+  it('uses Olumi brand colors via CSS module', () => {
     const { resetCanvas, addNode, addEdge } = useCanvasStore.getState()
 
     resetCanvas()
@@ -188,6 +188,10 @@ describe('ValidationChip', () => {
 
     const chip = screen.getByTestId('validation-chip')
 
-    expect(chip).toHaveStyle({ backgroundColor: 'var(--olumi-warning)' })
+    // Chip should have the CSS module class (styles use Olumi tokens in ValidationChip.module.css)
+    expect(chip.className).toContain('validationChip')
+    // Should have icon and label elements
+    expect(chip.querySelector('svg')).toBeInTheDocument()
+    expect(chip.querySelector('span:not([aria-live])')).toBeInTheDocument()
   })
 })

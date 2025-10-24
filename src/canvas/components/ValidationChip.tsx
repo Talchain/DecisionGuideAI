@@ -8,6 +8,7 @@ import { memo, useCallback, useMemo } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { useCanvasStore, getNextInvalidNode } from '../store'
 import { getInvalidNodes as getInvalidNodesUtil } from '../utils/validateOutgoing'
+import styles from './ValidationChip.module.css'
 
 interface ValidationChipProps {
   onFocusNode?: (nodeId: string) => void
@@ -44,22 +45,15 @@ export const ValidationChip = memo(({ onFocusNode }: ValidationChipProps) => {
     <button
       type="button"
       onClick={handleClick}
-      className="fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2"
-      style={{
-        backgroundColor: 'var(--olumi-warning)',
-        color: 'var(--olumi-text-strong, #000)',
-        zIndex: 1000,
-        // @ts-expect-error CSS custom property for focus ring
-        '--tw-ring-color': 'var(--olumi-warning)'
-      }}
+      className={styles.validationChip}
       aria-label={ariaLabel}
       data-testid="validation-chip"
     >
-      <AlertTriangle className="w-5 h-5" aria-hidden="true" />
-      <span className="font-medium text-sm">{label}</span>
+      <AlertTriangle className={styles.icon} aria-hidden="true" />
+      <span className={styles.label}>{label}</span>
 
       {/* Visually hidden live region for screen readers */}
-      <span className="sr-only" aria-live="polite" aria-atomic="true">
+      <span className={styles.srOnly} aria-live="polite" aria-atomic="true">
         {ariaLabel}
       </span>
     </button>
