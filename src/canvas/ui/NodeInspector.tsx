@@ -1,12 +1,16 @@
 /**
  * Node property inspector - keyboard-first editing
+ * Includes outgoing edges probability editor
  */
 
-import { memo, useState, useCallback, useRef, useEffect } from 'react'
+import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { NODE_REGISTRY } from '../domain/nodes'
 import type { NodeType } from '../domain/nodes'
 import { renderIcon } from '../helpers/renderIcon'
+import { validateOutgoingProbabilities } from '../utils/probabilityValidation'
+import { formatConfidence } from '../domain/edges'
 
 interface NodeInspectorProps {
   nodeId: string
@@ -15,11 +19,25 @@ interface NodeInspectorProps {
 
 export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
   const updateNode = useCanvasStore(s => s.updateNode)
+  const updateEdge = useCanvasStore(s => s.updateEdge)
   
   const node = nodes.find(n => n.id === nodeId)
   const [label, setLabel] = useState<string>(String(node?.data?.label ?? ''))
   const [description, setDescription] = useState<string>(String(node?.data?.description ?? ''))
+  
+  // Get outgoing edges from this node
+  const outgoingEdges = useMemo(() => 
+    edges.filter(e => e.source === nodeId),
+    [edges, nodeId]
+  )
+  
+  // Validate outgoing probabilities
+  const probabilityValidation = useMemo(() => 
+    validateOutgoingProbabilities(nodeId, edges),
+    [nodeId, edges]
+  )
   
   const labelRef = useRef<HTMLInputElement>(null)
   
@@ -115,6 +133,63 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           placeholder="Add a note..."
         />
       </div>
+      
+      {/* Outgoing Edges Probability Editor */}
+      {outgoingEdges.length > 0 && (
+        <div className="mb-4 pt-4 border-t border-gray-200">
+          <label className="block text-xs font-medium text-gray-700 mb-2">
+            Outgoing Edges ({outgoingEdges.length})
+          </label>
+          <div className="space-y-3">
+            {outgoingEdges.map(edge => {
+              const targetNode = nodes.find(n => n.id === edge.target)
+              const probability = edge.data?.confidence ?? 0
+              const pct = Math.round(probability * 100)
+              
+              return (
+                <div key={edge.id} className="p-2 bg-gray-50 rounded border border-gray-200">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-gray-700">
+                      → {targetNode?.data?.label || 'Unknown'}
+                    </span>
+                    <span className="text-xs text-gray-600">{pct}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={pct}
+                    onChange={(e) => {
+                      const newPct = parseInt(e.target.value, 10)
+                      const newConfidence = newPct / 100
+                      updateEdge(edge.id, {
+                        data: {
+                          ...edge.data,
+                          confidence: newConfidence,
+                          label: `${newPct}%`
+                        }
+                      })
+                    }}
+                    className="w-full"
+                    aria-label={`Probability to ${targetNode?.data?.label || 'Unknown'}`}
+                  />
+                </div>
+              )
+            })}
+          </div>
+          
+          {/* Validation Footer */}
+          {probabilityValidation && !probabilityValidation.valid && (
+            <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded flex items-start gap-2" role="alert">
+              <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-yellow-800">
+                {probabilityValidation.message}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 })
