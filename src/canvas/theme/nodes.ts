@@ -67,48 +67,55 @@ const LIGHT_THEME: Record<NodeType, NodeThemeTokens> = {
 }
 
 /**
- * Dark theme node colours
+ * Dark theme node colours - Using Olumi brand palette
  * All text meets WCAG 4.5:1 contrast
+ *
+ * CSS Variables from index.css:
+ * --node-goal-bg: #1A1E28, --node-goal-border: #F7C948
+ * --node-decision-bg: #121A2A, --node-decision-border: #5B6CFF
+ * --node-option-bg: #0F1F1B, --node-option-border: #20C997
+ * --node-risk-bg: #241214, --node-risk-border: #FF6B6B
+ * --node-outcome-bg: #171329, --node-outcome-border: #7B46FF
  */
 const DARK_THEME: Record<NodeType, NodeThemeTokens> = {
   goal: {
-    background: '#78350F',
-    border: '#FCD34D',
+    background: 'var(--node-goal-bg, #1A1E28)',
+    border: 'var(--node-goal-border, #F7C948)',
     text: '#FEF3C7', // 4.5:1 contrast
-    icon: '#FCD34D',
-    badge: '#92400E',
+    icon: 'var(--node-goal-border, #F7C948)',
+    badge: 'rgba(247, 201, 72, 0.15)',
     badgeText: '#FDE68A',
   },
   decision: {
-    background: '#1E3A8A',
-    border: '#60A5FA',
+    background: 'var(--node-decision-bg, #121A2A)',
+    border: 'var(--node-decision-border, #5B6CFF)',
     text: '#DBEAFE', // 4.5:1 contrast
-    icon: '#60A5FA',
-    badge: '#1E40AF',
+    icon: 'var(--node-decision-border, #5B6CFF)',
+    badge: 'rgba(91, 108, 255, 0.15)',
     badgeText: '#BFDBFE',
   },
   option: {
-    background: '#065F46',
-    border: '#34D399',
+    background: 'var(--node-option-bg, #0F1F1B)',
+    border: 'var(--node-option-border, #20C997)',
     text: '#D1FAE5', // 4.5:1 contrast
-    icon: '#34D399',
-    badge: '#047857',
+    icon: 'var(--node-option-border, #20C997)',
+    badge: 'rgba(32, 201, 151, 0.15)',
     badgeText: '#A7F3D0',
   },
   risk: {
-    background: '#7F1D1D',
-    border: '#F87171',
+    background: 'var(--node-risk-bg, #241214)',
+    border: 'var(--node-risk-border, #FF6B6B)',
     text: '#FEE2E2', // 4.5:1 contrast
-    icon: '#F87171',
-    badge: '#991B1B',
+    icon: 'var(--node-risk-border, #FF6B6B)',
+    badge: 'rgba(255, 107, 107, 0.15)',
     badgeText: '#FECACA',
   },
   outcome: {
-    background: '#581C87',
-    border: '#C084FC',
+    background: 'var(--node-outcome-bg, #171329)',
+    border: 'var(--node-outcome-border, #7B46FF)',
     text: '#F3E8FF', // 4.5:1 contrast
-    icon: '#C084FC',
-    badge: '#6B21A8',
+    icon: 'var(--node-outcome-border, #7B46FF)',
+    badge: 'rgba(123, 70, 255, 0.15)',
     badgeText: '#E9D5FF',
   },
 }
@@ -132,12 +139,12 @@ export const NODE_SIZES = {
 } as const
 
 /**
- * Node shadow tokens
+ * Node shadow tokens - Using Olumi primary for selection
  */
 export const NODE_SHADOWS = {
   default: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
   hover: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-  selected: '0 0 0 2px #3B82F6, 0 4px 6px -1px rgb(0 0 0 / 0.1)',
+  selected: '0 0 0 2px var(--olumi-primary, #5B6CFF), 0 4px 6px -1px rgb(0 0 0 / 0.1)',
 } as const
 
 /**

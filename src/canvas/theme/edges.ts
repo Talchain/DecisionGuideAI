@@ -29,29 +29,30 @@ interface EdgeThemeTokens {
 const LIGHT_THEME: EdgeThemeTokens = {
   stroke: '#94A3B8', // Slate 400
   strokeHover: '#64748B', // Slate 500
-  strokeSelected: '#3B82F6', // Blue 500
+  strokeSelected: 'var(--olumi-primary, #5B6CFF)',
   label: '#1E293B', // Slate 800
   labelBackground: '#FFFFFF',
   confidence: {
-    high: '#10B981', // Green 500
-    medium: '#F59E0B', // Amber 500
-    low: '#EF4444', // Red 500
+    high: 'var(--olumi-success, #20C997)',
+    medium: 'var(--olumi-warning, #F7C948)',
+    low: 'var(--olumi-danger, #FF6B6B)',
   },
 }
 
 /**
- * Dark theme edge colours
+ * Dark theme edge colours - Using Olumi brand palette
+ * CSS Variables: --edge-stroke, --edge-label-bg, --edge-label-text from index.css
  */
 const DARK_THEME: EdgeThemeTokens = {
-  stroke: '#64748B', // Slate 500
-  strokeHover: '#94A3B8', // Slate 400
-  strokeSelected: '#60A5FA', // Blue 400
-  label: '#F1F5F9', // Slate 100
-  labelBackground: '#1E293B', // Slate 800
+  stroke: 'var(--edge-stroke, #5B6CFF)',
+  strokeHover: 'var(--olumi-primary-600, #4256F6)',
+  strokeSelected: 'var(--olumi-primary, #5B6CFF)',
+  label: 'var(--edge-label-text, #E8ECF5)',
+  labelBackground: 'var(--edge-label-bg, #0E1116)',
   confidence: {
-    high: '#34D399', // Green 400
-    medium: '#FCD34D', // Amber 300
-    low: '#F87171', // Red 400
+    high: 'var(--olumi-success, #20C997)',
+    medium: 'var(--olumi-warning, #F7C948)',
+    low: 'var(--olumi-danger, #FF6B6B)',
   },
 }
 

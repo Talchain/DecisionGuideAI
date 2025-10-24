@@ -23,7 +23,7 @@ import { useIsDark } from '../hooks/useTheme'
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
   const isDark = useIsDark()
   const { getNode } = useReactFlow()
-  
+
   // Extract edge data with defaults
   const edgeData = data as EdgeData | undefined
   const weight = edgeData?.weight ?? 1.0
@@ -31,12 +31,30 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const curvature = edgeData?.curvature ?? 0.15
   const label = edgeData?.label
   const confidence = edgeData?.confidence
-  
+
   // Apply visual properties (O(1), pure function)
   const visualProps = useMemo(
     () => applyEdgeVisualProps(weight, style, curvature, selected || false, false, isDark),
     [weight, style, curvature, selected, isDark]
   )
+
+  // Get edge theme for labels
+  const edgeTheme = useMemo(() => {
+    // This ensures we use CSS variables when available
+    if (typeof window !== 'undefined') {
+      const styles = getComputedStyle(document.documentElement)
+      return {
+        labelBg: isDark ? styles.getPropertyValue('--edge-label-bg')?.trim() || '#0E1116' : '#FFFFFF',
+        labelText: isDark ? styles.getPropertyValue('--edge-label-text')?.trim() || '#E8ECF5' : '#1E293B',
+        labelBorder: isDark ? '#64748B' : '#E2E8F0'
+      }
+    }
+    return {
+      labelBg: isDark ? '#0E1116' : '#FFFFFF',
+      labelText: isDark ? '#E8ECF5' : '#1E293B',
+      labelBorder: isDark ? '#64748B' : '#E2E8F0'
+    }
+  }, [isDark])
   
   // Compute edge path
   const [edgePath, labelX, labelY] = getSmoothStepPath({
@@ -81,11 +99,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
               pointerEvents: 'all',
               fontSize: '12px',
-              background: isDark ? '#1E293B' : '#FFFFFF',
-              color: isDark ? '#F1F5F9' : '#1E293B',
+              background: edgeTheme.labelBg,
+              color: edgeTheme.labelText,
               padding: '2px 8px',
               borderRadius: '4px',
-              border: `1px solid ${isDark ? '#64748B' : '#E2E8F0'}`,
+              border: `1px solid ${edgeTheme.labelBorder}`,
               boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
               maxWidth: '120px',
               overflow: 'hidden',

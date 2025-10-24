@@ -67,7 +67,10 @@ export function ConfirmDialog({
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 text-sm font-medium text-white bg-[#EA7B4B] rounded-lg hover:bg-[#EA7B4B]/90 focus:outline-none focus:ring-2 focus:ring-[#EA7B4B] transition-colors"
+            className="px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--olumi-warning)] transition-colors"
+            style={{ backgroundColor: 'var(--olumi-warning)' }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e6b840'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-warning)'}
             autoFocus
           >
             {confirmLabel}
