@@ -217,10 +217,11 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
               className={`
                 flex-1 px-3 py-2 text-xs font-medium rounded border
                 ${style === s
-                  ? 'bg-blue-50 border-blue-500 text-blue-700'
+                  ? 'border-gray-300 text-gray-700 hover:bg-gray-50'
                   : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                 }
               `}
+              style={style === s ? { backgroundColor: 'rgba(91,108,255,0.1)', borderColor: 'var(--olumi-primary)', color: 'var(--olumi-primary)' } : {}}
               role="radio"
               aria-checked={style === s}
             >
@@ -295,9 +296,9 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         
         {/* Probability validation warning */}
         {probabilityValidation && !probabilityValidation.valid && (
-          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded flex items-start gap-2" role="alert">
-            <AlertTriangle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-yellow-800">
+          <div className="mt-2 p-2 rounded flex items-start gap-2" role="alert" style={{ backgroundColor: 'rgba(247,201,72,0.1)', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--olumi-warning)' }}>
+            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--olumi-warning)' }} />
+            <p className="text-xs" style={{ color: '#9a6e00' }}>
               {probabilityValidation.message}
             </p>
           </div>
@@ -318,7 +319,10 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
               </span>
               <button
                 onClick={handleReconnectSource}
-                className="text-xs text-blue-600 hover:text-blue-800 underline"
+                className="text-xs underline"
+                style={{ color: 'var(--olumi-primary)' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--olumi-primary-700)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--olumi-primary)'}
                 data-testid="btn-edge-reconnect-source"
               >
                 Change…
@@ -333,7 +337,10 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
               </span>
               <button
                 onClick={handleReconnectTarget}
-                className="text-xs text-blue-600 hover:text-blue-800 underline"
+                className="text-xs underline"
+                style={{ color: 'var(--olumi-primary)' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--olumi-primary-700)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--olumi-primary)'}
                 data-testid="btn-edge-reconnect-target"
               >
                 Change…
@@ -347,7 +354,10 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       <div className="pt-2 border-t border-gray-200">
         <button
           onClick={handleDelete}
-          className="w-full px-3 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded transition-colors"
+          className="w-full px-3 py-2 text-sm font-medium text-white rounded transition-colors"
+          style={{ backgroundColor: 'var(--olumi-danger)' }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e63946'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-danger)'}
           data-testid="btn-edge-delete"
         >
           Delete Connector

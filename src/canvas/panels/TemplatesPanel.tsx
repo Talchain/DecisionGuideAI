@@ -126,11 +126,11 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         style={{ maxWidth: '420px' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200" style={{ background: 'linear-gradient(to right, rgba(91,108,255,0.05), rgba(123,70,255,0.05))' }}>
           <h2 className="text-lg font-semibold text-gray-900">Templates</h2>
           <button
             onClick={handleClose}
-            className="p-2 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="p-2 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--olumi-primary)]"
             aria-label="Close templates panel"
           >
             <X className="w-5 h-5" />
@@ -149,7 +149,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                   placeholder="Search templates..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--olumi-primary)]"
                 />
               </div>
               
@@ -172,7 +172,10 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
               
               <button
                 onClick={() => setSelectedBlueprintId(null)}
-                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                className="text-sm font-medium"
+                style={{ color: 'var(--olumi-primary)' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--olumi-primary-700)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--olumi-primary)'}
               >
                 ← Back to templates
               </button>
@@ -190,9 +193,8 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                 role="switch"
                 aria-checked={showDevControls}
                 onClick={() => setShowDevControls(!showDevControls)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  showDevControls ? 'bg-blue-600' : 'bg-gray-300'
-                }`}
+                className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--olumi-primary)]"
+                style={{ backgroundColor: showDevControls ? 'var(--olumi-primary)' : '#d1d5db' }}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -220,7 +222,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                     type="number"
                     value={seed}
                     onChange={(e) => setSeed(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--olumi-primary)]"
                     min="1"
                   />
                 </div>
@@ -228,7 +230,10 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                   <button
                     onClick={handleRun}
                     disabled={loading || !selectedBlueprintId}
-                    className="flex-1 px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-2 text-sm text-white rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--olumi-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: 'var(--olumi-primary)' }}
+                    onMouseEnter={(e) => !loading && !selectedBlueprintId ? null : e.currentTarget.style.backgroundColor = 'var(--olumi-primary-700)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary)'}
                   >
                     {loading ? 'Running…' : 'Run'}
                   </button>
@@ -279,7 +284,10 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
               {onPinToCanvas && (
                 <button
                   onClick={handlePinToCanvas}
-                  className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-4 py-2 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--olumi-primary)]"
+                  style={{ backgroundColor: 'var(--olumi-primary)' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary-700)'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary)'}
                 >
                   Pin to Canvas
                 </button>

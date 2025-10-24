@@ -45,8 +45,8 @@ export function ConfirmDialog({
     >
       <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md mx-4">
         <div className="flex items-start gap-4 mb-4">
-          <div className="flex-shrink-0 w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5 text-yellow-600" />
+          <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(247,201,72,0.15)' }}>
+            <AlertTriangle className="w-5 h-5" style={{ color: 'var(--olumi-warning)' }} />
           </div>
           <div className="flex-1">
             <h3 id="confirm-title" className="text-lg font-semibold text-gray-900 mb-2">
