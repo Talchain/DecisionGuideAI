@@ -1,0 +1,44 @@
+.panel {
+  background: var(--olumi-surface);
+  color: var(--olumi-text);
+  box-shadow: var(--olumi-shadow);
+}
+
+.header {
+  border-bottom: 1px solid var(--olumi-border);
+  background: var(--olumi-elev-1);
+}
+
+.closeBtn {
+  color: var(--olumi-text-muted);
+}
+
+.closeBtn:hover {
+  background: var(--olumi-hover);
+}
+
+.searchInput {
+  background: var(--olumi-elev-1);
+  border: 1px solid var(--olumi-border);
+  color: var(--olumi-text);
+  border-radius: var(--olumi-radius);
+}
+
+.searchInput:focus {
+  outline: 2px solid var(--olumi-focus);
+}
+
+.card {
+  background: var(--olumi-elev-1);
+  border: 1px solid var(--olumi-border);
+  border-radius: var(--olumi-radius);
+}
+
+.primaryBtn {
+  background: var(--olumi-primary);
+  color: white;
+}
+
+.primaryBtn:hover {
+  background: var(--olumi-primary-600);
+}

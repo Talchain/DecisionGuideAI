@@ -91,6 +91,21 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     onClose()
   }, [onClose])
 
+  // Keyboard shortcut: Cmd/Ctrl+T to toggle, Escape to close
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 't') {
+        e.preventDefault()
+        if (isOpen) handleClose()
+      }
+      if (e.key === 'Escape' && isOpen) {
+        handleClose()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, handleClose])
+
   if (!isOpen) return null
 
   return (
