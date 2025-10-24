@@ -22,6 +22,7 @@ import { ToastProvider, useToast } from './ToastContext'
 import { DiagnosticsOverlay } from './DiagnosticsOverlay'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import type { Blueprint } from '../templates/blueprints/types'
+import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
 
 interface ReactFlowGraphProps {
   blueprintEventBus?: {
@@ -72,18 +73,21 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   
   // Blueprint insertion handler
   const insertBlueprint = useCallback((blueprint: Blueprint) => {
+    // Transform to goal-first graph
+    const graph = blueprintToGraph(blueprint)
+    
     const viewport = getViewport()
     const centerX = -viewport.x + (window.innerWidth / 2) / viewport.zoom
     const centerY = -viewport.y + (window.innerHeight / 2) / viewport.zoom
     
     // Create ID mapping
     const nodeIdMap = new Map<string, string>()
-    blueprint.nodes.forEach(node => {
+    graph.nodes.forEach(node => {
       nodeIdMap.set(node.id, createNodeId())
     })
     
     // Calculate blueprint center
-    const positions = blueprint.nodes.map(n => n.position || { x: 0, y: 0 })
+    const positions = graph.nodes.map(n => n.position || { x: 0, y: 0 })
     const minX = Math.min(...positions.map(p => p.x))
     const maxX = Math.max(...positions.map(p => p.x))
     const minY = Math.min(...positions.map(p => p.y))
@@ -94,7 +98,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     // Create nodes with correct types and template metadata
     const templateCreatedAt = new Date().toISOString()
 
-    const newNodes = blueprint.nodes.map(node => {
+    const newNodes = graph.nodes.map(node => {
       const pos = node.position || { x: 0, y: 0 }
       return {
         id: nodeIdMap.get(node.id)!,
@@ -114,7 +118,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     })
 
     // Create edges with probability labels
-    const newEdges = blueprint.edges.map(edge => {
+    const newEdges = graph.edges.map(edge => {
       const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
       const label = pct != null ? `${pct}%` : undefined
       const edgeId = createEdgeId()
