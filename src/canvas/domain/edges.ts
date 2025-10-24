@@ -20,11 +20,14 @@ export const EdgeDataSchema = z.object({
   weight: z.number().min(0.1).max(5.0).default(1.0),
   style: EdgeStyleEnum.default('solid'),
   curvature: z.number().min(0).max(0.5).default(0.15),
-  
+
   // Semantic properties
   label: z.string().max(50).optional(),
   confidence: z.number().min(0).max(1).optional(),
-  
+
+  // Template tracking
+  templateId: z.string().optional(),
+
   // Schema version for migrations
   schemaVersion: z.literal(2).default(2),
 })

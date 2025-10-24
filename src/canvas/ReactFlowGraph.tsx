@@ -35,8 +35,6 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
   const { getViewport } = useReactFlow()
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
-  const addNode = useCanvasStore(s => s.addNode)
-  const addEdge = useCanvasStore(s => s.addEdge)
   
   // State declarations
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
@@ -86,12 +84,10 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
     
     // Create nodes with correct types and template metadata
     const templateCreatedAt = new Date().toISOString()
-    const store = useCanvasStore.getState()
-    store.pushHistory()
-    
-    blueprint.nodes.forEach(node => {
+
+    const newNodes = blueprint.nodes.map(node => {
       const pos = node.position || { x: 0, y: 0 }
-      const newNode = {
+      return {
         id: nodeIdMap.get(node.id)!,
         type: node.kind,
         position: {
@@ -106,15 +102,16 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
           templateCreatedAt
         }
       }
-      addNode(newNode.position, newNode.type, newNode.data)
     })
-    
+
     // Create edges with probability labels
-    blueprint.edges.forEach(edge => {
+    const newEdges = blueprint.edges.map(edge => {
       const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
       const label = pct != null ? `${pct}%` : undefined
-      
-      addEdge({
+      const edgeId = createEdgeId()
+
+      return {
+        id: edgeId,
         type: 'styled',
         source: nodeIdMap.get(edge.from)!,
         target: nodeIdMap.get(edge.to)!,
@@ -125,11 +122,19 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
           confidence: edge.probability,
           templateId: blueprint.id
         }
-      })
+      }
     })
+
+    // Batch update store
+    const store = useCanvasStore.getState()
+    store.pushHistory()
+    useCanvasStore.setState(state => ({
+      nodes: [...state.nodes, ...newNodes],
+      edges: [...state.edges, ...newEdges]
+    }))
     
     showToast(`Inserted ${blueprint.name} to canvas.`, 'success')
-  }, [getViewport, createNodeId, addNode, addEdge, showToast])
+  }, [getViewport, createNodeId, createEdgeId, showToast])
   
   useEffect(() => {
     if (!blueprintEventBus) return
@@ -266,6 +271,13 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
       >
         <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
         <MiniMap style={miniMapStyle} />
+        <svg style={{ position: 'absolute', top: 0, left: 0 }}>
+          <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+              <polygon points="0 0, 10 3, 0 6" fill="#6b7280" />
+            </marker>
+          </defs>
+        </svg>
       </ReactFlow>
       
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
