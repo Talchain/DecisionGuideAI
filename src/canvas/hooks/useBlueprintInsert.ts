@@ -1,7 +1,17 @@
+/**
+ * Blueprint insertion hook
+ * Handles inserting template blueprints into the canvas with:
+ * - Viewport-centered positioning
+ * - Correct node type mapping (goal/option/risk/outcome/decision)
+ * - Template metadata stamping
+ * - Probability labels on edges
+ */
+
 import { useCallback } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import type { Blueprint } from '../../templates/blueprints/types'
 import { useCanvasStore } from '../store'
+import { DEFAULT_EDGE_DATA } from '../domain/edges'
 
 export function useBlueprintInsert() {
   const { getViewport } = useReactFlow()
@@ -28,34 +38,48 @@ export function useBlueprintInsert() {
     const blueprintCenterX = (minX + maxX) / 2
     const blueprintCenterY = (minY + maxY) / 2
     
-    // Create nodes with adjusted positions
+    // Template metadata
+    const templateCreatedAt = new Date().toISOString()
+    
+    // Create nodes with correct types and template metadata
     const newNodes = blueprint.nodes.map(node => {
       const pos = node.position || { x: 0, y: 0 }
       return {
         id: nodeIdMap.get(node.id)!,
-        type: node.kind === 'decision' ? 'decision' : 'decision', // Map to available node types
+        type: node.kind, // Use actual node kind: goal, option, risk, outcome, decision
         position: {
           x: centerX + (pos.x - blueprintCenterX),
           y: centerY + (pos.y - blueprintCenterY)
         },
         data: {
           label: node.label,
-          kind: node.kind
+          kind: node.kind,
+          templateId: blueprint.id,
+          templateName: blueprint.name,
+          templateCreatedAt
         }
       }
     })
     
-    // Create edges with mapped IDs
-    const newEdges = blueprint.edges.map(edge => ({
-      id: createEdgeId(),
-      source: nodeIdMap.get(edge.from)!,
-      target: nodeIdMap.get(edge.to)!,
-      data: {
-        probability: edge.probability,
-        weight: edge.weight,
-        style: 'default' as const
+    // Create edges with probability labels
+    const newEdges = blueprint.edges.map(edge => {
+      const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
+      const label = pct != null ? `${pct}%` : undefined
+      const edgeId = createEdgeId()
+      
+      return {
+        id: edgeId,
+        source: nodeIdMap.get(edge.from)!,
+        target: nodeIdMap.get(edge.to)!,
+        label,
+        data: {
+          ...DEFAULT_EDGE_DATA,
+          weight: edge.weight ?? DEFAULT_EDGE_DATA.weight,
+          label,
+          confidence: edge.probability
+        }
       }
-    }))
+    })
     
     // Batch update store
     const store = useCanvasStore.getState()
