@@ -21,6 +21,9 @@ import { CanvasErrorBoundary } from './ErrorBoundary'
 import { ToastProvider, useToast } from './ToastContext'
 import { DiagnosticsOverlay } from './DiagnosticsOverlay'
 import { ConfirmDialog } from './components/ConfirmDialog'
+import { ValidationChip } from './components/ValidationChip'
+import { LayerProvider } from './components/LayerProvider'
+import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
 
@@ -70,7 +73,26 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     // Close Templates panel when clicking an edge
     onCanvasInteraction?.()
   }, [onCanvasInteraction])
-  
+
+  // Focus node handler (for Alt+V validation cycling)
+  const handleFocusNode = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId)
+    if (node) {
+      // Select the node
+      useCanvasStore.getState().onSelectionChange({ nodes: [node], edges: [] })
+      // TODO: fitView to center the node (requires React Flow fitView)
+    }
+  }, [nodes])
+
+  // Setup keyboard shortcuts (Alt+V, Cmd/Ctrl+Enter)
+  useCanvasKeyboardShortcuts({
+    onFocusNode: handleFocusNode,
+    onRunSimulation: () => {
+      // TODO: Implement run simulation (future PR)
+      showToast('Run simulation coming soon!', 'info')
+    }
+  })
+
   // Blueprint insertion handler
   const insertBlueprint = useCallback((blueprint: Blueprint) => {
     // Transform to goal-first graph
@@ -302,7 +324,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       <PropertiesPanel />
       <SettingsPanel />
       <DiagnosticsOverlay />
-      
+      <ValidationChip onFocusNode={handleFocusNode} />
+
       {showCommandPalette && <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />}
       {showCheatsheet && <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />}
       {nodes.length === 0 && showEmptyState && <EmptyStateOverlay onDismiss={() => setShowEmptyState(false)} />}
@@ -325,9 +348,11 @@ export default function ReactFlowGraph(props: ReactFlowGraphProps) {
   return (
     <CanvasErrorBoundary>
       <ToastProvider>
-        <ReactFlowProvider>
-          <ReactFlowGraphInner {...props} />
-        </ReactFlowProvider>
+        <LayerProvider>
+          <ReactFlowProvider>
+            <ReactFlowGraphInner {...props} />
+          </ReactFlowProvider>
+        </LayerProvider>
       </ToastProvider>
     </CanvasErrorBoundary>
   )

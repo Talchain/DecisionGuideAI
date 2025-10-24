@@ -285,6 +285,33 @@ describe('Canvas Store', () => {
     expect(state.edges).toHaveLength(0)
   })
 
+  it('select all → delete → undo restores all nodes and edges', () => {
+    const { selectAll, deleteSelected, undo, canUndo } = useCanvasStore.getState()
+
+    // Initial state
+    const initialState = useCanvasStore.getState()
+    expect(initialState.nodes).toHaveLength(4)
+    expect(initialState.edges).toHaveLength(4)
+
+    // Select all and delete
+    selectAll()
+    deleteSelected()
+
+    let state = useCanvasStore.getState()
+    expect(state.nodes).toHaveLength(0)
+    expect(state.edges).toHaveLength(0)
+    expect(canUndo()).toBe(true)
+
+    // Undo should restore everything
+    undo()
+
+    state = useCanvasStore.getState()
+    expect(state.nodes).toHaveLength(4)
+    expect(state.edges).toHaveLength(4)
+    // Nodes should NOT have selected: true after undo
+    expect(state.nodes.some(n => n.selected)).toBe(false)
+  })
+
   it('nudges selected nodes', () => {
     const { nodes, nudgeSelected } = useCanvasStore.getState()
     const originalX = nodes[0].position.x

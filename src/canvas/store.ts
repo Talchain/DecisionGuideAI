@@ -617,9 +617,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   resetCanvas: () => {
     const { nodes, edges } = get()
     if (nodes.length === 0 && edges.length === 0) return
-    
+
     pushToHistory(get, set)
-    set({ nodes: [], edges: [] })
+    set({
+      nodes: [],
+      edges: [],
+      nextNodeId: 1,
+      nextEdgeId: 1
+    })
   },
 
   deleteEdge: (id) => {
@@ -721,3 +726,77 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   cleanup: clearTimers
 }))
+
+/**
+ * Validation selectors and helpers
+ */
+
+export interface InvalidNode {
+  nodeId: string
+  nodeLabel: string
+  sum: number
+  expected: number
+  edgeCount: number
+}
+
+/**
+ * Get all nodes with invalid outgoing probability sums
+ * A node is invalid if it has 2+ outgoing edges and probabilities don't sum to 100% (±1%)
+ */
+export const getInvalidNodes = (state: CanvasState): InvalidNode[] => {
+  const invalidNodes: InvalidNode[] = []
+  const tolerance = 0.01 // ±1%
+
+  state.nodes.forEach(node => {
+    const outgoingEdges = state.edges.filter(e => e.source === node.id)
+
+    // Only validate nodes with 2+ outgoing edges
+    if (outgoingEdges.length >= 2) {
+      const sum = outgoingEdges.reduce((acc, e) => acc + (e.data?.confidence ?? 0), 0)
+
+      if (Math.abs(sum - 1.0) > tolerance) {
+        invalidNodes.push({
+          nodeId: node.id,
+          nodeLabel: node.data?.label || node.id,
+          sum,
+          expected: 1.0,
+          edgeCount: outgoingEdges.length
+        })
+      }
+    }
+  })
+
+  return invalidNodes
+}
+
+/**
+ * Check if the canvas has any validation errors
+ */
+export const hasValidationErrors = (state: CanvasState): boolean => {
+  return getInvalidNodes(state).length > 0
+}
+
+/**
+ * Get the next invalid node (for Alt+V cycling)
+ * If currentNodeId is provided, returns the next invalid node after it
+ * Otherwise returns the first invalid node
+ */
+export const getNextInvalidNode = (state: CanvasState, currentNodeId?: string): InvalidNode | null => {
+  const invalidNodes = getInvalidNodes(state)
+
+  if (invalidNodes.length === 0) return null
+
+  if (!currentNodeId) {
+    return invalidNodes[0]
+  }
+
+  const currentIndex = invalidNodes.findIndex(n => n.nodeId === currentNodeId)
+
+  if (currentIndex === -1) {
+    return invalidNodes[0]
+  }
+
+  // Cycle to next (wrap around)
+  const nextIndex = (currentIndex + 1) % invalidNodes.length
+  return invalidNodes[nextIndex]
+}
