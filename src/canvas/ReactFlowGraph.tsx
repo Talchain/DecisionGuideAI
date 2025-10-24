@@ -27,9 +27,10 @@ interface ReactFlowGraphProps {
   blueprintEventBus?: {
     subscribe: (fn: (blueprint: Blueprint) => void) => () => void
   }
+  onCanvasInteraction?: () => void
 }
 
-function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
+function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFlowGraphProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const { getViewport } = useReactFlow()
@@ -55,11 +56,19 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
   const { showToast } = useToast()
   
   const handleNodeClick = useCallback((_: any, node: any) => {
+    // Close Templates panel when interacting with canvas
+    onCanvasInteraction?.()
+
     if (reconnecting) {
       completeReconnect(node.id)
       showToast('Connector updated — press ⌘Z to undo.', 'success')
     }
-  }, [reconnecting, completeReconnect, showToast])
+  }, [reconnecting, completeReconnect, showToast, onCanvasInteraction])
+
+  const handleEdgeClick = useCallback(() => {
+    // Close Templates panel when clicking an edge
+    onCanvasInteraction?.()
+  }, [onCanvasInteraction])
   
   // Blueprint insertion handler
   const insertBlueprint = useCallback((blueprint: Blueprint) => {
@@ -256,6 +265,7 @@ function ReactFlowGraphInner({ blueprintEventBus }: ReactFlowGraphProps) {
         onConnect={onConnect}
         onSelectionChange={handleSelectionChange}
         onNodeClick={handleNodeClick}
+        onEdgeClick={handleEdgeClick}
         onPaneContextMenu={onPaneContextMenu}
         onNodeContextMenu={onNodeContextMenu}
         onNodeDragStart={onNodeDragStart}

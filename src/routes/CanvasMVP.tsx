@@ -59,6 +59,13 @@ export default function CanvasMVP() {
     }
   }, [])
 
+  // Close Templates panel when user interacts with canvas
+  const handleCanvasInteraction = useCallback(() => {
+    if (isPanelOpen) {
+      setIsPanelOpen(false)
+    }
+  }, [isPanelOpen])
+
   return (
     <div style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
       {/* Badge - fixed top-left */}
@@ -93,7 +100,10 @@ export default function CanvasMVP() {
 
       {/* React Flow Container */}
       <div data-testid="rf-root" style={{ height: '100%', width: '100%' }}>
-        <ReactFlowGraph blueprintEventBus={blueprintEventBus} />
+        <ReactFlowGraph
+          blueprintEventBus={blueprintEventBus}
+          onCanvasInteraction={handleCanvasInteraction}
+        />
       </div>
 
       {/* Templates Panel */}
