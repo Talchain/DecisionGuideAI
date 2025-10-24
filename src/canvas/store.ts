@@ -108,18 +108,22 @@ function historyHash(nodes: Node[], edges: Edge[]): string {
 
 function pushToHistory(get: () => CanvasState, set: (fn: (s: CanvasState) => Partial<CanvasState>) => void) {
   const { nodes, edges, history, _internal } = get()
-  
-  // Guard: only push if state actually changed
+
+  // Guard: only push if state actually changed (unless history is empty - always push first snapshot)
   const h = historyHash(nodes, edges)
-  if (h === _internal.lastHistoryHash) {
+  if (history.past.length > 0 && h === _internal.lastHistoryHash) {
     // Even if no change, clear future (user took new action after undo)
     if (history.future.length > 0) {
       set(() => ({ history: { ...history, future: [] } }))
     }
     return
   }
-  
-  const past = [...history.past, { nodes, edges }].slice(-MAX_HISTORY)
+
+  // Strip selection flags from history snapshots - selection is ephemeral UI state
+  const cleanNodes = nodes.map(n => ({ ...n, selected: undefined }))
+  const cleanEdges = edges.map(e => ({ ...e, selected: undefined }))
+
+  const past = [...history.past, { nodes: cleanNodes, edges: cleanEdges }].slice(-MAX_HISTORY)
   set(() => ({
     history: { past, future: [] },
     _internal: { lastHistoryHash: h }
@@ -408,7 +412,27 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   selectAll: () => {
-    const { nodes, edges } = get()
+    const { nodes, edges, history, _internal } = get()
+
+    // Save current state to history BEFORE selection (if hash matches last save)
+    // This ensures undo will work after delete-all
+    const currentHash = historyHash(nodes, edges)
+
+    // If hash matches, no structural changes happened since last push
+    // But we're about to modify selection, so save current state first
+    // This enables: selectAll → delete → undo to work
+    if (_internal.lastHistoryHash === currentHash) {
+      const cleanNodes = nodes.map(n => ({ ...n, selected: undefined }))
+      const cleanEdges = edges.map(e => ({ ...e, selected: undefined }))
+      const past = [...history.past, { nodes: cleanNodes, edges: cleanEdges }].slice(-MAX_HISTORY)
+
+      // Mark hash as "dirty" so next operation (like delete) will push
+      set({
+        history: { past, future: [] },
+        _internal: { lastHistoryHash: '' }
+      })
+    }
+
     // Set selected: true on all nodes and edges so React Flow shows them as selected
     const updatedNodes = nodes.map(n => ({ ...n, selected: true }))
     const updatedEdges = edges.map(e => ({ ...e, selected: true }))
@@ -684,13 +708,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   reset: () => {
     clearTimers()
-    set({ 
-      nodes: initialNodes, 
-      edges: initialEdges, 
-      history: { past: [], future: [] }, 
-      selection: { nodeIds: new Set(), edgeIds: new Set() }, 
+    set({
+      nodes: initialNodes,
+      edges: initialEdges,
+      history: { past: [], future: [] },
+      selection: { nodeIds: new Set(), edgeIds: new Set() },
       nextNodeId: 5,
-      nextEdgeId: 5
+      nextEdgeId: 5,
+      _internal: { lastHistoryHash: historyHash(initialNodes, initialEdges) }
     })
   },
 
