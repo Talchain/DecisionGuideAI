@@ -37,7 +37,7 @@ interface ReactFlowGraphProps {
 function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFlowGraphProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
-  const { getViewport } = useReactFlow()
+  const { getViewport, setCenter } = useReactFlow()
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
   
@@ -76,13 +76,25 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
 
   // Focus node handler (for Alt+V validation cycling)
   const handleFocusNode = useCallback((nodeId: string) => {
-    const node = nodes.find(n => n.id === nodeId)
-    if (node) {
-      // Select the node
-      useCanvasStore.getState().onSelectionChange({ nodes: [node], edges: [] })
-      // TODO: fitView to center the node (requires React Flow fitView)
-    }
-  }, [nodes])
+    const store = useCanvasStore.getState()
+    const targetNode = store.nodes.find(n => n.id === nodeId)
+
+    if (!targetNode) return
+
+    // Update store with selected nodes (React Flow requirement for visual highlight)
+    // Deselect all other nodes, select target node
+    store.onNodesChange([
+      ...store.nodes.filter(n => n.selected).map(n => ({ type: 'select' as const, id: n.id, selected: false })),
+      { type: 'select' as const, id: nodeId, selected: true }
+    ])
+
+    // Center viewport on the node with smooth animation
+    const viewport = getViewport()
+    setCenter(targetNode.position.x, targetNode.position.y, {
+      zoom: viewport.zoom,
+      duration: 300
+    })
+  }, [getViewport, setCenter])
 
   // Setup keyboard shortcuts (Alt+V, Cmd/Ctrl+Enter)
   useCanvasKeyboardShortcuts({

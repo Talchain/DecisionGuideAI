@@ -117,8 +117,14 @@ describe('ValidationChip', () => {
 
     const chip = screen.getByTestId('validation-chip')
 
-    expect(chip).toHaveAttribute('role', 'status')
+    // Should be a button (not role="status" which is for passive live regions)
+    expect(chip.tagName).toBe('BUTTON')
+    expect(chip).toHaveAttribute('type', 'button')
     expect(chip).toHaveAttribute('aria-label', '1 node has invalid probabilities. Click to fix.')
+
+    // Should have hidden live region for SR announcements
+    const liveRegion = chip.querySelector('[aria-live="polite"]')
+    expect(liveRegion).toBeInTheDocument()
   })
 
   it('has correct ARIA label for multiple nodes', () => {

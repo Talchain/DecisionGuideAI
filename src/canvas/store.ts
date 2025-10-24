@@ -8,6 +8,7 @@ import { NODE_REGISTRY, type NodeType } from './domain/nodes'
 import { applyLayout, applyLayoutWithPolicy } from './layout'
 import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
+import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
 
 const initialNodes: Node[] = [
   { id: '1', type: 'decision', position: { x: 250, y: 100 }, data: { label: 'Start' } },
@@ -42,6 +43,7 @@ interface CanvasState {
   selection: { nodeIds: Set<string>; edgeIds: Set<string> }
   clipboard: ClipboardData | null
   reconnecting: ReconnectState | null
+  touchedNodeIds: Set<string>  // Nodes with edited probabilities
   nextNodeId: number
   nextEdgeId: number
   _internal: { lastHistoryHash: string }
@@ -150,6 +152,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   _internal: { lastHistoryHash: '' },
   clipboard: null,
   reconnecting: null,
+  touchedNodeIds: new Set(),
   nextNodeId: 5,
   nextEdgeId: 5,
 
@@ -199,9 +202,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   updateEdge: (id, updates) => {
     pushToHistory(get, set)
-    set((s) => ({
-      edges: s.edges.map(e => {
+    set((s) => {
+      const touchedNodeIds = new Set(s.touchedNodeIds)
+
+      const edges = s.edges.map(e => {
         if (e.id !== id) return e
+
+        // Check if confidence changed
+        const oldConfidence = e.data?.confidence
+        const newConfidence = updates.data?.confidence
+
+        // If confidence changed, mark source node as touched
+        if (newConfidence !== undefined && oldConfidence !== newConfidence) {
+          touchedNodeIds.add(e.source)
+        }
+
         // Merge updates, ensuring required EdgeData fields are preserved
         const updatedEdge: Edge<EdgeData> = {
           ...e,
@@ -210,7 +225,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         }
         return updatedEdge
       })
-    }))
+
+      return { edges, touchedNodeIds }
+    })
   },
 
   onNodesChange: (changes) => {
@@ -268,7 +285,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   addEdge: (edge) => {
     pushToHistory(get, set)
     const id = get().createEdgeId()
-    set((s) => ({ edges: [...s.edges, { id, ...edge }] }))
+    set((s) => {
+      const touchedNodeIds = new Set(s.touchedNodeIds)
+
+      // If edge has non-zero confidence, mark source node as touched
+      if (edge.data?.confidence && edge.data.confidence > 0) {
+        touchedNodeIds.add(edge.source)
+      }
+
+      return {
+        edges: [...s.edges, { id, ...edge }],
+        touchedNodeIds
+      }
+    })
   },
 
   pushHistory: (debounced = false) => {
@@ -622,6 +651,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({
       nodes: [],
       edges: [],
+      touchedNodeIds: new Set(),
       nextNodeId: 1,
       nextEdgeId: 1
     })
@@ -731,42 +761,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
  * Validation selectors and helpers
  */
 
-export interface InvalidNode {
-  nodeId: string
-  nodeLabel: string
-  sum: number
-  expected: number
-  edgeCount: number
-}
+// Re-export InvalidNodeInfo type for compatibility
+export type InvalidNode = InvalidNodeInfo
 
 /**
  * Get all nodes with invalid outgoing probability sums
- * A node is invalid if it has 2+ outgoing edges and probabilities don't sum to 100% (±1%)
+ * A node is invalid if it has 2+ non-zero outgoing edges and probabilities don't sum to 100% (±1%)
+ * Uses shared validation util with touched node tracking to avoid flagging pristine nodes
  */
 export const getInvalidNodes = (state: CanvasState): InvalidNode[] => {
-  const invalidNodes: InvalidNode[] = []
-  const tolerance = 0.01 // ±1%
-
-  state.nodes.forEach(node => {
-    const outgoingEdges = state.edges.filter(e => e.source === node.id)
-
-    // Only validate nodes with 2+ outgoing edges
-    if (outgoingEdges.length >= 2) {
-      const sum = outgoingEdges.reduce((acc, e) => acc + (e.data?.confidence ?? 0), 0)
-
-      if (Math.abs(sum - 1.0) > tolerance) {
-        invalidNodes.push({
-          nodeId: node.id,
-          nodeLabel: node.data?.label || node.id,
-          sum,
-          expected: 1.0,
-          edgeCount: outgoingEdges.length
-        })
-      }
-    }
-  })
-
-  return invalidNodes
+  return getInvalidNodesUtil(state.nodes, state.edges, state.touchedNodeIds)
 }
 
 /**
@@ -782,21 +786,5 @@ export const hasValidationErrors = (state: CanvasState): boolean => {
  * Otherwise returns the first invalid node
  */
 export const getNextInvalidNode = (state: CanvasState, currentNodeId?: string): InvalidNode | null => {
-  const invalidNodes = getInvalidNodes(state)
-
-  if (invalidNodes.length === 0) return null
-
-  if (!currentNodeId) {
-    return invalidNodes[0]
-  }
-
-  const currentIndex = invalidNodes.findIndex(n => n.nodeId === currentNodeId)
-
-  if (currentIndex === -1) {
-    return invalidNodes[0]
-  }
-
-  // Cycle to next (wrap around)
-  const nextIndex = (currentIndex + 1) % invalidNodes.length
-  return invalidNodes[nextIndex]
+  return getNextInvalidNodeUtil(state.nodes, state.edges, state.touchedNodeIds, currentNodeId)
 }

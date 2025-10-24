@@ -13,13 +13,15 @@ interface ValidationChipProps {
 }
 
 export const ValidationChip = memo(({ onFocusNode }: ValidationChipProps) => {
-  // Select nodes and edges, compute invalid nodes in useMemo
+  // Select primitive values to avoid infinite loops
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  const touchedNodeIds = useCanvasStore(s => s.touchedNodeIds)
 
+  // Compute invalid nodes in useMemo with stable dependencies
   const invalidNodes = useMemo(() => {
-    return getInvalidNodes({ nodes, edges } as any)
-  }, [nodes, edges])
+    return getInvalidNodes({ nodes, edges, touchedNodeIds } as any)
+  }, [nodes, edges, touchedNodeIds])
 
   const handleClick = useCallback(() => {
     const state = useCanvasStore.getState()
@@ -34,23 +36,30 @@ export const ValidationChip = memo(({ onFocusNode }: ValidationChipProps) => {
 
   const count = invalidNodes.length
   const label = count === 1 ? 'Fix probabilities (1 issue)' : `Fix probabilities (${count} issues)`
+  const ariaLabel = `${count} ${count === 1 ? 'node has' : 'nodes have'} invalid probabilities. Click to fix.`
 
   return (
     <button
+      type="button"
       onClick={handleClick}
       className="fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transition-all hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2"
       style={{
         backgroundColor: 'var(--olumi-warning)',
-        color: '#000',
+        color: 'var(--olumi-text-strong, #000)',
         zIndex: 1000,
-        focusRingColor: 'var(--olumi-warning)'
+        // @ts-expect-error CSS custom property for focus ring
+        '--tw-ring-color': 'var(--olumi-warning)'
       }}
-      aria-label={`${count} ${count === 1 ? 'node has' : 'nodes have'} invalid probabilities. Click to fix.`}
-      role="status"
+      aria-label={ariaLabel}
       data-testid="validation-chip"
     >
       <AlertTriangle className="w-5 h-5" aria-hidden="true" />
       <span className="font-medium text-sm">{label}</span>
+
+      {/* Visually hidden live region for screen readers */}
+      <span className="sr-only" aria-live="polite" aria-atomic="true">
+        {ariaLabel}
+      </span>
     </button>
   )
 })
