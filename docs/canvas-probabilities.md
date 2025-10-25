@@ -4,21 +4,29 @@ Guide to editing probabilities for decision nodes on the canvas.
 
 ## Overview
 
-**Single Source of Truth:** All probabilities are managed at the **Decision node level**. When a decision has multiple outgoing edges (options), their probabilities must sum to 100% (±1% tolerance).
+**Single Source of Truth:** All probabilities are managed **inline** in the **Decision inspector** (right-hand dock). When a decision has multiple outgoing edges (options), their probabilities must sum to 100% (±1% tolerance).
 
 **Access Methods:**
-1. Click a decision node → NodeInspector → Edit individual sliders
-2. Click a decision node → "Edit Probabilities..." button → Batch modal editor
-3. Click an edge → "Edit in Decision" button → Opens parent decision's modal
-4. Select edge → Press **P** key → Opens parent decision's modal
+1. Click a decision node → View inline probability editor in Decision inspector
+2. Click an edge → "Edit probabilities in this decision" button → Selects parent decision node
+3. Select decision → Press **P** key → Focuses inline probability editor
 
 ---
 
-## The Probability Modal
+## The Inline Probability Editor
 
-The modal provides two intelligent algorithms to help you quickly fix probabilities:
+The inline editor appears in the Decision inspector when a decision node is selected. It shows all outgoing edges with interactive controls to adjust probabilities.
+
+### Features
+
+- **Lock/Unlock:** Click the lock icon to prevent a value from changing during Auto-balance or Equal split
+- **Sliders:** Drag to adjust probability (0-100%)
+- **Numeric inputs:** Type exact percentage values
+- **Live validation:** Total indicator shows current sum and validation status
+- **Draft mode:** Changes are local until you click Apply
 
 ### Auto-Balance
+
 **What it does:** Preserves your relative proportions while rounding to nice numbers (5% steps) and ensuring the total equals 100%.
 
 **When to use:** You've set rough estimates (e.g., 67%, 8%) and want to keep those ratios while making them sum correctly.
@@ -38,6 +46,7 @@ The modal provides two intelligent algorithms to help you quickly fix probabilit
 | 41%, 33%, 18% (sum: 92%) | 45%, 35%, 20% | All ratios maintained, fair remainder distribution |
 
 ### Equal Split
+
 **What it does:** Divides the remaining percentage equally across **unlocked** rows only.
 
 **When to use:** You have one or more locked values and want to evenly distribute what's left.
@@ -50,207 +59,126 @@ The modal provides two intelligent algorithms to help you quickly fix probabilit
 
 **Examples:**
 
-| Before | Locks | After (Equal split) | Explanation |
-|--------|-------|-------------------|-------------|
-| 67%, 8% | None | 50%, 50% | Ignores ratios, splits 100% evenly |
-| 10%, 45%, 45% | First locked | 10%, 45%, 45% | Remaining 90% split equally: 45/45 |
-| 60%, 40% | First locked | 60%, 40% | Only 40% remaining for unlocked row |
+| Scenario | Result |
+|----------|--------|
+| 3 unlocked rows, 0 locked | 33%, 33%, 34% (remainder to last row) |
+| 1 locked at 40%, 2 unlocked | Locked: 40%, Others: 30%, 30% |
+| 2 locked totaling 60%, 2 unlocked | Locked: 40%, 20%, Others: 20%, 20% |
 
 ---
 
 ## Locking Rows
 
-**Lock icon (🔒):** Click to prevent a row from being changed by Auto-balance or Equal split.
+Click the lock icon (🔒) next to any edge to prevent its value from changing during Auto-balance or Equal split operations.
 
 **Use cases:**
-- You're certain about one option's probability (e.g., "90% chance we go with this vendor")
-- You want to experiment with distributing the remainder across other options
-- You're gradually tweaking values and want to preserve some
+- You have a high-confidence estimate for one path (e.g., "90% chance of approval")
+- You want to explore different distributions for the remaining paths
+- You need to maintain specific ratios between certain outcomes
 
 **Behavior:**
-- Locked rows keep their exact values
-- Auto-balance: Normalizes and rounds only unlocked rows
-- Equal split: Divides remaining percentage across unlocked rows only
-- Apply button disabled if locked rows sum > 100%
-
-**Example workflow:**
-1. Set "Vendor A" to 60%, lock it 🔒
-2. Click "Equal split" → remaining 40% distributed evenly across Vendor B (20%) and Vendor C (20%)
-3. Adjust Vendor B slider to 25%, Vendor C becomes 15%
-4. Click Apply → all edges updated in single undo step
-
----
-
-## Validation & Error Handling
-
-### Real-time Validation
-- **Green sum (100%):** Ready to apply
-- **Yellow warning:** Sum ≠ 100% ±1%, Apply button disabled
-- Shows live total: "Total: 95% (must be 100% ±1%)"
-
-### Locked Sum Overflow
-If locked rows sum > 100%, you'll see:
-> ⚠️ Locked rows sum to 110% (exceeds 100%). Unlock some rows to continue.
-
-Apply button disabled until you unlock rows.
-
-### Zero-Filtering (Pristine Templates)
-- Validation only checks nodes you've **edited** (touched)
-- Freshly inserted templates with 0% edges don't trigger errors
-- First edit "touches" the node, enabling validation
+- Locked values are never modified by Auto-balance or Equal split
+- If locked values sum to >100%, you'll see an error: "Locked rows sum to X% (exceeds 100%). Unlock some rows to continue."
+- Unlocking a row allows it to be adjusted again
 
 ---
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| **P** | Open probability modal for selected decision or edge's parent |
-| **Alt/Opt+V** | Jump to next invalid decision (highlights & centers) |
-| **Esc** | Close modal |
+| Key | Action |
+|-----|--------|
+| **P** | Focus inline probability editor (when decision selected) |
+| **Alt/Option+V** | Jump to next decision with invalid probabilities |
 | **Enter** | Apply changes (if valid) |
+| **Esc** | Close Decision inspector (discards unsaved changes) |
+
+---
+
+## Workflow
+
+### Typical Editing Flow
+1. Select a decision node
+2. Inline probability editor appears in Decision inspector
+3. Adjust sliders or type values
+4. Use Auto-balance or Equal split to quickly fix totals
+5. Click **Apply** to save changes
+6. **Reset** to revert to last saved state
+
+### Working with Templates
+When you insert a template, probabilities are pre-set but may need adjustment:
+1. Templates often have placeholder values (e.g., 50/50)
+2. Select the decision node
+3. Use Auto-balance to maintain template ratios while fixing rounding
+4. Or manually adjust and lock specific values
 
 ---
 
 ## Technical Details
 
-### Algorithms
+### Validation Rules
+- **Sum must equal 100% ±1%** (tolerance of 1% to handle floating-point precision)
+- **Zero-weight edges are excluded** from validation (pristine template edges with confidence=0)
+- **Touched nodes** are tracked to distinguish user-edited decisions from template defaults
 
-**Auto-balance:**
-```typescript
-function autoBalance(rows: BalanceRow[], options: BalanceOptions): BalanceResult {
-  // 1. Normalize to target (100%)
-  const normalized = normalizeTo(rows, 100)
+### Hamilton Method (Largest-Remainder Apportionment)
+Auto-balance uses this electoral apportionment algorithm to ensure:
+- Deterministic results (same input always produces same output)
+- Fair distribution of rounding errors
+- Preservation of relative proportions
 
-  // 2. Round to nice numbers (5% steps)
-  const rounded = roundNice(normalized, 5)
+**Process:**
+1. Calculate ideal fractional values
+2. Take integer parts
+3. Assign remaining units to rows with largest fractional remainders
+4. Stable tie-breaking via index order
 
-  // 3. Apportion remainder using Hamilton method
-  const values = apportionRemainder(rows, rounded, 100, 5, {
-    minNonZero: 0,
-    preserveRank: true
-  })
-
-  return { values }
-}
-```
-
-**Equal split:**
-```typescript
-function equalSplit(rows: BalanceRow[], options: BalanceOptions): BalanceResult {
-  const lockedSum = rows.filter(r => r.locked).reduce((sum, r) => sum + r.value, 0)
-  const remaining = 100 - lockedSum
-  const unlockedCount = rows.filter(r => !r.locked).length
-
-  const perRow = remaining / unlockedCount
-  const rounded = roundNice([perRow], 5)[0]
-
-  // Distribute remainder to first rows
-  return { values: distributeRemainder(rows, rounded, remaining, 5) }
-}
-```
-
-### Hamilton Method (Largest-Remainder)
-Electoral apportionment algorithm ensuring fair distribution:
-1. Give each row its rounded-down share
-2. Calculate remainder (e.g., 100 - 95 = 5%)
-3. Sort rows by fractional part (largest first)
-4. Assign +5% to top rows in order until remainder exhausted
-
-This prevents cumulative rounding errors and preserves relative proportions.
+### Label Preservation
+- **Auto-generated labels** (matching pattern `/^\d+%$/`) are updated when probabilities change
+- **Custom labels** (e.g., "High risk path") are preserved even when probability changes
 
 ---
 
-## Edge Cases
+## Edge Cases & Troubleshooting
 
-**All rows locked:**
-- Auto-balance: Disabled (button grayed)
-- Equal split: Disabled (button grayed)
-- User must unlock at least one row
+### All zeros
+If all unlocked values are 0, Auto-balance falls back to Equal split behavior (can't preserve 0:0 ratio).
 
-**Single row:**
-- Auto-balance: Sets to 100%
-- Equal split: Sets to 100%
+### Locked sum exceeds 100%
+Error message: "Locked rows sum to X% (exceeds 100%). Unlock some rows to continue."
 
-**All zeros:**
-- Auto-balance: Falls back to equal split (can't preserve ratios)
-- Equal split: Divides 100% evenly
+**Fix:** Unlock at least one row to allow redistribution.
 
-**Negative remainders:**
-- Equal split handles both +/- remainders correctly
-- Adds or subtracts steps to reach target
+### Single outgoing edge
+If a decision has only one outgoing edge, probability editing is not required (assumed 100%).
 
----
-
-## Integration
-
-**Undo/Redo:**
-- Apply creates single undo frame for all edge updates
-- Ctrl+Z undoes entire batch, not individual sliders
-
-**Edge Labels:**
-- Auto-generated labels (e.g., "45%") update automatically
-- Custom labels (e.g., "High cost path") preserved
-
-**Touched Tracking:**
-- First manual edit marks node as "touched"
-- Validation chip only shows for touched nodes
-- Prevents false positives on pristine templates
-
----
-
-## Testing
-
-**Unit tests:** 33 tests in `probabilityBalancing.spec.ts`
-- All example cases (67/8, 53/39, 41/33/18)
-- Lock combinations (all/none/some)
-- Remainder distribution (±)
-- Rank preservation
-- Edge cases (zeros, single row, overflow)
-
-**Component tests:** 23 tests in `ProbabilityModal.spec.tsx`
-- Lock/unlock behavior
-- Auto-balance button
-- Equal split button
-- Apply disabled on invalid
-- Single undo frame on apply
-
-**E2E tests:** Playwright coverage
-- Insert template → P → auto-balance → Apply → Undo
-- Alt+V cycles invalid nodes with visible selection
-
----
-
-## Best Practices
-
-1. **Use Auto-balance** when you have rough estimates and want to preserve ratios
-2. **Use Equal split** when you want to distribute evenly (ignoring current values)
-3. **Lock strategically** when you're certain about specific probabilities
-4. **Press P** for fastest access from any edge
-5. **Check the validation chip** (bottom-right) for invalid nodes
-6. **Press Alt+V** to quickly jump to issues
+### No outgoing edges
+Empty state message: "Add connectors from this decision to set probabilities."
 
 ---
 
 ## FAQ
 
-**Q: Why can't I edit probabilities in the Edge inspector?**
-A: Single source of truth! Probabilities are managed at the Decision level to ensure they sum to 100%. The Edge inspector shows a "Edit in Decision →" link for quick access.
+**Q: Why 5% steps instead of 1%?**
+A: For ≤3 options, 5% steps are more intuitive (10%, 15%, 20%). For ≥4 options, 1% steps may be used for finer control.
 
-**Q: What happens if I set probabilities manually and they don't sum to 100%?**
-A: You'll see a yellow warning banner with the current sum. The Apply button is disabled until you fix it (or use Auto-balance/Equal split).
+**Q: Can I type exact values like 33.33%?**
+A: No, the editor enforces integer percentages. Use 33% and let the remainder logic handle the extra 1%.
 
-**Q: Can I use 1% steps instead of 5%?**
-A: Currently the modal uses 5% steps for clarity. Manual sliders in NodeInspector support 1% precision.
+**Q: What happens if I close the inspector without applying?**
+A: Changes are discarded. The editor works in draft mode until you click Apply.
 
-**Q: What if all my locked rows sum to more than 100%?**
-A: You'll see an error: "Locked rows sum to X% (exceeds 100%)." Unlock some rows to continue.
+**Q: How does this interact with undo/redo?**
+A: Clicking Apply creates a single undo frame for all probability changes (batch operation).
 
-**Q: Does Auto-balance change my locked values?**
-A: No! Locked values are never modified by Auto-balance or Equal split.
+**Q: Can I edit probabilities directly on edges?**
+A: No. The Edge inspector shows a "Edit probabilities in this decision" button that selects the parent decision node, maintaining the single source of truth.
 
 ---
 
-**Version:** 1.0
-**Last Updated:** 2025-10-25
-**Related:** [IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md), [probabilityBalancing.ts](../src/canvas/utils/probabilityBalancing.ts)
+## Best Practices
+
+1. **Lock high-confidence values first** – If you know one path is 80%, lock it before using Equal split on the rest
+2. **Use Auto-balance for rough estimates** – Set approximate values (60/30/10) then Auto-balance to fix the sum
+3. **Use Equal split for unknown distributions** – When you have no prior knowledge, equal distribution is a reasonable starting point
+4. **Validate before running simulations** – The Validation Chip (bottom-right) shows error count; use Alt+V to navigate to invalid nodes
+5. **Templates as starting points** – Don't feel obligated to keep template probabilities; they're suggestions, not requirements

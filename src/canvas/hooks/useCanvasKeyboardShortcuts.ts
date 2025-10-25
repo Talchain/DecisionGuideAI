@@ -2,7 +2,7 @@
  * useCanvasKeyboardShortcuts - Global keyboard shortcuts for canvas
  *
  * Shortcuts:
- * - P: Edit probabilities for selected edge's parent decision
+ * - P: Focus inline probabilities editor for selected decision
  * - Alt+V: Cycle through validation errors
  * - Cmd/Ctrl+Enter: Run simulation
  * - ?: Show keyboard map
@@ -15,29 +15,52 @@ interface UseCanvasKeyboardShortcutsOptions {
   onFocusNode?: (nodeId: string) => void
   onRunSimulation?: () => void
   onShowKeyboardMap?: () => void
-  onEditProbabilities?: (nodeId: string) => void
+  onShowToast?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void
 }
 
 export function useCanvasKeyboardShortcuts({
   onFocusNode,
   onRunSimulation,
   onShowKeyboardMap,
-  onEditProbabilities
+  onShowToast
 }: UseCanvasKeyboardShortcutsOptions = {}) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    // P: Edit probabilities for selected edge's parent decision
+    // P: Focus inline probabilities editor for selected decision
     if (e.key === 'p' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
       e.preventDefault()
       const state = useCanvasStore.getState()
-      const { selection, edges } = state
+      const { selection, nodes, edges } = state
 
-      // Check if exactly one edge is selected
-      if (selection.edgeIds.size === 1) {
-        const edgeId = [...selection.edgeIds][0]
-        const edge = edges.find(e => e.id === edgeId)
+      // Check if exactly one node is selected
+      if (selection.nodeIds.size === 1) {
+        const nodeId = [...selection.nodeIds][0]
+        const node = nodes.find(n => n.id === nodeId)
 
-        if (edge && edge.source && onEditProbabilities) {
-          onEditProbabilities(edge.source)
+        // Check if node has outgoing edges (is a decision point)
+        const outgoingEdges = edges.filter(e => e.source === nodeId)
+
+        if (outgoingEdges.length > 0) {
+          // Find the probabilities section in the DOM and focus first slider
+          // The section has data-node-id attribute set by NodeInspector
+          const probabilitiesSection = document.querySelector(`[data-node-id="${nodeId}"]`) as HTMLElement
+          if (probabilitiesSection) {
+            probabilitiesSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+            // Focus first slider in the section
+            const firstSlider = probabilitiesSection.querySelector('input[type="range"]') as HTMLInputElement
+            if (firstSlider) {
+              setTimeout(() => firstSlider.focus(), 100) // Small delay for smooth scroll
+            }
+          }
+        } else {
+          // Node has no outgoing edges
+          if (onShowToast) {
+            onShowToast('This decision has no outgoing connectors to edit probabilities.', 'info')
+          }
+        }
+      } else {
+        // No decision selected
+        if (onShowToast) {
+          onShowToast('Select a decision to edit probabilities.', 'info')
         }
       }
 
@@ -86,7 +109,7 @@ export function useCanvasKeyboardShortcuts({
 
       return
     }
-  }, [onFocusNode, onRunSimulation, onShowKeyboardMap, onEditProbabilities])
+  }, [onFocusNode, onRunSimulation, onShowKeyboardMap, onShowToast])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)
