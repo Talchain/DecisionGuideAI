@@ -12,6 +12,7 @@ import { renderIcon } from '../helpers/renderIcon'
 import { validateOutgoingProbabilities } from '../utils/probabilityValidation'
 import { formatConfidence } from '../domain/edges'
 import { ProbabilityModal } from '../components/ProbabilityModal'
+import { Tooltip } from '../components/Tooltip'
 
 interface NodeInspectorProps {
   nodeId: string
@@ -139,9 +140,11 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       {/* Outgoing Edges Probability Editor */}
       {outgoingEdges.length > 0 && (
         <div className="mb-4 pt-4 border-t border-gray-200">
-          <label className="block text-xs font-medium text-gray-700 mb-2">
-            Outgoing Edges ({outgoingEdges.length})
-          </label>
+          <Tooltip content="% likelihood each connector is taken (must total 100%)" position="right">
+            <label className="block text-xs font-medium text-gray-700 mb-2">
+              Outgoing Edges ({outgoingEdges.length})
+            </label>
+          </Tooltip>
           <div className="space-y-3">
             {outgoingEdges.map(edge => {
               const targetNode = nodes.find(n => n.id === edge.target)

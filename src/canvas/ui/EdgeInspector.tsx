@@ -158,7 +158,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       
       {/* Weight control */}
       <div className="mb-4">
-        <Tooltip content="Influences layout positioning and visual thickness" position="right">
+        <Tooltip content="Importance of this connector (also affects line thickness)" position="right">
           <label htmlFor="edge-weight" className="block text-xs font-medium text-gray-700 mb-1">
             Weight
           </label>
@@ -258,7 +258,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       
       {/* Probability - Edit in Decision */}
       <div className="mb-4">
-        <Tooltip content="Probabilities are managed at the decision (node) level to ensure they sum to 100%" position="right">
+        <Tooltip content="% likelihood this connector is taken (all from the same step must total 100%)" position="right">
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Probability
           </label>
