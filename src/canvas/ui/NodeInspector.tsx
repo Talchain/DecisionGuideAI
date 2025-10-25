@@ -191,22 +191,9 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       return
     }
 
-    // Push to history once before batch update
+    // Save current state to history before making changes
     pushHistory()
 
-    // Build touched nodes set (mark all source nodes as touched)
-    const store = useCanvasStore.getState()
-    const touchedNodeIds = new Set(store.touchedNodeIds)
-
-    // Mark all nodes whose edges we're updating as touched
-    rows.forEach(row => {
-      const edge = edges.find(e => e.id === row.edgeId)
-      if (edge) {
-        touchedNodeIds.add(edge.source)
-      }
-    })
-
-    // Batch update all edges WITHOUT pushing to history each time
     // Build the new edges array with all updates applied
     const updatedEdges = edges.map(edge => {
       const row = rows.find(r => r.edgeId === edge.id)
@@ -228,10 +215,22 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       }
     })
 
-    // Single state update with all changes AND updated touchedNodeIds
-    useCanvasStore.setState({
-      edges: updatedEdges,
-      touchedNodeIds
+    // Batch update using setState with function to ensure we merge touched nodes correctly
+    useCanvasStore.setState((state) => {
+      const touchedNodeIds = new Set(state.touchedNodeIds)
+
+      // Mark all nodes whose edges we're updating as touched
+      rows.forEach(row => {
+        const edge = edges.find(e => e.id === row.edgeId)
+        if (edge) {
+          touchedNodeIds.add(edge.source)
+        }
+      })
+
+      return {
+        edges: updatedEdges,
+        touchedNodeIds
+      }
     })
 
     // Update original rows to new state
