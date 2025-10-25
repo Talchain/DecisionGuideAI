@@ -19,6 +19,11 @@ export interface BalanceOptions {
   preserveRank?: boolean
 }
 
+export interface BalanceResult {
+  values: number[]
+  error?: string
+}
+
 export interface BalanceRow {
   value: number
   locked: boolean
@@ -215,13 +220,25 @@ function apportionRemainder(
 export function autoBalance(
   rows: BalanceRow[],
   options: BalanceOptions = {}
-): number[] {
+): BalanceResult {
   const {
     target = 100,
     step = 5,
     minNonZero = 0,
     preserveRank = true
   } = options
+
+  // Check for locked sum overflow
+  const lockedSum = rows
+    .filter(r => r.locked)
+    .reduce((sum, r) => sum + r.value, 0)
+
+  if (lockedSum > target) {
+    return {
+      values: rows.map(r => r.value),
+      error: `Locked rows sum to ${lockedSum}% (exceeds ${target}%). Unlock some rows to continue.`
+    }
+  }
 
   // Step 1: Normalize to target
   const normalized = normalizeTo(rows, target)
@@ -230,12 +247,12 @@ export function autoBalance(
   const rounded = roundNice(normalized, step)
 
   // Step 3: Apportion remainder using Hamilton method
-  const result = apportionRemainder(rows, rounded, target, step, {
+  const values = apportionRemainder(rows, rounded, target, step, {
     minNonZero,
     preserveRank
   })
 
-  return result
+  return { values }
 }
 
 /**
@@ -254,7 +271,7 @@ export function autoBalance(
 export function equalSplit(
   rows: BalanceRow[],
   options: BalanceOptions = {}
-): number[] {
+): BalanceResult {
   const {
     target = 100,
     step = 5,
@@ -265,11 +282,18 @@ export function equalSplit(
     .filter(r => r.locked)
     .reduce((sum, r) => sum + r.value, 0)
 
+  if (lockedSum > target) {
+    return {
+      values: rows.map(r => r.value),
+      error: `Locked rows sum to ${lockedSum}% (exceeds ${target}%). Unlock some rows to continue.`
+    }
+  }
+
   const remaining = target - lockedSum
   const unlockedCount = rows.filter(r => !r.locked).length
 
   if (unlockedCount === 0) {
-    return rows.map(r => r.value)
+    return { values: rows.map(r => r.value) }
   }
 
   // Pure equal division
@@ -285,7 +309,7 @@ export function equalSplit(
 
   // Distribute equally, assign remainder to first rows
   let unlockedIndex = 0
-  return rows.map(r => {
+  const values = rows.map(r => {
     if (r.locked) return r.value
 
     const base = roundedPerRow
@@ -303,4 +327,6 @@ export function equalSplit(
 
     return Math.max(base + extra, minNonZero)
   })
+
+  return { values }
 }

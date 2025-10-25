@@ -61,6 +61,7 @@ export function ProbabilityModal({ nodeId, onClose }: ProbabilityModalProps) {
 
   const [rows, setRows] = useState<ModalRow[]>(initialRows)
   const [originalRows] = useState<ModalRow[]>(initialRows)
+  const [balanceError, setBalanceError] = useState<string | undefined>()
 
   const firstUnlockedInputRef = useRef<HTMLInputElement>(null)
 
@@ -101,10 +102,15 @@ export function ProbabilityModal({ nodeId, onClose }: ProbabilityModalProps) {
 
     const result = autoBalance(balanceRows, { step: 5 })
 
-    setRows(prev => prev.map((r, i) => ({
-      ...r,
-      percent: result[i]
-    })))
+    if (result.error) {
+      setBalanceError(result.error)
+    } else {
+      setBalanceError(undefined)
+      setRows(prev => prev.map((r, i) => ({
+        ...r,
+        percent: result.values[i]
+      })))
+    }
   }, [rows])
 
   // Equal split: Divides remaining percentage equally (ignores current ratios)
@@ -116,10 +122,15 @@ export function ProbabilityModal({ nodeId, onClose }: ProbabilityModalProps) {
 
     const result = equalSplit(balanceRows, { step: 5 })
 
-    setRows(prev => prev.map((r, i) => ({
-      ...r,
-      percent: result[i]
-    })))
+    if (result.error) {
+      setBalanceError(result.error)
+    } else {
+      setBalanceError(undefined)
+      setRows(prev => prev.map((r, i) => ({
+        ...r,
+        percent: result.values[i]
+      })))
+    }
   }, [rows])
 
   // Reset to original values
@@ -154,12 +165,18 @@ export function ProbabilityModal({ nodeId, onClose }: ProbabilityModalProps) {
       const row = rows.find(r => r.edgeId === edge.id)
       if (!row) return edge
 
+      const currentLabel = edge.data?.label
+      // Only update label if it's auto-generated (matches "X%" pattern) or undefined
+      // Preserve custom labels like "High cost path"
+      const isAutoLabel = !currentLabel || /^\d+%$/.test(currentLabel)
+      const newLabel = isAutoLabel ? `${row.percent}%` : currentLabel
+
       return {
         ...edge,
         data: {
           ...edge.data,
           confidence: row.percent / 100,
-          label: `${row.percent}%`
+          label: newLabel
         }
       }
     })
@@ -258,8 +275,18 @@ export function ProbabilityModal({ nodeId, onClose }: ProbabilityModalProps) {
             <strong> Equal split</strong> divides the remaining (unlocked) options evenly.
           </p>
 
+          {/* Balance Error Feedback */}
+          {balanceError && (
+            <div className={styles.validation} role="alert">
+              <AlertTriangle className={styles.validationIcon} aria-hidden="true" />
+              <p className={styles.validationText}>
+                {balanceError}
+              </p>
+            </div>
+          )}
+
           {/* Validation Feedback */}
-          {!validation.valid && (
+          {!validation.valid && !balanceError && (
             <div className={styles.validation} role="alert">
               <AlertTriangle className={styles.validationIcon} aria-hidden="true" />
               <p className={styles.validationText}>

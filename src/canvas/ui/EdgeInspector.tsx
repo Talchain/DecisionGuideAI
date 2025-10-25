@@ -4,13 +4,11 @@
  * British English: visualisation, colour
  */
 
-import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { memo, useState, useCallback, useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { EDGE_CONSTRAINTS, type EdgeStyle, DEFAULT_EDGE_DATA } from '../domain/edges'
 import { formatConfidence } from '../domain/edges'
 import { useToast } from '../ToastContext'
-import { validateOutgoingProbabilities } from '../utils/probabilityValidation'
 import { Tooltip } from '../components/Tooltip'
 
 interface EdgeInspectorProps {
@@ -91,24 +89,6 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     const current = edge?.data ?? DEFAULT_EDGE_DATA
     updateEdge(edgeId, { data: { ...current, label: label || undefined } })
   }, [edgeId, edge?.data, label, updateEdge])
-  
-  // Debounced confidence update (~120ms)
-  const handleConfidenceChange = useCallback((value: number) => {
-    setConfidence(value)
-    clearTimeout(confidenceTimerRef.current)
-    confidenceTimerRef.current = setTimeout(() => {
-      const current = edge?.data ?? DEFAULT_EDGE_DATA
-      updateEdge(edgeId, { data: { ...current, confidence: value } })
-      setAnnouncement(`Confidence set to ${formatConfidence(value)}`)
-    }, 120)
-  }, [edgeId, edge?.data, updateEdge])
-  
-  // Validate outgoing probabilities from source node
-  const probabilityValidation = useMemo(() => {
-    if (!edge) return null
-    return validateOutgoingProbabilities(edge.source, edges)
-  }, [edge, edges])
-  
   // Delete edge
   const handleDelete = useCallback(() => {
     deleteEdge(edgeId)
@@ -272,42 +252,46 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         />
       </div>
       
-      {/* Confidence control */}
+      {/* Probability - Edit in Decision */}
       <div className="mb-4">
-        <Tooltip content="Likelihood of this path being taken (outgoing edges from same node must sum to 100%)" position="right">
-          <label htmlFor="edge-confidence" className="block text-xs font-medium text-gray-700 mb-1">
+        <Tooltip content="Probabilities are managed at the decision (node) level to ensure they sum to 100%" position="right">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
             Probability
           </label>
         </Tooltip>
-        <div className="flex items-center gap-2">
-          <input
-            id="edge-confidence"
-            type="range"
-            min={EDGE_CONSTRAINTS.confidence.min}
-            max={EDGE_CONSTRAINTS.confidence.max}
-            step={EDGE_CONSTRAINTS.confidence.step}
-            value={confidence}
-            onChange={(e) => handleConfidenceChange(parseFloat(e.target.value))}
-            className="flex-1"
-            aria-valuemin={EDGE_CONSTRAINTS.confidence.min}
-            aria-valuemax={EDGE_CONSTRAINTS.confidence.max}
-            aria-valuenow={confidence}
-            aria-valuetext={formatConfidence(confidence)}
-          />
-          <span className="text-xs text-gray-600 w-12 text-right">
-            {formatConfidence(confidence)}
-          </span>
-        </div>
-        
-        {/* Probability validation warning */}
-        {probabilityValidation && !probabilityValidation.valid && (
-          <div className="mt-2 p-2 rounded flex items-start gap-2" role="alert" style={{ backgroundColor: 'rgba(247,201,72,0.1)', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--olumi-warning)' }}>
-            <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--olumi-warning)' }} />
-            <p className="text-xs" style={{ color: '#9a6e00' }}>
-              {probabilityValidation.message}
+        <div className="flex items-center justify-between gap-3 p-3 rounded" style={{ backgroundColor: 'rgba(91, 108, 255, 0.05)', border: '1px solid rgba(91, 108, 255, 0.2)' }}>
+          <div className="flex-1">
+            <p className="text-xs font-medium" style={{ color: 'var(--olumi-text, #E8ECF5)' }}>
+              {formatConfidence(confidence)}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: 'rgba(232, 236, 245, 0.6)' }}>
+              Edit in decision node →
             </p>
           </div>
-        )}
+          <button
+            type="button"
+            onClick={() => {
+              // Select the source node to open its inspector
+              const sourceNode = nodes.find(n => n.id === edge?.source)
+              if (sourceNode) {
+                useCanvasStore.setState({
+                  selection: {
+                    nodeIds: new Set([edge.source]),
+                    edgeIds: new Set()
+                  }
+                })
+              }
+            }}
+            className="px-3 py-1 text-xs font-medium rounded border"
+            style={{
+              backgroundColor: 'var(--olumi-primary, #5B6CFF)',
+              color: '#ffffff',
+              border: 'none'
+            }}
+          >
+            Edit
+          </button>
+        </div>
       </div>
       
       {/* Connection endpoints */}
