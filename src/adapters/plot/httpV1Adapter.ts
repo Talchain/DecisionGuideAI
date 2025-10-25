@@ -1,0 +1,229 @@
+/**
+ * HTTP v1 adapter - implements UI interface using PLoT v1 API
+ * Maps between UI types (ReportV1, ErrorV1) and v1 types
+ */
+
+import type {
+  RunRequest,
+  ReportV1,
+  ErrorV1,
+  LimitsV1,
+  TemplateSummary,
+  TemplateDetail,
+  TemplateListV1,
+  ConfidenceLevel,
+} from './types'
+import type {
+  V1RunRequest,
+  V1RunResult,
+  V1Error,
+  V1StreamHandlers,
+} from './v1/types'
+import * as v1http from './v1/http'
+import { runStream as v1runStream } from './v1/sseClient'
+import { V1_LIMITS } from './v1/types'
+
+// Re-export mockAdapter's local template functions
+import { plot as mockAdapter } from './mockAdapter'
+
+/**
+ * Load template and extract graph
+ */
+async function loadTemplateGraph(templateId: string): Promise<any> {
+  const template = await mockAdapter.template(templateId)
+  return template.graph
+}
+
+/**
+ * Map UI confidence (0-1) to ConfidenceLevel
+ */
+function mapConfidenceLevel(conf: number): ConfidenceLevel {
+  if (conf >= 0.7) return 'high'
+  if (conf >= 0.4) return 'medium'
+  return 'low'
+}
+
+/**
+ * Map v1 RunResult to UI ReportV1
+ */
+function mapV1ResultToReport(
+  result: V1RunResult,
+  templateId: string,
+  executionMs: number
+): ReportV1 {
+  // Parse answer for numeric values (best effort)
+  const answerMatch = result.answer.match(/(\d+\.?\d*)/g)
+  const likely = answerMatch ? parseFloat(answerMatch[0]) : 0
+
+  return {
+    schema: 'report.v1',
+    meta: {
+      seed: result.seed || 1337,
+      response_id: result.response_hash || `http-v1-${Date.now()}`,
+      elapsed_ms: executionMs,
+    },
+    model_card: {
+      response_hash: result.response_hash || '',
+      response_hash_algo: 'sha256',
+      normalized: true,
+    },
+    results: {
+      conservative: likely * 0.8, // Conservative estimate
+      likely,
+      optimistic: likely * 1.2, // Optimistic estimate
+      units: 'count',
+    },
+    confidence: {
+      level: mapConfidenceLevel(result.confidence),
+      why: result.explanation,
+    },
+    drivers: result.drivers.map((d) => ({
+      label: d.label || d.id || 'Unknown',
+      polarity: (d.impact || 0) > 0 ? 'up' : (d.impact || 0) < 0 ? 'down' : 'neutral',
+      strength: Math.abs(d.impact || 0) > 0.7 ? 'high' : Math.abs(d.impact || 0) > 0.3 ? 'medium' : 'low',
+    })),
+  }
+}
+
+/**
+ * Map v1 Error to UI ErrorV1
+ */
+function mapV1ErrorToUI(error: V1Error): ErrorV1 {
+  return {
+    schema: 'error.v1',
+    code: error.code as any, // Type compatible
+    error: error.message,
+    hint: undefined,
+    fields: error.field
+      ? {
+          field: error.field,
+          max: error.max,
+        }
+      : undefined,
+    retry_after: error.retry_after,
+  }
+}
+
+/**
+ * Map template graph to V1 request
+ */
+function mapGraphToV1Request(graph: any, seed?: number): V1RunRequest {
+  // TODO: This needs the actual graphToRunRequest mapper
+  // For now, assume graph has nodes/edges in compatible format
+  return {
+    graph: {
+      nodes: (graph.nodes || []).map((n: any) => ({
+        id: n.id,
+        label: n.label?.substring(0, 120),
+        body: n.body?.substring(0, 2000),
+      })),
+      edges: (graph.edges || []).map((e: any) => ({
+        from: e.from || e.source,
+        to: e.to || e.target,
+        confidence: e.confidence,
+        weight: e.weight,
+      })),
+    },
+    seed,
+  }
+}
+
+/**
+ * HTTP v1 Adapter
+ */
+export const httpV1Adapter = {
+  // Sync run
+  async run(input: RunRequest): Promise<ReportV1> {
+    const graph = await loadTemplateGraph(input.template_id)
+    const v1Request = mapGraphToV1Request(graph, input.seed)
+
+    try {
+      const response = await v1http.runSync(v1Request)
+      return mapV1ResultToReport(response.result, input.template_id, response.execution_ms)
+    } catch (err) {
+      throw mapV1ErrorToUI(err as V1Error)
+    }
+  },
+
+  // Templates (local only, passthrough to mock)
+  async templates(): Promise<TemplateListV1> {
+    return mockAdapter.templates()
+  },
+
+  async template(id: string): Promise<TemplateDetail> {
+    return mockAdapter.template(id)
+  },
+
+  // Limits
+  async limits(): Promise<LimitsV1> {
+    return {
+      nodes: { max: V1_LIMITS.MAX_NODES },
+      edges: { max: V1_LIMITS.MAX_EDGES },
+    }
+  },
+
+  // Health (optional, specific to httpV1)
+  async health() {
+    return v1http.health()
+  },
+
+  // SSE streaming
+  stream: {
+    run(input: RunRequest, handlers: {
+      onTick?: (data: { index: number }) => void
+      onDone?: (data: { response_id: string }) => void
+      onError?: (error: ErrorV1) => void
+    }): () => void {
+      let runId: string | null = null
+      let isComplete = false
+      let v1Cancel: (() => void) | null = null
+
+      // Load template and start stream
+      loadTemplateGraph(input.template_id)
+        .then((graph) => {
+          if (isComplete) return // Already cancelled
+
+          const v1Request = mapGraphToV1Request(graph, input.seed)
+
+          const v1Handlers: V1StreamHandlers = {
+            onStarted: (data) => {
+              runId = data.run_id
+            },
+            onProgress: (data) => {
+              // Map to tick for UI compat
+              handlers.onTick?.({ index: Math.floor(data.percent / 20) })
+            },
+            onInterim: (data) => {
+              // UI doesn't have onInterim, skip for now
+            },
+            onComplete: (data) => {
+              isComplete = true
+              const report = mapV1ResultToReport(data.result, input.template_id, data.execution_ms)
+              handlers.onDone?.({ response_id: report.meta.response_id })
+            },
+            onError: (error) => {
+              isComplete = true
+              handlers.onError?.(mapV1ErrorToUI(error))
+            },
+          }
+
+          v1Cancel = v1runStream(v1Request, v1Handlers)
+        })
+        .catch((err) => {
+          isComplete = true
+          handlers.onError?.(mapV1ErrorToUI(err as V1Error))
+        })
+
+      // Return cancel function
+      return () => {
+        isComplete = true
+        if (runId) {
+          v1http.cancel(runId)
+        }
+        if (v1Cancel) {
+          v1Cancel()
+        }
+      }
+    },
+  },
+}

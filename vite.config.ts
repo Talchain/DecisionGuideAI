@@ -120,6 +120,22 @@ optimizeDeps: {
     middlewareMode: false,
     fs: {
       strict: true
+    },
+    proxy: {
+      '/api/plot': {
+        target: process.env.PLOT_API_URL || 'http://localhost:4311',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/plot/, ''),
+        configure: (proxy, options) => {
+          // Add auth header from server-side env (never expose to browser)
+          const apiKey = process.env.PLOT_API_KEY
+          if (apiKey) {
+            proxy.on('proxyReq', (proxyReq) => {
+              proxyReq.setHeader('Authorization', `Bearer ${apiKey}`)
+            })
+          }
+        }
+      }
     }
   },
   preview: {
