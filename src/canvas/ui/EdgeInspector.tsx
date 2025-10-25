@@ -10,6 +10,7 @@ import { EDGE_CONSTRAINTS, type EdgeStyle, DEFAULT_EDGE_DATA } from '../domain/e
 import { formatConfidence } from '../domain/edges'
 import { useToast } from '../ToastContext'
 import { Tooltip } from '../components/Tooltip'
+import { ProbabilityModal } from '../components/ProbabilityModal'
 
 interface EdgeInspectorProps {
   edgeId: string
@@ -44,7 +45,10 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   
   // Live region for announcements
   const [announcement, setAnnouncement] = useState('')
-  
+
+  // Probability modal state
+  const [showProbabilityModal, setShowProbabilityModal] = useState(false)
+
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {
@@ -271,16 +275,8 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           <button
             type="button"
             onClick={() => {
-              // Select the source node to open its inspector
-              const sourceNode = nodes.find(n => n.id === edge?.source)
-              if (sourceNode) {
-                useCanvasStore.setState({
-                  selection: {
-                    nodeIds: new Set([edge.source]),
-                    edgeIds: new Set()
-                  }
-                })
-              }
+              // Open probability modal directly for smoother UX
+              setShowProbabilityModal(true)
             }}
             className="px-3 py-1 text-xs font-medium rounded border"
             style={{
@@ -352,6 +348,14 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           Delete Connector
         </button>
       </div>
+
+      {/* Probability Modal */}
+      {showProbabilityModal && edge?.source && (
+        <ProbabilityModal
+          nodeId={edge.source}
+          onClose={() => setShowProbabilityModal(false)}
+        />
+      )}
     </div>
   )
 })

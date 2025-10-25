@@ -341,9 +341,15 @@ export function ProbabilityModal({ nodeId, onClose }: ProbabilityModalProps) {
           <button
             type="button"
             onClick={handleApply}
-            disabled={!validation.valid}
+            disabled={!validation.valid || !!balanceError}
             className={styles.primaryButton}
-            title={!validation.valid ? "Fix probabilities to apply" : "Apply changes"}
+            title={
+              balanceError
+                ? "Unlock some rows to fix overflow"
+                : !validation.valid
+                ? "Fix probabilities to apply"
+                : "Apply changes"
+            }
           >
             Apply
           </button>
