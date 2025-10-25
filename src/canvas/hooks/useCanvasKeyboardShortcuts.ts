@@ -50,6 +50,11 @@ export function useCanvasKeyboardShortcuts({
             if (firstSlider) {
               setTimeout(() => firstSlider.focus(), 100) // Small delay for smooth scroll
             }
+          } else {
+            // Probabilities section not found in DOM (inspector panel may not be mounted)
+            if (onShowToast) {
+              onShowToast('Decision inspector not visible. Make sure the properties panel is open.', 'info')
+            }
           }
         } else {
           // Node has no outgoing edges

@@ -29,6 +29,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const weight = edgeData?.weight ?? 1.0
   const style = edgeData?.style ?? 'solid'
   const curvature = edgeData?.curvature ?? 0.15
+  const kind = edgeData?.kind ?? 'decision-probability'
   const label = edgeData?.label
   const confidence = edgeData?.confidence
 
@@ -46,8 +47,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // Determine label visibility and styling
   const labelVisibility = useMemo(
-    () => shouldShowLabel(label, confidence, outgoingEdgeCount),
-    [label, confidence, outgoingEdgeCount]
+    () => shouldShowLabel(label, confidence, outgoingEdgeCount, kind),
+    [label, confidence, outgoingEdgeCount, kind]
   )
 
   // Get edge theme for labels

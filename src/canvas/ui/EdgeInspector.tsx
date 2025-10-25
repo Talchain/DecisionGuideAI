@@ -258,7 +258,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         </Tooltip>
         <div className="p-3 rounded" style={{ backgroundColor: 'rgba(91, 108, 255, 0.05)', border: '1px solid rgba(91, 108, 255, 0.2)' }}>
           <p className="text-xs text-gray-600 mb-2">
-            Edit probabilities in this decision
+            Edit probabilities in this decision (or press <kbd className="px-1 py-0.5 text-xs font-semibold bg-gray-100 border border-gray-300 rounded">P</kbd> after selecting)
           </p>
           <button
             type="button"
@@ -281,7 +281,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
               e.currentTarget.style.backgroundColor = 'var(--olumi-primary, #5B6CFF)'
             }}
           >
-            Edit probabilities in this decision
+            Go to decision probabilities
           </button>
         </div>
       </div>

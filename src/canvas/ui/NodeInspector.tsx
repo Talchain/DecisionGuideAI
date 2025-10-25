@@ -191,9 +191,6 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       return
     }
 
-    // Save current state to history before making changes
-    pushHistory()
-
     // Build the new edges array with all updates applied
     const updatedEdges = edges.map(edge => {
       const row = rows.find(r => r.edgeId === edge.id)
@@ -233,6 +230,10 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         touchedNodeIds
       }
     })
+
+    // Save current state to history AFTER making changes
+    // This ensures the new state (with updated edges) is captured in history
+    pushHistory()
 
     // Update original rows to new state
     setOriginalRows(rows)

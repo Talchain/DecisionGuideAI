@@ -10,6 +10,8 @@ Guide to editing probabilities for decision nodes on the canvas.
 1. Click a decision node → View inline probability editor in Decision inspector
 2. Click an edge → "Edit probabilities in this decision" button → Selects parent decision node
 3. Select decision → Press **P** key → Focuses inline probability editor
+   - Requires: Decision node selected and Decision inspector panel visible
+   - Toast feedback shown if requirements not met
 
 ---
 
