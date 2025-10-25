@@ -25,6 +25,7 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import { ValidationChip } from './components/ValidationChip'
 import { LayerProvider } from './components/LayerProvider'
 import { FirstRunHint } from './components/FirstRunHint'
+import { ProbabilityModal } from './components/ProbabilityModal'
 import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
@@ -53,6 +54,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const [showKeyboardMap, setShowKeyboardMap] = useState(false)
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
+  const [probabilityModalNodeId, setProbabilityModalNodeId] = useState<string | null>(null)
   
   const handleSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
     useCanvasStore.getState().onSelectionChange(params)
@@ -115,11 +117,17 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     showToast('Run simulation feature coming soon!', 'info')
   }, [showToast])
 
-  // Setup keyboard shortcuts (Alt+V, Cmd/Ctrl+Enter, ?)
+  // Edit probabilities handler (for P key)
+  const handleEditProbabilities = useCallback((nodeId: string) => {
+    setProbabilityModalNodeId(nodeId)
+  }, [])
+
+  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, ?)
   useCanvasKeyboardShortcuts({
     onFocusNode: handleFocusNode,
     onRunSimulation: handleRunSimulation,
-    onShowKeyboardMap: () => setShowKeyboardMap(true)
+    onShowKeyboardMap: () => setShowKeyboardMap(true),
+    onEditProbabilities: handleEditProbabilities
   })
 
   // Blueprint insertion handler
@@ -359,6 +367,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       {showCommandPalette && <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />}
       {showCheatsheet && <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />}
       {showKeyboardMap && <KeyboardMap isOpen={showKeyboardMap} onClose={() => setShowKeyboardMap(false)} />}
+      {probabilityModalNodeId && <ProbabilityModal nodeId={probabilityModalNodeId} onClose={() => setProbabilityModalNodeId(null)} />}
       {nodes.length === 0 && showEmptyState && <EmptyStateOverlay onDismiss={() => setShowEmptyState(false)} />}
       
       {existingTemplate && pendingBlueprint && (

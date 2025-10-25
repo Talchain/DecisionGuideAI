@@ -2,6 +2,7 @@
  * useCanvasKeyboardShortcuts - Global keyboard shortcuts for canvas
  *
  * Shortcuts:
+ * - P: Edit probabilities for selected edge's parent decision
  * - Alt+V: Cycle through validation errors
  * - Cmd/Ctrl+Enter: Run simulation
  * - ?: Show keyboard map
@@ -14,14 +15,35 @@ interface UseCanvasKeyboardShortcutsOptions {
   onFocusNode?: (nodeId: string) => void
   onRunSimulation?: () => void
   onShowKeyboardMap?: () => void
+  onEditProbabilities?: (nodeId: string) => void
 }
 
 export function useCanvasKeyboardShortcuts({
   onFocusNode,
   onRunSimulation,
-  onShowKeyboardMap
+  onShowKeyboardMap,
+  onEditProbabilities
 }: UseCanvasKeyboardShortcutsOptions = {}) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // P: Edit probabilities for selected edge's parent decision
+    if (e.key === 'p' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      e.preventDefault()
+      const state = useCanvasStore.getState()
+      const { selection, edges } = state
+
+      // Check if exactly one edge is selected
+      if (selection.edgeIds.size === 1) {
+        const edgeId = [...selection.edgeIds][0]
+        const edge = edges.find(e => e.id === edgeId)
+
+        if (edge && edge.source && onEditProbabilities) {
+          onEditProbabilities(edge.source)
+        }
+      }
+
+      return
+    }
+
     // ?: Show keyboard map
     if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault()
@@ -64,7 +86,7 @@ export function useCanvasKeyboardShortcuts({
 
       return
     }
-  }, [onFocusNode, onRunSimulation, onShowKeyboardMap])
+  }, [onFocusNode, onRunSimulation, onShowKeyboardMap, onEditProbabilities])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)
