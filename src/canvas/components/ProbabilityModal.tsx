@@ -137,6 +137,18 @@ export function ProbabilityModal({ nodeId, onClose }: ProbabilityModalProps) {
     // Push to history once before batch update
     pushHistory()
 
+    // Build touched nodes set (mark all source nodes as touched)
+    const store = useCanvasStore.getState()
+    const touchedNodeIds = new Set(store.touchedNodeIds)
+
+    // Mark all nodes whose edges we're updating as touched
+    rows.forEach(row => {
+      const edge = edges.find(e => e.id === row.edgeId)
+      if (edge) {
+        touchedNodeIds.add(edge.source)
+      }
+    })
+
     // Batch update all edges WITHOUT pushing to history each time
     // Build the new edges array with all updates applied
     const updatedEdges = edges.map(edge => {
@@ -153,8 +165,11 @@ export function ProbabilityModal({ nodeId, onClose }: ProbabilityModalProps) {
       }
     })
 
-    // Single state update with all changes
-    useCanvasStore.setState({ edges: updatedEdges })
+    // Single state update with all changes AND updated touchedNodeIds
+    useCanvasStore.setState({
+      edges: updatedEdges,
+      touchedNodeIds
+    })
 
     onClose()
   }, [rows, edges, validation.valid, onClose, pushHistory])

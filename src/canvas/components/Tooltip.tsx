@@ -5,10 +5,11 @@
  * - Hover-triggered with keyboard support
  * - Positioned above target element
  * - Arrow pointer
- * - Proper ARIA attributes
+ * - Proper ARIA attributes (uses aria-describedby to preserve existing labels)
+ * - Merges event handlers instead of clobbering
  */
 
-import { useState, cloneElement, type ReactElement } from 'react'
+import { useState, cloneElement, useId, type ReactElement, type MouseEvent, type FocusEvent } from 'react'
 
 interface TooltipProps {
   content: string
@@ -18,19 +19,41 @@ interface TooltipProps {
 
 export function Tooltip({ content, children, position = 'top' }: TooltipProps) {
   const [show, setShow] = useState(false)
+  const tooltipId = useId()
 
-  const handleMouseEnter = () => setShow(true)
-  const handleMouseLeave = () => setShow(false)
-  const handleFocus = () => setShow(true)
-  const handleBlur = () => setShow(false)
+  // Preserve and merge existing event handlers
+  const originalOnMouseEnter = children.props.onMouseEnter
+  const originalOnMouseLeave = children.props.onMouseLeave
+  const originalOnFocus = children.props.onFocus
+  const originalOnBlur = children.props.onBlur
 
-  // Clone child and add event handlers + aria-label
+  const handleMouseEnter = (e: MouseEvent) => {
+    setShow(true)
+    originalOnMouseEnter?.(e)
+  }
+
+  const handleMouseLeave = (e: MouseEvent) => {
+    setShow(false)
+    originalOnMouseLeave?.(e)
+  }
+
+  const handleFocus = (e: FocusEvent) => {
+    setShow(true)
+    originalOnFocus?.(e)
+  }
+
+  const handleBlur = (e: FocusEvent) => {
+    setShow(false)
+    originalOnBlur?.(e)
+  }
+
+  // Clone child with merged handlers and aria-describedby (not aria-label)
   const enhancedChild = cloneElement(children, {
     onMouseEnter: handleMouseEnter,
     onMouseLeave: handleMouseLeave,
     onFocus: handleFocus,
     onBlur: handleBlur,
-    'aria-label': content,
+    'aria-describedby': show ? tooltipId : undefined,
     tabIndex: children.props.tabIndex ?? 0,
   })
 
@@ -90,6 +113,7 @@ export function Tooltip({ content, children, position = 'top' }: TooltipProps) {
 
       {show && (
         <div
+          id={tooltipId}
           role="tooltip"
           className="absolute z-[9000] px-2 py-1 text-xs rounded whitespace-nowrap pointer-events-none"
           style={{

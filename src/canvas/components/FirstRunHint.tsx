@@ -2,7 +2,7 @@
  * FirstRunHint - Onboarding hint for new users
  *
  * Shows a dismissible hint on first visit with quick-start instructions.
- * Persists dismissal state to localStorage.
+ * Persists dismissal state to localStorage (with SSR/test safety).
  */
 
 import { useState } from 'react'
@@ -10,15 +10,44 @@ import { X } from 'lucide-react'
 
 const STORAGE_KEY = 'canvas-onboarding-dismissed'
 
+/**
+ * Safe localStorage check for SSR/test environments
+ */
+function safeGetStorage(key: string): string | null {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    return null
+  }
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    // localStorage might be blocked (privacy mode, etc.)
+    return null
+  }
+}
+
+/**
+ * Safe localStorage setter for SSR/test environments
+ */
+function safeSetStorage(key: string, value: string): void {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    return
+  }
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // Fail silently if storage is unavailable
+  }
+}
+
 export function FirstRunHint() {
   const [dismissed, setDismissed] = useState(() => {
-    return localStorage.getItem(STORAGE_KEY) === 'true'
+    return safeGetStorage(STORAGE_KEY) === 'true'
   })
 
   if (dismissed) return null
 
   const handleDismiss = () => {
-    localStorage.setItem(STORAGE_KEY, 'true')
+    safeSetStorage(STORAGE_KEY, 'true')
     setDismissed(true)
   }
 
@@ -71,5 +100,12 @@ export function FirstRunHint() {
  * Reset the onboarding hint (for testing or help menu)
  */
 export function resetOnboardingHint() {
-  localStorage.removeItem(STORAGE_KEY)
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    return
+  }
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // Fail silently if storage is unavailable
+  }
 }

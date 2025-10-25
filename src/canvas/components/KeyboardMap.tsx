@@ -6,6 +6,7 @@
  */
 
 import { useEffect } from 'react'
+import { X } from 'lucide-react'
 import styles from './KeyboardMap.module.css'
 
 interface ShortcutRowProps {
@@ -71,9 +72,9 @@ export function KeyboardMap({ isOpen, onClose }: KeyboardMapProps) {
           <button
             onClick={onClose}
             className={styles.closeButton}
-            aria-label="Close"
+            aria-label="Close keyboard shortcuts"
           >
-            ×
+            <X className="w-4 h-4" />
           </button>
         </div>
 
@@ -87,6 +88,10 @@ export function KeyboardMap({ isOpen, onClose }: KeyboardMapProps) {
             <ShortcutRow
               keys={['Alt/Option', 'V']}
               description="Jump to next invalid node"
+            />
+            <ShortcutRow
+              keys={['P']}
+              description="Edit probabilities (batch)"
             />
             <ShortcutRow
               keys={['⌘/Ctrl', 'T']}
