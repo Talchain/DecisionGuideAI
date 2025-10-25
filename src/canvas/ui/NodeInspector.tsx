@@ -209,6 +209,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         ...edge,
         data: {
           ...edge.data,
+          kind: 'decision-probability',
           confidence: row.percent / 100,
           label: newLabel
         }

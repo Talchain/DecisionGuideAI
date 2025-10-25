@@ -13,6 +13,42 @@ Guide to editing probabilities for decision nodes on the canvas.
 
 ---
 
+## Edge Label Visibility
+
+Edge labels now use a **tiered visibility system** to reduce visual clutter while preserving important information:
+
+### Label Types
+
+1. **Custom Labels** (e.g., "High risk path", "Preferred option")
+   - Always visible
+   - Prominent styling (12px font, 500 weight, full opacity)
+   - Shown with tooltip on hover
+
+2. **Auto-Generated Percentages** (e.g., "50%", "75%")
+   - Conditionally visible
+   - De-emphasized styling (10px font, 0.8 opacity, smaller shadow)
+   - Hidden for single outgoing edges (implicit 100%)
+   - Hidden for 0% confidence values
+
+3. **Implicit 100%** (single edge from decision)
+   - Hidden entirely (no need to show the obvious)
+
+### How It Works
+
+The system automatically detects whether a label is custom or auto-generated using the pattern `/^\d+%$/`. This means:
+
+- If you type "50%" as a label, it's treated as auto-generated
+- If you type "50% likely" or "High confidence", it's treated as custom and always shown
+
+### Accessibility
+
+All edges include:
+- Descriptive `aria-label` with source/target node names and confidence
+- Tooltip on hover showing the label or probability
+- Screen reader announcements for edge properties
+
+---
+
 ## The Inline Probability Editor
 
 The inline editor appears in the Decision inspector when a decision node is selected. It shows all outgoing edges with interactive controls to adjust probabilities.
@@ -135,6 +171,15 @@ Auto-balance uses this electoral apportionment algorithm to ensure:
 ### Label Preservation
 - **Auto-generated labels** (matching pattern `/^\d+%$/`) are updated when probabilities change
 - **Custom labels** (e.g., "High risk path") are preserved even when probability changes
+
+### Edge Kind (Future-Proofing)
+Each edge has a `kind` field that determines its semantic type:
+- `decision-probability`: Default for probability splits from decisions (must sum to 100%)
+- `risk-likelihood`: Future support for risk analysis (probability a risk occurs)
+- `influence-weight`: Future support for influence diagrams (no sum constraint)
+- `deterministic`: Future support for certain outcomes (always happens, no label shown)
+
+This field enables future expansion to other diagram types while maintaining backward compatibility.
 
 ---
 

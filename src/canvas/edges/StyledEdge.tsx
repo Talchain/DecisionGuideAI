@@ -13,7 +13,7 @@ import { memo, useMemo } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps, useReactFlow } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
 import { applyEdgeVisualProps } from '../theme/edges'
-import { formatConfidence } from '../domain/edges'
+import { formatConfidence, shouldShowLabel } from '../domain/edges'
 import { useIsDark } from '../hooks/useTheme'
 
 /**
@@ -22,7 +22,7 @@ import { useIsDark } from '../hooks/useTheme'
  */
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
   const isDark = useIsDark()
-  const { getNode } = useReactFlow()
+  const { getNode, getEdges } = useReactFlow()
 
   // Extract edge data with defaults
   const edgeData = data as EdgeData | undefined
@@ -32,10 +32,22 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const label = edgeData?.label
   const confidence = edgeData?.confidence
 
+  // Count outgoing edges from source node for visibility logic
+  const outgoingEdgeCount = useMemo(() => {
+    const edges = getEdges()
+    return edges.filter(e => e.source === source).length
+  }, [source, getEdges])
+
   // Apply visual properties (O(1), pure function)
   const visualProps = useMemo(
     () => applyEdgeVisualProps(weight, style, curvature, selected || false, false, isDark),
     [weight, style, curvature, selected, isDark]
+  )
+
+  // Determine label visibility and styling
+  const labelVisibility = useMemo(
+    () => shouldShowLabel(label, confidence, outgoingEdgeCount),
+    [label, confidence, outgoingEdgeCount]
   )
 
   // Get edge theme for labels
@@ -90,21 +102,22 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         markerEnd="url(#arrowhead)"
       />
       
-      {/* Edge label */}
-      {(label || confidence !== undefined) && (
+      {/* Edge label with tiered visibility */}
+      {labelVisibility.show && (
         <EdgeLabelRenderer>
           <div
             style={{
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
               pointerEvents: 'all',
-              fontSize: '12px',
+              fontSize: labelVisibility.deEmphasize ? '10px' : '12px',
               background: edgeTheme.labelBg,
               color: edgeTheme.labelText,
-              padding: '2px 8px',
+              padding: labelVisibility.deEmphasize ? '1px 6px' : '2px 8px',
               borderRadius: '4px',
               border: `1px solid ${edgeTheme.labelBorder}`,
-              boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+              boxShadow: labelVisibility.deEmphasize ? '0 1px 2px 0 rgb(0 0 0 / 0.05)' : '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+              opacity: labelVisibility.deEmphasize ? 0.8 : 1,
               maxWidth: '120px',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -113,16 +126,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             className="nodrag nopan"
             role="note"
             aria-label={ariaLabel}
+            title={labelVisibility.isCustom ? label : `Probability: ${formatConfidence(confidence)}`}
           >
-            {label && <span style={{ marginRight: confidence !== undefined ? '6px' : 0 }}>{label}</span>}
-            {confidence !== undefined && (
-              <span
-                style={{
-                  fontSize: '10px',
-                  opacity: 0.7,
-                }}
-                aria-label={`Confidence: ${formatConfidence(confidence)}`}
-              >
+            {labelVisibility.isCustom && label && (
+              <span style={{ fontWeight: 500 }}>{label}</span>
+            )}
+            {!labelVisibility.isCustom && confidence !== undefined && (
+              <span aria-label={`Confidence: ${formatConfidence(confidence)}`}>
                 {formatConfidence(confidence)}
               </span>
             )}
