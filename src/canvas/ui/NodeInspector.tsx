@@ -137,7 +137,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         />
       </div>
       
-      {/* Outgoing Edges Probability Editor */}
+      {/* Outgoing Edges - Probability Summary (Read-Only) */}
       {outgoingEdges.length > 0 && (
         <div className="mb-4 pt-4 border-t border-gray-200">
           <Tooltip content="% likelihood each connector is taken (must total 100%)" position="right">
@@ -145,48 +145,30 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               Outgoing Edges ({outgoingEdges.length})
             </label>
           </Tooltip>
-          <div className="space-y-3">
+
+          {/* Read-only summary of probabilities */}
+          <div className="space-y-2 mb-3">
             {outgoingEdges.map(edge => {
               const targetNode = nodes.find(n => n.id === edge.target)
               const probability = edge.data?.confidence ?? 0
               const pct = Math.round(probability * 100)
-              
+
               return (
-                <div key={edge.id} className="p-2 bg-gray-50 rounded border border-gray-200">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-medium text-gray-700">
-                      → {targetNode?.data?.label || 'Unknown'}
-                    </span>
-                    <span className="text-xs text-gray-600">{pct}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value={pct}
-                    onChange={(e) => {
-                      const newPct = parseInt(e.target.value, 10)
-                      const newConfidence = newPct / 100
-                      updateEdge(edge.id, {
-                        data: {
-                          ...edge.data,
-                          confidence: newConfidence,
-                          label: `${newPct}%`
-                        }
-                      })
-                    }}
-                    className="w-full"
-                    aria-label={`Probability to ${targetNode?.data?.label || 'Unknown'}`}
-                  />
+                <div key={edge.id} className="flex items-center justify-between py-1 px-2 rounded" style={{ backgroundColor: 'rgba(91, 108, 255, 0.05)' }}>
+                  <span className="text-xs text-gray-700">
+                    → {targetNode?.data?.label || 'Unknown'}
+                  </span>
+                  <span className="text-xs font-medium" style={{ color: 'var(--olumi-primary, #5B6CFF)' }}>
+                    {pct}%
+                  </span>
                 </div>
               )
             })}
           </div>
-          
+
           {/* Validation Footer */}
           {probabilityValidation && !probabilityValidation.valid && (
-            <div className="mt-3 p-2 rounded flex items-start gap-2" role="alert" style={{ backgroundColor: 'rgba(247,201,72,0.1)', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--olumi-warning)' }}>
+            <div className="mb-3 p-2 rounded flex items-start gap-2" role="alert" style={{ backgroundColor: 'rgba(247,201,72,0.1)', borderWidth: '1px', borderStyle: 'solid', borderColor: 'var(--olumi-warning)' }}>
               <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--olumi-warning)' }} />
               <p className="text-xs" style={{ color: '#9a6e00' }}>
                 {probabilityValidation.message}
@@ -194,12 +176,12 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             </div>
           )}
 
-          {/* Edit Probabilities Button (only for 2+ outgoing edges) */}
+          {/* Edit Probabilities Button - Single Source of Truth */}
           {outgoingEdges.length >= 2 && (
             <button
               type="button"
               onClick={() => setShowProbabilityModal(true)}
-              className="w-full mt-3 px-3 py-2 text-sm font-medium rounded text-white transition-all"
+              className="w-full px-3 py-2 text-sm font-medium rounded text-white transition-all"
               style={{ backgroundColor: 'var(--olumi-primary, #5B6CFF)' }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = 'var(--olumi-primary-600, #4256F6)'
