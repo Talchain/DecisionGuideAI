@@ -327,7 +327,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               const isFirstUnlocked = !row.locked && !rows.slice(0, index).some(r => !r.locked)
 
               return (
-                <div key={row.edgeId} className="flex items-center gap-2">
+                <div key={row.edgeId} className="flex items-center gap-1.5">
                   {/* Lock toggle */}
                   <button
                     type="button"
@@ -340,15 +340,15 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                       color: row.locked ? 'var(--olumi-primary, #5B6CFF)' : '#9ca3af'
                     }}
                   >
-                    {row.locked ? <Lock size={14} /> : <Unlock size={14} />}
+                    {row.locked ? <Lock size={12} /> : <Unlock size={12} />}
                   </button>
 
                   {/* Target label */}
-                  <span className="text-xs text-gray-700 w-20 flex-shrink-0 truncate" title={row.targetLabel}>
+                  <span className="text-xs text-gray-700 w-14 flex-shrink-0 truncate" title={row.targetLabel}>
                     {row.targetLabel}
                   </span>
 
-                  {/* Range slider */}
+                  {/* Range slider - constrained width */}
                   <input
                     ref={isFirstUnlocked ? firstSliderRef : null}
                     type="range"
@@ -358,14 +358,15 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                     value={row.percent}
                     disabled={row.locked}
                     onChange={(e) => updatePercent(row.edgeId, parseInt(e.target.value, 10))}
-                    className="flex-1"
+                    className="flex-1 min-w-0"
                     aria-label={`Probability to ${row.targetLabel}`}
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-valuenow={row.percent}
                     aria-valuetext={`${row.percent}%`}
                     style={{
-                      opacity: row.locked ? 0.5 : 1
+                      opacity: row.locked ? 0.5 : 1,
+                      maxWidth: '120px'
                     }}
                   />
 
@@ -383,13 +384,13 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                         updatePercent(row.edgeId, Math.max(0, Math.min(100, val)))
                       }
                     }}
-                    className="w-12 text-xs border border-gray-300 rounded px-1 py-0.5 text-right"
+                    className="w-10 text-xs border border-gray-300 rounded px-1 py-0.5 text-right flex-shrink-0"
                     aria-label={`${row.targetLabel} percentage`}
                     style={{
                       opacity: row.locked ? 0.5 : 1
                     }}
                   />
-                  <span className="text-xs text-gray-500">%</span>
+                  <span className="text-xs text-gray-500 flex-shrink-0">%</span>
                 </div>
               )
             })}
