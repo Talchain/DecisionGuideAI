@@ -3,7 +3,8 @@
  *
  * Features:
  * - Lock/Unlock individual rows
- * - Equalize remaining % across unlocked rows
+ * - Auto-balance: Preserves ratios, rounds to nice numbers (Hamilton method)
+ * - Equal split: Divides remaining % equally (ignores current ratios)
  * - Real-time validation with visual feedback
  * - Batch update (single undo/redo step)
  * - Keyboard support (Tab, Enter, Esc)
@@ -14,6 +15,7 @@ import { Lock, Unlock, AlertTriangle } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import type { Edge } from 'reactflow'
 import type { EdgeData } from '../domain/edges'
+import { autoBalance, equalSplit, type BalanceRow } from '../utils/probabilityBalancing'
 import styles from './ProbabilityModal.module.css'
 
 interface ModalRow {
@@ -90,37 +92,34 @@ export function ProbabilityModal({ nodeId, onClose }: ProbabilityModalProps) {
     ))
   }, [])
 
-  // Equalize: distribute remaining % across unlocked rows
-  const handleEqualize = useCallback(() => {
-    const lockedRows = rows.filter(r => r.locked)
-    const unlockedRows = rows.filter(r => !r.locked)
-
-    // Can't equalize if all rows are locked
-    if (unlockedRows.length === 0) return
-
-    // Calculate remaining percentage after locked rows
-    const lockedTotal = lockedRows.reduce((sum, r) => sum + r.percent, 0)
-    const remaining = 100 - lockedTotal
-
-    // Distribute equally with rounding
-    const perRow = Math.floor(remaining / unlockedRows.length)
-    const remainder = remaining - (perRow * unlockedRows.length)
-
-    // Track which unlocked row is last to assign remainder
-    let unlockedIndex = 0
-    const totalUnlocked = unlockedRows.length
-
-    setRows(prev => prev.map(r => {
-      if (r.locked) return r
-
-      const isLastUnlocked = unlockedIndex === totalUnlocked - 1
-      unlockedIndex++
-
-      return {
-        ...r,
-        percent: perRow + (isLastUnlocked ? remainder : 0)
-      }
+  // Auto-balance: Preserves relative proportions, rounds to nice numbers
+  const handleAutoBalance = useCallback(() => {
+    const balanceRows: BalanceRow[] = rows.map(r => ({
+      value: r.percent,
+      locked: r.locked
     }))
+
+    const result = autoBalance(balanceRows, { step: 5 })
+
+    setRows(prev => prev.map((r, i) => ({
+      ...r,
+      percent: result[i]
+    })))
+  }, [rows])
+
+  // Equal split: Divides remaining percentage equally (ignores current ratios)
+  const handleEqualSplit = useCallback(() => {
+    const balanceRows: BalanceRow[] = rows.map(r => ({
+      value: r.percent,
+      locked: r.locked
+    }))
+
+    const result = equalSplit(balanceRows, { step: 5 })
+
+    setRows(prev => prev.map((r, i) => ({
+      ...r,
+      percent: result[i]
+    })))
   }, [rows])
 
   // Reset to original values
@@ -253,6 +252,12 @@ export function ProbabilityModal({ nodeId, onClose }: ProbabilityModalProps) {
             })}
           </div>
 
+          {/* Helper Text */}
+          <p className={styles.helperText}>
+            <strong>Auto-balance</strong> keeps your ratios, rounds to nice numbers, and totals 100%.
+            <strong> Equal split</strong> divides the remaining (unlocked) options evenly.
+          </p>
+
           {/* Validation Feedback */}
           {!validation.valid && (
             <div className={styles.validation} role="alert">
@@ -266,15 +271,27 @@ export function ProbabilityModal({ nodeId, onClose }: ProbabilityModalProps) {
 
         {/* Actions */}
         <div className={styles.actions}>
-          <button
-            type="button"
-            onClick={handleEqualize}
-            disabled={allLocked}
-            className={styles.secondaryButton}
-            title={allLocked ? "Unlock at least one row to equalize" : "Distribute remaining % equally"}
-          >
-            Equalize
-          </button>
+          <div className={styles.balanceButtons}>
+            <button
+              type="button"
+              onClick={handleAutoBalance}
+              disabled={allLocked}
+              className={styles.secondaryButton}
+              title={allLocked ? "Unlock at least one row" : "Keeps your ratios, rounds to nice numbers"}
+            >
+              Auto-balance
+            </button>
+
+            <button
+              type="button"
+              onClick={handleEqualSplit}
+              disabled={allLocked}
+              className={styles.secondaryButton}
+              title={allLocked ? "Unlock at least one row" : "Divides remaining evenly"}
+            >
+              Equal split
+            </button>
+          </div>
 
           <button
             type="button"

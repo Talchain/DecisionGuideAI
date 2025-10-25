@@ -4,7 +4,7 @@
  * Tests for:
  * - Rendering and initialization
  * - Lock/Unlock functionality
- * - Equalize logic with rounding
+ * - Auto-balance and Equal split logic
  * - Validation feedback
  * - Apply/Reset/Cancel actions
  * - Keyboard support
@@ -157,7 +157,7 @@ describe('ProbabilityModal', () => {
     })
   })
 
-  describe('Equalize Logic', () => {
+  describe('Auto-balance and Equal Split Logic', () => {
     it('distributes remaining % equally across unlocked rows', () => {
       const onClose = vi.fn()
       render(<ProbabilityModal nodeId="n1" onClose={onClose} />)
@@ -166,9 +166,9 @@ describe('ProbabilityModal', () => {
       const lockButtons = screen.getAllByRole('button', { name: /^(lock|unlock)$/i })
       fireEvent.click(lockButtons[0])
 
-      // Click Equalize
-      const equalizeButton = screen.getByRole('button', { name: /equalize/i })
-      fireEvent.click(equalizeButton)
+      // Click Equal split
+      const equalSplitButton = screen.getByRole('button', { name: /equal split/i })
+      fireEvent.click(equalSplitButton)
 
       // Should distribute 60% equally across 2 unlocked rows = 30% each
       const percentages = screen.getAllByText(/\d+%$/)
@@ -191,18 +191,23 @@ describe('ProbabilityModal', () => {
       const onClose = vi.fn()
       render(<ProbabilityModal nodeId="n1" onClose={onClose} />)
 
-      // Click Equalize
-      const equalizeButton = screen.getByRole('button', { name: /equalize/i })
-      fireEvent.click(equalizeButton)
+      // Click Equal split
+      const equalSplitButton = screen.getByRole('button', { name: /equal split/i })
+      fireEvent.click(equalSplitButton)
 
-      // Should be 33%, 33%, 34% (last row gets remainder)
+      // Should round to 5% steps and sum to 100%
+      // 100/3 = 33.33 → rounds to 30/35/35 or 35/35/30
       const percentages = screen.getAllByText(/\d+%$/)
-      expect(percentages[0]).toHaveTextContent('33%')
-      expect(percentages[1]).toHaveTextContent('33%')
-      expect(percentages[2]).toHaveTextContent('34%') // gets +1 remainder
+      const values = percentages.map(p => parseInt(p.textContent || '0'))
+
+      // All should be multiples of 5
+      expect(values.every(v => v % 5 === 0)).toBe(true)
+
+      // Should sum to 100
+      expect(values.reduce((sum, v) => sum + v, 0)).toBe(100)
     })
 
-    it('disables Equalize when all rows locked', () => {
+    it('disables both balance buttons when all rows locked', () => {
       const onClose = vi.fn()
       const { container } = render(<ProbabilityModal nodeId="n1" onClose={onClose} />)
 
@@ -210,9 +215,11 @@ describe('ProbabilityModal', () => {
       const lockButtons = screen.getAllByRole('button', { name: /lock/i })
       lockButtons.forEach(btn => fireEvent.click(btn))
 
-      // Equalize should be disabled
-      const equalizeButton = screen.getByRole('button', { name: /equalize/i })
-      expect(equalizeButton).toBeDisabled()
+      // Both balance buttons should be disabled
+      const autoBalanceButton = screen.getByRole('button', { name: /auto-balance/i })
+      const equalSplitButton = screen.getByRole('button', { name: /equal split/i })
+      expect(autoBalanceButton).toBeDisabled()
+      expect(equalSplitButton).toBeDisabled()
     })
   })
 
