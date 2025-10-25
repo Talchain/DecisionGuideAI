@@ -11,6 +11,7 @@ import { EDGE_CONSTRAINTS, type EdgeStyle, DEFAULT_EDGE_DATA } from '../domain/e
 import { formatConfidence } from '../domain/edges'
 import { useToast } from '../ToastContext'
 import { validateOutgoingProbabilities } from '../utils/probabilityValidation'
+import { Tooltip } from '../components/Tooltip'
 
 interface EdgeInspectorProps {
   edgeId: string
@@ -173,9 +174,11 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       
       {/* Weight control */}
       <div className="mb-4">
-        <label htmlFor="edge-weight" className="block text-xs font-medium text-gray-700 mb-1">
-          Weight
-        </label>
+        <Tooltip content="Influences layout positioning and visual thickness" position="right">
+          <label htmlFor="edge-weight" className="block text-xs font-medium text-gray-700 mb-1">
+            Weight
+          </label>
+        </Tooltip>
         <div className="flex items-center gap-2">
           <input
             id="edge-weight"
@@ -271,9 +274,11 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
       
       {/* Confidence control */}
       <div className="mb-4">
-        <label htmlFor="edge-confidence" className="block text-xs font-medium text-gray-700 mb-1">
-          Probability
-        </label>
+        <Tooltip content="Likelihood of this path being taken (outgoing edges from same node must sum to 100%)" position="right">
+          <label htmlFor="edge-confidence" className="block text-xs font-medium text-gray-700 mb-1">
+            Probability
+          </label>
+        </Tooltip>
         <div className="flex items-center gap-2">
           <input
             id="edge-confidence"
