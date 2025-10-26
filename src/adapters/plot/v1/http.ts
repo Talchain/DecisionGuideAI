@@ -131,12 +131,13 @@ export async function runSync(
   }
 
   try {
+    const idempotencyKey = request.idempotencyKey || request.clientHash
     const response = await fetch(`${base}/v1/run`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(request.idempotencyKey && {
-          'Idempotency-Key': request.idempotencyKey,
+        ...(idempotencyKey && {
+          'Idempotency-Key': idempotencyKey,
         }),
       },
       body: JSON.stringify(request),
