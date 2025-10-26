@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { X, Search } from 'lucide-react'
-import { plot } from '../../adapters/plot'
+import { plot, adapterName } from '../../adapters/plot'
 import { getAllBlueprints, getBlueprintById } from '../../templates/blueprints'
 import type { Blueprint } from '../../templates/blueprints/types'
 import { useTemplatesRun } from '../../routes/templates/hooks/useTemplatesRun'
@@ -11,6 +11,7 @@ import { ErrorBanner } from '../../routes/templates/components/ErrorBanner'
 import { ProgressStrip } from '../../routes/templates/components/ProgressStrip'
 import { TemplateCard } from './TemplateCard'
 import { TemplateAbout } from './TemplateAbout'
+import { PlotHealthPill } from '../../adapters/plot/v1/components/PlotHealthPill'
 
 interface TemplatesPanelProps {
   isOpen: boolean
@@ -127,7 +128,12 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200" style={{ background: 'linear-gradient(to right, rgba(91,108,255,0.05), rgba(123,70,255,0.05))' }}>
-          <h2 className="text-lg font-semibold text-gray-900">Templates</h2>
+          <div className="flex items-center gap-3 flex-1">
+            <h2 className="text-lg font-semibold text-gray-900">Templates</h2>
+            {adapterName === 'httpv1' && (
+              <PlotHealthPill pause={!isOpen} />
+            )}
+          </div>
           <button
             onClick={handleClose}
             className="p-2 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--olumi-primary)]"
@@ -210,7 +216,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-yellow-800 uppercase tracking-wide">Dev Controls</span>
-                <span className="text-xs bg-yellow-200 text-yellow-900 px-2 py-1 rounded font-mono">Adapter: Mock</span>
+                <span className="text-xs bg-yellow-200 text-yellow-900 px-2 py-1 rounded font-mono">Adapter: {adapterName}</span>
               </div>
               <div className="space-y-3">
                 <div>
