@@ -40,31 +40,17 @@ export function useTemplatesRun() {
           const progress = Math.min(100, Math.round((data.index / 5) * 100))
           setState(prev => ({ ...prev, progress }))
         },
-        onDone: async (data: { response_id: string }) => {
-          // Fetch full result using sync API
-          try {
-            const result = await plot.run(request)
-            setState({
-              loading: false,
-              progress: 100,
-              result,
-              error: null,
-              retryAfter: null,
-              canCancel: false
-            })
-          } catch (err) {
-            const error = err as ErrorV1
-            setState({
-              loading: false,
-              progress: 0,
-              result: null,
-              error,
-              retryAfter: error.retry_after || null,
-              canCancel: false
-            })
-          } finally {
-            cancelRef.current = null
-          }
+        onDone: (data: { response_id: string; report: ReportV1 }) => {
+          // Use the report from streaming completion (no second run needed!)
+          setState({
+            loading: false,
+            progress: 100,
+            result: data.report,
+            error: null,
+            retryAfter: null,
+            canCancel: false
+          })
+          cancelRef.current = null
         },
         onError: (error: ErrorV1) => {
           setState({

@@ -260,5 +260,37 @@ describe('v1/mapper', () => {
 
       expect(hash).toMatch(/^[0-9a-f]+$/)
     })
+
+    it('should include node body in hash', () => {
+      const graph1: ReactFlowGraph = {
+        nodes: [{ id: 'a', data: { label: 'A', body: 'Body 1' } }],
+        edges: [],
+      }
+      const graph2: ReactFlowGraph = {
+        nodes: [{ id: 'a', data: { label: 'A', body: 'Body 2' } }],
+        edges: [],
+      }
+
+      const hash1 = computeClientHash(graph1, 42)
+      const hash2 = computeClientHash(graph2, 42)
+
+      expect(hash1).not.toBe(hash2)
+    })
+
+    it('should include edge weight in hash', () => {
+      const graph1: ReactFlowGraph = {
+        nodes: [{ id: 'a', data: {} }, { id: 'b', data: {} }],
+        edges: [{ id: 'e1', source: 'a', target: 'b', data: { weight: 1 } }],
+      }
+      const graph2: ReactFlowGraph = {
+        nodes: [{ id: 'a', data: {} }, { id: 'b', data: {} }],
+        edges: [{ id: 'e1', source: 'a', target: 'b', data: { weight: 2 } }],
+      }
+
+      const hash1 = computeClientHash(graph1, 42)
+      const hash2 = computeClientHash(graph2, 42)
+
+      expect(hash1).not.toBe(hash2)
+    })
   })
 })

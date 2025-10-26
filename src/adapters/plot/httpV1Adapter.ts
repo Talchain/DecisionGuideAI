@@ -180,7 +180,7 @@ export const httpV1Adapter = {
   stream: {
     run(input: RunRequest, handlers: {
       onTick?: (data: { index: number }) => void
-      onDone?: (data: { response_id: string }) => void
+      onDone?: (data: { response_id: string; report: ReportV1 }) => void
       onError?: (error: ErrorV1) => void
     }): () => void {
       let runId: string | null = null
@@ -209,7 +209,7 @@ export const httpV1Adapter = {
               onComplete: (data) => {
                 isComplete = true
                 const report = mapV1ResultToReport(data.result, input.template_id, data.execution_ms)
-                handlers.onDone?.({ response_id: report.meta.response_id })
+                handlers.onDone?.({ response_id: report.meta.response_id, report })
               },
               onError: (error) => {
                 isComplete = true

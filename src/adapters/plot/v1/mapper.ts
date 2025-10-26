@@ -137,18 +137,23 @@ export function graphToV1Request(
 
 /**
  * Compute deterministic client hash for idempotency
- * Simple but stable hash of graph structure + seed
+ * Includes ALL fields that affect server behavior
  */
 export function computeClientHash(graph: ReactFlowGraph, seed?: number): string {
   const canonical = JSON.stringify({
     nodes: graph.nodes
-      .map((n) => ({ id: n.id, label: n.data?.label }))
+      .map((n) => ({
+        id: n.id,
+        label: n.data?.label,
+        body: n.data?.body, // Include body - affects server computation
+      }))
       .sort((a, b) => a.id.localeCompare(b.id)),
     edges: graph.edges
       .map((e) => ({
         from: e.source,
         to: e.target,
         conf: e.data?.confidence,
+        weight: e.data?.weight, // Include weight - affects server computation
       }))
       .sort((a, b) => `${a.from}-${a.to}`.localeCompare(`${b.from}-${b.to}`)),
     seed: seed || 0,

@@ -21,17 +21,38 @@ interface TemplatesPanelProps {
 }
 
 export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanvas }: TemplatesPanelProps): JSX.Element | null {
-  const [blueprints] = useState(() => getAllBlueprints())
+  const [blueprints, setBlueprints] = useState<Array<{ id: string; name: string; description: string }>>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedBlueprintId, setSelectedBlueprintId] = useState<string | null>(null)
   const [showDevControls, setShowDevControls] = useState(false)
   const [seed, setSeed] = useState<string>('1337')
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  
+
   const { loading, progress, canCancel, result, error, run, cancel, clearError } = useTemplatesRun()
-  
+
   const selectedBlueprint = selectedBlueprintId ? getBlueprintById(selectedBlueprintId) : null
+
+  // Load templates from adapter (supports both mock and httpv1)
+  useEffect(() => {
+    plot.templates()
+      .then(list => {
+        setBlueprints(list.items.map(t => ({
+          id: t.id,
+          name: t.name,
+          description: t.description
+        })))
+      })
+      .catch(err => {
+        console.error('Failed to load templates:', err)
+        // Fallback to local blueprints
+        setBlueprints(getAllBlueprints().map(bp => ({
+          id: bp.id,
+          name: bp.name,
+          description: bp.description
+        })))
+      })
+  }, [])
 
   const filteredBlueprints = blueprints.filter(bp =>
     bp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
