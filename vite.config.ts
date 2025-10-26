@@ -1,15 +1,19 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 
 const shimPath = path.resolve(__dirname, 'src/shims/useSyncExternalStoreShim.ts');
 
-// POC: Detect PoC mode from environment
-const isPoc =
-  process.env.VITE_POC_ONLY === '1' ||
-  process.env.VITE_AUTH_MODE === 'guest';
+export default defineConfig(({ mode }) => {
+  // Load env vars from .env.local (including non-VITE_ prefixed vars)
+  const env = loadEnv(mode, process.cwd(), '');
 
-export default defineConfig(({ mode }) => ({
+  // POC: Detect PoC mode from environment
+  const isPoc =
+    env.VITE_POC_ONLY === '1' ||
+    env.VITE_AUTH_MODE === 'guest';
+
+  return {
   plugins: [react()],
   define: {
     __BUILD_ID__: JSON.stringify(process.env.BUILD_ID || new Date().toISOString()),
@@ -123,22 +127,27 @@ optimizeDeps: {
     },
     proxy: {
       '/api/plot': {
-        target: process.env.PLOT_API_URL || 'http://localhost:4311',
+        target: env.PLOT_API_URL || 'http://localhost:4311',
         changeOrigin: true,
         secure: false, // Allow self-signed certs and HTTPS targets
         rewrite: (path) => path.replace(/^\/api\/plot/, ''),
         configure: (proxy, options) => {
+          console.log(`[PROXY] Configured target: ${env.PLOT_API_URL || 'http://localhost:4311'}`)
+
           // Debug logging
           proxy.on('error', (err, req, res) => {
             console.error('[PROXY ERROR]', err.message)
           })
 
           // Add auth header from server-side env (never expose to browser)
-          const apiKey = process.env.PLOT_API_KEY
+          const apiKey = env.PLOT_API_KEY
           if (apiKey) {
+            console.log('[PROXY] Auth header configured')
             proxy.on('proxyReq', (proxyReq) => {
               proxyReq.setHeader('Authorization', `Bearer ${apiKey}`)
             })
+          } else {
+            console.log('[PROXY] No API key configured')
           }
         }
       }
@@ -152,4 +161,4 @@ optimizeDeps: {
   css: {
     devSourcemap: true
   }
-}));
+}});
