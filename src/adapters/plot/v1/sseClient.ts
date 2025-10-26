@@ -1,6 +1,6 @@
 /**
  * PLoT v1 SSE client with throttling
- * POST /v1/run/stream via EventSource polyfill
+ * POST /v1/stream via EventSource polyfill
  */
 
 import type {
@@ -58,7 +58,7 @@ export function runStream(
   const controller = new AbortController()
   let isClosed = false
 
-  const url = `${base}/v1/run/stream`
+  const url = `${base}/v1/stream`
 
   fetch(url, {
     method: 'POST',
