@@ -2,7 +2,8 @@
  * Map React Flow graph to PLoT v1 request format
  */
 
-import type { V1RunRequest, V1_LIMITS } from './types'
+import type { V1RunRequest } from './types'
+import { V1_LIMITS } from './types'
 
 export interface ReactFlowNode {
   id: string
