@@ -29,7 +29,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   
-  const { loading, result, error, run, clearError } = useTemplatesRun()
+  const { loading, progress, canCancel, result, error, run, cancel, clearError } = useTemplatesRun()
   
   const selectedBlueprint = selectedBlueprintId ? getBlueprintById(selectedBlueprintId) : null
 
@@ -255,7 +255,12 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           )}
 
           {/* Progress */}
-          <ProgressStrip isVisible={loading} />
+          <ProgressStrip
+            isVisible={loading}
+            progress={progress}
+            canCancel={canCancel}
+            onCancel={cancel}
+          />
 
           {/* Error */}
           {error && (
