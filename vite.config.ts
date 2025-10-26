@@ -125,8 +125,14 @@ optimizeDeps: {
       '/api/plot': {
         target: process.env.PLOT_API_URL || 'http://localhost:4311',
         changeOrigin: true,
+        secure: false, // Allow self-signed certs and HTTPS targets
         rewrite: (path) => path.replace(/^\/api\/plot/, ''),
         configure: (proxy, options) => {
+          // Debug logging
+          proxy.on('error', (err, req, res) => {
+            console.error('[PROXY ERROR]', err.message)
+          })
+
           // Add auth header from server-side env (never expose to browser)
           const apiKey = process.env.PLOT_API_KEY
           if (apiKey) {
