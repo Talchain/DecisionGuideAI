@@ -22,6 +22,7 @@ import type {
 import * as v1http from './v1/http'
 import { runStream as v1runStream } from './v1/sseClient'
 import { V1_LIMITS } from './v1/types'
+import { graphToV1Request, computeClientHash, type ReactFlowGraph } from './v1/mapper'
 
 // Re-export mockAdapter's local template functions
 import { plot as mockAdapter } from './mockAdapter'
@@ -105,26 +106,24 @@ function mapV1ErrorToUI(error: V1Error): ErrorV1 {
 }
 
 /**
- * Map template graph to V1 request
+ * Map template graph to V1 request with validation and deterministic hash
  */
 function mapGraphToV1Request(graph: any, seed?: number): V1RunRequest {
-  // TODO: This needs the actual graphToRunRequest mapper
-  // For now, assume graph has nodes/edges in compatible format
+  // Cast to ReactFlowGraph for type safety
+  const rfGraph: ReactFlowGraph = {
+    nodes: graph.nodes || [],
+    edges: graph.edges || [],
+  }
+
+  // Use real mapper with validation (throws ValidationError if limits exceeded)
+  const v1Request = graphToV1Request(rfGraph, seed)
+
+  // Add deterministic client hash for idempotency
+  const clientHash = computeClientHash(rfGraph, seed)
+
   return {
-    graph: {
-      nodes: (graph.nodes || []).map((n: any) => ({
-        id: n.id,
-        label: n.label?.substring(0, 120),
-        body: n.body?.substring(0, 2000),
-      })),
-      edges: (graph.edges || []).map((e: any) => ({
-        from: e.from || e.source,
-        to: e.to || e.target,
-        confidence: e.confidence,
-        weight: e.weight,
-      })),
-    },
-    seed,
+    ...v1Request,
+    clientHash,
   }
 }
 
@@ -135,12 +134,22 @@ export const httpV1Adapter = {
   // Sync run
   async run(input: RunRequest): Promise<ReportV1> {
     const graph = await loadTemplateGraph(input.template_id)
-    const v1Request = mapGraphToV1Request(graph, input.seed)
 
     try {
+      const v1Request = mapGraphToV1Request(graph, input.seed)
       const response = await v1http.runSync(v1Request)
       return mapV1ResultToReport(response.result, input.template_id, response.execution_ms)
-    } catch (err) {
+    } catch (err: any) {
+      // Handle validation errors from mapper
+      if (err.code === 'LIMIT_EXCEEDED' || err.code === 'BAD_INPUT') {
+        throw {
+          schema: 'error.v1',
+          code: err.code,
+          error: err.message,
+          fields: err.field ? { field: err.field, max: err.max } : undefined,
+        } as ErrorV1
+      }
+      // Handle v1 HTTP errors
       throw mapV1ErrorToUI(err as V1Error)
     }
   },
@@ -183,31 +192,46 @@ export const httpV1Adapter = {
         .then((graph) => {
           if (isComplete) return // Already cancelled
 
-          const v1Request = mapGraphToV1Request(graph, input.seed)
+          try {
+            const v1Request = mapGraphToV1Request(graph, input.seed)
 
-          const v1Handlers: V1StreamHandlers = {
-            onStarted: (data) => {
-              runId = data.run_id
-            },
-            onProgress: (data) => {
-              // Map to tick for UI compat
-              handlers.onTick?.({ index: Math.floor(data.percent / 20) })
-            },
-            onInterim: (data) => {
-              // UI doesn't have onInterim, skip for now
-            },
-            onComplete: (data) => {
-              isComplete = true
-              const report = mapV1ResultToReport(data.result, input.template_id, data.execution_ms)
-              handlers.onDone?.({ response_id: report.meta.response_id })
-            },
-            onError: (error) => {
-              isComplete = true
-              handlers.onError?.(mapV1ErrorToUI(error))
-            },
+            const v1Handlers: V1StreamHandlers = {
+              onStarted: (data) => {
+                runId = data.run_id
+              },
+              onProgress: (data) => {
+                // Map to tick for UI compat
+                handlers.onTick?.({ index: Math.floor(data.percent / 20) })
+              },
+              onInterim: (data) => {
+                // UI doesn't have onInterim, skip for now
+              },
+              onComplete: (data) => {
+                isComplete = true
+                const report = mapV1ResultToReport(data.result, input.template_id, data.execution_ms)
+                handlers.onDone?.({ response_id: report.meta.response_id })
+              },
+              onError: (error) => {
+                isComplete = true
+                handlers.onError?.(mapV1ErrorToUI(error))
+              },
+            }
+
+            v1Cancel = v1runStream(v1Request, v1Handlers)
+          } catch (err: any) {
+            // Handle validation errors from mapper
+            isComplete = true
+            if (err.code === 'LIMIT_EXCEEDED' || err.code === 'BAD_INPUT') {
+              handlers.onError?.({
+                schema: 'error.v1',
+                code: err.code,
+                error: err.message,
+                fields: err.field ? { field: err.field, max: err.max } : undefined,
+              } as ErrorV1)
+            } else {
+              handlers.onError?.(mapV1ErrorToUI(err as V1Error))
+            }
           }
-
-          v1Cancel = v1runStream(v1Request, v1Handlers)
         })
         .catch((err) => {
           isComplete = true
