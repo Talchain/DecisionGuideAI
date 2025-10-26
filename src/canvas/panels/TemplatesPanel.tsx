@@ -44,13 +44,9 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         })))
       })
       .catch(err => {
-        console.error('Failed to load templates:', err)
-        // Fallback to local blueprints
-        setBlueprints(getAllBlueprints().map(bp => ({
-          id: bp.id,
-          name: bp.name,
-          description: bp.description
-        })))
+        console.error('❌ Failed to load templates from PLoT engine:', err)
+        // NO FALLBACK - fail loudly to surface issues
+        setBlueprints([])
       })
   }, [])
 

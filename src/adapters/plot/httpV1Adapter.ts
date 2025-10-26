@@ -137,7 +137,9 @@ export const httpV1Adapter = {
 
     try {
       const v1Request = mapGraphToV1Request(graph, input.seed)
+      console.log(`🚀 [httpV1] Calling live PLoT engine: POST /v1/run (template: ${input.template_id}, seed: ${input.seed})`)
       const response = await v1http.runSync(v1Request)
+      console.log(`✅ [httpV1] Live PLoT engine responded: ${response.execution_ms}ms`)
       return mapV1ResultToReport(response.result, input.template_id, response.execution_ms)
     } catch (err: any) {
       // Handle validation errors from mapper
@@ -194,6 +196,7 @@ export const httpV1Adapter = {
 
           try {
             const v1Request = mapGraphToV1Request(graph, input.seed)
+            console.log(`🌊 [httpV1] Starting live PLoT stream: POST /v1/stream (template: ${input.template_id}, seed: ${input.seed})`)
 
             const v1Handlers: V1StreamHandlers = {
               onStarted: (data) => {
@@ -208,6 +211,7 @@ export const httpV1Adapter = {
               },
               onComplete: (data) => {
                 isComplete = true
+                console.log(`✅ [httpV1] Live PLoT stream completed: ${data.execution_ms}ms`)
                 const report = mapV1ResultToReport(data.result, input.template_id, data.execution_ms)
                 handlers.onDone?.({ response_id: report.meta.response_id, report })
               },
