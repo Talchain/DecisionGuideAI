@@ -192,7 +192,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           {selectedBlueprint && (
             <>
               <TemplateAbout blueprint={selectedBlueprint} />
-              
+
               <button
                 onClick={() => setSelectedBlueprintId(null)}
                 className="text-sm font-medium"
@@ -203,6 +203,20 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                 ← Back to templates
               </button>
             </>
+          )}
+
+          {/* Primary Run Button - Always Visible */}
+          {selectedBlueprintId && !loading && !result && (
+            <button
+              onClick={handleRun}
+              disabled={loading || !selectedBlueprintId}
+              className="w-full px-6 py-3 text-base font-semibold text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--olumi-primary)] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md transition-all"
+              style={{ backgroundColor: 'var(--olumi-primary)' }}
+              onMouseEnter={(e) => !loading ? e.currentTarget.style.backgroundColor = 'var(--olumi-primary-700)' : null}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary)'}
+            >
+              {loading ? 'Running Analysis…' : '▶ Run Analysis'}
+            </button>
           )}
 
           {/* Dev Controls Toggle */}
