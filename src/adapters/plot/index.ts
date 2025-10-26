@@ -1,16 +1,27 @@
 export * from './types'
+import { plot as mockAdapter } from './mockAdapter'
 import { httpV1Adapter } from './httpV1Adapter'
+import { autoDetectAdapter } from './autoDetectAdapter'
 
-export type PlotAdapter = typeof httpV1Adapter
+export type PlotAdapter = typeof mockAdapter
 
-// PRODUCTION: Only httpv1 adapter - no mock fallback
-const ADAPTER_TYPE = import.meta.env.VITE_PLOT_ADAPTER || 'httpv1'
+// Adapter selection:
+// - 'mock': Always use mock (local development)
+// - 'httpv1': Always use httpv1 (when confirmed available)
+// - 'auto' or unset: Auto-detect (probe + fallback)
+const ADAPTER_TYPE = (import.meta.env.VITE_PLOT_ADAPTER || 'auto') as 'mock' | 'httpv1' | 'auto'
 
-if (ADAPTER_TYPE !== 'httpv1') {
-  console.error(`❌ Invalid VITE_PLOT_ADAPTER="${ADAPTER_TYPE}". Only "httpv1" is supported.`)
-  throw new Error(`Unsupported adapter: ${ADAPTER_TYPE}. Please set VITE_PLOT_ADAPTER=httpv1`)
+export const plot: PlotAdapter =
+  ADAPTER_TYPE === 'mock' ? mockAdapter :
+  ADAPTER_TYPE === 'httpv1' ? httpV1Adapter as any :
+  autoDetectAdapter as any
+
+export const isMock = ADAPTER_TYPE === 'mock'
+export const adapterName = ADAPTER_TYPE
+
+if (import.meta.env.DEV) {
+  console.log(`[Adapter] Mode: ${adapterName}`)
 }
 
-export const plot: PlotAdapter = httpV1Adapter
-export const isMock = false
-export const adapterName = 'httpv1'
+// Re-export probe utilities for UI
+export { getProbeStatus, reprobeCapability, getAdapterMode } from './autoDetectAdapter'
