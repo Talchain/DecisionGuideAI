@@ -132,7 +132,7 @@ function mapGraphToV1Request(graph: any, seed?: number): V1RunRequest {
  * HTTP v1 Adapter
  */
 export const httpV1Adapter = {
-  // Sync run
+  // Adaptive run: automatically chooses sync or stream based on graph size
   async run(input: RunRequest): Promise<ReportV1> {
     const graph = await loadTemplateGraph(input.template_id)
 
@@ -140,14 +140,47 @@ export const httpV1Adapter = {
       const v1Request = mapGraphToV1Request(graph, input.seed)
       const nodeCount = graph.nodes.length
       const useSync = shouldUseSync(nodeCount)
+
+      // Small graphs (≤30 nodes) → use sync endpoint
+      if (useSync) {
+        console.log(
+          `🚀 [httpV1] POST /v1/run (${nodeCount} nodes, using sync endpoint) ` +
+          `template=${input.template_id}, seed=${input.seed}`
+        )
+        const response = await v1http.runSync(v1Request)
+        console.log(`✅ [httpV1] Sync completed: ${response.execution_ms}ms`)
+        return mapV1ResultToReport(response.result, input.template_id, response.execution_ms)
+      }
+
+      // Large graphs (>30 nodes) → use stream endpoint, wait for completion
       console.log(
-        `🚀 [httpV1] POST /v1/run (${nodeCount} nodes, ` +
-        `${useSync ? '✓ sync recommended' : '⚠️ stream recommended for >30 nodes'}) ` +
+        `🌊 [httpV1] POST /v1/stream (${nodeCount} nodes, using stream endpoint) ` +
         `template=${input.template_id}, seed=${input.seed}`
       )
-      const response = await v1http.runSync(v1Request)
-      console.log(`✅ [httpV1] Live PLoT engine responded: ${response.execution_ms}ms`)
-      return mapV1ResultToReport(response.result, input.template_id, response.execution_ms)
+
+      return new Promise<ReportV1>((resolve, reject) => {
+        v1runStream(v1Request, {
+          onStarted: (data) => {
+            if (import.meta.env.DEV) {
+              console.log(`[httpV1] Stream started: run_id=${data.run_id}`)
+            }
+          },
+          onProgress: (data) => {
+            // Silent progress (no UI updates for adaptive run)
+          },
+          onInterim: (data) => {
+            // Ignore interim findings
+          },
+          onComplete: (data) => {
+            console.log(`✅ [httpV1] Stream completed: ${data.execution_ms}ms`)
+            const report = mapV1ResultToReport(data.result, input.template_id, data.execution_ms)
+            resolve(report)
+          },
+          onError: (error) => {
+            reject(mapV1ErrorToUI(error))
+          },
+        })
+      })
     } catch (err: any) {
       // Handle validation errors from mapper
       if (err.code === 'LIMIT_EXCEEDED' || err.code === 'BAD_INPUT') {
@@ -204,10 +237,8 @@ export const httpV1Adapter = {
           try {
             const v1Request = mapGraphToV1Request(graph, input.seed)
             const nodeCount = graph.nodes.length
-            const useSync = shouldUseSync(nodeCount)
             console.log(
-              `🌊 [httpV1] POST /v1/stream (${nodeCount} nodes, ` +
-              `${useSync ? '⚠️ sync recommended for ≤30 nodes' : '✓ stream recommended'}) ` +
+              `🌊 [httpV1] POST /v1/stream (${nodeCount} nodes, explicit streaming) ` +
               `template=${input.template_id}, seed=${input.seed}`
             )
 

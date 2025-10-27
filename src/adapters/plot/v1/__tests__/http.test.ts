@@ -172,13 +172,17 @@ describe('v1/http', () => {
     })
 
     it('should throw SERVER_ERROR on 500 response', async () => {
-      fetchMock.mockResolvedValueOnce({
+      // Mock 3 attempts (original + 2 retries)
+      const mockResponse = {
         ok: false,
         status: 500,
         json: async () => ({
           error: 'Internal server error',
         }),
-      })
+      }
+      fetchMock.mockResolvedValueOnce(mockResponse as any)
+      fetchMock.mockResolvedValueOnce(mockResponse as any)
+      fetchMock.mockResolvedValueOnce(mockResponse as any)
 
       await expect(runSync(validRequest)).rejects.toMatchObject({
         code: 'SERVER_ERROR',

@@ -28,7 +28,8 @@ export const RETRYABLE_ERRORS = {
   STATUS_CODES: [500, 502, 503, 504] as const,
 
   // Error codes (TIMEOUT excluded - not transient, requires manual retry)
-  ERROR_CODES: ['NETWORK_ERROR'] as const,
+  // SERVER_ERROR = 5xx responses, NETWORK_ERROR = fetch failures
+  ERROR_CODES: ['SERVER_ERROR', 'NETWORK_ERROR'] as const,
 } as const
 
 /**
