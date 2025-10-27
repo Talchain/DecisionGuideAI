@@ -62,6 +62,8 @@ async function withRetry<T>(
         if (import.meta.env.DEV) {
           console.log(`[plot/v1] Retry ${attempt + 1}/${maxAttempts} after ${delayMs}ms (${error.code})`)
         }
+        // TODO(telemetry): Add metrics for retry counts, error codes, and latency to monitor
+        // backend flakiness and optimize retry strategy. Consider Sentry breadcrumbs or custom metrics.
         await new Promise((resolve) => setTimeout(resolve, delayMs))
       }
     }

@@ -30,6 +30,11 @@ import { plot as mockAdapter } from './mockAdapter'
 
 /**
  * Load template and extract graph
+ *
+ * TODO(template-migration): Replace mockAdapter.template() with live v1http.template(id)
+ * once backend provides GET /v1/templates/:id endpoint. This will enable full end-to-end
+ * integration without dependency on bundled mock templates.
+ * Tracking: https://github.com/[org]/[repo]/issues/[TBD]
  */
 async function loadTemplateGraph(templateId: string): Promise<any> {
   const template = await mockAdapter.template(templateId)

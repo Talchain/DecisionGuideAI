@@ -1,6 +1,21 @@
 /**
  * E2E Tests for PLoT Auto-Detect Adapter
  * Tests capability probe, fallback, and re-probe functionality
+ *
+ * TESTING MODES:
+ * - When backend /v1/health returns 200: Tests will use live httpV1Adapter with real API calls
+ * - When backend /v1/health returns 404/500: Tests will fall back to mockAdapter
+ * - Auto-detect logic probes backend at startup and caches result for 5 minutes
+ *
+ * CI/LOCAL CONSIDERATIONS:
+ * - Tests use conditional assertions (isVisible checks) to handle both scenarios
+ * - For deterministic CI runs, consider:
+ *   1. Mock all network requests via MSW, or
+ *   2. Set VITE_PLOT_ADAPTER=mock to bypass auto-detection
+ * - Dev server must be running on port 5177 before running these tests
+ *
+ * @see playwright.config.ts for webServer configuration
+ * @see src/adapters/plot/autoDetectAdapter.ts for probe logic
  */
 
 import { test, expect } from '@playwright/test'
