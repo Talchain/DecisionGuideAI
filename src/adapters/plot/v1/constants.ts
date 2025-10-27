@@ -2,6 +2,11 @@
  * PLoT v1 HTTP adapter constants
  */
 
+// Limits
+export const LIMITS = {
+  MAX_SYNC_NODES: 30, // Threshold for sync vs stream (≤30 → sync, >30 → stream)
+} as const
+
 // Timeouts
 export const TIMEOUTS = {
   SYNC_REQUEST_MS: 30_000, // 30 seconds for sync runs
@@ -52,4 +57,12 @@ export function isRetryableStatus(status: number): boolean {
  */
 export function isRetryableErrorCode(code: string): boolean {
   return RETRYABLE_ERRORS.ERROR_CODES.includes(code as any)
+}
+
+/**
+ * Determine if a graph should use sync or stream endpoint
+ * Small graphs (≤30 nodes) use sync, large graphs use stream
+ */
+export function shouldUseSync(nodeCount: number): boolean {
+  return nodeCount <= LIMITS.MAX_SYNC_NODES
 }

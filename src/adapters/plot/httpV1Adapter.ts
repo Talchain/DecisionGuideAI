@@ -23,6 +23,7 @@ import * as v1http from './v1/http'
 import { runStream as v1runStream } from './v1/sseClient'
 import { V1_LIMITS } from './v1/types'
 import { graphToV1Request, computeClientHash, type ReactFlowGraph } from './v1/mapper'
+import { shouldUseSync } from './v1/constants'
 
 // Re-export mockAdapter's local template functions
 import { plot as mockAdapter } from './mockAdapter'
@@ -137,7 +138,13 @@ export const httpV1Adapter = {
 
     try {
       const v1Request = mapGraphToV1Request(graph, input.seed)
-      console.log(`🚀 [httpV1] Calling live PLoT engine: POST /v1/run (template: ${input.template_id}, seed: ${input.seed})`)
+      const nodeCount = graph.nodes.length
+      const useSync = shouldUseSync(nodeCount)
+      console.log(
+        `🚀 [httpV1] POST /v1/run (${nodeCount} nodes, ` +
+        `${useSync ? '✓ sync recommended' : '⚠️ stream recommended for >30 nodes'}) ` +
+        `template=${input.template_id}, seed=${input.seed}`
+      )
       const response = await v1http.runSync(v1Request)
       console.log(`✅ [httpV1] Live PLoT engine responded: ${response.execution_ms}ms`)
       return mapV1ResultToReport(response.result, input.template_id, response.execution_ms)
@@ -196,7 +203,13 @@ export const httpV1Adapter = {
 
           try {
             const v1Request = mapGraphToV1Request(graph, input.seed)
-            console.log(`🌊 [httpV1] Starting live PLoT stream: POST /v1/stream (template: ${input.template_id}, seed: ${input.seed})`)
+            const nodeCount = graph.nodes.length
+            const useSync = shouldUseSync(nodeCount)
+            console.log(
+              `🌊 [httpV1] POST /v1/stream (${nodeCount} nodes, ` +
+              `${useSync ? '⚠️ sync recommended for ≤30 nodes' : '✓ stream recommended'}) ` +
+              `template=${input.template_id}, seed=${input.seed}`
+            )
 
             const v1Handlers: V1StreamHandlers = {
               onStarted: (data) => {
