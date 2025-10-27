@@ -9,15 +9,63 @@ import type {
   V1SyncRunResponse,
   V1Error,
 } from './types'
+import {
+  RETRY,
+  TIMEOUTS,
+  calculateBackoffMs,
+  isRetryableStatus,
+  isRetryableErrorCode,
+} from './constants'
 
 const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/api/plot'
 }
 
 const getTimeouts = () => ({
-  sync: parseInt(import.meta.env.VITE_PLOT_SYNC_TIMEOUT_MS || '10000', 10),
-  stream: parseInt(import.meta.env.VITE_PLOT_STREAM_TIMEOUT_MS || '120000', 10),
+  sync: parseInt(import.meta.env.VITE_PLOT_SYNC_TIMEOUT_MS || String(TIMEOUTS.SYNC_REQUEST_MS), 10),
+  stream: parseInt(import.meta.env.VITE_PLOT_STREAM_TIMEOUT_MS || String(TIMEOUTS.SYNC_REQUEST_MS * 4), 10),
 })
+
+/**
+ * Generic retry wrapper with exponential backoff and jitter
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  options?: { maxAttempts?: number; shouldRetry?: (error: V1Error) => boolean }
+): Promise<T> {
+  const maxAttempts = options?.maxAttempts ?? RETRY.MAX_ATTEMPTS
+  const shouldRetry = options?.shouldRetry ?? ((error: V1Error) =>
+    isRetryableErrorCode(error.code)
+  )
+
+  let lastError: V1Error | undefined
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn()
+    } catch (err) {
+      const error = err as V1Error
+
+      // Don't retry if not retryable
+      if (!shouldRetry(error)) {
+        throw error
+      }
+
+      lastError = error
+
+      // Don't sleep on last attempt
+      if (attempt < maxAttempts - 1) {
+        const delayMs = calculateBackoffMs(attempt)
+        if (import.meta.env.DEV) {
+          console.log(`[plot/v1] Retry ${attempt + 1}/${maxAttempts} after ${delayMs}ms (${error.code})`)
+        }
+        await new Promise((resolve) => setTimeout(resolve, delayMs))
+      }
+    }
+  }
+
+  throw lastError
+}
 
 /**
  * Map HTTP errors to V1Error
@@ -112,9 +160,9 @@ export async function health(): Promise<V1HealthResponse> {
 }
 
 /**
- * POST /v1/run (sync)
+ * POST /v1/run (sync) - internal implementation without retry
  */
-export async function runSync(
+async function runSyncOnce(
   request: V1RunRequest,
   options?: { timeoutMs?: number; signal?: AbortSignal }
 ): Promise<V1SyncRunResponse> {
@@ -166,6 +214,16 @@ export async function runSync(
   } finally {
     clearTimeout(timeoutId)
   }
+}
+
+/**
+ * POST /v1/run (sync) with automatic retry
+ */
+export async function runSync(
+  request: V1RunRequest,
+  options?: { timeoutMs?: number; signal?: AbortSignal }
+): Promise<V1SyncRunResponse> {
+  return withRetry(() => runSyncOnce(request, options))
 }
 
 /**
