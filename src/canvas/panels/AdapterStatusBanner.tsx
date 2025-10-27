@@ -45,7 +45,9 @@ export function AdapterStatusBanner({ visible = true }: AdapterStatusBannerProps
   const isV1Available = probeStatus.available
   const isDev = import.meta.env.DEV
 
-  // Only show in DEV when v1 is unavailable (user needs to know why fallback)
+  // Only show in DEV when:
+  // 1. Parent already gates on adapterName === 'auto' via visible prop
+  // 2. v1 is unavailable (probe failed, adapterMode === 'mock' means fallback active)
   if (!isDev || isV1Available) return null
 
   return (

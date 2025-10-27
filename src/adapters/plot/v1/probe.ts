@@ -27,6 +27,11 @@ let cachedProbe: ProbeResult | null = null;
 function getCachedProbe(): ProbeResult | null {
   if (cachedProbe) return cachedProbe;
 
+  // Guard for SSR/E2E environments without window
+  if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') {
+    return null;
+  }
+
   try {
     const cached = sessionStorage.getItem(PROBE_CACHE_KEY);
     if (!cached) return null;
@@ -51,6 +56,12 @@ function getCachedProbe(): ProbeResult | null {
  */
 function setCachedProbe(result: ProbeResult): void {
   cachedProbe = result;
+
+  // Guard for SSR/E2E environments without window
+  if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') {
+    return;
+  }
+
   try {
     sessionStorage.setItem(PROBE_CACHE_KEY, JSON.stringify(result));
   } catch {
@@ -63,6 +74,12 @@ function setCachedProbe(result: ProbeResult): void {
  */
 export function clearProbeCache(): void {
   cachedProbe = null;
+
+  // Guard for SSR/E2E environments without window
+  if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') {
+    return;
+  }
+
   try {
     sessionStorage.removeItem(PROBE_CACHE_KEY);
   } catch {
@@ -138,23 +155,56 @@ export async function probeCapability(
     // Step 2: Check v1 run endpoint
     if (result.endpoints.health) {
       try {
-        const runResponse = await fetch(`${proxyBase}/v1/run`, {
+        // Try HEAD first
+        let runResponse = await fetch(`${proxyBase}/v1/run`, {
           method: 'HEAD',
           signal: AbortSignal.timeout(5000),
         });
 
-        // 200 OK or 405 Method Not Allowed both mean route exists
-        if (runResponse.ok || runResponse.status === 405) {
+        // 200 OK, 401, 403, or 405 all mean route exists
+        // (401/403 = auth issue, 405 = method not allowed, but route exists)
+        if (
+          runResponse.ok ||
+          runResponse.status === 401 ||
+          runResponse.status === 403 ||
+          runResponse.status === 405
+        ) {
           result.endpoints.run = true;
           result.endpoints.stream = true; // Assume stream available if run is
           result.available = true;
 
           if (import.meta.env.DEV) {
-            console.log('[Probe] v1 routes available');
+            console.log('[Probe] v1 routes available (status:', runResponse.status, ')');
           }
         } else if (runResponse.status === 404) {
-          if (import.meta.env.DEV) {
-            console.warn('[Probe] v1 routes not available (404)');
+          // Try OPTIONS as fallback (some gateways block HEAD)
+          try {
+            const optionsResponse = await fetch(`${proxyBase}/v1/run`, {
+              method: 'OPTIONS',
+              signal: AbortSignal.timeout(5000),
+            });
+
+            if (
+              optionsResponse.ok ||
+              optionsResponse.status === 401 ||
+              optionsResponse.status === 403
+            ) {
+              result.endpoints.run = true;
+              result.endpoints.stream = true;
+              result.available = true;
+
+              if (import.meta.env.DEV) {
+                console.log('[Probe] v1 routes available via OPTIONS');
+              }
+            } else {
+              if (import.meta.env.DEV) {
+                console.warn('[Probe] v1 routes not available (404)');
+              }
+            }
+          } catch (optErr) {
+            if (import.meta.env.DEV) {
+              console.warn('[Probe] OPTIONS fallback failed:', optErr);
+            }
           }
         }
       } catch (err) {

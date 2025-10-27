@@ -122,9 +122,18 @@ export const autoDetectAdapter = {
       }
     ): () => void {
       let cancel: (() => void) | null = null;
+      let cancelled = false;
 
       // Probe and delegate
       getProbeResult().then((probe) => {
+        // Check if already cancelled during probe
+        if (cancelled) {
+          if (import.meta.env.DEV) {
+            console.log('[AutoDetect] Stream cancelled before probe completed');
+          }
+          return;
+        }
+
         if (probe.available) {
           if (import.meta.env.DEV) {
             console.log('[AutoDetect] Using httpV1 stream');
@@ -136,10 +145,16 @@ export const autoDetectAdapter = {
           }
           cancel = mockAdapter.stream.run(input, handlers);
         }
+
+        // If cancelled during probe, call cancel now
+        if (cancelled && cancel) {
+          cancel();
+        }
       });
 
-      // Return cancel function
+      // Return cancel function that guards against race
       return () => {
+        cancelled = true;
         cancel?.();
       };
     },
