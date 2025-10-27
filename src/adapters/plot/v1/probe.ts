@@ -187,34 +187,10 @@ export async function probeCapability(
             console.log('[Probe] v1 routes available (status:', runResponse.status, ')');
           }
         } else if (runResponse.status === 404) {
-          // Try OPTIONS as fallback (some gateways block HEAD)
-          try {
-            const optionsResponse = await fetch(`${resolvedBase}/v1/run`, {
-              method: 'OPTIONS',
-              signal: AbortSignal.timeout(5000),
-            });
-
-            if (
-              optionsResponse.ok ||
-              optionsResponse.status === 401 ||
-              optionsResponse.status === 403
-            ) {
-              result.endpoints.run = true;
-              result.endpoints.stream = true;
-              result.available = true;
-
-              if (import.meta.env.DEV) {
-                console.log('[Probe] v1 routes available via OPTIONS');
-              }
-            } else {
-              if (import.meta.env.DEV) {
-                console.warn('[Probe] v1 routes not available (404)');
-              }
-            }
-          } catch (optErr) {
-            if (import.meta.env.DEV) {
-              console.warn('[Probe] OPTIONS fallback failed:', optErr);
-            }
+          // Route definitely doesn't exist - don't bother with OPTIONS fallback
+          // (OPTIONS often returns 200 even for non-existent routes due to CORS preflight)
+          if (import.meta.env.DEV) {
+            console.warn('[Probe] v1 routes not available (404)');
           }
         }
       } catch (err) {

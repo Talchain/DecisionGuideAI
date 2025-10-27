@@ -159,13 +159,7 @@ describe('v1/probe', () => {
         json: async () => ({ status: 'ok' }),
       })
 
-      // Mock 404 for v1/run HEAD request
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-      })
-
-      // Mock 404 for v1/run OPTIONS fallback
+      // Mock 404 for v1/run HEAD request (no OPTIONS fallback anymore)
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
