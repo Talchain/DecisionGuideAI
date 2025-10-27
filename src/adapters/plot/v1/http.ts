@@ -80,11 +80,13 @@ const mapHttpError = async (response: Response): Promise<V1Error> => {
 
   // Handle rate limiting
   if (response.status === 429) {
-    const retryAfter = response.headers.get('Retry-After')
+    // Check both header and body for retry_after
+    const retryAfterHeader = response.headers.get('Retry-After')
+    const retryAfter = body.retry_after ?? (retryAfterHeader ? parseInt(retryAfterHeader, 10) : undefined)
     return {
       code: 'RATE_LIMITED',
       message: body.error || 'Too many requests',
-      retry_after: retryAfter ? parseInt(retryAfter, 10) : undefined,
+      retry_after: retryAfter,
       details: body,
     }
   }
