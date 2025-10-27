@@ -3,13 +3,13 @@
  * Tests event order, cancel, timeout, progress capping
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from 'vitest'
 import { runStream } from '../sseClient'
 import type { V1RunRequest, V1StreamHandlers } from '../types'
 
-// Mock fetch for SSE streaming
+// Save original fetch and create mock
+const originalFetch = global.fetch
 const mockFetch = vi.fn()
-global.fetch = mockFetch
 
 describe('SSE Client', () => {
   const validRequest: V1RunRequest = {
@@ -23,6 +23,9 @@ describe('SSE Client', () => {
   let handlers: V1StreamHandlers
 
   beforeEach(() => {
+    // Install mock fetch
+    global.fetch = mockFetch as any
+
     handlers = {
       onStarted: vi.fn(),
       onProgress: vi.fn(),
@@ -36,6 +39,11 @@ describe('SSE Client', () => {
   afterEach(() => {
     vi.useRealTimers()
     mockFetch.mockReset()
+  })
+
+  afterAll(() => {
+    // Restore original fetch
+    global.fetch = originalFetch
   })
 
   function createSSEStream(events: string[]): ReadableStream<Uint8Array> {

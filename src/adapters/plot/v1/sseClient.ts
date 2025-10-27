@@ -12,6 +12,7 @@ import type {
   V1CompleteData,
   V1Error,
 } from './types'
+import { TIMEOUTS } from './constants'
 
 const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/api/plot'
@@ -41,9 +42,6 @@ function throttle<T extends (...args: any[]) => void>(fn: T, delay = 100): T {
   }) as T
 }
 
-// Heartbeat timeout (20 seconds)
-const HEARTBEAT_TIMEOUT_MS = 20_000
-
 /**
  * Stream a run via SSE
  * Returns cancel function
@@ -71,10 +69,10 @@ export function runStream(
         controller.abort()
         handlers.onError({
           code: 'TIMEOUT',
-          message: 'Stream timeout: no heartbeat received for 20s',
+          message: `Stream timeout: no heartbeat received for ${TIMEOUTS.STREAM_HEARTBEAT_MS / 1000}s`,
         })
       }
-    }, HEARTBEAT_TIMEOUT_MS)
+    }, TIMEOUTS.STREAM_HEARTBEAT_MS)
   }
 
   const url = `${base}/v1/stream`

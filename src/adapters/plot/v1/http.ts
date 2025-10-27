@@ -34,9 +34,12 @@ async function withRetry<T>(
   options?: { maxAttempts?: number; shouldRetry?: (error: V1Error) => boolean }
 ): Promise<T> {
   const maxAttempts = options?.maxAttempts ?? RETRY.MAX_ATTEMPTS
-  const shouldRetry = options?.shouldRetry ?? ((error: V1Error) =>
-    isRetryableErrorCode(error.code)
-  )
+  const shouldRetry = options?.shouldRetry ?? ((error: V1Error) => {
+    // Check both error code and HTTP status (if present in details)
+    const codeRetryable = isRetryableErrorCode(error.code)
+    const statusRetryable = error.details?.status ? isRetryableStatus(error.details.status) : false
+    return codeRetryable || statusRetryable
+  })
 
   let lastError: V1Error | undefined
 
@@ -87,7 +90,7 @@ const mapHttpError = async (response: Response): Promise<V1Error> => {
       code: 'RATE_LIMITED',
       message: body.error || 'Too many requests',
       retry_after: retryAfter,
-      details: body,
+      details: { ...body, status: response.status },
     }
   }
 
@@ -98,7 +101,7 @@ const mapHttpError = async (response: Response): Promise<V1Error> => {
       message: body.error || 'Invalid input',
       field: body.fields?.field,
       max: body.fields?.max,
-      details: body,
+      details: { ...body, status: response.status },
     }
   }
 
@@ -109,7 +112,7 @@ const mapHttpError = async (response: Response): Promise<V1Error> => {
       message: body.error || 'Request exceeds limits',
       field: body.fields?.field,
       max: body.fields?.max,
-      details: body,
+      details: { ...body, status: response.status },
     }
   }
 
@@ -117,7 +120,7 @@ const mapHttpError = async (response: Response): Promise<V1Error> => {
   return {
     code: 'SERVER_ERROR',
     message: body.error || `HTTP ${response.status}`,
-    details: body,
+    details: { ...body, status: response.status },
   }
 }
 
