@@ -33,12 +33,17 @@ test.describe('PLoT Auto-Detect Adapter', () => {
     // Wait for panel to open
     await expect(page.locator('[data-testid="templates-panel"]')).toBeVisible()
 
+    // Wait for probe to complete by checking sessionStorage
+    await page.waitForFunction(() => {
+      return sessionStorage.getItem('plot_v1_capability_probe') !== null
+    }, { timeout: 10000 })
+
     // Banner should appear in DEV mode when v1 routes are 404
     const banner = page.locator('text=/PLoT v1 routes unavailable/i')
 
-    // May or may not be visible depending on backend state
-    // Just check it doesn't crash
-    await page.waitForTimeout(1000)
+    // Banner visibility is conditional on backend state
+    // Just verify page is functional
+    await expect(page.locator('[data-testid="templates-panel"]')).toBeVisible()
   })
 
   test('should allow re-probe from banner', async ({ page }) => {
@@ -51,13 +56,24 @@ test.describe('PLoT Auto-Detect Adapter', () => {
     const reprobeButton = page.locator('button', { hasText: /re-probe/i })
 
     if (await reprobeButton.isVisible()) {
+      // Store original cache timestamp
+      const originalCache = await page.evaluate(() => {
+        const cached = sessionStorage.getItem('plot_v1_capability_probe')
+        return cached ? JSON.parse(cached).timestamp : null
+      })
+
       await reprobeButton.click()
 
       // Button should show loading state
       await expect(reprobeButton).toBeDisabled()
 
-      // Wait for probe to complete
-      await page.waitForTimeout(2000)
+      // Wait for new probe to complete (cache timestamp should change)
+      await page.waitForFunction((origTimestamp) => {
+        const cached = sessionStorage.getItem('plot_v1_capability_probe')
+        if (!cached) return false
+        const newTimestamp = JSON.parse(cached).timestamp
+        return newTimestamp !== origTimestamp
+      }, originalCache, { timeout: 10000 })
 
       // Button should be enabled again
       await expect(reprobeButton).toBeEnabled()
@@ -81,10 +97,14 @@ test.describe('PLoT Auto-Detect Adapter', () => {
     // Click to run
     await runButton.click()
 
-    // Should see progress or results (mock adapter works instantly)
-    await page.waitForTimeout(2000)
+    // Wait for either progress strip or results to appear (deterministic)
+    await page.waitForFunction(() => {
+      const progress = document.querySelector('[data-testid="progress-strip"]')
+      const results = document.querySelector('[data-testid="summary-card"]')
+      return progress !== null || results !== null
+    }, { timeout: 10000 })
 
-    // Should see either progress strip or results
+    // Verify one of them is visible
     const hasProgress = await page.locator('[data-testid="progress-strip"]').isVisible()
     const hasResults = await page.locator('[data-testid="summary-card"]').isVisible()
 
@@ -92,25 +112,34 @@ test.describe('PLoT Auto-Detect Adapter', () => {
   })
 
   test('should cache probe results for 5 minutes', async ({ page, context }) => {
-    // Open templates panel
+    // Open templates panel to trigger probe
     await page.click('[data-testid="templates-panel-trigger"]')
 
     await expect(page.locator('[data-testid="templates-panel"]')).toBeVisible()
 
-    // Wait for initial probe
-    await page.waitForTimeout(1000)
+    // Wait for probe to complete and cache to be set
+    // Use waitForFunction for deterministic wait instead of arbitrary timeout
+    await page.waitForFunction(() => {
+      return sessionStorage.getItem('plot_v1_capability_probe') !== null
+    }, { timeout: 10000 })
 
-    // Check sessionStorage for cached probe
-    const cacheKey = await page.evaluate(() => {
-      return sessionStorage.getItem('plot_probe_cache')
+    // Verify cached probe structure
+    const cachedProbe = await page.evaluate(() => {
+      const cached = sessionStorage.getItem('plot_v1_capability_probe')
+      return cached ? JSON.parse(cached) : null
     })
 
-    // Should have cached result
-    if (cacheKey) {
-      const cache = JSON.parse(cacheKey)
-      expect(cache).toHaveProperty('timestamp')
-      expect(cache).toHaveProperty('available')
-    }
+    // Assert cache exists and has correct shape
+    expect(cachedProbe).toBeTruthy()
+    expect(cachedProbe).toHaveProperty('timestamp')
+    expect(cachedProbe).toHaveProperty('available')
+    expect(cachedProbe).toHaveProperty('healthStatus')
+    expect(cachedProbe).toHaveProperty('endpoints')
+
+    // Verify timestamp is recent (within last 10 seconds)
+    const probeTime = new Date(cachedProbe.timestamp).getTime()
+    const now = Date.now()
+    expect(now - probeTime).toBeLessThan(10000)
   })
 
   test('should show health pill in auto mode', async ({ page }) => {

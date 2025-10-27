@@ -5,8 +5,15 @@
  * Falls back to mock adapter when v1 routes unavailable.
  */
 
-const PROBE_CACHE_KEY = 'plot_v1_capability_probe';
+export const PROBE_CACHE_KEY = 'plot_v1_capability_probe';
 const PROBE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Get proxy base URL from environment
+ */
+function getProxyBase(): string {
+  return import.meta.env.VITE_PLOT_PROXY_BASE || '/api/plot'
+}
 
 export interface ProbeResult {
   available: boolean;
@@ -95,10 +102,13 @@ export function clearProbeCache(): void {
  * 2. HEAD /v1/run - confirms v1 routes available
  *
  * Returns cached result if available (5min TTL)
+ *
+ * @param base - Optional proxy base URL (defaults to VITE_PLOT_PROXY_BASE or '/api/plot')
  */
 export async function probeCapability(
-  proxyBase: string = '/api/plot'
+  base?: string
 ): Promise<ProbeResult> {
+  const base = base ?? getProxyBase();
   // Check cache first
   const cached = getCachedProbe();
   if (cached) {
@@ -121,7 +131,7 @@ export async function probeCapability(
 
   try {
     // Step 1: Check health endpoint
-    const healthResponse = await fetch(`${proxyBase}/v1/health`, {
+    const healthResponse = await fetch(`${base}/v1/health`, {
       method: 'GET',
       signal: AbortSignal.timeout(5000),
     });
@@ -136,7 +146,7 @@ export async function probeCapability(
       }
     } else {
       // Try fallback /health (non-versioned)
-      const fallbackResponse = await fetch(`${proxyBase}/health`, {
+      const fallbackResponse = await fetch(`${base}/health`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000),
       });
@@ -156,7 +166,7 @@ export async function probeCapability(
     if (result.endpoints.health) {
       try {
         // Try HEAD first
-        let runResponse = await fetch(`${proxyBase}/v1/run`, {
+        let runResponse = await fetch(`${base}/v1/run`, {
           method: 'HEAD',
           signal: AbortSignal.timeout(5000),
         });
@@ -179,7 +189,7 @@ export async function probeCapability(
         } else if (runResponse.status === 404) {
           // Try OPTIONS as fallback (some gateways block HEAD)
           try {
-            const optionsResponse = await fetch(`${proxyBase}/v1/run`, {
+            const optionsResponse = await fetch(`${base}/v1/run`, {
               method: 'OPTIONS',
               signal: AbortSignal.timeout(5000),
             });

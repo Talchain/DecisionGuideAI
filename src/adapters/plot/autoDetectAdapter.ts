@@ -22,12 +22,14 @@ let probePromise: Promise<ProbeResult> | null = null;
 
 /**
  * Get probe result (cached or trigger new probe)
+ * Uses VITE_PLOT_PROXY_BASE environment variable to determine base URL
  */
 async function getProbeResult(): Promise<ProbeResult> {
   if (probeResult) return probeResult;
   if (probePromise) return probePromise;
 
-  probePromise = probeCapability('/api/plot').then((result) => {
+  // probeCapability() now reads from VITE_PLOT_PROXY_BASE env var
+  probePromise = probeCapability().then((result) => {
     probeResult = result;
     probePromise = null;
     return result;
