@@ -108,7 +108,7 @@ export function clearProbeCache(): void {
 export async function probeCapability(
   base?: string
 ): Promise<ProbeResult> {
-  const base = base ?? getProxyBase();
+  const resolvedBase = base ?? getProxyBase();
   // Check cache first
   const cached = getCachedProbe();
   if (cached) {
@@ -131,7 +131,7 @@ export async function probeCapability(
 
   try {
     // Step 1: Check health endpoint
-    const healthResponse = await fetch(`${base}/v1/health`, {
+    const healthResponse = await fetch(`${resolvedBase}/v1/health`, {
       method: 'GET',
       signal: AbortSignal.timeout(5000),
     });
@@ -146,7 +146,7 @@ export async function probeCapability(
       }
     } else {
       // Try fallback /health (non-versioned)
-      const fallbackResponse = await fetch(`${base}/health`, {
+      const fallbackResponse = await fetch(`${resolvedBase}/health`, {
         method: 'GET',
         signal: AbortSignal.timeout(5000),
       });
@@ -166,7 +166,7 @@ export async function probeCapability(
     if (result.endpoints.health) {
       try {
         // Try HEAD first
-        let runResponse = await fetch(`${base}/v1/run`, {
+        let runResponse = await fetch(`${resolvedBase}/v1/run`, {
           method: 'HEAD',
           signal: AbortSignal.timeout(5000),
         });
@@ -189,7 +189,7 @@ export async function probeCapability(
         } else if (runResponse.status === 404) {
           // Try OPTIONS as fallback (some gateways block HEAD)
           try {
-            const optionsResponse = await fetch(`${base}/v1/run`, {
+            const optionsResponse = await fetch(`${resolvedBase}/v1/run`, {
               method: 'OPTIONS',
               signal: AbortSignal.timeout(5000),
             });

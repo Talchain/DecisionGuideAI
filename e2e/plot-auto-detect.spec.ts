@@ -19,6 +19,7 @@
  */
 
 import { test, expect } from '@playwright/test'
+import { PROBE_CACHE_KEY } from '../src/adapters/plot/v1/probe'
 
 test.describe('PLoT Auto-Detect Adapter', () => {
   test.beforeEach(async ({ page }) => {
@@ -34,9 +35,9 @@ test.describe('PLoT Auto-Detect Adapter', () => {
     await expect(page.locator('[data-testid="templates-panel"]')).toBeVisible()
 
     // Wait for probe to complete by checking sessionStorage
-    await page.waitForFunction(() => {
-      return sessionStorage.getItem('plot_v1_capability_probe') !== null
-    }, { timeout: 10000 })
+    await page.waitForFunction((cacheKey) => {
+      return sessionStorage.getItem(cacheKey) !== null
+    }, PROBE_CACHE_KEY, { timeout: 10000 })
 
     // Banner should appear in DEV mode when v1 routes are 404
     const banner = page.locator('text=/PLoT v1 routes unavailable/i')
@@ -57,10 +58,10 @@ test.describe('PLoT Auto-Detect Adapter', () => {
 
     if (await reprobeButton.isVisible()) {
       // Store original cache timestamp
-      const originalCache = await page.evaluate(() => {
-        const cached = sessionStorage.getItem('plot_v1_capability_probe')
+      const originalCache = await page.evaluate((cacheKey) => {
+        const cached = sessionStorage.getItem(cacheKey)
         return cached ? JSON.parse(cached).timestamp : null
-      })
+      }, PROBE_CACHE_KEY)
 
       await reprobeButton.click()
 
@@ -68,12 +69,12 @@ test.describe('PLoT Auto-Detect Adapter', () => {
       await expect(reprobeButton).toBeDisabled()
 
       // Wait for new probe to complete (cache timestamp should change)
-      await page.waitForFunction((origTimestamp) => {
-        const cached = sessionStorage.getItem('plot_v1_capability_probe')
+      await page.waitForFunction((cacheKey, origTimestamp) => {
+        const cached = sessionStorage.getItem(cacheKey)
         if (!cached) return false
         const newTimestamp = JSON.parse(cached).timestamp
         return newTimestamp !== origTimestamp
-      }, originalCache, { timeout: 10000 })
+      }, PROBE_CACHE_KEY, originalCache, { timeout: 10000 })
 
       // Button should be enabled again
       await expect(reprobeButton).toBeEnabled()
@@ -119,15 +120,15 @@ test.describe('PLoT Auto-Detect Adapter', () => {
 
     // Wait for probe to complete and cache to be set
     // Use waitForFunction for deterministic wait instead of arbitrary timeout
-    await page.waitForFunction(() => {
-      return sessionStorage.getItem('plot_v1_capability_probe') !== null
-    }, { timeout: 10000 })
+    await page.waitForFunction((cacheKey) => {
+      return sessionStorage.getItem(cacheKey) !== null
+    }, PROBE_CACHE_KEY, { timeout: 10000 })
 
     // Verify cached probe structure
-    const cachedProbe = await page.evaluate(() => {
-      const cached = sessionStorage.getItem('plot_v1_capability_probe')
+    const cachedProbe = await page.evaluate((cacheKey) => {
+      const cached = sessionStorage.getItem(cacheKey)
       return cached ? JSON.parse(cached) : null
-    })
+    }, PROBE_CACHE_KEY)
 
     // Assert cache exists and has correct shape
     expect(cachedProbe).toBeTruthy()
@@ -210,20 +211,25 @@ test.describe('PLoT Auto-Detect Adapter', () => {
     const runButton = page.locator('button', { hasText: /run analysis/i })
     await runButton.click()
 
-    // Wait for either success or error
-    await page.waitForTimeout(3000)
+    // Wait for one of: error banner, results, or progress (deterministic)
+    await page.waitForFunction(() => {
+      const error = document.querySelector('[role="alert"]')
+      const results = document.querySelector('[data-testid="summary-card"]')
+      const progress = document.querySelector('[data-testid="progress-strip"]')
+      return error !== null || results !== null || progress !== null
+    }, { timeout: 10000 })
 
-    // Check for error banner or success
+    // Verify at least one outcome is visible
     const errorBanner = page.locator('[role="alert"]')
     const results = page.locator('[data-testid="summary-card"]')
+    const progress = page.locator('[data-testid="progress-strip"]')
 
-    // Should have either error or results
     const hasError = await errorBanner.isVisible()
     const hasResults = await results.isVisible()
+    const hasProgress = await progress.isVisible()
 
-    // At least one should be true (or loading still in progress)
-    // Just verify no crash
-    expect(true).toBeTruthy()
+    // Explicitly assert at least one state is present (not just "true")
+    expect(hasError || hasResults || hasProgress).toBeTruthy()
   })
 
   test('should support cancel during streaming', async ({ page }) => {
