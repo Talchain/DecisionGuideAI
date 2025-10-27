@@ -269,7 +269,13 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   useEffect(() => {
     loadSettings()
     const loaded = loadState()
-    if (loaded) useCanvasStore.setState(loaded)
+    if (loaded) {
+      // Ensure touchedNodeIds is a Set (persist doesn't save it)
+      useCanvasStore.setState({
+        ...loaded,
+        touchedNodeIds: new Set()
+      })
+    }
   }, [loadSettings])
 
   useEffect(() => {
