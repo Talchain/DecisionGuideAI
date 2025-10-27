@@ -41,6 +41,9 @@ function throttle<T extends (...args: any[]) => void>(fn: T, delay = 100): T {
   }) as T
 }
 
+// Heartbeat timeout (20 seconds)
+const HEARTBEAT_TIMEOUT_MS = 20_000
+
 /**
  * Stream a run via SSE
  * Returns cancel function
@@ -50,13 +53,29 @@ export function runStream(
   handlers: V1StreamHandlers
 ): () => void {
   const base = getProxyBase()
-  
+
   // Throttle progress updates to avoid UI stutter
   const throttledProgress = throttle(handlers.onProgress, 100)
 
   // EventSource doesn't support POST, so we need to use fetch with streaming
   const controller = new AbortController()
   let isClosed = false
+  let heartbeatTimeout: ReturnType<typeof setTimeout> | null = null
+
+  // Reset heartbeat timer on any activity
+  const resetHeartbeat = () => {
+    if (heartbeatTimeout) clearTimeout(heartbeatTimeout)
+    heartbeatTimeout = setTimeout(() => {
+      if (!isClosed) {
+        isClosed = true
+        controller.abort()
+        handlers.onError({
+          code: 'TIMEOUT',
+          message: 'Stream timeout: no heartbeat received for 20s',
+        })
+      }
+    }, HEARTBEAT_TIMEOUT_MS)
+  }
 
   const url = `${base}/v1/stream`
 
@@ -80,13 +99,17 @@ export function runStream(
         throw new Error('No response body')
       }
 
+      // Start heartbeat monitoring
+      resetHeartbeat()
+
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''
+      let eventType = ''
 
       while (!isClosed) {
         const { done, value } = await reader.read()
-        
+
         if (done) break
 
         buffer += decoder.decode(value, { stream: true })
@@ -94,18 +117,25 @@ export function runStream(
         buffer = lines.pop() || ''
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim()
+          } else if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6))
-              handleEvent(data, handlers, throttledProgress)
+              handleEvent(eventType, data, handlers, throttledProgress, resetHeartbeat)
+              eventType = '' // Reset for next event
             } catch (err) {
               console.warn('[plot/v1] Failed to parse SSE event:', err)
             }
           }
         }
       }
+
+      // Clean up heartbeat timer
+      if (heartbeatTimeout) clearTimeout(heartbeatTimeout)
     })
     .catch((err) => {
+      if (heartbeatTimeout) clearTimeout(heartbeatTimeout)
       if (!isClosed) {
         if (err.name === 'AbortError') {
           // Cancelled - don't call onError
@@ -121,47 +151,58 @@ export function runStream(
   // Return cancel function
   return () => {
     isClosed = true
+    if (heartbeatTimeout) clearTimeout(heartbeatTimeout)
     controller.abort()
   }
 }
 
 /**
- * Handle incoming SSE event
+ * Handle incoming SSE event with progress capping
  */
 function handleEvent(
-  event: any,
+  eventType: string,
+  data: any,
   handlers: V1StreamHandlers,
-  throttledProgress: (data: V1ProgressData) => void
+  throttledProgress: (data: V1ProgressData) => void,
+  resetHeartbeat: () => void
 ) {
-  const type = event.type || event.event
+  // Reset heartbeat on any event
+  resetHeartbeat()
 
-  switch (type) {
-    case 'RUN_STARTED':
-      handlers.onStarted(event.data as V1RunStartedData)
+  switch (eventType) {
+    case 'started':
+      handlers.onStarted(data as V1RunStartedData)
       break
 
-    case 'PROGRESS':
-      throttledProgress(event.data as V1ProgressData)
+    case 'progress':
+      // Cap progress at 90% until COMPLETE event to avoid premature 100%
+      const cappedData = {
+        ...data,
+        percent: Math.min(data.percent, 90),
+      }
+      throttledProgress(cappedData as V1ProgressData)
       break
 
-    case 'INTERIM_FINDINGS':
-      handlers.onInterim(event.data as V1InterimFindingsData)
+    case 'interim':
+      handlers.onInterim(data as V1InterimFindingsData)
       break
 
-    case 'HEARTBEAT':
-      // No-op, just keeps connection alive
+    case 'heartbeat':
+      // No-op, just resets heartbeat timer (already done above)
       break
 
-    case 'COMPLETE':
-      handlers.onComplete(event.data as V1CompleteData)
+    case 'complete':
+      // Send final 100% progress before completion
+      throttledProgress({ percent: 100 })
+      handlers.onComplete(data as V1CompleteData)
       break
 
-    case 'ERROR':
-      handlers.onError(mapEventError(event.data))
+    case 'error':
+      handlers.onError(mapEventError(data))
       break
 
     default:
-      console.warn('[plot/v1] Unknown SSE event type:', type)
+      console.warn('[plot/v1] Unknown SSE event type:', eventType)
   }
 }
 

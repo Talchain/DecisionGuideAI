@@ -58,14 +58,14 @@ export interface V1SyncRunResponse {
   execution_ms: number
 }
 
-// SSE event types
+// SSE event types (lowercase per v1 spec)
 export type V1EventType =
-  | 'RUN_STARTED'
-  | 'PROGRESS'
-  | 'INTERIM_FINDINGS'
-  | 'HEARTBEAT'
-  | 'COMPLETE'
-  | 'ERROR'
+  | 'started'
+  | 'progress'
+  | 'interim'
+  | 'heartbeat'
+  | 'complete'
+  | 'error'
 
 export interface V1RunStartedData {
   run_id: string
