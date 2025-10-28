@@ -189,8 +189,8 @@ export const httpV1Adapter = {
     try {
       const response = await v1http.templates()
 
-      // Safety check: ensure templates array exists
-      if (!response || !Array.isArray(response.templates)) {
+      // v1 API returns bare array, not wrapped object
+      if (!Array.isArray(response)) {
         if (import.meta.env.DEV) {
           console.error('[httpV1] Invalid templates response:', response)
         }
@@ -200,9 +200,15 @@ export const httpV1Adapter = {
         } as V1Error
       }
 
+      // Map v1 API fields to UI format
       return {
         schema: 'template-list.v1',
-        items: response.templates,
+        items: response.map(t => ({
+          id: t.id,
+          name: t.label, // label → name
+          description: t.summary, // summary → description
+          version: '1.0', // API doesn't provide version, use default
+        })),
       }
     } catch (err: any) {
       throw mapV1ErrorToUI(err as V1Error)
@@ -217,8 +223,8 @@ export const httpV1Adapter = {
         v1http.templates(),
       ])
 
-      // Find template metadata from list
-      const metadata = listResponse.templates.find(t => t.id === id)
+      // Find template metadata from list (v1 API returns bare array)
+      const metadata = listResponse.find(t => t.id === id)
 
       if (!metadata) {
         throw {
@@ -229,9 +235,9 @@ export const httpV1Adapter = {
 
       return {
         id: metadata.id,
-        name: metadata.name,
-        version: metadata.version,
-        description: metadata.description,
+        name: metadata.label, // label → name
+        version: '1.0', // API doesn't provide version
+        description: metadata.summary, // summary → description
         default_seed: graphResponse.default_seed,
         graph: graphResponse.graph,
       }

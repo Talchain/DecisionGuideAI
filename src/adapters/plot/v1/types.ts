@@ -140,17 +140,16 @@ export interface V1StreamHandlers {
   onError: (error: V1Error) => void
 }
 
-// Template types
+// Template types (actual v1 API format)
 export interface V1TemplateSummary {
   id: string
-  name: string
-  version: string
-  description: string
+  label: string // Display name
+  summary: string // Short description
+  updated_at: string // ISO timestamp
 }
 
-export interface V1TemplateListResponse {
-  templates: V1TemplateSummary[]
-}
+// v1 API returns bare array, not wrapped object
+export type V1TemplateListResponse = V1TemplateSummary[]
 
 export interface V1TemplateGraphResponse {
   template_id: string

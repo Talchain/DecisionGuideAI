@@ -78,22 +78,21 @@ describe('httpV1Adapter MSW Contract Tests', () => {
     it('should fetch template list', async () => {
       server.use(
         http.get(`${PROXY_BASE}/v1/templates`, () => {
-          return HttpResponse.json({
-            templates: [
-              {
-                id: 'revenue-forecast',
-                name: 'Revenue Forecast',
-                version: '1.0.0',
-                description: 'Forecast revenue outcomes',
-              },
-              {
-                id: 'risk-assessment',
-                name: 'Risk Assessment',
-                version: '1.2.0',
-                description: 'Assess project risks',
-              },
-            ],
-          })
+          // v1 API returns bare array with label/summary fields
+          return HttpResponse.json([
+            {
+              id: 'revenue-forecast',
+              label: 'Revenue Forecast',
+              summary: 'Forecast revenue outcomes',
+              updated_at: '2025-01-01T00:00:00.000Z',
+            },
+            {
+              id: 'risk-assessment',
+              label: 'Risk Assessment',
+              summary: 'Assess project risks',
+              updated_at: '2025-01-01T00:00:00.000Z',
+            },
+          ])
         })
       )
 
@@ -102,6 +101,8 @@ describe('httpV1Adapter MSW Contract Tests', () => {
       expect(result.schema).toBe('template-list.v1')
       expect(result.items).toHaveLength(2)
       expect(result.items[0].id).toBe('revenue-forecast')
+      expect(result.items[0].name).toBe('Revenue Forecast') // mapped from label
+      expect(result.items[0].description).toBe('Forecast revenue outcomes') // mapped from summary
       expect(result.items[1].id).toBe('risk-assessment')
     })
   })
@@ -110,16 +111,15 @@ describe('httpV1Adapter MSW Contract Tests', () => {
     it('should fetch template graph and metadata', async () => {
       server.use(
         http.get(`${PROXY_BASE}/v1/templates`, () => {
-          return HttpResponse.json({
-            templates: [
-              {
-                id: 'test-template',
-                name: 'Test Template',
-                version: '1.0.0',
-                description: 'Test template description',
-              },
-            ],
-          })
+          // v1 API returns bare array
+          return HttpResponse.json([
+            {
+              id: 'test-template',
+              label: 'Test Template',
+              summary: 'Test template description',
+              updated_at: '2025-01-01T00:00:00.000Z',
+            },
+          ])
         }),
         http.get(`${PROXY_BASE}/v1/templates/test-template/graph`, () => {
           return HttpResponse.json({
@@ -139,9 +139,9 @@ describe('httpV1Adapter MSW Contract Tests', () => {
       const result = await httpV1Adapter.template('test-template')
 
       expect(result.id).toBe('test-template')
-      expect(result.name).toBe('Test Template')
-      expect(result.version).toBe('1.0.0')
-      expect(result.description).toBe('Test template description')
+      expect(result.name).toBe('Test Template') // mapped from label
+      expect(result.version).toBe('1.0') // default value
+      expect(result.description).toBe('Test template description') // mapped from summary
       expect(result.default_seed).toBe(1337)
       expect(result.graph.nodes).toHaveLength(2)
       expect(result.graph.edges).toHaveLength(1)
