@@ -6,6 +6,7 @@ import { SummaryCard } from '../../routes/templates/components/SummaryCard'
 import { WhyPanel } from '../../routes/templates/components/WhyPanel'
 import { ReproduceShareCard } from '../../routes/templates/components/ReproduceShareCard'
 import { useLayerRegistration } from '../components/LayerProvider'
+import { DriverChips } from '../components/DriverChips'
 
 interface ResultsPanelProps {
   isOpen: boolean
@@ -213,6 +214,12 @@ export function ResultsPanel({ isOpen, onClose }: ResultsPanelProps): JSX.Elemen
                 }}
               />
               <WhyPanel report={report} />
+
+              {/* Interactive driver chips */}
+              {report.drivers && report.drivers.length > 0 && (
+                <DriverChips drivers={report.drivers} />
+              )}
+
               <ReproduceShareCard
                 report={report}
                 template={{
