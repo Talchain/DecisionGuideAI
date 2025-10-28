@@ -5,6 +5,7 @@
  * - P: Focus inline probabilities editor for selected decision
  * - Alt+V: Cycle through validation errors
  * - Cmd/Ctrl+Enter: Run simulation
+ * - Cmd/Ctrl+3: Toggle Results panel
  * - ?: Show keyboard map
  */
 
@@ -14,6 +15,7 @@ import { useCanvasStore, getNextInvalidNode } from '../store'
 interface UseCanvasKeyboardShortcutsOptions {
   onFocusNode?: (nodeId: string) => void
   onRunSimulation?: () => void
+  onToggleResults?: () => void
   onShowKeyboardMap?: () => void
   onShowToast?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void
 }
@@ -21,6 +23,7 @@ interface UseCanvasKeyboardShortcutsOptions {
 export function useCanvasKeyboardShortcuts({
   onFocusNode,
   onRunSimulation,
+  onToggleResults,
   onShowKeyboardMap,
   onShowToast
 }: UseCanvasKeyboardShortcutsOptions = {}) {
@@ -104,6 +107,17 @@ export function useCanvasKeyboardShortcuts({
       return
     }
 
+    // Cmd/Ctrl+3: Toggle Results panel
+    if ((e.metaKey || e.ctrlKey) && e.key === '3') {
+      e.preventDefault()
+
+      if (onToggleResults) {
+        onToggleResults()
+      }
+
+      return
+    }
+
     // Cmd/Ctrl+Enter: Run simulation
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault()
@@ -114,7 +128,7 @@ export function useCanvasKeyboardShortcuts({
 
       return
     }
-  }, [onFocusNode, onRunSimulation, onShowKeyboardMap, onShowToast])
+  }, [onFocusNode, onRunSimulation, onToggleResults, onShowKeyboardMap, onShowToast])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)

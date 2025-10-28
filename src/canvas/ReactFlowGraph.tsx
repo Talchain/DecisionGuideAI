@@ -169,10 +169,11 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     })
   }, [showToast, runAnalysis])
 
-  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, ?)
+  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, ?)
   useCanvasKeyboardShortcuts({
     onFocusNode: handleFocusNode,
     onRunSimulation: handleRunSimulation,
+    onToggleResults: () => setShowResultsPanel(prev => !prev),
     onShowKeyboardMap: () => setShowKeyboardMap(true),
     onShowToast: showToast
   })
