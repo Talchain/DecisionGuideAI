@@ -19,10 +19,12 @@ import type {
   V1Error,
   V1StreamHandlers,
 } from './v1/types'
+import type { ApiGraph, UiGraph, RunResponse } from '../types/plot'
 import * as v1http from './v1/http'
 import { runStream as v1runStream } from './v1/sseClient'
 import { V1_LIMITS } from './v1/types'
-import { graphToV1Request, computeClientHash, type ReactFlowGraph } from './v1/mapper'
+import { toApiGraph, isApiGraph, graphToV1Request, computeClientHash, type ReactFlowGraph } from './v1/mapper'
+import { toUiReport } from './v1/reportNormalizer'
 import { shouldUseSync } from './v1/constants'
 
 /**
@@ -155,8 +157,25 @@ export const httpV1Adapter = {
     const graph = input.graph || await loadTemplateGraph(input.template_id)
 
     try {
-      const v1Request = mapGraphToV1Request(graph, input.seed)
-      const nodeCount = graph.nodes.length
+      // Check if graph is already in API shape (from /v1/templates/{id}/graph)
+      // If not, convert UI shape to API shape
+      const apiGraph: ApiGraph = isApiGraph(graph)
+        ? graph
+        : toApiGraph(graph as UiGraph)
+
+      // Build request with API shape + optional knobs
+      const requestBody: any = {
+        graph: apiGraph,
+        seed: input.seed,
+      }
+
+      // Add optional knobs if provided
+      if (input.k_samples !== undefined) requestBody.k_samples = input.k_samples
+      if (input.treatment_node) requestBody.treatment_node = input.treatment_node
+      if (input.outcome_node) requestBody.outcome_node = input.outcome_node
+      if (input.baseline_value !== undefined) requestBody.baseline_value = input.baseline_value
+
+      const nodeCount = apiGraph.nodes.length
 
       // Always use sync endpoint (stream not deployed yet - Oct 2025)
       if (import.meta.env.DEV) {
@@ -165,11 +184,41 @@ export const httpV1Adapter = {
           `template=${input.template_id}, seed=${input.seed}`
         )
       }
-      const response = await v1http.runSync(v1Request)
+
+      const response = await v1http.runSync(requestBody)
+
       if (import.meta.env.DEV) {
         console.log(`✅ [httpV1] Sync completed: ${response.execution_ms}ms`)
       }
-      return mapV1ResultToReport(response.result, input.template_id, response.execution_ms)
+
+      // Normalize response envelope
+      const normalized = toUiReport(response.result as RunResponse)
+
+      // Map to ReportV1 format expected by UI
+      return {
+        schema: 'report.v1',
+        meta: {
+          seed: normalized.seed || input.seed || 1337,
+          response_id: normalized.hash || `http-v1-${Date.now()}`,
+          elapsed_ms: response.execution_ms || 0,
+        },
+        model_card: {
+          response_hash: normalized.hash || '',
+          response_hash_algo: 'sha256',
+          normalized: true,
+        },
+        results: {
+          conservative: normalized.conservative || 0,
+          likely: normalized.mostLikely || 0,
+          optimistic: normalized.optimistic || 0,
+          units: 'units',
+        },
+        confidence: {
+          level: 'medium' as ConfidenceLevel,
+          why: '',
+        },
+        drivers: normalized.drivers,
+      }
     } catch (err: any) {
       // Handle validation errors from mapper
       if (err.code === 'LIMIT_EXCEEDED' || err.code === 'BAD_INPUT') {
