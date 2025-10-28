@@ -100,9 +100,9 @@ describe('httpV1Adapter MSW Contract Tests', () => {
       const result = await httpV1Adapter.templates()
 
       expect(result.schema).toBe('template-list.v1')
-      expect(result.templates).toHaveLength(2)
-      expect(result.templates[0].id).toBe('revenue-forecast')
-      expect(result.templates[1].id).toBe('risk-assessment')
+      expect(result.items).toHaveLength(2)
+      expect(result.items[0].id).toBe('revenue-forecast')
+      expect(result.items[1].id).toBe('risk-assessment')
     })
   })
 
@@ -169,13 +169,21 @@ describe('httpV1Adapter MSW Contract Tests', () => {
         http.post(`${PROXY_BASE}/v1/run`, () => {
           return HttpResponse.json({
             result: {
-              answer: '42.5',
+              answer: '42.5 units expected',
               confidence: 0.85,
               explanation: 'Based on historical data, the expected outcome is 42.5 units',
-              drivers: [
-                { kind: 'node', id: 'revenue', label: 'Revenue Growth', impact: 0.8 },
-                { kind: 'edge', id: 'revenue->costs', label: 'Cost Impact', impact: -0.3 },
-              ],
+              summary: {
+                conservative: 38.0,
+                likely: 42.5,
+                optimistic: 48.0,
+                units: 'units',
+              },
+              explain_delta: {
+                top_drivers: [
+                  { kind: 'node', node_id: 'revenue', label: 'Revenue Growth', impact: 0.8 },
+                  { kind: 'edge', edge_id: 'revenue->costs', label: 'Cost Impact', impact: -0.3 },
+                ],
+              },
               response_hash: 'sha256:abc123def456',
               seed: 42,
             },
@@ -187,10 +195,15 @@ describe('httpV1Adapter MSW Contract Tests', () => {
       const result = await httpV1Adapter.run(runRequest)
 
       expect(result.schema).toBe('report.v1')
+      expect(result.results.conservative).toBe(38.0)
       expect(result.results.likely).toBe(42.5)
+      expect(result.results.optimistic).toBe(48.0)
+      expect(result.results.units).toBe('units')
       expect(result.confidence.level).toBe('high') // 0.85 → 'high'
       expect(result.confidence.why).toContain('Based on historical data')
       expect(result.drivers).toHaveLength(2)
+      expect(result.drivers[0].node_id).toBe('revenue')
+      expect(result.drivers[1].edge_id).toBe('revenue->costs')
       expect(result.meta.seed).toBe(42)
       expect(result.meta.elapsed_ms).toBe(450)
     })

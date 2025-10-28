@@ -39,16 +39,29 @@ export interface V1HealthResponse {
 
 export interface V1Driver {
   kind: 'node' | 'edge'
-  id?: string
+  node_id?: string // Node ID for canvas highlighting
+  edge_id?: string // Edge ID for canvas highlighting
   label?: string
   impact?: number
+}
+
+export interface V1Summary {
+  conservative: number
+  likely: number
+  optimistic: number
+  units?: string
+}
+
+export interface V1ExplainDelta {
+  top_drivers: V1Driver[]
 }
 
 export interface V1RunResult {
   answer: string
   confidence: number // 0..1
   explanation: string
-  drivers: V1Driver[]
+  summary?: V1Summary // Structured result values
+  explain_delta?: V1ExplainDelta // Drivers nested here in actual API
   response_hash?: string
   seed?: number
 }

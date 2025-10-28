@@ -50,9 +50,32 @@ function mapV1ResultToReport(
   templateId: string,
   executionMs: number
 ): ReportV1 {
-  // Parse answer for numeric values (best effort)
-  const answerMatch = result.answer.match(/(\d+\.?\d*)/g)
-  const likely = answerMatch ? parseFloat(answerMatch[0]) : 0
+  // Use structured summary if available, otherwise fall back to parsing answer
+  let conservative: number, likely: number, optimistic: number, units: string
+
+  if (result.summary) {
+    conservative = result.summary.conservative
+    likely = result.summary.likely
+    optimistic = result.summary.optimistic
+    units = result.summary.units || 'units'
+  } else {
+    // Fallback: parse answer for numeric values (best effort)
+    const answerMatch = result.answer.match(/(\d+\.?\d*)/g)
+    likely = answerMatch ? parseFloat(answerMatch[0]) : 0
+    conservative = likely * 0.8
+    optimistic = likely * 1.2
+    units = 'units'
+  }
+
+  // Extract drivers from explain_delta.top_drivers (actual API structure)
+  const drivers = (result.explain_delta?.top_drivers ?? []).map((d) => ({
+    label: d.label || d.node_id || d.edge_id || 'Unknown',
+    polarity: (d.impact || 0) > 0 ? 'up' : (d.impact || 0) < 0 ? 'down' : 'neutral',
+    strength: Math.abs(d.impact || 0) > 0.7 ? 'high' : Math.abs(d.impact || 0) > 0.3 ? 'medium' : 'low',
+    // Preserve IDs for canvas highlighting
+    node_id: d.node_id,
+    edge_id: d.edge_id,
+  }))
 
   return {
     schema: 'report.v1',
@@ -67,20 +90,16 @@ function mapV1ResultToReport(
       normalized: true,
     },
     results: {
-      conservative: likely * 0.8, // Conservative estimate
+      conservative,
       likely,
-      optimistic: likely * 1.2, // Optimistic estimate
-      units: 'count',
+      optimistic,
+      units,
     },
     confidence: {
       level: mapConfidenceLevel(result.confidence),
       why: result.explanation,
     },
-    drivers: result.drivers.map((d) => ({
-      label: d.label || d.id || 'Unknown',
-      polarity: (d.impact || 0) > 0 ? 'up' : (d.impact || 0) < 0 ? 'down' : 'neutral',
-      strength: Math.abs(d.impact || 0) > 0.7 ? 'high' : Math.abs(d.impact || 0) > 0.3 ? 'medium' : 'low',
-    })),
+    drivers,
   }
 }
 
@@ -131,19 +150,24 @@ function mapGraphToV1Request(graph: any, seed?: number): V1RunRequest {
 export const httpV1Adapter = {
   // Run: uses sync endpoint only (stream not deployed yet)
   async run(input: RunRequest): Promise<ReportV1> {
-    const graph = await loadTemplateGraph(input.template_id)
+    // Use provided graph (from canvas edits), or fetch template as fallback
+    const graph = input.graph || await loadTemplateGraph(input.template_id)
 
     try {
       const v1Request = mapGraphToV1Request(graph, input.seed)
       const nodeCount = graph.nodes.length
 
       // Always use sync endpoint (stream not deployed yet - Oct 2025)
-      console.log(
-        `🚀 [httpV1] POST /v1/run (${nodeCount} nodes, using sync endpoint) ` +
-        `template=${input.template_id}, seed=${input.seed}`
-      )
+      if (import.meta.env.DEV) {
+        console.log(
+          `🚀 [httpV1] POST /v1/run (${nodeCount} nodes, using sync endpoint) ` +
+          `template=${input.template_id}, seed=${input.seed}`
+        )
+      }
       const response = await v1http.runSync(v1Request)
-      console.log(`✅ [httpV1] Sync completed: ${response.execution_ms}ms`)
+      if (import.meta.env.DEV) {
+        console.log(`✅ [httpV1] Sync completed: ${response.execution_ms}ms`)
+      }
       return mapV1ResultToReport(response.result, input.template_id, response.execution_ms)
     } catch (err: any) {
       // Handle validation errors from mapper
@@ -166,7 +190,7 @@ export const httpV1Adapter = {
       const response = await v1http.templates()
       return {
         schema: 'template-list.v1',
-        templates: response.templates,
+        items: response.templates, // Correct field name
       }
     } catch (err: any) {
       throw mapV1ErrorToUI(err as V1Error)
@@ -175,10 +199,14 @@ export const httpV1Adapter = {
 
   async template(id: string): Promise<TemplateDetail> {
     try {
-      const response = await v1http.templateGraph(id)
+      // Fetch graph and list in parallel (not sequential)
+      const [graphResponse, listResponse] = await Promise.all([
+        v1http.templateGraph(id),
+        v1http.templates(),
+      ])
+
       // Find template metadata from list
-      const list = await v1http.templates()
-      const metadata = list.templates.find(t => t.id === id)
+      const metadata = listResponse.templates.find(t => t.id === id)
 
       if (!metadata) {
         throw {
@@ -192,8 +220,8 @@ export const httpV1Adapter = {
         name: metadata.name,
         version: metadata.version,
         description: metadata.description,
-        default_seed: response.default_seed,
-        graph: response.graph,
+        default_seed: graphResponse.default_seed,
+        graph: graphResponse.graph,
       }
     } catch (err: any) {
       throw mapV1ErrorToUI(err as V1Error)

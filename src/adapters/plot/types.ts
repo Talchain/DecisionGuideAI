@@ -28,6 +28,8 @@ export interface ReportV1 {
     polarity: 'up' | 'down' | 'neutral'
     strength: 'low' | 'medium' | 'high'
     action?: string
+    node_id?: string // For canvas highlighting
+    edge_id?: string // For canvas highlighting
   }>
   critique?: string[]
 }
@@ -70,6 +72,10 @@ export interface RunRequest {
   seed?: number
   mode?: 'strict' | 'real'
   inputs?: Record<string, unknown>
+  graph?: {
+    nodes: Array<{ id: string; data?: { label?: string; body?: string; [key: string]: unknown }; [key: string]: unknown }>
+    edges: Array<{ id: string; source: string; target: string; data?: { confidence?: number; weight?: number; [key: string]: unknown }; [key: string]: unknown }>
+  } // Optional: if provided, use this graph instead of fetching template
 }
 
 export type StreamEvent =
