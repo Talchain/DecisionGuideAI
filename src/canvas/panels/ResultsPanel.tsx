@@ -27,6 +27,7 @@ import { RangeChips } from '../components/RangeChips'
 import { ConfidenceBadge } from '../components/ConfidenceBadge'
 import { ActionsRow } from '../components/ActionsRow'
 import type { StoredRun } from '../store/runHistory'
+import { useToast } from '../ToastContext'
 
 interface ResultsPanelProps {
   isOpen: boolean
@@ -48,6 +49,8 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const hash = useCanvasStore(selectHash)
 
   const resultsReset = useCanvasStore(s => s.resultsReset)
+  const resultsLoadHistorical = useCanvasStore(s => s.resultsLoadHistorical)
+  const { showToast } = useToast()
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabId>('latest')
@@ -119,10 +122,11 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
   const handleShare = useCallback(() => {
     if (hash) {
-      navigator.clipboard.writeText(hash)
-      // TODO: Show toast notification
+      const shareUrl = `${window.location.origin}${window.location.pathname}#run=${hash}`
+      navigator.clipboard.writeText(shareUrl)
+      showToast('Run URL copied to clipboard', 'success')
     }
-  }, [hash])
+  }, [hash, showToast])
 
   if (!isOpen) return null
 
@@ -424,6 +428,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                             <button
                               onClick={() => {
                                 navigator.clipboard.writeText(hash)
+                                showToast('Hash copied to clipboard', 'success')
                               }}
                               style={{
                                 marginLeft: '0.5rem',
@@ -545,7 +550,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
           {activeTab === 'history' && (
             <RunHistory
               onViewRun={(run) => {
-                // TODO: Load historical run into Latest tab
+                resultsLoadHistorical(run)
                 setActiveTab('latest')
               }}
               onCompare={handleCompare}

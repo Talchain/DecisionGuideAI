@@ -9,13 +9,18 @@ import { axe } from 'vitest-axe'
 import { ResultsPanel } from '../../panels/ResultsPanel'
 import { useCanvasStore } from '../../store'
 import { LayerProvider } from '../LayerProvider'
+import { ToastProvider } from '../../ToastContext'
 import type { ReportV1 } from '../../../adapters/plot/types'
 
 // toHaveNoViolations is already globally extended in tests/setup/rtl.ts
 
-// Test wrapper with LayerProvider
+// Test wrapper with LayerProvider and ToastProvider
 function renderWithProviders(ui: React.ReactElement) {
-  return render(<LayerProvider>{ui}</LayerProvider>)
+  return render(
+    <ToastProvider>
+      <LayerProvider>{ui}</LayerProvider>
+    </ToastProvider>
+  )
 }
 
 // Mock report data
@@ -313,9 +318,11 @@ describe('ResultsPanel', () => {
       )
 
       rerender(
-        <LayerProvider>
-          <ResultsPanel isOpen={true} onClose={vi.fn()} />
-        </LayerProvider>
+        <ToastProvider>
+          <LayerProvider>
+            <ResultsPanel isOpen={true} onClose={vi.fn()} />
+          </LayerProvider>
+        </ToastProvider>
       )
 
       await waitFor(() => {

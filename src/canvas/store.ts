@@ -28,19 +28,9 @@ export interface ResultsState {
   drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
 }
 
-const initialNodes: Node[] = [
-  { id: '1', type: 'decision', position: { x: 250, y: 100 }, data: { label: 'Start' } },
-  { id: '2', type: 'decision', position: { x: 100, y: 250 }, data: { label: 'Option A' } },
-  { id: '3', type: 'decision', position: { x: 400, y: 250 }, data: { label: 'Option B' } },
-  { id: '4', type: 'decision', position: { x: 250, y: 400 }, data: { label: 'Outcome' } }
-]
+const initialNodes: Node[] = []
 
-const initialEdges: Edge<EdgeData>[] = [
-  { id: 'e1', source: '1', target: '2', label: 'Path A', data: DEFAULT_EDGE_DATA },
-  { id: 'e2', source: '1', target: '3', label: 'Path B', data: DEFAULT_EDGE_DATA },
-  { id: 'e3', source: '2', target: '4', data: DEFAULT_EDGE_DATA },
-  { id: 'e4', source: '3', target: '4', data: DEFAULT_EDGE_DATA }
-]
+const initialEdges: Edge<EdgeData>[] = []
 
 interface ClipboardData {
   nodes: Node[]
@@ -181,8 +171,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   clipboard: null,
   reconnecting: null,
   touchedNodeIds: new Set(),
-  nextNodeId: 5,
-  nextEdgeId: 5,
+  nextNodeId: 1,
+  nextEdgeId: 1,
   results: {
     status: 'idle',
     progress: 0
@@ -794,8 +784,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       edges: initialEdges,
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set() },
-      nextNodeId: 5,
-      nextEdgeId: 5,
+      nextNodeId: 1,
+      nextEdgeId: 1,
       _internal: { lastHistoryHash: historyHash(initialNodes, initialEdges) }
     })
   },
@@ -899,6 +889,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         finishedAt: Date.now()
       }
     }))
+  },
+
+  resultsLoadHistorical: (run: StoredRun) => {
+    set({
+      results: {
+        status: 'complete',
+        progress: 100,
+        runId: run.id,
+        seed: run.seed,
+        hash: run.hash,
+        report: run.report,
+        startedAt: run.timestamp,
+        finishedAt: run.timestamp,
+        drivers: run.drivers,
+        error: undefined
+      }
+    })
   },
 
   resultsReset: () => {
