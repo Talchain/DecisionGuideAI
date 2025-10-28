@@ -25,20 +25,12 @@ import { V1_LIMITS } from './v1/types'
 import { graphToV1Request, computeClientHash, type ReactFlowGraph } from './v1/mapper'
 import { shouldUseSync } from './v1/constants'
 
-// Re-export mockAdapter's local template functions
-import { plot as mockAdapter } from './mockAdapter'
-
 /**
- * Load template and extract graph
- *
- * TODO(template-migration): Replace mockAdapter.template() with live v1http.template(id)
- * once backend provides GET /v1/templates/:id endpoint. This will enable full end-to-end
- * integration without dependency on bundled mock templates.
- * Tracking: https://github.com/[org]/[repo]/issues/[TBD]
+ * Load template graph from live v1 endpoint
  */
 async function loadTemplateGraph(templateId: string): Promise<any> {
-  const template = await mockAdapter.template(templateId)
-  return template.graph
+  const response = await v1http.templateGraph(templateId)
+  return response.graph
 }
 
 /**
@@ -137,55 +129,22 @@ function mapGraphToV1Request(graph: any, seed?: number): V1RunRequest {
  * HTTP v1 Adapter
  */
 export const httpV1Adapter = {
-  // Adaptive run: automatically chooses sync or stream based on graph size
+  // Run: uses sync endpoint only (stream not deployed yet)
   async run(input: RunRequest): Promise<ReportV1> {
     const graph = await loadTemplateGraph(input.template_id)
 
     try {
       const v1Request = mapGraphToV1Request(graph, input.seed)
       const nodeCount = graph.nodes.length
-      const useSync = shouldUseSync(nodeCount)
 
-      // Small graphs (≤30 nodes) → use sync endpoint
-      if (useSync) {
-        console.log(
-          `🚀 [httpV1] POST /v1/run (${nodeCount} nodes, using sync endpoint) ` +
-          `template=${input.template_id}, seed=${input.seed}`
-        )
-        const response = await v1http.runSync(v1Request)
-        console.log(`✅ [httpV1] Sync completed: ${response.execution_ms}ms`)
-        return mapV1ResultToReport(response.result, input.template_id, response.execution_ms)
-      }
-
-      // Large graphs (>30 nodes) → use stream endpoint, wait for completion
+      // Always use sync endpoint (stream not deployed yet - Oct 2025)
       console.log(
-        `🌊 [httpV1] POST /v1/stream (${nodeCount} nodes, using stream endpoint) ` +
+        `🚀 [httpV1] POST /v1/run (${nodeCount} nodes, using sync endpoint) ` +
         `template=${input.template_id}, seed=${input.seed}`
       )
-
-      return new Promise<ReportV1>((resolve, reject) => {
-        v1runStream(v1Request, {
-          onStarted: (data) => {
-            if (import.meta.env.DEV) {
-              console.log(`[httpV1] Stream started: run_id=${data.run_id}`)
-            }
-          },
-          onProgress: (data) => {
-            // Silent progress (no UI updates for adaptive run)
-          },
-          onInterim: (data) => {
-            // Ignore interim findings
-          },
-          onComplete: (data) => {
-            console.log(`✅ [httpV1] Stream completed: ${data.execution_ms}ms`)
-            const report = mapV1ResultToReport(data.result, input.template_id, data.execution_ms)
-            resolve(report)
-          },
-          onError: (error) => {
-            reject(mapV1ErrorToUI(error))
-          },
-        })
-      })
+      const response = await v1http.runSync(v1Request)
+      console.log(`✅ [httpV1] Sync completed: ${response.execution_ms}ms`)
+      return mapV1ResultToReport(response.result, input.template_id, response.execution_ms)
     } catch (err: any) {
       // Handle validation errors from mapper
       if (err.code === 'LIMIT_EXCEEDED' || err.code === 'BAD_INPUT') {
@@ -201,13 +160,44 @@ export const httpV1Adapter = {
     }
   },
 
-  // Templates (local only, passthrough to mock)
+  // Templates (live v1 endpoints)
   async templates(): Promise<TemplateListV1> {
-    return mockAdapter.templates()
+    try {
+      const response = await v1http.templates()
+      return {
+        schema: 'template-list.v1',
+        templates: response.templates,
+      }
+    } catch (err: any) {
+      throw mapV1ErrorToUI(err as V1Error)
+    }
   },
 
   async template(id: string): Promise<TemplateDetail> {
-    return mockAdapter.template(id)
+    try {
+      const response = await v1http.templateGraph(id)
+      // Find template metadata from list
+      const list = await v1http.templates()
+      const metadata = list.templates.find(t => t.id === id)
+
+      if (!metadata) {
+        throw {
+          code: 'BAD_INPUT',
+          message: `Template not found: ${id}`,
+        } as V1Error
+      }
+
+      return {
+        id: metadata.id,
+        name: metadata.name,
+        version: metadata.version,
+        description: metadata.description,
+        default_seed: response.default_seed,
+        graph: response.graph,
+      }
+    } catch (err: any) {
+      throw mapV1ErrorToUI(err as V1Error)
+    }
   },
 
   // Limits
@@ -223,86 +213,13 @@ export const httpV1Adapter = {
     return v1http.health()
   },
 
-  // SSE streaming
-  stream: {
-    run(input: RunRequest, handlers: {
-      onHello?: (data: { response_id: string }) => void
-      onTick?: (data: { index: number }) => void
-      onDone?: (data: { response_id: string; report: ReportV1 }) => void
-      onError?: (error: ErrorV1) => void
-    }): () => void {
-      let runId: string | null = null
-      let isComplete = false
-      let v1Cancel: (() => void) | null = null
-
-      // Load template and start stream
-      loadTemplateGraph(input.template_id)
-        .then((graph) => {
-          if (isComplete) return // Already cancelled
-
-          try {
-            const v1Request = mapGraphToV1Request(graph, input.seed)
-            const nodeCount = graph.nodes.length
-            console.log(
-              `🌊 [httpV1] POST /v1/stream (${nodeCount} nodes, explicit streaming) ` +
-              `template=${input.template_id}, seed=${input.seed}`
-            )
-
-            const v1Handlers: V1StreamHandlers = {
-              onStarted: (data) => {
-                runId = data.run_id
-                handlers.onHello?.({ response_id: data.run_id })
-              },
-              onProgress: (data) => {
-                // Map to tick for UI compat
-                handlers.onTick?.({ index: Math.floor(data.percent / 20) })
-              },
-              onInterim: (data) => {
-                // UI doesn't have onInterim, skip for now
-              },
-              onComplete: (data) => {
-                isComplete = true
-                console.log(`✅ [httpV1] Live PLoT stream completed: ${data.execution_ms}ms`)
-                const report = mapV1ResultToReport(data.result, input.template_id, data.execution_ms)
-                handlers.onDone?.({ response_id: report.meta.response_id, report })
-              },
-              onError: (error) => {
-                isComplete = true
-                handlers.onError?.(mapV1ErrorToUI(error))
-              },
-            }
-
-            v1Cancel = v1runStream(v1Request, v1Handlers)
-          } catch (err: any) {
-            // Handle validation errors from mapper
-            isComplete = true
-            if (err.code === 'LIMIT_EXCEEDED' || err.code === 'BAD_INPUT') {
-              handlers.onError?.({
-                schema: 'error.v1',
-                code: err.code,
-                error: err.message,
-                fields: err.field ? { field: err.field, max: err.max } : undefined,
-              } as ErrorV1)
-            } else {
-              handlers.onError?.(mapV1ErrorToUI(err as V1Error))
-            }
-          }
-        })
-        .catch((err) => {
-          isComplete = true
-          handlers.onError?.(mapV1ErrorToUI(err as V1Error))
-        })
-
-      // Return cancel function
-      return () => {
-        isComplete = true
-        if (runId) {
-          v1http.cancel(runId)
-        }
-        if (v1Cancel) {
-          v1Cancel()
-        }
-      }
-    },
-  },
+  // SSE streaming: NOT AVAILABLE YET (endpoint not deployed - Oct 2025)
+  // When /v1/stream endpoint goes live, uncomment the code below and update probe.ts
+  // to set result.endpoints.stream = true
+  //
+  // stream: {
+  //   run(input: RunRequest, handlers: { ... }): () => void {
+  //     // Stream implementation here
+  //   }
+  // }
 }

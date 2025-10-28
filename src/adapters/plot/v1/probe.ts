@@ -180,11 +180,12 @@ export async function probeCapability(
           runResponse.status === 405
         ) {
           result.endpoints.run = true;
-          result.endpoints.stream = true; // Assume stream available if run is
+          result.endpoints.stream = false; // Stream NOT live yet (Oct 2025)
           result.available = true;
 
           if (import.meta.env.DEV) {
-            console.log('[Probe] v1 routes available (status:', runResponse.status, ')');
+            console.log('[Probe] v1 sync run available (status:', runResponse.status, ')');
+            console.log('[Probe] v1 stream NOT available (endpoint not deployed yet)');
           }
         } else if (runResponse.status === 404) {
           // Route definitely doesn't exist - don't bother with OPTIONS fallback

@@ -1,50 +1,19 @@
 /**
- * MSW Contract Tests for httpV1Adapter
+ * MSW Contract Tests for httpV1Adapter (v1 sync + templates)
  * Uses golden fixtures to verify correct integration with PLoT v1 API
+ *
+ * Coverage:
+ * - Health (GET /v1/health)
+ * - Templates (GET /v1/templates, GET /v1/templates/{id}/graph)
+ * - Sync run (POST /v1/run)
+ * - Error handling (BAD_INPUT, LIMIT_EXCEEDED, RATE_LIMITED, SERVER_ERROR)
  */
 
-import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
 import { setupServer } from 'msw/node'
-import { http, HttpResponse, delay } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { httpV1Adapter } from '../httpV1Adapter'
 import type { RunRequest } from '../types'
-
-// Mock template graphs
-vi.mock('../mockAdapter', () => ({
-  plot: {
-    template: vi.fn((id: string) => {
-      if (id === 'test-small') {
-        return Promise.resolve({
-          id: 'test-small',
-          name: 'Small Test Graph',
-          graph: {
-            nodes: Array.from({ length: 25 }, (_, i) => ({
-              id: `node-${i}`,
-              data: { label: `Node ${i}` },
-            })),
-            edges: [],
-          },
-        })
-      }
-      if (id === 'test-large') {
-        return Promise.resolve({
-          id: 'test-large',
-          name: 'Large Test Graph',
-          graph: {
-            nodes: Array.from({ length: 50 }, (_, i) => ({
-              id: `node-${i}`,
-              data: { label: `Node ${i}` },
-            })),
-            edges: [],
-          },
-        })
-      }
-      throw new Error(`Unknown template: ${id}`)
-    }),
-    templates: vi.fn(() => Promise.resolve({ templates: [] })),
-  },
-}))
-
 
 // Setup MSW server
 const server = setupServer()
@@ -56,20 +25,147 @@ afterAll(() => server.close())
 const PROXY_BASE = '/api/plot'
 
 describe('httpV1Adapter MSW Contract Tests', () => {
-  const smallGraphRequest: RunRequest = {
-    template_id: 'test-small',
-    seed: 42,
-  }
-
-  const largeGraphRequest: RunRequest = {
-    template_id: 'test-large',
-    seed: 42,
-  }
-
-  describe('Successful runs', () => {
-    it('should handle successful sync run (≤30 nodes)', async () => {
-      // Golden fixture for successful sync response
+  describe('Health (GET /v1/health)', () => {
+    it('should return ok status', async () => {
       server.use(
+        http.get(`${PROXY_BASE}/v1/health`, () => {
+          return HttpResponse.json({
+            status: 'ok',
+            timestamp: '2025-10-28T17:00:00Z',
+            version: '1.0.0',
+            uptime_ms: 123456,
+          })
+        })
+      )
+
+      const result = await httpV1Adapter.health()
+
+      expect(result.status).toBe('ok')
+      expect(result.timestamp).toBe('2025-10-28T17:00:00Z')
+      expect(result.version).toBe('1.0.0')
+      expect(result.uptime_ms).toBe(123456)
+    })
+
+    it('should handle degraded status', async () => {
+      server.use(
+        http.get(`${PROXY_BASE}/v1/health`, () => {
+          return HttpResponse.json(
+            { status: 'degraded', timestamp: '2025-10-28T17:00:00Z' },
+            { status: 503 }
+          )
+        })
+      )
+
+      const result = await httpV1Adapter.health()
+
+      expect(result.status).toBe('degraded')
+    })
+
+    it('should handle unreachable server', async () => {
+      server.use(
+        http.get(`${PROXY_BASE}/v1/health`, () => {
+          return HttpResponse.error()
+        })
+      )
+
+      const result = await httpV1Adapter.health()
+
+      expect(result.status).toBe('down')
+    })
+  })
+
+  describe('Templates (GET /v1/templates)', () => {
+    it('should fetch template list', async () => {
+      server.use(
+        http.get(`${PROXY_BASE}/v1/templates`, () => {
+          return HttpResponse.json({
+            templates: [
+              {
+                id: 'revenue-forecast',
+                name: 'Revenue Forecast',
+                version: '1.0.0',
+                description: 'Forecast revenue outcomes',
+              },
+              {
+                id: 'risk-assessment',
+                name: 'Risk Assessment',
+                version: '1.2.0',
+                description: 'Assess project risks',
+              },
+            ],
+          })
+        })
+      )
+
+      const result = await httpV1Adapter.templates()
+
+      expect(result.schema).toBe('template-list.v1')
+      expect(result.templates).toHaveLength(2)
+      expect(result.templates[0].id).toBe('revenue-forecast')
+      expect(result.templates[1].id).toBe('risk-assessment')
+    })
+  })
+
+  describe('Template Graph (GET /v1/templates/{id}/graph)', () => {
+    it('should fetch template graph and metadata', async () => {
+      server.use(
+        http.get(`${PROXY_BASE}/v1/templates`, () => {
+          return HttpResponse.json({
+            templates: [
+              {
+                id: 'test-template',
+                name: 'Test Template',
+                version: '1.0.0',
+                description: 'Test template description',
+              },
+            ],
+          })
+        }),
+        http.get(`${PROXY_BASE}/v1/templates/test-template/graph`, () => {
+          return HttpResponse.json({
+            template_id: 'test-template',
+            default_seed: 1337,
+            graph: {
+              nodes: [
+                { id: 'node-1', label: 'Start' },
+                { id: 'node-2', label: 'End' },
+              ],
+              edges: [{ from: 'node-1', to: 'node-2', confidence: 1.0 }],
+            },
+          })
+        })
+      )
+
+      const result = await httpV1Adapter.template('test-template')
+
+      expect(result.id).toBe('test-template')
+      expect(result.name).toBe('Test Template')
+      expect(result.version).toBe('1.0.0')
+      expect(result.description).toBe('Test template description')
+      expect(result.default_seed).toBe(1337)
+      expect(result.graph.nodes).toHaveLength(2)
+      expect(result.graph.edges).toHaveLength(1)
+    })
+  })
+
+  describe('Sync Run (POST /v1/run)', () => {
+    const runRequest: RunRequest = {
+      template_id: 'test-template',
+      seed: 42,
+    }
+
+    it('should handle successful sync run', async () => {
+      server.use(
+        http.get(`${PROXY_BASE}/v1/templates/test-template/graph`, () => {
+          return HttpResponse.json({
+            template_id: 'test-template',
+            default_seed: 1337,
+            graph: {
+              nodes: [{ id: 'node-1', label: 'Test' }],
+              edges: [],
+            },
+          })
+        }),
         http.post(`${PROXY_BASE}/v1/run`, () => {
           return HttpResponse.json({
             result: {
@@ -88,7 +184,7 @@ describe('httpV1Adapter MSW Contract Tests', () => {
         })
       )
 
-      const result = await httpV1Adapter.run(smallGraphRequest)
+      const result = await httpV1Adapter.run(runRequest)
 
       expect(result.schema).toBe('report.v1')
       expect(result.results.likely).toBe(42.5)
@@ -98,59 +194,23 @@ describe('httpV1Adapter MSW Contract Tests', () => {
       expect(result.meta.seed).toBe(42)
       expect(result.meta.elapsed_ms).toBe(450)
     })
-
-    it('should handle successful stream run (>30 nodes)', async () => {
-      server.use(
-        http.post(`${PROXY_BASE}/v1/stream`, async ({ request }) => {
-          const encoder = new TextEncoder()
-          const stream = new ReadableStream({
-            async start(controller) {
-              // Event: started
-              controller.enqueue(
-                encoder.encode('event: started\ndata: {"run_id":"run-123"}\n\n')
-              )
-
-              await delay(50)
-
-              // Event: progress
-              controller.enqueue(encoder.encode('event: progress\ndata: {"percent":25}\n\n'))
-
-              await delay(50)
-
-              // Event: progress
-              controller.enqueue(encoder.encode('event: progress\ndata: {"percent":50}\n\n'))
-
-              await delay(50)
-
-              // Event: complete
-              controller.enqueue(
-                encoder.encode(
-                  'event: complete\n' +
-                    'data: {"result":{"answer":"42.5","confidence":0.85,"explanation":"Streaming result","drivers":[],"response_hash":"sha256:stream123","seed":42},"execution_ms":1200}\n\n'
-                )
-              )
-
-              controller.close()
-            },
-          })
-
-          return new HttpResponse(stream, {
-            headers: { 'Content-Type': 'text/event-stream' },
-          })
-        })
-      )
-
-      const result = await httpV1Adapter.run(largeGraphRequest)
-
-      expect(result.schema).toBe('report.v1')
-      expect(result.results.likely).toBe(42.5)
-      expect(result.meta.elapsed_ms).toBe(1200)
-    })
   })
 
-  describe('Error handling', () => {
+  describe('Error Handling', () => {
+    const runRequest: RunRequest = {
+      template_id: 'test-template',
+      seed: 42,
+    }
+
     it('should handle BAD_INPUT (400)', async () => {
       server.use(
+        http.get(`${PROXY_BASE}/v1/templates/test-template/graph`, () => {
+          return HttpResponse.json({
+            template_id: 'test-template',
+            default_seed: 1337,
+            graph: { nodes: [{ id: 'node-1' }], edges: [] },
+          })
+        }),
         http.post(`${PROXY_BASE}/v1/run`, () => {
           return HttpResponse.json(
             {
@@ -163,7 +223,7 @@ describe('httpV1Adapter MSW Contract Tests', () => {
         })
       )
 
-      await expect(httpV1Adapter.run(smallGraphRequest)).rejects.toMatchObject({
+      await expect(httpV1Adapter.run(runRequest)).rejects.toMatchObject({
         schema: 'error.v1',
         code: 'BAD_INPUT',
         error: 'Node label exceeds 120 characters',
@@ -176,6 +236,13 @@ describe('httpV1Adapter MSW Contract Tests', () => {
 
     it('should handle LIMIT_EXCEEDED (413)', async () => {
       server.use(
+        http.get(`${PROXY_BASE}/v1/templates/test-template/graph`, () => {
+          return HttpResponse.json({
+            template_id: 'test-template',
+            default_seed: 1337,
+            graph: { nodes: [{ id: 'node-1' }], edges: [] },
+          })
+        }),
         http.post(`${PROXY_BASE}/v1/run`, () => {
           return HttpResponse.json(
             {
@@ -188,7 +255,7 @@ describe('httpV1Adapter MSW Contract Tests', () => {
         })
       )
 
-      await expect(httpV1Adapter.run(smallGraphRequest)).rejects.toMatchObject({
+      await expect(httpV1Adapter.run(runRequest)).rejects.toMatchObject({
         schema: 'error.v1',
         code: 'LIMIT_EXCEEDED',
         error: 'Graph has 250 nodes (max 200)',
@@ -201,6 +268,13 @@ describe('httpV1Adapter MSW Contract Tests', () => {
 
     it('should handle RATE_LIMITED (429) with retry_after', async () => {
       server.use(
+        http.get(`${PROXY_BASE}/v1/templates/test-template/graph`, () => {
+          return HttpResponse.json({
+            template_id: 'test-template',
+            default_seed: 1337,
+            graph: { nodes: [{ id: 'node-1' }], edges: [] },
+          })
+        }),
         http.post(`${PROXY_BASE}/v1/run`, () => {
           return HttpResponse.json(
             {
@@ -213,7 +287,7 @@ describe('httpV1Adapter MSW Contract Tests', () => {
         })
       )
 
-      await expect(httpV1Adapter.run(smallGraphRequest)).rejects.toMatchObject({
+      await expect(httpV1Adapter.run(runRequest)).rejects.toMatchObject({
         schema: 'error.v1',
         code: 'RATE_LIMITED',
         error: 'Too many requests',
@@ -224,6 +298,13 @@ describe('httpV1Adapter MSW Contract Tests', () => {
     it('should retry and eventually fail on SERVER_ERROR (500)', async () => {
       let attempts = 0
       server.use(
+        http.get(`${PROXY_BASE}/v1/templates/test-template/graph`, () => {
+          return HttpResponse.json({
+            template_id: 'test-template',
+            default_seed: 1337,
+            graph: { nodes: [{ id: 'node-1' }], edges: [] },
+          })
+        }),
         http.post(`${PROXY_BASE}/v1/run`, () => {
           attempts++
           return HttpResponse.json(
@@ -233,160 +314,13 @@ describe('httpV1Adapter MSW Contract Tests', () => {
         })
       )
 
-      await expect(httpV1Adapter.run(smallGraphRequest)).rejects.toMatchObject({
+      await expect(httpV1Adapter.run(runRequest)).rejects.toMatchObject({
         schema: 'error.v1',
         code: 'SERVER_ERROR',
       })
 
       // Should have retried 3 times (original + 2 retries)
       expect(attempts).toBe(3)
-    })
-
-    it('should handle stream errors via SSE error event', async () => {
-      server.use(
-        http.post(`${PROXY_BASE}/v1/stream`, async () => {
-          const encoder = new TextEncoder()
-          const stream = new ReadableStream({
-            start(controller) {
-              controller.enqueue(
-                encoder.encode('event: started\ndata: {"run_id":"run-456"}\n\n')
-              )
-              controller.enqueue(
-                encoder.encode(
-                  'event: error\n' +
-                    'data: {"code":"SERVER_ERROR","message":"Model execution failed"}\n\n'
-                )
-              )
-              controller.close()
-            },
-          })
-
-          return new HttpResponse(stream, {
-            headers: { 'Content-Type': 'text/event-stream' },
-          })
-        })
-      )
-
-      await expect(httpV1Adapter.run(largeGraphRequest)).rejects.toMatchObject({
-        schema: 'error.v1',
-        code: 'SERVER_ERROR',
-        error: 'Model execution failed',
-      })
-    })
-  })
-
-  describe('Adaptive routing', () => {
-    it('should use sync endpoint for small graphs', async () => {
-      let syncCalled = false
-      let streamCalled = false
-
-      server.use(
-        http.post(`${PROXY_BASE}/v1/run`, () => {
-          syncCalled = true
-          return HttpResponse.json({
-            result: {
-              answer: '42',
-              confidence: 0.9,
-              explanation: 'Test',
-              drivers: [],
-            },
-            execution_ms: 100,
-          })
-        }),
-        http.post(`${PROXY_BASE}/v1/stream`, () => {
-          streamCalled = true
-          return new HttpResponse(null, { status: 500 })
-        })
-      )
-
-      await httpV1Adapter.run(smallGraphRequest)
-
-      expect(syncCalled).toBe(true)
-      expect(streamCalled).toBe(false)
-    })
-
-    it('should use stream endpoint for large graphs', async () => {
-      let syncCalled = false
-      let streamCalled = false
-
-      server.use(
-        http.post(`${PROXY_BASE}/v1/run`, () => {
-          syncCalled = true
-          return new HttpResponse(null, { status: 500 })
-        }),
-        http.post(`${PROXY_BASE}/v1/stream`, async () => {
-          streamCalled = true
-          const encoder = new TextEncoder()
-          const stream = new ReadableStream({
-            start(controller) {
-              controller.enqueue(
-                encoder.encode('event: started\ndata: {"run_id":"run-789"}\n\n')
-              )
-              controller.enqueue(
-                encoder.encode(
-                  'event: complete\n' +
-                    'data: {"result":{"answer":"42","confidence":0.9,"explanation":"Test","drivers":[]},"execution_ms":100}\n\n'
-                )
-              )
-              controller.close()
-            },
-          })
-          return new HttpResponse(stream, {
-            headers: { 'Content-Type': 'text/event-stream' },
-          })
-        })
-      )
-
-      await httpV1Adapter.run(largeGraphRequest)
-
-      expect(syncCalled).toBe(false)
-      expect(streamCalled).toBe(true)
-    })
-  })
-
-  describe('Progress capping', () => {
-    it('should cap progress at 90% until complete event', async () => {
-      const progressUpdates: number[] = []
-
-      server.use(
-        http.post(`${PROXY_BASE}/v1/stream`, async () => {
-          const encoder = new TextEncoder()
-          const stream = new ReadableStream({
-            async start(controller) {
-              controller.enqueue(
-                encoder.encode('event: started\ndata: {"run_id":"run-cap"}\n\n')
-              )
-              controller.enqueue(encoder.encode('event: progress\ndata: {"percent":95}\n\n'))
-              controller.enqueue(encoder.encode('event: progress\ndata: {"percent":99}\n\n'))
-              controller.enqueue(
-                encoder.encode(
-                  'event: complete\n' +
-                    'data: {"result":{"answer":"42","confidence":0.9,"explanation":"Test","drivers":[]},"execution_ms":100}\n\n'
-                )
-              )
-              controller.close()
-            },
-          })
-          return new HttpResponse(stream, {
-            headers: { 'Content-Type': 'text/event-stream' },
-          })
-        })
-      )
-
-      // Use explicit stream.run to capture progress
-      return new Promise<void>((resolve, reject) => {
-        httpV1Adapter.stream.run(largeGraphRequest, {
-          onTick: (data) => {
-            progressUpdates.push(data.index)
-          },
-          onDone: () => {
-            // Should have capped at 90, not 95/99
-            expect(Math.max(...progressUpdates)).toBeLessThanOrEqual(4) // 90% / 20 = index 4
-            resolve()
-          },
-          onError: reject,
-        })
-      })
     })
   })
 })

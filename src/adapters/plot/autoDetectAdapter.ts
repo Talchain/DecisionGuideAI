@@ -84,13 +84,35 @@ export const autoDetectAdapter = {
   },
 
   async templates(): Promise<TemplateListV1> {
-    // Templates always use local blueprints (no v1 API yet)
-    return mockAdapter.templates();
+    const probe = await getProbeResult();
+
+    if (probe.available) {
+      if (import.meta.env.DEV) {
+        console.log('[AutoDetect] Using httpV1 templates');
+      }
+      return httpV1Adapter.templates();
+    } else {
+      if (import.meta.env.DEV) {
+        console.log('[AutoDetect] v1 unavailable, using mock templates');
+      }
+      return mockAdapter.templates();
+    }
   },
 
   async template(id: string): Promise<TemplateDetail> {
-    // Template details always use local blueprints (no v1 API yet)
-    return mockAdapter.template(id);
+    const probe = await getProbeResult();
+
+    if (probe.available) {
+      if (import.meta.env.DEV) {
+        console.log('[AutoDetect] Using httpV1 template detail');
+      }
+      return httpV1Adapter.template(id);
+    } else {
+      if (import.meta.env.DEV) {
+        console.log('[AutoDetect] v1 unavailable, using mock template detail');
+      }
+      return mockAdapter.template(id);
+    }
   },
 
   async limits(): Promise<LimitsV1> {
@@ -114,51 +136,7 @@ export const autoDetectAdapter = {
     };
   },
 
-  stream: {
-    run(
-      input: RunRequest,
-      handlers: {
-        onTick?: (data: { index: number }) => void;
-        onDone?: (data: { response_id: string; report: ReportV1 }) => void;
-        onError?: (error: ErrorV1) => void;
-      }
-    ): () => void {
-      let cancel: (() => void) | null = null;
-      let cancelled = false;
-
-      // Probe and delegate
-      getProbeResult().then((probe) => {
-        // Check if already cancelled during probe
-        if (cancelled) {
-          if (import.meta.env.DEV) {
-            console.log('[AutoDetect] Stream cancelled before probe completed');
-          }
-          return;
-        }
-
-        if (probe.available) {
-          if (import.meta.env.DEV) {
-            console.log('[AutoDetect] Using httpV1 stream');
-          }
-          cancel = httpV1Adapter.stream.run(input, handlers);
-        } else {
-          if (import.meta.env.DEV) {
-            console.log('[AutoDetect] v1 unavailable, using mock stream');
-          }
-          cancel = mockAdapter.stream.run(input, handlers);
-        }
-
-        // If cancelled during probe, call cancel now
-        if (cancelled && cancel) {
-          cancel();
-        }
-      });
-
-      // Return cancel function that guards against race
-      return () => {
-        cancelled = true;
-        cancel?.();
-      };
-    },
-  },
+  // SSE streaming: NOT AVAILABLE YET (endpoint not deployed - Oct 2025)
+  // When /v1/stream endpoint goes live, uncomment httpV1Adapter.stream and
+  // re-enable this stream export with proper delegation logic
 };

@@ -126,3 +126,21 @@ export interface V1StreamHandlers {
   onComplete: (data: V1CompleteData) => void
   onError: (error: V1Error) => void
 }
+
+// Template types
+export interface V1TemplateSummary {
+  id: string
+  name: string
+  version: string
+  description: string
+}
+
+export interface V1TemplateListResponse {
+  templates: V1TemplateSummary[]
+}
+
+export interface V1TemplateGraphResponse {
+  template_id: string
+  default_seed: number
+  graph: V1Graph
+}

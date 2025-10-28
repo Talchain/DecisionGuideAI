@@ -8,6 +8,8 @@ import type {
   V1RunRequest,
   V1SyncRunResponse,
   V1Error,
+  V1TemplateListResponse,
+  V1TemplateGraphResponse,
 } from './types'
 import {
   RETRY,
@@ -238,7 +240,7 @@ export async function runSync(
  */
 export async function cancel(runId: string): Promise<void> {
   const base = getProxyBase()
-  
+
   try {
     const response = await fetch(`${base}/v1/run/${runId}/cancel`, {
       method: 'POST',
@@ -251,5 +253,81 @@ export async function cancel(runId: string): Promise<void> {
   } catch (err) {
     // Swallow errors on cancel (best effort)
     console.warn('[plot/v1] Cancel failed:', err)
+  }
+}
+
+/**
+ * GET /v1/templates
+ */
+export async function templates(): Promise<V1TemplateListResponse> {
+  const base = getProxyBase()
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+  try {
+    const response = await fetch(`${base}/v1/templates`, {
+      method: 'GET',
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      throw await mapHttpError(response)
+    }
+
+    return await response.json()
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw {
+        code: 'TIMEOUT',
+        message: 'Request timed out after 10000ms',
+      } as V1Error
+    }
+    if ((err as any).code) {
+      throw err // Already a V1Error
+    }
+    throw {
+      code: 'NETWORK_ERROR',
+      message: err instanceof Error ? err.message : String(err),
+    } as V1Error
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+/**
+ * GET /v1/templates/{id}/graph
+ */
+export async function templateGraph(id: string): Promise<V1TemplateGraphResponse> {
+  const base = getProxyBase()
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+  try {
+    const response = await fetch(`${base}/v1/templates/${encodeURIComponent(id)}/graph`, {
+      method: 'GET',
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      throw await mapHttpError(response)
+    }
+
+    return await response.json()
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw {
+        code: 'TIMEOUT',
+        message: 'Request timed out after 10000ms',
+      } as V1Error
+    }
+    if ((err as any).code) {
+      throw err // Already a V1Error
+    }
+    throw {
+      code: 'NETWORK_ERROR',
+      message: err instanceof Error ? err.message : String(err),
+    } as V1Error
+  } finally {
+    clearTimeout(timeoutId)
   }
 }

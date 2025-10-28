@@ -88,6 +88,40 @@ export function validateGraphLimits(graph: ReactFlowGraph): ValidationError | nu
     }
   }
 
+  // Validate outgoing connector totals ≈100% ±1%
+  for (const node of graph.nodes) {
+    const outgoingEdges = graph.edges.filter(e => e.source === node.id)
+
+    // Skip nodes with no outgoing edges (leaf nodes)
+    if (outgoingEdges.length === 0) continue
+
+    // Calculate total confidence from outgoing edges
+    let total = 0
+    for (const edge of outgoingEdges) {
+      const conf = edge.data?.confidence
+      if (conf === undefined) {
+        // If any outgoing edge lacks confidence, skip validation
+        // (backend will handle defaults)
+        total = -1
+        break
+      }
+      // Normalize: if > 1, assume it's a percentage
+      total += conf > 1 ? conf / 100 : conf
+    }
+
+    // Only validate if all edges have confidence values
+    if (total >= 0) {
+      const tolerance = 0.01 // ±1%
+      if (Math.abs(total - 1.0) > tolerance) {
+        return {
+          code: 'BAD_INPUT',
+          message: `Node "${node.data?.label || node.id}" outgoing probabilities sum to ${(total * 100).toFixed(1)}%, must be 100% ±1%`,
+          field: 'confidence',
+        }
+      }
+    }
+  }
+
   return null
 }
 
