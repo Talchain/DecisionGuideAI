@@ -10,6 +10,7 @@ import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
 import type { ReportV1, ErrorV1 } from '../adapters/plot/types'
+import { addRun, generateGraphHash, type StoredRun } from './store/runHistory'
 
 // Results panel state machine
 export type ResultsStatus = 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'
@@ -840,6 +841,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   resultsComplete: ({ report, hash, drivers }) => {
+    const { nodes, edges, results } = get()
+
     set(s => ({
       results: {
         ...s.results,
@@ -852,6 +855,29 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         error: undefined
       }
     }))
+
+    // Save to run history
+    if (report && results.seed !== undefined) {
+      const graphHash = generateGraphHash(nodes, edges, results.seed)
+
+      const storedRun: StoredRun = {
+        id: results.runId || crypto.randomUUID(),
+        ts: Date.now(),
+        seed: results.seed,
+        hash,
+        adapter: 'auto', // TODO: Track actual adapter used
+        summary: report.summary || '',
+        graphHash,
+        report,
+        drivers: drivers?.map(d => ({
+          kind: d.kind,
+          id: d.id,
+          label: undefined // Backend should provide label if available
+        }))
+      }
+
+      addRun(storedRun)
+    }
   },
 
   resultsError: ({ code, message, retryAfter }) => {

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useCallback } from 'react'
-import { X } from 'lucide-react'
+import { useEffect, useRef, useCallback, useState } from 'react'
+import { X, History as HistoryIcon } from 'lucide-react'
 import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash } from '../store'
 import { ProgressStrip } from '../components/ProgressStrip'
 import { SummaryCard } from '../../routes/templates/components/SummaryCard'
@@ -7,6 +7,9 @@ import { WhyPanel } from '../../routes/templates/components/WhyPanel'
 import { ReproduceShareCard } from '../../routes/templates/components/ReproduceShareCard'
 import { useLayerRegistration } from '../components/LayerProvider'
 import { DriverChips } from '../components/DriverChips'
+import { RunHistory } from '../components/RunHistory'
+import { CompareView } from '../components/CompareView'
+import type { StoredRun } from '../store/runHistory'
 
 interface ResultsPanelProps {
   isOpen: boolean
@@ -32,6 +35,13 @@ export function ResultsPanel({ isOpen, onClose }: ResultsPanelProps): JSX.Elemen
 
   const resultsReset = useCanvasStore(s => s.resultsReset)
 
+  // Tab state: 'current' (latest run) or 'history' (past runs)
+  const [activeTab, setActiveTab] = useState<'current' | 'history'>('current')
+
+  // Compare state
+  const [compareRunIds, setCompareRunIds] = useState<string[]>([])
+  const [viewingRun, setViewingRun] = useState<StoredRun | null>(null)
+
   // Register with LayerProvider for panel exclusivity and Esc handling
   useLayerRegistration('results-panel', 'panel', isOpen, onClose)
 
@@ -49,7 +59,24 @@ export function ResultsPanel({ isOpen, onClose }: ResultsPanelProps): JSX.Elemen
 
   const handleReset = useCallback(() => {
     resultsReset()
+    setActiveTab('current')
+    setCompareRunIds([])
+    setViewingRun(null)
   }, [resultsReset])
+
+  const handleViewRun = useCallback((run: StoredRun) => {
+    setViewingRun(run)
+    setActiveTab('current')
+  }, [])
+
+  const handleCompare = useCallback((runIds: string[]) => {
+    setCompareRunIds(runIds)
+    setActiveTab('current')
+  }, [])
+
+  const handleCloseCompare = useCallback(() => {
+    setCompareRunIds([])
+  }, [])
 
   if (!isOpen) return null
 
@@ -163,10 +190,103 @@ export function ResultsPanel({ isOpen, onClose }: ResultsPanelProps): JSX.Elemen
           </div>
         )}
 
+        {/* Tab bar */}
+        <div
+          className="flex border-b"
+          style={{
+            borderColor: 'rgba(91, 108, 255, 0.2)'
+          }}
+        >
+          <button
+            onClick={() => setActiveTab('current')}
+            className="flex-1 px-4 py-2 text-sm font-medium transition-colors"
+            style={{
+              backgroundColor: activeTab === 'current'
+                ? 'rgba(91, 108, 255, 0.1)'
+                : 'transparent',
+              color: activeTab === 'current'
+                ? 'var(--olumi-primary)'
+                : 'var(--olumi-text)',
+              borderBottom: activeTab === 'current'
+                ? '2px solid var(--olumi-primary)'
+                : '2px solid transparent'
+            }}
+          >
+            Current Run
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className="flex-1 px-4 py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+            style={{
+              backgroundColor: activeTab === 'history'
+                ? 'rgba(91, 108, 255, 0.1)'
+                : 'transparent',
+              color: activeTab === 'history'
+                ? 'var(--olumi-primary)'
+                : 'var(--olumi-text)',
+              borderBottom: activeTab === 'history'
+                ? '2px solid var(--olumi-primary)'
+                : '2px solid transparent'
+            }}
+          >
+            <HistoryIcon className="w-4 h-4" />
+            History
+          </button>
+        </div>
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Streaming state */}
-          {isLoading && (
+          {/* History Tab */}
+          {activeTab === 'history' && (
+            <RunHistory
+              onViewRun={handleViewRun}
+              onCompare={handleCompare}
+            />
+          )}
+
+          {/* Current Tab */}
+          {activeTab === 'current' && (
+            <>
+              {/* Compare View */}
+              {compareRunIds.length >= 2 && (
+                <CompareView
+                  runIds={compareRunIds}
+                  onClose={handleCloseCompare}
+                />
+              )}
+
+              {/* Viewing historical run */}
+              {viewingRun && !compareRunIds.length && (
+                <div
+                  className="p-4 rounded-lg border mb-4"
+                  style={{
+                    backgroundColor: 'rgba(91, 108, 255, 0.05)',
+                    borderColor: 'rgba(91, 108, 255, 0.2)'
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold" style={{ color: 'var(--olumi-text)' }}>
+                      Viewing Historical Run
+                    </h3>
+                    <button
+                      onClick={() => setViewingRun(null)}
+                      className="text-xs px-2 py-1 rounded"
+                      style={{
+                        backgroundColor: 'rgba(91, 108, 255, 0.1)',
+                        color: 'var(--olumi-primary)'
+                      }}
+                    >
+                      Back to Current
+                    </button>
+                  </div>
+                  <div className="text-xs" style={{ color: 'rgba(232, 236, 245, 0.7)' }}>
+                    Seed: {viewingRun.seed} • Hash: {viewingRun.hash?.slice(0, 8) || 'N/A'}
+                  </div>
+                </div>
+              )}
+
+              {/* Streaming state */}
+              {isLoading && !compareRunIds.length && !viewingRun && (
             <>
               <ProgressStrip
                 isVisible={true}
@@ -203,7 +323,7 @@ export function ResultsPanel({ isOpen, onClose }: ResultsPanelProps): JSX.Elemen
           )}
 
           {/* Complete */}
-          {isComplete && report && (
+          {isComplete && report && !compareRunIds.length && !viewingRun && (
             <div className="space-y-4">
               <SummaryCard
                 report={report}
@@ -266,7 +386,7 @@ export function ResultsPanel({ isOpen, onClose }: ResultsPanelProps): JSX.Elemen
           )}
 
           {/* Error */}
-          {isError && error && (
+          {isError && error && !compareRunIds.length && !viewingRun && (
             <div
               className="p-4 rounded-lg border"
               style={{
@@ -303,7 +423,7 @@ export function ResultsPanel({ isOpen, onClose }: ResultsPanelProps): JSX.Elemen
           )}
 
           {/* Cancelled */}
-          {isCancelled && (
+          {isCancelled && !compareRunIds.length && !viewingRun && (
             <div
               className="p-4 rounded-lg border text-center"
               style={{
@@ -331,12 +451,14 @@ export function ResultsPanel({ isOpen, onClose }: ResultsPanelProps): JSX.Elemen
           )}
 
           {/* Idle state */}
-          {status === 'idle' && (
+          {status === 'idle' && !compareRunIds.length && !viewingRun && (
             <div className="text-center py-8">
               <p className="text-sm" style={{ color: 'rgba(232, 236, 245, 0.6)' }}>
                 No analysis running.
               </p>
             </div>
+          )}
+            </>
           )}
         </div>
       </div>
