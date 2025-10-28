@@ -38,6 +38,12 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   useEffect(() => {
     plot.templates()
       .then(list => {
+        // Safety check: ensure items array exists
+        if (!list || !Array.isArray(list.items)) {
+          console.error('❌ Invalid templates response:', list)
+          setBlueprints([])
+          return
+        }
         setBlueprints(list.items.map(t => ({
           id: t.id,
           name: t.name,

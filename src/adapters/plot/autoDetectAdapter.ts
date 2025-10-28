@@ -87,10 +87,18 @@ export const autoDetectAdapter = {
     const probe = await getProbeResult();
 
     if (probe.available) {
-      if (import.meta.env.DEV) {
-        console.log('[AutoDetect] Using httpV1 templates');
+      try {
+        if (import.meta.env.DEV) {
+          console.log('[AutoDetect] Using httpV1 templates');
+        }
+        return await httpV1Adapter.templates();
+      } catch (err) {
+        // Network error or API failure - fall back to mock
+        if (import.meta.env.DEV) {
+          console.warn('[AutoDetect] httpV1 templates failed, falling back to mock:', err);
+        }
+        return mockAdapter.templates();
       }
-      return httpV1Adapter.templates();
     } else {
       if (import.meta.env.DEV) {
         console.log('[AutoDetect] v1 unavailable, using mock templates');
@@ -103,10 +111,18 @@ export const autoDetectAdapter = {
     const probe = await getProbeResult();
 
     if (probe.available) {
-      if (import.meta.env.DEV) {
-        console.log('[AutoDetect] Using httpV1 template detail');
+      try {
+        if (import.meta.env.DEV) {
+          console.log('[AutoDetect] Using httpV1 template detail');
+        }
+        return await httpV1Adapter.template(id);
+      } catch (err) {
+        // Network error or API failure - fall back to mock
+        if (import.meta.env.DEV) {
+          console.warn('[AutoDetect] httpV1 template failed, falling back to mock:', err);
+        }
+        return mockAdapter.template(id);
       }
-      return httpV1Adapter.template(id);
     } else {
       if (import.meta.env.DEV) {
         console.log('[AutoDetect] v1 unavailable, using mock template detail');

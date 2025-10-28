@@ -188,9 +188,21 @@ export const httpV1Adapter = {
   async templates(): Promise<TemplateListV1> {
     try {
       const response = await v1http.templates()
+
+      // Safety check: ensure templates array exists
+      if (!response || !Array.isArray(response.templates)) {
+        if (import.meta.env.DEV) {
+          console.error('[httpV1] Invalid templates response:', response)
+        }
+        throw {
+          code: 'SERVER_ERROR',
+          message: 'Invalid templates response from server',
+        } as V1Error
+      }
+
       return {
         schema: 'template-list.v1',
-        items: response.templates, // Correct field name
+        items: response.templates,
       }
     } catch (err: any) {
       throw mapV1ErrorToUI(err as V1Error)
