@@ -9,6 +9,23 @@ import { applyLayout, applyLayoutWithPolicy } from './layout'
 import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
+import type { ReportV1, ErrorV1 } from '../adapters/plot/types'
+
+// Results panel state machine
+export type ResultsStatus = 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'
+
+export interface ResultsState {
+  status: ResultsStatus
+  progress: number              // 0..100 (cap 90 until COMPLETE)
+  runId?: string
+  seed?: number
+  hash?: string                 // response_hash
+  report?: ReportV1 | null
+  error?: { code: string; message: string; retryAfter?: number } | null
+  startedAt?: number
+  finishedAt?: number
+  drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
+}
 
 const initialNodes: Node[] = [
   { id: '1', type: 'decision', position: { x: 250, y: 100 }, data: { label: 'Start' } },
@@ -47,6 +64,7 @@ interface CanvasState {
   nextNodeId: number
   nextEdgeId: number
   _internal: { lastHistoryHash: string }
+  results: ResultsState  // Analysis results panel state
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
@@ -85,6 +103,14 @@ interface CanvasState {
   cancelReconnect: () => void
   reset: () => void
   cleanup: () => void
+  // Results actions
+  resultsStart: (params: { seed: number }) => void
+  resultsConnecting: (runId: string) => void
+  resultsProgress: (percent: number) => void
+  resultsComplete: (params: { report: ReportV1; hash: string; drivers?: Array<{ kind: 'node' | 'edge'; id: string }> }) => void
+  resultsError: (params: { code: string; message: string; retryAfter?: number }) => void
+  resultsCancelled: () => void
+  resultsReset: () => void
 }
 
 let historyTimer: ReturnType<typeof setTimeout> | null = null
@@ -156,6 +182,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   touchedNodeIds: new Set(),
   nextNodeId: 5,
   nextEdgeId: 5,
+  results: {
+    status: 'idle',
+    progress: 0
+  },
 
   createNodeId: () => {
     const { nextNodeId } = get()
@@ -769,6 +799,91 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     })
   },
 
+  // Results actions
+  resultsStart: ({ seed }) => {
+    set({
+      results: {
+        status: 'preparing',
+        progress: 0,
+        seed,
+        startedAt: Date.now(),
+        error: undefined,
+        report: undefined,
+        hash: undefined,
+        runId: undefined,
+        finishedAt: undefined,
+        drivers: undefined
+      }
+    })
+  },
+
+  resultsConnecting: (runId) => {
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'connecting',
+        runId,
+        progress: Math.max(s.results.progress, 5)
+      }
+    }))
+  },
+
+  resultsProgress: (percent) => {
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'streaming',
+        // Cap at 90% until complete event arrives
+        progress: Math.min(percent, 90)
+      }
+    }))
+  },
+
+  resultsComplete: ({ report, hash, drivers }) => {
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'complete',
+        progress: 100,
+        report,
+        hash,
+        drivers,
+        finishedAt: Date.now(),
+        error: undefined
+      }
+    }))
+  },
+
+  resultsError: ({ code, message, retryAfter }) => {
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'error',
+        error: { code, message, retryAfter },
+        finishedAt: Date.now()
+      }
+    }))
+  },
+
+  resultsCancelled: () => {
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'cancelled',
+        finishedAt: Date.now()
+      }
+    }))
+  },
+
+  resultsReset: () => {
+    set({
+      results: {
+        status: 'idle',
+        progress: 0
+      }
+    })
+  },
+
   cleanup: clearTimers
 }))
 
@@ -803,3 +918,15 @@ export const hasValidationErrors = (state: CanvasState): boolean => {
 export const getNextInvalidNode = (state: CanvasState, currentNodeId?: string): InvalidNode | null => {
   return getNextInvalidNodeUtil(state.nodes, state.edges, state.touchedNodeIds, currentNodeId)
 }
+
+/**
+ * Results panel selectors
+ */
+export const selectResultsStatus = (state: CanvasState): ResultsStatus => state.results.status
+export const selectProgress = (state: CanvasState): number => state.results.progress
+export const selectReport = (state: CanvasState): ReportV1 | null | undefined => state.results.report
+export const selectDrivers = (state: CanvasState): Array<{ kind: 'node' | 'edge'; id: string }> | undefined => state.results.drivers
+export const selectError = (state: CanvasState): { code: string; message: string; retryAfter?: number } | null | undefined => state.results.error
+export const selectRunId = (state: CanvasState): string | undefined => state.results.runId
+export const selectSeed = (state: CanvasState): number | undefined => state.results.seed
+export const selectHash = (state: CanvasState): string | undefined => state.results.hash

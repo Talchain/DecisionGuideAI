@@ -28,6 +28,8 @@ import { FirstRunHint } from './components/FirstRunHint'
 import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
+import { ResultsPanel } from './panels/ResultsPanel'
+import { useResultsRun } from './hooks/useResultsRun'
 
 interface ReactFlowGraphProps {
   blueprintEventBus?: {
@@ -51,8 +53,12 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const [showEmptyState, setShowEmptyState] = useState(true)
   const [showCheatsheet, setShowCheatsheet] = useState(false)
   const [showKeyboardMap, setShowKeyboardMap] = useState(false)
+  const [showResultsPanel, setShowResultsPanel] = useState(false)
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
+
+  // Results panel hook
+  const { run: runAnalysis } = useResultsRun()
   
   const handleSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
     useCanvasStore.getState().onSelectionChange(params)
@@ -96,7 +102,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   }, [getViewport, setCenter])
 
   // Run simulation handler with validation gating
-  const handleRunSimulation = useCallback(() => {
+  const handleRunSimulation = useCallback(async () => {
     const store = useCanvasStore.getState()
 
     // Check if graph has any nodes
@@ -111,9 +117,16 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       return
     }
 
-    // TODO: Implement actual run simulation
-    showToast('Run simulation feature coming soon!', 'info')
-  }, [showToast])
+    // Open Results panel and trigger analysis
+    setShowResultsPanel(true)
+
+    // Run analysis with canvas graph
+    // TODO: Convert canvas graph to template format for RunRequest
+    await runAnalysis({
+      template_id: 'canvas',
+      seed: 1337
+    })
+  }, [showToast, runAnalysis])
 
   // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, ?)
   useCanvasKeyboardShortcuts({
@@ -366,6 +379,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       {showCommandPalette && <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />}
       {showCheatsheet && <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />}
       {showKeyboardMap && <KeyboardMap isOpen={showKeyboardMap} onClose={() => setShowKeyboardMap(false)} />}
+      {showResultsPanel && <ResultsPanel isOpen={showResultsPanel} onClose={() => setShowResultsPanel(false)} />}
       {nodes.length === 0 && showEmptyState && <EmptyStateOverlay onDismiss={() => setShowEmptyState(false)} />}
       
       {existingTemplate && pendingBlueprint && (
