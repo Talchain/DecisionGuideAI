@@ -37,45 +37,57 @@ export function useResultsRun(): UseResultsRunReturn {
     const hasStreaming = adapter.stream && typeof adapter.stream.run === 'function'
 
     if (hasStreaming) {
-      // Use streaming API
-      cancelRef.current = adapter.stream.run(request, {
-        onHello: (data: { response_id: string }) => {
-          resultsConnecting(data.response_id)
-        },
-        onTick: (data: { index: number }) => {
-          // Throttle progress updates to ~100ms
-          const now = Date.now()
-          if (now - lastProgressUpdate.current > 100) {
-            // Convert tick index (0-5) to percentage (0-90, capped)
-            const progress = Math.min(90, Math.round((data.index / 5) * 90))
-            resultsProgress(progress)
-            lastProgressUpdate.current = now
+      // Use streaming API - wrap in try/catch to handle setup errors
+      try {
+        cancelRef.current = adapter.stream.run(request, {
+          onHello: (data: { response_id: string }) => {
+            resultsConnecting(data.response_id)
+          },
+          onTick: (data: { index: number }) => {
+            // Throttle progress updates to ~100ms
+            const now = Date.now()
+            if (now - lastProgressUpdate.current > 100) {
+              // Convert tick index (0-5) to percentage (0-90, capped)
+              const progress = Math.min(90, Math.round((data.index / 5) * 90))
+              resultsProgress(progress)
+              lastProgressUpdate.current = now
+            }
+          },
+          onDone: (data: { response_id: string; report: ReportV1 }) => {
+            const report = data.report
+
+            // Extract drivers from report (if present)
+            // Note: Current ReportV1 has drivers as labels, not IDs
+            // We'll need to map them later when we have node/edge metadata
+            const drivers = undefined // TODO: Map report.drivers to node/edge IDs
+
+            resultsComplete({
+              report,
+              hash: report.model_card.response_hash,
+              drivers
+            })
+            cancelRef.current = null
+          },
+          onError: (error: ErrorV1) => {
+            resultsError({
+              code: error.code,
+              message: error.error,
+              retryAfter: error.retry_after
+            })
+            cancelRef.current = null
           }
-        },
-        onDone: (data: { response_id: string; report: ReportV1 }) => {
-          const report = data.report
-
-          // Extract drivers from report (if present)
-          // Note: Current ReportV1 has drivers as labels, not IDs
-          // We'll need to map them later when we have node/edge metadata
-          const drivers = undefined // TODO: Map report.drivers to node/edge IDs
-
-          resultsComplete({
-            report,
-            hash: report.model_card.response_hash,
-            drivers
-          })
-          cancelRef.current = null
-        },
-        onError: (error: ErrorV1) => {
-          resultsError({
-            code: error.code,
-            message: error.error,
-            retryAfter: error.retry_after
-          })
-          cancelRef.current = null
-        }
-      })
+        })
+      } catch (err) {
+        // Catch synchronous errors from stream setup (e.g., 404 during initial fetch)
+        console.error('[useResultsRun] Stream setup failed:', err)
+        const error = err as ErrorV1
+        resultsError({
+          code: error.code || 'SERVER_ERROR',
+          message: error.error || error.message || 'Failed to connect to analysis service',
+          retryAfter: error.retry_after
+        })
+        cancelRef.current = null
+      }
     } else {
       // Fallback to sync API
       try {
