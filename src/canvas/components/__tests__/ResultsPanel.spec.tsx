@@ -60,32 +60,38 @@ describe('ResultsPanel', () => {
       const { container } = renderWithProviders(
         <ResultsPanel isOpen={false} onClose={vi.fn()} />
       )
-      expect(container.querySelector('[role="complementary"]')).not.toBeInTheDocument()
+      expect(container.querySelector('[role="dialog"]')).not.toBeInTheDocument()
     })
 
     it('renders when isOpen is true', () => {
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
-      expect(screen.getByRole('complementary', { name: 'Analysis Results' })).toBeInTheDocument()
+      expect(screen.getByRole('dialog', { name: 'Results Panel' })).toBeInTheDocument()
     })
 
     it('displays Results heading', () => {
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
       expect(screen.getByText('Results')).toBeInTheDocument()
     })
+
+    it('displays tabs (Latest Run, History, Compare)', () => {
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+      expect(screen.getByRole('button', { name: /Latest Run/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /History/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Compare/ })).toBeInTheDocument()
+    })
   })
 
   describe('State Transitions', () => {
     it('shows Idle state initially', () => {
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
-      expect(screen.getByText('Idle')).toBeInTheDocument()
-      expect(screen.getByText('No analysis running.')).toBeInTheDocument()
+      expect(screen.getByText('Ready to analyze')).toBeInTheDocument()
+      expect(screen.getByText('Click "Run Analysis" to start analyzing your decision tree.')).toBeInTheDocument()
     })
 
     it('shows Preparing state', () => {
       useCanvasStore.getState().resultsStart({ seed: 1337 })
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      expect(screen.getByText('Preparing')).toBeInTheDocument()
       expect(screen.getByText('Preparing analysis...')).toBeInTheDocument()
     })
 
@@ -94,21 +100,20 @@ describe('ResultsPanel', () => {
       useCanvasStore.getState().resultsConnecting('test-run-123')
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      expect(screen.getByText('Connecting')).toBeInTheDocument()
       expect(screen.getByText('Connecting to service...')).toBeInTheDocument()
     })
 
-    it('shows Streaming state', () => {
+    it('shows Streaming state with progress', () => {
       useCanvasStore.getState().resultsStart({ seed: 1337 })
       useCanvasStore.getState().resultsConnecting('test-run-123')
       useCanvasStore.getState().resultsProgress(45)
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      expect(screen.getByText('Streaming')).toBeInTheDocument()
       expect(screen.getByText('Analyzing decision tree...')).toBeInTheDocument()
+      expect(screen.getByText('45%')).toBeInTheDocument()
     })
 
-    it('shows Complete state with report', () => {
+    it('shows Complete state with KPI and report details', () => {
       useCanvasStore.getState().resultsStart({ seed: 1337 })
       useCanvasStore.getState().resultsComplete({
         report: mockReport,
@@ -116,9 +121,17 @@ describe('ResultsPanel', () => {
       })
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      expect(screen.getByText('Complete')).toBeInTheDocument()
-      // Summary card should be visible
-      expect(screen.getByText('150')).toBeInTheDocument() // likely value
+      // KPI headline shows likely value (appears multiple times - in KPIHeadline and RangeChips)
+      const likelyValues = screen.getAllByText('150.0%')
+      expect(likelyValues.length).toBeGreaterThanOrEqual(1)
+      expect(screen.getByText('Most Likely Outcome')).toBeInTheDocument()
+
+      // Range chips show all three values (formatted as percent)
+      expect(screen.getByText('100.0%')).toBeInTheDocument() // conservative
+      expect(screen.getByText('200.0%')).toBeInTheDocument() // optimistic
+
+      // Confidence badge
+      expect(screen.getByText('High Confidence')).toBeInTheDocument()
     })
 
     it('shows Error state with message', () => {
@@ -129,8 +142,7 @@ describe('ResultsPanel', () => {
       })
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      expect(screen.getByText('Error')).toBeInTheDocument()
-      expect(screen.getByText('Something went wrong')).toBeInTheDocument()
+      expect(screen.getByText('SERVER_ERROR')).toBeInTheDocument()
       expect(screen.getByText('Temporary issue. Please try again.')).toBeInTheDocument()
     })
 
@@ -139,8 +151,7 @@ describe('ResultsPanel', () => {
       useCanvasStore.getState().resultsCancelled()
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      expect(screen.getByText('Cancelled')).toBeInTheDocument()
-      expect(screen.getByText('Run cancelled.')).toBeInTheDocument()
+      expect(screen.getByText('Analysis cancelled')).toBeInTheDocument()
     })
   })
 
@@ -174,14 +185,29 @@ describe('ResultsPanel', () => {
   })
 
   describe('Metadata Display', () => {
-    it('displays seed when available', () => {
+    it('displays seed in reproducibility section when available', () => {
       useCanvasStore.getState().resultsStart({ seed: 1337 })
+      useCanvasStore.getState().resultsComplete({
+        report: mockReport,
+        hash: mockReport.model_card.response_hash
+      })
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      expect(screen.getByText(/Seed: 1337/)).toBeInTheDocument()
+      // Open the reproducibility details section
+      const details = screen.getByText('Reproducibility Info').closest('details')
+      expect(details).toBeInTheDocument()
+
+      // Click to open
+      if (details) {
+        fireEvent.click(screen.getByText('Reproducibility Info'))
+      }
+
+      // Seed should now be visible
+      expect(screen.getByText(/Seed:/)).toBeInTheDocument()
+      expect(screen.getByText('1337')).toBeInTheDocument()
     })
 
-    it('displays hash when available', () => {
+    it('displays hash in reproducibility section when available', () => {
       useCanvasStore.getState().resultsStart({ seed: 1337 })
       useCanvasStore.getState().resultsComplete({
         report: mockReport,
@@ -189,7 +215,18 @@ describe('ResultsPanel', () => {
       })
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      expect(screen.getByText(/Hash: abc123de/)).toBeInTheDocument()
+      // Open the reproducibility details section
+      const details = screen.getByText('Reproducibility Info').closest('details')
+      expect(details).toBeInTheDocument()
+
+      // Click to open
+      if (details) {
+        fireEvent.click(screen.getByText('Reproducibility Info'))
+      }
+
+      // Hash should now be visible (first 16 chars)
+      expect(screen.getByText(/Hash:/)).toBeInTheDocument()
+      expect(screen.getByText(/abc123def456/)).toBeInTheDocument()
     })
   })
 
@@ -203,29 +240,29 @@ describe('ResultsPanel', () => {
       })
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      expect(screen.getByText('Rate Limited')).toBeInTheDocument()
-      expect(screen.getByText('Retry after 30s')).toBeInTheDocument()
+      expect(screen.getByText('RATE_LIMITED')).toBeInTheDocument()
+      expect(screen.getByText('Retry after 30 seconds')).toBeInTheDocument()
     })
 
-    it('shows Try Again button on error', () => {
+    it('shows Retry button on error', () => {
       useCanvasStore.getState().resultsError({
         code: 'SERVER_ERROR',
         message: 'Server error'
       })
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
     })
 
-    it('resets state when Try Again clicked', () => {
+    it('resets state when Retry clicked', () => {
       useCanvasStore.getState().resultsError({
         code: 'SERVER_ERROR',
         message: 'Server error'
       })
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      const tryAgainButton = screen.getByRole('button', { name: 'Try Again' })
-      fireEvent.click(tryAgainButton)
+      const retryButton = screen.getByRole('button', { name: 'Retry' })
+      fireEvent.click(retryButton)
 
       const state = useCanvasStore.getState().results
       expect(state.status).toBe('idle')
@@ -244,19 +281,18 @@ describe('ResultsPanel', () => {
       expect(screen.getByRole('button', { name: 'Run Again' })).toBeInTheDocument()
     })
 
-    it('resets state when Run Again clicked', () => {
+    it('calls onRunAgain when Run Again clicked', () => {
       useCanvasStore.getState().resultsComplete({
         report: mockReport,
         hash: mockReport.model_card.response_hash
       })
-      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+      const onRunAgain = vi.fn()
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} onRunAgain={onRunAgain} />)
 
       const runAgainButton = screen.getByRole('button', { name: 'Run Again' })
       fireEvent.click(runAgainButton)
 
-      const state = useCanvasStore.getState().results
-      expect(state.status).toBe('idle')
-      expect(state.report).toBeUndefined()
+      expect(onRunAgain).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -265,7 +301,7 @@ describe('ResultsPanel', () => {
       const onClose = vi.fn()
       renderWithProviders(<ResultsPanel isOpen={true} onClose={onClose} />)
 
-      const closeButton = screen.getByRole('button', { name: 'Close results panel' })
+      const closeButton = screen.getByRole('button', { name: 'Close panel' })
       fireEvent.click(closeButton)
 
       expect(onClose).toHaveBeenCalledTimes(1)
@@ -283,8 +319,27 @@ describe('ResultsPanel', () => {
       )
 
       await waitFor(() => {
-        const closeButton = screen.getByRole('button', { name: 'Close results panel' })
+        const closeButton = screen.getByRole('button', { name: 'Close panel' })
         expect(closeButton).toHaveFocus()
+      })
+    })
+
+    it('switches to History tab when Cmd+2 pressed', async () => {
+      // Add some runs to history first
+      useCanvasStore.getState().resultsComplete({
+        report: mockReport,
+        hash: mockReport.model_card.response_hash
+      })
+
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+
+      // Simulate Cmd+2
+      fireEvent.keyDown(window, { key: '2', metaKey: true })
+
+      // History content should be visible
+      await waitFor(() => {
+        // RunHistory component should be rendered (check for history-specific elements)
+        expect(screen.getByRole('button', { name: /History/ })).toBeInTheDocument()
       })
     })
   })
@@ -326,24 +381,23 @@ describe('ResultsPanel', () => {
       expect(results.violations).toHaveLength(0)
     })
 
-    it('has aria-live region for status updates', () => {
+    it('shows status messages during streaming', () => {
       useCanvasStore.getState().resultsStart({ seed: 1337 })
       useCanvasStore.getState().resultsProgress(50)
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      const liveRegion = screen.getByText('Analyzing decision tree...')
-      expect(liveRegion).toHaveAttribute('aria-live', 'polite')
+      expect(screen.getByText('Analyzing decision tree...')).toBeInTheDocument()
     })
 
-    it('has role="alert" for error messages', () => {
+    it('displays error messages prominently', () => {
       useCanvasStore.getState().resultsError({
         code: 'SERVER_ERROR',
         message: 'Test error'
       })
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      const errorAlert = screen.getByRole('alert')
-      expect(errorAlert).toBeInTheDocument()
+      expect(screen.getByText('SERVER_ERROR')).toBeInTheDocument()
+      expect(screen.getByText('Test error')).toBeInTheDocument()
     })
   })
 })

@@ -1,30 +1,43 @@
+/**
+ * ResultsPanel - Enhanced with 3-tab structure
+ *
+ * Tabs:
+ * 1. Latest Run - Shows current analysis with KPI headline, range, confidence, drivers
+ * 2. History - Shows last 20 runs with pin/delete/compare
+ * 3. Compare - Side-by-side comparison of selected runs
+ *
+ * Features:
+ * - Keyboard navigation (Cmd+1-3 to switch tabs)
+ * - Streaming progress with cancel
+ * - Error handling with retry
+ * - Auto-save runs to localStorage
+ */
+
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { X, History as HistoryIcon } from 'lucide-react'
+import { X, History as HistoryIcon, GitCompare as CompareIcon } from 'lucide-react'
 import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash } from '../store'
 import { ProgressStrip } from '../components/ProgressStrip'
-import { SummaryCard } from '../../routes/templates/components/SummaryCard'
 import { WhyPanel } from '../../routes/templates/components/WhyPanel'
-import { ReproduceShareCard } from '../../routes/templates/components/ReproduceShareCard'
 import { useLayerRegistration } from '../components/LayerProvider'
 import { DriverChips } from '../components/DriverChips'
 import { RunHistory } from '../components/RunHistory'
 import { CompareView } from '../components/CompareView'
+import { KPIHeadline } from '../components/KPIHeadline'
+import { RangeChips } from '../components/RangeChips'
+import { ConfidenceBadge } from '../components/ConfidenceBadge'
+import { ActionsRow } from '../components/ActionsRow'
 import type { StoredRun } from '../store/runHistory'
 
 interface ResultsPanelProps {
   isOpen: boolean
   onClose: () => void
   onCancel?: () => void
+  onRunAgain?: () => void
 }
 
-/**
- * Results panel for PLoT analysis
- *
- * Shows streaming progress and final report.
- * Managed by ResultsStatus state machine (idle/preparing/connecting/streaming/complete/error/cancelled).
- * Registered with LayerProvider for panel exclusivity (only one of Templates/Inspect/Results open).
- */
-export function ResultsPanel({ isOpen, onClose, onCancel }: ResultsPanelProps): JSX.Element | null {
+type TabId = 'latest' | 'history' | 'compare'
+
+export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsPanelProps): JSX.Element | null {
   const panelRef = useRef<HTMLDivElement>(null)
 
   const status = useCanvasStore(selectResultsStatus)
@@ -36,12 +49,11 @@ export function ResultsPanel({ isOpen, onClose, onCancel }: ResultsPanelProps): 
 
   const resultsReset = useCanvasStore(s => s.resultsReset)
 
-  // Tab state: 'current' (latest run) or 'history' (past runs)
-  const [activeTab, setActiveTab] = useState<'current' | 'history'>('current')
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabId>('latest')
 
   // Compare state
   const [compareRunIds, setCompareRunIds] = useState<string[]>([])
-  const [viewingRun, setViewingRun] = useState<StoredRun | null>(null)
 
   // Register with LayerProvider for panel exclusivity and Esc handling
   useLayerRegistration('results-panel', 'panel', isOpen, onClose)
@@ -54,30 +66,63 @@ export function ResultsPanel({ isOpen, onClose, onCancel }: ResultsPanelProps): 
     }
   }, [isOpen])
 
+  // Keyboard shortcuts for tab navigation
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMod = e.metaKey || e.ctrlKey
+
+      if (isMod && e.key === '1') {
+        e.preventDefault()
+        setActiveTab('latest')
+      } else if (isMod && e.key === '2') {
+        e.preventDefault()
+        setActiveTab('history')
+      } else if (isMod && e.shiftKey && e.key === 'C') {
+        e.preventDefault()
+        if (compareRunIds.length >= 2) {
+          setActiveTab('compare')
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, compareRunIds.length])
+
   const handleClose = useCallback(() => {
     onClose()
   }, [onClose])
 
   const handleReset = useCallback(() => {
     resultsReset()
-    setActiveTab('current')
+    setActiveTab('latest')
     setCompareRunIds([])
-    setViewingRun(null)
   }, [resultsReset])
-
-  const handleViewRun = useCallback((run: StoredRun) => {
-    setViewingRun(run)
-    setActiveTab('current')
-  }, [])
 
   const handleCompare = useCallback((runIds: string[]) => {
     setCompareRunIds(runIds)
-    setActiveTab('current')
+    setActiveTab('compare')
   }, [])
 
   const handleCloseCompare = useCallback(() => {
     setCompareRunIds([])
+    setActiveTab('latest')
   }, [])
+
+  const handleRunAgain = useCallback(() => {
+    if (onRunAgain) {
+      onRunAgain()
+    }
+  }, [onRunAgain])
+
+  const handleShare = useCallback(() => {
+    if (hash) {
+      navigator.clipboard.writeText(hash)
+      // TODO: Show toast notification
+    }
+  }, [hash])
 
   if (!isOpen) return null
 
@@ -100,9 +145,9 @@ export function ResultsPanel({ isOpen, onClose, onCancel }: ResultsPanelProps): 
     statusColor = 'rgba(62, 142, 237, 0.15)'
     statusTextColor = 'var(--olumi-info)'
   } else if (status === 'streaming') {
-    statusText = 'Streaming'
-    statusColor = 'rgba(62, 142, 237, 0.15)'
-    statusTextColor = 'var(--olumi-info)'
+    statusText = 'Analyzing'
+    statusColor = 'rgba(91, 108, 255, 0.15)'
+    statusTextColor = 'var(--olumi-primary)'
   } else if (status === 'complete') {
     statusText = 'Complete'
     statusColor = 'rgba(32, 201, 151, 0.15)'
@@ -119,43 +164,68 @@ export function ResultsPanel({ isOpen, onClose, onCancel }: ResultsPanelProps): 
 
   return (
     <>
-      {/* Overlay for mobile */}
+      {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 z-40 md:hidden"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 1999,
+        }}
         onClick={handleClose}
-        aria-hidden="true"
       />
 
       {/* Panel */}
       <div
         ref={panelRef}
-        role="complementary"
-        aria-label="Analysis Results"
-        className="fixed right-0 top-0 h-full w-full md:w-96 shadow-2xl z-50 flex flex-col overflow-hidden"
         style={{
-          maxWidth: '420px',
+          position: 'fixed',
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: '480px',
+          maxWidth: '100vw',
           backgroundColor: 'var(--olumi-bg)',
-          color: 'var(--olumi-text)'
+          borderLeft: '1px solid rgba(91, 108, 255, 0.2)',
+          zIndex: 2000,
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.15)',
         }}
+        role="dialog"
+        aria-label="Results Panel"
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between p-4 border-b"
           style={{
-            background: 'linear-gradient(to right, rgba(91,108,255,0.08), rgba(123,70,255,0.08))',
-            borderColor: 'rgba(91, 108, 255, 0.2)'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '1rem 1.25rem',
+            borderBottom: '1px solid rgba(91, 108, 255, 0.15)',
+            backgroundColor: 'rgba(91, 108, 255, 0.05)',
           }}
         >
-          <div className="flex items-center gap-3 flex-1">
-            <h2 className="text-lg font-semibold" style={{ color: 'var(--olumi-text)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: '1.125rem',
+                fontWeight: 600,
+                color: 'var(--olumi-text)',
+              }}
+            >
               Results
             </h2>
             {/* Status pill */}
             <div
-              className="px-2 py-1 rounded-full text-xs font-medium"
               style={{
+                padding: '0.25rem 0.625rem',
+                borderRadius: '9999px',
                 backgroundColor: statusColor,
-                color: statusTextColor
+                fontSize: '0.75rem',
+                fontWeight: 500,
+                color: statusTextColor,
               }}
             >
               {statusText}
@@ -163,310 +233,399 @@ export function ResultsPanel({ isOpen, onClose, onCancel }: ResultsPanelProps): 
           </div>
           <button
             onClick={handleClose}
-            className="p-2 rounded-md transition-colors focus:outline-none focus:ring-2"
             style={{
-              '--ring-color': 'var(--olumi-primary)'
-            } as React.CSSProperties}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(91, 108, 255, 0.15)'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            aria-label="Close results panel"
+              padding: '0.5rem',
+              border: 'none',
+              background: 'none',
+              cursor: 'pointer',
+              borderRadius: '0.375rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            aria-label="Close panel"
           >
             <X className="w-5 h-5" style={{ color: 'var(--olumi-text)' }} />
           </button>
         </div>
 
-        {/* Secondary meta: Seed • Hash */}
-        {(seed !== undefined || hash) && (
-          <div
-            className="px-4 py-2 text-xs border-b"
-            style={{
-              backgroundColor: 'rgba(91, 108, 255, 0.05)',
-              borderColor: 'rgba(91, 108, 255, 0.15)',
-              color: 'rgba(232, 236, 245, 0.7)'
-            }}
-          >
-            {seed !== undefined && <span>Seed: {seed}</span>}
-            {seed !== undefined && hash && <span className="mx-2">•</span>}
-            {hash && <span title={hash}>Hash: {hash.slice(0, 8)}...</span>}
-          </div>
-        )}
-
-        {/* Tab bar */}
+        {/* Tab Bar */}
         <div
-          className="flex border-b"
           style={{
-            borderColor: 'rgba(91, 108, 255, 0.2)'
+            display: 'flex',
+            borderBottom: '1px solid rgba(91, 108, 255, 0.2)',
+            backgroundColor: 'rgba(91, 108, 255, 0.03)',
           }}
         >
-          <button
-            onClick={() => setActiveTab('current')}
-            className="flex-1 px-4 py-2 text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: activeTab === 'current'
-                ? 'rgba(91, 108, 255, 0.1)'
-                : 'transparent',
-              color: activeTab === 'current'
-                ? 'var(--olumi-primary)'
-                : 'var(--olumi-text)',
-              borderBottom: activeTab === 'current'
-                ? '2px solid var(--olumi-primary)'
-                : '2px solid transparent'
-            }}
-          >
-            Current Run
-          </button>
-          <button
+          <Tab
+            active={activeTab === 'latest'}
+            onClick={() => setActiveTab('latest')}
+            label="Latest Run"
+            shortcut="⌘1"
+          />
+          <Tab
+            active={activeTab === 'history'}
             onClick={() => setActiveTab('history')}
-            className="flex-1 px-4 py-2 text-sm font-medium transition-colors flex items-center justify-center gap-2"
-            style={{
-              backgroundColor: activeTab === 'history'
-                ? 'rgba(91, 108, 255, 0.1)'
-                : 'transparent',
-              color: activeTab === 'history'
-                ? 'var(--olumi-primary)'
-                : 'var(--olumi-text)',
-              borderBottom: activeTab === 'history'
-                ? '2px solid var(--olumi-primary)'
-                : '2px solid transparent'
-            }}
-          >
-            <HistoryIcon className="w-4 h-4" />
-            History
-          </button>
+            label="History"
+            icon={<HistoryIcon className="w-4 h-4" />}
+            shortcut="⌘2"
+          />
+          <Tab
+            active={activeTab === 'compare'}
+            onClick={() => setActiveTab('compare')}
+            label="Compare"
+            icon={<CompareIcon className="w-4 h-4" />}
+            shortcut="⌘⇧C"
+            disabled={compareRunIds.length < 2}
+            badge={compareRunIds.length >= 2 ? String(compareRunIds.length) : undefined}
+          />
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Latest Run Tab */}
+          {activeTab === 'latest' && (
+            <>
+              {/* Streaming state */}
+              {isLoading && (
+                <>
+                  <ProgressStrip
+                    isVisible={true}
+                    progress={progress}
+                    message={
+                      status === 'preparing' ? 'Preparing analysis...' :
+                      status === 'connecting' ? 'Connecting to service...' :
+                      'Analyzing decision tree...'
+                    }
+                    canCancel={status === 'streaming'}
+                    onCancel={() => {
+                      if (onCancel) {
+                        onCancel()
+                      } else {
+                        useCanvasStore.getState().resultsCancelled()
+                      }
+                    }}
+                  />
+                  {/* Optional live log region */}
+                  <div
+                    className="text-sm p-3 rounded border"
+                    style={{
+                      backgroundColor: 'rgba(91, 108, 255, 0.05)',
+                      borderColor: 'rgba(91, 108, 255, 0.15)',
+                      color: 'rgba(232, 236, 245, 0.7)',
+                    }}
+                  >
+                    {status === 'preparing' && <div>→ Validating graph structure...</div>}
+                    {status === 'connecting' && <div>→ Establishing connection...</div>}
+                    {status === 'streaming' && progress > 0 && <div>→ Processing nodes ({Math.round(progress)}% complete)...</div>}
+                  </div>
+                </>
+              )}
+
+              {/* Complete */}
+              {isComplete && report && (
+                <div className="space-y-6">
+                  {/* KPI Headline */}
+                  <KPIHeadline
+                    value={report.results.likely}
+                    label="Most Likely Outcome"
+                    units={report.results.units}
+                    unitSymbol={report.results.unitSymbol}
+                  />
+
+                  {/* Range Chips */}
+                  <RangeChips
+                    conservative={report.results.conservative}
+                    likely={report.results.likely}
+                    optimistic={report.results.optimistic}
+                    units={report.results.units}
+                    unitSymbol={report.results.unitSymbol}
+                  />
+
+                  {/* Confidence Badge */}
+                  <ConfidenceBadge
+                    level={report.confidence.level}
+                    reason={report.confidence.why}
+                  />
+
+                  {/* Drivers */}
+                  {report.drivers && report.drivers.length > 0 && (
+                    <div>
+                      <h3
+                        style={{
+                          fontSize: '0.875rem',
+                          fontWeight: 600,
+                          color: 'var(--olumi-text)',
+                          marginBottom: '0.75rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                        }}
+                      >
+                        Key Drivers
+                      </h3>
+                      <DriverChips drivers={report.drivers} />
+                    </div>
+                  )}
+
+                  {/* Recommendations */}
+                  <WhyPanel report={report} />
+
+                  {/* Actions Row */}
+                  <ActionsRow
+                    onRunAgain={handleRunAgain}
+                    onCompare={() => setActiveTab('history')}
+                    onShare={handleShare}
+                  />
+
+                  {/* Reproducibility (collapsed metadata) */}
+                  {(seed !== undefined || hash) && (
+                    <details
+                      style={{
+                        padding: '0.75rem',
+                        borderRadius: '0.375rem',
+                        border: '1px solid rgba(91, 108, 255, 0.15)',
+                        backgroundColor: 'rgba(91, 108, 255, 0.03)',
+                      }}
+                    >
+                      <summary
+                        style={{
+                          cursor: 'pointer',
+                          fontSize: '0.75rem',
+                          fontWeight: 500,
+                          color: 'rgba(232, 236, 245, 0.6)',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                        }}
+                      >
+                        Reproducibility Info
+                      </summary>
+                      <div
+                        style={{
+                          marginTop: '0.75rem',
+                          fontSize: '0.8125rem',
+                          color: 'rgba(232, 236, 245, 0.7)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.5rem',
+                        }}
+                      >
+                        {seed !== undefined && (
+                          <div>
+                            <span style={{ color: 'rgba(232, 236, 245, 0.5)' }}>Seed:</span>{' '}
+                            <code style={{ fontFamily: 'monospace' }}>{seed}</code>
+                          </div>
+                        )}
+                        {hash && (
+                          <div>
+                            <span style={{ color: 'rgba(232, 236, 245, 0.5)' }}>Hash:</span>{' '}
+                            <code style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                              {hash.slice(0, 16)}...
+                            </code>
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(hash)
+                              }}
+                              style={{
+                                marginLeft: '0.5rem',
+                                padding: '0.125rem 0.375rem',
+                                fontSize: '0.6875rem',
+                                borderRadius: '0.25rem',
+                                border: '1px solid rgba(91, 108, 255, 0.3)',
+                                backgroundColor: 'rgba(91, 108, 255, 0.1)',
+                                color: 'var(--olumi-primary)',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Copy
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              )}
+
+              {/* Error */}
+              {isError && error && (
+                <div
+                  className="p-4 rounded-lg border"
+                  style={{
+                    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                    borderColor: 'rgba(255, 107, 107, 0.3)',
+                  }}
+                >
+                  <h3
+                    style={{
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      color: 'var(--olumi-danger)',
+                      marginBottom: '0.5rem',
+                    }}
+                  >
+                    {error.code}
+                  </h3>
+                  <p style={{ fontSize: '0.875rem', color: 'rgba(232, 236, 245, 0.8)', marginBottom: '0.75rem' }}>
+                    {error.message}
+                  </p>
+                  {error.retryAfter && (
+                    <p style={{ fontSize: '0.75rem', color: 'rgba(232, 236, 245, 0.6)' }}>
+                      Retry after {error.retryAfter} seconds
+                    </p>
+                  )}
+                  <button
+                    onClick={handleReset}
+                    style={{
+                      marginTop: '0.75rem',
+                      padding: '0.5rem 1rem',
+                      fontSize: '0.875rem',
+                      borderRadius: '0.375rem',
+                      border: 'none',
+                      backgroundColor: 'var(--olumi-danger)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                    }}
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {/* Cancelled */}
+              {isCancelled && (
+                <div
+                  className="p-4 rounded-lg border text-center"
+                  style={{
+                    backgroundColor: 'rgba(247, 201, 72, 0.1)',
+                    borderColor: 'rgba(247, 201, 72, 0.3)',
+                  }}
+                >
+                  <p style={{ fontSize: '0.875rem', color: 'var(--olumi-warning)', marginBottom: '0.75rem' }}>
+                    Analysis cancelled
+                  </p>
+                  <button
+                    onClick={handleReset}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      fontSize: '0.875rem',
+                      borderRadius: '0.375rem',
+                      border: 'none',
+                      backgroundColor: 'var(--olumi-primary)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                    }}
+                  >
+                    Start New Run
+                  </button>
+                </div>
+              )}
+
+              {/* Idle state */}
+              {status === 'idle' && (
+                <div className="text-center py-12">
+                  <h3 style={{
+                    fontSize: '1.125rem',
+                    fontWeight: 600,
+                    color: 'var(--olumi-text)',
+                    marginBottom: '0.75rem'
+                  }}>
+                    Ready to analyze
+                  </h3>
+                  <p className="text-sm" style={{ color: 'rgba(232, 236, 245, 0.6)' }}>
+                    Click "Run Analysis" to start analyzing your decision tree.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+
           {/* History Tab */}
           {activeTab === 'history' && (
             <RunHistory
-              onViewRun={handleViewRun}
+              onViewRun={(run) => {
+                // TODO: Load historical run into Latest tab
+                setActiveTab('latest')
+              }}
               onCompare={handleCompare}
             />
           )}
 
-          {/* Current Tab */}
-          {activeTab === 'current' && (
-            <>
-              {/* Compare View */}
-              {compareRunIds.length >= 2 && (
-                <CompareView
-                  runIds={compareRunIds}
-                  onClose={handleCloseCompare}
-                />
-              )}
-
-              {/* Viewing historical run */}
-              {viewingRun && !compareRunIds.length && (
-                <div
-                  className="p-4 rounded-lg border mb-4"
-                  style={{
-                    backgroundColor: 'rgba(91, 108, 255, 0.05)',
-                    borderColor: 'rgba(91, 108, 255, 0.2)'
-                  }}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-sm font-semibold" style={{ color: 'var(--olumi-text)' }}>
-                      Viewing Historical Run
-                    </h3>
-                    <button
-                      onClick={() => setViewingRun(null)}
-                      className="text-xs px-2 py-1 rounded"
-                      style={{
-                        backgroundColor: 'rgba(91, 108, 255, 0.1)',
-                        color: 'var(--olumi-primary)'
-                      }}
-                    >
-                      Back to Current
-                    </button>
-                  </div>
-                  <div className="text-xs" style={{ color: 'rgba(232, 236, 245, 0.7)' }}>
-                    Seed: {viewingRun.seed} • Hash: {viewingRun.hash?.slice(0, 8) || 'N/A'}
-                  </div>
-                </div>
-              )}
-
-              {/* Streaming state */}
-              {isLoading && !compareRunIds.length && !viewingRun && (
-            <>
-              <ProgressStrip
-                isVisible={true}
-                progress={progress}
-                message={
-                  status === 'preparing' ? 'Preparing analysis...' :
-                  status === 'connecting' ? 'Connecting to service...' :
-                  'Analyzing decision tree...'
-                }
-                canCancel={status === 'streaming'}
-                onCancel={() => {
-                  if (onCancel) {
-                    onCancel()
-                  } else {
-                    // Fallback: just mark as cancelled in store
-                    useCanvasStore.getState().resultsCancelled()
-                  }
-                }}
-              />
-              {/* Optional live log region */}
-              <div
-                className="text-sm p-3 rounded border"
-                style={{
-                  backgroundColor: 'rgba(91, 108, 255, 0.05)',
-                  borderColor: 'rgba(91, 108, 255, 0.2)',
-                  color: 'rgba(232, 236, 245, 0.6)'
-                }}
-                aria-live="polite"
-                aria-atomic="false"
-              >
-                <div className="font-mono text-xs space-y-1">
-                  {status === 'preparing' && <div>→ Validating graph structure...</div>}
-                  {status === 'connecting' && <div>→ Establishing connection...</div>}
-                  {status === 'streaming' && progress > 0 && <div>→ Processing nodes ({Math.round(progress)}% complete)...</div>}
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Complete */}
-          {isComplete && report && !compareRunIds.length && !viewingRun && (
-            <div className="space-y-4">
-              <SummaryCard
-                report={report}
-                onCopyHash={() => {
-                  if (hash) {
-                    navigator.clipboard.writeText(hash)
-                  }
-                }}
-              />
-              <WhyPanel report={report} />
-
-              {/* Interactive driver chips */}
-              {report.drivers && report.drivers.length > 0 && (
-                <DriverChips drivers={report.drivers} />
-              )}
-
-              <ReproduceShareCard
-                report={report}
-                template={{
-                  id: 'canvas',
-                  name: 'Canvas Analysis',
-                  version: '1.0',
-                  description: 'Custom decision tree',
-                  default_seed: seed ?? 1337,
-                  graph: {}
-                }}
-                seed={seed ?? 1337}
-                onCopySeed={() => {
-                  if (seed !== undefined) {
-                    navigator.clipboard.writeText(String(seed))
-                  }
-                }}
-                onCopyHash={() => {
-                  if (hash) {
-                    navigator.clipboard.writeText(hash)
-                  }
-                }}
-                onAddToNote={() => {
-                  // TODO: Implement
-                }}
-              />
-
-              {/* CTAs */}
-              <div className="flex gap-2">
-                <button
-                  onClick={handleReset}
-                  className="flex-1 px-4 py-2 text-sm rounded-md border transition-colors focus:outline-none focus:ring-2"
-                  style={{
-                    borderColor: 'rgba(91, 108, 255, 0.3)',
-                    color: 'var(--olumi-text)',
-                    '--ring-color': 'var(--olumi-primary)'
-                  } as React.CSSProperties}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(91, 108, 255, 0.1)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                >
-                  Run Again
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Error */}
-          {isError && error && !compareRunIds.length && !viewingRun && (
-            <div
-              className="p-4 rounded-lg border"
-              style={{
-                backgroundColor: 'rgba(255, 107, 107, 0.1)',
-                borderColor: 'rgba(255, 107, 107, 0.3)'
-              }}
-              role="alert"
-            >
-              <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--olumi-danger)' }}>
-                {error.code === 'RATE_LIMITED' ? 'Rate Limited' : 'Something went wrong'}
-              </h3>
-              <p className="text-sm mb-3" style={{ color: 'var(--olumi-text)' }}>
-                {error.message}
-              </p>
-              {error.retryAfter && (
-                <p className="text-xs mb-3" style={{ color: 'rgba(232, 236, 245, 0.7)' }}>
-                  Retry after {error.retryAfter}s
-                </p>
-              )}
-              <button
-                onClick={handleReset}
-                className="px-4 py-2 text-sm rounded-md focus:outline-none focus:ring-2"
-                style={{
-                  backgroundColor: 'var(--olumi-primary)',
-                  color: 'white',
-                  '--ring-color': 'var(--olumi-primary)'
-                } as React.CSSProperties}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary-600)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary)'}
-              >
-                Try Again
-              </button>
-            </div>
-          )}
-
-          {/* Cancelled */}
-          {isCancelled && !compareRunIds.length && !viewingRun && (
-            <div
-              className="p-4 rounded-lg border text-center"
-              style={{
-                backgroundColor: 'rgba(247, 201, 72, 0.1)',
-                borderColor: 'rgba(247, 201, 72, 0.3)'
-              }}
-            >
-              <p className="text-sm mb-3" style={{ color: 'var(--olumi-text)' }}>
-                Run cancelled.
-              </p>
-              <button
-                onClick={handleReset}
-                className="px-4 py-2 text-sm rounded-md focus:outline-none focus:ring-2"
-                style={{
-                  backgroundColor: 'var(--olumi-primary)',
-                  color: 'white',
-                  '--ring-color': 'var(--olumi-primary)'
-                } as React.CSSProperties}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary-600)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary)'}
-              >
-                Run Again
-              </button>
-            </div>
-          )}
-
-          {/* Idle state */}
-          {status === 'idle' && !compareRunIds.length && !viewingRun && (
-            <div className="text-center py-8">
-              <p className="text-sm" style={{ color: 'rgba(232, 236, 245, 0.6)' }}>
-                No analysis running.
-              </p>
-            </div>
-          )}
-            </>
+          {/* Compare Tab */}
+          {activeTab === 'compare' && compareRunIds.length >= 2 && (
+            <CompareView
+              runIds={compareRunIds}
+              onClose={handleCloseCompare}
+            />
           )}
         </div>
       </div>
     </>
+  )
+}
+
+interface TabProps {
+  active: boolean
+  onClick: () => void
+  label: string
+  icon?: React.ReactNode
+  shortcut?: string
+  disabled?: boolean
+  badge?: string
+}
+
+function Tab({ active, onClick, label, icon, shortcut, disabled = false, badge }: TabProps) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        flex: '1 1 0',
+        padding: '0.75rem 1rem',
+        border: 'none',
+        backgroundColor: active ? 'rgba(91, 108, 255, 0.1)' : 'transparent',
+        color: active ? 'var(--olumi-primary)' : disabled ? 'rgba(232, 236, 245, 0.3)' : 'var(--olumi-text)',
+        borderBottom: active ? '2px solid var(--olumi-primary)' : '2px solid transparent',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        fontSize: '0.875rem',
+        fontWeight: 500,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '0.375rem',
+        transition: 'all 0.2s ease',
+        opacity: disabled ? 0.5 : 1,
+        position: 'relative',
+      }}
+    >
+      {icon}
+      {label}
+      {badge && (
+        <span
+          style={{
+            padding: '0.125rem 0.375rem',
+            borderRadius: '9999px',
+            backgroundColor: 'var(--olumi-primary)',
+            color: 'white',
+            fontSize: '0.6875rem',
+            fontWeight: 600,
+          }}
+        >
+          {badge}
+        </span>
+      )}
+      {shortcut && !active && (
+        <span
+          style={{
+            fontSize: '0.6875rem',
+            color: 'rgba(232, 236, 245, 0.4)',
+            marginLeft: '0.25rem',
+          }}
+        >
+          {shortcut}
+        </span>
+      )}
+    </button>
   )
 }
