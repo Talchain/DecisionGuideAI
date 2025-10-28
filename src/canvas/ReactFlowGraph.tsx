@@ -30,6 +30,8 @@ import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
 import { ResultsPanel } from './panels/ResultsPanel'
 import { useResultsRun } from './hooks/useResultsRun'
+import { HighlightLayer } from './highlight/HighlightLayer'
+import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
 
 interface ReactFlowGraphProps {
   blueprintEventBus?: {
@@ -83,7 +85,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     onCanvasInteraction?.()
   }, [onCanvasInteraction])
 
-  // Focus node handler (for Alt+V validation cycling)
+  // Focus node handler (for Alt+V validation cycling and Results panel drivers)
   const handleFocusNode = useCallback((nodeId: string) => {
     const store = useCanvasStore.getState()
     const targetNode = store.nodes.find(n => n.id === nodeId)
@@ -100,6 +102,45 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       duration: 300
     })
   }, [getViewport, setCenter])
+
+  // Focus edge handler (for Results panel drivers)
+  const handleFocusEdge = useCallback((edgeId: string) => {
+    const store = useCanvasStore.getState()
+    const targetEdge = store.edges.find(e => e.id === edgeId)
+
+    if (!targetEdge) return
+
+    // Find source and target nodes
+    const sourceNode = store.nodes.find(n => n.id === targetEdge.source)
+    const targetNode = store.nodes.find(n => n.id === targetEdge.target)
+
+    if (!sourceNode || !targetNode) return
+
+    // Calculate midpoint between source and target
+    const midX = (sourceNode.position.x + targetNode.position.x) / 2
+    const midY = (sourceNode.position.y + targetNode.position.y) / 2
+
+    // Select edge (not in history, just for visual feedback)
+    useCanvasStore.setState({
+      edges: store.edges.map(e => ({
+        ...e,
+        selected: e.id === edgeId
+      }))
+    })
+
+    // Center viewport on edge midpoint with smooth animation
+    const viewport = getViewport()
+    setCenter(midX, midY, {
+      zoom: viewport.zoom,
+      duration: 300
+    })
+  }, [getViewport, setCenter])
+
+  // Register focus helpers for external use (Results panel)
+  useEffect(() => {
+    registerFocusHelpers(handleFocusNode, handleFocusEdge)
+    return () => unregisterFocusHelpers()
+  }, [handleFocusNode, handleFocusEdge])
 
   // Run simulation handler with validation gating
   const handleRunSimulation = useCallback(async () => {
@@ -364,7 +405,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           </defs>
         </svg>
       </ReactFlow>
-      
+
+      {/* Highlight layer for Results panel drivers */}
+      <HighlightLayer isResultsOpen={showResultsPanel} />
+
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
       {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
       {reconnecting && <ReconnectBanner />}
