@@ -25,14 +25,13 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   const [blueprints, setBlueprints] = useState<Array<{ id: string; name: string; description: string }>>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedBlueprintId, setSelectedBlueprintId] = useState<string | null>(null)
+  const [selectedBlueprint, setSelectedBlueprint] = useState<Blueprint | null>(null)
   const [showDevControls, setShowDevControls] = useState(false)
   const [seed, setSeed] = useState<string>('1337')
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
   const { loading, progress, canCancel, result, error, run, cancel, clearError } = useTemplatesRun()
-
-  const selectedBlueprint = selectedBlueprintId ? getBlueprintById(selectedBlueprintId) : null
 
   // Load templates from adapter (supports both mock and httpv1)
   useEffect(() => {
@@ -70,12 +69,30 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     }
   }, [isOpen])
 
-  const handleInsert = useCallback((templateId: string) => {
-    const blueprint = getBlueprintById(templateId)
-    if (blueprint && onInsertBlueprint) {
-      onInsertBlueprint(blueprint)
-      setSelectedBlueprintId(templateId)
-      showToast('Inserted to canvas.')
+  const handleInsert = useCallback(async (templateId: string) => {
+    try {
+      // Fetch template from API (works for both mock and httpv1)
+      const templateDetail = await plot.template(templateId)
+
+      // Convert to Blueprint format for canvas insertion
+      const blueprint: Blueprint = {
+        id: templateDetail.id,
+        name: templateDetail.name,
+        description: templateDetail.description,
+        version: templateDetail.version,
+        graph: templateDetail.graph,
+      }
+
+      if (onInsertBlueprint) {
+        onInsertBlueprint(blueprint)
+        setSelectedBlueprintId(templateId)
+        setSelectedBlueprint(blueprint)
+        setSeed(String(templateDetail.default_seed))
+        showToast('Inserted to canvas.')
+      }
+    } catch (err) {
+      console.error('Failed to load template:', err)
+      showToast('Failed to load template.')
     }
   }, [onInsertBlueprint])
 
@@ -93,6 +110,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     clearError()
     setSeed('1337')
     setSelectedBlueprintId(null)
+    setSelectedBlueprint(null)
   }, [clearError])
 
   const showToast = useCallback((msg: string) => {
@@ -204,7 +222,10 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
               <TemplateAbout blueprint={selectedBlueprint} />
 
               <button
-                onClick={() => setSelectedBlueprintId(null)}
+                onClick={() => {
+                  setSelectedBlueprintId(null)
+                  setSelectedBlueprint(null)
+                }}
                 className="text-sm font-medium"
                 style={{ color: 'var(--olumi-primary)' }}
                 onMouseEnter={(e) => e.currentTarget.style.color = 'var(--olumi-primary-700)'}
