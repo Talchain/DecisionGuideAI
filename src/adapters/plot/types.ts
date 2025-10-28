@@ -28,6 +28,7 @@ export interface ReportV1 {
     polarity: 'up' | 'down' | 'neutral'
     strength: 'low' | 'medium' | 'high'
     action?: string
+    kind?: 'node' | 'edge' // Driver type for canvas highlighting
     node_id?: string // For canvas highlighting
     edge_id?: string // For canvas highlighting
   }>

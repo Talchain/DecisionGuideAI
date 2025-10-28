@@ -72,7 +72,8 @@ function mapV1ResultToReport(
     label: d.label || d.node_id || d.edge_id || 'Unknown',
     polarity: (d.impact || 0) > 0 ? 'up' : (d.impact || 0) < 0 ? 'down' : 'neutral',
     strength: Math.abs(d.impact || 0) > 0.7 ? 'high' : Math.abs(d.impact || 0) > 0.3 ? 'medium' : 'low',
-    // Preserve IDs for canvas highlighting
+    // Preserve metadata for canvas highlighting
+    kind: d.kind, // 'node' or 'edge'
     node_id: d.node_id,
     edge_id: d.edge_id,
   }))

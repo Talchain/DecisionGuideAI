@@ -11,6 +11,7 @@ import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
 import type { ReportV1, ErrorV1 } from '../adapters/plot/types'
 import { addRun, generateGraphHash, type StoredRun } from './store/runHistory'
+import { adapterName, getAdapterMode } from '../adapters/plot'
 
 // Results panel state machine
 export type ResultsStatus = 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'
@@ -830,7 +831,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }))
   },
 
-  resultsComplete: ({ report, hash, drivers }) => {
+  resultsComplete: async ({ report, hash, drivers }) => {
     const { nodes, edges, results } = get()
 
     set(s => ({
@@ -850,12 +851,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     if (report && results.seed !== undefined) {
       const graphHash = generateGraphHash(nodes, edges, results.seed)
 
+      // Get actual adapter mode (httpv1 or mock) for auto mode
+      const actualAdapter = adapterName === 'auto'
+        ? await getAdapterMode()
+        : adapterName
+
       const storedRun: StoredRun = {
         id: results.runId || crypto.randomUUID(),
         ts: Date.now(),
         seed: results.seed,
         hash,
-        adapter: 'auto', // TODO: Track actual adapter used
+        adapter: actualAdapter, // Actual adapter used (httpv1, mock, auto)
         summary: report.summary || '',
         graphHash,
         report,

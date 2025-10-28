@@ -1,51 +1,144 @@
 /**
- * Map React Flow graph to PLoT v1 request format
+ * Graph Shape Mapper
+ *
+ * Converts between UI (React Flow) and API (PLoT v1) graph formats.
+ *
+ * CRITICAL RULES:
+ * 1. API edges use {from, to} - never send {source, target}
+ * 2. API edges never include id field
+ * 3. API edges never include data.confidence - only weight
+ * 4. Weights are 0..1 (normalize if needed, preserve sign)
+ * 5. Templates from /v1/templates/{id}/graph are already API shape - pass through
  */
 
+import type { UiGraph, ApiGraph, ApiNode, ApiEdge } from '../../../types/plot'
 import type { V1RunRequest } from './types'
 import { V1_LIMITS } from './types'
 
-export interface ReactFlowNode {
-  id: string
-  data?: {
-    label?: string
-    body?: string
-    [key: string]: unknown
-  }
-  [key: string]: unknown
-}
-
-export interface ReactFlowEdge {
-  id: string
-  source: string
-  target: string
-  data?: {
-    confidence?: number
-    weight?: number
-    [key: string]: unknown
-  }
-  [key: string]: unknown
-}
+// ============================================================================
+// Legacy Types (for backward compatibility)
+// ============================================================================
 
 export interface ReactFlowGraph {
-  nodes: ReactFlowNode[]
-  edges: ReactFlowEdge[]
+  nodes: Array<{
+    id: string
+    data?: {
+      label?: string
+      body?: string
+      [key: string]: any
+    }
+  }>
+  edges: Array<{
+    id: string
+    source: string
+    target: string
+    data?: {
+      confidence?: number
+      weight?: number
+      [key: string]: any
+    }
+  }>
+}
+
+// ============================================================================
+// New Clean API (recommended)
+// ============================================================================
+
+/**
+ * Type guard: check if graph is already in API shape
+ */
+export function isApiGraph(g: any): g is ApiGraph {
+  if (!g || !Array.isArray(g.nodes) || !Array.isArray(g.edges)) {
+    return false
+  }
+
+  // API edges have 'from' field, UI edges have 'source'
+  if (g.edges.length > 0) {
+    const firstEdge = g.edges[0]
+    return 'from' in firstEdge && !('source' in firstEdge)
+  }
+
+  // Empty edges array - check nodes structure
+  return true
 }
 
 /**
- * Validation error
+ * Convert UI graph to API graph
+ *
+ * Maps:
+ * - nodes: Extract id and label (prefer explicit node.label over node.data.label)
+ * - edges: Convert source/target → from/to, extract weight, drop confidence
  */
-export interface ValidationError {
-  code: 'LIMIT_EXCEEDED' | 'BAD_INPUT'
+export function toApiGraph(ui: UiGraph): ApiGraph {
+  const nodes: ApiNode[] = ui.nodes.map(n => {
+    const node: ApiNode = { id: n.id }
+
+    // Prefer explicit label field, fall back to data.label
+    const label = n.label ?? n.data?.label
+    if (label) {
+      node.label = label
+    }
+
+    return node
+  })
+
+  const edges: ApiEdge[] = ui.edges.map(e => {
+    const edge: ApiEdge = {
+      from: e.source,
+      to: e.target,
+    }
+
+    // Add optional fields only if present
+    if (e.data?.label) {
+      edge.label = e.data.label
+    }
+
+    // Weight: prefer explicit weight, fall back to confidence
+    // Normalize if needed (0..100 → 0..1), preserve sign
+    const rawWeight = e.data?.weight ?? e.data?.confidence
+    if (rawWeight != null) {
+      edge.weight = normalizeWeight(rawWeight)
+    }
+
+    return edge
+  })
+
+  return { nodes, edges }
+}
+
+/**
+ * Normalize weight to 0..1 range
+ *
+ * - If already in range (-1..1), pass through
+ * - If looks like percentage (>1 or <-1), divide by 100
+ * - Preserve sign (allow negative weights for directionality)
+ * - Undefined stays undefined
+ */
+function normalizeWeight(v: number | undefined): number | undefined {
+  if (v == null) return undefined
+
+  // Already normalized
+  if (Math.abs(v) <= 1) {
+    return v
+  }
+
+  // Looks like percentage - normalize
+  return v / 100
+}
+
+// ============================================================================
+// Legacy API (for backward compatibility - will be deprecated)
+// ============================================================================
+
+/**
+ * @deprecated Use toApiGraph instead
+ */
+export function validateGraphLimits(graph: ReactFlowGraph): {
+  code: string
   message: string
   field?: string
   max?: number
-}
-
-/**
- * Validate graph against v1 limits
- */
-export function validateGraphLimits(graph: ReactFlowGraph): ValidationError | null {
+} | null {
   if (graph.nodes.length > V1_LIMITS.MAX_NODES) {
     return {
       code: 'LIMIT_EXCEEDED',
@@ -64,12 +157,9 @@ export function validateGraphLimits(graph: ReactFlowGraph): ValidationError | nu
     }
   }
 
-  // Validate label/body lengths
   for (const node of graph.nodes) {
-    const label = node.data?.label || ''
-    const body = node.data?.body || ''
-
-    if (label.length > V1_LIMITS.MAX_LABEL_LENGTH) {
+    const label = node.data?.label
+    if (label && label.length > V1_LIMITS.MAX_LABEL_LENGTH) {
       return {
         code: 'BAD_INPUT',
         message: `Node ${node.id} label exceeds ${V1_LIMITS.MAX_LABEL_LENGTH} characters`,
@@ -78,7 +168,8 @@ export function validateGraphLimits(graph: ReactFlowGraph): ValidationError | nu
       }
     }
 
-    if (body.length > V1_LIMITS.MAX_BODY_LENGTH) {
+    const body = node.data?.body
+    if (body && body.length > V1_LIMITS.MAX_BODY_LENGTH) {
       return {
         code: 'BAD_INPUT',
         message: `Node ${node.id} body exceeds ${V1_LIMITS.MAX_BODY_LENGTH} characters`,
@@ -88,52 +179,13 @@ export function validateGraphLimits(graph: ReactFlowGraph): ValidationError | nu
     }
   }
 
-  // Validate outgoing connector totals ≈100% ±1%
-  for (const node of graph.nodes) {
-    const outgoingEdges = graph.edges.filter(e => e.source === node.id)
-
-    // Skip nodes with no outgoing edges (leaf nodes)
-    if (outgoingEdges.length === 0) continue
-
-    // Calculate total confidence from outgoing edges
-    let total = 0
-    for (const edge of outgoingEdges) {
-      const conf = edge.data?.confidence
-      if (conf === undefined) {
-        // If any outgoing edge lacks confidence, skip validation
-        // (backend will handle defaults)
-        total = -1
-        break
-      }
-      // Normalize: if > 1, assume it's a percentage
-      total += conf > 1 ? conf / 100 : conf
-    }
-
-    // Only validate if all edges have confidence values
-    if (total >= 0) {
-      const tolerance = 0.01 // ±1%
-      if (Math.abs(total - 1.0) > tolerance) {
-        return {
-          code: 'BAD_INPUT',
-          message: `Node "${node.data?.label || node.id}" outgoing probabilities sum to ${(total * 100).toFixed(1)}%, must be 100% ±1%`,
-          field: 'confidence',
-        }
-      }
-    }
-  }
-
   return null
 }
 
 /**
- * Convert React Flow graph to V1 request format
- * Enforces limits and normalizes confidence to 0..1
+ * @deprecated Use toApiGraph + manual request building instead
  */
-export function graphToV1Request(
-  graph: ReactFlowGraph,
-  seed?: number
-): V1RunRequest {
-  // Validate limits first
+export function graphToV1Request(graph: ReactFlowGraph, seed?: number): V1RunRequest {
   const error = validateGraphLimits(graph)
   if (error) {
     throw error
@@ -141,24 +193,24 @@ export function graphToV1Request(
 
   return {
     graph: {
-      nodes: graph.nodes.map((n) => ({
+      nodes: graph.nodes.map(n => ({
         id: n.id,
-        label: n.data?.label?.substring(0, V1_LIMITS.MAX_LABEL_LENGTH),
-        body: n.data?.body?.substring(0, V1_LIMITS.MAX_BODY_LENGTH),
+        label: n.data?.label,
+        body: n.data?.body,
       })),
-      edges: graph.edges.map((e) => {
+      edges: graph.edges.map(e => {
         const edge: any = {
           from: e.source,
           to: e.target,
         }
 
-        // Normalize confidence: if > 1, assume it's a percentage
-        if (e.data?.confidence !== undefined) {
-          const conf = e.data.confidence
-          edge.confidence = conf > 1 ? conf / 100 : conf
+        // Normalize confidence if present
+        if (e.data?.confidence != null) {
+          edge.confidence = normalizeWeight(e.data.confidence)
         }
 
-        if (e.data?.weight !== undefined) {
+        // Include weight if present
+        if (e.data?.weight != null) {
           edge.weight = e.data.weight
         }
 
@@ -170,34 +222,34 @@ export function graphToV1Request(
 }
 
 /**
- * Compute deterministic client hash for idempotency
- * Includes ALL fields that affect server behavior
+ * @deprecated Response hash from server is preferred
  */
 export function computeClientHash(graph: ReactFlowGraph, seed?: number): string {
-  const canonical = JSON.stringify({
-    nodes: graph.nodes
-      .map((n) => ({
-        id: n.id,
-        label: n.data?.label,
-        body: n.data?.body, // Include body - affects server computation
-      }))
-      .sort((a, b) => a.id.localeCompare(b.id)),
-    edges: graph.edges
-      .map((e) => ({
-        from: e.source,
-        to: e.target,
-        conf: e.data?.confidence,
-        weight: e.data?.weight, // Include weight - affects server computation
-      }))
-      .sort((a, b) => `${a.from}-${a.to}`.localeCompare(`${b.from}-${b.to}`)),
-    seed: seed || 0,
+  // Create deterministic string representation
+  const sortedNodes = [...graph.nodes].sort((a, b) => a.id.localeCompare(b.id))
+  const sortedEdges = [...graph.edges].sort((a, b) => {
+    const cmp = a.source.localeCompare(b.source)
+    return cmp !== 0 ? cmp : a.target.localeCompare(b.target)
   })
 
-  // Simple hash (djb2)
-  let hash = 5381
-  for (let i = 0; i < canonical.length; i++) {
-    hash = ((hash << 5) + hash) + canonical.charCodeAt(i)
+  const str = JSON.stringify({
+    nodes: sortedNodes.map(n => ({ id: n.id, label: n.data?.label, body: n.data?.body })),
+    edges: sortedEdges.map(e => ({
+      from: e.source,
+      to: e.target,
+      weight: e.data?.weight,
+      confidence: e.data?.confidence,
+    })),
+    seed,
+  })
+
+  // Simple hash function (not cryptographic, just for cache keys)
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i)
+    hash = (hash << 5) - hash + char
+    hash = hash & hash // Convert to 32bit integer
   }
 
-  return (hash >>> 0).toString(16)
+  return Math.abs(hash).toString(16)
 }
