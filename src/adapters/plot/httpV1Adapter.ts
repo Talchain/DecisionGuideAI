@@ -226,6 +226,7 @@ export const httpV1Adapter = {
   // SSE streaming
   stream: {
     run(input: RunRequest, handlers: {
+      onHello?: (data: { response_id: string }) => void
       onTick?: (data: { index: number }) => void
       onDone?: (data: { response_id: string; report: ReportV1 }) => void
       onError?: (error: ErrorV1) => void
@@ -250,6 +251,7 @@ export const httpV1Adapter = {
             const v1Handlers: V1StreamHandlers = {
               onStarted: (data) => {
                 runId = data.run_id
+                handlers.onHello?.({ response_id: data.run_id })
               },
               onProgress: (data) => {
                 // Map to tick for UI compat

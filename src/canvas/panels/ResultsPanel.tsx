@@ -14,6 +14,7 @@ import type { StoredRun } from '../store/runHistory'
 interface ResultsPanelProps {
   isOpen: boolean
   onClose: () => void
+  onCancel?: () => void
 }
 
 /**
@@ -23,7 +24,7 @@ interface ResultsPanelProps {
  * Managed by ResultsStatus state machine (idle/preparing/connecting/streaming/complete/error/cancelled).
  * Registered with LayerProvider for panel exclusivity (only one of Templates/Inspect/Results open).
  */
-export function ResultsPanel({ isOpen, onClose }: ResultsPanelProps): JSX.Element | null {
+export function ResultsPanel({ isOpen, onClose, onCancel }: ResultsPanelProps): JSX.Element | null {
   const panelRef = useRef<HTMLDivElement>(null)
 
   const status = useCanvasStore(selectResultsStatus)
@@ -298,8 +299,12 @@ export function ResultsPanel({ isOpen, onClose }: ResultsPanelProps): JSX.Elemen
                 }
                 canCancel={status === 'streaming'}
                 onCancel={() => {
-                  // TODO: Wire cancel from useResultsRun
-                  useCanvasStore.getState().resultsCancelled()
+                  if (onCancel) {
+                    onCancel()
+                  } else {
+                    // Fallback: just mark as cancelled in store
+                    useCanvasStore.getState().resultsCancelled()
+                  }
                 }}
               />
               {/* Optional live log region */}

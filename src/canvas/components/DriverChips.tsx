@@ -32,8 +32,10 @@ export function DriverChips({ drivers }: DriverChipsProps) {
   const chipsRef = useRef<HTMLDivElement>(null)
 
   // Convert report drivers to Driver format
+  // Note: Backend currently only provides labels, not kind/id
+  // When backend adds driver.kind and driver.id, update this mapping
   const driverList: Driver[] = drivers.map(d => ({
-    kind: 'node' as const, // Default to node for now, could be enhanced
+    kind: 'node' as const, // Try node first (most common)
     label: d.label
   }))
 

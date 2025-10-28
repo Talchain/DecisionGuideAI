@@ -22,13 +22,12 @@ export interface DriverMatch {
 
 /**
  * Normalize string for fuzzy matching
- * Lowercase, collapse whitespace, remove punctuation
+ * Lowercase, remove punctuation, remove all whitespace
  */
 function normalize(str: string): string {
   return str
     .toLowerCase()
-    .replace(/[^\w\s]/g, '')
-    .replace(/\s+/g, ' ')
+    .replace(/[^\w]/g, '') // Remove all non-word characters (including spaces)
     .trim()
 }
 
@@ -76,8 +75,9 @@ export function findNodeMatches(
           confidence: 'exact'
         })
       }
-      // Fuzzy: contains
-      else if (normalizedNode.includes(normalizedDriver) || normalizedDriver.includes(normalizedNode)) {
+      // Fuzzy: contains (but only if normalizedNode contains normalizedDriver)
+      // Don't match if normalizedDriver contains normalizedNode (too broad)
+      else if (normalizedNode.includes(normalizedDriver)) {
         matches.push({
           kind: 'node',
           targetId: node.id,
@@ -141,8 +141,9 @@ export function findEdgeMatches(
           confidence: 'exact'
         })
       }
-      // Fuzzy: contains
-      else if (normalizedEdge.includes(normalizedDriver) || normalizedDriver.includes(normalizedEdge)) {
+      // Fuzzy: contains (but only if normalizedEdge contains normalizedDriver)
+      // Don't match if normalizedDriver contains normalizedEdge (too broad)
+      else if (normalizedEdge.includes(normalizedDriver)) {
         matches.push({
           kind: 'edge',
           targetId: edge.id,
@@ -164,15 +165,36 @@ export function findEdgeMatches(
 
 /**
  * Find all matches for a driver (nodes or edges)
+ * If driver has ID, uses kind to optimize search
+ * If driver only has label, searches both nodes and edges for best match
  */
 export function findDriverMatches(
   driver: Driver,
   nodes: Node[],
   edges: Edge[]
 ): DriverMatch[] {
-  if (driver.kind === 'node') {
-    return findNodeMatches(driver, nodes)
-  } else {
-    return findEdgeMatches(driver, edges)
+  // If driver has ID, respect the kind field
+  if (driver.id) {
+    if (driver.kind === 'node') {
+      return findNodeMatches(driver, nodes)
+    } else {
+      return findEdgeMatches(driver, edges)
+    }
   }
+
+  // If driver only has label (no ID), search both nodes and edges
+  // This handles cases where backend doesn't provide kind information
+  if (driver.label) {
+    const nodeMatches = findNodeMatches({ ...driver, kind: 'node' }, nodes)
+    const edgeMatches = findEdgeMatches({ ...driver, kind: 'edge' }, edges)
+
+    // Combine and sort by confidence (exact before fuzzy)
+    const allMatches = [...nodeMatches, ...edgeMatches]
+    return allMatches.sort((a, b) => {
+      if (a.confidence === b.confidence) return 0
+      return a.confidence === 'exact' ? -1 : 1
+    })
+  }
+
+  return []
 }

@@ -5,7 +5,9 @@
  * Persists to localStorage with automatic pruning.
  */
 
-import type { ReportV1 } from '@/adapters/plot/v1/types'
+import type { ReportV1 } from '../../adapters/plot/v1/types'
+import { computeClientHash } from '../../adapters/plot/v1/mapper'
+import type { Node, Edge } from '@xyflow/react'
 
 export interface StoredRun {
   id: string // uuid
@@ -27,28 +29,43 @@ const MAX_PINNED = 5
 
 /**
  * Generate a stable hash for graph+seed to enable reproduce
+ * Uses computeClientHash which sorts nodes/edges for determinism
  */
-export function generateGraphHash(nodes: unknown[], edges: unknown[], seed: number): string {
-  const payload = JSON.stringify({ nodes, edges, seed })
+export function generateGraphHash(nodes: Node[], edges: Edge[], seed: number): string {
+  return computeClientHash({ nodes, edges }, seed)
+}
 
-  // Simple hash function (djb2)
-  let hash = 5381
-  for (let i = 0; i < payload.length; i++) {
-    hash = ((hash << 5) + hash) + payload.charCodeAt(i)
+/**
+ * Check if localStorage is available (guards against SSR, tests)
+ */
+function isLocalStorageAvailable(): boolean {
+  try {
+    return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+  } catch {
+    return false
   }
-
-  return Math.abs(hash).toString(36)
 }
 
 /**
  * Load all runs from localStorage
  */
 export function loadRuns(): StoredRun[] {
+  if (!isLocalStorageAvailable()) {
+    return []
+  }
+
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (!stored) return []
 
     const runs = JSON.parse(stored) as StoredRun[]
+
+    // Validate runs array
+    if (!Array.isArray(runs)) {
+      console.warn('[runHistory] Invalid runs format, resetting')
+      return []
+    }
+
     return runs.sort((a, b) => b.ts - a.ts) // Latest first
   } catch (error) {
     console.error('[runHistory] Failed to load:', error)
@@ -60,7 +77,17 @@ export function loadRuns(): StoredRun[] {
  * Save runs to localStorage, pruning to MAX_RUNS
  */
 export function saveRuns(runs: StoredRun[]): void {
+  if (!isLocalStorageAvailable()) {
+    return
+  }
+
   try {
+    // Validate input
+    if (!Array.isArray(runs)) {
+      console.warn('[runHistory] Invalid runs input, skipping save')
+      return
+    }
+
     // Separate pinned and unpinned
     const pinned = runs.filter(r => r.isPinned).slice(0, MAX_PINNED)
     const unpinned = runs.filter(r => !r.isPinned)
@@ -73,7 +100,23 @@ export function saveRuns(runs: StoredRun[]): void {
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned))
   } catch (error) {
-    console.error('[runHistory] Failed to save:', error)
+    // Handle quota exceeded or other storage errors
+    if (error instanceof DOMException) {
+      if (error.name === 'QuotaExceededError') {
+        console.error('[runHistory] Storage quota exceeded, clearing oldest runs')
+        // Try to save with fewer runs
+        try {
+          const minimal = runs.slice(0, 10)
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(minimal))
+        } catch {
+          console.error('[runHistory] Failed to save even minimal history')
+        }
+      } else {
+        console.error('[runHistory] Storage error:', error.message)
+      }
+    } else {
+      console.error('[runHistory] Failed to save:', error)
+    }
   }
 }
 
