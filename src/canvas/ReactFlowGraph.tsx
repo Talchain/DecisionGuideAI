@@ -19,7 +19,7 @@ import { KeyboardMap } from './components/KeyboardMap'
 import { SettingsPanel } from './components/SettingsPanel'
 import { useSettingsStore } from './settingsStore'
 import { CanvasErrorBoundary } from './ErrorBoundary'
-import { ToastProvider, useToast } from './ToastContext'
+import { useToast } from './ToastContext'
 import { DiagnosticsOverlay } from './DiagnosticsOverlay'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { ValidationChip } from './components/ValidationChip'
@@ -448,13 +448,11 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
 export default function ReactFlowGraph(props: ReactFlowGraphProps) {
   return (
     <CanvasErrorBoundary>
-      <ToastProvider>
-        <LayerProvider>
-          <ReactFlowProvider>
-            <ReactFlowGraphInner {...props} />
-          </ReactFlowProvider>
-        </LayerProvider>
-      </ToastProvider>
+      <LayerProvider>
+        <ReactFlowProvider>
+          <ReactFlowGraphInner {...props} />
+        </ReactFlowProvider>
+      </LayerProvider>
     </CanvasErrorBoundary>
   )
 }
