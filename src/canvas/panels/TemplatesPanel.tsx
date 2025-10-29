@@ -214,7 +214,9 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         onInsertBlueprint(blueprint)
         setSelectedBlueprintId(templateId)
         setSelectedBlueprint(blueprint)
-        setSeed(String(templateDetail.default_seed))
+        // Use default_seed from API, or generate random seed if not provided
+        const defaultSeed = templateDetail.default_seed || Math.floor(Math.random() * 10000) + 1
+        setSeed(String(defaultSeed))
         showToast('Inserted to canvas.')
       }
     } catch (err) {
