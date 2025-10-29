@@ -13,6 +13,7 @@ import { validateOutgoingProbabilities } from '../utils/probabilityValidation'
 import { autoBalance, equalSplit, type BalanceRow } from '../utils/probabilityBalancing'
 import { Tooltip } from '../components/Tooltip'
 import { GlossaryTerm } from '../components/GlossaryTerm'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 
 interface NodeInspectorProps {
   nodeId: string
@@ -41,6 +42,9 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const previewExit = useCanvasStore(s => s.previewExit)
   const previewStageNode = useCanvasStore(s => s.previewStageNode)
   const previewStageEdge = useCanvasStore(s => s.previewStageEdge)
+
+  // A11y: Respect motion preferences
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   const node = nodes.find(n => n.id === nodeId)
 
@@ -340,7 +344,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               color: previewMode ? 'white' : 'var(--olumi-primary)',
               cursor: 'pointer',
               fontWeight: 500,
-              transition: 'all 0.2s ease'
+              transition: prefersReducedMotion ? 'none' : 'all 0.2s ease'
             }}
             aria-pressed={previewMode}
           >
@@ -436,7 +440,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                   <button
                     type="button"
                     onClick={() => toggleLock(row.edgeId)}
-                    className="flex-shrink-0 p-1 rounded hover:bg-gray-100 transition-colors"
+                    className={`flex-shrink-0 p-1 rounded hover:bg-gray-100 ${prefersReducedMotion ? '' : 'transition-colors'}`}
                     aria-label={row.locked ? `Unlock ${row.targetLabel}` : `Lock ${row.targetLabel}`}
                     aria-pressed={row.locked}
                     title={row.locked ? 'Locked' : 'Unlocked'}
@@ -533,7 +537,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 type="button"
                 onClick={handleAutoBalance}
                 disabled={allLocked}
-                className="px-3 py-1.5 text-xs font-medium rounded border transition-colors"
+                className={`px-3 py-1.5 text-xs font-medium rounded border ${prefersReducedMotion ? '' : 'transition-colors'}`}
                 style={{
                   backgroundColor: allLocked ? '#f3f4f6' : '#ffffff',
                   borderColor: '#d1d5db',
@@ -551,7 +555,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 type="button"
                 onClick={handleEqualSplit}
                 disabled={allLocked}
-                className="px-3 py-1.5 text-xs font-medium rounded border transition-colors"
+                className={`px-3 py-1.5 text-xs font-medium rounded border ${prefersReducedMotion ? '' : 'transition-colors'}`}
                 style={{
                   backgroundColor: allLocked ? '#f3f4f6' : '#ffffff',
                   borderColor: '#d1d5db',
@@ -568,7 +572,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               type="button"
               onClick={handleReset}
               disabled={!hasChanges}
-              className="px-3 py-1.5 text-xs font-medium rounded border transition-colors"
+              className={`px-3 py-1.5 text-xs font-medium rounded border ${prefersReducedMotion ? '' : 'transition-colors'}`}
               style={{
                 backgroundColor: hasChanges ? '#ffffff' : '#f3f4f6',
                 borderColor: '#d1d5db',
@@ -585,7 +589,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               type="button"
               onClick={handleApply}
               disabled={!validation.valid || !hasChanges || !!balanceError}
-              className="px-4 py-1.5 text-xs font-medium rounded transition-colors"
+              className={`px-4 py-1.5 text-xs font-medium rounded ${prefersReducedMotion ? '' : 'transition-colors'}`}
               style={{
                 backgroundColor: (!validation.valid || !hasChanges || !!balanceError)
                   ? '#d1d5db'

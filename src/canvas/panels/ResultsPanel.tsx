@@ -359,6 +359,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
             onClick={() => setActiveTab('latest')}
             label="Latest Run"
             shortcut="⌘1"
+            prefersReducedMotion={prefersReducedMotion}
           />
           <Tab
             active={activeTab === 'history'}
@@ -366,6 +367,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
             label="History"
             icon={<HistoryIcon className="w-4 h-4" />}
             shortcut="⌘2"
+            prefersReducedMotion={prefersReducedMotion}
           />
           <Tab
             active={activeTab === 'compare'}
@@ -375,6 +377,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
             shortcut="⌘⇧C"
             disabled={compareRunIds.length < 2}
             badge={compareRunIds.length >= 2 ? String(compareRunIds.length) : undefined}
+            prefersReducedMotion={prefersReducedMotion}
           />
         </div>
 
@@ -833,9 +836,10 @@ interface TabProps {
   shortcut?: string
   disabled?: boolean
   badge?: string
+  prefersReducedMotion?: boolean
 }
 
-function Tab({ active, onClick, label, icon, shortcut, disabled = false, badge }: TabProps) {
+function Tab({ active, onClick, label, icon, shortcut, disabled = false, badge, prefersReducedMotion = false }: TabProps) {
   return (
     <button
       onClick={onClick}
@@ -854,7 +858,7 @@ function Tab({ active, onClick, label, icon, shortcut, disabled = false, badge }
         alignItems: 'center',
         justifyContent: 'center',
         gap: '0.375rem',
-        transition: 'all 0.2s ease',
+        transition: prefersReducedMotion ? 'none' : 'all 0.2s ease',
         opacity: disabled ? 0.5 : 1,
         position: 'relative',
       }}
