@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { X } from 'lucide-react'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 
 interface ProgressStripProps {
   isVisible: boolean
@@ -12,6 +13,7 @@ interface ProgressStripProps {
 /**
  * Progress indicator for Results panel
  * Uses Olumi brand tokens for consistent styling
+ * Respects prefers-reduced-motion for accessibility
  */
 export const ProgressStrip = memo<ProgressStripProps>(({
   isVisible,
@@ -20,6 +22,8 @@ export const ProgressStrip = memo<ProgressStripProps>(({
   canCancel = false,
   onCancel
 }) => {
+  const prefersReducedMotion = usePrefersReducedMotion()
+
   if (!isVisible) return null
 
   const showProgress = progress > 0 && progress < 100
@@ -35,7 +39,7 @@ export const ProgressStrip = memo<ProgressStripProps>(({
       >
         <div className="flex items-center gap-3">
           <div
-            className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
+            className={`w-4 h-4 border-2 border-t-transparent rounded-full ${prefersReducedMotion ? '' : 'animate-spin'}`}
             style={{ borderColor: 'var(--olumi-primary) transparent transparent transparent' }}
           />
           <div className="flex-1">
@@ -62,7 +66,7 @@ export const ProgressStrip = memo<ProgressStripProps>(({
                 style={{ backgroundColor: 'rgba(91, 108, 255, 0.2)' }}
               >
                 <div
-                  className="h-full transition-all duration-300 ease-out"
+                  className={`h-full ${prefersReducedMotion ? '' : 'transition-all duration-300 ease-out'}`}
                   style={{
                     width: `${progress}%`,
                     backgroundColor: 'var(--olumi-primary)'

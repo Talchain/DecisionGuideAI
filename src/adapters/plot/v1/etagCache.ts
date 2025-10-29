@@ -24,6 +24,7 @@ const STORAGE_VERSION = 1
 class ETagCache {
   private cache = new Map<string, CacheEntry<any>>()
   private readonly MAX_AGE_MS = 5 * 60 * 1000 // 5 minutes
+  private persistenceFailed = false // Back off if quota exceeded
 
   constructor() {
     this.hydrateFromStorage()
@@ -70,6 +71,7 @@ class ETagCache {
    */
   private persistToStorage(): void {
     if (typeof window === 'undefined' || !window.localStorage) return
+    if (this.persistenceFailed) return // Back off if quota exceeded
 
     try {
       const entries: Record<string, CacheEntry<any>> = {}
@@ -81,9 +83,18 @@ class ETagCache {
         version: STORAGE_VERSION,
         entries,
       }))
-    } catch (err) {
+
+      // Success - reset failure flag if it was previously set
+      this.persistenceFailed = false
+    } catch (err: any) {
       // Quota exceeded or other storage error
-      console.warn('[etagCache] Failed to persist to localStorage:', err)
+      // Check if this is a quota error specifically
+      if (err.name === 'QuotaExceededError' || err.code === 22) {
+        console.warn('[etagCache] localStorage quota exceeded - falling back to in-memory only cache')
+        this.persistenceFailed = true // Don't spam console on subsequent saves
+      } else {
+        console.warn('[etagCache] Failed to persist to localStorage:', err)
+      }
     }
   }
 

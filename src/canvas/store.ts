@@ -975,7 +975,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         stagedEdgeChanges: new Map(),
         previewReport: undefined,
         previewSeed: undefined,
-        previewHash: undefined
+        previewHash: undefined,
+        // Reset status/progress/error for clean slate
+        status: 'idle',
+        progress: 0,
+        error: null,
       }
     }))
   },
@@ -1172,6 +1176,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         ...s.preview,
         status: 'cancelled',
         progress: 0,
+        // Clear stale report to prevent diff rendering with cancelled data
+        previewReport: undefined,
+        previewSeed: undefined,
+        previewHash: undefined,
       }
     }))
   },
