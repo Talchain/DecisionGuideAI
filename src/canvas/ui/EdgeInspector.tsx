@@ -7,10 +7,8 @@
 import { memo, useState, useCallback, useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { EDGE_CONSTRAINTS, type EdgeStyle, DEFAULT_EDGE_DATA } from '../domain/edges'
-import { formatConfidence } from '../domain/edges'
 import { useToast } from '../ToastContext'
 import { Tooltip } from '../components/Tooltip'
-import { ProbabilityModal } from '../components/ProbabilityModal'
 
 interface EdgeInspectorProps {
   edgeId: string
@@ -27,34 +25,29 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   const updateEdge = useCanvasStore(s => s.updateEdge)
   const deleteEdge = useCanvasStore(s => s.deleteEdge)
   const beginReconnect = useCanvasStore(s => s.beginReconnect)
+  const selectNodes = useCanvasStore(s => s.selectNodes)
   const { showToast } = useToast()
-  
+
   const edge = edges.find(e => e.id === edgeId)
-  
+
   // Local state for immediate UI updates with proper defaults
   const [weight, setWeight] = useState<number>(edge?.data?.weight ?? 1.0)
   const [style, setStyle] = useState<EdgeStyle>(edge?.data?.style ?? 'solid')
   const [curvature, setCurvature] = useState<number>(edge?.data?.curvature ?? 0.15)
   const [label, setLabel] = useState<string>(edge?.data?.label ?? '')
-  const [confidence, setConfidence] = useState<number>(edge?.data?.confidence ?? 0.5)
   
   // Debounce timer refs
   const weightTimerRef = useRef<NodeJS.Timeout>()
   const curvatureTimerRef = useRef<NodeJS.Timeout>()
-  const confidenceTimerRef = useRef<NodeJS.Timeout>()
-  
+
   // Live region for announcements
   const [announcement, setAnnouncement] = useState('')
-
-  // Probability modal state
-  const [showProbabilityModal, setShowProbabilityModal] = useState(false)
 
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {
       clearTimeout(weightTimerRef.current)
       clearTimeout(curvatureTimerRef.current)
-      clearTimeout(confidenceTimerRef.current)
     }
   }, [])
   
@@ -256,36 +249,39 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         />
       </div>
       
-      {/* Probability - Edit in Decision */}
+      {/* Probability - CTA to parent decision */}
       <div className="mb-4">
         <Tooltip content="% likelihood this connector is taken (all from the same step must total 100%)" position="right">
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Probability
           </label>
         </Tooltip>
-        <div className="flex items-center justify-between gap-3 p-3 rounded" style={{ backgroundColor: 'rgba(91, 108, 255, 0.05)', border: '1px solid rgba(91, 108, 255, 0.2)' }}>
-          <div className="flex-1">
-            <p className="text-xs font-medium" style={{ color: 'var(--olumi-text, #E8ECF5)' }}>
-              {formatConfidence(confidence)}
-            </p>
-            <p className="text-xs mt-0.5" style={{ color: 'rgba(232, 236, 245, 0.6)' }}>
-              Edit in decision node →
-            </p>
-          </div>
+        <div className="p-3 rounded" style={{ backgroundColor: 'rgba(91, 108, 255, 0.05)', border: '1px solid rgba(91, 108, 255, 0.2)' }}>
+          <p className="text-xs text-gray-600 mb-2">
+            Edit probabilities in this decision (or press <kbd className="px-1 py-0.5 text-xs font-semibold bg-gray-100 border border-gray-300 rounded">P</kbd> after selecting)
+          </p>
           <button
             type="button"
             onClick={() => {
-              // Open probability modal directly for smoother UX
-              setShowProbabilityModal(true)
+              // Select the source decision node
+              if (edge?.source) {
+                selectNodes([edge.source])
+                onClose()
+              }
             }}
-            className="px-3 py-1 text-xs font-medium rounded border"
+            className="w-full px-3 py-1.5 text-xs font-medium rounded transition-colors"
             style={{
               backgroundColor: 'var(--olumi-primary, #5B6CFF)',
-              color: '#ffffff',
-              border: 'none'
+              color: '#ffffff'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--olumi-primary-600, #4256F6)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--olumi-primary, #5B6CFF)'
             }}
           >
-            Edit
+            Go to decision probabilities
           </button>
         </div>
       </div>
@@ -348,14 +344,6 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           Delete Connector
         </button>
       </div>
-
-      {/* Probability Modal */}
-      {showProbabilityModal && edge?.source && (
-        <ProbabilityModal
-          nodeId={edge.source}
-          onClose={() => setShowProbabilityModal(false)}
-        />
-      )}
     </div>
   )
 })

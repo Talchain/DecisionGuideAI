@@ -1,0 +1,295 @@
+/**
+ * Graph Shape Mapper
+ *
+ * Converts between UI (React Flow) and API (PLoT v1) graph formats.
+ *
+ * CRITICAL RULES:
+ * 1. API edges use {from, to} - never send {source, target}
+ * 2. API edges never include id field
+ * 3. API edges never include data.confidence - only weight
+ * 4. Weights are 0..1 (normalize if needed, preserve sign)
+ * 5. Templates from /v1/templates/{id}/graph are already API shape - pass through
+ */
+
+import type { UiGraph, ApiGraph, ApiNode, ApiEdge } from '../../../types/plot'
+import type { V1RunRequest } from './types'
+import { V1_LIMITS } from './types'
+
+// ============================================================================
+// Legacy Types (for backward compatibility)
+// ============================================================================
+
+export interface ReactFlowGraph {
+  nodes: Array<{
+    id: string
+    data?: {
+      label?: string
+      body?: string
+      [key: string]: any
+    }
+  }>
+  edges: Array<{
+    id: string
+    source: string
+    target: string
+    data?: {
+      confidence?: number
+      weight?: number
+      [key: string]: any
+    }
+  }>
+}
+
+// ============================================================================
+// New Clean API (recommended)
+// ============================================================================
+
+/**
+ * Type guard: check if graph is already in API shape
+ */
+export function isApiGraph(g: any): g is ApiGraph {
+  if (!g || !Array.isArray(g.nodes) || !Array.isArray(g.edges)) {
+    return false
+  }
+
+  // API edges have 'from' field, UI edges have 'source'
+  if (g.edges.length > 0) {
+    const firstEdge = g.edges[0]
+    return 'from' in firstEdge && !('source' in firstEdge)
+  }
+
+  // Empty edges array - check nodes structure
+  return true
+}
+
+/**
+ * Convert UI graph to API graph
+ *
+ * Maps:
+ * - nodes: Extract id and label (prefer explicit node.label over node.data.label)
+ * - edges: Convert source/target → from/to, extract weight, drop confidence
+ *
+ * Throws BAD_INPUT error for malformed graphs (missing/empty IDs)
+ */
+export function toApiGraph(ui: UiGraph): ApiGraph {
+  // Validate nodes
+  const nodes: ApiNode[] = ui.nodes.map((n, idx) => {
+    if (!n.id || n.id.trim() === '') {
+      throw {
+        code: 'BAD_INPUT',
+        message: `Node at index ${idx} has missing or empty id`,
+        field: `nodes[${idx}].id`,
+      }
+    }
+
+    const node: ApiNode = { id: n.id }
+
+    // Prefer explicit label field, fall back to data.label
+    const label = n.label ?? n.data?.label
+    if (label) {
+      node.label = label
+    }
+
+    return node
+  })
+
+  // Validate edges
+  const edges: ApiEdge[] = ui.edges.map((e, idx) => {
+    if (!e.source || e.source.trim() === '') {
+      throw {
+        code: 'BAD_INPUT',
+        message: `Edge at index ${idx} has missing or empty source`,
+        field: `edges[${idx}].source`,
+      }
+    }
+
+    if (!e.target || e.target.trim() === '') {
+      throw {
+        code: 'BAD_INPUT',
+        message: `Edge at index ${idx} has missing or empty target`,
+        field: `edges[${idx}].target`,
+      }
+    }
+
+    const edge: ApiEdge = {
+      from: e.source,
+      to: e.target,
+    }
+
+    // Add optional fields only if present
+    if (e.data?.label) {
+      edge.label = e.data.label
+    }
+
+    // Weight: prefer explicit weight, fall back to confidence
+    // Normalize if needed (0..100 → 0..1), preserve sign
+    const rawWeight = e.data?.weight ?? e.data?.confidence
+    if (rawWeight != null) {
+      edge.weight = normalizeWeight(rawWeight)
+    }
+
+    return edge
+  })
+
+  return { nodes, edges }
+}
+
+/**
+ * Normalize weight to 0..1 range
+ *
+ * - If already in range (-1..1), pass through
+ * - If looks like percentage (>1 or <-1), divide by 100
+ * - Preserve sign (allow negative weights for directionality)
+ * - Undefined stays undefined
+ */
+function normalizeWeight(v: number | undefined): number | undefined {
+  if (v == null) return undefined
+
+  // Already normalized
+  if (Math.abs(v) <= 1) {
+    return v
+  }
+
+  // Looks like percentage - normalize
+  return v / 100
+}
+
+// ============================================================================
+// Legacy API (for backward compatibility - will be deprecated)
+// ============================================================================
+
+/**
+ * @deprecated Use toApiGraph instead
+ */
+export function validateGraphLimits(graph: ReactFlowGraph): {
+  code: string
+  message: string
+  field?: string
+  max?: number
+} | null {
+  if (import.meta.env.DEV) {
+    console.warn('validateGraphLimits() is deprecated. Use toApiGraph() instead (it throws BAD_INPUT on malformed graphs).')
+  }
+
+  if (graph.nodes.length > V1_LIMITS.MAX_NODES) {
+    return {
+      code: 'LIMIT_EXCEEDED',
+      message: `Graph has ${graph.nodes.length} nodes, max is ${V1_LIMITS.MAX_NODES}`,
+      field: 'nodes',
+      max: V1_LIMITS.MAX_NODES,
+    }
+  }
+
+  if (graph.edges.length > V1_LIMITS.MAX_EDGES) {
+    return {
+      code: 'LIMIT_EXCEEDED',
+      message: `Graph has ${graph.edges.length} edges, max is ${V1_LIMITS.MAX_EDGES}`,
+      field: 'edges',
+      max: V1_LIMITS.MAX_EDGES,
+    }
+  }
+
+  for (const node of graph.nodes) {
+    const label = node.data?.label
+    if (label && label.length > V1_LIMITS.MAX_LABEL_LENGTH) {
+      return {
+        code: 'BAD_INPUT',
+        message: `Node ${node.id} label exceeds ${V1_LIMITS.MAX_LABEL_LENGTH} characters`,
+        field: 'label',
+        max: V1_LIMITS.MAX_LABEL_LENGTH,
+      }
+    }
+
+    const body = node.data?.body
+    if (body && body.length > V1_LIMITS.MAX_BODY_LENGTH) {
+      return {
+        code: 'BAD_INPUT',
+        message: `Node ${node.id} body exceeds ${V1_LIMITS.MAX_BODY_LENGTH} characters`,
+        field: 'body',
+        max: V1_LIMITS.MAX_BODY_LENGTH,
+      }
+    }
+  }
+
+  return null
+}
+
+/**
+ * @deprecated Use toApiGraph + manual request building instead
+ */
+export function graphToV1Request(graph: ReactFlowGraph, seed?: number): V1RunRequest {
+  if (import.meta.env.DEV) {
+    console.warn('graphToV1Request() is deprecated. Use toApiGraph() + build request manually instead.')
+  }
+
+  const error = validateGraphLimits(graph)
+  if (error) {
+    throw error
+  }
+
+  return {
+    graph: {
+      nodes: graph.nodes.map(n => ({
+        id: n.id,
+        label: n.data?.label,
+        body: n.data?.body,
+      })),
+      edges: graph.edges.map(e => {
+        const edge: any = {
+          from: e.source,
+          to: e.target,
+        }
+
+        // Normalize confidence if present
+        if (e.data?.confidence != null) {
+          edge.confidence = normalizeWeight(e.data.confidence)
+        }
+
+        // Include weight if present
+        if (e.data?.weight != null) {
+          edge.weight = e.data.weight
+        }
+
+        return edge
+      }),
+    },
+    seed,
+  }
+}
+
+/**
+ * @deprecated Response hash from server is preferred
+ */
+export function computeClientHash(graph: ReactFlowGraph, seed?: number): string {
+  if (import.meta.env.DEV) {
+    console.warn('computeClientHash() is deprecated. Server-provided response_hash is preferred.')
+  }
+
+  // Create deterministic string representation
+  const sortedNodes = [...graph.nodes].sort((a, b) => a.id.localeCompare(b.id))
+  const sortedEdges = [...graph.edges].sort((a, b) => {
+    const cmp = a.source.localeCompare(b.source)
+    return cmp !== 0 ? cmp : a.target.localeCompare(b.target)
+  })
+
+  const str = JSON.stringify({
+    nodes: sortedNodes.map(n => ({ id: n.id, label: n.data?.label, body: n.data?.body })),
+    edges: sortedEdges.map(e => ({
+      from: e.source,
+      to: e.target,
+      weight: e.data?.weight,
+      confidence: e.data?.confidence,
+    })),
+    seed,
+  })
+
+  // Simple hash function (not cryptographic, just for cache keys)
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i)
+    hash = (hash << 5) - hash + char
+    hash = hash & hash // Convert to 32bit integer
+  }
+
+  return Math.abs(hash).toString(16)
+}

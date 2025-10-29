@@ -12,7 +12,7 @@ export function PropertiesPanel() {
   const edgeId = selection.edgeIds.size === 1 ? [...selection.edgeIds][0] : null
 
   const wrapper = (children: React.ReactNode) => (
-    <div className="fixed right-6 top-24 w-80 rounded-2xl shadow bg-white border border-gray-200/50">
+    <div className="fixed right-6 top-24 w-80 rounded-2xl shadow bg-white border border-gray-200/50 max-h-[calc(100vh-7rem)] overflow-y-auto">
       <div className="p-6">{children}</div>
     </div>
   )
