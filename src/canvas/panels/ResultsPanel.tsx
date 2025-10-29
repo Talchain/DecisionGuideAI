@@ -229,7 +229,17 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
   const handleShare = useCallback(() => {
     if (hash) {
-      const shareUrl = `${window.location.origin}${window.location.pathname}#run=${hash}`
+      // Validate hash to prevent injection attacks
+      // Hash should only contain alphanumeric characters and hyphens
+      const sanitizedHash = hash.replace(/[^a-zA-Z0-9-]/g, '')
+
+      if (sanitizedHash !== hash) {
+        showToast('Invalid run hash - contains unsafe characters', 'error')
+        return
+      }
+
+      // Construct share URL with validated hash
+      const shareUrl = `${window.location.origin}${window.location.pathname}#run=${encodeURIComponent(sanitizedHash)}`
       navigator.clipboard.writeText(shareUrl)
       showToast('Run URL copied to clipboard', 'success')
     }
