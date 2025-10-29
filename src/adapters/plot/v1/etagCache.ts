@@ -84,6 +84,10 @@ class ETagCache {
 
   /**
    * Clear specific key
+   *
+   * IMPORTANT: Call this when templates are mutated to prevent stale data.
+   * Example: After creating/updating/deleting a template, call:
+   *   etagCache.invalidate('templates-list')
    */
   invalidate(key: string): void {
     this.cache.delete(key)
@@ -92,3 +96,11 @@ class ETagCache {
 
 // Singleton instance
 export const etagCache = new ETagCache()
+
+/**
+ * Helper: Invalidate templates cache after mutations
+ * Call this after any operation that modifies templates
+ */
+export function invalidateTemplatesCache(): void {
+  etagCache.invalidate('templates-list')
+}

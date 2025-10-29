@@ -28,8 +28,10 @@ export function TemplateCard({ template, source, onInsert, onLearnMore }: Templa
                   color: source === 'api' ? '#14a575' : '#d97706',
                 }}
                 title={source === 'api' ? 'Loaded from API' : 'Local template (fallback)'}
+                aria-label={source === 'api' ? 'Template loaded from API' : 'Local template fallback'}
+                role="status"
               >
-                {source === 'api' ? <Cloud className="w-3 h-3" /> : <HardDrive className="w-3 h-3" />}
+                {source === 'api' ? <Cloud className="w-3 h-3" aria-hidden="true" /> : <HardDrive className="w-3 h-3" aria-hidden="true" />}
                 {source === 'api' ? 'API' : 'Local'}
               </span>
             )}

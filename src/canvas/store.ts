@@ -37,6 +37,10 @@ export interface PreviewState {
   previewReport?: ReportV1 | null
   previewSeed?: number
   previewHash?: string
+  // Separate status tracking for preview runs (avoid race with main results)
+  status: ResultsStatus
+  progress: number
+  error?: { code: string; message: string; retryAfter?: number } | null
 }
 
 const initialNodes: Node[] = []
@@ -124,6 +128,12 @@ interface CanvasState {
   previewSetReport: (report: ReportV1, seed: number, hash: string) => void
   previewApply: () => void
   previewDiscard: () => void
+  // Preview status actions (separate from main results status)
+  previewStart: (params: { seed: number }) => void
+  previewProgress: (percent: number) => void
+  previewError: (params: { code: string; message: string; retryAfter?: number }) => void
+  previewCancelled: () => void
+  previewReset: () => void
 }
 
 let historyTimer: ReturnType<typeof setTimeout> | null = null
@@ -205,7 +215,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     stagedEdgeChanges: new Map(),
     previewReport: undefined,
     previewSeed: undefined,
-    previewHash: undefined
+    previewHash: undefined,
+    status: 'idle',
+    progress: 0,
+    error: null,
   },
 
   createNodeId: () => {
@@ -1042,7 +1055,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         ...s.preview,
         previewReport: report,
         previewSeed: seed,
-        previewHash: hash
+        previewHash: hash,
+        status: 'complete',
+        progress: 100,
+        error: null,
       }
     }))
   },
@@ -1109,7 +1125,67 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         stagedEdgeChanges: new Map(),
         previewReport: undefined,
         previewSeed: undefined,
-        previewHash: undefined
+        previewHash: undefined,
+        status: 'idle',
+        progress: 0,
+        error: null,
+      }
+    }))
+  },
+
+  // Preview status actions (separate from main results status)
+  previewStart: ({ seed }) => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        status: 'preparing',
+        progress: 0,
+        error: null,
+        previewSeed: seed,
+      }
+    }))
+  },
+
+  previewProgress: (percent) => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        status: 'streaming',
+        progress: Math.min(90, percent),
+      }
+    }))
+  },
+
+  previewError: ({ code, message, retryAfter }) => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        status: 'error',
+        error: { code, message, retryAfter },
+      }
+    }))
+  },
+
+  previewCancelled: () => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        status: 'cancelled',
+        progress: 0,
+      }
+    }))
+  },
+
+  previewReset: () => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        status: 'idle',
+        progress: 0,
+        error: null,
+        previewReport: undefined,
+        previewSeed: undefined,
+        previewHash: undefined,
       }
     }))
   },
@@ -1124,6 +1200,9 @@ export const selectPreviewMode = (state: CanvasState) => state.preview.isActive
 export const selectPreviewReport = (state: CanvasState) => state.preview.previewReport
 export const selectStagedNodeChanges = (state: CanvasState) => state.preview.stagedNodeChanges
 export const selectStagedEdgeChanges = (state: CanvasState) => state.preview.stagedEdgeChanges
+export const selectPreviewStatus = (state: CanvasState) => state.preview.status
+export const selectPreviewProgress = (state: CanvasState) => state.preview.progress
+export const selectPreviewError = (state: CanvasState) => state.preview.error
 
 /**
  * Validation selectors and helpers

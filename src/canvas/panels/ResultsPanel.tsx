@@ -15,7 +15,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { X, History as HistoryIcon, GitCompare as CompareIcon, Eye, Check, XCircle, Play } from 'lucide-react'
-import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash, selectPreviewMode, selectPreviewReport, selectStagedNodeChanges, selectStagedEdgeChanges } from '../store'
+import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash, selectPreviewMode, selectPreviewReport, selectStagedNodeChanges, selectStagedEdgeChanges, selectPreviewStatus, selectPreviewProgress, selectPreviewError } from '../store'
 import { usePreviewRun } from '../hooks/usePreviewRun'
 import { ProgressStrip } from '../components/ProgressStrip'
 import { WhyPanel } from '../../routes/templates/components/WhyPanel'
@@ -46,10 +46,10 @@ type TabId = 'latest' | 'history' | 'compare'
 export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsPanelProps): JSX.Element | null {
   const panelRef = useRef<HTMLDivElement>(null)
 
-  const status = useCanvasStore(selectResultsStatus)
-  const progress = useCanvasStore(selectProgress)
-  const report = useCanvasStore(selectReport)
-  const error = useCanvasStore(selectError)
+  const mainStatus = useCanvasStore(selectResultsStatus)
+  const mainProgress = useCanvasStore(selectProgress)
+  const mainReport = useCanvasStore(selectReport)
+  const mainError = useCanvasStore(selectError)
   const seed = useCanvasStore(selectSeed)
   const hash = useCanvasStore(selectHash)
 
@@ -60,11 +60,20 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   // Preview Mode state and actions
   const previewMode = useCanvasStore(selectPreviewMode)
   const previewReport = useCanvasStore(selectPreviewReport)
+  const previewStatus = useCanvasStore(selectPreviewStatus)
+  const previewProgress = useCanvasStore(selectPreviewProgress)
+  const previewError = useCanvasStore(selectPreviewError)
   const stagedNodeChanges = useCanvasStore(selectStagedNodeChanges)
   const stagedEdgeChanges = useCanvasStore(selectStagedEdgeChanges)
   const previewApply = useCanvasStore(s => s.previewApply)
   const previewDiscard = useCanvasStore(s => s.previewDiscard)
   const { runPreview } = usePreviewRun()
+
+  // Conditionally use preview status when in preview mode
+  const status = previewMode ? previewStatus : mainStatus
+  const progress = previewMode ? previewProgress : mainProgress
+  const report = previewMode && previewReport ? previewReport : mainReport
+  const error = previewMode ? previewError : mainError
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabId>('latest')
@@ -167,6 +176,8 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const handleRunPreview = useCallback(() => {
     // Run preview with current seed or use default
     const previewSeed = seed ?? 1337
+    // Template ID "canvas" indicates canvas-originated run (vs pure template run)
+    // The actual graph comes from previewGetMergedGraph(), not the template
     runPreview('canvas', previewSeed)
     showToast('Running preview analysis...', 'info')
   }, [runPreview, seed, showToast])

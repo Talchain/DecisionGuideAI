@@ -20,10 +20,10 @@ export function usePreviewRun(): UsePreviewRunReturn {
 
   const previewGetMergedGraph = useCanvasStore(s => s.previewGetMergedGraph)
   const previewSetReport = useCanvasStore(s => s.previewSetReport)
-  const resultsStart = useCanvasStore(s => s.resultsStart)
-  const resultsProgress = useCanvasStore(s => s.resultsProgress)
-  const resultsError = useCanvasStore(s => s.resultsError)
-  const resultsCancelled = useCanvasStore(s => s.resultsCancelled)
+  const previewStart = useCanvasStore(s => s.previewStart)
+  const previewProgress = useCanvasStore(s => s.previewProgress)
+  const previewError = useCanvasStore(s => s.previewError)
+  const previewCancelled = useCanvasStore(s => s.previewCancelled)
 
   const runPreview = useCallback(async (templateId: string, seed?: number) => {
     const useSeed = seed ?? 1337
@@ -31,8 +31,8 @@ export function usePreviewRun(): UsePreviewRunReturn {
     // Get merged graph (current + staged changes)
     const mergedGraph = previewGetMergedGraph()
 
-    // Start preparing (reuse existing status indicators)
-    resultsStart({ seed: useSeed })
+    // Start preparing (use separate preview status)
+    previewStart({ seed: useSeed })
 
     // Build request with merged graph
     const request: RunRequest = {
@@ -56,8 +56,10 @@ export function usePreviewRun(): UsePreviewRunReturn {
             // Throttle progress updates to ~100ms
             const now = Date.now()
             if (now - lastProgressUpdate.current > 100) {
+              // LIMITATION: Assumes ~5 ticks to reach 90% progress
+              // TODO: Use exponential approach or backend-provided total
               const progress = Math.min(90, Math.round((data.index / 5) * 90))
-              resultsProgress(progress)
+              previewProgress(progress)
               lastProgressUpdate.current = now
             }
           },
@@ -67,7 +69,7 @@ export function usePreviewRun(): UsePreviewRunReturn {
             cancelRef.current = null
           },
           onError: (error: ErrorV1) => {
-            resultsError({
+            previewError({
               code: error.code,
               message: error.error,
               retryAfter: error.retry_after
@@ -78,7 +80,7 @@ export function usePreviewRun(): UsePreviewRunReturn {
       } catch (err) {
         console.error('[usePreviewRun] Stream setup failed:', err)
         const error = err as ErrorV1
-        resultsError({
+        previewError({
           code: error.code || 'SERVER_ERROR',
           message: error.error || error.message || 'Failed to connect to analysis service',
           retryAfter: error.retry_after
@@ -96,22 +98,22 @@ export function usePreviewRun(): UsePreviewRunReturn {
         previewSetReport(report, useSeed, report.model_card.response_hash)
       } catch (err) {
         const error = err as ErrorV1
-        resultsError({
+        previewError({
           code: error.code,
           message: error.error,
           retryAfter: error.retry_after
         })
       }
     }
-  }, [previewGetMergedGraph, previewSetReport, resultsStart, resultsProgress, resultsError])
+  }, [previewGetMergedGraph, previewSetReport, previewStart, previewProgress, previewError])
 
   const cancel = useCallback(() => {
     if (cancelRef.current) {
       cancelRef.current()
       cancelRef.current = null
-      resultsCancelled()
+      previewCancelled()
     }
-  }, [resultsCancelled])
+  }, [previewCancelled])
 
   return {
     runPreview,

@@ -428,13 +428,13 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
               <WhyPanel report={result} />
               <ReproduceShareCard
                 report={result}
-                template={{ 
+                template={{
                   id: selectedBlueprint.id,
                   name: selectedBlueprint.name,
                   version: '1.0',
                   description: selectedBlueprint.description,
                   default_seed: parseInt(seed, 10),
-                  graph: {}
+                  graph: selectedBlueprint.graph || {}
                 }}
                 seed={parseInt(seed, 10)}
                 onCopySeed={() => showToast('Seed copied.')}
