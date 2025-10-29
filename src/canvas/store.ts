@@ -993,7 +993,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         stagedEdgeChanges: new Map(),
         previewReport: undefined,
         previewSeed: undefined,
-        previewHash: undefined
+        previewHash: undefined,
+        // Explicitly reset status fields to idle state
+        status: 'idle',
+        progress: 0,
+        error: null,
       }
     }))
   },
@@ -1114,7 +1118,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           stagedEdgeChanges: new Map(),
           previewReport: undefined,
           previewSeed: undefined,
-          previewHash: undefined
+          previewHash: undefined,
+          // Reset status fields to idle state for clean re-entry
+          status: 'idle',
+          progress: 0,
+          error: null,
         }
       }
     })

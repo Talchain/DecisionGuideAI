@@ -230,10 +230,12 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const handleShare = useCallback(() => {
     if (hash) {
       // Validate hash to prevent injection attacks
-      // Hash should only contain alphanumeric characters and hyphens
-      const sanitizedHash = hash.replace(/[^a-zA-Z0-9-]/g, '')
+      // Allow: alphanumeric, hyphens, underscores, periods, base64 padding (=)
+      // This covers hex hashes, base64, and UUID variants
+      const sanitizedHash = hash.replace(/[^a-zA-Z0-9\-_.=]/g, '')
 
       if (sanitizedHash !== hash) {
+        console.warn('[ResultsPanel] Sanitized hash from:', hash, 'to:', sanitizedHash)
         showToast('Invalid run hash - contains unsafe characters', 'error')
         return
       }
