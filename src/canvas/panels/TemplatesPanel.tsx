@@ -134,13 +134,31 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       // Fetch template from API (works for both mock and httpv1)
       const templateDetail = await plot.template(templateId)
 
+      // Extract graph from API response (API returns nested graph structure)
+      const graph = templateDetail.graph as any
+      if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
+        throw new Error('Invalid template graph structure')
+      }
+
       // Convert to Blueprint format for canvas insertion
+      // V1 API nodes don't have 'kind' or 'position', so we provide defaults
       const blueprint: Blueprint = {
         id: templateDetail.id,
         name: templateDetail.name,
         description: templateDetail.description,
-        version: templateDetail.version,
-        graph: templateDetail.graph,
+        nodes: graph.nodes.map((node: any, index: number) => ({
+          id: node.id,
+          label: node.label || node.id,
+          kind: (node.kind || 'decision') as any, // Default to 'decision' if not provided
+          position: node.position || { x: 100 + (index * 150), y: 100 } // Auto-layout if no position
+        })),
+        edges: graph.edges.map((edge: any) => ({
+          id: edge.id || `${edge.from}-${edge.to}`,
+          from: edge.from,
+          to: edge.to,
+          probability: edge.confidence || edge.probability,
+          weight: edge.weight
+        }))
       }
 
       if (onInsertBlueprint) {
@@ -154,7 +172,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       console.error('Failed to load template:', err)
       showToast('Failed to load template.')
     }
-  }, [onInsertBlueprint])
+  }, [onInsertBlueprint, showToast])
 
   const handleRun = useCallback(async () => {
     if (!selectedBlueprintId) return
