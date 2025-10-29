@@ -9,6 +9,9 @@ import { useCanvasStore } from '../store'
 import { EDGE_CONSTRAINTS, type EdgeStyle, DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useToast } from '../ToastContext'
 import { Tooltip } from '../components/Tooltip'
+import { GlossaryTerm } from '../components/GlossaryTerm'
+import { ExternalLink } from 'lucide-react'
+import { focusNodeById } from '../utils/focusHelpers'
 
 interface EdgeInspectorProps {
   edgeId: string
@@ -149,39 +152,34 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         </button>
       </div>
       
-      {/* Weight control */}
+      {/* Weight control - Read-only with deep link */}
       <div className="mb-4">
-        <Tooltip content="Importance of this connector (also affects line thickness)" position="right">
-          <label htmlFor="edge-weight" className="block text-xs font-medium text-gray-700 mb-1">
-            Weight
-          </label>
-        </Tooltip>
-        <div className="flex items-center gap-2">
-          <input
-            id="edge-weight"
-            type="range"
-            min={EDGE_CONSTRAINTS.weight.min}
-            max={EDGE_CONSTRAINTS.weight.max}
-            step={EDGE_CONSTRAINTS.weight.step}
-            value={weight}
-            onChange={(e) => handleWeightChange(parseFloat(e.target.value))}
-            className="flex-1"
-            aria-valuemin={EDGE_CONSTRAINTS.weight.min}
-            aria-valuemax={EDGE_CONSTRAINTS.weight.max}
-            aria-valuenow={weight}
-            aria-valuetext={`${weight.toFixed(1)}`}
-          />
-          <input
-            type="number"
-            min={EDGE_CONSTRAINTS.weight.min}
-            max={EDGE_CONSTRAINTS.weight.max}
-            step={EDGE_CONSTRAINTS.weight.step}
-            value={weight}
-            onChange={(e) => handleWeightChange(Math.max(EDGE_CONSTRAINTS.weight.min, Math.min(EDGE_CONSTRAINTS.weight.max, parseFloat(e.target.value) || EDGE_CONSTRAINTS.weight.min)))}
-            className="w-16 text-xs border border-gray-300 rounded px-2 py-1"
-            aria-label="Weight value"
+        <div className="flex items-center justify-between mb-1">
+          <GlossaryTerm
+            term="Weight"
+            definition="How strongly this connection influences the outcome (also affects line thickness)."
           />
         </div>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex-1 px-3 py-2 text-sm rounded border border-gray-300 bg-gray-50" style={{ color: 'var(--olumi-text)' }}>
+            {weight.toFixed(1)}
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            if (edge?.source) {
+              focusNodeById(edge.source)
+              setTimeout(() => {
+                showToast('Navigate to the parent decision to edit probabilities', 'info')
+              }, 100)
+            }
+          }}
+          className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+          style={{ fontSize: '0.75rem' }}
+        >
+          <ExternalLink className="w-3 h-3" />
+          Edit in parent decision
+        </button>
       </div>
       
       {/* Style control */}

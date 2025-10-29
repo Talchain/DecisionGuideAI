@@ -219,7 +219,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                 color: 'var(--olumi-text)',
               }}
             >
-              Results
+              {activeTab === 'latest' ? 'Latest analysis' : activeTab === 'history' ? 'Run history' : 'Compare runs'}
             </h2>
             {/* Status pill */}
             <div
@@ -357,15 +357,13 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                     <div>
                       <h3
                         style={{
-                          fontSize: '0.875rem',
+                          fontSize: '0.9375rem',
                           fontWeight: 600,
                           color: 'var(--olumi-text)',
                           marginBottom: '0.75rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
                         }}
                       >
-                        Key Drivers
+                        What's driving this outcome
                       </h3>
                       <DriverChips drivers={report.drivers} />
                     </div>
@@ -538,8 +536,8 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                   }}>
                     Ready to analyze
                   </h3>
-                  <p className="text-sm" style={{ color: 'rgba(232, 236, 245, 0.6)' }}>
-                    Click "Run Analysis" to start analyzing your decision tree.
+                  <p className="text-sm" style={{ color: 'rgba(232, 236, 245, 0.6)', lineHeight: 1.5 }}>
+                    Insert a template, tweak a probability, or press ⌘/Ctrl+Enter to analyze your decision tree.
                   </p>
                 </div>
               )}

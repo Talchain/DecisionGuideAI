@@ -28,10 +28,11 @@ export function ActionsRow({ onRunAgain, onCompare, onShare, disabled = false }:
     >
       <ActionButton
         icon={<Play className="w-4 h-4" />}
-        label="Run Again"
+        label="Analyze again"
         onClick={onRunAgain}
         disabled={disabled}
         variant="primary"
+        shortcut="⌘↵"
       />
       <ActionButton
         icon={<GitCompare className="w-4 h-4" />}
@@ -57,9 +58,10 @@ interface ActionButtonProps {
   onClick: () => void
   disabled: boolean
   variant: 'primary' | 'secondary'
+  shortcut?: string
 }
 
-function ActionButton({ icon, label, onClick, disabled, variant }: ActionButtonProps) {
+function ActionButton({ icon, label, onClick, disabled, variant, shortcut }: ActionButtonProps) {
   const isPrimary = variant === 'primary'
 
   return (
@@ -67,6 +69,7 @@ function ActionButton({ icon, label, onClick, disabled, variant }: ActionButtonP
       onClick={onClick}
       disabled={disabled}
       className="action-button"
+      title={shortcut ? `${label} (${shortcut})` : label}
       style={{
         flex: isPrimary ? '1 1 0' : '0 1 auto',
         display: 'flex',
@@ -96,7 +99,21 @@ function ActionButton({ icon, label, onClick, disabled, variant }: ActionButtonP
       }}
     >
       {icon}
-      {label}
+      <span>{label}</span>
+      {shortcut && (
+        <span
+          style={{
+            fontSize: '0.75rem',
+            opacity: 0.8,
+            marginLeft: '0.25rem',
+            padding: '0.125rem 0.375rem',
+            borderRadius: '0.25rem',
+            backgroundColor: isPrimary ? 'rgba(255, 255, 255, 0.2)' : 'rgba(91, 108, 255, 0.15)',
+          }}
+        >
+          {shortcut}
+        </span>
+      )}
     </button>
   )
 }

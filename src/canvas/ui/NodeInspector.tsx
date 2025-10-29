@@ -12,6 +12,7 @@ import { renderIcon } from '../helpers/renderIcon'
 import { validateOutgoingProbabilities } from '../utils/probabilityValidation'
 import { autoBalance, equalSplit, type BalanceRow } from '../utils/probabilityBalancing'
 import { Tooltip } from '../components/Tooltip'
+import { GlossaryTerm } from '../components/GlossaryTerm'
 
 interface NodeInspectorProps {
   nodeId: string
@@ -311,15 +312,16 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           className="mb-4 pt-4 border-t border-gray-200"
           aria-labelledby="probabilities-heading"
         >
-          <Tooltip content="% likelihood each connector is taken (must total 100%)" position="right">
-            <h4 id="probabilities-heading" className="text-xs font-medium text-gray-700 mb-2">
-              Probabilities
-            </h4>
-          </Tooltip>
+          <h4 id="probabilities-heading" className="text-xs font-medium text-gray-700 mb-2" style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            <GlossaryTerm
+              term="Path probabilities"
+              definition="How likely each path is chosen. Paths from the same decision should add up to ~100%."
+            />
+          </h4>
 
           {/* Helper Text */}
           <p className="text-xs text-gray-600 mb-3" style={{ lineHeight: '1.4' }}>
-            Auto-balance keeps your ratios, rounds to nice numbers, and totals 100%. Equal split divides the remaining (unlocked) options evenly.
+            Auto-balance keeps your ratios, rounds to nice numbers, and reaches 100%. Equal split divides evenly among unlocked paths.
           </p>
 
           {/* Probability Rows */}
