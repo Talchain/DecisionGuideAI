@@ -140,18 +140,67 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         throw new Error('Invalid template graph structure')
       }
 
+      // Auto-layout: Create hierarchical layout for templates without positions
+      const layoutGraph = (nodes: any[], edges: any[]) => {
+        // Build adjacency map
+        const outgoing = new Map<string, string[]>()
+        const incoming = new Map<string, string[]>()
+        edges.forEach(e => {
+          if (!outgoing.has(e.from)) outgoing.set(e.from, [])
+          if (!incoming.has(e.to)) incoming.set(e.to, [])
+          outgoing.get(e.from)!.push(e.to)
+          incoming.get(e.to)!.push(e.from)
+        })
+
+        // Find root nodes (no incoming edges)
+        const roots = nodes.filter(n => !incoming.has(n.id))
+
+        // Assign levels (BFS)
+        const levels = new Map<string, number>()
+        const queue = roots.map(r => ({ id: r.id, level: 0 }))
+        while (queue.length > 0) {
+          const { id, level } = queue.shift()!
+          if (levels.has(id)) continue
+          levels.set(id, level)
+          const children = outgoing.get(id) || []
+          children.forEach(child => queue.push({ id: child, level: level + 1 }))
+        }
+
+        // Group by level
+        const nodesByLevel = new Map<number, any[]>()
+        nodes.forEach(n => {
+          const level = levels.get(n.id) || 0
+          if (!nodesByLevel.has(level)) nodesByLevel.set(level, [])
+          nodesByLevel.get(level)!.push(n)
+        })
+
+        // Position nodes
+        const HORIZONTAL_SPACING = 280
+        const VERTICAL_SPACING = 200
+        return nodes.map(node => {
+          const level = levels.get(node.id) || 0
+          const nodesAtLevel = nodesByLevel.get(level) || []
+          const indexInLevel = nodesAtLevel.indexOf(node)
+          const totalAtLevel = nodesAtLevel.length
+
+          return {
+            id: node.id,
+            label: node.label || node.id,
+            kind: (node.kind || 'decision') as any,
+            position: {
+              x: 100 + (indexInLevel - (totalAtLevel - 1) / 2) * HORIZONTAL_SPACING,
+              y: 100 + level * VERTICAL_SPACING
+            }
+          }
+        })
+      }
+
       // Convert to Blueprint format for canvas insertion
-      // V1 API nodes don't have 'kind' or 'position', so we provide defaults
       const blueprint: Blueprint = {
         id: templateDetail.id,
         name: templateDetail.name,
         description: templateDetail.description,
-        nodes: graph.nodes.map((node: any, index: number) => ({
-          id: node.id,
-          label: node.label || node.id,
-          kind: (node.kind || 'decision') as any, // Default to 'decision' if not provided
-          position: node.position || { x: 100 + (index * 150), y: 100 } // Auto-layout if no position
-        })),
+        nodes: layoutGraph(graph.nodes, graph.edges),
         edges: graph.edges.map((edge: any) => ({
           id: edge.id || `${edge.from}-${edge.to}`,
           from: edge.from,
