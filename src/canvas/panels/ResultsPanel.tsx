@@ -14,8 +14,9 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { X, History as HistoryIcon, GitCompare as CompareIcon, Eye, Check, XCircle } from 'lucide-react'
+import { X, History as HistoryIcon, GitCompare as CompareIcon, Eye, Check, XCircle, Play } from 'lucide-react'
 import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash, selectPreviewMode, selectPreviewReport, selectStagedNodeChanges, selectStagedEdgeChanges } from '../store'
+import { usePreviewRun } from '../hooks/usePreviewRun'
 import { ProgressStrip } from '../components/ProgressStrip'
 import { WhyPanel } from '../../routes/templates/components/WhyPanel'
 import { useLayerRegistration } from '../components/LayerProvider'
@@ -27,6 +28,7 @@ import { RangeChips } from '../components/RangeChips'
 import { ConfidenceBadge } from '../components/ConfidenceBadge'
 import { ActionsRow } from '../components/ActionsRow'
 import { ResultsDiff } from '../components/ResultsDiff'
+import { PreviewDiff } from '../components/PreviewDiff'
 import { Sparkline } from '../components/Sparkline'
 import type { StoredRun } from '../store/runHistory'
 import { loadRuns } from '../store/runHistory'
@@ -62,6 +64,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const stagedEdgeChanges = useCanvasStore(selectStagedEdgeChanges)
   const previewApply = useCanvasStore(s => s.previewApply)
   const previewDiscard = useCanvasStore(s => s.previewDiscard)
+  const { runPreview } = usePreviewRun()
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabId>('latest')
@@ -160,6 +163,13 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
     previewDiscard()
     showToast('Preview changes discarded', 'info')
   }, [previewDiscard, showToast])
+
+  const handleRunPreview = useCallback(() => {
+    // Run preview with current seed or use default
+    const previewSeed = seed ?? 1337
+    runPreview('canvas', previewSeed)
+    showToast('Running preview analysis...', 'info')
+  }, [runPreview, seed, showToast])
 
   if (!isOpen) return null
 
@@ -405,8 +415,16 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                     unitSymbol={report.results.unitSymbol}
                   />
 
-                  {/* ResultsDiff - Show changes from previous run */}
-                  {previousRun && (
+                  {/* PreviewDiff - Show when in preview mode with preview report */}
+                  {previewMode && previewReport && (
+                    <PreviewDiff
+                      currentReport={report}
+                      previewReport={previewReport}
+                    />
+                  )}
+
+                  {/* ResultsDiff - Show changes from previous run (not in preview mode) */}
+                  {!previewMode && previousRun && (
                     <ResultsDiff
                       currentLikely={report.results.likely}
                       previousLikely={previousRun.report.results.likely}
@@ -494,63 +512,104 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                           )}
                         </p>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button
-                          onClick={handleApplyPreview}
-                          style={{
-                            flex: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.375rem',
-                            padding: '0.625rem 1rem',
-                            fontSize: '0.875rem',
-                            borderRadius: '0.375rem',
-                            border: 'none',
-                            backgroundColor: 'var(--olumi-success)',
-                            color: 'white',
-                            cursor: 'pointer',
-                            fontWeight: 500,
-                            transition: 'all 0.2s ease',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#1ba870'
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'var(--olumi-success)'
-                          }}
-                        >
-                          <Check className="w-4 h-4" />
-                          Apply Changes
-                        </button>
-                        <button
-                          onClick={handleDiscardPreview}
-                          style={{
-                            flex: 1,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.375rem',
-                            padding: '0.625rem 1rem',
-                            fontSize: '0.875rem',
-                            borderRadius: '0.375rem',
-                            border: '1px solid rgba(91, 108, 255, 0.3)',
-                            backgroundColor: 'rgba(91, 108, 255, 0.1)',
-                            color: 'var(--olumi-text)',
-                            cursor: 'pointer',
-                            fontWeight: 500,
-                            transition: 'all 0.2s ease',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = 'rgba(91, 108, 255, 0.2)'
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'rgba(91, 108, 255, 0.1)'
-                          }}
-                        >
-                          <XCircle className="w-4 h-4" />
-                          Discard
-                        </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {/* Run Preview button - shown when no preview report or want to re-run */}
+                        {(!previewReport || (stagedNodeChanges.size > 0 || stagedEdgeChanges.size > 0)) && (
+                          <button
+                            onClick={handleRunPreview}
+                            disabled={isLoading}
+                            style={{
+                              width: '100%',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.375rem',
+                              padding: '0.625rem 1rem',
+                              fontSize: '0.875rem',
+                              borderRadius: '0.375rem',
+                              border: 'none',
+                              backgroundColor: 'var(--olumi-primary)',
+                              color: 'white',
+                              cursor: isLoading ? 'not-allowed' : 'pointer',
+                              fontWeight: 500,
+                              transition: 'all 0.2s ease',
+                              opacity: isLoading ? 0.6 : 1,
+                            }}
+                            onMouseEnter={(e) => {
+                              if (!isLoading) {
+                                e.currentTarget.style.backgroundColor = '#4a5acc'
+                              }
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'var(--olumi-primary)'
+                            }}
+                          >
+                            <Play className="w-4 h-4" />
+                            {isLoading ? 'Running Preview...' : 'Run Preview'}
+                          </button>
+                        )}
+
+                        {/* Apply/Discard buttons - shown when preview report exists */}
+                        {previewReport && (
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                              onClick={handleApplyPreview}
+                              style={{
+                                flex: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.375rem',
+                                padding: '0.625rem 1rem',
+                                fontSize: '0.875rem',
+                                borderRadius: '0.375rem',
+                                border: 'none',
+                                backgroundColor: 'var(--olumi-success)',
+                                color: 'white',
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                                transition: 'all 0.2s ease',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#1ba870'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'var(--olumi-success)'
+                              }}
+                            >
+                              <Check className="w-4 h-4" />
+                              Apply Changes
+                            </button>
+                            <button
+                              onClick={handleDiscardPreview}
+                              style={{
+                                flex: 1,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.375rem',
+                                padding: '0.625rem 1rem',
+                                fontSize: '0.875rem',
+                                borderRadius: '0.375rem',
+                                border: '1px solid rgba(91, 108, 255, 0.3)',
+                                backgroundColor: 'rgba(91, 108, 255, 0.1)',
+                                color: 'var(--olumi-text)',
+                                cursor: 'pointer',
+                                fontWeight: 500,
+                                transition: 'all 0.2s ease',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(91, 108, 255, 0.2)'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(91, 108, 255, 0.1)'
+                              }}
+                            >
+                              <XCircle className="w-4 h-4" />
+                              Discard
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )}
