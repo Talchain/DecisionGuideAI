@@ -44,6 +44,26 @@ interface ResultsPanelProps {
 
 type TabId = 'latest' | 'history' | 'compare'
 
+/**
+ * Format timestamp as relative time
+ * e.g., "2 minutes ago", "1 hour ago", "just now"
+ */
+function formatRelativeTime(timestamp: number): string {
+  const now = Date.now()
+  const diff = now - timestamp
+  const seconds = Math.floor(diff / 1000)
+  const minutes = Math.floor(seconds / 60)
+  const hours = Math.floor(minutes / 60)
+  const days = Math.floor(hours / 24)
+
+  if (seconds < 10) return 'just now'
+  if (seconds < 60) return `${seconds}s ago`
+  if (minutes < 60) return `${minutes}m ago`
+  if (hours < 24) return `${hours}h ago`
+  if (days < 30) return `${days}d ago`
+  return new Date(timestamp).toLocaleDateString()
+}
+
 export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsPanelProps): JSX.Element | null {
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -84,6 +104,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
   // Get previous run for diff comparison
   const allRuns = loadRuns()
+  const latestRun = allRuns.length >= 1 ? allRuns[0] : null
   const previousRun = allRuns.length >= 2 ? allRuns[1] : null
 
   // Get sparkline data (last 5 runs' likely values)
@@ -96,6 +117,12 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
   // Compare state
   const [compareRunIds, setCompareRunIds] = useState<string[]>([])
+
+  // Extract metadata for header (template, seed, hash, timestamp)
+  const templateName = latestRun?.templateId || 'Canvas'
+  const displaySeed = seed ?? latestRun?.seed
+  const displayHash = hash ?? latestRun?.hash
+  const displayTimestamp = latestRun?.ts
 
   // Register with LayerProvider for panel exclusivity and Esc handling
   useLayerRegistration('results-panel', 'panel', isOpen, onClose)
@@ -269,16 +296,63 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <h2
-              style={{
-                margin: 0,
-                fontSize: '1.125rem',
-                fontWeight: 600,
-                color: 'var(--olumi-text)',
-              }}
-            >
-              {activeTab === 'latest' ? 'Latest analysis' : activeTab === 'history' ? 'Run history' : 'Compare runs'}
-            </h2>
+            {activeTab === 'latest' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: '1.125rem',
+                    fontWeight: 600,
+                    color: 'var(--olumi-text)',
+                    lineHeight: 1.2,
+                  }}
+                >
+                  Results
+                </h2>
+                {latestRun && (
+                  <div
+                    style={{
+                      fontSize: '0.6875rem',
+                      color: 'rgba(232, 236, 245, 0.6)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <span style={{ fontWeight: 500 }}>{templateName}</span>
+                    {displaySeed !== undefined && (
+                      <>
+                        <span style={{ opacity: 0.5 }}>•</span>
+                        <span>Seed {displaySeed}</span>
+                      </>
+                    )}
+                    {displayHash && (
+                      <>
+                        <span style={{ opacity: 0.5 }}>•</span>
+                        <span title={displayHash}>{displayHash.substring(0, 8)}</span>
+                      </>
+                    )}
+                    {displayTimestamp && (
+                      <>
+                        <span style={{ opacity: 0.5 }}>•</span>
+                        <span>{formatRelativeTime(displayTimestamp)}</span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <h2
+                style={{
+                  margin: 0,
+                  fontSize: '1.125rem',
+                  fontWeight: 600,
+                  color: 'var(--olumi-text)',
+                }}
+              >
+                {activeTab === 'history' ? 'Run history' : 'Compare runs'}
+              </h2>
+            )}
             {/* Status pill */}
             <div
               style={{
