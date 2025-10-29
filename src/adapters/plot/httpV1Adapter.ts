@@ -300,6 +300,11 @@ export const httpV1Adapter = {
         } as V1Error
       }
 
+      // Handle API response format: API returns graph directly at top level
+      // Response is: { nodes: [], edges: [] } not { graph: { nodes: [], edges: [] } }
+      const graph = (graphResponse as any).graph || graphResponse
+      const default_seed = (graphResponse as any).default_seed
+
       // NOTE: v1 API does not include version field. Using '1.0' as default.
       // This is a placeholder until API provides explicit versioning.
       return {
@@ -307,8 +312,8 @@ export const httpV1Adapter = {
         name: metadata.label, // label → name
         version: '1.0', // Default version (API doesn't provide this field)
         description: metadata.summary, // summary → description
-        default_seed: graphResponse.default_seed,
-        graph: graphResponse.graph,
+        default_seed,
+        graph,
       }
     } catch (err: any) {
       throw mapV1ErrorToUI(err as V1Error)

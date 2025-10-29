@@ -134,7 +134,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       // Fetch template from API (works for both mock and httpv1)
       const templateDetail = await plot.template(templateId)
 
-      // Extract graph from API response (API returns nested graph structure)
+      // Extract graph from API response
       const graph = templateDetail.graph as any
       if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
         throw new Error('Invalid template graph structure')
