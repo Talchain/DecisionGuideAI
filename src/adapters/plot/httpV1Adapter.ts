@@ -32,7 +32,9 @@ import { shouldUseSync } from './v1/constants'
  */
 async function loadTemplateGraph(templateId: string): Promise<any> {
   const response = await v1http.templateGraph(templateId)
-  return response.graph
+  // Handle API response format: API returns graph directly at top level
+  // Response is: { nodes: [], edges: [] } not { graph: { nodes: [], edges: [] } }
+  return (response as any).graph || response
 }
 
 /**
