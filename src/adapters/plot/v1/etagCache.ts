@@ -4,6 +4,11 @@
  * Provides conditional request support for GET /v1/templates
  * using ETag headers to avoid redundant data transfers.
  *
+ * Features:
+ * - In-memory cache with 5-minute TTL
+ * - localStorage persistence (survives page reloads)
+ * - Automatic hydration on startup
+ *
  * RFC 7232: https://tools.ietf.org/html/rfc7232
  */
 
@@ -13,9 +18,74 @@ interface CacheEntry<T> {
   timestamp: number
 }
 
+const STORAGE_KEY = 'plot-etag-cache'
+const STORAGE_VERSION = 1
+
 class ETagCache {
   private cache = new Map<string, CacheEntry<any>>()
   private readonly MAX_AGE_MS = 5 * 60 * 1000 // 5 minutes
+
+  constructor() {
+    this.hydrateFromStorage()
+  }
+
+  /**
+   * Load cache from localStorage on startup
+   */
+  private hydrateFromStorage(): void {
+    if (typeof window === 'undefined' || !window.localStorage) return
+
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (!stored) return
+
+      const parsed = JSON.parse(stored)
+      if (parsed.version !== STORAGE_VERSION) {
+        // Clear old version
+        localStorage.removeItem(STORAGE_KEY)
+        return
+      }
+
+      // Restore entries that haven't expired
+      const now = Date.now()
+      for (const [key, entry] of Object.entries(parsed.entries || {})) {
+        const cacheEntry = entry as CacheEntry<any>
+        const age = now - cacheEntry.timestamp
+        if (age < this.MAX_AGE_MS) {
+          this.cache.set(key, cacheEntry)
+        }
+      }
+
+      if (import.meta.env.DEV) {
+        console.log(`[etagCache] Hydrated ${this.cache.size} entries from localStorage`)
+      }
+    } catch (err) {
+      console.error('[etagCache] Failed to hydrate from localStorage:', err)
+      localStorage.removeItem(STORAGE_KEY)
+    }
+  }
+
+  /**
+   * Persist cache to localStorage
+   */
+  private persistToStorage(): void {
+    if (typeof window === 'undefined' || !window.localStorage) return
+
+    try {
+      const entries: Record<string, CacheEntry<any>> = {}
+      this.cache.forEach((value, key) => {
+        entries[key] = value
+      })
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        version: STORAGE_VERSION,
+        entries,
+      }))
+    } catch (err) {
+      // Quota exceeded or other storage error
+      console.warn('[etagCache] Failed to persist to localStorage:', err)
+    }
+  }
 
   /**
    * Get cached data and ETag for a resource
@@ -46,6 +116,7 @@ class ETagCache {
       data,
       timestamp: Date.now(),
     })
+    this.persistToStorage()
   }
 
   /**
@@ -59,6 +130,7 @@ class ETagCache {
     const age = Date.now() - entry.timestamp
     if (age > this.MAX_AGE_MS) {
       this.cache.delete(key)
+      this.persistToStorage()
       return null
     }
 
@@ -72,6 +144,7 @@ class ETagCache {
     const entry = this.cache.get(key)
     if (entry) {
       entry.timestamp = Date.now()
+      this.persistToStorage()
     }
   }
 
@@ -80,6 +153,7 @@ class ETagCache {
    */
   clear(): void {
     this.cache.clear()
+    this.persistToStorage()
   }
 
   /**
@@ -91,6 +165,7 @@ class ETagCache {
    */
   invalidate(key: string): void {
     this.cache.delete(key)
+    this.persistToStorage()
   }
 }
 
