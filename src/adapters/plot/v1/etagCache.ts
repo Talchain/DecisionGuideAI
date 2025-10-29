@@ -18,6 +18,13 @@ interface CacheEntry<T> {
   timestamp: number
 }
 
+export interface CacheStats {
+  hits: number
+  misses: number
+  evictions: number
+  hitRate: number
+}
+
 const STORAGE_KEY = 'plot-etag-cache'
 const STORAGE_VERSION = 1
 
@@ -25,6 +32,11 @@ class ETagCache {
   private cache = new Map<string, CacheEntry<any>>()
   private readonly MAX_AGE_MS = 5 * 60 * 1000 // 5 minutes
   private persistenceFailed = false // Back off if quota exceeded
+
+  // Telemetry counters
+  private hits = 0
+  private misses = 0
+  private evictions = 0
 
   constructor() {
     this.hydrateFromStorage()
@@ -103,15 +115,21 @@ class ETagCache {
    */
   get<T>(key: string): { data: T; etag: string } | null {
     const entry = this.cache.get(key)
-    if (!entry) return null
+    if (!entry) {
+      this.misses++
+      return null
+    }
 
     // Check if expired
     const age = Date.now() - entry.timestamp
     if (age > this.MAX_AGE_MS) {
       this.cache.delete(key)
+      this.evictions++
+      this.misses++
       return null
     }
 
+    this.hits++
     return {
       data: entry.data,
       etag: entry.etag,
@@ -156,7 +174,32 @@ class ETagCache {
     if (entry) {
       entry.timestamp = Date.now()
       this.persistToStorage()
+      this.hits++ // 304 responses are cache hits
     }
+  }
+
+  /**
+   * Get cache statistics for telemetry
+   */
+  getStats(): CacheStats {
+    const total = this.hits + this.misses
+    const hitRate = total > 0 ? (this.hits / total) * 100 : 0
+
+    return {
+      hits: this.hits,
+      misses: this.misses,
+      evictions: this.evictions,
+      hitRate: Math.round(hitRate * 100) / 100, // Round to 2 decimals
+    }
+  }
+
+  /**
+   * Reset telemetry counters
+   */
+  resetStats(): void {
+    this.hits = 0
+    this.misses = 0
+    this.evictions = 0
   }
 
   /**
@@ -189,4 +232,20 @@ export const etagCache = new ETagCache()
  */
 export function invalidateTemplatesCache(): void {
   etagCache.invalidate('templates-list')
+}
+
+/**
+ * Get cache telemetry stats
+ * Useful for monitoring cache effectiveness and debugging
+ */
+export function getCacheStats(): CacheStats {
+  return etagCache.getStats()
+}
+
+/**
+ * Reset cache telemetry counters
+ * Useful for testing or starting fresh metrics
+ */
+export function resetCacheStats(): void {
+  etagCache.resetStats()
 }
