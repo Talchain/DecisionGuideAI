@@ -6,7 +6,7 @@
  * - Alt+V: Cycle through validation errors
  * - Cmd/Ctrl+Enter: Run simulation
  * - Cmd/Ctrl+3: Toggle Results panel
- * - ?: Show keyboard map
+ * - ? or Cmd/Ctrl+/: Show help panel
  */
 
 import { useEffect, useCallback } from 'react'
@@ -17,6 +17,7 @@ interface UseCanvasKeyboardShortcutsOptions {
   onRunSimulation?: () => void
   onToggleResults?: () => void
   onShowKeyboardMap?: () => void
+  onShowHelpPanel?: () => void
   onShowToast?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void
 }
 
@@ -25,6 +26,7 @@ export function useCanvasKeyboardShortcuts({
   onRunSimulation,
   onToggleResults,
   onShowKeyboardMap,
+  onShowHelpPanel,
   onShowToast
 }: UseCanvasKeyboardShortcutsOptions = {}) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -75,11 +77,26 @@ export function useCanvasKeyboardShortcuts({
       return
     }
 
-    // ?: Show keyboard map
+    // ? or Cmd/Ctrl+/: Show help panel
     if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
       e.preventDefault()
 
-      if (onShowKeyboardMap) {
+      if (onShowHelpPanel) {
+        onShowHelpPanel()
+      } else if (onShowKeyboardMap) {
+        onShowKeyboardMap()
+      }
+
+      return
+    }
+
+    // Cmd/Ctrl+/: Show help panel (alternative shortcut)
+    if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+      e.preventDefault()
+
+      if (onShowHelpPanel) {
+        onShowHelpPanel()
+      } else if (onShowKeyboardMap) {
         onShowKeyboardMap()
       }
 
@@ -128,7 +145,7 @@ export function useCanvasKeyboardShortcuts({
 
       return
     }
-  }, [onFocusNode, onRunSimulation, onToggleResults, onShowKeyboardMap, onShowToast])
+  }, [onFocusNode, onRunSimulation, onToggleResults, onShowKeyboardMap, onShowHelpPanel, onShowToast])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)

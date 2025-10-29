@@ -29,6 +29,7 @@ import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
 import { ResultsPanel } from './panels/ResultsPanel'
+import { HelpPanel } from './panels/HelpPanel'
 import { useResultsRun } from './hooks/useResultsRun'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
@@ -55,6 +56,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const [showEmptyState, setShowEmptyState] = useState(true)
   const [showCheatsheet, setShowCheatsheet] = useState(false)
   const [showKeyboardMap, setShowKeyboardMap] = useState(false)
+  const [showHelpPanel, setShowHelpPanel] = useState(false)
   const [showResultsPanel, setShowResultsPanel] = useState(false)
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
@@ -169,12 +171,13 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     })
   }, [showToast, runAnalysis])
 
-  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, ?)
+  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, ?, Cmd/Ctrl+/)
   useCanvasKeyboardShortcuts({
     onFocusNode: handleFocusNode,
     onRunSimulation: handleRunSimulation,
     onToggleResults: () => setShowResultsPanel(prev => !prev),
     onShowKeyboardMap: () => setShowKeyboardMap(true),
+    onShowHelpPanel: () => setShowHelpPanel(true),
     onShowToast: showToast
   })
 
@@ -425,6 +428,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       {showCheatsheet && <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />}
       {showKeyboardMap && <KeyboardMap isOpen={showKeyboardMap} onClose={() => setShowKeyboardMap(false)} />}
       {showResultsPanel && <ResultsPanel isOpen={showResultsPanel} onClose={() => setShowResultsPanel(false)} onCancel={cancelAnalysis} />}
+      {showHelpPanel && <HelpPanel isOpen={showHelpPanel} onClose={() => setShowHelpPanel(false)} />}
       {nodes.length === 0 && showEmptyState && <EmptyStateOverlay onDismiss={() => setShowEmptyState(false)} />}
       
       {existingTemplate && pendingBlueprint && (
