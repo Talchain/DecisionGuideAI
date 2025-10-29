@@ -14,8 +14,8 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { X, History as HistoryIcon, GitCompare as CompareIcon } from 'lucide-react'
-import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash } from '../store'
+import { X, History as HistoryIcon, GitCompare as CompareIcon, Eye, Check, XCircle } from 'lucide-react'
+import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash, selectPreviewMode, selectPreviewReport } from '../store'
 import { ProgressStrip } from '../components/ProgressStrip'
 import { WhyPanel } from '../../routes/templates/components/WhyPanel'
 import { useLayerRegistration } from '../components/LayerProvider'
@@ -54,6 +54,12 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const resultsReset = useCanvasStore(s => s.resultsReset)
   const resultsLoadHistorical = useCanvasStore(s => s.resultsLoadHistorical)
   const { showToast } = useToast()
+
+  // Preview Mode state and actions
+  const previewMode = useCanvasStore(selectPreviewMode)
+  const previewReport = useCanvasStore(selectPreviewReport)
+  const previewApply = useCanvasStore(s => s.previewApply)
+  const previewDiscard = useCanvasStore(s => s.previewDiscard)
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabId>('latest')
@@ -140,6 +146,16 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
       showToast('Run URL copied to clipboard', 'success')
     }
   }, [hash, showToast])
+
+  const handleApplyPreview = useCallback(() => {
+    previewApply()
+    showToast('Preview changes applied — press ⌘Z to undo', 'success')
+  }, [previewApply, showToast])
+
+  const handleDiscardPreview = useCallback(() => {
+    previewDiscard()
+    showToast('Preview changes discarded', 'info')
+  }, [previewDiscard, showToast])
 
   if (!isOpen) return null
 
@@ -247,6 +263,26 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
             >
               {statusText}
             </div>
+            {/* Preview Mode pill */}
+            {previewMode && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.375rem',
+                  padding: '0.25rem 0.625rem',
+                  borderRadius: '9999px',
+                  backgroundColor: 'rgba(91, 108, 255, 0.2)',
+                  border: '1px solid var(--olumi-primary)',
+                  fontSize: '0.75rem',
+                  fontWeight: 500,
+                  color: 'var(--olumi-primary)',
+                }}
+              >
+                <Eye className="w-3 h-3" />
+                Preview Mode
+              </div>
+            )}
             {/* Sparkline - Show trend over recent runs */}
             {activeTab === 'latest' && sparklineValues.length >= 2 && isComplete && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -410,6 +446,94 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
                   {/* Recommendations */}
                   <WhyPanel report={report} />
+
+                  {/* Preview Mode Actions */}
+                  {previewMode && (
+                    <div
+                      style={{
+                        padding: '1rem',
+                        borderRadius: '0.375rem',
+                        backgroundColor: 'rgba(91, 108, 255, 0.08)',
+                        border: '1px solid rgba(91, 108, 255, 0.2)',
+                      }}
+                    >
+                      <div style={{ marginBottom: '0.75rem' }}>
+                        <h4
+                          style={{
+                            fontSize: '0.875rem',
+                            fontWeight: 600,
+                            color: 'var(--olumi-text)',
+                            marginBottom: '0.375rem',
+                          }}
+                        >
+                          Preview Mode Active
+                        </h4>
+                        <p style={{ fontSize: '0.75rem', color: 'rgba(232, 236, 245, 0.7)', margin: 0 }}>
+                          {previewReport
+                            ? 'Preview analysis complete. Apply to commit changes or discard to reset.'
+                            : 'Make changes in the node inspector, then run preview to see results.'}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button
+                          onClick={handleApplyPreview}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.375rem',
+                            padding: '0.625rem 1rem',
+                            fontSize: '0.875rem',
+                            borderRadius: '0.375rem',
+                            border: 'none',
+                            backgroundColor: 'var(--olumi-success)',
+                            color: 'white',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            transition: 'all 0.2s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#1ba870'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'var(--olumi-success)'
+                          }}
+                        >
+                          <Check className="w-4 h-4" />
+                          Apply Changes
+                        </button>
+                        <button
+                          onClick={handleDiscardPreview}
+                          style={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.375rem',
+                            padding: '0.625rem 1rem',
+                            fontSize: '0.875rem',
+                            borderRadius: '0.375rem',
+                            border: '1px solid rgba(91, 108, 255, 0.3)',
+                            backgroundColor: 'rgba(91, 108, 255, 0.1)',
+                            color: 'var(--olumi-text)',
+                            cursor: 'pointer',
+                            fontWeight: 500,
+                            transition: 'all 0.2s ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = 'rgba(91, 108, 255, 0.2)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'rgba(91, 108, 255, 0.1)'
+                          }}
+                        >
+                          <XCircle className="w-4 h-4" />
+                          Discard
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Actions Row */}
                   <ActionsRow
