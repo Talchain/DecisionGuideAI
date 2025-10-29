@@ -125,7 +125,16 @@ export function toApiGraph(ui: UiGraph): ApiGraph {
     // Normalize if needed (0..100 → 0..1), preserve sign
     const rawWeight = e.data?.weight ?? e.data?.confidence
     if (rawWeight != null) {
-      edge.weight = normalizeWeight(rawWeight)
+      try {
+        edge.weight = normalizeWeight(rawWeight)
+      } catch (err: any) {
+        // Add edge context to error
+        throw {
+          ...err,
+          message: `Edge ${idx} (${e.source} → ${e.target}): ${err.message}`,
+          field: `edges[${idx}].weight`,
+        }
+      }
     }
 
     return edge
@@ -135,15 +144,25 @@ export function toApiGraph(ui: UiGraph): ApiGraph {
 }
 
 /**
- * Normalize weight to 0..1 range
+ * Normalize weight to -1..1 range with strict validation
  *
  * - If already in range (-1..1), pass through
  * - If looks like percentage (>1 or <-1), divide by 100
  * - Preserve sign (allow negative weights for directionality)
  * - Undefined stays undefined
+ * - Throws BAD_INPUT for invalid values (NaN, Infinity, out of range after normalization)
  */
 function normalizeWeight(v: number | undefined): number | undefined {
   if (v == null) return undefined
+
+  // Strict validation: reject NaN and Infinity
+  if (!Number.isFinite(v)) {
+    throw {
+      code: 'BAD_INPUT',
+      message: `Edge weight must be a finite number, got ${v}`,
+      field: 'edge.weight',
+    }
+  }
 
   // Already normalized
   if (Math.abs(v) <= 1) {
@@ -151,7 +170,18 @@ function normalizeWeight(v: number | undefined): number | undefined {
   }
 
   // Looks like percentage - normalize
-  return v / 100
+  const normalized = v / 100
+
+  // Validate normalized value is within valid range
+  if (Math.abs(normalized) > 1) {
+    throw {
+      code: 'BAD_INPUT',
+      message: `Edge weight out of range: ${v} (normalized: ${normalized}). Must be between -100 and 100 (or -1 to 1).`,
+      field: 'edge.weight',
+    }
+  }
+
+  return normalized
 }
 
 // ============================================================================
