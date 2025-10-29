@@ -17,6 +17,7 @@ import { useEffect, useRef, useCallback, useState } from 'react'
 import { X, History as HistoryIcon, GitCompare as CompareIcon, Eye, Check, XCircle, Play } from 'lucide-react'
 import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash, selectPreviewMode, selectPreviewReport, selectStagedNodeChanges, selectStagedEdgeChanges, selectPreviewStatus, selectPreviewProgress, selectPreviewError } from '../store'
 import { usePreviewRun } from '../hooks/usePreviewRun'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { ProgressStrip } from '../components/ProgressStrip'
 import { WhyPanel } from '../../routes/templates/components/WhyPanel'
 import { useLayerRegistration } from '../components/LayerProvider'
@@ -68,6 +69,9 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const previewApply = useCanvasStore(s => s.previewApply)
   const previewDiscard = useCanvasStore(s => s.previewDiscard)
   const { runPreview } = usePreviewRun()
+
+  // A11y: Respect motion preferences
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   // Conditionally use preview status when in preview mode
   const status = previewMode ? previewStatus : mainStatus
@@ -543,7 +547,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                               color: 'white',
                               cursor: isLoading ? 'not-allowed' : 'pointer',
                               fontWeight: 500,
-                              transition: 'all 0.2s ease',
+                              transition: prefersReducedMotion ? 'none' : 'all 0.2s ease',
                               opacity: isLoading ? 0.6 : 1,
                             }}
                             onMouseEnter={(e) => {
@@ -579,7 +583,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                                 color: 'white',
                                 cursor: 'pointer',
                                 fontWeight: 500,
-                                transition: 'all 0.2s ease',
+                                transition: prefersReducedMotion ? 'none' : 'all 0.2s ease',
                               }}
                               onMouseEnter={(e) => {
                                 e.currentTarget.style.backgroundColor = '#1ba870'
@@ -607,7 +611,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                                 color: 'var(--olumi-text)',
                                 cursor: 'pointer',
                                 fontWeight: 500,
-                                transition: 'all 0.2s ease',
+                                transition: prefersReducedMotion ? 'none' : 'all 0.2s ease',
                               }}
                               onMouseEnter={(e) => {
                                 e.currentTarget.style.backgroundColor = 'rgba(91, 108, 255, 0.2)'
