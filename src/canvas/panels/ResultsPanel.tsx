@@ -15,7 +15,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { X, History as HistoryIcon, GitCompare as CompareIcon, Eye, Check, XCircle, Play } from 'lucide-react'
-import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash, selectPreviewMode, selectPreviewReport, selectStagedNodeChanges, selectStagedEdgeChanges, selectPreviewStatus, selectPreviewProgress, selectPreviewError } from '../store'
+import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash, selectPreviewMode, selectPreviewReport, selectPreviewSeed, selectPreviewHash, selectStagedNodeChanges, selectStagedEdgeChanges, selectPreviewStatus, selectPreviewProgress, selectPreviewError } from '../store'
 import { usePreviewRun } from '../hooks/usePreviewRun'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { ProgressStrip } from '../components/ProgressStrip'
@@ -81,6 +81,8 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   // Preview Mode state and actions
   const previewMode = useCanvasStore(selectPreviewMode)
   const previewReport = useCanvasStore(selectPreviewReport)
+  const previewSeed = useCanvasStore(selectPreviewSeed)
+  const previewHash = useCanvasStore(selectPreviewHash)
   const previewStatus = useCanvasStore(selectPreviewStatus)
   const previewProgress = useCanvasStore(selectPreviewProgress)
   const previewError = useCanvasStore(selectPreviewError)
@@ -119,10 +121,11 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const [compareRunIds, setCompareRunIds] = useState<string[]>([])
 
   // Extract metadata for header (template, seed, hash, timestamp)
+  // Prefer preview values when in preview mode, fallback to main/latest run
   const templateName = latestRun?.templateId || 'Canvas'
-  const displaySeed = seed ?? latestRun?.seed
-  const displayHash = hash ?? latestRun?.hash
-  const displayTimestamp = latestRun?.ts
+  const displaySeed = previewMode && previewSeed !== undefined ? previewSeed : (seed ?? latestRun?.seed)
+  const displayHash = previewMode && previewHash ? previewHash : (hash ?? latestRun?.hash)
+  const displayTimestamp = latestRun?.ts // Always use latest run timestamp (preview doesn't have its own timestamp)
 
   // Rate limit countdown
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null)
@@ -130,7 +133,8 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   // Initialize countdown when error with retryAfter appears
   useEffect(() => {
     if (error?.retryAfter) {
-      setRetryCountdown(error.retryAfter)
+      // Handle fractional seconds by ceiling to ensure minimum 1-second display
+      setRetryCountdown(Math.ceil(error.retryAfter))
     } else {
       setRetryCountdown(null)
     }

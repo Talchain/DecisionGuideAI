@@ -1206,6 +1206,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
  */
 export const selectPreviewMode = (state: CanvasState) => state.preview.isActive
 export const selectPreviewReport = (state: CanvasState) => state.preview.previewReport
+export const selectPreviewSeed = (state: CanvasState) => state.preview.previewSeed
+export const selectPreviewHash = (state: CanvasState) => state.preview.previewHash
 export const selectStagedNodeChanges = (state: CanvasState) => state.preview.stagedNodeChanges
 export const selectStagedEdgeChanges = (state: CanvasState) => state.preview.stagedEdgeChanges
 export const selectPreviewStatus = (state: CanvasState) => state.preview.status
