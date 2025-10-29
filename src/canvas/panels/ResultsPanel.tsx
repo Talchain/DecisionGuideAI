@@ -26,7 +26,10 @@ import { KPIHeadline } from '../components/KPIHeadline'
 import { RangeChips } from '../components/RangeChips'
 import { ConfidenceBadge } from '../components/ConfidenceBadge'
 import { ActionsRow } from '../components/ActionsRow'
+import { ResultsDiff } from '../components/ResultsDiff'
+import { Sparkline } from '../components/Sparkline'
 import type { StoredRun } from '../store/runHistory'
+import { loadRuns } from '../store/runHistory'
 import { useToast } from '../ToastContext'
 
 interface ResultsPanelProps {
@@ -54,6 +57,16 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabId>('latest')
+
+  // Get previous run for diff comparison
+  const allRuns = loadRuns()
+  const previousRun = allRuns.length >= 2 ? allRuns[1] : null
+
+  // Get sparkline data (last 5 runs' likely values)
+  const sparklineValues = allRuns
+    .slice(0, 5)
+    .reverse()
+    .map(run => run.report.results.likely)
 
   // Compare state
   const [compareRunIds, setCompareRunIds] = useState<string[]>([])
@@ -234,6 +247,21 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
             >
               {statusText}
             </div>
+            {/* Sparkline - Show trend over recent runs */}
+            {activeTab === 'latest' && sparklineValues.length >= 2 && isComplete && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Sparkline
+                  values={sparklineValues}
+                  width={60}
+                  height={20}
+                  strokeColor="var(--olumi-primary)"
+                  strokeWidth={1.5}
+                />
+                <span style={{ fontSize: '0.6875rem', color: 'rgba(232, 236, 245, 0.5)' }}>
+                  Last {sparklineValues.length} runs
+                </span>
+              </div>
+            )}
           </div>
           <button
             onClick={handleClose}
@@ -336,6 +364,17 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                     units={report.results.units}
                     unitSymbol={report.results.unitSymbol}
                   />
+
+                  {/* ResultsDiff - Show changes from previous run */}
+                  {previousRun && (
+                    <ResultsDiff
+                      currentLikely={report.results.likely}
+                      previousLikely={previousRun.report.results.likely}
+                      units={report.results.units}
+                      currentDrivers={report.drivers?.map(d => ({ label: d.label, impact: d.impact }))}
+                      previousDrivers={previousRun.report.drivers?.map(d => ({ label: d.label, impact: d.impact }))}
+                    />
+                  )}
 
                   {/* Range Chips */}
                   <RangeChips

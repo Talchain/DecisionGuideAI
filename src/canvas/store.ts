@@ -29,6 +29,16 @@ export interface ResultsState {
   drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
 }
 
+// Preview Mode state
+export interface PreviewState {
+  isActive: boolean
+  stagedNodeChanges: Map<string, Partial<Node>>
+  stagedEdgeChanges: Map<string, Partial<EdgeData>>
+  previewReport?: ReportV1 | null
+  previewSeed?: number
+  previewHash?: string
+}
+
 const initialNodes: Node[] = []
 
 const initialEdges: Edge<EdgeData>[] = []
@@ -57,6 +67,7 @@ interface CanvasState {
   nextEdgeId: number
   _internal: { lastHistoryHash: string }
   results: ResultsState  // Analysis results panel state
+  preview: PreviewState  // Preview Mode state
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
@@ -103,6 +114,16 @@ interface CanvasState {
   resultsError: (params: { code: string; message: string; retryAfter?: number }) => void
   resultsCancelled: () => void
   resultsReset: () => void
+  resultsLoadHistorical: (run: StoredRun) => void
+  // Preview Mode actions
+  previewEnter: () => void
+  previewExit: () => void
+  previewStageNode: (id: string, updates: Partial<Node>) => void
+  previewStageEdge: (id: string, updates: Partial<EdgeData>) => void
+  previewGetMergedGraph: () => { nodes: Node[]; edges: Edge<EdgeData>[] }
+  previewSetReport: (report: ReportV1, seed: number, hash: string) => void
+  previewApply: () => void
+  previewDiscard: () => void
 }
 
 let historyTimer: ReturnType<typeof setTimeout> | null = null
@@ -177,6 +198,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   results: {
     status: 'idle',
     progress: 0
+  },
+  preview: {
+    isActive: false,
+    stagedNodeChanges: new Map(),
+    stagedEdgeChanges: new Map(),
+    previewReport: undefined,
+    previewSeed: undefined,
+    previewHash: undefined
   },
 
   createNodeId: () => {
@@ -923,8 +952,166 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     })
   },
 
+  // Preview Mode actions
+  previewEnter: () => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        isActive: true,
+        stagedNodeChanges: new Map(),
+        stagedEdgeChanges: new Map(),
+        previewReport: undefined,
+        previewSeed: undefined,
+        previewHash: undefined
+      }
+    }))
+  },
+
+  previewExit: () => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        isActive: false,
+        stagedNodeChanges: new Map(),
+        stagedEdgeChanges: new Map(),
+        previewReport: undefined,
+        previewSeed: undefined,
+        previewHash: undefined
+      }
+    }))
+  },
+
+  previewStageNode: (id, updates) => {
+    set(s => {
+      const newStagedChanges = new Map(s.preview.stagedNodeChanges)
+      const existing = newStagedChanges.get(id) || {}
+      newStagedChanges.set(id, { ...existing, ...updates })
+      return {
+        preview: {
+          ...s.preview,
+          stagedNodeChanges: newStagedChanges
+        }
+      }
+    })
+  },
+
+  previewStageEdge: (id, updates) => {
+    set(s => {
+      const newStagedChanges = new Map(s.preview.stagedEdgeChanges)
+      const existing = newStagedChanges.get(id) || {}
+      newStagedChanges.set(id, { ...existing, ...updates })
+      return {
+        preview: {
+          ...s.preview,
+          stagedEdgeChanges: newStagedChanges
+        }
+      }
+    })
+  },
+
+  previewGetMergedGraph: () => {
+    const { nodes, edges, preview } = get()
+
+    // Merge staged node changes
+    const mergedNodes = nodes.map(node => {
+      const stagedChanges = preview.stagedNodeChanges.get(node.id)
+      if (!stagedChanges) return node
+      return {
+        ...node,
+        ...stagedChanges,
+        data: { ...node.data, ...stagedChanges.data }
+      }
+    })
+
+    // Merge staged edge changes
+    const mergedEdges = edges.map(edge => {
+      const stagedChanges = preview.stagedEdgeChanges.get(edge.id)
+      if (!stagedChanges) return edge
+      return {
+        ...edge,
+        data: { ...edge.data, ...stagedChanges }
+      }
+    })
+
+    return { nodes: mergedNodes, edges: mergedEdges }
+  },
+
+  previewSetReport: (report, seed, hash) => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        previewReport: report,
+        previewSeed: seed,
+        previewHash: hash
+      }
+    }))
+  },
+
+  previewApply: () => {
+    const { preview } = get()
+
+    // Apply all staged node changes in a single undo frame
+    pushToHistory(get, set)
+
+    set(s => {
+      const updatedNodes = s.nodes.map(node => {
+        const stagedChanges = preview.stagedNodeChanges.get(node.id)
+        if (!stagedChanges) return node
+        return {
+          ...node,
+          ...stagedChanges,
+          data: { ...node.data, ...stagedChanges.data }
+        }
+      })
+
+      const updatedEdges = s.edges.map(edge => {
+        const stagedChanges = preview.stagedEdgeChanges.get(edge.id)
+        if (!stagedChanges) return edge
+        return {
+          ...edge,
+          data: { ...edge.data, ...stagedChanges }
+        }
+      })
+
+      return {
+        nodes: updatedNodes,
+        edges: updatedEdges,
+        preview: {
+          isActive: false,
+          stagedNodeChanges: new Map(),
+          stagedEdgeChanges: new Map(),
+          previewReport: undefined,
+          previewSeed: undefined,
+          previewHash: undefined
+        }
+      }
+    })
+  },
+
+  previewDiscard: () => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        isActive: false,
+        stagedNodeChanges: new Map(),
+        stagedEdgeChanges: new Map(),
+        previewReport: undefined,
+        previewSeed: undefined,
+        previewHash: undefined
+      }
+    }))
+  },
+
   cleanup: clearTimers
 }))
+
+/**
+ * Preview Mode selectors
+ */
+export const selectPreviewMode = (state: CanvasState) => state.preview.isActive
+export const selectPreviewReport = (state: CanvasState) => state.preview.previewReport
+export const selectStagedNodeChanges = (state: CanvasState) => state.preview.stagedNodeChanges
+export const selectStagedEdgeChanges = (state: CanvasState) => state.preview.stagedEdgeChanges
 
 /**
  * Validation selectors and helpers

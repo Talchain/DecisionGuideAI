@@ -4,8 +4,8 @@
  */
 
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import { Lock, Unlock, AlertTriangle } from 'lucide-react'
-import { useCanvasStore } from '../store'
+import { Lock, Unlock, AlertTriangle, Eye, EyeOff } from 'lucide-react'
+import { useCanvasStore, selectPreviewMode, selectStagedNodeChanges } from '../store'
 import { NODE_REGISTRY } from '../domain/nodes'
 import type { NodeType } from '../domain/nodes'
 import { renderIcon } from '../helpers/renderIcon'
@@ -33,7 +33,18 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const updateNode = useCanvasStore(s => s.updateNode)
   const pushHistory = useCanvasStore(s => s.pushHistory)
 
+  // Preview Mode state and actions
+  const previewMode = useCanvasStore(selectPreviewMode)
+  const stagedNodeChanges = useCanvasStore(selectStagedNodeChanges)
+  const previewEnter = useCanvasStore(s => s.previewEnter)
+  const previewExit = useCanvasStore(s => s.previewExit)
+  const previewStageNode = useCanvasStore(s => s.previewStageNode)
+  const previewStageEdge = useCanvasStore(s => s.previewStageEdge)
+
   const node = nodes.find(n => n.id === nodeId)
+
+  // Check if this node has staged changes
+  const hasNodedStagedChanges = stagedNodeChanges.has(nodeId)
   const [label, setLabel] = useState<string>(String(node?.data?.label ?? ''))
   const [description, setDescription] = useState<string>(String(node?.data?.description ?? ''))
 
@@ -107,21 +118,33 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const handleLabelBlur = useCallback(() => {
     const trimmed = label.trim().slice(0, 100)
     if (trimmed && trimmed !== node?.data?.label) {
-      updateNode(nodeId, { data: { ...node?.data, label: trimmed } })
+      if (previewMode) {
+        previewStageNode(nodeId, { data: { ...node?.data, label: trimmed } })
+      } else {
+        updateNode(nodeId, { data: { ...node?.data, label: trimmed } })
+      }
     }
-  }, [nodeId, label, node?.data, updateNode])
+  }, [nodeId, label, node?.data, updateNode, previewMode, previewStageNode])
 
   const handleDescriptionBlur = useCallback(() => {
     const trimmed = description.trim().slice(0, 500)
     if (trimmed !== node?.data?.description) {
-      updateNode(nodeId, { data: { ...node?.data, description: trimmed || undefined } })
+      if (previewMode) {
+        previewStageNode(nodeId, { data: { ...node?.data, description: trimmed || undefined } })
+      } else {
+        updateNode(nodeId, { data: { ...node?.data, description: trimmed || undefined } })
+      }
     }
-  }, [nodeId, description, node?.data, updateNode])
+  }, [nodeId, description, node?.data, updateNode, previewMode, previewStageNode])
 
   const handleTypeChange = useCallback((newType: NodeType) => {
     // Update node type in place (preserves id, position, label)
-    updateNode(nodeId, { type: newType })
-  }, [nodeId, updateNode])
+    if (previewMode) {
+      previewStageNode(nodeId, { type: newType })
+    } else {
+      updateNode(nodeId, { type: newType })
+    }
+  }, [nodeId, updateNode, previewMode, previewStageNode])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -192,6 +215,30 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       return
     }
 
+    // In Preview Mode, stage the changes instead of applying directly
+    if (previewMode) {
+      rows.forEach(row => {
+        const edge = edges.find(e => e.id === row.edgeId)
+        if (!edge) return
+
+        const currentLabel = edge.data?.label
+        const isAutoLabel = !currentLabel || /^\d+%$/.test(currentLabel)
+        const newLabel = isAutoLabel ? `${row.percent}%` : currentLabel
+
+        previewStageEdge(row.edgeId, {
+          kind: 'decision-probability',
+          confidence: row.percent / 100,
+          label: newLabel
+        })
+      })
+
+      // Update original rows to new state
+      setOriginalRows(rows)
+      setBalanceError(undefined)
+      return
+    }
+
+    // Normal mode: apply changes directly
     // Build the new edges array with all updates applied
     const updatedEdges = edges.map(edge => {
       const row = rows.find(r => r.edgeId === edge.id)
@@ -239,7 +286,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
     // Update original rows to new state
     setOriginalRows(rows)
     setBalanceError(undefined)
-  }, [rows, edges, validation.valid, pushHistory])
+  }, [rows, edges, validation.valid, pushHistory, previewMode, previewStageEdge])
 
   const allLocked = rows.length > 0 && rows.every(r => r.locked)
 
@@ -249,13 +296,64 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const metadata = NODE_REGISTRY[currentType] || NODE_REGISTRY.decision
 
   return (
-    <div className="p-4 border-t border-gray-200" onKeyDown={handleKeyDown} role="region" aria-label="Node properties">
+    <div
+      className="p-4 border-t border-gray-200"
+      onKeyDown={handleKeyDown}
+      role="region"
+      aria-label="Node properties"
+      style={{
+        backgroundColor: previewMode ? 'rgba(91, 108, 255, 0.05)' : undefined
+      }}
+    >
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           {renderIcon(metadata.icon, 18) ?? <span aria-hidden="true">•</span>}
           <h3 className="text-sm font-semibold">{metadata.label}</h3>
         </div>
         <button onClick={onClose} className="text-gray-400 hover:text-gray-600" aria-label="Close">×</button>
+      </div>
+
+      {/* Preview Mode Toggle */}
+      <div className="mb-4 p-3 rounded" style={{
+        backgroundColor: 'rgba(91, 108, 255, 0.08)',
+        border: '1px solid rgba(91, 108, 255, 0.2)'
+      }}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {previewMode ? <Eye className="w-4 h-4" style={{ color: 'var(--olumi-primary)' }} /> : <EyeOff className="w-4 h-4 text-gray-400" />}
+            <GlossaryTerm
+              term="Preview Mode"
+              definition="Test changes without affecting your graph. Run preview to see results, then apply or discard."
+            />
+          </div>
+          <button
+            onClick={() => previewMode ? previewExit() : previewEnter()}
+            style={{
+              padding: '0.25rem 0.75rem',
+              fontSize: '0.75rem',
+              borderRadius: '0.375rem',
+              border: previewMode ? '1px solid var(--olumi-primary)' : '1px solid rgba(91, 108, 255, 0.3)',
+              backgroundColor: previewMode ? 'var(--olumi-primary)' : 'rgba(91, 108, 255, 0.1)',
+              color: previewMode ? 'white' : 'var(--olumi-primary)',
+              cursor: 'pointer',
+              fontWeight: 500,
+              transition: 'all 0.2s ease'
+            }}
+            aria-pressed={previewMode}
+          >
+            {previewMode ? 'Exit Preview' : 'Enter Preview'}
+          </button>
+        </div>
+        {previewMode && hasNodedStagedChanges && (
+          <div style={{
+            marginTop: '0.5rem',
+            fontSize: '0.75rem',
+            color: 'rgba(232, 236, 245, 0.7)',
+            fontStyle: 'italic'
+          }}>
+            This node has staged changes
+          </div>
+        )}
       </div>
 
       <div className="mb-4">
