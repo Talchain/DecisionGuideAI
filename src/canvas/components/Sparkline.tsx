@@ -9,6 +9,8 @@
  * - Responsive width
  */
 
+import { memo } from 'react'
+
 interface SparklineProps {
   values: number[]
   width?: number
@@ -18,7 +20,7 @@ interface SparklineProps {
   showDot?: boolean
 }
 
-export function Sparkline({
+export const Sparkline = memo(function Sparkline({
   values,
   width = 80,
   height = 24,
@@ -94,4 +96,4 @@ export function Sparkline({
       )}
     </svg>
   )
-}
+})

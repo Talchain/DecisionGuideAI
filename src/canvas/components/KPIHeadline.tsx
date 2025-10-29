@@ -5,6 +5,8 @@
  * Primary focal point for the Results panel.
  */
 
+import { memo } from 'react'
+
 interface KPIHeadlineProps {
   value: number
   label: string
@@ -12,7 +14,7 @@ interface KPIHeadlineProps {
   unitSymbol?: string
 }
 
-export function KPIHeadline({ value, label, units = 'percent', unitSymbol }: KPIHeadlineProps) {
+export const KPIHeadline = memo(function KPIHeadline({ value, label, units = 'percent', unitSymbol }: KPIHeadlineProps) {
   const formattedValue = formatValue(value, units, unitSymbol)
 
   return (
@@ -43,7 +45,7 @@ export function KPIHeadline({ value, label, units = 'percent', unitSymbol }: KPI
       </div>
     </div>
   )
-}
+})
 
 function formatValue(value: number, units: 'currency' | 'percent' | 'count', unitSymbol?: string): string {
   if (units === 'currency') {

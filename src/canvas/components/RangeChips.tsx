@@ -5,6 +5,8 @@
  * Compact strip with hover tooltips for additional context.
  */
 
+import { memo } from 'react'
+
 interface RangeChipsProps {
   conservative: number
   likely: number
@@ -13,7 +15,7 @@ interface RangeChipsProps {
   unitSymbol?: string
 }
 
-export function RangeChips({ conservative, likely, optimistic, units = 'percent', unitSymbol }: RangeChipsProps) {
+export const RangeChips = memo(function RangeChips({ conservative, likely, optimistic, units = 'percent', unitSymbol }: RangeChipsProps) {
   const ranges = [
     { label: 'Conservative', value: conservative, variant: 'conservative' as const },
     { label: 'Most Likely', value: likely, variant: 'likely' as const },
@@ -41,7 +43,7 @@ export function RangeChips({ conservative, likely, optimistic, units = 'percent'
       ))}
     </div>
   )
-}
+})
 
 interface RangeChipProps {
   label: string
@@ -51,7 +53,7 @@ interface RangeChipProps {
   unitSymbol?: string
 }
 
-function RangeChip({ label, value, variant, units, unitSymbol }: RangeChipProps) {
+const RangeChip = memo(function RangeChip({ label, value, variant, units, unitSymbol }: RangeChipProps) {
   const formattedValue = formatValue(value, units, unitSymbol)
 
   const colors = {
@@ -115,7 +117,7 @@ function RangeChip({ label, value, variant, units, unitSymbol }: RangeChipProps)
       </div>
     </div>
   )
-}
+})
 
 function formatValue(value: number, units: 'currency' | 'percent' | 'count', unitSymbol?: string): string {
   if (units === 'currency') {

@@ -13,7 +13,7 @@
  * - Auto-save runs to localStorage
  */
 
-import { useEffect, useRef, useCallback, useState } from 'react'
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import { X, History as HistoryIcon, GitCompare as CompareIcon, Eye, Check, XCircle, Play } from 'lucide-react'
 import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash, selectPreviewMode, selectPreviewReport, selectPreviewSeed, selectPreviewHash, selectStagedNodeChanges, selectStagedEdgeChanges, selectPreviewStatus, selectPreviewProgress, selectPreviewError } from '../store'
 import { usePreviewRun } from '../hooks/usePreviewRun'
@@ -105,27 +105,36 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const [activeTab, setActiveTab] = useState<TabId>('latest')
 
   // Get previous run for diff comparison
-  const allRuns = loadRuns()
+  // Memoize loadRuns() call since it reads from localStorage (expensive I/O)
+  // Invalidate when hash changes (indicates new run saved)
+  const allRuns = useMemo(() => loadRuns(), [hash])
   const latestRun = allRuns.length >= 1 ? allRuns[0] : null
   const previousRun = allRuns.length >= 2 ? allRuns[1] : null
 
   // Get sparkline data (last 5 runs' likely values)
   // Filter out undefined/NaN values to prevent SVG rendering issues
-  const sparklineValues = allRuns
-    .slice(0, 5)
-    .reverse()
-    .map(run => run.report?.results?.likely)
-    .filter((val): val is number => typeof val === 'number' && !isNaN(val))
+  // Memoize since this involves array operations on every render
+  const sparklineValues = useMemo(() =>
+    allRuns
+      .slice(0, 5)
+      .reverse()
+      .map(run => run.report?.results?.likely)
+      .filter((val): val is number => typeof val === 'number' && !isNaN(val)),
+    [allRuns]
+  )
 
   // Compare state
   const [compareRunIds, setCompareRunIds] = useState<string[]>([])
 
   // Extract metadata for header (template, seed, hash, timestamp)
   // Prefer preview values when in preview mode, fallback to main/latest run
-  const templateName = latestRun?.templateId || 'Canvas'
-  const displaySeed = previewMode && previewSeed !== undefined ? previewSeed : (seed ?? latestRun?.seed)
-  const displayHash = previewMode && previewHash ? previewHash : (hash ?? latestRun?.hash)
-  const displayTimestamp = latestRun?.ts // Always use latest run timestamp (preview doesn't have its own timestamp)
+  // Memoize to avoid recalculating on every render
+  const { templateName, displaySeed, displayHash, displayTimestamp } = useMemo(() => ({
+    templateName: latestRun?.templateId || 'Canvas',
+    displaySeed: previewMode && previewSeed !== undefined ? previewSeed : (seed ?? latestRun?.seed),
+    displayHash: previewMode && previewHash ? previewHash : (hash ?? latestRun?.hash),
+    displayTimestamp: latestRun?.ts, // Always use latest run timestamp (preview doesn't have its own timestamp)
+  }), [latestRun, previewMode, previewSeed, previewHash, seed, hash])
 
   // Rate limit countdown
   const [retryCountdown, setRetryCountdown] = useState<number | null>(null)

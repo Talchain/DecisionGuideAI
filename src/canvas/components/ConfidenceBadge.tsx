@@ -5,12 +5,14 @@
  * and a short reason that expands on hover/focus.
  */
 
+import { memo } from 'react'
+
 interface ConfidenceBadgeProps {
   level: 'low' | 'medium' | 'high'
   reason: string
 }
 
-export function ConfidenceBadge({ level, reason }: ConfidenceBadgeProps) {
+export const ConfidenceBadge = memo(function ConfidenceBadge({ level, reason }: ConfidenceBadgeProps) {
   const config = {
     low: {
       label: 'Low Confidence',
@@ -82,4 +84,4 @@ export function ConfidenceBadge({ level, reason }: ConfidenceBadgeProps) {
       </div>
     </div>
   )
-}
+})
