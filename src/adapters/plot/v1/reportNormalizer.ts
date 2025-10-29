@@ -16,6 +16,9 @@ export interface NormalizedReport {
   conservative?: number
   mostLikely?: number
   optimistic?: number
+  units?: string
+  confidence?: number
+  explanation?: string
   drivers: Array<{
     label: string
     polarity: 'up' | 'down' | 'neutral'
@@ -51,6 +54,13 @@ export function toUiReport(body: RunResponse): NormalizedReport {
   // Optimistic: results.optimistic or result.summary.optimistic
   const optimistic = results.optimistic ?? summary?.optimistic
 
+  // Units: results.units or results.summary.units or result.summary.units
+  const units = results.units ?? summary?.units
+
+  // Confidence and explanation from top-level fields
+  const confidence = body?.confidence
+  const explanation = body?.explanation
+
   // Extract drivers with polarity and strength
   const rawDrivers = body?.explain_delta?.top_drivers ?? []
   const drivers = rawDrivers.map(d => {
@@ -70,6 +80,9 @@ export function toUiReport(body: RunResponse): NormalizedReport {
     conservative,
     mostLikely,
     optimistic,
+    units,
+    confidence,
+    explanation,
     drivers,
     seed,
     hash,

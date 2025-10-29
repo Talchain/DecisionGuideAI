@@ -68,9 +68,20 @@ export function isApiGraph(g: any): g is ApiGraph {
  * Maps:
  * - nodes: Extract id and label (prefer explicit node.label over node.data.label)
  * - edges: Convert source/target → from/to, extract weight, drop confidence
+ *
+ * Throws BAD_INPUT error for malformed graphs (missing/empty IDs)
  */
 export function toApiGraph(ui: UiGraph): ApiGraph {
-  const nodes: ApiNode[] = ui.nodes.map(n => {
+  // Validate nodes
+  const nodes: ApiNode[] = ui.nodes.map((n, idx) => {
+    if (!n.id || n.id.trim() === '') {
+      throw {
+        code: 'BAD_INPUT',
+        message: `Node at index ${idx} has missing or empty id`,
+        field: `nodes[${idx}].id`,
+      }
+    }
+
     const node: ApiNode = { id: n.id }
 
     // Prefer explicit label field, fall back to data.label
@@ -82,7 +93,24 @@ export function toApiGraph(ui: UiGraph): ApiGraph {
     return node
   })
 
-  const edges: ApiEdge[] = ui.edges.map(e => {
+  // Validate edges
+  const edges: ApiEdge[] = ui.edges.map((e, idx) => {
+    if (!e.source || e.source.trim() === '') {
+      throw {
+        code: 'BAD_INPUT',
+        message: `Edge at index ${idx} has missing or empty source`,
+        field: `edges[${idx}].source`,
+      }
+    }
+
+    if (!e.target || e.target.trim() === '') {
+      throw {
+        code: 'BAD_INPUT',
+        message: `Edge at index ${idx} has missing or empty target`,
+        field: `edges[${idx}].target`,
+      }
+    }
+
     const edge: ApiEdge = {
       from: e.source,
       to: e.target,
@@ -139,6 +167,10 @@ export function validateGraphLimits(graph: ReactFlowGraph): {
   field?: string
   max?: number
 } | null {
+  if (import.meta.env.DEV) {
+    console.warn('validateGraphLimits() is deprecated. Use toApiGraph() instead (it throws BAD_INPUT on malformed graphs).')
+  }
+
   if (graph.nodes.length > V1_LIMITS.MAX_NODES) {
     return {
       code: 'LIMIT_EXCEEDED',
@@ -186,6 +218,10 @@ export function validateGraphLimits(graph: ReactFlowGraph): {
  * @deprecated Use toApiGraph + manual request building instead
  */
 export function graphToV1Request(graph: ReactFlowGraph, seed?: number): V1RunRequest {
+  if (import.meta.env.DEV) {
+    console.warn('graphToV1Request() is deprecated. Use toApiGraph() + build request manually instead.')
+  }
+
   const error = validateGraphLimits(graph)
   if (error) {
     throw error
@@ -225,6 +261,10 @@ export function graphToV1Request(graph: ReactFlowGraph, seed?: number): V1RunReq
  * @deprecated Response hash from server is preferred
  */
 export function computeClientHash(graph: ReactFlowGraph, seed?: number): string {
+  if (import.meta.env.DEV) {
+    console.warn('computeClientHash() is deprecated. Server-provided response_hash is preferred.')
+  }
+
   // Create deterministic string representation
   const sortedNodes = [...graph.nodes].sort((a, b) => a.id.localeCompare(b.id))
   const sortedEdges = [...graph.edges].sort((a, b) => {

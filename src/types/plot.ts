@@ -85,10 +85,12 @@ export interface RunResponse {
     conservative?: number
     most_likely?: number
     optimistic?: number
+    units?: string
     summary?: {
       conservative?: number
       likely?: number
       optimistic?: number
+      units?: string
     }
   }
   result?: {
@@ -96,6 +98,7 @@ export interface RunResponse {
       conservative?: number
       likely?: number
       optimistic?: number
+      units?: string
     }
   }
   explain_delta?: {
@@ -107,5 +110,7 @@ export interface RunResponse {
       impact?: number
     }>
   }
+  confidence?: number
+  explanation?: string
   response_hash?: string
 }

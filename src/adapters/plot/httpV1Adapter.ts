@@ -194,7 +194,22 @@ export const httpV1Adapter = {
       // Normalize response envelope
       const normalized = toUiReport(response.result as RunResponse)
 
+      // Map confidence 0-1 to ConfidenceLevel
+      let confidenceLevel: ConfidenceLevel = 'medium'
+      if (normalized.confidence !== undefined) {
+        if (normalized.confidence >= 0.7) confidenceLevel = 'high'
+        else if (normalized.confidence < 0.4) confidenceLevel = 'low'
+      }
+
       // Map to ReportV1 format expected by UI
+      //
+      // DETERMINISM NOTES:
+      // - seed: Prefer response seed (meta.seed or model_card.seed), fall back to input seed,
+      //   then 1337 if neither provided. Expected path: backend should echo seed.
+      //   QA: Verify backend always returns seed in response.
+      // - hash: Prefer response hash (model_card.response_hash or response_hash).
+      //   Fallback to timestamp generates non-deterministic ID (should rarely trigger).
+      //   QA: Verify backend always returns response_hash for deterministic runs.
       return {
         schema: 'report.v1',
         meta: {
@@ -211,11 +226,11 @@ export const httpV1Adapter = {
           conservative: normalized.conservative || 0,
           likely: normalized.mostLikely || 0,
           optimistic: normalized.optimistic || 0,
-          units: 'units',
+          units: normalized.units || 'units',
         },
         confidence: {
-          level: 'medium' as ConfidenceLevel,
-          why: '',
+          level: confidenceLevel,
+          why: normalized.explanation || '',
         },
         drivers: normalized.drivers,
       }
@@ -251,13 +266,15 @@ export const httpV1Adapter = {
       }
 
       // Map v1 API fields to UI format
+      // NOTE: v1 API does not include version field. Using '1.0' as default.
+      // This is a placeholder until API provides explicit versioning.
       return {
         schema: 'template-list.v1',
         items: response.map(t => ({
           id: t.id,
           name: t.label, // label → name
           description: t.summary, // summary → description
-          version: '1.0', // API doesn't provide version, use default
+          version: '1.0', // Default version (API doesn't provide this field)
         })),
       }
     } catch (err: any) {
@@ -283,10 +300,12 @@ export const httpV1Adapter = {
         } as V1Error
       }
 
+      // NOTE: v1 API does not include version field. Using '1.0' as default.
+      // This is a placeholder until API provides explicit versioning.
       return {
         id: metadata.id,
         name: metadata.label, // label → name
-        version: '1.0', // API doesn't provide version
+        version: '1.0', // Default version (API doesn't provide this field)
         description: metadata.summary, // summary → description
         default_seed: graphResponse.default_seed,
         graph: graphResponse.graph,
