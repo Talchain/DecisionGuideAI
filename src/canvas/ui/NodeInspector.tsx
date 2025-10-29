@@ -49,8 +49,11 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const node = nodes.find(n => n.id === nodeId)
 
   // Check if this node has staged changes (node-level or any outgoing edges)
-  const hasNodeStagedChanges = stagedNodeChanges.has(nodeId)
-  const hasStagedEdges = edges.some(e => e.source === nodeId && stagedEdgeChanges.has(e.id))
+  // Defensive: Ensure Maps are actually Maps (not serialized objects)
+  const nodeChangesMap = stagedNodeChanges instanceof Map ? stagedNodeChanges : new Map()
+  const edgeChangesMap = stagedEdgeChanges instanceof Map ? stagedEdgeChanges : new Map()
+  const hasNodeStagedChanges = nodeChangesMap.has(nodeId)
+  const hasStagedEdges = edges.some(e => e.source === nodeId && edgeChangesMap.has(e.id))
   const hasStagedChanges = hasNodeStagedChanges || hasStagedEdges
   const [label, setLabel] = useState<string>(String(node?.data?.label ?? ''))
   const [description, setDescription] = useState<string>(String(node?.data?.description ?? ''))
