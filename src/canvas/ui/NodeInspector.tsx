@@ -5,7 +5,7 @@
 
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { Lock, Unlock, AlertTriangle, Eye, EyeOff } from 'lucide-react'
-import { useCanvasStore, selectPreviewMode, selectStagedNodeChanges } from '../store'
+import { useCanvasStore, selectPreviewMode, selectStagedNodeChanges, selectStagedEdgeChanges } from '../store'
 import { NODE_REGISTRY } from '../domain/nodes'
 import type { NodeType } from '../domain/nodes'
 import { renderIcon } from '../helpers/renderIcon'
@@ -36,6 +36,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   // Preview Mode state and actions
   const previewMode = useCanvasStore(selectPreviewMode)
   const stagedNodeChanges = useCanvasStore(selectStagedNodeChanges)
+  const stagedEdgeChanges = useCanvasStore(selectStagedEdgeChanges)
   const previewEnter = useCanvasStore(s => s.previewEnter)
   const previewExit = useCanvasStore(s => s.previewExit)
   const previewStageNode = useCanvasStore(s => s.previewStageNode)
@@ -43,8 +44,10 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
   const node = nodes.find(n => n.id === nodeId)
 
-  // Check if this node has staged changes
-  const hasNodedStagedChanges = stagedNodeChanges.has(nodeId)
+  // Check if this node has staged changes (node-level or any outgoing edges)
+  const hasNodeStagedChanges = stagedNodeChanges.has(nodeId)
+  const hasStagedEdges = edges.some(e => e.source === nodeId && stagedEdgeChanges.has(e.id))
+  const hasStagedChanges = hasNodeStagedChanges || hasStagedEdges
   const [label, setLabel] = useState<string>(String(node?.data?.label ?? ''))
   const [description, setDescription] = useState<string>(String(node?.data?.description ?? ''))
 
@@ -344,7 +347,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             {previewMode ? 'Exit Preview' : 'Enter Preview'}
           </button>
         </div>
-        {previewMode && hasNodedStagedChanges && (
+        {previewMode && hasStagedChanges && (
           <div style={{
             marginTop: '0.5rem',
             fontSize: '0.75rem',

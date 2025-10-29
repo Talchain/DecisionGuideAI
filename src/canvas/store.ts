@@ -1048,12 +1048,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   previewApply: () => {
-    const { preview } = get()
+    const { preview, edges } = get()
 
     // Apply all staged node changes in a single undo frame
     pushToHistory(get, set)
 
     set(s => {
+      const touchedNodeIds = new Set(s.touchedNodeIds)
+
+      // Mark all source nodes of staged edges as touched (for validation)
+      // This ensures probability sums are checked after preview apply
+      preview.stagedEdgeChanges.forEach((changes, edgeId) => {
+        const edge = edges.find(e => e.id === edgeId)
+        if (edge && changes.confidence !== undefined) {
+          touchedNodeIds.add(edge.source)
+        }
+      })
+
       const updatedNodes = s.nodes.map(node => {
         const stagedChanges = preview.stagedNodeChanges.get(node.id)
         if (!stagedChanges) return node
@@ -1076,6 +1087,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return {
         nodes: updatedNodes,
         edges: updatedEdges,
+        touchedNodeIds,
         preview: {
           isActive: false,
           stagedNodeChanges: new Map(),
@@ -1092,7 +1104,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set(s => ({
       preview: {
         ...s.preview,
-        isActive: false,
+        // Keep preview mode active, only clear staged changes
         stagedNodeChanges: new Map(),
         stagedEdgeChanges: new Map(),
         previewReport: undefined,

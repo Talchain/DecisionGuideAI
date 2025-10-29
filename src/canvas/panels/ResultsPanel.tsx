@@ -15,7 +15,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { X, History as HistoryIcon, GitCompare as CompareIcon, Eye, Check, XCircle } from 'lucide-react'
-import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash, selectPreviewMode, selectPreviewReport } from '../store'
+import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash, selectPreviewMode, selectPreviewReport, selectStagedNodeChanges, selectStagedEdgeChanges } from '../store'
 import { ProgressStrip } from '../components/ProgressStrip'
 import { WhyPanel } from '../../routes/templates/components/WhyPanel'
 import { useLayerRegistration } from '../components/LayerProvider'
@@ -58,6 +58,8 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   // Preview Mode state and actions
   const previewMode = useCanvasStore(selectPreviewMode)
   const previewReport = useCanvasStore(selectPreviewReport)
+  const stagedNodeChanges = useCanvasStore(selectStagedNodeChanges)
+  const stagedEdgeChanges = useCanvasStore(selectStagedEdgeChanges)
   const previewApply = useCanvasStore(s => s.previewApply)
   const previewDiscard = useCanvasStore(s => s.previewDiscard)
 
@@ -69,10 +71,12 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const previousRun = allRuns.length >= 2 ? allRuns[1] : null
 
   // Get sparkline data (last 5 runs' likely values)
+  // Filter out undefined/NaN values to prevent SVG rendering issues
   const sparklineValues = allRuns
     .slice(0, 5)
     .reverse()
-    .map(run => run.report.results.likely)
+    .map(run => run.report?.results?.likely)
+    .filter((val): val is number => typeof val === 'number' && !isNaN(val))
 
   // Compare state
   const [compareRunIds, setCompareRunIds] = useState<string[]>([])
@@ -469,9 +473,25 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                           Preview Mode Active
                         </h4>
                         <p style={{ fontSize: '0.75rem', color: 'rgba(232, 236, 245, 0.7)', margin: 0 }}>
-                          {previewReport
-                            ? 'Preview analysis complete. Apply to commit changes or discard to reset.'
-                            : 'Make changes in the node inspector, then run preview to see results.'}
+                          {previewReport ? (
+                            <>
+                              Preview analysis complete. Apply to commit changes or discard to reset.
+                              {(stagedNodeChanges.size > 0 || stagedEdgeChanges.size > 0) && (
+                                <span style={{ display: 'block', marginTop: '0.25rem', fontStyle: 'italic' }}>
+                                  {stagedNodeChanges.size} node{stagedNodeChanges.size !== 1 ? 's' : ''}, {stagedEdgeChanges.size} edge{stagedEdgeChanges.size !== 1 ? 's' : ''} staged
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              Make changes in the node inspector, then run preview to see results.
+                              {(stagedNodeChanges.size > 0 || stagedEdgeChanges.size > 0) && (
+                                <span style={{ display: 'block', marginTop: '0.25rem', fontWeight: 600, color: 'var(--olumi-primary)' }}>
+                                  {stagedNodeChanges.size + stagedEdgeChanges.size} change{(stagedNodeChanges.size + stagedEdgeChanges.size) !== 1 ? 's' : ''} staged
+                                </span>
+                              )}
+                            </>
+                          )}
                         </p>
                       </div>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
