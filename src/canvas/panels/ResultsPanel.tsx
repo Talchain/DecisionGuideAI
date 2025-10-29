@@ -124,6 +124,34 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const displayHash = hash ?? latestRun?.hash
   const displayTimestamp = latestRun?.ts
 
+  // Rate limit countdown
+  const [retryCountdown, setRetryCountdown] = useState<number | null>(null)
+
+  // Initialize countdown when error with retryAfter appears
+  useEffect(() => {
+    if (error?.retryAfter) {
+      setRetryCountdown(error.retryAfter)
+    } else {
+      setRetryCountdown(null)
+    }
+  }, [error?.retryAfter])
+
+  // Countdown timer
+  useEffect(() => {
+    if (retryCountdown === null || retryCountdown <= 0) return
+
+    const timer = setInterval(() => {
+      setRetryCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          return null
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [retryCountdown])
+
   // Register with LayerProvider for panel exclusivity and Esc handling
   useLayerRegistration('results-panel', 'panel', isOpen, onClose)
 
@@ -805,26 +833,45 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                   <p style={{ fontSize: '0.875rem', color: 'rgba(232, 236, 245, 0.8)', marginBottom: '0.75rem' }}>
                     {error.message}
                   </p>
-                  {error.retryAfter && (
-                    <p style={{ fontSize: '0.75rem', color: 'rgba(232, 236, 245, 0.6)' }}>
-                      Retry after {error.retryAfter} seconds
-                    </p>
+                  {retryCountdown !== null && retryCountdown > 0 && (
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.375rem 0.75rem',
+                        borderRadius: '0.375rem',
+                        backgroundColor: 'rgba(247, 201, 72, 0.15)',
+                        border: '1px solid rgba(247, 201, 72, 0.3)',
+                        fontSize: '0.75rem',
+                        color: 'var(--olumi-warning)',
+                        fontWeight: 500,
+                        marginBottom: '0.75rem',
+                      }}
+                    >
+                      <span>⏱️</span>
+                      <span>
+                        Retry in {retryCountdown} {retryCountdown === 1 ? 'second' : 'seconds'}
+                      </span>
+                    </div>
                   )}
                   <button
                     onClick={handleReset}
+                    disabled={retryCountdown !== null && retryCountdown > 0}
                     style={{
                       marginTop: '0.75rem',
                       padding: '0.5rem 1rem',
                       fontSize: '0.875rem',
                       borderRadius: '0.375rem',
                       border: 'none',
-                      backgroundColor: 'var(--olumi-danger)',
+                      backgroundColor: retryCountdown !== null && retryCountdown > 0 ? '#9ca3af' : 'var(--olumi-danger)',
                       color: 'white',
-                      cursor: 'pointer',
+                      cursor: retryCountdown !== null && retryCountdown > 0 ? 'not-allowed' : 'pointer',
                       fontWeight: 500,
+                      opacity: retryCountdown !== null && retryCountdown > 0 ? 0.6 : 1,
                     }}
                   >
-                    Retry
+                    {retryCountdown !== null && retryCountdown > 0 ? 'Please wait...' : 'Retry'}
                   </button>
                 </div>
               )}
