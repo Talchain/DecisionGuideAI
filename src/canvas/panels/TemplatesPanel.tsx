@@ -24,7 +24,7 @@ interface TemplatesPanelProps {
 
 export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanvas }: TemplatesPanelProps): JSX.Element | null {
   const { showToast } = useToast()
-  const [blueprints, setBlueprints] = useState<Array<{ id: string; name: string; description: string }>>([])
+  const [blueprints, setBlueprints] = useState<Array<{ id: string; name: string; description: string; source: 'api' | 'local' }>>([])
   const [templatesLoadError, setTemplatesLoadError] = useState<string | null>(null)
   const [usingLocalFallback, setUsingLocalFallback] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -56,31 +56,50 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       setBlueprints(list.items.map(t => ({
         id: t.id,
         name: t.name,
-        description: t.description
+        description: t.description,
+        source: 'api' as const,
       })))
-    } catch (err) {
+    } catch (err: any) {
       console.error('❌ Failed to load templates from PLoT engine:', err)
 
-      // Fallback to local blueprints as last resort
-      try {
-        const localBlueprints = getAllBlueprints()
-        if (localBlueprints.length > 0) {
-          console.warn('⚠️ Using local blueprints fallback')
-          setBlueprints(localBlueprints.map(bp => ({
-            id: bp.id,
-            name: bp.name,
-            description: bp.description
-          })))
-          setUsingLocalFallback(true)
-          setTemplatesLoadError('API unavailable. Showing local templates.')
-        } else {
+      // Determine if this is a 5xx server error (should fallback)
+      // vs 4xx client error (should not fallback)
+      const isServerError = err.code === 'SERVER_ERROR' ||
+                           err.code === 'TIMEOUT' ||
+                           (err.details?.status && err.details.status >= 500)
+
+      // Only fallback to local blueprints on 5xx server errors
+      if (isServerError) {
+        try {
+          const localBlueprints = getAllBlueprints()
+          if (localBlueprints.length > 0) {
+            console.warn('⚠️ Server error - using local blueprints fallback')
+            setBlueprints(localBlueprints.map(bp => ({
+              id: bp.id,
+              name: bp.name,
+              description: bp.description,
+              source: 'local' as const,
+            })))
+            setUsingLocalFallback(true)
+            setTemplatesLoadError('API unavailable. Showing local templates.')
+          } else {
+            setBlueprints([])
+            setTemplatesLoadError('Failed to load templates. Server is unavailable.')
+          }
+        } catch (fallbackErr) {
+          console.error('❌ Fallback to local blueprints also failed:', fallbackErr)
           setBlueprints([])
-          setTemplatesLoadError('Failed to load templates. Please try again.')
+          setTemplatesLoadError('Failed to load templates. Server is unavailable.')
         }
-      } catch (fallbackErr) {
-        console.error('❌ Fallback to local blueprints also failed:', fallbackErr)
+      } else {
+        // Client error (4xx), rate limit, bad input, etc - don't fallback
         setBlueprints([])
-        setTemplatesLoadError('Failed to load templates. Please try again.')
+        const errorMessage = err.error || err.message || 'Failed to load templates'
+        setTemplatesLoadError(errorMessage)
+
+        if (err.code === 'RATE_LIMITED' && err.retry_after) {
+          setTemplatesLoadError(`Rate limited. Please wait ${err.retry_after}s and try again.`)
+        }
       }
     }
   }, [])
@@ -278,6 +297,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                   <TemplateCard
                     key={bp.id}
                     template={{ id: bp.id, name: bp.name, description: bp.description }}
+                    source={bp.source}
                     onInsert={handleInsert}
                   />
                 ))}

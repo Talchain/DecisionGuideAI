@@ -18,6 +18,7 @@ import {
   isRetryableStatus,
   isRetryableErrorCode,
 } from './constants'
+import { etagCache } from './etagCache'
 
 const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/api/plot'
@@ -257,24 +258,62 @@ export async function cancel(runId: string): Promise<void> {
 }
 
 /**
- * GET /v1/templates
+ * GET /v1/templates with ETag caching support
  */
 export async function templates(): Promise<V1TemplateListResponse> {
   const base = getProxyBase()
+  const cacheKey = 'templates-list'
+
+  // Check for cached ETag
+  const cachedETag = etagCache.getETag(cacheKey)
+
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 10000)
 
   try {
+    const headers: HeadersInit = {}
+
+    // Add If-None-Match header for conditional request
+    if (cachedETag) {
+      headers['If-None-Match'] = cachedETag
+    }
+
     const response = await fetch(`${base}/v1/templates`, {
       method: 'GET',
+      headers,
       signal: controller.signal,
     })
+
+    // Handle 304 Not Modified - use cached data
+    if (response.status === 304) {
+      const cached = etagCache.get<V1TemplateListResponse>(cacheKey)
+      if (cached) {
+        // Touch cache to update timestamp
+        etagCache.touch(cacheKey)
+        if (import.meta.env.DEV) {
+          console.log('[plot/v1] Templates cache hit (304 Not Modified)')
+        }
+        return cached.data
+      }
+      // Fallthrough to error if cache missing (shouldn't happen)
+    }
 
     if (!response.ok) {
       throw await mapHttpError(response)
     }
 
-    return await response.json()
+    const data = await response.json()
+
+    // Store in cache with ETag if present
+    const etag = response.headers.get('ETag')
+    if (etag) {
+      etagCache.set(cacheKey, data, etag)
+      if (import.meta.env.DEV) {
+        console.log('[plot/v1] Templates cached with ETag:', etag)
+      }
+    }
+
+    return data
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
       throw {
