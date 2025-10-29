@@ -229,7 +229,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
   const handleDiscardPreview = useCallback(() => {
     previewDiscard()
-    showToast('Preview changes discarded', 'info')
+    showToast('Changes undone - your graph is unchanged', 'info')
   }, [previewDiscard, showToast])
 
   const handleRunPreview = useCallback(() => {
@@ -238,7 +238,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
     // Template ID "canvas" indicates canvas-originated run (vs pure template run)
     // The actual graph comes from previewGetMergedGraph(), not the template
     runPreview('canvas', previewSeed)
-    showToast('Running preview analysis...', 'info')
+    showToast('Testing your changes with preview analysis', 'info')
   }, [runPreview, seed, showToast])
 
   if (!isOpen) return null
@@ -495,9 +495,9 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                     isVisible={true}
                     progress={progress}
                     message={
-                      status === 'preparing' ? 'Preparing analysis...' :
-                      status === 'connecting' ? 'Connecting to service...' :
-                      'Analyzing decision tree...'
+                      status === 'preparing' ? 'Getting ready to run your analysis' :
+                      status === 'connecting' ? 'Connecting to analysis engine' :
+                      'Running your decision analysis'
                     }
                     canCancel={status === 'streaming'}
                     onCancel={() => {
@@ -613,19 +613,19 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                         <p style={{ fontSize: '0.75rem', color: 'rgba(232, 236, 245, 0.7)', margin: 0 }}>
                           {previewReport ? (
                             <>
-                              Preview analysis complete. Apply to commit changes or discard to reset.
+                              Preview complete. Apply to save these changes to your graph, or discard to undo.
                               {(stagedNodeChanges.size > 0 || stagedEdgeChanges.size > 0) && (
                                 <span style={{ display: 'block', marginTop: '0.25rem', fontStyle: 'italic' }}>
-                                  {stagedNodeChanges.size} node{stagedNodeChanges.size !== 1 ? 's' : ''}, {stagedEdgeChanges.size} edge{stagedEdgeChanges.size !== 1 ? 's' : ''} staged
+                                  {stagedNodeChanges.size} node{stagedNodeChanges.size !== 1 ? 's' : ''}, {stagedEdgeChanges.size} edge{stagedEdgeChanges.size !== 1 ? 's' : ''} ready to apply
                                 </span>
                               )}
                             </>
                           ) : (
                             <>
-                              Make changes in the node inspector, then run preview to see results.
+                              Edit nodes in the inspector, then run a preview to see how changes affect your analysis.
                               {(stagedNodeChanges.size > 0 || stagedEdgeChanges.size > 0) && (
                                 <span style={{ display: 'block', marginTop: '0.25rem', fontWeight: 600, color: 'var(--olumi-primary)' }}>
-                                  {stagedNodeChanges.size + stagedEdgeChanges.size} change{(stagedNodeChanges.size + stagedEdgeChanges.size) !== 1 ? 's' : ''} staged
+                                  {stagedNodeChanges.size + stagedEdgeChanges.size} change{(stagedNodeChanges.size + stagedEdgeChanges.size) !== 1 ? 's' : ''} ready to preview
                                 </span>
                               )}
                             </>
@@ -665,7 +665,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                             }}
                           >
                             <Play className="w-4 h-4" />
-                            {isLoading ? 'Running Preview...' : 'Run Preview'}
+                            {isLoading ? 'Testing Changes...' : 'Test Changes'}
                           </button>
                         )}
 
@@ -698,7 +698,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                               }}
                             >
                               <Check className="w-4 h-4" />
-                              Apply Changes
+                              Save to Graph
                             </button>
                             <button
                               onClick={handleDiscardPreview}
@@ -726,7 +726,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                               }}
                             >
                               <XCircle className="w-4 h-4" />
-                              Discard
+                              Undo Changes
                             </button>
                           </div>
                         )}
@@ -886,7 +886,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                   }}
                 >
                   <p style={{ fontSize: '0.875rem', color: 'var(--olumi-warning)', marginBottom: '0.75rem' }}>
-                    Analysis cancelled
+                    You cancelled this analysis
                   </p>
                   <button
                     onClick={handleReset}
@@ -901,7 +901,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                       fontWeight: 500,
                     }}
                   >
-                    Start New Run
+                    Run New Analysis
                   </button>
                 </div>
               )}
