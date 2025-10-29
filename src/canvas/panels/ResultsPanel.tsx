@@ -133,7 +133,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
     templateName: latestRun?.templateId || 'Canvas',
     displaySeed: previewMode && previewSeed !== undefined ? previewSeed : (seed ?? latestRun?.seed),
     displayHash: previewMode && previewHash ? previewHash : (hash ?? latestRun?.hash),
-    displayTimestamp: latestRun?.ts, // Always use latest run timestamp (preview doesn't have its own timestamp)
+    displayTimestamp: previewMode ? null : latestRun?.ts, // Hide timestamp in preview mode to avoid misleading stale dates
   }), [latestRun, previewMode, previewSeed, previewHash, seed, hash])
 
   // Rate limit countdown
@@ -385,12 +385,17 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                         <span title={displayHash}>{displayHash.substring(0, 8)}</span>
                       </>
                     )}
-                    {displayTimestamp && (
+                    {previewMode ? (
+                      <>
+                        <span style={{ opacity: 0.5 }}>•</span>
+                        <span style={{ fontWeight: 500, color: 'var(--olumi-primary)' }}>Preview</span>
+                      </>
+                    ) : displayTimestamp ? (
                       <>
                         <span style={{ opacity: 0.5 }}>•</span>
                         <span>{formatRelativeTime(displayTimestamp)}</span>
                       </>
-                    )}
+                    ) : null}
                   </div>
                 )}
               </div>
