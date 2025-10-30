@@ -74,10 +74,13 @@ export function loadState(): PersistedState | null {
 
 export function saveState(state: { nodes: Node[]; edges: Edge<EdgeData>[] }): boolean {
   try {
+    // H3: Explicitly extract only nodes and edges to prevent accidental
+    // persistence of preview state or other sensitive data
     const persisted: PersistedState = {
       version: 1,
       timestamp: Date.now(),
-      ...state,
+      nodes: state.nodes,
+      edges: state.edges,
     }
     const sanitized = sanitizeState(persisted)
     const payload = JSON.stringify(sanitized)
@@ -111,10 +114,13 @@ export function clearState(): void {
 
 export function saveSnapshot(state: { nodes: Node[]; edges: Edge<EdgeData>[] }): boolean {
   try {
+    // H3: Explicitly extract only nodes and edges to prevent accidental
+    // persistence of preview state or other sensitive data
     const persisted: PersistedState = {
       version: 1,
       timestamp: Date.now(),
-      ...state,
+      nodes: state.nodes,
+      edges: state.edges,
     }
     const sanitized = sanitizeState(persisted)
     const payload = JSON.stringify(sanitized)
