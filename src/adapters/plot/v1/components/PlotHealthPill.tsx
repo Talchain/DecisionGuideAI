@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { health } from '../http'
 import type { V1HealthResponse } from '../types'
+import { getCacheStats } from '../etagCache' // F4: telemetry
 
 interface PlotHealthPillProps {
   pause?: boolean
@@ -88,9 +89,19 @@ export function PlotHealthPill({ pause = false }: PlotHealthPillProps): JSX.Elem
     return 'PLoT engine • Offline'
   }
 
-  const title = status === null
-    ? getStatusText()
-    : `${getStatusText()} — checked ${secs}s ago`
+  // F4: Add cache telemetry when ?dq=1 is present
+  const showDebug = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('dq') === '1'
+  const cacheStats = showDebug ? getCacheStats() : null
+
+  const title = (() => {
+    const baseTitle = status === null
+      ? getStatusText()
+      : `${getStatusText()} — checked ${secs}s ago`
+
+    if (!cacheStats) return baseTitle
+
+    return `${baseTitle}\n\nETag Cache Stats:\n• Hits: ${cacheStats.hits}\n• Misses: ${cacheStats.misses}\n• Evictions: ${cacheStats.evictions}\n• Hit Rate: ${cacheStats.hitRate}%`
+  })()
 
   return (
     <div
@@ -102,6 +113,11 @@ export function PlotHealthPill({ pause = false }: PlotHealthPillProps): JSX.Elem
         aria-hidden="true"
       />
       <span className="hidden sm:inline">{getStatusText()}</span>
+      {cacheStats && (
+        <span className="hidden md:inline text-[10px] text-gray-500 font-mono">
+          Cache: {cacheStats.hitRate}% ({cacheStats.hits}/{cacheStats.hits + cacheStats.misses})
+        </span>
+      )}
     </div>
   )
 }
