@@ -83,7 +83,8 @@ export interface RunResponse {
   }
   results?: {
     conservative?: number
-    most_likely?: number
+    most_likely?: number // Some API versions use this
+    likely?: number // v1 API uses this
     optimistic?: number
     units?: string
     summary?: {

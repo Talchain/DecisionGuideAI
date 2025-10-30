@@ -3,8 +3,11 @@ import {
   validateGraphLimits,
   graphToV1Request,
   computeClientHash,
+  toApiGraph,
+  isApiGraph,
   type ReactFlowGraph,
 } from '../mapper'
+import type { UiGraph, ApiGraph } from '../../../../types/plot'
 import { V1_LIMITS } from '../types'
 
 describe('v1/mapper', () => {
@@ -291,6 +294,167 @@ describe('v1/mapper', () => {
       const hash2 = computeClientHash(graph2, 42)
 
       expect(hash1).not.toBe(hash2)
+    })
+  })
+
+  // ========================================================================
+  // New Clean API Tests
+  // ========================================================================
+
+  describe('toApiGraph', () => {
+    it('converts UI graph to API graph', () => {
+      const uiGraph: UiGraph = {
+        nodes: [
+          { id: 'n1', data: { label: 'Decision' } },
+          { id: 'n2', data: { label: 'Outcome' } },
+        ],
+        edges: [
+          {
+            id: 'e1',
+            source: 'n1',
+            target: 'n2',
+            data: { weight: 0.8 },
+          },
+        ],
+      }
+
+      const apiGraph = toApiGraph(uiGraph)
+
+      expect(apiGraph).toEqual({
+        nodes: [
+          { id: 'n1', label: 'Decision' },
+          { id: 'n2', label: 'Outcome' },
+        ],
+        edges: [
+          { from: 'n1', to: 'n2', weight: 0.8 },
+        ],
+      })
+    })
+
+    it('normalizes percentage weights to ratio', () => {
+      const uiGraph: UiGraph = {
+        nodes: [{ id: 'n1' }, { id: 'n2' }],
+        edges: [
+          { id: 'e1', source: 'n1', target: 'n2', data: { weight: 80 } },
+        ],
+      }
+
+      const apiGraph = toApiGraph(uiGraph)
+
+      expect(apiGraph.edges[0].weight).toBe(0.8)
+    })
+
+    it('preserves negative weights', () => {
+      const uiGraph: UiGraph = {
+        nodes: [{ id: 'n1' }, { id: 'n2' }],
+        edges: [
+          { id: 'e1', source: 'n1', target: 'n2', data: { weight: -0.5 } },
+        ],
+      }
+
+      const apiGraph = toApiGraph(uiGraph)
+
+      expect(apiGraph.edges[0].weight).toBe(-0.5)
+    })
+
+    it('throws BAD_INPUT for NaN weight', () => {
+      const uiGraph: UiGraph = {
+        nodes: [{ id: 'n1' }, { id: 'n2' }],
+        edges: [
+          { id: 'e1', source: 'n1', target: 'n2', data: { weight: NaN } },
+        ],
+      }
+
+      expect(() => toApiGraph(uiGraph)).toThrow()
+      try {
+        toApiGraph(uiGraph)
+      } catch (err: any) {
+        expect(err.code).toBe('BAD_INPUT')
+        expect(err.message).toContain('finite number')
+      }
+    })
+
+    it('throws BAD_INPUT for weight out of range', () => {
+      const uiGraph: UiGraph = {
+        nodes: [{ id: 'n1' }, { id: 'n2' }],
+        edges: [
+          { id: 'e1', source: 'n1', target: 'n2', data: { weight: 150 } },
+        ],
+      }
+
+      expect(() => toApiGraph(uiGraph)).toThrow()
+      try {
+        toApiGraph(uiGraph)
+      } catch (err: any) {
+        expect(err.code).toBe('BAD_INPUT')
+        expect(err.message).toContain('out of range')
+        expect(err.field).toBe('edges[0].weight')
+      }
+    })
+
+    it('throws BAD_INPUT for missing node id', () => {
+      const uiGraph: UiGraph = {
+        nodes: [{ id: '' }],
+        edges: [],
+      }
+
+      expect(() => toApiGraph(uiGraph)).toThrow()
+      try {
+        toApiGraph(uiGraph)
+      } catch (err: any) {
+        expect(err.code).toBe('BAD_INPUT')
+        expect(err.message).toContain('missing or empty id')
+      }
+    })
+
+    it('throws BAD_INPUT for missing edge source', () => {
+      const uiGraph: UiGraph = {
+        nodes: [{ id: 'n1' }],
+        edges: [{ id: 'e1', source: '', target: 'n1' }],
+      }
+
+      expect(() => toApiGraph(uiGraph)).toThrow()
+      try {
+        toApiGraph(uiGraph)
+      } catch (err: any) {
+        expect(err.code).toBe('BAD_INPUT')
+        expect(err.message).toContain('missing or empty source')
+      }
+    })
+  })
+
+  describe('isApiGraph', () => {
+    it('returns true for API graph with from/to edges', () => {
+      const apiGraph: ApiGraph = {
+        nodes: [{ id: 'n1' }],
+        edges: [{ from: 'n1', to: 'n2' }],
+      }
+
+      expect(isApiGraph(apiGraph)).toBe(true)
+    })
+
+    it('returns false for UI graph with source/target edges', () => {
+      const uiGraph: UiGraph = {
+        nodes: [{ id: 'n1' }],
+        edges: [{ id: 'e1', source: 'n1', target: 'n2' }],
+      }
+
+      expect(isApiGraph(uiGraph)).toBe(false)
+    })
+
+    it('returns false for invalid input', () => {
+      expect(isApiGraph(null)).toBe(false)
+      expect(isApiGraph(undefined)).toBe(false)
+      expect(isApiGraph('string')).toBe(false)
+    })
+
+    it('returns true for empty API graph', () => {
+      const apiGraph: ApiGraph = {
+        nodes: [],
+        edges: [],
+      }
+
+      expect(isApiGraph(apiGraph)).toBe(true)
     })
   })
 })

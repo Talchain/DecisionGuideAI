@@ -77,6 +77,11 @@ export interface RunRequest {
     nodes: Array<{ id: string; data?: { label?: string; body?: string; [key: string]: unknown }; [key: string]: unknown }>
     edges: Array<{ id: string; source: string; target: string; data?: { confidence?: number; weight?: number; [key: string]: unknown }; [key: string]: unknown }>
   } // Optional: if provided, use this graph instead of fetching template
+  // Optional advanced knobs for causal analysis (not exposed in UI yet)
+  k_samples?: number
+  treatment_node?: string
+  outcome_node?: string
+  baseline_value?: number
 }
 
 export type StreamEvent =

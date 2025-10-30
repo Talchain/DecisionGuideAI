@@ -48,8 +48,9 @@ export function toUiReport(body: RunResponse): NormalizedReport {
   // Conservative: results.conservative or result.summary.conservative
   const conservative = results.conservative ?? summary?.conservative
 
-  // Most likely: results.most_likely or result.summary.likely
-  const mostLikely = results.most_likely ?? summary?.likely
+  // Most likely: results.most_likely, results.likely, or result.summary.likely
+  // Note: v1 API uses 'likely', some responses use 'most_likely'
+  const mostLikely = results.most_likely ?? results.likely ?? summary?.likely
 
   // Optimistic: results.optimistic or result.summary.optimistic
   const optimistic = results.optimistic ?? summary?.optimistic

@@ -25,16 +25,20 @@ import { runStream as v1runStream } from './v1/sseClient'
 import { V1_LIMITS } from './v1/types'
 import { toApiGraph, isApiGraph, graphToV1Request, computeClientHash, type ReactFlowGraph } from './v1/mapper'
 import { toUiReport } from './v1/reportNormalizer'
+import { normalizeTemplateGraph, normalizeTemplateListItem } from './v1/templateNormalizer'
 import { shouldUseSync } from './v1/constants'
 
 /**
  * Load template graph from live v1 endpoint
  */
-async function loadTemplateGraph(templateId: string): Promise<any> {
+async function loadTemplateGraph(templateId: string): Promise<{ nodes: unknown[]; edges: unknown[] }> {
   const response = await v1http.templateGraph(templateId)
-  // Handle API response format: API returns graph directly at top level
-  // Response is: { nodes: [], edges: [] } not { graph: { nodes: [], edges: [] } }
-  return (response as any).graph || response
+  // Normalize response (handles both flat and nested formats)
+  const normalized = normalizeTemplateGraph(response)
+  return {
+    nodes: normalized.nodes,
+    edges: normalized.edges,
+  }
 }
 
 /**
@@ -109,12 +113,32 @@ function mapV1ResultToReport(
 }
 
 /**
+ * Map v1 Error code to UI ErrorV1 code
+ */
+function mapErrorCode(code: V1ErrorCode): ErrorV1['code'] {
+  // Map v1 error codes to UI error codes
+  // TIMEOUT and NETWORK_ERROR are transport-level errors that should appear as SERVER_ERROR to UI
+  switch (code) {
+    case 'BAD_INPUT':
+    case 'LIMIT_EXCEEDED':
+    case 'RATE_LIMITED':
+      return code
+    case 'SERVER_ERROR':
+    case 'TIMEOUT':
+    case 'NETWORK_ERROR':
+      return 'SERVER_ERROR'
+    default:
+      return 'SERVER_ERROR'
+  }
+}
+
+/**
  * Map v1 Error to UI ErrorV1
  */
 function mapV1ErrorToUI(error: V1Error): ErrorV1 {
   return {
     schema: 'error.v1',
-    code: error.code as any, // Type compatible
+    code: mapErrorCode(error.code),
     error: error.message,
     hint: undefined,
     fields: error.field
@@ -166,7 +190,7 @@ export const httpV1Adapter = {
         : toApiGraph(graph as UiGraph)
 
       // Build request with API shape + optional knobs
-      const requestBody: any = {
+      const requestBody: V1RunRequest = {
         graph: apiGraph,
         seed: input.seed,
       }
@@ -267,17 +291,10 @@ export const httpV1Adapter = {
         } as V1Error
       }
 
-      // Map v1 API fields to UI format
-      // NOTE: v1 API does not include version field. Using '1.0' as default.
-      // This is a placeholder until API provides explicit versioning.
+      // Map v1 API fields to UI format using normalizer
       return {
         schema: 'template-list.v1',
-        items: response.map(t => ({
-          id: t.id,
-          name: t.label, // label → name
-          description: t.summary, // summary → description
-          version: '1.0', // Default version (API doesn't provide this field)
-        })),
+        items: response.map(normalizeTemplateListItem),
       }
     } catch (err: any) {
       throw mapV1ErrorToUI(err as V1Error)
@@ -302,20 +319,19 @@ export const httpV1Adapter = {
         } as V1Error
       }
 
-      // Handle API response format: API returns graph directly at top level
-      // Response is: { nodes: [], edges: [] } not { graph: { nodes: [], edges: [] } }
-      const graph = (graphResponse as any).graph || graphResponse
-      const default_seed = (graphResponse as any).default_seed
+      // Normalize graph response (handles both flat and nested formats)
+      const normalized = normalizeTemplateGraph(graphResponse)
 
-      // NOTE: v1 API does not include version field. Using '1.0' as default.
-      // This is a placeholder until API provides explicit versioning.
       return {
         id: metadata.id,
         name: metadata.label, // label → name
-        version: '1.0', // Default version (API doesn't provide this field)
+        version: normalized.version,
         description: metadata.summary, // summary → description
-        default_seed,
-        graph,
+        default_seed: normalized.default_seed,
+        graph: {
+          nodes: normalized.nodes,
+          edges: normalized.edges,
+        },
       }
     } catch (err: any) {
       throw mapV1ErrorToUI(err as V1Error)

@@ -27,6 +27,11 @@ export interface V1RunRequest {
   seed?: number
   idempotencyKey?: string
   clientHash?: string
+  // Optional advanced knobs for causal analysis
+  k_samples?: number
+  treatment_node?: string
+  outcome_node?: string
+  baseline_value?: number
 }
 
 // Response types
