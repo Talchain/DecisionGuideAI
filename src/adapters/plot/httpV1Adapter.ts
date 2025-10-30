@@ -214,6 +214,40 @@ export const httpV1Adapter = {
 
       const nodeCount = apiGraph.nodes.length
 
+      // PREFLIGHT: Validate request before execution
+      try {
+        const validation = await v1http.validate(requestBody)
+
+        if (!validation.valid) {
+          // Build user-friendly error message from violations
+          const violationMessages = validation.violations
+            .map(v => `${v.field}: ${v.message}`)
+            .join('; ')
+
+          throw {
+            schema: 'error.v1',
+            code: 'BAD_INPUT',
+            error: `Validation failed: ${violationMessages}`,
+            fields: validation.violations.length > 0 ? {
+              field: validation.violations[0].field,
+            } : undefined,
+          } as ErrorV1
+        }
+
+        if (import.meta.env.DEV) {
+          console.log('[httpV1] Preflight validation passed')
+        }
+      } catch (err: any) {
+        // If validation endpoint fails, log warning but continue (graceful degradation)
+        // This prevents validation service outage from blocking all runs
+        if (err.schema === 'error.v1') {
+          throw err // Re-throw validation errors
+        }
+        if (import.meta.env.DEV) {
+          console.warn('[httpV1] Preflight validation failed, continuing anyway:', err)
+        }
+      }
+
       // Always use sync endpoint (stream not deployed yet - Oct 2025)
       if (import.meta.env.DEV) {
         console.log(
@@ -359,11 +393,25 @@ export const httpV1Adapter = {
     }
   },
 
-  // Limits
+  // Limits - Fetch from backend with ETag caching
   async limits(): Promise<LimitsV1> {
-    return {
-      nodes: { max: V1_LIMITS.MAX_NODES },
-      edges: { max: V1_LIMITS.MAX_EDGES },
+    try {
+      // Call backend /v1/limits endpoint (uses ETag caching internally)
+      const backendLimits = await v1http.limits()
+
+      return {
+        nodes: { max: backendLimits.nodes.max },
+        edges: { max: backendLimits.edges.max },
+      }
+    } catch (err: any) {
+      // Fallback to static limits if backend unavailable
+      if (import.meta.env.DEV) {
+        console.warn('[httpV1] Failed to fetch limits from backend, using static fallback:', err)
+      }
+      return {
+        nodes: { max: V1_LIMITS.MAX_NODES },
+        edges: { max: V1_LIMITS.MAX_EDGES },
+      }
     }
   },
 
