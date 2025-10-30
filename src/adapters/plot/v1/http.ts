@@ -384,7 +384,7 @@ export async function validate(request: V1RunRequest): Promise<{ valid: true } |
     const timeoutId = setTimeout(() => controller.abort(), 5000) // Short timeout for validation
 
     try {
-      const response = await fetch(\`${base}/v1/validate\`, {
+      const response = await fetch(`${base}/v1/validate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -393,7 +393,7 @@ export async function validate(request: V1RunRequest): Promise<{ valid: true } |
         signal: controller.signal,
       })
 
-      if (\!response.ok) {
+      if (!response.ok) {
         throw await mapHttpError(response)
       }
 
@@ -441,7 +441,7 @@ export async function limits(): Promise<{ nodes: { max: number }; edges: { max: 
       headers['If-None-Match'] = cachedETag
     }
 
-    const response = await fetch(\`${base}/v1/limits\`, {
+    const response = await fetch(`${base}/v1/limits`, {
       method: 'GET',
       headers,
       signal: controller.signal,
@@ -459,7 +459,7 @@ export async function limits(): Promise<{ nodes: { max: number }; edges: { max: 
       }
     }
 
-    if (\!response.ok) {
+    if (!response.ok) {
       throw await mapHttpError(response)
     }
 
