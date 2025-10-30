@@ -128,6 +128,17 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   // Compare state
   const [compareRunIds, setCompareRunIds] = useState<string[]>([])
 
+  // Memoize driver arrays to prevent bypassing React.memo in ResultsDiff
+  // Without memoization, .map() creates new array refs on every render
+  const currentDrivers = useMemo(() =>
+    report?.drivers?.map(d => ({ label: d.label, impact: d.impact })),
+    [report?.drivers]
+  )
+  const previousDrivers = useMemo(() =>
+    previousRun?.report?.drivers?.map(d => ({ label: d.label, impact: d.impact })),
+    [previousRun?.report?.drivers]
+  )
+
   // Extract metadata for header (template, seed, hash, timestamp)
   // Prefer preview values when in preview mode, fallback to main/latest run
   // Memoize to avoid recalculating on every render
@@ -581,8 +592,8 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                       currentLikely={report.results.likely}
                       previousLikely={previousRun.report.results.likely}
                       units={report.results.units}
-                      currentDrivers={report.drivers?.map(d => ({ label: d.label, impact: d.impact }))}
-                      previousDrivers={previousRun.report.drivers?.map(d => ({ label: d.label, impact: d.impact }))}
+                      currentDrivers={currentDrivers}
+                      previousDrivers={previousDrivers}
                     />
                   )}
 
