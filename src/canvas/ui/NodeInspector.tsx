@@ -57,6 +57,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const hasStagedChanges = hasNodeStagedChanges || hasStagedEdges
   const [label, setLabel] = useState<string>(String(node?.data?.label ?? ''))
   const [description, setDescription] = useState<string>(String(node?.data?.description ?? ''))
+  const [showAdvanced, setShowAdvanced] = useState<boolean>(false)
 
   // Get outgoing edges from this node
   const outgoingEdges = useMemo(() =>
@@ -397,21 +398,33 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         />
       </div>
 
-      <div className="mb-4">
-        <label htmlFor="node-description" className="block text-xs font-medium text-gray-700 mb-1">
-          Note <span className="text-gray-400">(optional)</span>
-        </label>
-        <textarea
-          id="node-description"
-          maxLength={500}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          onBlur={handleDescriptionBlur}
-          rows={3}
-          className="w-full text-sm border border-gray-300 rounded px-2 py-1"
-          placeholder="Add a note..."
-        />
-      </div>
+      {/* Progressive disclosure toggle */}
+      <button
+        type="button"
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        className="mb-3 text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+      >
+        {showAdvanced ? <EyeOff size={14} /> : <Eye size={14} />}
+        {showAdvanced ? 'Hide advanced options' : 'Show advanced options'}
+      </button>
+
+      {showAdvanced && (
+        <div className="mb-4">
+          <label htmlFor="node-description" className="block text-xs font-medium text-gray-700 mb-1">
+            Note <span className="text-gray-400">(optional)</span>
+          </label>
+          <textarea
+            id="node-description"
+            maxLength={500}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onBlur={handleDescriptionBlur}
+            rows={3}
+            className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+            placeholder="Add a note..."
+          />
+        </div>
+      )}
 
       {/* Inline Probability Editor */}
       {outgoingEdges.length > 0 && (
@@ -439,20 +452,22 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
 
               return (
                 <div key={row.edgeId} className="flex items-center gap-1.5">
-                  {/* Lock toggle */}
-                  <button
-                    type="button"
-                    onClick={() => toggleLock(row.edgeId)}
-                    className={`flex-shrink-0 p-1 rounded hover:bg-gray-100 ${prefersReducedMotion ? '' : 'transition-colors'}`}
-                    aria-label={row.locked ? `Unlock ${row.targetLabel}` : `Lock ${row.targetLabel}`}
-                    aria-pressed={row.locked}
-                    title={row.locked ? 'Locked' : 'Unlocked'}
-                    style={{
-                      color: row.locked ? 'var(--olumi-primary, #5B6CFF)' : '#9ca3af'
-                    }}
-                  >
-                    {row.locked ? <Lock size={12} /> : <Unlock size={12} />}
-                  </button>
+                  {/* Lock toggle - hidden unless advanced mode */}
+                  {showAdvanced && (
+                    <button
+                      type="button"
+                      onClick={() => toggleLock(row.edgeId)}
+                      className={`flex-shrink-0 p-1 rounded hover:bg-gray-100 ${prefersReducedMotion ? '' : 'transition-colors'}`}
+                      aria-label={row.locked ? `Unlock ${row.targetLabel}` : `Lock ${row.targetLabel}`}
+                      aria-pressed={row.locked}
+                      title={row.locked ? 'Locked' : 'Unlocked'}
+                      style={{
+                        color: row.locked ? 'var(--olumi-primary, #5B6CFF)' : '#9ca3af'
+                      }}
+                    >
+                      {row.locked ? <Lock size={12} /> : <Unlock size={12} />}
+                    </button>
+                  )}
 
                   {/* Target label */}
                   <span className="text-xs text-gray-700 w-14 flex-shrink-0 truncate" title={row.targetLabel}>

@@ -6,6 +6,7 @@
  */
 
 import { memo } from 'react'
+import { GlossaryTerm } from './GlossaryTerm'
 
 interface RangeChipsProps {
   conservative: number
@@ -17,9 +18,24 @@ interface RangeChipsProps {
 
 export const RangeChips = memo(function RangeChips({ conservative, likely, optimistic, units = 'percent', unitSymbol }: RangeChipsProps) {
   const ranges = [
-    { label: 'Conservative', value: conservative, variant: 'conservative' as const },
-    { label: 'Most Likely', value: likely, variant: 'likely' as const },
-    { label: 'Optimistic', value: optimistic, variant: 'optimistic' as const }
+    {
+      label: 'Conservative',
+      value: conservative,
+      variant: 'conservative' as const,
+      definition: 'Lower-end estimate if things go less favorably than expected.'
+    },
+    {
+      label: 'Most Likely',
+      value: likely,
+      variant: 'likely' as const,
+      definition: 'Expected outcome based on current information and typical conditions.'
+    },
+    {
+      label: 'Optimistic',
+      value: optimistic,
+      variant: 'optimistic' as const,
+      definition: 'Higher-end estimate if things go better than expected.'
+    }
   ]
 
   return (
@@ -39,6 +55,7 @@ export const RangeChips = memo(function RangeChips({ conservative, likely, optim
           variant={range.variant}
           units={units}
           unitSymbol={unitSymbol}
+          definition={range.definition}
         />
       ))}
     </div>
@@ -51,9 +68,10 @@ interface RangeChipProps {
   variant: 'conservative' | 'likely' | 'optimistic'
   units: 'currency' | 'percent' | 'count'
   unitSymbol?: string
+  definition: string
 }
 
-const RangeChip = memo(function RangeChip({ label, value, variant, units, unitSymbol }: RangeChipProps) {
+const RangeChip = memo(function RangeChip({ label, value, variant, units, unitSymbol, definition }: RangeChipProps) {
   const formattedValue = formatValue(value, units, unitSymbol)
 
   const colors = {
@@ -113,7 +131,7 @@ const RangeChip = memo(function RangeChip({ label, value, variant, units, unitSy
           letterSpacing: '0.05em'
         }}
       >
-        {label}
+        <GlossaryTerm term={label} definition={definition} inline />
       </div>
     </div>
   )

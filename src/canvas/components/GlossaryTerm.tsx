@@ -39,6 +39,13 @@ export function GlossaryTerm({ term, definition, inline = false }: GlossaryTermP
   }
 
   // Icon mode: term + help icon with tooltip
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      setIsHovered(false)
+    }
+  }
+
   return (
     <span
       style={{
@@ -57,7 +64,8 @@ export function GlossaryTerm({ term, definition, inline = false }: GlossaryTermP
         onMouseLeave={() => setIsHovered(false)}
         onFocus={() => setIsHovered(true)}
         onBlur={() => setIsHovered(false)}
-        aria-describedby={tooltipId}
+        onKeyDown={handleKeyDown}
+        aria-describedby={isHovered ? tooltipId : undefined}
         style={{
           background: 'none',
           border: 'none',
