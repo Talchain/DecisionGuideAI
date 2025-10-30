@@ -882,6 +882,16 @@ Deferred from Phase 2+ Section C. Requires E2E test coverage for preview flow:
 - Verify undo restores previous state
 - Test requires template seeding and full preview state machinery
 
+**Task D4: Driver Hover/Click E2E Test** ⚠️ TODO (Scheduled for Section I - Testing)
+
+Deferred from Phase 2+ Section D. Requires E2E test coverage for driver interactions:
+- Load template with analysis results containing drivers
+- Hover over driver chip → verify HighlightLayer renders overlay (after 300ms dwell)
+- Click driver chip → verify canvas focuses element + inspector opens + scrolls to top
+- Click driver with multiple matches → verify toast appears with cycle instructions
+- Click cycle button → verify focus changes to next match
+- Test throttling: rapid hovers should respect 10 Hz limit (100ms minimum between updates)
+
 ---
 
 ## 6. Configuration
