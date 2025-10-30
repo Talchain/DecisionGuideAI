@@ -5,6 +5,7 @@
  * Uses React Flow's useReactFlow to get node/edge positions.
  */
 
+import { useMemo } from 'react'
 import { useReactFlow, useStore } from '@xyflow/react'
 import { useCanvasStore, selectDrivers, selectResultsStatus } from '../store'
 
@@ -25,35 +26,39 @@ export function HighlightLayer({ isResultsOpen }: HighlightLayerProps): JSX.Elem
   const nodes = useStore(state => state.nodes)
   const edges = useStore(state => state.edges)
 
-  if (!shouldHighlight) {
+  // Memoize expensive node/edge lookups (performance optimization per code review)
+  const targetElement = useMemo(() => {
+    if (!highlightedDriver) return null
+
+    if (highlightedDriver.kind === 'node') {
+      const node = getNode(highlightedDriver.id)
+      if (!node) return null
+      return { type: 'node' as const, element: node }
+    }
+
+    const edge = getEdge(highlightedDriver.id)
+    if (!edge) return null
+    return { type: 'edge' as const, element: edge }
+  }, [highlightedDriver, getNode, getEdge])
+
+  if (!shouldHighlight || !targetElement) {
     return null
   }
-
-  // Show subtle highlight for all drivers, brighter for hovered one
-  if (!highlightedDriver) {
-    return null
-  }
-
-  // Only render highlight for the hovered driver
-  const driver = highlightedDriver
-  const isNode = driver.kind === 'node'
-  const node = isNode ? getNode(driver.id) : null
-  const edge = !isNode ? getEdge(driver.id) : null
 
   return (
     <div
       className="pointer-events-none absolute inset-0 z-10"
       style={{ mixBlendMode: 'multiply' }}
     >
-      {isNode && node && (
+      {targetElement.type === 'node' && (
         <div
-          key={driver.id}
+          key={highlightedDriver.id}
           className="absolute pointer-events-none transition-all duration-300"
           style={{
-            left: node.position.x,
-            top: node.position.y,
-            width: node.width || 200,
-            height: node.height || 80,
+            left: targetElement.element.position.x,
+            top: targetElement.element.position.y,
+            width: targetElement.element.width || 200,
+            height: targetElement.element.height || 80,
             border: '3px solid var(--olumi-primary)',
             borderRadius: '8px',
             boxShadow: '0 0 20px rgba(91, 108, 255, 0.6)',
@@ -62,9 +67,9 @@ export function HighlightLayer({ isResultsOpen }: HighlightLayerProps): JSX.Elem
         />
       )}
 
-      {!isNode && edge && (() => {
-        const sourceNode = getNode(edge.source)
-        const targetNode = getNode(edge.target)
+      {targetElement.type === 'edge' && (() => {
+        const sourceNode = getNode(targetElement.element.source)
+        const targetNode = getNode(targetElement.element.target)
         if (!sourceNode || !targetNode) return null
 
         const sx = sourceNode.position.x + (sourceNode.width || 200) / 2
@@ -74,7 +79,7 @@ export function HighlightLayer({ isResultsOpen }: HighlightLayerProps): JSX.Elem
 
         return (
           <svg
-            key={driver.id}
+            key={highlightedDriver.id}
             className="absolute inset-0 pointer-events-none"
             style={{ overflow: 'visible' }}
           >
