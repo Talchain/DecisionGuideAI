@@ -228,12 +228,74 @@ export function sanitizeShareHash(hash: unknown, allowlist?: Set<string>): strin
  * Use this for high-security scenarios where only specific
  * pre-approved hashes should be accepted (e.g., from backend).
  *
+ * Feature flag: VITE_FEATURE_SHARE_ALLOWLIST
+ *
+ * When feature flag is enabled and no local allowlist is provided,
+ * validates against server-provided allowlist via API call.
+ *
+ * When local allowlist is provided, performs local validation.
+ *
+ * Security: Prevents loading of arbitrary/malicious share links by requiring
+ * server-side vetting of hashes when feature is enabled.
+ *
  * @param hash - Hash to validate
- * @param allowlist - Set of allowed hash values
- * @returns true if hash is in allowlist, false otherwise
+ * @param allowlist - Optional local Set of allowed hash values (overrides API check)
+ * @returns Promise<boolean> or boolean - true if hash is allowlisted, false otherwise
  */
-export function validateShareHashAllowlist(hash: string, allowlist: Set<string>): boolean {
-  return allowlist.has(hash)
+export function validateShareHashAllowlist(
+  hash: string,
+  allowlist?: Set<string>
+): boolean | Promise<boolean> {
+  // Local allowlist validation (synchronous, backward compatible)
+  if (allowlist) {
+    return allowlist.has(hash)
+  }
+
+  // API-based validation behind feature flag
+  const featureEnabled = import.meta.env.VITE_FEATURE_SHARE_ALLOWLIST === '1'
+
+  if (!featureEnabled) {
+    console.log('[Allowlist] Feature disabled, allowing hash:', hash)
+    return true
+  }
+
+  // Validate hash format first
+  if (!hash || typeof hash !== 'string' || hash.length < 6) {
+    console.warn('[Allowlist] Invalid hash format:', hash)
+    return false
+  }
+
+  // Async API validation
+  return (async () => {
+    try {
+      const response = await fetch(`/api/v1/allowlist?hash=${encodeURIComponent(hash)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        console.warn('[Allowlist] Server returned non-OK status:', response.status)
+        return false
+      }
+
+      const data = await response.json()
+
+      // Expect response: { allowed: boolean }
+      const allowed = data?.allowed === true
+
+      if (!allowed) {
+        console.warn('[Allowlist] Hash not on allowlist:', hash)
+      }
+
+      return allowed
+    } catch (error) {
+      console.error('[Allowlist] Validation failed:', error)
+      // Fail closed - reject hash on error
+      return false
+    }
+  })()
 }
 
 /**

@@ -7,7 +7,7 @@
  * to prevent XSS, injection attacks, and data leaks.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   sanitizeLabel,
   sanitizeMarkdown,
@@ -438,6 +438,48 @@ describe('sanitize.ts', () => {
         expect(result.constructor).toBeUndefined()
         expect(result.prototype).toBeUndefined()
       })
+    })
+  })
+
+  describe('validateShareHashAllowlist', () => {
+    // Note: Full E2E test in e2e/share-allowlist.spec.ts with MSW mocking
+
+    it('should return true when feature flag is disabled', async () => {
+      // Feature flag disabled by default in test environment
+      const { validateShareHashAllowlist } = await import('../sanitize')
+      const result = await validateShareHashAllowlist('abc123xyz')
+      expect(result).toBe(true)
+    })
+
+    it('should reject invalid hash formats', async () => {
+      // Set feature flag temporarily
+      const originalEnv = import.meta.env.VITE_FEATURE_SHARE_ALLOWLIST
+      import.meta.env.VITE_FEATURE_SHARE_ALLOWLIST = '1'
+
+      const { validateShareHashAllowlist } = await import('../sanitize')
+
+      // Too short
+      expect(await validateShareHashAllowlist('abc')).toBe(false)
+
+      // Empty
+      expect(await validateShareHashAllowlist('')).toBe(false)
+
+      // Restore
+      import.meta.env.VITE_FEATURE_SHARE_ALLOWLIST = originalEnv
+    })
+
+    it('should log when feature is disabled', async () => {
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+      const { validateShareHashAllowlist } = await import('../sanitize')
+      await validateShareHashAllowlist('test-hash')
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[Allowlist] Feature disabled, allowing hash:',
+        'test-hash'
+      )
+
+      consoleSpy.mockRestore()
     })
   })
 })
