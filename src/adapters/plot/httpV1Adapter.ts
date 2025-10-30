@@ -407,6 +407,31 @@ export const httpV1Adapter = {
     }
   },
 
+  // Validate - Check if graph meets backend constraints before running
+  async validate(input: RunRequest): Promise<{ valid: true } | { valid: false; violations: Array<{ field: string; message: string }> }> {
+    const graph = input.graph || await loadTemplateGraph(input.template_id)
+
+    // Check if graph is already in API shape (from /v1/templates/{id}/graph)
+    // If not, convert UI shape to API shape
+    const apiGraph: ApiGraph = isApiGraph(graph)
+      ? graph
+      : toApiGraph(graph as UiGraph)
+
+    // Build request with API shape
+    const requestBody: V1RunRequest = {
+      graph: apiGraph,
+      seed: input.seed,
+    }
+
+    // Add optional knobs if provided
+    if (input.k_samples !== undefined) requestBody.k_samples = input.k_samples
+    if (input.treatment_node) requestBody.treatment_node = input.treatment_node
+    if (input.outcome_node) requestBody.outcome_node = input.outcome_node
+    if (input.baseline_value !== undefined) requestBody.baseline_value = input.baseline_value
+
+    return v1http.validate(requestBody)
+  },
+
   // Health (optional, specific to httpV1)
   async health() {
     return v1http.health()
