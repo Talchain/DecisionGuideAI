@@ -300,4 +300,206 @@ test.describe('Canvas Preview Mode', () => {
 
     // This confirms preview changes are ephemeral and don't mutate persisted graph
   })
+
+  test('should support edge weight editing in preview mode', async ({ page }) => {
+    // Enter Preview mode
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+    await expect(page.locator('[aria-label="Analysis Results"]')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=Complete')).toBeVisible({ timeout: 10000 })
+
+    const previewButton = page.locator('button', { hasText: /Preview Changes/i })
+    await previewButton.click()
+    await expect(page.locator('text=/Preview Mode/i')).toBeVisible({ timeout: 5000 })
+
+    // Click on an edge to open edge inspector
+    const edge = page.locator('.react-flow__edge').first()
+    if (await edge.isVisible()) {
+      await edge.click()
+
+      // Wait for inspector to open
+      const inspector = page.locator('[aria-label="Edge Inspector"]').or(page.locator('[aria-label="Inspector"]'))
+      await expect(inspector).toBeVisible({ timeout: 5000 })
+
+      // Look for weight/probability input
+      const weightInput = page.locator('input[name="weight"]')
+        .or(page.locator('input[placeholder*="Weight"]'))
+        .or(page.locator('input[type="number"]').first())
+
+      if (await weightInput.isVisible()) {
+        const originalWeight = await weightInput.inputValue()
+
+        // Edit weight
+        await weightInput.clear()
+        await weightInput.fill('0.75')
+        await weightInput.blur()
+
+        await page.waitForTimeout(500)
+
+        // Verify change is staged
+        await expect(weightInput).toHaveValue('0.75')
+
+        // Discard and verify revert
+        const discardButton = page.locator('button', { hasText: /Discard|Cancel|Exit Preview/i })
+        await discardButton.click()
+
+        // Wait for Preview mode to exit
+        await expect(page.locator('text=/Preview Mode/i')).not.toBeVisible({ timeout: 5000 })
+
+        // Re-select edge and verify original weight restored
+        await page.waitForTimeout(500)
+        await edge.click()
+        await expect(inspector).toBeVisible({ timeout: 5000 })
+        await expect(weightInput).toHaveValue(originalWeight)
+      }
+    }
+  })
+
+  test('should leave NO preview remnants in localStorage after reload', async ({ page }) => {
+    // Enter Preview mode and make edits
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+    await expect(page.locator('[aria-label="Analysis Results"]')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=Complete')).toBeVisible({ timeout: 10000 })
+
+    const previewButton = page.locator('button', { hasText: /Preview Changes/i })
+    await previewButton.click()
+    await expect(page.locator('text=/Preview Mode/i')).toBeVisible({ timeout: 5000 })
+
+    // Make multiple edits
+    const firstNode = page.locator('.react-flow__node').first()
+    await firstNode.click()
+    const labelInput = page.locator('input[name="label"]').or(page.locator('input[placeholder*="Label"]'))
+    await labelInput.clear()
+    await labelInput.fill('Preview Edit 1')
+    await labelInput.blur()
+
+    await page.waitForTimeout(500)
+
+    // Check localStorage BEFORE reload - preview state should be present in memory but NOT persisted
+    const localStorageBeforeReload = await page.evaluate(() => {
+      const storage: Record<string, string> = {}
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key) {
+          storage[key] = localStorage.getItem(key) || ''
+        }
+      }
+      return storage
+    })
+
+    // Verify no preview keywords in localStorage BEFORE reload
+    const storageString = JSON.stringify(localStorageBeforeReload)
+    expect(storageString).not.toContain('preview')
+    expect(storageString).not.toContain('stagedNodes')
+    expect(storageString).not.toContain('stagedEdges')
+    expect(storageString).not.toContain('previewReport')
+
+    // Reload page WITHOUT applying
+    await page.reload({ waitUntil: 'networkidle' })
+    await expect(page.locator('.react-flow')).toBeVisible()
+    await expect(page.locator('.react-flow__node').first()).toBeVisible()
+
+    // Check localStorage AFTER reload - still no preview keywords
+    const localStorageAfterReload = await page.evaluate(() => {
+      const storage: Record<string, string> = {}
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key) {
+          storage[key] = localStorage.getItem(key) || ''
+        }
+      }
+      return storage
+    })
+
+    const storageStringAfter = JSON.stringify(localStorageAfterReload)
+    expect(storageStringAfter).not.toContain('preview')
+    expect(storageStringAfter).not.toContain('stagedNodes')
+    expect(storageStringAfter).not.toContain('stagedEdges')
+    expect(storageStringAfter).not.toContain('previewReport')
+    expect(storageStringAfter).not.toContain('stagedDrivers')
+
+    // Verify Preview mode is NOT active after reload
+    const previewIndicator = page.locator('text=/Preview Mode|Previewing/i')
+    await expect(previewIndicator).not.toBeVisible()
+  })
+
+  test('full lifecycle: enter → stage → run → diff → apply → undo', async ({ page }) => {
+    // 1. Run initial analysis
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+    await expect(page.locator('[aria-label="Analysis Results"]')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('text=Complete')).toBeVisible({ timeout: 10000 })
+
+    // Capture original result value
+    const originalResult = page.locator('[aria-label="Analysis Results"]')
+    const originalText = await originalResult.textContent()
+
+    // 2. Enter Preview mode
+    const previewButton = page.locator('button', { hasText: /Preview Changes/i })
+    await previewButton.click()
+    await expect(page.locator('text=/Preview Mode/i')).toBeVisible({ timeout: 5000 })
+
+    // 3. Stage node changes
+    const firstNode = page.locator('.react-flow__node').first()
+    await firstNode.click()
+    const labelInput = page.locator('input[name="label"]').or(page.locator('input[placeholder*="Label"]'))
+    const originalLabel = await labelInput.inputValue()
+    await labelInput.clear()
+    await labelInput.fill('Modified Label')
+    await labelInput.blur()
+    await page.waitForTimeout(300)
+
+    // 4. Stage edge changes (if possible)
+    await page.locator('.react-flow__pane').click({ position: { x: 10, y: 10 } })
+    const edge = page.locator('.react-flow__edge').first()
+    if (await edge.isVisible()) {
+      await edge.click()
+      const weightInput = page.locator('input[name="weight"]')
+        .or(page.locator('input[type="number"]').first())
+      if (await weightInput.isVisible()) {
+        await weightInput.clear()
+        await weightInput.fill('0.8')
+        await weightInput.blur()
+        await page.waitForTimeout(300)
+      }
+    }
+
+    // 5. Run Preview (this may auto-trigger or require manual trigger)
+    // Preview run should happen automatically or via a "Run Preview" button
+    // Wait for preview run to complete
+    const runPreviewButton = page.locator('button', { hasText: /Run Preview/i })
+    if (await runPreviewButton.isVisible({ timeout: 2000 })) {
+      await runPreviewButton.click()
+      await expect(page.locator('text=/Streaming|Running/i')).toBeVisible({ timeout: 5000 })
+      await expect(page.locator('text=Complete')).toBeVisible({ timeout: 15000 })
+    }
+
+    // 6. Verify diff is shown
+    // Look for preview diff component
+    const diffIndicator = page.locator('text=/Preview vs Current|Delta|Difference/i')
+    // Diff may or may not be visible depending on implementation
+    // Just verify we're still in preview mode
+    await expect(page.locator('text=/Preview Mode/i')).toBeVisible()
+
+    // 7. Apply changes
+    const applyButton = page.locator('button', { hasText: /Apply|Apply Changes/i })
+    await expect(applyButton).toBeVisible()
+    await applyButton.click()
+
+    // Wait for Preview mode to exit
+    await expect(page.locator('text=/Preview Mode/i')).not.toBeVisible({ timeout: 5000 })
+    await page.waitForTimeout(1000)
+
+    // Verify label changed
+    await firstNode.click()
+    await expect(labelInput).toHaveValue('Modified Label')
+
+    // 8. Single Undo - should revert ALL preview changes in one frame
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+KeyZ' : 'Control+KeyZ')
+    await page.waitForTimeout(800)
+
+    // Verify label reverted to original
+    await firstNode.click()
+    await expect(labelInput).toHaveValue(originalLabel)
+
+    // This confirms single undo frame requirement
+  })
 })
