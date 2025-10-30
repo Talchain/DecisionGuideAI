@@ -82,6 +82,7 @@ interface CanvasState {
   _internal: { lastHistoryHash: string }
   results: ResultsState  // Analysis results panel state
   preview: PreviewState  // Preview Mode state
+  highlightedDriver: { kind: 'node' | 'edge'; id: string } | null  // Driver hover highlight
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
@@ -90,6 +91,8 @@ interface CanvasState {
   onEdgesChange: (changes: EdgeChange[]) => void
   onSelectionChange: (params: { nodes: Node[]; edges: Edge<EdgeData>[] }) => void
   selectNodeWithoutHistory: (nodeId: string) => void
+  setHighlightedDriver: (driver: { kind: 'node' | 'edge'; id: string } | null) => void
+  clearHighlightedDriver: () => void
   addEdge: (edge: Omit<Edge<EdgeData>, 'id'>) => void
   pushHistory: (debounced?: boolean) => void
   undo: () => void
@@ -230,6 +233,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     progress: 0,
     error: null,
   },
+  highlightedDriver: null,
 
   createNodeId: () => {
     const { nextNodeId } = get()
@@ -369,6 +373,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         edgeIds: new Set()
       }
     }))
+  },
+
+  // Set highlighted driver (for DriverChips hover → HighlightLayer communication)
+  setHighlightedDriver: (driver) => {
+    set({ highlightedDriver: driver })
+  },
+
+  // Clear highlighted driver
+  clearHighlightedDriver: () => {
+    set({ highlightedDriver: null })
   },
 
   addEdge: (edge) => {

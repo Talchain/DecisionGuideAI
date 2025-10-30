@@ -29,6 +29,8 @@ interface DriverChipsProps {
 export function DriverChips({ drivers }: DriverChipsProps) {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  const setHighlightedDriver = useCanvasStore(s => s.setHighlightedDriver)
+  const clearHighlightedDriver = useCanvasStore(s => s.clearHighlightedDriver)
 
   const [selectedIndex, setSelectedIndex] = useState<number>(-1)
   const [hoverIndex, setHoverIndex] = useState<number>(-1)
@@ -138,10 +140,17 @@ export function DriverChips({ drivers }: DriverChipsProps) {
           driver: driverList[index],
           matchIndex: currentCycle % matches.length
         })
+
+        // Communicate highlight to HighlightLayer via store
+        setHighlightedDriver({
+          kind: match.kind,
+          id: match.targetId
+        })
+
         lastHighlightTime.current = now
       }
     }, 300)
-  }, [allMatches, driverList, matchCycles])
+  }, [allMatches, driverList, matchCycles, setHighlightedDriver])
 
   const handleHoverEnd = useCallback(() => {
     if (hoverTimerRef.current) {
@@ -150,7 +159,8 @@ export function DriverChips({ drivers }: DriverChipsProps) {
     }
     setHoverIndex(-1)
     setActiveDriver(null)
-  }, [])
+    clearHighlightedDriver()
+  }, [clearHighlightedDriver])
 
   // Cycle to next match
   const handleCycleNext = useCallback((index: number, e: React.MouseEvent) => {

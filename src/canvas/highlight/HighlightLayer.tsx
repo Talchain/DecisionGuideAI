@@ -5,7 +5,6 @@
  * Uses React Flow's useReactFlow to get node/edge positions.
  */
 
-import { useEffect, useState } from 'react'
 import { useReactFlow, useStore } from '@xyflow/react'
 import { useCanvasStore, selectDrivers, selectResultsStatus } from '../store'
 
@@ -16,6 +15,7 @@ interface HighlightLayerProps {
 export function HighlightLayer({ isResultsOpen }: HighlightLayerProps): JSX.Element | null {
   const drivers = useCanvasStore(selectDrivers)
   const status = useCanvasStore(selectResultsStatus)
+  const highlightedDriver = useCanvasStore(s => s.highlightedDriver)
   const { getNode, getEdge } = useReactFlow()
 
   // Only show highlights when Results is open, complete, and has drivers
@@ -25,93 +25,74 @@ export function HighlightLayer({ isResultsOpen }: HighlightLayerProps): JSX.Elem
   const nodes = useStore(state => state.nodes)
   const edges = useStore(state => state.edges)
 
-  const [hoveredDriverId, setHoveredDriverId] = useState<string | null>(null)
-
-  useEffect(() => {
-    // Clear highlights when panel closes
-    if (!isResultsOpen) {
-      setHoveredDriverId(null)
-    }
-  }, [isResultsOpen])
-
   if (!shouldHighlight) {
     return null
   }
+
+  // Show subtle highlight for all drivers, brighter for hovered one
+  if (!highlightedDriver) {
+    return null
+  }
+
+  // Only render highlight for the hovered driver
+  const driver = highlightedDriver
+  const isNode = driver.kind === 'node'
+  const node = isNode ? getNode(driver.id) : null
+  const edge = !isNode ? getEdge(driver.id) : null
 
   return (
     <div
       className="pointer-events-none absolute inset-0 z-10"
       style={{ mixBlendMode: 'multiply' }}
     >
-      {drivers.map(driver => {
-        const isHovered = hoveredDriverId === driver.id
+      {isNode && node && (
+        <div
+          key={driver.id}
+          className="absolute pointer-events-none transition-all duration-300"
+          style={{
+            left: node.position.x,
+            top: node.position.y,
+            width: node.width || 200,
+            height: node.height || 80,
+            border: '3px solid var(--olumi-primary)',
+            borderRadius: '8px',
+            boxShadow: '0 0 20px rgba(91, 108, 255, 0.6)',
+            backgroundColor: 'rgba(91, 108, 255, 0.15)'
+          }}
+        />
+      )}
 
-        if (driver.kind === 'node') {
-          const node = getNode(driver.id)
-          if (!node) return null
+      {!isNode && edge && (() => {
+        const sourceNode = getNode(edge.source)
+        const targetNode = getNode(edge.target)
+        if (!sourceNode || !targetNode) return null
 
-          return (
-            <div
-              key={driver.id}
-              className="absolute pointer-events-none transition-all duration-300"
+        const sx = sourceNode.position.x + (sourceNode.width || 200) / 2
+        const sy = sourceNode.position.y + (sourceNode.height || 80) / 2
+        const tx = targetNode.position.x + (targetNode.width || 200) / 2
+        const ty = targetNode.position.y + (targetNode.height || 80) / 2
+
+        return (
+          <svg
+            key={driver.id}
+            className="absolute inset-0 pointer-events-none"
+            style={{ overflow: 'visible' }}
+          >
+            <line
+              x1={sx}
+              y1={sy}
+              x2={tx}
+              y2={ty}
+              stroke="var(--olumi-primary)"
+              strokeWidth={4}
+              strokeDasharray="0"
               style={{
-                left: node.position.x,
-                top: node.position.y,
-                width: node.width || 200,
-                height: node.height || 80,
-                border: isHovered ? '3px solid var(--olumi-primary)' : '2px solid rgba(91, 108, 255, 0.4)',
-                borderRadius: '8px',
-                boxShadow: isHovered
-                  ? '0 0 20px rgba(91, 108, 255, 0.6)'
-                  : '0 0 10px rgba(91, 108, 255, 0.3)',
-                backgroundColor: isHovered
-                  ? 'rgba(91, 108, 255, 0.15)'
-                  : 'rgba(91, 108, 255, 0.08)'
+                filter: 'drop-shadow(0 0 8px rgba(91, 108, 255, 0.8))'
               }}
             />
-          )
-        }
-
-        if (driver.kind === 'edge') {
-          const edge = getEdge(driver.id)
-          if (!edge) return null
-
-          const sourceNode = getNode(edge.source)
-          const targetNode = getNode(edge.target)
-          if (!sourceNode || !targetNode) return null
-
-          // Simple edge highlight: draw a line from source center to target center
-          const sx = sourceNode.position.x + (sourceNode.width || 200) / 2
-          const sy = sourceNode.position.y + (sourceNode.height || 80) / 2
-          const tx = targetNode.position.x + (targetNode.width || 200) / 2
-          const ty = targetNode.position.y + (targetNode.height || 80) / 2
-
-          return (
-            <svg
-              key={driver.id}
-              className="absolute inset-0 pointer-events-none"
-              style={{ overflow: 'visible' }}
-            >
-              <line
-                x1={sx}
-                y1={sy}
-                x2={tx}
-                y2={ty}
-                stroke={isHovered ? 'var(--olumi-primary)' : 'rgba(91, 108, 255, 0.5)'}
-                strokeWidth={isHovered ? 4 : 3}
-                strokeDasharray={isHovered ? '0' : '8 4'}
-                style={{
-                  filter: isHovered
-                    ? 'drop-shadow(0 0 8px rgba(91, 108, 255, 0.8))'
-                    : 'drop-shadow(0 0 4px rgba(91, 108, 255, 0.4))'
-                }}
-              />
-            </svg>
-          )
-        }
-
-        return null
-      })}
+          </svg>
+        )
+      })()}
     </div>
   )
 }

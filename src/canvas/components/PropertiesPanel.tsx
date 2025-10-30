@@ -2,6 +2,7 @@
  * Properties panel with inspector routing
  * Shows NodeInspector or EdgeInspector based on selection
  */
+import { useRef, useEffect } from 'react'
 import { NodeInspector } from '../ui/NodeInspector'
 import { EdgeInspector } from '../ui/EdgeInspector'
 import { useCanvasStore } from '../store'
@@ -11,8 +12,20 @@ export function PropertiesPanel() {
   const nodeId = selection.nodeIds.size === 1 ? [...selection.nodeIds][0] : null
   const edgeId = selection.edgeIds.size === 1 ? [...selection.edgeIds][0] : null
 
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll inspector to top when selection changes (for driver click → inspector flow)
+  useEffect(() => {
+    if ((nodeId || edgeId) && panelRef.current) {
+      panelRef.current.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }, [nodeId, edgeId])
+
   const wrapper = (children: React.ReactNode) => (
-    <div className="fixed right-6 top-24 w-80 rounded-2xl shadow bg-white border border-gray-200/50 max-h-[calc(100vh-7rem)] overflow-y-auto">
+    <div
+      ref={panelRef}
+      className="fixed right-6 top-24 w-80 rounded-2xl shadow bg-white border border-gray-200/50 max-h-[calc(100vh-7rem)] overflow-y-auto"
+    >
       <div className="p-6">{children}</div>
     </div>
   )
