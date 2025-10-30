@@ -56,6 +56,20 @@ describe('sanitize.ts', () => {
     it('trims whitespace', () => {
       expect(sanitizeLabel('  Hello World  ')).toBe('Hello World')
     })
+
+    it('preserves legitimate parentheses and text', () => {
+      // Legitimate uses should be preserved
+      expect(sanitizeLabel('Alert Threshold (Critical)')).toBe('Alert Threshold (Critical)')
+      expect(sanitizeLabel('Revenue (Q1 2024)')).toBe('Revenue (Q1 2024)')
+      expect(sanitizeLabel('Cost Analysis (USD)')).toBe('Cost Analysis (USD)')
+
+      // But script patterns should be removed
+      expect(sanitizeLabel('Test alert(1) malicious')).toBe('Test  malicious')
+      expect(sanitizeLabel('onclick(abc) backdoor')).toBe('backdoor')
+
+      // Note: Nested parentheses may leave trailing ')' which is harmless
+      expect(sanitizeLabel('eval(dangerous())')).toContain(')')
+    })
   })
 
   describe('sanitizeMarkdown', () => {

@@ -72,6 +72,48 @@ describe('Canvas Persistence', () => {
       const loaded = loadState()
       expect(loaded).toBeNull()
     })
+
+    it('excludes preview state from persistence (H3 security)', () => {
+      // Simulate preview mode state with staged changes
+      const stateWithPreview = {
+        nodes: mockNodes,
+        edges: mockEdges,
+        // Preview state that should NOT be persisted
+        preview: {
+          active: true,
+          status: 'complete',
+          stagedNodes: new Map([['1', { data: { label: 'Staged Change' } }]]),
+          stagedEdges: new Map(),
+          previewReport: { /* mock report */ },
+          previewSeed: 99999,
+          previewHash: 'preview-hash-should-not-persist'
+        }
+      } as any
+
+      // Save state (should only persist nodes and edges)
+      saveState(stateWithPreview)
+
+      // Load state and verify preview is excluded
+      const loaded = loadState()
+      expect(loaded).not.toBeNull()
+      expect(loaded?.nodes).toHaveLength(1)
+      expect(loaded?.edges).toHaveLength(1)
+
+      // Verify preview state is NOT in persisted data
+      expect(loaded).not.toHaveProperty('preview')
+      expect(loaded).not.toHaveProperty('previewReport')
+      expect(loaded).not.toHaveProperty('previewSeed')
+      expect(loaded).not.toHaveProperty('previewHash')
+      expect(loaded).not.toHaveProperty('stagedNodes')
+      expect(loaded).not.toHaveProperty('stagedEdges')
+
+      // Verify localStorage doesn't contain preview state
+      const raw = localStorage.getItem('canvas-storage')
+      expect(raw).not.toBeNull()
+      expect(raw).not.toContain('preview')
+      expect(raw).not.toContain('stagedNodes')
+      expect(raw).not.toContain('previewReport')
+    })
   })
 
   describe('snapshot management', () => {
@@ -94,6 +136,56 @@ describe('Canvas Persistence', () => {
 
       const snapshots = listSnapshots()
       expect(snapshots.length).toBeLessThanOrEqual(10)
+    })
+
+    it('excludes preview state from snapshots (H3 security)', () => {
+      // Simulate preview mode state with staged changes
+      const stateWithPreview = {
+        nodes: mockNodes,
+        edges: mockEdges,
+        // Preview state that should NOT be persisted
+        preview: {
+          active: true,
+          status: 'complete',
+          stagedNodes: new Map([['1', { data: { label: 'Staged Snapshot' } }]]),
+          stagedEdges: new Map(),
+          previewReport: { schema: 'report.v1' },
+          previewSeed: 88888,
+          previewHash: 'snapshot-preview-hash-excluded'
+        }
+      } as any
+
+      // Save snapshot (should only persist nodes and edges)
+      const saved = saveSnapshot(stateWithPreview)
+      expect(saved).toBe(true)
+
+      // Get the saved snapshot
+      const snapshots = listSnapshots()
+      expect(snapshots.length).toBeGreaterThan(0)
+
+      // Get the most recent snapshot
+      const latestSnapshot = snapshots[0]
+      const snapshotKey = `canvas-snapshot-${latestSnapshot.timestamp}`
+      const raw = localStorage.getItem(snapshotKey)
+      expect(raw).not.toBeNull()
+
+      // Parse and verify structure
+      const parsed = JSON.parse(raw!)
+      expect(parsed.nodes).toHaveLength(1)
+      expect(parsed.edges).toHaveLength(1)
+
+      // Verify preview state is NOT in snapshot
+      expect(parsed).not.toHaveProperty('preview')
+      expect(parsed).not.toHaveProperty('previewReport')
+      expect(parsed).not.toHaveProperty('previewSeed')
+      expect(parsed).not.toHaveProperty('previewHash')
+      expect(parsed).not.toHaveProperty('stagedNodes')
+      expect(parsed).not.toHaveProperty('stagedEdges')
+
+      // Verify raw JSON doesn't contain preview keywords
+      expect(raw).not.toContain('preview')
+      expect(raw).not.toContain('stagedNodes')
+      expect(raw).not.toContain('88888') // preview seed
     })
   })
 

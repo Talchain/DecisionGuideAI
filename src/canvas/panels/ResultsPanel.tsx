@@ -18,6 +18,7 @@ import { X, History as HistoryIcon, GitCompare as CompareIcon, Eye, Check, XCirc
 import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectViolations, selectSeed, selectHash, selectPreviewMode, selectPreviewReport, selectPreviewSeed, selectPreviewHash, selectStagedNodeChanges, selectStagedEdgeChanges, selectPreviewStatus, selectPreviewProgress, selectPreviewError } from '../store'
 import type { ValidationViolation } from '../store'
 import { usePreviewRun } from '../hooks/usePreviewRun'
+import { sanitizeShareHash } from '../utils/sanitize'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { ProgressStrip } from '../components/ProgressStrip'
 import { WhyPanel } from '../../routes/templates/components/WhyPanel'
@@ -242,13 +243,11 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
   const handleShare = useCallback(() => {
     if (hash) {
-      // Validate hash to prevent injection attacks
-      // Allow: alphanumeric, hyphens, underscores, periods, base64 padding (=)
-      // This covers hex hashes, base64, and UUID variants
-      const sanitizedHash = hash.replace(/[^a-zA-Z0-9\-_.=]/g, '')
+      // Use central sanitization utility (sanitize.ts)
+      const sanitizedHash = sanitizeShareHash(hash)
 
-      if (sanitizedHash !== hash) {
-        console.warn('[ResultsPanel] Sanitized hash from:', hash, 'to:', sanitizedHash)
+      if (!sanitizedHash) {
+        console.warn('[ResultsPanel] Invalid hash rejected:', hash)
         showToast('Invalid run hash - contains unsafe characters', 'error')
         return
       }

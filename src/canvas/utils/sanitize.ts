@@ -30,9 +30,8 @@ export function sanitizeLabel(label: unknown, maxLength = 100): string {
     .replace(/<[^>]*>/g, '') // Remove HTML tags
     .replace(/[<>]/g, '') // Remove remaining angle brackets
     .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
-    .replace(/alert\s*\([^)]*\)/gi, '') // Remove alert(...) calls (XSS prevention)
-    .replace(/alert/gi, '') // Remove remaining alert keyword
-    .replace(/[()]/g, '') // Remove remaining parentheses
+    // Remove common script function calls (preserves legitimate parentheses)
+    .replace(/\b(alert|eval|confirm|prompt|setTimeout|setInterval|Function|onclick|onerror|onload)\s*\([^)]*\)/gi, '')
     .slice(0, maxLength)
     .trim()
 
