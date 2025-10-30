@@ -14,6 +14,7 @@ import { ChevronUp, ChevronDown } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { findDriverMatches, type Driver, type DriverMatch } from '../utils/driverMatching'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
+import { useToast } from '../ToastContext'
 
 interface DriverChipsProps {
   drivers: Array<{
@@ -31,6 +32,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
   const edges = useCanvasStore(s => s.edges)
   const setHighlightedDriver = useCanvasStore(s => s.setHighlightedDriver)
   const clearHighlightedDriver = useCanvasStore(s => s.clearHighlightedDriver)
+  const { showToast } = useToast()
 
   const [selectedIndex, setSelectedIndex] = useState<number>(-1)
   const [hoverIndex, setHoverIndex] = useState<number>(-1)
@@ -109,7 +111,15 @@ export function DriverChips({ drivers }: DriverChipsProps) {
       driver: driverList[index],
       matchIndex: currentCycle % matches.length
     })
-  }, [allMatches, driverList, matchCycles])
+
+    // Show toast for duplicate labels (quick-pick awareness)
+    if (matches.length > 1 && currentCycle === 0) {
+      showToast(
+        `Found ${matches.length} matches for "${driverList[index].label}". Click the cycle button to view others.`,
+        'info'
+      )
+    }
+  }, [allMatches, driverList, matchCycles, showToast])
 
   // Handle hover with 300ms dwell + throttle to ≤10 Hz (100ms minimum between updates)
   const lastHighlightTime = useRef<number>(0)
