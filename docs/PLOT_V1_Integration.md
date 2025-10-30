@@ -490,8 +490,192 @@ proxy: {
 - Graceful degradation when backend unavailable
 - Queue requests for retry when online
 
+## Security Appendix
+
+### Sanitization Strategy
+
+The application uses a **defense-in-depth** approach with centralized sanitization utilities (`src/canvas/utils/sanitize.ts`).
+
+#### Core Sanitization Functions
+
+**1. Label Sanitization** (`sanitizeLabel`)
+- **Purpose**: Remove malicious code from user-provided labels while preserving legitimate text
+- **Protection**: XSS via script injection, control characters
+- **Behavior**:
+  - Strips HTML tags: `<script>`, `<img>`, etc.
+  - Removes script function calls: `alert()`, `eval()`, `onclick()`, etc.
+  - Preserves legitimate parentheses: `"Revenue (Q1 2024)"` ✓
+  - Falls back to `"Untitled"` if sanitization removes all content
+- **Trade-off**: Balances security (removing malicious patterns) with UX (preserving annotations)
+
+**2. Markdown Sanitization** (`sanitizeMarkdown`)
+- **Purpose**: Convert user markdown to safe HTML
+- **Protection**: XSS via markdown → HTML injection
+- **Implementation**: `marked` + `DOMPurify`
+- **Allowed tags**: `p`, `br`, `strong`, `em`, `ul`, `ol`, `li`, `code`, `pre`, `blockquote`, `h1-h6`, `a`, `span`
+- **Blocked**: Scripts, iframes, objects, event handlers
+
+**3. JSON Sanitization** (`sanitizeJSON`)
+- **Purpose**: Remove prototype pollution keys from parsed JSON
+- **Protection**: Prototype pollution attacks
+- **Behavior**:
+  - Uses `Object.create(null)` for pollution-free objects
+  - Blocks keys: `__proto__`, `constructor`, `prototype`
+  - Recursive: sanitizes nested objects and arrays
+  - Max depth: 10 levels (prevents stack overflow)
+- **Used in**: `importCanvas()` for template import protection
+
+**4. Share Hash Validation** (`sanitizeShareHash`)
+- **Purpose**: Validate snapshot/result share hashes
+- **Protection**: Open redirect, URL injection
+- **Accepted formats**:
+  - SHA-256 hex: exactly 64 characters `[a-f0-9]`
+  - Base64url: `[a-zA-Z0-9_-]+` with optional `z:` prefix (max 8KB)
+- **Allowlist support**: Optional strict validation against server-provided hash list
+- **Behavior**: Returns `null` for invalid hashes (fail-closed)
+
+**5. Filename Sanitization** (`sanitizeFilename`)
+- **Purpose**: Remove directory traversal and shell metacharacters
+- **Protection**: Directory traversal (`../`), shell injection (`;`, `|`, `&`)
+- **Transformation**:
+  - `../../../etc/passwd` → `------etc-passwd`
+  - Preserves alphanumeric, hyphen, underscore, single dots (for extensions)
+
+**6. URL Sanitization** (`sanitizeUrl`)
+- **Purpose**: Prevent open redirect and javascript: protocol injection
+- **Protection**: Open redirect, XSS via URL
+- **Behavior**:
+  - Allows relative paths: `/templates` ✓
+  - Allows same-origin: `http://localhost:3000/canvas` ✓
+  - Blocks external URLs unless allowlisted
+  - Blocks dangerous protocols: `javascript:`, `data:`, `file:`
+  - Falls back to `"/"` for invalid URLs (safe default)
+
+**7. Number Sanitization** (`sanitizeNumber`)
+- **Purpose**: Validate numeric input with range constraints
+- **Protection**: NaN injection, Infinity DoS
+- **Behavior**:
+  - Rejects `NaN`, `Infinity`, `-Infinity`
+  - Enforces min/max bounds
+  - Falls back to configurable default (not coercing `null` → `0`)
+
+**8. HTML Sanitization** (`sanitizeHTML`)
+- **Purpose**: Strip HTML to bare minimum safe tags
+- **Protection**: XSS in user-generated content
+- **Allowed tags**: `b`, `i`, `em`, `strong`, `br` (no attributes)
+- **Use case**: Inline user comments, annotations
+
+### Preview Persistence Boundaries
+
+**Security Requirement**: Preview Mode state must NEVER persist to storage.
+
+**Why**: Preview state contains:
+- Staged edits that user may discard
+- Speculative "what-if" scenarios
+- Potentially sensitive exploratory analysis
+
+**Implementation** (`src/canvas/persist.ts`):
+```typescript
+// ✅ CORRECT: Explicit property extraction
+const persisted: PersistedState = {
+  version: 1,
+  timestamp: Date.now(),
+  nodes: state.nodes,  // ONLY nodes
+  edges: state.edges,  // ONLY edges
+}
+
+// ❌ WRONG: Would leak preview state
+const persisted = { ...state } // Don't use spread!
+```
+
+**Protected Operations**:
+1. `saveState()` → localStorage `canvas-storage`
+2. `saveSnapshot()` → localStorage `canvas-snapshot-*`
+3. `exportCanvas()` → JSON export
+
+**Excluded Properties**:
+- `preview.active`
+- `preview.stagedNodes`
+- `preview.stagedEdges`
+- `preview.previewReport`
+- `preview.previewSeed`
+- `preview.previewHash`
+
+**Test Coverage**: 2 integration tests verify exclusion (Task I improvements)
+
+### Attack Vector Coverage
+
+| Attack Type | Protection | Test Coverage |
+|-------------|-----------|---------------|
+| XSS (script tags) | `sanitizeLabel`, `sanitizeMarkdown` | 18 tests |
+| XSS (event handlers) | `sanitizeLabel`, `sanitizeHTML` | 12 tests |
+| Prototype Pollution | `sanitizeJSON` | 4 tests |
+| Directory Traversal | `sanitizeFilename` | 3 tests |
+| Shell Injection | `sanitizeFilename` | 3 tests |
+| Open Redirect | `sanitizeUrl`, `sanitizeShareHash` | 6 tests |
+| URL Protocol Injection | `sanitizeUrl` | 4 tests |
+| Preview State Leakage | Explicit persistence guards | 2 tests |
+
+**Total Security Tests**: 52+ across 9 sanitization functions
+
+### Security Best Practices
+
+**1. Single Source of Truth**
+- All sanitization routes through `src/canvas/utils/sanitize.ts`
+- No inline regex sanitization (DRY principle)
+- Example: `ResultsPanel.handleShare` now delegates to `sanitizeShareHash()`
+
+**2. Fail-Closed Defaults**
+- Invalid input → safe fallback (not coercion)
+- `sanitizeShareHash()` returns `null` (not empty string)
+- `sanitizeUrl()` returns `"/"` (not passthrough)
+- `sanitizeLabel()` returns `"Untitled"` (prevents unnamed nodes)
+
+**3. Defense in Depth**
+- Multiple layers: client-side + backend validation
+- Preflight validation before `/v1/run` (saves network calls)
+- Server-side validation via `/v1/validate` endpoint
+- Limits enforced by `limitsManager` singleton
+
+**4. Explicit Over Implicit**
+- Persistence uses explicit property extraction (not spread operator)
+- Allowlists are opt-in (explicit safer than deny-lists)
+- Type guards validate structure before processing
+
+### Known Limitations & Future Work
+
+**1. Allowlist Integration**
+- `validateShareHashAllowlist()` exists but unused
+- **Action**: Add E2E test with mock allowlist before enabling server-provided hash vetting
+
+**2. Sanitization Feedback**
+- Users don't see warnings when labels are heavily sanitized
+- **Action**: Add UI feedback when sanitization modifies input significantly
+
+**3. LocalStorage Quota**
+- Snapshot rotation may leave stale keys if quota exceeded mid-rotation
+- **Action**: Add cleanup retry logic in quota error handler
+
+**4. Template Import Validation**
+- Template structure validation is basic (type checks only)
+- **Action**: Consider JSON schema validation for stricter template format enforcement
+
+**5. Rate Limiting**
+- No client-side throttling for API calls
+- **Action**: Add debouncing for rapid successive runs (UX + backend protection)
+
+### References
+
+- Sanitization implementation: `src/canvas/utils/sanitize.ts`
+- Sanitization tests: `src/canvas/utils/__tests__/sanitize.spec.ts` (78 tests)
+- Persistence guards: `src/canvas/persist.ts`
+- Persistence tests: `src/canvas/__tests__/persist.spec.ts` (17 tests)
+- OWASP XSS Prevention: https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html
+- Prototype Pollution: https://learn.snyk.io/lessons/prototype-pollution/javascript/
+
 ## Change Log
 
+- **2025-10-30**: Security Appendix added (comprehensive sanitization strategy documentation)
 - **2025-10-30**: Initial documentation (Phase 2+ Section J, Task J2)
 - **Phase 2+ Sections A-D**: httpV1Adapter implementation completed
 - **Phase 2+ Section F**: Templates with suggested_positions (F2)
