@@ -1,9 +1,41 @@
 # PLoT v1 HTTP Adapter - Technical Design Document
 
-**Status:** Draft for Review
+**Status:** ✅ Implemented (Phase 2+ Sections A-D, F-H)
 **Author:** Claude + Paul
-**Date:** 2025-10-26
-**Target Release:** TBD (pending backend v1 endpoint availability)
+**Date:** 2025-10-26 (original), 2025-10-30 (implementation)
+**Release:** Completed in Phase 2+ sprint
+
+---
+
+## Implementation Status (Phase 2+ Complete)
+
+**Completed Features:**
+- ✅ **Section A**: Limits Manager singleton with boot hydration
+- ✅ **Section B**: Preflight validation (client-side + /v1/validate endpoint)
+- ✅ **Section C**: Preview Mode (non-destructive analysis with staged changes)
+- ✅ **Section D**: Driver interactions (hover/click for attribution analysis)
+- ✅ **Section F**: Templates with suggested_positions (F2), ETag cache telemetry (F4)
+- ✅ **Section H**: Security hardening (central sanitize.ts, share-hash validation, persistence exclusions)
+- ✅ **Section I**: Tests (77 security tests, 15 MSW contract tests, E2E template test)
+- ✅ **Section J**: Documentation (Preview_Mode.md, PLOT_V1_Integration.md, this TDD update)
+
+**Streaming Status:**
+- ⚠️ **SSE /v1/stream endpoint**: NOT DEPLOYED (as of Oct 2025)
+- Current implementation uses **sync /v1/run** endpoint only
+- Streaming code scaffolded but commented out in `httpV1Adapter.ts`
+- When /v1/stream goes live: uncomment streaming code, update probe.ts
+
+**Test Coverage:**
+- Unit tests: 15 MSW contract tests (httpV1Adapter.contract.test.ts)
+- Security tests: 77 tests (sanitize.spec.ts) covering XSS, prototype pollution, injection
+- E2E tests: Template loader with suggested_positions (templates.spec.ts)
+- Total: 107 tests passing
+
+**Known Limitations:**
+- No streaming progress (sync-only until backend deploys /v1/stream)
+- Preview Mode E2E tests deferred (Task I6)
+- Driver hover/click E2E tests deferred (Task I5)
+- Axe accessibility tests deferred (Task I4)
 
 ---
 
