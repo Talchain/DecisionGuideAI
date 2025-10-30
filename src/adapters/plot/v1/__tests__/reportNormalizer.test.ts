@@ -379,5 +379,101 @@ describe('reportNormalizer', () => {
 
       expect(result.mostLikely).toBe(100)
     })
+
+    // Edge cases for 100% branch coverage
+    it('extracts units from results.summary.units when results.units is missing', () => {
+      const input: RunResponse = {
+        results: {
+          summary: {
+            units: 'from-summary',
+            likely: 100,
+          },
+        },
+      }
+
+      const result = toUiReport(input)
+
+      expect(result.units).toBe('from-summary')
+    })
+
+    it('handles driver with missing impact field (defaults to 0)', () => {
+      const input: RunResponse = {
+        explain_delta: {
+          top_drivers: [
+            { label: 'No Impact', node_id: 'n1' },
+          ],
+        },
+        results: {},
+      }
+
+      const result = toUiReport(input)
+
+      expect(result.drivers[0].polarity).toBe('neutral') // 0 impact
+      expect(result.drivers[0].strength).toBe('low') // 0 <= 0.3
+    })
+
+    it('classifies strength at exact boundary values', () => {
+      const input: RunResponse = {
+        explain_delta: {
+          top_drivers: [
+            { label: 'Exactly 0.7', impact: 0.7 }, // Should be medium (not > 0.7, but > 0.3)
+            { label: 'Just above 0.7', impact: 0.71 }, // Should be high
+            { label: 'Exactly 0.3', impact: 0.3 }, // Should be low (not > 0.3)
+            { label: 'Just above 0.3', impact: 0.31 }, // Should be medium
+            { label: 'Negative 0.7', impact: -0.7 }, // |−0.7| = 0.7, medium
+            { label: 'Negative 0.71', impact: -0.71 }, // |−0.71| = 0.71, high
+          ],
+        },
+        results: {},
+      }
+
+      const result = toUiReport(input)
+
+      expect(result.drivers[0].strength).toBe('medium') // 0.7 not > 0.7, but > 0.3
+      expect(result.drivers[1].strength).toBe('high') // 0.71 > 0.7
+      expect(result.drivers[2].strength).toBe('low') // 0.3 not > 0.3
+      expect(result.drivers[3].strength).toBe('medium') // 0.31 > 0.3
+      expect(result.drivers[4].strength).toBe('medium') // |-0.7| not > 0.7, but > 0.3
+      expect(result.drivers[5].strength).toBe('high') // |-0.71| > 0.7
+    })
+
+    it('handles driver with only edge_id (no node_id)', () => {
+      const input: RunResponse = {
+        explain_delta: {
+          top_drivers: [
+            { edge_id: 'e999', impact: 0.5 },
+          ],
+        },
+        results: {},
+      }
+
+      const result = toUiReport(input)
+
+      expect(result.drivers[0].label).toBe('e999')
+      expect(result.drivers[0].node_id).toBeUndefined()
+      expect(result.drivers[0].edge_id).toBe('e999')
+    })
+
+    it('extracts confidence field from response', () => {
+      const input: RunResponse = {
+        confidence: 0.92,
+        results: {},
+      }
+
+      const result = toUiReport(input)
+
+      expect(result.confidence).toBe(0.92)
+    })
+
+    it('extracts explanation field from response', () => {
+      const input: RunResponse = {
+        explanation: 'Detailed explanation of the analysis',
+        results: {},
+      }
+
+      const result = toUiReport(input)
+
+      expect(result.explanation).toBe('Detailed explanation of the analysis')
+    })
   })
 })

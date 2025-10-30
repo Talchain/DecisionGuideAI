@@ -161,6 +161,51 @@ describe('templateNormalizer', () => {
         another_field: 123,
       })
     })
+
+    // Additional edge cases for 100% branch coverage
+    it('rejects nested format with non-array nodes', () => {
+      expect(() =>
+        normalizeTemplateGraph({
+          graph: {
+            nodes: 'not-array',
+            edges: [],
+          },
+        })
+      ).toThrow('[templateNormalizer] Invalid response: nodes must be an array')
+    })
+
+    it('rejects nested format with non-array edges', () => {
+      expect(() =>
+        normalizeTemplateGraph({
+          graph: {
+            nodes: [],
+            edges: 'not-array',
+          },
+        })
+      ).toThrow('[templateNormalizer] Invalid response: edges must be an array')
+    })
+
+    it('handles nested format with meta and version', () => {
+      const input = {
+        graph: {
+          nodes: [{ id: 'n1' }],
+          edges: [{ from: 'n1', to: 'n2' }],
+        },
+        version: '2.5',
+        default_seed: 999,
+        meta: {
+          suggested_positions: { n1: { x: 10, y: 20 } },
+        },
+      }
+
+      const result = normalizeTemplateGraph(input)
+
+      expect(result.version).toBe('2.5')
+      expect(result.default_seed).toBe(999)
+      expect(result.meta).toEqual({
+        suggested_positions: { n1: { x: 10, y: 20 } },
+      })
+    })
   })
 
   describe('normalizeTemplateListItem', () => {
