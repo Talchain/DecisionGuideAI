@@ -9,6 +9,7 @@
  * - Highlights significant changes in drivers
  */
 
+import { memo } from 'react'
 import { TrendingUp, TrendingDown, Minus, ArrowRight } from 'lucide-react'
 import type { ReportV1 } from '../../adapters/plot/types'
 
@@ -22,7 +23,7 @@ interface PreviewDiffProps {
   previewReport: ReportV1
 }
 
-export function PreviewDiff({ currentReport, previewReport }: PreviewDiffProps) {
+export const PreviewDiff = memo(function PreviewDiff({ currentReport, previewReport }: PreviewDiffProps) {
   const currentLikely = currentReport.results.likely
   const previewLikely = previewReport.results.likely
   const units = currentReport.results.units
@@ -147,4 +148,4 @@ export function PreviewDiff({ currentReport, previewReport }: PreviewDiffProps) 
       </div>
     </div>
   )
-}
+})

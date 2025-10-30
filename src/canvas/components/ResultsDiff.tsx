@@ -8,6 +8,7 @@
  * - Color-coded: green (improvement), red (decline), gray (neutral)
  */
 
+import { memo } from 'react'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
 interface ResultsDiffProps {
@@ -18,7 +19,7 @@ interface ResultsDiffProps {
   previousDrivers?: Array<{ label: string; impact?: number }>
 }
 
-export function ResultsDiff({
+export const ResultsDiff = memo(function ResultsDiff({
   currentLikely,
   previousLikely,
   units = 'units',
@@ -131,4 +132,4 @@ export function ResultsDiff({
       )}
     </div>
   )
-}
+})
