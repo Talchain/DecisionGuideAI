@@ -1,12 +1,22 @@
-import ELK, { ElkNode, ElkExtendedEdge } from 'elkjs/lib/elk.bundled.js'
+import type { ElkNode, ElkExtendedEdge } from 'elkjs/lib/elk.bundled.js'
 import { Node, Edge } from '@xyflow/react'
-
-const elk = new ELK()
 
 interface LayoutOptions {
   direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'
   spacing?: number
   preserveLocked?: boolean
+}
+
+// Lazy-loaded ELK instance cache
+let elkInstance: any = null
+
+async function getELK() {
+  if (!elkInstance) {
+    // Lazy load ELK (heavy library ~500KB)
+    const ELK = await import('elkjs/lib/elk.bundled.js')
+    elkInstance = new ELK.default()
+  }
+  return elkInstance
 }
 
 export async function layoutGraph(
@@ -19,6 +29,9 @@ export async function layoutGraph(
     spacing = 50,
     preserveLocked = true
   } = options
+
+  // Lazy load ELK when needed
+  const elk = await getELK()
 
   // Separate locked and unlocked nodes
   const lockedNodes = preserveLocked

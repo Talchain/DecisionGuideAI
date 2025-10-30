@@ -74,42 +74,42 @@ describe('sanitize.ts', () => {
   })
 
   describe('sanitizeMarkdown', () => {
-    it('converts markdown to HTML', () => {
-      const result = sanitizeMarkdown('**bold** text')
+    it('converts markdown to HTML', async () => {
+      const result = await sanitizeMarkdown('**bold** text')
       expect(result).toContain('<strong>')
       expect(result).toContain('bold')
     })
 
-    it('removes script tags', () => {
+    it('removes script tags', async () => {
       const malicious = '**test** <script>alert(1)</script>'
-      const result = sanitizeMarkdown(malicious)
+      const result = await sanitizeMarkdown(malicious)
       expect(result).not.toContain('<script>')
       expect(result).not.toContain('alert')
     })
 
-    it('removes iframe tags', () => {
-      const result = sanitizeMarkdown('<iframe src="evil.com"></iframe>')
+    it('removes iframe tags', async () => {
+      const result = await sanitizeMarkdown('<iframe src="evil.com"></iframe>')
       expect(result).not.toContain('<iframe>')
     })
 
-    it('allows safe tags', () => {
+    it('allows safe tags', async () => {
       const safe = '# Heading\n\n- List item\n\n**Bold** and *italic*'
-      const result = sanitizeMarkdown(safe)
+      const result = await sanitizeMarkdown(safe)
       expect(result).toContain('<h1>')
       expect(result).toContain('<li>')
       expect(result).toContain('<strong>')
       expect(result).toContain('<em>')
     })
 
-    it('removes dangerous attributes', () => {
+    it('removes dangerous attributes', async () => {
       const malicious = '<a href="javascript:alert(1)">click</a>'
-      const result = sanitizeMarkdown(malicious)
+      const result = await sanitizeMarkdown(malicious)
       expect(result).not.toContain('javascript:')
     })
 
-    it('handles empty input', () => {
-      expect(sanitizeMarkdown('')).toBe('')
-      expect(sanitizeMarkdown(null as any)).toBe('')
+    it('handles empty input', async () => {
+      expect(await sanitizeMarkdown('')).toBe('')
+      expect(await sanitizeMarkdown(null as any)).toBe('')
     })
   })
 
@@ -322,34 +322,34 @@ describe('sanitize.ts', () => {
   })
 
   describe('sanitizeHTML', () => {
-    it('allows basic formatting', () => {
+    it('allows basic formatting', async () => {
       const html = '<b>bold</b> and <i>italic</i>'
-      const result = sanitizeHTML(html)
+      const result = await sanitizeHTML(html)
       expect(result).toContain('<b>')
       expect(result).toContain('<i>')
     })
 
-    it('removes script tags', () => {
+    it('removes script tags', async () => {
       const malicious = '<b>test</b><script>alert(1)</script>'
-      const result = sanitizeHTML(malicious)
+      const result = await sanitizeHTML(malicious)
       expect(result).not.toContain('<script>')
       expect(result).toContain('<b>test</b>')
     })
 
-    it('removes event handlers', () => {
+    it('removes event handlers', async () => {
       const malicious = '<b onclick="alert(1)">click</b>'
-      const result = sanitizeHTML(malicious)
+      const result = await sanitizeHTML(malicious)
       expect(result).not.toContain('onclick')
     })
 
-    it('removes dangerous tags', () => {
-      const result = sanitizeHTML('<iframe src="evil.com"></iframe>')
+    it('removes dangerous tags', async () => {
+      const result = await sanitizeHTML('<iframe src="evil.com"></iframe>')
       expect(result).not.toContain('<iframe>')
     })
 
-    it('handles empty input', () => {
-      expect(sanitizeHTML('')).toBe('')
-      expect(sanitizeHTML(null as any)).toBe('')
+    it('handles empty input', async () => {
+      expect(await sanitizeHTML('')).toBe('')
+      expect(await sanitizeHTML(null as any)).toBe('')
     })
   })
 
@@ -414,8 +414,8 @@ describe('sanitize.ts', () => {
         expect(result).not.toContain('onload')
       })
 
-      it(`sanitizeMarkdown blocks: ${vector.substring(0, 30)}...`, () => {
-        const result = sanitizeMarkdown(vector)
+      it(`sanitizeMarkdown blocks: ${vector.substring(0, 30)}...`, async () => {
+        const result = await sanitizeMarkdown(vector)
         expect(result).not.toContain('<script>')
         expect(result).not.toContain('javascript:')
         expect(result).not.toContain('onerror=')

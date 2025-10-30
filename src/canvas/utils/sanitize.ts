@@ -5,10 +5,30 @@
  * file content, and data persistence.
  *
  * Section H: Security - Task H1
+ *
+ * Performance: Heavy libraries (DOMPurify ~50KB, marked ~40KB) are lazy-loaded
+ * on first use to improve initial bundle size and page load time.
  */
 
-import DOMPurify from 'dompurify'
-import { marked } from 'marked'
+// Lazy-loaded library caches
+let dompurifyInstance: any = null
+let markedInstance: any = null
+
+async function getDOMPurify() {
+  if (!dompurifyInstance) {
+    const DOMPurify = await import('dompurify')
+    dompurifyInstance = DOMPurify.default
+  }
+  return dompurifyInstance
+}
+
+async function getMarked() {
+  if (!markedInstance) {
+    const marked = await import('marked')
+    markedInstance = marked.marked
+  }
+  return markedInstance
+}
 
 /**
  * Sanitize text labels (node labels, edge labels, etc.)
@@ -43,17 +63,21 @@ export function sanitizeLabel(label: unknown, maxLength = 100): string {
 /**
  * Sanitize markdown to safe HTML
  *
- * - Converts markdown to HTML using marked
- * - Sanitizes HTML using DOMPurify to prevent XSS
+ * - Converts markdown to HTML using marked (lazy-loaded)
+ * - Sanitizes HTML using DOMPurify (lazy-loaded) to prevent XSS
  * - Allows only safe tags (no scripts, iframes, etc.)
  *
  * @param markdown - Raw markdown input
- * @returns Sanitized HTML string
+ * @returns Promise resolving to sanitized HTML string
  */
-export function sanitizeMarkdown(markdown: string): string {
+export async function sanitizeMarkdown(markdown: string): Promise<string> {
   if (!markdown || typeof markdown !== 'string') {
     return ''
   }
+
+  // Lazy load libraries on first use
+  const marked = await getMarked()
+  const DOMPurify = await getDOMPurify()
 
   // Convert markdown to HTML
   const html = marked.parse(markdown, {
@@ -261,15 +285,18 @@ export function sanitizeJSON(obj: unknown, maxDepth = 10): unknown {
  *
  * More restrictive than sanitizeMarkdown - only allows basic formatting.
  * Use this for user-generated content that should be plain text with
- * minimal formatting.
+ * minimal formatting. DOMPurify is lazy-loaded on first use.
  *
  * @param html - Raw HTML input
- * @returns Sanitized HTML string
+ * @returns Promise resolving to sanitized HTML string
  */
-export function sanitizeHTML(html: string): string {
+export async function sanitizeHTML(html: string): Promise<string> {
   if (!html || typeof html !== 'string') {
     return ''
   }
+
+  // Lazy load DOMPurify on first use
+  const DOMPurify = await getDOMPurify()
 
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'br'],

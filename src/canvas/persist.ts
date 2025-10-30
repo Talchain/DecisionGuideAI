@@ -8,6 +8,10 @@ const SNAPSHOT_PREFIX = 'canvas-snapshot-'
 const MAX_SNAPSHOTS = 10
 const MAX_PAYLOAD_SIZE = 5 * 1024 * 1024 // 5MB
 
+// Telemetry counters
+let quotaExceededCount = 0
+let quotaRecoveryCount = 0
+
 interface PersistedState {
   version: number
   timestamp: number
@@ -19,6 +23,16 @@ interface SnapshotMetadata {
   key: string
   timestamp: number
   size: number
+}
+
+/**
+ * Get telemetry data for quota errors
+ */
+export function getQuotaTelemetry(): { exceeded: number; recovered: number } {
+  return {
+    exceeded: quotaExceededCount,
+    recovered: quotaRecoveryCount,
+  }
 }
 
 function isValidState(data: unknown): data is PersistedState {
@@ -94,8 +108,28 @@ export function saveState(state: { nodes: Node[]; edges: Edge<EdgeData>[] }): bo
     return true
   } catch (err) {
     if (err instanceof DOMException && err.name === 'QuotaExceededError') {
-      console.error('[CANVAS] LocalStorage quota exceeded')
-      return false
+      quotaExceededCount++
+      console.error('[CANVAS] LocalStorage quota exceeded, attempting progressive cleanup...')
+
+      // Prepare save operation for retry
+      const persisted: PersistedState = {
+        version: 1,
+        timestamp: Date.now(),
+        nodes: state.nodes,
+        edges: state.edges,
+      }
+      const sanitized = sanitizeState(persisted)
+      const payload = JSON.stringify(sanitized)
+
+      // Attempt progressive cleanup
+      const recovered = tryProgressiveCleanup(() => {
+        localStorage.setItem(STORAGE_KEY, payload)
+      })
+
+      if (!recovered) {
+        console.error('[CANVAS] Could not recover from quota error after cleanup')
+      }
+      return recovered
     }
     console.warn('[CANVAS] Failed to save state:', err)
     return false
@@ -139,8 +173,32 @@ export function saveSnapshot(state: { nodes: Node[]; edges: Edge<EdgeData>[] }):
     return true
   } catch (err) {
     if (err instanceof DOMException && err.name === 'QuotaExceededError') {
-      console.error('[CANVAS] LocalStorage quota exceeded, cannot save snapshot')
-      return false
+      quotaExceededCount++
+      console.error('[CANVAS] LocalStorage quota exceeded, attempting progressive cleanup...')
+
+      // Prepare save operation for retry
+      const persisted: PersistedState = {
+        version: 1,
+        timestamp: Date.now(),
+        nodes: state.nodes,
+        edges: state.edges,
+      }
+      const sanitized = sanitizeState(persisted)
+      const payload = JSON.stringify(sanitized)
+      const key = `${SNAPSHOT_PREFIX}${persisted.timestamp}`
+
+      // Attempt progressive cleanup
+      const recovered = tryProgressiveCleanup(() => {
+        localStorage.setItem(key, payload)
+      })
+
+      if (recovered) {
+        // Rotate after successful recovery
+        rotateSnapshots()
+      } else {
+        console.error('[CANVAS] Could not recover from quota error after cleanup')
+      }
+      return recovered
     }
     console.warn('[CANVAS] Failed to save snapshot:', err)
     return false
@@ -203,6 +261,46 @@ function rotateSnapshots(): void {
     const toDelete = snapshots.slice(MAX_SNAPSHOTS)
     toDelete.forEach((s) => deleteSnapshot(s.key))
   }
+}
+
+/**
+ * Progressive cleanup helper for quota recovery
+ *
+ * Attempts to free up space by removing snapshots one at a time (oldest first)
+ * and retrying the save operation after each cleanup.
+ *
+ * @param operation - Function to retry (save operation)
+ * @param maxAttempts - Maximum cleanup attempts (default: 5)
+ * @returns true if save succeeded after cleanup, false otherwise
+ */
+function tryProgressiveCleanup(operation: () => void, maxAttempts = 5): boolean {
+  const snapshots = listSnapshots()
+
+  // Try cleaning up old snapshots incrementally
+  for (let i = 0; i < Math.min(maxAttempts, snapshots.length); i++) {
+    // Delete oldest snapshot
+    const oldestSnapshot = snapshots[i]
+    console.log(`[CANVAS] Quota exceeded, removing snapshot ${oldestSnapshot.key} (attempt ${i + 1}/${maxAttempts})`)
+    deleteSnapshot(oldestSnapshot.key)
+
+    // Retry save operation
+    try {
+      operation()
+      quotaRecoveryCount++
+      console.log(`[CANVAS] Quota recovered after removing ${i + 1} snapshot(s)`)
+      return true
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'QuotaExceededError') {
+        // Still exceeded, continue cleanup
+        continue
+      }
+      // Different error, propagate
+      throw err
+    }
+  }
+
+  // Could not recover after all attempts
+  return false
 }
 
 // Import/Export
