@@ -370,3 +370,124 @@ export async function templateGraph(id: string): Promise<V1TemplateGraphResponse
     clearTimeout(timeoutId)
   }
 }
+
+
+/**
+ * POST /v1/validate - Preflight validation
+ * Returns validation violations without running analysis
+ */
+export async function validate(request: V1RunRequest): Promise<{ valid: true } | { valid: false; violations: Array<{ field: string; message: string }> }> {
+  const base = getProxyBase()
+
+  return withRetry(async () => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000) // Short timeout for validation
+
+    try {
+      const response = await fetch(\`${base}/v1/validate\`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      })
+
+      if (\!response.ok) {
+        throw await mapHttpError(response)
+      }
+
+      return await response.json()
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        throw {
+          code: 'TIMEOUT',
+          message: 'Validation request timed out',
+        } as V1Error
+      }
+      if ((err as any).code) {
+        throw err as V1Error
+      }
+      throw {
+        code: 'NETWORK_ERROR',
+        message: err instanceof Error ? err.message : 'Network error',
+        details: err,
+      } as V1Error
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  })
+}
+
+/**
+ * GET /v1/limits with ETag caching
+ * Returns node/edge limits and other constraints
+ */
+export async function limits(): Promise<{ nodes: { max: number }; edges: { max: number } }> {
+  const base = getProxyBase()
+  const cacheKey = 'limits'
+
+  // Check for cached ETag
+  const cachedETag = etagCache.getETag(cacheKey)
+
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+  try {
+    const headers: HeadersInit = {}
+
+    // Add If-None-Match header for conditional request
+    if (cachedETag) {
+      headers['If-None-Match'] = cachedETag
+    }
+
+    const response = await fetch(\`${base}/v1/limits\`, {
+      method: 'GET',
+      headers,
+      signal: controller.signal,
+    })
+
+    // Handle 304 Not Modified - use cached data
+    if (response.status === 304) {
+      const cached = etagCache.get<{ nodes: { max: number }; edges: { max: number } }>(cacheKey)
+      if (cached) {
+        etagCache.touch(cacheKey)
+        if (import.meta.env.DEV) {
+          console.log('[plot/v1] Limits cache hit (304 Not Modified)')
+        }
+        return cached.data
+      }
+    }
+
+    if (\!response.ok) {
+      throw await mapHttpError(response)
+    }
+
+    const data = await response.json()
+
+    // Store in cache with ETag if present
+    const etag = response.headers.get('ETag')
+    if (etag) {
+      etagCache.set(cacheKey, data, etag)
+      if (import.meta.env.DEV) {
+        console.log('[plot/v1] Limits cached with ETag:', etag)
+      }
+    }
+
+    return data
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw {
+        code: 'TIMEOUT',
+        message: 'Limits request timed out',
+      } as V1Error
+    }
+    throw {
+      code: 'NETWORK_ERROR',
+      message: err instanceof Error ? err.message : 'Network error',
+      details: err,
+    } as V1Error
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
