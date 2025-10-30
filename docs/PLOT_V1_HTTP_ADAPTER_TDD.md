@@ -872,6 +872,16 @@ test.describe('PLoT Streaming', () => {
 });
 ```
 
+**Task C4: Preview Mode E2E Test** ⚠️ TODO (Scheduled for Section I - Testing)
+
+Deferred from Phase 2+ Section C. Requires E2E test coverage for preview flow:
+- Stage changes (edit node/edge)
+- Click preview button
+- Verify PreviewDiff shows delta (Improved/Declined/No Change)
+- Click "Apply to Live" to commit changes
+- Verify undo restores previous state
+- Test requires template seeding and full preview state machinery
+
 ---
 
 ## 6. Configuration

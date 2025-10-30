@@ -2,7 +2,7 @@ import { useCallback, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { plot } from '../../adapters/plot'
 import type { RunRequest, ErrorV1, ReportV1 } from '../../adapters/plot/types'
-import { validateGraph } from '../validation/graphPreflight'
+import { validateGraph, ensureHydrated } from '../validation/graphPreflight'
 
 interface UseResultsRunReturn {
   run: (request: RunRequest) => Promise<void>
@@ -34,6 +34,9 @@ export function useResultsRun(): UseResultsRunReturn {
 
     // Start preparing
     resultsStart({ seed })
+
+    // Ensure limits are hydrated (wait for boot hydration if in progress)
+    await ensureHydrated()
 
     // Client-side preflight validation
     const uiGraph = { nodes, edges }

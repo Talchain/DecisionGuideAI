@@ -18,6 +18,13 @@ import type { UiGraph } from '../../types/plot'
 
 /**
  * Validation violation with field reference for UI focus
+ *
+ * TODO (Future Enhancement): Add violation-to-inspector focus mapping
+ * When user clicks a violation in ResultsPanel, focus the offending
+ * node/edge in the canvas and auto-scroll inspector to that element.
+ * Use the `field` string (e.g., "nodes[0].id", "edges[2].weight")
+ * to extract element ID and trigger focusElement() + inspector scroll.
+ * See Windsurf feedback 2025-10-30 for details.
  */
 export interface ValidationViolation {
   code: 'LIMIT_EXCEEDED' | 'BAD_INPUT' | 'MISSING_FIELD'
@@ -163,4 +170,18 @@ export function isWithinLimits(nodeCount: number, edgeCount: number): boolean {
  */
 export function getCurrentLimits() {
   return limitsManager.getLimits()
+}
+
+/**
+ * Ensure limits are hydrated before validation
+ * Waits for in-progress hydration to complete.
+ * If hydration fails, proceeds with static fallback.
+ *
+ * Call this before validateGraph() to ensure validation uses
+ * current server limits rather than stale static defaults.
+ */
+export async function ensureHydrated(): Promise<void> {
+  if (!limitsManager.isHydrated()) {
+    await limitsManager.hydrate()
+  }
 }

@@ -53,9 +53,10 @@ class LimitsManager {
   /**
    * Get current limits (synchronous)
    * Returns static fallback until hydrated from API
+   * Uses structuredClone for deep copy to prevent external mutation
    */
   getLimits(): Limits {
-    return { ...this.limits }
+    return structuredClone(this.limits)
   }
 
   /**
