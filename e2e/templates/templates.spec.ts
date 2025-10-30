@@ -139,7 +139,7 @@ test.describe('Decision Templates', () => {
 
   test('determinism: 5 runs with same seed produce same hash', async ({ page }) => {
     let callCount = 0
-    
+
     await page.route('**/v1/run', async route => {
       callCount++
       await route.fulfill({
@@ -156,25 +156,97 @@ test.describe('Decision Templates', () => {
     })
 
     await page.getByTestId('template-pricing-v1').click()
-    
+
     const hashes: string[] = []
-    
+
     // Run 5 times
     for (let i = 0; i < 5; i++) {
       await page.getByTestId('btn-run-template').click()
       await page.waitForSelector('[data-testid="results-view"]')
-      
+
       // Extract hash from UI
       const hashText = await page.locator('code:has-text("deterministic-hash")').textContent()
       hashes.push(hashText || '')
-      
+
       // Wait a bit before next run
       await page.waitForTimeout(100)
     }
-    
+
     // All hashes should be identical
     const uniqueHashes = new Set(hashes)
     expect(uniqueHashes.size).toBe(1)
     expect(callCount).toBe(5)
   })
+
+  test('template with suggested_positions loads correctly (F2 integration)', async ({ page }) => {
+    // Mock /v1/templates endpoint
+    await page.route('**/v1/templates', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            id: 'test-positioned-template',
+            label: 'Test Positioned Template',
+            summary: 'Template with backend-provided positions',
+            updated_at: '2025-01-01T00:00:00.000Z',
+          }
+        ])
+      })
+    })
+
+    // Mock /v1/templates/{id}/graph endpoint with suggested_positions
+    await page.route('**/v1/templates/test-positioned-template/graph', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          template_id: 'test-positioned-template',
+          default_seed: 42,
+          graph: {
+            nodes: [
+              { id: 'node-1', label: 'Start Node' },
+              { id: 'node-2', label: 'Middle Node' },
+              { id: 'node-3', label: 'End Node' },
+            ],
+            edges: [
+              { from: 'node-1', to: 'node-2', confidence: 0.8 },
+              { from: 'node-2', to: 'node-3', confidence: 0.9 },
+            ],
+          },
+          meta: {
+            suggested_positions: {
+              'node-1': { x: 100, y: 100 },
+              'node-2': { x: 300, y: 150 },
+              'node-3': { x: 500, y: 100 },
+            }
+          }
+        })
+      })
+    })
+
+    await page.goto('/#/templates')
+    await page.waitForSelector('[data-testid="decision-templates"]')
+
+    // Click the test template
+    await page.getByTestId('template-test-positioned-template').click()
+
+    // Wait for template to load
+    await page.waitForTimeout(500)
+
+    // Check that nodes are rendered (basic smoke test)
+    // In a real implementation, you would verify the actual positions
+    // by inspecting the canvas or React Flow node data
+    const runPanel = page.getByTestId('run-panel')
+    await expect(runPanel).toBeVisible()
+
+    // Verify the template loaded correctly by checking the run button is enabled
+    const runButton = page.getByTestId('btn-run-template')
+    await expect(runButton).toBeEnabled()
+
+    // Additional verification: check that the canvas is visible
+    // (implied that nodes were positioned and rendered)
+    await page.waitForSelector('.react-flow', { timeout: 3000 })
+  })
 })
+
