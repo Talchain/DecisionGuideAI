@@ -35,9 +35,9 @@ export function sanitizeLabel(label: unknown, maxLength = 100): string {
     .slice(0, maxLength)
     .trim()
 
-  // If sanitization removed everything, return empty string (not 'Untitled')
-  // This distinguishes between empty input (→ 'Untitled') and malicious input (→ '')
-  return sanitized
+  // If sanitization removed everything, fall back to 'Untitled'
+  // This prevents unnamed nodes in UI (accessibility + UX issue)
+  return sanitized || 'Untitled'
 }
 
 /**

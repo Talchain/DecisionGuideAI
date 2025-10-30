@@ -25,7 +25,8 @@ describe('sanitize.ts', () => {
     it('removes HTML tags', () => {
       expect(sanitizeLabel('<script>alert(1)</script>Hello')).toBe('Hello')
       expect(sanitizeLabel('Hello<b>World</b>')).toBe('HelloWorld')
-      expect(sanitizeLabel('<img src=x onerror=alert(1)>')).toBe('')
+      // Purely malicious input → 'Untitled' (prevents unnamed nodes)
+      expect(sanitizeLabel('<img src=x onerror=alert(1)>')).toBe('Untitled')
     })
 
     it('removes angle brackets', () => {

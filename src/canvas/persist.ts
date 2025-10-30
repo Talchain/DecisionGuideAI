@@ -1,7 +1,7 @@
 // Safe localStorage persistence with schema validation, versioning, and quota handling
 import { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from './domain/edges'
-import { sanitizeLabel as sanitizeLabelUtil } from './utils/sanitize'
+import { sanitizeLabel as sanitizeLabelUtil, sanitizeJSON } from './utils/sanitize'
 
 const STORAGE_KEY = 'canvas-storage'
 const SNAPSHOT_PREFIX = 'canvas-snapshot-'
@@ -226,9 +226,12 @@ export function exportCanvas(state: { nodes: Node[]; edges: Edge<EdgeData>[] }):
 export function importCanvas(json: string): { nodes: Node[]; edges: Edge<EdgeData>[] } | null {
   try {
     const parsed = JSON.parse(json)
-    
+
+    // Sanitize parsed JSON to prevent prototype pollution
+    const sanitizedParsed = sanitizeJSON(parsed) as any
+
     // Route through migration API for automatic v1→v2 upgrade
-    const normalized = importSnapshot(parsed)
+    const normalized = importSnapshot(sanitizedParsed)
     if (!normalized) {
       console.error('[CANVAS] Invalid import data structure')
       return null

@@ -263,5 +263,40 @@ describe('Canvas Persistence', () => {
       expect(imported?.nodes[0].data.label).not.toContain('<img')
       expect(imported?.nodes[0].data.label).not.toContain('onerror')
     })
+
+    it('blocks prototype pollution during import (sanitizeJSON)', () => {
+      // Malicious JSON with __proto__ pollution attempt
+      const pollutionJson = JSON.stringify({
+        version: 1,
+        timestamp: Date.now(),
+        __proto__: { isAdmin: true },
+        constructor: { prototype: { polluted: 'yes' } },
+        nodes: [
+          {
+            id: '1',
+            type: 'decision',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Test',
+              __proto__: { evil: true }
+            }
+          }
+        ],
+        edges: []
+      })
+
+      const imported = importCanvas(pollutionJson)
+      expect(imported).not.toBeNull()
+
+      // Verify prototype pollution was blocked
+      expect(imported).not.toHaveProperty('__proto__')
+      expect(imported).not.toHaveProperty('constructor')
+      expect(imported?.nodes[0].data).not.toHaveProperty('__proto__')
+
+      // Verify valid data still imported correctly
+      expect(imported?.nodes).toHaveLength(1)
+      expect(imported?.nodes[0].id).toBe('1')
+      expect(imported?.nodes[0].data.label).toBe('Test')
+    })
   })
 })
