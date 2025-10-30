@@ -1,6 +1,7 @@
 // Safe localStorage persistence with schema validation, versioning, and quota handling
 import { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from './domain/edges'
+import { sanitizeLabel as sanitizeLabelUtil } from './utils/sanitize'
 
 const STORAGE_KEY = 'canvas-storage'
 const SNAPSHOT_PREFIX = 'canvas-snapshot-'
@@ -31,15 +32,9 @@ function isValidState(data: unknown): data is PersistedState {
   )
 }
 
+// Re-export sanitizeLabel from central utility for backwards compatibility
 export function sanitizeLabel(label: unknown): string {
-  if (typeof label !== 'string') return 'Untitled'
-  // Strip HTML tags, control characters, and limit length
-  return label
-    .replace(/<[^>]*>/g, '') // Remove HTML tags
-    .replace(/[<>]/g, '') // Remove angle brackets
-    .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
-    .slice(0, 100)
-    .trim() || 'Untitled'
+  return sanitizeLabelUtil(label, 100)
 }
 
 function sanitizeNodeData(data: unknown): Record<string, unknown> {
