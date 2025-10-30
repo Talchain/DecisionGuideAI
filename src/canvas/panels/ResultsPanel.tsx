@@ -14,8 +14,9 @@
  */
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
-import { X, History as HistoryIcon, GitCompare as CompareIcon, Eye, Check, XCircle, Play } from 'lucide-react'
-import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash, selectPreviewMode, selectPreviewReport, selectPreviewSeed, selectPreviewHash, selectStagedNodeChanges, selectStagedEdgeChanges, selectPreviewStatus, selectPreviewProgress, selectPreviewError } from '../store'
+import { X, History as HistoryIcon, GitCompare as CompareIcon, Eye, Check, XCircle, Play, AlertCircle } from 'lucide-react'
+import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectViolations, selectSeed, selectHash, selectPreviewMode, selectPreviewReport, selectPreviewSeed, selectPreviewHash, selectStagedNodeChanges, selectStagedEdgeChanges, selectPreviewStatus, selectPreviewProgress, selectPreviewError } from '../store'
+import type { ValidationViolation } from '../store'
 import { usePreviewRun } from '../hooks/usePreviewRun'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { ProgressStrip } from '../components/ProgressStrip'
@@ -71,6 +72,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const mainProgress = useCanvasStore(selectProgress)
   const mainReport = useCanvasStore(selectReport)
   const mainError = useCanvasStore(selectError)
+  const violations = useCanvasStore(selectViolations)
   const seed = useCanvasStore(selectSeed)
   const hash = useCanvasStore(selectHash)
 
@@ -863,6 +865,78 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                   <p style={{ fontSize: '0.875rem', color: 'rgba(232, 236, 245, 0.8)', marginBottom: '0.75rem' }}>
                     {error.message}
                   </p>
+
+                  {/* Validation Violations List */}
+                  {violations && violations.length > 0 && (
+                    <div
+                      style={{
+                        marginTop: '0.75rem',
+                        marginBottom: '0.75rem',
+                        padding: '0.75rem',
+                        borderRadius: '0.375rem',
+                        backgroundColor: 'rgba(255, 107, 107, 0.05)',
+                        border: '1px solid rgba(255, 107, 107, 0.2)',
+                      }}
+                    >
+                      <h4
+                        style={{
+                          fontSize: '0.875rem',
+                          fontWeight: 600,
+                          color: 'var(--olumi-danger)',
+                          marginBottom: '0.5rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.375rem',
+                        }}
+                      >
+                        <AlertCircle className="w-4 h-4" />
+                        {violations.length} Validation Error{violations.length > 1 ? 's' : ''}
+                      </h4>
+                      <ul
+                        style={{
+                          listStyle: 'none',
+                          padding: 0,
+                          margin: 0,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.5rem',
+                        }}
+                        role="list"
+                        aria-label="Validation errors"
+                      >
+                        {violations.map((violation, idx) => (
+                          <li
+                            key={`${violation.field}-${idx}`}
+                            style={{
+                              padding: '0.625rem',
+                              borderRadius: '0.25rem',
+                              backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                              fontSize: '0.8125rem',
+                              color: 'rgba(232, 236, 245, 0.9)',
+                              lineHeight: 1.5,
+                            }}
+                            role="listitem"
+                          >
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                              <span style={{ fontWeight: 500 }}>{violation.message}</span>
+                              {violation.field && (
+                                <span
+                                  style={{
+                                    fontSize: '0.75rem',
+                                    color: 'rgba(232, 236, 245, 0.6)',
+                                    fontFamily: 'monospace',
+                                  }}
+                                >
+                                  Field: {violation.field}
+                                </span>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   {retryCountdown !== null && retryCountdown > 0 && (
                     <div
                       style={{

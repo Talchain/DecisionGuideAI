@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { plot } from '../../adapters/plot'
 import type { RunRequest, ErrorV1, ReportV1 } from '../../adapters/plot/types'
+import { validateGraph } from '../validation/graphPreflight'
 
 interface UseResultsRunReturn {
   run: (request: RunRequest) => Promise<void>
@@ -19,6 +20,8 @@ export function useResultsRun(): UseResultsRunReturn {
   const cancelRef = useRef<(() => void) | null>(null)
   const lastProgressUpdate = useRef<number>(0)
 
+  const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
   const resultsStart = useCanvasStore(s => s.resultsStart)
   const resultsConnecting = useCanvasStore(s => s.resultsConnecting)
   const resultsProgress = useCanvasStore(s => s.resultsProgress)
@@ -31,6 +34,19 @@ export function useResultsRun(): UseResultsRunReturn {
 
     // Start preparing
     resultsStart({ seed })
+
+    // Client-side preflight validation
+    const uiGraph = { nodes, edges }
+    const validationResult = validateGraph(uiGraph)
+
+    if (!validationResult.valid) {
+      resultsError({
+        code: 'BAD_INPUT',
+        message: `Cannot run: ${validationResult.violations.length} validation error${validationResult.violations.length > 1 ? 's' : ''}`,
+        violations: validationResult.violations
+      })
+      return
+    }
 
     // Check if adapter supports streaming
     const adapter = plot as any
@@ -110,7 +126,7 @@ export function useResultsRun(): UseResultsRunReturn {
         })
       }
     }
-  }, [resultsStart, resultsConnecting, resultsProgress, resultsComplete, resultsError])
+  }, [nodes, edges, resultsStart, resultsConnecting, resultsProgress, resultsComplete, resultsError])
 
   const cancel = useCallback(() => {
     if (cancelRef.current) {

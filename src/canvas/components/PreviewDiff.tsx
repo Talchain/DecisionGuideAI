@@ -4,11 +4,18 @@
  * Features:
  * - Side-by-side likely outcome comparison
  * - Delta with color coding
+ * - Epsilon tolerance for "no significant change"
+ * - Color + icon + text redundancy for accessibility
  * - Highlights significant changes in drivers
  */
 
 import { TrendingUp, TrendingDown, Minus, ArrowRight } from 'lucide-react'
 import type { ReportV1 } from '../../adapters/plot/types'
+
+// Epsilon tolerance: changes smaller than this are considered "no significant change"
+// This prevents noise from floating-point arithmetic and very small differences
+const EPSILON = 0.01 // 1% of a unit
+const PERCENT_EPSILON = 0.5 // 0.5% threshold for percentage changes
 
 interface PreviewDiffProps {
   currentReport: ReportV1
@@ -26,10 +33,11 @@ export function PreviewDiff({ currentReport, previewReport }: PreviewDiffProps) 
     ? ((previewLikely - currentLikely) / Math.abs(currentLikely)) * 100
     : 0
 
-  // Determine trend direction
-  const isImprovement = absoluteDelta > 0
-  const isDecline = absoluteDelta < 0
-  const isNeutral = Math.abs(absoluteDelta) < 0.01
+  // Determine trend direction with epsilon tolerance
+  // Use both absolute and percent thresholds to handle edge cases
+  const isNeutral = Math.abs(absoluteDelta) < EPSILON || Math.abs(percentDelta) < PERCENT_EPSILON
+  const isImprovement = !isNeutral && absoluteDelta > 0
+  const isDecline = !isNeutral && absoluteDelta < 0
 
   // Color coding
   const trendColor = isImprovement
@@ -44,18 +52,21 @@ export function PreviewDiff({ currentReport, previewReport }: PreviewDiffProps) 
     ? 'rgba(255, 107, 107, 0.15)'
     : 'rgba(232, 236, 245, 0.1)'
 
-  // Icon
+  // Icon and text label for redundancy
   const TrendIcon = isImprovement ? TrendingUp : isDecline ? TrendingDown : Minus
+  const trendLabel = isImprovement ? 'Improved' : isDecline ? 'Declined' : 'No Change'
 
   // Format delta
   const formatDelta = (value: number) => {
+    if (isNeutral) return '±0.00' // Show ± for neutral to indicate "within tolerance"
     const sign = value > 0 ? '+' : ''
     return `${sign}${value.toFixed(2)}`
   }
 
   const formatPercentDelta = (value: number) => {
+    if (isNeutral) return '(~0%)' // Show ~ for "approximately zero"
     const sign = value > 0 ? '+' : ''
-    return `${sign}${Math.abs(value).toFixed(1)}%`
+    return `(${sign}${Math.abs(value).toFixed(1)}%)`
   }
 
   return (
@@ -111,7 +122,7 @@ export function PreviewDiff({ currentReport, previewReport }: PreviewDiffProps) 
         </div>
       </div>
 
-      {/* Delta Indicator */}
+      {/* Delta Indicator with Color + Icon + Text redundancy */}
       <div
         style={{
           display: 'flex',
@@ -122,12 +133,15 @@ export function PreviewDiff({ currentReport, previewReport }: PreviewDiffProps) 
           borderRadius: '0.25rem',
           backgroundColor: trendBg,
         }}
+        role="status"
+        aria-label={`${trendLabel}: ${formatDelta(absoluteDelta)} ${units}`}
       >
-        <TrendIcon className="w-4 h-4" style={{ color: trendColor }} />
+        <TrendIcon className="w-4 h-4" style={{ color: trendColor }} aria-hidden="true" />
         <div style={{ fontSize: '0.875rem', fontWeight: 600, color: trendColor }}>
+          <span style={{ marginRight: '0.5rem' }}>{trendLabel}:</span>
           {formatDelta(absoluteDelta)} {units}
           <span style={{ marginLeft: '0.375rem', opacity: 0.8 }}>
-            ({formatPercentDelta(percentDelta)})
+            {formatPercentDelta(percentDelta)}
           </span>
         </div>
       </div>

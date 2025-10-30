@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { plot } from '../../adapters/plot'
 import type { RunRequest, ErrorV1, ReportV1 } from '../../adapters/plot/types'
+import { validateGraph } from '../validation/graphPreflight'
 
 interface UsePreviewRunReturn {
   runPreview: (templateId: string, seed?: number) => Promise<void>
@@ -30,6 +31,18 @@ export function usePreviewRun(): UsePreviewRunReturn {
 
     // Get merged graph (current + staged changes)
     const mergedGraph = previewGetMergedGraph()
+
+    // Client-side preflight validation
+    const validationResult = validateGraph(mergedGraph)
+
+    if (!validationResult.valid) {
+      previewError({
+        code: 'BAD_INPUT',
+        message: `Cannot run preview: ${validationResult.violations.length} validation error${validationResult.violations.length > 1 ? 's' : ''}`,
+        violations: validationResult.violations
+      })
+      return
+    }
 
     // Start preparing (use separate preview status)
     previewStart({ seed: useSeed })

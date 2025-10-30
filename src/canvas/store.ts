@@ -16,6 +16,14 @@ import { adapterName, getAdapterMode } from '../adapters/plot'
 // Results panel state machine
 export type ResultsStatus = 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'
 
+export interface ValidationViolation {
+  code: 'LIMIT_EXCEEDED' | 'BAD_INPUT' | 'MISSING_FIELD'
+  message: string
+  field: string
+  max?: number
+  current?: number
+}
+
 export interface ResultsState {
   status: ResultsStatus
   progress: number              // 0..100 (cap 90 until COMPLETE)
@@ -24,6 +32,7 @@ export interface ResultsState {
   hash?: string                 // response_hash
   report?: ReportV1 | null
   error?: { code: string; message: string; retryAfter?: number } | null
+  violations?: ValidationViolation[]  // Client-side validation violations
   startedAt?: number
   finishedAt?: number
   drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
@@ -41,6 +50,7 @@ export interface PreviewState {
   status: ResultsStatus
   progress: number
   error?: { code: string; message: string; retryAfter?: number } | null
+  violations?: ValidationViolation[]
 }
 
 const initialNodes: Node[] = []
@@ -131,7 +141,7 @@ interface CanvasState {
   // Preview status actions (separate from main results status)
   previewStart: (params: { seed: number }) => void
   previewProgress: (percent: number) => void
-  previewError: (params: { code: string; message: string; retryAfter?: number }) => void
+  previewError: (params: { code: string; message: string; retryAfter?: number; violations?: ValidationViolation[] }) => void
   previewCancelled: () => void
   previewReset: () => void
 }
@@ -918,12 +928,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
   },
 
-  resultsError: ({ code, message, retryAfter }) => {
+  resultsError: ({ code, message, retryAfter, violations }) => {
     set(s => ({
       results: {
         ...s.results,
         status: 'error',
         error: { code, message, retryAfter },
+        violations, // Store validation violations for UI display
         finishedAt: Date.now()
       }
     }))
@@ -1168,12 +1179,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }))
   },
 
-  previewError: ({ code, message, retryAfter }) => {
+  previewError: ({ code, message, retryAfter, violations }) => {
     set(s => ({
       preview: {
         ...s.preview,
         status: 'error',
         error: { code, message, retryAfter },
+        violations, // Store validation violations for UI display
       }
     }))
   },
@@ -1262,6 +1274,7 @@ export const selectProgress = (state: CanvasState): number => state.results.prog
 export const selectReport = (state: CanvasState): ReportV1 | null | undefined => state.results.report
 export const selectDrivers = (state: CanvasState): Array<{ kind: 'node' | 'edge'; id: string }> | undefined => state.results.drivers
 export const selectError = (state: CanvasState): { code: string; message: string; retryAfter?: number } | null | undefined => state.results.error
+export const selectViolations = (state: CanvasState): ValidationViolation[] | undefined => state.results.violations
 export const selectRunId = (state: CanvasState): string | undefined => state.results.runId
 export const selectSeed = (state: CanvasState): number | undefined => state.results.seed
 export const selectHash = (state: CanvasState): string | undefined => state.results.hash
