@@ -673,6 +673,186 @@ const persisted = { ...state } // Don't use spread!
 - OWASP XSS Prevention: https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html
 - Prototype Pollution: https://learn.snyk.io/lessons/prototype-pollution/javascript/
 
+---
+
+## Troubleshooting
+
+### 429 Rate Limiting
+
+**Symptom:** Run button disabled with countdown timer
+
+**Cause:** Backend returned 429 Too Many Requests with `Retry-After` header
+
+**Behavior:**
+- Run button automatically disabled for duration specified in `Retry-After` header
+- Countdown displayed to user showing seconds remaining
+- Button auto-re-enables when countdown reaches zero
+- No duplicate runs fired during countdown period
+
+**Mitigation:**
+- Client-side: 500ms debouncing prevents rapid successive runs
+- UI feedback: Countdown provides clear user guidance
+- No action required - system automatically recovers
+
+**Developer Notes:**
+- Error handling in `useResultsRun.ts` and `usePreviewRun.ts`
+- Store action: `resultsError({ retryAfter: number })`
+- Test coverage: Contract tests simulate 429 responses
+
+---
+
+### Sanitizer Side Effects
+
+**Symptom:** User-provided labels modified or changed to "Untitled"
+
+**Cause:** Aggressive sanitization removed malicious patterns or entire input
+
+**Examples:**
+```typescript
+// Malicious input → safe fallback
+"<script>alert(1)</script>" → "Untitled"
+"onclick(steal())" → "Untitled"
+
+// Legitimate input preserved
+"Alert Threshold (Critical)" → "Alert Threshold (Critical)"
+"Revenue (Q1 2024)" → "Revenue (Q1 2024)"
+```
+
+**Current Behavior:** Silent modification (no user warning)
+
+**Future Enhancement:** Show toast when input heavily modified
+```typescript
+if (sanitized !== original && sanitized === 'Untitled') {
+  showToast('Label contained unsafe content and was reset to "Untitled"', 'warning')
+}
+```
+
+**Developer Notes:**
+- Sanitization logic: `src/canvas/utils/sanitize.ts`
+- Design principle: Fail-closed (safe fallback over coercion)
+- Test coverage: 78 tests including XSS vectors
+
+---
+
+### LocalStorage Quota Exceeded
+
+**Symptom:** "LocalStorage quota exceeded" error in console
+
+**Cause:** Browser storage limit reached (typically 5-10MB depending on browser)
+
+**Automatic Recovery:**
+- System attempts progressive cleanup (removes oldest snapshots incrementally)
+- Up to 5 cleanup attempts before giving up
+- Telemetry tracked via `getQuotaTelemetry()`
+
+**Manual Resolution:**
+1. **Clear old snapshots:** Settings → Snapshot Manager → Delete oldest
+2. **Export canvas:** File → Export → Save locally
+3. **Clear browser storage:** Browser DevTools → Application → Local Storage → Clear
+4. **Reduce graph size:** Delete unused nodes/edges
+
+**Monitoring:**
+```typescript
+import { getQuotaTelemetry } from './canvas/persist'
+
+const { exceeded, recovered } = getQuotaTelemetry()
+console.log(`Quota errors: ${exceeded}, Recovered: ${recovered}`)
+```
+
+**Developer Notes:**
+- Progressive cleanup: `src/canvas/persist.ts` (tryProgressiveCleanup)
+- Rotation limit: MAX_SNAPSHOTS = 10
+- Payload limit: MAX_PAYLOAD_SIZE = 5MB
+- Test coverage: `persist.spec.ts` (quota simulation)
+
+---
+
+### Allowlist Feature Flag
+
+**Status:** Implemented but not yet deployed (as of October 2025)
+
+**Activation:** Set `VITE_FEATURE_SHARE_ALLOWLIST=1` in environment
+
+**Purpose:** Enable server-provided hash vetting for share links
+
+**When Enabled:**
+- `validateShareHashAllowlist()` function activates
+- Client sends hash to `/v1/allowlist` endpoint (when deployed)
+- Only allowlisted hashes accepted for shared runs
+
+**Current State:**
+- Function exists in `sanitize.ts` with test coverage
+- Backend endpoint not deployed yet
+- Feature flag gates activation
+
+**Developer Notes:**
+- Implementation: `src/canvas/utils/sanitize.ts`
+- E2E test: `e2e/share-allowlist.spec.ts` (behind flag)
+- Deployment blocker: Requires backend `/v1/allowlist` endpoint
+
+---
+
+## CI Budgets & Performance
+
+### Web Vitals Thresholds (CI-Enforced)
+
+**Performance budgets enforced in CI pipeline:**
+
+```bash
+# Environment variables (configurable)
+VITALS_LCP_MS=2500      # Largest Contentful Paint ≤ 2.5s
+VITALS_INP_MS=100       # Interaction to Next Paint ≤ 100ms
+VITALS_CLS=0.1          # Cumulative Layout Shift ≤ 0.1
+```
+
+**Test Command:**
+```bash
+npm run e2e:vitals
+```
+
+**Output:**
+- `test-artifacts/webvitals.json` - Detailed metrics
+- `test-artifacts/webvitals-representative.json` - Full flow metrics
+
+**CI Failure:**
+- Tests fail if any threshold exceeded
+- Blocks merge until performance regression fixed
+
+**Local Profiling:**
+
+1. **Chrome DevTools:**
+   ```
+   1. Open DevTools → Performance tab
+   2. Record interaction (run analysis, open inspector)
+   3. Check Core Web Vitals in Summary
+   ```
+
+2. **Lighthouse CI:**
+   ```bash
+   npm install -g @lhci/cli
+   lhci autorun
+   ```
+
+3. **Bundle Analysis:**
+   ```bash
+   npm run measure:bundle
+   npm run report:chunks
+   ```
+
+**Lazy Loading Impact:**
+- ELK: ~500KB (loaded on first layout trigger)
+- DOMPurify: ~50KB (loaded on first sanitization)
+- marked: ~40KB (loaded on first markdown render)
+- **Total savings on initial load:** ~600KB
+
+**Target Metrics (Representative Flow):**
+- Template load → Run → Results display
+- LCP: < 2.5s (canvas render)
+- INP: < 100ms (button click → response)
+- CLS: < 0.1 (no layout shifts during run)
+
+---
+
 ## Change Log
 
 - **2025-10-30**: Security Appendix added (comprehensive sanitization strategy documentation)
