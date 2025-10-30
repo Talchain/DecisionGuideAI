@@ -140,8 +140,28 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         throw new Error('Invalid template graph structure')
       }
 
+      // F2: Check for meta.suggested_positions (prefer backend-provided positions)
+      const suggestedPositions = graph.meta?.suggested_positions
+      const hasSuggestedPositions = suggestedPositions && typeof suggestedPositions === 'object'
+
+      // Use suggested positions if available, otherwise compute layout
+      const positionedNodes = hasSuggestedPositions
+        ? graph.nodes.map((node: any) => {
+            const suggested = suggestedPositions[node.id]
+            return {
+              id: node.id,
+              label: node.label || node.id,
+              kind: (node.kind || 'decision') as any,
+              description: node.body || node.description, // F1: map body to description for UI
+              position: suggested
+                ? { x: suggested.x, y: suggested.y }
+                : { x: 0, y: 0 } // Fallback if position missing
+            }
+          })
+        : layoutGraph(graph.nodes, graph.edges)
+
       // Auto-layout: Create hierarchical layout for templates without positions
-      const layoutGraph = (nodes: any[], edges: any[]) => {
+      function layoutGraph(nodes: any[], edges: any[]) {
         // Build adjacency map
         const outgoing = new Map<string, string[]>()
         const incoming = new Map<string, string[]>()
@@ -187,6 +207,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
             id: node.id,
             label: node.label || node.id,
             kind: (node.kind || 'decision') as any,
+            description: node.body || node.description, // F1: map body to description for UI
             position: {
               x: 100 + (indexInLevel - (totalAtLevel - 1) / 2) * HORIZONTAL_SPACING,
               y: 100 + level * VERTICAL_SPACING
@@ -200,13 +221,14 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         id: templateDetail.id,
         name: templateDetail.name,
         description: templateDetail.description,
-        nodes: layoutGraph(graph.nodes, graph.edges),
+        nodes: positionedNodes,
         edges: graph.edges.map((edge: any) => ({
           id: edge.id || `${edge.from}-${edge.to}`,
           from: edge.from,
           to: edge.to,
           probability: edge.confidence || edge.probability,
-          weight: edge.weight
+          weight: edge.weight,
+          label: edge.label // F1: preserve edge.label for rendering
         }))
       }
 

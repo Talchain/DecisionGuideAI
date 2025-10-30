@@ -387,6 +387,7 @@ export const httpV1Adapter = {
         graph: {
           nodes: normalized.nodes,
           edges: normalized.edges,
+          meta: normalized.meta, // Include suggested_positions for F2: use backend-provided positions
         },
       }
     } catch (err: any) {

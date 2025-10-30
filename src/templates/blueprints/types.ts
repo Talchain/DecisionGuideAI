@@ -7,6 +7,7 @@ export interface BlueprintNode {
   label: string
   kind: NodeKind
   position?: { x: number; y: number }
+  description?: string // F1: support body/description from templates
 }
 
 export interface BlueprintEdge {
@@ -15,6 +16,7 @@ export interface BlueprintEdge {
   to: string
   probability?: number
   weight?: number
+  label?: string // F1: support edge labels from templates
 }
 
 export type Units = 'currency' | 'percent' | 'count' | 'days' | 'score'

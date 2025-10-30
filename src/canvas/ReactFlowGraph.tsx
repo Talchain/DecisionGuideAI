@@ -220,6 +220,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         data: {
           label: node.label,
           kind: node.kind,
+          description: node.description, // F1: preserve description/body from templates
           templateId: blueprint.id,
           templateName: blueprint.name,
           templateCreatedAt
@@ -227,10 +228,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       }
     })
 
-    // Create edges with probability labels
+    // Create edges with labels (F1: prefer edge.label, fallback to probability)
     const newEdges = graph.edges.map(edge => {
       const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
-      const label = pct != null ? `${pct}%` : undefined
+      const label = edge.label || (pct != null ? `${pct}%` : undefined) // F1: use edge.label if available
       const edgeId = createEdgeId()
 
       return {
