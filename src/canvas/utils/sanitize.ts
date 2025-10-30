@@ -138,24 +138,67 @@ export function sanitizeUrl(url: string, allowlist: string[] = []): string {
  * Sanitize share hash from URL parameters
  *
  * Ensures hash is:
- * - Alphanumeric only
- * - Fixed length (64 chars for SHA-256)
- * - Lowercase hex
+ * - Alphanumeric only (with optional hyphens for base64url)
+ * - Fixed length (64 chars for SHA-256) OR valid base64url format
+ * - Lowercase hex OR valid base64url characters
  *
  * @param hash - Raw hash from URL parameter
+ * @param allowlist - Optional Set of allowed hash values for strict validation
  * @returns Sanitized hash or null if invalid
  */
-export function sanitizeShareHash(hash: unknown): string | null {
+export function sanitizeShareHash(hash: unknown, allowlist?: Set<string>): string | null {
   if (typeof hash !== 'string') {
     return null
   }
 
-  // SHA-256 hashes are 64 hex characters
-  if (!/^[a-f0-9]{64}$/i.test(hash)) {
+  // Empty hash is invalid
+  if (!hash || hash.length === 0) {
     return null
   }
 
-  return hash.toLowerCase()
+  // Check allowlist first if provided (most restrictive)
+  if (allowlist) {
+    if (!allowlist.has(hash)) {
+      return null
+    }
+    return hash
+  }
+
+  // Validate hash format:
+  // - SHA-256 hex (64 chars): a-f0-9
+  // - Base64url (variable length): a-zA-Z0-9-_
+
+  // Try SHA-256 hex format first
+  if (/^[a-f0-9]{64}$/i.test(hash)) {
+    return hash.toLowerCase()
+  }
+
+  // Try base64url format (for snapshot sharing)
+  // Base64url uses a-zA-Z0-9-_ and can include optional 'z:' prefix
+  if (/^(?:z:)?[a-zA-Z0-9_-]+$/.test(hash)) {
+    // Validate reasonable length (8KB max as per snapshotShare.ts)
+    if (hash.length > 8192) {
+      return null
+    }
+    return hash
+  }
+
+  // Invalid format
+  return null
+}
+
+/**
+ * Validate share hash against strict allowlist
+ *
+ * Use this for high-security scenarios where only specific
+ * pre-approved hashes should be accepted (e.g., from backend).
+ *
+ * @param hash - Hash to validate
+ * @param allowlist - Set of allowed hash values
+ * @returns true if hash is in allowlist, false otherwise
+ */
+export function validateShareHashAllowlist(hash: string, allowlist: Set<string>): boolean {
+  return allowlist.has(hash)
 }
 
 /**
