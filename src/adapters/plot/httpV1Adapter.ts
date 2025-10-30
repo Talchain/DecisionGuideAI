@@ -58,22 +58,22 @@ function mapV1ResultToReport(
   templateId: string,
   executionMs: number
 ): ReportV1 {
-  // Use structured summary if available, otherwise fall back to parsing answer
-  let conservative: number, likely: number, optimistic: number, units: string
-
-  if (result.summary) {
-    conservative = result.summary.conservative
-    likely = result.summary.likely
-    optimistic = result.summary.optimistic
-    units = result.summary.units || 'units'
-  } else {
-    // Fallback: parse answer for numeric values (best effort)
-    const answerMatch = result.answer.match(/(\d+\.?\d*)/g)
-    likely = answerMatch ? parseFloat(answerMatch[0]) : 0
-    conservative = likely * 0.8
-    optimistic = likely * 1.2
-    units = 'units'
+  // Backend MUST provide structured summary
+  // We no longer parse freeform answer text to avoid silent failures
+  if (!result.summary) {
+    if (import.meta.env.DEV) {
+      console.error('[httpV1] Backend returned no structured summary - cannot parse results')
+    }
+    throw {
+      code: 'SERVER_ERROR',
+      message: 'Backend returned no structured summary (result.summary missing)',
+    }
   }
+
+  const conservative = result.summary.conservative
+  const likely = result.summary.likely
+  const optimistic = result.summary.optimistic
+  const units = result.summary.units || 'units'
 
   // Extract drivers from explain_delta.top_drivers (actual API structure)
   const drivers = (result.explain_delta?.top_drivers ?? []).map((d) => ({
@@ -86,15 +86,26 @@ function mapV1ResultToReport(
     edge_id: d.edge_id,
   }))
 
+  // Validate determinism: backend MUST provide response_hash
+  if (!result.response_hash) {
+    if (import.meta.env.DEV) {
+      console.error('[httpV1] Backend returned no response_hash - determinism broken!')
+    }
+    throw {
+      code: 'SERVER_ERROR',
+      message: 'Backend returned no response_hash (determinism requirement violated)',
+    }
+  }
+
   return {
     schema: 'report.v1',
     meta: {
       seed: result.seed || 1337,
-      response_id: result.response_hash || `http-v1-${Date.now()}`,
+      response_id: result.response_hash,
       elapsed_ms: executionMs,
     },
     model_card: {
-      response_hash: result.response_hash || '',
+      response_hash: result.response_hash,
       response_hash_algo: 'sha256',
       normalized: true,
     },
@@ -229,22 +240,29 @@ export const httpV1Adapter = {
 
       // Map to ReportV1 format expected by UI
       //
-      // DETERMINISM NOTES:
-      // - seed: Prefer response seed (meta.seed or model_card.seed), fall back to input seed,
-      //   then 1337 if neither provided. Expected path: backend should echo seed.
-      //   QA: Verify backend always returns seed in response.
-      // - hash: Prefer response hash (model_card.response_hash or response_hash).
-      //   Fallback to timestamp generates non-deterministic ID (should rarely trigger).
-      //   QA: Verify backend always returns response_hash for deterministic runs.
+      // DETERMINISM ENFORCEMENT:
+      // - Backend MUST return response_hash for deterministic runs
+      // - We fail fast if hash is missing to catch backend drift
+      if (!normalized.hash) {
+        if (import.meta.env.DEV) {
+          console.error('[httpV1] Backend returned no response_hash - determinism broken!')
+        }
+        throw {
+          schema: 'error.v1',
+          code: 'SERVER_ERROR',
+          error: 'Backend returned no response_hash (determinism requirement violated)',
+        } as ErrorV1
+      }
+
       return {
         schema: 'report.v1',
         meta: {
           seed: normalized.seed || input.seed || 1337,
-          response_id: normalized.hash || `http-v1-${Date.now()}`,
+          response_id: normalized.hash,
           elapsed_ms: response.execution_ms || 0,
         },
         model_card: {
-          response_hash: normalized.hash || '',
+          response_hash: normalized.hash,
           response_hash_algo: 'sha256',
           normalized: true,
         },
@@ -322,11 +340,14 @@ export const httpV1Adapter = {
       // Normalize graph response (handles both flat and nested formats)
       const normalized = normalizeTemplateGraph(graphResponse)
 
+      // Normalize metadata using normalizeTemplateListItem for consistent field mapping
+      const normalizedMetadata = normalizeTemplateListItem(metadata)
+
       return {
-        id: metadata.id,
-        name: metadata.label, // label → name
-        version: normalized.version,
-        description: metadata.summary, // summary → description
+        id: normalizedMetadata.id,
+        name: normalizedMetadata.name,
+        version: normalizedMetadata.version,
+        description: normalizedMetadata.description,
         default_seed: normalized.default_seed,
         graph: {
           nodes: normalized.nodes,

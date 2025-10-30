@@ -16,7 +16,14 @@ import { findDriverMatches, type Driver, type DriverMatch } from '../utils/drive
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 
 interface DriverChipsProps {
-  drivers: Array<{ label: string; polarity: 'up' | 'down' | 'neutral'; strength: 'low' | 'medium' | 'high' }>
+  drivers: Array<{
+    label: string
+    polarity: 'up' | 'down' | 'neutral'
+    strength: 'low' | 'medium' | 'high'
+    kind?: 'node' | 'edge'
+    node_id?: string
+    edge_id?: string
+  }>
 }
 
 export function DriverChips({ drivers }: DriverChipsProps) {
@@ -31,12 +38,13 @@ export function DriverChips({ drivers }: DriverChipsProps) {
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const chipsRef = useRef<HTMLDivElement>(null)
 
-  // Convert report drivers to Driver format
-  // Note: Backend currently only provides labels, not kind/id
-  // When backend adds driver.kind and driver.id, update this mapping
+  // Convert report drivers to Driver format using real backend metadata
+  // Backend now provides kind/node_id/edge_id from explain_delta.top_drivers
   const driverList: Driver[] = drivers.map(d => ({
-    kind: 'node' as const, // Try node first (most common)
-    label: d.label
+    kind: d.kind || 'node', // Use actual kind from API, default to node for legacy
+    label: d.label,
+    // If backend provides explicit IDs, prefer those for matching
+    id: d.kind === 'node' ? d.node_id : d.kind === 'edge' ? d.edge_id : undefined,
   }))
 
   // Find matches for all drivers
@@ -101,7 +109,10 @@ export function DriverChips({ drivers }: DriverChipsProps) {
     })
   }, [allMatches, driverList, matchCycles])
 
-  // Handle hover with 300ms dwell
+  // Handle hover with 300ms dwell + throttle to ≤10 Hz (100ms minimum between updates)
+  const lastHighlightTime = useRef<number>(0)
+  const HIGHLIGHT_THROTTLE_MS = 100 // 10 Hz = 100ms between updates
+
   const handleHoverStart = useCallback((index: number) => {
     setHoverIndex(index)
 
@@ -110,6 +121,14 @@ export function DriverChips({ drivers }: DriverChipsProps) {
     }
 
     hoverTimerRef.current = setTimeout(() => {
+      const now = Date.now()
+      const timeSinceLastHighlight = now - lastHighlightTime.current
+
+      // Throttle: skip if we updated too recently
+      if (timeSinceLastHighlight < HIGHLIGHT_THROTTLE_MS) {
+        return
+      }
+
       const matches = allMatches[index]
       if (matches && matches.length > 0) {
         const currentCycle = matchCycles.get(index) || 0
@@ -119,6 +138,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
           driver: driverList[index],
           matchIndex: currentCycle % matches.length
         })
+        lastHighlightTime.current = now
       }
     }, 300)
   }, [allMatches, driverList, matchCycles])
