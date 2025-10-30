@@ -37,7 +37,7 @@ export interface Limits {
 class LimitsManager {
   private limits: Limits
   private hydrated: boolean = false
-  private hydrationPromise: Promise<void> | null = null
+  private hydrationPromise: Promise<boolean> | null = null
 
   constructor() {
     // Initialize with static fallback values
@@ -83,8 +83,10 @@ class LimitsManager {
     this.hydrationPromise = this._fetchLimits()
 
     try {
-      await this.hydrationPromise
-      this.hydrated = true
+      const success = await this.hydrationPromise
+      if (success) {
+        this.hydrated = true
+      }
     } finally {
       this.hydrationPromise = null
     }
@@ -94,13 +96,14 @@ class LimitsManager {
    * Refresh limits from API (force fetch)
    */
   async refresh(): Promise<void> {
-    return this._fetchLimits()
+    await this._fetchLimits()
   }
 
   /**
    * Internal fetch logic
+   * @returns true if fetch succeeded, false if failed (graceful degradation)
    */
-  private async _fetchLimits(): Promise<void> {
+  private async _fetchLimits(): Promise<boolean> {
     try {
       const apiLimits = await v1http.limits()
 
@@ -117,12 +120,15 @@ class LimitsManager {
       if (import.meta.env.DEV) {
         console.log('[limitsManager] Hydrated from API:', this.limits)
       }
+
+      return true
     } catch (err: any) {
       // Graceful degradation - keep static fallback
       if (import.meta.env.DEV) {
         console.warn('[limitsManager] Failed to fetch limits from API, using static fallback:', err)
       }
       // Don't throw - limits are already initialized with static values
+      return false
     }
   }
 

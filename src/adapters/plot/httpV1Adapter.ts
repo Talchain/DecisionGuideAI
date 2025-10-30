@@ -27,6 +27,7 @@ import { toApiGraph, isApiGraph, graphToV1Request, computeClientHash, type React
 import { toUiReport } from './v1/reportNormalizer'
 import { normalizeTemplateGraph, normalizeTemplateListItem } from './v1/templateNormalizer'
 import { shouldUseSync } from './v1/constants'
+import { limitsManager } from './v1/limitsManager'
 
 /**
  * Load template graph from live v1 endpoint
@@ -393,25 +394,15 @@ export const httpV1Adapter = {
     }
   },
 
-  // Limits - Fetch from backend with ETag caching
+  // Limits - Use singleton (hydrated at boot, with fallback)
   async limits(): Promise<LimitsV1> {
-    try {
-      // Call backend /v1/limits endpoint (uses ETag caching internally)
-      const backendLimits = await v1http.limits()
+    // Get limits from singleton (synchronous)
+    // Singleton is hydrated at boot and has graceful fallback to V1_LIMITS
+    const limits = limitsManager.getLimits()
 
-      return {
-        nodes: { max: backendLimits.nodes.max },
-        edges: { max: backendLimits.edges.max },
-      }
-    } catch (err: any) {
-      // Fallback to static limits if backend unavailable
-      if (import.meta.env.DEV) {
-        console.warn('[httpV1] Failed to fetch limits from backend, using static fallback:', err)
-      }
-      return {
-        nodes: { max: V1_LIMITS.MAX_NODES },
-        edges: { max: V1_LIMITS.MAX_EDGES },
-      }
+    return {
+      nodes: { max: limits.nodes.max },
+      edges: { max: limits.edges.max },
     }
   },
 
