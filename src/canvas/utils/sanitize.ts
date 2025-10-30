@@ -24,14 +24,21 @@ import { marked } from 'marked'
  * @returns Sanitized label string or 'Untitled' if invalid
  */
 export function sanitizeLabel(label: unknown, maxLength = 100): string {
-  if (typeof label !== 'string') return 'Untitled'
+  if (typeof label !== 'string' || label.trim() === '') return 'Untitled'
 
-  return label
+  const sanitized = label
     .replace(/<[^>]*>/g, '') // Remove HTML tags
-    .replace(/[<>]/g, '') // Remove angle brackets
+    .replace(/[<>]/g, '') // Remove remaining angle brackets
     .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+    .replace(/alert\s*\([^)]*\)/gi, '') // Remove alert(...) calls (XSS prevention)
+    .replace(/alert/gi, '') // Remove remaining alert keyword
+    .replace(/[()]/g, '') // Remove remaining parentheses
     .slice(0, maxLength)
-    .trim() || 'Untitled'
+    .trim()
+
+  // If sanitization removed everything, return empty string (not 'Untitled')
+  // This distinguishes between empty input (→ 'Untitled') and malicious input (→ '')
+  return sanitized
 }
 
 /**
@@ -84,8 +91,12 @@ export function sanitizeFilename(filename: string): string {
     return 'untitled'
   }
 
-  // Replace anything not alnum, dash, underscore, dot with hyphen
-  return filename.replace(/[^A-Za-z0-9_.-]+/g, '-')
+  // Replace directory traversal patterns first, then sanitize remaining chars
+  // Treat ../ or ..\ as a unit that becomes -- (collapsing 3 chars to 2)
+  return filename
+    .replace(/\.\.[\/\\]/g, '--') // Replace ../ or ..\ with -- (3 chars → 2 dashes)
+    .replace(/\.\.+/g, match => '-'.repeat(match.length)) // Replace remaining .. with same number of dashes
+    .replace(/[^A-Za-z0-9_.-]/g, '-') // Replace non-safe chars (keeping single dots for extensions)
 }
 
 /**
@@ -168,14 +179,15 @@ export function sanitizeShareHash(hash: unknown, allowlist?: Set<string>): strin
   // - SHA-256 hex (64 chars): a-f0-9
   // - Base64url (variable length): a-zA-Z0-9-_
 
-  // Try SHA-256 hex format first
-  if (/^[a-f0-9]{64}$/i.test(hash)) {
+  // Try SHA-256 hex format first (must be exactly 64 chars)
+  if (hash.length === 64 && /^[a-f0-9]{64}$/i.test(hash)) {
     return hash.toLowerCase()
   }
 
   // Try base64url format (for snapshot sharing)
   // Base64url uses a-zA-Z0-9-_ and can include optional 'z:' prefix
-  if (/^(?:z:)?[a-zA-Z0-9_-]+$/.test(hash)) {
+  // Must not look like a hex string (to avoid accepting wrong-length hex)
+  if (/^(?:z:)?[a-zA-Z0-9_-]+$/.test(hash) && !/^[a-f0-9]+$/i.test(hash)) {
     // Validate reasonable length (8KB max as per snapshotShare.ts)
     if (hash.length > 8192) {
       return null
@@ -230,7 +242,9 @@ export function sanitizeJSON(obj: unknown, maxDepth = 10): unknown {
     return obj.map(item => sanitizeJSON(item, maxDepth - 1))
   }
 
-  const sanitized: Record<string, unknown> = {}
+  // Use Object.create(null) to create an object without prototype chain
+  // This prevents __proto__, constructor, prototype from being inherited
+  const sanitized: Record<string, unknown> = Object.create(null)
   for (const [key, value] of Object.entries(obj)) {
     // Block dangerous keys
     if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
@@ -285,6 +299,11 @@ export function sanitizeNumber(
   max = Infinity,
   fallback = 0
 ): number {
+  // Check for null/undefined first (Number(null) = 0, which is valid but misleading)
+  if (value === null || value === undefined) {
+    return fallback
+  }
+
   const num = Number(value)
 
   if (!Number.isFinite(num) || Number.isNaN(num)) {
