@@ -468,12 +468,446 @@ proxy: {
 - [Preview_Mode.md](./Preview_Mode.md) - Preview Mode integration
 - [PROBABILITY_TOLERANCE.md](./PROBABILITY_TOLERANCE.md) - Edge probability constraints
 
-## Future Enhancements
+## Streaming (Phase 2+ PLoT V1)
 
-### SSE Streaming
-- Enable real-time progress updates
-- Reduce perceived latency
-- Support cancellation mid-execution
+**Status**: ✅ Completed (requires `VITE_FEATURE_PLOT_STREAM=1`)
+
+The PLoT V1 adapter now supports Server-Sent Events (SSE) streaming for real-time progress updates, interim findings, and graceful cancellation.
+
+### Streaming API
+
+**Endpoint**: `POST /v1/stream`
+
+**Request**: Same as `/v1/run` (graph + seed)
+
+**Response**: SSE stream with event types:
+
+```typescript
+// Event: started
+event: started
+data: {"run_id":"abc-123"}
+
+// Event: progress
+event: progress
+data: {"percent":50}
+
+// Event: interim (optional)
+event: interim
+data: {"findings":["Risk factor A identified","Analyzing dependencies"]}
+
+// Event: complete
+event: complete
+data: {"result":{...},"execution_ms":500}
+
+// Event: error
+event: error
+data: {"code":"RATE_LIMITED","error":"Rate limit exceeded","retry_after":60}
+```
+
+### Adapter Interface
+
+```typescript
+httpV1Adapter.stream?.run(request: RunRequest, callbacks: {
+  onHello: (data: { response_id: string }) => void
+  onTick: (data: { index: number }) => void
+  onInterim?: (data: { findings: string[] }) => void
+  onDone: (data: { response_id: string; report: ReportV1 }) => void
+  onError: (error: ErrorV1) => void
+}): CancelFn
+```
+
+**Cancellation**:
+```typescript
+const cancel = httpV1Adapter.stream.run(request, callbacks)
+
+// Cancel via ESC key or route change
+cancel()  // Sends POST /v1/run/:runId/cancel
+```
+
+### Interim Findings
+
+**Purpose**: Progressive feedback during long-running analyses
+
+**Behavior**:
+- Backend sends cumulative lists (not deltas)
+- Client replaces buffer on each event (no append)
+- Micro-batching: 250ms window, 50 item cap
+- Auto-cleared on completion or cancellation
+
+**Implementation**: `src/canvas/store/interimQueue.ts`
+
+```typescript
+enqueueInterim(push, items)  // Replace buffer with new cumulative payload
+clearInterimQueue()          // Cancel pending flush
+```
+
+**Store Integration**:
+```typescript
+// Store action
+resultsInterim: (findings: string[]) => {
+  // Replaces previous interim findings
+  set({ interim_findings: findings })
+}
+
+// Auto-cleanup
+resultsComplete: () => {
+  clearInterimQueue()  // Flush any pending batches
+  set({ interim_findings: [] })
+}
+
+resultsCancelled: () => {
+  clearInterimQueue()  // Clean up on cancel
+  set({ interim_findings: [] })
+}
+```
+
+### Cancellation Behavior
+
+**Triggers**:
+1. **ESC key**: User presses Escape during streaming run
+2. **Route change**: Navigation away from /plot
+3. **New run**: Starting a new run cancels previous streaming run
+
+**Flow**:
+```typescript
+1. User presses ESC
+2. cancel() called → POST /v1/run/{runId}/cancel
+3. SSE connection closed (EventSource.close())
+4. Store updated: resultsCancelled()
+5. Screen reader announcement: "Analysis cancelled"
+```
+
+**Network Behavior**:
+- Cancel request sent with 5s timeout
+- Non-blocking (fire-and-forget pattern)
+- Stream cleanup happens regardless of cancel response
+
+### Progress Updates
+
+**UI Components**:
+- Progress bar with `aria-valuenow` updates
+- Percentage display (0-100)
+- Estimated time remaining (optional)
+
+**Accessibility**:
+- `role="progressbar"`
+- `aria-label="Analysis progress"`
+- `aria-valuenow` updates on each progress event
+- Screen reader announcements via `aria-live="polite"`
+
+### Feature Flag
+
+**Environment Variable**: `VITE_FEATURE_PLOT_STREAM=1`
+
+**Adapter Selection**:
+```typescript
+const hasStreaming = import.meta.env.VITE_FEATURE_PLOT_STREAM === '1'
+
+if (hasStreaming && httpV1Adapter.stream) {
+  // Use streaming endpoint
+  httpV1Adapter.stream.run(request, callbacks)
+} else {
+  // Fall back to sync endpoint
+  await httpV1Adapter.run(request)
+}
+```
+
+**Graceful Degradation**:
+- Flag off → sync endpoint used (no progress updates)
+- Flag on but stream endpoint fails → falls back to sync
+- Preserves functionality regardless of backend support
+
+### Error Handling
+
+**Streaming-Specific Errors**:
+```typescript
+{
+  code: 'STREAM_FAILED',
+  error: 'Stream connection lost',
+  retry_after: undefined
+}
+```
+
+**Retry Logic**:
+- Network errors: Auto-retry with exponential backoff (max 3 attempts)
+- Rate limits: Respect `retry_after` from error event
+- Timeouts: 60s max for complete event (longer than sync 30s)
+
+### Test Coverage
+
+**Unit Tests** (`src/adapters/plot/__tests__/`):
+- `determinism.test.ts`: Sync vs streaming hash parity (5 tests)
+- `autoDetectAdapter.streaming.test.ts`: Probe-based selection (9 tests)
+
+**E2E Tests** (`e2e/`):
+- `plot.streaming.spec.ts`: Happy path, ESC cancel, route change, 429, network error (7 tests)
+
+---
+
+## Debug Slices (Phase 2+ PLoT V1)
+
+**Status**: ✅ Completed (requires `VITE_FEATURE_COMPARE_DEBUG=1` or `VITE_FEATURE_INSPECTOR_DEBUG=1`)
+
+Debug slices provide advanced statistical analysis and edge-level insights without affecting determinism (`response_hash`).
+
+### Backend Contract
+
+**Request**:
+```json
+{
+  "graph": {...},
+  "seed": 42,
+  "include_debug": true
+}
+```
+
+**Response** (with debug slices):
+```json
+{
+  "result": {
+    "results": {...},
+    "model_card": {
+      "response_hash": "abc123..."  // SAME hash regardless of include_debug
+    },
+    "debug": {
+      "compare": {
+        "conservative": {
+          "p10": 90,
+          "p50": 100,
+          "p90": 110,
+          "top3_edges": [
+            {"edge_id":"e1","from":"n1","to":"n2","label":"Risk A","weight":0.8}
+          ]
+        },
+        "likely": {...},
+        "optimistic": {...}
+      },
+      "inspector": {
+        "edges": [
+          {
+            "edge_id": "e1",
+            "from": "n1",
+            "to": "n2",
+            "label": "Risk Factor A",
+            "weight": 0.85,
+            "belief": 0.95,
+            "provenance": "calibrated"
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
+**Determinism Guarantee**:
+- Debug slices **DO NOT** affect `response_hash`
+- Server-side exclusion from hash computation
+- Verified by determinism tests (with/without debug)
+
+### Compare Debug Slices
+
+**Feature Flag**: `VITE_FEATURE_COMPARE_DEBUG=1`
+
+**Purpose**: Statistical analysis for Monte Carlo simulations
+
+**UI Location**: CompareView → Debug Analysis section
+
+**Data Structure**:
+```typescript
+debug.compare[option_id] = {
+  p10: number    // 10th percentile
+  p50: number    // 50th percentile (median)
+  p90: number    // 90th percentile
+  top3_edges: Array<{
+    edge_id: string
+    from: string
+    to: string
+    label: string
+    weight: number
+  }>
+}
+```
+
+**Cross-Run Comparison**:
+- **Single run**: Shows percentiles for current run only
+- **A vs B**: Shows delta (B - A) for each metric
+- Example: `p50: 150 → 170 (+20)`
+
+**Top-3 Edges**:
+- Click chip → Highlight edge on canvas (10Hz throttled)
+- Auto-clear highlight after 2 seconds
+- Keyboard accessible (Tab + Enter)
+
+**Accessibility**:
+- `role="region"` for debug section
+- `aria-label` for each option (Conservative, Likely, Optimistic)
+- Delta announcements: `aria-live="polite"`
+- Tooltips explain p10/p50/p90 terminology
+- Beta badge with info icon
+
+**Parsing**:
+```typescript
+import { parseDebugCompare } from '@/adapters/plot/types'
+
+const compareData = parseDebugCompare(report.debug?.compare)
+if (!compareData) {
+  // Graceful degradation - hide debug section
+}
+```
+
+**Utilities**:
+```typescript
+// src/lib/compare.ts
+deriveCompare(compareMap, optionId)            // Extract single run stats
+deriveCompareAcrossRuns(mapA, mapB, optionId) // Calculate deltas (B - A)
+```
+
+### Inspector Debug Facts
+
+**Feature Flag**: `VITE_FEATURE_INSPECTOR_DEBUG=1`
+
+**Purpose**: Edge-level analysis with belief and provenance metadata
+
+**UI Location**: EdgeInspector → Edge Facts table
+
+**Data Structure**:
+```typescript
+debug.inspector.edges[] = {
+  edge_id: string
+  from: string
+  to: string
+  label: string
+  weight: number          // Edge strength (0.0-1.0)
+  belief?: number         // Default: 1.0
+  provenance?: string     // Default: 'template'
+}
+```
+
+**Default Values**:
+- `belief`: `1.0` (full confidence)
+- `provenance`: `'template'` (user-defined)
+
+**Other Provenance Values**:
+- `'calibrated'`: Adjusted by backend calibration
+- `'inferred'`: Derived from other edges
+- `'historical'`: From previous runs
+
+**Facts Table**:
+```tsx
+<table aria-label="Edge debug facts">
+  <tbody>
+    <tr>
+      <th>Weight</th>
+      <td aria-label="Edge strength: 0.85">0.85</td>
+      <Tooltip>Edge strength in causal graph</Tooltip>
+    </tr>
+    <tr>
+      <th>Belief</th>
+      <td aria-label="Confidence: 0.95">0.95</td>
+      <Tooltip>Confidence in this relationship</Tooltip>
+    </tr>
+    <tr>
+      <th>Provenance</th>
+      <td aria-label="Source: calibrated">calibrated</td>
+      <Tooltip>Source of edge data</Tooltip>
+    </tr>
+  </tbody>
+</table>
+```
+
+**"Edit Probabilities" CTA**:
+- Button: "Edit probabilities in this decision"
+- Action: Selects source node, closes inspector
+- Hint: "or press P after selecting"
+- Fixed: Now uses `selectNodeWithoutHistory()` (was silently failing with `selectNodes()`)
+
+**Parsing**:
+```typescript
+import { parseDebugInspectorEdges } from '@/adapters/plot/types'
+
+const edgeFacts = parseDebugInspectorEdges(report.debug?.inspector?.edges)
+if (!edgeFacts) {
+  // Graceful degradation - hide facts table
+}
+
+const thisEdge = edgeFacts.find(e => e.edge_id === edgeId)
+```
+
+### Fail-Closed Parsing
+
+**Strategy**: Zod schemas with fail-closed fallback
+
+```typescript
+// Zod schema with defaults
+const DebugInspectorEdgeSchema = z.object({
+  edge_id: z.string(),
+  weight: z.number(),
+  belief: z.number().optional().default(1.0),
+  provenance: z.string().optional().default('template')
+})
+
+// Parse with try-catch
+try {
+  return DebugCompareMapSchema.parse(data)
+} catch (err) {
+  console.warn('[DebugSlice] Failed to parse:', err)
+  // TODO: Sentry.captureException(err)
+  return null
+}
+```
+
+**Benefits**:
+- Malformed debug data doesn't crash UI
+- Debug features degrade gracefully
+- Core functionality always works (results, drivers)
+
+### Test Coverage
+
+**Unit Tests**:
+- `src/lib/__tests__/compare.debug.test.ts`: Compare utilities (16 tests)
+
+**E2E Tests**:
+- `e2e/plot.compare-debug.spec.ts`: Compare debug UI & a11y (7 tests)
+- `e2e/plot.inspector-debug.spec.ts`: Inspector facts UI & a11y (8 tests)
+
+---
+
+## Keyboard Shortcuts
+
+### Global Shortcuts
+
+| Key | Action | Context | Notes |
+|-----|--------|---------|-------|
+| <kbd>ESC</kbd> | Cancel run | Streaming run in progress | Sends cancel request, closes stream |
+| <kbd>P</kbd> | Open probabilities panel | Node selected | Opens panel for editing edge probabilities from selected node |
+
+### Canvas Shortcuts
+
+| Key | Action | Context |
+|-----|--------|---------|
+| <kbd>Tab</kbd> | Focus next interactive element | Anywhere |
+| <kbd>Enter</kbd> | Activate focused element | Button, edge chip |
+| <kbd>Space</kbd> | Activate focused button | Button |
+
+### Inspector Shortcuts
+
+| Key | Action | Context |
+|-----|--------|---------|
+| <kbd>Tab</kbd> | Navigate facts table | EdgeInspector open |
+| <kbd>Enter</kbd> | Activate "Edit probabilities" | Focus on CTA button |
+| <kbd>ESC</kbd> | Close inspector | EdgeInspector open |
+
+### Compare View Shortcuts
+
+| Key | Action | Context |
+|-----|--------|---------|
+| <kbd>Enter</kbd> | Highlight edge | Focus on edge chip |
+| <kbd>Tab</kbd> | Navigate edge chips | Top-3 edges visible |
+
+---
+
+## Future Enhancements
 
 ### Batch Operations
 - `/v1/batch` endpoint for multi-scenario analysis
@@ -489,6 +923,12 @@ proxy: {
 - Service worker for template caching
 - Graceful degradation when backend unavailable
 - Queue requests for retry when online
+
+### Debug Slice Enhancements
+- Historical trend charts (p10/p50/p90 over time)
+- Edge belief calibration UI
+- Provenance lineage visualization
+- Export debug data to CSV
 
 ## Security Appendix
 
@@ -790,6 +1230,195 @@ console.log(`Quota errors: ${exceeded}, Recovered: ${recovered}`)
 - E2E test: `e2e/share-allowlist.spec.ts` (behind flag)
 - Deployment blocker: Requires backend `/v1/allowlist` endpoint
 
+### Streaming Connection Issues
+
+**Symptom:** Streaming runs timeout or fail with "Stream connection lost"
+
+**Causes:**
+1. Network interruption mid-stream
+2. Proxy/firewall blocking SSE connections
+3. Backend stream endpoint not available
+4. Feature flag not set (`VITE_FEATURE_PLOT_STREAM=1`)
+
+**Diagnosis:**
+```typescript
+// Check if streaming is enabled
+console.log('Stream enabled:', !!(httpV1Adapter as any).stream)
+
+// Check feature flag
+console.log('Feature flag:', import.meta.env.VITE_FEATURE_PLOT_STREAM)
+
+// Monitor SSE connection in DevTools → Network tab
+// Look for "v1/stream" request with type "eventsource"
+```
+
+**Resolution:**
+1. **Network issues**: Auto-retry with exponential backoff (3 attempts)
+2. **Proxy blocking**: Add SSE support to proxy config:
+   ```typescript
+   // vite.config.ts
+   proxy: {
+     '/api/plot': {
+       target: 'http://localhost:8000',
+       changeOrigin: true,
+       ws: true  // Enable WebSocket/SSE
+     }
+   }
+   ```
+3. **Backend unavailable**: Falls back to sync endpoint automatically
+4. **Flag not set**: Set `VITE_FEATURE_PLOT_STREAM=1` in `.env.local`
+
+**Developer Notes:**
+- Streaming timeout: 60s (longer than sync 30s)
+- Retry logic: `src/adapters/plot/v1/http.ts` (withRetry)
+- Fallback: `autoDetectAdapter` probes /v1/health and /v1/run endpoints
+
+---
+
+### Debug Slices Not Showing
+
+**Symptom:** Compare/Inspector debug sections are hidden or empty
+
+**Causes:**
+1. Feature flags not enabled
+2. Backend doesn't support `include_debug=true`
+3. Debug data failed parsing (malformed JSON)
+4. Report missing debug field
+
+**Diagnosis:**
+```typescript
+// Check feature flags
+console.log('Compare debug:', import.meta.env.VITE_FEATURE_COMPARE_DEBUG)
+console.log('Inspector debug:', import.meta.env.VITE_FEATURE_INSPECTOR_DEBUG)
+
+// Check report structure
+console.log('Debug field:', report.debug)
+
+// Check parsing
+import { parseDebugCompare, parseDebugInspectorEdges } from '@/adapters/plot/types'
+console.log('Parsed compare:', parseDebugCompare(report.debug?.compare))
+console.log('Parsed inspector:', parseDebugInspectorEdges(report.debug?.inspector?.edges))
+```
+
+**Resolution:**
+1. **Flags not set**: Add to `.env.local`:
+   ```bash
+   VITE_FEATURE_COMPARE_DEBUG=1
+   VITE_FEATURE_INSPECTOR_DEBUG=1
+   ```
+2. **Backend doesn't support**: Graceful degradation - core features still work
+3. **Parse failure**: Check console for `[DebugSlice] Failed to parse:` warnings
+4. **Zod schema mismatch**: Update schemas in `src/adapters/plot/types.ts`
+
+**Expected Behavior:**
+- Debug sections only visible when flags enabled AND data present
+- Parsing failures logged to console (not crashing UI)
+- Core functionality (results, drivers) always works
+
+**Developer Notes:**
+- Parsing: `src/adapters/plot/types.ts` (parseDebugCompare, parseDebugInspectorEdges)
+- UI: `src/canvas/components/CompareView.tsx`, `src/canvas/ui/EdgeInspector.tsx`
+- Test coverage: `e2e/plot.compare-debug.spec.ts`, `e2e/plot.inspector-debug.spec.ts`
+
+---
+
+### Interim Findings Not Updating
+
+**Symptom:** Interim findings list frozen or showing stale data
+
+**Causes:**
+1. Micro-batching queue not flushing
+2. Stream sending delta updates (not cumulative)
+3. Queue cleanup failed on cancel/complete
+
+**Diagnosis:**
+```typescript
+// Check queue state (in DEV mode)
+import { getQueueStats } from '@/canvas/store/interimQueue'
+console.log('Queue stats:', getQueueStats())
+
+// Monitor interim events in Network → EventSource
+// Verify "event: interim" payloads are cumulative lists
+```
+
+**Resolution:**
+1. **Queue stuck**: Force flush via `clearInterimQueue()`
+2. **Delta payloads**: Backend bug - interim events MUST send full cumulative lists
+3. **Cleanup failed**: Check `resultsComplete()` and `resultsCancelled()` call `clearInterimQueue()`
+
+**Expected Behavior:**
+- Interim findings replace (not append) on each event
+- 250ms batching window to prevent re-render storms
+- Auto-cleared on completion or cancellation
+
+**Developer Notes:**
+- Implementation: `src/canvas/store/interimQueue.ts`
+- Store integration: `src/canvas/store.ts` (resultsInterim, resultsComplete, resultsCancelled)
+- SSR guards: Uses `globalThis.setTimeout` instead of `window.setTimeout`
+
+---
+
+### Edge Highlight Not Working
+
+**Symptom:** Clicking edge chips in Compare view doesn't highlight edge on canvas
+
+**Causes:**
+1. Throttling rate limit (10Hz = 100ms)
+2. Edge ID mismatch between debug data and canvas
+3. Highlight layer not rendering
+
+**Diagnosis:**
+```typescript
+// Check throttle timing
+// Click chip twice quickly - second click should no-op if within 100ms
+
+// Verify edge ID exists on canvas
+const edge = edges.find(e => e.id === 'e1')
+console.log('Edge exists:', !!edge)
+
+// Check highlight state
+console.log('Highlighted driver:', store.getState().highlightedDriver)
+```
+
+**Resolution:**
+1. **Throttling**: Working as intended - prevents performance issues
+2. **ID mismatch**: Ensure backend debug data uses same edge IDs as graph
+3. **Layer not rendering**: Check HighlightLayer component is mounted
+
+**Expected Behavior:**
+- Click → highlight edge immediately (if not throttled)
+- Auto-clear after 2 seconds
+- Keyboard (Tab + Enter) also triggers highlight
+
+**Developer Notes:**
+- Throttling: `src/canvas/components/CompareView.tsx` (handleEdgeHighlight)
+- Rate limit: 10Hz (100ms minimum interval between highlights)
+- Store: `setHighlightedDriver({ kind: 'edge', id: edgeId })`
+
+---
+
+### "Edit Probabilities" Button Silent Failure
+
+**Symptom:** Clicking "Edit probabilities" in EdgeInspector does nothing
+
+**Cause:** Bug fixed in Phase 2+ - was calling non-existent `selectNodes()` instead of `selectNodeWithoutHistory()`
+
+**Fix Applied:**
+```typescript
+// OLD (broken):
+selectNodes([edge.source])
+
+// NEW (fixed):
+selectNodeWithoutHistory(edge.source)
+```
+
+**Resolution:** Ensure you're running latest Phase 2+ code
+
+**Developer Notes:**
+- Fixed in commit: [91eba40]
+- File: `src/canvas/ui/EdgeInspector.tsx:350`
+- Store action: `selectNodeWithoutHistory(nodeId: string)`
+
 ---
 
 ## CI Budgets & Performance
@@ -855,6 +1484,11 @@ npm run e2e:vitals
 
 ## Change Log
 
+- **2025-10-31**: Phase 2+ PLoT V1 Streaming & Debug Features documentation
+  - Added Streaming section (SSE, progress, cancellation, interim findings)
+  - Added Debug Slices section (Compare & Inspector debug features)
+  - Added Keyboard Shortcuts reference
+  - Added troubleshooting for streaming, debug slices, edge highlighting
 - **2025-10-30**: Security Appendix added (comprehensive sanitization strategy documentation)
 - **2025-10-30**: Initial documentation (Phase 2+ Section J, Task J2)
 - **Phase 2+ Sections A-D**: httpV1Adapter implementation completed
