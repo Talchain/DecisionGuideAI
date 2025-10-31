@@ -385,9 +385,10 @@ Enable with `?dev=1`:
    - Check adapter mode: `await getAdapterMode()` → `'httpv1'` or `'mock'`
 
 2. **Interim Findings**
-   - `onInterim` handler wired to store but not yet displayed in UI
-   - Future: Display "Analyzing risk factors..." text in ResultsPanel
-   - Current: Available in `results.interim` state for consumption
+   - `onInterim` handler wired to store and displayed in ResultsPanel
+   - Displayed during streaming status with aria-live announcements
+   - Backend sends cumulative findings list (replaces previous state)
+   - Future: Add timestamps or "live" indicator for enhanced UX
 
 3. **Reconnection**
    - No automatic reconnection on transient failures
@@ -457,22 +458,27 @@ console.log('Adapter mode:', await adapter.getAdapterMode())
 
 ### Short Term (Before Production)
 
-1. **ResultsPanel UI Enhancements**
-   - Visible progress bar (0-90% during stream, 100% on complete)
-   - Interim findings display: "Analyzing risk factors..."
-   - Prominent cancel button with Esc shortcut
-   - aria-live for screen reader announcements
+1. **ResultsPanel UI Enhancements** ✅ COMPLETE
+   - ✅ Visible progress bar (0-90% during stream, 100% on complete)
+   - ✅ Interim findings display with progressive updates
+   - ✅ Cancel button integration (streaming status)
+   - ✅ aria-live for screen reader announcements
+   - ⏳ PENDING: Timestamps or "live" indicator for interim findings
+   - ⏳ PENDING: ESC keyboard shortcut for cancel
 
-2. **E2E Test Suite**
-   - Happy path: start → progress → complete
-   - Cancel flow: ESC → state resets
-   - 429 handling: countdown UI → button disabled
-   - Network error: retry UI
+2. **E2E Test Suite** ⏳ PENDING
+   - ⏳ Happy path: start → progress → complete
+   - ⏳ Cancel flow: ESC → state resets
+   - ⏳ 429 handling: countdown UI → button disabled
+   - ⏳ Network error: retry UI
+   - ⏳ Integration test: autoDetectAdapter probe → httpV1 selection
 
-3. **Documentation Updates**
-   - Add to main PLOT_V1_Integration.md
-   - Update keyboard shortcuts section
-   - Add streaming troubleshooting section
+3. **Documentation Updates** ✅ COMPLETE
+   - ✅ Comprehensive streaming feature guide created
+   - ✅ Cold-start behavior documented
+   - ✅ Interim findings status updated
+   - ⏳ PENDING: Add to main PLOT_V1_Integration.md
+   - ⏳ PENDING: Update keyboard shortcuts section
 
 ### Long Term (Post-Launch)
 
@@ -503,4 +509,4 @@ console.log('Adapter mode:', await adapter.getAdapterMode())
 
 **Last Updated:** October 2025
 **Feature Status:** Implemented, Gated
-**Production Ready:** Pending UI enhancements + E2E tests
+**Production Ready:** Staging-Ready (UI complete, E2E tests pending)

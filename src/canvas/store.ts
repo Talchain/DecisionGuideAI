@@ -901,6 +901,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   resultsInterim: (findings) => {
+    // Backend sends cumulative findings list (not deltas)
+    // Each SSE interim event replaces the previous state entirely
     set(s => ({
       results: {
         ...s.results,
