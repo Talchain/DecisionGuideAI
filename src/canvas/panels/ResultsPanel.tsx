@@ -15,7 +15,7 @@
 
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react'
 import { X, History as HistoryIcon, GitCompare as CompareIcon, Eye, Check, XCircle, Play, AlertCircle } from 'lucide-react'
-import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectViolations, selectSeed, selectHash, selectPreviewMode, selectPreviewReport, selectPreviewSeed, selectPreviewHash, selectStagedNodeChanges, selectStagedEdgeChanges, selectPreviewStatus, selectPreviewProgress, selectPreviewError } from '../store'
+import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectViolations, selectSeed, selectHash, selectInterim, selectPreviewMode, selectPreviewReport, selectPreviewSeed, selectPreviewHash, selectStagedNodeChanges, selectStagedEdgeChanges, selectPreviewStatus, selectPreviewProgress, selectPreviewError } from '../store'
 import type { ValidationViolation } from '../store'
 import { usePreviewRun } from '../hooks/usePreviewRun'
 import { sanitizeShareHash } from '../utils/sanitize'
@@ -76,6 +76,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const violations = useCanvasStore(selectViolations)
   const seed = useCanvasStore(selectSeed)
   const hash = useCanvasStore(selectHash)
+  const interim = useCanvasStore(selectInterim)
 
   const resultsReset = useCanvasStore(s => s.resultsReset)
   const resultsLoadHistorical = useCanvasStore(s => s.resultsLoadHistorical)
@@ -550,18 +551,30 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                       }
                     }}
                   />
-                  {/* Optional live log region */}
+                  {/* Live log region with accessibility */}
                   <div
-                    className="text-sm p-3 rounded border"
+                    className="text-sm p-3 rounded border space-y-1"
                     style={{
                       backgroundColor: 'rgba(91, 108, 255, 0.05)',
                       borderColor: 'rgba(91, 108, 255, 0.15)',
                       color: 'rgba(232, 236, 245, 0.7)',
                     }}
+                    role="status"
+                    aria-live="polite"
+                    aria-atomic="false"
                   >
                     {status === 'preparing' && <div>→ Validating graph structure...</div>}
                     {status === 'connecting' && <div>→ Establishing connection...</div>}
                     {status === 'streaming' && progress > 0 && <div>→ Processing nodes ({Math.round(progress)}% complete)...</div>}
+                    {status === 'streaming' && interim && interim.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {interim.map((finding, idx) => (
+                          <div key={idx} style={{ color: 'rgba(232, 236, 245, 0.9)' }}>
+                            → {finding}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </>
               )}

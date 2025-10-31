@@ -1305,3 +1305,4 @@ export const selectViolations = (state: CanvasState): ValidationViolation[] | un
 export const selectRunId = (state: CanvasState): string | undefined => state.results.runId
 export const selectSeed = (state: CanvasState): number | undefined => state.results.seed
 export const selectHash = (state: CanvasState): string | undefined => state.results.hash
+export const selectInterim = (state: CanvasState): string[] | undefined => state.results.interim
