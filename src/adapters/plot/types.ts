@@ -33,6 +33,33 @@ export interface ReportV1 {
     edge_id?: string // For canvas highlighting
   }>
   critique?: string[]
+  // Debug slices (Phase 2+) - only present when include_debug=true
+  // These fields DO NOT affect response_hash and MUST NOT be persisted
+  debug?: {
+    compare?: Record<string, {
+      p10: number
+      p50: number
+      p90: number
+      top3_edges: Array<{
+        edge_id: string
+        from: string
+        to: string
+        label?: string
+        weight: number
+      }>
+    }>
+    inspector?: {
+      edges: Array<{
+        edge_id: string
+        from: string
+        to: string
+        label: string
+        weight: number
+        belief?: number
+        provenance?: string
+      }>
+    }
+  }
 }
 
 export interface ErrorV1 {

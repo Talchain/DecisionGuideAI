@@ -9,8 +9,9 @@
  */
 
 import { useMemo } from 'react'
-import { ArrowUp, ArrowDown, Equal, X } from 'lucide-react'
+import { ArrowUp, ArrowDown, Equal, X, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { compareRuns, type RunComparison } from '../store/runHistory'
+import { deriveCompare, type CompareDelta } from '../../lib/compare'
 
 interface CompareViewProps {
   runIds: string[]
@@ -23,6 +24,27 @@ export function CompareView({ runIds, onClose }: CompareViewProps) {
     if (runIds.length < 2) return null
     return compareRuns(runIds[0], runIds[1])
   }, [runIds])
+
+  // Derive debug comparison data (Phase 2+)
+  const debugEnabled = import.meta.env.VITE_FEATURE_COMPARE_DEBUG === '1'
+  const debugComparison = useMemo(() => {
+    if (!debugEnabled || !comparison) return null
+
+    const { runA, runB } = comparison
+
+    // Check if both runs have debug.compare data
+    const compareMapA = runA.report?.debug?.compare
+    const compareMapB = runB.report?.debug?.compare
+
+    if (!compareMapA || !compareMapB) return null
+
+    // Derive deltas for each option (conservative, likely, optimistic)
+    const conservative = deriveCompare(compareMapA, 'conservative', 'conservative')
+    const likely = deriveCompare(compareMapA, 'likely', 'likely')
+    const optimistic = deriveCompare(compareMapA, 'optimistic', 'optimistic')
+
+    return { conservative, likely, optimistic }
+  }, [debugEnabled, comparison])
 
   if (!comparison) {
     return (
@@ -288,6 +310,56 @@ export function CompareView({ runIds, onClose }: CompareViewProps) {
         </div>
       </div>
 
+      {/* Debug Comparison (Phase 2+) - Feature Flag Gated */}
+      {debugEnabled && debugComparison && (
+        <div>
+          <h4
+            className="text-sm font-medium mb-2 flex items-center gap-2"
+            style={{ color: 'var(--olumi-primary)' }}
+          >
+            <span>Debug Analysis</span>
+            <span
+              className="px-2 py-0.5 rounded text-xs font-normal"
+              style={{
+                backgroundColor: 'rgba(91, 108, 255, 0.15)',
+                color: 'var(--olumi-primary)'
+              }}
+            >
+              Beta
+            </span>
+          </h4>
+
+          <div className="space-y-3">
+            {/* Conservative Option */}
+            {debugComparison.conservative && (
+              <DebugOptionSection
+                title="Conservative"
+                delta={debugComparison.conservative}
+                color="var(--olumi-danger)"
+              />
+            )}
+
+            {/* Likely Option */}
+            {debugComparison.likely && (
+              <DebugOptionSection
+                title="Likely"
+                delta={debugComparison.likely}
+                color="var(--olumi-primary)"
+              />
+            )}
+
+            {/* Optimistic Option */}
+            {debugComparison.optimistic && (
+              <DebugOptionSection
+                title="Optimistic"
+                delta={debugComparison.optimistic}
+                color="var(--olumi-success)"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Close button */}
       <button
         onClick={onClose}
@@ -318,4 +390,147 @@ function formatTimestamp(ts: number): string {
   if (hours > 0) return `${hours}h ago`
   if (minutes > 0) return `${minutes}m ago`
   return 'Just now'
+}
+
+/**
+ * Debug Option Section - Display p10/p50/p90 deltas + Top-3 edges
+ */
+interface DebugOptionSectionProps {
+  title: string
+  delta: CompareDelta
+  color: string
+}
+
+function DebugOptionSection({ title, delta, color }: DebugOptionSectionProps) {
+  // Format delta with sign
+  const formatDelta = (val: number) => {
+    const sign = val >= 0 ? '+' : ''
+    return `${sign}${val.toFixed(1)}`
+  }
+
+  // Get delta icon
+  const getDeltaIcon = (val: number) => {
+    if (val > 0) return <TrendingUp className="w-3 h-3" style={{ color: 'var(--olumi-success)' }} />
+    if (val < 0) return <TrendingDown className="w-3 h-3" style={{ color: 'var(--olumi-danger)' }} />
+    return <Minus className="w-3 h-3" style={{ color: 'rgba(232, 236, 245, 0.5)' }} />
+  }
+
+  return (
+    <div
+      className="p-3 rounded border"
+      style={{
+        backgroundColor: 'rgba(91, 108, 255, 0.05)',
+        borderColor: 'rgba(91, 108, 255, 0.15)',
+      }}
+    >
+      <div
+        className="text-xs font-semibold mb-2"
+        style={{ color }}
+      >
+        {title}
+      </div>
+
+      {/* p10/p50/p90 Grid */}
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        {/* p10 */}
+        <div
+          className="p-2 rounded text-center"
+          style={{
+            backgroundColor: 'rgba(91, 108, 255, 0.08)',
+          }}
+        >
+          <div className="text-xs font-medium mb-1" style={{ color: 'rgba(232, 236, 245, 0.6)' }}>
+            p10
+          </div>
+          <div className="text-sm font-semibold mb-1" style={{ color: 'var(--olumi-text)' }}>
+            {delta.p10.b.toFixed(1)}
+          </div>
+          <div className="flex items-center justify-center gap-1 text-xs">
+            {getDeltaIcon(delta.p10.delta)}
+            <span style={{ color: delta.p10.delta >= 0 ? 'var(--olumi-success)' : 'var(--olumi-danger)' }}>
+              {formatDelta(delta.p10.delta)}
+            </span>
+          </div>
+        </div>
+
+        {/* p50 */}
+        <div
+          className="p-2 rounded text-center"
+          style={{
+            backgroundColor: 'rgba(91, 108, 255, 0.08)',
+          }}
+        >
+          <div className="text-xs font-medium mb-1" style={{ color: 'rgba(232, 236, 245, 0.6)' }}>
+            p50
+          </div>
+          <div className="text-sm font-semibold mb-1" style={{ color: 'var(--olumi-text)' }}>
+            {delta.p50.b.toFixed(1)}
+          </div>
+          <div className="flex items-center justify-center gap-1 text-xs">
+            {getDeltaIcon(delta.p50.delta)}
+            <span style={{ color: delta.p50.delta >= 0 ? 'var(--olumi-success)' : 'var(--olumi-danger)' }}>
+              {formatDelta(delta.p50.delta)}
+            </span>
+          </div>
+        </div>
+
+        {/* p90 */}
+        <div
+          className="p-2 rounded text-center"
+          style={{
+            backgroundColor: 'rgba(91, 108, 255, 0.08)',
+          }}
+        >
+          <div className="text-xs font-medium mb-1" style={{ color: 'rgba(232, 236, 245, 0.6)' }}>
+            p90
+          </div>
+          <div className="text-sm font-semibold mb-1" style={{ color: 'var(--olumi-text)' }}>
+            {delta.p90.b.toFixed(1)}
+          </div>
+          <div className="flex items-center justify-center gap-1 text-xs">
+            {getDeltaIcon(delta.p90.delta)}
+            <span style={{ color: delta.p90.delta >= 0 ? 'var(--olumi-success)' : 'var(--olumi-danger)' }}>
+              {formatDelta(delta.p90.delta)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Top-3 Edges */}
+      {delta.top3_edges.length > 0 && (
+        <div>
+          <div
+            className="text-xs font-medium mb-1"
+            style={{ color: 'rgba(232, 236, 245, 0.7)' }}
+          >
+            Top-3 Contributing Edges:
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {delta.top3_edges.map((edge, i) => (
+              <button
+                key={edge.edge_id}
+                className="px-2 py-1 rounded text-xs transition-colors cursor-pointer"
+                style={{
+                  backgroundColor: 'rgba(91, 108, 255, 0.15)',
+                  color: 'var(--olumi-text)',
+                  border: '1px solid rgba(91, 108, 255, 0.3)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(91, 108, 255, 0.25)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(91, 108, 255, 0.15)'
+                }}
+                title={`${edge.from} → ${edge.to} (weight: ${edge.weight.toFixed(2)})`}
+                aria-label={`Highlight edge from ${edge.from} to ${edge.to}`}
+                // TODO: Add edge highlight callback (Phase 5 next task)
+              >
+                {edge.label || `${edge.from} → ${edge.to}`}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
