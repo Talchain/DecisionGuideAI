@@ -152,7 +152,37 @@ export const autoDetectAdapter = {
     };
   },
 
-  // SSE streaming: NOT AVAILABLE YET (endpoint not deployed - Oct 2025)
-  // When /v1/stream endpoint goes live, uncomment httpV1Adapter.stream and
-  // re-enable this stream export with proper delegation logic
+  // SSE streaming: Feature flag gated (VITE_FEATURE_PLOT_STREAM=1)
+  // Only available when httpV1Adapter.stream exists (behind feature flag)
+  // Falls back to mock adapter if v1 unavailable
+  ...(import.meta.env.VITE_FEATURE_PLOT_STREAM === '1' && (httpV1Adapter as any).stream ? {
+    stream: {
+      run(
+        input: RunRequest,
+        handlers: {
+          onHello?: (data: { response_id: string }) => void
+          onTick?: (data: { index: number }) => void
+          onDone: (data: { response_id: string; report: ReportV1 }) => void
+          onError: (error: ErrorV1) => void
+        }
+      ): () => void {
+        // Probe result is cached synchronously after initial load
+        // If v1 is available, use httpV1 streaming; otherwise fall back to mock
+        const isV1Available = probeResult?.available ?? false
+
+        if (isV1Available && (httpV1Adapter as any).stream) {
+          if (import.meta.env.DEV) {
+            console.log('[AutoDetect] Using httpV1 streaming')
+          }
+          return (httpV1Adapter as any).stream.run(input, handlers)
+        } else {
+          if (import.meta.env.DEV) {
+            console.log('[AutoDetect] v1 unavailable, using mock streaming')
+          }
+          // Mock adapter already has streaming support
+          return (mockAdapter as any).stream.run(input, handlers)
+        }
+      },
+    },
+  } : {}),
 };
