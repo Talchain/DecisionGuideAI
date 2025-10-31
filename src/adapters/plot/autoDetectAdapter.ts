@@ -162,6 +162,7 @@ export const autoDetectAdapter = {
         handlers: {
           onHello?: (data: { response_id: string }) => void
           onTick?: (data: { index: number }) => void
+          onInterim?: (data: { findings: string[] }) => void
           onDone: (data: { response_id: string; report: ReportV1 }) => void
           onError: (error: ErrorV1) => void
         }

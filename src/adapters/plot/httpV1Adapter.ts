@@ -450,6 +450,7 @@ export const httpV1Adapter = {
         handlers: {
           onHello?: (data: { response_id: string }) => void
           onTick?: (data: { index: number }) => void
+          onInterim?: (data: { findings: string[] }) => void
           onDone: (data: { response_id: string; report: ReportV1 }) => void
           onError: (error: ErrorV1) => void
         }
@@ -517,8 +518,10 @@ export const httpV1Adapter = {
           },
 
           onInterim: (data) => {
-            // Interim findings not currently exposed to UI
-            // Could be used for "What we're seeing so far..." text
+            // Forward interim findings to UI if handler provided
+            if (handlers.onInterim) {
+              handlers.onInterim({ findings: data.findings })
+            }
             if (import.meta.env.DEV) {
               console.log('[httpV1] Interim findings:', data.findings)
             }
