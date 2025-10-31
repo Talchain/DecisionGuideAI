@@ -437,13 +437,169 @@ export const httpV1Adapter = {
     return v1http.health()
   },
 
-  // SSE streaming: NOT AVAILABLE YET (endpoint not deployed - Oct 2025)
-  // When /v1/stream endpoint goes live, uncomment the code below and update probe.ts
-  // to set result.endpoints.stream = true
-  //
-  // stream: {
-  //   run(input: RunRequest, handlers: { ... }): () => void {
-  //     // Stream implementation here
-  //   }
-  // }
+  // SSE streaming: Feature flag gated (VITE_FEATURE_PLOT_STREAM=1)
+  ...(import.meta.env.VITE_FEATURE_PLOT_STREAM === '1' ? {
+    stream: {
+      /**
+       * Run analysis via SSE streaming
+       * Maps v1 SSE events to UI event structure
+       * Returns cancel function
+       */
+      run(
+        input: RunRequest,
+        handlers: {
+          onHello?: (data: { response_id: string }) => void
+          onTick?: (data: { index: number }) => void
+          onDone: (data: { response_id: string; report: ReportV1 }) => void
+          onError: (error: ErrorV1) => void
+        }
+      ): () => void {
+        // Map UI request to v1 format
+        const seed = input.seed ?? 1337
+
+        // Build v1 request (will throw if validation fails)
+        let v1Request: V1RunRequest
+        try {
+          const graph = input.graph // Must be provided for streaming
+          if (!graph) {
+            throw {
+              code: 'BAD_INPUT',
+              message: 'Graph required for streaming runs',
+            } as V1Error
+          }
+
+          const apiGraph: ApiGraph = isApiGraph(graph)
+            ? graph
+            : toApiGraph(graph as UiGraph)
+
+          v1Request = {
+            graph: apiGraph,
+            seed,
+          }
+
+          // Add optional knobs
+          if (input.k_samples !== undefined) v1Request.k_samples = input.k_samples
+          if (input.treatment_node) v1Request.treatment_node = input.treatment_node
+          if (input.outcome_node) v1Request.outcome_node = input.outcome_node
+          if (input.baseline_value !== undefined) v1Request.baseline_value = input.baseline_value
+        } catch (err: any) {
+          // Synchronously call onError for setup failures
+          handlers.onError(mapV1ErrorToUI(err as V1Error))
+          return () => {} // Return no-op cancel
+        }
+
+        if (import.meta.env.DEV) {
+          console.log(`🌊 [httpV1] Streaming run started (seed=${seed})`)
+        }
+
+        // Track run ID from started event
+        let runId: string | undefined
+
+        // Map v1 SSE events to UI events
+        const cancelFn = v1runStream(v1Request, {
+          onStarted: (data) => {
+            runId = data.run_id
+            if (handlers.onHello) {
+              handlers.onHello({ response_id: data.run_id })
+            }
+            if (import.meta.env.DEV) {
+              console.log(`[httpV1] Stream started: ${runId}`)
+            }
+          },
+
+          onProgress: (data) => {
+            // Map progress percent (0-100) to tick index (0-5) for UI compatibility
+            // Progress capped at 90% in sseClient until COMPLETE
+            const tickIndex = Math.floor((data.percent / 100) * 5)
+            if (handlers.onTick) {
+              handlers.onTick({ index: tickIndex })
+            }
+          },
+
+          onInterim: (data) => {
+            // Interim findings not currently exposed to UI
+            // Could be used for "What we're seeing so far..." text
+            if (import.meta.env.DEV) {
+              console.log('[httpV1] Interim findings:', data.findings)
+            }
+          },
+
+          onComplete: (data) => {
+            if (import.meta.env.DEV) {
+              console.log(`✅ [httpV1] Stream completed: ${data.execution_ms}ms`)
+            }
+
+            // Normalize response envelope
+            const normalized = toUiReport(data.result as RunResponse)
+
+            // Map confidence 0-1 to ConfidenceLevel
+            let confidenceLevel: ConfidenceLevel = 'medium'
+            if (normalized.confidence !== undefined) {
+              if (normalized.confidence >= 0.7) confidenceLevel = 'high'
+              else if (normalized.confidence < 0.4) confidenceLevel = 'low'
+            }
+
+            // Validate determinism
+            if (!normalized.hash) {
+              handlers.onError({
+                schema: 'error.v1',
+                code: 'SERVER_ERROR',
+                error: 'Backend returned no response_hash (determinism requirement violated)',
+              })
+              return
+            }
+
+            const report: ReportV1 = {
+              schema: 'report.v1',
+              meta: {
+                seed: normalized.seed || seed,
+                response_id: normalized.hash,
+                elapsed_ms: data.execution_ms || 0,
+              },
+              model_card: {
+                response_hash: normalized.hash,
+                response_hash_algo: 'sha256',
+                normalized: true,
+              },
+              results: {
+                conservative: normalized.conservative || 0,
+                likely: normalized.mostLikely || 0,
+                optimistic: normalized.optimistic || 0,
+                units: normalized.units || 'units',
+              },
+              confidence: {
+                level: confidenceLevel,
+                why: normalized.explanation || '',
+              },
+              drivers: normalized.drivers,
+            }
+
+            handlers.onDone({
+              response_id: normalized.hash,
+              report,
+            })
+          },
+
+          onError: (error) => {
+            if (import.meta.env.DEV) {
+              console.error('[httpV1] Stream error:', error)
+            }
+            handlers.onError(mapV1ErrorToUI(error))
+          },
+        })
+
+        // Return cancel function that also calls backend cancel endpoint
+        return () => {
+          cancelFn() // Cancel SSE stream
+          if (runId) {
+            v1http.cancel(runId).catch((err) => {
+              if (import.meta.env.DEV) {
+                console.warn('[httpV1] Backend cancel failed:', err)
+              }
+            })
+          }
+        }
+      },
+    },
+  } : {}),
 }
