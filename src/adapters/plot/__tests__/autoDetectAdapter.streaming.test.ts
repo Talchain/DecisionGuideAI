@@ -41,12 +41,16 @@ describe('autoDetectAdapter Streaming Integration', () => {
   describe('Probe Success → httpV1 Streaming', () => {
     it('should use httpV1 adapter when probe succeeds', async () => {
       // Setup handlers BEFORE triggering probe
+      // Probe checks both /v1/health and HEAD /v1/run
       server.use(
         http.get(`${PROXY_BASE}/v1/health`, () => {
           return HttpResponse.json({
             status: 'ok',
             timestamp: '2025-10-28T17:00:00Z',
           })
+        }),
+        http.head(`${PROXY_BASE}/v1/run`, () => {
+          return new HttpResponse(null, { status: 200 })
         })
       )
 
@@ -158,6 +162,9 @@ describe('autoDetectAdapter Streaming Integration', () => {
       server.use(
         http.get(`${PROXY_BASE}/v1/health`, () => {
           return HttpResponse.json({ status: 'ok' })
+        }),
+        http.head(`${PROXY_BASE}/v1/run`, () => {
+          return new HttpResponse(null, { status: 200 })
         })
       )
 
@@ -181,9 +188,18 @@ describe('autoDetectAdapter Streaming Integration', () => {
               setTimeout(() => {
                 const completeData = {
                   result: {
-                    results: { summary: { likely: 150, units: 'units' } },
+                    results: {
+                      summary: {
+                        conservative: 100,
+                        likely: 150,
+                        optimistic: 200,
+                        units: 'units',
+                      },
+                    },
                     response_hash: 'test-hash',
                     seed: 42,
+                    confidence: 0.85,
+                    explanation: 'Test explanation',
                   },
                   execution_ms: 100,
                 }
@@ -210,7 +226,7 @@ describe('autoDetectAdapter Streaming Integration', () => {
       return new Promise<void>((resolve, reject) => {
         let interimCalled = false
 
-        (autoDetectAdapter as any).stream?.run(request, {
+        const cancel = (autoDetectAdapter as any).stream?.run(request, {
           onHello: () => {},
           onTick: () => {},
           onInterim: (data: { findings: string[] }) => {
@@ -225,6 +241,8 @@ describe('autoDetectAdapter Streaming Integration', () => {
             reject(new Error(`Unexpected error: ${error.error}`))
           },
         })
+
+        expect(typeof cancel).toBe('function')
 
         setTimeout(() => reject(new Error('Test timeout')), 5000)
       })
@@ -244,7 +262,7 @@ describe('autoDetectAdapter Streaming Integration', () => {
       await reprobeCapability()
 
       const request: RunRequest = {
-        template_id: 'test-template',
+        template_id: 'pricing-v1',  // Use actual template from fixtures
         seed: 42,
       }
 
@@ -289,11 +307,16 @@ describe('autoDetectAdapter Streaming Integration', () => {
           await new Promise(resolve => setTimeout(resolve, 100))
           probeResolved = true
           return HttpResponse.json({ status: 'ok' })
+        }),
+        http.head(`${PROXY_BASE}/v1/run`, () => {
+          return new HttpResponse(null, { status: 200 })
         })
       )
 
-      // Clear probe cache to ensure fresh probe on next stream.run()
-      await reprobeCapability()
+      // Clear probe cache without awaiting to simulate cold start
+      // This returns a Promise but we don't await it - the probe will be
+      // triggered when stream.run() is called
+      reprobeCapability()
 
       // Mock streaming endpoint
       const encoder = new TextEncoder()
@@ -308,9 +331,18 @@ describe('autoDetectAdapter Streaming Integration', () => {
               setTimeout(() => {
                 const completeData = {
                   result: {
-                    results: { summary: { likely: 150, units: 'units' } },
+                    results: {
+                      summary: {
+                        conservative: 100,
+                        likely: 150,
+                        optimistic: 200,
+                        units: 'units',
+                      },
+                    },
                     response_hash: 'test-hash',
                     seed: 42,
+                    confidence: 0.85,
+                    explanation: 'Test explanation',
                   },
                   execution_ms: 50,
                 }
@@ -371,7 +403,7 @@ describe('autoDetectAdapter Streaming Integration', () => {
       )
 
       const request: RunRequest = {
-        template_id: 'test-template',
+        template_id: 'pricing-v1',  // Use actual template from fixtures
         seed: 42,
       }
 
@@ -406,6 +438,9 @@ describe('autoDetectAdapter Streaming Integration', () => {
       server.use(
         http.get(`${PROXY_BASE}/v1/health`, () => {
           return HttpResponse.json({ status: 'ok' })
+        }),
+        http.head(`${PROXY_BASE}/v1/run`, () => {
+          return new HttpResponse(null, { status: 200 })
         })
       )
 
