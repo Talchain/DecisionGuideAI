@@ -32,6 +32,10 @@ export interface V1RunRequest {
   treatment_node?: string
   outcome_node?: string
   baseline_value?: number
+  // Debug slices (Phase 2+): Include debug.compare + debug.inspector.edges
+  // Behind feature flags: VITE_FEATURE_COMPARE_DEBUG, VITE_FEATURE_INSPECTOR_DEBUG
+  // Debug slices DO NOT affect response_hash (server-side exclusion)
+  include_debug?: boolean
 }
 
 // Response types

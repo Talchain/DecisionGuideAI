@@ -213,6 +213,17 @@ export const httpV1Adapter = {
       if (input.outcome_node) requestBody.outcome_node = input.outcome_node
       if (input.baseline_value !== undefined) requestBody.baseline_value = input.baseline_value
 
+      // Add include_debug if Compare or Inspector debug features are enabled
+      // Debug slices DO NOT affect response_hash (server-side exclusion)
+      const compareDebugEnabled = import.meta.env.VITE_FEATURE_COMPARE_DEBUG === '1'
+      const inspectorDebugEnabled = import.meta.env.VITE_FEATURE_INSPECTOR_DEBUG === '1'
+      if (compareDebugEnabled || inspectorDebugEnabled) {
+        requestBody.include_debug = true
+        if (import.meta.env.DEV) {
+          console.log('[httpV1] include_debug=true (Compare:', compareDebugEnabled, ', Inspector:', inspectorDebugEnabled, ')')
+        }
+      }
+
       const nodeCount = apiGraph.nodes.length
 
       // PREFLIGHT: Validate request before execution
