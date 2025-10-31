@@ -376,15 +376,18 @@ Enable with `?dev=1`:
 
 ## Known Limitations
 
-1. **Backend Dependency**
+1. **Backend Dependency & Cold-Start Behavior**
    - Streaming requires `/v1/stream` endpoint deployed
-   - Automatic fallback to sync if unavailable
-   - Check with `await getAdapterMode()` → `'httpv1'` or `'mock'`
+   - Automatic fallback to mock if unavailable
+   - **Cold Start:** On initial page load, probe runs asynchronously to detect backend availability
+   - Stream requests await probe completion before selecting httpV1/mock adapter
+   - Cancel function returned immediately; actual stream starts after probe
+   - Check adapter mode: `await getAdapterMode()` → `'httpv1'` or `'mock'`
 
 2. **Interim Findings**
-   - `onInterim` handler exposed but not yet wired to UI
-   - Future: Display "What we're seeing so far..." text
-   - Current: Logged in dev console only
+   - `onInterim` handler wired to store but not yet displayed in UI
+   - Future: Display "Analyzing risk factors..." text in ResultsPanel
+   - Current: Available in `results.interim` state for consumption
 
 3. **Reconnection**
    - No automatic reconnection on transient failures

@@ -33,6 +33,7 @@ export interface ResultsState {
   report?: ReportV1 | null
   error?: { code: string; message: string; retryAfter?: number } | null
   violations?: ValidationViolation[]  // Client-side validation violations
+  interim?: string[]            // Interim findings during streaming
   startedAt?: number
   finishedAt?: number
   drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
@@ -127,6 +128,7 @@ interface CanvasState {
   resultsStart: (params: { seed: number }) => void
   resultsConnecting: (runId: string) => void
   resultsProgress: (percent: number) => void
+  resultsInterim: (findings: string[]) => void
   resultsComplete: (params: { report: ReportV1; hash: string; drivers?: Array<{ kind: 'node' | 'edge'; id: string }> }) => void
   resultsError: (params: { code: string; message: string; retryAfter?: number }) => void
   resultsCancelled: () => void
@@ -869,6 +871,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         report: undefined,
         hash: undefined,
         runId: undefined,
+        interim: undefined,
         finishedAt: undefined,
         drivers: undefined
       }
@@ -893,6 +896,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         status: 'streaming',
         // Cap at 90% until complete event arrives
         progress: Math.min(percent, 90)
+      }
+    }))
+  },
+
+  resultsInterim: (findings) => {
+    set(s => ({
+      results: {
+        ...s.results,
+        interim: findings
       }
     }))
   },
@@ -985,7 +997,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({
       results: {
         status: 'idle',
-        progress: 0
+        progress: 0,
+        interim: undefined
       }
     })
   },

@@ -167,22 +167,44 @@ export const autoDetectAdapter = {
           onError: (error: ErrorV1) => void
         }
       ): () => void {
-        // Probe result is cached synchronously after initial load
-        // If v1 is available, use httpV1 streaming; otherwise fall back to mock
-        const isV1Available = probeResult?.available ?? false
+        // Track cancel function from actual adapter
+        let actualCancel: (() => void) | null = null
+        let cancelled = false
 
-        if (isV1Available && (httpV1Adapter as any).stream) {
-          if (import.meta.env.DEV) {
-            console.log('[AutoDetect] Using httpV1 streaming')
+        // Return cancel function immediately (synchronous API)
+        const cancel = () => {
+          cancelled = true
+          if (actualCancel) {
+            actualCancel()
           }
-          return (httpV1Adapter as any).stream.run(input, handlers)
-        } else {
-          if (import.meta.env.DEV) {
-            console.log('[AutoDetect] v1 unavailable, using mock streaming')
-          }
-          // Mock adapter already has streaming support
-          return (mockAdapter as any).stream.run(input, handlers)
         }
+
+        // Async initialization: await probe before selecting adapter
+        // This fixes the race condition where first call would default to mock
+        ;(async () => {
+          if (cancelled) return
+
+          // Wait for probe to complete (cached or in-flight)
+          const probe = await getProbeResult()
+          if (cancelled) return
+
+          const isV1Available = probe.available
+
+          if (isV1Available && (httpV1Adapter as any).stream) {
+            if (import.meta.env.DEV) {
+              console.log('[AutoDetect] Using httpV1 streaming')
+            }
+            actualCancel = (httpV1Adapter as any).stream.run(input, handlers)
+          } else {
+            if (import.meta.env.DEV) {
+              console.log('[AutoDetect] v1 unavailable, using mock streaming')
+            }
+            // Mock adapter already has streaming support
+            actualCancel = (mockAdapter as any).stream.run(input, handlers)
+          }
+        })()
+
+        return cancel
       },
     },
   } : {}),

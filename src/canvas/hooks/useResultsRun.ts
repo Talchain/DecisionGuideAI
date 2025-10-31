@@ -32,6 +32,7 @@ export function useResultsRun(): UseResultsRunReturn {
   const resultsStart = useCanvasStore(s => s.resultsStart)
   const resultsConnecting = useCanvasStore(s => s.resultsConnecting)
   const resultsProgress = useCanvasStore(s => s.resultsProgress)
+  const resultsInterim = useCanvasStore(s => s.resultsInterim)
   const resultsComplete = useCanvasStore(s => s.resultsComplete)
   const resultsError = useCanvasStore(s => s.resultsError)
   const resultsCancelled = useCanvasStore(s => s.resultsCancelled)
@@ -98,6 +99,9 @@ export function useResultsRun(): UseResultsRunReturn {
                   lastProgressUpdate.current = now
                 }
               },
+              onInterim: (data: { findings: string[] }) => {
+                resultsInterim(data.findings)
+              },
               onDone: (data: { response_id: string; report: ReportV1 }) => {
                 const report = data.report
 
@@ -162,7 +166,7 @@ export function useResultsRun(): UseResultsRunReturn {
         }
       }, RUN_DEBOUNCE_MS)
     })
-  }, [nodes, edges, resultsStart, resultsConnecting, resultsProgress, resultsComplete, resultsError])
+  }, [nodes, edges, resultsStart, resultsConnecting, resultsProgress, resultsInterim, resultsComplete, resultsError])
 
   const cancel = useCallback(() => {
     // Clear debounce timer if pending
