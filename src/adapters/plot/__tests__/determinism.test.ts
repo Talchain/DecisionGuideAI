@@ -10,7 +10,7 @@
  * To run: VITE_FEATURE_PLOT_STREAM=1 npm test -- determinism.test.ts
  */
 
-import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { httpV1Adapter } from '../httpV1Adapter'
@@ -160,18 +160,32 @@ describe('PLoT V1 Determinism', () => {
         })
       )
 
-      // Run without debug
+      // Run without debug (no feature flags set)
       const reportNoDebug = await httpV1Adapter.run(MOCK_REQUEST)
       expect(reportNoDebug.debug).toBeUndefined()
+      const hashWithoutDebug = reportNoDebug.model_card.response_hash
 
-      // Run with debug (pass include_debug via request options)
-      // Note: The httpV1Adapter should accept include_debug in the request
-      const reportWithDebug = await httpV1Adapter.run(MOCK_REQUEST)
+      // Run with debug by enabling feature flag
+      vi.stubEnv('VITE_FEATURE_COMPARE_DEBUG', '1')
+      try {
+        const reportWithDebug = await httpV1Adapter.run(MOCK_REQUEST)
 
-      // Both should have same hash (debug doesn't affect hash calculation)
-      expect(reportNoDebug.model_card.response_hash).toBe('deterministic-hash-42')
-      expect(reportWithDebug.model_card.response_hash).toBe('deterministic-hash-42')
-      expect(requestCount).toBeGreaterThanOrEqual(2)
+        // Verify debug data is present
+        expect(reportWithDebug.debug).toBeDefined()
+        expect(reportWithDebug.debug?.compare).toBeDefined()
+        expect(reportWithDebug.debug?.compare?.conservative).toBeDefined()
+        expect(reportWithDebug.debug?.compare?.conservative.p50).toBe(100)
+        expect(reportWithDebug.debug?.compare?.conservative.top3_edges).toHaveLength(1)
+
+        // Both should have same hash (debug doesn't affect hash calculation)
+        expect(reportWithDebug.model_card.response_hash).toBe('deterministic-hash-42')
+        expect(reportWithDebug.model_card.response_hash).toBe(hashWithoutDebug)
+      } finally {
+        // Clean up environment stub
+        vi.unstubAllEnvs()
+      }
+
+      expect(requestCount).toBe(2)
     }, 10000)
   })
 

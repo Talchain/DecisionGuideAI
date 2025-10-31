@@ -300,7 +300,8 @@ export const httpV1Adapter = {
         } as ErrorV1
       }
 
-      return {
+      // Build report with debug slices if present
+      const report: ReportV1 = {
         schema: 'report.v1',
         meta: {
           seed: normalized.seed || input.seed || 1337,
@@ -324,6 +325,14 @@ export const httpV1Adapter = {
         },
         drivers: normalized.drivers,
       }
+
+      // Pass through debug slices if present (Phase 2+)
+      // Debug slices DO NOT affect response_hash
+      if ((response.result as any).debug) {
+        report.debug = (response.result as any).debug
+      }
+
+      return report
     } catch (err: any) {
       // Handle validation errors from mapper
       if (err.code === 'LIMIT_EXCEEDED' || err.code === 'BAD_INPUT') {

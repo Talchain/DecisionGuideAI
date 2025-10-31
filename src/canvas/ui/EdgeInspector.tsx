@@ -29,7 +29,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   const updateEdge = useCanvasStore(s => s.updateEdge)
   const deleteEdge = useCanvasStore(s => s.deleteEdge)
   const beginReconnect = useCanvasStore(s => s.beginReconnect)
-  const selectNodes = useCanvasStore(s => s.selectNodes)
+  const selectNodeWithoutHistory = useCanvasStore(s => s.selectNodeWithoutHistory)
   const report = useCanvasStore(selectReport)
   const { showToast } = useToast()
 
@@ -347,7 +347,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
             onClick={() => {
               // Select the source decision node
               if (edge?.source) {
-                selectNodes([edge.source])
+                selectNodeWithoutHistory(edge.source)
                 onClose()
               }
             }}
