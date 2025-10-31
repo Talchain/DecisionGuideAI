@@ -915,6 +915,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   resultsComplete: async ({ report, hash, drivers }) => {
+    // Clear any pending interim findings
+    clearInterimQueue()
+
     const { nodes, edges, results } = get()
 
     set(s => ({
@@ -972,6 +975,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   resultsCancelled: () => {
+    // Clear any pending interim findings
+    clearInterimQueue()
+
     set(s => ({
       results: {
         ...s.results,

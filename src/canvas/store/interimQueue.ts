@@ -32,8 +32,8 @@ export function enqueueInterim(
   push: (items: string[]) => void,
   items: string[]
 ): void {
-  // Add new items to buffer
-  buffer.push(...items)
+  // Replace buffer with new cumulative payload (backend sends full lists)
+  buffer = items
 
   // Already scheduled? Do nothing (coalesce updates)
   if (timer !== null) return
@@ -50,16 +50,17 @@ export function enqueueInterim(
   }
 
   // Use requestAnimationFrame for better performance, fallback to setTimeout
-  if (typeof requestAnimationFrame !== 'undefined') {
+  // Use globalThis for SSR compatibility
+  if (typeof globalThis.requestAnimationFrame !== 'undefined') {
     let rafScheduled = false
-    timer = window.setTimeout(() => {
+    timer = globalThis.setTimeout(() => {
       if (!rafScheduled) {
         rafScheduled = true
-        requestAnimationFrame(flush)
+        globalThis.requestAnimationFrame(flush)
       }
-    }, BATCH_WINDOW_MS)
+    }, BATCH_WINDOW_MS) as unknown as number
   } else {
-    timer = window.setTimeout(flush, BATCH_WINDOW_MS)
+    timer = globalThis.setTimeout(flush, BATCH_WINDOW_MS) as unknown as number
   }
 }
 
@@ -69,7 +70,7 @@ export function enqueueInterim(
 export function clearInterimQueue(): void {
   buffer = []
   if (timer !== null) {
-    clearTimeout(timer)
+    globalThis.clearTimeout(timer)
     timer = null
   }
 }

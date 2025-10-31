@@ -83,3 +83,48 @@ export function deriveCompare(
     top3_edges: b.top3_edges
   }
 }
+
+/**
+ * Derive cross-run deltas for the same option across two different runs
+ *
+ * Use this for CompareView to compare runA vs runB for the same outcome option.
+ *
+ * @param compareMapA - Debug.compare map from run A
+ * @param compareMapB - Debug.compare map from run B
+ * @param optionId - Option to compare (e.g., "conservative", "likely", "optimistic")
+ * @returns CompareDelta with cross-run deltas, or null if parsing fails
+ */
+export function deriveCompareAcrossRuns(
+  compareMapA: unknown,
+  compareMapB: unknown,
+  optionId: string
+): CompareDelta | null {
+  // Parse and validate both maps
+  const mapA = parseDebugCompare(compareMapA)
+  const mapB = parseDebugCompare(compareMapB)
+
+  if (!mapA || !mapB) {
+    console.warn('[deriveCompareAcrossRuns] Failed to parse debug.compare maps')
+    return null
+  }
+
+  const a = mapA[optionId]
+  const b = mapB[optionId]
+
+  if (!a || !b) {
+    console.warn('[deriveCompareAcrossRuns] Missing debug slice for option:', {
+      optionId,
+      availableInA: Object.keys(mapA),
+      availableInB: Object.keys(mapB)
+    })
+    return null
+  }
+
+  return {
+    p10: { a: a.p10, b: b.p10, delta: b.p10 - a.p10 },
+    p50: { a: a.p50, b: b.p50, delta: b.p50 - a.p50 },
+    p90: { a: a.p90, b: b.p90, delta: b.p90 - a.p90 },
+    // Use run B's top3_edges
+    top3_edges: b.top3_edges
+  }
+}

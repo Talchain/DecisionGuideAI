@@ -11,7 +11,7 @@
 import { useMemo } from 'react'
 import { ArrowUp, ArrowDown, Equal, X, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { compareRuns, type RunComparison } from '../store/runHistory'
-import { deriveCompare, type CompareDelta } from '../../lib/compare'
+import { deriveCompareAcrossRuns, type CompareDelta } from '../../lib/compare'
 
 interface CompareViewProps {
   runIds: string[]
@@ -38,10 +38,10 @@ export function CompareView({ runIds, onClose }: CompareViewProps) {
 
     if (!compareMapA || !compareMapB) return null
 
-    // Derive deltas for each option (conservative, likely, optimistic)
-    const conservative = deriveCompare(compareMapA, 'conservative', 'conservative')
-    const likely = deriveCompare(compareMapA, 'likely', 'likely')
-    const optimistic = deriveCompare(compareMapA, 'optimistic', 'optimistic')
+    // Derive cross-run deltas for each option (runA vs runB)
+    const conservative = deriveCompareAcrossRuns(compareMapA, compareMapB, 'conservative')
+    const likely = deriveCompareAcrossRuns(compareMapA, compareMapB, 'likely')
+    const optimistic = deriveCompareAcrossRuns(compareMapA, compareMapB, 'optimistic')
 
     return { conservative, likely, optimistic }
   }, [debugEnabled, comparison])
