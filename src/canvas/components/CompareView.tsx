@@ -8,10 +8,11 @@
  * - "Reveal on canvas" button to toggle highlighting
  */
 
-import { useMemo } from 'react'
+import { useMemo, useRef, useCallback } from 'react'
 import { ArrowUp, ArrowDown, Equal, X, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { compareRuns, type RunComparison } from '../store/runHistory'
 import { deriveCompareAcrossRuns, type CompareDelta } from '../../lib/compare'
+import { useCanvasStore } from '../store'
 
 interface CompareViewProps {
   runIds: string[]
@@ -45,6 +46,29 @@ export function CompareView({ runIds, onClose }: CompareViewProps) {
 
     return { conservative, likely, optimistic }
   }, [debugEnabled, comparison])
+
+  // Throttled edge highlight handler (10Hz = 100ms rate limit)
+  const lastHighlightTime = useRef<number>(0)
+  const setHighlightedDriver = useCanvasStore(s => s.setHighlightedDriver)
+  const clearHighlightedDriver = useCanvasStore(s => s.clearHighlightedDriver)
+
+  const handleEdgeHighlight = useCallback((edgeId: string) => {
+    const now = Date.now()
+    const timeSinceLastHighlight = now - lastHighlightTime.current
+
+    // Throttle to 10Hz (100ms minimum interval)
+    if (timeSinceLastHighlight < 100) {
+      return
+    }
+
+    lastHighlightTime.current = now
+    setHighlightedDriver({ kind: 'edge', id: edgeId })
+
+    // Auto-clear highlight after 2 seconds
+    setTimeout(() => {
+      clearHighlightedDriver()
+    }, 2000)
+  }, [setHighlightedDriver, clearHighlightedDriver])
 
   if (!comparison) {
     return (
@@ -336,6 +360,7 @@ export function CompareView({ runIds, onClose }: CompareViewProps) {
                 title="Conservative"
                 delta={debugComparison.conservative}
                 color="var(--olumi-danger)"
+                onEdgeClick={handleEdgeHighlight}
               />
             )}
 
@@ -345,6 +370,7 @@ export function CompareView({ runIds, onClose }: CompareViewProps) {
                 title="Likely"
                 delta={debugComparison.likely}
                 color="var(--olumi-primary)"
+                onEdgeClick={handleEdgeHighlight}
               />
             )}
 
@@ -354,6 +380,7 @@ export function CompareView({ runIds, onClose }: CompareViewProps) {
                 title="Optimistic"
                 delta={debugComparison.optimistic}
                 color="var(--olumi-success)"
+                onEdgeClick={handleEdgeHighlight}
               />
             )}
           </div>
@@ -399,9 +426,10 @@ interface DebugOptionSectionProps {
   title: string
   delta: CompareDelta
   color: string
+  onEdgeClick: (edgeId: string) => void
 }
 
-function DebugOptionSection({ title, delta, color }: DebugOptionSectionProps) {
+function DebugOptionSection({ title, delta, color, onEdgeClick }: DebugOptionSectionProps) {
   // Format delta with sign
   const formatDelta = (val: number) => {
     const sign = val >= 0 ? '+' : ''
@@ -509,7 +537,8 @@ function DebugOptionSection({ title, delta, color }: DebugOptionSectionProps) {
             {delta.top3_edges.map((edge, i) => (
               <button
                 key={edge.edge_id}
-                className="px-2 py-1 rounded text-xs transition-colors cursor-pointer"
+                onClick={() => onEdgeClick(edge.edge_id)}
+                className="px-2 py-1 rounded text-xs transition-colors cursor-pointer focus:outline-none focus:ring-2"
                 style={{
                   backgroundColor: 'rgba(91, 108, 255, 0.15)',
                   color: 'var(--olumi-text)',
@@ -521,9 +550,8 @@ function DebugOptionSection({ title, delta, color }: DebugOptionSectionProps) {
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'rgba(91, 108, 255, 0.15)'
                 }}
-                title={`${edge.from} → ${edge.to} (weight: ${edge.weight.toFixed(2)})`}
+                title={`Click to highlight edge: ${edge.from} → ${edge.to} (weight: ${edge.weight.toFixed(2)})`}
                 aria-label={`Highlight edge from ${edge.from} to ${edge.to}`}
-                // TODO: Add edge highlight callback (Phase 5 next task)
               >
                 {edge.label || `${edge.from} → ${edge.to}`}
               </button>
