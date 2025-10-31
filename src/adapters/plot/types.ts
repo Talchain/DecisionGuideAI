@@ -90,3 +90,77 @@ export type StreamEvent =
   | { type: 'reconnected'; data: { attempt: number } }
   | { type: 'done'; data: { response_id: string } }
   | { type: 'error'; data: ErrorV1 }
+
+/**
+ * Zod Schemas for Debug Slices (Type Safety)
+ *
+ * Server returns debug slices when `include_debug=true`:
+ * - debug.compare[option_id] → { p10, p50, p90, top3_edges[] }
+ * - debug.inspector.edges[] → { edge_id, from, to, label, weight, belief?, provenance? }
+ *
+ * Parse helpers fail closed with Sentry logging.
+ */
+import { z } from 'zod'
+
+// Debug Compare slice schema (per option)
+export const DebugCompareSchema = z.object({
+  p10: z.number(),
+  p50: z.number(),
+  p90: z.number(),
+  top3_edges: z.array(z.object({
+    edge_id: z.string(),
+    from: z.string(),
+    to: z.string(),
+    label: z.string().optional(),
+    weight: z.number()
+  }))
+})
+
+export type DebugCompare = z.infer<typeof DebugCompareSchema>
+
+// Debug Compare map (option_id → stats)
+export const DebugCompareMapSchema = z.record(z.string(), DebugCompareSchema)
+export type DebugCompareMap = z.infer<typeof DebugCompareMapSchema>
+
+// Debug Inspector edge facts schema
+export const DebugInspectorEdgeSchema = z.object({
+  edge_id: z.string(),
+  from: z.string(),
+  to: z.string(),
+  label: z.string(),
+  weight: z.number(),
+  belief: z.number().optional().default(1.0),
+  provenance: z.string().optional().default('template')
+})
+
+export type DebugInspectorEdge = z.infer<typeof DebugInspectorEdgeSchema>
+
+/**
+ * Parse debug.compare slice with fail-closed fallback
+ * @param data - Raw debug.compare data from server
+ * @returns Parsed DebugCompareMap or null if invalid
+ */
+export function parseDebugCompare(data: unknown): DebugCompareMap | null {
+  try {
+    return DebugCompareMapSchema.parse(data)
+  } catch (err) {
+    console.warn('[DebugSlice] Failed to parse debug.compare:', err)
+    // TODO: Sentry.captureException(err, { tags: { type: 'debug-slice-parse', slice: 'compare' } })
+    return null
+  }
+}
+
+/**
+ * Parse debug.inspector.edges slice with fail-closed fallback
+ * @param data - Raw debug.inspector.edges data from server
+ * @returns Parsed DebugInspectorEdge[] or null if invalid
+ */
+export function parseDebugInspectorEdges(data: unknown): DebugInspectorEdge[] | null {
+  try {
+    return z.array(DebugInspectorEdgeSchema).parse(data)
+  } catch (err) {
+    console.warn('[DebugSlice] Failed to parse debug.inspector.edges:', err)
+    // TODO: Sentry.captureException(err, { tags: { type: 'debug-slice-parse', slice: 'inspector' } })
+    return null
+  }
+}

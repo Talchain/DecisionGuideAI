@@ -12,6 +12,7 @@ import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextIn
 import type { ReportV1, ErrorV1 } from '../adapters/plot/types'
 import { addRun, generateGraphHash, type StoredRun } from './store/runHistory'
 import { adapterName, getAdapterMode } from '../adapters/plot'
+import { enqueueInterim, clearInterimQueue } from './store/interimQueue'
 
 // Results panel state machine
 export type ResultsStatus = 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'
@@ -902,13 +903,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   resultsInterim: (findings) => {
     // Backend sends cumulative findings list (not deltas)
-    // Each SSE interim event replaces the previous state entirely
-    set(s => ({
-      results: {
-        ...s.results,
-        interim: findings
-      }
-    }))
+    // Micro-batch updates (250ms window, 50 item cap) to avoid re-render storms
+    enqueueInterim((items) => {
+      set(s => ({
+        results: {
+          ...s.results,
+          interim: items
+        }
+      }))
+    }, findings)
   },
 
   resultsComplete: async ({ report, hash, drivers }) => {
@@ -996,6 +999,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   resultsReset: () => {
+    // Clear micro-batch queue to prevent stale findings
+    clearInterimQueue()
     set({
       results: {
         status: 'idle',

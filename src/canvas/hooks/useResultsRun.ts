@@ -1,8 +1,9 @@
-import { useCallback, useRef } from 'react'
-import { useCanvasStore } from '../store'
+import { useCallback, useRef, useEffect } from 'react'
+import { useCanvasStore, selectResultsStatus } from '../store'
 import { plot } from '../../adapters/plot'
 import type { RunRequest, ErrorV1, ReportV1 } from '../../adapters/plot/types'
 import { validateGraph, ensureHydrated } from '../validation/graphPreflight'
+import { useToast } from '../ToastContext'
 
 interface UseResultsRunReturn {
   run: (request: RunRequest) => Promise<void>
@@ -27,6 +28,7 @@ export function useResultsRun(): UseResultsRunReturn {
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
   const lastProgressUpdate = useRef<number>(0)
 
+  const status = useCanvasStore(selectResultsStatus)
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const resultsStart = useCanvasStore(s => s.resultsStart)
@@ -36,6 +38,7 @@ export function useResultsRun(): UseResultsRunReturn {
   const resultsComplete = useCanvasStore(s => s.resultsComplete)
   const resultsError = useCanvasStore(s => s.resultsError)
   const resultsCancelled = useCanvasStore(s => s.resultsCancelled)
+  const { showToast } = useToast()
 
   const run = useCallback(async (request: RunRequest) => {
     // Clear any pending debounced run
@@ -182,6 +185,38 @@ export function useResultsRun(): UseResultsRunReturn {
       resultsCancelled()
     }
   }, [resultsCancelled])
+
+  // ESC cancel handler with lifecycle guards
+  // Install only when streaming, remove on unmount or status change
+  useEffect(() => {
+    if (status !== 'streaming') return
+
+    let cancelled = false // Idempotency guard
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !cancelled) {
+        cancelled = true
+        cancel()
+        showToast('Analysis cancelled', 'info')
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+
+    // Cleanup on unmount or status change
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [status, cancel, showToast])
+
+  // Auto-cancel on unmount
+  useEffect(() => {
+    return () => {
+      if (status === 'streaming' && cancelRef.current) {
+        cancel()
+      }
+    }
+  }, []) // Empty deps: only run on unmount
 
   return {
     run,

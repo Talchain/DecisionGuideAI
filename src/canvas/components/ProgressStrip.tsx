@@ -89,8 +89,8 @@ export const ProgressStrip = memo<ProgressStripProps>(({
               } as React.CSSProperties}
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(91, 108, 255, 0.15)'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-              aria-label="Cancel run"
-              title="Cancel run"
+              aria-label="Cancel run (press Esc)"
+              title="Cancel run (press Esc)"
             >
               <X className="w-4 h-4" style={{ color: 'var(--olumi-primary)' }} />
             </button>

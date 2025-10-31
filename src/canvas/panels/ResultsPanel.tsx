@@ -551,31 +551,72 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                       }
                     }}
                   />
-                  {/* Live log region with accessibility */}
-                  <div
-                    className="text-sm p-3 rounded border space-y-1"
-                    style={{
-                      backgroundColor: 'rgba(91, 108, 255, 0.05)',
-                      borderColor: 'rgba(91, 108, 255, 0.15)',
-                      color: 'rgba(232, 236, 245, 0.7)',
-                    }}
-                    role="status"
-                    aria-live="polite"
-                    aria-atomic="false"
-                  >
-                    {status === 'preparing' && <div>→ Validating graph structure...</div>}
-                    {status === 'connecting' && <div>→ Establishing connection...</div>}
-                    {status === 'streaming' && progress > 0 && <div>→ Processing nodes ({Math.round(progress)}% complete)...</div>}
-                    {status === 'streaming' && interim && interim.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        {interim.map((finding, idx) => (
-                          <div key={idx} style={{ color: 'rgba(232, 236, 245, 0.9)' }}>
-                            → {finding}
-                          </div>
-                        ))}
+
+                  {/* Streaming Status Region - polite live region for a11y */}
+                  {(status === 'preparing' || status === 'connecting') && (
+                    <div
+                      className="text-sm p-3 rounded border"
+                      style={{
+                        backgroundColor: 'rgba(91, 108, 255, 0.05)',
+                        borderColor: 'rgba(91, 108, 255, 0.15)',
+                        color: 'rgba(232, 236, 245, 0.7)',
+                      }}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      {status === 'preparing' && <div>→ Validating graph structure...</div>}
+                      {status === 'connecting' && <div>→ Establishing connection...</div>}
+                    </div>
+                  )}
+
+                  {/* Interim Findings - Micro-batched (250ms window, newest 50 items) */}
+                  {status === 'streaming' && interim && interim.length > 0 && (
+                    <div
+                      className="space-y-1 max-h-64 overflow-y-auto p-3 rounded border"
+                      role="status"
+                      aria-live="polite"
+                      aria-relevant="additions"
+                      aria-atomic="false"
+                      style={{
+                        backgroundColor: 'rgba(91, 108, 255, 0.05)',
+                        borderColor: 'rgba(91, 108, 255, 0.15)',
+                      }}
+                    >
+                      {/* Header with "Live" pill */}
+                      <div
+                        className="flex items-center gap-2 text-xs mb-2 sticky top-0 pb-2"
+                        style={{
+                          backgroundColor: 'rgba(91, 108, 255, 0.05)',
+                          borderBottom: '1px solid rgba(91, 108, 255, 0.1)',
+                        }}
+                      >
+                        <span
+                          className="px-2 py-0.5 rounded-full text-white font-medium"
+                          style={{ backgroundColor: 'rgba(34, 197, 94, 0.8)' }}
+                          aria-hidden="true"
+                        >
+                          Live
+                        </span>
+                        <span style={{ color: 'rgba(232, 236, 245, 0.6)' }}>
+                          Interim findings ({interim.length}/50)
+                        </span>
                       </div>
-                    )}
-                  </div>
+
+                      {/* Plain text render (sanitized, no HTML) */}
+                      {interim.map((finding, idx) => (
+                        <div
+                          key={idx}
+                          className="text-sm pl-3 border-l-2"
+                          style={{
+                            borderColor: 'rgba(91, 108, 255, 0.3)',
+                            color: 'rgba(232, 236, 245, 0.9)',
+                          }}
+                        >
+                          → {sanitizeLabel(finding, 300)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
 
