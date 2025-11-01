@@ -2,7 +2,7 @@
 // Unified canvas workspace - whiteboard as background, graph overlay, shared camera
 
 import '../styles/plot.css'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { fetchFlow, loadFixture } from '../lib/pocEngine'
 import { CameraProvider, useCamera } from '../components/PlotCamera'
 import WhiteboardCanvas, { type DrawPath } from '../components/WhiteboardCanvas'
@@ -17,6 +17,9 @@ import BuildBadge from '../components/BuildBadge'
 import DebugOverlays from '../components/DebugOverlays'
 import { loadWorkspaceState, createAutosaver, clearWorkspaceState } from '../lib/plotStorage'
 import { resolvePlcOverride } from '../lib/resolvePlcOverride'
+
+// Lazy load CommandPalette (VITE_FEATURE_COMMAND_PALETTE)
+const CommandPalette = lazy(() => import('../canvas/palette/CommandPalette').then(m => ({ default: m.CommandPalette })))
 
 // Types
 type Node = { id: string; label: string; x?: number; y?: number; type?: string }
@@ -696,6 +699,13 @@ function PlotWorkspaceInner() {
 
         {/* Keyboard shortcuts modal */}
         <KeyboardShortcuts isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
+        {/* Command Palette (⌘K / CTRL+K) - lazy loaded */}
+        {String(import.meta.env?.VITE_FEATURE_COMMAND_PALETTE) === '1' && (
+          <Suspense fallback={null}>
+            <CommandPalette enabled={true} />
+          </Suspense>
+        )}
 
         {/* Sticky Notes (z-30, above graph nodes) */}
         {stickyNotes.map(note => {
