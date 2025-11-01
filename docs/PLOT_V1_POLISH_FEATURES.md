@@ -443,10 +443,10 @@ while (manager.shouldRetry()) {
 
 | Metric | Passed | Failed | Skipped | Total |
 |--------|--------|--------|---------|-------|
-| **Test Files** | 135 | 25 | 0 | 160 |
-| **Tests** | 1064 | 144 | 3 | 1215 |
+| **Test Files** | 131 | 29 | 0 | 160 |
+| **Tests** | 1067 | 150 | 3 | 1224 |
 
-**Duration**: 38.41s (from `.tmp/test-summary.json`)
+**Duration**: 31.94s (from `.tmp/test-summary.json`)
 **Environment**: baseline (no rate limits, normalized env vars)
 **Last Updated**: 2025-11-01
 

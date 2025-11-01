@@ -75,6 +75,8 @@ jobs:
         env:
           ENSURE_TESTS_JSON_SKIP_RUN: '1'
         continue-on-error: true
+      - name: Verify Test Status docs match JSON
+        run: node scripts/sync-test-status.cjs --check
 
   backend-health:
     name: Backend Health Check
