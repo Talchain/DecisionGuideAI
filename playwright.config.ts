@@ -39,6 +39,8 @@ export default defineConfig({
       VITE_FEATURE_HINTS: '1',
       VITE_SUPABASE_URL: 'http://localhost:54321',
       VITE_SUPABASE_ANON_KEY: 'test_anon_key',
+      // PLoT V1 Backend Integration
+      PLOT_API_URL: 'https://plot-lite-service.onrender.com',
       // PLoT V1 Streaming & Debug Features (for E2E tests)
       VITE_FEATURE_PLOT_STREAM: '1',
       VITE_FEATURE_COMPARE_DEBUG: '1',

@@ -76,6 +76,29 @@ jobs:
           ENSURE_TESTS_JSON_SKIP_RUN: '1'
         continue-on-error: true
 
+  backend-health:
+    name: Backend Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Start dev server in background
+        run: npm run dev &
+        env:
+          PLOT_API_URL: https://plot-lite-service.onrender.com
+      - name: Wait for dev server
+        run: npx wait-on http://localhost:5173 --timeout 30000
+      - name: Health check via proxy
+        run: |
+          curl -f http://localhost:5173/api/plot/v1/health || (echo "Health check failed" && exit 1)
+
   build:
     name: Build + No-Console
     runs-on: ubuntu-latest
