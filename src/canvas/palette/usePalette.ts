@@ -55,6 +55,7 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [allItems, setAllItems] = useState<PaletteItem[]>([])
+  const [highlightTimeoutId, setHighlightTimeoutId] = useState<number | null>(null)
 
   // Canvas store selectors
   const nodes = useCanvasStore(s => s.nodes)
@@ -62,6 +63,8 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
   const selectNodeWithoutHistory = useCanvasStore(s => s.selectNodeWithoutHistory)
   const setHighlightedDriver = useCanvasStore(s => s.setHighlightedDriver)
   const resultsState = useCanvasStore(s => s.results)
+  const drivers = resultsState.drivers || []
+  const runHistory = useCanvasStore(s => s.runHistory) || []
 
   // Index all searchable items (debounced)
   useEffect(() => {
@@ -72,16 +75,16 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
         ...indexActions(),
         ...indexNodes(nodes),
         ...indexEdges(edges),
-        // TODO: Add drivers, templates, runs when stores exist
-        // ...indexDrivers(drivers),
+        ...indexDrivers(drivers),
+        ...indexRuns(runHistory),
+        // TODO: Add templates when template store available
         // ...indexTemplates(templates),
-        // ...indexRuns(runs),
       ]
       setAllItems(items)
     }, indexDebounce)
 
     return () => clearTimeout(timer)
-  }, [nodes, edges, indexDebounce, enabled])
+  }, [nodes, edges, drivers, runHistory, indexDebounce, enabled])
 
   // Search results
   const results = useMemo(() => {
@@ -151,7 +154,13 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
     setIsOpen(false)
     setQuery('')
     setSelectedIndex(0)
-  }, [])
+
+    // Clear any pending highlight timeout
+    if (highlightTimeoutId !== null) {
+      window.clearTimeout(highlightTimeoutId)
+      setHighlightTimeoutId(null)
+    }
+  }, [highlightTimeoutId])
 
   const toggle = useCallback(() => {
     setIsOpen(prev => !prev)
@@ -168,6 +177,12 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
   const selectPrevious = useCallback(() => {
     setSelectedIndex(prev => Math.max(prev - 1, 0))
   }, [])
+
+  const selectByIndex = useCallback((index: number) => {
+    if (index >= 0 && index < results.length) {
+      setSelectedIndex(index)
+    }
+  }, [results.length])
 
   // Handle action items (run, cancel, compare, etc.)
   const handleAction = useCallback((actionId: string) => {
@@ -250,7 +265,18 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
             selectNodeWithoutHistory(item.metadata.nodeId as string)
           } else if (item.metadata?.edgeId) {
             setHighlightedDriver({ kind: 'edge', id: item.metadata.edgeId as string })
-            setTimeout(() => setHighlightedDriver(null), 2000)
+
+            // Clear previous timeout if exists
+            if (highlightTimeoutId !== null) {
+              window.clearTimeout(highlightTimeoutId)
+            }
+
+            // Store new timeout ID
+            const timeoutId = window.setTimeout(() => {
+              setHighlightedDriver(null)
+              setHighlightTimeoutId(null)
+            }, 2000)
+            setHighlightTimeoutId(timeoutId)
           }
           break
       }
@@ -258,7 +284,7 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
       // Close palette after execution
       close()
     },
-    [selectNodeWithoutHistory, setHighlightedDriver, handleAction, close]
+    [selectNodeWithoutHistory, setHighlightedDriver, handleAction, close, highlightTimeoutId]
   )
 
   const executeSelected = useCallback(() => {
@@ -279,6 +305,7 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
     setQuery,
     selectNext,
     selectPrevious,
+    selectByIndex,
     executeSelected,
     executeItem,
   }

@@ -48,6 +48,7 @@ export function CommandPalette({ enabled = false }: CommandPaletteProps) {
     groupedResults,
     close,
     setQuery,
+    selectByIndex,
     executeSelected,
   } = usePalette({ enabled })
 
@@ -174,8 +175,7 @@ export function CommandPalette({ enabled = false }: CommandPaletteProps) {
                             // Update selection on hover
                             const newIndex = flatResults.indexOf(item)
                             if (newIndex !== -1) {
-                              // Force re-render by updating parent state
-                              // (In practice, this would call a selectByIndex action)
+                              selectByIndex(newIndex)
                             }
                           }}
                         >
