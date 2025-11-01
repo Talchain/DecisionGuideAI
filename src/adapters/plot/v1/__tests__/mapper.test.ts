@@ -457,4 +457,164 @@ describe('v1/mapper', () => {
       expect(isApiGraph(apiGraph)).toBe(true)
     })
   })
+
+  // ========================================================================
+  // Shape Validation Tests (DEV-only, but tested in all envs)
+  // ========================================================================
+
+  describe('toApiGraph - shape validation', () => {
+    it('accepts clean API-shape output', () => {
+      const uiGraph: UiGraph = {
+        nodes: [{ id: 'n1', data: { label: 'Node' } }],
+        edges: [{ id: 'e1', source: 'n1', target: 'n2', data: { weight: 0.5 } }],
+      }
+
+      // Should not throw
+      const apiGraph = toApiGraph(uiGraph)
+
+      // Verify clean output (no UI-only fields)
+      expect(apiGraph.nodes[0]).not.toHaveProperty('data')
+      expect(apiGraph.nodes[0]).not.toHaveProperty('position')
+      expect(apiGraph.nodes[0]).not.toHaveProperty('type')
+      expect(apiGraph.edges[0]).not.toHaveProperty('id')
+      expect(apiGraph.edges[0]).not.toHaveProperty('source')
+      expect(apiGraph.edges[0]).not.toHaveProperty('target')
+      expect(apiGraph.edges[0]).not.toHaveProperty('data')
+    })
+
+    it('ensures nodes do not leak UI-only fields', () => {
+      // This test verifies the conversion strips UI fields correctly
+      const uiGraph: UiGraph = {
+        nodes: [
+          {
+            id: 'n1',
+            data: { label: 'Test' },
+            // These UI-only fields should NOT appear in API output:
+            position: { x: 100, y: 200 },
+            type: 'decision',
+            selected: true,
+          } as any,
+        ],
+        edges: [],
+      }
+
+      const apiGraph = toApiGraph(uiGraph)
+
+      // Verify toApiGraph strips these correctly
+      expect(apiGraph.nodes[0]).toEqual({ id: 'n1', label: 'Test' })
+      expect(apiGraph.nodes[0]).not.toHaveProperty('position')
+      expect(apiGraph.nodes[0]).not.toHaveProperty('type')
+      expect(apiGraph.nodes[0]).not.toHaveProperty('selected')
+      expect(apiGraph.nodes[0]).not.toHaveProperty('data')
+    })
+
+    it('ensures edges do not leak UI-only fields', () => {
+      const uiGraph: UiGraph = {
+        nodes: [{ id: 'n1' }, { id: 'n2' }],
+        edges: [
+          {
+            id: 'e1',
+            source: 'n1',
+            target: 'n2',
+            data: { weight: 0.8 },
+            // These UI-only fields should NOT appear in API output:
+            selected: true,
+          } as any,
+        ],
+      }
+
+      const apiGraph = toApiGraph(uiGraph)
+
+      // Verify toApiGraph converts correctly
+      expect(apiGraph.edges[0]).toEqual({ from: 'n1', to: 'n2', weight: 0.8 })
+      expect(apiGraph.edges[0]).not.toHaveProperty('id')
+      expect(apiGraph.edges[0]).not.toHaveProperty('source')
+      expect(apiGraph.edges[0]).not.toHaveProperty('target')
+      expect(apiGraph.edges[0]).not.toHaveProperty('data')
+      expect(apiGraph.edges[0]).not.toHaveProperty('selected')
+    })
+
+    it('validates weight is finite', () => {
+      const uiGraph: UiGraph = {
+        nodes: [{ id: 'n1' }, { id: 'n2' }],
+        edges: [
+          { id: 'e1', source: 'n1', target: 'n2', data: { weight: Infinity } },
+        ],
+      }
+
+      expect(() => toApiGraph(uiGraph)).toThrow('finite number')
+    })
+
+    it('validates weight is in -1..1 range', () => {
+      const uiGraph: UiGraph = {
+        nodes: [{ id: 'n1' }, { id: 'n2' }],
+        edges: [
+          { id: 'e1', source: 'n1', target: 'n2', data: { weight: 200 } },
+        ],
+      }
+
+      // Should throw because 200/100 = 2.0 which is > 1
+      expect(() => toApiGraph(uiGraph)).toThrow('out of range')
+    })
+
+    it('accepts weights in valid range', () => {
+      const testCases = [
+        { weight: 0, expected: 0 },
+        { weight: 0.5, expected: 0.5 },
+        { weight: 1, expected: 1 },
+        { weight: -0.5, expected: -0.5 },
+        { weight: -1, expected: -1 },
+        { weight: 50, expected: 0.5 }, // percentage
+        { weight: -50, expected: -0.5 }, // negative percentage
+      ]
+
+      testCases.forEach(({ weight, expected }) => {
+        const uiGraph: UiGraph = {
+          nodes: [{ id: 'n1' }, { id: 'n2' }],
+          edges: [{ id: 'e1', source: 'n1', target: 'n2', data: { weight } }],
+        }
+
+        const apiGraph = toApiGraph(uiGraph)
+        expect(apiGraph.edges[0].weight).toBe(expected)
+      })
+    })
+
+    it('strips confidence and only sends weight', () => {
+      const uiGraph: UiGraph = {
+        nodes: [{ id: 'n1' }, { id: 'n2' }],
+        edges: [
+          {
+            id: 'e1',
+            source: 'n1',
+            target: 'n2',
+            data: { confidence: 0.9, weight: 0.8 },
+          },
+        ],
+      }
+
+      const apiGraph = toApiGraph(uiGraph)
+
+      // Should use weight, not confidence
+      expect(apiGraph.edges[0]).toEqual({ from: 'n1', to: 'n2', weight: 0.8 })
+      expect(apiGraph.edges[0]).not.toHaveProperty('confidence')
+    })
+
+    it('falls back to confidence if weight not present', () => {
+      const uiGraph: UiGraph = {
+        nodes: [{ id: 'n1' }, { id: 'n2' }],
+        edges: [
+          {
+            id: 'e1',
+            source: 'n1',
+            target: 'n2',
+            data: { confidence: 0.7 },
+          },
+        ],
+      }
+
+      const apiGraph = toApiGraph(uiGraph)
+
+      expect(apiGraph.edges[0]).toEqual({ from: 'n1', to: 'n2', weight: 0.7 })
+    })
+  })
 })

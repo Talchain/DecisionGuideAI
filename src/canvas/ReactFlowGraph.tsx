@@ -426,17 +426,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
 
       <CommandPalette
         enabled={String(import.meta.env.VITE_FEATURE_COMMAND_PALETTE) === '1'}
-        onRun={runAnalysis}
+        onRun={handleRunSimulation}
         onCancel={cancelAnalysis}
         onToggleResults={() => setShowResultsPanel(prev => !prev)}
-        onToggleCompare={() => {
-          // TODO: Implement compare panel when available
-          console.log('[ReactFlowGraph] Compare panel toggle not yet implemented')
-        }}
-        onToggleInspector={() => {
-          // TODO: Implement inspector panel when available
-          console.log('[ReactFlowGraph] Inspector panel toggle not yet implemented')
-        }}
+        // Note: onToggleCompare and onToggleInspector will be wired when those panels are implemented
       />
       {showCheatsheet && <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />}
       {showKeyboardMap && <KeyboardMap isOpen={showKeyboardMap} onClose={() => setShowKeyboardMap(false)} />}

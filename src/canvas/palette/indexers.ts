@@ -141,22 +141,24 @@ export function indexActions(isStreaming: boolean = false): PaletteItem[] {
     })
   }
 
-  // Always show panel toggles and utilities
+  // Always show available panel toggles and utilities
   actions.push(
-  {
-      id: 'action:compare',
-      kind: 'action',
-      label: 'Open Compare',
-      description: 'Compare two runs',
-      keywords: ['compare', 'diff', 'delta'],
-    },
-    {
-      id: 'action:inspector',
-      kind: 'action',
-      label: 'Open Inspector',
-      description: 'Show edge/node inspector',
-      keywords: ['inspector', 'details', 'properties'],
-    },
+    // TODO: Uncomment when Compare panel is implemented
+    // {
+    //   id: 'action:compare',
+    //   kind: 'action',
+    //   label: 'Open Compare',
+    //   description: 'Compare two runs',
+    //   keywords: ['compare', 'diff', 'delta'],
+    // },
+    // TODO: Uncomment when Inspector panel is implemented
+    // {
+    //   id: 'action:inspector',
+    //   kind: 'action',
+    //   label: 'Open Inspector',
+    //   description: 'Show edge/node inspector',
+    //   keywords: ['inspector', 'details', 'properties'],
+    // },
     {
       id: 'action:results',
       kind: 'action',
