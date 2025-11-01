@@ -240,7 +240,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
                     </Tooltip>
                   </td>
                   <td className="px-3 py-2 text-gray-900 border-b border-gray-100">
-                    {edgeFacts.belief?.toFixed(2) ?? '1.00'}
+                    {edgeFacts.belief.toFixed(2)}
                   </td>
                 </tr>
 
@@ -256,7 +256,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
                   </td>
                   <td className="px-3 py-2 text-gray-900">
                     <span className="px-2 py-0.5 rounded text-xs font-mono" style={{ backgroundColor: 'rgba(91, 108, 255, 0.08)' }}>
-                      {edgeFacts.provenance ?? 'template'}
+                      {edgeFacts.provenance}
                     </span>
                   </td>
                 </tr>

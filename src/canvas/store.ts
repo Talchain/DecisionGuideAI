@@ -55,9 +55,39 @@ export interface PreviewState {
   violations?: ValidationViolation[]
 }
 
-const initialNodes: Node[] = []
+const initialNodes: Node[] = [
+  {
+    id: '1',
+    type: 'decision',
+    position: { x: 250, y: 100 },
+    data: { label: 'Start' }
+  },
+  {
+    id: '2',
+    type: 'decision',
+    position: { x: 100, y: 250 },
+    data: { label: 'Option A' }
+  },
+  {
+    id: '3',
+    type: 'decision',
+    position: { x: 400, y: 250 },
+    data: { label: 'Option B' }
+  },
+  {
+    id: '4',
+    type: 'decision',
+    position: { x: 250, y: 400 },
+    data: { label: 'Outcome' }
+  }
+]
 
-const initialEdges: Edge<EdgeData>[] = []
+const initialEdges: Edge<EdgeData>[] = [
+  { id: 'e1', source: '1', target: '2', data: DEFAULT_EDGE_DATA },
+  { id: 'e2', source: '1', target: '3', data: DEFAULT_EDGE_DATA },
+  { id: 'e3', source: '2', target: '4', data: DEFAULT_EDGE_DATA },
+  { id: 'e4', source: '3', target: '4', data: DEFAULT_EDGE_DATA }
+]
 
 interface ClipboardData {
   nodes: Node[]
