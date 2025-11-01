@@ -43,6 +43,8 @@ export default defineConfig({
       VITE_FEATURE_PLOT_STREAM: '1',
       VITE_FEATURE_COMPARE_DEBUG: '1',
       VITE_FEATURE_INSPECTOR_DEBUG: '1',
+      // Command Palette (Priority 1)
+      VITE_FEATURE_COMMAND_PALETTE: '1',
     },
     reuseExistingServer: true,
     timeout: 300_000, // 5 minutes for streaming scenarios

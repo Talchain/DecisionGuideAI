@@ -60,6 +60,8 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const selectNodeWithoutHistory = useCanvasStore(s => s.selectNodeWithoutHistory)
+  const setHighlightedDriver = useCanvasStore(s => s.setHighlightedDriver)
+  const resultsState = useCanvasStore(s => s.results)
 
   // Index all searchable items (debounced)
   useEffect(() => {
@@ -167,6 +169,46 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
     setSelectedIndex(prev => Math.max(prev - 1, 0))
   }, [])
 
+  // Handle action items (run, cancel, compare, etc.)
+  const handleAction = useCallback((actionId: string) => {
+    switch (actionId) {
+      case 'action:copy-seed':
+        // Copy seed and hash to clipboard
+        if (resultsState.seed !== undefined || resultsState.hash) {
+          const text = `Seed: ${resultsState.seed ?? 'N/A'}\nHash: ${resultsState.hash ?? 'N/A'}`
+          navigator.clipboard.writeText(text).then(() => {
+            console.log('[Palette] Copied seed & hash to clipboard')
+          }).catch(err => {
+            console.error('[Palette] Failed to copy:', err)
+          })
+        } else {
+          console.warn('[Palette] No seed or hash available to copy')
+        }
+        break
+
+      case 'action:run':
+        // TODO: Implement run trigger when useResultsRun hook can be accessed
+        // This requires passing run function from parent component
+        console.log('[Palette] Run action not yet wired - needs useResultsRun hook access')
+        break
+
+      case 'action:cancel':
+        // TODO: Implement cancel trigger
+        console.log('[Palette] Cancel action not yet wired - needs useResultsRun hook access')
+        break
+
+      case 'action:compare':
+      case 'action:inspector':
+      case 'action:results':
+        // TODO: Implement panel opening when panel state management is available
+        console.log(`[Palette] ${actionId} - Panel opening not yet wired`)
+        break
+
+      default:
+        console.warn('[Palette] Unknown action:', actionId)
+    }
+  }, [resultsState.seed, resultsState.hash])
+
   const executeItem = useCallback(
     (item: PaletteItem) => {
       // Execute action based on item kind
@@ -179,30 +221,44 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
           break
 
         case 'edge':
-          // TODO: Implement edge focus/highlight
+          // Highlight edge if metadata available
+          if (item.metadata?.edgeId) {
+            setHighlightedDriver({ kind: 'edge', id: item.metadata.edgeId as string })
+            // Auto-clear after 2s
+            setTimeout(() => setHighlightedDriver(null), 2000)
+          }
           break
 
         case 'action':
-          // TODO: Implement action handlers
+          // Handle action items
+          handleAction(item.id)
           break
 
         case 'template':
-          // TODO: Implement template loading
+          // TODO: Implement template loading when template store available
+          console.log('[Palette] Template loading not yet implemented:', item.id)
           break
 
         case 'run':
-          // TODO: Implement run restoration
+          // TODO: Implement run restoration when run history API available
+          console.log('[Palette] Run restoration not yet implemented:', item.metadata?.runId)
           break
 
         case 'driver':
-          // TODO: Implement driver focus (node/edge)
+          // Focus the node or edge associated with this driver
+          if (item.metadata?.nodeId) {
+            selectNodeWithoutHistory(item.metadata.nodeId as string)
+          } else if (item.metadata?.edgeId) {
+            setHighlightedDriver({ kind: 'edge', id: item.metadata.edgeId as string })
+            setTimeout(() => setHighlightedDriver(null), 2000)
+          }
           break
       }
 
       // Close palette after execution
       close()
     },
-    [selectNodeWithoutHistory, close]
+    [selectNodeWithoutHistory, setHighlightedDriver, handleAction, close]
   )
 
   const executeSelected = useCallback(() => {
