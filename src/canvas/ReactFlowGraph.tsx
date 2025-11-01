@@ -11,7 +11,7 @@ import { ContextMenu } from './ContextMenu'
 import { CanvasToolbar } from './CanvasToolbar'
 import { AlignmentGuides } from './components/AlignmentGuides'
 import { PropertiesPanel } from './components/PropertiesPanel'
-import { CommandPalette } from './components/CommandPalette'
+import { CommandPalette } from './palette/CommandPalette'
 import { EmptyStateOverlay } from './components/EmptyStateOverlay'
 import { ReconnectBanner } from './components/ReconnectBanner'
 import { KeyboardCheatsheet } from './components/KeyboardCheatsheet'
@@ -52,7 +52,6 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
-  const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showEmptyState, setShowEmptyState] = useState(true)
   const [showCheatsheet, setShowCheatsheet] = useState(false)
   const [showKeyboardMap, setShowKeyboardMap] = useState(false)
@@ -425,7 +424,20 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       <ValidationChip onFocusNode={handleFocusNode} />
       <FirstRunHint />
 
-      {showCommandPalette && <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />}
+      <CommandPalette
+        enabled={true}
+        onRun={runAnalysis}
+        onCancel={cancelAnalysis}
+        onToggleResults={() => setShowResultsPanel(prev => !prev)}
+        onToggleCompare={() => {
+          // TODO: Implement compare panel when available
+          console.log('[ReactFlowGraph] Compare panel toggle not yet implemented')
+        }}
+        onToggleInspector={() => {
+          // TODO: Implement inspector panel when available
+          console.log('[ReactFlowGraph] Inspector panel toggle not yet implemented')
+        }}
+      />
       {showCheatsheet && <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />}
       {showKeyboardMap && <KeyboardMap isOpen={showKeyboardMap} onClose={() => setShowKeyboardMap(false)} />}
       {showResultsPanel && <ResultsPanel isOpen={showResultsPanel} onClose={() => setShowResultsPanel(false)} onCancel={cancelAnalysis} />}

@@ -34,12 +34,29 @@ const KIND_ICONS: Record<PaletteItemKind, string> = {
 interface CommandPaletteProps {
   /** Whether feature is enabled (from flag) */
   enabled?: boolean
+  /** Optional: Run analysis callback */
+  onRun?: () => void
+  /** Optional: Cancel analysis callback */
+  onCancel?: () => void
+  /** Optional: Toggle Results panel callback */
+  onToggleResults?: () => void
+  /** Optional: Toggle Compare panel callback */
+  onToggleCompare?: () => void
+  /** Optional: Toggle Inspector panel callback */
+  onToggleInspector?: () => void
 }
 
 /**
  * Command Palette overlay
  */
-export function CommandPalette({ enabled = false }: CommandPaletteProps) {
+export function CommandPalette({
+  enabled = false,
+  onRun,
+  onCancel,
+  onToggleResults,
+  onToggleCompare,
+  onToggleInspector,
+}: CommandPaletteProps) {
   const {
     isOpen,
     query,
@@ -50,7 +67,14 @@ export function CommandPalette({ enabled = false }: CommandPaletteProps) {
     setQuery,
     selectByIndex,
     executeSelected,
-  } = usePalette({ enabled })
+  } = usePalette({
+    enabled,
+    onRun,
+    onCancel,
+    onToggleResults,
+    onToggleCompare,
+    onToggleInspector,
+  })
 
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)

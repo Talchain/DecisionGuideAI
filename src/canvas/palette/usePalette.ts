@@ -24,6 +24,16 @@ export interface UsePaletteOptions {
   enabled?: boolean
   /** Debounce delay for indexing (ms) */
   indexDebounce?: number
+  /** Optional: Run analysis callback (wired from parent) */
+  onRun?: () => void
+  /** Optional: Cancel analysis callback (wired from parent) */
+  onCancel?: () => void
+  /** Optional: Toggle Results panel callback (wired from parent) */
+  onToggleResults?: () => void
+  /** Optional: Toggle Compare panel callback (wired from parent) */
+  onToggleCompare?: () => void
+  /** Optional: Toggle Inspector panel callback (wired from parent) */
+  onToggleInspector?: () => void
 }
 
 export interface PaletteState {
@@ -49,7 +59,15 @@ export interface PaletteActions {
  * Command Palette state and actions hook
  */
 export function usePalette(options: UsePaletteOptions = {}): PaletteState & PaletteActions {
-  const { enabled = true, indexDebounce = 300 } = options
+  const {
+    enabled = true,
+    indexDebounce = 300,
+    onRun,
+    onCancel,
+    onToggleResults,
+    onToggleCompare,
+    onToggleInspector,
+  } = options
 
   const [isOpen, setIsOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -202,21 +220,43 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
         break
 
       case 'action:run':
-        // TODO: Implement run trigger when useResultsRun hook can be accessed
-        // This requires passing run function from parent component
-        console.log('[Palette] Run action not yet wired - needs useResultsRun hook access')
+        if (onRun) {
+          onRun()
+        } else {
+          console.warn('[Palette] Run action not wired - pass onRun callback to usePalette')
+        }
         break
 
       case 'action:cancel':
-        // TODO: Implement cancel trigger
-        console.log('[Palette] Cancel action not yet wired - needs useResultsRun hook access')
+        if (onCancel) {
+          onCancel()
+        } else {
+          console.warn('[Palette] Cancel action not wired - pass onCancel callback to usePalette')
+        }
+        break
+
+      case 'action:results':
+        if (onToggleResults) {
+          onToggleResults()
+        } else {
+          console.warn('[Palette] Results panel toggle not wired - pass onToggleResults callback to usePalette')
+        }
         break
 
       case 'action:compare':
+        if (onToggleCompare) {
+          onToggleCompare()
+        } else {
+          console.warn('[Palette] Compare panel toggle not wired - pass onToggleCompare callback to usePalette')
+        }
+        break
+
       case 'action:inspector':
-      case 'action:results':
-        // TODO: Implement panel opening when panel state management is available
-        console.log(`[Palette] ${actionId} - Panel opening not yet wired`)
+        if (onToggleInspector) {
+          onToggleInspector()
+        } else {
+          console.warn('[Palette] Inspector panel toggle not wired - pass onToggleInspector callback to usePalette')
+        }
         break
 
       default:
