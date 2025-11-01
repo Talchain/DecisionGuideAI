@@ -21,6 +21,8 @@ import { sanitizeLabel } from '../utils/sanitize'
 export interface ShareDrawerProps {
   isOpen: boolean
   onClose: () => void
+  seed?: number
+  hash?: string
 }
 
 /**
@@ -55,13 +57,14 @@ function buildShareUrl(hash: string, templateId?: string): string {
   return `${base}/#/share/${hash}${query ? `?${query}` : ''}`
 }
 
-export function ShareDrawer({ isOpen, onClose }: ShareDrawerProps) {
+export function ShareDrawer({ isOpen, onClose, seed: propSeed, hash: propHash }: ShareDrawerProps) {
   const [copied, setCopied] = useState(false)
   const [allowlistStatus, setAllowlistStatus] = useState<'checking' | 'allowed' | 'not-allowed' | 'unknown'>('unknown')
 
-  const results = useCanvasStore(s => s.results)
-
-  const { seed, hash } = results
+  // Use props if provided, otherwise fall back to canvas store
+  const storeResults = useCanvasStore(s => s.results)
+  const seed = propSeed !== undefined ? propSeed : storeResults.seed
+  const hash = propHash || storeResults.hash
 
   // Check allowlist when drawer opens (if flag enabled)
   useEffect(() => {
