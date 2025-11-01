@@ -140,7 +140,75 @@ export function toApiGraph(ui: UiGraph): ApiGraph {
     return edge
   })
 
+  // DEV-ONLY: Validate output shape to catch regressions
+  // Ensures we never accidentally send UI-only fields to backend
+  if (import.meta.env.DEV) {
+    validateApiGraphShape({ nodes, edges })
+  }
+
   return { nodes, edges }
+}
+
+/**
+ * Dev-only validation: ensure graph is in clean API shape
+ * Catches regressions where UI-only fields leak through
+ */
+function validateApiGraphShape(graph: ApiGraph): void {
+  const forbidden = {
+    nodes: ['data', 'position', 'type', 'selected', 'dragging'],
+    edges: ['source', 'target', 'id', 'data', 'selected']
+  }
+
+  // Check nodes for UI-only fields
+  graph.nodes.forEach((node, idx) => {
+    forbidden.nodes.forEach(field => {
+      if (field in node) {
+        console.error(
+          `[DEV] toApiGraph() validation failed: node[${idx}] has UI-only field '${field}'`,
+          node
+        )
+        throw new Error(
+          `[DEV] API shape violation: node[${idx}] contains UI-only field '${field}'. ` +
+          `Backend will reject this. Check toApiGraph() implementation.`
+        )
+      }
+    })
+  })
+
+  // Check edges for UI-only fields
+  graph.edges.forEach((edge, idx) => {
+    forbidden.edges.forEach(field => {
+      if (field in edge) {
+        console.error(
+          `[DEV] toApiGraph() validation failed: edge[${idx}] has UI-only field '${field}'`,
+          edge
+        )
+        throw new Error(
+          `[DEV] API shape violation: edge[${idx}] contains UI-only field '${field}'. ` +
+          `Must use 'from'/'to', not 'source'/'target'. Check toApiGraph() implementation.`
+        )
+      }
+    })
+
+    // Validate weight range if present
+    if ('weight' in edge && edge.weight != null) {
+      if (!Number.isFinite(edge.weight)) {
+        throw new Error(
+          `[DEV] API shape violation: edge[${idx}] weight is not finite (got ${edge.weight})`
+        )
+      }
+      if (Math.abs(edge.weight) > 1) {
+        console.error(
+          `[DEV] toApiGraph() validation failed: edge[${idx}] weight out of range`,
+          edge
+        )
+        throw new Error(
+          `[DEV] API shape violation: edge[${idx}] weight must be in range -1..1 (got ${edge.weight}). ` +
+          `Check normalizeWeight() implementation.`
+        )
+      }
+    }
+  })
 }
 
 /**

@@ -113,25 +113,37 @@ export function indexRuns(
 }
 
 /**
- * Index available actions
+ * Index available actions based on current results status
+ * Conditionally shows Run/Cancel based on streaming state
  */
-export function indexActions(): PaletteItem[] {
-  return [
-    {
+export function indexActions(isStreaming: boolean = false): PaletteItem[] {
+  const actions: PaletteItem[] = []
+
+  // Show "Run Analysis" only when NOT streaming
+  if (!isStreaming) {
+    actions.push({
       id: 'action:run',
       kind: 'action',
       label: 'Run Analysis',
       description: 'Start a new PLoT run',
       keywords: ['run', 'analyze', 'execute'],
-    },
-    {
+    })
+  }
+
+  // Show "Cancel Run" only when streaming
+  if (isStreaming) {
+    actions.push({
       id: 'action:cancel',
       kind: 'action',
       label: 'Cancel Run',
       description: 'Stop the current analysis',
       keywords: ['cancel', 'stop', 'abort'],
-    },
-    {
+    })
+  }
+
+  // Always show panel toggles and utilities
+  actions.push(
+  {
       id: 'action:compare',
       kind: 'action',
       label: 'Open Compare',
@@ -158,8 +170,10 @@ export function indexActions(): PaletteItem[] {
       label: 'Copy Seed & Hash',
       description: 'Copy seed and response hash to clipboard',
       keywords: ['copy', 'seed', 'hash', 'clipboard'],
-    },
-  ]
+    }
+  )
+
+  return actions
 }
 
 /**

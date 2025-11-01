@@ -446,7 +446,7 @@ while (manager.shouldRetry()) {
 | **Test Files** | 135 | 25 | 0 | 160 |
 | **Tests** | 1064 | 144 | 3 | 1215 |
 
-**Duration**: 62.64s
+**Duration**: 38.41s (from `.tmp/test-summary.json`)
 **Environment**: baseline (no rate limits, normalized env vars)
 **Last Updated**: 2025-11-01
 

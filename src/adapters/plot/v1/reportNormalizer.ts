@@ -11,6 +11,7 @@
  */
 
 import type { RunResponse } from '../../../types/plot'
+import { getRunIdFromResponse } from './getRunId'
 
 export interface NormalizedReport {
   conservative?: number
@@ -38,8 +39,8 @@ export function toUiReport(body: RunResponse): NormalizedReport {
   // Extract seed (multiple locations)
   const seed = body?.meta?.seed ?? body?.model_card?.seed
 
-  // Extract hash (multiple locations)
-  const hash = body?.model_card?.response_hash ?? body?.response_hash
+  // Extract hash (single source of truth - handles fallback)
+  const hash = getRunIdFromResponse(body)
 
   // Extract results (multiple envelope formats)
   const results = body?.results ?? body?.result ?? {}

@@ -89,8 +89,9 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
     if (!enabled) return
 
     const timer = setTimeout(() => {
+      const isStreaming = resultsState.status === 'streaming'
       const items: PaletteItem[] = [
-        ...indexActions(),
+        ...indexActions(isStreaming),
         ...indexNodes(nodes),
         ...indexEdges(edges),
         ...indexDrivers(drivers),
@@ -102,7 +103,7 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
     }, indexDebounce)
 
     return () => clearTimeout(timer)
-  }, [nodes, edges, drivers, runHistory, indexDebounce, enabled])
+  }, [nodes, edges, drivers, runHistory, indexDebounce, enabled, resultsState.status])
 
   // Search results
   const results = useMemo(() => {
@@ -262,7 +263,7 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
       default:
         console.warn('[Palette] Unknown action:', actionId)
     }
-  }, [resultsState.seed, resultsState.hash])
+  }, [resultsState.seed, resultsState.hash, onRun, onCancel, onToggleResults, onToggleCompare, onToggleInspector])
 
   const executeItem = useCallback(
     (item: PaletteItem) => {

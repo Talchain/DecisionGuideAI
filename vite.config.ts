@@ -127,12 +127,14 @@ optimizeDeps: {
     },
     proxy: {
       '/api/plot': {
-        target: env.PLOT_API_URL || 'http://localhost:4311',
+        // Fallback chain: PLOT_API_URL → VITE_PLOT_API_BASE_URL → localhost
+        target: env.PLOT_API_URL || env.VITE_PLOT_API_BASE_URL || 'http://localhost:4311',
         changeOrigin: true,
         secure: false, // Allow self-signed certs and HTTPS targets
         rewrite: (path) => path.replace(/^\/api\/plot/, ''),
         configure: (proxy, options) => {
-          console.log(`[PROXY] Configured target: ${env.PLOT_API_URL || 'http://localhost:4311'}`)
+          const target = env.PLOT_API_URL || env.VITE_PLOT_API_BASE_URL || 'http://localhost:4311'
+          console.log(`[PROXY] Configured target: ${target}`)
 
           // Debug logging
           proxy.on('error', (err, req, res) => {
@@ -147,7 +149,7 @@ optimizeDeps: {
               proxyReq.setHeader('Authorization', `Bearer ${apiKey}`)
             })
           } else {
-            console.log('[PROXY] No API key configured')
+            console.log('[PROXY] No API key configured (public endpoint)')
           }
         }
       }

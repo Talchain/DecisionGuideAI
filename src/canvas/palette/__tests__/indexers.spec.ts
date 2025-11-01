@@ -143,19 +143,42 @@ describe('Command Palette Indexers', () => {
   })
 
   describe('indexActions', () => {
-    it('indexes predefined actions', () => {
-      const items = indexActions()
+    it('shows Run action when not streaming', () => {
+      const items = indexActions(false)
 
       expect(items.length).toBeGreaterThan(0)
       expect(items.every(item => item.kind === 'action')).toBe(true)
 
-      // Check for key actions
+      // Should have Run action
       const runAction = items.find(a => a.id === 'action:run')
       expect(runAction).toBeDefined()
       expect(runAction?.keywords).toContain('run')
 
+      // Should NOT have Cancel action
+      const cancelAction = items.find(a => a.id === 'action:cancel')
+      expect(cancelAction).toBeUndefined()
+
+      // Should always have panel toggles
+      expect(items.find(a => a.id === 'action:results')).toBeDefined()
+    })
+
+    it('shows Cancel action when streaming', () => {
+      const items = indexActions(true)
+
+      expect(items.length).toBeGreaterThan(0)
+      expect(items.every(item => item.kind === 'action')).toBe(true)
+
+      // Should have Cancel action
       const cancelAction = items.find(a => a.id === 'action:cancel')
       expect(cancelAction).toBeDefined()
+      expect(cancelAction?.keywords).toContain('cancel')
+
+      // Should NOT have Run action
+      const runAction = items.find(a => a.id === 'action:run')
+      expect(runAction).toBeUndefined()
+
+      // Should always have panel toggles
+      expect(items.find(a => a.id === 'action:results')).toBeDefined()
     })
   })
 
