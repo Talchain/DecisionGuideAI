@@ -437,6 +437,37 @@ while (manager.shouldRetry()) {
 
 ---
 
+## Test Status
+
+**Current Baseline** (from `.tmp/test-summary.json`):
+
+| Metric | Passed | Failed | Skipped | Total |
+|--------|--------|--------|---------|-------|
+| **Test Files** | 135 | 25 | 0 | 160 |
+| **Tests** | 1064 | 144 | 3 | 1215 |
+
+**Duration**: 62.64s
+**Environment**: baseline (no rate limits, normalized env vars)
+**Last Updated**: 2025-11-01
+
+**Known Failures** (144 tests):
+- Brand token tests (4 tests) - CSS variables not loaded in jsdom
+- plot.mockAdapter tests (10 tests) - Missing `__test.clearCache` method
+- PLC guides/snap tests (~30 tests) - Coordinate calculation issues
+- Various UI component tests (~100 tests) - Require further investigation
+
+**P1A/P1B Status**:
+- ✅ P1A: debug.compare tests PASSING (determinism.test.ts)
+- ✅ P1B: Inspector defaults fixed (removed redundant optional chaining)
+- ✅ Canvas store: Demo nodes restored (24 fewer failures)
+
+**Test Artifacts**:
+- Latest run: `.tmp/test-run-latest.log`
+- Summary JSON: `.tmp/test-summary.json`
+- Capture script: `./scripts/run-tests-captured.sh baseline`
+
+---
+
 ## Troubleshooting
 
 ### Command Palette
