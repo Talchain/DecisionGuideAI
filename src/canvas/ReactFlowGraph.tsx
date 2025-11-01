@@ -425,7 +425,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       <FirstRunHint />
 
       <CommandPalette
-        enabled={true}
+        enabled={String(import.meta.env.VITE_FEATURE_COMMAND_PALETTE) === '1'}
         onRun={runAnalysis}
         onCancel={cancelAnalysis}
         onToggleResults={() => setShowResultsPanel(prev => !prev)}
