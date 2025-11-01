@@ -70,7 +70,7 @@ async function mockStreamingRunWithDebug(page: Page, runId: string, debugData: a
   }, { runId, debugData })
 }
 
-test.describe('PLoT V1 Compare Debug Slices', () => {
+test.describe('PLoT V1 Compare Debug Slices', { tag: '@debug-compare' }, () => {
   test.beforeEach(async ({ page }) => {
     await gotoPlot(page)
   })

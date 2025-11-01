@@ -37,7 +37,7 @@ async function triggerRun(page: Page) {
   await runBtn.click()
 }
 
-test.describe('PLoT V1 Streaming', () => {
+test.describe('PLoT V1 Streaming', { tag: '@streaming' }, () => {
   test.beforeEach(async ({ page }) => {
     await gotoPlot(page)
   })

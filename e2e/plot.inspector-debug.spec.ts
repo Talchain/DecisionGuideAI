@@ -86,7 +86,7 @@ async function openEdgeInspector(page: Page, edgeId: string = 'e1') {
   await expect(inspector).toBeVisible({ timeout: 5000 })
 }
 
-test.describe('PLoT V1 EdgeInspector Debug Facts', () => {
+test.describe('PLoT V1 EdgeInspector Debug Facts', { tag: '@debug-inspector' }, () => {
   test.beforeEach(async ({ page }) => {
     await gotoPlot(page)
   })

@@ -53,8 +53,10 @@
     "ci:no-console": "sh -c \"if (grep -R -n -E --exclude='*.map' --exclude='dist/assets/vendor-*.js' --exclude='dist/assets/auth-*.js' 'console\\.[A-Za-z]+\\(' dist || grep -R -n -E --exclude='*.map' '(^|[^A-Za-z])debugger(;|$)' dist); then echo 'Found console or debugger in production build'; exit 1; else echo 'OK: no console/debugger in dist'; fi\"",
     "ci:guard:sandbox": "node tools/ci-guards/check-gotosandbox.mjs",
     "ci:guard:flags": "node tools/ci-guards/check-flags-drift.mjs",
+    "ci:check-bundle-flags": "bash scripts/check-bundle-flags.sh",
     "test:e2e:firefox": "playwright test --project=firefox -c playwright.config.ts",
     "test:e2e:webkit": "playwright test --project=webkit -c playwright.config.ts",
+    "test:e2e": "playwright test",
     "ci:all": "npm run typecheck && npm run lint && npm run test && npm run e2e"
   },
   "dependencies": {

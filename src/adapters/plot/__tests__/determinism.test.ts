@@ -160,14 +160,15 @@ describe('PLoT V1 Determinism', () => {
         })
       )
 
-      // Run without debug (no feature flags set)
-      const reportNoDebug = await httpV1Adapter.run(MOCK_REQUEST)
-      expect(reportNoDebug.debug).toBeUndefined()
-      const hashWithoutDebug = reportNoDebug.model_card.response_hash
-
-      // Run with debug by enabling feature flag
-      vi.stubEnv('VITE_FEATURE_COMPARE_DEBUG', '1')
+      // Run without debug (explicitly disable feature flag)
+      vi.stubEnv('VITE_FEATURE_COMPARE_DEBUG', '0')
       try {
+        const reportNoDebug = await httpV1Adapter.run(MOCK_REQUEST)
+        expect(reportNoDebug.debug).toBeUndefined()
+        const hashWithoutDebug = reportNoDebug.model_card.response_hash
+
+        // Run with debug by enabling feature flag
+        vi.stubEnv('VITE_FEATURE_COMPARE_DEBUG', '1')
         const reportWithDebug = await httpV1Adapter.run(MOCK_REQUEST)
 
         // Verify debug data is present
@@ -180,12 +181,12 @@ describe('PLoT V1 Determinism', () => {
         // Both should have same hash (debug doesn't affect hash calculation)
         expect(reportWithDebug.model_card.response_hash).toBe('deterministic-hash-42')
         expect(reportWithDebug.model_card.response_hash).toBe(hashWithoutDebug)
+
+        expect(requestCount).toBe(2)
       } finally {
         // Clean up environment stub
         vi.unstubAllEnvs()
       }
-
-      expect(requestCount).toBe(2)
     }, 10000)
   })
 
