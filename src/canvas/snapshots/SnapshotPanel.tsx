@@ -27,9 +27,10 @@ import {
 
 export interface SnapshotPanelProps {
   enabled?: boolean
+  onCompare?: (snapshotId: string) => void
 }
 
-export function SnapshotPanel({ enabled = false }: SnapshotPanelProps) {
+export function SnapshotPanel({ enabled = false, onCompare }: SnapshotPanelProps) {
   const [snapshots, setSnapshots] = useState<Snapshot[]>(listSnapshots())
   const [snapshotName, setSnapshotName] = useState('')
   const [saving, setSaving] = useState(false)
@@ -146,6 +147,15 @@ export function SnapshotPanel({ enabled = false }: SnapshotPanelProps) {
                 </div>
               </div>
               <div className="flex gap-1 ml-2">
+                {onCompare && (
+                  <button
+                    onClick={() => onCompare(snapshot.meta.id)}
+                    className="px-2 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
+                    title="Compare with current canvas (press D to toggle)"
+                  >
+                    Compare
+                  </button>
+                )}
                 <button
                   onClick={() => handleRestore(snapshot.meta.id)}
                   className="px-2 py-1 text-xs font-medium bg-green-50 text-green-700 rounded hover:bg-green-100"
