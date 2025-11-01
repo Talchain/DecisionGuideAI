@@ -23,22 +23,25 @@ Universal search and actions surface for Canvas.
 - `e2e/palette.spec.ts` - E2E tests (20 tests)
 
 **Features**:
-- Fuzzy search across nodes, edges, drivers, templates, runs, actions
+- Fuzzy search across nodes, edges, drivers, runs, actions
+- Templates search (pending template store integration)
 - Keyboard shortcuts: ⌘K/CTRL+K to open, ↑/↓ to navigate, Enter to select, ESC to close
+- Mouse hover updates selection (fixed in 0350e63)
 - Stable sorting: exact > prefix > fuzzy matches
 - Performance: <50ms open latency, <75ms search results (P95 on 1k items)
 - Lazy-loaded for optimal initial bundle size
 - Zero Axe accessibility violations
-- Action handlers:
-  - Copy seed & hash to clipboard
-  - Edge highlighting (2s auto-clear)
-  - Driver focus (node/edge selection)
-  - Run/cancel (pending useResultsRun integration)
-  - Open panels (results, compare, inspector)
+- Implemented actions:
+  - ✅ Copy seed & hash to clipboard
+  - ✅ Edge highlighting (2s auto-clear, proper timeout cleanup)
+  - ✅ Driver focus (node/edge selection)
+- Pending actions (require parent integration):
+  - ⏳ Run/cancel (needs useResultsRun hook access)
+  - ⏳ Open panels (results, compare, inspector)
 
 **Flag**: `VITE_FEATURE_COMMAND_PALETTE=0|1` (default OFF)
 
-**Commits**: 70144e2, 3c2536f
+**Commits**: 70144e2, 3c2536f, 0350e63 (fixes)
 
 ---
 
@@ -489,7 +492,10 @@ while (manager.shouldRetry()) {
 
 ### Long Term
 1. Implement actual allowlist API endpoint (`/v1/allowlist`)
-2. Complete action handlers in Command Palette (run/cancel, open panels)
+2. Complete Command Palette integration:
+   - Wire templates indexer when template store available
+   - Complete action handlers (run/cancel, open panels) - requires parent integration
+   - These need access to ResultsPanel state and methods
 3. Add template thumbnails for EmptyState
 4. Implement Safari EventSource fallback in SSE adapter
 5. Add reconnection UI indicators in ResultsPanel
