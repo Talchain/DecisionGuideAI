@@ -2,6 +2,7 @@ import React from 'react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { TemplatesPanel } from '../../../src/canvas/panels/TemplatesPanel'
+import { ToastProvider } from '../../../src/canvas/ToastContext'
 import * as plotAdapter from '../../../src/adapters/plot'
 import * as blueprintsModule from '../../../src/templates/blueprints'
 
@@ -10,7 +11,8 @@ vi.mock('../../../src/adapters/plot', () => ({
     templates: vi.fn(),
     template: vi.fn(),
     run: vi.fn()
-  }
+  },
+  adapterName: 'auto'
 }))
 
 vi.mock('../../../src/templates/blueprints', () => ({
@@ -21,6 +23,11 @@ vi.mock('../../../src/templates/blueprints', () => ({
 const mockPlot = vi.mocked(plotAdapter.plot)
 const mockGetAllBlueprints = vi.mocked(blueprintsModule.getAllBlueprints)
 const mockGetBlueprintById = vi.mocked(blueprintsModule.getBlueprintById)
+
+// Test wrapper with ToastProvider
+const renderWithProvider = (ui: React.ReactElement) => {
+  return render(<ToastProvider>{ui}</ToastProvider>)
+}
 
 describe('TemplatesPanel', () => {
   beforeEach(() => {
@@ -33,7 +40,7 @@ describe('TemplatesPanel', () => {
         edges: []
       }
     ])
-    
+
     mockGetBlueprintById.mockReturnValue({
       id: 'pricing-v1',
       name: 'Pricing Strategy',
@@ -42,7 +49,30 @@ describe('TemplatesPanel', () => {
       nodes: [],
       edges: []
     })
-    
+
+    // Mock templates() to return API format
+    mockPlot.templates.mockResolvedValue({
+      schema: 'template-list.v1',
+      items: [
+        {
+          id: 'pricing-v1',
+          name: 'Pricing Strategy',
+          description: 'Compare pricing tiers',
+          version: '1.0'
+        }
+      ]
+    })
+
+    // Mock template() to return full template
+    mockPlot.template.mockResolvedValue({
+      id: 'pricing-v1',
+      name: 'Pricing Strategy',
+      description: 'Compare pricing tiers',
+      version: '1.0',
+      default_seed: 1337,
+      graph: { nodes: [], edges: [] }
+    })
+
     mockPlot.run.mockResolvedValue({
       schema: 'report.v1',
       meta: { seed: 1337, response_id: 'test', elapsed_ms: 100 },
@@ -54,19 +84,19 @@ describe('TemplatesPanel', () => {
   })
 
   it('renders when open', () => {
-    render(<TemplatesPanel isOpen={true} onClose={() => {}} />)
-    
+    renderWithProvider(<TemplatesPanel isOpen={true} onClose={() => {}} />)
+
     expect(screen.getByRole('complementary', { name: 'Templates' })).toBeInTheDocument()
   })
 
   it('does not render when closed', () => {
-    render(<TemplatesPanel isOpen={false} onClose={() => {}} />)
+    renderWithProvider(<TemplatesPanel isOpen={false} onClose={() => {}} />)
     
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
   })
 
   it('shows template browser with search', () => {
-    render(<TemplatesPanel isOpen={true} onClose={() => {}} />)
+    renderWithProvider(<TemplatesPanel isOpen={true} onClose={() => {}} />)
     
     expect(screen.getByPlaceholderText(/search templates/i)).toBeInTheDocument()
     expect(screen.getByText('Pricing Strategy')).toBeInTheDocument()
@@ -78,7 +108,7 @@ describe('TemplatesPanel', () => {
       { id: 'hiring-v1', name: 'Hiring Decision', description: 'Hiring', nodes: [], edges: [] }
     ])
     
-    render(<TemplatesPanel isOpen={true} onClose={() => {}} />)
+    renderWithProvider(<TemplatesPanel isOpen={true} onClose={() => {}} />)
     
     const searchInput = screen.getByPlaceholderText(/search templates/i)
     fireEvent.change(searchInput, { target: { value: 'pricing' } })
@@ -91,7 +121,7 @@ describe('TemplatesPanel', () => {
 
   it('calls onInsertBlueprint when Insert clicked', () => {
     const onInsertBlueprint = vi.fn()
-    render(<TemplatesPanel isOpen={true} onClose={() => {}} onInsertBlueprint={onInsertBlueprint} />)
+    renderWithProvider(<TemplatesPanel isOpen={true} onClose={() => {}} onInsertBlueprint={onInsertBlueprint} />)
     
     fireEvent.click(screen.getByRole('button', { name: /insert pricing strategy/i }))
     
@@ -102,7 +132,7 @@ describe('TemplatesPanel', () => {
   })
 
   it('shows template about section after insert', async () => {
-    render(<TemplatesPanel isOpen={true} onClose={() => {}} onInsertBlueprint={() => {}} />)
+    renderWithProvider(<TemplatesPanel isOpen={true} onClose={() => {}} onInsertBlueprint={() => {}} />)
     
     fireEvent.click(screen.getByRole('button', { name: /insert pricing strategy/i }))
     
@@ -113,7 +143,7 @@ describe('TemplatesPanel', () => {
   })
 
   it('toggles dev controls', async () => {
-    render(<TemplatesPanel isOpen={true} onClose={() => {}} onInsertBlueprint={() => {}} />)
+    renderWithProvider(<TemplatesPanel isOpen={true} onClose={() => {}} onInsertBlueprint={() => {}} />)
     
     fireEvent.click(screen.getByRole('button', { name: /insert pricing strategy/i }))
     

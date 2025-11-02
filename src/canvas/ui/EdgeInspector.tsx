@@ -4,13 +4,15 @@
  * British English: visualisation, colour
  */
 
-import { memo, useState, useCallback, useEffect, useRef } from 'react'
-import { useCanvasStore } from '../store'
+import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { useCanvasStore, selectReport } from '../store'
 import { EDGE_CONSTRAINTS, type EdgeStyle, DEFAULT_EDGE_DATA } from '../domain/edges'
-import { formatConfidence } from '../domain/edges'
 import { useToast } from '../ToastContext'
 import { Tooltip } from '../components/Tooltip'
-import { ProbabilityModal } from '../components/ProbabilityModal'
+import { GlossaryTerm } from '../components/GlossaryTerm'
+import { ExternalLink, Info } from 'lucide-react'
+import { focusNodeById } from '../utils/focusHelpers'
+import { parseDebugInspectorEdges } from '../../adapters/plot/types'
 
 interface EdgeInspectorProps {
   edgeId: string
@@ -27,34 +29,42 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   const updateEdge = useCanvasStore(s => s.updateEdge)
   const deleteEdge = useCanvasStore(s => s.deleteEdge)
   const beginReconnect = useCanvasStore(s => s.beginReconnect)
+  const selectNodeWithoutHistory = useCanvasStore(s => s.selectNodeWithoutHistory)
+  const report = useCanvasStore(selectReport)
   const { showToast } = useToast()
-  
+
   const edge = edges.find(e => e.id === edgeId)
-  
+
+  // Debug inspector facts (Phase 6+)
+  const debugEnabled = import.meta.env.VITE_FEATURE_INSPECTOR_DEBUG === '1'
+  const edgeFacts = useMemo(() => {
+    if (!debugEnabled || !report?.debug?.inspector?.edges) return null
+
+    const parsedEdges = parseDebugInspectorEdges(report.debug.inspector.edges)
+    if (!parsedEdges) return null
+
+    // Find facts for this edge
+    return parsedEdges.find(e => e.edge_id === edgeId) || null
+  }, [debugEnabled, report, edgeId])
+
   // Local state for immediate UI updates with proper defaults
   const [weight, setWeight] = useState<number>(edge?.data?.weight ?? 1.0)
   const [style, setStyle] = useState<EdgeStyle>(edge?.data?.style ?? 'solid')
   const [curvature, setCurvature] = useState<number>(edge?.data?.curvature ?? 0.15)
   const [label, setLabel] = useState<string>(edge?.data?.label ?? '')
-  const [confidence, setConfidence] = useState<number>(edge?.data?.confidence ?? 0.5)
   
   // Debounce timer refs
   const weightTimerRef = useRef<NodeJS.Timeout>()
   const curvatureTimerRef = useRef<NodeJS.Timeout>()
-  const confidenceTimerRef = useRef<NodeJS.Timeout>()
-  
+
   // Live region for announcements
   const [announcement, setAnnouncement] = useState('')
-
-  // Probability modal state
-  const [showProbabilityModal, setShowProbabilityModal] = useState(false)
 
   // Cleanup timers on unmount
   useEffect(() => {
     return () => {
       clearTimeout(weightTimerRef.current)
       clearTimeout(curvatureTimerRef.current)
-      clearTimeout(confidenceTimerRef.current)
     }
   }, [])
   
@@ -156,41 +166,106 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         </button>
       </div>
       
-      {/* Weight control */}
+      {/* Weight control - Read-only with deep link */}
       <div className="mb-4">
-        <Tooltip content="Importance of this connector (also affects line thickness)" position="right">
-          <label htmlFor="edge-weight" className="block text-xs font-medium text-gray-700 mb-1">
-            Weight
-          </label>
-        </Tooltip>
-        <div className="flex items-center gap-2">
-          <input
-            id="edge-weight"
-            type="range"
-            min={EDGE_CONSTRAINTS.weight.min}
-            max={EDGE_CONSTRAINTS.weight.max}
-            step={EDGE_CONSTRAINTS.weight.step}
-            value={weight}
-            onChange={(e) => handleWeightChange(parseFloat(e.target.value))}
-            className="flex-1"
-            aria-valuemin={EDGE_CONSTRAINTS.weight.min}
-            aria-valuemax={EDGE_CONSTRAINTS.weight.max}
-            aria-valuenow={weight}
-            aria-valuetext={`${weight.toFixed(1)}`}
-          />
-          <input
-            type="number"
-            min={EDGE_CONSTRAINTS.weight.min}
-            max={EDGE_CONSTRAINTS.weight.max}
-            step={EDGE_CONSTRAINTS.weight.step}
-            value={weight}
-            onChange={(e) => handleWeightChange(Math.max(EDGE_CONSTRAINTS.weight.min, Math.min(EDGE_CONSTRAINTS.weight.max, parseFloat(e.target.value) || EDGE_CONSTRAINTS.weight.min)))}
-            className="w-16 text-xs border border-gray-300 rounded px-2 py-1"
-            aria-label="Weight value"
+        <div className="flex items-center justify-between mb-1">
+          <GlossaryTerm
+            term="Weight"
+            definition="How strongly this connection influences the outcome (also affects line thickness)."
           />
         </div>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="flex-1 px-3 py-2 text-sm rounded border border-gray-300 bg-gray-50" style={{ color: 'var(--olumi-text)' }}>
+            {weight.toFixed(1)}
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            if (edge?.source) {
+              focusNodeById(edge.source)
+              setTimeout(() => {
+                showToast('Navigate to the parent decision to edit probabilities', 'info')
+              }, 100)
+            }
+          }}
+          className="flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 transition-colors"
+          style={{ fontSize: '0.75rem' }}
+        >
+          <ExternalLink className="w-3 h-3" />
+          Edit in parent decision
+        </button>
       </div>
-      
+
+      {/* Debug Facts Table (Phase 6+) - Feature Flag Gated */}
+      {debugEnabled && edgeFacts && (
+        <div className="mb-4 pb-4 border-b border-gray-200">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-medium text-gray-700">Debug Facts</span>
+            <span
+              className="px-2 py-0.5 rounded text-xs font-normal"
+              style={{
+                backgroundColor: 'rgba(91, 108, 255, 0.15)',
+                color: 'var(--olumi-primary)'
+              }}
+            >
+              Beta
+            </span>
+          </div>
+          <div className="rounded border" style={{ borderColor: 'rgba(91, 108, 255, 0.2)' }}>
+            <table className="w-full text-xs">
+              <tbody>
+                {/* Weight */}
+                <tr>
+                  <td className="px-3 py-2 font-medium text-gray-700 border-b border-gray-100">
+                    <Tooltip content="Probability weight from analysis" position="right">
+                      <div className="flex items-center gap-1">
+                        <span>Weight</span>
+                        <Info className="w-3 h-3 text-gray-400" />
+                      </div>
+                    </Tooltip>
+                  </td>
+                  <td className="px-3 py-2 text-gray-900 border-b border-gray-100">
+                    {edgeFacts.weight.toFixed(2)}
+                  </td>
+                </tr>
+
+                {/* Belief */}
+                <tr>
+                  <td className="px-3 py-2 font-medium text-gray-700 border-b border-gray-100">
+                    <Tooltip content="Confidence level in this connection (0-1)" position="right">
+                      <div className="flex items-center gap-1">
+                        <span>Belief</span>
+                        <Info className="w-3 h-3 text-gray-400" />
+                      </div>
+                    </Tooltip>
+                  </td>
+                  <td className="px-3 py-2 text-gray-900 border-b border-gray-100">
+                    {edgeFacts.belief.toFixed(2)}
+                  </td>
+                </tr>
+
+                {/* Provenance */}
+                <tr>
+                  <td className="px-3 py-2 font-medium text-gray-700">
+                    <Tooltip content="Source of this edge data" position="right">
+                      <div className="flex items-center gap-1">
+                        <span>Provenance</span>
+                        <Info className="w-3 h-3 text-gray-400" />
+                      </div>
+                    </Tooltip>
+                  </td>
+                  <td className="px-3 py-2 text-gray-900">
+                    <span className="px-2 py-0.5 rounded text-xs font-mono" style={{ backgroundColor: 'rgba(91, 108, 255, 0.08)' }}>
+                      {edgeFacts.provenance}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Style control */}
       <div className="mb-4">
         <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -256,36 +331,39 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         />
       </div>
       
-      {/* Probability - Edit in Decision */}
+      {/* Probability - CTA to parent decision */}
       <div className="mb-4">
         <Tooltip content="% likelihood this connector is taken (all from the same step must total 100%)" position="right">
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Probability
           </label>
         </Tooltip>
-        <div className="flex items-center justify-between gap-3 p-3 rounded" style={{ backgroundColor: 'rgba(91, 108, 255, 0.05)', border: '1px solid rgba(91, 108, 255, 0.2)' }}>
-          <div className="flex-1">
-            <p className="text-xs font-medium" style={{ color: 'var(--olumi-text, #E8ECF5)' }}>
-              {formatConfidence(confidence)}
-            </p>
-            <p className="text-xs mt-0.5" style={{ color: 'rgba(232, 236, 245, 0.6)' }}>
-              Edit in decision node →
-            </p>
-          </div>
+        <div className="p-3 rounded" style={{ backgroundColor: 'rgba(91, 108, 255, 0.05)', border: '1px solid rgba(91, 108, 255, 0.2)' }}>
+          <p className="text-xs text-gray-600 mb-2">
+            Edit probabilities in this decision (or press <kbd className="px-1 py-0.5 text-xs font-semibold bg-gray-100 border border-gray-300 rounded">P</kbd> after selecting)
+          </p>
           <button
             type="button"
             onClick={() => {
-              // Open probability modal directly for smoother UX
-              setShowProbabilityModal(true)
+              // Select the source decision node
+              if (edge?.source) {
+                selectNodeWithoutHistory(edge.source)
+                onClose()
+              }
             }}
-            className="px-3 py-1 text-xs font-medium rounded border"
+            className="w-full px-3 py-1.5 text-xs font-medium rounded transition-colors"
             style={{
               backgroundColor: 'var(--olumi-primary, #5B6CFF)',
-              color: '#ffffff',
-              border: 'none'
+              color: '#ffffff'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--olumi-primary-600, #4256F6)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--olumi-primary, #5B6CFF)'
             }}
           >
-            Edit
+            Go to decision probabilities
           </button>
         </div>
       </div>
@@ -348,14 +426,6 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           Delete Connector
         </button>
       </div>
-
-      {/* Probability Modal */}
-      {showProbabilityModal && edge?.source && (
-        <ProbabilityModal
-          nodeId={edge.source}
-          onClose={() => setShowProbabilityModal(false)}
-        />
-      )}
     </div>
   )
 })

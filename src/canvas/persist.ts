@@ -1,11 +1,16 @@
 // Safe localStorage persistence with schema validation, versioning, and quota handling
 import { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from './domain/edges'
+import { sanitizeLabel as sanitizeLabelUtil, sanitizeJSON } from './utils/sanitize'
 
 const STORAGE_KEY = 'canvas-storage'
 const SNAPSHOT_PREFIX = 'canvas-snapshot-'
 const MAX_SNAPSHOTS = 10
 const MAX_PAYLOAD_SIZE = 5 * 1024 * 1024 // 5MB
+
+// Telemetry counters
+let quotaExceededCount = 0
+let quotaRecoveryCount = 0
 
 interface PersistedState {
   version: number
@@ -20,6 +25,16 @@ interface SnapshotMetadata {
   size: number
 }
 
+/**
+ * Get telemetry data for quota errors
+ */
+export function getQuotaTelemetry(): { exceeded: number; recovered: number } {
+  return {
+    exceeded: quotaExceededCount,
+    recovered: quotaRecoveryCount,
+  }
+}
+
 function isValidState(data: unknown): data is PersistedState {
   if (!data || typeof data !== 'object') return false
   const d = data as Record<string, unknown>
@@ -31,15 +46,9 @@ function isValidState(data: unknown): data is PersistedState {
   )
 }
 
+// Re-export sanitizeLabel from central utility for backwards compatibility
 export function sanitizeLabel(label: unknown): string {
-  if (typeof label !== 'string') return 'Untitled'
-  // Strip HTML tags, control characters, and limit length
-  return label
-    .replace(/<[^>]*>/g, '') // Remove HTML tags
-    .replace(/[<>]/g, '') // Remove angle brackets
-    .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
-    .slice(0, 100)
-    .trim() || 'Untitled'
+  return sanitizeLabelUtil(label, 100)
 }
 
 function sanitizeNodeData(data: unknown): Record<string, unknown> {
@@ -79,10 +88,13 @@ export function loadState(): PersistedState | null {
 
 export function saveState(state: { nodes: Node[]; edges: Edge<EdgeData>[] }): boolean {
   try {
+    // H3: Explicitly extract only nodes and edges to prevent accidental
+    // persistence of preview state or other sensitive data
     const persisted: PersistedState = {
       version: 1,
       timestamp: Date.now(),
-      ...state,
+      nodes: state.nodes,
+      edges: state.edges,
     }
     const sanitized = sanitizeState(persisted)
     const payload = JSON.stringify(sanitized)
@@ -96,8 +108,28 @@ export function saveState(state: { nodes: Node[]; edges: Edge<EdgeData>[] }): bo
     return true
   } catch (err) {
     if (err instanceof DOMException && err.name === 'QuotaExceededError') {
-      console.error('[CANVAS] LocalStorage quota exceeded')
-      return false
+      quotaExceededCount++
+      console.error('[CANVAS] LocalStorage quota exceeded, attempting progressive cleanup...')
+
+      // Prepare save operation for retry
+      const persisted: PersistedState = {
+        version: 1,
+        timestamp: Date.now(),
+        nodes: state.nodes,
+        edges: state.edges,
+      }
+      const sanitized = sanitizeState(persisted)
+      const payload = JSON.stringify(sanitized)
+
+      // Attempt progressive cleanup
+      const recovered = tryProgressiveCleanup(() => {
+        localStorage.setItem(STORAGE_KEY, payload)
+      })
+
+      if (!recovered) {
+        console.error('[CANVAS] Could not recover from quota error after cleanup')
+      }
+      return recovered
     }
     console.warn('[CANVAS] Failed to save state:', err)
     return false
@@ -116,10 +148,13 @@ export function clearState(): void {
 
 export function saveSnapshot(state: { nodes: Node[]; edges: Edge<EdgeData>[] }): boolean {
   try {
+    // H3: Explicitly extract only nodes and edges to prevent accidental
+    // persistence of preview state or other sensitive data
     const persisted: PersistedState = {
       version: 1,
       timestamp: Date.now(),
-      ...state,
+      nodes: state.nodes,
+      edges: state.edges,
     }
     const sanitized = sanitizeState(persisted)
     const payload = JSON.stringify(sanitized)
@@ -138,8 +173,32 @@ export function saveSnapshot(state: { nodes: Node[]; edges: Edge<EdgeData>[] }):
     return true
   } catch (err) {
     if (err instanceof DOMException && err.name === 'QuotaExceededError') {
-      console.error('[CANVAS] LocalStorage quota exceeded, cannot save snapshot')
-      return false
+      quotaExceededCount++
+      console.error('[CANVAS] LocalStorage quota exceeded, attempting progressive cleanup...')
+
+      // Prepare save operation for retry
+      const persisted: PersistedState = {
+        version: 1,
+        timestamp: Date.now(),
+        nodes: state.nodes,
+        edges: state.edges,
+      }
+      const sanitized = sanitizeState(persisted)
+      const payload = JSON.stringify(sanitized)
+      const key = `${SNAPSHOT_PREFIX}${persisted.timestamp}`
+
+      // Attempt progressive cleanup
+      const recovered = tryProgressiveCleanup(() => {
+        localStorage.setItem(key, payload)
+      })
+
+      if (recovered) {
+        // Rotate after successful recovery
+        rotateSnapshots()
+      } else {
+        console.error('[CANVAS] Could not recover from quota error after cleanup')
+      }
+      return recovered
     }
     console.warn('[CANVAS] Failed to save snapshot:', err)
     return false
@@ -204,6 +263,46 @@ function rotateSnapshots(): void {
   }
 }
 
+/**
+ * Progressive cleanup helper for quota recovery
+ *
+ * Attempts to free up space by removing snapshots one at a time (oldest first)
+ * and retrying the save operation after each cleanup.
+ *
+ * @param operation - Function to retry (save operation)
+ * @param maxAttempts - Maximum cleanup attempts (default: 5)
+ * @returns true if save succeeded after cleanup, false otherwise
+ */
+function tryProgressiveCleanup(operation: () => void, maxAttempts = 5): boolean {
+  const snapshots = listSnapshots()
+
+  // Try cleaning up old snapshots incrementally
+  for (let i = 0; i < Math.min(maxAttempts, snapshots.length); i++) {
+    // Delete oldest snapshot
+    const oldestSnapshot = snapshots[i]
+    console.log(`[CANVAS] Quota exceeded, removing snapshot ${oldestSnapshot.key} (attempt ${i + 1}/${maxAttempts})`)
+    deleteSnapshot(oldestSnapshot.key)
+
+    // Retry save operation
+    try {
+      operation()
+      quotaRecoveryCount++
+      console.log(`[CANVAS] Quota recovered after removing ${i + 1} snapshot(s)`)
+      return true
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'QuotaExceededError') {
+        // Still exceeded, continue cleanup
+        continue
+      }
+      // Different error, propagate
+      throw err
+    }
+  }
+
+  // Could not recover after all attempts
+  return false
+}
+
 // Import/Export
 
 import { importSnapshot, exportSnapshot } from './domain/migrations'
@@ -225,9 +324,12 @@ export function exportCanvas(state: { nodes: Node[]; edges: Edge<EdgeData>[] }):
 export function importCanvas(json: string): { nodes: Node[]; edges: Edge<EdgeData>[] } | null {
   try {
     const parsed = JSON.parse(json)
-    
+
+    // Sanitize parsed JSON to prevent prototype pollution
+    const sanitizedParsed = sanitizeJSON(parsed) as any
+
     // Route through migration API for automatic v1→v2 upgrade
-    const normalized = importSnapshot(parsed)
+    const normalized = importSnapshot(sanitizedParsed)
     if (!normalized) {
       console.error('[CANVAS] Invalid import data structure')
       return null

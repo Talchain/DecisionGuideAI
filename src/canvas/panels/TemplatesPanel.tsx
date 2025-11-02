@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { X, Search } from 'lucide-react'
-import { plot } from '../../adapters/plot'
+import { plot, adapterName, reprobeCapability } from '../../adapters/plot'
 import { getAllBlueprints, getBlueprintById } from '../../templates/blueprints'
 import type { Blueprint } from '../../templates/blueprints/types'
 import { useTemplatesRun } from '../../routes/templates/hooks/useTemplatesRun'
@@ -11,6 +11,9 @@ import { ErrorBanner } from '../../routes/templates/components/ErrorBanner'
 import { ProgressStrip } from '../../routes/templates/components/ProgressStrip'
 import { TemplateCard } from './TemplateCard'
 import { TemplateAbout } from './TemplateAbout'
+import { PlotHealthPill } from '../../adapters/plot/v1/components/PlotHealthPill'
+import { AdapterStatusBanner } from './AdapterStatusBanner'
+import { useToast } from '../ToastContext'
 
 interface TemplatesPanelProps {
   isOpen: boolean
@@ -20,17 +23,98 @@ interface TemplatesPanelProps {
 }
 
 export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanvas }: TemplatesPanelProps): JSX.Element | null {
-  const [blueprints] = useState(() => getAllBlueprints())
+  const { showToast } = useToast()
+  const [blueprints, setBlueprints] = useState<Array<{ id: string; name: string; description: string; source: 'api' | 'local' }>>([])
+  const [templatesLoadError, setTemplatesLoadError] = useState<string | null>(null)
+  const [usingLocalFallback, setUsingLocalFallback] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedBlueprintId, setSelectedBlueprintId] = useState<string | null>(null)
+  const [selectedBlueprint, setSelectedBlueprint] = useState<Blueprint | null>(null)
   const [showDevControls, setShowDevControls] = useState(false)
   const [seed, setSeed] = useState<string>('1337')
-  const [toastMessage, setToastMessage] = useState<string | null>(null)
   const panelRef = useRef<HTMLDivElement>(null)
-  
-  const { loading, result, error, run, clearError } = useTemplatesRun()
-  
-  const selectedBlueprint = selectedBlueprintId ? getBlueprintById(selectedBlueprintId) : null
+
+  const { loading, progress, canCancel, result, error, run, cancel, clearError } = useTemplatesRun()
+
+  // Load templates from adapter (supports both mock and httpv1)
+  const loadTemplates = useCallback(async () => {
+    setTemplatesLoadError(null)
+    setUsingLocalFallback(false)
+
+    try {
+      const list = await plot.templates()
+
+      // Safety check: ensure items array exists
+      if (!list || !Array.isArray(list.items)) {
+        throw new Error('Invalid templates response')
+      }
+
+      if (list.items.length === 0) {
+        throw new Error('No templates available from API')
+      }
+
+      setBlueprints(list.items.map(t => ({
+        id: t.id,
+        name: t.name,
+        description: t.description,
+        source: 'api' as const,
+      })))
+    } catch (err: any) {
+      console.error('❌ Failed to load templates from PLoT engine:', err)
+
+      // Determine if this is a 5xx server error (should fallback)
+      // vs 4xx client error (should not fallback)
+      const isServerError = err.code === 'SERVER_ERROR' ||
+                           err.code === 'TIMEOUT' ||
+                           (err.details?.status && err.details.status >= 500)
+
+      // Only fallback to local blueprints on 5xx server errors
+      if (isServerError) {
+        try {
+          const localBlueprints = getAllBlueprints()
+          if (localBlueprints.length > 0) {
+            console.warn('⚠️ Server error - using local blueprints fallback')
+            setBlueprints(localBlueprints.map(bp => ({
+              id: bp.id,
+              name: bp.name,
+              description: bp.description,
+              source: 'local' as const,
+            })))
+            setUsingLocalFallback(true)
+            setTemplatesLoadError('API unavailable. Showing local templates.')
+          } else {
+            setBlueprints([])
+            setTemplatesLoadError('Failed to load templates. Server is unavailable.')
+          }
+        } catch (fallbackErr) {
+          console.error('❌ Fallback to local blueprints also failed:', fallbackErr)
+          setBlueprints([])
+          setTemplatesLoadError('Failed to load templates. Server is unavailable.')
+        }
+      } else {
+        // Client error (4xx), rate limit, bad input, etc - don't fallback
+        setBlueprints([])
+        const errorMessage = err.error || err.message || 'Failed to load templates'
+        setTemplatesLoadError(errorMessage)
+
+        if (err.code === 'RATE_LIMITED' && err.retry_after) {
+          setTemplatesLoadError(`Rate limited. Please wait ${err.retry_after}s and try again.`)
+        }
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    loadTemplates()
+  }, [])
+
+  const handleRefreshFromAPI = useCallback(async () => {
+    if (adapterName === 'auto') {
+      showToast('Checking API availability...')
+      await reprobeCapability() // Bypass cache and re-probe
+    }
+    await loadTemplates() // Reload templates
+  }, [loadTemplates, showToast])
 
   const filteredBlueprints = blueprints.filter(bp =>
     bp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -45,14 +129,123 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     }
   }, [isOpen])
 
-  const handleInsert = useCallback((templateId: string) => {
-    const blueprint = getBlueprintById(templateId)
-    if (blueprint && onInsertBlueprint) {
-      onInsertBlueprint(blueprint)
-      setSelectedBlueprintId(templateId)
-      showToast('Inserted to canvas.')
+  const handleInsert = useCallback(async (templateId: string) => {
+    try {
+      // Fetch template from API (works for both mock and httpv1)
+      const templateDetail = await plot.template(templateId)
+
+      // Extract graph from API response
+      const graph = templateDetail.graph as any
+      if (!graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) {
+        throw new Error('Invalid template graph structure')
+      }
+
+      // F2: Check for meta.suggested_positions (prefer backend-provided positions)
+      const suggestedPositions = graph.meta?.suggested_positions
+      const hasSuggestedPositions = suggestedPositions && typeof suggestedPositions === 'object'
+
+      // Use suggested positions if available, otherwise compute layout
+      const positionedNodes = hasSuggestedPositions
+        ? graph.nodes.map((node: any) => {
+            const suggested = suggestedPositions[node.id]
+            return {
+              id: node.id,
+              label: node.label || node.id,
+              kind: (node.kind || 'decision') as any,
+              description: node.body || node.description, // F1: map body to description for UI
+              position: suggested
+                ? { x: suggested.x, y: suggested.y }
+                : { x: 0, y: 0 } // Fallback if position missing
+            }
+          })
+        : layoutGraph(graph.nodes, graph.edges)
+
+      // Auto-layout: Create hierarchical layout for templates without positions
+      function layoutGraph(nodes: any[], edges: any[]) {
+        // Build adjacency map
+        const outgoing = new Map<string, string[]>()
+        const incoming = new Map<string, string[]>()
+        edges.forEach(e => {
+          if (!outgoing.has(e.from)) outgoing.set(e.from, [])
+          if (!incoming.has(e.to)) incoming.set(e.to, [])
+          outgoing.get(e.from)!.push(e.to)
+          incoming.get(e.to)!.push(e.from)
+        })
+
+        // Find root nodes (no incoming edges)
+        const roots = nodes.filter(n => !incoming.has(n.id))
+
+        // Assign levels (BFS)
+        const levels = new Map<string, number>()
+        const queue = roots.map(r => ({ id: r.id, level: 0 }))
+        while (queue.length > 0) {
+          const { id, level } = queue.shift()!
+          if (levels.has(id)) continue
+          levels.set(id, level)
+          const children = outgoing.get(id) || []
+          children.forEach(child => queue.push({ id: child, level: level + 1 }))
+        }
+
+        // Group by level
+        const nodesByLevel = new Map<number, any[]>()
+        nodes.forEach(n => {
+          const level = levels.get(n.id) || 0
+          if (!nodesByLevel.has(level)) nodesByLevel.set(level, [])
+          nodesByLevel.get(level)!.push(n)
+        })
+
+        // Position nodes
+        const HORIZONTAL_SPACING = 280
+        const VERTICAL_SPACING = 200
+        return nodes.map(node => {
+          const level = levels.get(node.id) || 0
+          const nodesAtLevel = nodesByLevel.get(level) || []
+          const indexInLevel = nodesAtLevel.indexOf(node)
+          const totalAtLevel = nodesAtLevel.length
+
+          return {
+            id: node.id,
+            label: node.label || node.id,
+            kind: (node.kind || 'decision') as any,
+            description: node.body || node.description, // F1: map body to description for UI
+            position: {
+              x: 100 + (indexInLevel - (totalAtLevel - 1) / 2) * HORIZONTAL_SPACING,
+              y: 100 + level * VERTICAL_SPACING
+            }
+          }
+        })
+      }
+
+      // Convert to Blueprint format for canvas insertion
+      const blueprint: Blueprint = {
+        id: templateDetail.id,
+        name: templateDetail.name,
+        description: templateDetail.description,
+        nodes: positionedNodes,
+        edges: graph.edges.map((edge: any) => ({
+          id: edge.id || `${edge.from}-${edge.to}`,
+          from: edge.from,
+          to: edge.to,
+          probability: edge.confidence || edge.probability,
+          weight: edge.weight,
+          label: edge.label // F1: preserve edge.label for rendering
+        }))
+      }
+
+      if (onInsertBlueprint) {
+        onInsertBlueprint(blueprint)
+        setSelectedBlueprintId(templateId)
+        setSelectedBlueprint(blueprint)
+        // Use default_seed from API, or generate random seed if not provided
+        const defaultSeed = templateDetail.default_seed || Math.floor(Math.random() * 10000) + 1
+        setSeed(String(defaultSeed))
+        showToast('Inserted to canvas.')
+      }
+    } catch (err) {
+      console.error('Failed to load template:', err)
+      showToast('Failed to load template.')
     }
-  }, [onInsertBlueprint])
+  }, [onInsertBlueprint, showToast])
 
   const handleRun = useCallback(async () => {
     if (!selectedBlueprintId) return
@@ -68,12 +261,8 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     clearError()
     setSeed('1337')
     setSelectedBlueprintId(null)
+    setSelectedBlueprint(null)
   }, [clearError])
-
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg)
-    setTimeout(() => setToastMessage(null), 3000)
-  }, [])
 
   const handlePinToCanvas = useCallback(() => {
     if (result && selectedBlueprint && onPinToCanvas) {
@@ -127,7 +316,12 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200" style={{ background: 'linear-gradient(to right, rgba(91,108,255,0.05), rgba(123,70,255,0.05))' }}>
-          <h2 className="text-lg font-semibold text-gray-900">Templates</h2>
+          <div className="flex items-center gap-3 flex-1">
+            <h2 className="text-lg font-semibold text-gray-900">Templates</h2>
+            {(adapterName === 'httpv1' || adapterName === 'auto') && (
+              <PlotHealthPill pause={!isOpen} />
+            )}
+          </div>
           <button
             onClick={handleClose}
             className="p-2 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--olumi-primary)]"
@@ -136,6 +330,42 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Adapter Status Banner (dev-only, shows when v1 unavailable) */}
+        <AdapterStatusBanner visible={isOpen && adapterName === 'auto'} />
+
+        {/* Templates Load Error Banner */}
+        {templatesLoadError && (
+          <div className="mx-4 mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-start gap-2">
+              <svg className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-yellow-900">{templatesLoadError}</p>
+                {usingLocalFallback && (
+                  <p className="text-xs text-yellow-700 mt-1">Using local templates as fallback.</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {usingLocalFallback && adapterName === 'auto' && (
+                  <button
+                    onClick={handleRefreshFromAPI}
+                    className="px-3 py-1 text-xs font-medium text-yellow-900 bg-yellow-100 hover:bg-yellow-200 rounded transition-colors"
+                  >
+                    Refresh from API
+                  </button>
+                )}
+                <button
+                  onClick={loadTemplates}
+                  className="px-3 py-1 text-xs font-medium text-yellow-900 bg-yellow-100 hover:bg-yellow-200 rounded transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -158,6 +388,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                   <TemplateCard
                     key={bp.id}
                     template={{ id: bp.id, name: bp.name, description: bp.description }}
+                    source={bp.source}
                     onInsert={handleInsert}
                   />
                 ))}
@@ -169,9 +400,12 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           {selectedBlueprint && (
             <>
               <TemplateAbout blueprint={selectedBlueprint} />
-              
+
               <button
-                onClick={() => setSelectedBlueprintId(null)}
+                onClick={() => {
+                  setSelectedBlueprintId(null)
+                  setSelectedBlueprint(null)
+                }}
                 className="text-sm font-medium"
                 style={{ color: 'var(--olumi-primary)' }}
                 onMouseEnter={(e) => e.currentTarget.style.color = 'var(--olumi-primary-700)'}
@@ -180,6 +414,20 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                 ← Back to templates
               </button>
             </>
+          )}
+
+          {/* Primary Run Button - Always Visible */}
+          {selectedBlueprintId && !loading && !result && (
+            <button
+              onClick={handleRun}
+              disabled={loading || !selectedBlueprintId}
+              className="w-full px-6 py-3 text-base font-semibold text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--olumi-primary)] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md transition-all"
+              style={{ backgroundColor: 'var(--olumi-primary)' }}
+              onMouseEnter={(e) => !loading ? e.currentTarget.style.backgroundColor = 'var(--olumi-primary-700)' : null}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary)'}
+            >
+              {loading ? 'Running Analysis…' : '▶ Run Analysis'}
+            </button>
           )}
 
           {/* Dev Controls Toggle */}
@@ -210,7 +458,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-yellow-800 uppercase tracking-wide">Dev Controls</span>
-                <span className="text-xs bg-yellow-200 text-yellow-900 px-2 py-1 rounded font-mono">Adapter: Mock</span>
+                <span className="text-xs bg-yellow-200 text-yellow-900 px-2 py-1 rounded font-mono">Adapter: {adapterName}</span>
               </div>
               <div className="space-y-3">
                 <div>
@@ -249,7 +497,12 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           )}
 
           {/* Progress */}
-          <ProgressStrip isVisible={loading} />
+          <ProgressStrip
+            isVisible={loading}
+            progress={progress}
+            canCancel={canCancel}
+            onCancel={cancel}
+          />
 
           {/* Error */}
           {error && (
@@ -266,13 +519,13 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
               <WhyPanel report={result} />
               <ReproduceShareCard
                 report={result}
-                template={{ 
+                template={{
                   id: selectedBlueprint.id,
                   name: selectedBlueprint.name,
                   version: '1.0',
                   description: selectedBlueprint.description,
                   default_seed: parseInt(seed, 10),
-                  graph: {}
+                  graph: selectedBlueprint.graph || {}
                 }}
                 seed={parseInt(seed, 10)}
                 onCopySeed={() => showToast('Seed copied.')}
@@ -295,17 +548,6 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
             </div>
           )}
         </div>
-
-        {/* Toast */}
-        {toastMessage && (
-          <div 
-            role="status" 
-            aria-live="polite"
-            className="absolute bottom-4 left-4 right-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg text-sm"
-          >
-            {toastMessage}
-          </div>
-        )}
       </div>
     </>
   )
