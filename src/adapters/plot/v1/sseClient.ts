@@ -140,6 +140,8 @@ export function runStream(
           code: 'NETWORK_ERROR',
           message: err.message || String(err),
         })
+        // Track network error
+        errorMetrics.networkError()
       }
     })
 
@@ -167,6 +169,8 @@ function handleEvent(
   switch (eventType) {
     case 'started':
       handlers.onStarted(data as V1RunStartedData)
+      // Track stream started
+      streamMetrics.started(data.response_id)
       break
 
     case 'progress':
@@ -176,10 +180,15 @@ function handleEvent(
         percent: Math.min(data.percent, 90),
       }
       throttledProgress(cappedData as V1ProgressData)
+      // Track milestone progress (25%, 50%, 75% only to avoid spam)
+      streamMetrics.progress(cappedData.percent)
       break
 
     case 'interim':
       handlers.onInterim(data as V1InterimFindingsData)
+      // Track interim findings
+      const findingsCount = data.findings?.length || 0
+      streamMetrics.interim(findingsCount)
       break
 
     case 'heartbeat':
@@ -190,10 +199,21 @@ function handleEvent(
       // Send final 100% progress before completion
       throttledProgress({ percent: 100 })
       handlers.onComplete(data as V1CompleteData)
+      // Track stream completed (timing handled by useResultsRun)
+      streamMetrics.completed(data.response_id, 0) // Duration tracked at hook level
       break
 
     case 'error':
       handlers.onError(mapEventError(data))
+      // Track error via errorMetrics
+      const mappedError = mapEventError(data)
+      if (mappedError.code === 'RATE_LIMITED') {
+        errorMetrics.rateLimited(mappedError.retry_after)
+      } else if (mappedError.code === 'BAD_INPUT') {
+        errorMetrics.validationError(mappedError.field)
+      } else {
+        errorMetrics.serverError(mappedError.code)
+      }
       break
 
     default:

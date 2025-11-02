@@ -4,6 +4,7 @@ import { plot } from '../../adapters/plot'
 import type { RunRequest, ErrorV1, ReportV1 } from '../../adapters/plot/types'
 import { validateGraph, ensureHydrated } from '../validation/graphPreflight'
 import { useToast } from '../ToastContext'
+import { runMetrics, startTiming } from '../../observability/metrics'
 
 interface UseResultsRunReturn {
   run: (request: RunRequest) => Promise<void>
@@ -64,6 +65,10 @@ export function useResultsRun(): UseResultsRunReturn {
         // Start preparing
         resultsStart({ seed })
 
+        // Track run started
+        runMetrics.started(undefined, seed)
+        const measureDuration = startTiming()
+
         // Ensure limits are hydrated (wait for boot hydration if in progress)
         await ensureHydrated()
 
@@ -118,6 +123,10 @@ export function useResultsRun(): UseResultsRunReturn {
                   hash: report.model_card.response_hash,
                   drivers
                 })
+
+                // Track successful completion
+                runMetrics.completed(data.response_id, measureDuration())
+
                 cancelRef.current = null
                 resolve()
               },
@@ -127,6 +136,10 @@ export function useResultsRun(): UseResultsRunReturn {
                   message: error.error,
                   retryAfter: error.retry_after
                 })
+
+                // Track run failure
+                runMetrics.failed(error.code, error.retry_after)
+
                 cancelRef.current = null
                 resolve()
               }
@@ -140,6 +153,10 @@ export function useResultsRun(): UseResultsRunReturn {
               message: error.error || error.message || 'Failed to connect to analysis service',
               retryAfter: error.retry_after
             })
+
+            // Track run failure
+            runMetrics.failed(error.code || 'SERVER_ERROR', error.retry_after)
+
             cancelRef.current = null
             resolve()
           }
@@ -156,6 +173,10 @@ export function useResultsRun(): UseResultsRunReturn {
               hash: report.model_card.response_hash,
               drivers: undefined
             })
+
+            // Track successful completion (sync mode)
+            runMetrics.completed(undefined, measureDuration())
+
             resolve()
           } catch (err) {
             const error = err as ErrorV1
@@ -164,6 +185,10 @@ export function useResultsRun(): UseResultsRunReturn {
               message: error.error,
               retryAfter: error.retry_after
             })
+
+            // Track run failure (sync mode)
+            runMetrics.failed(error.code, error.retry_after)
+
             resolve()
           }
         }
@@ -183,6 +208,9 @@ export function useResultsRun(): UseResultsRunReturn {
       cancelRef.current()
       cancelRef.current = null
       resultsCancelled()
+
+      // Track cancellation
+      runMetrics.cancelled('user_action')
     }
   }, [resultsCancelled])
 

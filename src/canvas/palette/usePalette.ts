@@ -19,6 +19,7 @@ import {
   groupResultsByKind,
 } from './indexers'
 import { addRecentAction, indexRecentActions } from './recent'
+import { uiMetrics } from '../../observability/metrics'
 
 export interface UsePaletteOptions {
   /** Whether palette is enabled (feature flag) */
@@ -95,12 +96,12 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
     const timer = setTimeout(() => {
       const isStreaming = resultsState.status === 'streaming'
       const items: PaletteItem[] = [
-        ...indexRecentActions(), // Recent actions first (highest priority)
         ...indexActions(isStreaming),
         ...indexNodes(nodes),
         ...indexEdges(edges),
         ...indexDrivers(drivers),
         ...indexRuns(runHistory),
+        ...indexRecentActions(), // Recent actions last (convenience, not priority over exact matches)
         // TODO: Add templates when template store available
         // ...indexTemplates(templates),
       ]
@@ -181,7 +182,11 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
 
   // Actions
   const open = useCallback(() => {
-    if (enabled) setIsOpen(true)
+    if (enabled) {
+      setIsOpen(true)
+      // Track palette opened
+      uiMetrics.paletteOpened()
+    }
   }, [enabled])
 
   const close = useCallback(() => {
@@ -289,6 +294,9 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
       // Track this item in recent actions
       addRecentAction(item)
 
+      // Track palette action execution
+      uiMetrics.paletteAction(item.id)
+
       // Execute action based on item kind
       switch (item.kind) {
         case 'node':
@@ -302,8 +310,18 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
           // Highlight edge if metadata available
           if (item.metadata?.edgeId) {
             setHighlightedDriver({ kind: 'edge', id: item.metadata.edgeId as string })
-            // Auto-clear after 2s
-            setTimeout(() => setHighlightedDriver(null), 2000)
+
+            // Clear previous timeout if exists
+            if (highlightTimeoutId !== null) {
+              window.clearTimeout(highlightTimeoutId)
+            }
+
+            // Store new timeout ID
+            const timeoutId = window.setTimeout(() => {
+              setHighlightedDriver(null)
+              setHighlightTimeoutId(null)
+            }, 2000)
+            setHighlightTimeoutId(timeoutId)
           }
           break
 

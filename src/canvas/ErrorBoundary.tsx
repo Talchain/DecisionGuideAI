@@ -1,5 +1,6 @@
 import { Component, ReactNode } from 'react'
 import { captureError } from '../lib/monitoring'
+import { trackError } from '../observability/metrics'
 
 interface Props {
   children: ReactNode
@@ -22,11 +23,17 @@ export class CanvasErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: any) {
     console.error('[CANVAS ERROR]:', error, errorInfo)
-    
+
     // Capture to Sentry with context
     captureError(error, {
       component: 'Canvas',
       errorInfo: errorInfo.componentStack?.slice(0, 500), // Truncate for PII safety
+    })
+
+    // Track error in PostHog/analytics
+    trackError(error, {
+      component: 'Canvas',
+      componentStack: errorInfo.componentStack?.slice(0, 500)
     })
   }
 
