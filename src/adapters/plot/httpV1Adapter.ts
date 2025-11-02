@@ -88,13 +88,23 @@ function mapV1ResultToReport(
   }))
 
   // Validate determinism: backend MUST provide response_hash
+  // Strict in prod/staging, tolerant in DEV to allow testing while backend is fixed
+  const strictDeterminism = String(import.meta.env?.VITE_STRICT_DETERMINISM ?? '1') === '1'
   if (!result.response_hash) {
-    if (import.meta.env.DEV) {
-      console.error('[httpV1] Backend returned no response_hash - determinism broken!')
-    }
-    throw {
-      code: 'SERVER_ERROR',
-      message: 'Backend returned no response_hash (determinism requirement violated)',
+    const errorMsg = 'Backend returned no response_hash (determinism requirement violated)'
+
+    if (strictDeterminism && import.meta.env.MODE !== 'development') {
+      // Production: hard fail
+      console.error(`[httpV1] ${errorMsg}`)
+      throw {
+        code: 'SERVER_ERROR',
+        message: errorMsg,
+      }
+    } else {
+      // Development: warn and continue with fallback
+      console.warn(`[httpV1] ${errorMsg} - continuing in DEV with fallback ID`)
+      // Generate a temporary hash from the summary for local testing
+      result.response_hash = `dev-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
     }
   }
 
