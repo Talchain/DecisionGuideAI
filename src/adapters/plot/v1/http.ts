@@ -19,10 +19,8 @@ import {
   isRetryableErrorCode,
 } from './constants'
 import { etagCache } from './etagCache'
-
-const getProxyBase = (): string => {
-  return import.meta.env.VITE_PLOT_PROXY_BASE || '/api/plot'
-}
+import { PLOT_ENDPOINTS } from '../endpoints'
+import { errorMetrics } from '../../observability/metrics'
 
 const getTimeouts = () => ({
   sync: parseInt(import.meta.env.VITE_PLOT_SYNC_TIMEOUT_MS || String(TIMEOUTS.SYNC_REQUEST_MS), 10),
@@ -133,12 +131,11 @@ const mapHttpError = async (response: Response): Promise<V1Error> => {
  * GET /v1/health
  */
 export async function health(): Promise<V1HealthResponse> {
-  const base = getProxyBase()
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 5000)
 
   try {
-    const response = await fetch(`${base}/v1/health`, {
+    const response = await fetch(PLOT_ENDPOINTS.health(), {
       method: 'GET',
       signal: controller.signal,
     })
@@ -190,7 +187,7 @@ async function runSyncOnce(
 
   try {
     const idempotencyKey = request.idempotencyKey || request.clientHash
-    const response = await fetch(`${base}/v1/run`, {
+    const response = await fetch(PLOT_ENDPOINTS.run(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

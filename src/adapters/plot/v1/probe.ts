@@ -5,15 +5,10 @@
  * Falls back to mock adapter when v1 routes unavailable.
  */
 
+import { PLOT_ENDPOINTS } from '../endpoints'
+
 export const PROBE_CACHE_KEY = 'plot_v1_capability_probe';
 const PROBE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-/**
- * Get proxy base URL from environment
- */
-function getProxyBase(): string {
-  return import.meta.env.VITE_PLOT_PROXY_BASE || '/api/plot'
-}
 
 export interface ProbeResult {
   available: boolean;
@@ -98,17 +93,12 @@ export function clearProbeCache(): void {
  * Probe PLoT v1 endpoints
  *
  * Checks:
- * 1. GET /health (or /v1/health) - confirms host reachable
+ * 1. GET /v1/health - confirms host reachable
  * 2. HEAD /v1/run - confirms v1 routes available
  *
  * Returns cached result if available (5min TTL)
- *
- * @param base - Optional proxy base URL (defaults to VITE_PLOT_PROXY_BASE or '/api/plot')
  */
-export async function probeCapability(
-  base?: string
-): Promise<ProbeResult> {
-  const resolvedBase = base ?? getProxyBase();
+export async function probeCapability(): Promise<ProbeResult> {
   // Check cache first
   const cached = getCachedProbe();
   if (cached) {
@@ -131,7 +121,7 @@ export async function probeCapability(
 
   try {
     // Step 1: Check health endpoint
-    const healthResponse = await fetch(`${resolvedBase}/v1/health`, {
+    const healthResponse = await fetch(PLOT_ENDPOINTS.health(), {
       method: 'GET',
       signal: AbortSignal.timeout(5000),
     });
@@ -145,28 +135,17 @@ export async function probeCapability(
         console.log('[Probe] Health check passed:', healthData);
       }
     } else {
-      // Try fallback /health (non-versioned)
-      const fallbackResponse = await fetch(`${resolvedBase}/health`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(5000),
-      });
-
-      if (fallbackResponse.ok) {
-        result.endpoints.health = true;
-        const healthData = await fallbackResponse.json();
-        result.healthStatus = healthData.status || 'ok';
-
-        if (import.meta.env.DEV) {
-          console.log('[Probe] Health check passed (fallback):', healthData);
-        }
+      // Health endpoint not available
+      if (import.meta.env.DEV) {
+        console.warn('[Probe] Health endpoint returned:', healthResponse.status);
       }
     }
 
-    // Step 2: Check v1 run endpoint
+    // Step 2: Check v1 run endpoint (only if health passed)
     if (result.endpoints.health) {
       try {
         // Try HEAD first
-        let runResponse = await fetch(`${resolvedBase}/v1/run`, {
+        let runResponse = await fetch(PLOT_ENDPOINTS.run(), {
           method: 'HEAD',
           signal: AbortSignal.timeout(5000),
         });

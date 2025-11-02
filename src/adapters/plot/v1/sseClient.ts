@@ -13,10 +13,8 @@ import type {
   V1Error,
 } from './types'
 import { TIMEOUTS } from './constants'
-
-const getProxyBase = (): string => {
-  return import.meta.env.VITE_PLOT_PROXY_BASE || '/api/plot'
-}
+import { PLOT_ENDPOINTS } from '../endpoints'
+import { streamMetrics, errorMetrics } from '../../observability/metrics'
 
 /**
  * Throttle function calls using requestAnimationFrame
@@ -50,8 +48,6 @@ export function runStream(
   request: V1RunRequest,
   handlers: V1StreamHandlers
 ): () => void {
-  const base = getProxyBase()
-
   // Throttle progress updates to avoid UI stutter
   const throttledProgress = throttle(handlers.onProgress, 100)
 
@@ -71,11 +67,12 @@ export function runStream(
           code: 'TIMEOUT',
           message: `Stream timeout: no heartbeat received for ${TIMEOUTS.STREAM_HEARTBEAT_MS / 1000}s`,
         })
+        streamMetrics.timeout()
       }
     }, TIMEOUTS.STREAM_HEARTBEAT_MS)
   }
 
-  const url = `${base}/v1/stream`
+  const url = PLOT_ENDPOINTS.stream()
 
   fetch(url, {
     method: 'POST',
