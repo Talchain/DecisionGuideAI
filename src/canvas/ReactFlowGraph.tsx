@@ -416,8 +416,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
       {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
       {reconnecting && <ReconnectBanner />}
-      
-      <CanvasToolbar />
+
+      <CanvasToolbar onRun={handleRunSimulation} />
       <PropertiesPanel />
       <SettingsPanel />
       <DiagnosticsOverlay />
