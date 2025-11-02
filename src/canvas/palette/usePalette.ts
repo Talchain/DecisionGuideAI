@@ -125,61 +125,6 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
     setSelectedIndex(0)
   }, [results])
 
-  // Keyboard shortcut: ⌘K / CTRL+K
-  useEffect(() => {
-    if (!enabled) return
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // ⌘K or CTRL+K to toggle
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setIsOpen(prev => !prev)
-        return
-      }
-
-      // Only handle other keys when palette is open
-      if (!isOpen) return
-
-      switch (e.key) {
-        case 'Escape':
-          e.preventDefault()
-          // Close help first if open, otherwise close palette
-          if (showHelp) {
-            setShowHelp(false)
-          } else {
-            setIsOpen(false)
-            setQuery('')
-          }
-          break
-
-        case '?':
-          e.preventDefault()
-          setShowHelp(prev => !prev)
-          break
-
-        case 'ArrowDown':
-          e.preventDefault()
-          setSelectedIndex(prev => Math.min(prev + 1, results.length - 1))
-          break
-
-        case 'ArrowUp':
-          e.preventDefault()
-          setSelectedIndex(prev => Math.max(prev - 1, 0))
-          break
-
-        case 'Enter':
-          e.preventDefault()
-          if (results[selectedIndex]) {
-            executeItem(results[selectedIndex])
-          }
-          break
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [enabled, isOpen, results, selectedIndex, showHelp, executeItem])
-
   // Actions
   const open = useCallback(() => {
     if (enabled) {
@@ -367,6 +312,61 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
     },
     [selectNodeWithoutHistory, setHighlightedDriver, handleAction, close, highlightTimeoutId]
   )
+
+  // Keyboard shortcut: ⌘K / CTRL+K
+  useEffect(() => {
+    if (!enabled) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // ⌘K or CTRL+K to toggle
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setIsOpen(prev => !prev)
+        return
+      }
+
+      // Only handle other keys when palette is open
+      if (!isOpen) return
+
+      switch (e.key) {
+        case 'Escape':
+          e.preventDefault()
+          // Close help first if open, otherwise close palette
+          if (showHelp) {
+            setShowHelp(false)
+          } else {
+            setIsOpen(false)
+            setQuery('')
+          }
+          break
+
+        case '?':
+          e.preventDefault()
+          setShowHelp(prev => !prev)
+          break
+
+        case 'ArrowDown':
+          e.preventDefault()
+          setSelectedIndex(prev => Math.min(prev + 1, results.length - 1))
+          break
+
+        case 'ArrowUp':
+          e.preventDefault()
+          setSelectedIndex(prev => Math.max(prev - 1, 0))
+          break
+
+        case 'Enter':
+          e.preventDefault()
+          if (results[selectedIndex]) {
+            executeItem(results[selectedIndex])
+          }
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [enabled, isOpen, results, selectedIndex, showHelp, executeItem])
 
   const executeSelected = useCallback(() => {
     if (results[selectedIndex]) {
