@@ -27,6 +27,10 @@ The DecisionGuideAI frontend has completed **PLoT V1 integration** including:
 3. Implement `/v1/limits` and `/v1/validate` endpoints (**recommended**)
 4. Provide staging environment for integration testing
 
+> **⚠️ NEW: Determinism Enforcement (Nov 2025)**
+>
+> `/v1/run` **MUST** return `result.response_hash` (string). Staging/production builds now **fail** if this field is missing. DEV mode supports fallback (`dev-{random}`) for local testing, but staging/prod are **strictly enforced**. See [Determinism Hardening Guide](./DETERMINISM_HARDENING.md) for details.
+
 ---
 
 ## Table of Contents
