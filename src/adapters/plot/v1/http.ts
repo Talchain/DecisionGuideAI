@@ -173,7 +173,6 @@ async function runSyncOnce(
   request: V1RunRequest,
   options?: { timeoutMs?: number; signal?: AbortSignal }
 ): Promise<V1SyncRunResponse> {
-  const base = getProxyBase()
   const timeouts = getTimeouts()
   const timeoutMs = options?.timeoutMs || timeouts.sync
 
@@ -237,10 +236,8 @@ export async function runSync(
  * POST /v1/run/{run_id}/cancel
  */
 export async function cancel(runId: string): Promise<void> {
-  const base = getProxyBase()
-
   try {
-    const response = await fetch(`${base}/v1/run/${runId}/cancel`, {
+    const response = await fetch(PLOT_ENDPOINTS.cancel(runId), {
       method: 'POST',
     })
 
@@ -258,7 +255,6 @@ export async function cancel(runId: string): Promise<void> {
  * GET /v1/templates with ETag caching support
  */
 export async function templates(): Promise<V1TemplateListResponse> {
-  const base = getProxyBase()
   const cacheKey = 'templates-list'
 
   // Check for cached ETag
@@ -275,7 +271,7 @@ export async function templates(): Promise<V1TemplateListResponse> {
       headers['If-None-Match'] = cachedETag
     }
 
-    const response = await fetch(`${base}/v1/templates`, {
+    const response = await fetch(PLOT_ENDPOINTS.templates(), {
       method: 'GET',
       headers,
       signal: controller.signal,
@@ -334,12 +330,11 @@ export async function templates(): Promise<V1TemplateListResponse> {
  * GET /v1/templates/{id}/graph
  */
 export async function templateGraph(id: string): Promise<V1TemplateGraphResponse> {
-  const base = getProxyBase()
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 10000)
 
   try {
-    const response = await fetch(`${base}/v1/templates/${encodeURIComponent(id)}/graph`, {
+    const response = await fetch(PLOT_ENDPOINTS.templateGraph(id), {
       method: 'GET',
       signal: controller.signal,
     })
@@ -374,14 +369,12 @@ export async function templateGraph(id: string): Promise<V1TemplateGraphResponse
  * Returns validation violations without running analysis
  */
 export async function validate(request: V1RunRequest): Promise<{ valid: true } | { valid: false; violations: Array<{ field: string; message: string }> }> {
-  const base = getProxyBase()
-
   return withRetry(async () => {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 5000) // Short timeout for validation
 
     try {
-      const response = await fetch(`${base}/v1/validate`, {
+      const response = await fetch(PLOT_ENDPOINTS.validate(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -421,7 +414,6 @@ export async function validate(request: V1RunRequest): Promise<{ valid: true } |
  * Returns node/edge limits and other constraints
  */
 export async function limits(): Promise<{ nodes: { max: number }; edges: { max: number } }> {
-  const base = getProxyBase()
   const cacheKey = 'limits'
 
   // Check for cached ETag
@@ -438,7 +430,7 @@ export async function limits(): Promise<{ nodes: { max: number }; edges: { max: 
       headers['If-None-Match'] = cachedETag
     }
 
-    const response = await fetch(`${base}/v1/limits`, {
+    const response = await fetch(PLOT_ENDPOINTS.limits(), {
       method: 'GET',
       headers,
       signal: controller.signal,

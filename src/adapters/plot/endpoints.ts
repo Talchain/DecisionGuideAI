@@ -75,6 +75,14 @@ export const PLOT_ENDPOINTS = {
   },
 
   /**
+   * POST /v1/run/:id/cancel
+   * Cancel a running analysis
+   */
+  cancel: (runId: string): string => {
+    return `${getProxyBase()}/v1/run/${encodeURIComponent(runId)}/cancel`
+  },
+
+  /**
    * GET /v1/templates
    * List available templates
    */
