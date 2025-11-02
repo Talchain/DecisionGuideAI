@@ -64,12 +64,10 @@
         if (healthEl) {
           fetch(edge + '/health').then(function(r){ return r.json(); }).then(function(d){
             healthEl.textContent = 'OK via proxy\n' + JSON.stringify(d, null, 2);
-          }).catch(function(){
-            fetch('https://plot-lite-service.onrender.com/health').then(function(r){ return r.json(); }).then(function(d){
-              healthEl.textContent = 'OK via direct\n' + JSON.stringify(d, null, 2);
-            }).catch(function(e2){
-              healthEl.textContent = 'FAIL\n' + String(e2);
-            });
+          }).catch(function(e){
+            healthEl.textContent = 'FAIL (proxy unreachable)\n' + String(e);
+            // NOTE: Direct backend fetch removed to avoid CORS warnings.
+            // App uses /api/plot/v1/* proxy exclusively; direct probe was diagnostic only.
           });
         }
       })();

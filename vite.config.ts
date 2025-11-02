@@ -13,6 +13,18 @@ export default defineConfig(({ mode }) => {
     env.VITE_POC_ONLY === '1' ||
     env.VITE_AUTH_MODE === 'guest';
 
+  // Build-time guard: enforce strict determinism in non-dev builds
+  const strictDeterminism = env.VITE_STRICT_DETERMINISM ?? '1';
+  if (mode !== 'development' && strictDeterminism !== '1') {
+    throw new Error(
+      `[BUILD FAILED] VITE_STRICT_DETERMINISM must be '1' in ${mode} mode.\n` +
+      `Current value: '${strictDeterminism}'\n\n` +
+      `Determinism is required for staging/production to ensure reproducible results.\n` +
+      `DEV mode may use VITE_STRICT_DETERMINISM=0 for testing, but staging/prod must be strict.\n\n` +
+      `Fix: Set VITE_STRICT_DETERMINISM=1 in your environment or remove the override.`
+    );
+  }
+
   return {
   plugins: [react()],
   define: {

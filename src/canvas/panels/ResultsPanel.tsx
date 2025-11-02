@@ -395,7 +395,18 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                     {displayHash && (
                       <>
                         <span style={{ opacity: 0.5 }}>•</span>
-                        <span title={displayHash}>{displayHash.substring(0, 8)}</span>
+                        <span
+                          title={displayHash.startsWith('dev-')
+                            ? 'Development fallback hash. Determinism is strictly enforced in staging/production.'
+                            : displayHash}
+                          style={{
+                            color: displayHash.startsWith('dev-') ? 'var(--color-warning, #f59e0b)' : undefined,
+                            fontWeight: displayHash.startsWith('dev-') ? 500 : undefined
+                          }}
+                        >
+                          {displayHash.substring(0, 8)}
+                          {displayHash.startsWith('dev-') && ' ⚠️'}
+                        </span>
                       </>
                     )}
                     {previewMode ? (
@@ -878,8 +889,18 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                         {hash && (
                           <div>
                             <span style={{ color: 'rgba(232, 236, 245, 0.5)' }}>Hash:</span>{' '}
-                            <code style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                            <code
+                              style={{
+                                fontFamily: 'monospace',
+                                fontSize: '0.75rem',
+                                color: hash.startsWith('dev-') ? 'var(--color-warning, #f59e0b)' : undefined
+                              }}
+                              title={hash.startsWith('dev-')
+                                ? 'Development fallback hash. Determinism is strictly enforced in staging/production.'
+                                : undefined}
+                            >
                               {hash.slice(0, 16)}...
+                              {hash.startsWith('dev-') && ' ⚠️'}
                             </code>
                             <button
                               onClick={() => {
