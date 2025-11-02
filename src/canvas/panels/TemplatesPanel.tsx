@@ -367,8 +367,8 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           </div>
         )}
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Content - Add bottom padding to prevent overlap with sticky footer */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4" style={{ paddingBottom: selectedBlueprintId && !loading && !result ? '5rem' : '1rem' }}>
           {/* Template Browser */}
           {!selectedBlueprintId && (
             <>
@@ -414,20 +414,6 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                 ← Back to templates
               </button>
             </>
-          )}
-
-          {/* Primary Run Button - Always Visible */}
-          {selectedBlueprintId && !loading && !result && (
-            <button
-              onClick={handleRun}
-              disabled={loading || !selectedBlueprintId}
-              className="w-full px-6 py-3 text-base font-semibold text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--olumi-primary)] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md transition-all"
-              style={{ backgroundColor: 'var(--olumi-primary)' }}
-              onMouseEnter={(e) => !loading ? e.currentTarget.style.backgroundColor = 'var(--olumi-primary-700)' : null}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary)'}
-            >
-              {loading ? 'Running Analysis…' : '▶ Run Analysis'}
-            </button>
           )}
 
           {/* Dev Controls Toggle */}
@@ -548,6 +534,27 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
             </div>
           )}
         </div>
+
+        {/* Sticky Footer with Primary Run Button */}
+        {selectedBlueprintId && !loading && !result && (
+          <footer
+            className="sticky bottom-0 bg-white/95 backdrop-blur-sm border-t border-gray-200 p-4 z-40 shadow-lg"
+            role="contentinfo"
+            aria-label="Template actions"
+          >
+            <button
+              onClick={handleRun}
+              disabled={loading || !selectedBlueprintId}
+              className="w-full px-6 py-3 text-base font-semibold text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--olumi-primary)] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md transition-all"
+              style={{ backgroundColor: 'var(--olumi-primary)' }}
+              onMouseEnter={(e) => !loading ? e.currentTarget.style.backgroundColor = 'var(--olumi-primary-700)' : null}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary)'}
+              data-testid="btn-run-analysis-template"
+            >
+              {loading ? 'Running Analysis…' : '▶ Run Analysis'}
+            </button>
+          </footer>
+        )}
       </div>
     </>
   )
