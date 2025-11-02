@@ -262,18 +262,30 @@ export function searchItems(query: string, items: PaletteItem[], limit = 20): Se
     }
   }
 
-  // Stable sort: exact > prefix > fuzzy, then by score descending, then by original index
+  // Stable sort: exact > prefix > fuzzy, then by category (drivers > actions > runs > others), then by score, then alphabetical
   results.sort((a, b) => {
     // Primary: match type
     const typeOrder = { exact: 0, prefix: 1, fuzzy: 2 }
     const typeDiff = typeOrder[a.matchType] - typeOrder[b.matchType]
     if (typeDiff !== 0) return typeDiff
 
-    // Secondary: score descending
+    // Secondary: category boost (drivers > actions > runs > others)
+    const categoryOrder: Record<PaletteItemKind, number> = {
+      driver: 0,
+      action: 1,
+      run: 2,
+      node: 3,
+      edge: 3,
+      template: 3,
+    }
+    const categoryDiff = categoryOrder[a.kind] - categoryOrder[b.kind]
+    if (categoryDiff !== 0) return categoryDiff
+
+    // Tertiary: score descending
     const scoreDiff = b.score - a.score
     if (scoreDiff !== 0) return scoreDiff
 
-    // Tertiary: alphabetical by label
+    // Quaternary: alphabetical by label
     return a.label.localeCompare(b.label)
   })
 

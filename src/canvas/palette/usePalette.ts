@@ -18,6 +18,7 @@ import {
   searchItems,
   groupResultsByKind,
 } from './indexers'
+import { addRecentAction, indexRecentActions } from './recent'
 
 export interface UsePaletteOptions {
   /** Whether palette is enabled (feature flag) */
@@ -42,6 +43,7 @@ export interface PaletteState {
   selectedIndex: number
   results: SearchResult[]
   groupedResults: ReturnType<typeof groupResultsByKind>
+  showHelp: boolean
 }
 
 export interface PaletteActions {
@@ -53,6 +55,7 @@ export interface PaletteActions {
   selectPrevious: () => void
   executeSelected: () => void
   executeItem: (item: PaletteItem) => void
+  toggleHelp: () => void
 }
 
 /**
@@ -74,6 +77,7 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [allItems, setAllItems] = useState<PaletteItem[]>([])
   const [highlightTimeoutId, setHighlightTimeoutId] = useState<number | null>(null)
+  const [showHelp, setShowHelp] = useState(false)
 
   // Canvas store selectors
   const nodes = useCanvasStore(s => s.nodes)
@@ -91,6 +95,7 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
     const timer = setTimeout(() => {
       const isStreaming = resultsState.status === 'streaming'
       const items: PaletteItem[] = [
+        ...indexRecentActions(), // Recent actions first (highest priority)
         ...indexActions(isStreaming),
         ...indexNodes(nodes),
         ...indexEdges(edges),
@@ -137,8 +142,18 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
       switch (e.key) {
         case 'Escape':
           e.preventDefault()
-          setIsOpen(false)
-          setQuery('')
+          // Close help first if open, otherwise close palette
+          if (showHelp) {
+            setShowHelp(false)
+          } else {
+            setIsOpen(false)
+            setQuery('')
+          }
+          break
+
+        case '?':
+          e.preventDefault()
+          setShowHelp(prev => !prev)
           break
 
         case 'ArrowDown':
@@ -162,7 +177,7 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [enabled, isOpen, results, selectedIndex])
+  }, [enabled, isOpen, results, selectedIndex, showHelp, executeItem])
 
   // Actions
   const open = useCallback(() => {
@@ -195,6 +210,10 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
 
   const selectPrevious = useCallback(() => {
     setSelectedIndex(prev => Math.max(prev - 1, 0))
+  }, [])
+
+  const toggleHelp = useCallback(() => {
+    setShowHelp(prev => !prev)
   }, [])
 
   const selectByIndex = useCallback((index: number) => {
@@ -267,6 +286,9 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
 
   const executeItem = useCallback(
     (item: PaletteItem) => {
+      // Track this item in recent actions
+      addRecentAction(item)
+
       // Execute action based on item kind
       switch (item.kind) {
         case 'node':
@@ -340,6 +362,7 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
     selectedIndex,
     results,
     groupedResults,
+    showHelp,
     open,
     close,
     toggle,
@@ -349,5 +372,6 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
     selectByIndex,
     executeSelected,
     executeItem,
+    toggleHelp,
   }
 }

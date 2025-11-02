@@ -63,10 +63,12 @@ export function CommandPalette({
     selectedIndex,
     results,
     groupedResults,
+    showHelp,
     close,
     setQuery,
     selectByIndex,
     executeSelected,
+    toggleHelp,
   } = usePalette({
     enabled,
     onRun,
@@ -129,7 +131,7 @@ export function CommandPalette({
       {/* Palette */}
       <div className="relative w-full max-w-2xl rounded-lg bg-white shadow-2xl">
         {/* Search input */}
-        <div className="border-b border-gray-200 p-4">
+        <div className="border-b border-gray-200 p-4 flex items-center gap-3">
           <input
             ref={inputRef}
             type="text"
@@ -140,7 +142,7 @@ export function CommandPalette({
               flatResults[selectedIndex] ? `palette-item-${flatResults[selectedIndex].id}` : undefined
             }
             aria-label="Search commands, nodes, edges, and more"
-            className="w-full border-none bg-transparent text-lg outline-none placeholder:text-gray-400"
+            className="flex-1 border-none bg-transparent text-lg outline-none placeholder:text-gray-400"
             placeholder="Type to search... (⌘K to close)"
             value={query}
             onChange={e => setQuery(e.target.value)}
@@ -151,16 +153,87 @@ export function CommandPalette({
               }
             }}
           />
+          {/* Help button */}
+          <button
+            onClick={toggleHelp}
+            aria-label="Show keyboard shortcuts"
+            className="flex-shrink-0 w-8 h-8 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            ?
+          </button>
         </div>
 
-        {/* Results */}
-        <div
-          ref={listRef}
-          id="palette-results"
-          role="listbox"
-          aria-label="Search results"
-          className="max-h-96 overflow-y-auto"
-        >
+        {/* Help Overlay (conditionally shown) */}
+        {showHelp ? (
+          <div className="p-6 max-h-96 overflow-y-auto">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900">Keyboard Shortcuts</h2>
+
+            <div className="space-y-4">
+              {/* Global shortcuts */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Global</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Open/Close Palette</span>
+                    <div>
+                      <kbd className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">⌘</kbd>
+                      <kbd className="ml-1 px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">K</kbd>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Palette shortcuts */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Within Palette</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Navigate Results</span>
+                    <div>
+                      <kbd className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">↑</kbd>
+                      <kbd className="ml-1 px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">↓</kbd>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Execute Selected</span>
+                    <kbd className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">↵</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Close</span>
+                    <kbd className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">ESC</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Toggle Help</span>
+                    <kbd className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">?</kbd>
+                  </div>
+                </div>
+              </div>
+
+              {/* Canvas shortcuts (future) */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Canvas</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Show Probabilities</span>
+                    <kbd className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">P</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Navigate with Tab</span>
+                    <kbd className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">Tab</kbd>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Results */
+          <div
+            ref={listRef}
+            id="palette-results"
+            role="listbox"
+            aria-label="Search results"
+            className="max-h-96 overflow-y-auto"
+          >
           {flatResults.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               {query ? 'No results found' : 'Start typing to search...'}
@@ -239,7 +312,8 @@ export function CommandPalette({
               })}
             </div>
           )}
-        </div>
+          </div>
+        )}
 
         {/* Footer hint */}
         <div className="border-t border-gray-200 px-4 py-2 text-xs text-gray-500 flex items-center justify-between">

@@ -357,4 +357,101 @@ describe('Command Palette Indexers', () => {
       expect(items[0].label.length).toBeLessThanOrEqual(200) // From sanitizeLabel max
     })
   })
+
+  describe('Category Ranking Boost', () => {
+    it('prioritizes drivers over actions over runs when match types equal', () => {
+      const items: PaletteItem[] = [
+        { id: 'run:1', kind: 'run', label: 'test' },
+        { id: 'driver:1', kind: 'driver', label: 'test' },
+        { id: 'action:1', kind: 'action', label: 'test' },
+        { id: 'node:1', kind: 'node', label: 'test' },
+      ]
+
+      const results = searchItems('test', items)
+
+      // All are exact matches, so category order should determine ranking
+      expect(results[0].kind).toBe('driver')
+      expect(results[1].kind).toBe('action')
+      expect(results[2].kind).toBe('run')
+      expect(results[3].kind).toBe('node')
+    })
+
+    it('respects match type over category', () => {
+      const items: PaletteItem[] = [
+        { id: 'run:1', kind: 'run', label: 'exact match' }, // Exact match
+        { id: 'driver:1', kind: 'driver', label: 'prefix match test' }, // Prefix match
+        { id: 'action:1', kind: 'action', label: 'fuzzy mtch' }, // Fuzzy match
+      ]
+
+      const results = searchItems('exact match', items)
+
+      // Even though run has lowest category priority, exact match wins
+      expect(results[0].kind).toBe('run')
+      expect(results[0].matchType).toBe('exact')
+    })
+
+    it('applies category boost within same match type', () => {
+      const items: PaletteItem[] = [
+        { id: 'node:1', kind: 'node', label: 'prefix test' },
+        { id: 'driver:1', kind: 'driver', label: 'prefix test' },
+        { id: 'action:1', kind: 'action', label: 'prefix test' },
+        { id: 'run:1', kind: 'run', label: 'prefix test' },
+      ]
+
+      const results = searchItems('prefix', items)
+
+      // All are prefix matches, so category order applies
+      expect(results[0].kind).toBe('driver')
+      expect(results[1].kind).toBe('action')
+      expect(results[2].kind).toBe('run')
+      expect(results[3].kind).toBe('node')
+    })
+
+    it('treats node, edge, template equally (lowest priority)', () => {
+      const items: PaletteItem[] = [
+        { id: 'template:1', kind: 'template', label: 'test item' },
+        { id: 'edge:1', kind: 'edge', label: 'test item' },
+        { id: 'node:1', kind: 'node', label: 'test item' },
+      ]
+
+      const results = searchItems('test item', items)
+
+      // All exact matches, all same category priority (3)
+      // Should maintain alphabetical order as tiebreaker
+      expect(results.every(r => r.matchType === 'exact')).toBe(true)
+      expect(results).toHaveLength(3)
+    })
+
+    it('combines category boost with score', () => {
+      const items: PaletteItem[] = [
+        { id: 'run:1', kind: 'run', label: 'run' }, // Exact match, low category
+        { id: 'driver:1', kind: 'driver', label: 'driver run test' }, // Prefix match, high category
+      ]
+
+      const results = searchItems('run', items)
+
+      // Exact match on 'run' (run:1) should beat prefix match (driver:1)
+      // despite driver having higher category priority
+      expect(results[0].id).toBe('run:1')
+      expect(results[0].matchType).toBe('exact')
+      expect(results[1].id).toBe('driver:1')
+      expect(results[1].matchType).toBe('prefix')
+    })
+
+    it('maintains stable sort with alphabetical tiebreaker', () => {
+      const items: PaletteItem[] = [
+        { id: 'driver:3', kind: 'driver', label: 'zebra' },
+        { id: 'driver:1', kind: 'driver', label: 'alpha' },
+        { id: 'driver:2', kind: 'driver', label: 'beta' },
+      ]
+
+      const results = searchItems('a', items)
+
+      // All are prefix or fuzzy matches of same kind
+      // Should be alphabetically sorted
+      expect(results[0].label).toBe('alpha')
+      expect(results[1].label).toBe('beta')
+      expect(results[2].label).toBe('zebra')
+    })
+  })
 })
