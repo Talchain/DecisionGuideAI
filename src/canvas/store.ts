@@ -9,17 +9,82 @@ import { applyLayout, applyLayoutWithPolicy } from './layout'
 import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
+import type { ReportV1, ErrorV1 } from '../adapters/plot/types'
+import { addRun, generateGraphHash, type StoredRun } from './store/runHistory'
+import { adapterName, getAdapterMode } from '../adapters/plot'
+import { enqueueInterim, clearInterimQueue } from './store/interimQueue'
+
+// Results panel state machine
+export type ResultsStatus = 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'
+
+export interface ValidationViolation {
+  code: 'LIMIT_EXCEEDED' | 'BAD_INPUT' | 'MISSING_FIELD'
+  message: string
+  field: string
+  max?: number
+  current?: number
+}
+
+export interface ResultsState {
+  status: ResultsStatus
+  progress: number              // 0..100 (cap 90 until COMPLETE)
+  runId?: string
+  seed?: number
+  hash?: string                 // response_hash
+  report?: ReportV1 | null
+  error?: { code: string; message: string; retryAfter?: number } | null
+  violations?: ValidationViolation[]  // Client-side validation violations
+  interim?: string[]            // Interim findings during streaming
+  startedAt?: number
+  finishedAt?: number
+  drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
+}
+
+// Preview Mode state
+export interface PreviewState {
+  isActive: boolean
+  stagedNodeChanges: Map<string, Partial<Node>>
+  stagedEdgeChanges: Map<string, Partial<EdgeData>>
+  previewReport?: ReportV1 | null
+  previewSeed?: number
+  previewHash?: string
+  // Separate status tracking for preview runs (avoid race with main results)
+  status: ResultsStatus
+  progress: number
+  error?: { code: string; message: string; retryAfter?: number } | null
+  violations?: ValidationViolation[]
+}
 
 const initialNodes: Node[] = [
-  { id: '1', type: 'decision', position: { x: 250, y: 100 }, data: { label: 'Start' } },
-  { id: '2', type: 'decision', position: { x: 100, y: 250 }, data: { label: 'Option A' } },
-  { id: '3', type: 'decision', position: { x: 400, y: 250 }, data: { label: 'Option B' } },
-  { id: '4', type: 'decision', position: { x: 250, y: 400 }, data: { label: 'Outcome' } }
+  {
+    id: '1',
+    type: 'decision',
+    position: { x: 250, y: 100 },
+    data: { label: 'Start' }
+  },
+  {
+    id: '2',
+    type: 'decision',
+    position: { x: 100, y: 250 },
+    data: { label: 'Option A' }
+  },
+  {
+    id: '3',
+    type: 'decision',
+    position: { x: 400, y: 250 },
+    data: { label: 'Option B' }
+  },
+  {
+    id: '4',
+    type: 'decision',
+    position: { x: 250, y: 400 },
+    data: { label: 'Outcome' }
+  }
 ]
 
 const initialEdges: Edge<EdgeData>[] = [
-  { id: 'e1', source: '1', target: '2', label: 'Path A', data: DEFAULT_EDGE_DATA },
-  { id: 'e2', source: '1', target: '3', label: 'Path B', data: DEFAULT_EDGE_DATA },
+  { id: 'e1', source: '1', target: '2', data: DEFAULT_EDGE_DATA },
+  { id: 'e2', source: '1', target: '3', data: DEFAULT_EDGE_DATA },
   { id: 'e3', source: '2', target: '4', data: DEFAULT_EDGE_DATA },
   { id: 'e4', source: '3', target: '4', data: DEFAULT_EDGE_DATA }
 ]
@@ -47,6 +112,9 @@ interface CanvasState {
   nextNodeId: number
   nextEdgeId: number
   _internal: { lastHistoryHash: string }
+  results: ResultsState  // Analysis results panel state
+  preview: PreviewState  // Preview Mode state
+  highlightedDriver: { kind: 'node' | 'edge'; id: string } | null  // Driver hover highlight
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
@@ -55,6 +123,8 @@ interface CanvasState {
   onEdgesChange: (changes: EdgeChange[]) => void
   onSelectionChange: (params: { nodes: Node[]; edges: Edge<EdgeData>[] }) => void
   selectNodeWithoutHistory: (nodeId: string) => void
+  setHighlightedDriver: (driver: { kind: 'node' | 'edge'; id: string } | null) => void
+  clearHighlightedDriver: () => void
   addEdge: (edge: Omit<Edge<EdgeData>, 'id'>) => void
   pushHistory: (debounced?: boolean) => void
   undo: () => void
@@ -85,6 +155,31 @@ interface CanvasState {
   cancelReconnect: () => void
   reset: () => void
   cleanup: () => void
+  // Results actions
+  resultsStart: (params: { seed: number }) => void
+  resultsConnecting: (runId: string) => void
+  resultsProgress: (percent: number) => void
+  resultsInterim: (findings: string[]) => void
+  resultsComplete: (params: { report: ReportV1; hash: string; drivers?: Array<{ kind: 'node' | 'edge'; id: string }> }) => void
+  resultsError: (params: { code: string; message: string; retryAfter?: number }) => void
+  resultsCancelled: () => void
+  resultsReset: () => void
+  resultsLoadHistorical: (run: StoredRun) => void
+  // Preview Mode actions
+  previewEnter: () => void
+  previewExit: () => void
+  previewStageNode: (id: string, updates: Partial<Node>) => void
+  previewStageEdge: (id: string, updates: Partial<EdgeData>) => void
+  previewGetMergedGraph: () => { nodes: Node[]; edges: Edge<EdgeData>[] }
+  previewSetReport: (report: ReportV1, seed: number, hash: string) => void
+  previewApply: () => void
+  previewDiscard: () => void
+  // Preview status actions (separate from main results status)
+  previewStart: (params: { seed: number }) => void
+  previewProgress: (percent: number) => void
+  previewError: (params: { code: string; message: string; retryAfter?: number; violations?: ValidationViolation[] }) => void
+  previewCancelled: () => void
+  previewReset: () => void
 }
 
 let historyTimer: ReturnType<typeof setTimeout> | null = null
@@ -154,8 +249,24 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   clipboard: null,
   reconnecting: null,
   touchedNodeIds: new Set(),
-  nextNodeId: 5,
-  nextEdgeId: 5,
+  nextNodeId: 1,
+  nextEdgeId: 1,
+  results: {
+    status: 'idle',
+    progress: 0
+  },
+  preview: {
+    isActive: false,
+    stagedNodeChanges: new Map(),
+    stagedEdgeChanges: new Map(),
+    previewReport: undefined,
+    previewSeed: undefined,
+    previewHash: undefined,
+    status: 'idle',
+    progress: 0,
+    error: null,
+  },
+  highlightedDriver: null,
 
   createNodeId: () => {
     const { nextNodeId } = get()
@@ -295,6 +406,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         edgeIds: new Set()
       }
     }))
+  },
+
+  // Set highlighted driver (for DriverChips hover → HighlightLayer communication)
+  setHighlightedDriver: (driver) => {
+    set({ highlightedDriver: driver })
+  },
+
+  // Clear highlighted driver
+  clearHighlightedDriver: () => {
+    set({ highlightedDriver: null })
   },
 
   addEdge: (edge) => {
@@ -763,14 +884,425 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       edges: initialEdges,
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set() },
-      nextNodeId: 5,
-      nextEdgeId: 5,
+      nextNodeId: 1,
+      nextEdgeId: 1,
       _internal: { lastHistoryHash: historyHash(initialNodes, initialEdges) }
     })
   },
 
+  // Results actions
+  resultsStart: ({ seed }) => {
+    set({
+      results: {
+        status: 'preparing',
+        progress: 0,
+        seed,
+        startedAt: Date.now(),
+        error: undefined,
+        report: undefined,
+        hash: undefined,
+        runId: undefined,
+        interim: undefined,
+        finishedAt: undefined,
+        drivers: undefined
+      }
+    })
+  },
+
+  resultsConnecting: (runId) => {
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'connecting',
+        runId,
+        progress: Math.max(s.results.progress, 5)
+      }
+    }))
+  },
+
+  resultsProgress: (percent) => {
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'streaming',
+        // Cap at 90% until complete event arrives
+        progress: Math.min(percent, 90)
+      }
+    }))
+  },
+
+  resultsInterim: (findings) => {
+    // Backend sends cumulative findings list (not deltas)
+    // Micro-batch updates (250ms window, 50 item cap) to avoid re-render storms
+    enqueueInterim((items) => {
+      set(s => ({
+        results: {
+          ...s.results,
+          interim: items
+        }
+      }))
+    }, findings)
+  },
+
+  resultsComplete: async ({ report, hash, drivers }) => {
+    // Clear any pending interim findings
+    clearInterimQueue()
+
+    const { nodes, edges, results } = get()
+
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'complete',
+        progress: 100,
+        report,
+        hash,
+        drivers,
+        finishedAt: Date.now(),
+        error: undefined
+      }
+    }))
+
+    // Save to run history
+    if (report && results.seed !== undefined) {
+      const graphHash = generateGraphHash(nodes, edges, results.seed)
+
+      // Get actual adapter mode (httpv1 or mock) for auto mode
+      const actualAdapter = adapterName === 'auto'
+        ? await getAdapterMode()
+        : adapterName
+
+      const storedRun: StoredRun = {
+        id: results.runId || crypto.randomUUID(),
+        ts: Date.now(),
+        seed: results.seed,
+        hash,
+        adapter: actualAdapter, // Actual adapter used (httpv1, mock, auto)
+        summary: report.summary || '',
+        graphHash,
+        report,
+        drivers: drivers?.map(d => ({
+          kind: d.kind,
+          id: d.id,
+          label: undefined // Backend should provide label if available
+        }))
+      }
+
+      addRun(storedRun)
+    }
+  },
+
+  resultsError: ({ code, message, retryAfter, violations }) => {
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'error',
+        error: { code, message, retryAfter },
+        violations, // Store validation violations for UI display
+        finishedAt: Date.now()
+      }
+    }))
+  },
+
+  resultsCancelled: () => {
+    // Clear any pending interim findings
+    clearInterimQueue()
+
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'cancelled',
+        finishedAt: Date.now()
+      }
+    }))
+  },
+
+  resultsLoadHistorical: (run: StoredRun) => {
+    set({
+      results: {
+        status: 'complete',
+        progress: 100,
+        runId: run.id,
+        seed: run.seed,
+        hash: run.hash,
+        report: run.report,
+        startedAt: run.timestamp,
+        finishedAt: run.timestamp,
+        drivers: run.drivers,
+        error: undefined
+      }
+    })
+  },
+
+  resultsReset: () => {
+    // Clear micro-batch queue to prevent stale findings
+    clearInterimQueue()
+    set({
+      results: {
+        status: 'idle',
+        progress: 0,
+        interim: undefined
+      }
+    })
+  },
+
+  // Preview Mode actions
+  previewEnter: () => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        isActive: true,
+        stagedNodeChanges: new Map(),
+        stagedEdgeChanges: new Map(),
+        previewReport: undefined,
+        previewSeed: undefined,
+        previewHash: undefined,
+        // Reset status/progress/error for clean slate
+        status: 'idle',
+        progress: 0,
+        error: null,
+      }
+    }))
+  },
+
+  previewExit: () => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        isActive: false,
+        stagedNodeChanges: new Map(),
+        stagedEdgeChanges: new Map(),
+        previewReport: undefined,
+        previewSeed: undefined,
+        previewHash: undefined,
+        // Explicitly reset status fields to idle state
+        status: 'idle',
+        progress: 0,
+        error: null,
+      }
+    }))
+  },
+
+  previewStageNode: (id, updates) => {
+    set(s => {
+      const newStagedChanges = new Map(s.preview.stagedNodeChanges)
+      const existing = newStagedChanges.get(id) || {}
+      newStagedChanges.set(id, { ...existing, ...updates })
+      return {
+        preview: {
+          ...s.preview,
+          stagedNodeChanges: newStagedChanges
+        }
+      }
+    })
+  },
+
+  previewStageEdge: (id, updates) => {
+    set(s => {
+      const newStagedChanges = new Map(s.preview.stagedEdgeChanges)
+      const existing = newStagedChanges.get(id) || {}
+      newStagedChanges.set(id, { ...existing, ...updates })
+      return {
+        preview: {
+          ...s.preview,
+          stagedEdgeChanges: newStagedChanges
+        }
+      }
+    })
+  },
+
+  previewGetMergedGraph: () => {
+    const { nodes, edges, preview } = get()
+
+    // Merge staged node changes
+    const mergedNodes = nodes.map(node => {
+      const stagedChanges = preview.stagedNodeChanges.get(node.id)
+      if (!stagedChanges) return node
+      return {
+        ...node,
+        ...stagedChanges,
+        data: { ...node.data, ...stagedChanges.data }
+      }
+    })
+
+    // Merge staged edge changes
+    const mergedEdges = edges.map(edge => {
+      const stagedChanges = preview.stagedEdgeChanges.get(edge.id)
+      if (!stagedChanges) return edge
+      return {
+        ...edge,
+        data: { ...edge.data, ...stagedChanges }
+      }
+    })
+
+    return { nodes: mergedNodes, edges: mergedEdges }
+  },
+
+  previewSetReport: (report, seed, hash) => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        previewReport: report,
+        previewSeed: seed,
+        previewHash: hash,
+        status: 'complete',
+        progress: 100,
+        error: null,
+      }
+    }))
+  },
+
+  previewApply: () => {
+    const { preview, edges } = get()
+
+    // Apply all staged node changes in a single undo frame
+    pushToHistory(get, set)
+
+    set(s => {
+      const touchedNodeIds = new Set(s.touchedNodeIds)
+
+      // Mark all source nodes of staged edges as touched (for validation)
+      // This ensures probability sums are checked after preview apply
+      preview.stagedEdgeChanges.forEach((changes, edgeId) => {
+        const edge = edges.find(e => e.id === edgeId)
+        if (edge && changes.confidence !== undefined) {
+          touchedNodeIds.add(edge.source)
+        }
+      })
+
+      const updatedNodes = s.nodes.map(node => {
+        const stagedChanges = preview.stagedNodeChanges.get(node.id)
+        if (!stagedChanges) return node
+        return {
+          ...node,
+          ...stagedChanges,
+          data: { ...node.data, ...stagedChanges.data }
+        }
+      })
+
+      const updatedEdges = s.edges.map(edge => {
+        const stagedChanges = preview.stagedEdgeChanges.get(edge.id)
+        if (!stagedChanges) return edge
+        return {
+          ...edge,
+          data: { ...edge.data, ...stagedChanges }
+        }
+      })
+
+      return {
+        nodes: updatedNodes,
+        edges: updatedEdges,
+        touchedNodeIds,
+        preview: {
+          isActive: false,
+          stagedNodeChanges: new Map(),
+          stagedEdgeChanges: new Map(),
+          previewReport: undefined,
+          previewSeed: undefined,
+          previewHash: undefined,
+          // Reset status fields to idle state for clean re-entry
+          status: 'idle',
+          progress: 0,
+          error: null,
+        }
+      }
+    })
+  },
+
+  previewDiscard: () => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        // Keep preview mode active, only clear staged changes
+        stagedNodeChanges: new Map(),
+        stagedEdgeChanges: new Map(),
+        previewReport: undefined,
+        previewSeed: undefined,
+        previewHash: undefined,
+        status: 'idle',
+        progress: 0,
+        error: null,
+      }
+    }))
+  },
+
+  // Preview status actions (separate from main results status)
+  previewStart: ({ seed }) => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        status: 'preparing',
+        progress: 0,
+        error: null,
+        previewSeed: seed,
+      }
+    }))
+  },
+
+  previewProgress: (percent) => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        status: 'streaming',
+        progress: Math.min(90, percent),
+      }
+    }))
+  },
+
+  previewError: ({ code, message, retryAfter, violations }) => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        status: 'error',
+        error: { code, message, retryAfter },
+        violations, // Store validation violations for UI display
+      }
+    }))
+  },
+
+  previewCancelled: () => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        status: 'cancelled',
+        progress: 0,
+        // Clear stale report to prevent diff rendering with cancelled data
+        previewReport: undefined,
+        previewSeed: undefined,
+        previewHash: undefined,
+      }
+    }))
+  },
+
+  previewReset: () => {
+    set(s => ({
+      preview: {
+        ...s.preview,
+        status: 'idle',
+        progress: 0,
+        error: null,
+        previewReport: undefined,
+        previewSeed: undefined,
+        previewHash: undefined,
+      }
+    }))
+  },
+
   cleanup: clearTimers
 }))
+
+/**
+ * Preview Mode selectors
+ */
+export const selectPreviewMode = (state: CanvasState) => state.preview.isActive
+export const selectPreviewReport = (state: CanvasState) => state.preview.previewReport
+export const selectPreviewSeed = (state: CanvasState) => state.preview.previewSeed
+export const selectPreviewHash = (state: CanvasState) => state.preview.previewHash
+export const selectStagedNodeChanges = (state: CanvasState) => state.preview.stagedNodeChanges
+export const selectStagedEdgeChanges = (state: CanvasState) => state.preview.stagedEdgeChanges
+export const selectPreviewStatus = (state: CanvasState) => state.preview.status
+export const selectPreviewProgress = (state: CanvasState) => state.preview.progress
+export const selectPreviewError = (state: CanvasState) => state.preview.error
 
 /**
  * Validation selectors and helpers
@@ -803,3 +1335,17 @@ export const hasValidationErrors = (state: CanvasState): boolean => {
 export const getNextInvalidNode = (state: CanvasState, currentNodeId?: string): InvalidNode | null => {
   return getNextInvalidNodeUtil(state.nodes, state.edges, state.touchedNodeIds, currentNodeId)
 }
+
+/**
+ * Results panel selectors
+ */
+export const selectResultsStatus = (state: CanvasState): ResultsStatus => state.results.status
+export const selectProgress = (state: CanvasState): number => state.results.progress
+export const selectReport = (state: CanvasState): ReportV1 | null | undefined => state.results.report
+export const selectDrivers = (state: CanvasState): Array<{ kind: 'node' | 'edge'; id: string }> | undefined => state.results.drivers
+export const selectError = (state: CanvasState): { code: string; message: string; retryAfter?: number } | null | undefined => state.results.error
+export const selectViolations = (state: CanvasState): ValidationViolation[] | undefined => state.results.violations
+export const selectRunId = (state: CanvasState): string | undefined => state.results.runId
+export const selectSeed = (state: CanvasState): number | undefined => state.results.seed
+export const selectHash = (state: CanvasState): string | undefined => state.results.hash
+export const selectInterim = (state: CanvasState): string[] | undefined => state.results.interim

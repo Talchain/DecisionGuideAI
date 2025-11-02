@@ -1,0 +1,405 @@
+/**
+ * Central Sanitization Utility
+ *
+ * Provides security-focused sanitization functions for user inputs,
+ * file content, and data persistence.
+ *
+ * Section H: Security - Task H1
+ *
+ * Performance: Heavy libraries (DOMPurify ~50KB, marked ~40KB) are lazy-loaded
+ * on first use to improve initial bundle size and page load time.
+ */
+
+// Lazy-loaded library caches
+let dompurifyInstance: any = null
+let markedInstance: any = null
+
+async function getDOMPurify() {
+  if (!dompurifyInstance) {
+    const DOMPurify = await import('dompurify')
+    dompurifyInstance = DOMPurify.default
+  }
+  return dompurifyInstance
+}
+
+async function getMarked() {
+  if (!markedInstance) {
+    const marked = await import('marked')
+    markedInstance = marked.marked
+  }
+  return markedInstance
+}
+
+/**
+ * Sanitize text labels (node labels, edge labels, etc.)
+ *
+ * Removes:
+ * - HTML tags
+ * - Angle brackets
+ * - Control characters
+ * - Excessive length
+ *
+ * @param label - Raw label input
+ * @param maxLength - Maximum allowed length (default: 100)
+ * @returns Sanitized label string or 'Untitled' if invalid
+ */
+export function sanitizeLabel(label: unknown, maxLength = 100): string {
+  if (typeof label !== 'string' || label.trim() === '') return 'Untitled'
+
+  const sanitized = label
+    .replace(/<[^>]*>/g, '') // Remove HTML tags
+    .replace(/[<>]/g, '') // Remove remaining angle brackets
+    .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+    // Remove common script function calls (preserves legitimate parentheses)
+    .replace(/\b(alert|eval|confirm|prompt|setTimeout|setInterval|Function|onclick|onerror|onload)\s*\([^)]*\)/gi, '')
+    .slice(0, maxLength)
+    .trim()
+
+  // If sanitization removed everything, fall back to 'Untitled'
+  // This prevents unnamed nodes in UI (accessibility + UX issue)
+  return sanitized || 'Untitled'
+}
+
+/**
+ * Sanitize markdown to safe HTML
+ *
+ * - Converts markdown to HTML using marked (lazy-loaded)
+ * - Sanitizes HTML using DOMPurify (lazy-loaded) to prevent XSS
+ * - Allows only safe tags (no scripts, iframes, etc.)
+ *
+ * @param markdown - Raw markdown input
+ * @returns Promise resolving to sanitized HTML string
+ */
+export async function sanitizeMarkdown(markdown: string): Promise<string> {
+  if (!markdown || typeof markdown !== 'string') {
+    return ''
+  }
+
+  // Lazy load libraries on first use
+  const marked = await getMarked()
+  const DOMPurify = await getDOMPurify()
+
+  // Convert markdown to HTML
+  const html = marked.parse(markdown, {
+    breaks: true,  // Convert line breaks to <br>
+    gfm: true,     // GitHub Flavored Markdown
+  }) as string
+
+  // Sanitize HTML to prevent XSS
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'p', 'br', 'strong', 'em', 'ul', 'ol', 'li',
+      'code', 'pre', 'blockquote',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'a', 'span'
+    ],
+    ALLOWED_ATTR: ['href', 'title', 'target', 'rel'],
+    ALLOWED_URI_REGEXP: /^(?:https?|mailto):/i,
+    KEEP_CONTENT: true,
+    RETURN_TRUSTED_TYPE: false,
+  })
+}
+
+/**
+ * Sanitize filename for downloads
+ *
+ * Replaces anything that's not alphanumeric, dash, underscore, or dot
+ * with a hyphen to prevent directory traversal and shell injection.
+ *
+ * @param filename - Raw filename input
+ * @returns Sanitized filename
+ */
+export function sanitizeFilename(filename: string): string {
+  if (!filename || typeof filename !== 'string') {
+    return 'untitled'
+  }
+
+  // Replace directory traversal patterns first, then sanitize remaining chars
+  // Treat ../ or ..\ as a unit that becomes -- (collapsing 3 chars to 2)
+  return filename
+    .replace(/\.\.[\/\\]/g, '--') // Replace ../ or ..\ with -- (3 chars → 2 dashes)
+    .replace(/\.\.+/g, match => '-'.repeat(match.length)) // Replace remaining .. with same number of dashes
+    .replace(/[^A-Za-z0-9_.-]/g, '-') // Replace non-safe chars (keeping single dots for extensions)
+}
+
+/**
+ * Sanitize URL for safe redirection
+ *
+ * Prevents open redirect vulnerabilities by ensuring URL is:
+ * - Relative path, OR
+ * - Same origin, OR
+ * - Allowlisted domain
+ *
+ * @param url - Raw URL input
+ * @param allowlist - Array of allowed hostnames (default: [])
+ * @returns Sanitized URL or '/' if invalid
+ */
+export function sanitizeUrl(url: string, allowlist: string[] = []): string {
+  if (!url || typeof url !== 'string') {
+    return '/'
+  }
+
+  try {
+    // Allow relative URLs
+    if (url.startsWith('/') && !url.startsWith('//')) {
+      // Prevent path traversal
+      const normalized = url.replace(/\.\.+/g, '')
+      return normalized
+    }
+
+    // Parse absolute URLs
+    const parsed = new URL(url, window.location.origin)
+
+    // Allow same-origin URLs
+    if (parsed.origin === window.location.origin) {
+      return parsed.pathname + parsed.search + parsed.hash
+    }
+
+    // Check allowlist
+    if (allowlist.includes(parsed.hostname)) {
+      return parsed.href
+    }
+
+    // Block external URLs
+    return '/'
+  } catch {
+    // Invalid URL
+    return '/'
+  }
+}
+
+/**
+ * Sanitize share hash from URL parameters
+ *
+ * Ensures hash is:
+ * - Alphanumeric only (with optional hyphens for base64url)
+ * - Fixed length (64 chars for SHA-256) OR valid base64url format
+ * - Lowercase hex OR valid base64url characters
+ *
+ * @param hash - Raw hash from URL parameter
+ * @param allowlist - Optional Set of allowed hash values for strict validation
+ * @returns Sanitized hash or null if invalid
+ */
+export function sanitizeShareHash(hash: unknown, allowlist?: Set<string>): string | null {
+  if (typeof hash !== 'string') {
+    return null
+  }
+
+  // Empty hash is invalid
+  if (!hash || hash.length === 0) {
+    return null
+  }
+
+  // Check allowlist first if provided (most restrictive)
+  if (allowlist) {
+    if (!allowlist.has(hash)) {
+      return null
+    }
+    return hash
+  }
+
+  // Validate hash format:
+  // - SHA-256 hex (64 chars): a-f0-9
+  // - Base64url (variable length): a-zA-Z0-9-_
+
+  // Try SHA-256 hex format first (must be exactly 64 chars)
+  if (hash.length === 64 && /^[a-f0-9]{64}$/i.test(hash)) {
+    return hash.toLowerCase()
+  }
+
+  // Try base64url format (for snapshot sharing)
+  // Base64url uses a-zA-Z0-9-_ and can include optional 'z:' prefix
+  // Must not look like a hex string (to avoid accepting wrong-length hex)
+  if (/^(?:z:)?[a-zA-Z0-9_-]+$/.test(hash) && !/^[a-f0-9]+$/i.test(hash)) {
+    // Validate reasonable length (8KB max as per snapshotShare.ts)
+    if (hash.length > 8192) {
+      return null
+    }
+    return hash
+  }
+
+  // Invalid format
+  return null
+}
+
+/**
+ * Validate share hash against strict allowlist
+ *
+ * Use this for high-security scenarios where only specific
+ * pre-approved hashes should be accepted (e.g., from backend).
+ *
+ * Feature flag: VITE_FEATURE_SHARE_ALLOWLIST
+ *
+ * When feature flag is enabled and no local allowlist is provided,
+ * validates against server-provided allowlist via API call.
+ *
+ * When local allowlist is provided, performs local validation.
+ *
+ * Security: Prevents loading of arbitrary/malicious share links by requiring
+ * server-side vetting of hashes when feature is enabled.
+ *
+ * @param hash - Hash to validate
+ * @param allowlist - Optional local Set of allowed hash values (overrides API check)
+ * @returns Promise<boolean> or boolean - true if hash is allowlisted, false otherwise
+ */
+export function validateShareHashAllowlist(
+  hash: string,
+  allowlist?: Set<string>
+): boolean | Promise<boolean> {
+  // Local allowlist validation (synchronous, backward compatible)
+  if (allowlist) {
+    return allowlist.has(hash)
+  }
+
+  // API-based validation behind feature flag
+  const featureEnabled = import.meta.env.VITE_FEATURE_SHARE_ALLOWLIST === '1'
+
+  if (!featureEnabled) {
+    console.log('[Allowlist] Feature disabled, allowing hash:', hash)
+    return true
+  }
+
+  // Validate hash format first
+  if (!hash || typeof hash !== 'string' || hash.length < 6) {
+    console.warn('[Allowlist] Invalid hash format:', hash)
+    return false
+  }
+
+  // Async API validation
+  return (async () => {
+    try {
+      const response = await fetch(`/api/v1/allowlist?hash=${encodeURIComponent(hash)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        console.warn('[Allowlist] Server returned non-OK status:', response.status)
+        return false
+      }
+
+      const data = await response.json()
+
+      // Expect response: { allowed: boolean }
+      const allowed = data?.allowed === true
+
+      if (!allowed) {
+        console.warn('[Allowlist] Hash not on allowlist:', hash)
+      }
+
+      return allowed
+    } catch (error) {
+      console.error('[Allowlist] Validation failed:', error)
+      // Fail closed - reject hash on error
+      return false
+    }
+  })()
+}
+
+/**
+ * Sanitize JSON for persistence
+ *
+ * Prevents prototype pollution by:
+ * - Stripping __proto__, constructor, prototype keys
+ * - Validating object structure
+ * - Limiting nesting depth
+ *
+ * @param obj - Raw object to sanitize
+ * @param maxDepth - Maximum nesting depth (default: 10)
+ * @returns Sanitized object
+ */
+export function sanitizeJSON(obj: unknown, maxDepth = 10): unknown {
+  if (maxDepth <= 0) {
+    throw new Error('Maximum nesting depth exceeded')
+  }
+
+  if (obj === null || obj === undefined) {
+    return obj
+  }
+
+  if (typeof obj !== 'object') {
+    return obj
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeJSON(item, maxDepth - 1))
+  }
+
+  // Use Object.create(null) to create an object without prototype chain
+  // This prevents __proto__, constructor, prototype from being inherited
+  const sanitized: Record<string, unknown> = Object.create(null)
+  for (const [key, value] of Object.entries(obj)) {
+    // Block dangerous keys
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      continue
+    }
+
+    sanitized[key] = sanitizeJSON(value, maxDepth - 1)
+  }
+
+  return sanitized
+}
+
+/**
+ * Sanitize HTML string for safe rendering
+ *
+ * More restrictive than sanitizeMarkdown - only allows basic formatting.
+ * Use this for user-generated content that should be plain text with
+ * minimal formatting. DOMPurify is lazy-loaded on first use.
+ *
+ * @param html - Raw HTML input
+ * @returns Promise resolving to sanitized HTML string
+ */
+export async function sanitizeHTML(html: string): Promise<string> {
+  if (!html || typeof html !== 'string') {
+    return ''
+  }
+
+  // Lazy load DOMPurify on first use
+  const DOMPurify = await getDOMPurify()
+
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'br'],
+    ALLOWED_ATTR: [],
+    KEEP_CONTENT: true,
+  })
+}
+
+/**
+ * Sanitize number input
+ *
+ * Ensures value is:
+ * - A finite number
+ * - Within specified range
+ * - Not NaN
+ *
+ * @param value - Raw number input
+ * @param min - Minimum allowed value (default: -Infinity)
+ * @param max - Maximum allowed value (default: Infinity)
+ * @param fallback - Fallback value if invalid (default: 0)
+ * @returns Sanitized number
+ */
+export function sanitizeNumber(
+  value: unknown,
+  min = -Infinity,
+  max = Infinity,
+  fallback = 0
+): number {
+  // Check for null/undefined first (Number(null) = 0, which is valid but misleading)
+  if (value === null || value === undefined) {
+    return fallback
+  }
+
+  const num = Number(value)
+
+  if (!Number.isFinite(num) || Number.isNaN(num)) {
+    return fallback
+  }
+
+  if (num < min) return min
+  if (num > max) return max
+
+  return num
+}
