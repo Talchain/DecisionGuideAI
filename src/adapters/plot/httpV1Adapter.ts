@@ -88,9 +88,13 @@ function mapV1ResultToReport(
   }))
 
   // Validate determinism: backend MUST provide response_hash
-  // Strict in prod/staging, tolerant in DEV to allow testing while backend is fixed
+  // Support both new location (result.response_hash) and legacy location (model_card.response_hash)
+  // Prefer result.response_hash when both present
   const strictDeterminism = String(import.meta.env?.VITE_STRICT_DETERMINISM ?? '1') === '1'
-  if (!result.response_hash) {
+  const legacyHash = (result as any).model_card?.response_hash
+  const actualHash = result.response_hash || legacyHash
+
+  if (!actualHash) {
     const errorMsg = 'Backend returned no response_hash (determinism requirement violated)'
 
     if (strictDeterminism && import.meta.env.MODE !== 'development') {
@@ -106,6 +110,9 @@ function mapV1ResultToReport(
       // Generate a temporary hash from the summary for local testing
       result.response_hash = `dev-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
     }
+  } else {
+    // Use the hash we found (prefer result.response_hash)
+    result.response_hash = actualHash
   }
 
   return {
