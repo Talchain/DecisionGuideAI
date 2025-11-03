@@ -162,12 +162,31 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     // Open Results panel and trigger analysis
     setShowResultsPanel(true)
 
-    // Run analysis with canvas graph
-    // TODO: Convert canvas graph to template format for RunRequest
-    await runAnalysis({
-      template_id: 'canvas',
-      seed: 1337
-    })
+    try {
+      // Run analysis with live canvas graph
+      // Adapter (httpV1Adapter) will handle UI→API conversion using toApiGraph()
+      await runAnalysis({
+        template_id: 'canvas',
+        // Use current timestamp as seed for reproducibility
+        // Users can override via dev controls when implemented
+        seed: Date.now(),
+        // Pass canvas graph in UI format (source/target)
+        // Adapter converts to API format (from/to) automatically
+        graph: {
+          nodes: store.nodes,
+          edges: store.edges
+        }
+      })
+    } catch (error: any) {
+      // Handle BAD_INPUT errors from graph validation (malformed IDs, invalid weights, etc.)
+      if (error?.code === 'BAD_INPUT') {
+        showToast(`Cannot run: ${error.message}`, 'error')
+        console.error('[handleRunSimulation] Validation error:', error)
+      } else {
+        // Re-throw other errors to be handled by runAnalysis
+        throw error
+      }
+    }
   }, [showToast, runAnalysis])
 
   // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, ?, Cmd/Ctrl+/)
