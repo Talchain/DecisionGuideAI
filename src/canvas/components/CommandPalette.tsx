@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { useReactFlow } from '@xyflow/react'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 
 interface Action {
   id: string
@@ -21,6 +22,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const { addNode, selectAll, saveSnapshot, applyLayout } = useCanvasStore()
   const { fitView } = useReactFlow()
+  const prefersReducedMotion = usePrefersReducedMotion()
 
   const actions: Action[] = [
     // Node type actions
@@ -109,7 +111,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
         <div className="max-h-96 overflow-y-auto">
           {isExecuting ? (
             <div className="px-4 py-8 text-center text-gray-500">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-[#EA7B4B]"></div>
+              <div className={`inline-block ${prefersReducedMotion ? '' : 'animate-spin'} rounded-full h-8 w-8 border-b-2 border-[#EA7B4B]`}></div>
               <p className="mt-2">Executing...</p>
             </div>
           ) : filteredActions.length === 0 ? (
@@ -125,7 +127,7 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
                   if (!isExecuting) onClose()
                 }}
                 disabled={isExecuting}
-                className={`w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 ${prefersReducedMotion ? '' : 'transition-colors'} disabled:opacity-50 disabled:cursor-not-allowed ${
                   index === selectedIndex ? 'bg-[#EA7B4B]/10' : ''
                 }`}
               >

@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from 'react'
 import { AlertTriangle } from 'lucide-react'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 
 interface ConfirmDialogProps {
   title: string
@@ -18,6 +19,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel
 }: ConfirmDialogProps) {
+  const prefersReducedMotion = usePrefersReducedMotion()
   // Escape key handler
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -61,13 +63,13 @@ export function ConfirmDialog({
         <div className="flex gap-3 justify-end">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
+            className={`px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 ${prefersReducedMotion ? '' : 'transition-colors'}`}
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--olumi-warning)] transition-colors"
+            className={`px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--olumi-warning)] ${prefersReducedMotion ? '' : 'transition-colors'}`}
             style={{ backgroundColor: 'var(--olumi-warning)' }}
             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e6b840'}
             onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-warning)'}

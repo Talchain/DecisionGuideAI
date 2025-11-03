@@ -2,7 +2,7 @@
 // Unified canvas workspace - whiteboard as background, graph overlay, shared camera
 
 import '../styles/plot.css'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { fetchFlow, loadFixture } from '../lib/pocEngine'
 import { CameraProvider, useCamera } from '../components/PlotCamera'
 import WhiteboardCanvas, { type DrawPath } from '../components/WhiteboardCanvas'
@@ -17,6 +17,12 @@ import BuildBadge from '../components/BuildBadge'
 import DebugOverlays from '../components/DebugOverlays'
 import { loadWorkspaceState, createAutosaver, clearWorkspaceState } from '../lib/plotStorage'
 import { resolvePlcOverride } from '../lib/resolvePlcOverride'
+
+// Lazy load CommandPalette (VITE_FEATURE_COMMAND_PALETTE)
+const CommandPalette = lazy(() => import('../canvas/palette/CommandPalette').then(m => ({ default: m.CommandPalette })))
+
+// Import ShareDrawer for share link functionality
+import { ShareDrawer } from '../canvas/share/ShareDrawer'
 
 // Types
 type Node = { id: string; label: string; x?: number; y?: number; type?: string }
@@ -122,6 +128,7 @@ function PlotWorkspaceInner() {
   
   // UI state
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [isShareOpen, setIsShareOpen] = useState(false)
 
   // Load saved workspace state on mount
   useEffect(() => {
@@ -688,6 +695,14 @@ function PlotWorkspaceInner() {
             >
               Clear
             </button>
+            <div className="border-l border-gray-300 h-6"></div>
+            <button
+              onClick={() => setIsShareOpen(true)}
+              className="px-3 py-1 text-xs font-medium bg-blue-50 text-blue-700 rounded hover:bg-blue-100 transition-colors"
+              title="Share analysis results"
+            >
+              Share
+            </button>
           </div>
         </div>
 
@@ -696,6 +711,21 @@ function PlotWorkspaceInner() {
 
         {/* Keyboard shortcuts modal */}
         <KeyboardShortcuts isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} />
+
+        {/* Command Palette (⌘K / CTRL+K) - lazy loaded */}
+        {String(import.meta.env?.VITE_FEATURE_COMMAND_PALETTE) === '1' && (
+          <Suspense fallback={null}>
+            <CommandPalette enabled={true} />
+          </Suspense>
+        )}
+
+        {/* Share Drawer - share analysis results */}
+        <ShareDrawer
+          isOpen={isShareOpen}
+          onClose={() => setIsShareOpen(false)}
+          seed={seed}
+          hash={flowResult?.response_hash || flowResult?.hash}
+        />
 
         {/* Sticky Notes (z-30, above graph nodes) */}
         {stickyNotes.map(note => {
