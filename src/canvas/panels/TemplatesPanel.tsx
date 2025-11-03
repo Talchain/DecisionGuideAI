@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { X, Search } from 'lucide-react'
+import { Search, Layout } from 'lucide-react'
 import { plot, adapterName } from '../../adapters/plot'
 import { getAllBlueprints, getBlueprintById } from '../../templates/blueprints'
 import type { Blueprint } from '../../templates/blueprints/types'
@@ -13,6 +13,8 @@ import { TemplateCard } from './TemplateCard'
 import { TemplateAbout } from './TemplateAbout'
 import { PlotHealthPill } from '../../adapters/plot/v1/components/PlotHealthPill'
 import { AdapterStatusBanner } from './AdapterStatusBanner'
+import { PanelShell } from './_shared/PanelShell'
+import { PanelSection } from './_shared/PanelSection'
 
 interface TemplatesPanelProps {
   isOpen: boolean
@@ -151,45 +153,47 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
 
   if (!isOpen) return null
 
+  // Health chip
+  const healthChip = (adapterName === 'httpv1' || adapterName === 'auto') ? (
+    <PlotHealthPill pause={!isOpen} />
+  ) : undefined
+
+  // Footer with Run button (only show when template loaded and not running)
+  const footer = selectedBlueprintId && !loading ? (
+    <button
+      onClick={handleRun}
+      disabled={loading}
+      className={`w-full px-6 py-3 text-base font-semibold rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed ${
+        result
+          ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+          : 'text-white bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow-md'
+      }`}
+      type="button"
+    >
+      {loading ? 'Running Analysis…' : result ? 'Analyze again' : '▶ Run Analysis'}
+    </button>
+  ) : undefined
+
   return (
     <>
-      {/* Overlay for mobile */}
-      <div 
-        className="fixed inset-0 bg-black/50 z-40 md:hidden"
-        onClick={handleClose}
-        aria-hidden="true"
-      />
-      
-      {/* Panel */}
+      {/* Backdrop */}
       <div
-        ref={panelRef}
-        role="complementary"
-        aria-label="Templates"
-        className="fixed right-0 top-0 h-full w-full md:w-96 bg-white shadow-2xl z-50 flex flex-col overflow-hidden"
-        style={{ maxWidth: '420px' }}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200" style={{ background: 'linear-gradient(to right, rgba(91,108,255,0.05), rgba(123,70,255,0.05))' }}>
-          <div className="flex items-center gap-3 flex-1">
-            <h2 className="text-lg font-semibold text-gray-900">Templates</h2>
-            {(adapterName === 'httpv1' || adapterName === 'auto') && (
-              <PlotHealthPill pause={!isOpen} />
-            )}
-          </div>
-          <button
-            onClick={handleClose}
-            className="p-2 hover:bg-gray-100 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--olumi-primary)]"
-            aria-label="Close templates panel"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+        className="fixed inset-0 bg-black/50 z-[1999]"
+        onClick={handleClose}
+      />
 
-        {/* Adapter Status Banner (dev-only, shows when v1 unavailable) */}
-        <AdapterStatusBanner visible={isOpen && adapterName === 'auto'} />
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Panel Shell */}
+      <div className="fixed right-0 top-0 bottom-0 z-[2000]" ref={panelRef}>
+        <PanelShell
+          icon={<Layout className="w-5 h-5" />}
+          title="Templates"
+          chips={healthChip}
+          onClose={handleClose}
+          footer={footer}
+          width="420px"
+        >
+          {/* Adapter Status Banner (dev-only, shows when v1 unavailable) */}
+          <AdapterStatusBanner visible={isOpen && adapterName === 'auto'} />
           {/* Template Browser */}
           {!selectedBlueprintId && (
             <>
@@ -236,19 +240,6 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
             </>
           )}
 
-          {/* Primary Run Button - Always Visible */}
-          {selectedBlueprintId && !loading && !result && (
-            <button
-              onClick={handleRun}
-              disabled={loading || !selectedBlueprintId}
-              className="w-full px-6 py-3 text-base font-semibold text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--olumi-primary)] disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md transition-all"
-              style={{ backgroundColor: 'var(--olumi-primary)' }}
-              onMouseEnter={(e) => !loading ? e.currentTarget.style.backgroundColor = 'var(--olumi-primary-700)' : null}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary)'}
-            >
-              {loading ? 'Running Analysis…' : '▶ Run Analysis'}
-            </button>
-          )}
 
           {/* Dev Controls Toggle */}
           {selectedBlueprintId && (
@@ -367,18 +358,18 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
               )}
             </div>
           )}
-        </div>
 
-        {/* Toast */}
-        {toastMessage && (
-          <div 
-            role="status" 
-            aria-live="polite"
-            className="absolute bottom-4 left-4 right-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg text-sm"
-          >
-            {toastMessage}
-          </div>
-        )}
+          {/* Toast */}
+          {toastMessage && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="absolute bottom-4 left-4 right-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg text-sm"
+            >
+              {toastMessage}
+            </div>
+          )}
+        </PanelShell>
       </div>
     </>
   )
