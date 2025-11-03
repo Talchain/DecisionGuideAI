@@ -150,6 +150,61 @@ Frontend logs warning, continues to /v1/run
 
 ---
 
+### ⚠️ Issue 4: Seed Generation and Collision Risk
+
+**Current Frontend Behavior**:
+```typescript
+// Hybrid seed: timestamp + random (stays within 32-bit signed int: 2147483647)
+seed: (Math.floor(Date.now() / 1000) % 1000000) * 1000 + Math.floor(Math.random() * 1000)
+```
+
+**Collision Risk**:
+- Medium risk in high-traffic production environments
+- 1-second granularity + random(0-999) = ~1B combinations
+- Multiple concurrent users could theoretically get same seed + different graphs
+
+**Impact**:
+- Reduces randomness quality for statistical independence
+- Not ideal for production-scale analysis
+
+**Recommended Fix - Backend-Generated Seeds** (Production Best Practice):
+```json
+// Backend generates cryptographically secure seed
+POST /v1/run
+{
+  "graph": { ... },
+  "seed": null  // ← Client omits or sends null
+}
+
+// Backend responds with generated seed
+{
+  "result": {
+    "seed": 1847293847,  // ← Backend-generated secure random
+    "response_hash": "abc123...",
+    "summary": { ... }
+  }
+}
+```
+
+**Implementation**:
+```python
+# Python example (backend)
+import secrets
+seed = secrets.randbelow(2147483647)  # Cryptographically secure
+```
+
+**Benefits**:
+- ✅ True uniqueness guaranteed
+- ✅ High-quality randomness (cryptographic RNG)
+- ✅ No client-side collision concerns
+- ✅ Backend controls seed lifecycle
+
+**Timeline**:
+- **Short-term**: Frontend hybrid approach acceptable for MVP/staging
+- **Production**: Backend should generate seeds for high-traffic environments
+
+---
+
 ## 3. Shape Separation (MUST READ)
 
 ### ⚠️ CRITICAL: Frontend Uses TWO Different Graph Formats
