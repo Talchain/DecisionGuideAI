@@ -11,7 +11,7 @@ import { ContextMenu } from './ContextMenu'
 import { CanvasToolbar } from './CanvasToolbar'
 import { AlignmentGuides } from './components/AlignmentGuides'
 import { PropertiesPanel } from './components/PropertiesPanel'
-import { CommandPalette } from './components/CommandPalette'
+import { CommandPalette } from './palette/CommandPalette'
 import { EmptyStateOverlay } from './components/EmptyStateOverlay'
 import { ReconnectBanner } from './components/ReconnectBanner'
 import { KeyboardCheatsheet } from './components/KeyboardCheatsheet'
@@ -19,16 +19,20 @@ import { KeyboardMap } from './components/KeyboardMap'
 import { SettingsPanel } from './components/SettingsPanel'
 import { useSettingsStore } from './settingsStore'
 import { CanvasErrorBoundary } from './ErrorBoundary'
-import { ToastProvider, useToast } from './ToastContext'
+import { useToast } from './ToastContext'
 import { DiagnosticsOverlay } from './DiagnosticsOverlay'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { ValidationChip } from './components/ValidationChip'
 import { LayerProvider } from './components/LayerProvider'
 import { FirstRunHint } from './components/FirstRunHint'
-import { ProbabilityModal } from './components/ProbabilityModal'
 import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
+import { ResultsPanel } from './panels/ResultsPanel'
+import { HelpPanel } from './panels/HelpPanel'
+import { useResultsRun } from './hooks/useResultsRun'
+import { HighlightLayer } from './highlight/HighlightLayer'
+import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
 
 interface ReactFlowGraphProps {
   blueprintEventBus?: {
@@ -48,13 +52,16 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
-  const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showEmptyState, setShowEmptyState] = useState(true)
   const [showCheatsheet, setShowCheatsheet] = useState(false)
   const [showKeyboardMap, setShowKeyboardMap] = useState(false)
+  const [showHelpPanel, setShowHelpPanel] = useState(false)
+  const [showResultsPanel, setShowResultsPanel] = useState(false)
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
-  const [probabilityModalNodeId, setProbabilityModalNodeId] = useState<string | null>(null)
+
+  // Results panel hook
+  const { run: runAnalysis, cancel: cancelAnalysis } = useResultsRun()
   
   const handleSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
     useCanvasStore.getState().onSelectionChange(params)
@@ -79,7 +86,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     onCanvasInteraction?.()
   }, [onCanvasInteraction])
 
-  // Focus node handler (for Alt+V validation cycling)
+  // Focus node handler (for Alt+V validation cycling and Results panel drivers)
   const handleFocusNode = useCallback((nodeId: string) => {
     const store = useCanvasStore.getState()
     const targetNode = store.nodes.find(n => n.id === nodeId)
@@ -97,8 +104,47 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     })
   }, [getViewport, setCenter])
 
+  // Focus edge handler (for Results panel drivers)
+  const handleFocusEdge = useCallback((edgeId: string) => {
+    const store = useCanvasStore.getState()
+    const targetEdge = store.edges.find(e => e.id === edgeId)
+
+    if (!targetEdge) return
+
+    // Find source and target nodes
+    const sourceNode = store.nodes.find(n => n.id === targetEdge.source)
+    const targetNode = store.nodes.find(n => n.id === targetEdge.target)
+
+    if (!sourceNode || !targetNode) return
+
+    // Calculate midpoint between source and target
+    const midX = (sourceNode.position.x + targetNode.position.x) / 2
+    const midY = (sourceNode.position.y + targetNode.position.y) / 2
+
+    // Select edge (not in history, just for visual feedback)
+    useCanvasStore.setState({
+      edges: store.edges.map(e => ({
+        ...e,
+        selected: e.id === edgeId
+      }))
+    })
+
+    // Center viewport on edge midpoint with smooth animation
+    const viewport = getViewport()
+    setCenter(midX, midY, {
+      zoom: viewport.zoom,
+      duration: 300
+    })
+  }, [getViewport, setCenter])
+
+  // Register focus helpers for external use (Results panel)
+  useEffect(() => {
+    registerFocusHelpers(handleFocusNode, handleFocusEdge)
+    return () => unregisterFocusHelpers()
+  }, [handleFocusNode, handleFocusEdge])
+
   // Run simulation handler with validation gating
-  const handleRunSimulation = useCallback(() => {
+  const handleRunSimulation = useCallback(async () => {
     const store = useCanvasStore.getState()
 
     // Check if graph has any nodes
@@ -113,21 +159,44 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       return
     }
 
-    // TODO: Implement actual run simulation
-    showToast('Run simulation feature coming soon!', 'info')
-  }, [showToast])
+    // Open Results panel and trigger analysis
+    setShowResultsPanel(true)
 
-  // Edit probabilities handler (for P key)
-  const handleEditProbabilities = useCallback((nodeId: string) => {
-    setProbabilityModalNodeId(nodeId)
-  }, [])
+    try {
+      // Run analysis with live canvas graph
+      // Adapter (httpV1Adapter) will handle UI→API conversion using toApiGraph()
+      await runAnalysis({
+        template_id: 'canvas',
+        // Use current timestamp as seed for reproducibility
+        // Users can override via dev controls when implemented
+        seed: Date.now(),
+        // Pass canvas graph in UI format (source/target)
+        // Adapter converts to API format (from/to) automatically
+        graph: {
+          nodes: store.nodes,
+          edges: store.edges
+        }
+      })
+    } catch (error: any) {
+      // Handle BAD_INPUT errors from graph validation (malformed IDs, invalid weights, etc.)
+      if (error?.code === 'BAD_INPUT') {
+        showToast(`Cannot run: ${error.message}`, 'error')
+        console.error('[handleRunSimulation] Validation error:', error)
+      } else {
+        // Re-throw other errors to be handled by runAnalysis
+        throw error
+      }
+    }
+  }, [showToast, runAnalysis])
 
-  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, ?)
+  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, ?, Cmd/Ctrl+/)
   useCanvasKeyboardShortcuts({
     onFocusNode: handleFocusNode,
     onRunSimulation: handleRunSimulation,
+    onToggleResults: () => setShowResultsPanel(prev => !prev),
     onShowKeyboardMap: () => setShowKeyboardMap(true),
-    onEditProbabilities: handleEditProbabilities
+    onShowHelpPanel: () => setShowHelpPanel(true),
+    onShowToast: showToast
   })
 
   // Blueprint insertion handler
@@ -169,6 +238,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         data: {
           label: node.label,
           kind: node.kind,
+          description: node.description, // F1: preserve description/body from templates
           templateId: blueprint.id,
           templateName: blueprint.name,
           templateCreatedAt
@@ -176,10 +246,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       }
     })
 
-    // Create edges with probability labels
+    // Create edges with labels (F1: prefer edge.label, fallback to probability)
     const newEdges = graph.edges.map(edge => {
       const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
-      const label = pct != null ? `${pct}%` : undefined
+      const label = edge.label || (pct != null ? `${pct}%` : undefined) // F1: use edge.label if available
       const edgeId = createEdgeId()
 
       return {
@@ -276,7 +346,13 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   useEffect(() => {
     loadSettings()
     const loaded = loadState()
-    if (loaded) useCanvasStore.setState(loaded)
+    if (loaded) {
+      // Ensure touchedNodeIds is a Set (persist doesn't save it)
+      useCanvasStore.setState({
+        ...loaded,
+        touchedNodeIds: new Set()
+      })
+    }
   }, [loadSettings])
 
   useEffect(() => {
@@ -352,22 +428,32 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           </defs>
         </svg>
       </ReactFlow>
-      
+
+      {/* Highlight layer for Results panel drivers */}
+      <HighlightLayer isResultsOpen={showResultsPanel} />
+
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
       {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
       {reconnecting && <ReconnectBanner />}
-      
-      <CanvasToolbar />
+
+      <CanvasToolbar onRun={handleRunSimulation} />
       <PropertiesPanel />
       <SettingsPanel />
       <DiagnosticsOverlay />
       <ValidationChip onFocusNode={handleFocusNode} />
       <FirstRunHint />
 
-      {showCommandPalette && <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />}
+      <CommandPalette
+        enabled={String(import.meta.env.VITE_FEATURE_COMMAND_PALETTE) === '1'}
+        onRun={handleRunSimulation}
+        onCancel={cancelAnalysis}
+        onToggleResults={() => setShowResultsPanel(prev => !prev)}
+        // Note: onToggleCompare and onToggleInspector will be wired when those panels are implemented
+      />
       {showCheatsheet && <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />}
       {showKeyboardMap && <KeyboardMap isOpen={showKeyboardMap} onClose={() => setShowKeyboardMap(false)} />}
-      {probabilityModalNodeId && <ProbabilityModal nodeId={probabilityModalNodeId} onClose={() => setProbabilityModalNodeId(null)} />}
+      {showResultsPanel && <ResultsPanel isOpen={showResultsPanel} onClose={() => setShowResultsPanel(false)} onCancel={cancelAnalysis} />}
+      {showHelpPanel && <HelpPanel isOpen={showHelpPanel} onClose={() => setShowHelpPanel(false)} />}
       {nodes.length === 0 && showEmptyState && <EmptyStateOverlay onDismiss={() => setShowEmptyState(false)} />}
       
       {existingTemplate && pendingBlueprint && (
@@ -387,13 +473,11 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
 export default function ReactFlowGraph(props: ReactFlowGraphProps) {
   return (
     <CanvasErrorBoundary>
-      <ToastProvider>
-        <LayerProvider>
-          <ReactFlowProvider>
-            <ReactFlowGraphInner {...props} />
-          </ReactFlowProvider>
-        </LayerProvider>
-      </ToastProvider>
+      <LayerProvider>
+        <ReactFlowProvider>
+          <ReactFlowGraphInner {...props} />
+        </ReactFlowProvider>
+      </LayerProvider>
     </CanvasErrorBoundary>
   )
 }
