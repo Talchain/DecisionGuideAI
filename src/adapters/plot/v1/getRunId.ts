@@ -30,14 +30,17 @@ import type { NormalizedReport } from './reportNormalizer'
  * ```
  */
 export function getRunIdFromResponse(response: RunResponse): string | undefined {
-  // Future: result.response_hash (when backend PR lands)
+  // Direct: response_hash at top level (when response.result is passed in)
+  const directHash = (response as any)?.response_hash
+
+  // Future: result.response_hash (when full response is passed)
   const futureHash = response?.result?.response_hash
 
   // Current: model_card.response_hash (temporary)
   const currentHash = response?.model_card?.response_hash
 
-  // Fallback chain: future → current → undefined
-  return futureHash ?? currentHash
+  // Fallback chain: direct → future → current → undefined
+  return directHash ?? futureHash ?? currentHash
 }
 
 /**
