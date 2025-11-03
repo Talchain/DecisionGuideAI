@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { X, History as HistoryIcon, GitCompare as CompareIcon } from 'lucide-react'
+import { History as HistoryIcon, GitCompare as CompareIcon, BarChart3 } from 'lucide-react'
 import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash } from '../store'
 import { ProgressStrip } from '../components/ProgressStrip'
 import { WhyPanel } from '../../routes/templates/components/WhyPanel'
@@ -28,6 +28,8 @@ import { ConfidenceBadge } from '../components/ConfidenceBadge'
 import { ActionsRow } from '../components/ActionsRow'
 import type { StoredRun } from '../store/runHistory'
 import { useToast } from '../ToastContext'
+import { PanelShell } from './_shared/PanelShell'
+import { PanelSection } from './_shared/PanelSection'
 
 interface ResultsPanelProps {
   isOpen: boolean
@@ -135,158 +137,105 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const isError = status === 'error'
   const isCancelled = status === 'cancelled'
 
-  // Status pill text
-  let statusText = 'Idle'
-  let statusColor = 'rgba(128, 128, 128, 0.2)'
-  let statusTextColor = '#888'
+  // Status chip
+  const statusChip = (() => {
+    let text = 'Idle'
+    let className = 'bg-gray-100 text-gray-600'
 
-  if (status === 'preparing') {
-    statusText = 'Preparing'
-    statusColor = 'rgba(91, 108, 255, 0.15)'
-    statusTextColor = 'var(--olumi-primary)'
-  } else if (status === 'connecting') {
-    statusText = 'Connecting'
-    statusColor = 'rgba(62, 142, 237, 0.15)'
-    statusTextColor = 'var(--olumi-info)'
-  } else if (status === 'streaming') {
-    statusText = 'Analyzing'
-    statusColor = 'rgba(91, 108, 255, 0.15)'
-    statusTextColor = 'var(--olumi-primary)'
-  } else if (status === 'complete') {
-    statusText = 'Complete'
-    statusColor = 'rgba(32, 201, 151, 0.15)'
-    statusTextColor = 'var(--olumi-success)'
-  } else if (status === 'error') {
-    statusText = 'Error'
-    statusColor = 'rgba(255, 107, 107, 0.15)'
-    statusTextColor = 'var(--olumi-danger)'
-  } else if (status === 'cancelled') {
-    statusText = 'Cancelled'
-    statusColor = 'rgba(247, 201, 72, 0.15)'
-    statusTextColor = 'var(--olumi-warning)'
-  }
+    if (status === 'preparing' || status === 'connecting' || status === 'streaming') {
+      text = status === 'preparing' ? 'Preparing' : status === 'connecting' ? 'Connecting' : 'Analyzing'
+      className = 'bg-blue-100 text-blue-600'
+    } else if (status === 'complete') {
+      text = 'Complete'
+      className = 'bg-green-100 text-green-600'
+    } else if (status === 'error') {
+      text = 'Error'
+      className = 'bg-red-100 text-red-600'
+    } else if (status === 'cancelled') {
+      text = 'Cancelled'
+      className = 'bg-yellow-100 text-yellow-600'
+    }
+
+    return (
+      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${className}`}>
+        {text}
+      </span>
+    )
+  })()
+
+  // Tabs component
+  const tabs = (
+    <div className="flex border-b border-gray-200">
+      <TabButton
+        active={activeTab === 'latest'}
+        onClick={() => setActiveTab('latest')}
+        label="Latest"
+      />
+      <TabButton
+        active={activeTab === 'history'}
+        onClick={() => setActiveTab('history')}
+        label="History"
+        icon={<HistoryIcon className="w-4 h-4" />}
+      />
+      <TabButton
+        active={activeTab === 'compare'}
+        onClick={() => setActiveTab('compare')}
+        label="Compare"
+        icon={<CompareIcon className="w-4 h-4" />}
+        disabled={compareRunIds.length < 2}
+        badge={compareRunIds.length >= 2 ? String(compareRunIds.length) : undefined}
+      />
+    </div>
+  )
+
+  // Footer with actions (only show when complete)
+  const footer = isComplete && report ? (
+    <>
+      <button
+        onClick={handleRunAgain}
+        className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        type="button"
+      >
+        Analyze again
+      </button>
+      <button
+        onClick={handleShare}
+        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+        type="button"
+        disabled={!hash}
+      >
+        Share
+      </button>
+      <button
+        onClick={() => setActiveTab('history')}
+        className="px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+        type="button"
+        aria-label="Compare runs"
+      >
+        <CompareIcon className="w-5 h-5" />
+      </button>
+    </>
+  ) : undefined
 
   return (
     <>
       {/* Backdrop */}
       <div
-        style={{
-          position: 'fixed',
-          inset: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 1999,
-        }}
+        className="fixed inset-0 bg-black/50 z-[1999]"
         onClick={handleClose}
       />
 
-      {/* Panel */}
-      <div
-        ref={panelRef}
-        style={{
-          position: 'fixed',
-          right: 0,
-          top: 0,
-          bottom: 0,
-          width: '480px',
-          maxWidth: '100vw',
-          backgroundColor: 'var(--olumi-bg)',
-          borderLeft: '1px solid rgba(91, 108, 255, 0.2)',
-          zIndex: 2000,
-          display: 'flex',
-          flexDirection: 'column',
-          boxShadow: '-4px 0 24px rgba(0, 0, 0, 0.15)',
-        }}
-        role="dialog"
-        aria-label="Results Panel"
-      >
-        {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '1rem 1.25rem',
-            borderBottom: '1px solid rgba(91, 108, 255, 0.15)',
-            backgroundColor: 'rgba(91, 108, 255, 0.05)',
-          }}
+      {/* Panel Shell */}
+      <div className="fixed right-0 top-0 bottom-0 z-[2000]" ref={panelRef}>
+        <PanelShell
+          icon={<BarChart3 className="w-5 h-5" />}
+          title="Analysis Results"
+          chips={statusChip}
+          tabs={tabs}
+          onClose={handleClose}
+          footer={footer}
+          width="480px"
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <h2
-              style={{
-                margin: 0,
-                fontSize: '1.125rem',
-                fontWeight: 600,
-                color: 'var(--olumi-text)',
-              }}
-            >
-              Results
-            </h2>
-            {/* Status pill */}
-            <div
-              style={{
-                padding: '0.25rem 0.625rem',
-                borderRadius: '9999px',
-                backgroundColor: statusColor,
-                fontSize: '0.75rem',
-                fontWeight: 500,
-                color: statusTextColor,
-              }}
-            >
-              {statusText}
-            </div>
-          </div>
-          <button
-            onClick={handleClose}
-            style={{
-              padding: '0.5rem',
-              border: 'none',
-              background: 'none',
-              cursor: 'pointer',
-              borderRadius: '0.375rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-            aria-label="Close panel"
-          >
-            <X className="w-5 h-5" style={{ color: 'var(--olumi-text)' }} />
-          </button>
-        </div>
-
-        {/* Tab Bar */}
-        <div
-          style={{
-            display: 'flex',
-            borderBottom: '1px solid rgba(91, 108, 255, 0.2)',
-            backgroundColor: 'rgba(91, 108, 255, 0.03)',
-          }}
-        >
-          <Tab
-            active={activeTab === 'latest'}
-            onClick={() => setActiveTab('latest')}
-            label="Latest Run"
-            shortcut="⌘1"
-          />
-          <Tab
-            active={activeTab === 'history'}
-            onClick={() => setActiveTab('history')}
-            label="History"
-            icon={<HistoryIcon className="w-4 h-4" />}
-            shortcut="⌘2"
-          />
-          <Tab
-            active={activeTab === 'compare'}
-            onClick={() => setActiveTab('compare')}
-            label="Compare"
-            icon={<CompareIcon className="w-4 h-4" />}
-            shortcut="⌘⇧C"
-            disabled={compareRunIds.length < 2}
-            badge={compareRunIds.length >= 2 ? String(compareRunIds.length) : undefined}
-          />
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Latest Run Tab */}
           {activeTab === 'latest' && (
             <>
@@ -328,25 +277,30 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
               {/* Complete */}
               {isComplete && report && (
-                <div className="space-y-6">
-                  {/* KPI Headline */}
-                  <KPIHeadline
-                    value={report.results.likely}
-                    label="Most Likely Outcome"
-                    units={report.results.units}
-                    unitSymbol={report.results.unitSymbol}
-                  />
+                <>
+                  {/* Most Likely Outcome */}
+                  <PanelSection title="Most Likely Outcome">
+                    <div className="space-y-4">
+                      <KPIHeadline
+                        value={report.results.likely}
+                        label="Expected Value"
+                        units={report.results.units}
+                        unitSymbol={report.results.unitSymbol}
+                      />
+                      <div className="space-y-2">
+                        <div className="text-xs text-gray-500 font-medium">Range</div>
+                        <RangeChips
+                          conservative={report.results.conservative}
+                          likely={report.results.likely}
+                          optimistic={report.results.optimistic}
+                          units={report.results.units}
+                          unitSymbol={report.results.unitSymbol}
+                        />
+                      </div>
+                    </div>
+                  </PanelSection>
 
-                  {/* Range Chips */}
-                  <RangeChips
-                    conservative={report.results.conservative}
-                    likely={report.results.likely}
-                    optimistic={report.results.optimistic}
-                    units={report.results.units}
-                    unitSymbol={report.results.unitSymbol}
-                  />
-
-                  {/* Confidence Badge */}
+                  {/* Confidence */}
                   <ConfidenceBadge
                     level={report.confidence.level}
                     reason={report.confidence.why}
@@ -354,101 +308,48 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
                   {/* Drivers */}
                   {report.drivers && report.drivers.length > 0 && (
-                    <div>
-                      <h3
-                        style={{
-                          fontSize: '0.875rem',
-                          fontWeight: 600,
-                          color: 'var(--olumi-text)',
-                          marginBottom: '0.75rem',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                        }}
-                      >
-                        Key Drivers
-                      </h3>
+                    <PanelSection title="Key Drivers">
                       <DriverChips drivers={report.drivers} />
-                    </div>
+                    </PanelSection>
                   )}
 
                   {/* Recommendations */}
                   <WhyPanel report={report} />
 
-                  {/* Actions Row */}
-                  <ActionsRow
-                    onRunAgain={handleRunAgain}
-                    onCompare={() => setActiveTab('history')}
-                    onShare={handleShare}
-                  />
-
-                  {/* Reproducibility (collapsed metadata) */}
+                  {/* Reproducibility Info */}
                   {(seed !== undefined || hash) && (
-                    <details
-                      style={{
-                        padding: '0.75rem',
-                        borderRadius: '0.375rem',
-                        border: '1px solid rgba(91, 108, 255, 0.15)',
-                        backgroundColor: 'rgba(91, 108, 255, 0.03)',
-                      }}
-                    >
-                      <summary
-                        style={{
-                          cursor: 'pointer',
-                          fontSize: '0.75rem',
-                          fontWeight: 500,
-                          color: 'rgba(232, 236, 245, 0.6)',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                        }}
-                      >
-                        Reproducibility Info
-                      </summary>
-                      <div
-                        style={{
-                          marginTop: '0.75rem',
-                          fontSize: '0.8125rem',
-                          color: 'rgba(232, 236, 245, 0.7)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '0.5rem',
-                        }}
-                      >
+                    <PanelSection title="Reproducibility">
+                      <div className="space-y-2 text-sm">
                         {seed !== undefined && (
-                          <div>
-                            <span style={{ color: 'rgba(232, 236, 245, 0.5)' }}>Seed:</span>{' '}
-                            <code style={{ fontFamily: 'monospace' }}>{seed}</code>
+                          <div className="flex items-center justify-between">
+                            <span className="text-gray-500">Seed</span>
+                            <code className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{seed}</code>
                           </div>
                         )}
                         {hash && (
-                          <div>
-                            <span style={{ color: 'rgba(232, 236, 245, 0.5)' }}>Hash:</span>{' '}
-                            <code style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                              {hash.slice(0, 16)}...
-                            </code>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-gray-500">Response Hash</span>
+                              <code className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                                {hash.slice(0, 12)}...
+                              </code>
+                            </div>
                             <button
                               onClick={() => {
                                 navigator.clipboard.writeText(hash)
                                 showToast('Hash copied to clipboard', 'success')
                               }}
-                              style={{
-                                marginLeft: '0.5rem',
-                                padding: '0.125rem 0.375rem',
-                                fontSize: '0.6875rem',
-                                borderRadius: '0.25rem',
-                                border: '1px solid rgba(91, 108, 255, 0.3)',
-                                backgroundColor: 'rgba(91, 108, 255, 0.1)',
-                                color: 'var(--olumi-primary)',
-                                cursor: 'pointer',
-                              }}
+                              className="w-full px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
+                              type="button"
                             >
-                              Copy
+                              Copy Full Hash
                             </button>
                           </div>
                         )}
                       </div>
-                    </details>
+                    </PanelSection>
                   )}
-                </div>
+                </>
               )}
 
               {/* Error */}
@@ -564,73 +465,42 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
               onClose={handleCloseCompare}
             />
           )}
-        </div>
+        </PanelShell>
       </div>
     </>
   )
 }
 
-interface TabProps {
+interface TabButtonProps {
   active: boolean
   onClick: () => void
   label: string
   icon?: React.ReactNode
-  shortcut?: string
   disabled?: boolean
   badge?: string
 }
 
-function Tab({ active, onClick, label, icon, shortcut, disabled = false, badge }: TabProps) {
+function TabButton({ active, onClick, label, icon, disabled = false, badge }: TabButtonProps) {
   return (
     <button
       onClick={onClick}
       disabled={disabled}
-      style={{
-        flex: '1 1 0',
-        padding: '0.75rem 1rem',
-        border: 'none',
-        backgroundColor: active ? 'rgba(91, 108, 255, 0.1)' : 'transparent',
-        color: active ? 'var(--olumi-primary)' : disabled ? 'rgba(232, 236, 245, 0.3)' : 'var(--olumi-text)',
-        borderBottom: active ? '2px solid var(--olumi-primary)' : '2px solid transparent',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        fontSize: '0.875rem',
-        fontWeight: 500,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '0.375rem',
-        transition: 'all 0.2s ease',
-        opacity: disabled ? 0.5 : 1,
-        position: 'relative',
-      }}
+      className={`
+        flex-1 px-4 py-2 text-sm font-medium transition-colors
+        ${active ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50' : 'text-gray-600 border-b-2 border-transparent hover:text-gray-900 hover:bg-gray-50'}
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+      `}
+      type="button"
     >
-      {icon}
-      {label}
-      {badge && (
-        <span
-          style={{
-            padding: '0.125rem 0.375rem',
-            borderRadius: '9999px',
-            backgroundColor: 'var(--olumi-primary)',
-            color: 'white',
-            fontSize: '0.6875rem',
-            fontWeight: 600,
-          }}
-        >
-          {badge}
-        </span>
-      )}
-      {shortcut && !active && (
-        <span
-          style={{
-            fontSize: '0.6875rem',
-            color: 'rgba(232, 236, 245, 0.4)',
-            marginLeft: '0.25rem',
-          }}
-        >
-          {shortcut}
-        </span>
-      )}
+      <span className="flex items-center justify-center gap-2">
+        {icon}
+        {label}
+        {badge && (
+          <span className="px-1.5 py-0.5 text-xs font-semibold text-white bg-blue-600 rounded-full">
+            {badge}
+          </span>
+        )}
+      </span>
     </button>
   )
 }
