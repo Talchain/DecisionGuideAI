@@ -23,6 +23,18 @@
 - [ ] No console warnings about missing environment variables
 - [ ] Bundle size within acceptable limits (check webpack-bundle-analyzer)
 
+### CI Guardrails (PRs #12-#15)
+
+- [ ] **Determinism guard job passes** - Verifies production builds enforce strict mode
+- [ ] **Skip gate job passes** - No new test.skip() calls detected
+- [ ] **OpenAPI validation runs** - Contract validation completes (soft gate)
+
+### Operational Tooling
+
+- [ ] **Performance baseline established** - Run `npm run perf:baseline -- --save` to set baseline
+- [ ] **Golden briefs tested** - Run `npm run test:golden` against staging API
+- [ ] **Datadog import configured** - DD_API_KEY set for metrics/logs import (optional)
+
 ---
 
 ## Functional Testing

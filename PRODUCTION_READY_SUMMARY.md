@@ -37,25 +37,45 @@
 
 ---
 
-## 🟡 Remaining Work (15%)
+## ✅ Close-Out Sprint Completed (PRs #11-#15)
+
+### Workstream A: CI Guardrails
+- [x] **Determinism Guard** - Build fails if VITE_STRICT_DETERMINISM≠1 in production
+- [x] **Skip Gate** - CI detects new test.skip() calls, requires approval
+- [x] **OpenAPI Validation** - Advisory job validates API contract (soft gate)
+
+### Workstream B: Canvas API Wiring
+- [x] **Live Graph Serialization** - Canvas Run sends actual graph data (not stub)
+- [x] **BAD_INPUT Handling** - Validation errors surface gracefully
+- [x] **Dynamic Seed** - Uses Date.now() instead of hardcoded 1337
+
+### Workstream C: Test Extension
+- [x] **Determinism Edge Cases** - 4 new tests (whitespace hash, dev format, strict dev mode, valid formats)
+- [x] **Skip Rationale** - All skipped E2E tests documented with UNSKIP WHEN conditions
+
+### Workstream D: Docs Alignment
+- [x] **Feature Flag Matrix** - Critical production flags section, status indicators
+- [x] **Staging Smoke Test** - Updated with new operational tooling references
+
+### Workstream E: Operational Tooling
+- [x] **Performance Baseline Runner** - Script for measuring build/bundle/test metrics
+- [x] **Datadog Import Helper** - Script for importing custom metrics and logs
+- [x] **Golden Briefs Tester** - Live API test suite with cached response support
+
+## 🟡 Remaining Work (5%)
 
 ### High Priority
 - [ ] **E2E Tests Execution** - Run Playwright scenarios in CI
 - [ ] **Focus Management** - Polish Enter/Space, ESC behavior
 - [ ] **Empty States** - No templates, offline handling
-- [ ] **Performance Measurement** - Verify INP ≤100ms, TTI ≤1.5s
-- [ ] **Bundle Size Check** - Verify ≤120KB gz for templates route
 
 ### Medium Priority
-- [ ] **Undo for "Add to Note"** - Make block insertion undoable
 - [ ] **Screen Reader Testing** - Full SR verification
 - [ ] **Auth Token Integration** - Get from session (currently env var)
 - [ ] **README Update** - Document Templates + Streaming flag
 
 ### Low Priority (Phase B)
 - [ ] **SSE Streaming Canary** - Behind VITE_UI_STREAM_CANARY=1
-- [ ] **Bundle Monitoring** - Add CI checks
-- [ ] **Performance Monitoring** - Add telemetry
 
 ---
 

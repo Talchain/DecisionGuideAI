@@ -57,7 +57,11 @@
     "test:e2e:firefox": "playwright test --project=firefox -c playwright.config.ts",
     "test:e2e:webkit": "playwright test --project=webkit -c playwright.config.ts",
     "test:e2e": "playwright test",
-    "ci:all": "npm run typecheck && npm run lint && npm run test && npm run e2e"
+    "test:e2e:headless": "playwright test --project=chromium",
+    "ci:all": "npm run typecheck && npm run lint && npm run test && npm run e2e",
+    "perf:baseline": "node scripts/run-performance-baseline.mjs",
+    "datadog:import": "node scripts/datadog-import-helper.mjs",
+    "test:golden": "node scripts/golden-briefs-tester.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
