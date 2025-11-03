@@ -14,7 +14,7 @@ import type {
 } from './types'
 import { TIMEOUTS } from './constants'
 import { PLOT_ENDPOINTS } from '../endpoints'
-import { streamMetrics, errorMetrics } from '../../observability/metrics'
+import { streamMetrics, errorMetrics } from '../../../observability/metrics'
 
 /**
  * Throttle function calls using requestAnimationFrame
