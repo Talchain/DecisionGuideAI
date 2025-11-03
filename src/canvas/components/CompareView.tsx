@@ -6,11 +6,15 @@
  * - Delta bars for driver changes (added/removed/common)
  * - Highlight changed drivers
  * - "Reveal on canvas" button to toggle highlighting
+ *
+ * Note: This component is designed as tab content (not a standalone panel)
+ * It's displayed within ResultsPanel's Compare tab
  */
 
 import { useMemo } from 'react'
-import { ArrowUp, ArrowDown, Equal, X } from 'lucide-react'
+import { ArrowUp, ArrowDown, Equal } from 'lucide-react'
 import { compareRuns, type RunComparison } from '../store/runHistory'
+import { PanelSection } from '../panels/_shared/PanelSection'
 
 interface CompareViewProps {
   runIds: string[]
@@ -26,27 +30,13 @@ export function CompareView({ runIds, onClose }: CompareViewProps) {
 
   if (!comparison) {
     return (
-      <div
-        className="p-4 rounded-lg border text-center"
-        style={{
-          backgroundColor: 'rgba(91, 108, 255, 0.05)',
-          borderColor: 'rgba(91, 108, 255, 0.2)',
-          color: 'var(--olumi-text)'
-        }}
-      >
-        <p className="text-sm">
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <p className="text-sm text-gray-600 mb-4">
           Unable to load runs for comparison.
         </p>
-        <button
-          onClick={onClose}
-          className="mt-2 px-3 py-1 rounded text-xs transition-colors"
-          style={{
-            backgroundColor: 'var(--olumi-primary)',
-            color: 'white'
-          }}
-        >
-          Close
-        </button>
+        <p className="text-xs text-gray-500">
+          Switch to the History tab to select runs.
+        </p>
       </div>
     )
   }
@@ -54,143 +44,80 @@ export function CompareView({ runIds, onClose }: CompareViewProps) {
   const { runA, runB, summaryChanged, driversAdded, driversRemoved, driversCommon } = comparison
 
   return (
-    <div
-      className="space-y-4 p-4 rounded-lg border"
-      style={{
-        backgroundColor: 'rgba(91, 108, 255, 0.05)',
-        borderColor: 'rgba(91, 108, 255, 0.2)'
-      }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold" style={{ color: 'var(--olumi-text)' }}>
-          Compare Runs
-        </h3>
-        <button
-          onClick={onClose}
-          className="p-1 rounded transition-colors"
-          style={{ color: 'var(--olumi-text)' }}
-          aria-label="Close comparison"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Run meta */}
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div
-          className="p-2 rounded border"
-          style={{
-            backgroundColor: 'rgba(91, 108, 255, 0.08)',
-            borderColor: 'rgba(91, 108, 255, 0.15)',
-            color: 'rgba(232, 236, 245, 0.7)'
-          }}
-        >
-          <div className="font-semibold mb-1">Run A</div>
-          <div>Seed: {runA.seed}</div>
-          <div>Hash: {runA.hash?.slice(0, 8) || 'N/A'}</div>
-          <div>{formatTimestamp(runA.ts)}</div>
-        </div>
-
-        <div
-          className="p-2 rounded border"
-          style={{
-            backgroundColor: 'rgba(91, 108, 255, 0.08)',
-            borderColor: 'rgba(91, 108, 255, 0.15)',
-            color: 'rgba(232, 236, 245, 0.7)'
-          }}
-        >
-          <div className="font-semibold mb-1">Run B</div>
-          <div>Seed: {runB.seed}</div>
-          <div>Hash: {runB.hash?.slice(0, 8) || 'N/A'}</div>
-          <div>{formatTimestamp(runB.ts)}</div>
-        </div>
-      </div>
-
-      {/* Summary comparison */}
-      {summaryChanged && (
-        <div>
-          <h4
-            className="text-sm font-medium mb-2"
-            style={{ color: 'var(--olumi-text)' }}
-          >
-            Summary Changed
-          </h4>
-          <div className="space-y-2">
-            <div
-              className="p-2 rounded text-xs"
-              style={{
-                backgroundColor: 'rgba(255, 107, 107, 0.1)',
-                borderLeft: '3px solid var(--olumi-danger)'
-              }}
-            >
-              <div
-                className="font-medium mb-1"
-                style={{ color: 'var(--olumi-danger)' }}
-              >
-                Before (A):
-              </div>
-              <div style={{ color: 'var(--olumi-text)' }}>{runA.summary}</div>
+    <>
+      {/* Run Metadata */}
+      <PanelSection title="Run Details">
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="p-3 rounded-lg bg-gray-50 border border-gray-200">
+            <div className="font-semibold text-gray-900 mb-2">Run A</div>
+            <div className="space-y-1 text-gray-600">
+              <div>Seed: {runA.seed}</div>
+              <div>Hash: <code className="text-xs">{runA.hash?.slice(0, 8) || 'N/A'}</code></div>
+              <div className="text-gray-500">{formatTimestamp(runA.ts)}</div>
             </div>
+          </div>
 
-            <div
-              className="p-2 rounded text-xs"
-              style={{
-                backgroundColor: 'rgba(32, 201, 151, 0.1)',
-                borderLeft: '3px solid var(--olumi-success)'
-              }}
-            >
-              <div
-                className="font-medium mb-1"
-                style={{ color: 'var(--olumi-success)' }}
-              >
-                After (B):
-              </div>
-              <div style={{ color: 'var(--olumi-text)' }}>{runB.summary}</div>
+          <div className="p-3 rounded-lg bg-gray-50 border border-gray-200">
+            <div className="font-semibold text-gray-900 mb-2">Run B</div>
+            <div className="space-y-1 text-gray-600">
+              <div>Seed: {runB.seed}</div>
+              <div>Hash: <code className="text-xs">{runB.hash?.slice(0, 8) || 'N/A'}</code></div>
+              <div className="text-gray-500">{formatTimestamp(runB.ts)}</div>
             </div>
           </div>
         </div>
+      </PanelSection>
+
+      {/* Summary comparison */}
+      {summaryChanged && (
+        <PanelSection title="Summary Changed">
+          <div className="space-y-3">
+            <div className="p-3 rounded-lg bg-red-50 border-l-4 border-red-500">
+              <div className="text-xs font-semibold text-red-700 mb-2">
+                Before (Run A):
+              </div>
+              <div className="text-sm text-gray-900">{runA.summary}</div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-green-50 border-l-4 border-green-500">
+              <div className="text-xs font-semibold text-green-700 mb-2">
+                After (Run B):
+              </div>
+              <div className="text-sm text-gray-900">{runB.summary}</div>
+            </div>
+          </div>
+        </PanelSection>
       )}
 
       {/* Driver deltas */}
-      <div>
-        <h4
-          className="text-sm font-medium mb-2"
-          style={{ color: 'var(--olumi-text)' }}
-        >
-          Driver Changes
-        </h4>
-
+      <PanelSection title="Driver Changes">
         {/* Delta bars */}
-        <div className="mb-3">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="flex-1 h-2 rounded overflow-hidden flex">
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="flex-1 h-2 rounded-full overflow-hidden flex bg-gray-100">
               {driversRemoved.length > 0 && (
                 <div
-                  className="h-full"
+                  className="h-full bg-red-500"
                   style={{
-                    width: `${(driversRemoved.length / (driversRemoved.length + driversAdded.length + driversCommon.length)) * 100}%`,
-                    backgroundColor: 'var(--olumi-danger)'
+                    width: `${(driversRemoved.length / (driversRemoved.length + driversAdded.length + driversCommon.length)) * 100}%`
                   }}
                   title={`${driversRemoved.length} removed`}
                 />
               )}
               {driversCommon.length > 0 && (
                 <div
-                  className="h-full"
+                  className="h-full bg-gray-400"
                   style={{
-                    width: `${(driversCommon.length / (driversRemoved.length + driversAdded.length + driversCommon.length)) * 100}%`,
-                    backgroundColor: 'rgba(128, 128, 128, 0.5)'
+                    width: `${(driversCommon.length / (driversRemoved.length + driversAdded.length + driversCommon.length)) * 100}%`
                   }}
                   title={`${driversCommon.length} unchanged`}
                 />
               )}
               {driversAdded.length > 0 && (
                 <div
-                  className="h-full"
+                  className="h-full bg-green-500"
                   style={{
-                    width: `${(driversAdded.length / (driversRemoved.length + driversAdded.length + driversCommon.length)) * 100}%`,
-                    backgroundColor: 'var(--olumi-success)'
+                    width: `${(driversAdded.length / (driversRemoved.length + driversAdded.length + driversCommon.length)) * 100}%`
                   }}
                   title={`${driversAdded.length} added`}
                 />
@@ -198,47 +125,34 @@ export function CompareView({ runIds, onClose }: CompareViewProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 text-xs">
-            <div className="flex items-center gap-1">
-              <ArrowDown className="w-3 h-3" style={{ color: 'var(--olumi-danger)' }} />
-              <span style={{ color: 'var(--olumi-text)' }}>
-                {driversRemoved.length} removed
-              </span>
+          <div className="flex items-center gap-4 text-xs text-gray-600">
+            <div className="flex items-center gap-1.5">
+              <ArrowDown className="w-3 h-3 text-red-600" />
+              <span>{driversRemoved.length} removed</span>
             </div>
-            <div className="flex items-center gap-1">
-              <Equal className="w-3 h-3" style={{ color: 'rgba(232, 236, 245, 0.5)' }} />
-              <span style={{ color: 'var(--olumi-text)' }}>
-                {driversCommon.length} unchanged
-              </span>
+            <div className="flex items-center gap-1.5">
+              <Equal className="w-3 h-3 text-gray-400" />
+              <span>{driversCommon.length} unchanged</span>
             </div>
-            <div className="flex items-center gap-1">
-              <ArrowUp className="w-3 h-3" style={{ color: 'var(--olumi-success)' }} />
-              <span style={{ color: 'var(--olumi-text)' }}>
-                {driversAdded.length} added
-              </span>
+            <div className="flex items-center gap-1.5">
+              <ArrowUp className="w-3 h-3 text-green-600" />
+              <span>{driversAdded.length} added</span>
             </div>
           </div>
         </div>
 
         {/* Driver lists */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           {driversRemoved.length > 0 && (
             <div>
-              <div
-                className="text-xs font-medium mb-1"
-                style={{ color: 'var(--olumi-danger)' }}
-              >
+              <div className="text-xs font-semibold text-red-700 mb-2">
                 Removed:
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {driversRemoved.map((driver, i) => (
                   <div
                     key={i}
-                    className="px-2 py-1 rounded text-xs"
-                    style={{
-                      backgroundColor: 'rgba(255, 107, 107, 0.1)',
-                      color: 'var(--olumi-text)'
-                    }}
+                    className="px-3 py-2 rounded-lg text-xs bg-red-50 border border-red-200 text-gray-900"
                   >
                     {driver.label || driver.id || 'Unnamed'}
                   </div>
@@ -249,21 +163,14 @@ export function CompareView({ runIds, onClose }: CompareViewProps) {
 
           {driversAdded.length > 0 && (
             <div>
-              <div
-                className="text-xs font-medium mb-1"
-                style={{ color: 'var(--olumi-success)' }}
-              >
+              <div className="text-xs font-semibold text-green-700 mb-2">
                 Added:
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {driversAdded.map((driver, i) => (
                   <div
                     key={i}
-                    className="px-2 py-1 rounded text-xs"
-                    style={{
-                      backgroundColor: 'rgba(32, 201, 151, 0.1)',
-                      color: 'var(--olumi-text)'
-                    }}
+                    className="px-3 py-2 rounded-lg text-xs bg-green-50 border border-green-200 text-gray-900"
                   >
                     {driver.label || driver.id || 'Unnamed'}
                   </div>
@@ -274,32 +181,17 @@ export function CompareView({ runIds, onClose }: CompareViewProps) {
 
           {driversCommon.length > 0 && (
             <div>
-              <div
-                className="text-xs font-medium mb-1"
-                style={{ color: 'rgba(232, 236, 245, 0.7)' }}
-              >
+              <div className="text-xs font-semibold text-gray-600 mb-2">
                 Unchanged ({driversCommon.length}):
               </div>
-              <div className="text-xs" style={{ color: 'rgba(232, 236, 245, 0.5)' }}>
+              <div className="text-xs text-gray-500 leading-relaxed">
                 {driversCommon.map(d => d.label || d.id || 'Unnamed').join(', ')}
               </div>
             </div>
           )}
         </div>
-      </div>
-
-      {/* Close button */}
-      <button
-        onClick={onClose}
-        className="w-full px-4 py-2 text-sm rounded-md border transition-colors"
-        style={{
-          borderColor: 'rgba(91, 108, 255, 0.3)',
-          color: 'var(--olumi-text)'
-        }}
-      >
-        Close
-      </button>
-    </div>
+      </PanelSection>
+    </>
   )
 }
 
