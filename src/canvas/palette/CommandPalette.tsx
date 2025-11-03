@@ -1,0 +1,346 @@
+/**
+ * Command Palette Component
+ *
+ * Universal "jump" and "do" surface for Canvas.
+ * Keyboard-driven, accessible, with instant search results.
+ *
+ * Performance target: ≤50ms open latency, ≤75ms search results
+ * Accessibility: WCAG 2.1 AA, zero Axe violations
+ */
+
+import { useEffect, useRef } from 'react'
+import { usePalette } from './usePalette'
+import type { PaletteItemKind, SearchResult } from './indexers'
+import { sanitizeLabel } from '../utils/sanitize'
+
+const KIND_LABELS: Record<PaletteItemKind, string> = {
+  action: 'Actions',
+  node: 'Nodes',
+  edge: 'Edges',
+  driver: 'Drivers',
+  template: 'Templates',
+  run: 'Recent Runs',
+}
+
+const KIND_ICONS: Record<PaletteItemKind, string> = {
+  action: '⚡',
+  node: '●',
+  edge: '→',
+  driver: '📊',
+  template: '📄',
+  run: '🔄',
+}
+
+interface CommandPaletteProps {
+  /** Whether feature is enabled (from flag) */
+  enabled?: boolean
+  /** Optional: Run analysis callback */
+  onRun?: () => void
+  /** Optional: Cancel analysis callback */
+  onCancel?: () => void
+  /** Optional: Toggle Results panel callback */
+  onToggleResults?: () => void
+  /** Optional: Toggle Compare panel callback */
+  onToggleCompare?: () => void
+  /** Optional: Toggle Inspector panel callback */
+  onToggleInspector?: () => void
+}
+
+/**
+ * Command Palette overlay
+ */
+export function CommandPalette({
+  enabled = false,
+  onRun,
+  onCancel,
+  onToggleResults,
+  onToggleCompare,
+  onToggleInspector,
+}: CommandPaletteProps) {
+  const {
+    isOpen,
+    query,
+    selectedIndex,
+    results,
+    groupedResults,
+    showHelp,
+    close,
+    setQuery,
+    selectByIndex,
+    executeSelected,
+    toggleHelp,
+  } = usePalette({
+    enabled,
+    onRun,
+    onCancel,
+    onToggleResults,
+    onToggleCompare,
+    onToggleInspector,
+  })
+
+  const inputRef = useRef<HTMLInputElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+
+  // Auto-focus input when opened
+  useEffect(() => {
+    if (isOpen && inputRef.current) {
+      // Small delay to ensure DOM is ready
+      requestAnimationFrame(() => {
+        inputRef.current?.focus()
+      })
+    }
+  }, [isOpen])
+
+  // Scroll selected item into view
+  useEffect(() => {
+    if (isOpen && listRef.current) {
+      const selectedEl = listRef.current.querySelector('[data-selected="true"]')
+      selectedEl?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  }, [selectedIndex, isOpen])
+
+  if (!enabled || !isOpen) {
+    return null
+  }
+
+  // Flatten grouped results for index mapping
+  const flatResults: SearchResult[] = []
+  const kindOrder: PaletteItemKind[] = ['action', 'node', 'edge', 'driver', 'template', 'run']
+
+  for (const kind of kindOrder) {
+    const items = groupedResults[kind] || []
+    flatResults.push(...items)
+  }
+
+  return (
+    <div
+      role="dialog"
+      aria-label="Command palette"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-32"
+      onClick={e => {
+        // Click backdrop to close
+        if (e.target === e.currentTarget) {
+          close()
+        }
+      }}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
+
+      {/* Palette */}
+      <div className="relative w-full max-w-2xl rounded-lg bg-white shadow-2xl">
+        {/* Search input */}
+        <div className="border-b border-gray-200 p-4 flex items-center gap-3">
+          <input
+            ref={inputRef}
+            type="text"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="palette-results"
+            aria-activedescendant={
+              flatResults[selectedIndex] ? `palette-item-${flatResults[selectedIndex].id}` : undefined
+            }
+            aria-label="Search commands, nodes, edges, and more"
+            className="flex-1 border-none bg-transparent text-lg outline-none placeholder:text-gray-400"
+            placeholder="Type to search... (⌘K to close)"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                executeSelected()
+              }
+            }}
+          />
+          {/* Help button */}
+          <button
+            onClick={toggleHelp}
+            aria-label="Show keyboard shortcuts"
+            className="flex-shrink-0 w-8 h-8 rounded-md hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            ?
+          </button>
+        </div>
+
+        {/* Help Overlay (conditionally shown) */}
+        {showHelp ? (
+          <div className="p-6 max-h-96 overflow-y-auto">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900">Keyboard Shortcuts</h2>
+
+            <div className="space-y-4">
+              {/* Global shortcuts */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Global</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Open/Close Palette</span>
+                    <div>
+                      <kbd className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">⌘</kbd>
+                      <kbd className="ml-1 px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">K</kbd>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Palette shortcuts */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Within Palette</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Navigate Results</span>
+                    <div>
+                      <kbd className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">↑</kbd>
+                      <kbd className="ml-1 px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">↓</kbd>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Execute Selected</span>
+                    <kbd className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">↵</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Close</span>
+                    <kbd className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">ESC</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Toggle Help</span>
+                    <kbd className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">?</kbd>
+                  </div>
+                </div>
+              </div>
+
+              {/* Canvas shortcuts (future) */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">Canvas</h3>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Show Probabilities</span>
+                    <kbd className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">P</kbd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Navigate with Tab</span>
+                    <kbd className="px-2 py-1 rounded bg-gray-100 text-gray-700 font-mono text-xs">Tab</kbd>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Results */
+          <div
+            ref={listRef}
+            id="palette-results"
+            role="listbox"
+            aria-label="Search results"
+            className="max-h-96 overflow-y-auto"
+          >
+          {flatResults.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              {query ? 'No results found' : 'Start typing to search...'}
+            </div>
+          ) : (
+            <div className="py-2">
+              {kindOrder.map(kind => {
+                const items = groupedResults[kind] || []
+                if (items.length === 0) return null
+
+                return (
+                  <div key={kind} className="mb-2">
+                    {/* Section header */}
+                    <div className="px-4 py-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      {KIND_LABELS[kind]}
+                    </div>
+
+                    {/* Items */}
+                    {items.map(item => {
+                      const globalIndex = flatResults.indexOf(item)
+                      const isSelected = globalIndex === selectedIndex
+
+                      return (
+                        <button
+                          key={item.id}
+                          id={`palette-item-${item.id}`}
+                          role="option"
+                          aria-selected={isSelected}
+                          data-selected={isSelected}
+                          className={`
+                            w-full px-4 py-3 text-left transition-colors
+                            ${isSelected ? 'bg-blue-50 text-blue-900' : 'text-gray-900 hover:bg-gray-50'}
+                          `}
+                          onClick={() => executeSelected()}
+                          onMouseEnter={() => {
+                            // Update selection on hover
+                            const newIndex = flatResults.indexOf(item)
+                            if (newIndex !== -1) {
+                              selectByIndex(newIndex)
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Icon */}
+                            <span className="text-xl" aria-hidden="true">
+                              {KIND_ICONS[kind]}
+                            </span>
+
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">
+                                {sanitizeLabel(item.label)}
+                              </div>
+                              {item.description && (
+                                <div className="text-sm text-gray-500 truncate">
+                                  {sanitizeLabel(item.description)}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Match type badge (debug) */}
+                            {item.matchType && query && (
+                              <span
+                                className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600"
+                                aria-label={`Match type: ${item.matchType}`}
+                              >
+                                {item.matchType}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          </div>
+        )}
+
+        {/* Footer hint */}
+        <div className="border-t border-gray-200 px-4 py-2 text-xs text-gray-500 flex items-center justify-between">
+          <span>
+            <kbd className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-mono">↑</kbd>
+            <kbd className="ml-1 px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-mono">↓</kbd>
+            {' '}to navigate
+          </span>
+          <span>
+            <kbd className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-mono">↵</kbd>
+            {' '}to select
+          </span>
+          <span>
+            <kbd className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-mono">esc</kbd>
+            {' '}to close
+          </span>
+        </div>
+      </div>
+
+      {/* Screen reader status */}
+      <div role="status" aria-live="polite" className="sr-only">
+        {results.length > 0
+          ? `${results.length} result${results.length === 1 ? '' : 's'} found`
+          : query
+          ? 'No results found'
+          : ''}
+      </div>
+    </div>
+  )
+}
