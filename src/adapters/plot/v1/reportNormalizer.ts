@@ -46,17 +46,24 @@ export function toUiReport(body: RunResponse): NormalizedReport {
   const results = body?.results ?? body?.result ?? {}
   const summary = results?.summary
 
-  // Conservative: results.conservative or result.summary.conservative
-  const conservative = results.conservative ?? summary?.conservative
+  // Helper: extract number from value that might be {outcome: number} or just number
+  const extractValue = (val: any): number | undefined => {
+    if (typeof val === 'number') return val
+    if (val && typeof val.outcome === 'number') return val.outcome
+    return undefined
+  }
 
-  // Most likely: results.most_likely, results.likely, or result.summary.likely
+  // Conservative: results.conservative.outcome or results.conservative or summary.conservative or summary.p10
+  const conservative = extractValue(results.conservative) ?? summary?.conservative ?? summary?.p10
+
+  // Most likely: results.most_likely.outcome or results.likely or summary.likely or summary.p50
   // Note: v1 API uses 'likely', some responses use 'most_likely'
-  const mostLikely = results.most_likely ?? results.likely ?? summary?.likely
+  const mostLikely = extractValue(results.most_likely) ?? extractValue(results.likely) ?? summary?.likely ?? summary?.p50
 
-  // Optimistic: results.optimistic or result.summary.optimistic
-  const optimistic = results.optimistic ?? summary?.optimistic
+  // Optimistic: results.optimistic.outcome or results.optimistic or summary.optimistic or summary.p90
+  const optimistic = extractValue(results.optimistic) ?? summary?.optimistic ?? summary?.p90
 
-  // Units: results.units or results.summary.units or result.summary.units
+  // Units: results.units or summary.units
   const units = results.units ?? summary?.units
 
   // Confidence and explanation from top-level fields
