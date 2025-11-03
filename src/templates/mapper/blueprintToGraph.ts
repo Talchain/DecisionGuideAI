@@ -10,6 +10,7 @@ export interface GraphNode {
   kind: 'goal' | 'decision' | 'option' | 'risk' | 'outcome'
   label: string
   position?: { x: number; y: number }
+  description?: string // F1: preserve description/body from templates
 }
 
 export interface GraphEdge {
@@ -17,6 +18,7 @@ export interface GraphEdge {
   to: string
   probability?: number
   weight?: number
+  label?: string // F1: preserve edge labels from templates
 }
 
 export interface Graph {
@@ -72,13 +74,15 @@ export function blueprintToGraph(blueprint: Blueprint): Graph {
       id: n.id,
       kind: n.kind,
       label: n.label,
-      position: n.position
+      position: n.position,
+      description: n.description // F1: preserve description
     })),
     edges: edges.map(e => ({
       from: e.from,
       to: e.to,
       probability: e.probability,
-      weight: e.weight
+      weight: e.weight,
+      label: e.label // F1: preserve edge label
     }))
   }
 }

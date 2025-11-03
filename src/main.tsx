@@ -2,6 +2,7 @@
 import './index.css';
 import { Suspense, lazy, Component, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { hydrateLimitsAtBoot } from './adapters/plot/v1/limitsManager';
 
 declare global {
   interface Window {
@@ -72,6 +73,10 @@ class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 (function boot() {
   try {
     log('boot:start', { href: location.href, token: ENTRY_PROOF_TOKEN });
+
+    // Hydrate API limits (non-blocking - uses static fallback until API responds)
+    hydrateLimitsAtBoot();
+    log('boot:limits-hydration-started');
 
     const rootEl = document.getElementById('root');
     if (!rootEl) throw new Error('#root not found');
