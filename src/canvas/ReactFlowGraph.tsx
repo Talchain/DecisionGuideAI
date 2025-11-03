@@ -167,9 +167,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       // Adapter (httpV1Adapter) will handle UI→API conversion using toApiGraph()
       await runAnalysis({
         template_id: 'canvas',
-        // Use current timestamp as seed for reproducibility
+        // Use Unix timestamp (seconds) as seed for reproducibility
+        // Fits within 32-bit signed integer range (max: 2147483647)
         // Users can override via dev controls when implemented
-        seed: Date.now(),
+        seed: Math.floor(Date.now() / 1000),
         // Pass canvas graph in UI format (source/target)
         // Adapter converts to API format (from/to) automatically
         graph: {
