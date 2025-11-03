@@ -78,6 +78,47 @@ jobs:
       - name: Verify Test Status docs match JSON
         run: node scripts/sync-test-status.cjs --check
 
+  skip-gate:
+    name: Newly Skipped Tests Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Need full history to compare with main
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Detect newly skipped tests
+        run: node scripts/detect-newly-skipped-tests.mjs
+        env:
+          # Set to '1' to override gate (after review/approval)
+          SKIP_GATE_OVERRIDE: ${{ secrets.SKIP_GATE_OVERRIDE || '0' }}
+
+  openapi-validation:
+    name: OpenAPI Contract Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run integration check (includes OpenAPI validation)
+        run: npm run integration:check
+        continue-on-error: true  # Optional - backend may not be available in CI
+
   backend-health:
     name: Backend Health Check
     runs-on: ubuntu-latest
@@ -100,6 +141,33 @@ jobs:
       - name: Health check via proxy
         run: |
           curl -f http://localhost:5173/api/plot/v1/health || (echo "Health check failed" && exit 1)
+
+  determinism-guard:
+    name: Determinism Strictness Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify build succeeds with VITE_STRICT_DETERMINISM=1
+        run: VITE_STRICT_DETERMINISM=1 npm run build
+        env:
+          NODE_ENV: production
+      - name: Verify build fails with VITE_STRICT_DETERMINISM=0 (production mode)
+        run: |
+          if VITE_STRICT_DETERMINISM=0 NODE_ENV=production npm run build 2>&1 | grep -q "VITE_STRICT_DETERMINISM must be '1'"; then
+            echo "✅ Build guard correctly rejects VITE_STRICT_DETERMINISM=0 in production"
+          else
+            echo "❌ Build guard failed to reject VITE_STRICT_DETERMINISM=0 in production"
+            exit 1
+          fi
+        continue-on-error: false
 
   build:
     name: Build + No-Console
