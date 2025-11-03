@@ -13,8 +13,11 @@ export interface V1Node {
 export interface V1Edge {
   from: string
   to: string
-  confidence?: number // 0..1
-  weight?: number
+  confidence?: number // 0..1 (deprecated, use weight)
+  weight?: number // 0..1
+  label?: string // short text
+  belief?: number // 0..1 epistemic uncertainty
+  provenance?: string // ≤100 chars source/rationale
 }
 
 export interface V1Graph {
@@ -32,6 +35,7 @@ export interface V1RunRequest {
   treatment_node?: string
   outcome_node?: string
   baseline_value?: number
+  inference_mode?: 'model_based' | 'data_driven' // Optional inference strategy
   // Debug slices (Phase 2+): Include debug.compare + debug.inspector.edges
   // Behind feature flags: VITE_FEATURE_COMPARE_DEBUG, VITE_FEATURE_INSPECTOR_DEBUG
   // Debug slices DO NOT affect response_hash (server-side exclusion)

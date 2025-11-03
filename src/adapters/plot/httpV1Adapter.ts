@@ -229,6 +229,7 @@ export const httpV1Adapter = {
       if (input.treatment_node) requestBody.treatment_node = input.treatment_node
       if (input.outcome_node) requestBody.outcome_node = input.outcome_node
       if (input.baseline_value !== undefined) requestBody.baseline_value = input.baseline_value
+      if (input.inference_mode) requestBody.inference_mode = input.inference_mode
 
       // Add include_debug if Compare or Inspector debug features are enabled
       // Debug slices DO NOT affect response_hash (server-side exclusion)

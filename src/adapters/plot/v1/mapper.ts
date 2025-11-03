@@ -137,6 +137,16 @@ export function toApiGraph(ui: UiGraph): ApiGraph {
       }
     }
 
+    // Belief (0..1) - epistemic uncertainty about the edge relationship
+    if (e.data?.belief != null) {
+      edge.belief = Math.max(0, Math.min(1, e.data.belief))
+    }
+
+    // Provenance (≤100 chars) - source/rationale for the edge
+    if (e.data?.provenance) {
+      edge.provenance = e.data.provenance.slice(0, 100)
+    }
+
     return edge
   })
 

@@ -53,6 +53,8 @@ export interface ApiEdge {
   to: string
   label?: string
   weight?: number
+  belief?: number      // 0..1 epistemic uncertainty
+  provenance?: string  // ≤100 chars source/rationale
 }
 
 export interface ApiGraph {
@@ -71,6 +73,7 @@ export interface RunRequest {
   treatment_node?: string
   outcome_node?: string
   baseline_value?: number
+  inference_mode?: 'model_based' | 'data_driven'
 }
 
 export interface RunResponse {
