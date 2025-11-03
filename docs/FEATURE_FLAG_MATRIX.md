@@ -2,21 +2,33 @@
 
 **Purpose**: Centralized tracking of all feature flags across environments.
 
-**Last Updated**: 2025-11-01
+**Last Updated**: 2025-11-03
 
 ---
 
-## Flag States by Environment
+## ⚠️ Critical Production Flags
 
-| Flag | Dev | E2E | Staging | Production | Description |
-|------|-----|-----|---------|------------|-------------|
-| `VITE_FEATURE_COMMAND_PALETTE` | 1 | 1 | 1 | 0 | Canvas command palette (⌘K) |
-| `VITE_FEATURE_PLOT_STREAM` | 1 | 1 | 1 | 0 | PLoT V1 streaming (SSE) |
-| `VITE_FEATURE_COMPARE_DEBUG` | 1 | 1 | 1 | 0 | Compare panel debug mode |
-| `VITE_FEATURE_INSPECTOR_DEBUG` | 1 | 1 | 1 | 0 | Inspector panel debug mode |
-| `VITE_FEATURE_SSE` | 1 | 1 | 1 | 0 | Server-Sent Events support |
-| `VITE_FEATURE_HINTS` | 1 | 1 | 0 | 0 | Contextual UI hints |
-| `VITE_E2E` | 0 | 1 | 0 | 0 | E2E test mode |
+**These flags MUST be set correctly in production/staging**
+
+| Flag | Dev | Staging | Production | Description | Related Docs |
+|------|-----|---------|------------|-------------|--------------|
+| `VITE_STRICT_DETERMINISM` | 0 or 1 | **1** (required) | **1** (required) | Enforces `response_hash` from backend | [DETERMINISM_HARDENING.md](./DETERMINISM_HARDENING.md), PR #10, #12 |
+| `VITE_SENTRY_DSN` | (optional) | (recommended) | **(required)** | Error tracking endpoint | N/A |
+| `VITE_POSTHOG_API_KEY` | (optional) | (recommended) | **(recommended)** | Analytics tracking | PR #9 |
+
+---
+
+## Feature Flags by Environment
+
+| Flag | Dev | E2E | Staging | Production | Description | Status |
+|------|-----|-----|---------|------------|-------------|--------|
+| `VITE_FEATURE_COMMAND_PALETTE` | 1 | 1 | 1 | 0 | Canvas command palette (⌘K) | ✅ Beta (PR #10) |
+| `VITE_FEATURE_PLOT_STREAM` | 1 | 1 | 1 | 0 | PLoT V1 streaming (SSE) | 🧪 Alpha |
+| `VITE_FEATURE_COMPARE_DEBUG` | 1 | 1 | 1 | 0 | Compare panel debug mode (p10/p50/p90, top edges) | 🧪 Alpha |
+| `VITE_FEATURE_INSPECTOR_DEBUG` | 1 | 1 | 1 | 0 | Inspector panel debug mode (edge metadata, provenance) | 🧪 Alpha |
+| `VITE_FEATURE_PLOT_USES_PLC_CANVAS` | 1 | 1 | 1 | 1 | Use PLoT canvas (vs legacy graph UI) | ✅ GA |
+| `VITE_FEATURE_SHARE_ALLOWLIST` | 0 | 0 | 0 | 0 | Enforce allowlist for share links | 🧪 Alpha |
+| `VITE_E2E` | 0 | 1 | 0 | 0 | E2E test mode (auto-set by Playwright) | N/A |
 
 ---
 

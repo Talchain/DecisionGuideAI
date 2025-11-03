@@ -87,6 +87,9 @@ test.describe('Canvas Run UX', () => {
 
   test.describe('Template Drawer Sticky Footer', () => {
     test.skip('Run button sticky at bottom of drawer', async ({ page }) => {
+      // SKIP REASON: Templates panel UI not yet implemented
+      // UNSKIP WHEN: Templates drawer with sticky footer is available
+      // RELATED: PR #10 (sticky footer design), future Templates panel work
       // This test requires Templates panel implementation
       // Skip for now if panel not available
 
@@ -125,6 +128,9 @@ test.describe('Canvas Run UX', () => {
     })
 
     test.skip('footer does not overlap content', async ({ page }) => {
+      // SKIP REASON: Templates panel UI not yet implemented
+      // UNSKIP WHEN: Templates drawer with sticky footer is available
+      // RELATED: PR #10 (sticky footer design)
       // Open Templates drawer and select template
       const templatesButton = page.locator('button:has-text("Templates")')
       if (!(await templatesButton.isVisible())) {
@@ -158,6 +164,9 @@ test.describe('Canvas Run UX', () => {
 
   test.describe('Dev Hash Badge', () => {
     test.skip('shows warning badge for dev- hashes', async ({ page }) => {
+      // SKIP REASON: Requires controlled backend behavior (missing hash) or MSW mocking
+      // UNSKIP WHEN: Test environment can simulate missing response_hash OR MSW setup added
+      // RELATED: PR #10 (dev hash badge UI), DETERMINISM_HARDENING.md
       // This test requires running with VITE_STRICT_DETERMINISM=0
       // and backend missing response_hash
 
@@ -191,6 +200,9 @@ test.describe('Canvas Run UX', () => {
 
   test.describe('Keyboard Navigation', () => {
     test.skip('ESC cancels running analysis', async ({ page }) => {
+      // SKIP REASON: Requires streaming mode to be active and cancellable
+      // UNSKIP WHEN: Streaming is reliably enabled in test environment (VITE_FEATURE_PLOT_STREAM=1)
+      // RELATED: useResultsRun.ts ESC handler (lines 218-238), sseClient.ts
       // This test requires streaming to be enabled
       // Skip if not available
 
@@ -288,6 +300,9 @@ test.describe('Canvas Run UX', () => {
     })
 
     test.skip('template drawer footer passes Axe', async ({ page }) => {
+      // SKIP REASON: Templates panel UI not yet implemented
+      // UNSKIP WHEN: Templates drawer is available for accessibility testing
+      // RELATED: PR #10 (sticky footer design)
       const templatesButton = page.locator('button:has-text("Templates")')
       if (!(await templatesButton.isVisible())) {
         test.skip()

@@ -307,6 +307,31 @@ describe('Determinism Guard', () => {
       })
     })
 
+    it('handles whitespace-only response_hash as invalid', async () => {
+      vi.stubEnv('VITE_STRICT_DETERMINISM', '1')
+      vi.stubEnv('MODE', 'production')
+
+      server.use(
+        http.post(`${PROXY_BASE}/v1/run`, () => {
+          return HttpResponse.json({
+            summary: {
+              conservative: 100,
+              likely: 150,
+              optimistic: 200,
+              units: 'units'
+            },
+            response_hash: '   ', // ❌ Whitespace-only
+            seed: 42,
+            confidence: 0.85
+          })
+        })
+      )
+
+      await expect(httpV1Adapter.run(MOCK_REQUEST)).rejects.toMatchObject({
+        code: 'SERVER_ERROR'
+      })
+    })
+
     it('dev fallback generates unique hashes across multiple runs', async () => {
       vi.stubEnv('VITE_STRICT_DETERMINISM', '0')
       vi.stubEnv('MODE', 'development')
@@ -337,6 +362,91 @@ describe('Determinism Guard', () => {
 
       // Should be unique (timestamp + random)
       expect(report1.model_card.response_hash).not.toBe(report2.model_card.response_hash)
+    })
+
+    it('dev fallback format matches expected pattern', async () => {
+      vi.stubEnv('VITE_STRICT_DETERMINISM', '0')
+      vi.stubEnv('MODE', 'development')
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      server.use(
+        http.post(`${PROXY_BASE}/v1/run`, () => {
+          return HttpResponse.json({
+            summary: {
+              conservative: 100,
+              likely: 150,
+              optimistic: 200,
+              units: 'units'
+            },
+            seed: 42,
+            confidence: 0.85
+          })
+        })
+      )
+
+      const report = await httpV1Adapter.run(MOCK_REQUEST)
+
+      // Format: dev-{timestamp}-{random7chars}
+      expect(report.model_card.response_hash).toMatch(/^dev-\d{13}-[a-z0-9]{7}$/)
+    })
+
+    it('strict mode in development still enforces hash when flag=1', async () => {
+      vi.stubEnv('VITE_STRICT_DETERMINISM', '1')
+      vi.stubEnv('MODE', 'development')
+
+      server.use(
+        http.post(`${PROXY_BASE}/v1/run`, () => {
+          return HttpResponse.json({
+            summary: {
+              conservative: 100,
+              likely: 150,
+              optimistic: 200,
+              units: 'units'
+            },
+            seed: 42,
+            confidence: 0.85
+            // No hash
+          })
+        })
+      )
+
+      // Should throw even in development when strict=1
+      await expect(httpV1Adapter.run(MOCK_REQUEST)).rejects.toMatchObject({
+        code: 'SERVER_ERROR',
+        message: expect.stringContaining('response_hash')
+      })
+    })
+
+    it('accepts valid hash formats (hex, base64, alphanumeric)', async () => {
+      vi.stubEnv('VITE_STRICT_DETERMINISM', '1')
+      vi.stubEnv('MODE', 'production')
+
+      const validHashes = [
+        'a3f8b9c2d1e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0', // 64-char hex
+        'YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkw', // 44-char base64
+        'abc123def456', // short alphanumeric
+      ]
+
+      for (const hash of validHashes) {
+        server.use(
+          http.post(`${PROXY_BASE}/v1/run`, () => {
+            return HttpResponse.json({
+              summary: {
+                conservative: 100,
+                likely: 150,
+                optimistic: 200,
+                units: 'units'
+              },
+              response_hash: hash,
+              seed: 42,
+              confidence: 0.85
+            })
+          })
+        )
+
+        const report = await httpV1Adapter.run(MOCK_REQUEST)
+        expect(report.model_card.response_hash).toBe(hash)
+      }
     })
   })
 })
