@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Search, Layout } from 'lucide-react'
 import { plot, adapterName } from '../../adapters/plot'
-import { getAllBlueprints, getBlueprintById } from '../../templates/blueprints'
 import type { Blueprint } from '../../templates/blueprints/types'
 import { useTemplatesRun } from '../../routes/templates/hooks/useTemplatesRun'
 import { SummaryCard } from '../../routes/templates/components/SummaryCard'
@@ -192,8 +191,9 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           footer={footer}
           width="420px"
         >
-          {/* Adapter Status Banner (dev-only, shows when v1 unavailable) */}
-          <AdapterStatusBanner visible={isOpen && adapterName === 'auto'} />
+          <div className="relative">
+            {/* Adapter Status Banner (dev-only, shows when v1 unavailable) */}
+            <AdapterStatusBanner visible={isOpen && adapterName === 'auto'} />
           {/* Template Browser */}
           {!selectedBlueprintId && (
             <>
@@ -359,16 +359,17 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
             </div>
           )}
 
-          {/* Toast */}
-          {toastMessage && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="absolute bottom-4 left-4 right-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg text-sm"
-            >
-              {toastMessage}
-            </div>
-          )}
+            {/* Toast */}
+            {toastMessage && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="absolute bottom-4 left-0 right-0 mx-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg text-sm"
+              >
+                {toastMessage}
+              </div>
+            )}
+          </div>
         </PanelShell>
       </div>
     </>
