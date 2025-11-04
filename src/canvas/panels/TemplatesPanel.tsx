@@ -230,10 +230,8 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                   setSelectedBlueprintId(null)
                   setSelectedBlueprint(null)
                 }}
-                className="text-sm font-medium"
-                style={{ color: 'var(--olumi-primary)' }}
-                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--olumi-primary-700)'}
-                onMouseLeave={(e) => e.currentTarget.style.color = 'var(--olumi-primary)'}
+                className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
+                type="button"
               >
                 ← Back to templates
               </button>
@@ -348,10 +346,8 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
               {onPinToCanvas && (
                 <button
                   onClick={handlePinToCanvas}
-                  className="w-full px-4 py-2 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--olumi-primary)]"
-                  style={{ backgroundColor: 'var(--olumi-primary)' }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary-700)'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary)'}
+                  className="w-full px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-1"
+                  type="button"
                 >
                   Pin to Canvas
                 </button>

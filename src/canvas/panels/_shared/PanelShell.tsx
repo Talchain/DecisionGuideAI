@@ -41,10 +41,14 @@ export function PanelShell({
   onClose,
   width = '420px',
 }: PanelShellProps) {
+  // Responsive width: full width on mobile (< 640px), fixed on desktop
+  const widthClass = width === '480px'
+    ? 'w-full sm:w-[480px]'
+    : 'w-full sm:w-[420px]'
+
   return (
     <aside
-      className="bg-white shadow-lg rounded-l-2xl border-l border-gray-200 flex flex-col"
-      style={{ width }}
+      className={`bg-white shadow-lg rounded-l-2xl border-l border-gray-200 flex flex-col ${widthClass}`}
       role="complementary"
       aria-label={title}
     >

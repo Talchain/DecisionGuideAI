@@ -16,7 +16,8 @@ vi.mock('../../../src/adapters/plot', () => ({
     templates: vi.fn(),
     template: vi.fn(),
     run: vi.fn()
-  }
+  },
+  adapterName: 'mock'
 }))
 
 vi.mock('../../../src/templates/blueprints', () => ({
@@ -27,8 +28,33 @@ vi.mock('../../../src/templates/blueprints', () => ({
 const mockGetAllBlueprints = vi.mocked(blueprintsModule.getAllBlueprints)
 const mockGetBlueprintById = vi.mocked(blueprintsModule.getBlueprintById)
 
+// Import plot to mock its methods
+import * as plotAdapter from '../../../src/adapters/plot'
+const mockPlot = vi.mocked(plotAdapter.plot)
+
 describe('TemplatesPanel A11y', () => {
   beforeEach(() => {
+    // Mock templates() to return proper structure
+    mockPlot.templates.mockResolvedValue({
+      items: [
+        {
+          id: 'pricing-v1',
+          name: 'Pricing Strategy',
+          description: 'Compare pricing tiers'
+        }
+      ]
+    })
+
+    // Mock template() to return detailed template
+    mockPlot.template.mockResolvedValue({
+      id: 'pricing-v1',
+      name: 'Pricing Strategy',
+      description: 'Compare pricing tiers',
+      version: '1.0',
+      default_seed: 1337,
+      graph: { nodes: [], edges: [] }
+    })
+
     mockGetAllBlueprints.mockReturnValue([
       {
         id: 'pricing-v1',
@@ -38,7 +64,7 @@ describe('TemplatesPanel A11y', () => {
         edges: []
       }
     ])
-    
+
     mockGetBlueprintById.mockReturnValue({
       id: 'pricing-v1',
       name: 'Pricing Strategy',
@@ -72,17 +98,25 @@ describe('TemplatesPanel A11y', () => {
 
   it('has no violations with dev controls enabled', async () => {
     const { container, getByRole } = render(<TemplatesPanel isOpen={true} onClose={() => {}} onInsertBlueprint={() => {}} />)
-    
-    await waitFor(() => {
-      const insertBtn = container.querySelector('button[aria-label*="Insert"]')
-      insertBtn?.click()
+
+    // Wait for templates to load and insert button to appear
+    const insertBtn = await waitFor(() => {
+      const btn = container.querySelector('button[aria-label*="Insert"]')
+      expect(btn).toBeInTheDocument()
+      return btn
     })
-    
+
+    // Click insert button
+    insertBtn?.click()
+
+    // Wait for toggle to appear and click it
     await waitFor(() => {
       const toggle = getByRole('switch')
+      expect(toggle).toBeInTheDocument()
       toggle.click()
     })
-    
+
+    // Wait for toggle to be checked
     await waitFor(() => {
       expect(container.querySelector('[aria-checked="true"]')).toBeInTheDocument()
     })
