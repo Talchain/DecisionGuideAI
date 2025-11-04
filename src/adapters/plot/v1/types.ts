@@ -14,7 +14,9 @@ export interface V1Edge {
   from: string
   to: string
   confidence?: number // 0..1
-  weight?: number
+  weight?: number     // Visual weight or normalized (backend-specific)
+  belief?: number     // 0..1 epistemic uncertainty
+  provenance?: string // ≤100 chars source/rationale
 }
 
 export interface V1Graph {

@@ -6,6 +6,7 @@
  * - Alt+V: Cycle through validation errors
  * - Cmd/Ctrl+Enter: Run simulation
  * - Cmd/Ctrl+3: Toggle Results panel
+ * - Cmd/Ctrl+I: Toggle Inspector panel
  * - ?: Show keyboard map
  */
 
@@ -16,6 +17,7 @@ interface UseCanvasKeyboardShortcutsOptions {
   onFocusNode?: (nodeId: string) => void
   onRunSimulation?: () => void
   onToggleResults?: () => void
+  onToggleInspector?: () => void
   onShowKeyboardMap?: () => void
   onShowToast?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void
 }
@@ -24,6 +26,7 @@ export function useCanvasKeyboardShortcuts({
   onFocusNode,
   onRunSimulation,
   onToggleResults,
+  onToggleInspector,
   onShowKeyboardMap,
   onShowToast
 }: UseCanvasKeyboardShortcutsOptions = {}) {
@@ -128,7 +131,18 @@ export function useCanvasKeyboardShortcuts({
 
       return
     }
-  }, [onFocusNode, onRunSimulation, onToggleResults, onShowKeyboardMap, onShowToast])
+
+    // Cmd/Ctrl+I: Toggle Inspector panel
+    if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+      e.preventDefault()
+
+      if (onToggleInspector) {
+        onToggleInspector()
+      }
+
+      return
+    }
+  }, [onFocusNode, onRunSimulation, onToggleResults, onToggleInspector, onShowKeyboardMap, onShowToast])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)

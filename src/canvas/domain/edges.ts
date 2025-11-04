@@ -24,8 +24,14 @@ export const EdgeKindEnum = z.enum([
 export type EdgeKind = z.infer<typeof EdgeKindEnum>
 
 /**
- * Edge data schema (v2)
+ * Edge data schema (v3)
  * Extends React Flow's base edge with semantic properties
+ *
+ * v3 changes:
+ * - Added belief: epistemic uncertainty (0-1, P1B API field)
+ * - Added provenance: source/rationale (max 100 chars, P1B API field)
+ *
+ * Note: weight (0.1-5.0) is visual stroke thickness, passed through to backend as-is
  */
 export const EdgeDataSchema = z.object({
   // Visual properties
@@ -38,11 +44,15 @@ export const EdgeDataSchema = z.object({
   label: z.string().max(50).optional(),
   confidence: z.number().min(0).max(1).optional(),
 
+  // P1B API metadata (Inspector-editable)
+  belief: z.number().min(0).max(1).optional(),           // Epistemic uncertainty (0 = certain, 1 = maximum uncertainty)
+  provenance: z.string().max(100).optional(),             // Source/rationale for this edge
+
   // Template tracking
   templateId: z.string().optional(),
 
   // Schema version for migrations
-  schemaVersion: z.literal(2).default(2),
+  schemaVersion: z.literal(3).default(3),
 })
 
 export type EdgeData = z.infer<typeof EdgeDataSchema>
@@ -55,7 +65,7 @@ export const DEFAULT_EDGE_DATA: EdgeData = {
   style: 'solid',
   curvature: 0.15,
   kind: 'decision-probability',
-  schemaVersion: 2,
+  schemaVersion: 3,
 }
 
 /**
@@ -80,6 +90,15 @@ export const EDGE_CONSTRAINTS = {
     max: 1,
     step: 0.05,
     default: 0.5,
+  },
+  belief: {
+    min: 0,
+    max: 1,
+    step: 0.01,
+    default: 0.5,
+  },
+  provenance: {
+    maxLength: 100,
   },
 } as const
 
@@ -111,6 +130,20 @@ export function styleToDashArray(style: EdgeStyle): string {
  */
 export function clampCurvature(curvature: number): number {
   return Math.max(0, Math.min(0.5, curvature))
+}
+
+/**
+ * Clamp belief to valid range (0-1)
+ */
+export function clampBelief(belief: number): number {
+  return Math.max(0, Math.min(1, belief))
+}
+
+/**
+ * Trim provenance to max length
+ */
+export function trimProvenance(provenance: string): string {
+  return provenance.slice(0, EDGE_CONSTRAINTS.provenance.maxLength)
 }
 
 /**

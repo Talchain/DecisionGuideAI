@@ -14,7 +14,11 @@ interface CommandPaletteProps {
   onClose: () => void
 }
 
-export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
+interface CommandPalettePropsExtended extends CommandPaletteProps {
+  onOpenInspector?: () => void
+}
+
+export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPalettePropsExtended) {
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [isExecuting, setIsExecuting] = useState(false)
@@ -29,6 +33,8 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
     { id: 'add-option', label: 'Add Option Node', execute: () => addNode(undefined, 'option') },
     { id: 'add-risk', label: 'Add Risk Node', execute: () => addNode(undefined, 'risk') },
     { id: 'add-outcome', label: 'Add Outcome Node', execute: () => addNode(undefined, 'outcome') },
+    // Panel actions
+    { id: 'open-inspector', label: 'Open Inspector', shortcut: '⌘I', execute: () => onOpenInspector?.() },
     // General actions
     { id: 'tidy-layout', label: 'Tidy Layout', execute: async () => {
       setIsExecuting(true)

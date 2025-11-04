@@ -162,6 +162,17 @@ export function graphToV1Request(
           edge.weight = e.data.weight
         }
 
+        // P1B API metadata: belief and provenance
+        if (e.data?.belief !== undefined) {
+          // Clamp to 0-1 range
+          edge.belief = Math.max(0, Math.min(1, e.data.belief))
+        }
+
+        if (e.data?.provenance) {
+          // Trim to max 100 chars
+          edge.provenance = e.data.provenance.slice(0, 100)
+        }
+
         return edge
       }),
     },
