@@ -259,13 +259,143 @@ export const httpV1Adapter = {
     return v1http.health()
   },
 
-  // SSE streaming: NOT AVAILABLE YET (endpoint not deployed - Oct 2025)
-  // When /v1/stream endpoint goes live, uncomment the code below and update probe.ts
-  // to set result.endpoints.stream = true
-  //
-  // stream: {
-  //   run(input: RunRequest, handlers: { ... }): () => void {
-  //     // Stream implementation here
-  //   }
-  // }
+  // SSE streaming with fallback to sync
+  stream: {
+    run(
+      input: RunRequest,
+      handlers: {
+        onHello: (data: { response_id: string }) => void
+        onTick: (data: { index: number }) => void
+        onDone: (data: { response_id: string; report: ReportV1 }) => void
+        onError: (error: ErrorV1) => void
+      }
+    ): () => void {
+      let cancelFn: (() => void) | null = null
+      let fallbackAborted = false
+
+      // Map UI handlers to v1 SSE handlers
+      const v1Handlers: V1StreamHandlers = {
+        onStarted: (data) => {
+          handlers.onHello({ response_id: data.run_id })
+        },
+        onProgress: (data) => {
+          // Map progress percent (0-100) to tick index (0-5) for UI compatibility
+          const tickIndex = Math.floor((data.percent / 100) * 5)
+          handlers.onTick({ index: tickIndex })
+        },
+        onInterim: (_data) => {
+          // Optional: could send interim findings to UI
+          // For now, just continue showing progress
+        },
+        onComplete: (data) => {
+          const executionMs = Date.now() - startTime
+          const report = mapV1ResultToReport(data.result, input.template_id, executionMs)
+          handlers.onDone({
+            response_id: data.result.response_hash || `http-v1-${Date.now()}`,
+            report,
+          })
+        },
+        onError: (error) => {
+          // If SSE fails with 404 or 5xx, fall back to sync (if not already aborted)
+          if (
+            !fallbackAborted &&
+            (error.code === 'NOT_FOUND' || error.code === 'SERVER_ERROR' || error.code === 'TIMEOUT')
+          ) {
+            if (import.meta.env.DEV) {
+              console.warn(
+                `[httpV1] Stream failed (${error.code}), falling back to sync endpoint`
+              )
+            }
+
+            // Attempt sync fallback
+            fallbackToSync(input, handlers).catch((syncErr) => {
+              // If sync also fails, report original error
+              handlers.onError(syncErr as ErrorV1)
+            })
+          } else {
+            // Non-retryable error or already cancelled - pass through
+            handlers.onError(mapV1ErrorToUI(error))
+          }
+        },
+      }
+
+      const startTime = Date.now()
+
+      // Load graph and prepare request
+      ;(async () => {
+        try {
+          const graph = input.graph || await loadTemplateGraph(input.template_id)
+          const v1Request = mapGraphToV1Request(graph, input.seed)
+
+          if (import.meta.env.DEV) {
+            const nodeCount = graph.nodes.length
+            console.log(
+              `🚀 [httpV1] POST /v1/stream (${nodeCount} nodes) ` +
+              `template=${input.template_id}, seed=${input.seed}`
+            )
+          }
+
+          // Start SSE stream
+          cancelFn = v1runStream(v1Request, v1Handlers)
+        } catch (err: any) {
+          // Handle setup errors (e.g., validation, graph loading)
+          if (err.code === 'LIMIT_EXCEEDED' || err.code === 'BAD_INPUT') {
+            handlers.onError({
+              schema: 'error.v1',
+              code: err.code,
+              error: err.message,
+              fields: err.field ? { field: err.field, max: err.max } : undefined,
+            } as ErrorV1)
+          } else {
+            handlers.onError(mapV1ErrorToUI(err as V1Error))
+          }
+        }
+      })()
+
+      // Return cancel function
+      return () => {
+        fallbackAborted = true
+        if (cancelFn) {
+          cancelFn()
+        }
+      }
+    },
+  },
+}
+
+/**
+ * Fallback to sync endpoint when SSE fails
+ */
+async function fallbackToSync(
+  input: RunRequest,
+  handlers: {
+    onHello: (data: { response_id: string }) => void
+    onTick: (data: { index: number }) => void
+    onDone: (data: { response_id: string; report: ReportV1 }) => void
+    onError: (error: ErrorV1) => void
+  }
+): Promise<void> {
+  if (import.meta.env.DEV) {
+    console.log(`🔄 [httpV1] Falling back to sync POST /v1/run`)
+  }
+
+  const graph = input.graph || await loadTemplateGraph(input.template_id)
+  const v1Request = mapGraphToV1Request(graph, input.seed)
+
+  // Show indeterminate progress during sync
+  handlers.onHello({ response_id: `sync-${Date.now()}` })
+  handlers.onTick({ index: 3 }) // ~60% progress
+
+  const startTime = Date.now()
+  const response = await v1http.runSync(v1Request)
+
+  if (import.meta.env.DEV) {
+    console.log(`✅ [httpV1] Sync fallback completed: ${response.execution_ms}ms`)
+  }
+
+  const report = mapV1ResultToReport(response.result, input.template_id, response.execution_ms)
+  handlers.onDone({
+    response_id: report.meta.response_id,
+    report,
+  })
 }

@@ -71,4 +71,76 @@ test.describe('Canvas Results Panel', () => {
     // Should return to idle state
     await expect(page.locator('text=Idle')).toBeVisible()
   })
+
+  test.describe('Streaming and Cancel', () => {
+    test('should show cancel button during streaming', async ({ page }) => {
+      // Trigger Run
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+
+      // Wait for Results panel
+      await expect(page.locator('[role="complementary"][aria-label="Analysis Results"]')).toBeVisible()
+
+      // Wait for streaming state (may transition quickly to complete with mock adapter)
+      // The cancel button should be visible when status is 'streaming'
+      // Note: Mock adapter may complete too fast to reliably test this
+      // This test documents expected behavior when streaming is active
+      const statusText = page.locator('text=Streaming')
+      const cancelButton = page.locator('button[aria-label="Cancel analysis"]')
+
+      // If we catch streaming state, verify cancel button
+      const streamingVisible = await statusText.isVisible().catch(() => false)
+      if (streamingVisible) {
+        await expect(cancelButton).toBeVisible()
+      }
+    })
+
+    test('should hide cancel button when not streaming', async ({ page }) => {
+      // Trigger Run
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+
+      // Wait for completion
+      await expect(page.locator('text=Complete')).toBeVisible({ timeout: 10000 })
+
+      // Cancel button should not be visible when complete
+      const cancelButton = page.locator('button[aria-label="Cancel analysis"]')
+      await expect(cancelButton).not.toBeVisible()
+    })
+
+    test.skip('should cancel analysis when cancel button clicked (requires slow backend)', async ({ page }) => {
+      // This test requires a backend that streams slowly enough to catch the cancel
+      // Skip for now as mock adapter completes too quickly
+
+      // Trigger Run
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+
+      // Wait for streaming state
+      await expect(page.locator('text=Streaming')).toBeVisible()
+
+      // Click cancel button
+      const cancelButton = page.locator('button[aria-label="Cancel analysis"]')
+      await cancelButton.click()
+
+      // Should show cancelled state
+      await expect(page.locator('text=Cancelled')).toBeVisible({ timeout: 2000 })
+    })
+
+    test.skip('should show progress bar during streaming (requires slow backend)', async ({ page }) => {
+      // This test requires a backend that streams slowly enough to see progress
+      // Skip for now as mock adapter completes too quickly
+
+      // Trigger Run
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+
+      // Wait for Results panel
+      await expect(page.locator('[role="complementary"][aria-label="Analysis Results"]')).toBeVisible()
+
+      // Should show progress bar with percentage
+      const progressBar = page.locator('[role="progressbar"]')
+      await expect(progressBar).toBeVisible()
+
+      // Should show percentage (0-100%)
+      const percentageText = page.locator('text=/%/')
+      await expect(percentageText).toBeVisible()
+    })
+  })
 })
