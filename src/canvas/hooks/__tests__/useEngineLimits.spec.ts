@@ -211,6 +211,20 @@ describe('useEngineLimits', () => {
   })
 
   describe('Tab visibility refresh', () => {
+    let originalDescriptor: PropertyDescriptor | undefined
+
+    beforeEach(() => {
+      // Capture original descriptor
+      originalDescriptor = Object.getOwnPropertyDescriptor(document, 'visibilityState')
+    })
+
+    afterEach(() => {
+      // Restore original descriptor
+      if (originalDescriptor) {
+        Object.defineProperty(document, 'visibilityState', originalDescriptor)
+      }
+    })
+
     it('should refresh when tab becomes visible', async () => {
       mockLimits
         .mockResolvedValueOnce(createLiveResult({ nodes: { max: 200 } }))
