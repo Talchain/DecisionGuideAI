@@ -3,17 +3,19 @@
  * Verifies error code → user-friendly message mapping
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mapErrorToUserMessage, isOffline } from '../errorTaxonomy'
 
 describe('errorTaxonomy', () => {
+  // Clean up all spies after each test
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   describe('mapErrorToUserMessage', () => {
     it('maps offline state to friendly message', () => {
-      // Mock offline state
-      Object.defineProperty(navigator, 'onLine', {
-        writable: true,
-        value: false,
-      })
+      // Mock offline state using vi.spyOn
+      vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false)
 
       const result = mapErrorToUserMessage({
         code: 'NETWORK_ERROR',
@@ -27,11 +29,7 @@ describe('errorTaxonomy', () => {
       expect(result.message).toContain('offline')
       expect(result.suggestion).toContain('editing')
 
-      // Restore
-      Object.defineProperty(navigator, 'onLine', {
-        writable: true,
-        value: true,
-      })
+      // Spy auto-restored by afterEach
     })
 
     it('maps CORS errors correctly', () => {
@@ -189,27 +187,15 @@ describe('errorTaxonomy', () => {
 
   describe('isOffline', () => {
     it('returns true when navigator.onLine is false', () => {
-      Object.defineProperty(navigator, 'onLine', {
-        writable: true,
-        value: false,
-      })
-
+      vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false)
       expect(isOffline()).toBe(true)
-
-      // Restore
-      Object.defineProperty(navigator, 'onLine', {
-        writable: true,
-        value: true,
-      })
+      // Spy auto-restored by afterEach
     })
 
     it('returns false when navigator.onLine is true', () => {
-      Object.defineProperty(navigator, 'onLine', {
-        writable: true,
-        value: true,
-      })
-
+      vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(true)
       expect(isOffline()).toBe(false)
+      // Spy auto-restored by afterEach
     })
   })
 })
