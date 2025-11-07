@@ -399,8 +399,9 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
                   {/* Confidence */}
                   <ConfidenceBadge
-                    level={report.confidence.level}
-                    reason={report.confidence.why}
+                    level={report.confidence?.level as 'low' | 'medium' | 'high' | undefined}
+                    reason={report.confidence?.why}
+                    score={report.run?.confidence?.score}
                   />
 
                   {/* Drivers */}

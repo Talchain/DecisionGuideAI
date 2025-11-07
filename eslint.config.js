@@ -2,6 +2,7 @@ import js from '@eslint/js'
 import tseslint from '@typescript-eslint/eslint-plugin'
 import parser from '@typescript-eslint/parser'
 import noRawColors from './eslint-rules/no-raw-colors.js'
+import noPayloadLogging from './eslint-rules/no-payload-logging.js'
 
 export default [
   // Ignore artefacts, Node scripts
@@ -113,9 +114,15 @@ export default [
           'no-raw-colors': noRawColors,
         },
       },
+      'security': {
+        rules: {
+          'no-payload-logging': noPayloadLogging,
+        },
+      },
     },
     rules: {
       'brand-tokens/no-raw-colors': 'error',
+      'security/no-payload-logging': 'error',
     },
   },
 ]

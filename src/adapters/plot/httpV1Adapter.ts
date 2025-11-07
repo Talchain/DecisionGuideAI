@@ -108,7 +108,7 @@ function mapV1ResultToReport(
   const conservative = canonicalRun.bands.p10 ?? result.summary?.conservative ?? 0
   const likely = canonicalRun.bands.p50 ?? result.summary?.likely ?? 0
   const optimistic = canonicalRun.bands.p90 ?? result.summary?.optimistic ?? 0
-  const units = result.summary?.units || 'units'
+  const units = result.summary?.units || 'count'
 
   // Extract drivers from explain_delta.top_drivers (actual API structure)
   const drivers = (result.explain_delta?.top_drivers ?? []).map((d: any) => ({

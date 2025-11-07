@@ -70,6 +70,16 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   // Autosave hook - saves graph every 30s when dirty
   useAutosave()
 
+  // Auto-open Results panel when run starts (v1.2: Task Group A requirement)
+  const resultsStatus = useCanvasStore(s => s.results.status)
+  useEffect(() => {
+    // Auto-open panel when transitioning to running states
+    const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
+    if (isRunning && !showResultsPanel) {
+      setShowResultsPanel(true)
+    }
+  }, [resultsStatus, showResultsPanel, setShowResultsPanel])
+
   const handleSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
     useCanvasStore.getState().onSelectionChange(params)
   }, [])
