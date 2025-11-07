@@ -8,36 +8,19 @@
  * - Centralized limit enforcement (prevents exceeding node/edge caps)
  */
 
-import { useCallback, useState, useEffect } from 'react'
+import { useCallback } from 'react'
 import { useReactFlow } from '@xyflow/react'
 import type { Blueprint } from '../../templates/blueprints/types'
 import { useCanvasStore } from '../store'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { checkLimits, formatLimitError } from '../utils/limitGuard'
-import { plot } from '../../adapters/plot'
-import type { LimitsV1 } from '../../adapters/plot/types'
+import { useEngineLimits } from './useEngineLimits'
 
 export function useBlueprintInsert() {
   const { getViewport } = useReactFlow()
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
-  const [limits, setLimits] = useState<LimitsV1 | null>(null)
-
-  // Fetch engine limits on mount (Sprint 2: centralized enforcement)
-  useEffect(() => {
-    const fetchLimits = async () => {
-      try {
-        const adapter = plot as any
-        if (adapter.limits && typeof adapter.limits === 'function') {
-          const result = await adapter.limits()
-          setLimits(result)
-        }
-      } catch (err) {
-        console.warn('[useBlueprintInsert] Failed to fetch limits:', err)
-      }
-    }
-    fetchLimits()
-  }, [])
+  const { limits } = useEngineLimits() // Sprint 2: Shared limits hook
 
   const insertBlueprint = useCallback((blueprint: Blueprint): { nodeIdMap: Map<string, string>; newNodes: any[]; newEdges: any[]; error?: string } => {
     // Sprint 2: Check limits BEFORE inserting
@@ -49,7 +32,7 @@ export function useBlueprintInsert() {
 
     const limitCheck = checkLimits(currentNodes, currentEdges, nodesToAdd, edgesToAdd, limits)
     if (!limitCheck.allowed) {
-      const error = formatLimitError(limitCheck)
+      const error = formatLimitError(limitCheck, nodesToAdd, edgesToAdd)
       console.warn('[useBlueprintInsert] Limit check failed:', error)
       return { nodeIdMap: new Map(), newNodes: [], newEdges: [], error }
     }

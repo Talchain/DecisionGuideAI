@@ -279,7 +279,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   
   useEffect(() => {
     if (!blueprintEventBus) return
-    
+
     const unsubscribe = blueprintEventBus.subscribe((blueprint: Blueprint) => {
       // Check for existing template
       const existingTemplateNode = nodes.find(n => n.data?.templateId)
@@ -289,16 +289,17 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           id: String(existingTemplateNode.data.templateId || ''),
           name: String(existingTemplateNode.data.templateName || 'Existing flow')
         })
-        return
+        return { error: 'Cannot insert: template already exists on canvas' }
       }
 
-      // Sprint 2: Handle limit errors
+      // Sprint 2: Handle limit errors and return result
       const result = insertBlueprint(blueprint)
       if (result.error) {
         showToast(result.error, 'warning')
       }
+      return result
     })
-    
+
     return unsubscribe
   }, [blueprintEventBus, nodes, insertBlueprint])
   

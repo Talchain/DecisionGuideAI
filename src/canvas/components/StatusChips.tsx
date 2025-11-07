@@ -3,10 +3,8 @@
  * Displays nodes/edges caps and execution time budget
  */
 
-import { useEffect, useState } from 'react'
-import { Activity, Box, GitBranch, Clock } from 'lucide-react'
-import { plot } from '../../adapters/plot'
-import type { LimitsV1 } from '../../adapters/plot/types'
+import { Box, GitBranch, Clock } from 'lucide-react'
+import { useEngineLimits } from '../hooks/useEngineLimits'
 
 interface StatusChipsProps {
   currentNodes?: number
@@ -15,35 +13,9 @@ interface StatusChipsProps {
 }
 
 export function StatusChips({ currentNodes = 0, currentEdges = 0, className = '' }: StatusChipsProps) {
-  const [limits, setLimits] = useState<LimitsV1 | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const { limits, loading } = useEngineLimits()
 
-  useEffect(() => {
-    // Fetch limits on mount
-    const fetchLimits = async () => {
-      try {
-        const adapter = plot as any
-        if (adapter.limits && typeof adapter.limits === 'function') {
-          const result = await adapter.limits()
-          setLimits(result)
-        }
-      } catch (err) {
-        console.warn('[StatusChips] Failed to fetch limits:', err)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    // Fetch immediately
-    fetchLimits()
-
-    // Refresh every 5 minutes to pick up updated caps
-    const interval = setInterval(fetchLimits, 5 * 60 * 1000)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  if (isLoading || !limits) return null
+  if (loading || !limits) return null
 
   const nodesPercent = Math.round((currentNodes / limits.nodes.max) * 100)
   const edgesPercent = Math.round((currentEdges / limits.edges.max) * 100)

@@ -16,7 +16,8 @@ import { useResultsRun } from './hooks/useResultsRun'
 import { ValidationBanner, type ValidationError } from './components/ValidationBanner'
 import { useValidationFeedback } from './hooks/useValidationFeedback'
 import { useToast } from './ToastContext'
-import type { LimitsV1 } from '../adapters/plot/types'
+import { checkLimits, formatLimitError } from './utils/limitGuard'
+import { useEngineLimits } from './hooks/useEngineLimits'
 
 export function CanvasToolbar() {
   const [isMinimized, setIsMinimized] = useState(false)
@@ -28,29 +29,13 @@ export function CanvasToolbar() {
   const [isRunning, setIsRunning] = useState(false)
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
   const [validationViolations, setValidationViolations] = useState<ValidationError[]>([]) // v1.2: coaching warnings
-  const [limits, setLimits] = useState<LimitsV1 | null>(null) // v1.2: engine limits
   const nodeMenuRef = useRef<HTMLDivElement>(null)
   const { undo, redo, canUndo, canRedo, addNode, resetCanvas, nodes, edges, outcomeNodeId, setShowResultsPanel } = useCanvasStore()
   const { fitView, zoomIn, zoomOut } = useReactFlow()
   const { run } = useResultsRun()
   const { formatErrors, focusError } = useValidationFeedback()
   const { showToast } = useToast()
-
-  // v1.2: Fetch engine limits on mount
-  useEffect(() => {
-    const fetchLimits = async () => {
-      try {
-        const adapter = plot as any
-        if (adapter.limits && typeof adapter.limits === 'function') {
-          const result = await adapter.limits()
-          setLimits(result)
-        }
-      } catch (err) {
-        console.warn('[CanvasToolbar] Failed to fetch limits:', err)
-      }
-    }
-    fetchLimits()
-  }, [])
+  const { limits } = useEngineLimits() // v1.2: Shared limits hook
 
   // Close node menu on outside click
   useEffect(() => {
@@ -65,15 +50,16 @@ export function CanvasToolbar() {
     }
   }, [showNodeMenu])
 
-  // v1.2: Check if node capacity is reached
-  const isAtNodeCapacity = limits && nodes.length >= limits.nodes.max
-
   const handleAddNode = (type: NodeType) => {
-    // v1.2: Gate on node capacity
-    if (isAtNodeCapacity && limits) {
-      showToast(`Node limit reached (${nodes.length}/${limits.nodes.max}). Remove nodes to continue.`, 'warning')
-      setShowNodeMenu(false)
-      return
+    // v1.2: Gate on node capacity with consistent error messaging
+    if (limits) {
+      const limitCheck = checkLimits(nodes.length, edges.length, 1, 0, limits)
+      if (!limitCheck.allowed) {
+        const error = formatLimitError(limitCheck, 1, 0)
+        showToast(error, 'warning')
+        setShowNodeMenu(false)
+        return
+      }
     }
 
     addNode(undefined, type)

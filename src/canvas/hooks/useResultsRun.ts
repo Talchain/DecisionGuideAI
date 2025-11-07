@@ -2,8 +2,10 @@ import { useCallback, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { plot } from '../../adapters/plot'
 import type { RunRequest, ErrorV1, ReportV1 } from '../../adapters/plot/types'
+import { mapErrorToUserMessage } from '../utils/errorTaxonomy'
 
 interface UseResultsRunReturn {
+  // eslint-disable-next-line no-unused-vars
   run: (request: RunRequest) => Promise<void>
   cancel: () => void
 }
@@ -69,9 +71,17 @@ export function useResultsRun(): UseResultsRunReturn {
             cancelRef.current = null
           },
           onError: (error: ErrorV1) => {
+            // Map error to user-friendly message
+            const friendlyError = mapErrorToUserMessage({
+              code: error.code,
+              status: error.status,
+              message: error.error,
+              retryAfter: error.retry_after
+            })
+
             resultsError({
               code: error.code,
-              message: error.error,
+              message: `${friendlyError.title}: ${friendlyError.message}${friendlyError.suggestion ? ` ${friendlyError.suggestion}` : ''}`,
               retryAfter: error.retry_after
             })
             cancelRef.current = null
@@ -80,10 +90,18 @@ export function useResultsRun(): UseResultsRunReturn {
       } catch (err) {
         // Catch synchronous errors from stream setup (e.g., 404 during initial fetch)
         console.error('[useResultsRun] Stream setup failed:', err)
-        const error = err as ErrorV1
+        const error = err as any
+
+        // Map error to user-friendly message
+        const friendlyError = mapErrorToUserMessage({
+          code: error.code,
+          status: error.status,
+          message: error.error || error.message
+        })
+
         resultsError({
           code: error.code || 'SERVER_ERROR',
-          message: error.error || error.message || 'Failed to connect to analysis service',
+          message: `${friendlyError.title}: ${friendlyError.message}${friendlyError.suggestion ? ` ${friendlyError.suggestion}` : ''}`,
           retryAfter: error.retry_after
         })
         cancelRef.current = null
@@ -102,10 +120,19 @@ export function useResultsRun(): UseResultsRunReturn {
           drivers: undefined
         })
       } catch (err) {
-        const error = err as ErrorV1
+        const error = err as any
+
+        // Map error to user-friendly message
+        const friendlyError = mapErrorToUserMessage({
+          code: error.code,
+          status: error.status,
+          message: error.error || error.message,
+          retryAfter: error.retry_after
+        })
+
         resultsError({
           code: error.code,
-          message: error.error,
+          message: `${friendlyError.title}: ${friendlyError.message}${friendlyError.suggestion ? ` ${friendlyError.suggestion}` : ''}`,
           retryAfter: error.retry_after
         })
       }

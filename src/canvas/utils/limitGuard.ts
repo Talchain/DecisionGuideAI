@@ -59,16 +59,19 @@ export function checkLimits(
 
 /**
  * Format limit check failure message for user
+ * Shows attempted total to clarify how much over the limit the operation would be
  */
-export function formatLimitError(result: LimitCheckResult): string {
+export function formatLimitError(result: LimitCheckResult, nodesToAdd: number = 0, edgesToAdd: number = 0): string {
   if (result.allowed) return ''
 
   if (result.nodeLimit) {
-    return `Node limit reached (${result.nodeLimit.current}/${result.nodeLimit.max}). Remove nodes to continue.`
+    const attemptedTotal = result.nodeLimit.current + nodesToAdd
+    return `Cannot add ${nodesToAdd} node${nodesToAdd !== 1 ? 's' : ''}: would exceed limit (${attemptedTotal}/${result.nodeLimit.max}). Remove ${attemptedTotal - result.nodeLimit.max} node${attemptedTotal - result.nodeLimit.max !== 1 ? 's' : ''} to continue.`
   }
 
   if (result.edgeLimit) {
-    return `Edge limit reached (${result.edgeLimit.current}/${result.edgeLimit.max}). Remove edges to continue.`
+    const attemptedTotal = result.edgeLimit.current + edgesToAdd
+    return `Cannot add ${edgesToAdd} edge${edgesToAdd !== 1 ? 's' : ''}: would exceed limit (${attemptedTotal}/${result.edgeLimit.max}). Remove ${attemptedTotal - result.edgeLimit.max} edge${attemptedTotal - result.edgeLimit.max !== 1 ? 's' : ''} to continue.`
   }
 
   return result.reason || 'Operation would exceed engine limits'

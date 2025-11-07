@@ -9,13 +9,16 @@ import type { Blueprint } from '../templates/blueprints/types'
 
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
 
-// Event bus for blueprint insertion
+// Event bus for blueprint insertion with result support
 const blueprintEventBus = {
-  listeners: [] as ((blueprint: Blueprint) => void)[],
-  emit(blueprint: Blueprint) {
-    this.listeners.forEach(fn => fn(blueprint))
+  listeners: [] as ((blueprint: Blueprint) => { error?: string })[],
+  emit(blueprint: Blueprint): { error?: string } {
+    // Call all listeners and collect results
+    const results = this.listeners.map(fn => fn(blueprint))
+    // Return first result (should only be one listener in practice)
+    return results[0] || {}
   },
-  subscribe(fn: (blueprint: Blueprint) => void) {
+  subscribe(fn: (blueprint: Blueprint) => { error?: string }) {
     this.listeners.push(fn)
     return () => {
       this.listeners = this.listeners.filter(l => l !== fn)
@@ -26,6 +29,7 @@ const blueprintEventBus = {
 export default function CanvasMVP() {
   const [short, setShort] = useState('dev')
   const [isPanelOpen, setIsPanelOpen] = useState(false)
+  const [insertionError, setInsertionError] = useState<string | null>(null)
 
   // Fetch version from /version.json (runtime)
   useEffect(() => {
@@ -48,7 +52,15 @@ export default function CanvasMVP() {
   }, [])
 
   const handleInsertBlueprint = useCallback((blueprint: Blueprint) => {
-    blueprintEventBus.emit(blueprint)
+    const result = blueprintEventBus.emit(blueprint)
+    if (result.error) {
+      // Keep panel open and show error
+      setInsertionError(result.error)
+    } else {
+      // Success: close panel and clear any previous error
+      setIsPanelOpen(false)
+      setInsertionError(null)
+    }
   }, [])
 
   const handlePinToCanvas = useCallback((data: { template_id: string; seed: number; response_hash: string; likely_value: number }) => {
@@ -108,11 +120,15 @@ export default function CanvasMVP() {
 
       {/* Templates Panel */}
       <Suspense fallback={null}>
-        <TemplatesPanel 
-          isOpen={isPanelOpen} 
-          onClose={() => setIsPanelOpen(false)}
+        <TemplatesPanel
+          isOpen={isPanelOpen}
+          onClose={() => {
+            setIsPanelOpen(false)
+            setInsertionError(null) // Clear error when panel closes
+          }}
           onInsertBlueprint={handleInsertBlueprint}
           onPinToCanvas={handlePinToCanvas}
+          insertionError={insertionError}
         />
       </Suspense>
     </div>

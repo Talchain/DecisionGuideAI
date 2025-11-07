@@ -22,9 +22,10 @@ interface TemplatesPanelProps {
   onClose: () => void
   onInsertBlueprint?: (blueprint: Blueprint) => void
   onPinToCanvas?: (data: { template_id: string; seed: number; response_hash: string; likely_value: number }) => void
+  insertionError?: string | null // Sprint 2: Show error when blueprint insertion fails
 }
 
-export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanvas }: TemplatesPanelProps): JSX.Element | null {
+export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanvas, insertionError }: TemplatesPanelProps): JSX.Element | null {
   const [blueprints, setBlueprints] = useState<Array<{ id: string; name: string; description: string }>>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedBlueprintId, setSelectedBlueprintId] = useState<string | null>(null)
@@ -384,6 +385,22 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           <div className="relative">
             {/* Adapter Status Banner (dev-only, shows when v1 unavailable) */}
             <AdapterStatusBanner visible={isOpen && adapterName === 'auto'} />
+
+            {/* Insertion Error Banner (Sprint 2) */}
+            {insertionError && (
+              <div className="mb-4 p-3 bg-danger-50 border border-danger-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-danger-100 flex items-center justify-center mt-0.5">
+                    <span className="text-danger-700 text-xs font-bold">!</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-danger-900 mb-1">Blueprint Insertion Failed</p>
+                    <p className="text-xs text-danger-700 leading-relaxed">{insertionError}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
           {/* Template Browser */}
           {!selectedBlueprintId && (
             <>
