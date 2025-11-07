@@ -6,6 +6,7 @@ import { ImportExportDialog } from './components/ImportExportDialog'
 import { LayoutPopover } from './components/LayoutPopover'
 import { BottomSheet } from './components/BottomSheet'
 import { StatusChips } from './components/StatusChips'
+import { ConnectivityChip } from './components/ConnectivityChip'
 import { ScenarioSwitcher } from './components/ScenarioSwitcher'
 import { NODE_REGISTRY } from './domain/nodes'
 import type { NodeType } from './domain/nodes'
@@ -174,7 +175,8 @@ export function CanvasToolbar() {
   return (
     <>
       {/* Status Chips (top-right corner) */}
-      <div className="fixed top-4 right-4 z-[999]">
+      <div className="fixed top-4 right-4 z-[999] flex flex-col gap-2 items-end">
+        <ConnectivityChip />
         <StatusChips currentNodes={nodes.length} currentEdges={edges.length} />
       </div>
 

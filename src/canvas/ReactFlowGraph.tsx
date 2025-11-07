@@ -291,8 +291,12 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         })
         return
       }
-      
-      insertBlueprint(blueprint)
+
+      // Sprint 2: Handle limit errors
+      const result = insertBlueprint(blueprint)
+      if (result.error) {
+        showToast(result.error, 'warning')
+      }
     })
     
     return unsubscribe
@@ -315,10 +319,13 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       nodes: remainingNodes,
       edges: remainingEdges
     })
-    
-    // Insert new blueprint
-    insertBlueprint(pendingBlueprint)
-    
+
+    // Insert new blueprint (Sprint 2: Handle limit errors)
+    const result = insertBlueprint(pendingBlueprint)
+    if (result.error) {
+      showToast(result.error, 'warning')
+    }
+
     setPendingBlueprint(null)
     setExistingTemplate(null)
   }, [pendingBlueprint, nodes, edges, insertBlueprint])
