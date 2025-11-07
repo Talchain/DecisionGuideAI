@@ -6,6 +6,7 @@ export interface BlueprintNode {
   id: string
   label: string
   kind: NodeKind
+  body?: string // v1.2: optional rich description
   position?: { x: number; y: number }
 }
 
@@ -13,8 +14,10 @@ export interface BlueprintEdge {
   id: string
   from: string
   to: string
-  probability?: number
+  probability?: number  // legacy field, maps to belief for v1.2
   weight?: number
+  belief?: number       // v1.2: epistemic confidence (0-1)
+  provenance?: 'template' | 'user' | 'inferred'  // v1.2: source tracking
 }
 
 export type Units = 'currency' | 'percent' | 'count' | 'days' | 'score'

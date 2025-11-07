@@ -11,6 +11,8 @@ import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
 import type { ReportV1, ErrorV1 } from '../adapters/plot/types'
 import { addRun, generateGraphHash, type StoredRun } from './store/runHistory'
+import * as scenarios from './store/scenarios'
+import type { Scenario } from './store/scenarios'
 
 // Results panel state machine
 export type ResultsStatus = 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'
@@ -19,6 +21,7 @@ export interface ResultsState {
   status: ResultsStatus
   progress: number              // 0..100 (cap 90 until COMPLETE)
   runId?: string
+  isDuplicateRun?: boolean      // v1.2: true if this run hash already existed in history
   seed?: number
   hash?: string                 // response_hash
   report?: ReportV1 | null
@@ -52,10 +55,17 @@ interface CanvasState {
   clipboard: ClipboardData | null
   reconnecting: ReconnectState | null
   touchedNodeIds: Set<string>  // Nodes with edited probabilities
+  outcomeNodeId: string | null  // Selected outcome node for analysis
   nextNodeId: number
   nextEdgeId: number
   _internal: { lastHistoryHash: string }
   results: ResultsState  // Analysis results panel state
+  // Scenario state
+  currentScenarioId: string | null  // Active scenario ID
+  isDirty: boolean  // Has unsaved changes
+  // Panel visibility
+  showResultsPanel: boolean
+  showInspectorPanel: boolean
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
@@ -94,6 +104,8 @@ interface CanvasState {
   cancelReconnect: () => void
   reset: () => void
   cleanup: () => void
+  // Outcome node
+  setOutcomeNode: (nodeId: string | null) => void
   // Results actions
   resultsStart: (params: { seed: number }) => void
   resultsConnecting: (runId: string) => void
@@ -102,6 +114,18 @@ interface CanvasState {
   resultsError: (params: { code: string; message: string; retryAfter?: number }) => void
   resultsCancelled: () => void
   resultsReset: () => void
+  // Scenario actions
+  loadScenario: (id: string) => boolean
+  saveCurrentScenario: (name?: string) => string | null
+  createScenarioFromTemplate: (params: { templateId: string; templateVersion?: string; name: string }) => string
+  duplicateCurrentScenario: (newName?: string) => string | null
+  renameCurrentScenario: (name: string) => void
+  deleteScenario: (id: string) => void
+  markDirty: () => void
+  markClean: () => void
+  // Panel actions
+  setShowResultsPanel: (show: boolean) => void
+  setShowInspectorPanel: (show: boolean) => void
 }
 
 let historyTimer: ReturnType<typeof setTimeout> | null = null
@@ -171,12 +195,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   clipboard: null,
   reconnecting: null,
   touchedNodeIds: new Set(),
+  outcomeNodeId: null,
   nextNodeId: 1,
   nextEdgeId: 1,
   results: {
     status: 'idle',
     progress: 0
   },
+  // Scenario state
+  currentScenarioId: scenarios.getCurrentScenarioId(),
+  isDirty: false,
+  // Panel visibility
+  showResultsPanel: false,
+  showInspectorPanel: false,
 
   createNodeId: () => {
     const { nextNodeId } = get()
@@ -790,6 +821,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     })
   },
 
+  setOutcomeNode: (nodeId) => {
+    set({ outcomeNodeId: nodeId })
+  },
+
   // Results actions
   resultsStart: ({ seed }) => {
     set({
@@ -866,7 +901,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         }))
       }
 
-      addRun(storedRun)
+      const isDuplicate = addRun(storedRun)
+
+      // Store duplicate flag so UI can show appropriate toast
+      set(s => ({
+        results: {
+          ...s.results,
+          isDuplicateRun: isDuplicate
+        }
+      }))
     }
   },
 
@@ -900,11 +943,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         seed: run.seed,
         hash: run.hash,
         report: run.report,
-        startedAt: run.timestamp,
-        finishedAt: run.timestamp,
+        startedAt: run.ts,
+        finishedAt: run.ts,
         drivers: run.drivers,
         error: undefined
-      }
+      },
+      isDirty: false // Mark as clean since loading historical data
     })
   },
 
@@ -915,6 +959,138 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         progress: 0
       }
     })
+  },
+
+  // Scenario actions
+  loadScenario: (id: string) => {
+    const scenario = scenarios.getScenario(id)
+    if (!scenario) {
+      console.warn('[Canvas] Scenario not found:', id)
+      return false
+    }
+
+    const { nodes, edges } = scenario.graph
+
+    // Reseed IDs to avoid conflicts
+    get().reseedIds(nodes, edges)
+
+    set({
+      nodes,
+      edges,
+      currentScenarioId: id,
+      isDirty: false,
+      history: { past: [], future: [] },
+      selection: { nodeIds: new Set(), edgeIds: new Set() },
+      touchedNodeIds: new Set()
+    })
+
+    scenarios.setCurrentScenarioId(id)
+    return true
+  },
+
+  saveCurrentScenario: (name?: string) => {
+    const { nodes, edges, currentScenarioId } = get()
+
+    if (currentScenarioId) {
+      // Update existing scenario
+      scenarios.updateScenario(currentScenarioId, {
+        name,
+        graph: { nodes, edges }
+      })
+      set({ isDirty: false })
+      return currentScenarioId
+    } else {
+      // Create new scenario
+      if (!name) {
+        console.warn('[Canvas] Cannot save scenario without a name')
+        return null
+      }
+
+      const scenario = scenarios.createScenario({
+        name,
+        nodes,
+        edges
+      })
+
+      set({
+        currentScenarioId: scenario.id,
+        isDirty: false
+      })
+
+      return scenario.id
+    }
+  },
+
+  createScenarioFromTemplate: ({ templateId, templateVersion, name }) => {
+    const { nodes, edges } = get()
+
+    const scenario = scenarios.createScenario({
+      name,
+      nodes,
+      edges,
+      source_template_id: templateId,
+      source_template_version: templateVersion
+    })
+
+    set({
+      currentScenarioId: scenario.id,
+      isDirty: false
+    })
+
+    return scenario.id
+  },
+
+  duplicateCurrentScenario: (newName?: string) => {
+    const { currentScenarioId } = get()
+    if (!currentScenarioId) {
+      console.warn('[Canvas] No current scenario to duplicate')
+      return null
+    }
+
+    const duplicate = scenarios.duplicateScenario(currentScenarioId, newName)
+    if (!duplicate) return null
+
+    // Load the duplicate
+    get().loadScenario(duplicate.id)
+    return duplicate.id
+  },
+
+  renameCurrentScenario: (name: string) => {
+    const { currentScenarioId } = get()
+    if (!currentScenarioId) {
+      console.warn('[Canvas] No current scenario to rename')
+      return
+    }
+
+    scenarios.renameScenario(currentScenarioId, name)
+  },
+
+  deleteScenario: (id: string) => {
+    const { currentScenarioId } = get()
+
+    scenarios.deleteScenario(id)
+
+    // If we deleted the current scenario, clear the current ID
+    if (currentScenarioId === id) {
+      set({ currentScenarioId: null })
+    }
+  },
+
+  markDirty: () => {
+    set({ isDirty: true })
+  },
+
+  markClean: () => {
+    set({ isDirty: false })
+  },
+
+  // Panel actions
+  setShowResultsPanel: (show: boolean) => {
+    set({ showResultsPanel: show })
+  },
+
+  setShowInspectorPanel: (show: boolean) => {
+    set({ showInspectorPanel: show })
   },
 
   cleanup: clearTimers

@@ -21,6 +21,8 @@ export interface StoredRun {
   report: ReportV1 // full report
   drivers?: Array<{ kind: 'node' | 'edge'; id?: string; label?: string }>
   isPinned?: boolean
+  isDuplicate?: boolean // v1.2: true if this hash already exists in history
+  duplicateCount?: number // v1.2: number of times this hash has been re-run
 }
 
 const STORAGE_KEY = 'olumi-canvas-run-history'
@@ -122,11 +124,40 @@ export function saveRuns(runs: StoredRun[]): void {
 
 /**
  * Add a new run to history
+ * v1.2: Implements determinism dedupe - if hash exists, consolidates instead of adding
+ * @returns true if this was a duplicate run, false if new
  */
-export function addRun(run: StoredRun): void {
+export function addRun(run: StoredRun): boolean {
   const runs = loadRuns()
-  runs.unshift(run) // Add to front
+
+  // v1.2: Check if this response_hash already exists
+  if (run.hash) {
+    const existingIndex = runs.findIndex(r => r.hash === run.hash)
+    if (existingIndex !== -1) {
+      // Hash collision - this is a duplicate run
+      const existing = runs[existingIndex]
+
+      // Update the existing run with new timestamp and increment duplicate count
+      runs[existingIndex] = {
+        ...existing,
+        ts: run.ts, // Use new timestamp
+        isDuplicate: true,
+        duplicateCount: (existing.duplicateCount || 1) + 1
+      }
+
+      // Move to front (most recent)
+      const updated = runs.splice(existingIndex, 1)[0]
+      runs.unshift(updated)
+
+      saveRuns(runs)
+      return true // Duplicate detected
+    }
+  }
+
+  // No duplicate found - add as new run
+  runs.unshift(run)
   saveRuns(runs)
+  return false // New run
 }
 
 /**

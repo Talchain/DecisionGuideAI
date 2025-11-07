@@ -148,9 +148,9 @@ export function DriverChips({ drivers }: DriverChipsProps) {
   // Get polarity color
   const getPolarityColor = (polarity: string) => {
     switch (polarity) {
-      case 'up': return 'var(--olumi-success)'
-      case 'down': return 'var(--olumi-danger)'
-      default: return 'var(--olumi-text)'
+      case 'up': return '#10B981'  // green-500
+      case 'down': return '#EF4444'  // red-500
+      default: return '#111827'  // gray-900
     }
   }
 
@@ -164,7 +164,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
       aria-label="Key drivers"
       tabIndex={0}
     >
-      <h4 className="text-sm font-semibold" style={{ color: 'var(--olumi-text)' }}>
+      <h4 className="text-sm font-semibold text-gray-900">
         Key Drivers
       </h4>
       {driverList.map((driver, index) => {
@@ -179,12 +179,12 @@ export function DriverChips({ drivers }: DriverChipsProps) {
           <div
             key={index}
             role="listitem"
-            className="flex items-center gap-2 p-2 rounded transition-colors cursor-pointer"
+            className={`
+              flex items-center gap-2 p-2 rounded transition-colors cursor-pointer border-l-4
+              ${isSelected || isHovered ? 'bg-info-100' : 'bg-info-50'}
+            `}
             style={{
-              backgroundColor: isSelected || isHovered
-                ? 'rgba(91, 108, 255, 0.15)'
-                : 'rgba(91, 108, 255, 0.05)',
-              borderLeft: `3px solid ${getPolarityColor(reportDriver.polarity)}`
+              borderLeftColor: getPolarityColor(reportDriver.polarity)
             }}
             onMouseEnter={() => handleHoverStart(index)}
             onMouseLeave={handleHoverEnd}
@@ -193,10 +193,10 @@ export function DriverChips({ drivers }: DriverChipsProps) {
             aria-label={`Driver: ${driver.label}, ${matchCount} match${matchCount !== 1 ? 'es' : ''}`}
           >
             <div className="flex-1">
-              <div className="text-sm font-medium" style={{ color: 'var(--olumi-text)' }}>
+              <div className="text-sm font-medium text-gray-900">
                 {driver.label}
               </div>
-              <div className="text-xs" style={{ color: 'rgba(232, 236, 245, 0.6)' }}>
+              <div className="text-xs text-gray-400">
                 {reportDriver.strength} impact
               </div>
             </div>
@@ -205,15 +205,11 @@ export function DriverChips({ drivers }: DriverChipsProps) {
             {matchCount > 0 && (
               <div className="flex items-center gap-1">
                 <div
-                  className="px-2 py-1 rounded text-xs font-medium"
-                  style={{
-                    backgroundColor: matches[0].matchType === 'id'
-                      ? 'rgba(32, 201, 151, 0.2)'
-                      : 'rgba(247, 201, 72, 0.2)',
-                    color: matches[0].matchType === 'id'
-                      ? 'var(--olumi-success)'
-                      : 'var(--olumi-warning)'
-                  }}
+                  className={`px-2 py-1 rounded text-xs font-medium ${
+                    matches[0].matchType === 'id'
+                      ? 'bg-green-100 text-green-600'
+                      : 'bg-yellow-100 text-yellow-600'
+                  }`}
                   title={matches[0].matchType === 'id' ? 'Exact ID match' : 'Label match'}
                 >
                   {matchCount > 1 ? `${currentCycle + 1}/${matchCount}` : '1'}
@@ -226,7 +222,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
                     aria-label="Next match"
                     title="Cycle to next match"
                   >
-                    <ChevronDown className="w-3 h-3" style={{ color: 'var(--olumi-primary)' }} />
+                    <ChevronDown className="w-3 h-3 text-info-600" />
                   </button>
                 )}
               </div>
@@ -234,11 +230,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
 
             {matchCount === 0 && (
               <div
-                className="px-2 py-1 rounded text-xs font-medium"
-                style={{
-                  backgroundColor: 'rgba(255, 107, 107, 0.2)',
-                  color: 'var(--olumi-danger)'
-                }}
+                className="px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-600"
                 title="No matches found on canvas"
               >
                 Not found
@@ -248,7 +240,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
         )
       })}
 
-      <div className="text-xs" style={{ color: 'rgba(232, 236, 245, 0.5)' }}>
+      <div className="text-xs text-gray-400">
         Hover or click to highlight • ↑↓ to navigate • Enter to focus
       </div>
     </div>

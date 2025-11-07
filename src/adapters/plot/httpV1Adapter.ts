@@ -18,19 +18,53 @@ import type {
   V1RunResult,
   V1Error,
   V1StreamHandlers,
+  V1ValidateRequest,
+  V1ValidateResponse,
 } from './v1/types'
 import * as v1http from './v1/http'
 import { runStream as v1runStream } from './v1/sseClient'
 import { V1_LIMITS } from './v1/types'
-import { graphToV1Request, computeClientHash, type ReactFlowGraph } from './v1/mapper'
+import { graphToV1Request, computeClientHash, toCanonicalRun, type ReactFlowGraph } from './v1/mapper'
 import { shouldUseSync } from './v1/constants'
 
 /**
  * Load template graph from live v1 endpoint
+ * Returns ReactFlow format (source/target) for compatibility with mapGraphToV1Request
  */
 async function loadTemplateGraph(templateId: string): Promise<any> {
   const response = await v1http.templateGraph(templateId)
-  return response.graph
+  // Backend may return graph directly OR wrapped in {graph: ...}
+  const backendGraph = response.graph || response
+
+  // Convert backend format (from/to) to ReactFlow format (source/target)
+  // v1.2: preserve optional fields (kind, prior, utility, belief, provenance)
+  return {
+    nodes: (backendGraph.nodes || []).map((n: any) => ({
+      id: n.id,
+      data: {
+        label: n.label,
+        body: n.body,
+        kind: n.kind, // v1.2
+        prior: n.prior, // v1.2
+        utility: n.utility, // v1.2
+      }
+    })),
+    edges: (backendGraph.edges || []).map((e: any) => ({
+      ...e,
+      id: e.id || `${e.from}-${e.to}`,
+      source: e.from,
+      target: e.to,
+      data: {
+        confidence: e.confidence,
+        weight: e.weight,
+        belief: e.belief, // v1.2
+        provenance: e.provenance, // v1.2
+      }
+    })),
+    // v1.2: preserve meta (suggested_positions, version)
+    version: backendGraph.version,
+    meta: backendGraph.meta,
+  }
 }
 
 /**
@@ -46,29 +80,38 @@ function mapConfidenceLevel(conf: number): ConfidenceLevel {
  * Map v1 RunResult to UI ReportV1
  */
 function mapV1ResultToReport(
-  result: V1RunResult,
+  response: any,
   templateId: string,
   executionMs: number
 ): ReportV1 {
-  // Use structured summary if available, otherwise fall back to parsing answer
-  let conservative: number, likely: number, optimistic: number, units: string
+  // Extract result for backward compatibility
+  const result = response.result || response
 
-  if (result.summary) {
-    conservative = result.summary.conservative
-    likely = result.summary.likely
-    optimistic = result.summary.optimistic
-    units = result.summary.units || 'units'
-  } else {
-    // Fallback: parse answer for numeric values (best effort)
-    const answerMatch = result.answer.match(/(\d+\.?\d*)/g)
-    likely = answerMatch ? parseFloat(answerMatch[0]) : 0
-    conservative = likely * 0.8
-    optimistic = likely * 1.2
-    units = 'units'
+  // v1.2: Normalize response to canonical format
+  const canonicalRun = toCanonicalRun(response)
+
+  // Deterministic hash guard - enforce response_hash presence
+  if (!canonicalRun.responseHash) {
+    const errorMsg = 'Backend response missing response_hash - determinism cannot be guaranteed'
+
+    if (import.meta.env.PROD) {
+      // In production, this is a hard error - we need determinism
+      throw new Error(`${errorMsg}. This is a critical error in production.`)
+    } else {
+      // In development, warn but allow continue
+      console.warn(`⚠️  [httpV1Adapter] ${errorMsg}`)
+      console.warn('   This is acceptable in dev, but must be fixed before production.')
+    }
   }
 
+  // Use v1.2 bands for results (with fallback to legacy summary)
+  const conservative = canonicalRun.bands.p10 ?? result.summary?.conservative ?? 0
+  const likely = canonicalRun.bands.p50 ?? result.summary?.likely ?? 0
+  const optimistic = canonicalRun.bands.p90 ?? result.summary?.optimistic ?? 0
+  const units = result.summary?.units || 'units'
+
   // Extract drivers from explain_delta.top_drivers (actual API structure)
-  const drivers = (result.explain_delta?.top_drivers ?? []).map((d) => ({
+  const drivers = (result.explain_delta?.top_drivers ?? []).map((d: any) => ({
     label: d.label || d.node_id || d.edge_id || 'Unknown',
     polarity: (d.impact || 0) > 0 ? 'up' : (d.impact || 0) < 0 ? 'down' : 'neutral',
     strength: Math.abs(d.impact || 0) > 0.7 ? 'high' : Math.abs(d.impact || 0) > 0.3 ? 'medium' : 'low',
@@ -81,11 +124,11 @@ function mapV1ResultToReport(
     schema: 'report.v1',
     meta: {
       seed: result.seed || 1337,
-      response_id: result.response_hash || `http-v1-${Date.now()}`,
+      response_id: canonicalRun.responseHash || `http-v1-${Date.now()}`,
       elapsed_ms: executionMs,
     },
     model_card: {
-      response_hash: result.response_hash || '',
+      response_hash: canonicalRun.responseHash,
       response_hash_algo: 'sha256',
       normalized: true,
     },
@@ -96,10 +139,11 @@ function mapV1ResultToReport(
       units,
     },
     confidence: {
-      level: mapConfidenceLevel(result.confidence),
-      why: result.explanation,
+      level: mapConfidenceLevel(result.confidence ?? 0.5),
+      why: result.explanation || 'No explanation provided',
     },
     drivers,
+    run: canonicalRun, // v1.2: attach canonical run for ResultsPanel
   }
 }
 
@@ -135,13 +179,11 @@ function mapGraphToV1Request(graph: any, seed?: number): V1RunRequest {
   // Use real mapper with validation (throws ValidationError if limits exceeded)
   const v1Request = graphToV1Request(rfGraph, seed)
 
-  // Add deterministic client hash for idempotency
-  const clientHash = computeClientHash(rfGraph, seed)
+  // NOTE: clientHash not yet supported by backend (returns 400 "Unknown field")
+  // Will be enabled when backend adds idempotency support
+  // const clientHash = computeClientHash(rfGraph, seed)
 
-  return {
-    ...v1Request,
-    clientHash,
-  }
+  return v1Request
 }
 
 /**
@@ -155,20 +197,34 @@ export const httpV1Adapter = {
 
     try {
       const v1Request = mapGraphToV1Request(graph, input.seed)
+
+      // Add outcome_node if provided
+      if (input.outcome_node) {
+        v1Request.outcome_node = input.outcome_node
+      }
+
+      // Add debug flag if requested
+      if (input.include_debug) {
+        v1Request.include_debug = true
+      }
+
       const nodeCount = graph.nodes.length
 
       // Always use sync endpoint (stream not deployed yet - Oct 2025)
       if (import.meta.env.DEV) {
         console.log(
           `🚀 [httpV1] POST /v1/run (${nodeCount} nodes, using sync endpoint) ` +
-          `template=${input.template_id}, seed=${input.seed}`
+          `template=${input.template_id}, seed=${input.seed}, outcome=${input.outcome_node || 'none'}, debug=${!!input.include_debug}`
         )
       }
       const response = await v1http.runSync(v1Request)
+
       if (import.meta.env.DEV) {
-        console.log(`✅ [httpV1] Sync completed: ${response.execution_ms}ms`)
+        console.log('[httpV1] Full response:', JSON.stringify(response, null, 2))
+        console.log(`✅ [httpV1] Sync completed: ${response.execution_ms || 0}ms`)
       }
-      return mapV1ResultToReport(response.result, input.template_id, response.execution_ms)
+
+      return mapV1ResultToReport(response, input.template_id, response.execution_ms || 0)
     } catch (err: any) {
       // Handle validation errors from mapper
       if (err.code === 'LIMIT_EXCEEDED' || err.code === 'BAD_INPUT') {
@@ -223,6 +279,10 @@ export const httpV1Adapter = {
         v1http.templates(),
       ])
 
+      if (import.meta.env.DEV) {
+        console.log('[httpV1Adapter] template() graphResponse:', JSON.stringify(graphResponse, null, 2))
+      }
+
       // Find template metadata from list (v1 API returns bare array)
       const metadata = listResponse.find(t => t.id === id)
 
@@ -233,30 +293,109 @@ export const httpV1Adapter = {
         } as V1Error
       }
 
-      return {
+      // Backend may return graph directly OR wrapped in {graph: ...}
+      // Handle both cases for API compatibility
+      const graph = graphResponse.graph || graphResponse
+
+      const result = {
         id: metadata.id,
         name: metadata.label, // label → name
         version: '1.0', // API doesn't provide version
         description: metadata.summary, // summary → description
-        default_seed: graphResponse.default_seed,
-        graph: graphResponse.graph,
+        default_seed: graphResponse.default_seed || 1337, // May not be in response
+        graph,
       }
+
+      if (import.meta.env.DEV) {
+        console.log('[httpV1Adapter] template() returning:', JSON.stringify(result, null, 2))
+      }
+
+      return result
     } catch (err: any) {
       throw mapV1ErrorToUI(err as V1Error)
     }
   },
 
-  // Limits
+  // Limits (fetch from live endpoint for v1.2 engine_p95_ms_budget)
   async limits(): Promise<LimitsV1> {
-    return {
-      nodes: { max: V1_LIMITS.MAX_NODES },
-      edges: { max: V1_LIMITS.MAX_EDGES },
+    try {
+      const response = await v1http.limits()
+      return response
+    } catch (err) {
+      // Fallback to constants if endpoint not available
+      if (import.meta.env.DEV) {
+        console.warn('[httpV1] /v1/limits failed, using local constants')
+      }
+      return {
+        nodes: { max: V1_LIMITS.MAX_NODES },
+        edges: { max: V1_LIMITS.MAX_EDGES },
+      }
     }
   },
 
   // Health (optional, specific to httpV1)
   async health() {
     return v1http.health()
+  },
+
+  // Validate graph before running analysis
+  async validate(graph: any): Promise<{
+    valid: boolean
+    errors: Array<{
+      code: string
+      message: string
+      node_id?: string
+      edge_id?: string
+      severity: 'error' | 'warning'
+      suggestion?: string
+    }>
+    violations?: Array<{
+      code: string
+      message: string
+      node_id?: string
+      edge_id?: string
+      severity: 'error' | 'warning'
+      suggestion?: string
+    }>
+  }> {
+    try {
+      // Cast to ReactFlowGraph for type safety
+      const rfGraph: ReactFlowGraph = {
+        nodes: graph.nodes || [],
+        edges: graph.edges || [],
+      }
+
+      // Convert to V1 format (this will also run client-side validation)
+      const v1Request = graphToV1Request(rfGraph, undefined)
+
+      // Call v1 validate endpoint for server-side validation
+      const response = await v1http.validate({ graph: v1Request.graph })
+
+      if (import.meta.env.DEV) {
+        console.log('[httpV1] Validation result:', JSON.stringify(response, null, 2))
+      }
+
+      // v1.2: Pass through violations (non-blocking coaching warnings)
+      return {
+        valid: response.valid,
+        errors: response.errors,
+        violations: response.violations, // v1.2: coaching warnings
+      }
+    } catch (err: any) {
+      // Handle client-side validation errors from mapper
+      if (err.code === 'LIMIT_EXCEEDED' || err.code === 'BAD_INPUT') {
+        return {
+          valid: false,
+          errors: [{
+            code: err.code,
+            message: err.message,
+            severity: 'error' as const,
+          }],
+        }
+      }
+      // Handle v1 HTTP errors (network, timeout, etc.)
+      throw mapV1ErrorToUI(err as V1Error)
+    }
   },
 
   // SSE streaming with fallback to sync
@@ -289,9 +428,9 @@ export const httpV1Adapter = {
         },
         onComplete: (data) => {
           const executionMs = Date.now() - startTime
-          const report = mapV1ResultToReport(data.result, input.template_id, executionMs)
+          const report = mapV1ResultToReport(data, input.template_id, executionMs)
           handlers.onDone({
-            response_id: data.result.response_hash || `http-v1-${Date.now()}`,
+            response_id: report.model_card.response_hash || `http-v1-${Date.now()}`,
             report,
           })
         },
@@ -393,7 +532,7 @@ async function fallbackToSync(
     console.log(`✅ [httpV1] Sync fallback completed: ${response.execution_ms}ms`)
   }
 
-  const report = mapV1ResultToReport(response.result, input.template_id, response.execution_ms)
+  const report = mapV1ResultToReport(response, input.template_id, response.execution_ms)
   handlers.onDone({
     response_id: report.meta.response_id,
     report,

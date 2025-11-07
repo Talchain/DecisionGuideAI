@@ -1,0 +1,196 @@
+/**
+ * Olumi Design System Tokens
+ * Version 1.2 - Production-Ready
+ *
+ * Usage:
+ * - Always use CSS variables, never raw hex values
+ * - Use semantic tokens in components (--semantic-primary, etc.)
+ * - Test with color blindness simulators
+ * - Provide non-color indicators (icons, patterns)
+ */
+
+:root {
+  /* === Neutrals === */
+  --ink-900: #262626;
+  --canvas-25: #F4F0EA;
+  --paper-50: #FEF9F3;
+  --sand-200: #E1D8C7;
+
+  /* === Brand Colors === */
+  --sun-500: #F5C433;
+  --mint-500: #67C89E;
+  --sky-500: #63ADCF;
+  --carrot-500: #EA7B4B;
+  --lilac-400: #9E9AF1;
+
+  /* === Supporting Colors === */
+  --sky-200: #BFE3F4;
+  --sky-600: #5C9BB8;
+  --periwinkle-200: #C9D9FF;
+  --banana-200: #FFE497;
+  --mint-400: #62B28F;
+
+  /* === Semantic Tokens === */
+  /* Use these in components for consistent meaning */
+  --semantic-primary: var(--sun-500);
+  --semantic-success: var(--mint-500);
+  --semantic-info: var(--sky-500);
+  --semantic-warning: #F5C433; /* Darker for better contrast - matches sun-500 */
+  --semantic-danger: var(--carrot-500);
+
+  /* === Interactive States === */
+  --primary-hover: #F7CB4D;
+  --primary-active: #E5B523;
+  --primary-disabled: rgba(245, 196, 51, 0.40);
+
+  --danger-hover: #F58A5B;
+  --danger-active: #D96A3A;
+  --danger-disabled: rgba(234, 123, 75, 0.40);
+
+  --info-hover: #73B5D9;
+  --info-active: #5C9BB8;
+  --info-disabled: rgba(99, 173, 207, 0.40);
+
+  /* === Surface Colors === */
+  --surface-app: var(--canvas-25);
+  --surface-card: var(--paper-50);
+  --surface-border: rgba(38, 38, 38, 0.16);
+  --surface-divider: var(--sand-200);
+
+  /* === Text Colors === */
+  --text-primary: var(--ink-900);
+  --text-secondary: rgba(38, 38, 38, 0.70);
+  --text-tertiary: rgba(38, 38, 38, 0.50);
+  --text-on-primary: #FFFFFF;
+  --text-on-danger: #FFFFFF;
+  --text-on-info: #FFFFFF;
+
+  /* === Focus Ring === */
+  --focus-ring: 2px;
+  --focus-color: var(--semantic-info);
+
+  /* === Shadows === */
+  --shadow-1: 0 1px 2px rgba(38, 38, 38, 0.06);
+  --shadow-2: 0 4px 12px rgba(38, 38, 38, 0.10);
+  --shadow-3: 0 8px 24px rgba(38, 38, 38, 0.14);
+  --shadow-panel: var(--shadow-2);
+
+  /* === Border Radius === */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-pill: 999px;
+
+  /* === Spacing Scale === */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-14: 56px;
+  --space-16: 64px;
+
+  /* === Animation Timing === */
+  --duration-instant: 100ms;
+  --duration-fast: 200ms;
+  --duration-base: 300ms;
+  --duration-slow: 400ms;
+
+  /* === Easing Functions === */
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.0, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  /* === Z-Index Scale === */
+  --z-base: 0;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal: 300;
+  --z-popover: 400;
+  --z-toast: 500;
+
+  /* === Status Colors (extended semantic) === */
+  /* Danger (Error) Variants */
+  --danger-50: #FEF2F0;
+  --danger-100: #FDE4E0;
+  --danger-200: #FBC8BE;
+  --danger-300: #F9AC9D;
+  --danger-400: #F6907B;
+  --danger-500: var(--carrot-500); /* #EA7B4B */
+  --danger-600: #D96A3A;
+  --danger-700: #C75A2A;
+  --danger-800: #B44919;
+  --danger-900: #A23809;
+
+  /* Warning Variants */
+  --warning-50: #FFFBF0;
+  --warning-100: #FFF7E0;
+  --warning-200: #FFEFC2;
+  --warning-300: #FFE7A3;
+  --warning-400: #FFDF85;
+  --warning-500: var(--banana-200); /* #FFE497 */
+  --warning-600: #E1C04F;
+  --warning-700: #D7B437;
+  --warning-800: #C9A42F;
+  --warning-900: #9B7D24;
+
+  /* Success Variants */
+  --success-50: #F0FAF5;
+  --success-100: #E0F5EB;
+  --success-200: #C2EBD7;
+  --success-300: #A3E1C3;
+  --success-400: #85D7AF;
+  --success-500: var(--mint-500); /* #67C89E */
+  --success-600: #5AB88D;
+  --success-700: #4DA87C;
+  --success-800: #40986B;
+  --success-900: #33885A;
+
+  /* Info Variants */
+  --info-50: #F0F7FB;
+  --info-100: #E1EFF7;
+  --info-200: #C3DFEF;
+  --info-300: #A5CFE7;
+  --info-400: #87BFDF;
+  --info-500: var(--sky-500); /* #63ADCF */
+  --info-600: #5C9BB8;
+  --info-700: #5589A1;
+  --info-800: #4E778A;
+  --info-900: #476573;
+
+  /* === Chart Colors (Ordered for data viz) === */
+  --chart-1: var(--sky-500);
+  --chart-2: var(--mint-500);
+  --chart-3: var(--sun-500);
+  --chart-4: var(--lilac-400);
+  --chart-5: var(--sky-600);
+  --chart-6: var(--periwinkle-200);
+  --chart-7: var(--mint-400);
+  --chart-8: var(--banana-200);
+}
+
+/* === Reduced Motion Support === */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 0.01ms;
+    --duration-fast: 0.01ms;
+    --duration-base: 0.01ms;
+    --duration-slow: 0.01ms;
+  }
+}
+
+/* === Dark Mode (Future) === */
+/*
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink-900: #F4F0EA;
+    --canvas-25: #1A1A1A;
+    --paper-50: #262626;
+    --sand-200: #404040;
+  }
+}
+*/

@@ -53,20 +53,16 @@ export function HighlightLayer({ isResultsOpen }: HighlightLayerProps): JSX.Elem
           return (
             <div
               key={driver.id}
-              className="absolute pointer-events-none transition-all duration-300"
+              className={`absolute pointer-events-none transition-all duration-300 rounded-lg ${
+                isHovered
+                  ? 'border-4 border-info-500 shadow-lg shadow-info-500/60 bg-info-500/15'
+                  : 'border-2 border-info-400/40 shadow-md shadow-info-500/30 bg-info-500/8'
+              }`}
               style={{
                 left: node.position.x,
                 top: node.position.y,
                 width: node.width || 200,
                 height: node.height || 80,
-                border: isHovered ? '3px solid var(--olumi-primary)' : '2px solid rgba(91, 108, 255, 0.4)',
-                borderRadius: '8px',
-                boxShadow: isHovered
-                  ? '0 0 20px rgba(91, 108, 255, 0.6)'
-                  : '0 0 10px rgba(91, 108, 255, 0.3)',
-                backgroundColor: isHovered
-                  ? 'rgba(91, 108, 255, 0.15)'
-                  : 'rgba(91, 108, 255, 0.08)'
               }}
             />
           )
@@ -97,14 +93,9 @@ export function HighlightLayer({ isResultsOpen }: HighlightLayerProps): JSX.Elem
                 y1={sy}
                 x2={tx}
                 y2={ty}
-                stroke={isHovered ? 'var(--olumi-primary)' : 'rgba(91, 108, 255, 0.5)'}
+                className={isHovered ? 'stroke-info-500' : 'stroke-info-400/50'}
                 strokeWidth={isHovered ? 4 : 3}
                 strokeDasharray={isHovered ? '0' : '8 4'}
-                style={{
-                  filter: isHovered
-                    ? 'drop-shadow(0 0 8px rgba(91, 108, 255, 0.8))'
-                    : 'drop-shadow(0 0 4px rgba(91, 108, 255, 0.4))'
-                }}
               />
             </svg>
           )

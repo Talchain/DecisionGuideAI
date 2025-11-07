@@ -69,10 +69,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
 
   if (runs.length === 0) {
     return (
-      <div
-        className="text-center py-4 text-sm"
-        style={{ color: 'rgba(232, 236, 245, 0.5)' }}
-      >
+      <div className="text-center py-4 text-sm text-gray-400">
         No runs yet. Run an analysis to build history.
       </div>
     )
@@ -84,12 +81,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
       {selectedIds.size >= 2 && (
         <button
           onClick={handleCompare}
-          className="w-full px-3 py-2 rounded-md border transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-          style={{
-            backgroundColor: 'var(--olumi-primary)',
-            color: 'white',
-            borderColor: 'var(--olumi-primary)'
-          }}
+          className="w-full px-3 py-2 rounded-md border border-info-500 bg-info-500 hover:bg-info-600 text-white transition-colors flex items-center justify-center gap-2 text-sm font-medium"
         >
           <GitCompare className="w-4 h-4" />
           Compare {selectedIds.size} runs
@@ -105,41 +97,43 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
           return (
             <div
               key={run.id}
-              className="p-2 rounded border transition-colors cursor-pointer"
-              style={{
-                backgroundColor: isSelected
-                  ? 'rgba(91, 108, 255, 0.15)'
-                  : 'rgba(91, 108, 255, 0.05)',
-                borderColor: isSelected
-                  ? 'rgba(91, 108, 255, 0.4)'
-                  : 'rgba(91, 108, 255, 0.15)'
-              }}
+              className={`p-2 rounded border transition-colors cursor-pointer ${
+                isSelected
+                  ? 'bg-blue-100 border-blue-400'
+                  : 'bg-blue-50 border-blue-200 hover:bg-blue-100'
+              }`}
               onClick={() => handleToggleSelect(run.id)}
             >
               {/* Header: Seed • Hash • Time */}
               <div className="flex items-center justify-between text-xs mb-1">
-                <div
-                  className="flex items-center gap-2"
-                  style={{ color: 'rgba(232, 236, 245, 0.7)' }}
-                >
+                <div className="flex items-center gap-2 text-gray-500">
                   <span>Seed: {run.seed}</span>
                   <span>•</span>
                   <span title={run.hash}>
                     Hash: {run.hash?.slice(0, 6) || 'N/A'}
                   </span>
                 </div>
-                <span style={{ color: 'rgba(232, 236, 245, 0.5)' }}>
+                <span className="text-gray-400">
                   {formatTimestamp(run.ts)}
                 </span>
               </div>
 
               {/* Summary */}
-              <div
-                className="text-sm mb-2 line-clamp-2"
-                style={{ color: 'var(--olumi-text)' }}
-              >
+              <div className="text-sm mb-2 line-clamp-2 text-gray-900">
                 {run.summary || 'No summary'}
               </div>
+
+              {/* v1.2: Duplicate indicator */}
+              {run.isDuplicate && run.duplicateCount && (
+                <div className="mb-2">
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-info-50 border border-info-200 text-info-700"
+                    title={`This result has been re-run ${run.duplicateCount} times with identical output`}
+                  >
+                    Re-run (identical × {run.duplicateCount})
+                  </span>
+                </div>
+              )}
 
               {/* Mini sparkline (optional) */}
               {run.drivers && run.drivers.length > 0 && (
@@ -147,21 +141,12 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
                   {run.drivers.slice(0, 5).map((driver, i) => (
                     <div
                       key={i}
-                      className="h-1 flex-1 rounded"
-                      style={{
-                        backgroundColor:
-                          driver.kind === 'node'
-                            ? 'var(--olumi-primary)'
-                            : 'var(--olumi-info)'
-                      }}
+                      className="h-1 flex-1 rounded bg-info-500"
                       title={driver.label || driver.id}
                     />
                   ))}
                   {run.drivers.length > 5 && (
-                    <span
-                      className="text-xs"
-                      style={{ color: 'rgba(232, 236, 245, 0.5)' }}
-                    >
+                    <span className="text-xs text-gray-400">
                       +{run.drivers.length - 5}
                     </span>
                   )}
@@ -175,11 +160,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
                     e.stopPropagation()
                     onViewRun(run)
                   }}
-                  className="px-2 py-1 rounded text-xs transition-colors"
-                  style={{
-                    backgroundColor: 'rgba(91, 108, 255, 0.1)',
-                    color: 'var(--olumi-primary)'
-                  }}
+                  className="px-2 py-1 rounded text-xs bg-info-100 text-info-600 hover:bg-info-200 transition-colors"
                   title="View run"
                 >
                   <Eye className="w-3 h-3" />
@@ -187,15 +168,11 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
 
                 <button
                   onClick={(e) => handleTogglePin(run.id, e)}
-                  className="px-2 py-1 rounded text-xs transition-colors"
-                  style={{
-                    backgroundColor: isPinned
-                      ? 'rgba(247, 201, 72, 0.2)'
-                      : 'rgba(91, 108, 255, 0.1)',
-                    color: isPinned
-                      ? 'var(--olumi-warning)'
-                      : 'var(--olumi-text)'
-                  }}
+                  className={`px-2 py-1 rounded text-xs transition-colors ${
+                    isPinned
+                      ? 'bg-warning-100 text-warning-600 hover:bg-warning-200'
+                      : 'bg-info-100 text-gray-600 hover:bg-info-200'
+                  }`}
                   title={isPinned ? 'Unpin' : 'Pin'}
                 >
                   <Pin className="w-3 h-3" />
@@ -203,11 +180,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
 
                 <button
                   onClick={(e) => handleDelete(run.id, e)}
-                  className="px-2 py-1 rounded text-xs transition-colors"
-                  style={{
-                    backgroundColor: 'rgba(255, 107, 107, 0.1)',
-                    color: 'var(--olumi-danger)'
-                  }}
+                  className="px-2 py-1 rounded text-xs bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
                   title="Delete"
                 >
                   <Trash2 className="w-3 h-3" />

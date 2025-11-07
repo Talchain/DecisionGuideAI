@@ -53,6 +53,9 @@
     "ci:no-console": "sh -c \"if (grep -R -n -E --exclude='*.map' --exclude='dist/assets/vendor-*.js' --exclude='dist/assets/auth-*.js' 'console\\.[A-Za-z]+\\(' dist || grep -R -n -E --exclude='*.map' '(^|[^A-Za-z])debugger(;|$)' dist); then echo 'Found console or debugger in production build'; exit 1; else echo 'OK: no console/debugger in dist'; fi\"",
     "ci:guard:sandbox": "node tools/ci-guards/check-gotosandbox.mjs",
     "ci:guard:flags": "node tools/ci-guards/check-flags-drift.mjs",
+    "ci:check-legacy-tokens": "sh -c \"if grep -r -n 'var(--olumi-' src/ --include='*.tsx' --include='*.ts' --include='*.css' --exclude-dir=poc --exclude-dir=plc; then echo 'Found legacy tokens'; exit 1; else echo 'No legacy tokens'; fi\"",
+    "ci:verify-contract": "node scripts/verify-backend-contract.mjs",
+    "migrate:tokens": "node scripts/migrate-olumi-tokens.mjs",
     "test:e2e:firefox": "playwright test --project=firefox -c playwright.config.ts",
     "test:e2e:webkit": "playwright test --project=webkit -c playwright.config.ts",
     "ci:all": "npm run typecheck && npm run lint && npm run test && npm run e2e"

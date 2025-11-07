@@ -10,6 +10,9 @@ import type {
   V1Error,
   V1TemplateListResponse,
   V1TemplateGraphResponse,
+  V1ValidateRequest,
+  V1ValidateResponse,
+  V1LimitsResponse,
 } from './types'
 import {
   RETRY,
@@ -312,12 +315,100 @@ export async function templateGraph(id: string): Promise<V1TemplateGraphResponse
       throw await mapHttpError(response)
     }
 
-    return await response.json()
+    const data = await response.json()
+
+    if (import.meta.env.DEV) {
+      console.log('[v1/http] templateGraph() raw response:', JSON.stringify(data, null, 2))
+    }
+
+    return data
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
       throw {
         code: 'TIMEOUT',
         message: 'Request timed out after 10000ms',
+      } as V1Error
+    }
+    if ((err as any).code) {
+      throw err // Already a V1Error
+    }
+    throw {
+      code: 'NETWORK_ERROR',
+      message: err instanceof Error ? err.message : String(err),
+    } as V1Error
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+/**
+ * POST /v1/validate
+ * Validate graph before running analysis
+ */
+export async function validate(request: V1ValidateRequest): Promise<V1ValidateResponse> {
+  const base = getProxyBase()
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+  try {
+    const response = await fetch(`${base}/v1/validate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      throw await mapHttpError(response)
+    }
+
+    return await response.json()
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw {
+        code: 'TIMEOUT',
+        message: 'Validation request timed out after 5000ms',
+      } as V1Error
+    }
+    if ((err as any).code) {
+      throw err // Already a V1Error
+    }
+    throw {
+      code: 'NETWORK_ERROR',
+      message: err instanceof Error ? err.message : String(err),
+    } as V1Error
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+/**
+ * GET /v1/limits
+ * Get engine limits and p95 budget (v1.2)
+ */
+export async function limits(): Promise<V1LimitsResponse> {
+  const base = getProxyBase()
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+  try {
+    const response = await fetch(`${base}/v1/limits`, {
+      method: 'GET',
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      throw await mapHttpError(response)
+    }
+
+    return await response.json()
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw {
+        code: 'TIMEOUT',
+        message: 'Limits request timed out after 5000ms',
       } as V1Error
     }
     if ((err as any).code) {

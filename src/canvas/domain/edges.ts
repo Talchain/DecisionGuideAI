@@ -31,11 +31,13 @@ export type EdgeKind = z.infer<typeof EdgeKindEnum>
  * - Added belief: epistemic uncertainty (0-1, P1B API field)
  * - Added provenance: source/rationale (max 100 chars, P1B API field)
  *
- * Note: weight (0.1-5.0) is visual stroke thickness, passed through to backend as-is
+ * Note: weight (0-1) represents edge strength/influence for backend API
+ * 0 = no influence, 1 = strong influence
+ * Visual stroke width is derived from weight via weightToStrokeWidth()
  */
 export const EdgeDataSchema = z.object({
   // Visual properties
-  weight: z.number().min(0.1).max(5.0).default(1.0),
+  weight: z.number().min(0).max(1).default(0.5),
   style: EdgeStyleEnum.default('solid'),
   curvature: z.number().min(0).max(0.5).default(0.15),
 
@@ -61,7 +63,7 @@ export type EdgeData = z.infer<typeof EdgeDataSchema>
  * Default edge data for new edges
  */
 export const DEFAULT_EDGE_DATA: EdgeData = {
-  weight: 1.0,
+  weight: 0.5,
   style: 'solid',
   curvature: 0.15,
   kind: 'decision-probability',
@@ -74,10 +76,10 @@ export const DEFAULT_EDGE_DATA: EdgeData = {
  */
 export const EDGE_CONSTRAINTS = {
   weight: {
-    min: 0.1,
-    max: 5.0,
-    step: 0.1,
-    default: 1.0,
+    min: 0,
+    max: 1,
+    step: 0.05,
+    default: 0.5,
   },
   curvature: {
     min: 0,
@@ -104,11 +106,11 @@ export const EDGE_CONSTRAINTS = {
 
 /**
  * Map edge weight to stroke width (pixels)
- * Linear mapping: 0.1 → 1px, 5.0 → 6px
+ * Linear mapping: 0 → 1px, 1 → 6px
  */
 export function weightToStrokeWidth(weight: number): number {
-  const clamped = Math.max(0.1, Math.min(5.0, weight))
-  return 1 + ((clamped - 0.1) / 4.9) * 5
+  const clamped = Math.max(0, Math.min(1, weight))
+  return 1 + clamped * 5
 }
 
 /**

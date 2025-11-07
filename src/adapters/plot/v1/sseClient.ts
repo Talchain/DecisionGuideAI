@@ -156,6 +156,7 @@ export function runStream(
 
 /**
  * Handle incoming SSE event with progress capping
+ * v1.2: Added support for new event names (RUN_STARTED, COMPLETE, ERROR, CANCELLED)
  */
 function handleEvent(
   eventType: string,
@@ -169,6 +170,7 @@ function handleEvent(
 
   switch (eventType) {
     case 'started':
+    case 'RUN_STARTED': // v1.2: new event name (alias)
       handlers.onStarted(data as V1RunStartedData)
       break
 
@@ -190,13 +192,24 @@ function handleEvent(
       break
 
     case 'complete':
+    case 'COMPLETE': // v1.2: new event name (alias)
       // Send final 100% progress before completion
       throttledProgress({ percent: 100 })
       handlers.onComplete(data as V1CompleteData)
       break
 
     case 'error':
+    case 'ERROR': // v1.2: new event name (alias)
       handlers.onError(mapEventError(data))
+      break
+
+    case 'CANCELLED': // v1.2: explicit cancellation event
+      // Treat cancellation as error with specific code
+      handlers.onError({
+        code: 'CANCELLED' as any,
+        message: data?.message || 'Run was cancelled',
+        details: data,
+      })
       break
 
     default:

@@ -364,8 +364,8 @@ describe('Tooltip', () => {
       const tooltip = screen.getByRole('tooltip')
       const styles = tooltip.style
 
-      expect(styles.backgroundColor).toContain('var(--olumi-bg')
-      expect(styles.color).toContain('var(--olumi-text')
+      expect(styles.backgroundColor).toContain('var(--surface-card)
+      expect(styles.color).toContain('var(--text-primary)
     })
 
     it('has pointer-events: none to prevent interaction', () => {

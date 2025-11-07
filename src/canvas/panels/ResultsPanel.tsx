@@ -14,7 +14,7 @@
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { History as HistoryIcon, GitCompare as CompareIcon, BarChart3 } from 'lucide-react'
+import { History as HistoryIcon, GitCompare as CompareIcon, BarChart3, Play } from 'lucide-react'
 import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash } from '../store'
 import { ProgressStrip } from '../components/ProgressStrip'
 import { WhyPanel } from '../../routes/templates/components/WhyPanel'
@@ -26,10 +26,14 @@ import { KPIHeadline } from '../components/KPIHeadline'
 import { RangeChips } from '../components/RangeChips'
 import { ConfidenceBadge } from '../components/ConfidenceBadge'
 import { ActionsRow } from '../components/ActionsRow'
-import type { StoredRun } from '../store/runHistory'
+import { loadRuns, type StoredRun } from '../store/runHistory'
 import { useToast } from '../ToastContext'
 import { PanelShell } from './_shared/PanelShell'
 import { PanelSection } from './_shared/PanelSection'
+import { plot } from '../../adapters/plot'
+import { useResultsRun } from '../hooks/useResultsRun'
+import { ValidationBanner, type ValidationError } from '../components/ValidationBanner'
+import { useValidationFeedback } from '../hooks/useValidationFeedback'
 
 interface ResultsPanelProps {
   isOpen: boolean
@@ -49,10 +53,20 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const error = useCanvasStore(selectError)
   const seed = useCanvasStore(selectSeed)
   const hash = useCanvasStore(selectHash)
+  const isDuplicateRun = useCanvasStore(s => s.results.isDuplicateRun)
+  const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
+  const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
 
   const resultsReset = useCanvasStore(s => s.resultsReset)
   const resultsLoadHistorical = useCanvasStore(s => s.resultsLoadHistorical)
   const { showToast } = useToast()
+  const { run } = useResultsRun()
+  const { formatErrors, focusError } = useValidationFeedback()
+
+  const [isRunning, setIsRunning] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
+  const [validationViolations, setValidationViolations] = useState<ValidationError[]>([]) // v1.2: coaching warnings
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabId>('latest')
@@ -84,7 +98,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
       } else if (isMod && e.key === '2') {
         e.preventDefault()
         setActiveTab('history')
-      } else if (isMod && e.shiftKey && e.key === 'C') {
+      } else if (isMod && e.key === '3') {
         e.preventDefault()
         if (compareRunIds.length >= 2) {
           setActiveTab('compare')
@@ -94,7 +108,14 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, compareRunIds.length])
+  }, [isOpen, compareRunIds])
+
+  // v1.2: Show toast when duplicate run is detected
+  useEffect(() => {
+    if (isDuplicateRun && status === 'complete' && hash) {
+      showToast(`Already analysed (same hash: ${hash.slice(0, 8)}...)`, 'info')
+    }
+  }, [isDuplicateRun, status, hash, showToast])
 
   const handleClose = useCallback(() => {
     onClose()
@@ -107,13 +128,17 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   }, [resultsReset])
 
   const handleCompare = useCallback((runIds: string[]) => {
-    setCompareRunIds(runIds)
+    const next = runIds.slice(0, 2)
+    setCompareRunIds(next)
     setActiveTab('compare')
   }, [])
 
   const handleCloseCompare = useCallback(() => {
-    setCompareRunIds([])
     setActiveTab('latest')
+  }, [])
+
+  const handleCompareSelectionChange = useCallback((runIds: string[]) => {
+    setCompareRunIds(runIds.slice(0, 2))
   }, [])
 
   const handleRunAgain = useCallback(() => {
@@ -129,6 +154,62 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
       showToast('Run URL copied to clipboard', 'success')
     }
   }, [hash, showToast])
+
+  const handleRunAnalysis = useCallback(async () => {
+    if (nodes.length === 0) {
+      setValidationErrors([{
+        code: 'EMPTY_GRAPH',
+        message: 'Cannot run analysis: Graph is empty. Add at least one node.',
+        severity: 'error' as const
+      }])
+      return
+    }
+
+    // Clear previous validation errors and violations
+    setValidationErrors([])
+    setValidationViolations([])
+    setIsRunning(true)
+
+    try {
+      // Validate graph using adapter (if validate is available)
+      const adapter = plot as any
+      if (adapter.validate && typeof adapter.validate === 'function') {
+        const validationResult = await adapter.validate({ nodes, edges })
+
+        // v1.2: Handle violations (non-blocking coaching warnings)
+        if (validationResult.violations && validationResult.violations.length > 0) {
+          const formattedViolations = formatErrors(validationResult.violations)
+          setValidationViolations(formattedViolations)
+        }
+
+        // Only block on hard errors
+        if (!validationResult.valid) {
+          // Show validation errors in banner
+          const formattedErrors = formatErrors(validationResult.errors)
+          setValidationErrors(formattedErrors)
+          setIsRunning(false)
+          return
+        }
+      }
+
+      // Run analysis with default seed and outcome node (if set)
+      await run({
+        template_id: 'canvas-graph',
+        seed: 1337,
+        graph: { nodes, edges },
+        outcome_node: outcomeNodeId || undefined
+      })
+    } catch (err: any) {
+      console.error('[ResultsPanel] Run failed:', err)
+      setValidationErrors([{
+        code: 'RUN_ERROR',
+        message: err.message || 'Failed to run analysis',
+        severity: 'error' as const
+      }])
+    } finally {
+      setIsRunning(false)
+    }
+  }, [nodes, edges, run, formatErrors])
 
   if (!isOpen) return null
 
@@ -150,10 +231,10 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
       className = 'bg-green-100 text-green-600'
     } else if (status === 'error') {
       text = 'Error'
-      className = 'bg-red-100 text-red-600'
+      className = 'bg-danger-100 text-danger-600'
     } else if (status === 'cancelled') {
       text = 'Cancelled'
-      className = 'bg-yellow-100 text-yellow-600'
+      className = 'bg-warning-100 text-warning-600'
     }
 
     return (
@@ -278,11 +359,27 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
               {/* Complete */}
               {isComplete && report && (
                 <>
+                  {/* v1.2 Critique Advisory (BLOCKER items) */}
+                  {report.run?.critique && report.run.critique.some(c => c.severity === 'BLOCKER') && (
+                    <div className="mb-4 p-4 rounded-lg border border-danger-300 bg-danger-50">
+                      <h3 className="text-sm font-semibold text-danger-700 mb-2">
+                        Critical Issues Detected
+                      </h3>
+                      <ul className="space-y-1 text-sm text-danger-600">
+                        {report.run.critique
+                          .filter(c => c.severity === 'BLOCKER')
+                          .map((c, i) => (
+                            <li key={i}>• {c.message}</li>
+                          ))}
+                      </ul>
+                    </div>
+                  )}
+
                   {/* Most Likely Outcome */}
                   <PanelSection title="Most Likely Outcome">
                     <div className="space-y-4">
                       <KPIHeadline
-                        value={report.results.likely}
+                        value={report.run?.bands.p50 ?? report.results.likely}
                         label="Expected Value"
                         units={report.results.units}
                         unitSymbol={report.results.unitSymbol}
@@ -290,9 +387,9 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                       <div className="space-y-2">
                         <div className="text-xs text-gray-500 font-medium">Range</div>
                         <RangeChips
-                          conservative={report.results.conservative}
-                          likely={report.results.likely}
-                          optimistic={report.results.optimistic}
+                          conservative={report.run?.bands.p10 ?? report.results.conservative}
+                          likely={report.run?.bands.p50 ?? report.results.likely}
+                          optimistic={report.run?.bands.p90 ?? report.results.optimistic}
                           units={report.results.units}
                           unitSymbol={report.results.unitSymbol}
                         />
@@ -354,44 +451,21 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
               {/* Error */}
               {isError && error && (
-                <div
-                  className="p-4 rounded-lg border"
-                  style={{
-                    backgroundColor: 'rgba(255, 107, 107, 0.1)',
-                    borderColor: 'rgba(255, 107, 107, 0.3)',
-                  }}
-                >
-                  <h3
-                    style={{
-                      fontSize: '1rem',
-                      fontWeight: 600,
-                      color: 'var(--olumi-danger)',
-                      marginBottom: '0.5rem',
-                    }}
-                  >
+                <div className="p-4 rounded-lg border border-red-300 bg-red-100">
+                  <h3 className="text-base font-semibold text-red-600 mb-2">
                     {error.code}
                   </h3>
-                  <p style={{ fontSize: '0.875rem', color: 'rgba(232, 236, 245, 0.8)', marginBottom: '0.75rem' }}>
+                  <p className="text-sm text-gray-700 mb-3">
                     {error.message}
                   </p>
                   {error.retryAfter && (
-                    <p style={{ fontSize: '0.75rem', color: 'rgba(232, 236, 245, 0.6)' }}>
+                    <p className="text-xs text-gray-500">
                       Retry after {error.retryAfter} seconds
                     </p>
                   )}
                   <button
                     onClick={handleReset}
-                    style={{
-                      marginTop: '0.75rem',
-                      padding: '0.5rem 1rem',
-                      fontSize: '0.875rem',
-                      borderRadius: '0.375rem',
-                      border: 'none',
-                      backgroundColor: 'var(--olumi-danger)',
-                      color: 'white',
-                      cursor: 'pointer',
-                      fontWeight: 500,
-                    }}
+                    className="mt-3 px-4 py-2 text-sm rounded-md border-none bg-red-600 hover:bg-red-700 text-white cursor-pointer font-medium transition-colors"
                   >
                     Retry
                   </button>
@@ -400,28 +474,13 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
               {/* Cancelled */}
               {isCancelled && (
-                <div
-                  className="p-4 rounded-lg border text-center"
-                  style={{
-                    backgroundColor: 'rgba(247, 201, 72, 0.1)',
-                    borderColor: 'rgba(247, 201, 72, 0.3)',
-                  }}
-                >
-                  <p style={{ fontSize: '0.875rem', color: 'var(--olumi-warning)', marginBottom: '0.75rem' }}>
+                <div className="p-4 rounded-lg border border-warning-300 bg-warning-100 text-center">
+                  <p className="text-sm text-warning-700 mb-3">
                     Analysis cancelled
                   </p>
                   <button
                     onClick={handleReset}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      fontSize: '0.875rem',
-                      borderRadius: '0.375rem',
-                      border: 'none',
-                      backgroundColor: 'var(--olumi-primary)',
-                      color: 'white',
-                      cursor: 'pointer',
-                      fontWeight: 500,
-                    }}
+                    className="px-4 py-2 text-sm rounded-md border-none bg-info-500 hover:bg-info-600 text-white cursor-pointer font-medium transition-colors"
                   >
                     Start New Run
                   </button>
@@ -430,19 +489,61 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
               {/* Idle state */}
               {status === 'idle' && (
-                <div className="text-center py-12">
-                  <h3 style={{
-                    fontSize: '1.125rem',
-                    fontWeight: 600,
-                    color: 'var(--olumi-text)',
-                    marginBottom: '0.75rem'
-                  }}>
-                    Ready to analyze
-                  </h3>
-                  <p className="text-sm" style={{ color: 'rgba(232, 236, 245, 0.6)' }}>
-                    Click "Run Analysis" to start analyzing your decision tree.
-                  </p>
-                </div>
+                <>
+                  {/* Validation Banner */}
+                  {(validationErrors.length > 0 || validationViolations.length > 0) && (
+                    <div className="mb-4">
+                      <ValidationBanner
+                        errors={validationErrors}
+                        violations={validationViolations}
+                        onDismiss={() => {
+                          setValidationErrors([])
+                          setValidationViolations([])
+                        }}
+                        onFixNow={focusError}
+                      />
+                    </div>
+                  )}
+
+                  <div className="text-center py-12">
+                    <div className="flex justify-center mb-4">
+                      <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center">
+                        <Play className="w-8 h-8 text-blue-600" />
+                      </div>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      Ready to analyze
+                    </h3>
+                    <p className="text-sm mb-6 text-gray-400">
+                      {nodes.length === 0
+                        ? 'Add nodes to your canvas to get started.'
+                        : !outcomeNodeId
+                        ? `Your graph has ${nodes.length} node${nodes.length !== 1 ? 's' : ''}. Select an outcome node in the inspector to target your analysis, or click Run to analyze the entire graph.`
+                        : `Your graph has ${nodes.length} node${nodes.length !== 1 ? 's' : ''} with outcome: "${nodes.find(n => n.id === outcomeNodeId)?.data?.label || 'Unknown'}". Click Run to analyze.`
+                      }
+                    </p>
+                    <button
+                    onClick={handleRunAnalysis}
+                    disabled={nodes.length === 0 || isRunning}
+                    className="px-6 py-3 text-sm font-medium text-white bg-info rounded-lg hover:bg-info/90 transition-colors focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                  >
+                    {isRunning ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Running...
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4" />
+                        Run Analysis
+                      </>
+                    )}
+                  </button>
+                  </div>
+                </>
               )}
             </>
           )}
@@ -459,10 +560,18 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
           )}
 
           {/* Compare Tab */}
-          {activeTab === 'compare' && compareRunIds.length >= 2 && (
+          {activeTab === 'compare' && (
             <CompareView
-              runIds={compareRunIds}
-              onClose={handleCloseCompare}
+              onOpenInCanvas={(runId) => {
+                const run = loadRuns().find(r => r.id === runId)
+                if (run) {
+                  resultsLoadHistorical(run)
+                  setActiveTab('latest')
+                }
+              }}
+              onBack={handleCloseCompare}
+              selectedRunIds={compareRunIds}
+              onSelectionChange={handleCompareSelectionChange}
             />
           )}
         </PanelShell>

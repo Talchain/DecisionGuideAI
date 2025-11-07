@@ -12,7 +12,6 @@ import { CanvasToolbar } from './CanvasToolbar'
 import { AlignmentGuides } from './components/AlignmentGuides'
 import { PropertiesPanel } from './components/PropertiesPanel'
 import { CommandPalette } from './components/CommandPalette'
-import { EmptyStateOverlay } from './components/EmptyStateOverlay'
 import { ReconnectBanner } from './components/ReconnectBanner'
 import { KeyboardCheatsheet } from './components/KeyboardCheatsheet'
 import { KeyboardMap } from './components/KeyboardMap'
@@ -25,7 +24,10 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import { ValidationChip } from './components/ValidationChip'
 import { LayerProvider } from './components/LayerProvider'
 import { FirstRunHint } from './components/FirstRunHint'
+import { RecoveryBanner } from './components/RecoveryBanner'
+import { OnboardingOverlay } from './components/OnboardingOverlay'
 import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
+import { useAutosave } from './hooks/useAutosave'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
 import { ResultsPanel } from './panels/ResultsPanel'
@@ -53,17 +55,21 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
-  const [showEmptyState, setShowEmptyState] = useState(true)
   const [showCheatsheet, setShowCheatsheet] = useState(false)
   const [showKeyboardMap, setShowKeyboardMap] = useState(false)
-  const [showResultsPanel, setShowResultsPanel] = useState(false)
-  const [showInspectorPanel, setShowInspectorPanel] = useState(false)
+  const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
+  const showInspectorPanel = useCanvasStore(s => s.showInspectorPanel)
+  const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
+  const setShowInspectorPanel = useCanvasStore(s => s.setShowInspectorPanel)
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
 
   // Results panel hook
   const { run: runAnalysis, cancel: cancelAnalysis } = useResultsRun()
-  
+
+  // Autosave hook - saves graph every 30s when dirty
+  useAutosave()
+
   const handleSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
     useCanvasStore.getState().onSelectionChange(params)
   }, [])
@@ -403,8 +409,12 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         <MiniMap style={miniMapStyle} />
         <svg style={{ position: 'absolute', top: 0, left: 0 }}>
           <defs>
-            <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-              <polygon points="0 0, 10 3, 0 6" fill="#6b7280" />
+            {/* Arrowheads matching edge colors - original size (6x6), fixed regardless of stroke width */}
+            <marker id="arrowhead-default" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <polygon points="0 0, 6 3, 0 6" fill="#94A3B8" />
+            </marker>
+            <marker id="arrowhead-selected" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <polygon points="0 0, 6 3, 0 6" fill="#63ADCF" />
             </marker>
           </defs>
         </svg>
@@ -423,14 +433,14 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       <DiagnosticsOverlay />
       <ValidationChip onFocusNode={handleFocusNode} />
       <FirstRunHint />
+      <RecoveryBanner />
 
       {showCommandPalette && <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} onOpenInspector={() => setShowInspectorPanel(true)} />}
       {showCheatsheet && <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />}
       {showKeyboardMap && <KeyboardMap isOpen={showKeyboardMap} onClose={() => setShowKeyboardMap(false)} />}
       {showResultsPanel && <ResultsPanel isOpen={showResultsPanel} onClose={() => setShowResultsPanel(false)} onCancel={cancelAnalysis} />}
       {showInspectorPanel && <InspectorPanel isOpen={showInspectorPanel} onClose={() => setShowInspectorPanel(false)} />}
-      {nodes.length === 0 && showEmptyState && <EmptyStateOverlay onDismiss={() => setShowEmptyState(false)} />}
-      
+
       {existingTemplate && pendingBlueprint && (
         <ConfirmDialog
           title="Replace existing flow?"
@@ -441,6 +451,22 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           onCancel={handleCancelReplace}
         />
       )}
+
+      {/* Onboarding overlay for first-time users */}
+      <OnboardingOverlay
+        onBrowseTemplates={() => {
+          // Open templates panel (trigger via onCanvasInteraction callback to parent)
+          onCanvasInteraction?.()
+        }}
+        onCreateNew={() => {
+          // Show empty state hint
+          setShowEmptyState(true)
+        }}
+        onShowShortcuts={() => {
+          // Show keyboard cheatsheet
+          setShowCheatsheet(true)
+        }}
+      />
     </div>
   )
 }

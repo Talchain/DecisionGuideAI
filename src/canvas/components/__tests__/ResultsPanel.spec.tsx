@@ -407,4 +407,118 @@ describe('ResultsPanel', () => {
       expect(screen.getByText('Test error')).toBeInTheDocument()
     })
   })
+
+  describe('v1.2 Canonical Run Format', () => {
+    it('renders non-null bands from canonical run', () => {
+      const reportWithCanonical: ReportV1 = {
+        ...mockReport,
+        run: {
+          responseHash: 'v1.2-hash',
+          bands: { p10: 1000, p50: 5000, p90: 10000 },
+        },
+      }
+
+      useCanvasStore.getState().resultsComplete({
+        report: reportWithCanonical,
+        hash: 'v1.2-hash'
+      })
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+
+      // KPI headline should show p50 value
+      expect(screen.getByText('5000.0%')).toBeInTheDocument()
+
+      // Range chips should show p10/p50/p90
+      expect(screen.getByText('1000.0%')).toBeInTheDocument()
+      expect(screen.getByText('10000.0%')).toBeInTheDocument()
+    })
+
+    it('renders "—" placeholder for null bands', () => {
+      const reportWithNullBands: ReportV1 = {
+        ...mockReport,
+        run: {
+          responseHash: 'partial-hash',
+          bands: { p10: null, p50: null, p90: null },
+        },
+      }
+
+      useCanvasStore.getState().resultsComplete({
+        report: reportWithNullBands,
+        hash: 'partial-hash'
+      })
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+
+      // Should show "—" placeholders (appears multiple times - KPIHeadline + 3 RangeChips)
+      const placeholders = screen.getAllByText('—')
+      expect(placeholders.length).toBeGreaterThanOrEqual(4)
+    })
+
+    it('falls back to legacy results when canonical run not present', () => {
+      const reportWithoutCanonical: ReportV1 = {
+        ...mockReport,
+        run: undefined,
+      }
+
+      useCanvasStore.getState().resultsComplete({
+        report: reportWithoutCanonical,
+        hash: mockReport.model_card.response_hash
+      })
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+
+      // Should show legacy results values
+      expect(screen.getByText('150.0%')).toBeInTheDocument() // likely
+      expect(screen.getByText('100.0%')).toBeInTheDocument() // conservative
+      expect(screen.getByText('200.0%')).toBeInTheDocument() // optimistic
+    })
+
+    it('displays BLOCKER critique as advisory banner', () => {
+      const reportWithCritique: ReportV1 = {
+        ...mockReport,
+        run: {
+          responseHash: 'critique-hash',
+          bands: { p10: 1000, p50: 5000, p90: 10000 },
+          critique: [
+            { severity: 'INFO', message: 'Graph is well-formed' },
+            { severity: 'BLOCKER', message: 'Cycle detected in graph' },
+            { severity: 'WARNING', message: 'Low confidence on edge E1' },
+          ],
+        },
+      }
+
+      useCanvasStore.getState().resultsComplete({
+        report: reportWithCritique,
+        hash: 'critique-hash'
+      })
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+
+      // Should show BLOCKER advisory
+      expect(screen.getByText('Critical Issues Detected')).toBeInTheDocument()
+      expect(screen.getByText(/Cycle detected in graph/)).toBeInTheDocument()
+
+      // Should NOT show INFO or WARNING in the advisory
+      expect(screen.queryByText(/Graph is well-formed/)).not.toBeInTheDocument()
+    })
+
+    it('does not show critique banner when no BLOCKER items', () => {
+      const reportWithoutBlockers: ReportV1 = {
+        ...mockReport,
+        run: {
+          responseHash: 'no-blockers',
+          bands: { p10: 1000, p50: 5000, p90: 10000 },
+          critique: [
+            { severity: 'INFO', message: 'Graph is well-formed' },
+            { severity: 'WARNING', message: 'Low confidence on edge E1' },
+          ],
+        },
+      }
+
+      useCanvasStore.getState().resultsComplete({
+        report: reportWithoutBlockers,
+        hash: 'no-blockers'
+      })
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+
+      // Should NOT show critical issues banner
+      expect(screen.queryByText('Critical Issues Detected')).not.toBeInTheDocument()
+    })
+  })
 })

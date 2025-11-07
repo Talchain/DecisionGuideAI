@@ -14,6 +14,8 @@ import { PlotHealthPill } from '../../adapters/plot/v1/components/PlotHealthPill
 import { AdapterStatusBanner } from './AdapterStatusBanner'
 import { PanelShell } from './_shared/PanelShell'
 import { PanelSection } from './_shared/PanelSection'
+import { useCanvasStore } from '../store'
+import { createScenario, saveScenarios, loadScenarios, setCurrentScenarioId } from '../store/scenarios'
 
 interface TemplatesPanelProps {
   isOpen: boolean
@@ -27,6 +29,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedBlueprintId, setSelectedBlueprintId] = useState<string | null>(null)
   const [selectedBlueprint, setSelectedBlueprint] = useState<Blueprint | null>(null)
+  const [templateVersion, setTemplateVersion] = useState<string | undefined>(undefined)
   const [showDevControls, setShowDevControls] = useState(false)
   const [seed, setSeed] = useState<string>('1337')
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -38,13 +41,22 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   useEffect(() => {
     plot.templates()
       .then(list => {
-        // Safety check: ensure items array exists
-        if (!list || !Array.isArray(list.items)) {
+        // Guard for both { items: [...] } and legacy [...] array formats
+        let templates: any[] = []
+
+        if (Array.isArray(list)) {
+          // Legacy format: direct array
+          templates = list
+        } else if (list && Array.isArray(list.items)) {
+          // New format: wrapped in items
+          templates = list.items
+        } else {
           console.error('❌ Invalid templates response:', list)
           setBlueprints([])
           return
         }
-        setBlueprints(list.items.map(t => ({
+
+        setBlueprints(templates.map(t => ({
           id: t.id,
           name: t.name,
           description: t.description
@@ -75,21 +87,64 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       // Fetch template from API (works for both mock and httpv1)
       const templateDetail = await plot.template(templateId)
 
-      // Convert to Blueprint format for canvas insertion
+      // Validate graph structure (graph is typed as 'unknown' in TemplateDetail)
+      const graph = templateDetail.graph as any
+      if (!graph || typeof graph !== 'object') {
+        throw new Error(`Template ${templateId} has invalid graph structure`)
+      }
+
+      if (!Array.isArray(graph.nodes)) {
+        throw new Error(`Template ${templateId} graph.nodes is not an array`)
+      }
+
+      // Convert backend graph to Blueprint format for canvas insertion
+      // Backend nodes may not have 'kind' or 'position', add defaults
+      const blueprintNodes = (graph.nodes || []).map((node: any, index: number) => ({
+        id: node.id,
+        label: node.label || node.id,
+        kind: node.kind || 'decision', // Default to decision if not specified
+        body: node.body, // v1.2: preserve body text
+        position: node.position || { x: 200 + (index % 3) * 250, y: 100 + Math.floor(index / 3) * 200 }, // Grid layout if no position
+      }))
+
+      // Backend edges may not have IDs, generate them
+      const blueprintEdges = (graph.edges || []).map((edge: any) => ({
+        id: edge.id || `${edge.from}-${edge.to}`, // Generate ID if missing
+        from: edge.from,
+        to: edge.to,
+        probability: edge.probability,
+        weight: edge.weight,
+        belief: edge.belief,          // v1.2: epistemic confidence
+        provenance: edge.provenance,  // v1.2: source tracking
+      }))
+
       const blueprint: Blueprint = {
         id: templateDetail.id,
         name: templateDetail.name,
         description: templateDetail.description,
-        version: templateDetail.version,
-        graph: templateDetail.graph,
+        nodes: blueprintNodes,
+        edges: blueprintEdges,
       }
 
       if (onInsertBlueprint) {
         onInsertBlueprint(blueprint)
         setSelectedBlueprintId(templateId)
         setSelectedBlueprint(blueprint)
-        setSeed(String(templateDetail.default_seed))
-        showToast('Inserted to canvas.')
+
+        // v1.2: Capture template version with diagnostic logging (dev only)
+        const capturedVersion = templateDetail.version || graph.version
+        if (import.meta.env.DEV) {
+          console.log('[VersionCapture]', {
+            templateId,
+            templateDetailVersion: templateDetail.version,
+            graphVersion: graph.version,
+            captured: capturedVersion
+          })
+        }
+        setTemplateVersion(capturedVersion)
+
+        setSeed(String(templateDetail.default_seed || 1337))
+        showToast('Scenario created from template.')
       }
     } catch (err) {
       console.error('Failed to load template:', err)
@@ -112,6 +167,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     setSeed('1337')
     setSelectedBlueprintId(null)
     setSelectedBlueprint(null)
+    setTemplateVersion(undefined)
   }, [clearError])
 
   const showToast = useCallback((msg: string) => {
@@ -130,6 +186,120 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       showToast('Pinned to canvas.')
     }
   }, [result, selectedBlueprint, seed, onPinToCanvas, showToast])
+
+  // v1.2: Save current canvas as a named scenario
+  const handleSaveAsScenario = useCallback(() => {
+    if (!selectedBlueprint) return
+
+    const name = window.prompt('Scenario name:', selectedBlueprint.name)
+
+    // User cancelled or entered empty name
+    if (!name || !name.trim()) {
+      if (name === '') {
+        showToast('Scenario name cannot be empty.')
+      }
+      return
+    }
+
+    const trimmedName = name.trim()
+
+    // Check for duplicate names
+    const existingScenarios = loadScenarios()
+    const duplicate = existingScenarios.find(s => s.name.toLowerCase() === trimmedName.toLowerCase())
+
+    if (duplicate) {
+      const overwrite = window.confirm(`A scenario named "${trimmedName}" already exists. Overwrite it?`)
+      if (!overwrite) {
+        showToast('Scenario save cancelled.')
+        return
+      }
+      // Remove the duplicate before saving new one
+      const filtered = existingScenarios.filter(s => s.id !== duplicate.id)
+      saveScenarios(filtered)
+    }
+
+    const state = useCanvasStore.getState()
+    const scenario = createScenario({
+      name: trimmedName,
+      nodes: state.nodes,
+      edges: state.edges,
+      source_template_id: selectedBlueprint.id,
+      source_template_version: templateVersion
+    })
+
+    const scenarios = loadScenarios()
+    scenarios.unshift(scenario)
+    saveScenarios(scenarios)
+    setCurrentScenarioId(scenario.id)
+
+    showToast(`Scenario "${trimmedName}" saved.`)
+  }, [selectedBlueprint, templateVersion, showToast])
+
+  // v1.2: Merge another template into current canvas
+  const handleMergeIntoCurrent = useCallback(async () => {
+    if (!selectedBlueprintId) return
+
+    try {
+      // Fetch template to merge
+      const templateDetail = await plot.template(selectedBlueprintId)
+      const graph = templateDetail.graph as any
+
+      if (!graph || !Array.isArray(graph.nodes)) {
+        throw new Error(`Template ${selectedBlueprintId} has invalid graph structure`)
+      }
+
+      // Calculate offset to avoid overlapping existing nodes
+      const state = useCanvasStore.getState()
+      let xOffset = 0
+      let yOffset = 0
+
+      if (state.nodes.length > 0) {
+        // Find rightmost existing node
+        const maxX = Math.max(...state.nodes.map(n => n.position.x + (n.width || 200)))
+        // Place merged content 300px to the right of existing content
+        xOffset = maxX + 300
+      }
+
+      // Convert to blueprint with offset positions
+      const blueprintNodes = (graph.nodes || []).map((node: any, index: number) => {
+        const defaultPos = { x: 200 + (index % 3) * 250, y: 100 + Math.floor(index / 3) * 200 }
+        const pos = node.position || defaultPos
+        return {
+          id: node.id,
+          label: node.label || node.id,
+          kind: node.kind || 'decision',
+          body: node.body,
+          position: { x: pos.x + xOffset, y: pos.y + yOffset } // Apply offset
+        }
+      })
+
+      const blueprintEdges = (graph.edges || []).map((edge: any) => ({
+        id: edge.id || `${edge.from}-${edge.to}`,
+        from: edge.from,
+        to: edge.to,
+        probability: edge.probability,
+        weight: edge.weight,
+        belief: edge.belief,
+        provenance: edge.provenance
+      }))
+
+      const blueprint: Blueprint = {
+        id: templateDetail.id,
+        name: templateDetail.name,
+        description: templateDetail.description,
+        nodes: blueprintNodes,
+        edges: blueprintEdges
+      }
+
+      if (onInsertBlueprint) {
+        onInsertBlueprint(blueprint) // Appends to canvas via useBlueprintInsert
+        showToast('Template merged into current scenario.')
+      }
+    } catch (err) {
+      console.error('Failed to merge template:', err)
+      showToast('Failed to merge template.')
+    }
+  }, [selectedBlueprintId, onInsertBlueprint, showToast])
 
   const handleClose = useCallback(() => {
     onClose()
@@ -157,20 +327,40 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     <PlotHealthPill pause={!isOpen} />
   ) : undefined
 
-  // Footer with Run button (only show when template loaded and not running)
+  // Footer with Run button and scenario actions (only show when template loaded and not running)
   const footer = selectedBlueprintId && !loading ? (
-    <button
-      onClick={handleRun}
-      disabled={loading}
-      className={`w-full px-6 py-3 text-base font-semibold rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed ${
-        result
-          ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-          : 'text-white bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow-md'
-      }`}
-      type="button"
-    >
-      {loading ? 'Running Analysis…' : result ? 'Analyze again' : '▶ Run Analysis'}
-    </button>
+    <div className="flex flex-col gap-2">
+      <button
+        onClick={handleRun}
+        disabled={loading}
+        className={`w-full px-6 py-3 text-base font-semibold rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 disabled:opacity-50 disabled:cursor-not-allowed ${
+          result
+            ? 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+            : 'text-white bg-blue-600 hover:bg-blue-700 shadow-sm hover:shadow-md'
+        }`}
+        type="button"
+      >
+        {loading ? 'Running Analysis…' : result ? 'Analyze again' : '▶ Run Analysis'}
+      </button>
+      <div className="flex gap-2">
+        <button
+          onClick={handleSaveAsScenario}
+          className="flex-1 px-4 py-2 text-sm font-medium rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+          type="button"
+          title="Save current canvas as a named scenario"
+        >
+          Save as Scenario
+        </button>
+        <button
+          onClick={handleMergeIntoCurrent}
+          className="flex-1 px-4 py-2 text-sm font-medium rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+          type="button"
+          title="Merge this template into current canvas"
+        >
+          Merge into Current
+        </button>
+      </div>
+    </div>
   ) : undefined
 
   return (
@@ -204,7 +394,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                   placeholder="Search templates..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--olumi-primary)]"
+                  className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info-500"
                 />
               </div>
               
@@ -223,12 +413,13 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           {/* About Section */}
           {selectedBlueprint && (
             <>
-              <TemplateAbout blueprint={selectedBlueprint} />
+              <TemplateAbout blueprint={selectedBlueprint} version={templateVersion} />
 
               <button
                 onClick={() => {
                   setSelectedBlueprintId(null)
                   setSelectedBlueprint(null)
+                  setTemplateVersion(undefined)
                 }}
                 className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors"
                 type="button"
@@ -250,8 +441,9 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                 role="switch"
                 aria-checked={showDevControls}
                 onClick={() => setShowDevControls(!showDevControls)}
-                className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--olumi-primary)]"
-                style={{ backgroundColor: showDevControls ? 'var(--olumi-primary)' : '#d1d5db' }}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-info-500 ${
+                  showDevControls ? 'bg-info-500' : 'bg-gray-300'
+                }`}
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -279,7 +471,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                     type="number"
                     value={seed}
                     onChange={(e) => setSeed(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--olumi-primary)]"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500"
                     min="1"
                   />
                 </div>
@@ -287,10 +479,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                   <button
                     onClick={handleRun}
                     disabled={loading || !selectedBlueprintId}
-                    className="flex-1 px-4 py-2 text-sm text-white rounded-md focus:outline-none focus:ring-2 focus:ring-[var(--olumi-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: 'var(--olumi-primary)' }}
-                    onMouseEnter={(e) => !loading && !selectedBlueprintId ? null : e.currentTarget.style.backgroundColor = 'var(--olumi-primary-700)'}
-                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-primary)'}
+                    className="flex-1 px-4 py-2 text-sm text-white bg-info-500 hover:bg-info-600 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {loading ? 'Running…' : 'Run'}
                   </button>

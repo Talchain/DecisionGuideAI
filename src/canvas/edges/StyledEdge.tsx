@@ -32,6 +32,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const kind = edgeData?.kind ?? 'decision-probability'
   const label = edgeData?.label
   const confidence = edgeData?.confidence
+  const belief = edgeData?.belief      // v1.2
+  const provenance = edgeData?.provenance  // v1.2
 
   // Count outgoing edges from source node for visibility logic
   const outgoingEdgeCount = useMemo(() => {
@@ -51,24 +53,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [label, confidence, outgoingEdgeCount, kind]
   )
 
-  // Get edge theme for labels
-  const edgeTheme = useMemo(() => {
-    // This ensures we use CSS variables when available
-    if (typeof window !== 'undefined') {
-      const styles = getComputedStyle(document.documentElement)
-      return {
-        labelBg: isDark ? styles.getPropertyValue('--edge-label-bg')?.trim() || '#0E1116' : '#FFFFFF',
-        labelText: isDark ? styles.getPropertyValue('--edge-label-text')?.trim() || '#E8ECF5' : '#1E293B',
-        labelBorder: isDark ? '#64748B' : '#E2E8F0'
-      }
-    }
-    return {
-      labelBg: isDark ? '#0E1116' : '#FFFFFF',
-      labelText: isDark ? '#E8ECF5' : '#1E293B',
-      labelBorder: isDark ? '#64748B' : '#E2E8F0'
-    }
-  }, [isDark])
-  
   // Compute edge path
   const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
@@ -87,7 +71,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const tgtTitle = targetNode?.data?.label || target
   const confText = confidence !== undefined ? `, confidence ${Math.round(confidence * 100)}%` : ''
   const ariaLabel = `Edge from ${srcTitle} to ${tgtTitle}${confText}`
-  
+
+  // Determine arrowhead marker based on state
+  const markerEnd = selected
+    ? 'url(#arrowhead-selected)'
+    : 'url(#arrowhead-default)'
+
   return (
     <>
       <BaseEdge
@@ -100,42 +89,76 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // Performance: use will-change for frequent updates
           willChange: selected ? 'stroke, stroke-width' : undefined,
         }}
-        markerEnd="url(#arrowhead)"
+        markerEnd={markerEnd}
       />
       
-      {/* Edge label with tiered visibility */}
-      {labelVisibility.show && (
+      {/* Edge label - always visible in v1.2 format (w • b) */}
+      {(
         <EdgeLabelRenderer>
           <div
             style={{
               position: 'absolute',
               transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
               pointerEvents: 'all',
-              fontSize: labelVisibility.deEmphasize ? '10px' : '12px',
-              background: edgeTheme.labelBg,
-              color: edgeTheme.labelText,
-              padding: labelVisibility.deEmphasize ? '1px 6px' : '2px 8px',
+              fontSize: belief !== undefined ? '10px' : (labelVisibility.deEmphasize ? '10px' : '12px'),
+              padding: '2px 6px',
               borderRadius: '4px',
-              border: `1px solid ${edgeTheme.labelBorder}`,
-              boxShadow: labelVisibility.deEmphasize ? '0 1px 2px 0 rgb(0 0 0 / 0.05)' : '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-              opacity: labelVisibility.deEmphasize ? 0.8 : 1,
-              maxWidth: '120px',
+              opacity: 0.9,
+              maxWidth: '140px',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
             }}
-            className="nodrag nopan"
+            className={`nodrag nopan shadow-sm border ${
+              isDark
+                ? 'bg-gray-900 text-gray-100 border-gray-600'
+                : 'bg-white text-gray-800 border-gray-200'
+            }`}
             role="note"
             aria-label={ariaLabel}
-            title={labelVisibility.isCustom ? label : `Probability: ${formatConfidence(confidence)}`}
+            title={
+              belief !== undefined
+                ? `Weight: ${weight.toFixed(2)}, Belief: ${Math.round(belief * 100)}%${provenance ? `, Source: ${provenance}` : ''}`
+                : labelVisibility.isCustom ? label : `Probability: ${formatConfidence(confidence)}`
+            }
           >
-            {labelVisibility.isCustom && label && (
-              <span style={{ fontWeight: 500 }}>{label}</span>
-            )}
-            {!labelVisibility.isCustom && confidence !== undefined && (
-              <span aria-label={`Confidence: ${formatConfidence(confidence)}`}>
-                {formatConfidence(confidence)}
-              </span>
+            {/* v1.2: Compact format: w 0.60 • b 85% (or b — when undefined) */}
+            {belief !== undefined ? (
+              <>
+                <span style={{ fontWeight: 500, fontFamily: 'ui-monospace, monospace' }}>
+                  w {weight >= 0 ? '' : '−'}{Math.abs(weight).toFixed(2)} • b {Math.round(belief * 100)}%
+                </span>
+                {provenance && (
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      flexShrink: 0,
+                    }}
+                    className={
+                      provenance === 'template' ? 'bg-info-500' :
+                      provenance === 'user' ? 'bg-orange-500' :
+                      'bg-gray-400'
+                    }
+                    title={`Provenance: ${provenance}`}
+                    aria-label={`Provenance: ${provenance}`}
+                  />
+                )}
+              </>
+            ) : (
+              <>
+                {/* v1.2: Placeholder when belief is missing */}
+                <span style={{ fontWeight: 500, fontFamily: 'ui-monospace, monospace' }}>
+                  w {weight >= 0 ? '' : '−'}{Math.abs(weight).toFixed(2)} • b —
+                </span>
+                <span className="text-xs text-gray-400 ml-1" title="Belief not set - edit in inspector">
+                  (set in inspector)
+                </span>
+              </>
             )}
           </div>
         </EdgeLabelRenderer>

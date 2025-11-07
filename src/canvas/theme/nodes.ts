@@ -144,7 +144,7 @@ export const NODE_SIZES = {
 export const NODE_SHADOWS = {
   default: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
   hover: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-  selected: '0 0 0 2px var(--olumi-primary, #5B6CFF), 0 4px 6px -1px rgb(0 0 0 / 0.1)',
+  selected: '0 0 0 2px var(--semantic-info), 0 4px 6px -1px rgb(0 0 0 / 0.1)', // Olumi v1.2: sky-500
 } as const
 
 /**

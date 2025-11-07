@@ -55,38 +55,21 @@ export function FirstRunHint() {
     <div
       role="complementary"
       aria-label="Quick start guide"
-      className="fixed top-20 right-4 z-[1000] max-w-sm p-4 rounded-lg shadow-lg"
-      style={{
-        backgroundColor: 'var(--olumi-bg, #0E1116)',
-        borderLeft: '3px solid var(--olumi-primary, #5B6CFF)',
-      }}
+      className="fixed top-20 right-4 z-[1000] max-w-sm p-4 rounded-lg shadow-lg bg-orange-50 border-l-4 border-info-500"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="space-y-2">
-          <h3
-            className="font-medium text-sm"
-            style={{ color: 'var(--olumi-text, #E8ECF5)' }}
-          >
+          <h3 className="font-medium text-sm text-gray-900">
             Welcome to Templates
           </h3>
-          <p
-            className="text-xs"
-            style={{ color: 'var(--olumi-text, #E8ECF5)', opacity: 0.9 }}
-          >
-            Insert a template → tweak probabilities → Run (⌘/Ctrl+Enter).
+          <p className="text-xs text-gray-900 opacity-90">
+            Insert a template → adjust belief & weight → Run (⌘/Ctrl+Enter).
           </p>
         </div>
 
         <button
           onClick={handleDismiss}
-          className="flex-shrink-0 transition-colors"
-          style={{ color: 'rgba(232, 236, 245, 0.6)' }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = 'var(--olumi-text, #E8ECF5)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = 'rgba(232, 236, 245, 0.6)'
-          }}
+          className="flex-shrink-0 transition-colors text-gray-400 hover:text-gray-900"
           aria-label="Dismiss hint"
         >
           <X className="w-4 h-4" />

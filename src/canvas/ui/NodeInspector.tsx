@@ -9,7 +9,6 @@ import { useCanvasStore } from '../store'
 import { NODE_REGISTRY } from '../domain/nodes'
 import type { NodeType } from '../domain/nodes'
 import { renderIcon } from '../helpers/renderIcon'
-import { validateOutgoingProbabilities } from '../utils/probabilityValidation'
 import { autoBalance, equalSplit, type BalanceRow } from '../utils/probabilityBalancing'
 import { Tooltip } from '../components/Tooltip'
 
@@ -31,6 +30,8 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const edges = useCanvasStore(s => s.edges)
   const updateNode = useCanvasStore(s => s.updateNode)
   const pushHistory = useCanvasStore(s => s.pushHistory)
+  const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
+  const setOutcomeNode = useCanvasStore(s => s.setOutcomeNode)
 
   const node = nodes.find(n => n.id === nodeId)
   const [label, setLabel] = useState<string>(String(node?.data?.label ?? ''))
@@ -274,6 +275,72 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         </select>
       </div>
 
+      {/* v1.2 Node Metadata (optional) */}
+      {node.data?.kind && (
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-700 mb-1">Kind</label>
+          <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium bg-info-50 border border-info-200 text-info-700">
+            {node.data.kind}
+          </div>
+        </div>
+      )}
+
+      {node.data?.prior !== undefined && (
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            Prior <span className="text-gray-500">(belief before evidence)</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-info-500 rounded-full transition-all"
+                style={{ width: `${node.data.prior * 100}%` }}
+                role="progressbar"
+                aria-valuenow={node.data.prior}
+                aria-valuemin={0}
+                aria-valuemax={1}
+                aria-valuetext={`${(node.data.prior * 100).toFixed(0)}%`}
+              />
+            </div>
+            <span className="text-xs font-medium text-gray-700 tabular-nums w-10 text-right">
+              {(node.data.prior * 100).toFixed(0)}%
+            </span>
+          </div>
+        </div>
+      )}
+
+      {node.data?.utility !== undefined && (
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            Utility <span className="text-gray-500">(value from -1 to +1)</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden relative">
+              {/* Center line marker */}
+              <div className="absolute inset-y-0 left-1/2 w-px bg-gray-400" />
+              {/* Utility bar - centered at 50%, extends left (negative) or right (positive) */}
+              <div
+                className={`absolute inset-y-0 transition-all ${
+                  node.data.utility >= 0 ? 'bg-success-500' : 'bg-danger-500'
+                }`}
+                style={{
+                  left: node.data.utility >= 0 ? '50%' : `${50 + (node.data.utility * 50)}%`,
+                  width: `${Math.abs(node.data.utility) * 50}%`
+                }}
+                role="meter"
+                aria-valuenow={node.data.utility}
+                aria-valuemin={-1}
+                aria-valuemax={1}
+                aria-valuetext={node.data.utility.toFixed(2)}
+              />
+            </div>
+            <span className="text-xs font-medium text-gray-700 tabular-nums w-10 text-right">
+              {node.data.utility >= 0 ? '+' : ''}{node.data.utility.toFixed(2)}
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="mb-4">
         <label htmlFor="node-title" className="block text-xs font-medium text-gray-700 mb-1">Title</label>
         <input
@@ -304,6 +371,35 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         />
       </div>
 
+      {/* Outcome Node Selector */}
+      <div className="mb-4 pb-4 border-b border-gray-200">
+        <Tooltip content="Mark this node as the target outcome for analysis" position="right">
+          <label htmlFor="outcome-toggle" className="flex items-center gap-2 cursor-pointer">
+            <input
+              id="outcome-toggle"
+              type="checkbox"
+              checked={outcomeNodeId === nodeId}
+              onChange={(e) => {
+                setOutcomeNode(e.target.checked ? nodeId : null)
+              }}
+              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              data-testid="toggle-outcome-node"
+            />
+            <span className="text-xs font-medium text-gray-700">
+              Use as Outcome Node
+            </span>
+            {outcomeNodeId === nodeId && (
+              <span className="ml-auto px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+                Target
+              </span>
+            )}
+          </label>
+        </Tooltip>
+        <p className="text-xs text-gray-500 mt-1.5 ml-6">
+          When set, analysis will focus on this node as the target outcome.
+        </p>
+      </div>
+
       {/* Inline Probability Editor */}
       {outgoingEdges.length > 0 && (
         <section
@@ -318,7 +414,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           </Tooltip>
 
           {/* Helper Text */}
-          <p className="text-xs text-gray-600 mb-3" style={{ lineHeight: '1.4' }}>
+          <p className="text-xs text-gray-600 mb-3 leading-snug">
             Auto-balance keeps your ratios, rounds to nice numbers, and totals 100%. Equal split divides the remaining (unlocked) options evenly.
           </p>
 
@@ -333,13 +429,12 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                   <button
                     type="button"
                     onClick={() => toggleLock(row.edgeId)}
-                    className="flex-shrink-0 p-1 rounded hover:bg-gray-100 transition-colors"
+                    className={`flex-shrink-0 p-1 rounded hover:bg-gray-100 transition-colors ${
+                      row.locked ? 'text-info-600' : 'text-gray-400'
+                    }`}
                     aria-label={row.locked ? `Unlock ${row.targetLabel}` : `Lock ${row.targetLabel}`}
                     aria-pressed={row.locked}
                     title={row.locked ? 'Locked' : 'Unlocked'}
-                    style={{
-                      color: row.locked ? 'var(--olumi-primary, #5B6CFF)' : '#9ca3af'
-                    }}
                   >
                     {row.locked ? <Lock size={12} /> : <Unlock size={12} />}
                   </button>
@@ -359,16 +454,12 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                     value={row.percent}
                     disabled={row.locked}
                     onChange={(e) => updatePercent(row.edgeId, parseInt(e.target.value, 10))}
-                    className="flex-1 min-w-0"
+                    className={`flex-1 min-w-0 max-w-[120px] ${row.locked ? 'opacity-50' : 'opacity-100'}`}
                     aria-label={`Probability to ${row.targetLabel}`}
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-valuenow={row.percent}
                     aria-valuetext={`${row.percent}%`}
-                    style={{
-                      opacity: row.locked ? 0.5 : 1,
-                      maxWidth: '120px'
-                    }}
                   />
 
                   {/* Numeric input */}
@@ -385,11 +476,8 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                         updatePercent(row.edgeId, Math.max(0, Math.min(100, val)))
                       }
                     }}
-                    className="w-10 text-xs border border-gray-300 rounded px-1 py-0.5 text-right flex-shrink-0"
+                    className={`w-10 text-xs border border-gray-300 rounded px-1 py-0.5 text-right flex-shrink-0 ${row.locked ? 'opacity-50' : 'opacity-100'}`}
                     aria-label={`${row.targetLabel} percentage`}
-                    style={{
-                      opacity: row.locked ? 0.5 : 1
-                    }}
                   />
                   <span className="text-xs text-gray-500 flex-shrink-0">%</span>
                 </div>
@@ -398,26 +486,20 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           </div>
 
           {/* Total Indicator */}
-          <div className="mb-3 p-2 rounded text-xs" style={{
-            backgroundColor: validation.valid ? 'rgba(76, 175, 80, 0.1)' : 'rgba(247, 201, 72, 0.1)',
-            borderWidth: '1px',
-            borderStyle: 'solid',
-            borderColor: validation.valid ? 'var(--olumi-success, #4CAF50)' : 'var(--olumi-warning, #F7C948)'
-          }}>
+          <div className={`mb-3 p-2 rounded text-xs border ${
+            validation.valid
+              ? 'bg-success-50 border-success-500'
+              : 'bg-warning-50 border-warning-500'
+          }`}>
             <span className="font-medium">Total: {validation.sum}%</span>
             {!validation.valid && <span className="text-gray-600"> (must be 100% ±1%)</span>}
           </div>
 
           {/* Balance Error Banner */}
           {balanceError && (
-            <div className="mb-3 p-2 rounded flex items-start gap-2" role="alert" style={{
-              backgroundColor: 'rgba(247, 201, 72, 0.1)',
-              borderWidth: '1px',
-              borderStyle: 'solid',
-              borderColor: 'var(--olumi-warning, #F7C948)'
-            }}>
-              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: 'var(--olumi-warning, #F7C948)' }} />
-              <p className="text-xs" style={{ color: '#9a6e00' }}>
+            <div className="mb-3 p-2 rounded flex items-start gap-2 bg-warning-50 border border-warning-500" role="alert">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-warning-600" />
+              <p className="text-xs text-warning-900">
                 {balanceError}
               </p>
             </div>
@@ -430,13 +512,11 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 type="button"
                 onClick={handleAutoBalance}
                 disabled={allLocked}
-                className="px-3 py-1.5 text-xs font-medium rounded border transition-colors"
-                style={{
-                  backgroundColor: allLocked ? '#f3f4f6' : '#ffffff',
-                  borderColor: '#d1d5db',
-                  color: allLocked ? '#9ca3af' : '#374151',
-                  cursor: allLocked ? 'not-allowed' : 'pointer'
-                }}
+                className={`px-3 py-1.5 text-xs font-medium rounded border border-gray-300 transition-colors ${
+                  allLocked
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 cursor-pointer'
+                }`}
                 title={allLocked ? "Unlock at least one row" : undefined}
               >
                 Auto-balance
@@ -448,13 +528,11 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
                 type="button"
                 onClick={handleEqualSplit}
                 disabled={allLocked}
-                className="px-3 py-1.5 text-xs font-medium rounded border transition-colors"
-                style={{
-                  backgroundColor: allLocked ? '#f3f4f6' : '#ffffff',
-                  borderColor: '#d1d5db',
-                  color: allLocked ? '#9ca3af' : '#374151',
-                  cursor: allLocked ? 'not-allowed' : 'pointer'
-                }}
+                className={`px-3 py-1.5 text-xs font-medium rounded border border-gray-300 transition-colors ${
+                  allLocked
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 cursor-pointer'
+                }`}
                 title={allLocked ? "Unlock at least one row" : undefined}
               >
                 Equal split
@@ -465,13 +543,11 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               type="button"
               onClick={handleReset}
               disabled={!hasChanges}
-              className="px-3 py-1.5 text-xs font-medium rounded border transition-colors"
-              style={{
-                backgroundColor: hasChanges ? '#ffffff' : '#f3f4f6',
-                borderColor: '#d1d5db',
-                color: hasChanges ? '#374151' : '#9ca3af',
-                cursor: hasChanges ? 'pointer' : 'not-allowed'
-              }}
+              className={`px-3 py-1.5 text-xs font-medium rounded border border-gray-300 transition-colors ${
+                hasChanges
+                  ? 'bg-white text-gray-700 hover:bg-gray-50 cursor-pointer'
+                  : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              }`}
             >
               Reset
             </button>
@@ -482,14 +558,11 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
               type="button"
               onClick={handleApply}
               disabled={!validation.valid || !hasChanges || !!balanceError}
-              className="px-4 py-1.5 text-xs font-medium rounded transition-colors"
-              style={{
-                backgroundColor: (!validation.valid || !hasChanges || !!balanceError)
-                  ? '#d1d5db'
-                  : 'var(--olumi-primary, #5B6CFF)',
-                color: '#ffffff',
-                cursor: (!validation.valid || !hasChanges || !!balanceError) ? 'not-allowed' : 'pointer'
-              }}
+              className={`px-4 py-1.5 text-xs font-medium rounded transition-colors text-white ${
+                (!validation.valid || !hasChanges || !!balanceError)
+                  ? 'bg-gray-300 cursor-not-allowed'
+                  : 'bg-info-500 hover:bg-info-600 cursor-pointer'
+              }`}
               title={
                 balanceError
                   ? "Unlock some rows to fix overflow"

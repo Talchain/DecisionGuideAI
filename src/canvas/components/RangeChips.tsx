@@ -6,9 +6,9 @@
  */
 
 interface RangeChipsProps {
-  conservative: number
-  likely: number
-  optimistic: number
+  conservative: number | null
+  likely: number | null
+  optimistic: number | null
   units?: 'currency' | 'percent' | 'count'
   unitSymbol?: string
 }
@@ -45,72 +45,34 @@ export function RangeChips({ conservative, likely, optimistic, units = 'percent'
 
 interface RangeChipProps {
   label: string
-  value: number
+  value: number | null
   variant: 'conservative' | 'likely' | 'optimistic'
   units: 'currency' | 'percent' | 'count'
   unitSymbol?: string
 }
 
 function RangeChip({ label, value, variant, units, unitSymbol }: RangeChipProps) {
-  const formattedValue = formatValue(value, units, unitSymbol)
+  const formattedValue = value === null ? '—' : formatValue(value, units, unitSymbol)
 
-  const colors = {
-    conservative: {
-      bg: 'rgba(247, 201, 72, 0.15)',
-      border: 'rgba(247, 201, 72, 0.3)',
-      text: 'var(--olumi-warning)'
-    },
-    likely: {
-      bg: 'rgba(91, 108, 255, 0.15)',
-      border: 'rgba(91, 108, 255, 0.4)',
-      text: 'var(--olumi-primary)'
-    },
-    optimistic: {
-      bg: 'rgba(32, 201, 151, 0.15)',
-      border: 'rgba(32, 201, 151, 0.3)',
-      text: 'var(--olumi-success)'
-    }
+  const variantClasses = {
+    conservative: 'bg-yellow-50 border-yellow-200 text-yellow-600',
+    likely: 'bg-info-50 border-info-200 text-info-600',
+    optimistic: 'bg-green-50 border-green-200 text-green-600'
   }
-
-  const color = colors[variant]
 
   return (
     <div
-      className="range-chip"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '0.75rem 1rem',
-        borderRadius: '0.5rem',
-        border: `1px solid ${color.border}`,
-        backgroundColor: color.bg,
-        flex: '1 1 0',
-        minWidth: '100px',
-        cursor: 'default',
-        transition: 'all 0.2s ease'
-      }}
+      className={`
+        flex flex-col items-center flex-1 min-w-[100px] p-3 rounded-lg border cursor-default
+        transition-all duration-200
+        ${variantClasses[variant]}
+      `}
       title={`${label}: ${formattedValue}`}
     >
-      <div
-        style={{
-          fontSize: '1.25rem',
-          fontWeight: 600,
-          color: color.text,
-          marginBottom: '0.25rem'
-        }}
-      >
+      <div className="text-xl font-semibold mb-1">
         {formattedValue}
       </div>
-      <div
-        style={{
-          fontSize: '0.6875rem',
-          fontWeight: 500,
-          color: 'rgba(232, 236, 245, 0.6)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em'
-        }}
-      >
+      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
         {label}
       </div>
     </div>

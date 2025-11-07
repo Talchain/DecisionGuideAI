@@ -54,6 +54,9 @@ export function useBlueprintInsert() {
         data: {
           label: node.label,
           kind: node.kind,
+          body: node.body,           // v1.2: rich description
+          prior: node.prior,         // v1.2: prior probability (0-1)
+          utility: node.utility,     // v1.2: utility value (-1 to +1)
           templateId: blueprint.id,
           templateName: blueprint.name,
           templateCreatedAt
@@ -62,12 +65,12 @@ export function useBlueprintInsert() {
     })
     
     // Create edges with probability labels
-    const newEdges = blueprint.edges.map(edge => {
+    const newEdges = blueprint.edges.map((edge, index) => {
       const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
       const label = pct != null ? `${pct}%` : undefined
       const edgeId = createEdgeId()
-      
-      return {
+
+      const newEdge = {
         id: edgeId,
         type: 'styled',
         source: nodeIdMap.get(edge.from)!,
@@ -78,9 +81,24 @@ export function useBlueprintInsert() {
           weight: edge.weight ?? DEFAULT_EDGE_DATA.weight,
           label,
           confidence: edge.probability,
+          belief: edge.belief ?? edge.probability,  // v1.2: prefer belief, fallback to probability for legacy
+          provenance: edge.provenance,              // v1.2: source tracking
           templateId: blueprint.id
         }
       }
+
+      // Diagnostic: log first edge to verify v1.2 field plumbing (dev only)
+      if (index === 0 && import.meta.env.DEV) {
+        console.log('[EdgeInsert]', {
+          id: newEdge.id,
+          weight: newEdge.data.weight,
+          belief: newEdge.data.belief,
+          provenance: newEdge.data.provenance,
+          confidence: newEdge.data.confidence
+        })
+      }
+
+      return newEdge
     })
     
     // Batch update store

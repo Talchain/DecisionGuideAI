@@ -4,6 +4,7 @@
 
 import type { V1RunRequest } from './types'
 import { V1_LIMITS } from './types'
+import type { CanonicalRun } from '../types'
 
 export interface ReactFlowNode {
   id: string
@@ -22,6 +23,8 @@ export interface ReactFlowEdge {
   data?: {
     confidence?: number
     weight?: number
+    belief?: number              // v1.2: epistemic confidence (0-1)
+    provenance?: string          // v1.2: source tracking
     [key: string]: unknown
   }
   [key: string]: unknown
@@ -141,15 +144,37 @@ export function graphToV1Request(
 
   return {
     graph: {
-      nodes: graph.nodes.map((n) => ({
-        id: n.id,
-        label: n.data?.label?.substring(0, V1_LIMITS.MAX_LABEL_LENGTH),
-        body: n.data?.body?.substring(0, V1_LIMITS.MAX_BODY_LENGTH),
-      })),
+      nodes: graph.nodes.map((n) => {
+        const node: any = {
+          id: n.id,
+          label: n.data?.label?.substring(0, V1_LIMITS.MAX_LABEL_LENGTH),
+          body: n.data?.body?.substring(0, V1_LIMITS.MAX_BODY_LENGTH),
+        }
+
+        // v1.2: preserve optional fields
+        if (n.data?.kind) {
+          node.kind = n.data.kind
+        }
+        if (n.data?.prior !== undefined) {
+          // Clamp to 0-1 range
+          node.prior = Math.max(0, Math.min(1, n.data.prior))
+        }
+        if (n.data?.utility !== undefined) {
+          // Clamp to -1..+1 range
+          node.utility = Math.max(-1, Math.min(1, n.data.utility))
+        }
+
+        return node
+      }),
       edges: graph.edges.map((e) => {
         const edge: any = {
           from: e.source,
           to: e.target,
+        }
+
+        // v1.2: preserve server-assigned stable ID
+        if (e.id) {
+          edge.id = e.id
         }
 
         // Normalize confidence: if > 1, assume it's a percentage
@@ -162,7 +187,7 @@ export function graphToV1Request(
           edge.weight = e.data.weight
         }
 
-        // P1B API metadata: belief and provenance
+        // v1.2: belief and provenance
         if (e.data?.belief !== undefined) {
           // Clamp to 0-1 range
           edge.belief = Math.max(0, Math.min(1, e.data.belief))
@@ -211,4 +236,49 @@ export function computeClientHash(graph: ReactFlowGraph, seed?: number): string 
   }
 
   return (hash >>> 0).toString(16)
+}
+
+/**
+ * Normalize v1.2 run response to canonical format
+ * Handles both legacy (results.*.outcome) and v1.2 (result.summary.*) formats
+ */
+export function toCanonicalRun(res: any): CanonicalRun {
+  // Extract bands - prefer v1.2 format, fallback to legacy
+  const p10 = res?.result?.summary?.p10 ?? res?.results?.conservative?.outcome ?? null
+  const p50 = res?.result?.summary?.p50 ?? res?.results?.most_likely?.outcome ?? null
+  const p90 = res?.result?.summary?.p90 ?? res?.results?.optimistic?.outcome ?? null
+
+  // Extract response hash - prefer v1.2 location
+  const responseHash = res?.result?.response_hash ?? res?.model_card?.response_hash ?? ''
+
+  // Extract confidence if present
+  const confidence = res?.confidence
+    ? {
+        level: res.confidence.level,
+        reason: res.confidence.reason ?? res.confidence.why,
+        score: res.confidence.score,
+      }
+    : undefined
+
+  // Extract critique if present (skip empty arrays)
+  const critique = Array.isArray(res?.critique) && res.critique.length > 0
+    ? res.critique.map((c: any) => ({
+        severity: c.severity as 'INFO' | 'WARNING' | 'BLOCKER',
+        message: c.message,
+      }))
+    : undefined
+
+  const canonicalRun: CanonicalRun = {
+    responseHash,
+    bands: { p10, p50, p90 },
+    confidence,
+    critique,
+  }
+
+  // Dev-only diagnostic logging
+  if (import.meta.env.DEV) {
+    console.debug('[Run] canonical', canonicalRun)
+  }
+
+  return canonicalRun
 }

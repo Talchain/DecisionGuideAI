@@ -123,6 +123,123 @@ test.describe('Unified Panel Design', () => {
     })
   })
 
+  test.describe('Results Panel - Compare Tab', () => {
+    test('should switch to Compare tab with Cmd/Ctrl+3', async ({ page }) => {
+      // Trigger Run to open Results panel
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+
+      // Wait for Results panel to open
+      await page.waitForTimeout(1000)
+
+      // Press Cmd/Ctrl+3 to switch to Compare tab
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Digit3' : 'Control+Digit3')
+
+      // Compare tab should be active
+      const compareTab = page.locator('button', { hasText: 'Compare' })
+      await expect(compareTab).toHaveClass(/border-blue-600/)
+    })
+
+    test('should show Compare heading when tab is active', async ({ page }) => {
+      // Trigger Run and switch to Compare
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+      await page.waitForTimeout(1000)
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Digit3' : 'Control+Digit3')
+
+      // Should show Compare Runs heading
+      await expect(page.locator('text=Compare Runs')).toBeVisible()
+    })
+
+    test('should show empty state when no runs selected', async ({ page }) => {
+      // Trigger Run and switch to Compare
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+      await page.waitForTimeout(1000)
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Digit3' : 'Control+Digit3')
+
+      // Should show empty state message
+      await expect(page.locator('text=Select two runs to compare')).toBeVisible()
+    })
+
+    test('should show run selectors for A and B', async ({ page }) => {
+      // Trigger Run and switch to Compare
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+      await page.waitForTimeout(1000)
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Digit3' : 'Control+Digit3')
+
+      // Should show Run A and Run B labels
+      await expect(page.locator('text=Run A')).toBeVisible()
+      await expect(page.locator('text=Run B')).toBeVisible()
+
+      // Should show select dropdowns
+      const selects = page.locator('select')
+      await expect(selects).toHaveCount(2)
+    })
+
+    test('should have Back button to return to Latest Run', async ({ page }) => {
+      // Trigger Run and switch to Compare
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+      await page.waitForTimeout(1000)
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Digit3' : 'Control+Digit3')
+
+      // Should show Back button
+      const backButton = page.locator('button', { hasText: /back to results/i })
+      await expect(backButton).toBeVisible()
+
+      // Click Back button
+      await backButton.click()
+
+      // Should return to Latest tab
+      await expect(page.locator('text=Compare Runs')).not.toBeVisible()
+      const latestTab = page.locator('button', { hasText: 'Latest' })
+      await expect(latestTab).toHaveClass(/border-blue-600/)
+    })
+
+    test('should persist Compare tab when switching away and back', async ({ page }) => {
+      // Trigger Run and switch to Compare
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+      await page.waitForTimeout(1000)
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Digit3' : 'Control+Digit3')
+      await expect(page.locator('text=Compare Runs')).toBeVisible()
+
+      // Switch to Latest tab
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Digit1' : 'Control+Digit1')
+      await expect(page.locator('text=Compare Runs')).not.toBeVisible()
+
+      // Switch back to Compare tab
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Digit3' : 'Control+Digit3')
+      await expect(page.locator('text=Compare Runs')).toBeVisible()
+    })
+
+    test('should have accessible ARIA labels for Compare elements', async ({ page }) => {
+      // Trigger Run and switch to Compare
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+      await page.waitForTimeout(1000)
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Digit3' : 'Control+Digit3')
+
+      // Check heading has proper role
+      const heading = page.locator('h2', { hasText: 'Compare Runs' })
+      await expect(heading).toBeVisible()
+
+      // Check dropdowns have labels
+      await expect(page.locator('label', { hasText: 'Run A' })).toBeVisible()
+      await expect(page.locator('label', { hasText: 'Run B' })).toBeVisible()
+    })
+
+    test('should handle keyboard navigation in Compare tab', async ({ page }) => {
+      // Trigger Run and switch to Compare
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
+      await page.waitForTimeout(1000)
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Digit3' : 'Control+Digit3')
+
+      // Tab should navigate through interactive elements
+      await page.keyboard.press('Tab')
+      await page.waitForTimeout(100)
+
+      // Should focus on Back button or first dropdown
+      const focusedElement = await page.evaluate(() => document.activeElement?.tagName)
+      expect(['BUTTON', 'SELECT'].includes(focusedElement)).toBe(true)
+    })
+  })
+
   test.describe('Panel Responsiveness', () => {
     test('should render panel with correct width on desktop', async ({ page }) => {
       // Open Templates panel

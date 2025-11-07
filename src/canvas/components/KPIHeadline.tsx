@@ -6,14 +6,14 @@
  */
 
 interface KPIHeadlineProps {
-  value: number
+  value: number | null
   label: string
   units?: 'currency' | 'percent' | 'count'
   unitSymbol?: string
 }
 
 export function KPIHeadline({ value, label, units = 'percent', unitSymbol }: KPIHeadlineProps) {
-  const formattedValue = formatValue(value, units, unitSymbol)
+  const formattedValue = value === null ? '—' : formatValue(value, units, unitSymbol)
 
   return (
     <div className="kpi-headline-container">
@@ -23,7 +23,7 @@ export function KPIHeadline({ value, label, units = 'percent', unitSymbol }: KPI
           fontSize: '3.5rem',
           fontWeight: 700,
           lineHeight: 1.1,
-          color: 'var(--olumi-text)',
+          color: 'var(--text-primary)',
           marginBottom: '0.5rem'
         }}
       >

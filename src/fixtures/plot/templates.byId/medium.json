@@ -1,0 +1,22 @@
+{
+  "id": "medium",
+  "name": "Medium Demo",
+  "version": "1.0",
+  "description": "Mid-size decision tree",
+  "default_seed": 1337,
+  "graph": {
+    "nodes": [
+      { "id": "decision", "kind": "decision", "label": "Make decision" },
+      { "id": "opt1", "kind": "option", "label": "Option 1" },
+      { "id": "opt2", "kind": "option", "label": "Option 2" },
+      { "id": "outcome1", "kind": "outcome", "label": "Outcome 1" },
+      { "id": "outcome2", "kind": "outcome", "label": "Outcome 2" }
+    ],
+    "edges": [
+      { "source": "decision", "target": "opt1", "weight": 0.6 },
+      { "source": "decision", "target": "opt2", "weight": 0.4 },
+      { "source": "opt1", "target": "outcome1", "weight": 0.7 },
+      { "source": "opt2", "target": "outcome2", "weight": 0.8 }
+    ]
+  }
+}

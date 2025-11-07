@@ -32,6 +32,7 @@ export interface ReportV1 {
     edge_id?: string // For canvas highlighting
   }>
   critique?: string[]
+  run?: CanonicalRun // v1.2: normalized run data with p10/p50/p90 bands
 }
 
 export interface ErrorV1 {
@@ -49,6 +50,7 @@ export interface ErrorV1 {
 export interface LimitsV1 {
   nodes: { max: number }
   edges: { max: number }
+  engine_p95_ms_budget?: number // v1.2: p95 execution time budget in milliseconds
 }
 
 export interface TemplateSummary {
@@ -70,6 +72,8 @@ export interface TemplateListV1 {
 export interface RunRequest {
   template_id: string
   seed?: number
+  outcome_node?: string  // Target outcome node for analysis
+  include_debug?: boolean  // Include debug metadata in response
   mode?: 'strict' | 'real'
   inputs?: Record<string, unknown>
   graph?: {
@@ -84,3 +88,14 @@ export type StreamEvent =
   | { type: 'reconnected'; data: { attempt: number } }
   | { type: 'done'; data: { response_id: string } }
   | { type: 'error'; data: ErrorV1 }
+
+/**
+ * Canonical run result structure for v1.2
+ * Normalizes both legacy and v1.2 response formats
+ */
+export type CanonicalRun = {
+  responseHash: string
+  bands: { p10: number | null; p50: number | null; p90: number | null }
+  confidence?: { level?: string; reason?: string; score?: number }
+  critique?: Array<{ severity: 'INFO' | 'WARNING' | 'BLOCKER'; message: string }>
+}

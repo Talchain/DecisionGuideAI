@@ -14,69 +14,36 @@ export function ConfidenceBadge({ level, reason }: ConfidenceBadgeProps) {
   const config = {
     low: {
       label: 'Low Confidence',
-      bg: 'rgba(255, 107, 107, 0.15)',
-      border: 'rgba(255, 107, 107, 0.3)',
-      text: 'var(--olumi-danger)',
+      classes: 'bg-red-50 border-red-200 text-red-600',
       icon: '⚠️'
     },
     medium: {
       label: 'Medium Confidence',
-      bg: 'rgba(247, 201, 72, 0.15)',
-      border: 'rgba(247, 201, 72, 0.3)',
-      text: 'var(--olumi-warning)',
+      classes: 'bg-yellow-50 border-yellow-200 text-yellow-600',
       icon: '📊'
     },
     high: {
       label: 'High Confidence',
-      bg: 'rgba(32, 201, 151, 0.15)',
-      border: 'rgba(32, 201, 151, 0.3)',
-      text: 'var(--olumi-success)',
+      classes: 'bg-green-50 border-green-200 text-green-600',
       icon: '✓'
     }
   }
 
-  const { label, bg, border, text, icon } = config[level]
+  const { label, classes, icon } = config[level]
 
   return (
     <div
-      className="confidence-badge"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        padding: '0.5rem 0.875rem',
-        borderRadius: '0.375rem',
-        border: `1px solid ${border}`,
-        backgroundColor: bg,
-        cursor: 'default'
-      }}
+      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-md border cursor-default ${classes}`}
       title={reason}
     >
-      <span
-        style={{
-          fontSize: '1rem',
-          lineHeight: 1
-        }}
-      >
+      <span className="text-base leading-none">
         {icon}
       </span>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
-        <div
-          style={{
-            fontSize: '0.875rem',
-            fontWeight: 600,
-            color: text
-          }}
-        >
+      <div className="flex flex-col gap-0.5">
+        <div className="text-sm font-semibold">
           {label}
         </div>
-        <div
-          style={{
-            fontSize: '0.75rem',
-            color: 'rgba(232, 236, 245, 0.7)',
-            lineHeight: 1.3
-          }}
-        >
+        <div className="text-xs text-gray-400 leading-tight">
           {reason}
         </div>
       </div>

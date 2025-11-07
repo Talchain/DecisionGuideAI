@@ -19,13 +19,20 @@ export const NodeTypeEnum = z.enum(['goal', 'decision', 'option', 'risk', 'outco
 export type NodeType = z.infer<typeof NodeTypeEnum>
 
 /**
- * Base node data schema (v2)
+ * Base node data schema (v3)
  * All nodes share: label, type, optional description
+ * v3 adds v1.2 API fields: kind, prior, utility, body
  */
 export const NodeDataSchema = z.object({
   label: z.string().min(1).max(100),
   type: z.string().default('decision'), // Will be refined by NodeTypeEnum
   description: z.string().max(500).optional(),
+
+  // v1.2 API fields (optional, for backend interop)
+  kind: z.enum(['decision', 'option', 'outcome']).optional(), // Backend node classification
+  prior: z.number().min(0).max(1).optional(), // Probability (0..1)
+  utility: z.number().min(-1).max(1).optional(), // Relative payoff (-1..+1)
+  body: z.string().max(2000).optional(), // Longer text (distinct from description)
 })
 
 /**
