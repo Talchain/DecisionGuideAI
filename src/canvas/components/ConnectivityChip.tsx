@@ -11,7 +11,7 @@
 
 import { useEffect, useState } from 'react'
 import { Wifi, WifiOff, AlertTriangle, HelpCircle } from 'lucide-react'
-import { getProbeStatus, reprobeCapability, type ProbeResult } from '../../adapters/plot/v1/probe'
+import { probeCapability, clearProbeCache, type ProbeResult } from '../../adapters/plot/v1/probe'
 
 export type ConnectivityStatus = 'ok' | 'degraded' | 'offline' | 'unknown'
 
@@ -29,7 +29,7 @@ export function ConnectivityChip({ className = '', showLabel = true, onStatusCha
   const checkConnectivity = async () => {
     setIsLoading(true)
     try {
-      const probe = await getProbeStatus()
+      const probe = await probeCapability()
       const newStatus = computeStatus(probe)
       setStatus(newStatus)
       setLastChecked(new Date())
@@ -50,7 +50,7 @@ export function ConnectivityChip({ className = '', showLabel = true, onStatusCha
   const handleReprobe = async () => {
     setIsLoading(true)
     try {
-      await reprobeCapability()
+      clearProbeCache()
       await checkConnectivity()
     } catch (err) {
       console.error('[ConnectivityChip] Reprobe failed:', err)

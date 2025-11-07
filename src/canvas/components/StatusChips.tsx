@@ -1,9 +1,10 @@
 /**
  * Status chips showing engine limits and p95 budget (v1.2)
  * Displays nodes/edges caps and execution time budget
+ * Shows warning chip when limits endpoint is unavailable
  */
 
-import { Box, GitBranch, Clock } from 'lucide-react'
+import { Box, GitBranch, Clock, AlertTriangle } from 'lucide-react'
 import { useEngineLimits } from '../hooks/useEngineLimits'
 
 interface StatusChipsProps {
@@ -13,7 +14,23 @@ interface StatusChipsProps {
 }
 
 export function StatusChips({ currentNodes = 0, currentEdges = 0, className = '' }: StatusChipsProps) {
-  const { limits, loading } = useEngineLimits()
+  const { limits, loading, error, retry } = useEngineLimits()
+
+  // Show warning chip when limits unavailable
+  if (error) {
+    return (
+      <div className={`flex items-center gap-2 ${className}`} role="alert" aria-label="Limits unavailable">
+        <button
+          onClick={retry}
+          className="flex items-center gap-1.5 px-2 py-1 rounded border text-xs font-medium text-warning-700 bg-warning-50 border-warning-200 hover:bg-warning-100 transition-colors cursor-pointer"
+          title={`Failed to load limits: ${error.message}\nClick to retry`}
+        >
+          <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Limits Unavailable</span>
+        </button>
+      </div>
+    )
+  }
 
   if (loading || !limits) return null
 
