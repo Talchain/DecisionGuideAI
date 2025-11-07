@@ -336,7 +336,12 @@ export const httpV1Adapter = {
         fetchedAt,
       }
     } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err))
+      // Handle V1Error objects (have code/message) and Error instances
+      const error = err instanceof Error
+        ? err
+        : (err as V1Error).message
+          ? new Error((err as V1Error).message)
+          : new Error(String(err))
 
       // DEV: may return fallback with clear reason
       if (import.meta.env.DEV) {
