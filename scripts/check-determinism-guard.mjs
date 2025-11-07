@@ -12,7 +12,6 @@
  *   VITE_STRICT_DETERMINISM=true node scripts/check-determinism-guard.mjs
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'fs'
 import { createHash } from 'crypto'
 
 const STRICT_MODE = process.env.VITE_STRICT_DETERMINISM === 'true'
@@ -74,38 +73,11 @@ function main() {
 
   console.log('✅ Build Guard: All checks passed')
 
-  // Inject build contract banner
-  try {
-    injectBuildContract()
-    console.log('✅ Build contract banner injected')
-  } catch (err) {
-    console.error('❌ Failed to inject build contract banner:', err.message)
-    return 2
-  }
-
-  console.log('\n✅ Build Guard: SUCCESS - safe to proceed with build\n')
-  return 0
-}
-
-/**
- * Inject __BUILD_CONTRACT__ banner into index.html for provenance tracking
- * This helps with reproducing issues by knowing exact build configuration
- */
-function injectBuildContract() {
-  const indexPath = './index.html'
-
-  if (!existsSync(indexPath)) {
-    throw new Error(`index.html not found at ${indexPath}`)
-  }
-
-  // Generate contract hash from:
-  // - OpenAPI v1.2 spec hash (placeholder - should be actual spec file)
-  // - Adapter versions
-  // - Build timestamp
+  // Generate build contract hash for logging
   const contractData = {
     timestamp: new Date().toISOString(),
     api_version: '1.2',
-    adapter_version: '1.0.0', // TODO: Read from package.json or adapter file
+    adapter_version: '1.0.0',
     build_mode: 'strict_determinism',
     node_version: process.version,
   }
@@ -115,33 +87,38 @@ function injectBuildContract() {
     .digest('hex')
     .slice(0, 16)
 
-  const banner = `
-  <!--
-    __BUILD_CONTRACT__: ${contractHash}
-    Deterministic build - created ${contractData.timestamp}
-    PLoT API: ${contractData.api_version}
-    Adapter: ${contractData.adapter_version}
-    Node: ${contractData.node_version}
-  -->
-  `
+  console.log(`\n📋 Build Contract: ${contractHash}`)
+  console.log(`   API: ${contractData.api_version} | Adapter: ${contractData.adapter_version}`)
+  console.log(`   Timestamp: ${contractData.timestamp}`)
+  console.log(`   Node: ${contractData.node_version}`)
+  console.log('\nℹ️  Note: To inject __BUILD_CONTRACT__ banner into dist/index.html, use a post-build script')
+  console.log('   or configure Vite to inject via html.transformIndexHtml hook\n')
 
-  let html = readFileSync(indexPath, 'utf-8')
-
-  // Check if banner already exists
-  if (html.includes('__BUILD_CONTRACT__')) {
-    console.log('[Build Guard] Build contract banner already present, updating...')
-    // Replace existing banner
-    html = html.replace(
-      /<!--\s*__BUILD_CONTRACT__:.*?-->/s,
-      banner
-    )
-  } else {
-    // Insert banner after <head>
-    html = html.replace('<head>', `<head>${banner}`)
-  }
-
-  writeFileSync(indexPath, html, 'utf-8')
+  console.log('✅ Build Guard: SUCCESS - safe to proceed with build\n')
+  return 0
 }
+
+/**
+ * Future: Inject __BUILD_CONTRACT__ banner via Vite plugin
+ *
+ * Example Vite config (vite.config.ts):
+ *
+ * export default defineConfig({
+ *   plugins: [
+ *     {
+ *       name: 'inject-build-contract',
+ *       transformIndexHtml(html) {
+ *         if (process.env.VITE_STRICT_DETERMINISM !== 'true') return html
+ *         const contractHash = generateContractHash()
+ *         return html.replace(
+ *           '<head>',
+ *           `<head><!-- __BUILD_CONTRACT__: ${contractHash} -->`
+ *         )
+ *       }
+ *     }
+ *   ]
+ * })
+ */
 
 // Run and exit with appropriate code
 const exitCode = main()

@@ -57,6 +57,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const [showCommandPalette, setShowCommandPalette] = useState(false)
   const [showCheatsheet, setShowCheatsheet] = useState(false)
   const [showKeyboardMap, setShowKeyboardMap] = useState(false)
+  const [showEmptyState, setShowEmptyState] = useState(true)
   const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
   const showInspectorPanel = useCanvasStore(s => s.showInspectorPanel)
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
@@ -180,12 +181,13 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     setShowResultsPanel(true)
 
     // Run analysis with canvas graph
-    // TODO: Convert canvas graph to template format for RunRequest
     await runAnalysis({
-      template_id: 'canvas',
-      seed: 1337
+      template_id: 'canvas-graph',
+      seed: 1337,
+      graph: { nodes: store.nodes, edges: store.edges },
+      outcome_node: store.outcomeNodeId || undefined
     })
-  }, [showToast, runAnalysis])
+  }, [showToast, runAnalysis, setShowResultsPanel])
 
   // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, ?)
   useCanvasKeyboardShortcuts({
