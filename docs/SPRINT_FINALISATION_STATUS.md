@@ -75,17 +75,69 @@ From the comprehensive fix pack brief, **Task Group A (Limits Visibility)** and 
 
 ---
 
+## ✅ Priority Pack Completion (Continuation Session 2025-11-07)
+
+### Priority 1 - Tests for Limits Adapter & Hook (COMPLETE)
+
+**Status:** ✅ ALL COMPLETE (48/48 tests passing)
+
+**1A: Adapter Unit Tests** (`httpV1Adapter.limits.spec.ts`) - 11 tests
+- Live endpoint success → `{ok: true, source: 'live', data, fetchedAt}`
+- DEV mode failure → `{ok: true, source: 'fallback', data, reason, fetchedAt}`
+- PROD mode failure → `{ok: false, error, fetchedAt}`
+- Error message extraction from V1Error objects
+- Timestamp monotonicity across retries
+
+**1B: Hook Integration Tests** (`useEngineLimits.spec.ts`) - 12 tests
+- Initial live fetch on mount
+- Exponential backoff retry (3 attempts: 0s, 2s, 5s delays)
+- Manual retry() function triggers re-fetch
+- Tab visibility change auto-refresh
+- DEV fallback mode with console warnings
+- Error handling after all retries
+
+**1C: StatusChips Component Tests** (`StatusChips.spec.tsx`) - 25 tests
+- Live state: nodes/edges/p95 chips with live data
+- Fallback state: yellow "Fallback" chip with retry
+- Error state: red "Limits Unavailable" with retry
+- Loading states
+- Color coding: gray (<70%), warning (70-89%), danger (≥90%)
+- Tooltips with source + timestamp
+- Accessibility (roles, aria-labels)
+
+**Bug Fix Discovered:**
+- Fixed V1Error message extraction in adapter (was `[object Object]`)
+- Now properly extracts `.message` property from error objects
+
+### Priority 2 - ConnectivityChip Offline Detection (COMPLETE)
+
+**Status:** ✅ ALL COMPLETE (25/25 tests passing + enhancements)
+
+**2E & 2F: Offline Detection Enhancement**
+- Added `navigator.onLine` check to distinguish true offline vs errors
+- `offline`: navigator.onLine === false (network disconnected)
+- `unknown`: Probe fails but onLine === true (server/proxy error)
+- Applied to both initial check and reprobe functions
+
+**2G: Component Tests** (`ConnectivityChip.spec.tsx`) - 25 tests
+- navigator.onLine detection (offline vs error distinction)
+- Probe success states (ok/degraded/offline)
+- Reprobe functionality with cache clearing
+- Tooltips with timestamps
+- Status callbacks
+- Accessibility
+- Color coding
+
 ## ⏸️ Deferred Work
 
-### Task Group B: Connectivity - Explicit States
+### Task Group B: Connectivity - COMPLETED in Priority Pack
 
-**Scope:** Enhance ConnectivityChip with explicit offline/error states.
+**Status:** ✅ COMPLETED (see Priority 2 above)
 
-**Status:** NOT IMPLEMENTED
-
-**Reason:** Time/scope constraints. Current implementation is functional.
-
-**Recommendation:** Schedule for future sprint if needed.
+**Previously deferred, now complete:**
+- Enhanced ConnectivityChip with explicit offline/error states
+- Added navigator.onLine detection
+- Comprehensive test coverage (25/25 tests)
 
 ---
 
@@ -120,17 +172,46 @@ From the comprehensive fix pack brief, **Task Group A (Limits Visibility)** and 
 
 ### Unit Test Coverage
 
-**Deferred Tests:**
-- `httpV1Adapter.limits.spec.ts` - Adapter fallback behavior
-- `useEngineLimits.integration.spec.ts` - Hook retry logic
-- `ConnectivityChip.spec.tsx` - Component states
-- Playwright E2E: `limits-fallback.e2e.ts`, `connectivity-offline.e2e.ts`
+**✅ COMPLETE - Priority Pack Tests (Continuation Session 2025-11-07):**
 
-**Reason:** Core functionality working, tests can be added incrementally.
+**Priority 1 - Limits Tests (48 tests):**
+- ✅ `httpV1Adapter.limits.spec.ts` - 11/11 tests passing
+  - Live success, DEV fallback, PROD error modes
+  - LimitsFetch contract validation
+  - Error message extraction from V1Error objects
+  - Timestamp monotonicity
 
-**Current Coverage:**
+- ✅ `useEngineLimits.spec.ts` - 12/12 tests passing
+  - Initial live fetch
+  - Exponential backoff retry (0s, 2s, 5s delays)
+  - Manual retry() function
+  - Tab visibility refresh
+  - DEV fallback mode
+  - Error handling after retries
+
+- ✅ `StatusChips.spec.tsx` - 25/25 tests passing
+  - Live/fallback/error states
+  - Color coding (gray/warning/danger)
+  - Tooltips with source + timestamp
+  - Retry click handlers
+  - Accessibility (roles, aria-labels)
+  - Loading states
+
+**Priority 2 - Connectivity Tests (25 tests):**
+- ✅ `ConnectivityChip.spec.tsx` - 25/25 tests passing
+  - navigator.onLine detection (offline vs error)
+  - Probe success (ok/degraded/offline)
+  - Reprobe with cache clearing
+  - Tooltips with timestamps
+  - Status callbacks
+  - Accessibility
+  - Color coding
+
+**Previous Tests:**
 - ✅ errorTaxonomy: 15/15 tests passing
 - ✅ ESLint rule: 8/8 tests passing
+
+**Total Test Coverage: 96 tests passing**
 
 ---
 
@@ -156,13 +237,13 @@ From the comprehensive fix pack brief, **Task Group A (Limits Visibility)** and 
    - Custom ESLint rules
 
 **Quality Gates Passing:**
-- ✅ TypeScript compilation
-- ✅ ESLint (custom rules)
-- ✅ Unit tests (23 tests)
-- ✅ Build verification (19m 12s)
+- ✅ TypeScript compilation (continuation session)
+- ✅ ESLint (pre-existing issues only, no new violations)
+- ✅ Unit tests (96 tests passing - 73 new + 23 previous)
+- ✅ Build verification (19m 12s - previous session)
 - ✅ Bundle size measurement (~751 KB gzipped total)
-- ⏸️ Axe audit
-- ⏸️ E2E tests
+- ⏸️ Axe audit (deferred)
+- ⏸️ E2E tests (deferred)
 
 ### ⚠️ Recommended Before Full Production
 
