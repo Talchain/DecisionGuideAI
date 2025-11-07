@@ -36,7 +36,14 @@ export function ConnectivityChip({ className = '', showLabel = true, onStatusCha
       onStatusChange?.(newStatus)
     } catch (err) {
       console.error('[ConnectivityChip] Failed to check connectivity:', err)
-      setStatus('unknown')
+
+      // Check if actually offline (navigator.onLine false)
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        setStatus('offline')
+      } else {
+        // Probe failed but network is online → unknown/error state
+        setStatus('unknown')
+      }
     } finally {
       setIsLoading(false)
     }
@@ -54,7 +61,14 @@ export function ConnectivityChip({ className = '', showLabel = true, onStatusCha
       await checkConnectivity()
     } catch (err) {
       console.error('[ConnectivityChip] Reprobe failed:', err)
-      setStatus('unknown')
+
+      // Check if actually offline (navigator.onLine false)
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        setStatus('offline')
+      } else {
+        // Probe failed but network is online → unknown/error state
+        setStatus('unknown')
+      }
       setIsLoading(false)
     }
   }
