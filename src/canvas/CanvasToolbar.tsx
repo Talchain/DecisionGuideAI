@@ -37,6 +37,9 @@ export function CanvasToolbar() {
   const { showToast } = useToast()
   const { limits } = useEngineLimits() // v1.2: Shared limits hook
 
+  // v1.2: Check if node capacity is reached
+  const isAtNodeCapacity = limits && nodes.length >= limits.nodes.max
+
   // Close node menu on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
