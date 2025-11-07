@@ -1,53 +1,119 @@
 /**
- * Engine Limits Hook (Sprint 2)
+ * Engine Limits Hook (Sprint 1 & 2 Finalisation)
  *
  * Provides a centralized way to fetch and access engine capacity limits.
  * Replaces duplicated plot.limits() calls across CanvasToolbar, ReactFlowGraph,
  * and useBlueprintInsert.
  *
- * Returns error state so consumers can surface limits unavailability to operators.
+ * Features:
+ * - Returns error state so consumers can surface limits unavailability
+ * - Exposes source ('live' | 'fallback' | null) to prevent silent masking
+ * - Implements exponential backoff retry (3 attempts: 0s, 2s, 5s)
+ * - Refreshes on tab visibility change
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { plot } from '../../adapters/plot'
-import type { LimitsV1 } from '../../adapters/plot/types'
+import type { LimitsV1, LimitsFetch } from '../../adapters/plot/types'
 
 export interface UseEngineLimitsReturn {
   limits: LimitsV1 | null
+  source: 'live' | 'fallback' | null
   loading: boolean
   error: Error | null
+  fetchedAt: number | null
   /** Retry fetching limits (useful for manual refresh) */
   retry: () => void
 }
 
+const RETRY_DELAYS = [0, 2000, 5000] // Exponential backoff: immediate, 2s, 5s
+
 export function useEngineLimits(): UseEngineLimitsReturn {
   const [limits, setLimits] = useState<LimitsV1 | null>(null)
+  const [source, setSource] = useState<'live' | 'fallback' | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const [fetchedAt, setFetchedAt] = useState<number | null>(null)
 
-  const fetchLimits = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const adapter = plot as any
-      if (adapter.limits && typeof adapter.limits === 'function') {
-        const result = await adapter.limits()
-        setLimits(result)
-      } else {
-        throw new Error('Limits endpoint not available')
-      }
-    } catch (err) {
-      console.warn('[useEngineLimits] Failed to fetch limits:', err)
-      setError(err instanceof Error ? err : new Error(String(err)))
-      setLimits(null)
-    } finally {
+  const fetchLimitsWithRetry = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+
+    const adapter = plot as any
+    if (!adapter.limits || typeof adapter.limits !== 'function') {
+      const err = new Error('Limits endpoint not available in adapter')
+      setError(err)
       setLoading(false)
+      return
     }
-  }
 
-  useEffect(() => {
-    fetchLimits()
+    // Retry with exponential backoff
+    for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
+      if (attempt > 0) {
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS[attempt]))
+      }
+
+      try {
+        const result: LimitsFetch = await adapter.limits()
+
+        if (result.ok) {
+          setLimits(result.data)
+          setSource(result.source)
+          setFetchedAt(result.fetchedAt)
+          setError(null)
+
+          if (import.meta.env.DEV && result.source === 'fallback') {
+            console.warn('[useEngineLimits] Using fallback limits:', (result as any).reason)
+          }
+
+          setLoading(false)
+          return // Success
+        } else {
+          // Error result
+          if (attempt === RETRY_DELAYS.length - 1) {
+            // Final attempt failed
+            setError(result.error)
+            setLimits(null)
+            setSource(null)
+            setFetchedAt(result.fetchedAt)
+          }
+          // Continue to next retry
+        }
+      } catch (err) {
+        if (attempt === RETRY_DELAYS.length - 1) {
+          // Final attempt failed
+          const error = err instanceof Error ? err : new Error(String(err))
+          console.warn('[useEngineLimits] Failed after', RETRY_DELAYS.length, 'attempts:', error)
+          setError(error)
+          setLimits(null)
+          setSource(null)
+        }
+        // Continue to next retry
+      }
+    }
+
+    setLoading(false)
   }, [])
 
-  return { limits, loading, error, retry: fetchLimits }
+  // Initial fetch on mount
+  useEffect(() => {
+    fetchLimitsWithRetry()
+  }, [fetchLimitsWithRetry])
+
+  // Refresh on tab visibility change
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && !loading) {
+        if (import.meta.env.DEV) {
+          console.log('[useEngineLimits] Tab became visible, refreshing limits...')
+        }
+        fetchLimitsWithRetry()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [loading, fetchLimitsWithRetry])
+
+  return { limits, source, loading, error, fetchedAt, retry: fetchLimitsWithRetry }
 }

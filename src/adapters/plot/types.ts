@@ -53,6 +53,15 @@ export interface LimitsV1 {
   engine_p95_ms_budget?: number // v1.2: p95 execution time budget in milliseconds
 }
 
+/**
+ * Limits fetch result (Sprint 1 & 2 Finalisation)
+ * Exposes source tracking to prevent silent fallback masking
+ */
+export type LimitsFetch =
+  | { ok: true; source: 'live'; data: LimitsV1; fetchedAt: number }
+  | { ok: true; source: 'fallback'; data: LimitsV1; fetchedAt: number; reason: string }
+  | { ok: false; error: Error; fetchedAt: number }
+
 export interface TemplateSummary {
   id: string
   name: string

@@ -8,6 +8,7 @@ import type {
   ReportV1,
   ErrorV1,
   LimitsV1,
+  LimitsFetch,
   TemplateSummary,
   TemplateDetail,
   TemplateListV1,
@@ -317,18 +318,49 @@ export const httpV1Adapter = {
   },
 
   // Limits (fetch from live endpoint for v1.2 engine_p95_ms_budget)
-  async limits(): Promise<LimitsV1> {
+  // Returns structured payload to expose fallback vs outage
+  async limits(): Promise<LimitsFetch> {
+    const fetchedAt = Date.now()
+
     try {
       const response = await v1http.limits()
-      return response
-    } catch (err) {
-      // Fallback to constants if endpoint not available
+
       if (import.meta.env.DEV) {
-        console.warn('[httpV1] /v1/limits failed, using local constants')
+        console.log('[httpV1] /v1/limits succeeded (live)')
       }
+
       return {
-        nodes: { max: V1_LIMITS.MAX_NODES },
-        edges: { max: V1_LIMITS.MAX_EDGES },
+        ok: true,
+        source: 'live',
+        data: response,
+        fetchedAt,
+      }
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err))
+
+      // DEV: may return fallback with clear reason
+      if (import.meta.env.DEV) {
+        console.warn('[httpV1] /v1/limits failed, using fallback constants:', error.message)
+
+        return {
+          ok: true,
+          source: 'fallback',
+          data: {
+            nodes: { max: V1_LIMITS.MAX_NODES },
+            edges: { max: V1_LIMITS.MAX_EDGES },
+          },
+          fetchedAt,
+          reason: `Live endpoint failed: ${error.message}`,
+        }
+      }
+
+      // PROD: return error, no silent fallback masking
+      console.error('[httpV1] /v1/limits failed in production:', error)
+
+      return {
+        ok: false,
+        error,
+        fetchedAt,
       }
     }
   },
