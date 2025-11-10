@@ -3,9 +3,9 @@
 ## Executive Summary
 
 **Status**: 5.5/6 Tasks Complete (92% complete)
-**Branch**: `feat/p1-polish-reliability`  
-**Commits**: 8 production-ready commits  
-**Impact**: Connectivity, edge labels, share links, bundle size, code organization
+**Branch**: `feat/p1-polish-reliability`
+**Commits**: 10 production-ready commits
+**Impact**: Connectivity, edge labels, share links, bundle size, code organization, critical bug fixes
 
 ---
 
@@ -103,6 +103,39 @@
 
 ---
 
+## 🐛 Critical Bug Fix
+
+### autoDetectAdapter Type Mismatch Fix
+**Commit**: `94db057`
+**Severity**: Critical (blocking canvas load)
+**Impact**: StatusChips component can now display engine limits correctly
+
+**Problem**:
+- `autoDetectAdapter.limits()` declared return type `Promise<LimitsV1>`
+- But `httpV1Adapter.limits()` returns `Promise<LimitsFetch>`
+- Type mismatch caused runtime crash: "Cannot read properties of undefined (reading 'max')"
+- StatusChips.tsx:43 tried to access `limits.nodes.max` on malformed wrapper object
+
+**Root Cause**:
+- When httpV1 available: returned LimitsFetch wrapper `{ok, source, data, fetchedAt}`
+- Consumer code expected direct LimitsV1 data `{nodes: {max}, edges: {max}}`
+- No compile error due to Promise type erasure at runtime
+
+**Fix Applied**:
+- Changed return type: `Promise<LimitsV1>` → `Promise<LimitsFetch>`
+- httpV1 path: return `httpV1Adapter.limits()` directly (already correct format)
+- Fallback path: wrap mock data in proper LimitsFetch format with all required fields
+
+**Files Modified**:
+- `src/adapters/plot/autoDetectAdapter.ts` (lines 134-152)
+
+**Verification**:
+- ✅ Type-check passing
+- ✅ Matches LimitsFetch discriminated union from types.ts
+- ✅ Consistent with useEngineLimits hook expectations
+
+---
+
 ## 🔄 Partial Complete (Task A - Phase 1/4)
 
 ### Task A: Split SandboxStreamPanel  
@@ -157,7 +190,7 @@
 ## 📊 Overall Impact
 
 ### Commits
-- **8 production-ready commits** on `feat/p1-polish-reliability`
+- **10 production-ready commits** on `feat/p1-polish-reliability`
 - All commits have:
   - Detailed descriptions
   - File-level documentation
@@ -237,13 +270,14 @@
 ### Current State
 ```
 Branch: feat/p1-polish-reliability
-Ahead of main by: 8 commits
+Ahead of main by: 10 commits
 Status: Clean (type-check passing)
 Size: 1627 LOC (SandboxStreamPanel, down from 1682)
 ```
 
 ### Commit History
 ```
+94db057 fix(limits): Fix autoDetectAdapter type mismatch causing StatusChips crash
 0fa1563 docs: Mark Task A Phase 1 complete
 cd003d2 docs: Update changelog with Task A Phase 1 and ELK optimization
 754b323 docs(canvas): Add mount safety warning to useEdgeLabelModeSync
@@ -252,6 +286,7 @@ cb8989f refactor(sandbox): Extract StreamFlagsProvider hook (Task A - Phase 1)
 53bbca4 feat(canvas): Clarify share-link UX with explicit local-only scope warning
 992ecdf feat(canvas): Add edge label toggle (human ⇄ numeric) with live updates
 09e8c55 feat(connectivity): Add backoff retry and improved offline detection
+7f1aa30 fix(ux): Fix browse templates button - was calling wrong callback
 ```
 
 ### Ready for Merge
@@ -289,15 +324,16 @@ cb8989f refactor(sandbox): Extract StreamFlagsProvider hook (Task A - Phase 1)
 ## 📝 Next Actions
 
 ### For Immediate Merge
-1. **Review commits**: 8 commits on `feat/p1-polish-reliability`
+1. **Review commits**: 10 commits on `feat/p1-polish-reliability`
 2. **Run final checks**:
    ```bash
    npm run typecheck  # ✅ Passing
    npm test          # Run full suite
    npm run build     # Verify bundle
    ```
-3. **Create PR**: `feat/p1-polish-reliability` → `main`
-4. **Deploy**: Ship improvements to users
+3. **Test canvas**: Verify http://localhost:5173/#/canvas loads without errors
+4. **Create PR**: `feat/p1-polish-reliability` → `main`
+5. **Deploy**: Ship improvements to users
 
 ### For Task A Completion (Future)
 1. **Review documentation**:
@@ -345,10 +381,10 @@ cb8989f refactor(sandbox): Extract StreamFlagsProvider hook (Task A - Phase 1)
 
 ---
 
-**Generated**: November 10, 2025  
-**Status**: Ready for review and merge  
-**Branch**: `feat/p1-polish-reliability`  
-**Commits**: 8  
+**Generated**: November 10, 2025
+**Status**: Ready for review and merge
+**Branch**: `feat/p1-polish-reliability`
+**Commits**: 10
 **Tasks Complete**: 5.5/6 (92%)
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
