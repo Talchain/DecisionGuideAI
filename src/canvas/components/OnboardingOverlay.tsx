@@ -10,7 +10,8 @@
  */
 
 import { useState, useEffect } from 'react'
-import { Rocket, Layout, Zap, Keyboard, X } from 'lucide-react'
+import { Layout, Zap, Keyboard, X } from 'lucide-react'
+import { useCanvasStore } from '../store'
 
 const STORAGE_KEY = 'olumi-canvas-onboarding-dismissed'
 
@@ -27,6 +28,7 @@ export function OnboardingOverlay({
 }: OnboardingOverlayProps) {
   const [show, setShow] = useState(false)
   const [dontShowAgain, setDontShowAgain] = useState(false)
+  const openTemplatesPanel = useCanvasStore(state => state.openTemplatesPanel)
 
   // Check if user has dismissed onboarding
   useEffect(() => {
@@ -54,6 +56,16 @@ export function OnboardingOverlay({
 
   const handleCTA = (action?: () => void) => {
     action?.()
+    handleDismiss()
+  }
+
+  const handleBrowseTemplates = () => {
+    // Use custom callback if provided, otherwise open templates panel directly
+    if (onBrowseTemplates) {
+      onBrowseTemplates()
+    } else {
+      openTemplatesPanel()
+    }
     handleDismiss()
   }
 
@@ -95,7 +107,7 @@ export function OnboardingOverlay({
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* CTA 1: Browse templates */}
             <button
-              onClick={() => handleCTA(onBrowseTemplates)}
+              onClick={handleBrowseTemplates}
               className="flex flex-col items-center gap-3 p-4 border-2 border-gray-200 rounded-lg hover:border-info-500 hover:bg-info-50 transition-all text-center group"
               type="button"
             >
