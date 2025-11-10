@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useCanvasStore, hasValidationErrors } from './store'
 import { DEFAULT_EDGE_DATA } from './domain/edges'
+import { parseRunHash } from './utils/shareLink'
 import { nodeTypes } from './nodes/registry'
 import { StyledEdge } from './edges/StyledEdge'
 import { useKeyboardShortcuts } from './useKeyboardShortcuts'
@@ -93,19 +95,24 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const resultsLoadHistorical = useCanvasStore(s => s.resultsLoadHistorical)
 
   // v1.2: Share link resolver - load run from localStorage when ?run=hash is present
-  useEffect(() => {
-    // Parse URL to extract run hash from query string
-    const hash = window.location.hash
-    const match = hash.match(/[?&]run=([a-f0-9]+)/)
+  // Uses useLocation to detect route changes and hashchange listener for direct navigation
+  const location = useLocation()
 
-    if (match) {
-      const runHash = match[1]
+  useEffect(() => {
+    const resolveShareLink = () => {
+      // Parse URL using robust parser (handles both sha256: prefix and plain hex)
+      const fullUrl = window.location.href
+      const runHash = parseRunHash(fullUrl)
+
+      if (!runHash) {
+        return // No run parameter in URL
+      }
 
       if (import.meta.env.DEV) {
         console.log('[ReactFlowGraph] Share link detected, loading run:', runHash.slice(0, 8))
       }
 
-      // Load all runs from localStorage
+      // Load all runs from localStorage (local-device only)
       const runs = loadRuns()
 
       // Find run by hash
@@ -125,19 +132,36 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         // Run not found in localStorage
         console.warn('[ReactFlowGraph] Shared run not found in history:', runHash)
 
-        // Show user-friendly toast notification
+        // Show user-friendly toast notification (local-only scope explicit)
         showToast(
-          `Run not found (${runHash.slice(0, 8)}...). It may not be in your local history.`,
+          `Run not found. This link can only be opened on the device it was created on.`,
           'warning'
         )
 
         if (import.meta.env.DEV) {
-          console.log('[ReactFlowGraph] Run not found. User may need to run analysis again.')
+          console.log('[ReactFlowGraph] Run not found in local history.')
         }
       }
     }
+
+    // Resolve on mount and when location changes
+    resolveShareLink()
+
+    // Also listen for hashchange events (fallback for direct hash manipulation)
+    const handleHashChange = () => {
+      if (import.meta.env.DEV) {
+        console.log('[ReactFlowGraph] Hash changed, re-resolving share link')
+      }
+      resolveShareLink()
+    }
+
+    window.addEventListener('hashchange', handleHashChange, { passive: true })
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])  // Run once on mount. resultsLoadHistorical, setShowResultsPanel, showToast are stable
+  }, [location.hash, location.search])  // Re-run when hash or search params change
 
   const handleNodeClick = useCallback((_: any, node: any) => {
     // Close Templates panel when interacting with canvas
