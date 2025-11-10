@@ -394,6 +394,64 @@ const MAX_BACKOFF_MS = 10000
 
 ---
 
+### J. Bundle Size Optimization ✅
+
+**Problem**: ELK layout library (~400KB) bundled in main chunk even though only used when users trigger "Auto Layout".
+
+**Solution**:
+- Converted static ELK import to dynamic import in [layout.ts](../src/canvas/utils/layout.ts#L35-L37)
+- ELK now loaded only when `layoutGraph()` called
+- Main bundle reduced by ~400KB (moved to elk-vendor chunk)
+- Vite config already had elk-vendor chunk configured
+
+**Files Modified**:
+- `src/canvas/utils/layout.ts` (lines 1-2, 35-37) - Dynamic import
+
+**Impact**:
+- Faster first page load for users who don't use auto-layout
+- ELK loaded on-demand (one-time fetch, cached by browser)
+
+---
+
+### K. SandboxStreamPanel Refactoring (Task A - Phase 1/4) ✅
+
+**Problem**: Monolithic 1682-line component mixing flags, parameters, output, controls, drawers, and enhancements.
+
+**Solution (Phase 1)**:
+- Created [StreamFlagsProvider.tsx](../src/components/StreamFlagsProvider.tsx) (143 LOC)
+  - Centralizes all 13 feature flag states
+  - Manages flag initialization and updates
+  - Listens to localStorage changes
+  - Auto-updates every 250ms for first 2s (E2E compatibility)
+  - Provides `useStreamFlags()` hook
+
+**Refactored [SandboxStreamPanel.tsx](../src/components/SandboxStreamPanel.tsx)**:
+- Reduced from 1682 → 1627 LOC (-55 lines in Phase 1)
+- Replaced lines 47-111: Flag declarations + update effect
+- Replaced lines 442-447: Duplicate snapshot/compare flags
+- Now uses `useStreamFlags()` hook for all 13 flags
+
+**Flags Managed**:
+- simplifyFlag, listViewFlag, engineModeFlag, mobileGuardFlag
+- summaryV2Flag, guidedFlag, commentsFlag, diagFlag
+- perfFlag, scorecardFlag, errorBannersFlag
+- snapshotsFlag, compareFlag
+
+**Remaining Phases (Documented)**:
+- Phase 2: StreamOutputDisplay + StreamEnhancementsPanel
+- Phase 3: StreamDrawersContainer + StreamControlBar
+- Phase 4: StreamParametersPanel + final shell refactor
+- Target: Reduce SandboxStreamPanel to < 350 LOC
+
+**Refactoring Documentation Created** (2,602 lines):
+- `REFACTORING_README.txt` - Quick start guide
+- `REFACTORING_INDEX.md` (418 lines) - Master navigation
+- `REFACTORING_PLAN.md` (1,055 lines) - Detailed technical specs
+- `REFACTORING_SUMMARY.md` (342 lines) - Visual overview
+- `EXTRACTION_MAPPING.md` (787 lines) - Line-by-line implementation guide
+
+---
+
 ## Next Steps
 
 **Recommended for v1.3**:
