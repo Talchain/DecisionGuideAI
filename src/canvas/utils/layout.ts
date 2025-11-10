@@ -1,7 +1,6 @@
-import ELK, { ElkNode, ElkExtendedEdge } from 'elkjs/lib/elk.bundled.js'
+// P1 Polish: Dynamic ELK import for code-splitting (Task F)
+import type { ElkNode, ElkExtendedEdge } from 'elkjs/lib/elk.bundled.js'
 import { Node, Edge } from '@xyflow/react'
-
-const elk = new ELK()
 
 interface LayoutOptions {
   direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'
@@ -31,6 +30,10 @@ export async function layoutGraph(
   if (unlocked.length === 0) {
     return { nodes, edges }
   }
+
+  // P1 Polish: Lazy-load ELK only when needed (code-splitting)
+  const ELK = (await import('elkjs/lib/elk.bundled.js')).default
+  const elk = new ELK()
 
   // Convert to ELK format
   const elkGraph: ElkNode = {
