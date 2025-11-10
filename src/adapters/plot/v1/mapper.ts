@@ -145,9 +145,11 @@ export function graphToV1Request(
   return {
     graph: {
       nodes: graph.nodes.map((n) => {
+        // Ensure label always has a value (backend requirement)
+        const label = n.data?.label || n.id
         const node: any = {
           id: n.id,
-          label: n.data?.label?.substring(0, V1_LIMITS.MAX_LABEL_LENGTH),
+          label: label.substring(0, V1_LIMITS.MAX_LABEL_LENGTH),
           body: n.data?.body?.substring(0, V1_LIMITS.MAX_BODY_LENGTH),
         }
 
