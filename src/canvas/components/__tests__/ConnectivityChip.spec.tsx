@@ -399,4 +399,191 @@ describe('ConnectivityChip', () => {
       })
     })
   })
+
+  describe('Backoff retry (P1 Polish)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('schedules retry after offline detection', async () => {
+      mockProbeCapability.mockResolvedValueOnce(createProbeResult({ available: false }))
+
+      render(<ConnectivityChip />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Engine Offline')).toBeInTheDocument()
+      })
+
+      // Should show countdown in label
+      expect(screen.getByText(/\(\d+s\)/)).toBeInTheDocument()
+    })
+
+    it('follows backoff schedule: 1s → 3s → 10s', async () => {
+      mockProbeCapability.mockResolvedValue(createProbeResult({ available: false }))
+
+      render(<ConnectivityChip />)
+
+      // Wait for initial probe
+      await waitFor(() => {
+        expect(screen.getByText('Engine Offline')).toBeInTheDocument()
+      })
+
+      // First retry should be scheduled for 1s
+      expect(screen.getByText('(1s)')).toBeInTheDocument()
+
+      // Advance time by 1s
+      vi.advanceTimersByTime(1000)
+
+      await waitFor(() => {
+        // After first retry fails, should schedule for 3s
+        expect(screen.getByText('(3s)')).toBeInTheDocument()
+      })
+
+      // Advance time by 3s
+      vi.advanceTimersByTime(3000)
+
+      await waitFor(() => {
+        // After second retry fails, should schedule for 10s
+        expect(screen.getByText('(10s)')).toBeInTheDocument()
+      })
+
+      // Advance time by 10s
+      vi.advanceTimersByTime(10000)
+
+      await waitFor(() => {
+        // After third retry fails, should cap at 10s
+        expect(screen.getByText('(10s)')).toBeInTheDocument()
+      })
+    })
+
+    it('resets backoff when manual click occurs', async () => {
+      mockProbeCapability.mockResolvedValue(createProbeResult({ available: false }))
+
+      render(<ConnectivityChip />)
+
+      // Wait for initial probe and first retry countdown
+      await waitFor(() => {
+        expect(screen.getByText('Engine Offline')).toBeInTheDocument()
+      })
+
+      // Advance to 3s backoff (after first retry)
+      vi.advanceTimersByTime(1000)
+      await waitFor(() => {
+        expect(screen.getByText('(3s)')).toBeInTheDocument()
+      })
+
+      // Manual click should reset backoff to 1s
+      const chip = screen.getByTestId('connectivity-chip')
+      fireEvent.click(chip)
+
+      await waitFor(() => {
+        // Should reset to 1s countdown
+        expect(screen.getByText('(1s)')).toBeInTheDocument()
+      })
+    })
+
+    it('countdown decrements every second', async () => {
+      mockProbeCapability.mockResolvedValueOnce(createProbeResult({ available: false }))
+
+      render(<ConnectivityChip />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Engine Offline')).toBeInTheDocument()
+      })
+
+      // Should start at 1s
+      expect(screen.getByText('(1s)')).toBeInTheDocument()
+
+      // After 1 second of countdown timer (not the actual retry timer)
+      // Note: The countdown updates every second, so no countdown should be shown once it hits 0
+      vi.advanceTimersByTime(500)
+
+      // Still showing 1s (hasn't decremented yet)
+      expect(screen.getByText('(1s)')).toBeInTheDocument()
+    })
+
+    it('stops showing countdown when it reaches zero', async () => {
+      mockProbeCapability
+        .mockResolvedValueOnce(createProbeResult({ available: false }))
+        .mockResolvedValueOnce(createProbeResult({ available: true, healthStatus: 'ok' }))
+
+      render(<ConnectivityChip />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Engine Offline')).toBeInTheDocument()
+      })
+
+      // Countdown should be visible
+      expect(screen.getByText('(1s)')).toBeInTheDocument()
+
+      // Advance by full 1s
+      vi.advanceTimersByTime(1000)
+
+      await waitFor(() => {
+        // After retry succeeds, no countdown should be shown
+        expect(screen.getByText('Engine OK')).toBeInTheDocument()
+        expect(screen.queryByText(/\(\d+s\)/)).not.toBeInTheDocument()
+      })
+    })
+
+    it('includes retry timing in tooltip', async () => {
+      mockProbeCapability.mockResolvedValueOnce(createProbeResult({ available: false }))
+
+      render(<ConnectivityChip />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Engine Offline')).toBeInTheDocument()
+      })
+
+      const chip = screen.getByTestId('connectivity-chip')
+      const title = chip.getAttribute('title')
+
+      expect(title).toContain('Retrying in')
+      expect(title).toContain('Click to retry now')
+    })
+
+    it('includes retry timing in aria-label', async () => {
+      mockProbeCapability.mockResolvedValueOnce(createProbeResult({ available: false }))
+
+      render(<ConnectivityChip />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Engine Offline')).toBeInTheDocument()
+      })
+
+      const chip = screen.getByTestId('connectivity-chip')
+      const ariaLabel = chip.getAttribute('aria-label')
+
+      expect(ariaLabel).toContain('Retrying in')
+      expect(ariaLabel).toContain('seconds')
+    })
+  })
+
+  describe('Accessibility (P1 Polish)', () => {
+    it('has role="status"', async () => {
+      mockProbeCapability.mockResolvedValueOnce(createProbeResult())
+
+      render(<ConnectivityChip />)
+
+      await waitFor(() => {
+        const chip = screen.getByTestId('connectivity-chip')
+        expect(chip.getAttribute('role')).toBe('status')
+      })
+    })
+
+    it('has aria-live="polite"', async () => {
+      mockProbeCapability.mockResolvedValueOnce(createProbeResult())
+
+      render(<ConnectivityChip />)
+
+      await waitFor(() => {
+        const chip = screen.getByTestId('connectivity-chip')
+        expect(chip.getAttribute('aria-live')).toBe('polite')
+      })
+    })
+  })
 })
