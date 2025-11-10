@@ -67,7 +67,16 @@ export const useEdgeLabelMode = create<EdgeLabelModeState>((set) => ({
 
 /**
  * Hook to synchronise store with storage events (cross-tab)
- * Call once at app root
+ *
+ * IMPORTANT: Call this ONCE at app root (e.g., ReactFlowGraph mount).
+ * Multiple mounts without cleanup will leak storage event listeners.
+ *
+ * @returns Cleanup function to remove storage listener
+ * @example
+ * // In root component:
+ * useEffect(() => {
+ *   return useEdgeLabelModeSync()
+ * }, [])
  */
 export function useEdgeLabelModeSync() {
   if (typeof window === 'undefined') return
