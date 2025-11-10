@@ -178,7 +178,8 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
       // v1.2: Use canonical format #/canvas?run=hash
       const shareUrl = `${window.location.origin}${window.location.pathname}#/canvas?run=${hash}`
       navigator.clipboard.writeText(shareUrl)
-      showToast('Run URL copied to clipboard', 'success')
+      // P1 Polish: Explicit local-only scope warning (Task E)
+      showToast('Link copied! This link can only be opened on the same device/profile it was created on.', 'success')
     }
   }, [hash, showToast])
 

@@ -290,6 +290,110 @@ npm test -- edgeLabels.spec.ts
 
 ---
 
+## P1 Polish & Reliability (2025-11-10)
+
+### Overview
+
+Post-v1.2 polish addressing connectivity UX, edge label discoverability, and share link scope clarity.
+
+### G. Connectivity Clarity with Backoff Retry ✅
+
+**Problem**: Users couldn't distinguish between "offline" (no network) and "unknown" (probe failed but online). Manual retry had no visual feedback or smart backoff.
+
+**Solution**:
+1. **Offline Detection**: Added `navigator.onLine === false` check to [ConnectivityChip.tsx](../src/canvas/components/ConnectivityChip.tsx#L60-L68)
+   - Explicitly shows "Engine Offline" when network is down
+   - Separate "offline" state from "unknown" (probe failure)
+
+2. **Exponential Backoff**: Implemented 1s → 3s → 10s retry schedule (capped at 10s)
+   - Visual countdown timer in UI: "(3s)" for user feedback
+   - Manual click resets backoff to 1s and forces immediate retry
+   - State tracked with `retryAttempt` and `nextRetryIn`
+
+3. **Accessibility**:
+   - Added `role="status"` and `aria-live="polite"` for screen readers
+   - Tooltip includes retry timing: "Retrying in 3s..."
+
+**Files Modified**:
+- `src/canvas/components/ConnectivityChip.tsx` (154 → 193 lines)
+- `src/canvas/components/__tests__/ConnectivityChip.spec.tsx` (403 → 590 lines) - Added 8 new test suites
+
+**Backoff Schedule**:
+```typescript
+const BACKOFF_DELAYS_MS = [1000, 3000, 10000]
+const MAX_BACKOFF_MS = 10000
+```
+
+---
+
+### H. Edge Label Toggle UI with Live Updates ✅
+
+**Problem**: Edge label mode (human ⇄ numeric) required localStorage manipulation and page reload. No discoverability for power users who needed numeric labels.
+
+**Solution**:
+1. **Zustand Store**: Created [edgeLabelMode.ts](../src/canvas/store/edgeLabelMode.ts) store
+   - Type-safe state management with localStorage persistence
+   - `useEdgeLabelMode()` hook for components
+   - `useEdgeLabelModeSync()` for cross-tab synchronization
+
+2. **Toggle Component**: Created [EdgeLabelToggle.tsx](../src/canvas/components/EdgeLabelToggle.tsx)
+   - Icon indicators: Type (human mode), Binary (numeric mode)
+   - Animated switch indicator with colour-coded states
+   - Keyboard accessible: Enter/Space to toggle
+   - Full ARIA support: `role="switch"`, `aria-checked`, descriptive labels
+
+3. **Live Updates**: Updated [StyledEdge.tsx](../src/canvas/edges/StyledEdge.tsx#L12-L31)
+   - Replaced `useState`/`useEffect` with Zustand subscription
+   - All edges update instantly when mode changes
+   - No page reload required
+
+4. **Integration**: Added to [CanvasToolbar.tsx](../src/canvas/CanvasToolbar.tsx#L171-L176)
+   - Top-right status area (next to connectivity chip)
+   - Only visible when edges exist (`edges.length > 0`)
+
+5. **Cross-tab Sync**: Added to [ReactFlowGraph.tsx](../src/canvas/ReactFlowGraph.tsx#L78-L81)
+   - Storage event listener syncs mode across tabs
+   - Changes propagate to all open canvas instances
+
+**Files Created**:
+- `src/canvas/store/edgeLabelMode.ts` (82 lines) - Zustand store
+- `src/canvas/components/EdgeLabelToggle.tsx` (96 lines) - Toggle UI
+- `src/canvas/components/__tests__/EdgeLabelToggle.spec.tsx` (321 lines) - 30+ test cases
+
+**Files Modified**:
+- `src/canvas/edges/StyledEdge.tsx` - Zustand subscription
+- `src/canvas/CanvasToolbar.tsx` - Toggle integration
+- `src/canvas/ReactFlowGraph.tsx` - Cross-tab sync
+
+**Accessibility**:
+- `role="switch"` for toggle semantics
+- `aria-checked` reflects current state
+- Descriptive `aria-label` and `title` for screen readers and tooltips
+- Keyboard navigation: Enter and Space keys
+- `data-testid="edge-label-toggle"` for E2E tests
+
+---
+
+### I. Share Link UX Clarity (Local-Only Scope) ✅
+
+**Problem**: Toast message didn't clarify that share links only work on the same device/profile. Users might try sharing with team members and face silent failures.
+
+**Solution**:
+- Updated [ResultsPanel.tsx](../src/canvas/panels/ResultsPanel.tsx#L176-L184) `handleShare()`:
+  - New toast: "Link copied! This link can only be opened on the same device/profile it was created on."
+  - Explicit scope warning prevents confusion
+  - Sets user expectation that links are local-only (runs stored in localStorage)
+
+**Files Modified**:
+- `src/canvas/panels/ResultsPanel.tsx` (line 182)
+
+**Known Limitation**:
+- Links are localStorage-scoped (device + browser profile)
+- Future backend integration needed for true sharable links
+- This implementation documents scope explicitly to avoid user confusion
+
+---
+
 ## Next Steps
 
 **Recommended for v1.3**:
