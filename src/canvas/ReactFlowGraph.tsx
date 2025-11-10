@@ -25,7 +25,6 @@ import { DiagnosticsOverlay } from './DiagnosticsOverlay'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { ValidationChip } from './components/ValidationChip'
 import { LayerProvider } from './components/LayerProvider'
-import { FirstRunHint } from './components/FirstRunHint'
 import { RecoveryBanner } from './components/RecoveryBanner'
 import { OnboardingOverlay } from './components/OnboardingOverlay'
 import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
@@ -533,7 +532,6 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       <SettingsPanel />
       <DiagnosticsOverlay />
       <ValidationChip onFocusNode={handleFocusNode} />
-      <FirstRunHint />
       <RecoveryBanner />
 
       {showCommandPalette && <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} onOpenInspector={() => setShowInspectorPanel(true)} />}

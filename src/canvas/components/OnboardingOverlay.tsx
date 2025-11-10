@@ -71,12 +71,11 @@ export function OnboardingOverlay({
         <div className="bg-gradient-to-r from-info-500 to-info-600 p-6 text-white">
           <div className="flex items-start justify-between">
             <div>
-              <h2 id="onboarding-title" className="text-2xl font-bold mb-2 flex items-center gap-2">
-                <Rocket className="w-6 h-6" />
-                Welcome to Decision Canvas
+              <h2 id="onboarding-title" className="text-2xl font-bold mb-2">
+                Welcome to Olumi
               </h2>
               <p className="text-info-100">
-                Build, analyse, and compare decision scenarios with confidence
+                Science-powered decision enhancement that supercharges how teams think, collaborate and win.
               </p>
             </div>
             <button
