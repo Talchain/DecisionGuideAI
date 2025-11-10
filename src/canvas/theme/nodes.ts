@@ -48,6 +48,14 @@ const LIGHT_THEME: Record<NodeType, NodeThemeTokens> = {
     badge: '#A7F3D0',
     badgeText: '#065F46',
   },
+  factor: {
+    background: '#F3F4F6', // Gray - neutral for technical factors
+    border: '#6B7280',
+    text: '#1F2937', // 4.5:1 contrast
+    icon: '#6B7280',
+    badge: '#E5E7EB',
+    badgeText: '#1F2937',
+  },
   risk: {
     background: '#FEE2E2', // Red
     border: '#EF4444',
@@ -101,6 +109,14 @@ const DARK_THEME: Record<NodeType, NodeThemeTokens> = {
     icon: 'var(--node-option-border, #20C997)',
     badge: 'rgba(32, 201, 151, 0.15)',
     badgeText: '#A7F3D0',
+  },
+  factor: {
+    background: 'var(--node-factor-bg, #1F2937)', // Dark gray - neutral for technical factors
+    border: 'var(--node-factor-border, #9CA3AF)',
+    text: '#F3F4F6', // 4.5:1 contrast
+    icon: 'var(--node-factor-border, #9CA3AF)',
+    badge: 'rgba(156, 163, 175, 0.15)',
+    badgeText: '#E5E7EB',
   },
   risk: {
     background: 'var(--node-risk-bg, #241214)',
