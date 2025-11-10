@@ -35,6 +35,7 @@ import { InspectorPanel } from './panels/InspectorPanel'
 import { useResultsRun } from './hooks/useResultsRun'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
+import { loadRuns } from './store/runHistory'
 
 interface ReactFlowGraphProps {
   blueprintEventBus?: {
@@ -79,7 +80,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     if (isRunning && !showResultsPanel) {
       setShowResultsPanel(true)
     }
-  }, [resultsStatus, showResultsPanel, setShowResultsPanel])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resultsStatus, showResultsPanel])  // setShowResultsPanel is stable, omit to avoid render loop
 
   const handleSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
     useCanvasStore.getState().onSelectionChange(params)
@@ -88,7 +90,55 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const reconnecting = useCanvasStore(s => s.reconnecting)
   const completeReconnect = useCanvasStore(s => s.completeReconnect)
   const { showToast } = useToast()
-  
+  const resultsLoadHistorical = useCanvasStore(s => s.resultsLoadHistorical)
+
+  // v1.2: Share link resolver - load run from localStorage when ?run=hash is present
+  useEffect(() => {
+    // Parse URL to extract run hash from query string
+    const hash = window.location.hash
+    const match = hash.match(/[?&]run=([a-f0-9]+)/)
+
+    if (match) {
+      const runHash = match[1]
+
+      if (import.meta.env.DEV) {
+        console.log('[ReactFlowGraph] Share link detected, loading run:', runHash.slice(0, 8))
+      }
+
+      // Load all runs from localStorage
+      const runs = loadRuns()
+
+      // Find run by hash
+      const run = runs.find(r => r.hash === runHash)
+
+      if (run) {
+        // Load historical run into canvas
+        resultsLoadHistorical(run)
+
+        // Open Results panel to show the loaded run
+        setShowResultsPanel(true)
+
+        if (import.meta.env.DEV) {
+          console.log('[ReactFlowGraph] Run loaded successfully:', run.summary)
+        }
+      } else {
+        // Run not found in localStorage
+        console.warn('[ReactFlowGraph] Shared run not found in history:', runHash)
+
+        // Show user-friendly toast notification
+        showToast(
+          `Run not found (${runHash.slice(0, 8)}...). It may not be in your local history.`,
+          'warning'
+        )
+
+        if (import.meta.env.DEV) {
+          console.log('[ReactFlowGraph] Run not found. User may need to run analysis again.')
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])  // Run once on mount. resultsLoadHistorical, setShowResultsPanel, showToast are stable
+
   const handleNodeClick = useCallback((_: any, node: any) => {
     // Close Templates panel when interacting with canvas
     onCanvasInteraction?.()
@@ -187,7 +237,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       graph: { nodes: store.nodes, edges: store.edges },
       outcome_node: store.outcomeNodeId || undefined
     })
-  }, [showToast, runAnalysis, setShowResultsPanel])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])  // No dependencies - stable functions (showToast, runAnalysis, setShowResultsPanel)
 
   // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, ?)
   useCanvasKeyboardShortcuts({
@@ -200,20 +251,20 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   })
 
   // Blueprint insertion handler
-  const insertBlueprint = useCallback((blueprint: Blueprint) => {
+  const insertBlueprint = useCallback((blueprint: Blueprint): { nodeIdMap: Map<string, string>; newNodes: any[]; newEdges: any[]; error?: string } => {
     // Transform to goal-first graph
     const graph = blueprintToGraph(blueprint)
-    
+
     const viewport = getViewport()
     const centerX = -viewport.x + (window.innerWidth / 2) / viewport.zoom
     const centerY = -viewport.y + (window.innerHeight / 2) / viewport.zoom
-    
+
     // Create ID mapping
     const nodeIdMap = new Map<string, string>()
     graph.nodes.forEach(node => {
       nodeIdMap.set(node.id, createNodeId())
     })
-    
+
     // Calculate blueprint center
     const positions = graph.nodes.map(n => n.position || { x: 0, y: 0 })
     const minX = Math.min(...positions.map(p => p.x))
@@ -222,7 +273,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     const maxY = Math.max(...positions.map(p => p.y))
     const blueprintCenterX = (minX + maxX) / 2
     const blueprintCenterY = (minY + maxY) / 2
-    
+
     // Create nodes with correct types and template metadata
     const templateCreatedAt = new Date().toISOString()
 
@@ -273,8 +324,11 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       nodes: [...state.nodes, ...newNodes],
       edges: [...state.edges, ...newEdges]
     }))
-    
+
     showToast(`Inserted ${blueprint.name} to canvas.`, 'success')
+
+    // Return result object for caller to check
+    return { nodeIdMap, newNodes, newEdges }
   }, [getViewport, createNodeId, createEdgeId, showToast])
   
   useEffect(() => {
@@ -426,6 +480,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         maxZoom={4}
       >
         <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
+        {/* TODO: Future enhancement - Add legend and interaction controls to MiniMap */}
         <MiniMap style={miniMapStyle} />
         <svg style={{ position: 'absolute', top: 0, left: 0 }}>
           <defs>
