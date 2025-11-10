@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod'
-import { Target, Crosshair, Lightbulb, AlertTriangle, TrendingUp } from 'lucide-react'
+import { Target, Crosshair, Lightbulb, Settings, AlertTriangle, TrendingUp } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 /**
@@ -12,10 +12,11 @@ import type { LucideIcon } from 'lucide-react'
  * 🎯 Goal: Target outcome or objective
  * 🔀 Decision: Choice point requiring evaluation
  * 💡 Option: Specific alternative or path
+ * ⚙️ Factor: Intermediate variable or driver
  * ⚠️ Risk: Potential hazard or concern
  * 📈 Outcome: Result or consequence
  */
-export const NodeTypeEnum = z.enum(['goal', 'decision', 'option', 'risk', 'outcome'])
+export const NodeTypeEnum = z.enum(['goal', 'decision', 'option', 'factor', 'risk', 'outcome'])
 export type NodeType = z.infer<typeof NodeTypeEnum>
 
 /**
@@ -29,7 +30,7 @@ export const NodeDataSchema = z.object({
   description: z.string().max(500).optional(),
 
   // v1.2 API fields (optional, for backend interop)
-  kind: z.enum(['decision', 'option', 'outcome']).optional(), // Backend node classification
+  kind: z.enum(['goal', 'decision', 'option', 'factor', 'risk', 'outcome']).optional(), // Backend node classification
   prior: z.number().min(0).max(1).optional(), // Probability (0..1)
   utility: z.number().min(-1).max(1).optional(), // Relative payoff (-1..+1)
   body: z.string().max(2000).optional(), // Longer text (distinct from description)
@@ -57,6 +58,13 @@ export const OptionNodeDataSchema = NodeDataSchema.extend({
 })
 
 /**
+ * Factor node: represents intermediate variable or driver
+ */
+export const FactorNodeDataSchema = NodeDataSchema.extend({
+  type: z.literal('factor'),
+})
+
+/**
  * Risk node: represents hazard or concern
  */
 export const RiskNodeDataSchema = NodeDataSchema.extend({
@@ -77,6 +85,7 @@ export const AnyNodeDataSchema = z.discriminatedUnion('type', [
   GoalNodeDataSchema,
   DecisionNodeDataSchema,
   OptionNodeDataSchema,
+  FactorNodeDataSchema,
   RiskNodeDataSchema,
   OutcomeNodeDataSchema,
 ])
@@ -85,6 +94,7 @@ export type NodeData = z.infer<typeof AnyNodeDataSchema>
 export type GoalNodeData = z.infer<typeof GoalNodeDataSchema>
 export type DecisionNodeData = z.infer<typeof DecisionNodeDataSchema>
 export type OptionNodeData = z.infer<typeof OptionNodeDataSchema>
+export type FactorNodeData = z.infer<typeof FactorNodeDataSchema>
 export type RiskNodeData = z.infer<typeof RiskNodeDataSchema>
 export type OutcomeNodeData = z.infer<typeof OutcomeNodeDataSchema>
 
@@ -118,6 +128,12 @@ export const NODE_REGISTRY: Record<NodeType, NodeMetadata> = {
   option: {
     icon: Lightbulb,
     label: 'Option',
+    ariaRole: 'group',
+    defaultSize: { width: 180, height: 70 },
+  },
+  factor: {
+    icon: Settings,
+    label: 'Factor',
     ariaRole: 'group',
     defaultSize: { width: 180, height: 70 },
   },
