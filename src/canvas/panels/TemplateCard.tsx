@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { FileText, Plus } from 'lucide-react'
 import type { TemplateMeta } from '../../templates/blueprints/types'
 
@@ -8,6 +9,8 @@ interface TemplateCardProps {
 }
 
 export function TemplateCard({ template, onInsert, onLearnMore }: TemplateCardProps): JSX.Element {
+  // v1.2: Debounce clicks to prevent double-insert (500ms)
+  const lastClickTime = useRef<number>(0)
   return (
     <div className="border border-gray-200 rounded-lg p-4 hover:shadow-sm hover:border-info-500 transition-all">
       <div className="flex items-start gap-3">
@@ -26,7 +29,18 @@ export function TemplateCard({ template, onInsert, onLearnMore }: TemplateCardPr
 
       <div className="flex gap-2 mt-3">
         <button
-          onClick={() => onInsert(template.id)}
+          onClick={() => {
+            // v1.2: Debounce to prevent double-insert
+            const now = Date.now()
+            if (now - lastClickTime.current < 500) {
+              if (import.meta.env.DEV) {
+                console.log('[TemplateCard] Debounced duplicate click on:', template.name)
+              }
+              return
+            }
+            lastClickTime.current = now
+            onInsert(template.id)
+          }}
           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-info-500 hover:bg-info-600 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500 transition-colors"
           aria-label={`Create scenario from ${template.name} template`}
         >

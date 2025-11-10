@@ -22,6 +22,7 @@ export interface ResultsState {
   progress: number              // 0..100 (cap 90 until COMPLETE)
   runId?: string
   isDuplicateRun?: boolean      // v1.2: true if this run hash already existed in history
+  wasForced?: boolean           // v1.2: true if this was a forced rerun (suppresses duplicate toast)
   seed?: number
   hash?: string                 // response_hash
   report?: ReportV1 | null
@@ -66,6 +67,8 @@ interface CanvasState {
   // Panel visibility
   showResultsPanel: boolean
   showInspectorPanel: boolean
+  showTemplatesPanel: boolean
+  templatesPanelInvoker: HTMLElement | null
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
@@ -107,7 +110,7 @@ interface CanvasState {
   // Outcome node
   setOutcomeNode: (nodeId: string | null) => void
   // Results actions
-  resultsStart: (params: { seed: number }) => void
+  resultsStart: (params: { seed: number; wasForced?: boolean }) => void
   resultsConnecting: (runId: string) => void
   resultsProgress: (percent: number) => void
   resultsComplete: (params: { report: ReportV1; hash: string; drivers?: Array<{ kind: 'node' | 'edge'; id: string }> }) => void
@@ -126,6 +129,8 @@ interface CanvasState {
   // Panel actions
   setShowResultsPanel: (show: boolean) => void
   setShowInspectorPanel: (show: boolean) => void
+  openTemplatesPanel: (invoker?: HTMLElement) => void
+  closeTemplatesPanel: () => void
 }
 
 let historyTimer: ReturnType<typeof setTimeout> | null = null
@@ -208,6 +213,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   // Panel visibility
   showResultsPanel: false,
   showInspectorPanel: false,
+  showTemplatesPanel: false,
+  templatesPanelInvoker: null,
 
   createNodeId: () => {
     const { nextNodeId } = get()
@@ -826,19 +833,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   // Results actions
-  resultsStart: ({ seed }) => {
+  resultsStart: ({ seed, wasForced }) => {
     set({
       results: {
         status: 'preparing',
         progress: 0,
         seed,
+        wasForced,
         startedAt: Date.now(),
         error: undefined,
         report: undefined,
         hash: undefined,
         runId: undefined,
         finishedAt: undefined,
-        drivers: undefined
+        drivers: undefined,
+        isDuplicateRun: undefined
       }
     })
   },
@@ -1091,6 +1100,32 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setShowInspectorPanel: (show: boolean) => {
     set({ showInspectorPanel: show })
+  },
+
+  openTemplatesPanel: (invoker?: HTMLElement) => {
+    set({
+      showTemplatesPanel: true,
+      templatesPanelInvoker: invoker || null
+    })
+  },
+
+  closeTemplatesPanel: () => {
+    const { templatesPanelInvoker } = get()
+    set({
+      showTemplatesPanel: false,
+      templatesPanelInvoker: null
+    })
+
+    // Restore focus to invoker after a brief delay (allows panel to unmount)
+    if (templatesPanelInvoker && typeof templatesPanelInvoker.focus === 'function') {
+      setTimeout(() => {
+        try {
+          templatesPanelInvoker.focus()
+        } catch (err) {
+          // Element may have been removed from DOM
+        }
+      }, 100)
+    }
   },
 
   cleanup: clearTimers

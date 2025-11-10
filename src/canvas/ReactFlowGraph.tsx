@@ -443,7 +443,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   }, [loadSettings])
 
   useEffect(() => {
-    const unsubscribe = useCanvasStore.subscribe((state) => saveState(state))
+    const unsubscribe = useCanvasStore.subscribe((state) => saveState({ nodes: state.nodes, edges: state.edges }))
     return unsubscribe
   }, [])
 

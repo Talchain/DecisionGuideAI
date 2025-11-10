@@ -48,12 +48,12 @@ export function PanelShell({
 
   return (
     <aside
-      className={`bg-white shadow-lg rounded-l-2xl border-l border-gray-200 flex flex-col ${widthClass}`}
+      className={`flex h-full flex-col bg-white shadow-lg rounded-l-2xl border-l border-gray-200 ${widthClass}`}
       role="complementary"
       aria-label={title}
     >
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white rounded-tl-2xl">
+      <header className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white rounded-tl-2xl">
         <div className="flex items-center gap-2">
           {icon && <span className="text-gray-600">{icon}</span>}
           <h3 className="text-[15px] font-semibold text-gray-900">{title}</h3>
@@ -86,19 +86,19 @@ export function PanelShell({
 
       {/* Optional tabs row */}
       {tabs && (
-        <div className="px-4 pt-2 border-b border-gray-100">
+        <div className="shrink-0 px-4 pt-2 border-b border-gray-100">
           {tabs}
         </div>
       )}
 
-      {/* Scrollable body */}
-      <div className="flex-1 overflow-auto px-4 py-4 space-y-4">
+      {/* Scrollable body - min-h-0 is critical for flex scrolling */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {children}
       </div>
 
       {/* Sticky footer */}
       {footer && (
-        <div className="sticky bottom-0 px-4 py-3 border-t border-gray-200 bg-white/95 backdrop-blur-sm flex items-center gap-2 rounded-bl-2xl">
+        <div className="shrink-0 sticky bottom-0 px-4 py-3 border-t border-gray-200 bg-white/95 backdrop-blur-sm flex items-center gap-2 rounded-bl-2xl">
           {footer}
         </div>
       )}

@@ -3,9 +3,10 @@
 
 import '../styles/plot.css'
 import { useEffect, useState, lazy, Suspense, useCallback } from 'react'
-import { FileText } from 'lucide-react'
 import ReactFlowGraph from '../canvas/ReactFlowGraph'
 import type { Blueprint } from '../templates/blueprints/types'
+import { useCanvasStore } from '../canvas/store'
+import { useResultsRun } from '../canvas/hooks/useResultsRun'
 
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
 
@@ -28,8 +29,12 @@ const blueprintEventBus = {
 
 export default function CanvasMVP() {
   const [short, setShort] = useState('dev')
-  const [isPanelOpen, setIsPanelOpen] = useState(false)
   const [insertionError, setInsertionError] = useState<string | null>(null)
+  const showTemplatesPanel = useCanvasStore(state => state.showTemplatesPanel)
+  const closeTemplatesPanel = useCanvasStore(state => state.closeTemplatesPanel)
+
+  // v1.2: Auto-run analysis after template insertion
+  const { run } = useResultsRun()
 
   // Fetch version from /version.json (runtime)
   useEffect(() => {
@@ -51,17 +56,57 @@ export default function CanvasMVP() {
     }
   }, [])
 
-  const handleInsertBlueprint = useCallback((blueprint: Blueprint) => {
+  const handleInsertBlueprint = useCallback(async (blueprint: Blueprint) => {
     const result = blueprintEventBus.emit(blueprint)
     if (result.error) {
-      // Keep panel open and show error
+      // Keep Templates panel open and show error
       setInsertionError(result.error)
     } else {
-      // Success: close panel and clear any previous error
-      setIsPanelOpen(false)
+      // Success: close Templates panel, open Results panel, clear error
+      closeTemplatesPanel()
+      useCanvasStore.getState().setShowResultsPanel(true)
       setInsertionError(null)
+
+      if (import.meta.env.DEV) {
+        console.log('[CanvasMVP] Template inserted:', blueprint.name)
+      }
+
+      // v1.2: Auto-run analysis after successful template insertion
+      // Get current graph state (after insertion)
+      const currentNodes = useCanvasStore.getState().nodes
+      const currentEdges = useCanvasStore.getState().edges
+      const currentOutcome = useCanvasStore.getState().outcomeNodeId
+
+      // Construct graph for PLoT adapter
+      const graph = {
+        nodes: currentNodes.map(n => ({
+          id: n.id,
+          label: n.data.label || n.id,
+          kind: n.type || 'decision',
+          probability: n.data.probability
+        })),
+        edges: currentEdges.map(e => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          weight: e.data?.weight ?? 1.0,
+          belief: e.data?.belief
+        }))
+      }
+
+      // Trigger analysis
+      await run({
+        template_id: blueprint.id,
+        seed: 1337,
+        graph,
+        outcome_node: currentOutcome || undefined
+      })
+
+      if (import.meta.env.DEV) {
+        console.log('[CanvasMVP] Auto-run started for template:', blueprint.name)
+      }
     }
-  }, [])
+  }, [closeTemplatesPanel, run])
 
   const handlePinToCanvas = useCallback((data: { template_id: string; seed: number; response_hash: string; likely_value: number }) => {
     // TODO: Create result badge node
@@ -73,10 +118,10 @@ export default function CanvasMVP() {
 
   // Close Templates panel when user interacts with canvas
   const handleCanvasInteraction = useCallback(() => {
-    if (isPanelOpen) {
-      setIsPanelOpen(false)
+    if (showTemplatesPanel) {
+      closeTemplatesPanel()
     }
-  }, [isPanelOpen])
+  }, [showTemplatesPanel, closeTemplatesPanel])
 
   return (
     <div style={{ height: '100vh', width: '100vw', overflow: 'hidden' }}>
@@ -100,16 +145,6 @@ export default function CanvasMVP() {
         ROUTE=/canvas • COMMIT={short} • MODE=RF
       </div>
 
-      {/* Templates Button - fixed top-right */}
-      <button
-        onClick={() => setIsPanelOpen(true)}
-        className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
-        aria-label="Open templates panel"
-      >
-        <FileText className="w-5 h-5" />
-        <span className="hidden sm:inline">Templates</span>
-      </button>
-
       {/* React Flow Container */}
       <div data-testid="rf-root" style={{ height: '100%', width: '100%' }}>
         <ReactFlowGraph
@@ -121,9 +156,9 @@ export default function CanvasMVP() {
       {/* Templates Panel */}
       <Suspense fallback={null}>
         <TemplatesPanel
-          isOpen={isPanelOpen}
+          isOpen={showTemplatesPanel}
           onClose={() => {
-            setIsPanelOpen(false)
+            closeTemplatesPanel()
             setInsertionError(null) // Clear error when panel closes
           }}
           onInsertBlueprint={handleInsertBlueprint}

@@ -37,6 +37,10 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Supabase functions secrets (NEVER commit)
+supabase/functions/**/.env
+supabase/functions/**/.env.*
+
 # DO NOT IGNORE - Evidence artefacts must be committed:
 # docs/evidence/**
 # evidence/pack/**

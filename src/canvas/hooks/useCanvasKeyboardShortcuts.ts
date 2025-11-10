@@ -3,6 +3,7 @@
  *
  * Shortcuts:
  * - P: Focus inline probabilities editor for selected decision
+ * - T: Open Templates panel
  * - Alt+V: Cycle through validation errors
  * - Cmd/Ctrl+Enter: Run simulation
  * - Cmd/Ctrl+3: Toggle Results panel
@@ -73,6 +74,20 @@ export function useCanvasKeyboardShortcuts({
         if (onShowToast) {
           onShowToast('Select a decision to edit probabilities.', 'info')
         }
+      }
+
+      return
+    }
+
+    // T: Open Templates panel
+    if (e.key === 't' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+      e.preventDefault()
+      const state = useCanvasStore.getState()
+      const { showTemplatesPanel, openTemplatesPanel } = state
+
+      // Idempotent: only open if not already open
+      if (!showTemplatesPanel) {
+        openTemplatesPanel(document.activeElement as HTMLElement | undefined)
       }
 
       return

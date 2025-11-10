@@ -1,0 +1,56 @@
+# .gitleaks.toml
+# SECURITY: Secret scanning configuration for gitleaks
+# See https://github.com/gitleaks/gitleaks
+
+title = "Gitleaks config for DecisionGuideAI"
+
+# Global allow-list (paths to ignore)
+[allowlist]
+paths = [
+  '''.*_test\.go''',
+  '''.*\.md''',
+  '''package-lock\.json''',
+  '''.*\.spec\.(ts|tsx|js)''',
+  '''.*\.test\.(ts|tsx|js)''',
+  '''test-results/.*''',
+  '''playwright-report/.*''',
+  '''.git/.*''',
+]
+
+# Custom rules for our specific secrets
+[[rules]]
+id = "brevo-api-key"
+description = "Brevo API Key"
+regex = '''xkeysib-[0-9a-fA-F]{64}-[0-9a-zA-Z]{16}'''
+tags = ["key", "brevo"]
+
+[[rules]]
+id = "openai-api-key"
+description = "OpenAI API Key"
+regex = '''sk-[a-zA-Z0-9]{48}'''
+tags = ["key", "openai"]
+
+[[rules]]
+id = "supabase-service-key"
+description = "Supabase Service Role Key"
+regex = '''eyJ[A-Za-z0-9-_=]+\.eyJ[A-Za-z0-9-_=]+\.[A-Za-z0-9-_.+/=]+'''
+tags = ["key", "supabase", "jwt"]
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key"
+regex = '''(?i)(api|apikey|api_key|api-key|key|secret)[\s]*[=:]\s*['"][a-zA-Z0-9]{20,}['"]'''
+tags = ["key", "api"]
+
+[[rules]]
+id = "private-key"
+description = "Private Key"
+regex = '''-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----'''
+tags = ["key", "private"]
+
+[[rules]]
+id = "env-file"
+description = "Environment files in version control"
+regex = '''\.env(\.[a-z]+)?$'''
+fileNameEndRegex = '''\.env(\.[a-z]+)?$'''
+tags = ["env"]

@@ -9,12 +9,13 @@
  * This maintains visual parity with existing smoothstep edges.
  */
 
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useState, useEffect } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps, useReactFlow } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { formatConfidence, shouldShowLabel } from '../domain/edges'
 import { useIsDark } from '../hooks/useTheme'
+import { getEdgeLabel, getEdgeLabelMode, type EdgeLabelMode } from '../domain/edgeLabels'
 
 /**
  * StyledEdge with semantic visual properties
@@ -23,6 +24,21 @@ import { useIsDark } from '../hooks/useTheme'
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
   const isDark = useIsDark()
   const { getNode, getEdges } = useReactFlow()
+
+  // v1.2: Edge label mode (human vs numeric) with storage event listener
+  const [labelMode, setLabelMode] = useState<EdgeLabelMode>(() => getEdgeLabelMode())
+
+  useEffect(() => {
+    // Listen for storage events to react to mode changes without reload
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'canvas.edge-labels-mode') {
+        setLabelMode(getEdgeLabelMode())
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
 
   // Extract edge data with defaults
   const edgeData = data as EdgeData | undefined
@@ -92,44 +108,46 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         markerEnd={markerEnd}
       />
       
-      {/* Edge label - always visible in v1.2 format (w • b) */}
-      {(
-        <EdgeLabelRenderer>
-          <div
-            style={{
-              position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-              pointerEvents: 'all',
-              fontSize: belief !== undefined ? '10px' : (labelVisibility.deEmphasize ? '10px' : '12px'),
-              padding: '2px 6px',
-              borderRadius: '4px',
-              opacity: 0.9,
-              maxWidth: '140px',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-            className={`nodrag nopan shadow-sm border ${
-              isDark
-                ? 'bg-gray-900 text-gray-100 border-gray-600'
-                : 'bg-white text-gray-800 border-gray-200'
-            }`}
-            role="note"
-            aria-label={ariaLabel}
-            title={
-              belief !== undefined
-                ? `Weight: ${weight.toFixed(2)}, Belief: ${Math.round(belief * 100)}%${provenance ? `, Source: ${provenance}` : ''}`
-                : labelVisibility.isCustom ? label : `Probability: ${formatConfidence(confidence)}`
-            }
-          >
-            {/* v1.2: Compact format: w 0.60 • b 85% (or b — when undefined) */}
-            {belief !== undefined ? (
+      {/* Edge label - v1.2: Always show human-readable label */}
+      <EdgeLabelRenderer>
+        <div
+          style={{
+            position: 'absolute',
+            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+            pointerEvents: 'all',
+            fontSize: '11px',
+            padding: '3px 8px',
+            borderRadius: '4px',
+            opacity: 0.95,
+            maxWidth: '160px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+          }}
+          className={`nodrag nopan shadow-sm border ${
+            isDark
+              ? 'bg-gray-900 text-gray-100 border-gray-600'
+              : 'bg-white text-gray-800 border-gray-200'
+          }`}
+          role="note"
+          aria-label={ariaLabel}
+          title={(() => {
+            const desc = getEdgeLabel(weight, belief, labelMode)
+            return provenance ? `${desc.tooltip} • Source: ${provenance}` : desc.tooltip
+          })()}
+        >
+          {(() => {
+            const desc = getEdgeLabel(weight, belief, labelMode)
+            return (
               <>
-                <span style={{ fontWeight: 500, fontFamily: 'ui-monospace, monospace' }}>
-                  w {weight >= 0 ? '' : '−'}{Math.abs(weight).toFixed(2)} • b {Math.round(belief * 100)}%
+                <span style={{
+                  fontWeight: 500,
+                  fontFamily: labelMode === 'numeric' ? 'ui-monospace, monospace' : undefined
+                }}>
+                  {desc.label}
                 </span>
                 {provenance && (
                   <span
@@ -149,20 +167,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                   />
                 )}
               </>
-            ) : (
-              <>
-                {/* v1.2: Placeholder when belief is missing */}
-                <span style={{ fontWeight: 500, fontFamily: 'ui-monospace, monospace' }}>
-                  w {weight >= 0 ? '' : '−'}{Math.abs(weight).toFixed(2)} • b —
-                </span>
-                <span className="text-xs text-gray-400 ml-1" title="Belief not set - edit in inspector">
-                  (set in inspector)
-                </span>
-              </>
-            )}
-          </div>
-        </EdgeLabelRenderer>
-      )}
+            )
+          })()}
+        </div>
+      </EdgeLabelRenderer>
     </>
   )
 })

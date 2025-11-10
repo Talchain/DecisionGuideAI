@@ -34,6 +34,8 @@ import { plot } from '../../adapters/plot'
 import { useResultsRun } from '../hooks/useResultsRun'
 import { ValidationBanner, type ValidationError } from '../components/ValidationBanner'
 import { useValidationFeedback } from '../hooks/useValidationFeedback'
+import { ResultsSkeleton } from '../components/ResultsSkeleton'
+import { Tooltip } from '../components/Tooltip'
 
 interface ResultsPanelProps {
   isOpen: boolean
@@ -54,6 +56,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const seed = useCanvasStore(selectSeed)
   const hash = useCanvasStore(selectHash)
   const isDuplicateRun = useCanvasStore(s => s.results.isDuplicateRun)
+  const wasForced = useCanvasStore(s => s.results.wasForced)
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
@@ -110,12 +113,12 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, compareRunIds])
 
-  // v1.2: Show toast when duplicate run is detected
+  // v1.2: Show toast when duplicate run is detected (unless it was a forced rerun)
   useEffect(() => {
-    if (isDuplicateRun && status === 'complete' && hash) {
+    if (isDuplicateRun && status === 'complete' && hash && !wasForced) {
       showToast(`Already analysed (same hash: ${hash.slice(0, 8)}...)`, 'info')
     }
-  }, [isDuplicateRun, status, hash, showToast])
+  }, [isDuplicateRun, status, hash, wasForced, showToast])
 
   const handleClose = useCallback(() => {
     onClose()
@@ -141,15 +144,39 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
     setCompareRunIds(runIds.slice(0, 2))
   }, [])
 
-  const handleRunAgain = useCallback(() => {
+  const handleRunAgain = useCallback(async () => {
+    // v1.2: Force re-run with current graph state, bypassing hash dedupe
+    setIsRunning(true)
+
+    try {
+      // Run with current graph and seed, but with forceRerun flag
+      await run({
+        template_id: 'canvas-graph',
+        seed: seed || 1337, // Use current seed or default
+        graph: { nodes, edges },
+        outcome_node: outcomeNodeId || undefined
+      }, { forceRerun: true }) // KEY: Bypass hash dedupe by bumping seed
+    } catch (err: any) {
+      console.error('[ResultsPanel] Force re-run failed:', err)
+      setValidationErrors([{
+        code: 'RUN_ERROR',
+        message: err.message || 'Failed to run analysis',
+        severity: 'error' as const
+      }])
+    } finally {
+      setIsRunning(false)
+    }
+
+    // Call optional callback if provided (for backwards compatibility)
     if (onRunAgain) {
       onRunAgain()
     }
-  }, [onRunAgain])
+  }, [nodes, edges, seed, outcomeNodeId, run, onRunAgain])
 
   const handleShare = useCallback(() => {
     if (hash) {
-      const shareUrl = `${window.location.origin}${window.location.pathname}#run=${hash}`
+      // v1.2: Use canonical format #/canvas?run=hash
+      const shareUrl = `${window.location.origin}${window.location.pathname}#/canvas?run=${hash}`
       navigator.clipboard.writeText(shareUrl)
       showToast('Run URL copied to clipboard', 'success')
     }
@@ -279,14 +306,16 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
       >
         Analyze again
       </button>
-      <button
-        onClick={handleShare}
-        className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-        type="button"
-        disabled={!hash}
-      >
-        Share
-      </button>
+      <Tooltip content={hash ? 'Share this analysis' : 'Share requires a completed analysis'}>
+        <button
+          onClick={handleShare}
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          type="button"
+          disabled={!hash}
+        >
+          Share
+        </button>
+      </Tooltip>
       <button
         onClick={() => setActiveTab('history')}
         className="px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
@@ -340,19 +369,8 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                       }
                     }}
                   />
-                  {/* Optional live log region */}
-                  <div
-                    className="text-sm p-3 rounded border"
-                    style={{
-                      backgroundColor: 'rgba(91, 108, 255, 0.05)',
-                      borderColor: 'rgba(91, 108, 255, 0.15)',
-                      color: 'rgba(232, 236, 245, 0.7)',
-                    }}
-                  >
-                    {status === 'preparing' && <div>→ Validating graph structure...</div>}
-                    {status === 'connecting' && <div>→ Establishing connection...</div>}
-                    {status === 'streaming' && progress > 0 && <div>→ Processing nodes ({Math.round(progress)}% complete)...</div>}
-                  </div>
+                  {/* Loading skeleton */}
+                  <ResultsSkeleton />
                 </>
               )}
 
@@ -523,26 +541,36 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                         : `Your graph has ${nodes.length} node${nodes.length !== 1 ? 's' : ''} with outcome: "${nodes.find(n => n.id === outcomeNodeId)?.data?.label || 'Unknown'}". Click Run to analyze.`
                       }
                     </p>
-                    <button
-                    onClick={handleRunAnalysis}
-                    disabled={nodes.length === 0 || isRunning}
-                    className="px-6 py-3 text-sm font-medium text-white bg-info rounded-lg hover:bg-info/90 transition-colors focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
-                  >
-                    {isRunning ? (
-                      <>
-                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Running...
-                      </>
-                    ) : (
-                      <>
-                        <Play className="w-4 h-4" />
-                        Run Analysis
-                      </>
-                    )}
-                  </button>
+                    <Tooltip
+                      content={
+                        nodes.length === 0
+                          ? 'Add nodes to canvas to run analysis'
+                          : isRunning
+                          ? 'Analysis in progress...'
+                          : 'Run analysis on current graph'
+                      }
+                    >
+                      <button
+                        onClick={handleRunAnalysis}
+                        disabled={nodes.length === 0 || isRunning}
+                        className="px-6 py-3 text-sm font-medium text-white bg-info rounded-lg hover:bg-info/90 transition-colors focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                      >
+                        {isRunning ? (
+                          <>
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Running...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-4 h-4" />
+                            Run Analysis
+                          </>
+                        )}
+                      </button>
+                    </Tooltip>
                   </div>
                 </>
               )}
@@ -591,7 +619,11 @@ interface TabButtonProps {
 }
 
 function TabButton({ active, onClick, label, icon, disabled = false, badge }: TabButtonProps) {
-  return (
+  const tooltipContent = disabled && label === 'Compare'
+    ? 'Select 2 runs from History to compare'
+    : undefined
+
+  const button = (
     <button
       onClick={onClick}
       disabled={disabled}
@@ -613,4 +645,6 @@ function TabButton({ active, onClick, label, icon, disabled = false, badge }: Ta
       </span>
     </button>
   )
+
+  return tooltipContent ? <Tooltip content={tooltipContent}>{button}</Tooltip> : button
 }

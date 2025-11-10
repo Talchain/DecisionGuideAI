@@ -171,6 +171,144 @@ describe('useCanvasKeyboardShortcuts', () => {
     })
   })
 
+  describe('T: Open Templates Panel', () => {
+    it('calls openTemplatesPanel when T pressed', () => {
+      // Mock store to have panel closed initially
+      useCanvasStore.setState({ showTemplatesPanel: false })
+
+      renderHook(() => useCanvasKeyboardShortcuts({}))
+
+      // Simulate T key press
+      const event = new KeyboardEvent('keydown', { key: 't' })
+      window.dispatchEvent(event)
+
+      // Check that panel is now open
+      const state = useCanvasStore.getState()
+      expect(state.showTemplatesPanel).toBe(true)
+    })
+
+    it('is idempotent - does not call openTemplatesPanel if already open', () => {
+      // Set panel as already open
+      useCanvasStore.setState({ showTemplatesPanel: true })
+      const openTemplatesPanelSpy = vi.spyOn(useCanvasStore.getState(), 'openTemplatesPanel')
+
+      renderHook(() => useCanvasKeyboardShortcuts({}))
+
+      // Simulate T key press
+      const event = new KeyboardEvent('keydown', { key: 't' })
+      window.dispatchEvent(event)
+
+      // Should not call openTemplatesPanel since already open
+      expect(openTemplatesPanelSpy).not.toHaveBeenCalled()
+
+      openTemplatesPanelSpy.mockRestore()
+    })
+
+    it('passes document.activeElement as invoker', () => {
+      useCanvasStore.setState({ showTemplatesPanel: false })
+      const openTemplatesPanelSpy = vi.spyOn(useCanvasStore.getState(), 'openTemplatesPanel')
+
+      // Create and focus a button
+      const button = document.createElement('button')
+      document.body.appendChild(button)
+      button.focus()
+
+      renderHook(() => useCanvasKeyboardShortcuts({}))
+
+      // Simulate T key press
+      const event = new KeyboardEvent('keydown', { key: 't' })
+      window.dispatchEvent(event)
+
+      // Should call with activeElement
+      expect(openTemplatesPanelSpy).toHaveBeenCalledWith(button)
+
+      // Cleanup
+      document.body.removeChild(button)
+      openTemplatesPanelSpy.mockRestore()
+    })
+
+    it('does not trigger when Cmd+T pressed', () => {
+      useCanvasStore.setState({ showTemplatesPanel: false })
+      const openTemplatesPanelSpy = vi.spyOn(useCanvasStore.getState(), 'openTemplatesPanel')
+
+      renderHook(() => useCanvasKeyboardShortcuts({}))
+
+      // Simulate Cmd+T (browser tab shortcut)
+      const event = new KeyboardEvent('keydown', { metaKey: true, key: 't' })
+      window.dispatchEvent(event)
+
+      // Should NOT call openTemplatesPanel (Cmd+T is for browser tabs)
+      expect(openTemplatesPanelSpy).not.toHaveBeenCalled()
+      expect(useCanvasStore.getState().showTemplatesPanel).toBe(false)
+
+      openTemplatesPanelSpy.mockRestore()
+    })
+
+    it('does not trigger when Ctrl+T pressed', () => {
+      useCanvasStore.setState({ showTemplatesPanel: false })
+      const openTemplatesPanelSpy = vi.spyOn(useCanvasStore.getState(), 'openTemplatesPanel')
+
+      renderHook(() => useCanvasKeyboardShortcuts({}))
+
+      // Simulate Ctrl+T (browser tab shortcut)
+      const event = new KeyboardEvent('keydown', { ctrlKey: true, key: 't' })
+      window.dispatchEvent(event)
+
+      // Should NOT call openTemplatesPanel
+      expect(openTemplatesPanelSpy).not.toHaveBeenCalled()
+      expect(useCanvasStore.getState().showTemplatesPanel).toBe(false)
+
+      openTemplatesPanelSpy.mockRestore()
+    })
+
+    it('does not trigger when Alt+T pressed', () => {
+      useCanvasStore.setState({ showTemplatesPanel: false })
+      const openTemplatesPanelSpy = vi.spyOn(useCanvasStore.getState(), 'openTemplatesPanel')
+
+      renderHook(() => useCanvasKeyboardShortcuts({}))
+
+      // Simulate Alt+T
+      const event = new KeyboardEvent('keydown', { altKey: true, key: 't' })
+      window.dispatchEvent(event)
+
+      // Should NOT call openTemplatesPanel
+      expect(openTemplatesPanelSpy).not.toHaveBeenCalled()
+      expect(useCanvasStore.getState().showTemplatesPanel).toBe(false)
+
+      openTemplatesPanelSpy.mockRestore()
+    })
+
+    it('does not trigger when Shift+T pressed', () => {
+      useCanvasStore.setState({ showTemplatesPanel: false })
+      const openTemplatesPanelSpy = vi.spyOn(useCanvasStore.getState(), 'openTemplatesPanel')
+
+      renderHook(() => useCanvasKeyboardShortcuts({}))
+
+      // Simulate Shift+T
+      const event = new KeyboardEvent('keydown', { shiftKey: true, key: 't' })
+      window.dispatchEvent(event)
+
+      // Should NOT call openTemplatesPanel
+      expect(openTemplatesPanelSpy).not.toHaveBeenCalled()
+      expect(useCanvasStore.getState().showTemplatesPanel).toBe(false)
+
+      openTemplatesPanelSpy.mockRestore()
+    })
+
+    it('prevents default behavior when T pressed', () => {
+      useCanvasStore.setState({ showTemplatesPanel: false })
+
+      renderHook(() => useCanvasKeyboardShortcuts({}))
+
+      const event = new KeyboardEvent('keydown', { key: 't' })
+      const preventDefaultSpy = vi.spyOn(event, 'preventDefault')
+
+      window.dispatchEvent(event)
+
+      expect(preventDefaultSpy).toHaveBeenCalled()
+    })
+  })
+
   describe('Cleanup', () => {
     it('removes event listener when unmounted', () => {
       const onFocusNode = vi.fn()

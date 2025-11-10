@@ -3,6 +3,8 @@ import tseslint from '@typescript-eslint/eslint-plugin'
 import parser from '@typescript-eslint/parser'
 import noRawColors from './eslint-rules/no-raw-colors.js'
 import noPayloadLogging from './eslint-rules/no-payload-logging.js'
+import noDangerousBrowser from './eslint-rules/no-dangerous-browser.js'
+import noCorsWildcard from './eslint-rules/no-cors-wildcard.js'
 
 export default [
   // Ignore artefacts, Node scripts
@@ -117,12 +119,16 @@ export default [
       'security': {
         rules: {
           'no-payload-logging': noPayloadLogging,
+          'no-dangerous-browser': noDangerousBrowser,
+          'no-cors-wildcard': noCorsWildcard,
         },
       },
     },
     rules: {
       'brand-tokens/no-raw-colors': 'error',
       'security/no-payload-logging': 'error',
+      'security/no-dangerous-browser': 'error',
+      'security/no-cors-wildcard': 'error',
     },
   },
 ]

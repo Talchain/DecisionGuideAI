@@ -16,6 +16,7 @@ import { PanelShell } from './_shared/PanelShell'
 import { PanelSection } from './_shared/PanelSection'
 import { useCanvasStore } from '../store'
 import { createScenario, saveScenarios, loadScenarios, setCurrentScenarioId } from '../store/scenarios'
+import { TemplateSkeleton } from '../components/TemplateSkeleton'
 
 interface TemplatesPanelProps {
   isOpen: boolean
@@ -27,6 +28,7 @@ interface TemplatesPanelProps {
 
 export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanvas, insertionError }: TemplatesPanelProps): JSX.Element | null {
   const [blueprints, setBlueprints] = useState<Array<{ id: string; name: string; description: string }>>([])
+  const [templatesLoading, setTemplatesLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedBlueprintId, setSelectedBlueprintId] = useState<string | null>(null)
   const [selectedBlueprint, setSelectedBlueprint] = useState<Blueprint | null>(null)
@@ -40,6 +42,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
 
   // Load templates from adapter (supports both mock and httpv1)
   useEffect(() => {
+    setTemplatesLoading(true)
     plot.templates()
       .then(list => {
         // Guard for both { items: [...] } and legacy [...] array formats
@@ -52,7 +55,9 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           // New format: wrapped in items
           templates = list.items
         } else {
-          console.error('❌ Invalid templates response:', list)
+          if (import.meta.env.DEV) {
+            console.error('❌ Invalid templates response:', list)
+          }
           setBlueprints([])
           return
         }
@@ -62,11 +67,15 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           name: t.name,
           description: t.description
         })))
+        setTemplatesLoading(false)
       })
       .catch(err => {
-        console.error('❌ Failed to load templates from PLoT engine:', err)
+        if (import.meta.env.DEV) {
+          console.error('❌ Failed to load templates from PLoT engine:', err)
+        }
         // NO FALLBACK - fail loudly to surface issues
         setBlueprints([])
+        setTemplatesLoading(false)
       })
   }, [])
 
@@ -75,11 +84,19 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     bp.description.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  // Focus management
+  // Focus management: Focus close button on open for easy dismissal
+  // On close, focus restoration is handled by store.closeTemplatesPanel()
   useEffect(() => {
     if (isOpen && panelRef.current) {
-      const firstFocusable = panelRef.current.querySelector<HTMLElement>('button, input')
-      firstFocusable?.focus()
+      // Target close button explicitly for consistent UX
+      const closeButton = panelRef.current.querySelector<HTMLElement>('[aria-label="Close panel"]')
+      if (closeButton) {
+        closeButton.focus()
+      } else {
+        // Fallback: focus first interactive element
+        const firstFocusable = panelRef.current.querySelector<HTMLElement>('button, input')
+        firstFocusable?.focus()
+      }
     }
   }, [isOpen])
 
@@ -148,7 +165,9 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         showToast('Scenario created from template.')
       }
     } catch (err) {
-      console.error('Failed to load template:', err)
+      if (import.meta.env.DEV) {
+        console.error('Failed to load template:', err)
+      }
       showToast('Failed to load template.')
     }
   }, [onInsertBlueprint])
@@ -297,7 +316,9 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         showToast('Template merged into current scenario.')
       }
     } catch (err) {
-      console.error('Failed to merge template:', err)
+      if (import.meta.env.DEV) {
+        console.error('Failed to merge template:', err)
+      }
       showToast('Failed to merge template.')
     }
   }, [selectedBlueprintId, onInsertBlueprint, showToast])
@@ -414,16 +435,21 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                   className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info-500"
                 />
               </div>
-              
-              <div className="space-y-3">
-                {filteredBlueprints.map(bp => (
-                  <TemplateCard
-                    key={bp.id}
-                    template={{ id: bp.id, name: bp.name, description: bp.description }}
-                    onInsert={handleInsert}
-                  />
-                ))}
-              </div>
+
+              {/* Show skeleton while loading templates */}
+              {templatesLoading ? (
+                <TemplateSkeleton />
+              ) : (
+                <div className="space-y-3">
+                  {filteredBlueprints.map(bp => (
+                    <TemplateCard
+                      key={bp.id}
+                      template={{ id: bp.id, name: bp.name, description: bp.description }}
+                      onInsert={handleInsert}
+                    />
+                  ))}
+                </div>
+              )}
             </>
           )}
 

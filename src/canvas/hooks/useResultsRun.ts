@@ -6,7 +6,7 @@ import { mapErrorToUserMessage } from '../utils/errorTaxonomy'
 
 interface UseResultsRunReturn {
   // eslint-disable-next-line no-unused-vars
-  run: (request: RunRequest) => Promise<void>
+  run: (request: RunRequest, options?: { forceRerun?: boolean }) => Promise<void>
   cancel: () => void
 }
 
@@ -16,6 +16,8 @@ interface UseResultsRunReturn {
  * Wires adapter (auto/httpv1/mock) to canvas store results slice.
  * Handles both sync and streaming modes transparently.
  * Throttles progress updates to ~100ms.
+ *
+ * v1.2: Supports force-rerun with automatic seed increment to bypass hash dedupe
  */
 export function useResultsRun(): UseResultsRunReturn {
   const cancelRef = useRef<(() => void) | null>(null)
@@ -28,11 +30,19 @@ export function useResultsRun(): UseResultsRunReturn {
   const resultsError = useCanvasStore(s => s.resultsError)
   const resultsCancelled = useCanvasStore(s => s.resultsCancelled)
 
-  const run = useCallback(async (request: RunRequest) => {
-    const seed = request.seed ?? 1337
+  const run = useCallback(async (request: RunRequest, options?: { forceRerun?: boolean }) => {
+    let seed = request.seed ?? 1337
+
+    // v1.2: Force re-run by incrementing seed to generate new hash
+    if (options?.forceRerun) {
+      seed = seed + 1
+      if (import.meta.env.DEV) {
+        console.log('[useResultsRun] Force re-run: seed bumped from', request.seed, 'to', seed)
+      }
+    }
 
     // Start preparing
-    resultsStart({ seed })
+    resultsStart({ seed, wasForced: options?.forceRerun })
 
     // Check if adapter supports streaming
     const adapter = plot as any
@@ -41,7 +51,9 @@ export function useResultsRun(): UseResultsRunReturn {
     if (hasStreaming) {
       // Use streaming API - wrap in try/catch to handle setup errors
       try {
-        cancelRef.current = adapter.stream.run(request, {
+        // Use bumped seed if force-rerun
+        const actualRequest = options?.forceRerun ? { ...request, seed } : request
+        cancelRef.current = adapter.stream.run(actualRequest, {
           onHello: (data: { response_id: string }) => {
             resultsConnecting(data.response_id)
           },
@@ -112,7 +124,9 @@ export function useResultsRun(): UseResultsRunReturn {
         // Show preparing state briefly
         await new Promise(resolve => setTimeout(resolve, 200))
 
-        const report = await plot.run(request)
+        // Use bumped seed if force-rerun
+        const actualRequest = options?.forceRerun ? { ...request, seed } : request
+        const report = await plot.run(actualRequest)
 
         resultsComplete({
           report,

@@ -43,10 +43,10 @@ export async function sendEmailViaBrevoApi(
   };
 
   try {
+    // SECURITY: NEVER log API keys or key material (not even prefixes)
     console.log("[brevo-fallback] Sending email via Brevo API:", {
       to: options.to,
-      subject: options.subject.substring(0, 30) + (options.subject.length > 30 ? "..." : ""),
-      apiKeyPrefix: apiKey.substring(0, 8) + "..."
+      subject: options.subject.substring(0, 30) + (options.subject.length > 30 ? "..." : "")
     });
 
     // Make API request
@@ -101,10 +101,8 @@ export function extractBrevoApiKeyFromSmtp(smtpUrl: string): string | null {
     
     if (match && match[1]) {
       const key = match[1];
-      console.log("[brevo-fallback] Extracted API key:", {
-        keyLength: key.length,
-        keyPrefix: key.substring(0, 8) + "..."
-      });
+      // SECURITY: NEVER log API keys or key material (not even prefixes)
+      console.log("[brevo-fallback] API key extracted successfully");
       return key;
     }
     

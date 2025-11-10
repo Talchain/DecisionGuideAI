@@ -6,7 +6,7 @@ import { isMarkdownPreviewEnabled, isShortcutsEnabled, isCopyCodeEnabled } from 
 import { isE2EEnabled } from '../flags'
 import { isConfigDrawerEnabled } from '../flags'
 import { isCanvasEnabled } from '../flags'
-import { openStream, type StreamHandle } from '../lib/sseClient'
+import { useStreamConnection, type StreamConfig } from '../streams/useStreamConnection'
 import { simplifyEdges, srSummary, computeSimplifyThreshold } from '../lib/graph.simplify'
 import { getSampleGraph } from '../lib/graph.sample'
 import { bandEdgesByWeight } from '../lib/summary'
@@ -21,24 +21,18 @@ import type { CanvasAPI } from './CanvasDrawer'
 import ScenarioDrawer from './ScenarioDrawer'
 import HealthIndicator from './HealthIndicator'
 import JobsProgressPanel from './JobsProgressPanel'
-import { fetchRunReport, type RunReport } from '../lib/runReport'
 import { list as listSnapshots, save as saveSnapshot, type Snapshot } from '../lib/snapshots'
 import { diff as diffItems } from '../lib/compare'
 import { getDefaults } from '../lib/session'
-import { track } from '../lib/telemetry'
 import RunHistoryDrawer from './RunHistoryDrawer'
 import type { RunMeta } from '../lib/history'
-import { record } from '../lib/history'
 import { buildPlainText, buildJson, buildMarkdown, buildMarkdownFilename, triggerDownload, type TokenRec as ExportTokenRec } from '../lib/export'
 import { formatDownloadName } from '../lib/filename'
 import { formatUSD } from '../lib/currency'
-import { renderMarkdownSafe } from '../lib/markdown'
 import { tryDecodeScenarioParam, getRemember, getLastId, getScenarioById } from '../lib/scenarios'
 import { encodeSnapshotToUrlParam, tryDecodeSnapshotParam } from '../lib/snapshotShare'
 import { getSuggestions, createUndoStack, type SimpleState } from '../lib/guided'
 import { byTarget as listCommentsByTarget, add as addComment, del as delComment, type Comment } from '../lib/comments'
-
-type Status = 'idle' | 'streaming' | 'done' | 'cancelled' | 'limited' | 'aborted' | 'error'
 
 export default function SandboxStreamPanel() {
   // Flag-gated: OFF by default. In E2E test-mode, always mount for determinism.
@@ -280,16 +274,6 @@ export default function SandboxStreamPanel() {
     )
   }
 
-  const [status, setStatus] = useState<Status>('idle')
-  const [output, setOutput] = useState('')
-  const [cost, setCost] = useState<number | undefined>(undefined)
-  const [reconnecting, setReconnecting] = useState(false)
-  const [resumedOnce, setResumedOnce] = useState(false)
-  const [started, setStarted] = useState(false)
-  const handleRef = useRef<StreamHandle | null>(null)
-  const statusRef = useRef<HTMLDivElement | null>(null)
-  const acceptTokensRef = useRef<boolean>(true)
-  const stopAtRef = useRef<number | null>(null)
   const [reportOpen, setReportOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [reportParams, setReportParams] = useState<{ seed?: string | number; budget?: number; model?: string } | null>(null)
@@ -318,8 +302,69 @@ export default function SandboxStreamPanel() {
   const shortcutsFlag = isShortcutsEnabled()
   const copyFlag = isCopyCodeEnabled()
   const scenariosFlag = isScenariosEnabled()
-  const [reportData, setReportData] = useState<RunReport | null>(null)
+
+  // Optional, tiny frame buffer for smoother token appends
+  const bufferEnabled: boolean = (() => {
+    try {
+      const env = (import.meta as any)?.env?.VITE_STREAM_BUFFER
+      if (env === '0' || env === 0 || env === false) return false
+      if (env === '1' || env === 1 || env === true) return true
+    } catch {}
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('feature.streamBuffer')
+        if (raw === '0' || raw === 'false') return false
+        if (raw && raw !== '0' && raw !== 'false') return true
+      }
+    } catch {}
+    return true // default ON
+  })()
+
   const [mdHtml, setMdHtml] = useState<string>('')
+  const statusRef = useRef<HTMLDivElement | null>(null)
+
+  // Initialize stream connection hook
+  const streamConfig: StreamConfig = {
+    historyEnabled: historyFlag,
+    chipsEnabled: chipsFlag,
+    paramsEnabled: paramsFlag,
+    mdEnabled: mdFlag,
+    bufferEnabled,
+    route: 'critique',
+    onMdUpdate: setMdHtml,
+    statusRef,
+  }
+  const { state: streamState, actions: streamActions } = useStreamConnection(streamConfig)
+
+  // Aliases for stream state (for backward compatibility with existing code)
+  const status = streamState.status
+  const output = streamState.output
+  const cost = streamState.metrics.cost
+  const reconnecting = streamState.reconnecting
+  const resumedOnce = streamState.resumedOnce
+  const started = streamState.started
+  const reportData = streamState.reportData
+  const diagLastId = streamState.metrics.lastSseId
+  const diagTokenCount = streamState.metrics.tokenCount
+  const diagTtfbMs = streamState.metrics.ttfbMs
+  const diagResumeCount = streamState.metrics.resumeCount
+
+  // Sync textRef with hook's output for export/snapshot functionality
+  useEffect(() => {
+    textRef.current = output
+  }, [output])
+
+  // Sync tokensRef for export functionality (reconstruct from output changes)
+  useEffect(() => {
+    if (status === 'idle') {
+      tokensRef.current = []
+    } else if (output.length > 0) {
+      // Reconstruct tokens array from output
+      // Note: Individual token boundaries are lost, but text content is preserved
+      tokensRef.current = [{ id: '1', text: output }]
+    }
+  }, [output, status])
+
   const [sheetOpen, setSheetOpen] = useState<boolean>(false)
   const mdPreviewRef = useRef<HTMLDivElement | null>(null)
   const [copyOverlays, setCopyOverlays] = useState<Array<{ id: number; top: number; left: number; code: string; lang?: string }>>([])
@@ -338,39 +383,26 @@ export default function SandboxStreamPanel() {
   const [scenarioChipText, setScenarioChipText] = useState<string | null>(null)
   const [scenarioImportNote, setScenarioImportNote] = useState<boolean>(false)
   const [scenarioPreview, setScenarioPreview] = useState<{ v: 1; name: string; seed: string; budget: string; model: string } | null>(null)
-  // Diagnostics & perf
-  const [diagLastId, setDiagLastId] = useState<string | undefined>(undefined)
-  const [diagResumeCount, setDiagResumeCount] = useState<number>(0)
-  const [diagTtfbMs, setDiagTtfbMs] = useState<number | undefined>(undefined)
-  const [diagTokenCount, setDiagTokenCount] = useState<number>(0)
-  const firstTokenAtRef = useRef<number | null>(null)
 
-  
-
-  // Track timing and last in-flight cost for history metadata
-  const startedAtRef = useRef<number | null>(null)
-  const costRef = useRef<number | undefined>(undefined)
+  // Keep refs needed for export functionality (not managed by hook)
   const tokensRef = useRef<ExportTokenRec[]>([])
   const textRef = useRef<string>('')
+  const startedAtRef = useRef<number | null>(null)
+  const costRef = useRef<number | undefined>(undefined)
 
-  // Optional, tiny frame buffer for smoother token appends
-  const bufferEnabled: boolean = (() => {
-    try {
-      const env = (import.meta as any)?.env?.VITE_STREAM_BUFFER
-      if (env === '0' || env === 0 || env === false) return false
-      if (env === '1' || env === 1 || env === true) return true
-    } catch {}
-    try {
-      if (typeof localStorage !== 'undefined') {
-        const raw = localStorage.getItem('feature.streamBuffer')
-        if (raw === '0' || raw === 'false') return false
-        if (raw && raw !== '0' && raw !== 'false') return true
-      }
-    } catch {}
-    return true // default ON
-  })()
-  const frameBufRef = useRef<string[]>([])
-  const rafIdRef = useRef<number | null>(null)
+  // Track stream start time for duration calculation
+  useEffect(() => {
+    if (started && startedAtRef.current === null) {
+      startedAtRef.current = Date.now()
+    } else if (!started) {
+      startedAtRef.current = null
+    }
+  }, [started])
+
+  // Track final cost for export
+  useEffect(() => {
+    costRef.current = cost
+  }, [cost])
 
   // Scenario params state (persisted). Enabled only when paramsFlag is true.
   const [seed, setSeed] = useState<string>(() => {
@@ -528,21 +560,6 @@ export default function SandboxStreamPanel() {
     setTimeout(() => setAriaSnapshotMsg(''), 1200)
   }
 
-  const flushFrame = () => {
-    rafIdRef.current = null
-    if (!acceptTokensRef.current) {
-      frameBufRef.current = []
-      return
-    }
-    if (frameBufRef.current.length > 0) {
-      const chunk = frameBufRef.current.join('')
-      frameBufRef.current = []
-      setOutput((prev) => prev + chunk)
-      textRef.current += chunk
-      if (mdFlag) setMdHtml(renderMarkdownSafe(textRef.current))
-    }
-  }
-
   // Compute overlay positions for copy buttons on fenced code blocks
   useEffect(() => {
     if (!mdFlag || !copyFlag) { setCopyOverlays([]); return }
@@ -599,79 +616,15 @@ export default function SandboxStreamPanel() {
       setTimeout(() => { setFailedId(null); setAriaCopyMsg('') }, 1200)
     }
   }
-  const scheduleFlush = () => {
-    if (rafIdRef.current != null) return
-    const prefersReduced = (() => {
-      try { return !!(globalThis as any)?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches } catch { return false }
-    })()
-    if (prefersReduced) {
-      // Microtask flush under reduced motion; clear rafId deterministically before flush
-      rafIdRef.current = -1 as any
-      Promise.resolve().then(() => { rafIdRef.current = null; flushFrame() })
-      return
-    }
-    const raf: any = (globalThis as any).requestAnimationFrame
-    if (typeof raf === 'function') {
-      rafIdRef.current = raf(() => { rafIdRef.current = null; flushFrame() })
-    } else {
-      // Microtask fallback ensures deterministic behavior in tests
-      rafIdRef.current = -1 as any
-      Promise.resolve().then(() => { rafIdRef.current = null; flushFrame() })
-    }
-  }
-  const cancelFlush = () => {
-    if (rafIdRef.current != null) {
-      try { (globalThis as any).cancelAnimationFrame?.(rafIdRef.current as any) } catch {}
-      try { clearTimeout(rafIdRef.current as any) } catch {}
-      rafIdRef.current = null
-    }
-  }
-  const flushNow = () => {
-    cancelFlush()
-    if (frameBufRef.current.length > 0) {
-      const chunk = frameBufRef.current.join('')
-      frameBufRef.current = []
-      setOutput((prev) => prev + chunk)
-      textRef.current += chunk
-      if (mdFlag) setMdHtml(renderMarkdownSafe(textRef.current))
-    }
-  }
-
-  // Ensure tidy cleanup on unmount
-  useEffect(() => {
-    return () => {
-      handleRef.current?.close()
-      handleRef.current = null
-    }
-  }, [])
 
   const begin = (over?: { seed?: string | number; budget?: number; model?: string }) => {
     if (started) return
-    setStarted(true)
-    setStatus('streaming')
-    setOutput('')
-    if (mdFlag) setMdHtml('')
-    setCost(undefined)
-    costRef.current = undefined
-    setReconnecting(false)
-    setResumedOnce(false)
-    acceptTokensRef.current = true
-    stopAtRef.current = null
-    setReportData(null)
-    tokensRef.current = []
-    textRef.current = ''
-    track('edge.stream.start')
-    // Reset diagnostics
-    setDiagLastId(undefined)
-    setDiagResumeCount(0)
-    setDiagTtfbMs(undefined)
-    setDiagTokenCount(0)
-    firstTokenAtRef.current = null
 
     // Determine params for this run (override → state)
     const seedUse = over?.seed != null ? String(over.seed) : seed
     const budgetUseStr = over?.budget != null ? String(over.budget) : budget
     const modelUse = over?.model != null ? String(over.model) : model
+
     // Persist and update UI states if overrides are provided
     if (over) {
       setSeed(seedUse)
@@ -680,9 +633,7 @@ export default function SandboxStreamPanel() {
       persistParams(seedUse, budgetUseStr, modelUse)
     }
 
-    const { sessionId, org } = getDefaults()
-    startedAtRef.current = Date.now()
-
+    // Compute final args for stream
     const seedArg = over ? (seedUse ? seedUse : undefined) : (paramsFlag && seedUse ? seedUse : undefined)
     const budgetArg = over ? (budgetUseStr !== '' && !Number.isNaN(Number(budgetUseStr)) ? Number(budgetUseStr) : undefined) : (paramsFlag && budgetUseStr !== '' && !Number.isNaN(Number(budgetUseStr)) ? Number(budgetUseStr) : undefined)
     const modelArg = over ? (modelUse ? modelUse : undefined) : (paramsFlag && modelUse ? modelUse : undefined)
@@ -694,221 +645,14 @@ export default function SandboxStreamPanel() {
       try { (globalThis as any).__REPLAY_TS = Date.now() } catch {}
     }
 
-    const h = openStream({
-      route: 'critique',
-      sessionId,
-      org,
-      seed: seedArg,
-      budget: budgetArg,
-      model: modelArg,
-      onHello: () => {
-        // Clear any transient reconnect hint
-        setReconnecting(false)
-      },
-      onResume: () => {
-        // Show a tiny visual-only note once when resume completes
-        setReconnecting(false)
-        setResumedOnce((v) => v || true)
-        setDiagResumeCount((v) => v + 1)
-      },
-      onToken: (t) => {
-        if (!acceptTokensRef.current) return
-        // Capture token deterministically for export
-        const id = String(tokensRef.current.length + 1)
-        tokensRef.current.push({ id, text: t })
-        setDiagTokenCount((c) => c + 1)
-        if (firstTokenAtRef.current == null && startedAtRef.current != null) {
-          const dt = Math.max(0, Date.now() - startedAtRef.current)
-          firstTokenAtRef.current = Date.now()
-          setDiagTtfbMs(dt)
-        }
-        if (bufferEnabled) {
-          frameBufRef.current.push(t)
-          scheduleFlush()
-        } else {
-          setOutput((prev) => prev + t)
-          textRef.current += t
-        }
-        track('edge.stream.token')
-      },
-      onSseId: (id?: string) => {
-        if (id) setDiagLastId(id)
-      },
-      onCost: (usd) => {
-        // Display as GBP per spec (format only)
-        setCost(usd)
-        costRef.current = usd
-      },
-      onDone: () => {
-        flushNow()
-        setStatus('done')
-        setStarted(false)
-        setReconnecting(false)
-        if (mdFlag) setMdHtml(renderMarkdownSafe(textRef.current))
-        // Move focus to status chip for clarity
-        setTimeout(() => statusRef.current?.focus(), 0)
-        track('edge.stream.done')
-        if (historyFlag) {
-          const durationMs = startedAtRef.current ? Math.max(0, Date.now() - startedAtRef.current) : undefined
-          record({
-            id: `${Date.now()}-${seed || 'na'}`,
-            ts: Date.now(),
-            status: 'done',
-            durationMs,
-            estCost: costRef.current,
-            seed: paramsFlag && seed ? seed : undefined,
-            budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-            model: paramsFlag && model ? model : undefined,
-            route: 'critique',
-            sessionId,
-            org,
-          })
-        }
-        if (chipsFlag) {
-          void fetchRunReport({
-            sessionId,
-            org,
-            seed: paramsFlag && seed ? seed : undefined,
-            budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-            model: paramsFlag && model ? model : undefined,
-          }).then(setReportData).catch(() => {})
-        }
-      },
-      onCancelled: () => {
-        flushNow()
-        setStatus('cancelled')
-        setStarted(false)
-        setReconnecting(false)
-        if (mdFlag) setMdHtml(renderMarkdownSafe(textRef.current))
-        setTimeout(() => statusRef.current?.focus(), 0)
-        track('edge.stream.cancelled')
-      },
-      onError: (err?: any) => {
-        // Show a subtle reconnect hint only when a retry will occur
-        if (err && err.willRetry) {
-          setReconnecting(true)
-        } else {
-          // Terminal error
-          flushNow()
-          setStatus('error')
-          setStarted(false)
-          setReconnecting(false)
-          if (mdFlag) setMdHtml(renderMarkdownSafe(textRef.current))
-          setTimeout(() => statusRef.current?.focus(), 0)
-          track('edge.stream.error')
-          if (historyFlag) {
-            const durationMs = startedAtRef.current ? Math.max(0, Date.now() - startedAtRef.current) : undefined
-            record({
-              id: `${Date.now()}-${seed || 'na'}`,
-              ts: Date.now(),
-              status: 'error',
-              durationMs,
-              estCost: costRef.current,
-              seed: paramsFlag && seed ? seed : undefined,
-              budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-              model: paramsFlag && model ? model : undefined,
-              route: 'critique',
-              sessionId,
-              org,
-            })
-          }
-          if (chipsFlag) {
-            void fetchRunReport({
-              sessionId,
-              org,
-              seed: paramsFlag && seed ? seed : undefined,
-              budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-              model: paramsFlag && model ? model : undefined,
-            }).then(setReportData).catch(() => {})
-          }
-        }
-      },
-      onAborted: () => {
-        flushNow()
-        setStatus('aborted')
-        setStarted(false)
-        setReconnecting(false)
-        if (mdFlag) setMdHtml(renderMarkdownSafe(textRef.current))
-        setTimeout(() => statusRef.current?.focus(), 0)
-        if (historyFlag) {
-          const durationMs = startedAtRef.current ? Math.max(0, Date.now() - startedAtRef.current) : undefined
-          const { sessionId, org } = getDefaults()
-          record({
-            id: `${Date.now()}-${seed || 'na'}`,
-            ts: Date.now(),
-            status: 'aborted',
-            durationMs,
-            estCost: costRef.current,
-            seed: paramsFlag && seed ? seed : undefined,
-            budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-            model: paramsFlag && model ? model : undefined,
-            route: 'critique',
-            sessionId,
-            org,
-          })
-        }
-        if (chipsFlag) {
-          const { sessionId, org } = getDefaults()
-          void fetchRunReport({
-            sessionId,
-            org,
-            seed: paramsFlag && seed ? seed : undefined,
-            budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-            model: paramsFlag && model ? model : undefined,
-          }).then(setReportData).catch(() => {})
-        }
-      },
-      onLimit: () => {
-        flushNow()
-        setStatus('limited')
-        setStarted(false)
-        setReconnecting(false)
-        if (mdFlag) setMdHtml(renderMarkdownSafe(textRef.current))
-        setTimeout(() => statusRef.current?.focus(), 0)
-        track('edge.stream.limited')
-        if (historyFlag) {
-          const durationMs = startedAtRef.current ? Math.max(0, Date.now() - startedAtRef.current) : undefined
-          record({
-            id: `${Date.now()}-${seed || 'na'}`,
-            ts: Date.now(),
-            status: 'limited',
-            durationMs,
-            estCost: costRef.current,
-            seed: paramsFlag && seed ? seed : undefined,
-            budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-            model: paramsFlag && model ? model : undefined,
-            route: 'critique',
-            sessionId,
-            org,
-          })
-        }
-        if (chipsFlag) {
-          void fetchRunReport({
-            sessionId,
-            org,
-            seed: paramsFlag && seed ? seed : undefined,
-            budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-            model: paramsFlag && model ? model : undefined,
-          }).then(setReportData).catch(() => {})
-        }
-      },
-    })
-    handleRef.current = h
+    // Start stream via hook
+    streamActions.start({ seed: seedArg, budget: budgetArg, model: modelArg })
   }
 
   const stop = () => {
     if (!started) return
-    flushNow()
-    setStatus('cancelled') // Instant and tidy UX
-    setStarted(false)
-    setReconnecting(false)
-    acceptTokensRef.current = false
-    stopAtRef.current = Date.now()
-    setTimeout(() => statusRef.current?.focus(), 0)
-    // Do NOT close immediately; allow 'aborted' to arrive. Gate tokens locally.
-    const h = handleRef.current
-    h?.cancel().catch(() => {})
-    handleRef.current = null
+    // Stop stream via hook
+    streamActions.stop()
   }
 
   const terminalLabel =

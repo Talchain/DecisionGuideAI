@@ -377,6 +377,48 @@ test.describe('Canvas v1.2 Features', () => {
         }
       }
     })
+
+    test('Template insertion triggers auto-run and opens Results panel', async ({ page }) => {
+      // v1.2: Test Template → Results hand-off workflow
+      // 1. Click Templates button to open panel
+      const templatesButton = page.getByTestId('btn-toggle-templates')
+      if (await templatesButton.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await templatesButton.click()
+        await page.waitForTimeout(500)
+
+        // 2. Templates panel should be visible
+        const templatesPanel = page.locator('[aria-label*="Templates"]').or(page.locator('text=/Templates/i')).first()
+        await expect(templatesPanel).toBeVisible()
+
+        // 3. Find first template with "Create scenario" button
+        const createBtn = page.locator('button:has-text("Create scenario")').first()
+        if (await createBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+          // Click to insert template
+          await createBtn.click()
+          await page.waitForTimeout(2000) // Wait for insertion + auto-run
+
+          // 4. Templates panel should close
+          await expect(templatesPanel).not.toBeVisible({ timeout: 3000 })
+
+          // 5. Results panel should open automatically
+          const resultsPanel = page.locator('[aria-label*="Results"]').or(page.locator('text=/Analysis Results/i'))
+          await expect(resultsPanel.first()).toBeVisible({ timeout: 3000 })
+
+          // 6. Results should show content (not empty state)
+          const resultsContent = page.locator('[data-testid="results-content"]')
+            .or(page.locator('text=/likely value/i'))
+            .or(page.locator('text=/preparing/i'))
+            .or(page.locator('text=/connecting/i'))
+
+          // Should see either loading state or results
+          await expect(resultsContent.first()).toBeVisible({ timeout: 5000 })
+
+          // 7. No insertion error should appear
+          const errorBanner = page.locator('text=/Blueprint Insertion Failed/i')
+          await expect(errorBanner).not.toBeVisible()
+        }
+      }
+    })
   })
 
   test.describe('Graceful Degradation', () => {
