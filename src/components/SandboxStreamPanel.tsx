@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { isSseEnabled, isRunReportEnabled, isConfidenceChipsEnabled, isHintsEnabled, isParamsEnabled, isHistoryEnabled, isExportEnabled, isScenariosEnabled } from '../flags'
 import * as Flags from '../flags'
+import { useStreamFlags } from './StreamFlagsProvider'
 import { isJobsProgressEnabled } from '../flags'
 import { isMarkdownPreviewEnabled, isShortcutsEnabled, isCopyCodeEnabled } from '../flags'
 import { isE2EEnabled } from '../flags'
@@ -43,72 +44,22 @@ export default function SandboxStreamPanel() {
     try { if (isE2EEnabled()) { (window as any).__PANEL_RENDERED = true } } catch {}
   }, [])
 
-  // --- Step 2 flags and derived data (all OFF by default) ---
-  const [simplifyFlag, setSimplifyFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isCanvasSimplifyEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [listViewFlag, setListViewFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isListViewEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [engineModeFlag, setEngineModeFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isEngineModeEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [mobileGuardFlag, setMobileGuardFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isMobileGuardrailsEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [summaryV2Flag, setSummaryV2Flag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isSummaryV2Enabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [guidedFlag, setGuidedFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isGuidedV1Enabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [commentsFlag, setCommentsFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isCommentsEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [diagFlag, setDiagFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isDiagnosticsEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [perfFlag, setPerfFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isPerfProbesEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [scorecardFlag, setScorecardFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isScorecardEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [errorBannersFlag, setErrorBannersFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isErrorBannersEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-
-  useEffect(() => {
-    // Re-evaluate flags after mount and whenever localStorage changes (E2E sets flags post-navigation)
-    const update = () => {
-      try { const fn: any = (Flags as any).isCanvasSimplifyEnabled; setSimplifyFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isListViewEnabled; setListViewFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isEngineModeEnabled; setEngineModeFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isMobileGuardrailsEnabled; setMobileGuardFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isSnapshotsEnabled; setSnapshotsFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isCompareEnabled; setCompareFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isSummaryV2Enabled; setSummaryV2Flag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isGuidedV1Enabled; setGuidedFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isCommentsEnabled; setCommentsFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isDiagnosticsEnabled; setDiagFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isPerfProbesEnabled; setPerfFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isScorecardEnabled; setScorecardFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isErrorBannersEnabled; setErrorBannersFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-    }
-    update()
-    // Grace period: catch LS writes made immediately after mount (same-tab writes don't fire 'storage')
-    const t1 = setTimeout(update, 50)
-    const t2 = setTimeout(update, 200)
-    const t3 = setTimeout(update, 500)
-    const iv = setInterval(update, 250)
-    const tStop = setTimeout(() => clearInterval(iv), 2000)
-    const onStorage = (e: StorageEvent) => {
-      if (!e || typeof e.key !== 'string') { update(); return }
-      if (e.key.startsWith('feature.')) update()
-    }
-    window.addEventListener('storage', onStorage)
-    return () => { window.removeEventListener('storage', onStorage); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(tStop); clearInterval(iv) }
-  }, [])
+  // P1 Polish (Task A): Extract flags to StreamFlagsProvider hook
+  const {
+    simplifyFlag,
+    listViewFlag,
+    engineModeFlag,
+    mobileGuardFlag,
+    summaryV2Flag,
+    guidedFlag,
+    commentsFlag,
+    diagFlag,
+    perfFlag,
+    scorecardFlag,
+    errorBannersFlag,
+    snapshotsFlag,
+    compareFlag,
+  } = useStreamFlags()
 
   // If mobile guardrails flag flips ON after mount, default to list-first on narrow viewports
   useEffect(() => {
@@ -488,13 +439,7 @@ export default function SandboxStreamPanel() {
   }, [])
 
   // Snapshots + Compare + Read-only share (flag-gated)
-  const [snapshotsFlag, setSnapshotsFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isSnapshotsEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [compareFlag, setCompareFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isCompareEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-
+  // P1 Polish (Task A): snapshotsFlag and compareFlag now from useStreamFlags() hook
   const [snapshots, setSnapshots] = useState<Snapshot[]>(() => (snapshotsFlag ? listSnapshots() : []))
   const [ariaSnapshotMsg, setAriaSnapshotMsg] = useState<string>('')
   const [readOnlySnap, setReadOnlySnap] = useState<{ seed: string; model: string; data: any } | null>(null)
