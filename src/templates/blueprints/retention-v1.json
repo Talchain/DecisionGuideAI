@@ -14,10 +14,10 @@
     {"id": "outcome-discount", "label": "Discount LTV", "kind": "outcome", "position": {"x": 250, "y": 400}}
   ],
   "edges": [
-    {"id": "e1", "from": "start", "to": "strategy-email", "probability": 0.5},
-    {"id": "e2", "from": "start", "to": "strategy-discount", "probability": 0.5},
-    {"id": "e3", "from": "strategy-email", "to": "outcome-email", "probability": 1.0},
-    {"id": "e4", "from": "strategy-discount", "to": "outcome-discount", "probability": 1.0}
+    {"id": "e1", "from": "start", "to": "strategy-email", "probability": 0.5, "weight": 0.5, "belief": 0.68, "provenance": "template"},
+    {"id": "e2", "from": "start", "to": "strategy-discount", "probability": 0.5, "weight": 0.5, "belief": 0.68, "provenance": "template"},
+    {"id": "e3", "from": "strategy-email", "to": "outcome-email", "probability": 1.0, "weight": 0.85, "belief": 0.90, "provenance": "template"},
+    {"id": "e4", "from": "strategy-discount", "to": "outcome-discount", "probability": 1.0, "weight": 0.85, "belief": 0.90, "provenance": "template"}
   ],
   "defaults": {"churnRate": 5, "retentionSpend": 1000}
 }

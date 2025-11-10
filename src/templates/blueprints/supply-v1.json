@@ -14,10 +14,10 @@
     {"id": "outcome-high", "label": "High Availability", "kind": "outcome", "position": {"x": 250, "y": 400}}
   ],
   "edges": [
-    {"id": "e1", "from": "start", "to": "stock-low", "probability": 0.4},
-    {"id": "e2", "from": "start", "to": "stock-high", "probability": 0.6},
-    {"id": "e3", "from": "stock-low", "to": "outcome-low", "probability": 1.0},
-    {"id": "e4", "from": "stock-high", "to": "outcome-high", "probability": 1.0}
+    {"id": "e1", "from": "start", "to": "stock-low", "probability": 0.4, "weight": 0.4, "belief": 0.70, "provenance": "template"},
+    {"id": "e2", "from": "start", "to": "stock-high", "probability": 0.6, "weight": 0.6, "belief": 0.70, "provenance": "template"},
+    {"id": "e3", "from": "stock-low", "to": "outcome-low", "probability": 1.0, "weight": 0.9, "belief": 0.95, "provenance": "template"},
+    {"id": "e4", "from": "stock-high", "to": "outcome-high", "probability": 1.0, "weight": 0.9, "belief": 0.95, "provenance": "template"}
   ],
   "defaults": {"orderVolume": 1000, "leadTime": 7}
 }

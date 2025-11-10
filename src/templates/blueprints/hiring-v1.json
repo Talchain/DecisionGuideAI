@@ -14,10 +14,10 @@
     {"id": "outcome-b", "label": "Team Performance B", "kind": "outcome", "position": {"x": 250, "y": 400}}
   ],
   "edges": [
-    {"id": "e1", "from": "start", "to": "candidate-a", "probability": 0.5},
-    {"id": "e2", "from": "start", "to": "candidate-b", "probability": 0.5},
-    {"id": "e3", "from": "candidate-a", "to": "outcome-a", "probability": 1.0},
-    {"id": "e4", "from": "candidate-b", "to": "outcome-b", "probability": 1.0}
+    {"id": "e1", "from": "start", "to": "candidate-a", "probability": 0.5, "weight": 0.5, "belief": 0.65, "provenance": "template"},
+    {"id": "e2", "from": "start", "to": "candidate-b", "probability": 0.5, "weight": 0.5, "belief": 0.65, "provenance": "template"},
+    {"id": "e3", "from": "candidate-a", "to": "outcome-a", "probability": 1.0, "weight": 0.85, "belief": 0.90, "provenance": "template"},
+    {"id": "e4", "from": "candidate-b", "to": "outcome-b", "probability": 1.0, "weight": 0.85, "belief": 0.90, "provenance": "template"}
   ],
   "defaults": {"techScore": 85, "cultureFit": 90}
 }

@@ -14,10 +14,10 @@
     {"id": "outcome-b", "label": "Impact B", "kind": "outcome", "position": {"x": 250, "y": 400}}
   ],
   "edges": [
-    {"id": "e1", "from": "start", "to": "feature-a", "probability": 0.55},
-    {"id": "e2", "from": "start", "to": "feature-b", "probability": 0.45},
-    {"id": "e3", "from": "feature-a", "to": "outcome-a", "probability": 1.0},
-    {"id": "e4", "from": "feature-b", "to": "outcome-b", "probability": 1.0}
+    {"id": "e1", "from": "start", "to": "feature-a", "probability": 0.55, "weight": 0.55, "belief": 0.70, "provenance": "template"},
+    {"id": "e2", "from": "start", "to": "feature-b", "probability": 0.45, "weight": 0.45, "belief": 0.70, "provenance": "template"},
+    {"id": "e3", "from": "feature-a", "to": "outcome-a", "probability": 1.0, "weight": 0.85, "belief": 0.92, "provenance": "template"},
+    {"id": "e4", "from": "feature-b", "to": "outcome-b", "probability": 1.0, "weight": 0.85, "belief": 0.92, "provenance": "template"}
   ],
   "defaults": {"impactScore": 8, "effortWeeks": 3}
 }
