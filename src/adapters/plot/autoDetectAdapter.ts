@@ -131,14 +131,24 @@ export const autoDetectAdapter = {
     }
   },
 
-  async limits(): Promise<LimitsV1> {
+  async limits(): Promise<LimitsFetch> {
     const probe = await getProbeResult();
-    return probe.available
-      ? httpV1Adapter.limits()
-      : mockAdapter.limits?.() ?? {
-          nodes: { max: 200 },
-          edges: { max: 500 },
-        };
+    if (probe.available) {
+      return httpV1Adapter.limits(); // Returns LimitsFetch
+    }
+
+    // Fallback: wrap mock/default limits in LimitsFetch format
+    const fallbackData = mockAdapter.limits?.() ?? {
+      nodes: { max: 200 },
+      edges: { max: 500 },
+    };
+    return {
+      ok: true,
+      source: 'fallback',
+      data: await fallbackData,
+      fetchedAt: Date.now(),
+      reason: 'Engine not available, using default limits',
+    };
   },
 
   async health() {
