@@ -44,16 +44,22 @@ export function sanitizeLabel(label: unknown): string {
 
 /**
  * Deep sanitizer to remove non-serializable properties
- * Strips: DOM refs, React fibers, functions, symbols, internal ReactFlow props
+ * Strips: DOM refs, React fibers, functions, symbols, internal ReactFlow props, circular references
  */
-function deepSanitize(obj: unknown): unknown {
+function deepSanitize(obj: unknown, seen = new WeakSet()): unknown {
   // Primitives pass through
   if (obj === null || obj === undefined) return obj
   if (typeof obj !== 'object') return obj
 
+  // Circular reference detection
+  if (seen.has(obj as object)) {
+    return undefined // Skip circular references
+  }
+  seen.add(obj as object)
+
   // Arrays: sanitize each element
   if (Array.isArray(obj)) {
-    return obj.map(deepSanitize)
+    return obj.map(item => deepSanitize(item, seen))
   }
 
   // Objects: filter out non-serializable properties
@@ -80,7 +86,7 @@ function deepSanitize(obj: unknown): unknown {
     }
 
     // Recursively sanitize nested objects/arrays
-    sanitized[key] = deepSanitize(value)
+    sanitized[key] = deepSanitize(value, seen)
   }
 
   return sanitized
