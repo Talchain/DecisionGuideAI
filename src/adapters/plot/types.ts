@@ -50,6 +50,7 @@ export interface ErrorV1 {
 export interface LimitsV1 {
   nodes: { max: number }
   edges: { max: number }
+  body_kb?: { max: number } // v1.2: max request body size in KB
   engine_p95_ms_budget?: number // v1.2: p95 execution time budget in milliseconds
 }
 

@@ -329,10 +329,26 @@ export const httpV1Adapter = {
         console.log('[httpV1] /v1/limits succeeded (live)')
       }
 
+      // Map backend format (max_nodes, max_edges, max_body_kb) to UI format (nodes.max, edges.max, body_kb.max)
+      const mappedData: LimitsV1 = {
+        nodes: { max: (response as any).max_nodes || response.nodes?.max || V1_LIMITS.MAX_NODES },
+        edges: { max: (response as any).max_edges || response.edges?.max || V1_LIMITS.MAX_EDGES },
+      }
+
+      // Include max_body_kb if present (v1.2: 96 KB prod limit)
+      if ((response as any).max_body_kb) {
+        mappedData.body_kb = { max: (response as any).max_body_kb }
+      }
+
+      // Include engine_p95_ms_budget if present (v1.2 feature)
+      if ('engine_p95_ms_budget' in response) {
+        mappedData.engine_p95_ms_budget = response.engine_p95_ms_budget
+      }
+
       return {
         ok: true,
         source: 'live',
-        data: response,
+        data: mappedData,
         fetchedAt,
       }
     } catch (err) {

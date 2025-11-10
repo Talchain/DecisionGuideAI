@@ -149,9 +149,18 @@ export const V1_LIMITS = {
 } as const
 
 // v1.2: Extended limits response
+// Backend returns flat format (max_nodes, max_edges), adapter maps to nested format
 export interface V1LimitsResponse {
-  nodes: { max: number }
-  edges: { max: number }
+  // Nested format (UI contract, mapped by adapter)
+  nodes?: { max: number }
+  edges?: { max: number }
+
+  // Flat format (actual backend response)
+  max_nodes?: number
+  max_edges?: number
+  max_body_kb?: number
+  schema?: string
+
   engine_p95_ms_budget?: number // v1.2: p95 execution time budget in milliseconds
 }
 
