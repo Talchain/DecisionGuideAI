@@ -9,36 +9,26 @@
  * This maintains visual parity with existing smoothstep edges.
  */
 
-import { memo, useMemo, useState, useEffect } from 'react'
+import { memo, useMemo } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps, useReactFlow } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { formatConfidence, shouldShowLabel } from '../domain/edges'
 import { useIsDark } from '../hooks/useTheme'
-import { getEdgeLabel, getEdgeLabelMode, type EdgeLabelMode } from '../domain/edgeLabels'
+import { getEdgeLabel } from '../domain/edgeLabels'
+import { useEdgeLabelMode } from '../store/edgeLabelMode'
 
 /**
  * StyledEdge with semantic visual properties
  * Maps weight/style/curvature to SVG rendering
+ * v1.2 + P1: Live edge label toggle (human ⇄ numeric)
  */
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
   const isDark = useIsDark()
   const { getNode, getEdges } = useReactFlow()
 
-  // v1.2: Edge label mode (human vs numeric) with storage event listener
-  const [labelMode, setLabelMode] = useState<EdgeLabelMode>(() => getEdgeLabelMode())
-
-  useEffect(() => {
-    // Listen for storage events to react to mode changes without reload
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'canvas.edge-labels-mode') {
-        setLabelMode(getEdgeLabelMode())
-      }
-    }
-
-    window.addEventListener('storage', handleStorageChange)
-    return () => window.removeEventListener('storage', handleStorageChange)
-  }, [])
+  // P1 Polish: Edge label mode from Zustand store (live updates, cross-tab sync)
+  const labelMode = useEdgeLabelMode(state => state.mode)
 
   // Extract edge data with defaults
   const edgeData = data as EdgeData | undefined

@@ -37,6 +37,7 @@ import { useResultsRun } from './hooks/useResultsRun'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
 import { loadRuns } from './store/runHistory'
+import { useEdgeLabelModeSync } from './store/edgeLabelMode'
 
 interface ReactFlowGraphProps {
   blueprintEventBus?: {
@@ -73,6 +74,11 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
 
   // Autosave hook - saves graph every 30s when dirty
   useAutosave()
+
+  // P1 Polish: Cross-tab sync for edge label mode
+  useEffect(() => {
+    return useEdgeLabelModeSync()
+  }, [])
 
   // Auto-open Results panel when run starts (v1.2: Task Group A requirement)
   const resultsStatus = useCanvasStore(s => s.results.status)

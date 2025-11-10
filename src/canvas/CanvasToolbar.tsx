@@ -20,6 +20,7 @@ import { useToast } from './ToastContext'
 import { checkLimits, formatLimitError } from './utils/limitGuard'
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { Tooltip } from './components/Tooltip'
+import { EdgeLabelToggle } from './components/EdgeLabelToggle'
 
 export function CanvasToolbar() {
   const [isMinimized, setIsMinimized] = useState(false)
@@ -170,6 +171,8 @@ export function CanvasToolbar() {
       <div className="fixed top-4 right-4 z-[999] flex flex-col gap-2 items-end">
         <ConnectivityChip />
         <StatusChips currentNodes={nodes.length} currentEdges={edges.length} />
+        {/* P1 Polish: Edge label toggle (human ⇄ numeric) */}
+        {edges.length > 0 && <EdgeLabelToggle showLabel={false} />}
       </div>
 
       {/* Validation Banner (positioned above toolbar) */}
