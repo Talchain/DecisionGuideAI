@@ -320,7 +320,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       }
     })
 
-    // Create edges with probability labels
+    // Create edges with v1.2 metadata (weight, belief, provenance)
     const newEdges = graph.edges.map(edge => {
       const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
       const label = pct != null ? `${pct}%` : undefined
@@ -336,6 +336,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           weight: edge.weight ?? DEFAULT_EDGE_DATA.weight,
           label,
           confidence: edge.probability,
+          belief: edge.belief ?? edge.probability,      // v1.2: prefer belief, fallback to probability
+          provenance: edge.provenance ?? 'template',    // v1.2: default to template source
           templateId: blueprint.id
         }
       }

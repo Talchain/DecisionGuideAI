@@ -17,6 +17,8 @@ export interface GraphEdge {
   to: string
   probability?: number
   weight?: number
+  belief?: number              // v1.2: epistemic confidence (0-1)
+  provenance?: 'template' | 'user' | 'inferred'  // v1.2: source tracking
 }
 
 export interface Graph {
@@ -78,7 +80,9 @@ export function blueprintToGraph(blueprint: Blueprint): Graph {
       from: e.from,
       to: e.to,
       probability: e.probability,
-      weight: e.weight
+      weight: e.weight,
+      belief: e.belief,              // v1.2: preserve epistemic confidence
+      provenance: e.provenance       // v1.2: preserve source tracking
     }))
   }
 }
