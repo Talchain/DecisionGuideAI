@@ -51,6 +51,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const { getViewport, setCenter } = useReactFlow()
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
+  const openTemplatesPanel = useCanvasStore(s => s.openTemplatesPanel)
   
   // State declarations
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
@@ -554,8 +555,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       {/* Onboarding overlay for first-time users */}
       <OnboardingOverlay
         onBrowseTemplates={() => {
-          // Open templates panel (trigger via onCanvasInteraction callback to parent)
-          onCanvasInteraction?.()
+          // Open templates panel directly
+          openTemplatesPanel()
         }}
         onCreateNew={() => {
           // Show empty state hint
