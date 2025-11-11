@@ -103,9 +103,21 @@ const mapHttpError = async (response: Response): Promise<V1Error> => {
 
   // Handle bad input
   if (response.status === 400) {
+    // Check for graph_too_large reason (backend runtime limits)
+    if (body.reason === 'graph_too_large' && body.limits) {
+      const limits = body.limits
+      return {
+        code: 'LIMIT_EXCEEDED',
+        message: `Graph exceeds backend runtime limits: ${limits.nodes || '?'} nodes max, ${limits.edges || '?'} edges max`,
+        field: 'nodes',
+        max: limits.nodes,
+        details: { ...body, status: response.status },
+      }
+    }
+
     return {
       code: 'BAD_INPUT',
-      message: body.error || 'Invalid input',
+      message: body.error || body.reason || 'Invalid input',
       field: body.fields?.field,
       max: body.fields?.max,
       details: { ...body, status: response.status },

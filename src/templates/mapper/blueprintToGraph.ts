@@ -37,8 +37,10 @@ export function blueprintToGraph(blueprint: Blueprint): Graph {
   const goals = nodes.filter(n => n.kind === 'goal')
   const decisions = nodes.filter(n => n.kind === 'decision')
   
-  // Goal-first enforcement
-  if (goals.length === 0 && decisions.length > 0) {
+  // Goal-first enforcement DISABLED (backend templates exceed 12-node runtime limit)
+  // Backend templates start with decision nodes and work fine without auto-goal
+  // TODO: Re-enable if backend raises runtime limits to match advertised 50-node limit
+  if (false && goals.length === 0 && decisions.length > 0) {
     // No goal exists - create one and link to first decision
     const goalNode: BlueprintNode = {
       id: 'auto-goal',
@@ -49,16 +51,16 @@ export function blueprintToGraph(blueprint: Blueprint): Graph {
         y: (decisions[0].position?.y ?? 0) - 150
       }
     }
-    
+
     const goalEdge: BlueprintEdge = {
       from: 'auto-goal',
       to: decisions[0].id,
       probability: 1.0
     }
-    
+
     nodes.unshift(goalNode)
     edges.unshift(goalEdge)
-    
+
     if (import.meta.env.DEV) {
       console.log(`[blueprintToGraph] Added goal node to ${blueprint.id}`)
     }

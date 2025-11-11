@@ -217,6 +217,7 @@ export const httpV1Adapter = {
           `🚀 [httpV1] POST /v1/run (${nodeCount} nodes, using sync endpoint) ` +
           `template=${input.template_id}, seed=${input.seed}, outcome=${input.outcome_node || 'none'}, debug=${!!input.include_debug}`
         )
+        console.log('[httpV1] Request payload:', JSON.stringify(v1Request, null, 2))
       }
       const response = await v1http.runSync(v1Request)
 
