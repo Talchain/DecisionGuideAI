@@ -36,10 +36,10 @@ export function blueprintToGraph(blueprint: Blueprint): Graph {
   // Find existing goals
   const goals = nodes.filter(n => n.kind === 'goal')
   const decisions = nodes.filter(n => n.kind === 'decision')
-  
-  // Goal-first enforcement DISABLED (backend templates exceed 12-node runtime limit)
-  // Backend templates start with decision nodes and work fine without auto-goal
-  // TODO: Re-enable if backend raises runtime limits to match advertised 50-node limit
+
+  // Goal-first enforcement (backend limit raised to 50 nodes)
+  // Backend templates work without goal nodes, so auto-goal is optional
+  // Keeping disabled for now to preserve backend template structure as-is
   if (false && goals.length === 0 && decisions.length > 0) {
     // No goal exists - create one and link to first decision
     const goalNode: BlueprintNode = {
