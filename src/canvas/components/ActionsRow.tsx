@@ -5,6 +5,8 @@
  * - Run Again (with same seed or new)
  * - Compare (switch to compare tab)
  * - Share (copy link or export)
+ *
+ * B7 P1 Polish: All disabled states have tooltips explaining why
  */
 
 import { Play, GitCompare, Share2 } from 'lucide-react'
@@ -14,9 +16,10 @@ interface ActionsRowProps {
   onCompare: () => void
   onShare: () => void
   disabled?: boolean
+  disabledReason?: string
 }
 
-export function ActionsRow({ onRunAgain, onCompare, onShare, disabled = false }: ActionsRowProps) {
+export function ActionsRow({ onRunAgain, onCompare, onShare, disabled = false, disabledReason }: ActionsRowProps) {
   return (
     <div
       className="actions-row"
@@ -32,6 +35,7 @@ export function ActionsRow({ onRunAgain, onCompare, onShare, disabled = false }:
         onClick={onRunAgain}
         disabled={disabled}
         variant="primary"
+        tooltip={disabled ? (disabledReason || 'Action unavailable') : 'Run analysis again with different seed'}
       />
       <ActionButton
         icon={<GitCompare className="w-4 h-4" />}
@@ -39,6 +43,7 @@ export function ActionsRow({ onRunAgain, onCompare, onShare, disabled = false }:
         onClick={onCompare}
         disabled={disabled}
         variant="secondary"
+        tooltip={disabled ? (disabledReason || 'Action unavailable') : 'Compare with other runs'}
       />
       <ActionButton
         icon={<Share2 className="w-4 h-4" />}
@@ -46,6 +51,7 @@ export function ActionsRow({ onRunAgain, onCompare, onShare, disabled = false }:
         onClick={onShare}
         disabled={disabled}
         variant="secondary"
+        tooltip={disabled ? (disabledReason || 'Action unavailable') : 'Share this analysis'}
       />
     </div>
   )
@@ -57,15 +63,18 @@ interface ActionButtonProps {
   onClick: () => void
   disabled: boolean
   variant: 'primary' | 'secondary'
+  tooltip?: string
 }
 
-function ActionButton({ icon, label, onClick, disabled, variant }: ActionButtonProps) {
+function ActionButton({ icon, label, onClick, disabled, variant, tooltip }: ActionButtonProps) {
   const isPrimary = variant === 'primary'
 
   return (
     <button
       onClick={onClick}
       disabled={disabled}
+      title={tooltip}
+      aria-label={tooltip || label}
       className={`
         flex items-center justify-center gap-2 px-4 py-2.5 rounded-md text-sm font-medium
         transition-all duration-200

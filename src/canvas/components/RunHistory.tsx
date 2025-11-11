@@ -11,7 +11,7 @@
 
 import { useState, useCallback } from 'react'
 import { Pin, Trash2, Eye, GitCompare } from 'lucide-react'
-import { loadRuns, togglePin, deleteRun, type StoredRun } from '../store/runHistory'
+import { loadRuns, togglePin, deleteRun, computeRunSummary, type StoredRun } from '../store/runHistory'
 
 interface RunHistoryProps {
   onViewRun: (run: StoredRun) => void
@@ -90,9 +90,15 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
 
       {/* Run list */}
       <div className="space-y-1">
-        {runs.map(run => {
+        {runs.map((run, index) => {
           const isSelected = selectedIds.has(run.id)
           const isPinned = run.isPinned
+
+          // Get prior run for delta computation (immediately preceding run)
+          const priorRun = index < runs.length - 1 ? runs[index + 1] : undefined
+
+          // Compute p50 summary
+          const summary = computeRunSummary(run, priorRun)
 
           return (
             <div
@@ -118,7 +124,24 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
                 </span>
               </div>
 
-              {/* Summary */}
+              {/* P50 Summary: "p50 0.62 (Δ −0.05) · 3 edges changed" */}
+              <div className="text-xs text-gray-600 mb-1 font-mono">
+                <span>{summary.p50Text}</span>
+                {summary.deltaText && (
+                  <>
+                    <span className="mx-1">·</span>
+                    <span>{summary.deltaText}</span>
+                  </>
+                )}
+                {summary.edgesChangedText && (
+                  <>
+                    <span className="mx-1">·</span>
+                    <span>{summary.edgesChangedText}</span>
+                  </>
+                )}
+              </div>
+
+              {/* Original Summary */}
               <div className="text-sm mb-2 line-clamp-2 text-gray-900">
                 {run.summary || 'No summary'}
               </div>
@@ -161,7 +184,8 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
                     onViewRun(run)
                   }}
                   className="px-2 py-1 rounded text-xs bg-info-100 text-info-600 hover:bg-info-200 transition-colors"
-                  title="View run"
+                  title="View"
+                  aria-label="View"
                 >
                   <Eye className="w-3 h-3" />
                 </button>
@@ -174,6 +198,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
                       : 'bg-info-100 text-gray-600 hover:bg-info-200'
                   }`}
                   title={isPinned ? 'Unpin' : 'Pin'}
+                  aria-label={isPinned ? 'Unpin' : 'Pin'}
                 >
                   <Pin className="w-3 h-3" />
                 </button>
@@ -182,6 +207,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
                   onClick={(e) => handleDelete(run.id, e)}
                   className="px-2 py-1 rounded text-xs bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
                   title="Delete"
+                  aria-label="Delete"
                 >
                   <Trash2 className="w-3 h-3" />
                 </button>

@@ -101,6 +101,19 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   }, [isOpen])
 
   const handleInsert = useCallback(async (templateId: string) => {
+    // P0-3: Confirm before inserting if there are unsaved edits
+    const state = useCanvasStore.getState()
+    const hasUnsavedChanges = state.isDirty || state.nodes.length > 0
+
+    if (hasUnsavedChanges) {
+      const confirm = window.confirm(
+        'You have unsaved changes. Inserting a template will replace your current canvas. Continue?'
+      )
+      if (!confirm) {
+        return
+      }
+    }
+
     try {
       // Fetch template from API (works for both mock and httpv1)
       const templateDetail = await plot.template(templateId)
@@ -174,13 +187,24 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
 
   const handleRun = useCallback(async () => {
     if (!selectedBlueprintId) return
-    const seedNum = parseInt(seed, 10)
+    let seedNum = parseInt(seed, 10)
     if (isNaN(seedNum) || seedNum < 1) {
       showToast('Please enter a valid seed (≥1)')
       return
     }
+
+    // P0-5: "Analyze again" always runs - bump seed to bypass cache
+    if (result) {
+      seedNum += 1
+      setSeed(String(seedNum))
+    }
+
+    // P0-3: Hand-off to Results panel - close Templates panel and open Results
+    onClose() // Close Templates panel
+    useCanvasStore.getState().setShowResultsPanel(true) // Open Results panel
+
     await run({ template_id: selectedBlueprintId, seed: seedNum })
-  }, [selectedBlueprintId, seed, run])
+  }, [selectedBlueprintId, seed, run, onClose, result])
 
   const handleReset = useCallback(() => {
     clearError()

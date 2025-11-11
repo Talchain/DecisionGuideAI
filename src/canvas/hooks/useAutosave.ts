@@ -58,11 +58,13 @@ export function useAutosave() {
           edges
         })
 
-        console.log('[Autosave] Saved graph state', {
-          nodes: nodes.length,
-          edges: edges.length,
-          scenarioId: currentScenarioId
-        })
+        if (import.meta.env.DEV) {
+          console.log('[Autosave] Saved graph state', {
+            nodes: nodes.length,
+            edges: edges.length,
+            scenarioId: currentScenarioId
+          })
+        }
       }
     }, AUTOSAVE_INTERVAL_MS)
 

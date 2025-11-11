@@ -5,6 +5,7 @@ import noRawColors from './eslint-rules/no-raw-colors.js'
 import noPayloadLogging from './eslint-rules/no-payload-logging.js'
 import noDangerousBrowser from './eslint-rules/no-dangerous-browser.js'
 import noCorsWildcard from './eslint-rules/no-cors-wildcard.js'
+import noOldImports from './eslint-rules/no-old-imports.js'
 
 export default [
   // Ignore artefacts, Node scripts
@@ -121,6 +122,7 @@ export default [
           'no-payload-logging': noPayloadLogging,
           'no-dangerous-browser': noDangerousBrowser,
           'no-cors-wildcard': noCorsWildcard,
+          'no-old-imports': noOldImports,
         },
       },
     },
@@ -129,6 +131,7 @@ export default [
       'security/no-payload-logging': 'error',
       'security/no-dangerous-browser': 'error',
       'security/no-cors-wildcard': 'error',
+      'security/no-old-imports': 'error',
     },
   },
 ]

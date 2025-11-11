@@ -13,10 +13,13 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { Save, Copy, Edit2, Trash2, ChevronDown, Folder, AlertCircle } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { loadScenarios, getScenario, type Scenario } from '../store/scenarios'
+import { SaveStatusPill } from './SaveStatusPill'
 
 export function ScenarioSwitcher() {
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
   const isDirty = useCanvasStore(s => s.isDirty)
+  const isSaving = useCanvasStore(s => s.isSaving)
+  const lastSavedAt = useCanvasStore(s => s.lastSavedAt)
   const loadScenario = useCanvasStore(s => s.loadScenario)
   const saveCurrentScenario = useCanvasStore(s => s.saveCurrentScenario)
   const duplicateCurrentScenario = useCanvasStore(s => s.duplicateCurrentScenario)
@@ -145,11 +148,13 @@ export function ScenarioSwitcher() {
         >
           <Folder className="w-4 h-4 text-gray-500" />
           <span className="max-w-[150px] truncate">
-            {currentScenario?.name || 'Unsaved scenario'}
+            {currentScenario?.name || 'Untitled scenario'}
           </span>
-          {isDirty && (
-            <span className="w-2 h-2 rounded-full bg-warning-500" title="Unsaved changes" />
-          )}
+          {/* P0-2: Replace dot with reactive save status */}
+          <SaveStatusPill
+            isSaving={isSaving}
+            lastSavedAt={lastSavedAt}
+          />
           <ChevronDown className="w-4 h-4 text-gray-400" />
         </button>
 

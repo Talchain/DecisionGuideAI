@@ -64,6 +64,8 @@ interface CanvasState {
   // Scenario state
   currentScenarioId: string | null  // Active scenario ID
   isDirty: boolean  // Has unsaved changes
+  isSaving: boolean  // P0-2: Currently saving
+  lastSavedAt: number | null  // P0-2: Timestamp of last successful save
   // Panel visibility
   showResultsPanel: boolean
   showInspectorPanel: boolean
@@ -210,6 +212,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   // Scenario state
   currentScenarioId: scenarios.getCurrentScenarioId(),
   isDirty: false,
+  isSaving: false,  // P0-2: Initially not saving
+  lastSavedAt: null,  // P0-2: No save yet
   // Panel visibility
   showResultsPanel: false,
   showInspectorPanel: false,
@@ -907,7 +911,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           kind: d.kind,
           id: d.id,
           label: undefined // Backend should provide label if available
-        }))
+        })),
+        graph: { nodes, edges } // v1.2: Store graph snapshot for computing deltas
       }
 
       const isDuplicate = addRun(storedRun)
@@ -1000,33 +1005,48 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   saveCurrentScenario: (name?: string) => {
     const { nodes, edges, currentScenarioId } = get()
 
-    if (currentScenarioId) {
-      // Update existing scenario
-      scenarios.updateScenario(currentScenarioId, {
-        name,
-        graph: { nodes, edges }
-      })
-      set({ isDirty: false })
-      return currentScenarioId
-    } else {
-      // Create new scenario
-      if (!name) {
-        console.warn('[Canvas] Cannot save scenario without a name')
-        return null
+    // P0-2: Set saving state
+    set({ isSaving: true })
+
+    try {
+      if (currentScenarioId) {
+        // Update existing scenario
+        scenarios.updateScenario(currentScenarioId, {
+          name,
+          graph: { nodes, edges }
+        })
+        set({
+          isDirty: false,
+          isSaving: false,
+          lastSavedAt: Date.now()
+        })
+        return currentScenarioId
+      } else {
+        // Create new scenario
+        if (!name) {
+          console.warn('[Canvas] Cannot save scenario without a name')
+          set({ isSaving: false })
+          return null
+        }
+
+        const scenario = scenarios.createScenario({
+          name,
+          nodes,
+          edges
+        })
+
+        set({
+          currentScenarioId: scenario.id,
+          isDirty: false,
+          isSaving: false,
+          lastSavedAt: Date.now()
+        })
+
+        return scenario.id
       }
-
-      const scenario = scenarios.createScenario({
-        name,
-        nodes,
-        edges
-      })
-
-      set({
-        currentScenarioId: scenario.id,
-        isDirty: false
-      })
-
-      return scenario.id
+    } catch (error) {
+      set({ isSaving: false })
+      throw error
     }
   },
 

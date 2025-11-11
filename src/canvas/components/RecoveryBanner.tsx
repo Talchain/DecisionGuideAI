@@ -1,8 +1,9 @@
 /**
- * RecoveryBanner - Offers to recover unsaved work from previous session
+ * P0-2: Autosave Recovery Banner
  *
- * Shows on mount if hasUnsavedWork() returns true.
- * Actions: Recover, Discard
+ * Shows once on initial load if autosave is newer than current scenario.
+ * Actions: Recover, Dismiss
+ * Uses sessionStorage to show only once per session.
  */
 
 import { useState, useEffect } from 'react'
@@ -10,12 +11,20 @@ import { AlertCircle, X } from 'lucide-react'
 import { loadAutosave, clearAutosave, hasUnsavedWork } from '../store/scenarios'
 import { useCanvasStore } from '../store'
 
+const DISMISSED_KEY = 'autosave-recovery-dismissed'
+
 export function RecoveryBanner() {
   const [show, setShow] = useState(false)
   const [autosaveData, setAutosaveData] = useState<ReturnType<typeof loadAutosave>>(null)
 
-  // Check for unsaved work on mount
+  // Check for unsaved work on mount (only if not dismissed this session)
   useEffect(() => {
+    // Check sessionStorage for dismissal
+    const dismissed = sessionStorage.getItem(DISMISSED_KEY)
+    if (dismissed) {
+      return
+    }
+
     if (hasUnsavedWork()) {
       const data = loadAutosave()
       if (data && (data.nodes.length > 0 || data.edges.length > 0)) {
@@ -41,84 +50,79 @@ export function RecoveryBanner() {
       selection: { nodeIds: new Set(), edgeIds: new Set() }
     })
 
-    // Clear autosave after recovery
+    // Clear autosave after recovery and mark as dismissed
     clearAutosave()
+    sessionStorage.setItem(DISMISSED_KEY, 'true')
     setShow(false)
   }
 
-  const handleDiscard = () => {
-    clearAutosave()
+  const handleDismiss = () => {
+    // Mark as dismissed for this session (don't clear autosave)
+    sessionStorage.setItem(DISMISSED_KEY, 'true')
     setShow(false)
   }
 
   if (!show || !autosaveData) return null
 
-  const formattedTime = formatTimestamp(autosaveData.timestamp)
-  const nodeCount = autosaveData.nodes.length
-  const edgeCount = autosaveData.edges.length
+  // P0-2: Calculate minutes ago for user-friendly display
+  const timeDiff = Date.now() - autosaveData.timestamp
+  const minutesAgo = Math.floor(timeDiff / (1000 * 60))
+  const hoursAgo = Math.floor(minutesAgo / 60)
+
+  let timeDisplay: string
+  if (minutesAgo < 1) {
+    timeDisplay = 'just now'
+  } else if (minutesAgo < 60) {
+    timeDisplay = `${minutesAgo} minute${minutesAgo !== 1 ? 's' : ''} ago`
+  } else {
+    timeDisplay = `${hoursAgo} hour${hoursAgo !== 1 ? 's' : ''} ago`
+  }
 
   return (
     <div
-      className="fixed top-4 left-1/2 -translate-x-1/2 z-[2000] max-w-xl w-full mx-4"
+      className="fixed top-4 left-1/2 -translate-x-1/2 z-[2000] w-full max-w-2xl px-4"
+      data-testid="autosave-recovery-banner"
       role="alert"
-      aria-live="polite"
+      aria-live="assertive"
     >
-      <div className="bg-warning-50 border-l-4 border-warning-500 rounded-lg shadow-lg overflow-hidden">
-        <div className="p-4">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-warning-600 flex-shrink-0 mt-0.5" />
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold text-warning-900 mb-1">
-                Recover unsaved work?
-              </h3>
-              <p className="text-sm text-warning-800 mb-3">
-                Found autosaved graph from {formattedTime} ({nodeCount} node{nodeCount !== 1 ? 's' : ''}, {edgeCount} edge{edgeCount !== 1 ? 's' : ''})
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleRecover}
-                  className="px-4 py-2 text-sm font-medium text-white bg-warning-600 hover:bg-warning-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-warning-500 focus:ring-offset-2"
-                  type="button"
-                >
-                  Recover
-                </button>
-                <button
-                  onClick={handleDiscard}
-                  className="px-4 py-2 text-sm font-medium text-warning-700 bg-warning-100 hover:bg-warning-200 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-warning-500 focus:ring-offset-2"
-                  type="button"
-                >
-                  Discard
-                </button>
-              </div>
-            </div>
+      <div className="flex items-start gap-3 p-4 bg-warning-50 border-2 border-warning-500 rounded-lg shadow-lg">
+        <AlertCircle className="w-5 h-5 text-warning-700 flex-shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-warning-900">
+            Autosave recovery available
+          </p>
+          <p className="text-sm text-warning-700 mt-1">
+            We found a more recent autosave from {timeDisplay}. Would you like to recover it?
+          </p>
+          <div className="flex gap-2 mt-3">
             <button
-              onClick={handleDiscard}
-              className="text-warning-600 hover:text-warning-800 transition-colors flex-shrink-0"
+              onClick={handleRecover}
+              className="px-3 py-1.5 text-sm font-medium text-white bg-warning-600 hover:bg-warning-700 rounded-lg transition-colors"
+              data-testid="btn-recover-autosave"
               type="button"
-              aria-label="Close recovery banner"
             >
-              <X className="w-5 h-5" />
+              Recover
+            </button>
+            <button
+              onClick={handleDismiss}
+              className="px-3 py-1.5 text-sm font-medium text-warning-700 bg-white hover:bg-warning-100 border border-warning-300 rounded-lg transition-colors"
+              data-testid="btn-dismiss-recovery"
+              type="button"
+            >
+              Dismiss
             </button>
           </div>
         </div>
+        <button
+          onClick={handleDismiss}
+          className="flex-shrink-0 p-1 text-warning-700 hover:bg-warning-100 rounded transition-colors"
+          aria-label="Close recovery banner"
+          type="button"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
     </div>
   )
 }
 
-/**
- * Format timestamp as relative time
- */
-function formatTimestamp(ts: number): string {
-  const now = Date.now()
-  const diff = now - ts
-  const seconds = Math.floor(diff / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
-
-  if (days > 0) return `${days}d ago`
-  if (hours > 0) return `${hours}h ago`
-  if (minutes > 0) return `${minutes}m ago`
-  return 'just now'
-}

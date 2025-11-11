@@ -2,15 +2,18 @@
  * Status chips showing engine limits and p95 budget (v1.2)
  * Displays nodes/edges caps and execution time budget
  * Shows fallback/error states with timestamps (Sprint 1 & 2 Finalisation)
+ *
+ * B5 P1 Polish: Simplified to single clickable chip "Nodes X/Y • Edges A/B"
  */
 
-import { Box, GitBranch, Clock, AlertTriangle, Database } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { useEngineLimits } from '../hooks/useEngineLimits'
 
 interface StatusChipsProps {
   currentNodes?: number
   currentEdges?: number
   className?: string
+  onClick?: () => void
 }
 
 function formatTimestamp(timestamp: number): string {
@@ -18,23 +21,22 @@ function formatTimestamp(timestamp: number): string {
   return date.toLocaleTimeString()
 }
 
-export function StatusChips({ currentNodes = 0, currentEdges = 0, className = '' }: StatusChipsProps) {
-  const { limits, source, loading, error, fetchedAt, retry } = useEngineLimits()
+export function StatusChips({ currentNodes = 0, currentEdges = 0, className = '', onClick }: StatusChipsProps) {
+  const { limits, loading, error, fetchedAt, retry } = useEngineLimits()
 
-  // Error state: limits unavailable (orange)
+  // Error state: limits unavailable
   if (error) {
     const timestamp = fetchedAt ? ` Last attempt: ${formatTimestamp(fetchedAt)}` : ''
     return (
-      <div className={`flex items-center gap-2 ${className}`} role="alert" aria-label="Limits unavailable">
-        <button
-          onClick={retry}
-          className="flex items-center gap-1.5 px-2 py-1 rounded border text-xs font-medium text-danger-700 bg-danger-50 border-danger-200 hover:bg-danger-100 transition-colors cursor-pointer"
-          title={`Failed to load limits: ${error.message}${timestamp}\nClick to retry`}
-        >
-          <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
-          <span>Limits Unavailable</span>
-        </button>
-      </div>
+      <button
+        onClick={onClick || retry}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium text-danger-700 bg-danger-50 border-danger-200 hover:bg-danger-100 transition-colors cursor-pointer ${className}`}
+        title={`Failed to load limits: ${error.message}${timestamp}\nClick to ${onClick ? 'view details' : 'retry'}`}
+        aria-label="Limits unavailable - click for details"
+      >
+        <AlertTriangle className="w-3.5 h-3.5" aria-hidden="true" />
+        <span>Limits Unavailable</span>
+      </button>
     )
   }
 
@@ -43,72 +45,31 @@ export function StatusChips({ currentNodes = 0, currentEdges = 0, className = ''
   const nodesPercent = Math.round((currentNodes / limits.nodes.max) * 100)
   const edgesPercent = Math.round((currentEdges / limits.edges.max) * 100)
 
-  // Determine status color based on usage
-  const getStatusColor = (percent: number) => {
-    if (percent >= 90) return 'text-danger-700 bg-danger-50 border-danger-200'
-    if (percent >= 70) return 'text-warning-700 bg-warning-50 border-warning-200'
-    return 'text-gray-700 bg-gray-50 border-gray-200'
+  // Determine highest usage to set chip color
+  const maxPercent = Math.max(nodesPercent, edgesPercent)
+  const getChipColor = () => {
+    if (maxPercent >= 90) return 'text-danger-700 bg-danger-50 border-danger-200 hover:bg-danger-100'
+    if (maxPercent >= 70) return 'text-warning-700 bg-warning-50 border-warning-200 hover:bg-warning-100'
+    return 'text-gray-700 bg-gray-50 border-gray-200 hover:bg-gray-100'
   }
 
   const timestamp = fetchedAt ? formatTimestamp(fetchedAt) : 'Unknown'
 
   return (
-    <div className={`flex items-center gap-2 ${className}`} role="status" aria-label="Engine limits and budget">
-      {/* Fallback indicator (yellow) - only in fallback mode */}
-      {source === 'fallback' && (
-        <div
-          className="flex items-center gap-1.5 px-2 py-1 rounded border text-xs font-medium text-warning-700 bg-warning-50 border-warning-200"
-          title={`Using fallback limits (live endpoint unavailable)\nLast fetched: ${timestamp}\nClick to retry`}
-          onClick={retry}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              retry()
-            }
-          }}
-          style={{ cursor: 'pointer' }}
-        >
-          <Database className="w-3.5 h-3.5" aria-hidden="true" />
-          <span>Fallback</span>
-        </div>
-      )}
-
-      {/* Nodes */}
-      <div
-        className={`flex items-center gap-1.5 px-2 py-1 rounded border text-xs font-medium ${getStatusColor(nodesPercent)}`}
-        title={`${currentNodes} / ${limits.nodes.max} nodes (${nodesPercent}%)\nSource: ${source || 'unknown'}\nLast fetched: ${timestamp}`}
-      >
-        <Box className="w-3.5 h-3.5" aria-hidden="true" />
-        <span className="tabular-nums">
-          {currentNodes} / {limits.nodes.max}
-        </span>
-      </div>
-
-      {/* Edges */}
-      <div
-        className={`flex items-center gap-1.5 px-2 py-1 rounded border text-xs font-medium ${getStatusColor(edgesPercent)}`}
-        title={`${currentEdges} / ${limits.edges.max} edges (${edgesPercent}%)\nSource: ${source || 'unknown'}\nLast fetched: ${timestamp}`}
-      >
-        <GitBranch className="w-3.5 h-3.5" aria-hidden="true" />
-        <span className="tabular-nums">
-          {currentEdges} / {limits.edges.max}
-        </span>
-      </div>
-
-      {/* p95 Budget (v1.2 - optional) */}
-      {limits.engine_p95_ms_budget !== undefined && (
-        <div
-          className="flex items-center gap-1.5 px-2 py-1 rounded border text-xs font-medium text-info-700 bg-info-50 border-info-200"
-          title={`Engine p95 budget: ${limits.engine_p95_ms_budget}ms\nSource: ${source || 'unknown'}\nLast fetched: ${timestamp}`}
-        >
-          <Clock className="w-3.5 h-3.5" aria-hidden="true" />
-          <span className="tabular-nums">
-            {limits.engine_p95_ms_budget}ms
-          </span>
-        </div>
-      )}
-    </div>
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${getChipColor()} ${onClick ? 'cursor-pointer' : ''} ${className}`}
+      title={`Nodes: ${currentNodes}/${limits.nodes.max} (${nodesPercent}%)\nEdges: ${currentEdges}/${limits.edges.max} (${edgesPercent}%)\nLast fetched: ${timestamp}${onClick ? '\nClick for details' : ''}`}
+      aria-label={`Graph limits: ${currentNodes} of ${limits.nodes.max} nodes, ${currentEdges} of ${limits.edges.max} edges${onClick ? ' - click for details' : ''}`}
+      disabled={!onClick}
+    >
+      <span className="tabular-nums">
+        Nodes {currentNodes}/{limits.nodes.max}
+      </span>
+      <span className="text-gray-400">•</span>
+      <span className="tabular-nums">
+        Edges {currentEdges}/{limits.edges.max}
+      </span>
+    </button>
   )
 }

@@ -23,6 +23,10 @@ export interface StoredRun {
   isPinned?: boolean
   isDuplicate?: boolean // v1.2: true if this hash already exists in history
   duplicateCount?: number // v1.2: number of times this hash has been re-run
+  graph?: { // v1.2: Graph snapshot for computing deltas
+    nodes: Node[]
+    edges: Edge[]
+  }
 }
 
 const STORAGE_KEY = 'olumi-canvas-run-history'
@@ -239,4 +243,129 @@ function driverEquals(
   if (a.kind !== b.kind) return false
   if (a.id && b.id) return a.id === b.id
   return a.label === b.label
+}
+
+/**
+ * Extract p50 (median) probability from a report
+ * Prefers normalized run.bands.p50, falls back to results.likely
+ */
+export function extractP50(report: ReportV1): number | null {
+  // v1.2: Use normalized bands if available
+  if (report.run?.bands?.p50 != null) {
+    return report.run.bands.p50
+  }
+
+  // Legacy fallback: use results.likely
+  if (report.results?.likely != null) {
+    return report.results.likely
+  }
+
+  return null
+}
+
+/**
+ * Compute summary string for a run: "p50 0.62 (Δ −0.05) · 3 edges changed"
+ */
+export interface RunSummaryData {
+  p50Text: string // "p50 0.62" or "p50 N/A"
+  deltaText: string | null // "(Δ −0.05)" or null if no prior
+  edgesChangedText: string | null // "3 edges changed" or null if no prior
+}
+
+export function computeRunSummary(run: StoredRun, priorRun: StoredRun | undefined): RunSummaryData {
+  const p50 = extractP50(run.report)
+  const p50Text = p50 != null ? `p50 ${p50.toFixed(2)}` : 'p50 N/A'
+
+  if (!priorRun) {
+    return { p50Text, deltaText: null, edgesChangedText: null }
+  }
+
+  // Compute delta
+  const priorP50 = extractP50(priorRun.report)
+  let deltaText: string | null = null
+  if (p50 != null && priorP50 != null) {
+    const delta = p50 - priorP50
+    const sign = delta >= 0 ? '+' : '−' // Use proper minus sign
+    const deltaValue = Math.abs(delta).toFixed(2)
+    deltaText = `(Δ ${sign}${deltaValue})`
+  }
+
+  // Count edges changed (weight or belief changed beyond epsilon)
+  const edgesChanged = countEdgesChanged(run, priorRun)
+  const edgesChangedText = edgesChanged > 0 ? `${edgesChanged} edge${edgesChanged === 1 ? '' : 's'} changed` : null
+
+  return { p50Text, deltaText, edgesChangedText }
+}
+
+/**
+ * Count edges where weight or belief changed beyond epsilon
+ * Epsilon = 1e-6 for floating point tolerance
+ */
+const EPSILON = 1e-6
+
+function countEdgesChanged(run: StoredRun, priorRun: StoredRun): number {
+  if (!run.graph || !priorRun.graph) {
+    return 0
+  }
+
+  const currentEdges = run.graph.edges
+  const priorEdges = priorRun.graph.edges
+
+  // Create a map of prior edges by id for fast lookup
+  const priorEdgeMap = new Map(
+    priorEdges.map(e => [e.id, e])
+  )
+
+  let changedCount = 0
+
+  for (const currentEdge of currentEdges) {
+    const priorEdge = priorEdgeMap.get(currentEdge.id)
+
+    if (!priorEdge) {
+      // Edge is new (added), count as changed
+      changedCount++
+      continue
+    }
+
+    // Compare weight
+    const currentWeight = currentEdge.data?.weight ?? 0
+    const priorWeight = priorEdge.data?.weight ?? 0
+    if (Math.abs(currentWeight - priorWeight) > EPSILON) {
+      changedCount++
+      continue
+    }
+
+    // Compare belief (if present)
+    const currentBelief = currentEdge.data?.belief
+    const priorBelief = priorEdge.data?.belief
+    if (currentBelief != null && priorBelief != null) {
+      if (Math.abs(currentBelief - priorBelief) > EPSILON) {
+        changedCount++
+        continue
+      }
+    } else if (currentBelief != null || priorBelief != null) {
+      // One has belief, the other doesn't - count as changed
+      changedCount++
+      continue
+    }
+
+    // Compare confidence (fallback if weight/belief not present)
+    const currentConfidence = currentEdge.data?.confidence
+    const priorConfidence = priorEdge.data?.confidence
+    if (currentConfidence != null && priorConfidence != null) {
+      if (Math.abs(currentConfidence - priorConfidence) > EPSILON) {
+        changedCount++
+      }
+    } else if (currentConfidence != null || priorConfidence != null) {
+      // One has confidence, the other doesn't - count as changed
+      changedCount++
+    }
+  }
+
+  // Count edges that were removed
+  const currentEdgeIds = new Set(currentEdges.map(e => e.id))
+  const removedCount = priorEdges.filter(e => !currentEdgeIds.has(e.id)).length
+  changedCount += removedCount
+
+  return changedCount
 }

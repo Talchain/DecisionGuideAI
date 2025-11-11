@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { isSseEnabled, isRunReportEnabled, isConfidenceChipsEnabled, isHintsEnabled, isParamsEnabled, isHistoryEnabled, isExportEnabled, isScenariosEnabled } from '../flags'
 import * as Flags from '../flags'
 import { useStreamFlags } from './StreamFlagsProvider'
@@ -8,6 +8,11 @@ import { isE2EEnabled } from '../flags'
 import { isConfigDrawerEnabled } from '../flags'
 import { isCanvasEnabled } from '../flags'
 import { useStreamConnection, type StreamConfig } from '../streams/useStreamConnection'
+import StreamParametersPanel from './stream/StreamParametersPanel'
+import { StreamControlBar } from './stream/StreamControlBar'
+import StreamOutputDisplay from './stream/StreamOutputDisplay'
+import StreamDrawersContainer from './stream/StreamDrawersContainer'
+import StreamEnhancementsPanel from './stream/StreamEnhancementsPanel'
 import { simplifyEdges, srSummary, computeSimplifyThreshold } from '../lib/graph.simplify'
 import { getSampleGraph } from '../lib/graph.sample'
 import { bandEdgesByWeight } from '../lib/summary'
@@ -372,6 +377,58 @@ export default function SandboxStreamPanel() {
       window.localStorage.setItem('sandbox.model', m)
     } catch {}
   }
+
+  // Stable handler for StreamParametersPanel
+  const handleParamsChange = useCallback((next: { seed: string; budget: string; model: string; scenarioId?: string | null }) => {
+    setSeed(next.seed)
+    setBudget(next.budget)
+    setModel(next.model)
+    persistParams(next.seed, next.budget, next.model)
+  }, [])
+
+  // Stable handlers for StreamEnhancementsPanel
+  const handleApplySuggestion = useCallback((suggestion: any, _currentState: any) => {
+    try {
+      undoRef.current.push({ seed, budget, model, simplify: simplifyOn })
+      const next = suggestion.apply({ seed, budget, model, simplify: simplifyOn })
+      if (next.model !== model) { setModel(next.model); persistParams(seed, budget, next.model) }
+      if (next.simplify !== simplifyOn) setSimplifyOn(next.simplify)
+      setAriaGuidedMsg('Suggestion applied. You can press Undo.')
+      setTimeout(() => setAriaGuidedMsg(''), 1200)
+    } catch {}
+  }, [seed, budget, model, simplifyOn])
+
+  const handleUndo = useCallback(() => {
+    const prev = undoRef.current.pop()
+    if (prev) {
+      try {
+        setSeed(prev.seed); setBudget(prev.budget); setModel(prev.model)
+        persistParams(prev.seed, prev.budget, prev.model)
+        setSimplifyOn(prev.simplify)
+        setAriaGuidedMsg('Undone.')
+        setTimeout(() => setAriaGuidedMsg(''), 1200)
+      } catch {}
+    }
+  }, [])
+
+  const handleCopyShareLink = useCallback(async (snapshot: any) => {
+    try {
+      const payload = { v: 1 as const, seed: snapshot.seed, model: snapshot.model, data: snapshot.data }
+      const param = encodeSnapshotToUrlParam(payload)
+      const hasE2E = typeof location !== 'undefined' && String(location.search || '').includes('e2e=1')
+      const base = (globalThis as any)?.location?.origin || ''
+      const url = `${base}/${hasE2E ? '?e2e=1' : ''}#/sandbox?snap=${param}`
+      await (globalThis as any)?.navigator?.clipboard?.writeText?.(url)
+      setShareNote('')
+    } catch (e: any) {
+      try { setShareNote(String(e && e.message ? e.message : e)) } catch {}
+    }
+  }, [])
+
+  const handleCompareSelectionChange = useCallback((a: string, b: string) => {
+    setSelA(a)
+    setSelB(b)
+  }, [])
 
   // Guided suggestions (flag-gated)
   const guidedSuggestions = useMemo(() => (
@@ -808,27 +865,17 @@ export default function SandboxStreamPanel() {
           </>
         )}
 
-        {!readOnlySnap && (
-        <button
-          type="button"
-          data-testid="start-btn"
-          onClick={() => begin()}
-          className="px-2 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
-          disabled={started || (mobileGuardFlag && caps.stop) || !!readOnlySnap}
-          title="Start (⌘⏎)"
-        >
-          Start
-        </button>
-        )}
-        <button
-          type="button"
-          data-testid="stop-btn"
-          onClick={stop}
-          className="px-2 py-1 rounded bg-gray-200 text-gray-900 disabled:opacity-50"
-          disabled={!started || !!readOnlySnap}
-        >
-          Stop
-        </button>
+        <StreamControlBar
+          canStart={!started && !(mobileGuardFlag && caps.stop)}
+          canStop={started}
+          canResume={false}
+          onStart={() => begin()}
+          onStop={stop}
+          onResume={() => {}}
+          status={status}
+          disabled={false}
+          readOnly={!!readOnlySnap}
+        />
 
         {simplifyFlag && (
           <label className="flex items-center gap-1 text-xs ml-2 min-h-[44px]">
@@ -843,97 +890,36 @@ export default function SandboxStreamPanel() {
         )}
 
         {paramsFlag && !readOnlySnap && (
-          <div className="flex items-center gap-2 text-xs ml-2">
-            <label className="flex items-center gap-1 text-gray-700">
-              <span>Seed</span>
-              <input
-                data-testid="param-seed"
-                type="text"
-                className="w-20 px-1 py-0.5 border rounded"
-                value={seed}
-                onChange={(e) => { const v = e.target.value; setSeed(v); persistParams(v, budget, model) }}
-              />
-            </label>
-            <label className="flex items-center gap-1 text-gray-700">
-              <span>Budget</span>
-              <input
-                data-testid="param-budget"
-                type="number"
-                step="0.01"
-                className="w-24 px-1 py-0.5 border rounded"
-                value={budget}
-                onChange={(e) => { const v = e.target.value; setBudget(v); persistParams(seed, v, model) }}
-              />
-            </label>
-            <label className="flex items-center gap-1 text-gray-700">
-              <span>Model</span>
-              <select
-                data-testid="param-model"
-                className="px-1 py-0.5 border rounded"
-                value={model}
-                onChange={(e) => { const v = e.target.value; setModel(v); persistParams(seed, budget, v) }}
-              >
-                <option value="">(default)</option>
-                <option value="gpt-4o-mini">gpt-4o-mini</option>
-                <option value="claude-haiku">claude-haiku</option>
-                <option value="local-sim">local-sim</option>
-              </select>
-            </label>
-          </div>
+          <StreamParametersPanel
+            value={{ seed, budget, model }}
+            onChange={handleParamsChange}
+            disabled={false}
+            readOnly={false}
+          />
         )}
 
-        {guidedFlag && (
-          <>
-            <div className="mt-2 flex items-center gap-2 ml-2">
-              {guidedSuggestions.map((s, idx) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  data-testid={`guided-suggestion-${idx}`}
-                  className="text-[11px] px-2 py-0.5 rounded border border-gray-300"
-                  title={s.rationale}
-                  onClick={() => {
-                    try {
-                      undoRef.current.push({ seed, budget, model, simplify: simplifyOn })
-                      const next = s.apply({ seed, budget, model, simplify: simplifyOn })
-                      if (next.model !== model) { setModel(next.model); persistParams(seed, budget, next.model) }
-                      if (next.simplify !== simplifyOn) setSimplifyOn(next.simplify)
-                      setAriaGuidedMsg('Suggestion applied. You can press Undo.')
-                      setTimeout(() => setAriaGuidedMsg(''), 1200)
-                    } catch {}
-                  }}
-                >
-                  {s.title}
-                </button>
-              ))}
-              {/* expose rationale in an SR-only tooltip for tests */}
-              {guidedSuggestions.length > 0 && (
-                <span data-testid="why-tooltip" aria-hidden="true" className="sr-only">{guidedSuggestions[0].rationale}</span>
-              )}
-              <button
-                type="button"
-                data-testid="guided-undo-btn"
-                className="text-[11px] px-2 py-0.5 rounded border border-gray-300 disabled:opacity-50"
-                disabled={undoRef.current.size === 0}
-                onClick={() => {
-                  const prev = undoRef.current.pop()
-                  if (prev) {
-                    try {
-                      setSeed(prev.seed); setBudget(prev.budget); setModel(prev.model)
-                      persistParams(prev.seed, prev.budget, prev.model)
-                      setSimplifyOn(prev.simplify)
-                      setAriaGuidedMsg('Undone.')
-                      setTimeout(() => setAriaGuidedMsg(''), 1200)
-                    } catch {}
-                  }
-                }}
-              >
-                Undo
-              </button>
-            </div>
-            <div role="status" aria-live="polite" className="sr-only">{ariaGuidedMsg}</div>
-          </>
-        )}
+        <StreamEnhancementsPanel
+          guidedEnabled={guidedFlag}
+          suggestions={guidedSuggestions}
+          onApplySuggestion={handleApplySuggestion}
+          onUndo={handleUndo}
+          canUndo={undoRef.current.size > 0}
+          ariaGuidedMsg={ariaGuidedMsg}
+          snapshotsEnabled={snapshotsFlag}
+          snapshots={snapshots}
+          onMakeSnapshot={makeSnapshot}
+          onCopyShareLink={handleCopyShareLink}
+          shareNote={shareNote}
+          readOnly={!!readOnlySnap}
+          ariaSnapshotMsg={ariaSnapshotMsg}
+          compareEnabled={compareFlag}
+          compareSelectionA={selA}
+          compareSelectionB={selB}
+          onCompareSelectionChange={handleCompareSelectionChange}
+          compareDiff={compareDiff}
+          ariaCompareMsg={ariaCompareMsg}
+          changeLog={changeLog}
+        />
 
         {(listViewFlag || (mobileGuardFlag && listFirst)) && (
           <div className="mt-3 border rounded p-2" ref={listContainerRef} onKeyDown={onListKeyDown}>
@@ -1090,48 +1076,50 @@ export default function SandboxStreamPanel() {
           </p>
         )}
 
-        {configFlag && (
-          <ConfigDrawer
-            open={cfgOpen}
-            onClose={() => setCfgOpen(false)}
-            restoreFocusRef={configBtnRef}
-            onApply={(vals) => {
-              try {
-                setSeed(vals.seed)
-                setBudget(vals.budget)
-                setModel(vals.model)
-              } catch {}
-            }}
-          />
-        )}
+        <StreamDrawersContainer>
+          {configFlag && (
+            <ConfigDrawer
+              open={cfgOpen}
+              onClose={() => setCfgOpen(false)}
+              restoreFocusRef={configBtnRef}
+              onApply={(vals) => {
+                try {
+                  setSeed(vals.seed)
+                  setBudget(vals.budget)
+                  setModel(vals.model)
+                } catch {}
+              }}
+            />
+          )}
 
-        {canvasFlag && (
-          <CanvasDrawer
-            open={canvasOpen}
-            onClose={() => setCanvasOpen(false)}
-            onReady={(api) => { canvasAPIRef.current = api }}
-            seed={seed}
-            model={model}
-          />
-        )}
+          {canvasFlag && (
+            <CanvasDrawer
+              open={canvasOpen}
+              onClose={() => setCanvasOpen(false)}
+              onReady={(api) => { canvasAPIRef.current = api }}
+              seed={seed}
+              model={model}
+            />
+          )}
 
-        {scenariosFlag && (
-          <ScenarioDrawer
-            open={scenariosOpen}
-            onClose={() => setScenariosOpen(false)}
-            restoreFocusRef={scenariosBtnRef}
-            seed={seed}
-            budget={budget}
-            model={model}
-            onLoad={(s) => {
-              try {
-                setSeed(s.seed); setBudget(s.budget); setModel(s.model)
-                persistParams(s.seed, s.budget, s.model)
-                setScenarioChipText(`Loaded: ${s.name}`)
-              } catch {}
-            }}
-          />
-        )}
+          {scenariosFlag && (
+            <ScenarioDrawer
+              open={scenariosOpen}
+              onClose={() => setScenariosOpen(false)}
+              restoreFocusRef={scenariosBtnRef}
+              seed={seed}
+              budget={budget}
+              model={model}
+              onLoad={(s) => {
+                try {
+                  setSeed(s.seed); setBudget(s.budget); setModel(s.model)
+                  persistParams(s.seed, s.budget, s.model)
+                  setScenarioChipText(`Loaded: ${s.name}`)
+                } catch {}
+              }}
+            />
+          )}
+        </StreamDrawersContainer>
 
         <div
           ref={statusRef}
@@ -1383,36 +1371,6 @@ export default function SandboxStreamPanel() {
           </div>
         )}
 
-        {typeof cost === 'number' && (
-          <div
-            data-testid="cost-badge"
-            className="text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200"
-            title="Estimated in-flight cost. Final cost appears on ‘Done’."
-          >
-            {formatUSD(cost)}
-          </div>
-        )}
-
-        {diagFlag && (
-          <div data-testid="diagnostics-panel" className="mt-2 text-[11px] text-gray-600">
-            <div className="font-medium text-gray-700">Diagnostics</div>
-            <div data-testid="diag-last-event-id">SSE id: {diagLastId ?? '—'}</div>
-            <div data-testid="diag-reconnects">Resumes: {diagResumeCount}</div>
-            <div data-testid="diag-stream-state">State: {status}</div>
-            <div>TTFB: {diagTtfbMs != null ? `${diagTtfbMs}ms` : '—'}</div>
-            <div data-testid="diag-token-count">Tokens: {diagTokenCount}</div>
-          </div>
-        )}
-
-        {perfFlag && (
-          <div data-testid="perf-panel" className="mt-2 text-[11px] text-gray-600">
-            <div className="font-medium text-gray-700">Performance</div>
-            <div>Buffer: {bufferEnabled ? 'ON' : 'OFF'}</div>
-            <div>Preview length: {mdFlag ? mdHtml.length : 0}</div>
-            <div>Code blocks: {copyOverlays.length}</div>
-          </div>
-        )}
-
         {scorecardFlag && (
           <div data-testid="scorecard-panel" className="mt-2 p-2 border rounded bg-white">
             <div className="text-[11px] text-gray-500 mb-1">Scorecard</div>
@@ -1420,167 +1378,76 @@ export default function SandboxStreamPanel() {
           </div>
         )}
 
-        {snapshotsFlag && (
-          <div className="mt-3">
-            <div className="flex items-center gap-2">
-              {!readOnlySnap && (
-                <button type="button" data-testid="snapshot-btn" className="text-xs px-2 py-1 rounded border border-gray-300" onClick={makeSnapshot}>
-                  Snapshot
-                </button>
-              )}
-              {/* SR status for snapshot action */}
-              <div role="status" aria-live="polite" className="sr-only">{ariaSnapshotMsg}</div>
-            </div>
-            <div className="mt-2">
-              <div className="text-[11px] text-gray-500 mb-1">Snapshots</div>
-              <ul data-testid="snapshot-list" className="space-y-1">
-                {snapshots.map((s, idx) => (
-                  <li key={s.id} data-testid={`snapshot-list-item-${s.id}`} className="flex items-center justify-between gap-2">
-                    <span className="text-xs">{new Date(s.at).toLocaleString('en-GB')}</span>
-                    {idx === 0 && (
-                      <button
-                        type="button"
-                        data-testid="sharelink-copy"
-                        className="text-[11px] px-2 py-0.5 rounded border"
-                        onClick={async () => {
-                          try {
-                            const payload = { v: 1 as const, seed: s.seed, model: s.model, data: s.data }
-                            const param = encodeSnapshotToUrlParam(payload)
-                            const hasE2E = typeof location !== 'undefined' && String(location.search || '').includes('e2e=1')
-                            const base = (globalThis as any)?.location?.origin || ''
-                            const url = `${base}/${hasE2E ? '?e2e=1' : ''}#/sandbox?snap=${param}`
-                            await (globalThis as any)?.navigator?.clipboard?.writeText?.(url)
-                            setShareNote('')
-                          } catch (e: any) {
-                            try { setShareNote(String(e && e.message ? e.message : e)) } catch {}
-                          }
-                        }}
-                      >
-                        Copy share link
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              {shareNote && (
-                <div data-testid="share-cap-note" role="status" aria-live="polite" className="mt-2 text-[11px] text-amber-700">{shareNote}</div>
-              )}
-            </div>
-            {changeLog && (
-              <div data-testid="change-log" className="mt-2 p-2 border rounded bg-white">
-                <div className="text-[11px] text-gray-500 mb-1">Change log</div>
-                <ul className="list-disc ml-5 text-xs">
-                  <li>Added {changeLog.added.length}</li>
-                  <li>Removed {changeLog.removed.length}</li>
-                  <li>Changed {changeLog.changed.length}</li>
-                </ul>
-                <div role="status" aria-live="polite" className="sr-only">Change log available since last snapshot.</div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {compareFlag && (
-          <div className="mt-3">
-            <div className="text-[11px] text-gray-500 mb-1">Compare Snapshots</div>
-            <div className="flex items-center gap-2">
-              <select data-testid="compare-select-a" className="text-xs px-2 py-1 border rounded" value={selA} onChange={(e) => setSelA(e.target.value)}>
-                <option value="">(A)</option>
-                {snapshots.map((s) => (
-                  <option key={s.id} value={s.id}>{new Date(s.at).toLocaleString('en-GB')}</option>
-                ))}
-              </select>
-              <span className="text-xs">vs</span>
-              <select data-testid="compare-select-b" className="text-xs px-2 py-1 border rounded" value={selB} onChange={(e) => setSelB(e.target.value)}>
-                <option value="">(B)</option>
-                {snapshots.map((s) => (
-                  <option key={s.id} value={s.id}>{new Date(s.at).toLocaleString('en-GB')}</option>
-                ))}
-              </select>
-            </div>
-            {/* SR announce comparison updates */}
-            <div role="status" aria-live="polite" className="sr-only">{ariaCompareMsg}</div>
-            <ul data-testid="compare-diff-list" className="mt-2 text-xs space-y-1">
-              {compareDiff && compareDiff.added.map((id) => (
-                <li key={`a-${id}`}>↑ {id}</li>
-              ))}
-              {compareDiff && compareDiff.removed.map((id) => (
-                <li key={`r-${id}`}>↓ {id}</li>
-              ))}
-              {compareDiff && compareDiff.changed.map((id) => (
-                <li key={`c-${id}`}>• {id}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
         {reconnecting && (
           <div data-testid="reconnect-hint" className="text-xs text-amber-600 mb-1">Reconnecting…</div>
         )}
-        <div
-          data-testid="stream-output"
-          className="min-h-[6rem] whitespace-pre-wrap font-mono text-sm p-2 rounded border bg-gray-50"
-          aria-live="polite"
-          aria-busy={status === 'streaming' ? 'true' : 'false'}
-        >
-        {status === 'idle' && (
-          <div
-            data-testid="idle-hint"
-            aria-hidden="true"
-            className="text-gray-500 italic text-xs"
-          >
-            Press Start to begin a draft critique.
-          </div>
+
+        <StreamOutputDisplay
+          output={output}
+          status={status}
+          mdHtml={mdHtml}
+          mdEnabled={mdFlag}
+          copyEnabled={copyFlag}
+          copyOverlays={copyOverlays}
+          onCopyCode={handleCopy}
+          copiedId={copiedId}
+          failedId={failedId}
+          ariaCopyMsg={ariaCopyMsg}
+          metrics={{
+            cost,
+            ttfbMs: diagTtfbMs,
+            tokenCount: diagTokenCount,
+            resumeCount: diagResumeCount,
+            lastSseId: diagLastId,
+          }}
+          diagEnabled={diagFlag}
+          perfEnabled={perfFlag}
+          bufferEnabled={bufferEnabled}
+        />
+
+      <StreamDrawersContainer>
+        {reportFlag && (
+          <RunReportDrawer
+            open={reportOpen}
+            sessionId={getDefaults().sessionId}
+            org={getDefaults().org}
+            seed={reportParams?.seed}
+            budget={reportParams?.budget}
+            model={reportParams?.model}
+            onClose={() => {
+              setReportOpen(false)
+              try { reportBtnRef.current?.focus() } catch {}
+            }}
+          />
         )}
-        {output}
-      </div>
 
-      {mdFlag && (
-        <div
-          data-testid="md-preview"
-          ref={mdPreviewRef}
-          className="prose prose-sm max-w-none p-2 mt-2 border rounded bg-white relative"
-          aria-hidden="true"
-        >
-          {mdHtml ? <div dangerouslySetInnerHTML={{ __html: mdHtml }} /> : null}
-          {copyFlag && copyOverlays.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              data-testid="copy-code-btn"
-              title="Copy code"
-              aria-label={o.lang ? `Copy ${o.lang} code` : 'Copy code'}
-              data-copied={copiedId === o.id ? 'true' : undefined}
-              data-failed={failedId === o.id ? 'true' : undefined}
-              className="absolute text-[11px] px-2 py-0.5 rounded border bg-white shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              style={{ top: `${o.top}px`, left: `${o.left}px`, transform: 'translate(-100%, 0)' }}
-              onClick={() => handleCopy(o.id, o.code)}
-            >
-              {copiedId === o.id ? 'Copied' : 'Copy'}
-            </button>
-          ))}
-        </div>
-      )}
+        {historyFlag && (
+          <RunHistoryDrawer
+            open={historyOpen}
+            triggerRef={historyBtnRef}
+            onClose={() => {
+              setHistoryOpen(false)
+              setTimeout(() => historyBtnRef.current?.focus(), 0)
+            }}
+            onRerun={(m: RunMeta) => {
+              setHistoryOpen(false)
+              const s = m.seed != null ? String(m.seed) : ''
+              const b = m.budget != null ? String(m.budget) : ''
+              const mo = m.model ?? ''
+              setSeed(s); setBudget(b); setModel(mo)
+              persistParams(s, b, mo)
+              begin({ seed: m.seed, budget: m.budget, model: m.model })
+            }}
+            onOpenReport={(m: RunMeta) => {
+              setHistoryOpen(false)
+              setReportParams({ seed: m.seed, budget: m.budget, model: m.model })
+              setReportOpen(true)
+              setTimeout(() => reportBtnRef.current?.focus(), 0)
+            }}
+          />
+        )}
+      </StreamDrawersContainer>
 
-      {/* ARIA live copy status outside preview (not aria-hidden) */}
-      {copyFlag && (
-    <div role="status" aria-live="polite" className="sr-only" data-testid="copy-aria-status">{ariaCopyMsg}</div>
-  )}
-
-  {reportFlag && (
-    <RunReportDrawer
-      open={reportOpen}
-      sessionId={getDefaults().sessionId}
-      org={getDefaults().org}
-      seed={reportParams?.seed}
-      budget={reportParams?.budget}
-      model={reportParams?.model}
-      onClose={() => {
-        setReportOpen(false)
-        try { reportBtnRef.current?.focus() } catch {}
-      }}
-    />
-  )}
       {errorBannersFlag && status === 'error' && (
         (() => {
           let code: string | undefined
@@ -1594,32 +1461,6 @@ export default function SandboxStreamPanel() {
             </div>
           )
         })()
-      )}
-
-      {historyFlag && (
-        <RunHistoryDrawer
-          open={historyOpen}
-          triggerRef={historyBtnRef}
-          onClose={() => {
-            setHistoryOpen(false)
-            setTimeout(() => historyBtnRef.current?.focus(), 0)
-          }}
-          onRerun={(m: RunMeta) => {
-            setHistoryOpen(false)
-            const s = m.seed != null ? String(m.seed) : ''
-            const b = m.budget != null ? String(m.budget) : ''
-            const mo = m.model ?? ''
-            setSeed(s); setBudget(b); setModel(mo)
-            persistParams(s, b, mo)
-            begin({ seed: m.seed, budget: m.budget, model: m.model })
-          }}
-          onOpenReport={(m: RunMeta) => {
-            setHistoryOpen(false)
-            setReportParams({ seed: m.seed, budget: m.budget, model: m.model })
-            setReportOpen(true)
-            setTimeout(() => reportBtnRef.current?.focus(), 0)
-          }}
-        />
       )}
     </div>
   )

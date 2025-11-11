@@ -46,11 +46,46 @@ export function PanelShell({
     ? 'w-full sm:w-[480px]'
     : 'w-full sm:w-[420px]'
 
+  /**
+   * Safe Area Constraint (C11 P1 Polish)
+   *
+   * CRITICAL: This constant prevents the panel from overlapping the bottom toolbar.
+   *
+   * Why this exists:
+   * - The CanvasToolbar is `fixed bottom-6` (24px from bottom) with ~56px height
+   * - Without this constraint, panels would render over the toolbar
+   * - CSS `height: 100vh` would use full viewport, ignoring toolbar position
+   * - We calculate available height by subtracting toolbar safe area
+   *
+   * Calculation breakdown:
+   * - Toolbar offset: 24px (`bottom-6` in CanvasToolbar)
+   * - Toolbar height: ~56px (estimated with padding)
+   * - Safety buffer: 16px (prevent visual overlap)
+   * - Total: 96px
+   *
+   * Applied to:
+   * - `height: calc(100vh - 96px)` - sets panel height
+   * - `maxHeight: calc(100vh - 96px)` - prevents overflow
+   *
+   * When to update:
+   * - If CanvasToolbar position changes (currently `bottom-6`)
+   * - If toolbar height increases significantly
+   * - Run PanelShell.safearea.spec.tsx to verify no regression
+   *
+   * DO NOT REMOVE: Without this, panels will render over toolbar on small screens
+   */
+  const TOOLBAR_SAFE_AREA = 96
+
   return (
     <aside
-      className={`flex h-full flex-col bg-white shadow-lg rounded-l-2xl border-l border-gray-200 ${widthClass}`}
+      className={`flex flex-col bg-white shadow-lg rounded-l-2xl border-l border-gray-200 ${widthClass}`}
+      style={{
+        height: `calc(100vh - ${TOOLBAR_SAFE_AREA}px)`,
+        maxHeight: `calc(100vh - ${TOOLBAR_SAFE_AREA}px)`,
+      }}
       role="complementary"
       aria-label={title}
+      data-testid="panel-shell"
     >
       {/* Header */}
       <header className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white rounded-tl-2xl">
@@ -96,9 +131,9 @@ export function PanelShell({
         {children}
       </div>
 
-      {/* Sticky footer */}
+      {/* Sticky footer - stays visible while body scrolls */}
       {footer && (
-        <div className="shrink-0 sticky bottom-0 px-4 py-3 border-t border-gray-200 bg-white/95 backdrop-blur-sm flex items-center gap-2 rounded-bl-2xl">
+        <div className="shrink-0 sticky bottom-0 px-4 py-3 border-t border-gray-200 bg-white/95 backdrop-blur-sm flex items-center gap-2 rounded-bl-2xl z-10">
           {footer}
         </div>
       )}

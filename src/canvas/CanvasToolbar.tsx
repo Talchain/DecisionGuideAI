@@ -21,6 +21,7 @@ import { checkLimits, formatLimitError } from './utils/limitGuard'
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { Tooltip } from './components/Tooltip'
 import { EdgeLabelToggle } from './components/EdgeLabelToggle'
+import { LimitsPanel } from './components/LimitsPanel'
 
 export function CanvasToolbar() {
   const [isMinimized, setIsMinimized] = useState(false)
@@ -29,6 +30,7 @@ export function CanvasToolbar() {
   const [showExport, setShowExport] = useState(false)
   const [showNodeMenu, setShowNodeMenu] = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
+  const [showLimits, setShowLimits] = useState(false)
   const [isRunning, setIsRunning] = useState(false)
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
   const [validationViolations, setValidationViolations] = useState<ValidationError[]>([]) // v1.2: coaching warnings
@@ -170,7 +172,7 @@ export function CanvasToolbar() {
       {/* Status Chips (top-right corner) */}
       <div className="fixed top-4 right-4 z-[999] flex flex-col gap-2 items-end">
         <ConnectivityChip />
-        <StatusChips currentNodes={nodes.length} currentEdges={edges.length} />
+        <StatusChips currentNodes={nodes.length} currentEdges={edges.length} onClick={() => setShowLimits(true)} />
         {/* P1 Polish: Edge label toggle (human ⇄ numeric) */}
         {edges.length > 0 && <EdgeLabelToggle showLabel={false} />}
       </div>
@@ -207,25 +209,27 @@ export function CanvasToolbar() {
           <Tooltip
             content={isAtNodeCapacity ? `Node limit reached (${nodes.length}/${limits?.nodes.max})` : 'Add Node'}
           >
-            <button
-              onClick={() => !isAtNodeCapacity && setShowNodeMenu(!showNodeMenu)}
-              disabled={isAtNodeCapacity}
-              className={`p-1.5 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center gap-1.5 ${
-                isAtNodeCapacity
-                  ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
-                  : 'text-white bg-carrot-500 hover:bg-carrot-600 focus:ring-carrot-500'
-              }`}
-              aria-label={isAtNodeCapacity ? `Node limit reached` : 'Add node to canvas'}
-              aria-expanded={showNodeMenu}
-              aria-haspopup="menu"
-              data-testid="btn-node-menu"
-            >
-              <span className="text-base leading-none">+</span>
-              <span>Node</span>
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
+            <span className="inline-block">
+              <button
+                onClick={() => !isAtNodeCapacity && setShowNodeMenu(!showNodeMenu)}
+                disabled={isAtNodeCapacity}
+                className={`p-1.5 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center gap-1.5 ${
+                  isAtNodeCapacity
+                    ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
+                    : 'text-white bg-carrot-500 hover:bg-carrot-600 focus:ring-carrot-500'
+                }`}
+                aria-label={isAtNodeCapacity ? `Node limit reached` : 'Add node to canvas'}
+                aria-expanded={showNodeMenu}
+                aria-haspopup="menu"
+                data-testid="btn-node-menu"
+              >
+                <span className="text-base leading-none">+</span>
+                <span>Node</span>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </span>
           </Tooltip>
           
           {showNodeMenu && (
@@ -271,8 +275,8 @@ export function CanvasToolbar() {
             onClick={handleRunAnalysis}
             disabled={isRunning}
             className="px-3 py-1.5 text-sm font-medium text-white bg-info-500 hover:bg-info-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info-500 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Run Analysis (⌘R)"
-            aria-label="Run analysis on current graph"
+            title={isRunning ? "Analysis in progress..." : "Run Analysis (⌘R)"}
+            aria-label={isRunning ? "Analysis running - please wait" : "Run analysis on current graph"}
             data-testid="btn-run-analysis"
           >
             {isRunning ? (
@@ -296,31 +300,35 @@ export function CanvasToolbar() {
 
         <div className="w-px h-6 bg-gray-300" role="separator" />
 
-        {/* Undo/Redo */}
+        {/* Undo/Redo - Wrap in span to allow tooltips on disabled state */}
         <Tooltip content={canUndo() ? 'Undo (⌘Z)' : 'No actions to undo'}>
-          <button
-            onClick={undo}
-            disabled={!canUndo()}
-            className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
-            aria-label="Undo last action"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-            </svg>
-          </button>
+          <span className="inline-block">
+            <button
+              onClick={undo}
+              disabled={!canUndo()}
+              className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
+              aria-label="Undo last action"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+            </button>
+          </span>
         </Tooltip>
 
         <Tooltip content={canRedo() ? 'Redo (⌘Y)' : 'No actions to redo'}>
-          <button
-            onClick={redo}
-            disabled={!canRedo()}
-            className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
-            aria-label="Redo last undone action"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
-            </svg>
-          </button>
+          <span className="inline-block">
+            <button
+              onClick={redo}
+              disabled={!canRedo()}
+              className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
+              aria-label="Redo last undone action"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
+              </svg>
+            </button>
+          </span>
         </Tooltip>
 
         <div className="w-px h-6 bg-gray-300" role="separator" />
@@ -405,19 +413,21 @@ export function CanvasToolbar() {
 
         <div className="w-px h-6 bg-gray-300" role="separator" />
 
-        {/* Reset */}
+        {/* Reset - Wrap in span to allow tooltips on disabled state */}
         <Tooltip content={nodes.length === 0 && edges.length === 0 ? 'Canvas is already empty' : 'Reset Canvas'}>
-          <button
-            onClick={() => setShowResetConfirm(true)}
-            disabled={nodes.length === 0 && edges.length === 0}
-            className="p-1.5 text-danger-600 bg-danger-50 rounded hover:bg-danger-100 transition-colors focus:outline-none focus:ring-2 focus:ring-danger-400 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-            aria-label="Reset canvas"
-            data-testid="btn-reset-canvas"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
+          <span className="inline-block">
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              disabled={nodes.length === 0 && edges.length === 0}
+              className="p-1.5 text-danger-600 bg-danger-50 rounded hover:bg-danger-100 transition-colors focus:outline-none focus:ring-2 focus:ring-danger-400 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              aria-label="Reset canvas"
+              data-testid="btn-reset-canvas"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </span>
         </Tooltip>
 
         {/* Minimize */}
@@ -462,6 +472,14 @@ export function CanvasToolbar() {
           </div>
         </div>
       </BottomSheet>
+
+      {/* Limits Panel (B5 P1 Polish) */}
+      <LimitsPanel
+        isOpen={showLimits}
+        onClose={() => setShowLimits(false)}
+        currentNodes={nodes.length}
+        currentEdges={edges.length}
+      />
       </div>
     </>
   )
