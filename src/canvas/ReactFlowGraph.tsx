@@ -332,6 +332,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       const label = pct != null ? `${pct}%` : undefined
       const edgeId = createEdgeId()
 
+      // Detect edge kind: influence network (has weight, no probability) vs decision tree (has probability)
+      const isInfluenceEdge = edge.weight !== undefined && edge.probability === undefined
+      const edgeKind = isInfluenceEdge ? 'influence-weight' as const : 'decision-probability' as const
+
       return {
         id: edgeId,
         type: 'styled',
@@ -339,6 +343,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         target: nodeIdMap.get(edge.to)!,
         data: {
           ...DEFAULT_EDGE_DATA,
+          kind: edgeKind,                                // Auto-detect influence vs probability edges
           weight: edge.weight ?? DEFAULT_EDGE_DATA.weight,
           label,
           confidence: edge.probability,

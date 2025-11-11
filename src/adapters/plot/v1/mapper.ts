@@ -139,9 +139,6 @@ export function graphToV1Request(
   // Validate limits first
   const error = validateGraphLimits(graph)
   if (error) {
-    if (import.meta.env.DEV) {
-      console.error('[Mapper] Validation error:', error)
-    }
     throw error
   }
 

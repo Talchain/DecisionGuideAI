@@ -43,6 +43,13 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
     [edges, nodeId]
   )
 
+  // Check if edges are influence-weight edges (not probabilities)
+  const isInfluenceNetwork = useMemo(() => {
+    if (outgoingEdges.length === 0) return false
+    // If ANY edge is influence-weight, treat as influence network
+    return outgoingEdges.some(e => e.data?.kind === 'influence-weight')
+  }, [outgoingEdges])
+
   // Initialize probability rows from current edge state
   const initialRows = useMemo<ProbabilityRow[]>(() => {
     return outgoingEdges.map(edge => {
@@ -400,8 +407,8 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
         </p>
       </div>
 
-      {/* Inline Probability Editor */}
-      {outgoingEdges.length > 0 && (
+      {/* Inline Probability Editor (only for decision-probability edges, not influence networks) */}
+      {outgoingEdges.length > 0 && !isInfluenceNetwork && (
         <section
           ref={probabilitiesRef}
           className="mb-4 pt-4 border-t border-gray-200"
