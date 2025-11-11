@@ -3,11 +3,15 @@
  *
  * Local-first storage for the last 20 analysis runs.
  * Persists to localStorage with automatic pruning.
+ *
+ * Emits events via runsBus when runs are added/modified/deleted,
+ * enabling live refresh across components and tabs.
  */
 
 import type { ReportV1 } from '../../adapters/plot/v1/types'
 import { computeClientHash } from '../../adapters/plot/v1/mapper'
 import type { Node, Edge } from '@xyflow/react'
+import * as runsBus from './runsBus'
 
 export interface StoredRun {
   id: string // uuid
@@ -29,7 +33,7 @@ export interface StoredRun {
   }
 }
 
-const STORAGE_KEY = 'olumi-canvas-run-history'
+export const STORAGE_KEY = 'olumi-canvas-run-history' // Exported for cross-tab listening
 const MAX_RUNS = 20
 const MAX_PINNED = 5
 
@@ -154,6 +158,7 @@ export function addRun(run: StoredRun): boolean {
       runs.unshift(updated)
 
       saveRuns(runs)
+      runsBus.emit() // Notify observers
       return true // Duplicate detected
     }
   }
@@ -161,6 +166,7 @@ export function addRun(run: StoredRun): boolean {
   // No duplicate found - add as new run
   runs.unshift(run)
   saveRuns(runs)
+  runsBus.emit() // Notify observers
   return false // New run
 }
 
@@ -174,6 +180,7 @@ export function togglePin(runId: string): void {
 
   run.isPinned = !run.isPinned
   saveRuns(runs)
+  runsBus.emit() // Notify observers
 }
 
 /**
@@ -182,6 +189,7 @@ export function togglePin(runId: string): void {
 export function deleteRun(runId: string): void {
   const runs = loadRuns().filter(r => r.id !== runId)
   saveRuns(runs)
+  runsBus.emit() // Notify observers
 }
 
 /**
