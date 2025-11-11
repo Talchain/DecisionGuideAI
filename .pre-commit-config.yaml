@@ -1,0 +1,21 @@
+# .pre-commit-config.yaml
+# SECURITY: Pre-commit hooks for secret scanning and linting
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Gitleaks secret scanning
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.2
+    hooks:
+      - id: gitleaks
+
+  # ESLint for security rules
+  - repo: local
+    hooks:
+      - id: eslint-security
+        name: ESLint Security Rules
+        entry: npm run lint
+        language: system
+        types: [javascript, typescript, tsx, jsx]
+        pass_filenames: false

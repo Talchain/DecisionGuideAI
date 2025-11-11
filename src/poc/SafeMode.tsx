@@ -12,9 +12,9 @@ export default function SafeMode() {
       return
     }
     
-    // Try proxy first, then direct
-    const edge = (import.meta as any)?.env?.VITE_EDGE_GATEWAY_URL || '/engine'
-    const urls = [`${edge}/health`, 'https://plot-lite-service.onrender.com/health']
+    // Use proxy only (NEVER call origin directly from browser - causes CORS)
+    const proxyBase = (import.meta as any)?.env?.VITE_PLOT_PROXY_BASE || '/api/plot'
+    const urls = [`${proxyBase}/v1/health`]
     ;(async () => {
       for (const u of urls) {
         try {

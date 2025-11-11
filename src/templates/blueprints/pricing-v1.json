@@ -14,10 +14,10 @@
     {"id": "outcome-premium", "label": "Premium Revenue", "kind": "outcome", "position": {"x": 250, "y": 400}}
   ],
   "edges": [
-    {"id": "e1", "from": "start", "to": "tier-basic", "probability": 0.6},
-    {"id": "e2", "from": "start", "to": "tier-premium", "probability": 0.4},
-    {"id": "e3", "from": "tier-basic", "to": "outcome-basic", "probability": 1.0},
-    {"id": "e4", "from": "tier-premium", "to": "outcome-premium", "probability": 1.0}
+    {"id": "e1", "from": "start", "to": "tier-basic", "probability": 0.6, "weight": 0.6, "belief": 0.75, "provenance": "template"},
+    {"id": "e2", "from": "start", "to": "tier-premium", "probability": 0.4, "weight": 0.4, "belief": 0.75, "provenance": "template"},
+    {"id": "e3", "from": "tier-basic", "to": "outcome-basic", "probability": 1.0, "weight": 0.9, "belief": 0.95, "provenance": "template"},
+    {"id": "e4", "from": "tier-premium", "to": "outcome-premium", "probability": 1.0, "weight": 0.9, "belief": 0.95, "provenance": "template"}
   ],
   "defaults": {"basePrice": 49, "premiumPrice": 99}
 }

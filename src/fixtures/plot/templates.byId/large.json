@@ -1,0 +1,30 @@
+{
+  "id": "large",
+  "name": "Large Demo",
+  "version": "1.0",
+  "description": "Complex decision network",
+  "default_seed": 1337,
+  "graph": {
+    "nodes": [
+      { "id": "goal", "kind": "goal", "label": "Achieve goal" },
+      { "id": "decision1", "kind": "decision", "label": "Decision 1" },
+      { "id": "decision2", "kind": "decision", "label": "Decision 2" },
+      { "id": "event1", "kind": "event", "label": "Event 1" },
+      { "id": "event2", "kind": "event", "label": "Event 2" },
+      { "id": "outcome1", "kind": "outcome", "label": "Outcome 1" },
+      { "id": "outcome2", "kind": "outcome", "label": "Outcome 2" },
+      { "id": "outcome3", "kind": "outcome", "label": "Outcome 3" }
+    ],
+    "edges": [
+      { "source": "decision1", "target": "event1", "weight": 0.7 },
+      { "source": "decision2", "target": "event2", "weight": 0.6 },
+      { "source": "event1", "target": "outcome1", "weight": 0.8 },
+      { "source": "event1", "target": "outcome2", "weight": 0.5 },
+      { "source": "event2", "target": "outcome2", "weight": 0.6 },
+      { "source": "event2", "target": "outcome3", "weight": 0.7 },
+      { "source": "outcome1", "target": "goal", "weight": 0.9 },
+      { "source": "outcome2", "target": "goal", "weight": 0.7 },
+      { "source": "outcome3", "target": "goal", "weight": 0.6 }
+    ]
+  }
+}

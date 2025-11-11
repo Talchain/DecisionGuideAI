@@ -3,15 +3,29 @@
 // Supabase Edge Function for team invitations using Brevo API
 import { createClient } from "npm:@supabase/supabase-js@2.39.7";
 
-// Pull in your secrets
-const BREVO_API_KEY             = Deno.env.get("BREVO_API_KEY")!;
+// SECURITY: All secrets MUST be set via Supabase Edge Function secrets.
+// NEVER commit .env files or log key material.
+// See SECURITY.md for rotation procedures.
+
+const BREVO_API_KEY             = Deno.env.get("BREVO_API_KEY");
 const FROM_EMAIL                = Deno.env.get("FROM_EMAIL")     || "hello@decisionguide.ai";
 const APP_URL                   = Deno.env.get("APP_URL")        || "https://decisionguide.ai";
-const SUPABASE_URL              = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_URL              = Deno.env.get("SUPABASE_URL");
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-// DEBUG logging
-console.log("🔑 BREVO_API_KEY:", BREVO_API_KEY.slice(0,8) + "…");
+// Validate required environment variables
+if (!BREVO_API_KEY) {
+  throw new Error("BREVO_API_KEY environment variable is required");
+}
+if (!SUPABASE_URL) {
+  throw new Error("SUPABASE_URL environment variable is required");
+}
+if (!SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("SUPABASE_SERVICE_ROLE_KEY environment variable is required");
+}
+
+// SECURITY: NEVER log secrets or key material
+console.log("✅ Environment variables validated");
 console.log("📧 FROM_EMAIL:   ", FROM_EMAIL);
 console.log("🌐 APP_URL:      ", APP_URL);
 console.log("⏰ TIMESTAMP:    ", new Date().toISOString());
@@ -19,12 +33,28 @@ console.log("⏰ TIMESTAMP:    ", new Date().toISOString());
 // Create your Supabase client
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-// Shared CORS headers
-const corsHeaders = {
-  "Access-Control-Allow-Origin":  "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
+// SECURITY: CORS allow-list (never use wildcard in production)
+const ALLOWED_ORIGINS = [
+  "https://decisionguide.ai",
+  "https://app.olumi.app",
+  "http://localhost:5173",  // Dev only
+  "http://localhost:4173",  // Preview builds
+];
+
+// Helper to check if origin is allowed and get CORS headers
+function getCorsHeaders(requestOrigin: string | null): Record<string, string> | null {
+  // SECURITY: Reject unknown origins explicitly (don't fallback)
+  if (!requestOrigin || !ALLOWED_ORIGINS.includes(requestOrigin)) {
+    return null; // Signal rejection
+  }
+
+  return {
+    "Access-Control-Allow-Origin":  requestOrigin,
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Vary": "Origin", // Critical for caching with multiple origins
+  };
+}
 
 // Helper to send via Brevo
 async function sendBrevoEmail(opts: {
@@ -63,12 +93,28 @@ Deno.serve(async (req) => {
   const path   = url.pathname;
   const method = req.method.toUpperCase();
 
+  // Get CORS headers for this request's origin
+  const origin = req.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+
+  // SECURITY: Reject unknown origins explicitly
+  if (!corsHeaders) {
+    console.warn("⛔ Rejected request from unknown origin:", origin);
+    return new Response(
+      JSON.stringify({ error: "Origin not allowed" }),
+      {
+        status: 403,
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+  }
+
   // Always respond to preflight
   if (method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  console.log("➡️  Request", { method, path, time: new Date().toISOString() });
+  console.log("➡️  Request", { method, path, origin, time: new Date().toISOString() });
 
   // 1) Health check
   if (path.endsWith("/health") && method === "GET") {

@@ -30,6 +30,21 @@ env:
   VITE_PLOT_LITE_BASE_URL: "/plot-lite"
 
 jobs:
+  secrets-scan:
+    name: Secrets Scan (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for gitleaks
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
   tsc:
     name: TypeScript
     runs-on: ubuntu-latest
@@ -48,6 +63,27 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Check for legacy Olumi tokens
+        run: |
+          echo "🔍 Checking for legacy --olumi-* tokens..."
+
+          # Check for legacy --olumi-* tokens (strict check - these should all be migrated)
+          if grep -r -n 'var(--olumi-' src/ \
+            --include="*.tsx" --include="*.ts" --include="*.css" \
+            --exclude-dir=node_modules \
+            --exclude-dir=dist \
+            --exclude-dir=poc \
+            --exclude-dir=plc; then
+            echo "❌ Found legacy --olumi-* tokens in src/. These must be migrated to Olumi v1.2 tokens."
+            echo "   See docs/LEGACY_TOKEN_MIGRATION.md for migration guide."
+            exit 1
+          fi
+
+          echo "✅ No legacy --olumi-* tokens found."
+          echo ""
+          echo "ℹ️  Note: Hard-coded color enforcement is handled by ESLint (npm run lint)."
+          echo "   The ESLint rule 'brand-tokens/no-raw-colors' checks for hard-coded hex/rgb/hsl colors."
 
       - name: Type check (no emit)
         run: npm run typecheck
@@ -75,6 +111,28 @@ jobs:
         env:
           ENSURE_TESTS_JSON_SKIP_RUN: '1'
         continue-on-error: true
+
+  contract:
+    name: Backend Contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js from .nvmrc
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify backend contract
+        run: npm run ci:verify-contract
+        env:
+          VITE_PLOT_LITE_BASE_URL: https://plot-lite-service.onrender.com
+        continue-on-error: false
 
   build:
     name: Build + No-Console

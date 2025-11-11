@@ -117,8 +117,8 @@ export function Tooltip({ content, children, position = 'top' }: TooltipProps) {
           role="tooltip"
           className="absolute z-[9000] px-2 py-1 text-xs rounded whitespace-nowrap pointer-events-none"
           style={{
-            backgroundColor: 'var(--olumi-bg, #0E1116)',
-            color: 'var(--olumi-text, #E8ECF5)',
+            backgroundColor: 'var(--surface-card, #FEF9F3)',
+            color: 'var(--text-primary, #262626)',
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
             ...positionStyles[position],
           }}
@@ -127,7 +127,7 @@ export function Tooltip({ content, children, position = 'top' }: TooltipProps) {
           <div
             className="absolute w-2 h-2"
             style={{
-              backgroundColor: 'var(--olumi-bg, #0E1116)',
+              backgroundColor: 'var(--surface-card, #FEF9F3)',
               ...arrowStyles[position],
             }}
           />

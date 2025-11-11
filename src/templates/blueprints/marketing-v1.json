@@ -14,10 +14,10 @@
     {"id": "outcome-search", "label": "Search ROI", "kind": "outcome", "position": {"x": 250, "y": 400}}
   ],
   "edges": [
-    {"id": "e1", "from": "start", "to": "channel-social", "probability": 0.45},
-    {"id": "e2", "from": "start", "to": "channel-search", "probability": 0.55},
-    {"id": "e3", "from": "channel-social", "to": "outcome-social", "probability": 1.0},
-    {"id": "e4", "from": "channel-search", "to": "outcome-search", "probability": 1.0}
+    {"id": "e1", "from": "start", "to": "channel-social", "probability": 0.45, "weight": 0.45, "belief": 0.70, "provenance": "template"},
+    {"id": "e2", "from": "start", "to": "channel-search", "probability": 0.55, "weight": 0.55, "belief": 0.70, "provenance": "template"},
+    {"id": "e3", "from": "channel-social", "to": "outcome-social", "probability": 1.0, "weight": 0.85, "belief": 0.90, "provenance": "template"},
+    {"id": "e4", "from": "channel-search", "to": "outcome-search", "probability": 1.0, "weight": 0.85, "belief": 0.90, "provenance": "template"}
   ],
   "defaults": {"budget": 10000, "targetCAC": 50}
 }

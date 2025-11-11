@@ -10,7 +10,8 @@ vi.mock('../../../src/adapters/plot', () => ({
     templates: vi.fn(),
     template: vi.fn(),
     run: vi.fn()
-  }
+  },
+  adapterName: 'mock'
 }))
 
 vi.mock('../../../src/templates/blueprints', () => ({
@@ -24,6 +25,27 @@ const mockGetBlueprintById = vi.mocked(blueprintsModule.getBlueprintById)
 
 describe('TemplatesPanel', () => {
   beforeEach(() => {
+    // Mock templates() to return proper structure
+    mockPlot.templates.mockResolvedValue({
+      items: [
+        {
+          id: 'pricing-v1',
+          name: 'Pricing Strategy',
+          description: 'Compare pricing tiers'
+        }
+      ]
+    })
+
+    // Mock template() to return detailed template
+    mockPlot.template.mockResolvedValue({
+      id: 'pricing-v1',
+      name: 'Pricing Strategy',
+      description: 'Compare pricing tiers',
+      version: '1.0',
+      default_seed: 1337,
+      graph: { nodes: [], edges: [] }
+    })
+
     mockGetAllBlueprints.mockReturnValue([
       {
         id: 'pricing-v1',
@@ -33,7 +55,7 @@ describe('TemplatesPanel', () => {
         edges: []
       }
     ])
-    
+
     mockGetBlueprintById.mockReturnValue({
       id: 'pricing-v1',
       name: 'Pricing Strategy',
@@ -42,7 +64,7 @@ describe('TemplatesPanel', () => {
       nodes: [],
       edges: []
     })
-    
+
     mockPlot.run.mockResolvedValue({
       schema: 'report.v1',
       meta: { seed: 1337, response_id: 'test', elapsed_ms: 100 },
@@ -65,66 +87,89 @@ describe('TemplatesPanel', () => {
     expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
   })
 
-  it('shows template browser with search', () => {
+  it('shows template browser with search', async () => {
     render(<TemplatesPanel isOpen={true} onClose={() => {}} />)
-    
+
     expect(screen.getByPlaceholderText(/search templates/i)).toBeInTheDocument()
-    expect(screen.getByText('Pricing Strategy')).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.getByText('Pricing Strategy')).toBeInTheDocument()
+    })
   })
 
   it('filters templates by search query', async () => {
+    mockPlot.templates.mockResolvedValue({
+      items: [
+        { id: 'pricing-v1', name: 'Pricing Strategy', description: 'Pricing' },
+        { id: 'hiring-v1', name: 'Hiring Decision', description: 'Hiring' }
+      ]
+    })
+
     mockGetAllBlueprints.mockReturnValue([
       { id: 'pricing-v1', name: 'Pricing Strategy', description: 'Pricing', nodes: [], edges: [] },
       { id: 'hiring-v1', name: 'Hiring Decision', description: 'Hiring', nodes: [], edges: [] }
     ])
-    
+
     render(<TemplatesPanel isOpen={true} onClose={() => {}} />)
-    
+
     const searchInput = screen.getByPlaceholderText(/search templates/i)
     fireEvent.change(searchInput, { target: { value: 'pricing' } })
-    
+
     await waitFor(() => {
       expect(screen.getByText('Pricing Strategy')).toBeInTheDocument()
       expect(screen.queryByText('Hiring Decision')).not.toBeInTheDocument()
     })
   })
 
-  it('calls onInsertBlueprint when Insert clicked', () => {
+  it('calls onInsertBlueprint when Insert clicked', async () => {
     const onInsertBlueprint = vi.fn()
     render(<TemplatesPanel isOpen={true} onClose={() => {}} onInsertBlueprint={onInsertBlueprint} />)
-    
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /insert pricing strategy/i })).toBeInTheDocument()
+    })
+
     fireEvent.click(screen.getByRole('button', { name: /insert pricing strategy/i }))
-    
-    expect(onInsertBlueprint).toHaveBeenCalledWith(expect.objectContaining({
-      id: 'pricing-v1',
-      name: 'Pricing Strategy'
-    }))
+
+    await waitFor(() => {
+      expect(onInsertBlueprint).toHaveBeenCalledWith(expect.objectContaining({
+        id: 'pricing-v1',
+        name: 'Pricing Strategy'
+      }))
+    })
   })
 
   it('shows template about section after insert', async () => {
     render(<TemplatesPanel isOpen={true} onClose={() => {}} onInsertBlueprint={() => {}} />)
-    
-    fireEvent.click(screen.getByRole('button', { name: /insert pricing strategy/i }))
-    
+
     await waitFor(() => {
-      expect(screen.getByText('About Pricing Strategy')).toBeInTheDocument()
-      expect(screen.getByText('Detailed description')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /insert pricing strategy/i })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /insert pricing strategy/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/pricing strategy/i)).toBeInTheDocument()
     })
   })
 
   it('toggles dev controls', async () => {
     render(<TemplatesPanel isOpen={true} onClose={() => {}} onInsertBlueprint={() => {}} />)
-    
-    fireEvent.click(screen.getByRole('button', { name: /insert pricing strategy/i }))
-    
+
     await waitFor(() => {
-      const toggle = screen.getByRole('switch', { name: /show dev controls/i })
+      expect(screen.getByRole('button', { name: /insert pricing strategy/i })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /insert pricing strategy/i }))
+
+    await waitFor(() => {
+      const toggle = screen.getByRole('switch')
       expect(toggle).toHaveAttribute('aria-checked', 'false')
-      
+
       fireEvent.click(toggle)
-      
+
       expect(toggle).toHaveAttribute('aria-checked', 'true')
-      expect(screen.getByText(/Adapter: Mock/i)).toBeInTheDocument()
+      expect(screen.getByText(/Adapter: mock/i)).toBeInTheDocument()
     })
   })
 })

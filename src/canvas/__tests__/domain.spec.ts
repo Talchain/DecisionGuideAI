@@ -49,32 +49,32 @@ describe('Node Schema Validation', () => {
 describe('Edge Schema Validation', () => {
   it('validates edge data with defaults', () => {
     const minimal = {}
-    
+
     const result = EdgeDataSchema.parse(minimal)
-    expect(result.weight).toBe(1.0)
+    expect(result.weight).toBe(0.5)  // Updated default: 0-1 scale
     expect(result.style).toBe('solid')
     expect(result.curvature).toBe(0.15)
-    expect(result.schemaVersion).toBe(2)
+    expect(result.schemaVersion).toBe(3)  // Schema v3: weight scale 0-1
   })
   
   it('validates edge data with all properties', () => {
     const complete = {
-      weight: 2.5,
+      weight: 0.8,  // Updated: 0-1 scale
       style: 'dashed' as const,
       curvature: 0.3,
       label: 'High priority',
       confidence: 0.8,
     }
-    
+
     const result = EdgeDataSchema.safeParse(complete)
     expect(result.success).toBe(true)
   })
   
   it('rejects out-of-range weight', () => {
     const invalid = {
-      weight: 6.0, // Max is 5.0
+      weight: 1.5, // Max is 1.0
     }
-    
+
     const result = EdgeDataSchema.safeParse(invalid)
     expect(result.success).toBe(false)
   })
@@ -91,9 +91,9 @@ describe('Edge Schema Validation', () => {
 
 describe('Edge Visual Property Mapping', () => {
   it('maps weight to stroke width correctly', () => {
-    expect(weightToStrokeWidth(0.1)).toBe(1) // Min
-    expect(weightToStrokeWidth(5.0)).toBe(6) // Max
-    expect(weightToStrokeWidth(2.55)).toBeCloseTo(3.5, 1) // Mid
+    expect(weightToStrokeWidth(0)).toBe(1)    // Min: 0 → 1px
+    expect(weightToStrokeWidth(1)).toBe(6)    // Max: 1 → 6px
+    expect(weightToStrokeWidth(0.5)).toBeCloseTo(3.5, 1) // Mid: 0.5 → 3.5px
   })
   
   it('maps style to dash array', () => {
@@ -164,7 +164,7 @@ describe('Schema Migrations', () => {
     expect(v2).not.toBeNull()
     expect(v2!.version).toBe(SCHEMA_VERSION_V2)
     expect(v2!.nodes[0].data.type).toBe('goal') // Inferred from label
-    expect(v2!.edges[0].data.weight).toBe(1.0)
+    expect(v2!.edges[0].data.weight).toBe(0.5)  // Updated default: 0-1 scale
     expect(v2!.edges[0].data.style).toBe('solid')
     expect(v2!.edges[0].data.curvature).toBe(0.15)
   })

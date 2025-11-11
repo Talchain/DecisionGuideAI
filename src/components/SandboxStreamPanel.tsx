@@ -1,12 +1,18 @@
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import { isSseEnabled, isRunReportEnabled, isConfidenceChipsEnabled, isHintsEnabled, isParamsEnabled, isHistoryEnabled, isExportEnabled, isScenariosEnabled } from '../flags'
 import * as Flags from '../flags'
+import { useStreamFlags } from './StreamFlagsProvider'
 import { isJobsProgressEnabled } from '../flags'
 import { isMarkdownPreviewEnabled, isShortcutsEnabled, isCopyCodeEnabled } from '../flags'
 import { isE2EEnabled } from '../flags'
 import { isConfigDrawerEnabled } from '../flags'
 import { isCanvasEnabled } from '../flags'
-import { openStream, type StreamHandle } from '../lib/sseClient'
+import { useStreamConnection, type StreamConfig } from '../streams/useStreamConnection'
+import StreamParametersPanel from './stream/StreamParametersPanel'
+import { StreamControlBar } from './stream/StreamControlBar'
+import StreamOutputDisplay from './stream/StreamOutputDisplay'
+import StreamDrawersContainer from './stream/StreamDrawersContainer'
+import StreamEnhancementsPanel from './stream/StreamEnhancementsPanel'
 import { simplifyEdges, srSummary, computeSimplifyThreshold } from '../lib/graph.simplify'
 import { getSampleGraph } from '../lib/graph.sample'
 import { bandEdgesByWeight } from '../lib/summary'
@@ -21,24 +27,18 @@ import type { CanvasAPI } from './CanvasDrawer'
 import ScenarioDrawer from './ScenarioDrawer'
 import HealthIndicator from './HealthIndicator'
 import JobsProgressPanel from './JobsProgressPanel'
-import { fetchRunReport, type RunReport } from '../lib/runReport'
 import { list as listSnapshots, save as saveSnapshot, type Snapshot } from '../lib/snapshots'
 import { diff as diffItems } from '../lib/compare'
 import { getDefaults } from '../lib/session'
-import { track } from '../lib/telemetry'
 import RunHistoryDrawer from './RunHistoryDrawer'
 import type { RunMeta } from '../lib/history'
-import { record } from '../lib/history'
 import { buildPlainText, buildJson, buildMarkdown, buildMarkdownFilename, triggerDownload, type TokenRec as ExportTokenRec } from '../lib/export'
 import { formatDownloadName } from '../lib/filename'
 import { formatUSD } from '../lib/currency'
-import { renderMarkdownSafe } from '../lib/markdown'
 import { tryDecodeScenarioParam, getRemember, getLastId, getScenarioById } from '../lib/scenarios'
 import { encodeSnapshotToUrlParam, tryDecodeSnapshotParam } from '../lib/snapshotShare'
 import { getSuggestions, createUndoStack, type SimpleState } from '../lib/guided'
 import { byTarget as listCommentsByTarget, add as addComment, del as delComment, type Comment } from '../lib/comments'
-
-type Status = 'idle' | 'streaming' | 'done' | 'cancelled' | 'limited' | 'aborted' | 'error'
 
 export default function SandboxStreamPanel() {
   // Flag-gated: OFF by default. In E2E test-mode, always mount for determinism.
@@ -49,72 +49,22 @@ export default function SandboxStreamPanel() {
     try { if (isE2EEnabled()) { (window as any).__PANEL_RENDERED = true } } catch {}
   }, [])
 
-  // --- Step 2 flags and derived data (all OFF by default) ---
-  const [simplifyFlag, setSimplifyFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isCanvasSimplifyEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [listViewFlag, setListViewFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isListViewEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [engineModeFlag, setEngineModeFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isEngineModeEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [mobileGuardFlag, setMobileGuardFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isMobileGuardrailsEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [summaryV2Flag, setSummaryV2Flag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isSummaryV2Enabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [guidedFlag, setGuidedFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isGuidedV1Enabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [commentsFlag, setCommentsFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isCommentsEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [diagFlag, setDiagFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isDiagnosticsEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [perfFlag, setPerfFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isPerfProbesEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [scorecardFlag, setScorecardFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isScorecardEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [errorBannersFlag, setErrorBannersFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isErrorBannersEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-
-  useEffect(() => {
-    // Re-evaluate flags after mount and whenever localStorage changes (E2E sets flags post-navigation)
-    const update = () => {
-      try { const fn: any = (Flags as any).isCanvasSimplifyEnabled; setSimplifyFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isListViewEnabled; setListViewFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isEngineModeEnabled; setEngineModeFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isMobileGuardrailsEnabled; setMobileGuardFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isSnapshotsEnabled; setSnapshotsFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isCompareEnabled; setCompareFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isSummaryV2Enabled; setSummaryV2Flag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isGuidedV1Enabled; setGuidedFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isCommentsEnabled; setCommentsFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isDiagnosticsEnabled; setDiagFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isPerfProbesEnabled; setPerfFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isScorecardEnabled; setScorecardFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-      try { const fn: any = (Flags as any).isErrorBannersEnabled; setErrorBannersFlag(typeof fn === 'function' ? !!fn() : false) } catch {}
-    }
-    update()
-    // Grace period: catch LS writes made immediately after mount (same-tab writes don't fire 'storage')
-    const t1 = setTimeout(update, 50)
-    const t2 = setTimeout(update, 200)
-    const t3 = setTimeout(update, 500)
-    const iv = setInterval(update, 250)
-    const tStop = setTimeout(() => clearInterval(iv), 2000)
-    const onStorage = (e: StorageEvent) => {
-      if (!e || typeof e.key !== 'string') { update(); return }
-      if (e.key.startsWith('feature.')) update()
-    }
-    window.addEventListener('storage', onStorage)
-    return () => { window.removeEventListener('storage', onStorage); clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); clearTimeout(tStop); clearInterval(iv) }
-  }, [])
+  // P1 Polish (Task A): Extract flags to StreamFlagsProvider hook
+  const {
+    simplifyFlag,
+    listViewFlag,
+    engineModeFlag,
+    mobileGuardFlag,
+    summaryV2Flag,
+    guidedFlag,
+    commentsFlag,
+    diagFlag,
+    perfFlag,
+    scorecardFlag,
+    errorBannersFlag,
+    snapshotsFlag,
+    compareFlag,
+  } = useStreamFlags()
 
   // If mobile guardrails flag flips ON after mount, default to list-first on narrow viewports
   useEffect(() => {
@@ -280,16 +230,6 @@ export default function SandboxStreamPanel() {
     )
   }
 
-  const [status, setStatus] = useState<Status>('idle')
-  const [output, setOutput] = useState('')
-  const [cost, setCost] = useState<number | undefined>(undefined)
-  const [reconnecting, setReconnecting] = useState(false)
-  const [resumedOnce, setResumedOnce] = useState(false)
-  const [started, setStarted] = useState(false)
-  const handleRef = useRef<StreamHandle | null>(null)
-  const statusRef = useRef<HTMLDivElement | null>(null)
-  const acceptTokensRef = useRef<boolean>(true)
-  const stopAtRef = useRef<number | null>(null)
   const [reportOpen, setReportOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [reportParams, setReportParams] = useState<{ seed?: string | number; budget?: number; model?: string } | null>(null)
@@ -318,8 +258,69 @@ export default function SandboxStreamPanel() {
   const shortcutsFlag = isShortcutsEnabled()
   const copyFlag = isCopyCodeEnabled()
   const scenariosFlag = isScenariosEnabled()
-  const [reportData, setReportData] = useState<RunReport | null>(null)
+
+  // Optional, tiny frame buffer for smoother token appends
+  const bufferEnabled: boolean = (() => {
+    try {
+      const env = (import.meta as any)?.env?.VITE_STREAM_BUFFER
+      if (env === '0' || env === 0 || env === false) return false
+      if (env === '1' || env === 1 || env === true) return true
+    } catch {}
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const raw = localStorage.getItem('feature.streamBuffer')
+        if (raw === '0' || raw === 'false') return false
+        if (raw && raw !== '0' && raw !== 'false') return true
+      }
+    } catch {}
+    return true // default ON
+  })()
+
   const [mdHtml, setMdHtml] = useState<string>('')
+  const statusRef = useRef<HTMLDivElement | null>(null)
+
+  // Initialize stream connection hook
+  const streamConfig: StreamConfig = {
+    historyEnabled: historyFlag,
+    chipsEnabled: chipsFlag,
+    paramsEnabled: paramsFlag,
+    mdEnabled: mdFlag,
+    bufferEnabled,
+    route: 'critique',
+    onMdUpdate: setMdHtml,
+    statusRef,
+  }
+  const { state: streamState, actions: streamActions } = useStreamConnection(streamConfig)
+
+  // Aliases for stream state (for backward compatibility with existing code)
+  const status = streamState.status
+  const output = streamState.output
+  const cost = streamState.metrics.cost
+  const reconnecting = streamState.reconnecting
+  const resumedOnce = streamState.resumedOnce
+  const started = streamState.started
+  const reportData = streamState.reportData
+  const diagLastId = streamState.metrics.lastSseId
+  const diagTokenCount = streamState.metrics.tokenCount
+  const diagTtfbMs = streamState.metrics.ttfbMs
+  const diagResumeCount = streamState.metrics.resumeCount
+
+  // Sync textRef with hook's output for export/snapshot functionality
+  useEffect(() => {
+    textRef.current = output
+  }, [output])
+
+  // Sync tokensRef for export functionality (reconstruct from output changes)
+  useEffect(() => {
+    if (status === 'idle') {
+      tokensRef.current = []
+    } else if (output.length > 0) {
+      // Reconstruct tokens array from output
+      // Note: Individual token boundaries are lost, but text content is preserved
+      tokensRef.current = [{ id: '1', text: output }]
+    }
+  }, [output, status])
+
   const [sheetOpen, setSheetOpen] = useState<boolean>(false)
   const mdPreviewRef = useRef<HTMLDivElement | null>(null)
   const [copyOverlays, setCopyOverlays] = useState<Array<{ id: number; top: number; left: number; code: string; lang?: string }>>([])
@@ -338,39 +339,26 @@ export default function SandboxStreamPanel() {
   const [scenarioChipText, setScenarioChipText] = useState<string | null>(null)
   const [scenarioImportNote, setScenarioImportNote] = useState<boolean>(false)
   const [scenarioPreview, setScenarioPreview] = useState<{ v: 1; name: string; seed: string; budget: string; model: string } | null>(null)
-  // Diagnostics & perf
-  const [diagLastId, setDiagLastId] = useState<string | undefined>(undefined)
-  const [diagResumeCount, setDiagResumeCount] = useState<number>(0)
-  const [diagTtfbMs, setDiagTtfbMs] = useState<number | undefined>(undefined)
-  const [diagTokenCount, setDiagTokenCount] = useState<number>(0)
-  const firstTokenAtRef = useRef<number | null>(null)
 
-  
-
-  // Track timing and last in-flight cost for history metadata
-  const startedAtRef = useRef<number | null>(null)
-  const costRef = useRef<number | undefined>(undefined)
+  // Keep refs needed for export functionality (not managed by hook)
   const tokensRef = useRef<ExportTokenRec[]>([])
   const textRef = useRef<string>('')
+  const startedAtRef = useRef<number | null>(null)
+  const costRef = useRef<number | undefined>(undefined)
 
-  // Optional, tiny frame buffer for smoother token appends
-  const bufferEnabled: boolean = (() => {
-    try {
-      const env = (import.meta as any)?.env?.VITE_STREAM_BUFFER
-      if (env === '0' || env === 0 || env === false) return false
-      if (env === '1' || env === 1 || env === true) return true
-    } catch {}
-    try {
-      if (typeof localStorage !== 'undefined') {
-        const raw = localStorage.getItem('feature.streamBuffer')
-        if (raw === '0' || raw === 'false') return false
-        if (raw && raw !== '0' && raw !== 'false') return true
-      }
-    } catch {}
-    return true // default ON
-  })()
-  const frameBufRef = useRef<string[]>([])
-  const rafIdRef = useRef<number | null>(null)
+  // Track stream start time for duration calculation
+  useEffect(() => {
+    if (started && startedAtRef.current === null) {
+      startedAtRef.current = Date.now()
+    } else if (!started) {
+      startedAtRef.current = null
+    }
+  }, [started])
+
+  // Track final cost for export
+  useEffect(() => {
+    costRef.current = cost
+  }, [cost])
 
   // Scenario params state (persisted). Enabled only when paramsFlag is true.
   const [seed, setSeed] = useState<string>(() => {
@@ -389,6 +377,58 @@ export default function SandboxStreamPanel() {
       window.localStorage.setItem('sandbox.model', m)
     } catch {}
   }
+
+  // Stable handler for StreamParametersPanel
+  const handleParamsChange = useCallback((next: { seed: string; budget: string; model: string; scenarioId?: string | null }) => {
+    setSeed(next.seed)
+    setBudget(next.budget)
+    setModel(next.model)
+    persistParams(next.seed, next.budget, next.model)
+  }, [])
+
+  // Stable handlers for StreamEnhancementsPanel
+  const handleApplySuggestion = useCallback((suggestion: any, _currentState: any) => {
+    try {
+      undoRef.current.push({ seed, budget, model, simplify: simplifyOn })
+      const next = suggestion.apply({ seed, budget, model, simplify: simplifyOn })
+      if (next.model !== model) { setModel(next.model); persistParams(seed, budget, next.model) }
+      if (next.simplify !== simplifyOn) setSimplifyOn(next.simplify)
+      setAriaGuidedMsg('Suggestion applied. You can press Undo.')
+      setTimeout(() => setAriaGuidedMsg(''), 1200)
+    } catch {}
+  }, [seed, budget, model, simplifyOn])
+
+  const handleUndo = useCallback(() => {
+    const prev = undoRef.current.pop()
+    if (prev) {
+      try {
+        setSeed(prev.seed); setBudget(prev.budget); setModel(prev.model)
+        persistParams(prev.seed, prev.budget, prev.model)
+        setSimplifyOn(prev.simplify)
+        setAriaGuidedMsg('Undone.')
+        setTimeout(() => setAriaGuidedMsg(''), 1200)
+      } catch {}
+    }
+  }, [])
+
+  const handleCopyShareLink = useCallback(async (snapshot: any) => {
+    try {
+      const payload = { v: 1 as const, seed: snapshot.seed, model: snapshot.model, data: snapshot.data }
+      const param = encodeSnapshotToUrlParam(payload)
+      const hasE2E = typeof location !== 'undefined' && String(location.search || '').includes('e2e=1')
+      const base = (globalThis as any)?.location?.origin || ''
+      const url = `${base}/${hasE2E ? '?e2e=1' : ''}#/sandbox?snap=${param}`
+      await (globalThis as any)?.navigator?.clipboard?.writeText?.(url)
+      setShareNote('')
+    } catch (e: any) {
+      try { setShareNote(String(e && e.message ? e.message : e)) } catch {}
+    }
+  }, [])
+
+  const handleCompareSelectionChange = useCallback((a: string, b: string) => {
+    setSelA(a)
+    setSelB(b)
+  }, [])
 
   // Guided suggestions (flag-gated)
   const guidedSuggestions = useMemo(() => (
@@ -456,13 +496,7 @@ export default function SandboxStreamPanel() {
   }, [])
 
   // Snapshots + Compare + Read-only share (flag-gated)
-  const [snapshotsFlag, setSnapshotsFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isSnapshotsEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-  const [compareFlag, setCompareFlag] = useState<boolean>(() => {
-    try { const fn: any = (Flags as any).isCompareEnabled; return typeof fn === 'function' ? !!fn() : false } catch { return false }
-  })
-
+  // P1 Polish (Task A): snapshotsFlag and compareFlag now from useStreamFlags() hook
   const [snapshots, setSnapshots] = useState<Snapshot[]>(() => (snapshotsFlag ? listSnapshots() : []))
   const [ariaSnapshotMsg, setAriaSnapshotMsg] = useState<string>('')
   const [readOnlySnap, setReadOnlySnap] = useState<{ seed: string; model: string; data: any } | null>(null)
@@ -528,21 +562,6 @@ export default function SandboxStreamPanel() {
     setTimeout(() => setAriaSnapshotMsg(''), 1200)
   }
 
-  const flushFrame = () => {
-    rafIdRef.current = null
-    if (!acceptTokensRef.current) {
-      frameBufRef.current = []
-      return
-    }
-    if (frameBufRef.current.length > 0) {
-      const chunk = frameBufRef.current.join('')
-      frameBufRef.current = []
-      setOutput((prev) => prev + chunk)
-      textRef.current += chunk
-      if (mdFlag) setMdHtml(renderMarkdownSafe(textRef.current))
-    }
-  }
-
   // Compute overlay positions for copy buttons on fenced code blocks
   useEffect(() => {
     if (!mdFlag || !copyFlag) { setCopyOverlays([]); return }
@@ -599,79 +618,15 @@ export default function SandboxStreamPanel() {
       setTimeout(() => { setFailedId(null); setAriaCopyMsg('') }, 1200)
     }
   }
-  const scheduleFlush = () => {
-    if (rafIdRef.current != null) return
-    const prefersReduced = (() => {
-      try { return !!(globalThis as any)?.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches } catch { return false }
-    })()
-    if (prefersReduced) {
-      // Microtask flush under reduced motion; clear rafId deterministically before flush
-      rafIdRef.current = -1 as any
-      Promise.resolve().then(() => { rafIdRef.current = null; flushFrame() })
-      return
-    }
-    const raf: any = (globalThis as any).requestAnimationFrame
-    if (typeof raf === 'function') {
-      rafIdRef.current = raf(() => { rafIdRef.current = null; flushFrame() })
-    } else {
-      // Microtask fallback ensures deterministic behavior in tests
-      rafIdRef.current = -1 as any
-      Promise.resolve().then(() => { rafIdRef.current = null; flushFrame() })
-    }
-  }
-  const cancelFlush = () => {
-    if (rafIdRef.current != null) {
-      try { (globalThis as any).cancelAnimationFrame?.(rafIdRef.current as any) } catch {}
-      try { clearTimeout(rafIdRef.current as any) } catch {}
-      rafIdRef.current = null
-    }
-  }
-  const flushNow = () => {
-    cancelFlush()
-    if (frameBufRef.current.length > 0) {
-      const chunk = frameBufRef.current.join('')
-      frameBufRef.current = []
-      setOutput((prev) => prev + chunk)
-      textRef.current += chunk
-      if (mdFlag) setMdHtml(renderMarkdownSafe(textRef.current))
-    }
-  }
-
-  // Ensure tidy cleanup on unmount
-  useEffect(() => {
-    return () => {
-      handleRef.current?.close()
-      handleRef.current = null
-    }
-  }, [])
 
   const begin = (over?: { seed?: string | number; budget?: number; model?: string }) => {
     if (started) return
-    setStarted(true)
-    setStatus('streaming')
-    setOutput('')
-    if (mdFlag) setMdHtml('')
-    setCost(undefined)
-    costRef.current = undefined
-    setReconnecting(false)
-    setResumedOnce(false)
-    acceptTokensRef.current = true
-    stopAtRef.current = null
-    setReportData(null)
-    tokensRef.current = []
-    textRef.current = ''
-    track('edge.stream.start')
-    // Reset diagnostics
-    setDiagLastId(undefined)
-    setDiagResumeCount(0)
-    setDiagTtfbMs(undefined)
-    setDiagTokenCount(0)
-    firstTokenAtRef.current = null
 
     // Determine params for this run (override → state)
     const seedUse = over?.seed != null ? String(over.seed) : seed
     const budgetUseStr = over?.budget != null ? String(over.budget) : budget
     const modelUse = over?.model != null ? String(over.model) : model
+
     // Persist and update UI states if overrides are provided
     if (over) {
       setSeed(seedUse)
@@ -680,9 +635,7 @@ export default function SandboxStreamPanel() {
       persistParams(seedUse, budgetUseStr, modelUse)
     }
 
-    const { sessionId, org } = getDefaults()
-    startedAtRef.current = Date.now()
-
+    // Compute final args for stream
     const seedArg = over ? (seedUse ? seedUse : undefined) : (paramsFlag && seedUse ? seedUse : undefined)
     const budgetArg = over ? (budgetUseStr !== '' && !Number.isNaN(Number(budgetUseStr)) ? Number(budgetUseStr) : undefined) : (paramsFlag && budgetUseStr !== '' && !Number.isNaN(Number(budgetUseStr)) ? Number(budgetUseStr) : undefined)
     const modelArg = over ? (modelUse ? modelUse : undefined) : (paramsFlag && modelUse ? modelUse : undefined)
@@ -694,221 +647,14 @@ export default function SandboxStreamPanel() {
       try { (globalThis as any).__REPLAY_TS = Date.now() } catch {}
     }
 
-    const h = openStream({
-      route: 'critique',
-      sessionId,
-      org,
-      seed: seedArg,
-      budget: budgetArg,
-      model: modelArg,
-      onHello: () => {
-        // Clear any transient reconnect hint
-        setReconnecting(false)
-      },
-      onResume: () => {
-        // Show a tiny visual-only note once when resume completes
-        setReconnecting(false)
-        setResumedOnce((v) => v || true)
-        setDiagResumeCount((v) => v + 1)
-      },
-      onToken: (t) => {
-        if (!acceptTokensRef.current) return
-        // Capture token deterministically for export
-        const id = String(tokensRef.current.length + 1)
-        tokensRef.current.push({ id, text: t })
-        setDiagTokenCount((c) => c + 1)
-        if (firstTokenAtRef.current == null && startedAtRef.current != null) {
-          const dt = Math.max(0, Date.now() - startedAtRef.current)
-          firstTokenAtRef.current = Date.now()
-          setDiagTtfbMs(dt)
-        }
-        if (bufferEnabled) {
-          frameBufRef.current.push(t)
-          scheduleFlush()
-        } else {
-          setOutput((prev) => prev + t)
-          textRef.current += t
-        }
-        track('edge.stream.token')
-      },
-      onSseId: (id?: string) => {
-        if (id) setDiagLastId(id)
-      },
-      onCost: (usd) => {
-        // Display as GBP per spec (format only)
-        setCost(usd)
-        costRef.current = usd
-      },
-      onDone: () => {
-        flushNow()
-        setStatus('done')
-        setStarted(false)
-        setReconnecting(false)
-        if (mdFlag) setMdHtml(renderMarkdownSafe(textRef.current))
-        // Move focus to status chip for clarity
-        setTimeout(() => statusRef.current?.focus(), 0)
-        track('edge.stream.done')
-        if (historyFlag) {
-          const durationMs = startedAtRef.current ? Math.max(0, Date.now() - startedAtRef.current) : undefined
-          record({
-            id: `${Date.now()}-${seed || 'na'}`,
-            ts: Date.now(),
-            status: 'done',
-            durationMs,
-            estCost: costRef.current,
-            seed: paramsFlag && seed ? seed : undefined,
-            budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-            model: paramsFlag && model ? model : undefined,
-            route: 'critique',
-            sessionId,
-            org,
-          })
-        }
-        if (chipsFlag) {
-          void fetchRunReport({
-            sessionId,
-            org,
-            seed: paramsFlag && seed ? seed : undefined,
-            budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-            model: paramsFlag && model ? model : undefined,
-          }).then(setReportData).catch(() => {})
-        }
-      },
-      onCancelled: () => {
-        flushNow()
-        setStatus('cancelled')
-        setStarted(false)
-        setReconnecting(false)
-        if (mdFlag) setMdHtml(renderMarkdownSafe(textRef.current))
-        setTimeout(() => statusRef.current?.focus(), 0)
-        track('edge.stream.cancelled')
-      },
-      onError: (err?: any) => {
-        // Show a subtle reconnect hint only when a retry will occur
-        if (err && err.willRetry) {
-          setReconnecting(true)
-        } else {
-          // Terminal error
-          flushNow()
-          setStatus('error')
-          setStarted(false)
-          setReconnecting(false)
-          if (mdFlag) setMdHtml(renderMarkdownSafe(textRef.current))
-          setTimeout(() => statusRef.current?.focus(), 0)
-          track('edge.stream.error')
-          if (historyFlag) {
-            const durationMs = startedAtRef.current ? Math.max(0, Date.now() - startedAtRef.current) : undefined
-            record({
-              id: `${Date.now()}-${seed || 'na'}`,
-              ts: Date.now(),
-              status: 'error',
-              durationMs,
-              estCost: costRef.current,
-              seed: paramsFlag && seed ? seed : undefined,
-              budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-              model: paramsFlag && model ? model : undefined,
-              route: 'critique',
-              sessionId,
-              org,
-            })
-          }
-          if (chipsFlag) {
-            void fetchRunReport({
-              sessionId,
-              org,
-              seed: paramsFlag && seed ? seed : undefined,
-              budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-              model: paramsFlag && model ? model : undefined,
-            }).then(setReportData).catch(() => {})
-          }
-        }
-      },
-      onAborted: () => {
-        flushNow()
-        setStatus('aborted')
-        setStarted(false)
-        setReconnecting(false)
-        if (mdFlag) setMdHtml(renderMarkdownSafe(textRef.current))
-        setTimeout(() => statusRef.current?.focus(), 0)
-        if (historyFlag) {
-          const durationMs = startedAtRef.current ? Math.max(0, Date.now() - startedAtRef.current) : undefined
-          const { sessionId, org } = getDefaults()
-          record({
-            id: `${Date.now()}-${seed || 'na'}`,
-            ts: Date.now(),
-            status: 'aborted',
-            durationMs,
-            estCost: costRef.current,
-            seed: paramsFlag && seed ? seed : undefined,
-            budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-            model: paramsFlag && model ? model : undefined,
-            route: 'critique',
-            sessionId,
-            org,
-          })
-        }
-        if (chipsFlag) {
-          const { sessionId, org } = getDefaults()
-          void fetchRunReport({
-            sessionId,
-            org,
-            seed: paramsFlag && seed ? seed : undefined,
-            budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-            model: paramsFlag && model ? model : undefined,
-          }).then(setReportData).catch(() => {})
-        }
-      },
-      onLimit: () => {
-        flushNow()
-        setStatus('limited')
-        setStarted(false)
-        setReconnecting(false)
-        if (mdFlag) setMdHtml(renderMarkdownSafe(textRef.current))
-        setTimeout(() => statusRef.current?.focus(), 0)
-        track('edge.stream.limited')
-        if (historyFlag) {
-          const durationMs = startedAtRef.current ? Math.max(0, Date.now() - startedAtRef.current) : undefined
-          record({
-            id: `${Date.now()}-${seed || 'na'}`,
-            ts: Date.now(),
-            status: 'limited',
-            durationMs,
-            estCost: costRef.current,
-            seed: paramsFlag && seed ? seed : undefined,
-            budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-            model: paramsFlag && model ? model : undefined,
-            route: 'critique',
-            sessionId,
-            org,
-          })
-        }
-        if (chipsFlag) {
-          void fetchRunReport({
-            sessionId,
-            org,
-            seed: paramsFlag && seed ? seed : undefined,
-            budget: paramsFlag && budget !== '' && !Number.isNaN(Number(budget)) ? Number(budget) : undefined,
-            model: paramsFlag && model ? model : undefined,
-          }).then(setReportData).catch(() => {})
-        }
-      },
-    })
-    handleRef.current = h
+    // Start stream via hook
+    streamActions.start({ seed: seedArg, budget: budgetArg, model: modelArg })
   }
 
   const stop = () => {
     if (!started) return
-    flushNow()
-    setStatus('cancelled') // Instant and tidy UX
-    setStarted(false)
-    setReconnecting(false)
-    acceptTokensRef.current = false
-    stopAtRef.current = Date.now()
-    setTimeout(() => statusRef.current?.focus(), 0)
-    // Do NOT close immediately; allow 'aborted' to arrive. Gate tokens locally.
-    const h = handleRef.current
-    h?.cancel().catch(() => {})
-    handleRef.current = null
+    // Stop stream via hook
+    streamActions.stop()
   }
 
   const terminalLabel =
@@ -1119,27 +865,17 @@ export default function SandboxStreamPanel() {
           </>
         )}
 
-        {!readOnlySnap && (
-        <button
-          type="button"
-          data-testid="start-btn"
-          onClick={() => begin()}
-          className="px-2 py-1 rounded bg-blue-600 text-white disabled:opacity-50"
-          disabled={started || (mobileGuardFlag && caps.stop) || !!readOnlySnap}
-          title="Start (⌘⏎)"
-        >
-          Start
-        </button>
-        )}
-        <button
-          type="button"
-          data-testid="stop-btn"
-          onClick={stop}
-          className="px-2 py-1 rounded bg-gray-200 text-gray-900 disabled:opacity-50"
-          disabled={!started || !!readOnlySnap}
-        >
-          Stop
-        </button>
+        <StreamControlBar
+          canStart={!started && !(mobileGuardFlag && caps.stop)}
+          canStop={started}
+          canResume={false}
+          onStart={() => begin()}
+          onStop={stop}
+          onResume={() => {}}
+          status={status}
+          disabled={false}
+          readOnly={!!readOnlySnap}
+        />
 
         {simplifyFlag && (
           <label className="flex items-center gap-1 text-xs ml-2 min-h-[44px]">
@@ -1154,97 +890,36 @@ export default function SandboxStreamPanel() {
         )}
 
         {paramsFlag && !readOnlySnap && (
-          <div className="flex items-center gap-2 text-xs ml-2">
-            <label className="flex items-center gap-1 text-gray-700">
-              <span>Seed</span>
-              <input
-                data-testid="param-seed"
-                type="text"
-                className="w-20 px-1 py-0.5 border rounded"
-                value={seed}
-                onChange={(e) => { const v = e.target.value; setSeed(v); persistParams(v, budget, model) }}
-              />
-            </label>
-            <label className="flex items-center gap-1 text-gray-700">
-              <span>Budget</span>
-              <input
-                data-testid="param-budget"
-                type="number"
-                step="0.01"
-                className="w-24 px-1 py-0.5 border rounded"
-                value={budget}
-                onChange={(e) => { const v = e.target.value; setBudget(v); persistParams(seed, v, model) }}
-              />
-            </label>
-            <label className="flex items-center gap-1 text-gray-700">
-              <span>Model</span>
-              <select
-                data-testid="param-model"
-                className="px-1 py-0.5 border rounded"
-                value={model}
-                onChange={(e) => { const v = e.target.value; setModel(v); persistParams(seed, budget, v) }}
-              >
-                <option value="">(default)</option>
-                <option value="gpt-4o-mini">gpt-4o-mini</option>
-                <option value="claude-haiku">claude-haiku</option>
-                <option value="local-sim">local-sim</option>
-              </select>
-            </label>
-          </div>
+          <StreamParametersPanel
+            value={{ seed, budget, model }}
+            onChange={handleParamsChange}
+            disabled={false}
+            readOnly={false}
+          />
         )}
 
-        {guidedFlag && (
-          <>
-            <div className="mt-2 flex items-center gap-2 ml-2">
-              {guidedSuggestions.map((s, idx) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  data-testid={`guided-suggestion-${idx}`}
-                  className="text-[11px] px-2 py-0.5 rounded border border-gray-300"
-                  title={s.rationale}
-                  onClick={() => {
-                    try {
-                      undoRef.current.push({ seed, budget, model, simplify: simplifyOn })
-                      const next = s.apply({ seed, budget, model, simplify: simplifyOn })
-                      if (next.model !== model) { setModel(next.model); persistParams(seed, budget, next.model) }
-                      if (next.simplify !== simplifyOn) setSimplifyOn(next.simplify)
-                      setAriaGuidedMsg('Suggestion applied. You can press Undo.')
-                      setTimeout(() => setAriaGuidedMsg(''), 1200)
-                    } catch {}
-                  }}
-                >
-                  {s.title}
-                </button>
-              ))}
-              {/* expose rationale in an SR-only tooltip for tests */}
-              {guidedSuggestions.length > 0 && (
-                <span data-testid="why-tooltip" aria-hidden="true" className="sr-only">{guidedSuggestions[0].rationale}</span>
-              )}
-              <button
-                type="button"
-                data-testid="guided-undo-btn"
-                className="text-[11px] px-2 py-0.5 rounded border border-gray-300 disabled:opacity-50"
-                disabled={undoRef.current.size === 0}
-                onClick={() => {
-                  const prev = undoRef.current.pop()
-                  if (prev) {
-                    try {
-                      setSeed(prev.seed); setBudget(prev.budget); setModel(prev.model)
-                      persistParams(prev.seed, prev.budget, prev.model)
-                      setSimplifyOn(prev.simplify)
-                      setAriaGuidedMsg('Undone.')
-                      setTimeout(() => setAriaGuidedMsg(''), 1200)
-                    } catch {}
-                  }
-                }}
-              >
-                Undo
-              </button>
-            </div>
-            <div role="status" aria-live="polite" className="sr-only">{ariaGuidedMsg}</div>
-          </>
-        )}
+        <StreamEnhancementsPanel
+          guidedEnabled={guidedFlag}
+          suggestions={guidedSuggestions}
+          onApplySuggestion={handleApplySuggestion}
+          onUndo={handleUndo}
+          canUndo={undoRef.current.size > 0}
+          ariaGuidedMsg={ariaGuidedMsg}
+          snapshotsEnabled={snapshotsFlag}
+          snapshots={snapshots}
+          onMakeSnapshot={makeSnapshot}
+          onCopyShareLink={handleCopyShareLink}
+          shareNote={shareNote}
+          readOnly={!!readOnlySnap}
+          ariaSnapshotMsg={ariaSnapshotMsg}
+          compareEnabled={compareFlag}
+          compareSelectionA={selA}
+          compareSelectionB={selB}
+          onCompareSelectionChange={handleCompareSelectionChange}
+          compareDiff={compareDiff}
+          ariaCompareMsg={ariaCompareMsg}
+          changeLog={changeLog}
+        />
 
         {(listViewFlag || (mobileGuardFlag && listFirst)) && (
           <div className="mt-3 border rounded p-2" ref={listContainerRef} onKeyDown={onListKeyDown}>
@@ -1401,48 +1076,50 @@ export default function SandboxStreamPanel() {
           </p>
         )}
 
-        {configFlag && (
-          <ConfigDrawer
-            open={cfgOpen}
-            onClose={() => setCfgOpen(false)}
-            restoreFocusRef={configBtnRef}
-            onApply={(vals) => {
-              try {
-                setSeed(vals.seed)
-                setBudget(vals.budget)
-                setModel(vals.model)
-              } catch {}
-            }}
-          />
-        )}
+        <StreamDrawersContainer>
+          {configFlag && (
+            <ConfigDrawer
+              open={cfgOpen}
+              onClose={() => setCfgOpen(false)}
+              restoreFocusRef={configBtnRef}
+              onApply={(vals) => {
+                try {
+                  setSeed(vals.seed)
+                  setBudget(vals.budget)
+                  setModel(vals.model)
+                } catch {}
+              }}
+            />
+          )}
 
-        {canvasFlag && (
-          <CanvasDrawer
-            open={canvasOpen}
-            onClose={() => setCanvasOpen(false)}
-            onReady={(api) => { canvasAPIRef.current = api }}
-            seed={seed}
-            model={model}
-          />
-        )}
+          {canvasFlag && (
+            <CanvasDrawer
+              open={canvasOpen}
+              onClose={() => setCanvasOpen(false)}
+              onReady={(api) => { canvasAPIRef.current = api }}
+              seed={seed}
+              model={model}
+            />
+          )}
 
-        {scenariosFlag && (
-          <ScenarioDrawer
-            open={scenariosOpen}
-            onClose={() => setScenariosOpen(false)}
-            restoreFocusRef={scenariosBtnRef}
-            seed={seed}
-            budget={budget}
-            model={model}
-            onLoad={(s) => {
-              try {
-                setSeed(s.seed); setBudget(s.budget); setModel(s.model)
-                persistParams(s.seed, s.budget, s.model)
-                setScenarioChipText(`Loaded: ${s.name}`)
-              } catch {}
-            }}
-          />
-        )}
+          {scenariosFlag && (
+            <ScenarioDrawer
+              open={scenariosOpen}
+              onClose={() => setScenariosOpen(false)}
+              restoreFocusRef={scenariosBtnRef}
+              seed={seed}
+              budget={budget}
+              model={model}
+              onLoad={(s) => {
+                try {
+                  setSeed(s.seed); setBudget(s.budget); setModel(s.model)
+                  persistParams(s.seed, s.budget, s.model)
+                  setScenarioChipText(`Loaded: ${s.name}`)
+                } catch {}
+              }}
+            />
+          )}
+        </StreamDrawersContainer>
 
         <div
           ref={statusRef}
@@ -1694,36 +1371,6 @@ export default function SandboxStreamPanel() {
           </div>
         )}
 
-        {typeof cost === 'number' && (
-          <div
-            data-testid="cost-badge"
-            className="text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200"
-            title="Estimated in-flight cost. Final cost appears on ‘Done’."
-          >
-            {formatUSD(cost)}
-          </div>
-        )}
-
-        {diagFlag && (
-          <div data-testid="diagnostics-panel" className="mt-2 text-[11px] text-gray-600">
-            <div className="font-medium text-gray-700">Diagnostics</div>
-            <div data-testid="diag-last-event-id">SSE id: {diagLastId ?? '—'}</div>
-            <div data-testid="diag-reconnects">Resumes: {diagResumeCount}</div>
-            <div data-testid="diag-stream-state">State: {status}</div>
-            <div>TTFB: {diagTtfbMs != null ? `${diagTtfbMs}ms` : '—'}</div>
-            <div data-testid="diag-token-count">Tokens: {diagTokenCount}</div>
-          </div>
-        )}
-
-        {perfFlag && (
-          <div data-testid="perf-panel" className="mt-2 text-[11px] text-gray-600">
-            <div className="font-medium text-gray-700">Performance</div>
-            <div>Buffer: {bufferEnabled ? 'ON' : 'OFF'}</div>
-            <div>Preview length: {mdFlag ? mdHtml.length : 0}</div>
-            <div>Code blocks: {copyOverlays.length}</div>
-          </div>
-        )}
-
         {scorecardFlag && (
           <div data-testid="scorecard-panel" className="mt-2 p-2 border rounded bg-white">
             <div className="text-[11px] text-gray-500 mb-1">Scorecard</div>
@@ -1731,167 +1378,76 @@ export default function SandboxStreamPanel() {
           </div>
         )}
 
-        {snapshotsFlag && (
-          <div className="mt-3">
-            <div className="flex items-center gap-2">
-              {!readOnlySnap && (
-                <button type="button" data-testid="snapshot-btn" className="text-xs px-2 py-1 rounded border border-gray-300" onClick={makeSnapshot}>
-                  Snapshot
-                </button>
-              )}
-              {/* SR status for snapshot action */}
-              <div role="status" aria-live="polite" className="sr-only">{ariaSnapshotMsg}</div>
-            </div>
-            <div className="mt-2">
-              <div className="text-[11px] text-gray-500 mb-1">Snapshots</div>
-              <ul data-testid="snapshot-list" className="space-y-1">
-                {snapshots.map((s, idx) => (
-                  <li key={s.id} data-testid={`snapshot-list-item-${s.id}`} className="flex items-center justify-between gap-2">
-                    <span className="text-xs">{new Date(s.at).toLocaleString('en-GB')}</span>
-                    {idx === 0 && (
-                      <button
-                        type="button"
-                        data-testid="sharelink-copy"
-                        className="text-[11px] px-2 py-0.5 rounded border"
-                        onClick={async () => {
-                          try {
-                            const payload = { v: 1 as const, seed: s.seed, model: s.model, data: s.data }
-                            const param = encodeSnapshotToUrlParam(payload)
-                            const hasE2E = typeof location !== 'undefined' && String(location.search || '').includes('e2e=1')
-                            const base = (globalThis as any)?.location?.origin || ''
-                            const url = `${base}/${hasE2E ? '?e2e=1' : ''}#/sandbox?snap=${param}`
-                            await (globalThis as any)?.navigator?.clipboard?.writeText?.(url)
-                            setShareNote('')
-                          } catch (e: any) {
-                            try { setShareNote(String(e && e.message ? e.message : e)) } catch {}
-                          }
-                        }}
-                      >
-                        Copy share link
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-              {shareNote && (
-                <div data-testid="share-cap-note" role="status" aria-live="polite" className="mt-2 text-[11px] text-amber-700">{shareNote}</div>
-              )}
-            </div>
-            {changeLog && (
-              <div data-testid="change-log" className="mt-2 p-2 border rounded bg-white">
-                <div className="text-[11px] text-gray-500 mb-1">Change log</div>
-                <ul className="list-disc ml-5 text-xs">
-                  <li>Added {changeLog.added.length}</li>
-                  <li>Removed {changeLog.removed.length}</li>
-                  <li>Changed {changeLog.changed.length}</li>
-                </ul>
-                <div role="status" aria-live="polite" className="sr-only">Change log available since last snapshot.</div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {compareFlag && (
-          <div className="mt-3">
-            <div className="text-[11px] text-gray-500 mb-1">Compare Snapshots</div>
-            <div className="flex items-center gap-2">
-              <select data-testid="compare-select-a" className="text-xs px-2 py-1 border rounded" value={selA} onChange={(e) => setSelA(e.target.value)}>
-                <option value="">(A)</option>
-                {snapshots.map((s) => (
-                  <option key={s.id} value={s.id}>{new Date(s.at).toLocaleString('en-GB')}</option>
-                ))}
-              </select>
-              <span className="text-xs">vs</span>
-              <select data-testid="compare-select-b" className="text-xs px-2 py-1 border rounded" value={selB} onChange={(e) => setSelB(e.target.value)}>
-                <option value="">(B)</option>
-                {snapshots.map((s) => (
-                  <option key={s.id} value={s.id}>{new Date(s.at).toLocaleString('en-GB')}</option>
-                ))}
-              </select>
-            </div>
-            {/* SR announce comparison updates */}
-            <div role="status" aria-live="polite" className="sr-only">{ariaCompareMsg}</div>
-            <ul data-testid="compare-diff-list" className="mt-2 text-xs space-y-1">
-              {compareDiff && compareDiff.added.map((id) => (
-                <li key={`a-${id}`}>↑ {id}</li>
-              ))}
-              {compareDiff && compareDiff.removed.map((id) => (
-                <li key={`r-${id}`}>↓ {id}</li>
-              ))}
-              {compareDiff && compareDiff.changed.map((id) => (
-                <li key={`c-${id}`}>• {id}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
         {reconnecting && (
           <div data-testid="reconnect-hint" className="text-xs text-amber-600 mb-1">Reconnecting…</div>
         )}
-        <div
-          data-testid="stream-output"
-          className="min-h-[6rem] whitespace-pre-wrap font-mono text-sm p-2 rounded border bg-gray-50"
-          aria-live="polite"
-          aria-busy={status === 'streaming' ? 'true' : 'false'}
-        >
-        {status === 'idle' && (
-          <div
-            data-testid="idle-hint"
-            aria-hidden="true"
-            className="text-gray-500 italic text-xs"
-          >
-            Press Start to begin a draft critique.
-          </div>
+
+        <StreamOutputDisplay
+          output={output}
+          status={status}
+          mdHtml={mdHtml}
+          mdEnabled={mdFlag}
+          copyEnabled={copyFlag}
+          copyOverlays={copyOverlays}
+          onCopyCode={handleCopy}
+          copiedId={copiedId}
+          failedId={failedId}
+          ariaCopyMsg={ariaCopyMsg}
+          metrics={{
+            cost,
+            ttfbMs: diagTtfbMs,
+            tokenCount: diagTokenCount,
+            resumeCount: diagResumeCount,
+            lastSseId: diagLastId,
+          }}
+          diagEnabled={diagFlag}
+          perfEnabled={perfFlag}
+          bufferEnabled={bufferEnabled}
+        />
+
+      <StreamDrawersContainer>
+        {reportFlag && (
+          <RunReportDrawer
+            open={reportOpen}
+            sessionId={getDefaults().sessionId}
+            org={getDefaults().org}
+            seed={reportParams?.seed}
+            budget={reportParams?.budget}
+            model={reportParams?.model}
+            onClose={() => {
+              setReportOpen(false)
+              try { reportBtnRef.current?.focus() } catch {}
+            }}
+          />
         )}
-        {output}
-      </div>
 
-      {mdFlag && (
-        <div
-          data-testid="md-preview"
-          ref={mdPreviewRef}
-          className="prose prose-sm max-w-none p-2 mt-2 border rounded bg-white relative"
-          aria-hidden="true"
-        >
-          {mdHtml ? <div dangerouslySetInnerHTML={{ __html: mdHtml }} /> : null}
-          {copyFlag && copyOverlays.map((o) => (
-            <button
-              key={o.id}
-              type="button"
-              data-testid="copy-code-btn"
-              title="Copy code"
-              aria-label={o.lang ? `Copy ${o.lang} code` : 'Copy code'}
-              data-copied={copiedId === o.id ? 'true' : undefined}
-              data-failed={failedId === o.id ? 'true' : undefined}
-              className="absolute text-[11px] px-2 py-0.5 rounded border bg-white shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              style={{ top: `${o.top}px`, left: `${o.left}px`, transform: 'translate(-100%, 0)' }}
-              onClick={() => handleCopy(o.id, o.code)}
-            >
-              {copiedId === o.id ? 'Copied' : 'Copy'}
-            </button>
-          ))}
-        </div>
-      )}
+        {historyFlag && (
+          <RunHistoryDrawer
+            open={historyOpen}
+            triggerRef={historyBtnRef}
+            onClose={() => {
+              setHistoryOpen(false)
+              setTimeout(() => historyBtnRef.current?.focus(), 0)
+            }}
+            onRerun={(m: RunMeta) => {
+              setHistoryOpen(false)
+              const s = m.seed != null ? String(m.seed) : ''
+              const b = m.budget != null ? String(m.budget) : ''
+              const mo = m.model ?? ''
+              setSeed(s); setBudget(b); setModel(mo)
+              persistParams(s, b, mo)
+              begin({ seed: m.seed, budget: m.budget, model: m.model })
+            }}
+            onOpenReport={(m: RunMeta) => {
+              setHistoryOpen(false)
+              setReportParams({ seed: m.seed, budget: m.budget, model: m.model })
+              setReportOpen(true)
+              setTimeout(() => reportBtnRef.current?.focus(), 0)
+            }}
+          />
+        )}
+      </StreamDrawersContainer>
 
-      {/* ARIA live copy status outside preview (not aria-hidden) */}
-      {copyFlag && (
-    <div role="status" aria-live="polite" className="sr-only" data-testid="copy-aria-status">{ariaCopyMsg}</div>
-  )}
-
-  {reportFlag && (
-    <RunReportDrawer
-      open={reportOpen}
-      sessionId={getDefaults().sessionId}
-      org={getDefaults().org}
-      seed={reportParams?.seed}
-      budget={reportParams?.budget}
-      model={reportParams?.model}
-      onClose={() => {
-        setReportOpen(false)
-        try { reportBtnRef.current?.focus() } catch {}
-      }}
-    />
-  )}
       {errorBannersFlag && status === 'error' && (
         (() => {
           let code: string | undefined
@@ -1905,32 +1461,6 @@ export default function SandboxStreamPanel() {
             </div>
           )
         })()
-      )}
-
-      {historyFlag && (
-        <RunHistoryDrawer
-          open={historyOpen}
-          triggerRef={historyBtnRef}
-          onClose={() => {
-            setHistoryOpen(false)
-            setTimeout(() => historyBtnRef.current?.focus(), 0)
-          }}
-          onRerun={(m: RunMeta) => {
-            setHistoryOpen(false)
-            const s = m.seed != null ? String(m.seed) : ''
-            const b = m.budget != null ? String(m.budget) : ''
-            const mo = m.model ?? ''
-            setSeed(s); setBudget(b); setModel(mo)
-            persistParams(s, b, mo)
-            begin({ seed: m.seed, budget: m.budget, model: m.model })
-          }}
-          onOpenReport={(m: RunMeta) => {
-            setHistoryOpen(false)
-            setReportParams({ seed: m.seed, budget: m.budget, model: m.model })
-            setReportOpen(true)
-            setTimeout(() => reportBtnRef.current?.focus(), 0)
-          }}
-        />
       )}
     </div>
   )

@@ -242,6 +242,20 @@ export default function AppPoC() {
     // POC: Signal HTML failsafe
     try { (window as any).__APP_MOUNTED__?.() } catch {}
 
+    // v1.2: Share link resolver - handle legacy #run=hash format
+    // If hash is #run=HASH (legacy), redirect to #/canvas?run=HASH (canonical)
+    const hash = window.location.hash
+    if (hash.startsWith('#run=')) {
+      const runHash = hash.slice(5) // Remove '#run='
+      if (runHash) {
+        // Redirect to canonical format
+        window.location.hash = `/canvas?run=${runHash}`
+        if (import.meta.env.DEV) {
+          console.log('[AppPoC] Legacy share link detected, redirecting to #/canvas?run=', runHash.slice(0, 8))
+        }
+      }
+    }
+
     // POC: Load persisted sandbox state (if any)
     try {
       const loaded = loadState()

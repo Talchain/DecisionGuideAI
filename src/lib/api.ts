@@ -1,26 +1,25 @@
 // src/lib/api.ts
 
-import OpenAI from 'openai'
+// SECURITY: NO OpenAI SDK or API keys in client bundles.
+// All OpenAI calls are proxied through Supabase Edge Function.
 import { generatePromptMessages } from './prompts'
 import { supabase } from './supabase'
 
 // —————————————————————————————————————————————————————————————————————————————
-// Environment variables & OpenAI client
+// SECURITY: OpenAI proxy endpoint (server-side key, no client exposure)
 // —————————————————————————————————————————————————————————————————————————————
-const VITE_OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY
-const useEngineOnly = !VITE_OPENAI_API_KEY
+const OPENAI_PROXY_URL = import.meta.env.VITE_SUPABASE_URL
+  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/openai-proxy`
+  : 'http://localhost:54321/functions/v1/openai-proxy'
 
-if (useEngineOnly) {
-  console.warn('⚠️ VITE_OPENAI_API_KEY not set - OpenAI client-side calls disabled. Using Engine service only.')
+const OPENAI_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+if (!OPENAI_ANON_KEY) {
+  console.error('⚠️ VITE_SUPABASE_ANON_KEY not set - OpenAI proxy will not work')
 }
 
-const openai = VITE_OPENAI_API_KEY ? new OpenAI({
-  apiKey: VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true,
-}) : null
-
 // —————————————————————————————————————————————————————————————————————————————
-// Helper: create chat completion with retries (no response_format)
+// Helper: create chat completion via server-side proxy (with retries)
 // —————————————————————————————————————————————————————————————————————————————
 async function createChatCompletion(
   messages: any[],
@@ -32,8 +31,8 @@ async function createChatCompletion(
   } = {},
   retries = 3
 ): Promise<{ content: string; prompt: any; rawResponse: any }> {
-  if (!openai) {
-    throw new Error('OpenAI client not initialized. Set VITE_OPENAI_API_KEY or use Engine service.')
+  if (!OPENAI_ANON_KEY) {
+    throw new Error('OpenAI proxy not configured. Check VITE_SUPABASE_ANON_KEY environment variable.')
   }
 
   let lastError: Error | null = null
@@ -45,20 +44,33 @@ async function createChatCompletion(
 
   for (let attempt = 0; attempt < retries; attempt++) {
     try {
-      const completion = await openai.chat.completions.create({
-        model: options.model ?? 'gpt-4',
-        messages,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.max_tokens ?? 1500,
-        // Pass through response_format when callers request JSON-object mode
-        ...(options.response_format ? { response_format: options.response_format } : {})
+      // Call server-side proxy instead of OpenAI directly
+      const response = await fetch(OPENAI_PROXY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_ANON_KEY}`,
+          'apikey': OPENAI_ANON_KEY,
+        },
+        body: JSON.stringify({ messages, options }),
       })
 
-      const content = completion.choices[0].message.content
-      if (!content) {
-        throw new Error('Empty response from API')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
       }
-      return { content, prompt: messages, rawResponse: completion }
+
+      const data = await response.json()
+
+      if (!data.content) {
+        throw new Error('Empty response from proxy')
+      }
+
+      return {
+        content: data.content,
+        prompt: messages,
+        rawResponse: data,
+      }
     } catch (err) {
       lastError = err instanceof Error ? err : new Error('Unknown error occurred')
       if (attempt < retries - 1) {

@@ -7,7 +7,7 @@ import type { Blueprint, BlueprintNode, BlueprintEdge } from '../blueprints/type
 
 export interface GraphNode {
   id: string
-  kind: 'goal' | 'decision' | 'option' | 'risk' | 'outcome'
+  kind: 'goal' | 'decision' | 'option' | 'factor' | 'risk' | 'outcome'
   label: string
   position?: { x: number; y: number }
 }
@@ -17,6 +17,8 @@ export interface GraphEdge {
   to: string
   probability?: number
   weight?: number
+  belief?: number              // v1.2: epistemic confidence (0-1)
+  provenance?: 'template' | 'user' | 'inferred'  // v1.2: source tracking
 }
 
 export interface Graph {
@@ -34,9 +36,11 @@ export function blueprintToGraph(blueprint: Blueprint): Graph {
   // Find existing goals
   const goals = nodes.filter(n => n.kind === 'goal')
   const decisions = nodes.filter(n => n.kind === 'decision')
-  
-  // Goal-first enforcement
-  if (goals.length === 0 && decisions.length > 0) {
+
+  // Goal-first enforcement (backend limit raised to 50 nodes)
+  // Backend templates work without goal nodes, so auto-goal is optional
+  // Keeping disabled for now to preserve backend template structure as-is
+  if (false && goals.length === 0 && decisions.length > 0) {
     // No goal exists - create one and link to first decision
     const goalNode: BlueprintNode = {
       id: 'auto-goal',
@@ -47,16 +51,16 @@ export function blueprintToGraph(blueprint: Blueprint): Graph {
         y: (decisions[0].position?.y ?? 0) - 150
       }
     }
-    
+
     const goalEdge: BlueprintEdge = {
       from: 'auto-goal',
       to: decisions[0].id,
       probability: 1.0
     }
-    
+
     nodes.unshift(goalNode)
     edges.unshift(goalEdge)
-    
+
     if (import.meta.env.DEV) {
       console.log(`[blueprintToGraph] Added goal node to ${blueprint.id}`)
     }
@@ -78,7 +82,9 @@ export function blueprintToGraph(blueprint: Blueprint): Graph {
       from: e.from,
       to: e.to,
       probability: e.probability,
-      weight: e.weight
+      weight: e.weight,
+      belief: e.belief,              // v1.2: preserve epistemic confidence
+      provenance: e.provenance       // v1.2: preserve source tracking
     }))
   }
 }

@@ -13,24 +13,39 @@ import { memo, useMemo } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps, useReactFlow } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
 import { applyEdgeVisualProps } from '../theme/edges'
-import { formatConfidence } from '../domain/edges'
+import { formatConfidence, shouldShowLabel } from '../domain/edges'
 import { useIsDark } from '../hooks/useTheme'
+import { getEdgeLabel } from '../domain/edgeLabels'
+import { useEdgeLabelMode } from '../store/edgeLabelMode'
 
 /**
  * StyledEdge with semantic visual properties
  * Maps weight/style/curvature to SVG rendering
+ * v1.2 + P1: Live edge label toggle (human ⇄ numeric)
  */
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
   const isDark = useIsDark()
-  const { getNode } = useReactFlow()
+  const { getNode, getEdges } = useReactFlow()
+
+  // P1 Polish: Edge label mode from Zustand store (live updates, cross-tab sync)
+  const labelMode = useEdgeLabelMode(state => state.mode)
 
   // Extract edge data with defaults
   const edgeData = data as EdgeData | undefined
   const weight = edgeData?.weight ?? 1.0
   const style = edgeData?.style ?? 'solid'
   const curvature = edgeData?.curvature ?? 0.15
+  const kind = edgeData?.kind ?? 'decision-probability'
   const label = edgeData?.label
   const confidence = edgeData?.confidence
+  const belief = edgeData?.belief      // v1.2
+  const provenance = edgeData?.provenance  // v1.2
+
+  // Count outgoing edges from source node for visibility logic
+  const outgoingEdgeCount = useMemo(() => {
+    const edges = getEdges()
+    return edges.filter(e => e.source === source).length
+  }, [source, getEdges])
 
   // Apply visual properties (O(1), pure function)
   const visualProps = useMemo(
@@ -38,24 +53,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [weight, style, curvature, selected, isDark]
   )
 
-  // Get edge theme for labels
-  const edgeTheme = useMemo(() => {
-    // This ensures we use CSS variables when available
-    if (typeof window !== 'undefined') {
-      const styles = getComputedStyle(document.documentElement)
-      return {
-        labelBg: isDark ? styles.getPropertyValue('--edge-label-bg')?.trim() || '#0E1116' : '#FFFFFF',
-        labelText: isDark ? styles.getPropertyValue('--edge-label-text')?.trim() || '#E8ECF5' : '#1E293B',
-        labelBorder: isDark ? '#64748B' : '#E2E8F0'
-      }
-    }
-    return {
-      labelBg: isDark ? '#0E1116' : '#FFFFFF',
-      labelText: isDark ? '#E8ECF5' : '#1E293B',
-      labelBorder: isDark ? '#64748B' : '#E2E8F0'
-    }
-  }, [isDark])
-  
+  // Determine label visibility and styling
+  const labelVisibility = useMemo(
+    () => shouldShowLabel(label, confidence, outgoingEdgeCount, kind),
+    [label, confidence, outgoingEdgeCount, kind]
+  )
+
   // Compute edge path
   const [edgePath, labelX, labelY] = getSmoothStepPath({
     sourceX,
@@ -74,7 +77,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const tgtTitle = targetNode?.data?.label || target
   const confText = confidence !== undefined ? `, confidence ${Math.round(confidence * 100)}%` : ''
   const ariaLabel = `Edge from ${srcTitle} to ${tgtTitle}${confText}`
-  
+
+  // Determine arrowhead marker based on state
+  const markerEnd = selected
+    ? 'url(#arrowhead-selected)'
+    : 'url(#arrowhead-default)'
+
   return (
     <>
       <BaseEdge
@@ -87,48 +95,72 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // Performance: use will-change for frequent updates
           willChange: selected ? 'stroke, stroke-width' : undefined,
         }}
-        markerEnd="url(#arrowhead)"
+        markerEnd={markerEnd}
       />
       
-      {/* Edge label */}
-      {(label || confidence !== undefined) && (
-        <EdgeLabelRenderer>
-          <div
-            style={{
-              position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-              pointerEvents: 'all',
-              fontSize: '12px',
-              background: edgeTheme.labelBg,
-              color: edgeTheme.labelText,
-              padding: '2px 8px',
-              borderRadius: '4px',
-              border: `1px solid ${edgeTheme.labelBorder}`,
-              boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-              maxWidth: '120px',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-            className="nodrag nopan"
-            role="note"
-            aria-label={ariaLabel}
-          >
-            {label && <span style={{ marginRight: confidence !== undefined ? '6px' : 0 }}>{label}</span>}
-            {confidence !== undefined && (
-              <span
-                style={{
-                  fontSize: '10px',
-                  opacity: 0.7,
-                }}
-                aria-label={`Confidence: ${formatConfidence(confidence)}`}
-              >
-                {formatConfidence(confidence)}
-              </span>
-            )}
-          </div>
-        </EdgeLabelRenderer>
-      )}
+      {/* Edge label - v1.2: Always show human-readable label */}
+      <EdgeLabelRenderer>
+        <div
+          style={{
+            position: 'absolute',
+            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+            pointerEvents: 'all',
+            fontSize: '11px',
+            padding: '3px 8px',
+            borderRadius: '4px',
+            opacity: 0.95,
+            maxWidth: '160px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+          }}
+          className={`nodrag nopan shadow-sm border ${
+            isDark
+              ? 'bg-gray-900 text-gray-100 border-gray-600'
+              : 'bg-white text-gray-800 border-gray-200'
+          }`}
+          role="note"
+          aria-label={ariaLabel}
+          title={(() => {
+            const desc = getEdgeLabel(weight, belief, labelMode)
+            return provenance ? `${desc.tooltip} • Source: ${provenance}` : desc.tooltip
+          })()}
+        >
+          {(() => {
+            const desc = getEdgeLabel(weight, belief, labelMode)
+            return (
+              <>
+                <span style={{
+                  fontWeight: 500,
+                  fontFamily: labelMode === 'numeric' ? 'ui-monospace, monospace' : undefined
+                }}>
+                  {desc.label}
+                </span>
+                {provenance && (
+                  <span
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      flexShrink: 0,
+                    }}
+                    className={
+                      provenance === 'template' ? 'bg-info-500' :
+                      provenance === 'user' ? 'bg-orange-500' :
+                      'bg-gray-400'
+                    }
+                    title={`Provenance: ${provenance}`}
+                    aria-label={`Provenance: ${provenance}`}
+                  />
+                )}
+              </>
+            )
+          })()}
+        </div>
+      </EdgeLabelRenderer>
     </>
   )
 })

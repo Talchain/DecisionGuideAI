@@ -1,10 +1,11 @@
 /**
- * Blueprint insertion hook
+ * Blueprint insertion hook (v1.2 - Sprint 2)
  * Handles inserting template blueprints into the canvas with:
  * - Viewport-centered positioning
  * - Correct node type mapping (goal/option/risk/outcome/decision)
  * - Template metadata stamping
  * - Probability labels on edges
+ * - Centralized limit enforcement (prevents exceeding node/edge caps)
  */
 
 import { useCallback } from 'react'
@@ -12,13 +13,29 @@ import { useReactFlow } from '@xyflow/react'
 import type { Blueprint } from '../../templates/blueprints/types'
 import { useCanvasStore } from '../store'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
+import { checkLimits, formatLimitError } from '../utils/limitGuard'
+import { useEngineLimits } from './useEngineLimits'
 
 export function useBlueprintInsert() {
   const { getViewport } = useReactFlow()
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
-  
-  const insertBlueprint = useCallback((blueprint: Blueprint) => {
+  const { limits } = useEngineLimits() // Sprint 2: Shared limits hook
+
+  const insertBlueprint = useCallback((blueprint: Blueprint): { nodeIdMap: Map<string, string>; newNodes: any[]; newEdges: any[]; error?: string } => {
+    // Sprint 2: Check limits BEFORE inserting
+    const store = useCanvasStore.getState()
+    const currentNodes = store.nodes.length
+    const currentEdges = store.edges.length
+    const nodesToAdd = blueprint.nodes.length
+    const edgesToAdd = blueprint.edges.length
+
+    const limitCheck = checkLimits(currentNodes, currentEdges, nodesToAdd, edgesToAdd, limits)
+    if (!limitCheck.allowed) {
+      const error = formatLimitError(limitCheck, nodesToAdd, edgesToAdd)
+      console.warn('[useBlueprintInsert] Limit check failed:', error)
+      return { nodeIdMap: new Map(), newNodes: [], newEdges: [], error }
+    }
     const viewport = getViewport()
     const centerX = -viewport.x + (window.innerWidth / 2) / viewport.zoom
     const centerY = -viewport.y + (window.innerHeight / 2) / viewport.zoom
@@ -54,6 +71,9 @@ export function useBlueprintInsert() {
         data: {
           label: node.label,
           kind: node.kind,
+          body: node.body,           // v1.2: rich description
+          prior: node.prior,         // v1.2: prior probability (0-1)
+          utility: node.utility,     // v1.2: utility value (-1 to +1)
           templateId: blueprint.id,
           templateName: blueprint.name,
           templateCreatedAt
@@ -62,12 +82,12 @@ export function useBlueprintInsert() {
     })
     
     // Create edges with probability labels
-    const newEdges = blueprint.edges.map(edge => {
+    const newEdges = blueprint.edges.map((edge, index) => {
       const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
       const label = pct != null ? `${pct}%` : undefined
       const edgeId = createEdgeId()
-      
-      return {
+
+      const newEdge = {
         id: edgeId,
         type: 'styled',
         source: nodeIdMap.get(edge.from)!,
@@ -78,21 +98,35 @@ export function useBlueprintInsert() {
           weight: edge.weight ?? DEFAULT_EDGE_DATA.weight,
           label,
           confidence: edge.probability,
+          belief: edge.belief ?? edge.probability,  // v1.2: prefer belief, fallback to probability for legacy
+          provenance: edge.provenance,              // v1.2: source tracking
           templateId: blueprint.id
         }
       }
+
+      // Diagnostic: log first edge to verify v1.2 field plumbing (dev only)
+      if (index === 0 && import.meta.env.DEV) {
+        console.log('[EdgeInsert]', {
+          id: newEdge.id,
+          weight: newEdge.data.weight,
+          belief: newEdge.data.belief,
+          provenance: newEdge.data.provenance,
+          confidence: newEdge.data.confidence
+        })
+      }
+
+      return newEdge
     })
     
     // Batch update store
-    const store = useCanvasStore.getState()
     store.pushHistory()
     useCanvasStore.setState(state => ({
       nodes: [...state.nodes, ...newNodes],
       edges: [...state.edges, ...newEdges]
     }))
-    
+
     return { nodeIdMap, newNodes, newEdges }
-  }, [getViewport, createNodeId, createEdgeId])
-  
+  }, [getViewport, createNodeId, createEdgeId, limits])
+
   return { insertBlueprint }
 }

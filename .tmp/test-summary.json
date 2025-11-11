@@ -1,0 +1,18 @@
+{
+  "timestamp": "2025-11-01T19:22:45.074Z",
+  "environment": "baseline",
+  "test_files": {
+    "failed": 29,
+    "passed": 131,
+    "skipped": 0,
+    "total": 160
+  },
+  "tests": {
+    "failed": 150,
+    "passed": 1067,
+    "skipped": 3,
+    "total": 1224
+  },
+  "duration_seconds": 31.94,
+  "source_log": "test-run-1762024932.log"
+}

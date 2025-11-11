@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useCanvasStore, hasValidationErrors } from './store'
 import { DEFAULT_EDGE_DATA } from './domain/edges'
+import { parseRunHash } from './utils/shareLink'
 import { nodeTypes } from './nodes/registry'
 import { StyledEdge } from './edges/StyledEdge'
 import { useKeyboardShortcuts } from './useKeyboardShortcuts'
@@ -12,7 +14,6 @@ import { CanvasToolbar } from './CanvasToolbar'
 import { AlignmentGuides } from './components/AlignmentGuides'
 import { PropertiesPanel } from './components/PropertiesPanel'
 import { CommandPalette } from './components/CommandPalette'
-import { EmptyStateOverlay } from './components/EmptyStateOverlay'
 import { ReconnectBanner } from './components/ReconnectBanner'
 import { KeyboardCheatsheet } from './components/KeyboardCheatsheet'
 import { KeyboardMap } from './components/KeyboardMap'
@@ -24,11 +25,19 @@ import { DiagnosticsOverlay } from './DiagnosticsOverlay'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { ValidationChip } from './components/ValidationChip'
 import { LayerProvider } from './components/LayerProvider'
-import { FirstRunHint } from './components/FirstRunHint'
-import { ProbabilityModal } from './components/ProbabilityModal'
+import { RecoveryBanner } from './components/RecoveryBanner'
+import { OnboardingOverlay } from './components/OnboardingOverlay'
 import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
+import { useAutosave } from './hooks/useAutosave'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
+import { ResultsPanel } from './panels/ResultsPanel'
+import { InspectorPanel } from './panels/InspectorPanel'
+import { useResultsRun } from './hooks/useResultsRun'
+import { HighlightLayer } from './highlight/HighlightLayer'
+import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
+import { loadRuns } from './store/runHistory'
+import { useEdgeLabelModeSync } from './store/edgeLabelMode'
 
 interface ReactFlowGraphProps {
   blueprintEventBus?: {
@@ -43,19 +52,45 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const { getViewport, setCenter } = useReactFlow()
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
+  const openTemplatesPanel = useCanvasStore(s => s.openTemplatesPanel)
   
   // State declarations
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
-  const [showEmptyState, setShowEmptyState] = useState(true)
   const [showCheatsheet, setShowCheatsheet] = useState(false)
   const [showKeyboardMap, setShowKeyboardMap] = useState(false)
+  const [showEmptyState, setShowEmptyState] = useState(true)
+  const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
+  const showInspectorPanel = useCanvasStore(s => s.showInspectorPanel)
+  const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
+  const setShowInspectorPanel = useCanvasStore(s => s.setShowInspectorPanel)
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
-  const [probabilityModalNodeId, setProbabilityModalNodeId] = useState<string | null>(null)
-  
+
+  // Results panel hook
+  const { run: runAnalysis, cancel: cancelAnalysis } = useResultsRun()
+
+  // Autosave hook - saves graph every 30s when dirty
+  useAutosave()
+
+  // P1 Polish: Cross-tab sync for edge label mode
+  useEffect(() => {
+    return useEdgeLabelModeSync()
+  }, [])
+
+  // Auto-open Results panel when run starts (v1.2: Task Group A requirement)
+  const resultsStatus = useCanvasStore(s => s.results.status)
+  useEffect(() => {
+    // Auto-open panel when transitioning to running states
+    const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
+    if (isRunning && !showResultsPanel) {
+      setShowResultsPanel(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resultsStatus, showResultsPanel])  // setShowResultsPanel is stable, omit to avoid render loop
+
   const handleSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
     useCanvasStore.getState().onSelectionChange(params)
   }, [])
@@ -63,7 +98,77 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const reconnecting = useCanvasStore(s => s.reconnecting)
   const completeReconnect = useCanvasStore(s => s.completeReconnect)
   const { showToast } = useToast()
-  
+  const resultsLoadHistorical = useCanvasStore(s => s.resultsLoadHistorical)
+
+  // v1.2: Share link resolver - load run from localStorage when ?run=hash is present
+  // Uses useLocation to detect route changes and hashchange listener for direct navigation
+  const location = useLocation()
+
+  useEffect(() => {
+    const resolveShareLink = () => {
+      // Parse URL using robust parser (handles both sha256: prefix and plain hex)
+      const fullUrl = window.location.href
+      const runHash = parseRunHash(fullUrl)
+
+      if (!runHash) {
+        return // No run parameter in URL
+      }
+
+      if (import.meta.env.DEV) {
+        console.log('[ReactFlowGraph] Share link detected, loading run:', runHash.slice(0, 8))
+      }
+
+      // Load all runs from localStorage (local-device only)
+      const runs = loadRuns()
+
+      // Find run by hash
+      const run = runs.find(r => r.hash === runHash)
+
+      if (run) {
+        // Load historical run into canvas
+        resultsLoadHistorical(run)
+
+        // Open Results panel to show the loaded run
+        setShowResultsPanel(true)
+
+        if (import.meta.env.DEV) {
+          console.log('[ReactFlowGraph] Run loaded successfully:', run.summary)
+        }
+      } else {
+        // Run not found in localStorage
+        console.warn('[ReactFlowGraph] Shared run not found in history:', runHash)
+
+        // Show user-friendly toast notification (local-only scope explicit)
+        showToast(
+          `Run not found. This link can only be opened on the device it was created on.`,
+          'warning'
+        )
+
+        if (import.meta.env.DEV) {
+          console.log('[ReactFlowGraph] Run not found in local history.')
+        }
+      }
+    }
+
+    // Resolve on mount and when location changes
+    resolveShareLink()
+
+    // Also listen for hashchange events (fallback for direct hash manipulation)
+    const handleHashChange = () => {
+      if (import.meta.env.DEV) {
+        console.log('[ReactFlowGraph] Hash changed, re-resolving share link')
+      }
+      resolveShareLink()
+    }
+
+    window.addEventListener('hashchange', handleHashChange, { passive: true })
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.hash, location.search])  // Re-run when hash or search params change
+
   const handleNodeClick = useCallback((_: any, node: any) => {
     // Close Templates panel when interacting with canvas
     onCanvasInteraction?.()
@@ -79,7 +184,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     onCanvasInteraction?.()
   }, [onCanvasInteraction])
 
-  // Focus node handler (for Alt+V validation cycling)
+  // Focus node handler (for Alt+V validation cycling and Results panel drivers)
   const handleFocusNode = useCallback((nodeId: string) => {
     const store = useCanvasStore.getState()
     const targetNode = store.nodes.find(n => n.id === nodeId)
@@ -97,8 +202,47 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     })
   }, [getViewport, setCenter])
 
+  // Focus edge handler (for Results panel drivers)
+  const handleFocusEdge = useCallback((edgeId: string) => {
+    const store = useCanvasStore.getState()
+    const targetEdge = store.edges.find(e => e.id === edgeId)
+
+    if (!targetEdge) return
+
+    // Find source and target nodes
+    const sourceNode = store.nodes.find(n => n.id === targetEdge.source)
+    const targetNode = store.nodes.find(n => n.id === targetEdge.target)
+
+    if (!sourceNode || !targetNode) return
+
+    // Calculate midpoint between source and target
+    const midX = (sourceNode.position.x + targetNode.position.x) / 2
+    const midY = (sourceNode.position.y + targetNode.position.y) / 2
+
+    // Select edge (not in history, just for visual feedback)
+    useCanvasStore.setState({
+      edges: store.edges.map(e => ({
+        ...e,
+        selected: e.id === edgeId
+      }))
+    })
+
+    // Center viewport on edge midpoint with smooth animation
+    const viewport = getViewport()
+    setCenter(midX, midY, {
+      zoom: viewport.zoom,
+      duration: 300
+    })
+  }, [getViewport, setCenter])
+
+  // Register focus helpers for external use (Results panel)
+  useEffect(() => {
+    registerFocusHelpers(handleFocusNode, handleFocusEdge)
+    return () => unregisterFocusHelpers()
+  }, [handleFocusNode, handleFocusEdge])
+
   // Run simulation handler with validation gating
-  const handleRunSimulation = useCallback(() => {
+  const handleRunSimulation = useCallback(async () => {
     const store = useCanvasStore.getState()
 
     // Check if graph has any nodes
@@ -113,38 +257,44 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       return
     }
 
-    // TODO: Implement actual run simulation
-    showToast('Run simulation feature coming soon!', 'info')
-  }, [showToast])
+    // Open Results panel and trigger analysis
+    setShowResultsPanel(true)
 
-  // Edit probabilities handler (for P key)
-  const handleEditProbabilities = useCallback((nodeId: string) => {
-    setProbabilityModalNodeId(nodeId)
-  }, [])
+    // Run analysis with canvas graph
+    await runAnalysis({
+      template_id: 'canvas-graph',
+      seed: 1337,
+      graph: { nodes: store.nodes, edges: store.edges },
+      outcome_node: store.outcomeNodeId || undefined
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])  // No dependencies - stable functions (showToast, runAnalysis, setShowResultsPanel)
 
-  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, ?)
+  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, ?)
   useCanvasKeyboardShortcuts({
     onFocusNode: handleFocusNode,
     onRunSimulation: handleRunSimulation,
+    onToggleResults: () => setShowResultsPanel(prev => !prev),
+    onToggleInspector: () => setShowInspectorPanel(prev => !prev),
     onShowKeyboardMap: () => setShowKeyboardMap(true),
-    onEditProbabilities: handleEditProbabilities
+    onShowToast: showToast
   })
 
   // Blueprint insertion handler
-  const insertBlueprint = useCallback((blueprint: Blueprint) => {
+  const insertBlueprint = useCallback((blueprint: Blueprint): { nodeIdMap: Map<string, string>; newNodes: any[]; newEdges: any[]; error?: string } => {
     // Transform to goal-first graph
     const graph = blueprintToGraph(blueprint)
-    
+
     const viewport = getViewport()
     const centerX = -viewport.x + (window.innerWidth / 2) / viewport.zoom
     const centerY = -viewport.y + (window.innerHeight / 2) / viewport.zoom
-    
+
     // Create ID mapping
     const nodeIdMap = new Map<string, string>()
     graph.nodes.forEach(node => {
       nodeIdMap.set(node.id, createNodeId())
     })
-    
+
     // Calculate blueprint center
     const positions = graph.nodes.map(n => n.position || { x: 0, y: 0 })
     const minX = Math.min(...positions.map(p => p.x))
@@ -153,7 +303,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     const maxY = Math.max(...positions.map(p => p.y))
     const blueprintCenterX = (minX + maxX) / 2
     const blueprintCenterY = (minY + maxY) / 2
-    
+
     // Create nodes with correct types and template metadata
     const templateCreatedAt = new Date().toISOString()
 
@@ -176,11 +326,15 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       }
     })
 
-    // Create edges with probability labels
+    // Create edges with v1.2 metadata (weight, belief, provenance)
     const newEdges = graph.edges.map(edge => {
       const pct = edge.probability != null ? Math.round(edge.probability * 100) : undefined
       const label = pct != null ? `${pct}%` : undefined
       const edgeId = createEdgeId()
+
+      // Detect edge kind: influence network (has weight, no probability) vs decision tree (has probability)
+      const isInfluenceEdge = edge.weight !== undefined && edge.probability === undefined
+      const edgeKind = isInfluenceEdge ? 'influence-weight' as const : 'decision-probability' as const
 
       return {
         id: edgeId,
@@ -189,9 +343,12 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         target: nodeIdMap.get(edge.to)!,
         data: {
           ...DEFAULT_EDGE_DATA,
+          kind: edgeKind,                                // Auto-detect influence vs probability edges
           weight: edge.weight ?? DEFAULT_EDGE_DATA.weight,
           label,
           confidence: edge.probability,
+          belief: edge.belief ?? edge.probability,      // v1.2: prefer belief, fallback to probability
+          provenance: edge.provenance ?? 'template',    // v1.2: default to template source
           templateId: blueprint.id
         }
       }
@@ -204,13 +361,16 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       nodes: [...state.nodes, ...newNodes],
       edges: [...state.edges, ...newEdges]
     }))
-    
+
     showToast(`Inserted ${blueprint.name} to canvas.`, 'success')
+
+    // Return result object for caller to check
+    return { nodeIdMap, newNodes, newEdges }
   }, [getViewport, createNodeId, createEdgeId, showToast])
   
   useEffect(() => {
     if (!blueprintEventBus) return
-    
+
     const unsubscribe = blueprintEventBus.subscribe((blueprint: Blueprint) => {
       // Check for existing template
       const existingTemplateNode = nodes.find(n => n.data?.templateId)
@@ -220,12 +380,17 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           id: String(existingTemplateNode.data.templateId || ''),
           name: String(existingTemplateNode.data.templateName || 'Existing flow')
         })
-        return
+        return { error: 'Cannot insert: template already exists on canvas' }
       }
-      
-      insertBlueprint(blueprint)
+
+      // Sprint 2: Handle limit errors and return result
+      const result = insertBlueprint(blueprint)
+      if (result.error) {
+        showToast(result.error, 'warning')
+      }
+      return result
     })
-    
+
     return unsubscribe
   }, [blueprintEventBus, nodes, insertBlueprint])
   
@@ -246,10 +411,13 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       nodes: remainingNodes,
       edges: remainingEdges
     })
-    
-    // Insert new blueprint
-    insertBlueprint(pendingBlueprint)
-    
+
+    // Insert new blueprint (Sprint 2: Handle limit errors)
+    const result = insertBlueprint(pendingBlueprint)
+    if (result.error) {
+      showToast(result.error, 'warning')
+    }
+
     setPendingBlueprint(null)
     setExistingTemplate(null)
   }, [pendingBlueprint, nodes, edges, insertBlueprint])
@@ -276,11 +444,17 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   useEffect(() => {
     loadSettings()
     const loaded = loadState()
-    if (loaded) useCanvasStore.setState(loaded)
+    if (loaded) {
+      // Ensure touchedNodeIds is a Set (persist doesn't save it)
+      useCanvasStore.setState({
+        ...loaded,
+        touchedNodeIds: new Set()
+      })
+    }
   }, [loadSettings])
 
   useEffect(() => {
-    const unsubscribe = useCanvasStore.subscribe((state) => saveState(state))
+    const unsubscribe = useCanvasStore.subscribe((state) => saveState({ nodes: state.nodes, edges: state.edges }))
     return unsubscribe
   }, [])
 
@@ -343,16 +517,24 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         maxZoom={4}
       >
         <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
+        {/* TODO: Future enhancement - Add legend and interaction controls to MiniMap */}
         <MiniMap style={miniMapStyle} />
         <svg style={{ position: 'absolute', top: 0, left: 0 }}>
           <defs>
-            <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
-              <polygon points="0 0, 10 3, 0 6" fill="#6b7280" />
+            {/* Arrowheads matching edge colors - original size (6x6), fixed regardless of stroke width */}
+            <marker id="arrowhead-default" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <polygon points="0 0, 6 3, 0 6" fill="#94A3B8" />
+            </marker>
+            <marker id="arrowhead-selected" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+              <polygon points="0 0, 6 3, 0 6" fill="#63ADCF" />
             </marker>
           </defs>
         </svg>
       </ReactFlow>
-      
+
+      {/* Highlight layer for Results panel drivers */}
+      <HighlightLayer isResultsOpen={showResultsPanel} />
+
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
       {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
       {reconnecting && <ReconnectBanner />}
@@ -362,14 +544,14 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       <SettingsPanel />
       <DiagnosticsOverlay />
       <ValidationChip onFocusNode={handleFocusNode} />
-      <FirstRunHint />
+      <RecoveryBanner />
 
-      {showCommandPalette && <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} />}
+      {showCommandPalette && <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} onOpenInspector={() => setShowInspectorPanel(true)} />}
       {showCheatsheet && <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />}
       {showKeyboardMap && <KeyboardMap isOpen={showKeyboardMap} onClose={() => setShowKeyboardMap(false)} />}
-      {probabilityModalNodeId && <ProbabilityModal nodeId={probabilityModalNodeId} onClose={() => setProbabilityModalNodeId(null)} />}
-      {nodes.length === 0 && showEmptyState && <EmptyStateOverlay onDismiss={() => setShowEmptyState(false)} />}
-      
+      {showResultsPanel && <ResultsPanel isOpen={showResultsPanel} onClose={() => setShowResultsPanel(false)} onCancel={cancelAnalysis} />}
+      {showInspectorPanel && <InspectorPanel isOpen={showInspectorPanel} onClose={() => setShowInspectorPanel(false)} />}
+
       {existingTemplate && pendingBlueprint && (
         <ConfirmDialog
           title="Replace existing flow?"
@@ -380,6 +562,22 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           onCancel={handleCancelReplace}
         />
       )}
+
+      {/* Onboarding overlay for first-time users */}
+      <OnboardingOverlay
+        onBrowseTemplates={() => {
+          // Open templates panel directly
+          openTemplatesPanel()
+        }}
+        onCreateNew={() => {
+          // Show empty state hint
+          setShowEmptyState(true)
+        }}
+        onShowShortcuts={() => {
+          // Show keyboard cheatsheet
+          setShowCheatsheet(true)
+        }}
+      />
     </div>
   )
 }

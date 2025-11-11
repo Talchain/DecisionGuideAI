@@ -213,32 +213,59 @@ export const plot = {
   },
 
   stream: {
-    async *run(input: RunRequest): AsyncIterable<StreamEvent> {
-      const detail = await loadTemplateById(input.template_id)
-      const seed = input.seed ?? detail.default_seed ?? 1337
-
-      yield { type: 'hello', data: { response_id: `mock-${detail.id}-${seed}` } }
-
-      const error = chooseErrorForSeed(seed)
-      if (error) {
-        yield { type: 'error', data: error }
-        return
+    // Callback-based streaming API (matches httpV1Adapter contract)
+    run(
+      input: RunRequest,
+      handlers: {
+        onHello?: (data: { response_id: string }) => void
+        onTick?: (data: { index: number }) => void
+        onDone?: (data: { response_id: string; report: ReportV1 }) => void
+        onError?: (error: ErrorV1) => void
       }
+    ): () => void {
+      let isCancelled = false
 
-      const prng = mulberry32(seed)
-      const tickCount = 5 + Math.floor(prng() * 3)
-      let reconnectedSent = false
+      // Start async streaming
+      ;(async () => {
+        const detail = await loadTemplateById(input.template_id)
+        const seed = input.seed ?? detail.default_seed ?? 1337
+        const responseId = `mock-${detail.id}-${seed}`
 
-      for (let i = 0; i < tickCount; i += 1) {
-        await new Promise(resolve => setTimeout(resolve, 250))
-        yield { type: 'tick', data: { index: i } }
-        if (!reconnectedSent && i >= 1) {
-          reconnectedSent = true
-          yield { type: 'reconnected', data: { attempt: 1 } }
+        if (isCancelled) return
+
+        // Call onHello
+        handlers.onHello?.({ response_id: responseId })
+
+        const error = chooseErrorForSeed(seed)
+        if (error) {
+          handlers.onError?.(error)
+          return
         }
-      }
 
-      yield { type: 'done', data: { response_id: `mock-${detail.id}-${seed}` } }
+        const prng = mulberry32(seed)
+        const tickCount = 5 + Math.floor(prng() * 3)
+
+        for (let i = 0; i < tickCount; i += 1) {
+          if (isCancelled) return
+          await new Promise(resolve => setTimeout(resolve, 250))
+          if (isCancelled) return
+          handlers.onTick?.({ index: i })
+        }
+
+        if (isCancelled) return
+
+        const report = materialiseSuccessReport(seed, detail)
+        handlers.onDone?.({ response_id: responseId, report })
+      })().catch((err) => {
+        if (!isCancelled) {
+          handlers.onError?.(err as ErrorV1)
+        }
+      })
+
+      // Return cancel function
+      return () => {
+        isCancelled = true
+      }
     }
   }
 }

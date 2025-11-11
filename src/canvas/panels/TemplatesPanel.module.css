@@ -1,44 +1,44 @@
 .panel {
-  background: var(--olumi-surface);
-  color: var(--olumi-text);
-  box-shadow: var(--olumi-shadow);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-1);
 }
 
 .header {
-  border-bottom: 1px solid var(--olumi-border);
-  background: var(--olumi-elev-1);
+  border-bottom: 1px solid var(--surface-border);
+  background: var(--shadow-1);
 }
 
 .closeBtn {
-  color: var(--olumi-text-muted);
+  color: var(--text-secondary);
 }
 
 .closeBtn:hover {
-  background: var(--olumi-hover);
+  background: var(--info-hover);
 }
 
 .searchInput {
-  background: var(--olumi-elev-1);
-  border: 1px solid var(--olumi-border);
-  color: var(--olumi-text);
-  border-radius: var(--olumi-radius);
+  background: var(--shadow-1);
+  border: 1px solid var(--surface-border);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
 }
 
 .searchInput:focus {
-  outline: 2px solid var(--olumi-focus);
+  outline: 2px solid var(--focus-color);
 }
 
 .card {
-  background: var(--olumi-elev-1);
-  border: 1px solid var(--olumi-border);
-  border-radius: var(--olumi-radius);
+  background: var(--shadow-1);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
 }
 
 .primaryBtn {
-  background: var(--olumi-primary);
+  background: var(--semantic-info);
   color: white;
 }
 
 .primaryBtn:hover {
-  background: var(--olumi-primary-600);
+  background: var(--info-hover);
 }

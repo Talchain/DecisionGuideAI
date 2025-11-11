@@ -51,9 +51,9 @@ describe('DecisionTemplates - Focus & Keyboard A11y', () => {
       'Run button',
       'Copy buttons (template ID, seed, hash)',
       'Run Again button',
-      'Add to Decision Note button'
+      'Add note button'
     ]
-    
+
     expect(interactiveElements.length).toBe(7)
   })
 })

@@ -20,7 +20,7 @@ export function ReconnectBanner() {
   if (!reconnecting) return null
   
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 text-white px-4 py-2 rounded shadow-lg z-50" role="alert" aria-live="assertive" data-testid="banner-reconnect-mode" style={{ backgroundColor: 'var(--olumi-info)' }}>
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 text-white px-4 py-2 rounded shadow-lg z-50 bg-info-500" role="alert" aria-live="assertive" data-testid="banner-reconnect-mode">
       Reconnect {reconnecting.end}: click a node or press Esc to cancel
     </div>
   )

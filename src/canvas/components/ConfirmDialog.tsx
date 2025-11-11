@@ -45,8 +45,8 @@ export function ConfirmDialog({
     >
       <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md mx-4">
         <div className="flex items-start gap-4 mb-4">
-          <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgba(247,201,72,0.15)' }}>
-            <AlertTriangle className="w-5 h-5" style={{ color: 'var(--olumi-warning)' }} />
+          <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-warning-100">
+            <AlertTriangle className="w-5 h-5 text-warning-600" />
           </div>
           <div className="flex-1">
             <h3 id="confirm-title" className="text-lg font-semibold text-gray-900 mb-2">
@@ -67,10 +67,7 @@ export function ConfirmDialog({
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 text-sm font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--olumi-warning)] transition-colors"
-            style={{ backgroundColor: 'var(--olumi-warning)' }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e6b840'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--olumi-warning)'}
+            className="px-4 py-2 text-sm font-medium text-white bg-warning-500 hover:bg-warning-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-warning-500 transition-colors"
             autoFocus
           >
             {confirmLabel}

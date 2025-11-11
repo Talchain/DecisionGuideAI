@@ -1,0 +1,16 @@
+{
+  "id": "small",
+  "name": "Small Demo",
+  "version": "1.0",
+  "description": "Minimal A→B graph",
+  "default_seed": 1337,
+  "graph": {
+    "nodes": [
+      { "id": "a", "kind": "decision", "label": "Option A" },
+      { "id": "b", "kind": "outcome", "label": "Result B" }
+    ],
+    "edges": [
+      { "source": "a", "target": "b", "weight": 0.8 }
+    ]
+  }
+}

@@ -460,12 +460,126 @@ describe('Canvas Store', () => {
     it('allows valid node type updates', () => {
       const { nodes, updateNode } = useCanvasStore.getState()
       const initialNode = nodes[0]
-      
+
       // Update with valid type
       updateNode(initialNode.id, { type: 'goal' })
-      
+
       const updatedNode = useCanvasStore.getState().nodes.find(n => n.id === initialNode.id)
       expect(updatedNode?.type).toBe('goal')
+    })
+  })
+
+  describe('Templates Panel', () => {
+    it('opens panel and stores invoker reference', () => {
+      const mockButton = document.createElement('button')
+      const { openTemplatesPanel } = useCanvasStore.getState()
+
+      openTemplatesPanel(mockButton)
+
+      const state = useCanvasStore.getState()
+      expect(state.showTemplatesPanel).toBe(true)
+      expect(state.templatesPanelInvoker).toBe(mockButton)
+    })
+
+    it('opens panel without invoker', () => {
+      const { openTemplatesPanel } = useCanvasStore.getState()
+
+      openTemplatesPanel()
+
+      const state = useCanvasStore.getState()
+      expect(state.showTemplatesPanel).toBe(true)
+      expect(state.templatesPanelInvoker).toBeNull()
+    })
+
+    it('closes panel and clears invoker', () => {
+      const mockButton = document.createElement('button')
+      const { openTemplatesPanel, closeTemplatesPanel } = useCanvasStore.getState()
+
+      // Open panel
+      openTemplatesPanel(mockButton)
+      expect(useCanvasStore.getState().showTemplatesPanel).toBe(true)
+
+      // Close panel
+      closeTemplatesPanel()
+
+      const state = useCanvasStore.getState()
+      expect(state.showTemplatesPanel).toBe(false)
+      expect(state.templatesPanelInvoker).toBeNull()
+    })
+
+    it('restores focus to invoker on close', async () => {
+      const mockButton = document.createElement('button')
+      mockButton.focus = vi.fn()
+      document.body.appendChild(mockButton)
+
+      const { openTemplatesPanel, closeTemplatesPanel } = useCanvasStore.getState()
+
+      // Open panel with invoker
+      openTemplatesPanel(mockButton)
+
+      // Close panel
+      closeTemplatesPanel()
+
+      // Focus restoration happens after 100ms timeout
+      await vi.advanceTimersByTimeAsync(100)
+
+      expect(mockButton.focus).toHaveBeenCalledTimes(1)
+
+      // Cleanup
+      document.body.removeChild(mockButton)
+    })
+
+    it('handles missing invoker on close gracefully', () => {
+      const { openTemplatesPanel, closeTemplatesPanel } = useCanvasStore.getState()
+
+      // Open without invoker
+      openTemplatesPanel()
+
+      // Should not throw when closing without invoker
+      expect(() => closeTemplatesPanel()).not.toThrow()
+
+      const state = useCanvasStore.getState()
+      expect(state.showTemplatesPanel).toBe(false)
+    })
+
+    it('handles invoker without focus method gracefully', async () => {
+      const mockElement = document.createElement('div')
+      document.body.appendChild(mockElement)
+
+      const { openTemplatesPanel, closeTemplatesPanel } = useCanvasStore.getState()
+
+      // Open with element that doesn't have focus method
+      openTemplatesPanel(mockElement as any)
+
+      // Should not throw even if element lacks focus method
+      expect(() => closeTemplatesPanel()).not.toThrow()
+
+      await vi.advanceTimersByTimeAsync(100)
+
+      // Cleanup
+      document.body.removeChild(mockElement)
+    })
+
+    it('handles removed invoker on close gracefully', async () => {
+      const mockButton = document.createElement('button')
+      mockButton.focus = vi.fn()
+      document.body.appendChild(mockButton)
+
+      const { openTemplatesPanel, closeTemplatesPanel } = useCanvasStore.getState()
+
+      // Open panel
+      openTemplatesPanel(mockButton)
+
+      // Remove button from DOM before closing
+      document.body.removeChild(mockButton)
+
+      // Should not throw even if button was removed
+      expect(() => closeTemplatesPanel()).not.toThrow()
+
+      await vi.advanceTimersByTimeAsync(100)
+
+      // focus() should have been called but may fail silently
+      // We just verify no error was thrown
     })
   })
 })

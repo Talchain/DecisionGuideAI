@@ -1,4 +1,8 @@
-import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+// SECURITY: No OpenAI SDK imports in client code (use local types)
+interface ChatMessage {
+  role: string;
+  content: string;
+}
 
 interface ConsiderationConfig {
   primary: string[];
@@ -178,7 +182,7 @@ export function generatePromptMessages(
   goals?: string[],
   context?: any[],
   query?: string
-): ChatCompletionMessageParam[] {
+): ChatMessage[] {
   try {
     // Validate required parameters
     if (!decision || !decisionType || !reversibility || !importance) {
@@ -203,7 +207,7 @@ ${goals?.length ? `• Goals:\n${goals.map(goal => `  - ${goal}`).join('\n')}` :
 
 Guide me through the next step in this decision-making process, considering the appropriate depth of analysis for its importance level and the ${reversibilityInfo.label.toLowerCase()} nature of the decision.`;
 
-    const messages: ChatCompletionMessageParam[] = [
+    const messages: ChatMessage[] = [
       {
         role: 'system',
         content: templates.systemPrompt

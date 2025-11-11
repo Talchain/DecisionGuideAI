@@ -42,26 +42,83 @@ export function sanitizeLabel(label: unknown): string {
     .trim() || 'Untitled'
 }
 
+/**
+ * Deep sanitizer to remove non-serializable properties
+ * Strips: DOM refs, React fibers, functions, symbols, internal ReactFlow props, circular references
+ */
+function deepSanitize(obj: unknown, seen = new WeakSet()): unknown {
+  // Primitives pass through
+  if (obj === null || obj === undefined) return obj
+  if (typeof obj !== 'object') return obj
+
+  // Circular reference detection
+  if (seen.has(obj as object)) {
+    return undefined // Skip circular references
+  }
+  seen.add(obj as object)
+
+  // Arrays: sanitize each element
+  if (Array.isArray(obj)) {
+    return obj.map(item => deepSanitize(item, seen))
+  }
+
+  // Objects: filter out non-serializable properties
+  const sanitized: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(obj)) {
+    // Skip non-serializable properties
+    if (
+      key.startsWith('__') ||           // React internals (__reactFiber$, __reactProps$)
+      key === 'measured' ||              // ReactFlow internal
+      key === 'resizing' ||              // ReactFlow internal
+      key === 'dragging' ||              // ReactFlow internal
+      key === 'internals' ||             // ReactFlow internal
+      key === 'handleBounds' ||          // ReactFlow internal
+      key === 'isParent' ||              // ReactFlow internal (can cause issues)
+      typeof value === 'function' ||     // Functions
+      typeof value === 'symbol'          // Symbols
+    ) {
+      continue
+    }
+
+    // Check for DOM elements (have nodeType property)
+    if (value && typeof value === 'object' && 'nodeType' in value) {
+      continue // Skip DOM elements
+    }
+
+    // Recursively sanitize nested objects/arrays
+    sanitized[key] = deepSanitize(value, seen)
+  }
+
+  return sanitized
+}
+
 function sanitizeNodeData(data: unknown): Record<string, unknown> {
   if (!data || typeof data !== 'object') return { label: 'Untitled' }
   const d = data as Record<string, unknown>
+  const sanitized = deepSanitize(d) as Record<string, unknown>
   return {
-    ...d,
-    label: sanitizeLabel(d.label),
+    ...sanitized,
+    label: sanitizeLabel(sanitized.label),
   }
 }
 
 function sanitizeState(state: PersistedState): PersistedState {
   return {
     ...state,
-    nodes: state.nodes.map((node) => ({
-      ...node,
-      data: sanitizeNodeData(node.data),
-    })),
-    edges: state.edges.map((edge) => ({
-      ...edge,
-      label: edge.label ? sanitizeLabel(edge.label) : undefined,
-    })),
+    nodes: state.nodes.map((node) => {
+      const sanitizedNode = deepSanitize(node) as Node
+      return {
+        ...sanitizedNode,
+        data: sanitizeNodeData(sanitizedNode.data),
+      }
+    }),
+    edges: state.edges.map((edge) => {
+      const sanitizedEdge = deepSanitize(edge) as Edge<EdgeData>
+      return {
+        ...sanitizedEdge,
+        label: sanitizedEdge.label ? sanitizeLabel(sanitizedEdge.label) : undefined,
+      }
+    }),
   }
 }
 

@@ -9,20 +9,32 @@ import { applyLayout, applyLayoutWithPolicy } from './layout'
 import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
+import type { ReportV1, ErrorV1 } from '../adapters/plot/types'
+import { addRun, generateGraphHash, type StoredRun } from './store/runHistory'
+import * as scenarios from './store/scenarios'
+import type { Scenario } from './store/scenarios'
 
-const initialNodes: Node[] = [
-  { id: '1', type: 'decision', position: { x: 250, y: 100 }, data: { label: 'Start' } },
-  { id: '2', type: 'decision', position: { x: 100, y: 250 }, data: { label: 'Option A' } },
-  { id: '3', type: 'decision', position: { x: 400, y: 250 }, data: { label: 'Option B' } },
-  { id: '4', type: 'decision', position: { x: 250, y: 400 }, data: { label: 'Outcome' } }
-]
+// Results panel state machine
+export type ResultsStatus = 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'
 
-const initialEdges: Edge<EdgeData>[] = [
-  { id: 'e1', source: '1', target: '2', label: 'Path A', data: DEFAULT_EDGE_DATA },
-  { id: 'e2', source: '1', target: '3', label: 'Path B', data: DEFAULT_EDGE_DATA },
-  { id: 'e3', source: '2', target: '4', data: DEFAULT_EDGE_DATA },
-  { id: 'e4', source: '3', target: '4', data: DEFAULT_EDGE_DATA }
-]
+export interface ResultsState {
+  status: ResultsStatus
+  progress: number              // 0..100 (cap 90 until COMPLETE)
+  runId?: string
+  isDuplicateRun?: boolean      // v1.2: true if this run hash already existed in history
+  wasForced?: boolean           // v1.2: true if this was a forced rerun (suppresses duplicate toast)
+  seed?: number
+  hash?: string                 // response_hash
+  report?: ReportV1 | null
+  error?: { code: string; message: string; retryAfter?: number } | null
+  startedAt?: number
+  finishedAt?: number
+  drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
+}
+
+const initialNodes: Node[] = []
+
+const initialEdges: Edge<EdgeData>[] = []
 
 interface ClipboardData {
   nodes: Node[]
@@ -44,9 +56,21 @@ interface CanvasState {
   clipboard: ClipboardData | null
   reconnecting: ReconnectState | null
   touchedNodeIds: Set<string>  // Nodes with edited probabilities
+  outcomeNodeId: string | null  // Selected outcome node for analysis
   nextNodeId: number
   nextEdgeId: number
   _internal: { lastHistoryHash: string }
+  results: ResultsState  // Analysis results panel state
+  // Scenario state
+  currentScenarioId: string | null  // Active scenario ID
+  isDirty: boolean  // Has unsaved changes
+  isSaving: boolean  // P0-2: Currently saving
+  lastSavedAt: number | null  // P0-2: Timestamp of last successful save
+  // Panel visibility
+  showResultsPanel: boolean
+  showInspectorPanel: boolean
+  showTemplatesPanel: boolean
+  templatesPanelInvoker: HTMLElement | null
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
@@ -85,6 +109,30 @@ interface CanvasState {
   cancelReconnect: () => void
   reset: () => void
   cleanup: () => void
+  // Outcome node
+  setOutcomeNode: (nodeId: string | null) => void
+  // Results actions
+  resultsStart: (params: { seed: number; wasForced?: boolean }) => void
+  resultsConnecting: (runId: string) => void
+  resultsProgress: (percent: number) => void
+  resultsComplete: (params: { report: ReportV1; hash: string; drivers?: Array<{ kind: 'node' | 'edge'; id: string }> }) => void
+  resultsError: (params: { code: string; message: string; retryAfter?: number }) => void
+  resultsCancelled: () => void
+  resultsReset: () => void
+  // Scenario actions
+  loadScenario: (id: string) => boolean
+  saveCurrentScenario: (name?: string) => string | null
+  createScenarioFromTemplate: (params: { templateId: string; templateVersion?: string; name: string }) => string
+  duplicateCurrentScenario: (newName?: string) => string | null
+  renameCurrentScenario: (name: string) => void
+  deleteScenario: (id: string) => void
+  markDirty: () => void
+  markClean: () => void
+  // Panel actions
+  setShowResultsPanel: (show: boolean) => void
+  setShowInspectorPanel: (show: boolean) => void
+  openTemplatesPanel: (invoker?: HTMLElement) => void
+  closeTemplatesPanel: () => void
 }
 
 let historyTimer: ReturnType<typeof setTimeout> | null = null
@@ -154,8 +202,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   clipboard: null,
   reconnecting: null,
   touchedNodeIds: new Set(),
-  nextNodeId: 5,
-  nextEdgeId: 5,
+  outcomeNodeId: null,
+  nextNodeId: 1,
+  nextEdgeId: 1,
+  results: {
+    status: 'idle',
+    progress: 0
+  },
+  // Scenario state
+  currentScenarioId: scenarios.getCurrentScenarioId(),
+  isDirty: false,
+  isSaving: false,  // P0-2: Initially not saving
+  lastSavedAt: null,  // P0-2: No save yet
+  // Panel visibility
+  showResultsPanel: false,
+  showInspectorPanel: false,
+  showTemplatesPanel: false,
+  templatesPanelInvoker: null,
 
   createNodeId: () => {
     const { nextNodeId } = get()
@@ -763,10 +826,326 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       edges: initialEdges,
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set() },
-      nextNodeId: 5,
-      nextEdgeId: 5,
+      nextNodeId: 1,
+      nextEdgeId: 1,
       _internal: { lastHistoryHash: historyHash(initialNodes, initialEdges) }
     })
+  },
+
+  setOutcomeNode: (nodeId) => {
+    set({ outcomeNodeId: nodeId })
+  },
+
+  // Results actions
+  resultsStart: ({ seed, wasForced }) => {
+    set({
+      results: {
+        status: 'preparing',
+        progress: 0,
+        seed,
+        wasForced,
+        startedAt: Date.now(),
+        error: undefined,
+        report: undefined,
+        hash: undefined,
+        runId: undefined,
+        finishedAt: undefined,
+        drivers: undefined,
+        isDuplicateRun: undefined
+      }
+    })
+  },
+
+  resultsConnecting: (runId) => {
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'connecting',
+        runId,
+        progress: Math.max(s.results.progress, 5)
+      }
+    }))
+  },
+
+  resultsProgress: (percent) => {
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'streaming',
+        // Cap at 90% until complete event arrives
+        progress: Math.min(percent, 90)
+      }
+    }))
+  },
+
+  resultsComplete: ({ report, hash, drivers }) => {
+    const { nodes, edges, results } = get()
+
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'complete',
+        progress: 100,
+        report,
+        hash,
+        drivers,
+        finishedAt: Date.now(),
+        error: undefined
+      }
+    }))
+
+    // Save to run history
+    if (report && results.seed !== undefined) {
+      const graphHash = generateGraphHash(nodes, edges, results.seed)
+
+      const storedRun: StoredRun = {
+        id: results.runId || crypto.randomUUID(),
+        ts: Date.now(),
+        seed: results.seed,
+        hash,
+        adapter: 'auto', // TODO: Track actual adapter used
+        summary: report.summary || '',
+        graphHash,
+        report,
+        drivers: drivers?.map(d => ({
+          kind: d.kind,
+          id: d.id,
+          label: undefined // Backend should provide label if available
+        })),
+        graph: { nodes, edges } // v1.2: Store graph snapshot for computing deltas
+      }
+
+      const isDuplicate = addRun(storedRun)
+
+      // Store duplicate flag so UI can show appropriate toast
+      set(s => ({
+        results: {
+          ...s.results,
+          isDuplicateRun: isDuplicate
+        }
+      }))
+    }
+  },
+
+  resultsError: ({ code, message, retryAfter }) => {
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'error',
+        error: { code, message, retryAfter },
+        finishedAt: Date.now()
+      }
+    }))
+  },
+
+  resultsCancelled: () => {
+    set(s => ({
+      results: {
+        ...s.results,
+        status: 'cancelled',
+        finishedAt: Date.now()
+      }
+    }))
+  },
+
+  resultsLoadHistorical: (run: StoredRun) => {
+    set({
+      results: {
+        status: 'complete',
+        progress: 100,
+        runId: run.id,
+        seed: run.seed,
+        hash: run.hash,
+        report: run.report,
+        startedAt: run.ts,
+        finishedAt: run.ts,
+        drivers: run.drivers,
+        error: undefined
+      },
+      isDirty: false // Mark as clean since loading historical data
+    })
+  },
+
+  resultsReset: () => {
+    set({
+      results: {
+        status: 'idle',
+        progress: 0
+      }
+    })
+  },
+
+  // Scenario actions
+  loadScenario: (id: string) => {
+    const scenario = scenarios.getScenario(id)
+    if (!scenario) {
+      console.warn('[Canvas] Scenario not found:', id)
+      return false
+    }
+
+    const { nodes, edges } = scenario.graph
+
+    // Reseed IDs to avoid conflicts
+    get().reseedIds(nodes, edges)
+
+    set({
+      nodes,
+      edges,
+      currentScenarioId: id,
+      isDirty: false,
+      history: { past: [], future: [] },
+      selection: { nodeIds: new Set(), edgeIds: new Set() },
+      touchedNodeIds: new Set()
+    })
+
+    scenarios.setCurrentScenarioId(id)
+    return true
+  },
+
+  saveCurrentScenario: (name?: string) => {
+    const { nodes, edges, currentScenarioId } = get()
+
+    // P0-2: Set saving state
+    set({ isSaving: true })
+
+    try {
+      if (currentScenarioId) {
+        // Update existing scenario
+        scenarios.updateScenario(currentScenarioId, {
+          name,
+          graph: { nodes, edges }
+        })
+        set({
+          isDirty: false,
+          isSaving: false,
+          lastSavedAt: Date.now()
+        })
+        return currentScenarioId
+      } else {
+        // Create new scenario
+        if (!name) {
+          console.warn('[Canvas] Cannot save scenario without a name')
+          set({ isSaving: false })
+          return null
+        }
+
+        const scenario = scenarios.createScenario({
+          name,
+          nodes,
+          edges
+        })
+
+        set({
+          currentScenarioId: scenario.id,
+          isDirty: false,
+          isSaving: false,
+          lastSavedAt: Date.now()
+        })
+
+        return scenario.id
+      }
+    } catch (error) {
+      set({ isSaving: false })
+      throw error
+    }
+  },
+
+  createScenarioFromTemplate: ({ templateId, templateVersion, name }) => {
+    const { nodes, edges } = get()
+
+    const scenario = scenarios.createScenario({
+      name,
+      nodes,
+      edges,
+      source_template_id: templateId,
+      source_template_version: templateVersion
+    })
+
+    set({
+      currentScenarioId: scenario.id,
+      isDirty: false
+    })
+
+    return scenario.id
+  },
+
+  duplicateCurrentScenario: (newName?: string) => {
+    const { currentScenarioId } = get()
+    if (!currentScenarioId) {
+      console.warn('[Canvas] No current scenario to duplicate')
+      return null
+    }
+
+    const duplicate = scenarios.duplicateScenario(currentScenarioId, newName)
+    if (!duplicate) return null
+
+    // Load the duplicate
+    get().loadScenario(duplicate.id)
+    return duplicate.id
+  },
+
+  renameCurrentScenario: (name: string) => {
+    const { currentScenarioId } = get()
+    if (!currentScenarioId) {
+      console.warn('[Canvas] No current scenario to rename')
+      return
+    }
+
+    scenarios.renameScenario(currentScenarioId, name)
+  },
+
+  deleteScenario: (id: string) => {
+    const { currentScenarioId } = get()
+
+    scenarios.deleteScenario(id)
+
+    // If we deleted the current scenario, clear the current ID
+    if (currentScenarioId === id) {
+      set({ currentScenarioId: null })
+    }
+  },
+
+  markDirty: () => {
+    set({ isDirty: true })
+  },
+
+  markClean: () => {
+    set({ isDirty: false })
+  },
+
+  // Panel actions
+  setShowResultsPanel: (show: boolean) => {
+    set({ showResultsPanel: show })
+  },
+
+  setShowInspectorPanel: (show: boolean) => {
+    set({ showInspectorPanel: show })
+  },
+
+  openTemplatesPanel: (invoker?: HTMLElement) => {
+    set({
+      showTemplatesPanel: true,
+      templatesPanelInvoker: invoker || null
+    })
+  },
+
+  closeTemplatesPanel: () => {
+    const { templatesPanelInvoker } = get()
+    set({
+      showTemplatesPanel: false,
+      templatesPanelInvoker: null
+    })
+
+    // Restore focus to invoker after a brief delay (allows panel to unmount)
+    if (templatesPanelInvoker && typeof templatesPanelInvoker.focus === 'function') {
+      setTimeout(() => {
+        try {
+          templatesPanelInvoker.focus()
+        } catch (err) {
+          // Element may have been removed from DOM
+        }
+      }, 100)
+    }
   },
 
   cleanup: clearTimers
@@ -803,3 +1182,15 @@ export const hasValidationErrors = (state: CanvasState): boolean => {
 export const getNextInvalidNode = (state: CanvasState, currentNodeId?: string): InvalidNode | null => {
   return getNextInvalidNodeUtil(state.nodes, state.edges, state.touchedNodeIds, currentNodeId)
 }
+
+/**
+ * Results panel selectors
+ */
+export const selectResultsStatus = (state: CanvasState): ResultsStatus => state.results.status
+export const selectProgress = (state: CanvasState): number => state.results.progress
+export const selectReport = (state: CanvasState): ReportV1 | null | undefined => state.results.report
+export const selectDrivers = (state: CanvasState): Array<{ kind: 'node' | 'edge'; id: string }> | undefined => state.results.drivers
+export const selectError = (state: CanvasState): { code: string; message: string; retryAfter?: number } | null | undefined => state.results.error
+export const selectRunId = (state: CanvasState): string | undefined => state.results.runId
+export const selectSeed = (state: CanvasState): number | undefined => state.results.seed
+export const selectHash = (state: CanvasState): string | undefined => state.results.hash

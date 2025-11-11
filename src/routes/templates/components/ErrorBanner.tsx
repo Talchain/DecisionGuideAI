@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import type { ErrorV1 } from '../../../adapters/plot'
 
 interface ErrorBannerProps {
@@ -42,13 +42,14 @@ const getBannerStyle = (code: string): string => {
   }
 }
 
-export const ErrorBanner = memo<ErrorBannerProps>(({ 
-  error, 
-  retryAfter, 
-  onRetry, 
-  onDismiss 
+export const ErrorBanner = memo<ErrorBannerProps>(({
+  error,
+  retryAfter,
+  onRetry,
+  onDismiss
 }) => {
   const bannerRef = useRef<HTMLDivElement>(null)
+  const [countdown, setCountdown] = useState(retryAfter || 0)
 
   useEffect(() => {
     // Focus the banner when it first appears for screen readers
@@ -57,8 +58,29 @@ export const ErrorBanner = memo<ErrorBannerProps>(({
     }
   }, [error.code])
 
+  // Countdown timer for rate limiting
+  useEffect(() => {
+    if (error.code !== 'RATE_LIMITED' || !retryAfter || retryAfter <= 0) {
+      return
+    }
+
+    setCountdown(retryAfter)
+    const interval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [error.code, retryAfter])
+
   const message = getErrorMessage(error)
   const isRateLimit = error.code === 'RATE_LIMITED'
+  const canRetry = !isRateLimit || countdown === 0
 
   return (
     <div
@@ -75,19 +97,24 @@ export const ErrorBanner = memo<ErrorBannerProps>(({
           {error.hint && (
             <p className="text-sm mt-1 opacity-90">{error.hint}</p>
           )}
-          {isRateLimit && retryAfter && (
+          {isRateLimit && countdown > 0 && (
             <p className="text-sm mt-2">
-              Please retry in {retryAfter} seconds.
+              Please retry in {countdown} second{countdown !== 1 ? 's' : ''}.
+            </p>
+          )}
+          {isRateLimit && countdown === 0 && retryAfter && retryAfter > 0 && (
+            <p className="text-sm mt-2 font-medium">
+              Ready to retry!
             </p>
           )}
         </div>
-        
+
         <div className="flex gap-2 ml-4">
           {onRetry && (
             <button
               onClick={onRetry}
-              disabled={isRateLimit && retryAfter && retryAfter > 0}
-              className="text-sm px-3 py-1 rounded bg-white bg-opacity-50 hover:bg-opacity-75 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!canRetry}
+              className="text-sm px-3 py-1 rounded bg-white bg-opacity-50 hover:bg-opacity-75 focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
             >
               Retry
             </button>

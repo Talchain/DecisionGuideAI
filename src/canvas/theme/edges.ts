@@ -29,13 +29,13 @@ interface EdgeThemeTokens {
 const LIGHT_THEME: EdgeThemeTokens = {
   stroke: '#94A3B8', // Slate 400
   strokeHover: '#64748B', // Slate 500
-  strokeSelected: 'var(--olumi-primary, #5B6CFF)',
+  strokeSelected: 'var(--semantic-info)', // Olumi v1.2: sky-500
   label: '#1E293B', // Slate 800
   labelBackground: '#FFFFFF',
   confidence: {
-    high: 'var(--olumi-success, #20C997)',
-    medium: 'var(--olumi-warning, #F7C948)',
-    low: 'var(--olumi-danger, #FF6B6B)',
+    high: 'var(--semantic-success)', // Olumi v1.2: mint-500
+    medium: 'var(--semantic-warning)', // Olumi v1.2: sun-500
+    low: 'var(--semantic-danger)', // Olumi v1.2: carrot-500
   },
 }
 
@@ -45,14 +45,14 @@ const LIGHT_THEME: EdgeThemeTokens = {
  */
 const DARK_THEME: EdgeThemeTokens = {
   stroke: 'var(--edge-stroke, #5B6CFF)',
-  strokeHover: 'var(--olumi-primary-600, #4256F6)',
-  strokeSelected: 'var(--olumi-primary, #5B6CFF)',
+  strokeHover: 'var(--info-hover)', // Olumi v1.2: info hover state
+  strokeSelected: 'var(--semantic-info)', // Olumi v1.2: sky-500
   label: 'var(--edge-label-text, #E8ECF5)',
   labelBackground: 'var(--edge-label-bg, #0E1116)',
   confidence: {
-    high: 'var(--olumi-success, #20C997)',
-    medium: 'var(--olumi-warning, #F7C948)',
-    low: 'var(--olumi-danger, #FF6B6B)',
+    high: 'var(--semantic-success)', // Olumi v1.2: mint-500
+    medium: 'var(--semantic-warning)', // Olumi v1.2: sun-500
+    low: 'var(--semantic-danger)', // Olumi v1.2: carrot-500
   },
 }
 

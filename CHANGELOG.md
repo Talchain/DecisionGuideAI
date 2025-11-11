@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security - Phase 1 Hotfixes (P0, Block-on-Green)
+
+#### Critical Security Fixes
+- **Brevo Secrets Removed**: Removed exposed API keys from `.env` file and git working tree
+- **CORS Allow-List**: Replaced wildcard `Access-Control-Allow-Origin: "*"` with explicit origin validation in `send-team-invite` Edge Function
+- **OpenAI Proxy**: Moved all OpenAI API calls from client to server-side Edge Function (`openai-proxy`)
+- **Client Bundle Cleanup**: Removed `dangerouslyAllowBrowser` and OpenAI SDK from client bundles
+
+#### CI/CD Guardrails
+- **Gitleaks Integration**: Added automated secret scanning in CI and pre-commit hooks
+- **ESLint Security Rules**: Custom rules forbid `dangerouslyAllowBrowser` and CORS wildcards
+- **Pre-Commit Configuration**: Gitleaks + ESLint security checks before every commit
+
+#### Documentation
+- **SECURITY.md**: Comprehensive security policy with key rotation procedures
+- **Secret Management**: Guidelines for handling Brevo, OpenAI, and Supabase keys
+- **Incident Response**: Step-by-step procedures for secret compromise
+
+#### Configuration
+- **`.gitignore` Updates**: Explicit guards for `supabase/functions/**/.env` files
+- **`.gitleaks.toml`**: Custom rules for Brevo, OpenAI, and Supabase key patterns
+- **`.pre-commit-config.yaml`**: Automated secret scanning before commits
+
+#### Additional Hardening (Post-Review)
+- **Removed All Key Logging**: Eliminated partial API key logging in `brevo-fallback.ts` (previously logged first 8 chars)
+- **Stricter CORS**: Unknown origins now explicitly rejected with HTTP 403 instead of fallback to primary domain
+- **Telemetry**: Misconfigurations now surface in logs with `⛔ Rejected request from unknown origin` warnings
+
 ### Added - PR-A: Rich Node Types & Edge Domain
 
 #### Node Type System
