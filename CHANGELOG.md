@@ -51,6 +51,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - limits.spec.ts (3 tests) - Limits fetching and caching
 - payloadGuard.spec.ts (4 tests) - Payload size validation
 
+### Added - M4-M6: Graph Health, Provenance, & Comparison
+
+#### M4: Graph Health & Repair
+- **Validation Types**: Issue types (cycle, dangling_edge, orphan_node, duplicate_edge, self_loop, missing_label)
+- **Graph Validator**: Cycle detection (DFS), dangling edge detection, orphan node detection, duplicate edges, self-loops
+- **Graph Repair**: Deterministic fixes with stable ordering, quick fix all issues, atomic repair actions
+- **Health Status Bar**: Score display (0-100), issue counts by severity, quick fix button, expandable progress bar
+- **Issues Panel**: Grouped by severity (error/warning/info), individual quick fix buttons, node/edge highlighting
+- **Needle-Movers Overlay**: Impact ranking (high/medium/low), top 5 key factors, focus node on click
+
+#### M5: Grounding & Provenance Hub
+- **Document Types**: Support for PDF, TXT, MD, CSV, URL references with metadata
+- **Documents Manager**: Drag & drop upload, file size display, document cards with delete/download actions
+- **Provenance Hub Tab**: Citation listing grouped by document, search filter, snippet display with redaction
+- **Citation Tracking**: Node/edge references, document snippets with char offsets, confidence scores
+
+#### M6: Compare v0 & Decision Rationale
+- **Snapshot Types**: Graph snapshots with metadata, comparison result types (added/removed/modified/unchanged)
+- **Scenario Comparison**: Side-by-side view, changes-only view, stats bar with counts, export functionality
+- **Decision Rationale**: Capture reasoning, pros/cons lists, alternatives considered, approval status tracking
+- **Decision Status**: Approved/rejected/pending with icons, decided by field, timestamp tracking
+
+#### Components Created (M4-M6)
+- HealthStatusBar (graph health display)
+- IssuesPanel (validation issues with fixes)
+- NeedleMoversOverlay (impact ranking)
+- DocumentsManager (file upload and management)
+- ProvenanceHubTab (citations and sources)
+- ScenarioComparison (snapshot diff viewer)
+- DecisionRationaleForm (decision capture)
+
+#### Utilities Created (M4-M6)
+- `/src/canvas/validation/types.ts` - Validation and repair types
+- `/src/canvas/validation/graphValidator.ts` - Graph validation logic
+- `/src/canvas/validation/graphRepair.ts` - Repair actions and quick fixes
+- `/src/canvas/share/types.ts` - Document and citation types
+- `/src/canvas/snapshots/types.ts` - Snapshot and comparison types
+
 ### Security - Phase 1 Hotfixes (P0, Block-on-Green)
 
 #### Critical Security Fixes
