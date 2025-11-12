@@ -193,7 +193,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       return
     }
 
-    // P0-5: "Analyze again" always runs - bump seed to bypass cache
+    // P0-5: "Analyse again" always runs - bump seed to bypass cache
     if (result) {
       seedNum += 1
       setSeed(String(seedNum))
@@ -386,7 +386,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         }`}
         type="button"
       >
-        {loading ? 'Running Analysis…' : result ? 'Analyze again' : '▶ Run Analysis'}
+        {loading ? 'Running Analysis…' : result ? 'Analyse again' : '▶ Run Analysis'}
       </button>
       <div className="flex gap-2">
         <button

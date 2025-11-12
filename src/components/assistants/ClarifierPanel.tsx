@@ -74,7 +74,7 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting }: Cl
           <HelpCircle className="w-5 h-5 text-blue-600" />
           <h3 className="font-semibold text-blue-900">Help us clarify your model</h3>
         </div>
-        <p className="text-sm text-blue-700 mt-1">
+        <p className="text-sm text-blue-700 mt-1" role="status" aria-live="polite">
           Round {clarifier.round} of 3 • Answer these questions to improve your draft
         </p>
       </div>
@@ -137,6 +137,7 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting }: Cl
           onClick={handleSubmit}
           disabled={!canProceed || isSubmitting}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+          aria-live="polite"
         >
           {isSubmitting ? (
             'Re-drafting...'

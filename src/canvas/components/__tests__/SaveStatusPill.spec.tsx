@@ -34,12 +34,12 @@ describe('SaveStatusPill (P0-2)', () => {
     vi.useRealTimers()
   })
 
-  it('shows "Saved by [user]" when savedBy is provided', () => {
+  it('shows "Saved by [user] • [time]" when savedBy is provided', () => {
     const recentTime = Date.now() - 5000
 
     render(<SaveStatusPill isSaving={false} lastSavedAt={recentTime} savedBy="Alice" />)
 
-    expect(screen.getByText(/Saved just now by Alice/)).toBeInTheDocument()
+    expect(screen.getByText(/Saved by Alice • just now/)).toBeInTheDocument()
   })
 
   it('renders nothing when not saving and no lastSavedAt', () => {

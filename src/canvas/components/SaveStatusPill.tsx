@@ -70,8 +70,7 @@ export function SaveStatusPill({ isSaving, lastSavedAt, savedBy }: SaveStatusPil
       >
         <Check className="w-3 h-3" />
         <span>
-          Saved {timeLabel}
-          {savedBy && ` by ${savedBy}`}
+          Saved{savedBy && ` by ${savedBy}`} {savedBy && '•'} {timeLabel}
         </span>
       </div>
     )

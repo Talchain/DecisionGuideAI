@@ -40,7 +40,26 @@ export function StatusChips({ currentNodes = 0, currentEdges = 0, className = ''
     )
   }
 
-  if (loading || !limits) return null
+  // Loading state: show placeholder chip with live counts
+  if (loading || !limits) {
+    return (
+      <button
+        onClick={onClick}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium text-gray-600 bg-gray-50 border-gray-200 transition-colors ${onClick ? 'cursor-pointer hover:bg-gray-100' : ''} ${className}`}
+        title={`Loading limits...\nNodes: ${currentNodes}\nEdges: ${currentEdges}${onClick ? '\nClick for details' : ''}`}
+        aria-label={`Graph usage: ${currentNodes} nodes, ${currentEdges} edges - limits loading${onClick ? ' - click for details' : ''}`}
+        disabled={!onClick}
+      >
+        <span className="tabular-nums">
+          Nodes {currentNodes}
+        </span>
+        <span className="text-gray-400">•</span>
+        <span className="tabular-nums">
+          Edges {currentEdges}
+        </span>
+      </button>
+    )
+  }
 
   const nodesPercent = Math.round((currentNodes / limits.nodes.max) * 100)
   const edgesPercent = Math.round((currentEdges / limits.edges.max) * 100)

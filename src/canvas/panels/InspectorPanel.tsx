@@ -22,6 +22,7 @@ import { Settings } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { PanelShell } from './_shared/PanelShell'
 import { PanelSection } from './_shared/PanelSection'
+import { Tooltip } from '../components/Tooltip'
 import { EDGE_CONSTRAINTS, clampBelief, trimProvenance } from '../domain/edges'
 import type { Edge } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
@@ -181,22 +182,38 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
   // Footer with Apply and Reset buttons
   const footer = selectedEdge ? (
     <>
-      <button
-        onClick={handleReset}
-        className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-        type="button"
-        disabled={!hasChanges}
+      <Tooltip content={hasChanges ? 'Reset changes' : 'No changes to reset'}>
+        <span className="inline-block">
+          <button
+            onClick={handleReset}
+            className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button"
+            disabled={!hasChanges}
+          >
+            Reset
+          </button>
+        </span>
+      </Tooltip>
+      <Tooltip
+        content={
+          !hasChanges
+            ? 'No changes to apply'
+            : validationErrors.length > 0
+            ? `Cannot apply: ${validationErrors[0]}`
+            : 'Apply changes'
+        }
       >
-        Reset
-      </button>
-      <button
-        onClick={handleApply}
-        className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        type="button"
-        disabled={!hasChanges || validationErrors.length > 0}
-      >
-        Apply
-      </button>
+        <span className="inline-block flex-1">
+          <button
+            onClick={handleApply}
+            className="w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button"
+            disabled={!hasChanges || validationErrors.length > 0}
+          >
+            Apply
+          </button>
+        </span>
+      </Tooltip>
     </>
   ) : undefined
 

@@ -277,7 +277,7 @@ export function extractP50(report: ReportV1): number | null {
 export interface RunSummaryData {
   p50Text: string // "p50 0.62" or "p50 N/A"
   deltaText: string | null // "(Δ −0.05)" or null if no prior
-  edgesChangedText: string | null // "3 edges changed" or null if no prior
+  edgesChangedText: string | null // "3 edges changed", "No material change", or null if no prior
 }
 
 export function computeRunSummary(run: StoredRun, priorRun: StoredRun | undefined): RunSummaryData {
@@ -300,7 +300,9 @@ export function computeRunSummary(run: StoredRun, priorRun: StoredRun | undefine
 
   // Count edges changed (weight or belief changed beyond epsilon)
   const edgesChanged = countEdgesChanged(run, priorRun)
-  const edgesChangedText = edgesChanged > 0 ? `${edgesChanged} edge${edgesChanged === 1 ? '' : 's'} changed` : null
+  const edgesChangedText = edgesChanged > 0
+    ? `${edgesChanged} edge${edgesChanged === 1 ? '' : 's'} changed`
+    : 'No material change'
 
   return { p50Text, deltaText, edgesChangedText }
 }

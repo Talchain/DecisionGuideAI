@@ -5,7 +5,7 @@
  * - Live state: renders nodes/edges/p95 chips with correct values
  * - Fallback state: yellow "Fallback" chip with tooltip and retry
  * - Error state: red "Limits Unavailable" chip with retry
- * - Loading state: renders nothing
+ * - Loading state: shows current counts without limits (always visible)
  * - Color coding: gray/warning/danger based on usage %
  * - Tooltips: show source + timestamp
  * - Retry clicks: calls retry() function
@@ -264,7 +264,7 @@ describe('StatusChips', () => {
   })
 
   describe('Loading state', () => {
-    it('renders nothing when loading=true', () => {
+    it('shows current counts without max limits when loading=true', () => {
       mockUseEngineLimits.mockReturnValue(
         createMockReturn({
           loading: true,
@@ -272,12 +272,17 @@ describe('StatusChips', () => {
         })
       )
 
-      const { container } = render(<StatusChips />)
+      render(<StatusChips currentNodes={25} currentEdges={75} />)
 
-      expect(container.firstChild).toBeNull()
+      // Should show counts without max limits
+      expect(screen.getByText(/Nodes 25/)).toBeInTheDocument()
+      expect(screen.getByText(/Edges 75/)).toBeInTheDocument()
+
+      // Should not show max limits (no "/" separator)
+      expect(screen.queryByText(/\//)).not.toBeInTheDocument()
     })
 
-    it('renders nothing when limits is null (not loaded yet)', () => {
+    it('shows current counts when limits is null (not loaded yet)', () => {
       mockUseEngineLimits.mockReturnValue(
         createMockReturn({
           loading: false,
@@ -286,9 +291,27 @@ describe('StatusChips', () => {
         })
       )
 
-      const { container } = render(<StatusChips />)
+      render(<StatusChips currentNodes={10} currentEdges={20} />)
 
-      expect(container.firstChild).toBeNull()
+      // Should show counts without max limits
+      expect(screen.getByText(/Nodes 10/)).toBeInTheDocument()
+      expect(screen.getByText(/Edges 20/)).toBeInTheDocument()
+    })
+
+    it('has proper tooltip when loading', () => {
+      mockUseEngineLimits.mockReturnValue(
+        createMockReturn({
+          loading: true,
+          limits: null,
+        })
+      )
+
+      const { container } = render(<StatusChips currentNodes={15} currentEdges={30} />)
+
+      const chip = container.querySelector('button')
+      expect(chip?.getAttribute('title')).toContain('Loading limits')
+      expect(chip?.getAttribute('title')).toContain('Nodes: 15')
+      expect(chip?.getAttribute('title')).toContain('Edges: 30')
     })
   })
 

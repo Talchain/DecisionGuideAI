@@ -305,7 +305,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
         className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
         type="button"
       >
-        Analyze again
+        Analyse again
       </button>
       <Tooltip content={hash ? 'Share this analysis' : 'Share requires a completed analysis'}>
         <button
@@ -532,14 +532,14 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                       </div>
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                      Ready to analyze
+                      Ready to analyse
                     </h3>
                     <p className="text-sm mb-6 text-gray-400">
                       {nodes.length === 0
                         ? 'Add nodes to your canvas to get started.'
                         : !outcomeNodeId
-                        ? `Your graph has ${nodes.length} node${nodes.length !== 1 ? 's' : ''}. Select an outcome node in the inspector to target your analysis, or click Run to analyze the entire graph.`
-                        : `Your graph has ${nodes.length} node${nodes.length !== 1 ? 's' : ''} with outcome: "${nodes.find(n => n.id === outcomeNodeId)?.data?.label || 'Unknown'}". Click Run to analyze.`
+                        ? `Your graph has ${nodes.length} node${nodes.length !== 1 ? 's' : ''}. Select an outcome node in the inspector to target your analysis, or click Run to analyse the entire graph.`
+                        : `Your graph has ${nodes.length} node${nodes.length !== 1 ? 's' : ''} with outcome: "${nodes.find(n => n.id === outcomeNodeId)?.data?.label || 'Unknown'}". Click Run to analyse.`
                       }
                     </p>
                     <Tooltip
