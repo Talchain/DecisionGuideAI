@@ -38,6 +38,9 @@ import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
 import { loadRuns } from './store/runHistory'
 import { useEdgeLabelModeSync } from './store/edgeLabelMode'
+import { HealthStatusBar } from './components/HealthStatusBar'
+import { IssuesPanel } from './panels/IssuesPanel'
+import { NeedleMoversOverlay } from './components/NeedleMoversOverlay'
 
 interface ReactFlowGraphProps {
   blueprintEventBus?: {
@@ -68,6 +71,14 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const setShowInspectorPanel = useCanvasStore(s => s.setShowInspectorPanel)
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
+
+  // M4: Graph Health state
+  const graphHealth = useCanvasStore(s => s.graphHealth)
+  const showIssuesPanel = useCanvasStore(s => s.showIssuesPanel)
+  const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
+  const applyRepair = useCanvasStore(s => s.applyRepair)
+  const applyAllRepairs = useCanvasStore(s => s.applyAllRepairs)
+  const needleMovers = useCanvasStore(s => s.needleMovers)
 
   // Results panel hook
   const { run: runAnalysis, cancel: cancelAnalysis } = useResultsRun()
@@ -315,6 +326,17 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])  // No dependencies - stable functions (showToast, runAnalysis, setShowResultsPanel)
+
+  // M4: Health panel handlers
+  const handleFixIssue = useCallback(async (issue: any) => {
+    await applyRepair(issue.id)
+    showToast('Issue fixed — graph updated', 'success')
+  }, [applyRepair, showToast])
+
+  const handleQuickFixAll = useCallback(async () => {
+    await applyAllRepairs()
+    showToast('All fixable issues resolved', 'success')
+  }, [applyAllRepairs, showToast])
 
   // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, ?)
   useCanvasKeyboardShortcuts({
@@ -584,7 +606,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
       {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
       {reconnecting && <ReconnectBanner />}
-      
+
       <CanvasToolbar />
       <PropertiesPanel />
       <SettingsPanel />
@@ -592,11 +614,36 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       <ValidationChip onFocusNode={handleFocusNode} />
       <RecoveryBanner />
 
+      {/* M4: Graph Health UI */}
+      {graphHealth && graphHealth.issues.length > 0 && (
+        <div className="absolute top-20 left-4 right-4 z-10 max-w-2xl">
+          <HealthStatusBar
+            health={graphHealth}
+            onShowIssues={() => setShowIssuesPanel(true)}
+            onQuickFix={handleQuickFixAll}
+          />
+        </div>
+      )}
+      {needleMovers.length > 0 && (
+        <NeedleMoversOverlay
+          movers={needleMovers}
+          onFocusNode={handleFocusNode}
+          onFocusEdge={handleFocusEdge}
+        />
+      )}
+
       {showCommandPalette && <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} onOpenInspector={() => setShowInspectorPanel(true)} />}
       {showCheatsheet && <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />}
       {showKeyboardMap && <KeyboardMap isOpen={showKeyboardMap} onClose={() => setShowKeyboardMap(false)} />}
       {showResultsPanel && <ResultsPanel isOpen={showResultsPanel} onClose={() => setShowResultsPanel(false)} onCancel={cancelAnalysis} />}
       {showInspectorPanel && <InspectorPanel isOpen={showInspectorPanel} onClose={() => setShowInspectorPanel(false)} />}
+      {showIssuesPanel && graphHealth && (
+        <IssuesPanel
+          issues={graphHealth.issues}
+          onFixIssue={handleFixIssue}
+          onClose={() => setShowIssuesPanel(false)}
+        />
+      )}
 
       {existingTemplate && pendingBlueprint && (
         <ConfirmDialog
