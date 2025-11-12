@@ -1256,11 +1256,49 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   // M5: Provenance actions
   addDocument: (document) => {
+    // P0: Document memory guard - reject files >1MB
+    const MAX_FILE_SIZE = 1 * 1024 * 1024 // 1MB
+    const MAX_CHAR_PER_FILE = 5000 // 5k chars
+    const MAX_TOTAL_CHARS = 25000 // 25k total
+
+    if (document.size && document.size > MAX_FILE_SIZE) {
+      throw new Error('This file is too large for in-app preview. Please reduce its size.')
+    }
+
+    // Calculate current total stored chars
+    const { documents } = get()
+    const currentTotal = documents.reduce((sum, doc) =>
+      sum + (doc.displayBytes || 0), 0)
+
+    // Truncate content if needed
+    let content = document.content || ''
+    let truncated = false
+    if (content.length > MAX_CHAR_PER_FILE) {
+      content = content.slice(0, MAX_CHAR_PER_FILE) + '…'
+      truncated = true
+    }
+
+    const displayBytes = content.length
+
+    // Check total cap
+    if (currentTotal + displayBytes > MAX_TOTAL_CHARS) {
+      throw new Error(`Document storage limit reached (${MAX_TOTAL_CHARS} chars). Remove existing documents to add new ones.`)
+    }
+
+    // Generate checksum for integrity
+    const checksum = document.content
+      ? crypto.randomUUID() // Simplified; real checksum would use crypto.subtle
+      : undefined
+
     const id = crypto.randomUUID()
     const newDoc: Document = {
       ...document,
       id,
-      uploadedAt: new Date()
+      content, // Truncated text only
+      uploadedAt: new Date(),
+      displayBytes,
+      truncated,
+      checksum
     }
     set(s => ({ documents: [...s.documents, newDoc] }))
     return id

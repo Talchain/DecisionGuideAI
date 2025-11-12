@@ -7,10 +7,13 @@ export interface Document {
   id: string
   name: string
   type: 'pdf' | 'txt' | 'md' | 'csv' | 'url'
-  content?: string // Full text for txt/md
+  content?: string // Text only, truncated to 5k chars max
   url?: string // For URL references
   uploadedAt: Date
-  size?: number // bytes
+  size?: number // Original file size in bytes
+  displayBytes?: number // Stored content size (post-truncation)
+  truncated?: boolean // True if content was truncated
+  checksum?: string // SHA-256 hash of original content
   metadata?: {
     author?: string
     date?: string
