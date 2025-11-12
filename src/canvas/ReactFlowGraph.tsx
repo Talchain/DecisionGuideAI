@@ -561,6 +561,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         ...loaded,
         touchedNodeIds: new Set()
       })
+      // Reseed ID counters to avoid collisions (P0 hotfix)
+      useCanvasStore.getState().reseedIds(loaded.nodes, loaded.edges)
     }
   }, [loadSettings])
 
