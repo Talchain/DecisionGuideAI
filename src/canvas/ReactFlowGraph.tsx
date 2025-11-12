@@ -169,6 +169,41 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.hash, location.search])  // Re-run when hash or search params change
 
+  // M4: Graph Health validation lifecycle (debounced)
+  const validateGraph = useCanvasStore(s => s.validateGraph)
+  const validationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    // Validate on mount (initial load)
+    validateGraph()
+
+    // Cleanup timer on unmount
+    return () => {
+      if (validationTimerRef.current) {
+        clearTimeout(validationTimerRef.current)
+      }
+    }
+  }, []) // Only run on mount
+
+  // Validate when graph changes (debounced to avoid excessive validation)
+  useEffect(() => {
+    // Clear existing timer
+    if (validationTimerRef.current) {
+      clearTimeout(validationTimerRef.current)
+    }
+
+    // Debounce validation by 500ms after graph changes
+    validationTimerRef.current = setTimeout(() => {
+      validateGraph()
+    }, 500)
+
+    return () => {
+      if (validationTimerRef.current) {
+        clearTimeout(validationTimerRef.current)
+      }
+    }
+  }, [nodes, edges, validateGraph]) // Re-run when graph structure changes
+
   const handleNodeClick = useCallback((_: any, node: any) => {
     // Close Templates panel when interacting with canvas
     onCanvasInteraction?.()
@@ -251,9 +286,20 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       return
     }
 
-    // Check if graph has validation errors using shared utility
+    // M4: Trigger validation before run to ensure fresh health check
+    await store.validateGraph()
+
+    // Check for probability validation errors (existing flow)
     if (hasValidationErrors(store)) {
       showToast('Fix probability errors before running (Alt+V to navigate)', 'warning')
+      return
+    }
+
+    // M4: Check for critical graph health issues
+    const { graphHealth } = useCanvasStore.getState()
+    if (graphHealth && graphHealth.status === 'errors') {
+      const errorCount = graphHealth.issues.filter(i => i.severity === 'error').length
+      showToast(`Fix ${errorCount} graph error${errorCount > 1 ? 's' : ''} before running — see Issues panel`, 'error')
       return
     }
 
