@@ -1297,11 +1297,18 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   // M6: Compare & Snapshots actions
   setSelectedSnapshotsForComparison: (snapshotIds: string[]) => {
-    // Only allow exactly 2 snapshots for comparison
-    if (snapshotIds.length > 2) {
-      snapshotIds = snapshotIds.slice(-2)
+    // De-duplicate: Keep most recent two unique IDs, maintain order
+    const unique = Array.from(new Set(snapshotIds))
+    const capped = unique.slice(-2) // Most recent two
+
+    // Ignore no-op re-selects (same IDs in same order)
+    const current = get().selectedSnapshotsForComparison
+    if (capped.length === current.length &&
+        capped.every((id, i) => id === current[i])) {
+      return // No-op
     }
-    set({ selectedSnapshotsForComparison: snapshotIds })
+
+    set({ selectedSnapshotsForComparison: capped })
   },
 
   setShowComparePanel: (show: boolean) => {
