@@ -304,48 +304,69 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         xOffset = maxX + 300
       }
 
-      // Convert to blueprint with offset positions
-      const blueprintNodes = (graph.nodes || []).map((node: any, index: number) => {
+      // Create ID mapping for edges
+      const nodeIdMap = new Map<string, string>()
+
+      // Convert template nodes to ReactFlow nodes with new IDs and offset positions
+      const newNodes: Node[] = (graph.nodes || []).map((node: any, index: number) => {
+        const newNodeId = state.createNodeId()
+        nodeIdMap.set(node.id, newNodeId)
+
         const defaultPos = { x: 200 + (index % 3) * 250, y: 100 + Math.floor(index / 3) * 200 }
         const pos = node.position || defaultPos
+
         return {
-          id: node.id,
-          label: node.label || node.id,
-          kind: node.kind || 'decision',
-          body: node.body,
-          position: { x: pos.x + xOffset, y: pos.y + yOffset } // Apply offset
+          id: newNodeId,
+          type: node.kind || 'decision',
+          position: { x: pos.x + xOffset, y: pos.y + yOffset },
+          data: {
+            label: node.label || node.id,
+            body: node.body,
+            prior: node.prior,
+            utility: node.utility,
+            templateId: templateDetail.id,
+            templateName: templateDetail.name,
+            templateCreatedAt: Date.now()
+          }
         }
       })
 
-      const blueprintEdges = (graph.edges || []).map((edge: any) => ({
-        id: edge.id || `${edge.from}-${edge.to}`,
-        from: edge.from,
-        to: edge.to,
-        probability: edge.probability,
-        weight: edge.weight,
-        belief: edge.belief,
-        provenance: edge.provenance
+      // Convert template edges to ReactFlow edges with mapped IDs
+      const newEdges: Edge[] = (graph.edges || []).map((edge: any) => {
+        const newEdgeId = state.createEdgeId()
+        const mappedSource = nodeIdMap.get(edge.from || edge.source) || edge.from || edge.source
+        const mappedTarget = nodeIdMap.get(edge.to || edge.target) || edge.to || edge.target
+
+        return {
+          id: newEdgeId,
+          source: mappedSource,
+          target: mappedTarget,
+          data: {
+            schemaVersion: 3,
+            weight: edge.weight ?? 1.0,
+            confidence: edge.probability,
+            belief: edge.belief ?? edge.probability,
+            provenance: edge.provenance,
+            templateId: templateDetail.id
+          }
+        }
+      })
+
+      // Directly append to store bypassing existing template check
+      state.pushHistory()
+      useCanvasStore.setState(currentState => ({
+        nodes: [...currentState.nodes, ...newNodes],
+        edges: [...currentState.edges, ...newEdges]
       }))
 
-      const blueprint: Blueprint = {
-        id: templateDetail.id,
-        name: templateDetail.name,
-        description: templateDetail.description,
-        nodes: blueprintNodes,
-        edges: blueprintEdges
-      }
-
-      if (onInsertBlueprint) {
-        onInsertBlueprint(blueprint) // Appends to canvas via useBlueprintInsert
-        showToast('Template merged into current scenario.')
-      }
+      showToast('Template merged into current scenario.')
     } catch (err) {
       if (import.meta.env.DEV) {
         console.error('Failed to merge template:', err)
       }
       showToast('Failed to merge template.')
     }
-  }, [selectedBlueprintId, onInsertBlueprint, showToast])
+  }, [selectedBlueprintId, showToast])
 
   const handleClose = useCallback(() => {
     onClose()

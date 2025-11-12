@@ -89,8 +89,8 @@ describe('ResultsPanel', () => {
   describe('State Transitions', () => {
     it('shows Idle state initially', () => {
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
-      expect(screen.getByText('Ready to analyze')).toBeInTheDocument()
-      expect(screen.getByText('Click "Run Analysis" to start analyzing your decision tree.')).toBeInTheDocument()
+      expect(screen.getByText('Ready to analyse')).toBeInTheDocument()
+      expect(screen.getByText('Click "Run Analysis" to start analysing your decision tree.')).toBeInTheDocument()
     })
 
     it('shows Preparing state', () => {

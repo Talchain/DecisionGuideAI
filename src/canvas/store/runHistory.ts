@@ -133,16 +133,18 @@ export function saveRuns(runs: StoredRun[]): void {
 /**
  * Add a new run to history
  * v1.2: Implements determinism dedupe - if hash exists, consolidates instead of adding
+ * RC2 Fix: Also check graphHash (includes seed) to prevent force-rerun deduplication
  * @returns true if this was a duplicate run, false if new
  */
 export function addRun(run: StoredRun): boolean {
   const runs = loadRuns()
 
-  // v1.2: Check if this response_hash already exists
-  if (run.hash) {
-    const existingIndex = runs.findIndex(r => r.hash === run.hash)
+  // v1.2: Check if this response_hash + graphHash already exist
+  // graphHash includes seed, so force reruns with bumped seed won't be treated as duplicates
+  if (run.hash && run.graphHash) {
+    const existingIndex = runs.findIndex(r => r.hash === run.hash && r.graphHash === run.graphHash)
     if (existingIndex !== -1) {
-      // Hash collision - this is a duplicate run
+      // Both hashes match - this is a true duplicate run (same graph + seed + response)
       const existing = runs[existingIndex]
 
       // Update the existing run with new timestamp and increment duplicate count
@@ -299,10 +301,16 @@ export function computeRunSummary(run: StoredRun, priorRun: StoredRun | undefine
   }
 
   // Count edges changed (weight or belief changed beyond epsilon)
-  const edgesChanged = countEdgesChanged(run, priorRun)
-  const edgesChangedText = edgesChanged > 0
-    ? `${edgesChanged} edge${edgesChanged === 1 ? '' : 's'} changed`
-    : 'No material change'
+  // RC2 Fix: Check if graph data is available before computing delta
+  let edgesChangedText: string
+  if (!priorRun.graph || !priorRun.graph.edges) {
+    edgesChangedText = 'Snapshot unavailable – rerun to compare'
+  } else {
+    const edgesChanged = countEdgesChanged(run, priorRun)
+    edgesChangedText = edgesChanged > 0
+      ? `${edgesChanged} edge${edgesChanged === 1 ? '' : 's'} changed`
+      : 'No material change'
+  }
 
   return { p50Text, deltaText, edgesChangedText }
 }
