@@ -281,13 +281,31 @@ export interface AutosaveData {
   edges: Edge[]
 }
 
+// P2: Track last autosave payload to skip identical writes
+let lastAutosavePayload: string | null = null
+
 export function saveAutosave(data: AutosaveData): void {
   if (!isLocalStorageAvailable()) {
     return
   }
 
   try {
-    localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(data))
+    const payload = JSON.stringify(data)
+
+    // P2: Skip write if payload is identical (shallow diff)
+    if (payload === lastAutosavePayload) {
+      if (import.meta.env.DEV) {
+        console.log('[scenarios] Skipping identical autosave write')
+      }
+      return
+    }
+
+    localStorage.setItem(AUTOSAVE_KEY, payload)
+    lastAutosavePayload = payload
+
+    if (import.meta.env.DEV) {
+      console.log('[scenarios] Autosave written')
+    }
   } catch (error) {
     console.error('[scenarios] Failed to save autosave:', error)
   }
