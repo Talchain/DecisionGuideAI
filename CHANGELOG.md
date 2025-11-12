@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - M1-M3: PLoT Engine Hardening & Assistants Integration
+
+#### M1: PLoT Engine Integration Hardening
+- **M1.1 Health Probe**: HEAD /v1/run health check with 1→3→10s backoff and manual retry
+- **M1.2 Live Limits**: GET /v1/limits with 1h sessionStorage cache, Zustand store integration
+- **M1.3 Rate Limit UX**: 429 countdown chip with Retry-After header parsing and auto-retry
+- **M1.4 Request ID Tracking**: X-Request-Id header generation (crypto.randomUUID), debug tray display
+- **M1.5 SCM-Lite Toggle**: x-scm-lite header control (1|0), precedence over query params
+- **M1.6 96KB Payload Guard**: Client-side pre-flight validation using Blob size measurement
+
+#### M2: Assistants "Draft my model" (Skeleton)
+- **M2.1 BFF Proxy**: Supabase Edge Function for /bff/assist routes with 65s timeout
+- **M2.2 Draft Form**: Entry UI with file attachments (max 5 files)
+- **M2.3 Streaming UI**: Real-time event display with 2.5s test fixture
+- **M2.4 Diff Viewer**: Patch-first UI with selective apply/reject for nodes and edges
+- **M2.5 Provenance**: Document source chips with ≤100 char redaction (default ON)
+- **M2.6 Telemetry**: Correlation ID generation and forwarding (x-correlation-id header)
+
+#### M3: Guided Clarifier (Skeleton)
+- **M3 Clarifier Panel**: MCQ-first question answering with ≤3 rounds, progress indicator
+
+#### Components Created
+- ConnectivityChip (health status with backoff retry)
+- RateLimitChip (countdown display)
+- DebugTray (DEV-only diagnostics)
+- DraftForm (file upload, prompt entry)
+- DraftStreamPanel (SSE streaming with events)
+- DiffViewer (selective patch application)
+- ProvenanceChip (document sources with redaction)
+- ClarifierPanel (guided questions)
+
+#### Adapters Created
+- `/src/adapters/plot/v1/health.ts` - Health probe implementation
+- `/src/adapters/plot/v1/limits.ts` - Limits fetching with cache
+- `/src/adapters/plot/v1/payloadGuard.ts` - 96KB validation
+- `/src/adapters/assistants/types.ts` - Assistants API types (v1.3.1)
+- `/src/adapters/assistants/http.ts` - BFF client with SSE streaming
+- `/src/stores/limitsStore.ts` - Zustand limits state
+
+#### Tests Added
+- health.spec.ts (4 tests) - Health probe coverage
+- limits.spec.ts (3 tests) - Limits fetching and caching
+- payloadGuard.spec.ts (4 tests) - Payload size validation
+
 ### Security - Phase 1 Hotfixes (P0, Block-on-Green)
 
 #### Critical Security Fixes
