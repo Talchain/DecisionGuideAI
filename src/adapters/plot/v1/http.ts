@@ -18,6 +18,7 @@ import {
   RETRY,
   TIMEOUTS,
   calculateBackoffMs,
+  calculateRateLimitDelayMs,
   isRetryableStatus,
   isRetryableErrorCode,
 } from './constants'
@@ -64,9 +65,16 @@ async function withRetry<T>(
 
       // Don't sleep on last attempt
       if (attempt < maxAttempts - 1) {
-        const delayMs = calculateBackoffMs(attempt)
+        // AUDIT FIX 3: Use server-specified delay for rate-limited requests
+        const delayMs = error.code === 'RATE_LIMITED'
+          ? calculateRateLimitDelayMs(error.retry_after)
+          : calculateBackoffMs(attempt)
+
         if (import.meta.env.DEV) {
-          console.log(`[plot/v1] Retry ${attempt + 1}/${maxAttempts} after ${delayMs}ms (${error.code})`)
+          const retryInfo = error.code === 'RATE_LIMITED' && error.retry_after
+            ? `retry_after=${error.retry_after}s`
+            : `exponential backoff`
+          console.log(`[plot/v1] Retry ${attempt + 1}/${maxAttempts} after ${delayMs}ms (${error.code}, ${retryInfo})`)
         }
         // TODO(telemetry): Add metrics for retry counts, error codes, and latency to monitor
         // backend flakiness and optimize retry strategy. Consider Sentry breadcrumbs or custom metrics.

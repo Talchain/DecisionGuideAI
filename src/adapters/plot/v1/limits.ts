@@ -1,12 +1,19 @@
 /**
  * PLoT Engine Limits Client (M1.2)
  * Fetches and caches engine limits from GET /v1/limits
+ *
+ * AUDIT FIX 1: Proxy alignment - now defaults to /api/plot instead of direct Render URL
+ * AUDIT FIX 2: SSR safety - guards sessionStorage access for non-browser environments
  */
 
 import type { V1LimitsResponse } from './types'
 
+/**
+ * Get proxy base URL, aligned with http.ts pattern
+ * Defaults to /api/plot to go through hardened proxy (CORS, auth, rate limits)
+ */
 const getProxyBase = (): string => {
-  return import.meta.env.VITE_PLOT_PROXY_BASE || 'https://plot-lite-service.onrender.com'
+  return import.meta.env.VITE_PLOT_PROXY_BASE || '/api/plot'
 }
 
 const CACHE_KEY = 'plot_limits_cache'
@@ -18,12 +25,50 @@ interface CachedLimits {
 }
 
 /**
+ * SSR-safe sessionStorage wrapper
+ * Returns null in non-browser environments instead of throwing
+ */
+const safeSessionStorage = {
+  getItem: (key: string): string | null => {
+    if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') {
+      return null
+    }
+    try {
+      return sessionStorage.getItem(key)
+    } catch {
+      return null
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') {
+      return
+    }
+    try {
+      sessionStorage.setItem(key, value)
+    } catch {
+      // Ignore (quota exceeded, private mode, etc.)
+    }
+  },
+  removeItem: (key: string): void => {
+    if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') {
+      return
+    }
+    try {
+      sessionStorage.removeItem(key)
+    } catch {
+      // Ignore
+    }
+  },
+}
+
+/**
  * Fetch limits from engine with 1-hour cache
+ * Falls back to defaults if fetch fails
  */
 export async function fetchLimits(): Promise<V1LimitsResponse> {
-  // Check cache first
+  // Check cache first (SSR-safe)
   try {
-    const cached = sessionStorage.getItem(CACHE_KEY)
+    const cached = safeSessionStorage.getItem(CACHE_KEY)
     if (cached) {
       const parsed: CachedLimits = JSON.parse(cached)
       const age = Date.now() - parsed.timestamp
@@ -35,10 +80,10 @@ export async function fetchLimits(): Promise<V1LimitsResponse> {
       }
     }
   } catch {
-    // Ignore cache errors
+    // Ignore cache errors (JSON parse, etc.)
   }
 
-  // Fetch fresh limits
+  // Fetch fresh limits through proxy
   const base = getProxyBase()
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 5000)
@@ -57,13 +102,13 @@ export async function fetchLimits(): Promise<V1LimitsResponse> {
 
     const data: V1LimitsResponse = await response.json()
 
-    // Cache for 1 hour
+    // Cache for 1 hour (SSR-safe)
     try {
       const cache: CachedLimits = {
         data,
         timestamp: Date.now(),
       }
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify(cache))
+      safeSessionStorage.setItem(CACHE_KEY, JSON.stringify(cache))
     } catch {
       // Ignore cache errors
     }
@@ -96,11 +141,8 @@ export async function fetchLimits(): Promise<V1LimitsResponse> {
 
 /**
  * Clear limits cache (for manual refresh)
+ * SSR-safe
  */
 export function clearLimitsCache(): void {
-  try {
-    sessionStorage.removeItem(CACHE_KEY)
-  } catch {
-    // Ignore
-  }
+  safeSessionStorage.removeItem(CACHE_KEY)
 }

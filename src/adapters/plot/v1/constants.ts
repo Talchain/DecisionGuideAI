@@ -25,11 +25,12 @@ export const RETRY = {
 // Retryable error conditions
 export const RETRYABLE_ERRORS = {
   // HTTP status codes
-  STATUS_CODES: [500, 502, 503, 504] as const,
+  STATUS_CODES: [500, 502, 503, 504, 429] as const, // AUDIT FIX 3: Added 429 for rate limit retry
 
   // Error codes (TIMEOUT excluded - not transient, requires manual retry)
   // SERVER_ERROR = 5xx responses, NETWORK_ERROR = fetch failures
-  ERROR_CODES: ['SERVER_ERROR', 'NETWORK_ERROR'] as const,
+  // RATE_LIMITED = 429 responses (AUDIT FIX 3: now retryable with respect to retry_after)
+  ERROR_CODES: ['SERVER_ERROR', 'NETWORK_ERROR', 'RATE_LIMITED'] as const,
 } as const
 
 /**
@@ -44,6 +45,21 @@ export function calculateBackoffMs(attempt: number): number {
   const jitter = capped * RETRY.JITTER_FACTOR * (Math.random() * 2 - 1)
 
   return Math.floor(capped + jitter)
+}
+
+/**
+ * AUDIT FIX 3: Calculate retry delay respecting server's retry_after header
+ * For rate-limited requests (429), use server-specified delay instead of exponential backoff
+ */
+export function calculateRateLimitDelayMs(retryAfter: number | undefined): number {
+  if (!retryAfter) {
+    // No retry_after provided, use default backoff
+    return calculateBackoffMs(0)
+  }
+
+  // Convert seconds to milliseconds and cap at MAX_DELAY_MS
+  const delayMs = retryAfter * 1000
+  return Math.min(delayMs, RETRY.MAX_DELAY_MS)
 }
 
 /**
