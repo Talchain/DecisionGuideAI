@@ -7,6 +7,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - Phase C: UX Polish & Copy Audit (2025-01-12)
+
+#### British English Copy
+- Converted all "analyze" → "analyse" in user-facing strings (ResultsPanel, TemplatesPanel)
+- Updated button labels: "Analyse again", "Ready to analyse"
+- Applied to code comments for consistency
+
+#### Save Status Refinement
+- Changed format from "Saved {time} by {user}" to "Saved by {user} • {time}"
+- Uses bullet separator (•) for better visual hierarchy
+- Examples: "Saved by you • just now", "Saved by Alice • 2m ago"
+
+#### RunHistory Enhancements
+- Added "No material change" message for zero-delta runs
+- Improves clarity when comparing runs with identical edge data
+
+#### Always-Visible Usage Metrics
+- StatusChips now shows loading state instead of hiding
+- Displays "Nodes X • Edges Y" without max limits while loading
+- Ensures usage visibility at all times
+
+#### Disabled-State Tooltips
+- Added tooltips to all disabled buttons (InspectorPanel Apply/Reset)
+- Explains why disabled: "No changes to apply", "Cannot apply: {error}"
+- Wrapped in spans to support tooltips on disabled elements
+
+#### Accessibility Improvements
+- Added aria-live="polite" to ClarifierPanel round indicator
+- Added aria-live="polite" to submit button state changes
+- Improves screen reader announcements for dynamic content
+
+### Fixed - Phase B: Hotfixes & Hardening (2025-01-12)
+
+#### P0 Hotfixes
+- **ID Reseeding (ids.reseed.spec.ts)**: Parse numeric IDs, set counter to max+1, min watermark 5
+- **Compare Selection Dedupe (compare.selection.spec.ts)**: Set-based deduplication, slice(-2) for most recent 2
+- **Document Memory Guard (documents.guard.spec.ts)**: 1MB file limit, 5k chars/file, 25k total chars
+
+#### P1 Hotfixes
+- **Hydration Hygiene (hydrate.graphSlice.spec.ts)**: Selective merge of nodes/edges/scenarioId only, preserves UI state
+
+#### P2 Hotfixes
+- **Autosave Throttle (autosave.throttle.spec.ts)**: Payload diffing with JSON stringify, skips redundant writes
+- **Document Checksum (store.ts)**: FNV-1a hash implementation for content integrity
+- **Truncation UI Visibility (DocumentsManager, ProvenanceHubTab)**: Amber badges show when content truncated to 5k chars
+
+#### Test Coverage
+- 51 hotfix tests added (8 + 11 + 10 + 13 + 9)
+- 47 feature tests added (24 NeedleMoversOverlay + 23 ProvenanceChip)
+- All tests passing, TypeScript compilation clean
+
 ### Added - M4-M6: Graph Health, Provenance Hub & Compare v0 Integration
 
 #### M4: Graph Health & Repair
