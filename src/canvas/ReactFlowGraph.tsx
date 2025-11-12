@@ -355,21 +355,31 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   // M5: Documents handlers
   const handleUploadDocuments = useCallback(async (files: File[]) => {
     try {
+      let uploadedCount = 0
       for (const file of files) {
-        const content = await file.text()
-        const type = file.name.endsWith('.pdf') ? 'pdf' :
-                     file.name.endsWith('.txt') ? 'txt' :
-                     file.name.endsWith('.md') ? 'md' :
-                     file.name.endsWith('.csv') ? 'csv' : 'txt'
+        try {
+          const content = await file.text()
+          const type = file.name.endsWith('.pdf') ? 'pdf' :
+                       file.name.endsWith('.txt') ? 'txt' :
+                       file.name.endsWith('.md') ? 'md' :
+                       file.name.endsWith('.csv') ? 'csv' : 'txt'
 
-        addDocument({
-          name: file.name,
-          type: type as any,
-          content,
-          size: file.size
-        })
+          addDocument({
+            name: file.name,
+            type: type as any,
+            content,
+            size: file.size
+          })
+          uploadedCount++
+        } catch (fileErr) {
+          // Show specific error for this file
+          const message = fileErr instanceof Error ? fileErr.message : 'Failed to upload document'
+          showToast(`${file.name}: ${message}`, 'error')
+        }
       }
-      showToast(`${files.length} document${files.length > 1 ? 's' : ''} uploaded`, 'success')
+      if (uploadedCount > 0) {
+        showToast(`${uploadedCount} document${uploadedCount > 1 ? 's' : ''} uploaded`, 'success')
+      }
     } catch (err) {
       showToast('Failed to upload documents', 'error')
     }
@@ -556,10 +566,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     loadSettings()
     const loaded = loadState()
     if (loaded) {
-      // Ensure touchedNodeIds is a Set (persist doesn't save it)
-      useCanvasStore.setState({
-        ...loaded,
-        touchedNodeIds: new Set()
+      // P2: Use hydrateGraphSlice to avoid clobbering panels/results
+      useCanvasStore.getState().hydrateGraphSlice({
+        nodes: loaded.nodes,
+        edges: loaded.edges
       })
     }
   }, [loadSettings])
