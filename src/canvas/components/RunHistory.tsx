@@ -7,43 +7,115 @@
  * - Multi-select for comparison (up to 3)
  * - Quick actions: View, Pin, Delete
  * - Compact mini-sparkline visualization
+ * - Live refresh: Updates automatically when runs change (same-tab and cross-tab)
  */
 
-import { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { Pin, Trash2, Eye, GitCompare } from 'lucide-react'
-import { loadRuns, togglePin, deleteRun, computeRunSummary, type StoredRun } from '../store/runHistory'
+import { loadRuns, togglePin, deleteRun, computeRunSummary, STORAGE_KEY, type StoredRun } from '../store/runHistory'
+import * as runsBus from '../store/runsBus'
 
 interface RunHistoryProps {
+  // eslint-disable-next-line no-unused-vars
   onViewRun: (run: StoredRun) => void
+  // eslint-disable-next-line no-unused-vars
   onCompare: (runIds: string[]) => void
 }
 
 export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
-  const [runs, setRuns] = useState<StoredRun[]>(() => loadRuns())
+  const [runs, setRuns] = useState<StoredRun[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  const refreshRuns = useCallback(() => {
-    setRuns(loadRuns())
+  /**
+   * Debounced refresh function
+   * Uses requestAnimationFrame to throttle updates and preserve selection
+   */
+  const applyRefresh = useMemo(() => {
+    let rafId: number | null = null
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+
+    return () => {
+      // Cancel any pending RAF
+      if (rafId) {
+        window.cancelAnimationFrame(rafId)
+        rafId = null
+      }
+
+      // Clear any pending debounce
+      if (debounceTimer) {
+        clearTimeout(debounceTimer)
+      }
+
+      // Debounce to 200ms to prevent render storms
+      debounceTimer = setTimeout(() => {
+        rafId = window.requestAnimationFrame(() => {
+          const nextRuns = loadRuns()
+          setRuns(nextRuns)
+
+          // Preserve selection for IDs that still exist
+          setSelectedIds(prev => {
+            const nextIds = new Set(nextRuns.map(r => r.id))
+            const preserved = new Set([...prev].filter(id => nextIds.has(id)))
+            return preserved.size === prev.size ? prev : preserved
+          })
+
+          rafId = null
+        })
+      }, 200)
+    }
   }, [])
+
+  /**
+   * Subscribe to runs updates
+   * - Same-tab: runsBus events
+   * - Cross-tab: storage events
+   * - Visibility: refresh when tab becomes visible
+   */
+  useEffect(() => {
+    // Initial load
+    applyRefresh()
+
+    // Same-tab updates via bus
+    const unsubscribe = runsBus.on(applyRefresh)
+
+    // Cross-tab updates via storage event
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY) {
+        applyRefresh()
+      }
+    }
+    window.addEventListener('storage', onStorage)
+
+    // Refresh when tab becomes visible (handles background updates)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        applyRefresh()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    // Cleanup
+    return () => {
+      unsubscribe()
+      window.removeEventListener('storage', onStorage)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [applyRefresh])
 
   const handleTogglePin = useCallback((runId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     togglePin(runId)
-    refreshRuns()
-  }, [refreshRuns])
+    // No manual refresh needed - bus will emit and trigger applyRefresh
+  }, [])
 
   const handleDelete = useCallback((runId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     if (window.confirm('Delete this run?')) {
       deleteRun(runId)
-      refreshRuns()
-      setSelectedIds(prev => {
-        const next = new Set(prev)
-        next.delete(runId)
-        return next
-      })
+      // No manual refresh needed - bus will emit and trigger applyRefresh
+      // Selection will be preserved automatically via applyRefresh
     }
-  }, [refreshRuns])
+  }, [])
 
   const handleToggleSelect = useCallback((runId: string) => {
     setSelectedIds(prev => {

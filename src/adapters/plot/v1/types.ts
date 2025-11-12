@@ -148,20 +148,22 @@ export const V1_LIMITS = {
   RATE_LIMIT_RPM: 60,
 } as const
 
-// v1.2: Extended limits response
-// Backend returns flat format (max_nodes, max_edges), adapter maps to nested format
+// v1.2: Extended limits response (M1 spec format)
 export interface V1LimitsResponse {
-  // Nested format (UI contract, mapped by adapter)
+  schema: 'limits.v1'
+  max_nodes: number
+  max_edges: number
+  max_body_kb: number
+  rate_limit_rpm: number
+  flags?: {
+    scm_lite?: number // 0 or 1
+    [key: string]: unknown
+  }
+  engine_p95_ms_budget?: number // v1.2: p95 execution time budget in milliseconds
+
+  // Legacy nested format for backwards compat
   nodes?: { max: number }
   edges?: { max: number }
-
-  // Flat format (actual backend response)
-  max_nodes?: number
-  max_edges?: number
-  max_body_kb?: number
-  schema?: string
-
-  engine_p95_ms_budget?: number // v1.2: p95 execution time budget in milliseconds
 }
 
 // SSE handlers

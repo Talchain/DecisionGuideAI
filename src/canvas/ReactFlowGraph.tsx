@@ -38,6 +38,11 @@ import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
 import { loadRuns } from './store/runHistory'
 import { useEdgeLabelModeSync } from './store/edgeLabelMode'
+import { HealthStatusBar } from './components/HealthStatusBar'
+import { IssuesPanel } from './panels/IssuesPanel'
+import { NeedleMoversOverlay } from './components/NeedleMoversOverlay'
+import { DocumentsManager } from './components/DocumentsManager'
+import { ProvenanceHubTab } from './components/ProvenanceHubTab'
 
 interface ReactFlowGraphProps {
   blueprintEventBus?: {
@@ -68,6 +73,26 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const setShowInspectorPanel = useCanvasStore(s => s.setShowInspectorPanel)
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
+
+  // M4: Graph Health state
+  const graphHealth = useCanvasStore(s => s.graphHealth)
+  const showIssuesPanel = useCanvasStore(s => s.showIssuesPanel)
+  const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
+  const applyRepair = useCanvasStore(s => s.applyRepair)
+  const applyAllRepairs = useCanvasStore(s => s.applyAllRepairs)
+  const needleMovers = useCanvasStore(s => s.needleMovers)
+
+  // M5: Grounding & Provenance state
+  const documents = useCanvasStore(s => s.documents)
+  const citations = useCanvasStore(s => s.citations)
+  const showDocumentsDrawer = useCanvasStore(s => s.showDocumentsDrawer)
+  const setShowDocumentsDrawer = useCanvasStore(s => s.setShowDocumentsDrawer)
+  const showProvenanceHub = useCanvasStore(s => s.showProvenanceHub)
+  const setShowProvenanceHub = useCanvasStore(s => s.setShowProvenanceHub)
+  const provenanceRedactionEnabled = useCanvasStore(s => s.provenanceRedactionEnabled)
+  const toggleProvenanceRedaction = useCanvasStore(s => s.toggleProvenanceRedaction)
+  const addDocument = useCanvasStore(s => s.addDocument)
+  const removeDocument = useCanvasStore(s => s.removeDocument)
 
   // Results panel hook
   const { run: runAnalysis, cancel: cancelAnalysis } = useResultsRun()
@@ -169,6 +194,41 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.hash, location.search])  // Re-run when hash or search params change
 
+  // M4: Graph Health validation lifecycle (debounced)
+  const validateGraph = useCanvasStore(s => s.validateGraph)
+  const validationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    // Validate on mount (initial load)
+    validateGraph()
+
+    // Cleanup timer on unmount
+    return () => {
+      if (validationTimerRef.current) {
+        clearTimeout(validationTimerRef.current)
+      }
+    }
+  }, []) // Only run on mount
+
+  // Validate when graph changes (debounced to avoid excessive validation)
+  useEffect(() => {
+    // Clear existing timer
+    if (validationTimerRef.current) {
+      clearTimeout(validationTimerRef.current)
+    }
+
+    // Debounce validation by 500ms after graph changes
+    validationTimerRef.current = setTimeout(() => {
+      validateGraph()
+    }, 500)
+
+    return () => {
+      if (validationTimerRef.current) {
+        clearTimeout(validationTimerRef.current)
+      }
+    }
+  }, [nodes, edges, validateGraph]) // Re-run when graph structure changes
+
   const handleNodeClick = useCallback((_: any, node: any) => {
     // Close Templates panel when interacting with canvas
     onCanvasInteraction?.()
@@ -251,9 +311,20 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       return
     }
 
-    // Check if graph has validation errors using shared utility
+    // M4: Trigger validation before run to ensure fresh health check
+    await store.validateGraph()
+
+    // Check for probability validation errors (existing flow)
     if (hasValidationErrors(store)) {
       showToast('Fix probability errors before running (Alt+V to navigate)', 'warning')
+      return
+    }
+
+    // M4: Check for critical graph health issues
+    const { graphHealth } = useCanvasStore.getState()
+    if (graphHealth && graphHealth.status === 'errors') {
+      const errorCount = graphHealth.issues.filter(i => i.severity === 'error').length
+      showToast(`Fix ${errorCount} graph error${errorCount > 1 ? 's' : ''} before running — see Issues panel`, 'error')
       return
     }
 
@@ -270,12 +341,52 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])  // No dependencies - stable functions (showToast, runAnalysis, setShowResultsPanel)
 
-  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, ?)
+  // M4: Health panel handlers
+  const handleFixIssue = useCallback(async (issue: any) => {
+    await applyRepair(issue.id)
+    showToast('Issue fixed — graph updated', 'success')
+  }, [applyRepair, showToast])
+
+  const handleQuickFixAll = useCallback(async () => {
+    await applyAllRepairs()
+    showToast('All fixable issues resolved', 'success')
+  }, [applyAllRepairs, showToast])
+
+  // M5: Documents handlers
+  const handleUploadDocuments = useCallback(async (files: File[]) => {
+    try {
+      for (const file of files) {
+        const content = await file.text()
+        const type = file.name.endsWith('.pdf') ? 'pdf' :
+                     file.name.endsWith('.txt') ? 'txt' :
+                     file.name.endsWith('.md') ? 'md' :
+                     file.name.endsWith('.csv') ? 'csv' : 'txt'
+
+        addDocument({
+          name: file.name,
+          type: type as any,
+          content,
+          size: file.size
+        })
+      }
+      showToast(`${files.length} document${files.length > 1 ? 's' : ''} uploaded`, 'success')
+    } catch (err) {
+      showToast('Failed to upload documents', 'error')
+    }
+  }, [addDocument, showToast])
+
+  const handleDeleteDocument = useCallback((documentId: string) => {
+    removeDocument(documentId)
+    showToast('Document removed', 'success')
+  }, [removeDocument, showToast])
+
+  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, ?)
   useCanvasKeyboardShortcuts({
     onFocusNode: handleFocusNode,
     onRunSimulation: handleRunSimulation,
     onToggleResults: () => setShowResultsPanel(prev => !prev),
     onToggleInspector: () => setShowInspectorPanel(prev => !prev),
+    onToggleDocuments: () => setShowDocumentsDrawer(prev => !prev),
     onShowKeyboardMap: () => setShowKeyboardMap(true),
     onShowToast: showToast
   })
@@ -538,7 +649,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
       {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
       {reconnecting && <ReconnectBanner />}
-      
+
       <CanvasToolbar />
       <PropertiesPanel />
       <SettingsPanel />
@@ -546,11 +657,90 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       <ValidationChip onFocusNode={handleFocusNode} />
       <RecoveryBanner />
 
+      {/* M4: Graph Health UI */}
+      {graphHealth && graphHealth.issues.length > 0 && (
+        <div className="absolute top-20 left-4 right-4 z-10 max-w-2xl">
+          <HealthStatusBar
+            health={graphHealth}
+            onShowIssues={() => setShowIssuesPanel(true)}
+            onQuickFix={handleQuickFixAll}
+          />
+        </div>
+      )}
+      {needleMovers.length > 0 && (
+        <NeedleMoversOverlay
+          movers={needleMovers}
+          onFocusNode={handleFocusNode}
+          onFocusEdge={handleFocusEdge}
+        />
+      )}
+
       {showCommandPalette && <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} onOpenInspector={() => setShowInspectorPanel(true)} />}
       {showCheatsheet && <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />}
       {showKeyboardMap && <KeyboardMap isOpen={showKeyboardMap} onClose={() => setShowKeyboardMap(false)} />}
       {showResultsPanel && <ResultsPanel isOpen={showResultsPanel} onClose={() => setShowResultsPanel(false)} onCancel={cancelAnalysis} />}
       {showInspectorPanel && <InspectorPanel isOpen={showInspectorPanel} onClose={() => setShowInspectorPanel(false)} />}
+      {showIssuesPanel && graphHealth && (
+        <IssuesPanel
+          issues={graphHealth.issues}
+          onFixIssue={handleFixIssue}
+          onClose={() => setShowIssuesPanel(false)}
+        />
+      )}
+
+      {/* M5: Documents drawer (left side) */}
+      {showDocumentsDrawer && (
+        <div
+          className="fixed left-0 top-0 bottom-0 w-96 bg-white border-r border-gray-200 shadow-lg overflow-hidden"
+          style={{ zIndex: 2000 }}
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <h2 className="font-semibold text-gray-900">Documents</h2>
+            <button
+              onClick={() => setShowDocumentsDrawer(false)}
+              className="p-1 hover:bg-gray-100 rounded"
+              aria-label="Close documents drawer"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="h-[calc(100vh-56px)]">
+            <DocumentsManager
+              documents={documents}
+              onUpload={handleUploadDocuments}
+              onDelete={handleDeleteDocument}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* M5: Provenance Hub panel (right side) */}
+      {showProvenanceHub && (
+        <div
+          className="fixed right-0 top-0 bottom-0 w-[32rem] bg-white border-l border-gray-200 shadow-lg overflow-hidden"
+          style={{ zIndex: 2000 }}
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <h2 className="font-semibold text-gray-900">Provenance Hub</h2>
+            <button
+              onClick={() => setShowProvenanceHub(false)}
+              className="p-1 hover:bg-gray-100 rounded"
+              aria-label="Close provenance panel"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="h-[calc(100vh-56px)]">
+            <ProvenanceHubTab
+              citations={citations}
+              documents={documents}
+              redactionEnabled={provenanceRedactionEnabled}
+              onToggleRedaction={toggleProvenanceRedaction}
+              onFocusNode={handleFocusNode}
+            />
+          </div>
+        </div>
+      )}
 
       {existingTemplate && pendingBlueprint && (
         <ConfirmDialog

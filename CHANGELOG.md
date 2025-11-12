@@ -7,6 +7,132 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - M4-M6: Graph Health, Provenance Hub & Compare v0 Integration
+
+#### M4: Graph Health & Repair
+- **M4.1 Graph Validation**: Lifecycle integration (load/edit/patch/pre-run) with debounced validation (500ms)
+- **M4.2 Health Status Bar**: Top banner with score/100, issue counts, Quick Fix All button
+- **M4.3 Issues Panel**: Right-side panel with detailed issue list, severity grouping, individual quick fixes
+- **M4.4 Needle Movers Overlay**: Highlights high-impact nodes with focus handlers
+- **M4.5 Pre-run Gate**: Blocks execution on critical graph health errors
+- **Deterministic Repair Order**: dangling_edge → self_loop → duplicate_edge → cycle → missing_label → orphan_node
+
+#### M5: Grounding & Provenance Hub
+- **M5.1 Documents Drawer**: Left-side drawer (Cmd+D) with drag-drop upload, file management
+- **M5.2 Provenance Hub Panel**: Right-side panel showing all citations and document connections
+- **M5.3 Citation Search**: Filter citations by snippet or node ID with document filtering
+- **M5.4 Redaction**: Toggle snippet redaction (ON by default, ≤100 chars)
+- **M5.5 Deep-linking**: Click citation to focus node in graph
+- **File Support**: PDF, TXT, MD, CSV with type detection and metadata
+
+#### M6: Compare v0 + Decision Rationale + Local Export
+- **M6.1 Compare Tab**: Already integrated in ResultsPanel with side-by-side run comparison
+- **M6.2 Snapshot Components**: SnapshotPanel and ScenarioComparison (feature-flagged: VITE_FEATURE_SNAPSHOTS_V2)
+- **M6.3 Decision Rationale**: DecisionRationaleForm component for capturing decision reasoning
+- **M6.4 Local Export**: exportLocal() method in store for exporting canvas with run summary
+
+#### Components Integrated
+- HealthStatusBar (M4 health display)
+- IssuesPanel (M4 detailed issues)
+- NeedleMoversOverlay (M4 high-impact nodes)
+- DocumentsManager (M5 file upload/management)
+- ProvenanceHubTab (M5 citations view)
+- CompareView (M6 run comparison - already integrated)
+- SnapshotPanel (M6 - feature-flagged)
+- ScenarioComparison (M6 - feature-flagged)
+- DecisionRationaleForm (M6 - available)
+
+#### State Management
+- Added M4/M5/M6 state to canvas store (graphHealth, documents, citations, snapshots, rationale)
+- Dynamic imports for code-splitting (validation, repair modules)
+- Debounced validation to prevent excessive computation
+- Pre-run validation gates execution on error state
+
+#### Keyboard Shortcuts
+- **Cmd/Ctrl+D**: Toggle Documents drawer (M5)
+
+### Added - M1-M3: PLoT Engine Hardening & Assistants Integration
+
+#### M1: PLoT Engine Integration Hardening
+- **M1.1 Health Probe**: HEAD /v1/run health check with 1→3→10s backoff and manual retry
+- **M1.2 Live Limits**: GET /v1/limits with 1h sessionStorage cache, Zustand store integration
+- **M1.3 Rate Limit UX**: 429 countdown chip with Retry-After header parsing and auto-retry
+- **M1.4 Request ID Tracking**: X-Request-Id header generation (crypto.randomUUID), debug tray display
+- **M1.5 SCM-Lite Toggle**: x-scm-lite header control (1|0), precedence over query params
+- **M1.6 96KB Payload Guard**: Client-side pre-flight validation using Blob size measurement
+
+#### M2: Assistants "Draft my model" (Skeleton)
+- **M2.1 BFF Proxy**: Supabase Edge Function for /bff/assist routes with 65s timeout
+- **M2.2 Draft Form**: Entry UI with file attachments (max 5 files)
+- **M2.3 Streaming UI**: Real-time event display with 2.5s test fixture
+- **M2.4 Diff Viewer**: Patch-first UI with selective apply/reject for nodes and edges
+- **M2.5 Provenance**: Document source chips with ≤100 char redaction (default ON)
+- **M2.6 Telemetry**: Correlation ID generation and forwarding (x-correlation-id header)
+
+#### M3: Guided Clarifier (Skeleton)
+- **M3 Clarifier Panel**: MCQ-first question answering with ≤3 rounds, progress indicator
+
+#### Components Created
+- ConnectivityChip (health status with backoff retry)
+- RateLimitChip (countdown display)
+- DebugTray (DEV-only diagnostics)
+- DraftForm (file upload, prompt entry)
+- DraftStreamPanel (SSE streaming with events)
+- DiffViewer (selective patch application)
+- ProvenanceChip (document sources with redaction)
+- ClarifierPanel (guided questions)
+
+#### Adapters Created
+- `/src/adapters/plot/v1/health.ts` - Health probe implementation
+- `/src/adapters/plot/v1/limits.ts` - Limits fetching with cache
+- `/src/adapters/plot/v1/payloadGuard.ts` - 96KB validation
+- `/src/adapters/assistants/types.ts` - Assistants API types (v1.3.1)
+- `/src/adapters/assistants/http.ts` - BFF client with SSE streaming
+- `/src/stores/limitsStore.ts` - Zustand limits state
+
+#### Tests Added
+- health.spec.ts (4 tests) - Health probe coverage
+- limits.spec.ts (3 tests) - Limits fetching and caching
+- payloadGuard.spec.ts (4 tests) - Payload size validation
+
+### Added - M4-M6: Graph Health, Provenance, & Comparison
+
+#### M4: Graph Health & Repair
+- **Validation Types**: Issue types (cycle, dangling_edge, orphan_node, duplicate_edge, self_loop, missing_label)
+- **Graph Validator**: Cycle detection (DFS), dangling edge detection, orphan node detection, duplicate edges, self-loops
+- **Graph Repair**: Deterministic fixes with stable ordering, quick fix all issues, atomic repair actions
+- **Health Status Bar**: Score display (0-100), issue counts by severity, quick fix button, expandable progress bar
+- **Issues Panel**: Grouped by severity (error/warning/info), individual quick fix buttons, node/edge highlighting
+- **Needle-Movers Overlay**: Impact ranking (high/medium/low), top 5 key factors, focus node on click
+
+#### M5: Grounding & Provenance Hub
+- **Document Types**: Support for PDF, TXT, MD, CSV, URL references with metadata
+- **Documents Manager**: Drag & drop upload, file size display, document cards with delete/download actions
+- **Provenance Hub Tab**: Citation listing grouped by document, search filter, snippet display with redaction
+- **Citation Tracking**: Node/edge references, document snippets with char offsets, confidence scores
+
+#### M6: Compare v0 & Decision Rationale
+- **Snapshot Types**: Graph snapshots with metadata, comparison result types (added/removed/modified/unchanged)
+- **Scenario Comparison**: Side-by-side view, changes-only view, stats bar with counts, export functionality
+- **Decision Rationale**: Capture reasoning, pros/cons lists, alternatives considered, approval status tracking
+- **Decision Status**: Approved/rejected/pending with icons, decided by field, timestamp tracking
+
+#### Components Created (M4-M6)
+- HealthStatusBar (graph health display)
+- IssuesPanel (validation issues with fixes)
+- NeedleMoversOverlay (impact ranking)
+- DocumentsManager (file upload and management)
+- ProvenanceHubTab (citations and sources)
+- ScenarioComparison (snapshot diff viewer)
+- DecisionRationaleForm (decision capture)
+
+#### Utilities Created (M4-M6)
+- `/src/canvas/validation/types.ts` - Validation and repair types
+- `/src/canvas/validation/graphValidator.ts` - Graph validation logic
+- `/src/canvas/validation/graphRepair.ts` - Repair actions and quick fixes
+- `/src/canvas/share/types.ts` - Document and citation types
+- `/src/canvas/snapshots/types.ts` - Snapshot and comparison types
+
 ### Security - Phase 1 Hotfixes (P0, Block-on-Green)
 
 #### Critical Security Fixes

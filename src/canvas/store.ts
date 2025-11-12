@@ -13,6 +13,9 @@ import type { ReportV1, ErrorV1 } from '../adapters/plot/types'
 import { addRun, generateGraphHash, type StoredRun } from './store/runHistory'
 import * as scenarios from './store/scenarios'
 import type { Scenario } from './store/scenarios'
+import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/types'
+import type { Document, Citation } from './share/types'
+import type { Snapshot, DecisionRationale } from './snapshots/types'
 
 // Results panel state machine
 export type ResultsStatus = 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'
@@ -71,6 +74,20 @@ interface CanvasState {
   showInspectorPanel: boolean
   showTemplatesPanel: boolean
   templatesPanelInvoker: HTMLElement | null
+  // M4: Graph Health & Repair
+  graphHealth: GraphHealth | null
+  showIssuesPanel: boolean
+  needleMovers: NeedleMover[]
+  // M5: Grounding & Provenance
+  documents: Document[]
+  citations: Citation[]
+  showProvenanceHub: boolean
+  showDocumentsDrawer: boolean
+  provenanceRedactionEnabled: boolean
+  // M6: Compare & Decision Rationale
+  selectedSnapshotsForComparison: string[] // Snapshot IDs
+  showComparePanel: boolean
+  currentDecisionRationale: DecisionRationale | null
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
@@ -133,6 +150,24 @@ interface CanvasState {
   setShowInspectorPanel: (show: boolean) => void
   openTemplatesPanel: (invoker?: HTMLElement) => void
   closeTemplatesPanel: () => void
+  // M4: Graph Health actions
+  validateGraph: () => void
+  setShowIssuesPanel: (show: boolean) => void
+  applyRepair: (issueId: string) => void
+  applyAllRepairs: () => void
+  setNeedleMovers: (movers: NeedleMover[]) => void
+  // M5: Provenance actions
+  addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
+  removeDocument: (id: string) => void
+  addCitation: (citation: Omit<Citation, 'id' | 'createdAt'>) => void
+  setShowProvenanceHub: (show: boolean) => void
+  setShowDocumentsDrawer: (show: boolean) => void
+  toggleProvenanceRedaction: () => void
+  // M6: Compare & Snapshots actions
+  setSelectedSnapshotsForComparison: (snapshotIds: string[]) => void
+  setShowComparePanel: (show: boolean) => void
+  setDecisionRationale: (rationale: DecisionRationale | null) => void
+  exportLocal: () => string
 }
 
 let historyTimer: ReturnType<typeof setTimeout> | null = null
@@ -219,6 +254,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   showInspectorPanel: false,
   showTemplatesPanel: false,
   templatesPanelInvoker: null,
+  // M4: Graph Health & Repair
+  graphHealth: null,
+  showIssuesPanel: false,
+  needleMovers: [],
+  // M5: Grounding & Provenance
+  documents: [],
+  citations: [],
+  showProvenanceHub: false,
+  showDocumentsDrawer: false,
+  provenanceRedactionEnabled: true, // M5: Redaction ON by default
+  // M6: Compare & Decision Rationale
+  selectedSnapshotsForComparison: [],
+  showComparePanel: false,
+  currentDecisionRationale: null,
 
   createNodeId: () => {
     const { nextNodeId } = get()
@@ -1146,6 +1195,143 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         }
       }, 100)
     }
+  },
+
+  // M4: Graph Health actions
+  validateGraph: async () => {
+    const { nodes, edges } = get()
+
+    // Dynamic import to avoid bundling validation if not used
+    const { validateGraph: validate } = await import('./validation/graphValidator')
+    const health = validate(nodes, edges)
+
+    set({ graphHealth: health })
+  },
+
+  setShowIssuesPanel: (show: boolean) => {
+    set({ showIssuesPanel: show })
+  },
+
+  applyRepair: async (issueId: string) => {
+    const { graphHealth, nodes, edges } = get()
+    if (!graphHealth) return
+
+    const issue = graphHealth.issues.find(i => i.id === issueId)
+    if (!issue || !issue.suggestedFix) return
+
+    // Push to history before repair
+    pushToHistory(get, set)
+
+    const { applyRepair: apply } = await import('./validation/graphRepair')
+    const { nodes: repairedNodes, edges: repairedEdges } = apply(nodes, edges, issue.suggestedFix)
+
+    set({ nodes: repairedNodes, edges: repairedEdges })
+
+    // Re-validate after repair
+    get().validateGraph()
+  },
+
+  applyAllRepairs: async () => {
+    const { graphHealth, nodes, edges } = get()
+    if (!graphHealth) return
+
+    const fixableIssues = graphHealth.issues.filter(i => i.suggestedFix)
+    if (fixableIssues.length === 0) return
+
+    // Push to history before repairs
+    pushToHistory(get, set)
+
+    const { quickFixAll } = await import('./validation/graphRepair')
+    const { nodes: repairedNodes, edges: repairedEdges } = quickFixAll(nodes, edges, graphHealth.issues)
+
+    set({ nodes: repairedNodes, edges: repairedEdges })
+
+    // Re-validate after repairs
+    get().validateGraph()
+  },
+
+  setNeedleMovers: (movers: NeedleMover[]) => {
+    set({ needleMovers: movers })
+  },
+
+  // M5: Provenance actions
+  addDocument: (document) => {
+    const id = crypto.randomUUID()
+    const newDoc: Document = {
+      ...document,
+      id,
+      uploadedAt: new Date()
+    }
+    set(s => ({ documents: [...s.documents, newDoc] }))
+    return id
+  },
+
+  removeDocument: (id) => {
+    set(s => ({
+      documents: s.documents.filter(d => d.id !== id),
+      citations: s.citations.filter(c => c.documentId !== id)
+    }))
+  },
+
+  addCitation: (citation) => {
+    const id = crypto.randomUUID()
+    const newCitation: Citation = {
+      ...citation,
+      id,
+      createdAt: new Date()
+    }
+    set(s => ({ citations: [...s.citations, newCitation] }))
+  },
+
+  setShowProvenanceHub: (show: boolean) => {
+    set({ showProvenanceHub: show })
+  },
+
+  setShowDocumentsDrawer: (show: boolean) => {
+    set({ showDocumentsDrawer: show })
+  },
+
+  toggleProvenanceRedaction: () => {
+    set(s => ({ provenanceRedactionEnabled: !s.provenanceRedactionEnabled }))
+  },
+
+  // M6: Compare & Snapshots actions
+  setSelectedSnapshotsForComparison: (snapshotIds: string[]) => {
+    // Only allow exactly 2 snapshots for comparison
+    if (snapshotIds.length > 2) {
+      snapshotIds = snapshotIds.slice(-2)
+    }
+    set({ selectedSnapshotsForComparison: snapshotIds })
+  },
+
+  setShowComparePanel: (show: boolean) => {
+    set({ showComparePanel: show })
+  },
+
+  setDecisionRationale: (rationale: DecisionRationale | null) => {
+    set({ currentDecisionRationale: rationale })
+  },
+
+  exportLocal: () => {
+    const { nodes, edges, results, currentDecisionRationale } = get()
+
+    const exportData = {
+      version: '1.0',
+      timestamp: new Date().toISOString(),
+      graph: { nodes, edges },
+      lastRun: results.report ? {
+        summary: results.report.summary,
+        p10: results.report.p10,
+        p50: results.report.p50,
+        p90: results.report.p90,
+        seed: results.seed,
+        hash: results.hash
+      } : null,
+      rationale: currentDecisionRationale,
+      note: 'Local export — openable on this device/profile only.'
+    }
+
+    return JSON.stringify(exportData, null, 2)
   },
 
   cleanup: clearTimers

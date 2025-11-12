@@ -18,9 +18,11 @@ import {
   RETRY,
   TIMEOUTS,
   calculateBackoffMs,
+  calculateRateLimitDelayMs,
   isRetryableStatus,
   isRetryableErrorCode,
 } from './constants'
+import { validatePayloadSize } from './payloadGuard'
 
 const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/api/plot'
@@ -63,9 +65,16 @@ async function withRetry<T>(
 
       // Don't sleep on last attempt
       if (attempt < maxAttempts - 1) {
-        const delayMs = calculateBackoffMs(attempt)
+        // AUDIT FIX 3: Use server-specified delay for rate-limited requests
+        const delayMs = error.code === 'RATE_LIMITED'
+          ? calculateRateLimitDelayMs(error.retry_after)
+          : calculateBackoffMs(attempt)
+
         if (import.meta.env.DEV) {
-          console.log(`[plot/v1] Retry ${attempt + 1}/${maxAttempts} after ${delayMs}ms (${error.code})`)
+          const retryInfo = error.code === 'RATE_LIMITED' && error.retry_after
+            ? `retry_after=${error.retry_after}s`
+            : `exponential backoff`
+          console.log(`[plot/v1] Retry ${attempt + 1}/${maxAttempts} after ${delayMs}ms (${error.code}, ${retryInfo})`)
         }
         // TODO(telemetry): Add metrics for retry counts, error codes, and latency to monitor
         // backend flakiness and optimize retry strategy. Consider Sentry breadcrumbs or custom metrics.
@@ -88,16 +97,18 @@ const mapHttpError = async (response: Response): Promise<V1Error> => {
     body = {}
   }
 
-  // Handle rate limiting
+  // M1.3: Handle rate limiting with Retry-After and X-RateLimit-Reason
   if (response.status === 429) {
     // Check both header and body for retry_after
     const retryAfterHeader = response.headers.get('Retry-After')
     const retryAfter = body.retry_after ?? (retryAfterHeader ? parseInt(retryAfterHeader, 10) : undefined)
+    const reason = response.headers.get('X-RateLimit-Reason') || body.reason || 'Rate limit exceeded'
+
     return {
       code: 'RATE_LIMITED',
       message: body.error || 'Too many requests',
       retry_after: retryAfter,
-      details: { ...body, status: response.status },
+      details: { ...body, status: response.status, reason },
     }
   }
 
@@ -185,10 +196,12 @@ export async function health(): Promise<V1HealthResponse> {
 
 /**
  * POST /v1/run (sync) - internal implementation without retry
+ * M1.4: Adds X-Request-Id header
+ * M1.5: Adds x-scm-lite header if enabled
  */
 async function runSyncOnce(
   request: V1RunRequest,
-  options?: { timeoutMs?: number; signal?: AbortSignal }
+  options?: { timeoutMs?: number; signal?: AbortSignal; requestId?: string; scmLite?: boolean }
 ): Promise<V1SyncRunResponse> {
   const base = getProxyBase()
   const timeouts = getTimeouts()
@@ -203,15 +216,40 @@ async function runSyncOnce(
   }
 
   try {
+    // M1.6: Validate payload size (96KB guard)
+    const payloadCheck = validatePayloadSize(request)
+    if (!payloadCheck.valid) {
+      throw {
+        code: 'LIMIT_EXCEEDED',
+        message: payloadCheck.error || 'Payload too large',
+        details: { sizeKB: payloadCheck.sizeKB, maxKB: 96 },
+      } as V1Error
+    }
+
     const idempotencyKey = request.idempotencyKey || request.clientHash
+
+    // M1.4: Generate request ID if not provided
+    const requestId = options?.requestId || crypto.randomUUID()
+
+    // Build headers
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Request-Id': requestId, // M1.4
+      'x-olumi-sdk': 'plot-client/1.0.0', // M1.6
+    }
+
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey
+    }
+
+    // M1.5: Add SCM-lite header (takes precedence over query params)
+    if (options?.scmLite !== undefined) {
+      headers['x-scm-lite'] = options.scmLite ? '1' : '0'
+    }
+
     const response = await fetch(`${base}/v1/run`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(idempotencyKey && {
-          'Idempotency-Key': idempotencyKey,
-        }),
-      },
+      headers,
       body: JSON.stringify(request),
       signal: controller.signal,
     })
@@ -242,10 +280,12 @@ async function runSyncOnce(
 
 /**
  * POST /v1/run (sync) with automatic retry
+ * M1.4: Accepts requestId
+ * M1.5: Accepts scmLite toggle
  */
 export async function runSync(
   request: V1RunRequest,
-  options?: { timeoutMs?: number; signal?: AbortSignal }
+  options?: { timeoutMs?: number; signal?: AbortSignal; requestId?: string; scmLite?: boolean }
 ): Promise<V1SyncRunResponse> {
   return withRetry(() => runSyncOnce(request, options))
 }
