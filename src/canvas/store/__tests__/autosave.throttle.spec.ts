@@ -60,7 +60,7 @@ describe('Autosave Throttle', () => {
 
       saveAutosave(data)
 
-      const stored = localStorageMock.getItem('canvas-autosave')
+      const stored = localStorageMock.getItem('olumi-canvas-autosave')
       expect(stored).not.toBeNull()
       expect(JSON.parse(stored!)).toMatchObject({
         timestamp: data.timestamp,
@@ -80,11 +80,11 @@ describe('Autosave Throttle', () => {
 
       // First save
       saveAutosave(data)
-      const firstPayload = localStorageMock.getItem('canvas-autosave')
+      const firstPayload = localStorageMock.getItem('olumi-canvas-autosave')
 
       // Second save with identical data - should skip
       saveAutosave(data)
-      const secondPayload = localStorageMock.getItem('canvas-autosave')
+      const secondPayload = localStorageMock.getItem('olumi-canvas-autosave')
 
       // Should be the same reference (no write occurred)
       expect(secondPayload).toBe(firstPayload)
@@ -110,12 +110,12 @@ describe('Autosave Throttle', () => {
 
       // First save
       saveAutosave(data1)
-      const firstPayload = localStorageMock.getItem('canvas-autosave')
+      const firstPayload = localStorageMock.getItem('olumi-canvas-autosave')
       const firstParsed = JSON.parse(firstPayload!)
 
       // Second save with changed data - should write
       saveAutosave(data2)
-      const secondPayload = localStorageMock.getItem('canvas-autosave')
+      const secondPayload = localStorageMock.getItem('olumi-canvas-autosave')
       const secondParsed = JSON.parse(secondPayload!)
 
       expect(secondPayload).not.toBe(firstPayload)
@@ -141,10 +141,10 @@ describe('Autosave Throttle', () => {
       }
 
       saveAutosave(data1)
-      const firstPayload = localStorageMock.getItem('canvas-autosave')
+      const firstPayload = localStorageMock.getItem('olumi-canvas-autosave')
 
       saveAutosave(data2)
-      const secondPayload = localStorageMock.getItem('canvas-autosave')
+      const secondPayload = localStorageMock.getItem('olumi-canvas-autosave')
 
       expect(secondPayload).not.toBe(firstPayload)
       expect(JSON.parse(secondPayload!).nodes[0].data.label).toBe('Modified')
@@ -169,10 +169,10 @@ describe('Autosave Throttle', () => {
       }
 
       saveAutosave(data1)
-      const firstPayload = localStorageMock.getItem('canvas-autosave')
+      const firstPayload = localStorageMock.getItem('olumi-canvas-autosave')
 
       saveAutosave(data2)
-      const secondPayload = localStorageMock.getItem('canvas-autosave')
+      const secondPayload = localStorageMock.getItem('olumi-canvas-autosave')
 
       expect(secondPayload).not.toBe(firstPayload)
       expect(JSON.parse(secondPayload!).edges).toHaveLength(2)
@@ -192,10 +192,10 @@ describe('Autosave Throttle', () => {
       }
 
       saveAutosave(data1)
-      const firstPayload = localStorageMock.getItem('canvas-autosave')
+      const firstPayload = localStorageMock.getItem('olumi-canvas-autosave')
 
       saveAutosave(data2)
-      const secondPayload = localStorageMock.getItem('canvas-autosave')
+      const secondPayload = localStorageMock.getItem('olumi-canvas-autosave')
 
       expect(secondPayload).not.toBe(firstPayload)
       expect(JSON.parse(secondPayload!).timestamp).toBe(2000)
@@ -217,10 +217,10 @@ describe('Autosave Throttle', () => {
       }
 
       saveAutosave(data1)
-      const firstPayload = localStorageMock.getItem('canvas-autosave')
+      const firstPayload = localStorageMock.getItem('olumi-canvas-autosave')
 
       saveAutosave(data2)
-      const secondPayload = localStorageMock.getItem('canvas-autosave')
+      const secondPayload = localStorageMock.getItem('olumi-canvas-autosave')
 
       expect(secondPayload).not.toBe(firstPayload)
       expect(JSON.parse(secondPayload!).scenarioId).toBe('scenario-2')
@@ -237,14 +237,14 @@ describe('Autosave Throttle', () => {
 
       // First save
       saveAutosave(data)
-      const firstPayload = localStorageMock.getItem('canvas-autosave')
+      const firstPayload = localStorageMock.getItem('olumi-canvas-autosave')
 
       // Multiple identical saves - all should be skipped
       saveAutosave(data)
       saveAutosave(data)
       saveAutosave(data)
 
-      const finalPayload = localStorageMock.getItem('canvas-autosave')
+      const finalPayload = localStorageMock.getItem('olumi-canvas-autosave')
       expect(finalPayload).toBe(firstPayload) // Same reference = no writes
     })
 
@@ -257,7 +257,7 @@ describe('Autosave Throttle', () => {
 
       saveAutosave(data)
 
-      const stored = localStorageMock.getItem('canvas-autosave')
+      const stored = localStorageMock.getItem('olumi-canvas-autosave')
       expect(stored).not.toBeNull()
       expect(JSON.parse(stored!)).toMatchObject({
         nodes: [],

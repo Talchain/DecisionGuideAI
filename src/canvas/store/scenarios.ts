@@ -342,6 +342,8 @@ export function clearAutosave(): void {
 
   try {
     localStorage.removeItem(AUTOSAVE_KEY)
+    // P2: Reset payload cache for fresh test state
+    lastAutosavePayload = null
   } catch {
     // Ignore errors
   }

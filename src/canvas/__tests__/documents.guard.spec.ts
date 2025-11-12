@@ -51,7 +51,7 @@ describe('Document Memory Guard', () => {
 
       expect(stored).toBeDefined()
       expect(stored!.content).toHaveLength(5001) // 5000 + '…'
-      expect(stored!.content).toEndWith('…')
+      expect(stored!.content.endsWith('…')).toBe(true)
       expect(stored!.truncated).toBe(true)
       expect(stored!.displayBytes).toBe(5001)
     })
@@ -228,7 +228,7 @@ describe('Document Memory Guard', () => {
 
       expect(stored).toBeDefined()
       expect(stored!.content).toHaveLength(5001) // 5000 + '…'
-      expect(stored!.content).toEndWith('…')
+      expect(stored!.content.endsWith('…')).toBe(true)
       expect(stored!.truncated).toBe(true)
     })
 
