@@ -23,15 +23,17 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
   const [prompt, setPrompt] = useState('')
   const [context, setContext] = useState('')
   const [files, setFiles] = useState<AttachedFile[]>([])
+  const [error, setError] = useState<string | null>(null) // AUDIT FIX 5: Form-level error state
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFiles = Array.from(e.target.files || [])
 
-    // M2.2: Limit to 5 files max
+    // M2.2: Limit to 5 files max (AUDIT FIX 5: Use inline error instead of alert)
     if (files.length + uploadedFiles.length > 5) {
-      alert('Maximum 5 files allowed')
+      setError('Maximum 5 files allowed. Please remove some files before uploading more.')
       return
     }
+    setError(null) // Clear error on successful action
 
     const readFiles = await Promise.all(
       uploadedFiles.map(
@@ -62,10 +64,12 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
+    // AUDIT FIX 5: Use inline error instead of alert
     if (!prompt.trim()) {
-      alert('Please enter a prompt')
+      setError('Please enter a description of your decision problem.')
       return
     }
+    setError(null) // Clear error on valid submission
 
     const request: DraftRequest = {
       prompt: prompt.trim(),
@@ -85,7 +89,12 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
         <textarea
           id="prompt"
           value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
+          onChange={(e) => {
+            setPrompt(e.target.value)
+            if (error && e.target.value.trim()) {
+              setError(null) // AUDIT FIX 5: Clear error when user starts typing
+            }
+          }}
           placeholder="e.g., Should we launch product X or Y? What factors matter?"
           rows={4}
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -152,6 +161,17 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
           )}
         </div>
       </div>
+
+      {/* AUDIT FIX 5: Inline error message for accessibility */}
+      {error && (
+        <div
+          role="alert"
+          aria-live="polite"
+          className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700"
+        >
+          {error}
+        </div>
+      )}
 
       <button
         type="submit"

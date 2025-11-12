@@ -20,7 +20,16 @@ interface Answer {
 }
 
 export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting }: ClarifierPanelProps) {
-  const [answers, setAnswers] = useState<Map<string, string | string[]>>(new Map())
+  // AUDIT FIX 4: Pre-seed multi-select questions with empty arrays to enable checkbox rendering
+  const [answers, setAnswers] = useState<Map<string, string | string[]>>(() => {
+    const initialAnswers = new Map<string, string | string[]>()
+    clarifier.questions.forEach((q) => {
+      if (q.type === 'mcq' && q.multiple) {
+        initialAnswers.set(q.id, [])
+      }
+    })
+    return initialAnswers
+  })
 
   const handleMcqChange = (questionId: string, option: string, multiple: boolean) => {
     if (multiple) {
@@ -83,8 +92,10 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting }: Cl
               <div className="space-y-2">
                 {question.options.map((option) => {
                   const currentAnswer = answers.get(question.id)
-                  const isChecked = Array.isArray(currentAnswer)
-                    ? currentAnswer.includes(option)
+                  // AUDIT FIX 4: Check question.multiple flag instead of answer state
+                  const isMultiple = question.multiple === true
+                  const isChecked = isMultiple
+                    ? (currentAnswer as string[] || []).includes(option)
                     : currentAnswer === option
 
                   return (
@@ -93,10 +104,10 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting }: Cl
                       className="flex items-center gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer"
                     >
                       <input
-                        type={Array.isArray(currentAnswer) ? 'checkbox' : 'radio'}
+                        type={isMultiple ? 'checkbox' : 'radio'}
                         name={question.id}
                         checked={isChecked}
-                        onChange={() => handleMcqChange(question.id, option, Array.isArray(currentAnswer))}
+                        onChange={() => handleMcqChange(question.id, option, isMultiple)}
                         className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
                         disabled={isSubmitting}
                       />

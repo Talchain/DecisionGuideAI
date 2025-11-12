@@ -56,6 +56,7 @@ export interface DraftResponse {
       type: 'mcq' | 'text'
       options?: string[]
       required?: boolean
+      multiple?: boolean // AUDIT FIX 4: Explicit flag for multi-select MCQs
     }>
     round: number
   }

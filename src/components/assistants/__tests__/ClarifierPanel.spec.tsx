@@ -237,4 +237,135 @@ describe('ClarifierPanel (M3)', () => {
     const requiredMarkers = screen.getAllByText('*')
     expect(requiredMarkers.length).toBeGreaterThan(0)
   })
+
+  // AUDIT FIX 6: Multi-select test coverage
+  describe('multi-select questions', () => {
+    const multiSelectClarifier = {
+      questions: [
+        {
+          id: 'q1',
+          text: 'Select all factors that apply',
+          type: 'mcq' as const,
+          options: ['Cost', 'Quality', 'Speed', 'Reliability'],
+          required: true,
+          multiple: true, // Multi-select flag
+        },
+      ],
+      round: 1,
+    }
+
+    it('renders checkboxes for multi-select questions', () => {
+      const onSubmit = vi.fn()
+      const onSkip = vi.fn()
+
+      render(
+        <ClarifierPanel
+          clarifier={multiSelectClarifier}
+          onSubmit={onSubmit}
+          onSkip={onSkip}
+          isSubmitting={false}
+        />
+      )
+
+      const costCheckbox = screen.getByLabelText('Cost') as HTMLInputElement
+      const qualityCheckbox = screen.getByLabelText('Quality') as HTMLInputElement
+
+      expect(costCheckbox.type).toBe('checkbox')
+      expect(qualityCheckbox.type).toBe('checkbox')
+    })
+
+    it('allows multiple selections', () => {
+      const onSubmit = vi.fn()
+      const onSkip = vi.fn()
+
+      render(
+        <ClarifierPanel
+          clarifier={multiSelectClarifier}
+          onSubmit={onSubmit}
+          onSkip={onSkip}
+          isSubmitting={false}
+        />
+      )
+
+      const costCheckbox = screen.getByLabelText('Cost') as HTMLInputElement
+      const qualityCheckbox = screen.getByLabelText('Quality') as HTMLInputElement
+
+      // Select multiple options
+      fireEvent.click(costCheckbox)
+      fireEvent.click(qualityCheckbox)
+
+      expect(costCheckbox.checked).toBe(true)
+      expect(qualityCheckbox.checked).toBe(true)
+    })
+
+    it('allows deselection of multi-select options', () => {
+      const onSubmit = vi.fn()
+      const onSkip = vi.fn()
+
+      render(
+        <ClarifierPanel
+          clarifier={multiSelectClarifier}
+          onSubmit={onSubmit}
+          onSkip={onSkip}
+          isSubmitting={false}
+        />
+      )
+
+      const costCheckbox = screen.getByLabelText('Cost') as HTMLInputElement
+
+      // Select then deselect
+      fireEvent.click(costCheckbox)
+      expect(costCheckbox.checked).toBe(true)
+
+      fireEvent.click(costCheckbox)
+      expect(costCheckbox.checked).toBe(false)
+    })
+
+    it('submits array of answers for multi-select', () => {
+      const onSubmit = vi.fn()
+      const onSkip = vi.fn()
+
+      render(
+        <ClarifierPanel
+          clarifier={multiSelectClarifier}
+          onSubmit={onSubmit}
+          onSkip={onSkip}
+          isSubmitting={false}
+        />
+      )
+
+      // Select multiple options
+      fireEvent.click(screen.getByLabelText('Cost'))
+      fireEvent.click(screen.getByLabelText('Quality'))
+      fireEvent.click(screen.getByLabelText('Reliability'))
+
+      const submitButton = screen.getByRole('button', { name: /submit answers/i })
+      fireEvent.click(submitButton)
+
+      expect(onSubmit).toHaveBeenCalledWith([
+        { question_id: 'q1', answer: ['Cost', 'Quality', 'Reliability'] },
+      ])
+    })
+
+    it('requires at least one selection for required multi-select', () => {
+      const onSubmit = vi.fn()
+      const onSkip = vi.fn()
+
+      render(
+        <ClarifierPanel
+          clarifier={multiSelectClarifier}
+          onSubmit={onSubmit}
+          onSkip={onSkip}
+          isSubmitting={false}
+        />
+      )
+
+      const submitButton = screen.getByRole('button', { name: /submit answers/i })
+      expect(submitButton).toBeDisabled()
+
+      // Select one option
+      fireEvent.click(screen.getByLabelText('Cost'))
+      expect(submitButton).not.toBeDisabled()
+    })
+  })
 })
