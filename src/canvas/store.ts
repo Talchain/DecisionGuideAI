@@ -168,6 +168,8 @@ interface CanvasState {
   setShowComparePanel: (show: boolean) => void
   setDecisionRationale: (rationale: DecisionRationale | null) => void
   exportLocal: () => string
+  // P2: Hydration hygiene
+  hydrateGraphSlice: (loaded: { nodes?: Node[]; edges?: Edge<EdgeData>[]; currentScenarioId?: string | null }) => void
 }
 
 let historyTimer: ReturnType<typeof setTimeout> | null = null
@@ -1377,6 +1379,37 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
 
     return JSON.stringify(exportData, null, 2)
+  },
+
+  // P2: Hydration hygiene - merge only graph/scenario bits, ignore unknown keys
+  hydrateGraphSlice: (loaded) => {
+    const updates: Partial<CanvasState> = {}
+
+    // Only merge known graph/scenario keys
+    if (loaded.nodes !== undefined) {
+      updates.nodes = loaded.nodes
+    }
+    if (loaded.edges !== undefined) {
+      updates.edges = loaded.edges
+    }
+    if (loaded.currentScenarioId !== undefined) {
+      updates.currentScenarioId = loaded.currentScenarioId
+    }
+
+    // Reset history and selection for clean state
+    if (loaded.nodes || loaded.edges) {
+      updates.history = { past: [], future: [] }
+      updates.selection = { nodeIds: new Set(), edgeIds: new Set() }
+      updates.touchedNodeIds = new Set()
+    }
+
+    // Apply updates without clobbering panels/results/other slices
+    set(updates)
+
+    // Reseed IDs to prevent collisions
+    if (loaded.nodes && loaded.edges) {
+      get().reseedIds(loaded.nodes, loaded.edges)
+    }
   },
 
   cleanup: clearTimers

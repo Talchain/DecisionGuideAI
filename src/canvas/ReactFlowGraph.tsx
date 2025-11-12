@@ -566,13 +566,11 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     loadSettings()
     const loaded = loadState()
     if (loaded) {
-      // Ensure touchedNodeIds is a Set (persist doesn't save it)
-      useCanvasStore.setState({
-        ...loaded,
-        touchedNodeIds: new Set()
+      // P2: Use hydrateGraphSlice to avoid clobbering panels/results
+      useCanvasStore.getState().hydrateGraphSlice({
+        nodes: loaded.nodes,
+        edges: loaded.edges
       })
-      // Reseed ID counters to avoid collisions (P0 hotfix)
-      useCanvasStore.getState().reseedIds(loaded.nodes, loaded.edges)
     }
   }, [loadSettings])
 
