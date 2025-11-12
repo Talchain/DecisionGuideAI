@@ -13,7 +13,7 @@ export interface Document {
   size?: number // Original file size in bytes
   displayBytes?: number // Stored content size (post-truncation)
   truncated?: boolean // True if content was truncated
-  checksum?: string // SHA-256 hash of original content
+  checksum?: string // FNV-1a hash of original content for integrity checks
   metadata?: {
     author?: string
     date?: string

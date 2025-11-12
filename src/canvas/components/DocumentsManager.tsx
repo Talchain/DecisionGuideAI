@@ -82,7 +82,7 @@ export function DocumentsManager({
           />
         </label>
         <p className="text-xs text-gray-500 mt-2">
-          Supports: PDF, TXT, MD, CSV (max 10MB each)
+          Supports: PDF, TXT, MD, CSV (max 1MB each, 25K chars total)
         </p>
       </div>
 
@@ -144,6 +144,14 @@ function DocumentCard({
             <span className="uppercase">{document.type}</span>
             <span>•</span>
             <span>{formatSize(document.size)}</span>
+            {document.truncated && (
+              <>
+                <span>•</span>
+                <span className="text-amber-600 font-medium" title="Content truncated to 5K chars">
+                  Truncated
+                </span>
+              </>
+            )}
             <span>•</span>
             <span>
               {new Date(document.uploadedAt).toLocaleDateString()}

@@ -188,6 +188,14 @@ function CitationCard({
         <div className="flex items-center gap-2 text-xs text-gray-600">
           <FileText className="w-3 h-3" />
           <span className="font-medium">{document.name}</span>
+          {document.truncated && (
+            <>
+              <span>•</span>
+              <span className="text-amber-600 font-medium" title="Content was truncated to 5K chars">
+                Truncated
+              </span>
+            </>
+          )}
           {citation.charOffset !== undefined && (
             <>
               <span>•</span>

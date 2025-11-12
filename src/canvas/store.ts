@@ -17,6 +17,20 @@ import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/typ
 import type { Document, Citation } from './share/types'
 import type { Snapshot, DecisionRationale } from './snapshots/types'
 
+/**
+ * Generate deterministic content hash using FNV-1a algorithm
+ * Fast, simple, and produces consistent hashes for content integrity checks
+ */
+function generateContentHash(content: string): string {
+  let hash = 2166136261 // FNV offset basis
+  for (let i = 0; i < content.length; i++) {
+    hash ^= content.charCodeAt(i)
+    hash = Math.imul(hash, 16777619) // FNV prime
+  }
+  // Convert to unsigned 32-bit hex string
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
 // Results panel state machine
 export type ResultsStatus = 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'
 
@@ -1287,9 +1301,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       throw new Error(`Document storage limit reached (${MAX_TOTAL_CHARS} chars). Remove existing documents to add new ones.`)
     }
 
-    // Generate checksum for integrity
+    // Generate checksum for integrity (FNV-1a hash)
     const checksum = document.content
-      ? crypto.randomUUID() // Simplified; real checksum would use crypto.subtle
+      ? generateContentHash(document.content)
       : undefined
 
     const id = crypto.randomUUID()
