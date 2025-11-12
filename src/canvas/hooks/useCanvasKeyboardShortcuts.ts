@@ -8,6 +8,7 @@
  * - Cmd/Ctrl+Enter: Run simulation
  * - Cmd/Ctrl+3: Toggle Results panel
  * - Cmd/Ctrl+I: Toggle Inspector panel
+ * - Cmd/Ctrl+D: Toggle Documents drawer (M5)
  * - ?: Show keyboard map
  */
 
@@ -19,6 +20,7 @@ interface UseCanvasKeyboardShortcutsOptions {
   onRunSimulation?: () => void
   onToggleResults?: () => void
   onToggleInspector?: () => void
+  onToggleDocuments?: () => void
   onShowKeyboardMap?: () => void
   onShowToast?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void
 }
@@ -28,6 +30,7 @@ export function useCanvasKeyboardShortcuts({
   onRunSimulation,
   onToggleResults,
   onToggleInspector,
+  onToggleDocuments,
   onShowKeyboardMap,
   onShowToast
 }: UseCanvasKeyboardShortcutsOptions = {}) {
@@ -157,7 +160,18 @@ export function useCanvasKeyboardShortcuts({
 
       return
     }
-  }, [onFocusNode, onRunSimulation, onToggleResults, onToggleInspector, onShowKeyboardMap, onShowToast])
+
+    // Cmd/Ctrl+D: Toggle Documents drawer (M5)
+    if ((e.metaKey || e.ctrlKey) && e.key === 'd') {
+      e.preventDefault()
+
+      if (onToggleDocuments) {
+        onToggleDocuments()
+      }
+
+      return
+    }
+  }, [onFocusNode, onRunSimulation, onToggleResults, onToggleInspector, onToggleDocuments, onShowKeyboardMap, onShowToast])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)

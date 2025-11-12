@@ -41,6 +41,8 @@ import { useEdgeLabelModeSync } from './store/edgeLabelMode'
 import { HealthStatusBar } from './components/HealthStatusBar'
 import { IssuesPanel } from './panels/IssuesPanel'
 import { NeedleMoversOverlay } from './components/NeedleMoversOverlay'
+import { DocumentsManager } from './components/DocumentsManager'
+import { ProvenanceHubTab } from './components/ProvenanceHubTab'
 
 interface ReactFlowGraphProps {
   blueprintEventBus?: {
@@ -79,6 +81,18 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const applyRepair = useCanvasStore(s => s.applyRepair)
   const applyAllRepairs = useCanvasStore(s => s.applyAllRepairs)
   const needleMovers = useCanvasStore(s => s.needleMovers)
+
+  // M5: Grounding & Provenance state
+  const documents = useCanvasStore(s => s.documents)
+  const citations = useCanvasStore(s => s.citations)
+  const showDocumentsDrawer = useCanvasStore(s => s.showDocumentsDrawer)
+  const setShowDocumentsDrawer = useCanvasStore(s => s.setShowDocumentsDrawer)
+  const showProvenanceHub = useCanvasStore(s => s.showProvenanceHub)
+  const setShowProvenanceHub = useCanvasStore(s => s.setShowProvenanceHub)
+  const provenanceRedactionEnabled = useCanvasStore(s => s.provenanceRedactionEnabled)
+  const toggleProvenanceRedaction = useCanvasStore(s => s.toggleProvenanceRedaction)
+  const addDocument = useCanvasStore(s => s.addDocument)
+  const removeDocument = useCanvasStore(s => s.removeDocument)
 
   // Results panel hook
   const { run: runAnalysis, cancel: cancelAnalysis } = useResultsRun()
@@ -338,12 +352,41 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     showToast('All fixable issues resolved', 'success')
   }, [applyAllRepairs, showToast])
 
-  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, ?)
+  // M5: Documents handlers
+  const handleUploadDocuments = useCallback(async (files: File[]) => {
+    try {
+      for (const file of files) {
+        const content = await file.text()
+        const type = file.name.endsWith('.pdf') ? 'pdf' :
+                     file.name.endsWith('.txt') ? 'txt' :
+                     file.name.endsWith('.md') ? 'md' :
+                     file.name.endsWith('.csv') ? 'csv' : 'txt'
+
+        addDocument({
+          name: file.name,
+          type: type as any,
+          content,
+          size: file.size
+        })
+      }
+      showToast(`${files.length} document${files.length > 1 ? 's' : ''} uploaded`, 'success')
+    } catch (err) {
+      showToast('Failed to upload documents', 'error')
+    }
+  }, [addDocument, showToast])
+
+  const handleDeleteDocument = useCallback((documentId: string) => {
+    removeDocument(documentId)
+    showToast('Document removed', 'success')
+  }, [removeDocument, showToast])
+
+  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, ?)
   useCanvasKeyboardShortcuts({
     onFocusNode: handleFocusNode,
     onRunSimulation: handleRunSimulation,
     onToggleResults: () => setShowResultsPanel(prev => !prev),
     onToggleInspector: () => setShowInspectorPanel(prev => !prev),
+    onToggleDocuments: () => setShowDocumentsDrawer(prev => !prev),
     onShowKeyboardMap: () => setShowKeyboardMap(true),
     onShowToast: showToast
   })
@@ -643,6 +686,60 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           onFixIssue={handleFixIssue}
           onClose={() => setShowIssuesPanel(false)}
         />
+      )}
+
+      {/* M5: Documents drawer (left side) */}
+      {showDocumentsDrawer && (
+        <div
+          className="fixed left-0 top-0 bottom-0 w-96 bg-white border-r border-gray-200 shadow-lg overflow-hidden"
+          style={{ zIndex: 2000 }}
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <h2 className="font-semibold text-gray-900">Documents</h2>
+            <button
+              onClick={() => setShowDocumentsDrawer(false)}
+              className="p-1 hover:bg-gray-100 rounded"
+              aria-label="Close documents drawer"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="h-[calc(100vh-56px)]">
+            <DocumentsManager
+              documents={documents}
+              onUpload={handleUploadDocuments}
+              onDelete={handleDeleteDocument}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* M5: Provenance Hub panel (right side) */}
+      {showProvenanceHub && (
+        <div
+          className="fixed right-0 top-0 bottom-0 w-[32rem] bg-white border-l border-gray-200 shadow-lg overflow-hidden"
+          style={{ zIndex: 2000 }}
+        >
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+            <h2 className="font-semibold text-gray-900">Provenance Hub</h2>
+            <button
+              onClick={() => setShowProvenanceHub(false)}
+              className="p-1 hover:bg-gray-100 rounded"
+              aria-label="Close provenance panel"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="h-[calc(100vh-56px)]">
+            <ProvenanceHubTab
+              citations={citations}
+              documents={documents}
+              redactionEnabled={provenanceRedactionEnabled}
+              onToggleRedaction={toggleProvenanceRedaction}
+              onFocusNode={handleFocusNode}
+            />
+          </div>
+        </div>
       )}
 
       {existingTemplate && pendingBlueprint && (
