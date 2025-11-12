@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - M4-M6: Graph Health, Provenance Hub & Compare v0 Integration
+
+#### M4: Graph Health & Repair
+- **M4.1 Graph Validation**: Lifecycle integration (load/edit/patch/pre-run) with debounced validation (500ms)
+- **M4.2 Health Status Bar**: Top banner with score/100, issue counts, Quick Fix All button
+- **M4.3 Issues Panel**: Right-side panel with detailed issue list, severity grouping, individual quick fixes
+- **M4.4 Needle Movers Overlay**: Highlights high-impact nodes with focus handlers
+- **M4.5 Pre-run Gate**: Blocks execution on critical graph health errors
+- **Deterministic Repair Order**: dangling_edge → self_loop → duplicate_edge → cycle → missing_label → orphan_node
+
+#### M5: Grounding & Provenance Hub
+- **M5.1 Documents Drawer**: Left-side drawer (Cmd+D) with drag-drop upload, file management
+- **M5.2 Provenance Hub Panel**: Right-side panel showing all citations and document connections
+- **M5.3 Citation Search**: Filter citations by snippet or node ID with document filtering
+- **M5.4 Redaction**: Toggle snippet redaction (ON by default, ≤100 chars)
+- **M5.5 Deep-linking**: Click citation to focus node in graph
+- **File Support**: PDF, TXT, MD, CSV with type detection and metadata
+
+#### M6: Compare v0 + Decision Rationale + Local Export
+- **M6.1 Compare Tab**: Already integrated in ResultsPanel with side-by-side run comparison
+- **M6.2 Snapshot Components**: SnapshotPanel and ScenarioComparison (feature-flagged: VITE_FEATURE_SNAPSHOTS_V2)
+- **M6.3 Decision Rationale**: DecisionRationaleForm component for capturing decision reasoning
+- **M6.4 Local Export**: exportLocal() method in store for exporting canvas with run summary
+
+#### Components Integrated
+- HealthStatusBar (M4 health display)
+- IssuesPanel (M4 detailed issues)
+- NeedleMoversOverlay (M4 high-impact nodes)
+- DocumentsManager (M5 file upload/management)
+- ProvenanceHubTab (M5 citations view)
+- CompareView (M6 run comparison - already integrated)
+- SnapshotPanel (M6 - feature-flagged)
+- ScenarioComparison (M6 - feature-flagged)
+- DecisionRationaleForm (M6 - available)
+
+#### State Management
+- Added M4/M5/M6 state to canvas store (graphHealth, documents, citations, snapshots, rationale)
+- Dynamic imports for code-splitting (validation, repair modules)
+- Debounced validation to prevent excessive computation
+- Pre-run validation gates execution on error state
+
+#### Keyboard Shortcuts
+- **Cmd/Ctrl+D**: Toggle Documents drawer (M5)
+
 ### Added - M1-M3: PLoT Engine Hardening & Assistants Integration
 
 #### M1: PLoT Engine Integration Hardening
