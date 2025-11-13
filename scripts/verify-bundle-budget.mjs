@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 /**
- * N5: Bundle Budget Verification
+ * S3-BUNDLE: Bundle Budget Verification
  *
- * Verifies that the gzipped bundle size delta vs rc2 baseline is ≤ +30 KB.
+ * Verifies that the gzipped main bundle stays under 35 KB.
+ * This ensures fast initial page loads and prevents bundle bloat.
  *
  * Usage:
  *   node scripts/verify-bundle-budget.mjs
@@ -10,16 +11,12 @@
  * Exits with code 0 if budget is met, 1 otherwise.
  */
 
-import { readFileSync, statSync, readdirSync } from 'fs'
+import { readFileSync, statSync, readdirSync, existsSync } from 'fs'
 import { gzipSync } from 'zlib'
 import { join } from 'path'
 
-// RC2 baseline (approximate gzipped size in KB)
-// This should be measured from the actual rc2 build
-const RC2_BASELINE_KB = 450 // Placeholder - update with actual rc2 measurement
-
-// Budget allowance
-const BUDGET_ALLOWANCE_KB = 30
+// S3 Budget: Main bundle must be ≤ 35 KB gzipped
+const BUDGET_KB = 35
 
 function getGzippedSize(filePath) {
   try {
@@ -31,45 +28,76 @@ function getGzippedSize(filePath) {
   }
 }
 
-function measureDistSize(distPath) {
-  let totalSize = 0
-
-  try {
-    const files = readdirSync(distPath, { recursive: true, withFileTypes: true })
-
-    for (const file of files) {
-      if (file.isFile() && file.name.endsWith('.js')) {
-        const filePath = join(file.path || distPath, file.name)
-        totalSize += getGzippedSize(filePath)
-      }
-    }
-  } catch (err) {
-    console.error('[Bundle Budget] Failed to read dist:', err.message)
-    return 0
+/**
+ * Find the main JavaScript bundle file
+ * Vite generates files like: index-[hash].js
+ */
+function findMainBundle(distPath) {
+  if (!existsSync(distPath)) {
+    console.error('[Bundle Budget] ❌ dist/assets directory not found')
+    console.error('[Bundle Budget]    Run `npm run build` first')
+    return null
   }
 
-  return totalSize
+  const files = readdirSync(distPath)
+
+  // Look for index-*.js (main bundle)
+  const mainBundle = files.find(file =>
+    file.startsWith('index-') && file.endsWith('.js') && !file.endsWith('.map')
+  )
+
+  if (!mainBundle) {
+    console.error('[Bundle Budget] ❌ Main bundle (index-*.js) not found')
+    console.error('[Bundle Budget]    Available files:', files.join(', '))
+    return null
+  }
+
+  return join(distPath, mainBundle)
 }
 
 function main() {
   const distPath = join(process.cwd(), 'dist', 'assets')
 
-  console.log('[Bundle Budget] Measuring current build...')
-  const currentSizeBytes = measureDistSize(distPath)
-  const currentSizeKB = currentSizeBytes / 1024
+  console.log('[Bundle Budget] 🔍 Checking bundle size...\n')
 
-  console.log(`[Bundle Budget] Current: ${currentSizeKB.toFixed(2)} KB (gzipped)`)
-  console.log(`[Bundle Budget] Baseline: ${RC2_BASELINE_KB} KB (rc2)`)
+  // Find main bundle
+  const bundlePath = findMainBundle(distPath)
+  if (!bundlePath) {
+    process.exit(1)
+  }
 
-  const deltaKB = currentSizeKB - RC2_BASELINE_KB
-  console.log(`[Bundle Budget] Delta: ${deltaKB >= 0 ? '+' : ''}${deltaKB.toFixed(2)} KB`)
+  // Measure sizes
+  const rawSize = statSync(bundlePath).size
+  const gzippedSize = getGzippedSize(bundlePath)
+  const sizeKB = gzippedSize / 1024
 
-  if (deltaKB <= BUDGET_ALLOWANCE_KB) {
-    console.log(`[Bundle Budget] ✓ PASS - Within budget (≤ +${BUDGET_ALLOWANCE_KB} KB)`)
-    console.log(`\nACCEPT N5-BUNDLE delta_gzip_kb=${deltaKB.toFixed(2)}`)
+  // Calculate metrics
+  const budgetUsed = (sizeKB / BUDGET_KB) * 100
+  const remaining = BUDGET_KB - sizeKB
+  const isWithinBudget = sizeKB <= BUDGET_KB
+
+  // Display results
+  console.log('[Bundle Budget] 📦 Analysis:')
+  console.log(`[Bundle Budget]    File: ${bundlePath.split('/').pop()}`)
+  console.log(`[Bundle Budget]    Raw: ${(rawSize / 1024).toFixed(2)} KB`)
+  console.log(`[Bundle Budget]    Gzipped: ${sizeKB.toFixed(2)} KB`)
+  console.log(`[Bundle Budget]    Budget: ${BUDGET_KB} KB`)
+  console.log(`[Bundle Budget]    Used: ${budgetUsed.toFixed(1)}%`)
+
+  if (isWithinBudget) {
+    console.log(`[Bundle Budget]    Remaining: ${remaining.toFixed(2)} KB\n`)
+    console.log('[Bundle Budget] ✅ PASS - Bundle within budget!')
+    console.log(`\nACCEPT S3-BUNDLE gzip_kb=${sizeKB.toFixed(2)}`)
     process.exit(0)
   } else {
-    console.error(`[Bundle Budget] ✗ FAIL - Exceeds budget by ${(deltaKB - BUDGET_ALLOWANCE_KB).toFixed(2)} KB`)
+    const overage = sizeKB - BUDGET_KB
+    console.log(`[Bundle Budget]    Overage: ${overage.toFixed(2)} KB\n`)
+    console.error('[Bundle Budget] ❌ FAIL - Bundle exceeds budget!')
+    console.error(`[Bundle Budget]    The bundle is ${overage.toFixed(2)} KB over the ${BUDGET_KB} KB limit`)
+    console.error('[Bundle Budget]    Consider:')
+    console.error('[Bundle Budget]    - Code splitting large dependencies')
+    console.error('[Bundle Budget]    - Lazy loading heavy components')
+    console.error('[Bundle Budget]    - Removing unused dependencies')
     process.exit(1)
   }
 }
