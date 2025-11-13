@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense } from 'react'
 import { useLocation } from 'react-router-dom'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -31,15 +31,16 @@ import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
 import { useAutosave } from './hooks/useAutosave'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
-import { ResultsPanel } from './panels/ResultsPanel'
-import { InspectorPanel } from './panels/InspectorPanel'
+// N5: Code-split heavy panels with named chunks
+const ResultsPanel = lazy(() => import(/* webpackChunkName: "results-panel" */ './panels/ResultsPanel').then(m => ({ default: m.ResultsPanel })))
+const InspectorPanel = lazy(() => import(/* webpackChunkName: "inspector-panel" */ './panels/InspectorPanel').then(m => ({ default: m.InspectorPanel })))
 import { useResultsRun } from './hooks/useResultsRun'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
 import { loadRuns } from './store/runHistory'
 import { useEdgeLabelModeSync } from './store/edgeLabelMode'
 import { HealthStatusBar } from './components/HealthStatusBar'
-import { IssuesPanel } from './panels/IssuesPanel'
+const IssuesPanel = lazy(() => import(/* webpackChunkName: "issues-panel" */ './panels/IssuesPanel').then(m => ({ default: m.IssuesPanel })))
 import { NeedleMoversOverlay } from './components/NeedleMoversOverlay'
 import { DocumentsManager } from './components/DocumentsManager'
 import { ProvenanceHubTab } from './components/ProvenanceHubTab'
@@ -688,14 +689,24 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       {showCommandPalette && <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} onOpenInspector={() => setShowInspectorPanel(true)} />}
       {showCheatsheet && <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />}
       {showKeyboardMap && <KeyboardMap isOpen={showKeyboardMap} onClose={() => setShowKeyboardMap(false)} />}
-      {showResultsPanel && <ResultsPanel isOpen={showResultsPanel} onClose={() => setShowResultsPanel(false)} onCancel={cancelAnalysis} />}
-      {showInspectorPanel && <InspectorPanel isOpen={showInspectorPanel} onClose={() => setShowInspectorPanel(false)} />}
+      {showResultsPanel && (
+        <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/20"><div className="text-sm text-white">Loading...</div></div>}>
+          <ResultsPanel isOpen={showResultsPanel} onClose={() => setShowResultsPanel(false)} onCancel={cancelAnalysis} />
+        </Suspense>
+      )}
+      {showInspectorPanel && (
+        <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/20"><div className="text-sm text-white">Loading...</div></div>}>
+          <InspectorPanel isOpen={showInspectorPanel} onClose={() => setShowInspectorPanel(false)} />
+        </Suspense>
+      )}
       {showIssuesPanel && graphHealth && (
-        <IssuesPanel
-          issues={graphHealth.issues}
-          onFixIssue={handleFixIssue}
-          onClose={() => setShowIssuesPanel(false)}
-        />
+        <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/20"><div className="text-sm text-white">Loading...</div></div>}>
+          <IssuesPanel
+            issues={graphHealth.issues}
+            onFixIssue={handleFixIssue}
+            onClose={() => setShowIssuesPanel(false)}
+          />
+        </Suspense>
       )}
 
       {/* M5: Documents drawer (left side) */}

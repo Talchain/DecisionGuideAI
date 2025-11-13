@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
-import { ArrowLeft, ArrowRight, TrendingUp, TrendingDown } from 'lucide-react'
+import { ArrowLeft, Download } from 'lucide-react'
 import { loadRuns, type StoredRun } from '../store/runHistory'
-import { compareRuns, formatDeltaPercent, formatEdgeValue, type EdgeDiff } from '../utils/compareScenarios'
+import { EdgeDiffTable } from '../compare/EdgeDiffTable'
+import { CompareSummary } from '../compare/CompareSummary'
+import { exportDecisionBrief } from '../export/decisionBrief'
 
 interface CompareViewProps {
   onOpenInCanvas: (runId: string) => void
@@ -14,7 +16,8 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
   const [runs, setRuns] = useState<StoredRun[]>([])
   const [runA, setRunA] = useState<StoredRun | null>(null)
   const [runB, setRunB] = useState<StoredRun | null>(null)
-  const [edgeDiffs, setEdgeDiffs] = useState<EdgeDiff[]>([])
+  const [rationale, setRationale] = useState('')
+  const [title, setTitle] = useState('Decision Comparison')
 
   useEffect(() => setRuns(loadRuns()), [])
   useEffect(() => {
@@ -31,11 +34,6 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
     setRunA(prev => (prev?.id === nextRunA?.id ? prev : nextRunA))
     setRunB(prev => (prev?.id === nextRunB?.id ? prev : nextRunB))
   }, [runs, selectedRunIds])
-
-  useEffect(() => {
-    if (runA && runB) setEdgeDiffs(compareRuns(runA, runB, 5))
-    else setEdgeDiffs([])
-  }, [runA, runB])
 
   const handleSelectRun = (slot: 'A' | 'B', runId: string) => {
     let nextRunA = runA
@@ -60,6 +58,16 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
 
     const ids = [nextRunA?.id, nextRunB?.id].filter((id): id is string => Boolean(id))
     onSelectionChange(ids)
+  }
+
+  const handleExportBrief = () => {
+    if (!runA || !runB) return
+    exportDecisionBrief({
+      title,
+      runA,
+      runB,
+      rationale: rationale || undefined
+    })
   }
 
   return (
@@ -98,26 +106,51 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
       </div>
 
       {runA && runB ? (
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <RunSummaryCard run={runA} label="Run A" onOpen={() => onOpenInCanvas(runA.id)} />
-            <RunSummaryCard run={runB} label="Run B" onOpen={() => onOpenInCanvas(runB.id)} />
-          </div>
+        <>
+          <CompareSummary runA={runA} runB={runB} />
+          <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <RunSummaryCard run={runA} label="Run A" onOpen={() => onOpenInCanvas(runA.id)} />
+              <RunSummaryCard run={runB} label="Run B" onOpen={() => onOpenInCanvas(runB.id)} />
+            </div>
 
-          {edgeDiffs.length > 0 && (
             <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-3">Top 5 Edge Differences</h3>
-              <div className="space-y-2">
-                {edgeDiffs.map((diff, i) => (
-                  <EdgeDiffCard key={diff.edgeId} diff={diff} rank={i + 1} />
-                ))}
-              </div>
+              <EdgeDiffTable runA={runA} runB={runB} limit={5} />
             </div>
-          )}
-          {edgeDiffs.length === 0 && (
-            <div className="text-center py-8 text-sm text-gray-500">No edge differences found</div>
-          )}
-        </div>
+
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">Decision Rationale</h3>
+              <textarea
+                value={rationale}
+                onChange={(e) => setRationale(e.target.value)}
+                placeholder="Document your reasoning for this decision..."
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info-500 min-h-[100px]"
+                aria-label="Decision rationale"
+              />
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Decision title..."
+                className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-info-500"
+                aria-label="Decision title"
+              />
+              <button
+                onClick={handleExportBrief}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-info-600 rounded-lg hover:bg-info-700 transition-colors"
+                type="button"
+                aria-label="Export decision brief"
+              >
+                <Download className="w-4 h-4" />
+                Export Decision Brief
+              </button>
+            </div>
+          </div>
+        </>
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
           Select two runs to compare

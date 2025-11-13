@@ -273,10 +273,10 @@ export function CanvasToolbar() {
         {nodes.length >= 1 && (
           <button
             onClick={handleRunAnalysis}
-            disabled={isRunning}
+            disabled={isRunning || validationErrors.length > 0}
             className="px-3 py-1.5 text-sm font-medium text-white bg-info-500 hover:bg-info-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info-500 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            title={isRunning ? "Analysis in progress..." : "Run Analysis (⌘R)"}
-            aria-label={isRunning ? "Analysis running - please wait" : "Run analysis on current graph"}
+            title={validationErrors.length > 0 ? "Fix issues to run" : isRunning ? "Analysis in progress..." : "Run Analysis (⌘R)"}
+            aria-label={validationErrors.length > 0 ? "Cannot run - fix validation issues first" : isRunning ? "Analysis running - please wait" : "Run analysis on current graph"}
             data-testid="btn-run-analysis"
           >
             {isRunning ? (

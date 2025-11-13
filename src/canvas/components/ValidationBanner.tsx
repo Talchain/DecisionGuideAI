@@ -83,7 +83,7 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
               }`}
               type="button"
             >
-              Fix now
+              {isWarning ? 'View in canvas' : 'Fix issues to run'}
             </button>
           )}
         </div>
