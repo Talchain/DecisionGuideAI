@@ -361,7 +361,13 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   updateEdgeData: (id, data) => {
-    get().updateEdge(id, { data })
+    // Clamp weight and belief to valid range [0, 1]
+    const clampedData = {
+      ...data,
+      weight: data.weight !== undefined ? Math.max(0, Math.min(1, data.weight)) : undefined,
+      belief: data.belief !== undefined ? Math.max(0, Math.min(1, data.belief)) : undefined
+    }
+    get().updateEdge(id, { data: clampedData })
   },
 
   onNodesChange: (changes) => {

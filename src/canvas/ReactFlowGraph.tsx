@@ -489,11 +489,16 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
               return currDist < prevDist ? curr : prev
             })
 
+            // Convert target node's canvas position to screen coordinates
+            const viewport = getViewport()
+            const screenX = closest.position.x * viewport.zoom + viewport.x
+            const screenY = closest.position.y * viewport.zoom + viewport.y
+
             setConnectPrompt({
               newNodeId: newNode.id,
               targetNodeId: closest.id,
               targetNodeLabel: (closest.data as any)?.label || closest.id,
-              position: radialMenuPosition
+              position: { x: screenX, y: screenY }
             })
           }
         }

@@ -16,14 +16,14 @@ interface RadialQuickAddMenuProps {
 const MENU_RADIUS = 80
 const SEGMENT_COUNT = 6
 
-// Top 6 most common node types
+// Top 6 most common node types from NODE_REGISTRY
 const QUICK_NODE_TYPES: NodeType[] = [
-  'decision-binary',
-  'outcome-terminal',
-  'decision-probability',
-  'input-categorical',
-  'transform-lookup',
-  'input-continuous'
+  'decision',
+  'outcome',
+  'option',
+  'factor',
+  'risk',
+  'goal'
 ]
 
 export function RadialQuickAddMenu({ position, onSelect, onCancel }: RadialQuickAddMenuProps) {

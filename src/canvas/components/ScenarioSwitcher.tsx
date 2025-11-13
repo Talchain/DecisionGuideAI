@@ -27,6 +27,8 @@ export function ScenarioSwitcher() {
   const duplicateCurrentScenario = useCanvasStore(s => s.duplicateCurrentScenario)
   const renameCurrentScenario = useCanvasStore(s => s.renameCurrentScenario)
   const deleteScenario = useCanvasStore(s => s.deleteScenario)
+  const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
 
   const [isOpen, setIsOpen] = useState(false)
   const [scenarios, setScenarios] = useState<Scenario[]>([])
@@ -164,7 +166,7 @@ export function ScenarioSwitcher() {
 
     try {
       const content = await file.text()
-      const result = importScenarioFromFile(content)
+      const result = importScenarioFromFile(content, nodes, edges)
 
       if (result.success && result.scenario) {
         // Load the imported scenario
@@ -183,7 +185,7 @@ export function ScenarioSwitcher() {
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
-  }, [loadScenario, showToast, refreshScenarios])
+  }, [loadScenario, showToast, refreshScenarios, nodes, edges])
 
   return (
     <>

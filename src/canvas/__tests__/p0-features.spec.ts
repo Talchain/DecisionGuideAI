@@ -207,12 +207,12 @@ describe('P0-6: Template Merge Positioning', () => {
 describe('P0-7: Radial Quick-Add Menu', () => {
   it('should have 6 node type options', () => {
     const QUICK_NODE_TYPES = [
-      'decision-binary',
-      'outcome-terminal',
-      'decision-probability',
-      'input-categorical',
-      'transform-lookup',
-      'input-continuous'
+      'decision',
+      'outcome',
+      'option',
+      'factor',
+      'risk',
+      'goal'
     ]
 
     expect(QUICK_NODE_TYPES.length).toBe(6)

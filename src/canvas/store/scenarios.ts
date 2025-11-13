@@ -53,11 +53,12 @@ function generateId(): string {
 
 /**
  * Reseed node and edge IDs to avoid conflicts
+ * Checks both saved scenarios AND current canvas state
  */
-function reseedIds(nodes: Node[], edges: Edge[]): { nodes: Node[]; edges: Edge[] } {
+function reseedIds(nodes: Node[], edges: Edge[], currentCanvasNodes?: Node[], currentCanvasEdges?: Edge[]): { nodes: Node[]; edges: Edge[] } {
   const nodeIdMap = new Map<string, string>()
 
-  // Find max existing IDs
+  // Find max existing IDs from saved scenarios
   const existingScenarios = loadScenarios()
   let maxNodeId = 0
   let maxEdgeId = 0
@@ -70,6 +71,27 @@ function reseedIds(nodes: Node[], edges: Edge[]): { nodes: Node[]; edges: Edge[]
       }
     }
     for (const edge of scenario.graph.edges) {
+      const match = edge.id.match(/^e(\d+)$/)
+      if (match) {
+        const numId = parseInt(match[1], 10)
+        if (!isNaN(numId) && numId > maxEdgeId) {
+          maxEdgeId = numId
+        }
+      }
+    }
+  }
+
+  // Also check current canvas state (if provided)
+  if (currentCanvasNodes) {
+    for (const node of currentCanvasNodes) {
+      const numId = parseInt(node.id, 10)
+      if (!isNaN(numId) && numId > maxNodeId) {
+        maxNodeId = numId
+      }
+    }
+  }
+  if (currentCanvasEdges) {
+    for (const edge of currentCanvasEdges) {
       const match = edge.id.match(/^e(\d+)$/)
       if (match) {
         const numId = parseInt(match[1], 10)
@@ -324,8 +346,13 @@ export function deleteScenario(id: string): void {
 /**
  * Import a scenario from file
  * Validates format, reseeds IDs, creates new scenario
+ * Accepts optional current canvas nodes/edges to avoid ID collisions
  */
-export function importScenarioFromFile(fileContent: string): { success: boolean; scenario?: Scenario; error?: string } {
+export function importScenarioFromFile(
+  fileContent: string,
+  currentCanvasNodes?: Node[],
+  currentCanvasEdges?: Edge[]
+): { success: boolean; scenario?: Scenario; error?: string } {
   try {
     const data = JSON.parse(fileContent)
 
@@ -352,8 +379,8 @@ export function importScenarioFromFile(fileContent: string): { success: boolean;
       }
     }
 
-    // Reseed IDs to avoid conflicts
-    const { nodes, edges } = reseedIds(data.graph.nodes, data.graph.edges)
+    // Reseed IDs to avoid conflicts (check both saved scenarios and current canvas)
+    const { nodes, edges } = reseedIds(data.graph.nodes, data.graph.edges, currentCanvasNodes, currentCanvasEdges)
 
     // Create new scenario from imported data
     const scenario = createScenario({
