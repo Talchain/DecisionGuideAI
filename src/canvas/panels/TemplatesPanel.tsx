@@ -13,6 +13,7 @@ import { TemplateAbout } from './TemplateAbout'
 import { PlotHealthPill } from '../../adapters/plot/v1/components/PlotHealthPill'
 import { AdapterStatusBanner } from './AdapterStatusBanner'
 import { PanelShell } from './_shared/PanelShell'
+import { coerceNodes, toUiKind, type BackendNode } from '../adapters/backendKinds'
 import { PanelSection } from './_shared/PanelSection'
 import { useCanvasStore } from '../store'
 import { createScenario, saveScenarios, loadScenarios, setCurrentScenarioId } from '../store/scenarios'
@@ -146,12 +147,11 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         throw new Error(`Template ${templateId} graph.nodes is not an array`)
       }
 
-      // Convert backend graph to Blueprint format for canvas insertion
-      // Backend nodes may not have 'kind' or 'position', add defaults
+      // S1-MAP: Convert backend graph to Blueprint format using kind mapping shim
       const blueprintNodes = (graph.nodes || []).map((node: any, index: number) => ({
         id: node.id,
         label: node.label || node.id,
-        kind: node.kind || 'decision', // Default to decision if not specified
+        kind: toUiKind(node.kind), // S1-MAP: Safe kind mapping with fallback
         body: node.body, // v1.2: preserve body text
         position: node.position || { x: 200 + (index % 3) * 250, y: 100 + Math.floor(index / 3) * 200 }, // Grid layout if no position
       }))
@@ -237,26 +237,23 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         xOffset = maxX + 300
       }
 
+      // S1-MAP: Use backend kind mapping shim to safely convert nodes
+      const coercedNodes = coerceNodes(graph.nodes || [])
+
       // Create ID mapping for edges
       const nodeIdMap = new Map<string, string>()
 
-      // Convert template nodes to ReactFlow nodes with new IDs and offset positions
-      const newNodes: any[] = (graph.nodes || []).map((node: any, index: number) => {
+      // Convert coerced nodes to ReactFlow nodes with new IDs and offset positions
+      const newNodes: any[] = coercedNodes.map((coercedNode, index) => {
         const newNodeId = state.createNodeId()
-        nodeIdMap.set(node.id, newNodeId)
-
-        const defaultPos = { x: 200 + (index % 3) * 250, y: 100 + Math.floor(index / 3) * 200 }
-        const pos = node.position || defaultPos
+        nodeIdMap.set(coercedNode.id, newNodeId)
 
         return {
           id: newNodeId,
-          type: node.kind || 'decision',
-          position: { x: pos.x + xOffset, y: pos.y + yOffset },
+          type: coercedNode.type, // From coerceNode, always valid
+          position: { x: coercedNode.position.x + xOffset, y: coercedNode.position.y + yOffset },
           data: {
-            label: node.label || node.id,
-            body: node.body,
-            prior: node.prior,
-            utility: node.utility,
+            ...coercedNode.data,
             templateId: templateDetail.id,
             templateName: templateDetail.name,
             templateCreatedAt: Date.now()
