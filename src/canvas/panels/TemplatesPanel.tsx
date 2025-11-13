@@ -112,6 +112,12 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     }
   }, [isOpen])
 
+  // Toast notification helper (must be declared before handleInsert/handleMerge)
+  const showToast = useCallback((msg: string) => {
+    setToastMessage(msg)
+    setTimeout(() => setToastMessage(null), 3000)
+  }, [])
+
   const handleInsert = useCallback(async (templateId: string) => {
     // P0-6: Confirm before starting from template (replaces canvas)
     const state = useCanvasStore.getState()
@@ -323,11 +329,6 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     setSelectedBlueprint(null)
     setTemplateVersion(undefined)
   }, [clearError])
-
-  const showToast = useCallback((msg: string) => {
-    setToastMessage(msg)
-    setTimeout(() => setToastMessage(null), 3000)
-  }, [])
 
   const handlePinToCanvas = useCallback(() => {
     if (result && selectedBlueprint && onPinToCanvas) {
