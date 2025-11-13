@@ -106,6 +106,7 @@ interface CanvasState {
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
   updateEdge: (id: string, updates: Partial<Edge<EdgeData>>) => void
+  updateEdgeData: (id: string, data: Partial<EdgeData>) => void
   onNodesChange: (changes: NodeChange[]) => void
   onEdgesChange: (changes: EdgeChange[]) => void
   onSelectionChange: (params: { nodes: Node[]; edges: Edge<EdgeData>[] }) => void
@@ -357,6 +358,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
       return { edges, touchedNodeIds }
     })
+  },
+
+  updateEdgeData: (id, data) => {
+    get().updateEdge(id, { data })
   },
 
   onNodesChange: (changes) => {

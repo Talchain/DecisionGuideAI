@@ -627,6 +627,8 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                     <TemplateCard
                       key={bp.id}
                       template={{ id: bp.id, name: bp.name, description: bp.description }}
+                      nodes={bp.nodes}
+                      edges={bp.edges}
                       onInsert={handleInsert}
                       onMerge={handleMerge}
                     />

@@ -44,6 +44,9 @@ const IssuesPanel = lazy(() => import(/* webpackChunkName: "issues-panel" */ './
 import { NeedleMoversOverlay } from './components/NeedleMoversOverlay'
 import { DocumentsManager } from './components/DocumentsManager'
 import { ProvenanceHubTab } from './components/ProvenanceHubTab'
+import { RadialQuickAddMenu } from './components/RadialQuickAddMenu'
+import { ConnectPrompt } from './components/ConnectPrompt'
+import type { NodeType } from './domain/nodes'
 
 interface ReactFlowGraphProps {
   blueprintEventBus?: {
@@ -74,6 +77,20 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const setShowInspectorPanel = useCanvasStore(s => s.setShowInspectorPanel)
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
+
+  // P0-7: Quick-add mode state
+  const [quickAddMode, setQuickAddMode] = useState(false)
+  const [radialMenuPosition, setRadialMenuPosition] = useState<{ x: number; y: number } | null>(null)
+  const addNode = useCanvasStore(s => s.addNode)
+
+  // P0-8: Auto-connect state
+  const [connectPrompt, setConnectPrompt] = useState<{
+    newNodeId: string
+    targetNodeId: string
+    targetNodeLabel: string
+    position: { x: number; y: number }
+  } | null>(null)
+  const addEdge = useCanvasStore(s => s.addEdge)
 
   // M4: Graph Health state
   const graphHealth = useCanvasStore(s => s.graphHealth)
@@ -402,6 +419,111 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     onShowToast: showToast
   })
 
+  // P0-7: Q key to toggle quick-add mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'q' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        e.preventDefault()
+        setQuickAddMode(prev => !prev)
+        setRadialMenuPosition(null) // Close menu if open
+        if (!quickAddMode) {
+          showToast('Quick-add mode enabled. Click canvas to add nodes.', 'info')
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [quickAddMode, showToast])
+
+  // P0-7: Handle pane click to show radial menu in quick-add mode
+  const handlePaneClick = useCallback((event: React.MouseEvent) => {
+    if (quickAddMode) {
+      setRadialMenuPosition({ x: event.clientX, y: event.clientY })
+    }
+  }, [quickAddMode])
+
+  // P0-7: Handle node type selection from radial menu
+  const handleRadialMenuSelect = useCallback((nodeType: NodeType) => {
+    if (radialMenuPosition) {
+      const viewport = getViewport()
+      // Convert screen coordinates to canvas coordinates
+      const canvasX = (radialMenuPosition.x - viewport.x) / viewport.zoom
+      const canvasY = (radialMenuPosition.y - viewport.y) / viewport.zoom
+
+      // Get current node ID before adding (to identify new node)
+      const state = useCanvasStore.getState()
+      const beforeNodeCount = state.nodes.length
+
+      addNode({ x: canvasX, y: canvasY }, nodeType)
+      setRadialMenuPosition(null)
+      showToast(`Added ${nodeType} node`, 'success')
+
+      // P0-8: Check for nearby nodes within 300px
+      setTimeout(() => {
+        const newState = useCanvasStore.getState()
+        if (newState.nodes.length > beforeNodeCount) {
+          // Find the newly added node (last node)
+          const newNode = newState.nodes[newState.nodes.length - 1]
+
+          // Find nearby nodes within 300px
+          const nearbyNodes = newState.nodes.filter(n => {
+            if (n.id === newNode.id) return false
+            const dx = n.position.x - newNode.position.x
+            const dy = n.position.y - newNode.position.y
+            const distance = Math.sqrt(dx * dx + dy * dy)
+            return distance <= 300
+          })
+
+          if (nearbyNodes.length > 0) {
+            // Show prompt for the closest node
+            const closest = nearbyNodes.reduce((prev, curr) => {
+              const prevDist = Math.sqrt(
+                Math.pow(prev.position.x - newNode.position.x, 2) +
+                Math.pow(prev.position.y - newNode.position.y, 2)
+              )
+              const currDist = Math.sqrt(
+                Math.pow(curr.position.x - newNode.position.x, 2) +
+                Math.pow(curr.position.y - newNode.position.y, 2)
+              )
+              return currDist < prevDist ? curr : prev
+            })
+
+            setConnectPrompt({
+              newNodeId: newNode.id,
+              targetNodeId: closest.id,
+              targetNodeLabel: (closest.data as any)?.label || closest.id,
+              position: radialMenuPosition
+            })
+          }
+        }
+      }, 50) // Small delay to ensure node is added to store
+    }
+  }, [radialMenuPosition, getViewport, addNode, showToast])
+
+  // P0-7: Cancel radial menu
+  const handleRadialMenuCancel = useCallback(() => {
+    setRadialMenuPosition(null)
+  }, [])
+
+  // P0-8: Confirm connection to nearby node
+  const handleConfirmConnect = useCallback(() => {
+    if (connectPrompt) {
+      addEdge({
+        source: connectPrompt.newNodeId,
+        target: connectPrompt.targetNodeId,
+        data: { weight: 0.5, belief: 0.5 }
+      })
+      showToast(`Connected to ${connectPrompt.targetNodeLabel}`, 'success')
+      setConnectPrompt(null)
+    }
+  }, [connectPrompt, addEdge, showToast])
+
+  // P0-8: Cancel connection prompt
+  const handleCancelConnect = useCallback(() => {
+    setConnectPrompt(null)
+  }, [])
+
   // Blueprint insertion handler
   const insertBlueprint = useCallback((blueprint: Blueprint): { nodeIdMap: Map<string, string>; newNodes: any[]; newEdges: any[]; error?: string } => {
     // Transform to goal-first graph
@@ -615,7 +737,12 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const handleCloseContextMenu = useCallback(() => setContextMenu(null), [])
 
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+    <div style={{
+      width: '100%',
+      height: '100%',
+      position: 'relative',
+      cursor: quickAddMode ? 'crosshair' : undefined
+    }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -625,6 +752,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         onSelectionChange={handleSelectionChange}
         onNodeClick={handleNodeClick}
         onEdgeClick={handleEdgeClick}
+        onPaneClick={handlePaneClick}
         onPaneContextMenu={onPaneContextMenu}
         onNodeContextMenu={onNodeContextMenu}
         onNodeDragStart={onNodeDragStart}
@@ -771,6 +899,25 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           cancelLabel="Cancel"
           onConfirm={handleConfirmReplace}
           onCancel={handleCancelReplace}
+        />
+      )}
+
+      {/* P0-7: Radial quick-add menu */}
+      {radialMenuPosition && (
+        <RadialQuickAddMenu
+          position={radialMenuPosition}
+          onSelect={handleRadialMenuSelect}
+          onCancel={handleRadialMenuCancel}
+        />
+      )}
+
+      {/* P0-8: Auto-connect prompt */}
+      {connectPrompt && (
+        <ConnectPrompt
+          targetNodeLabel={connectPrompt.targetNodeLabel}
+          position={connectPrompt.position}
+          onConfirm={handleConfirmConnect}
+          onCancel={handleCancelConnect}
         />
       )}
 

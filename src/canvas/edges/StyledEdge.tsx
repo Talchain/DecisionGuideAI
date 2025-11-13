@@ -9,7 +9,7 @@
  * This maintains visual parity with existing smoothstep edges.
  */
 
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps, useReactFlow } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
 import { applyEdgeVisualProps } from '../theme/edges'
@@ -17,6 +17,8 @@ import { formatConfidence, shouldShowLabel } from '../domain/edges'
 import { useIsDark } from '../hooks/useTheme'
 import { getEdgeLabel } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
+import { EdgeEditPopover } from './EdgeEditPopover'
+import { useCanvasStore } from '../store'
 
 /**
  * StyledEdge with semantic visual properties
@@ -29,6 +31,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // P1 Polish: Edge label mode from Zustand store (live updates, cross-tab sync)
   const labelMode = useEdgeLabelMode(state => state.mode)
+
+  // P0-9: Inline edit popover state
+  const [showEditPopover, setShowEditPopover] = useState(false)
+  const [editPopoverPosition, setEditPopoverPosition] = useState({ x: 0, y: 0 })
+  const updateEdgeData = useCanvasStore(state => state.updateEdgeData)
 
   // Extract edge data with defaults
   const edgeData = data as EdgeData | undefined
@@ -83,6 +90,18 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     ? 'url(#arrowhead-selected)'
     : 'url(#arrowhead-default)'
 
+  // P0-9: Handle double-click to open inline editor
+  const handleLabelDoubleClick = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    setEditPopoverPosition({ x: event.clientX, y: event.clientY })
+    setShowEditPopover(true)
+  }
+
+  // P0-9: Handle edge data update from popover
+  const handleEdgeUpdate = (edgeId: string, updatedData: { weight: number; belief: number }) => {
+    updateEdgeData(edgeId, updatedData)
+  }
+
   return (
     <>
       <BaseEdge
@@ -116,6 +135,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             display: 'flex',
             alignItems: 'center',
             gap: '4px',
+            cursor: 'pointer',
           }}
           className={`nodrag nopan shadow-sm border ${
             isDark
@@ -128,6 +148,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             const desc = getEdgeLabel(weight, belief, labelMode)
             return provenance ? `${desc.tooltip} • Source: ${provenance}` : desc.tooltip
           })()}
+          onDoubleClick={handleLabelDoubleClick}
         >
           {(() => {
             const desc = getEdgeLabel(weight, belief, labelMode)
@@ -161,6 +182,16 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           })()}
         </div>
       </EdgeLabelRenderer>
+
+      {/* P0-9: Inline edge edit popover */}
+      {showEditPopover && (
+        <EdgeEditPopover
+          edge={{ id, data: { weight, belief: belief ?? 0.5 } }}
+          position={editPopoverPosition}
+          onUpdate={handleEdgeUpdate}
+          onClose={() => setShowEditPopover(false)}
+        />
+      )}
     </>
   )
 })

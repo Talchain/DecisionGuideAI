@@ -1,21 +1,42 @@
-import { useRef } from 'react'
+import { useRef, useMemo } from 'react'
 import { FileText, Plus, GitMerge } from 'lucide-react'
-import type { TemplateMeta } from '../../templates/blueprints/types'
+import type { TemplateMeta, BlueprintNode, BlueprintEdge } from '../../templates/blueprints/types'
+import { generateTemplatePreview } from '../utils/templatePreview'
 
 interface TemplateCardProps {
   template: TemplateMeta
+  nodes?: BlueprintNode[]
+  edges?: BlueprintEdge[]
   onInsert: (templateId: string) => void
   onMerge?: (templateId: string) => void
   onLearnMore?: (templateId: string) => void
 }
 
-export function TemplateCard({ template, onInsert, onMerge, onLearnMore }: TemplateCardProps): JSX.Element {
+export function TemplateCard({ template, nodes, edges, onInsert, onMerge, onLearnMore }: TemplateCardProps): JSX.Element {
   // v1.2: Debounce clicks to prevent double-insert (500ms)
   const lastClickTime = useRef<number>(0)
   const lastMergeClickTime = useRef<number>(0)
 
+  // P0-5: Generate preview SVG (memoized, cached per template)
+  const previewDataUrl = useMemo(() => {
+    if (!nodes || !edges || nodes.length === 0) return null
+    return generateTemplatePreview(nodes, edges)
+  }, [nodes, edges])
+
   return (
     <div className="border border-gray-200 rounded-lg p-4 hover:shadow-sm hover:border-info-500 transition-all">
+      {/* P0-5: Mini-layout preview */}
+      {previewDataUrl && (
+        <div className="mb-3 rounded-md overflow-hidden border border-gray-200">
+          <img
+            src={previewDataUrl}
+            alt={`${template.name} template structure`}
+            className="w-full h-auto"
+            style={{ display: 'block' }}
+          />
+        </div>
+      )}
+
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center bg-info-100">
           <FileText className="w-5 h-5 text-info-600" />
