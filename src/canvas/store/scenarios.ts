@@ -52,6 +52,64 @@ function generateId(): string {
 }
 
 /**
+ * Reseed node and edge IDs to avoid conflicts
+ */
+function reseedIds(nodes: Node[], edges: Edge[]): { nodes: Node[]; edges: Edge[] } {
+  const nodeIdMap = new Map<string, string>()
+
+  // Find max existing IDs
+  const existingScenarios = loadScenarios()
+  let maxNodeId = 0
+  let maxEdgeId = 0
+
+  for (const scenario of existingScenarios) {
+    for (const node of scenario.graph.nodes) {
+      const numId = parseInt(node.id, 10)
+      if (!isNaN(numId) && numId > maxNodeId) {
+        maxNodeId = numId
+      }
+    }
+    for (const edge of scenario.graph.edges) {
+      const match = edge.id.match(/^e(\d+)$/)
+      if (match) {
+        const numId = parseInt(match[1], 10)
+        if (!isNaN(numId) && numId > maxEdgeId) {
+          maxEdgeId = numId
+        }
+      }
+    }
+  }
+
+  let nextNodeId = maxNodeId + 1
+  let nextEdgeId = maxEdgeId + 1
+
+  // Create node ID mapping
+  for (const node of nodes) {
+    const newId = String(nextNodeId++)
+    nodeIdMap.set(node.id, newId)
+  }
+
+  // Remap node IDs
+  const remappedNodes = nodes.map(node => ({
+    ...node,
+    id: nodeIdMap.get(node.id) || node.id
+  }))
+
+  // Remap edge IDs and source/target
+  const remappedEdges = edges.map(edge => ({
+    ...edge,
+    id: `e${nextEdgeId++}`,
+    source: nodeIdMap.get(edge.source) || edge.source,
+    target: nodeIdMap.get(edge.target) || edge.target
+  }))
+
+  return {
+    nodes: remappedNodes,
+    edges: remappedEdges
+  }
+}
+
+/**
  * Load all scenarios from localStorage
  */
 export function loadScenarios(): Scenario[] {
@@ -259,6 +317,61 @@ export function deleteScenario(id: string): void {
       } catch {
         // Ignore errors
       }
+    }
+  }
+}
+
+/**
+ * Import a scenario from file
+ * Validates format, reseeds IDs, creates new scenario
+ */
+export function importScenarioFromFile(fileContent: string): { success: boolean; scenario?: Scenario; error?: string } {
+  try {
+    const data = JSON.parse(fileContent)
+
+    // Validate format
+    if (data.format !== 'olumi-scenario-v1') {
+      return {
+        success: false,
+        error: `Unsupported format: ${data.format || 'unknown'}. Expected olumi-scenario-v1.`
+      }
+    }
+
+    // Validate required fields
+    if (!data.scenario || !data.graph) {
+      return {
+        success: false,
+        error: 'Invalid file: missing scenario or graph data'
+      }
+    }
+
+    if (!Array.isArray(data.graph.nodes) || !Array.isArray(data.graph.edges)) {
+      return {
+        success: false,
+        error: 'Invalid file: graph must contain nodes and edges arrays'
+      }
+    }
+
+    // Reseed IDs to avoid conflicts
+    const { nodes, edges } = reseedIds(data.graph.nodes, data.graph.edges)
+
+    // Create new scenario from imported data
+    const scenario = createScenario({
+      name: data.scenario.name || 'Imported scenario',
+      nodes,
+      edges,
+      source_template_id: data.scenario.source_template_id,
+      source_template_version: data.scenario.source_template_version
+    })
+
+    return {
+      success: true,
+      scenario
+    }
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to parse file'
     }
   }
 }

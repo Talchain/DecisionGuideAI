@@ -10,10 +10,12 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { Save, Copy, Edit2, Trash2, ChevronDown, Folder, AlertCircle } from 'lucide-react'
+import { Save, Copy, Edit2, Trash2, ChevronDown, Folder, AlertCircle, Download, Upload } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { loadScenarios, getScenario, type Scenario } from '../store/scenarios'
+import { loadScenarios, getScenario, type Scenario, importScenarioFromFile } from '../store/scenarios'
 import { SaveStatusPill } from './SaveStatusPill'
+import { exportScenario } from '../export/exportScenario'
+import { useToast } from '../ToastContext'
 
 export function ScenarioSwitcher() {
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
@@ -32,6 +34,8 @@ export function ScenarioSwitcher() {
   const [showRenameDialog, setShowRenameDialog] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { showToast } = useToast()
 
   const currentScenario = currentScenarioId ? getScenario(currentScenarioId) : null
 
@@ -135,6 +139,52 @@ export function ScenarioSwitcher() {
     setIsOpen(false)
   }, [isDirty, loadScenario])
 
+  const handleExport = useCallback(() => {
+    if (currentScenarioId && currentScenario) {
+      exportScenario(currentScenario)
+      setIsOpen(false)
+    }
+  }, [currentScenarioId, currentScenario])
+
+  const handleImport = useCallback(() => {
+    // Warn if there are unsaved changes
+    if (isDirty) {
+      if (!window.confirm('You have unsaved changes. Import anyway?')) {
+        return
+      }
+    }
+
+    // Trigger file picker
+    fileInputRef.current?.click()
+  }, [isDirty])
+
+  const handleFileSelect = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    try {
+      const content = await file.text()
+      const result = importScenarioFromFile(content)
+
+      if (result.success && result.scenario) {
+        // Load the imported scenario
+        loadScenario(result.scenario.id)
+        showToast(`Imported "${result.scenario.name}" successfully`, 'success')
+        setIsOpen(false)
+        refreshScenarios()
+      } else {
+        showToast(result.error || 'Failed to import scenario', 'error')
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to read file', 'error')
+    }
+
+    // Reset file input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }, [loadScenario, showToast, refreshScenarios])
+
   return (
     <>
       <div className="relative" ref={dropdownRef}>
@@ -166,49 +216,81 @@ export function ScenarioSwitcher() {
           >
             {/* Current scenario actions */}
             <div className="p-2 border-b border-gray-200">
-              <div className="flex items-center gap-1">
+              <div className="flex flex-col gap-1">
+                {/* Save row */}
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={handleSave}
+                    className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                    type="button"
+                    role="menuitem"
+                  >
+                    <Save className="w-4 h-4" />
+                    {currentScenarioId ? 'Save' : 'Save as...'}
+                  </button>
+                  {currentScenarioId && (
+                    <>
+                      <button
+                        onClick={handleExport}
+                        className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        type="button"
+                        role="menuitem"
+                        title="Export scenario"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handleDuplicate}
+                        className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        type="button"
+                        role="menuitem"
+                        title="Duplicate"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handleRename}
+                        className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        type="button"
+                        role="menuitem"
+                        title="Rename"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(currentScenarioId)}
+                        className="px-3 py-2 text-sm text-danger-600 hover:bg-danger-50 rounded transition-colors"
+                        type="button"
+                        role="menuitem"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                {/* Import row */}
                 <button
-                  onClick={handleSave}
-                  className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                  onClick={handleImport}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
                   type="button"
                   role="menuitem"
                 >
-                  <Save className="w-4 h-4" />
-                  {currentScenarioId ? 'Save' : 'Save as...'}
+                  <Upload className="w-4 h-4" />
+                  Import scenario...
                 </button>
-                {currentScenarioId && (
-                  <>
-                    <button
-                      onClick={handleDuplicate}
-                      className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                      type="button"
-                      role="menuitem"
-                      title="Duplicate"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={handleRename}
-                      className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                      type="button"
-                      role="menuitem"
-                      title="Rename"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(currentScenarioId)}
-                      className="px-3 py-2 text-sm text-danger-600 hover:bg-danger-50 rounded transition-colors"
-                      type="button"
-                      role="menuitem"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </>
-                )}
               </div>
             </div>
+
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".olumi.json,application/json"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
 
             {/* Scenario list */}
             <div className="max-h-64 overflow-y-auto">
@@ -217,27 +299,68 @@ export function ScenarioSwitcher() {
                   No saved scenarios yet
                 </div>
               ) : (
-                scenarios.map(scenario => (
-                  <button
-                    key={scenario.id}
-                    onClick={() => handleLoadScenario(scenario.id)}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
-                      scenario.id === currentScenarioId ? 'bg-info-50 text-info-700 font-medium' : 'text-gray-700'
-                    }`}
-                    type="button"
-                    role="menuitem"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="truncate flex-1">{scenario.name}</span>
-                      {scenario.id === currentScenarioId && isDirty && (
-                        <AlertCircle className="w-3 h-3 text-warning-500 flex-shrink-0 ml-2" title="Unsaved changes" />
-                      )}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-0.5">
-                      {formatTimestamp(scenario.updatedAt)}
-                    </div>
-                  </button>
-                ))
+                <>
+                  {/* Recent scenarios (first 5) */}
+                  {scenarios.length > 0 && (
+                    <>
+                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        Recent
+                      </div>
+                      {scenarios.slice(0, 5).map(scenario => (
+                        <button
+                          key={scenario.id}
+                          onClick={() => handleLoadScenario(scenario.id)}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                            scenario.id === currentScenarioId ? 'bg-info-50 text-info-700 font-medium' : 'text-gray-700'
+                          }`}
+                          type="button"
+                          role="menuitem"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="truncate flex-1">{scenario.name}</span>
+                            {scenario.id === currentScenarioId && isDirty && (
+                              <AlertCircle className="w-3 h-3 text-warning-500 flex-shrink-0 ml-2" title="Unsaved changes" />
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {formatTimestamp(scenario.updatedAt)}
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
+
+                  {/* All scenarios (if more than 5) */}
+                  {scenarios.length > 5 && (
+                    <>
+                      <div className="border-t border-gray-200 my-1" />
+                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                        All Scenarios
+                      </div>
+                      {scenarios.slice(5).map(scenario => (
+                        <button
+                          key={scenario.id}
+                          onClick={() => handleLoadScenario(scenario.id)}
+                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                            scenario.id === currentScenarioId ? 'bg-info-50 text-info-700 font-medium' : 'text-gray-700'
+                          }`}
+                          type="button"
+                          role="menuitem"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="truncate flex-1">{scenario.name}</span>
+                            {scenario.id === currentScenarioId && isDirty && (
+                              <AlertCircle className="w-3 h-3 text-warning-500 flex-shrink-0 ml-2" title="Unsaved changes" />
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {formatTimestamp(scenario.updatedAt)}
+                          </div>
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </>
               )}
             </div>
           </div>

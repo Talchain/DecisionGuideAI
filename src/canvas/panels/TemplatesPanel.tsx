@@ -27,9 +27,10 @@ interface TemplatesPanelProps {
 }
 
 export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanvas, insertionError }: TemplatesPanelProps): JSX.Element | null {
-  const [blueprints, setBlueprints] = useState<Array<{ id: string; name: string; description: string }>>([])
+  const [blueprints, setBlueprints] = useState<Array<{ id: string; name: string; description: string; category?: string }>>([])
   const [templatesLoading, setTemplatesLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedBlueprintId, setSelectedBlueprintId] = useState<string | null>(null)
   const [selectedBlueprint, setSelectedBlueprint] = useState<Blueprint | null>(null)
   const [templateVersion, setTemplateVersion] = useState<string | undefined>(undefined)
@@ -65,7 +66,8 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         setBlueprints(templates.map(t => ({
           id: t.id,
           name: t.name,
-          description: t.description
+          description: t.description,
+          category: t.category || 'Other'
         })))
         setTemplatesLoading(false)
       })
@@ -79,10 +81,20 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       })
   }, [])
 
-  const filteredBlueprints = blueprints.filter(bp =>
-    bp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    bp.description.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Get unique categories with counts
+  const categories = ['all', ...Array.from(new Set(blueprints.map(bp => bp.category || 'Other').filter(Boolean)))]
+  const categoryCounts = blueprints.reduce((acc, bp) => {
+    const cat = bp.category || 'Other'
+    acc[cat] = (acc[cat] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
+
+  const filteredBlueprints = blueprints.filter(bp => {
+    const matchesSearch = bp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      bp.description.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesCategory = selectedCategory === 'all' || bp.category === selectedCategory
+    return matchesSearch && matchesCategory
+  })
 
   // Focus management: Focus close button on open for easy dismissal
   // On close, focus restoration is handled by store.closeTemplatesPanel()
@@ -470,6 +482,29 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           {/* Template Browser */}
           {!selectedBlueprintId && (
             <>
+              {/* Category Pills */}
+              {!templatesLoading && categories.length > 1 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {categories.map(cat => {
+                    const count = cat === 'all' ? blueprints.length : categoryCounts[cat] || 0
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                          selectedCategory === cat
+                            ? 'bg-info-500 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                        type="button"
+                      >
+                        {cat === 'all' ? 'All' : cat} ({count})
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
@@ -484,6 +519,10 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
               {/* Show skeleton while loading templates */}
               {templatesLoading ? (
                 <TemplateSkeleton />
+              ) : filteredBlueprints.length === 0 ? (
+                <div className="py-8 text-center text-sm text-gray-500">
+                  No templates found matching your criteria
+                </div>
               ) : (
                 <div className="space-y-3">
                   {filteredBlueprints.map(bp => (
