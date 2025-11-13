@@ -16,6 +16,7 @@ import type { NodeType } from '../domain/nodes'
 import { useIsDark } from '../hooks/useTheme'
 import type { LucideIcon } from 'lucide-react'
 import { sanitizeMarkdown } from '../utils/markdown'
+import { UnknownKindWarning } from '../components/UnknownKindWarning'
 
 interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
@@ -109,7 +110,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         >
           <Icon size={16} strokeWidth={2} />
         </span>
-        
+
         <span
           style={{
             display: 'inline-block',
@@ -125,6 +126,11 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         >
           {nodeType}
         </span>
+
+        {/* S1-UNK: Warning chip for unknown backend kinds */}
+        {data?.unknownKind && data?.originalKind && (
+          <UnknownKindWarning originalKind={data.originalKind} />
+        )}
       </div>
       
       {/* Node label */}
