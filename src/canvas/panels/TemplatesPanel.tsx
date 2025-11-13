@@ -113,13 +113,13 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   }, [isOpen])
 
   const handleInsert = useCallback(async (templateId: string) => {
-    // P0-3: Confirm before inserting if there are unsaved edits
+    // P0-6: Confirm before starting from template (replaces canvas)
     const state = useCanvasStore.getState()
     const hasUnsavedChanges = state.isDirty || state.nodes.length > 0
 
     if (hasUnsavedChanges) {
       const confirm = window.confirm(
-        'You have unsaved changes. Inserting a template will replace your current canvas. Continue?'
+        'Start from Template will replace your current canvas. Any unsaved changes will be lost. Continue?'
       )
       if (!confirm) {
         return
@@ -196,6 +196,104 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       showToast('Failed to load template.')
     }
   }, [onInsertBlueprint])
+
+  // P0-6: Merge template into current canvas (from template card)
+  const handleMerge = useCallback(async (templateId: string) => {
+    try {
+      // P0-6: Confirm before merging (adds nodes/edges to canvas)
+      const templateDetail = await plot.template(templateId)
+      const graph = templateDetail.graph as any
+
+      if (!graph || !Array.isArray(graph.nodes)) {
+        throw new Error(`Template ${templateId} has invalid graph structure`)
+      }
+
+      const nodeCount = graph.nodes.length
+      const edgeCount = (graph.edges || []).length
+
+      const confirm = window.confirm(
+        `Merge "${templateDetail.name}" into current canvas? This will add ${nodeCount} nodes and ${edgeCount} edges to your existing work.`
+      )
+
+      if (!confirm) {
+        return
+      }
+
+      // Calculate offset to avoid overlapping existing nodes
+      const state = useCanvasStore.getState()
+      let xOffset = 0
+      let yOffset = 0
+
+      if (state.nodes.length > 0) {
+        // Find rightmost existing node
+        const maxX = Math.max(...state.nodes.map(n => n.position.x + (n.width || 200)))
+        // Place merged content 300px to the right of existing content
+        xOffset = maxX + 300
+      }
+
+      // Create ID mapping for edges
+      const nodeIdMap = new Map<string, string>()
+
+      // Convert template nodes to ReactFlow nodes with new IDs and offset positions
+      const newNodes: any[] = (graph.nodes || []).map((node: any, index: number) => {
+        const newNodeId = state.createNodeId()
+        nodeIdMap.set(node.id, newNodeId)
+
+        const defaultPos = { x: 200 + (index % 3) * 250, y: 100 + Math.floor(index / 3) * 200 }
+        const pos = node.position || defaultPos
+
+        return {
+          id: newNodeId,
+          type: node.kind || 'decision',
+          position: { x: pos.x + xOffset, y: pos.y + yOffset },
+          data: {
+            label: node.label || node.id,
+            body: node.body,
+            prior: node.prior,
+            utility: node.utility,
+            templateId: templateDetail.id,
+            templateName: templateDetail.name,
+            templateCreatedAt: Date.now()
+          }
+        }
+      })
+
+      // Convert template edges to ReactFlow edges with mapped IDs
+      const newEdges: any[] = (graph.edges || []).map((edge: any) => {
+        const newEdgeId = state.createEdgeId()
+        const mappedSource = nodeIdMap.get(edge.from || edge.source) || edge.from || edge.source
+        const mappedTarget = nodeIdMap.get(edge.to || edge.target) || edge.to || edge.target
+
+        return {
+          id: newEdgeId,
+          source: mappedSource,
+          target: mappedTarget,
+          data: {
+            schemaVersion: 3,
+            weight: edge.weight ?? 1.0,
+            confidence: edge.probability,
+            belief: edge.belief ?? edge.probability,
+            provenance: edge.provenance,
+            templateId: templateDetail.id
+          }
+        }
+      })
+
+      // Directly append to store
+      state.pushHistory()
+      useCanvasStore.setState(currentState => ({
+        nodes: [...currentState.nodes, ...newNodes],
+        edges: [...currentState.edges, ...newEdges]
+      }))
+
+      showToast(`Merged "${templateDetail.name}" into canvas.`)
+    } catch (err) {
+      if (import.meta.env.DEV) {
+        console.error('Failed to merge template:', err)
+      }
+      showToast('Failed to merge template.')
+    }
+  }, [showToast])
 
   const handleRun = useCallback(async () => {
     if (!selectedBlueprintId) return
@@ -530,6 +628,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                       key={bp.id}
                       template={{ id: bp.id, name: bp.name, description: bp.description }}
                       onInsert={handleInsert}
+                      onMerge={handleMerge}
                     />
                   ))}
                 </div>

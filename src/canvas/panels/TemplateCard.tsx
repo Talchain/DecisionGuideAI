@@ -1,16 +1,19 @@
 import { useRef } from 'react'
-import { FileText, Plus } from 'lucide-react'
+import { FileText, Plus, GitMerge } from 'lucide-react'
 import type { TemplateMeta } from '../../templates/blueprints/types'
 
 interface TemplateCardProps {
   template: TemplateMeta
   onInsert: (templateId: string) => void
+  onMerge?: (templateId: string) => void
   onLearnMore?: (templateId: string) => void
 }
 
-export function TemplateCard({ template, onInsert, onLearnMore }: TemplateCardProps): JSX.Element {
+export function TemplateCard({ template, onInsert, onMerge, onLearnMore }: TemplateCardProps): JSX.Element {
   // v1.2: Debounce clicks to prevent double-insert (500ms)
   const lastClickTime = useRef<number>(0)
+  const lastMergeClickTime = useRef<number>(0)
+
   return (
     <div className="border border-gray-200 rounded-lg p-4 hover:shadow-sm hover:border-info-500 transition-all">
       <div className="flex items-start gap-3">
@@ -27,7 +30,8 @@ export function TemplateCard({ template, onInsert, onLearnMore }: TemplateCardPr
         </div>
       </div>
 
-      <div className="flex gap-2 mt-3">
+      <div className="flex flex-col gap-2 mt-3">
+        {/* Primary action: Start from Template */}
         <button
           onClick={() => {
             // v1.2: Debounce to prevent double-insert
@@ -41,20 +45,45 @@ export function TemplateCard({ template, onInsert, onLearnMore }: TemplateCardPr
             lastClickTime.current = now
             onInsert(template.id)
           }}
-          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-info-500 hover:bg-info-600 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500 transition-colors"
-          aria-label={`Create scenario from ${template.name} template`}
+          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-info-500 hover:bg-info-600 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500 transition-colors"
+          aria-label={`Start from ${template.name} template`}
         >
           <Plus className="w-3.5 h-3.5" />
-          Create scenario
+          Start from Template
         </button>
-        {onLearnMore && (
-          <button
-            onClick={() => onLearnMore(template.id)}
-            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
-          >
-            Learn more
-          </button>
-        )}
+
+        {/* Secondary actions row */}
+        <div className="flex gap-2">
+          {onMerge && (
+            <button
+              onClick={() => {
+                const now = Date.now()
+                if (now - lastMergeClickTime.current < 500) {
+                  if (import.meta.env.DEV) {
+                    console.log('[TemplateCard] Debounced duplicate merge click on:', template.name)
+                  }
+                  return
+                }
+                lastMergeClickTime.current = now
+                onMerge(template.id)
+              }}
+              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
+              aria-label={`Merge ${template.name} into current canvas`}
+              title="Add template to current canvas"
+            >
+              <GitMerge className="w-3 h-3" />
+              Merge
+            </button>
+          )}
+          {onLearnMore && (
+            <button
+              onClick={() => onLearnMore(template.id)}
+              className="flex-1 px-2 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
+            >
+              Learn more
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
