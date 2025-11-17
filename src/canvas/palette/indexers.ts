@@ -122,7 +122,7 @@ export function indexActions(): PaletteItem[] {
       kind: 'action',
       label: 'Run Analysis',
       description: 'Start a new PLoT run',
-      keywords: ['run', 'analyze', 'execute'],
+      keywords: ['run', 'analyse', 'execute'],
     },
     {
       id: 'action:cancel',

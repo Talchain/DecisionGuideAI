@@ -59,6 +59,18 @@ export function setupTestEnvironment() {
     process.env.VITE_FEATURE_COMMAND_PALETTE = '0'
   }
 
+  if (!process.env.VITE_FEATURE_INPUTS_OUTPUTS) {
+    process.env.VITE_FEATURE_INPUTS_OUTPUTS = '0'
+  }
+
+  if (!process.env.VITE_FEATURE_OPTIMISE_BETA) {
+    process.env.VITE_FEATURE_OPTIMISE_BETA = '0'
+  }
+
+  if (!process.env.VITE_FEATURE_DEBUG) {
+    process.env.VITE_FEATURE_DEBUG = '0'
+  }
+
   if (!process.env.VITE_FEATURE_SNAPSHOTS_V2) {
     process.env.VITE_FEATURE_SNAPSHOTS_V2 = '0'
   }

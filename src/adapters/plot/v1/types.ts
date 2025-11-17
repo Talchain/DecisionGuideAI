@@ -113,6 +113,17 @@ export interface V1InterimFindingsData {
 export interface V1CompleteData {
   result: V1RunResult
   execution_ms: number
+  // Optional diagnostics payload (if provided by backend COMPLETE event)
+  diagnostics?: {
+    resumes?: number
+    trims?: 0 | 1
+    recovered_events?: number
+    correlation_id?: string
+    [key: string]: unknown
+  }
+  // Optional metadata derived from HTTP response headers
+  correlation_id_header?: string
+  degraded?: boolean
 }
 
 export interface V1ErrorData {

@@ -29,12 +29,14 @@ export interface DraftResponse {
       meta?: {
         suggested_position?: { x: number; y: number }
       }
+      rationale?: string // S7-RATIONALE: Explains why this node was added
     }>
     edges: Array<{
       id: string
       from: string
       to: string
       label?: string
+      rationale?: string // S7-RATIONALE: Explains why this edge was added
     }>
   }
   provenance?: {
@@ -57,6 +59,7 @@ export interface DraftResponse {
       options?: string[]
       required?: boolean
       multiple?: boolean // AUDIT FIX 4: Explicit flag for multi-select MCQs
+      impact_hint?: string // S7-HINTS: Optional hint explaining impact of this question
     }>
     round: number
   }

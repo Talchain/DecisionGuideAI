@@ -165,7 +165,7 @@ export function findEdgeMatches(
 
 /**
  * Find all matches for a driver (nodes or edges)
- * If driver has ID, uses kind to optimize search
+ * If driver has ID, uses kind to optimise search
  * If driver only has label, searches both nodes and edges for best match
  */
 export function findDriverMatches(

@@ -16,6 +16,7 @@ import type { Scenario } from './store/scenarios'
 import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/types'
 import type { Document, Citation } from './share/types'
 import type { Snapshot, DecisionRationale } from './snapshots/types'
+import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 
 /**
  * Generate deterministic content hash using FNV-1a algorithm
@@ -49,6 +50,19 @@ export interface ResultsState {
   drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
 }
 
+export type SseDiagnostics = {
+  resumes: number
+  trims: 0 | 1
+  recovered_events: number
+  correlation_id: string
+}
+
+export type RunMetaState = {
+  diagnostics?: SseDiagnostics
+  correlationIdHeader?: string
+  degraded?: boolean
+}
+
 const initialNodes: Node[] = []
 
 const initialEdges: Edge<EdgeData>[] = []
@@ -78,6 +92,7 @@ interface CanvasState {
   nextEdgeId: number
   _internal: { lastHistoryHash: string }
   results: ResultsState  // Analysis results panel state
+  runMeta: RunMetaState
   // Scenario state
   currentScenarioId: string | null  // Active scenario ID
   isDirty: boolean  // Has unsaved changes
@@ -98,6 +113,10 @@ interface CanvasState {
   showProvenanceHub: boolean
   showDocumentsDrawer: boolean
   provenanceRedactionEnabled: boolean
+  // S7-FILEOPS: Document management state
+  documentSearchQuery: string
+  documentSortField: 'name' | 'date' | 'size' | 'type'
+  documentSortDirection: 'asc' | 'desc'
   // M6: Compare & Decision Rationale
   selectedSnapshotsForComparison: string[] // Snapshot IDs
   showComparePanel: boolean
@@ -151,6 +170,8 @@ interface CanvasState {
   resultsError: (params: { code: string; message: string; retryAfter?: number }) => void
   resultsCancelled: () => void
   resultsReset: () => void
+  resultsLoadHistorical: (run: StoredRun) => void
+  setRunMeta: (meta: RunMetaState) => void
   // Scenario actions
   loadScenario: (id: string) => boolean
   saveCurrentScenario: (name?: string) => string | null
@@ -174,6 +195,9 @@ interface CanvasState {
   // M5: Provenance actions
   addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
   removeDocument: (id: string) => void
+  renameDocument: (id: string, newName: string) => void  // S7-FILEOPS
+  setDocumentSearchQuery: (query: string) => void  // S7-FILEOPS
+  setDocumentSort: (field: 'name' | 'date' | 'size' | 'type', direction: 'asc' | 'desc') => void  // S7-FILEOPS
   addCitation: (citation: Omit<Citation, 'id' | 'createdAt'>) => void
   setShowProvenanceHub: (show: boolean) => void
   setShowDocumentsDrawer: (show: boolean) => void
@@ -261,6 +285,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     status: 'idle',
     progress: 0
   },
+  runMeta: {},
   // Scenario state
   currentScenarioId: scenarios.getCurrentScenarioId(),
   isDirty: false,
@@ -281,6 +306,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   showProvenanceHub: false,
   showDocumentsDrawer: false,
   provenanceRedactionEnabled: true, // M5: Redaction ON by default
+  // S7-FILEOPS: Document management initial state
+  documentSearchQuery: loadSearchQuery(),
+  ...loadSortPreferences(),
   // M6: Compare & Decision Rationale
   selectedSnapshotsForComparison: [],
   showComparePanel: false,
@@ -1051,6 +1079,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     })
   },
 
+  setRunMeta: (meta) => {
+    set(s => ({
+      runMeta: {
+        ...s.runMeta,
+        ...meta
+      }
+    }))
+  },
+
   // Scenario actions
   loadScenario: (id: string) => {
     const scenario = scenarios.getScenario(id)
@@ -1338,6 +1375,41 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }))
   },
 
+  // S7-FILEOPS: Rename document with undo/redo and event emission
+  renameDocument: (id, newName) => {
+    const { documents } = get()
+    const doc = documents.find(d => d.id === id)
+    if (!doc) return
+
+    const oldName = doc.name
+    const trimmed = newName.trim()
+
+    // Update document name
+    set(s => ({
+      documents: s.documents.map(d =>
+        d.id === id ? { ...d, name: trimmed } : d
+      )
+    }))
+
+    // Emit rename event for provenance chip sync
+    docsTest.emitDocumentRenamed(id, oldName, trimmed)
+
+    // Push to history for undo/redo
+    get().pushHistory()
+  },
+
+  // S7-FILEOPS: Set document search query with session persistence
+  setDocumentSearchQuery: (query) => {
+    set({ documentSearchQuery: query })
+    saveSearchQuery(query)
+  },
+
+  // S7-FILEOPS: Set document sort with session persistence
+  setDocumentSort: (field, direction) => {
+    set({ documentSortField: field, documentSortDirection: direction })
+    saveSortPreferences(field, direction)
+  },
+
   addCitation: (citation) => {
     const id = crypto.randomUUID()
     const newCitation: Citation = {
@@ -1439,6 +1511,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   cleanup: clearTimers
 }))
+
+// Expose store on window for E2E tests (Playwright helpers and direct injection)
+if (typeof window !== 'undefined') {
+  ;(window as any).useCanvasStore = useCanvasStore
+}
 
 /**
  * Validation selectors and helpers

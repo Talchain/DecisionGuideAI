@@ -1,10 +1,34 @@
 /*
+  # CORS headers
   Access-Control-Allow-Origin: *
   Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS, PATCH
   Access-Control-Allow-Headers: Content-Type, Authorization, x-client-info, apikey, Range, x-client-version
   Access-Control-Expose-Headers: Content-Range, Range
   Access-Control-Max-Age: 86400
-  Cache-Control: no-cache
-  Cache-Control: no-store
-  Cache-Control: must-revalidate
+
+  # Cache control
+  Cache-Control: no-cache, no-store, must-revalidate
   Pragma: no-cache
+
+  # S5-SECURITY: Content Security Policy
+  # Strict CSP to prevent XSS and other injection attacks
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://*.anthropic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https://*.plot-lite-service.onrender.com https://*.supabase.co https://*.anthropic.com wss://*.supabase.co; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests;
+
+  # S5-SECURITY: Additional security headers
+  # Prevent clickjacking
+  X-Frame-Options: DENY
+
+  # Prevent MIME type sniffing
+  X-Content-Type-Options: nosniff
+
+  # Enable XSS protection in legacy browsers
+  X-XSS-Protection: 1; mode=block
+
+  # Control referrer information
+  Referrer-Policy: strict-origin-when-cross-origin
+
+  # Permissions policy to limit browser features
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()
+
+  # Strict Transport Security (HSTS) - enforces HTTPS
+  Strict-Transport-Security: max-age=31536000; includeSubDomains; preload

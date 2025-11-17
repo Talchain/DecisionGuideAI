@@ -5,9 +5,21 @@
  * (one frame at 60 FPS) to ensure smooth user experience.
  *
  * Performance targets:
- * - Initial render: < 16ms
+ * - Initial render: < 25ms (with test overhead)
  * - Slider interaction: < 16ms
  * - Update debounce fire: < 16ms
+ *
+ * LIMITATIONS:
+ * - Uses jsdom/RTL, not real browser rendering
+ * - performance.now() measures JS execution time only
+ * - Does NOT include layout, paint, or composite phases
+ * - Real browser metrics may differ (use Lighthouse/WebPageTest for production)
+ *
+ * These tests validate ALGORITHMIC performance (state updates, event handlers).
+ * For real-world INP/FCP metrics, use:
+ * - Lighthouse CI
+ * - WebPageTest
+ * - Real User Monitoring (RUM)
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'

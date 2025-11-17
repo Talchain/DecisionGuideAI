@@ -117,6 +117,10 @@
 
 /* Node palette (legacy - to be migrated) */
 :root {
+  /* Layout bars */
+  --bottombar-h: 56px; /* Canvas toolbar height (matches CanvasToolbar comment) */
+  --topbar-h: 0px;     /* Set to non-zero if a fixed top bar is introduced */
+
   --node-goal-bg: #1A1E28;
   --node-goal-border: #F7C948;
   --node-decision-bg: #121A2A;
@@ -135,4 +139,13 @@
   
   /* UI */
   --radius-lg: 14px;
+
+  /* Canvas dock layout */
+  --dock-left-expanded: 20rem;
+  --dock-left-collapsed: 2.5rem;
+  --dock-right-expanded: 24rem;
+  --dock-right-collapsed: 2.5rem;
+  /* Effective offsets used by the canvas container; updated by dock components. */
+  --dock-left-offset: 0rem;
+  --dock-right-offset: 0rem;
 }

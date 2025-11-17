@@ -482,10 +482,19 @@ export const httpV1Adapter = {
         onComplete: (data) => {
           const executionMs = Date.now() - startTime
           const report = mapV1ResultToReport(data, input.template_id, executionMs)
+
+          const completePayload: any = data
+          const diagnostics = completePayload.diagnostics
+          const correlationIdHeader = completePayload.correlation_id_header as string | undefined
+          const degraded = typeof completePayload.degraded === 'boolean' ? completePayload.degraded : undefined
+
           handlers.onDone({
             response_id: report.model_card.response_hash || `http-v1-${Date.now()}`,
             report,
-          })
+            diagnostics,
+            correlationIdHeader,
+            degraded,
+          } as any)
         },
         onError: (error) => {
           // If SSE fails with 404 or 5xx, fall back to sync (if not already aborted)

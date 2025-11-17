@@ -153,6 +153,14 @@ export function coerceNode(backendNode: BackendNode, index: number = 0): Coerced
   const uiKind = toUiKind(originalKind)
   const wasUnknown = originalKind !== undefined && !isKnownKind(originalKind)
 
+  // Log unknown kinds for monitoring/debugging
+  if (wasUnknown) {
+    console.warn(
+      `[backendKinds] Unknown kind "${originalKind}" for node "${backendNode.id}" mapped to "${uiKind}". ` +
+      `This may indicate a new backend node type that needs UI support.`
+    )
+  }
+
   // Default position if not provided (grid layout)
   const defaultPosition = {
     x: 200 + (index % 3) * 250,

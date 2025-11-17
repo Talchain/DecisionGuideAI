@@ -46,6 +46,12 @@ export function mockFlags(overrides: Partial<FlagFns> = {}) {
     isScenariosV2Enabled: () => false,
     isA11yPolishEnabled: () => false,
     isPerfProbesEnabled: () => false,
+    isInputsOutputsEnabled: () => false,
+    isCommandPaletteEnabled: () => false,
+    isDegradedBannerEnabled: () => false,
+    isOptimiseBetaEnabled: () => false,
+    isDebugEnabled: () => false,
+    isSnapshotsV2Enabled: () => false,
   }
   const flags = { ...base, ...overrides } as FlagFns
   vi.doMock('../../flags', () => flags)

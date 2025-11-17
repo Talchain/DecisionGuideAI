@@ -1,10 +1,12 @@
 /**
- * M2.5: Provenance Chips
+ * M2.5 + S7-FILEOPS: Provenance Chips
  * Shows document sources with redaction control
+ * S7-FILEOPS: Auto-updates when documents are renamed
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FileText, Eye, EyeOff } from 'lucide-react'
+import { onDocumentRenamed } from '../../canvas/store/documents'
 
 interface ProvenanceChipProps {
   documents: Array<{
@@ -19,10 +21,42 @@ interface ProvenanceChipProps {
 
 export function ProvenanceChip({ documents, redacted = true, onToggleRedaction }: ProvenanceChipProps) {
   const [expanded, setExpanded] = useState(false)
+  // S7-FILEOPS: Track document names locally to enable immediate updates on rename
+  const [docNames, setDocNames] = useState<Map<string, string>>(
+    new Map(documents.map(d => [d.id, d.name]))
+  )
+
+  // S7-FILEOPS: Update local names when documents prop changes
+  useEffect(() => {
+    setDocNames(new Map(documents.map(d => [d.id, d.name])))
+  }, [documents])
+
+  // S7-FILEOPS: Listen for document rename events
+  useEffect(() => {
+    const unsubscribe = onDocumentRenamed((id, oldName, newName) => {
+      setDocNames(prev => {
+        // Only update if this document is in our list
+        if (prev.has(id)) {
+          const next = new Map(prev)
+          next.set(id, newName)
+          return next
+        }
+        return prev
+      })
+    })
+
+    return unsubscribe
+  }, [])
 
   if (documents.length === 0) {
     return null
   }
+
+  // S7-FILEOPS: Merge current names with renamed names
+  const displayDocuments = documents.map(doc => ({
+    ...doc,
+    name: docNames.get(doc.id) ?? doc.name,
+  }))
 
   // M2.5: Truncate snippet to ≤100 chars when redacted
   const formatSnippet = (snippet: string | undefined, isRedacted: boolean): string => {
@@ -38,10 +72,10 @@ export function ProvenanceChip({ documents, redacted = true, onToggleRedaction }
       <button
         onClick={() => setExpanded(!expanded)}
         className="inline-flex items-center gap-1.5 px-2 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-medium hover:bg-purple-100 border border-purple-200"
-        title={`Sources: ${documents.map((d) => d.name).join(', ')}`}
+        title={`Sources: ${displayDocuments.map((d) => d.name).join(', ')}`}
       >
         <FileText className="w-3 h-3" />
-        <span>{documents.length} source{documents.length > 1 ? 's' : ''}</span>
+        <span>{displayDocuments.length} source{displayDocuments.length > 1 ? 's' : ''}</span>
       </button>
 
       {/* Expanded view */}
@@ -62,7 +96,7 @@ export function ProvenanceChip({ documents, redacted = true, onToggleRedaction }
           </div>
 
           <div className="space-y-2">
-            {documents.map((doc) => (
+            {displayDocuments.map((doc) => (
               <div key={doc.id} className="border-l-2 border-purple-300 pl-2">
                 <div className="font-medium text-xs text-gray-900">{doc.name}</div>
                 {doc.snippet && (

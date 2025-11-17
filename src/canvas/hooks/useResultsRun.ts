@@ -29,6 +29,7 @@ export function useResultsRun(): UseResultsRunReturn {
   const resultsComplete = useCanvasStore(s => s.resultsComplete)
   const resultsError = useCanvasStore(s => s.resultsError)
   const resultsCancelled = useCanvasStore(s => s.resultsCancelled)
+  const setRunMeta = useCanvasStore(s => s.setRunMeta)
 
   const run = useCallback(async (request: RunRequest, options?: { forceRerun?: boolean }) => {
     let seed = request.seed ?? 1337
@@ -43,6 +44,9 @@ export function useResultsRun(): UseResultsRunReturn {
 
     // Start preparing
     resultsStart({ seed, wasForced: options?.forceRerun })
+
+    // Reset run metadata for new run
+    setRunMeta({ diagnostics: undefined, correlationIdHeader: undefined, degraded: undefined })
 
     // Check if adapter supports streaming
     const adapter = plot as any
@@ -67,7 +71,13 @@ export function useResultsRun(): UseResultsRunReturn {
               lastProgressUpdate.current = now
             }
           },
-          onDone: (data: { response_id: string; report: ReportV1 }) => {
+          onDone: (data: {
+            response_id: string
+            report: ReportV1
+            diagnostics?: any
+            correlationIdHeader?: string
+            degraded?: boolean
+          }) => {
             const report = data.report
 
             // Extract drivers from report (if present)
@@ -80,6 +90,15 @@ export function useResultsRun(): UseResultsRunReturn {
               hash: report.model_card.response_hash,
               drivers
             })
+
+            // Capture diagnostics + correlation metadata when available
+            if (data.diagnostics || data.correlationIdHeader || typeof data.degraded === 'boolean') {
+              setRunMeta({
+                diagnostics: data.diagnostics,
+                correlationIdHeader: data.correlationIdHeader,
+                degraded: data.degraded
+              })
+            }
             cancelRef.current = null
           },
           onError: (error: ErrorV1) => {
@@ -151,7 +170,7 @@ export function useResultsRun(): UseResultsRunReturn {
         })
       }
     }
-  }, [resultsStart, resultsConnecting, resultsProgress, resultsComplete, resultsError])
+  }, [resultsStart, resultsConnecting, resultsProgress, resultsComplete, resultsError, setRunMeta])
 
   const cancel = useCallback(() => {
     if (cancelRef.current) {

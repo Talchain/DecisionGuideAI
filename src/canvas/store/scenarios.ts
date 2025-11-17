@@ -411,6 +411,41 @@ export function updateScenarioResultHash(id: string, hash: string): void {
 }
 
 /**
+ * S9-PROMOTE: Promote a comparison snapshot as the current scenario
+ * Replaces the current scenario's graph with the snapshot's graph
+ *
+ * @param scenarioId - The scenario to update
+ * @param graph - The graph snapshot to promote (from StoredRun)
+ * @returns true if successful, false if scenario not found
+ */
+export function promoteSnapshot(
+  scenarioId: string,
+  graph: { nodes: Node[]; edges: Edge[] }
+): boolean {
+  const scenario = getScenario(scenarioId)
+  if (!scenario) {
+    console.warn('[scenarios] S9-PROMOTE: Scenario not found:', scenarioId)
+    return false
+  }
+
+  // Update scenario with the snapshot's graph
+  updateScenario(scenarioId, {
+    graph,
+    last_result_hash: undefined // Clear last result since graph has changed
+  })
+
+  if (import.meta.env.DEV) {
+    console.log('[scenarios] S9-PROMOTE: Promoted snapshot to scenario', {
+      scenarioId,
+      nodeCount: graph.nodes.length,
+      edgeCount: graph.edges.length
+    })
+  }
+
+  return true
+}
+
+/**
  * Autosave: Store current graph state temporarily
  * Used to recover unsaved work on reload
  */

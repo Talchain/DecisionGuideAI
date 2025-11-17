@@ -15,8 +15,8 @@ import { AlignmentGuides } from './components/AlignmentGuides'
 import { PropertiesPanel } from './components/PropertiesPanel'
 import { CommandPalette } from './components/CommandPalette'
 import { ReconnectBanner } from './components/ReconnectBanner'
-import { KeyboardCheatsheet } from './components/KeyboardCheatsheet'
-import { KeyboardMap } from './components/KeyboardMap'
+import { KeyboardLegend, useKeyboardLegend } from './help/KeyboardLegend'
+import { HelpMenu } from './help/HelpMenu'
 import { SettingsPanel } from './components/SettingsPanel'
 import { useSettingsStore } from './settingsStore'
 import { CanvasErrorBoundary } from './ErrorBoundary'
@@ -26,20 +26,23 @@ import { ConfirmDialog } from './components/ConfirmDialog'
 import { ValidationChip } from './components/ValidationChip'
 import { LayerProvider } from './components/LayerProvider'
 import { RecoveryBanner } from './components/RecoveryBanner'
-import { OnboardingOverlay } from './components/OnboardingOverlay'
+import { OnboardingOverlay } from './onboarding/OnboardingOverlay'
+import { useOnboarding } from './onboarding/useOnboarding'
 import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
 import { useAutosave } from './hooks/useAutosave'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
+import { InfluenceExplainer, useInfluenceExplainer } from '../components/assistants/InfluenceExplainer'
 // N5: Code-split heavy panels with named chunks
-const ResultsPanel = lazy(() => import(/* webpackChunkName: "results-panel" */ './panels/ResultsPanel').then(m => ({ default: m.ResultsPanel })))
 const InspectorPanel = lazy(() => import(/* webpackChunkName: "inspector-panel" */ './panels/InspectorPanel').then(m => ({ default: m.InspectorPanel })))
 import { useResultsRun } from './hooks/useResultsRun'
+import { useRunDiagnosticsToast } from './hooks/useRunDiagnosticsToast'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
 import { loadRuns } from './store/runHistory'
 import { useEdgeLabelModeSync } from './store/edgeLabelMode'
 import { HealthStatusBar } from './components/HealthStatusBar'
+import { DegradedBanner } from './components/DegradedBanner'
 const IssuesPanel = lazy(() => import(/* webpackChunkName: "issues-panel" */ './panels/IssuesPanel').then(m => ({ default: m.IssuesPanel })))
 import { NeedleMoversOverlay } from './components/NeedleMoversOverlay'
 import { DocumentsManager } from './components/DocumentsManager'
@@ -47,6 +50,9 @@ import { ProvenanceHubTab } from './components/ProvenanceHubTab'
 import { RadialQuickAddMenu } from './components/RadialQuickAddMenu'
 import { ConnectPrompt } from './components/ConnectPrompt'
 import type { NodeType } from './domain/nodes'
+import { InputsDock } from './components/InputsDock'
+import { OutputsDock } from './components/OutputsDock'
+import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled } from '../flags'
 
 interface ReactFlowGraphProps {
   blueprintEventBus?: {
@@ -61,22 +67,26 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const { getViewport, setCenter } = useReactFlow()
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
-  const openTemplatesPanel = useCanvasStore(s => s.openTemplatesPanel)
   
   // State declarations
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
-  const [showCheatsheet, setShowCheatsheet] = useState(false)
-  const [showKeyboardMap, setShowKeyboardMap] = useState(false)
-  const [showEmptyState, setShowEmptyState] = useState(true)
   const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
   const showInspectorPanel = useCanvasStore(s => s.showInspectorPanel)
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
   const setShowInspectorPanel = useCanvasStore(s => s.setShowInspectorPanel)
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
+  const { isOpen: isKeyboardLegendOpen, open: openKeyboardLegend, close: closeKeyboardLegend } = useKeyboardLegend()
+  const { isOpen: isOnboardingOpen, open: openOnboarding, close: closeOnboarding } = useOnboarding()
+  const {
+    shouldShow: shouldShowInfluenceExplainer,
+    forceShow: isInfluenceExplainerForced,
+    show: showInfluenceExplainer,
+    hide: hideInfluenceExplainer
+  } = useInfluenceExplainer()
 
   // P0-7: Quick-add mode state
   const [quickAddMode, setQuickAddMode] = useState(false)
@@ -110,10 +120,26 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const provenanceRedactionEnabled = useCanvasStore(s => s.provenanceRedactionEnabled)
   const toggleProvenanceRedaction = useCanvasStore(s => s.toggleProvenanceRedaction)
   const addDocument = useCanvasStore(s => s.addDocument)
-  const removeDocument = useCanvasStore(s => s.removeDocument)
 
-  // Results panel hook
-  const { run: runAnalysis, cancel: cancelAnalysis } = useResultsRun()
+  // Results run hook
+  const { run: runAnalysis } = useResultsRun()
+  const inputsOutputsEnabled = isInputsOutputsEnabled()
+  const paletteEnabled = isCommandPaletteEnabled()
+  const degradedBannerEnabled = isDegradedBannerEnabled()
+
+  // Diagnostics resume toast (B3)
+  useRunDiagnosticsToast()
+
+  // E2E-only helper: when dock layout is OFF, auto-open the legacy documents drawer
+  // so that documents flows remain testable without relying on shortcut ordering.
+  useEffect(() => {
+    if (!inputsOutputsEnabled && typeof window !== 'undefined') {
+      const win = window as any
+      if (win.__E2E === '1') {
+        setShowDocumentsDrawer(true)
+      }
+    }
+  }, [inputsOutputsEnabled, setShowDocumentsDrawer])
 
   // Autosave hook - saves graph every 30s when dirty
   useAutosave()
@@ -403,19 +429,62 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     }
   }, [addDocument, showToast])
 
-  const handleDeleteDocument = useCallback((documentId: string) => {
-    removeDocument(documentId)
-    showToast('Document removed', 'success')
-  }, [removeDocument, showToast])
+  const handleDeleteDocument = useCallback((_documentId: string, doc?: any) => {
+    const name = doc?.name ?? 'Document'
+    showToast(`${name} removed`, 'success')
+  }, [showToast])
+
+  const showDocuments = useCallback(() => {
+    if (inputsOutputsEnabled) {
+      if (typeof document === 'undefined') return
+
+      const dock = document.querySelector('[data-testid="inputs-dock"]') as HTMLElement | null
+      if (!dock) return
+
+      const toggleButton = dock.querySelector('[data-testid="inputs-dock-toggle"]') as HTMLButtonElement | null
+      if (toggleButton && toggleButton.getAttribute('aria-label')?.includes('Expand')) {
+        toggleButton.click()
+      }
+
+      const documentsTab = dock.querySelector('[data-testid="inputs-dock-tab-documents"]') as HTMLButtonElement | null
+      if (documentsTab) {
+        documentsTab.click()
+      }
+
+      // Focus the documents panel body for keyboard users
+      requestAnimationFrame(() => {
+        const panel = document.querySelector('[data-testid="documents-panel"]') as HTMLElement | null
+        panel?.focus()
+      })
+
+      return
+    }
+
+    // Legacy drawer path: ensure drawer is open and focus it
+    if (!useCanvasStore.getState().showDocumentsDrawer) {
+      setShowDocumentsDrawer(true)
+    }
+
+    requestAnimationFrame(() => {
+      if (typeof document === 'undefined') return
+      const drawer = document.querySelector('[data-testid="documents-drawer"]') as HTMLElement | null
+      drawer?.focus()
+    })
+  }, [inputsOutputsEnabled, setShowDocumentsDrawer])
 
   // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, ?)
   useCanvasKeyboardShortcuts({
     onFocusNode: handleFocusNode,
     onRunSimulation: handleRunSimulation,
-    onToggleResults: () => setShowResultsPanel(prev => !prev),
-    onToggleInspector: () => setShowInspectorPanel(prev => !prev),
-    onToggleDocuments: () => setShowDocumentsDrawer(prev => !prev),
-    onShowKeyboardMap: () => setShowKeyboardMap(true),
+    onToggleResults: () => {
+      const next = !useCanvasStore.getState().showResultsPanel
+      setShowResultsPanel(next)
+    },
+    onToggleInspector: () => {
+      const next = !useCanvasStore.getState().showInspectorPanel
+      setShowInspectorPanel(next)
+    },
+    onToggleDocuments: showDocuments,
     onShowToast: showToast
   })
 
@@ -517,7 +586,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       addEdge({
         source: connectPrompt.newNodeId,
         target: connectPrompt.targetNodeId,
-        data: { weight: 0.5, belief: 0.5 }
+        data: { ...DEFAULT_EDGE_DATA, weight: 0.5, belief: 0.5 }
       })
       showToast(`Connected to ${connectPrompt.targetNodeLabel}`, 'success')
       setConnectPrompt(null)
@@ -742,50 +811,62 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const handleCloseContextMenu = useCallback(() => setContextMenu(null), [])
 
   return (
-    <div style={{
-      width: '100%',
-      height: '100%',
-      position: 'relative',
-      cursor: quickAddMode ? 'crosshair' : undefined
-    }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={handleEdgesChange}
-        onConnect={onConnect}
-        onSelectionChange={handleSelectionChange}
-        onNodeClick={handleNodeClick}
-        onEdgeClick={handleEdgeClick}
-        onPaneClick={handlePaneClick}
-        onPaneContextMenu={onPaneContextMenu}
-        onNodeContextMenu={onNodeContextMenu}
-        onNodeDragStart={onNodeDragStart}
-        onNodeDragStop={onNodeDragStop}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        defaultEdgeOptions={defaultEdgeOpts}
-        snapToGrid={snapToGrid}
-        snapGrid={snapGridValue}
-        fitView
-        minZoom={0.1}
-        maxZoom={4}
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        cursor: quickAddMode ? 'crosshair' : undefined,
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          bottom: 0,
+          left: inputsOutputsEnabled ? 'var(--dock-left-offset, 0rem)' : 0,
+          right: inputsOutputsEnabled ? 'var(--dock-right-offset, 0rem)' : 0,
+        }}
       >
-        <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
-        {/* TODO: Future enhancement - Add legend and interaction controls to MiniMap */}
-        <MiniMap style={miniMapStyle} />
-        <svg style={{ position: 'absolute', top: 0, left: 0 }}>
-          <defs>
-            {/* Arrowheads matching edge colors - original size (6x6), fixed regardless of stroke width */}
-            <marker id="arrowhead-default" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-              <polygon points="0 0, 6 3, 0 6" fill="#94A3B8" />
-            </marker>
-            <marker id="arrowhead-selected" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-              <polygon points="0 0, 6 3, 0 6" fill="#63ADCF" />
-            </marker>
-          </defs>
-        </svg>
-      </ReactFlow>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={handleEdgesChange}
+          onConnect={onConnect}
+          onSelectionChange={handleSelectionChange}
+          onNodeClick={handleNodeClick}
+          onEdgeClick={handleEdgeClick}
+          onPaneClick={handlePaneClick}
+          onPaneContextMenu={onPaneContextMenu}
+          onNodeContextMenu={onNodeContextMenu}
+          onNodeDragStart={onNodeDragStart}
+          onNodeDragStop={onNodeDragStop}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          defaultEdgeOptions={defaultEdgeOpts}
+          snapToGrid={snapToGrid}
+          snapGrid={snapGridValue}
+          fitView
+          minZoom={0.1}
+          maxZoom={4}
+        >
+          <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
+          {/* TODO: Future enhancement - Add legend and interaction controls to MiniMap */}
+          <MiniMap style={miniMapStyle} />
+          <svg style={{ position: 'absolute', top: 0, left: 0 }}>
+            <defs>
+              {/* Arrowheads matching edge colors - original size (6x6), fixed regardless of stroke width */}
+              <marker id="arrowhead-default" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <polygon points="0 0, 6 3, 0 6" fill="#94A3B8" />
+              </marker>
+              <marker id="arrowhead-selected" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <polygon points="0 0, 6 3, 0 6" fill="#63ADCF" />
+              </marker>
+            </defs>
+          </svg>
+        </ReactFlow>
+      </div>
 
       {/* Highlight layer for Results panel drivers */}
       <HighlightLayer isResultsOpen={showResultsPanel} />
@@ -795,6 +876,16 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       {reconnecting && <ReconnectBanner />}
 
       <CanvasToolbar />
+      <div className="absolute top-6 right-6 z-[1200] flex flex-col items-end gap-3">
+        <HelpMenu
+          onShowOnboarding={openOnboarding}
+          onShowKeyboardLegend={openKeyboardLegend}
+          onShowInfluenceExplainer={showInfluenceExplainer}
+        />
+        {shouldShowInfluenceExplainer && (
+          <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
+        )}
+      </div>
       <PropertiesPanel />
       <SettingsPanel />
       <DiagnosticsOverlay />
@@ -815,18 +906,18 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         <NeedleMoversOverlay
           movers={needleMovers}
           onFocusNode={handleFocusNode}
-          onFocusEdge={handleFocusEdge}
         />
       )}
 
-      {showCommandPalette && <CommandPalette isOpen={showCommandPalette} onClose={() => setShowCommandPalette(false)} onOpenInspector={() => setShowInspectorPanel(true)} />}
-      {showCheatsheet && <KeyboardCheatsheet isOpen={showCheatsheet} onClose={() => setShowCheatsheet(false)} />}
-      {showKeyboardMap && <KeyboardMap isOpen={showKeyboardMap} onClose={() => setShowKeyboardMap(false)} />}
-      {showResultsPanel && (
-        <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/20"><div className="text-sm text-white">Loading...</div></div>}>
-          <ResultsPanel isOpen={showResultsPanel} onClose={() => setShowResultsPanel(false)} onCancel={cancelAnalysis} />
-        </Suspense>
+      {paletteEnabled && showCommandPalette && (
+        <CommandPalette
+          isOpen={showCommandPalette}
+          onClose={() => setShowCommandPalette(false)}
+          onOpenInspector={() => setShowInspectorPanel(true)}
+        />
       )}
+      {degradedBannerEnabled && <DegradedBanner />}
+      <KeyboardLegend isOpen={isKeyboardLegendOpen} onClose={closeKeyboardLegend} />
       {showInspectorPanel && (
         <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/20"><div className="text-sm text-white">Loading...</div></div>}>
           <InspectorPanel isOpen={showInspectorPanel} onClose={() => setShowInspectorPanel(false)} />
@@ -842,11 +933,14 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         </Suspense>
       )}
 
-      {/* M5: Documents drawer (left side) */}
-      {showDocumentsDrawer && (
+      {/* M5: Documents drawer (left side). When inputs/outputs layout is enabled, the
+          DocumentsManager is rendered inside the InputsDock instead of this drawer. */}
+      {!inputsOutputsEnabled && showDocumentsDrawer && (
         <div
           className="fixed left-0 top-0 bottom-0 w-96 bg-white border-r border-gray-200 shadow-lg overflow-hidden"
           style={{ zIndex: 2000 }}
+          data-testid="documents-drawer"
+          tabIndex={-1}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
             <h2 className="font-semibold text-gray-900">Documents</h2>
@@ -860,7 +954,6 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           </div>
           <div className="h-[calc(100vh-56px)]">
             <DocumentsManager
-              documents={documents}
               onUpload={handleUploadDocuments}
               onDelete={handleDeleteDocument}
             />
@@ -928,19 +1021,35 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
 
       {/* Onboarding overlay for first-time users */}
       <OnboardingOverlay
-        onBrowseTemplates={() => {
-          // Open templates panel directly
-          openTemplatesPanel()
-        }}
-        onCreateNew={() => {
-          // Show empty state hint
-          setShowEmptyState(true)
-        }}
-        onShowShortcuts={() => {
-          // Show keyboard cheatsheet
-          setShowCheatsheet(true)
-        }}
+        isOpen={isOnboardingOpen}
+        onClose={closeOnboarding}
+        onShowKeyboardLegend={openKeyboardLegend}
+        onShowInfluenceExplainer={showInfluenceExplainer}
       />
+
+      {inputsOutputsEnabled && (
+        <>
+          <div className="absolute inset-y-0 left-0 z-[1500] flex">
+            <InputsDock
+              currentNodes={nodes.length}
+              currentEdges={edges.length}
+              renderDocumentsTab={() => (
+                <div className="h-full overflow-auto" data-testid="documents-panel" tabIndex={-1}>
+                  <DocumentsManager
+                    onUpload={handleUploadDocuments}
+                    onDelete={handleDeleteDocument}
+                  />
+                </div>
+              )}
+            />
+          </div>
+          <div className="absolute inset-y-0 right-0 z-[1500] flex">
+            <OutputsDock
+              onShowResults={() => setShowResultsPanel(true)}
+            />
+          </div>
+        </>
+      )}
     </div>
   )
 }

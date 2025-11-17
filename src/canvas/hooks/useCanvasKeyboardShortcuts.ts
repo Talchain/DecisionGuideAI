@@ -21,7 +21,6 @@ interface UseCanvasKeyboardShortcutsOptions {
   onToggleResults?: () => void
   onToggleInspector?: () => void
   onToggleDocuments?: () => void
-  onShowKeyboardMap?: () => void
   onShowToast?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void
 }
 
@@ -31,7 +30,6 @@ export function useCanvasKeyboardShortcuts({
   onToggleResults,
   onToggleInspector,
   onToggleDocuments,
-  onShowKeyboardMap,
   onShowToast
 }: UseCanvasKeyboardShortcutsOptions = {}) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -39,13 +37,11 @@ export function useCanvasKeyboardShortcuts({
     if (e.key === 'p' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
       e.preventDefault()
       const state = useCanvasStore.getState()
-      const { selection, nodes, edges } = state
+      const { selection, edges } = state
 
       // Check if exactly one node is selected
       if (selection.nodeIds.size === 1) {
         const nodeId = [...selection.nodeIds][0]
-        const node = nodes.find(n => n.id === nodeId)
-
         // Check if node has outgoing edges (is a decision point)
         const outgoingEdges = edges.filter(e => e.source === nodeId)
 
@@ -91,17 +87,6 @@ export function useCanvasKeyboardShortcuts({
       // Idempotent: only open if not already open
       if (!showTemplatesPanel) {
         openTemplatesPanel(document.activeElement as HTMLElement | undefined)
-      }
-
-      return
-    }
-
-    // ?: Show keyboard map
-    if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-      e.preventDefault()
-
-      if (onShowKeyboardMap) {
-        onShowKeyboardMap()
       }
 
       return
@@ -171,7 +156,7 @@ export function useCanvasKeyboardShortcuts({
 
       return
     }
-  }, [onFocusNode, onRunSimulation, onToggleResults, onToggleInspector, onToggleDocuments, onShowKeyboardMap, onShowToast])
+  }, [onFocusNode, onRunSimulation, onToggleResults, onToggleInspector, onToggleDocuments, onShowToast])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)

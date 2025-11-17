@@ -1,33 +1,59 @@
 /**
- * M3: Guided Clarifier Panel
+ * M3 + S7-PERSIST + S7-HINTS: Guided Clarifier Panel
  * MCQ-first question answering (≤3 rounds)
+ * S7-PERSIST: Persists answers across rounds, pre-populates from history
+ * S7-HINTS: Shows impact hints explaining why questions matter
  */
 
 import { useState } from 'react'
-import { HelpCircle, CheckCircle2, ArrowRight } from 'lucide-react'
+import { HelpCircle, CheckCircle2, ArrowRight, History, Info } from 'lucide-react'
 import type { DraftResponse } from '../../adapters/assistants/types'
+
+export interface Answer {
+  question_id: string
+  answer: string | string[]
+}
+
+export interface AnswerHistory {
+  round: number
+  answers: Answer[]
+}
 
 interface ClarifierPanelProps {
   clarifier: NonNullable<DraftResponse['clarifier']>
   onSubmit: (answers: Array<{ question_id: string; answer: string | string[] }>) => void
   onSkip: () => void
   isSubmitting: boolean
+  // S7-PERSIST: Previous answers from earlier rounds
+  previousAnswers?: AnswerHistory[]
 }
 
-interface Answer {
-  question_id: string
-  answer: string | string[]
-}
+export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting, previousAnswers = [] }: ClarifierPanelProps) {
+  // S7-PERSIST: Helper to find most recent previous answer for a question
+  // Searches backwards through history to get the latest answer
+  const getPreviousAnswer = (questionId: string): string | string[] | undefined => {
+    for (let i = previousAnswers.length - 1; i >= 0; i--) {
+      const found = previousAnswers[i].answers.find(a => a.question_id === questionId)
+      if (found) return found.answer
+    }
+    return undefined
+  }
 
-export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting }: ClarifierPanelProps) {
-  // AUDIT FIX 4: Pre-seed multi-select questions with empty arrays to enable checkbox rendering
+  // AUDIT FIX 4 + S7-PERSIST: Pre-seed with empty arrays AND previous answers
   const [answers, setAnswers] = useState<Map<string, string | string[]>>(() => {
     const initialAnswers = new Map<string, string | string[]>()
+
     clarifier.questions.forEach((q) => {
-      if (q.type === 'mcq' && q.multiple) {
+      // S7-PERSIST: Try to load from previous answers first
+      const prevAnswer = getPreviousAnswer(q.id)
+      if (prevAnswer !== undefined) {
+        initialAnswers.set(q.id, prevAnswer)
+      } else if (q.type === 'mcq' && q.multiple) {
+        // AUDIT FIX 4: Pre-seed multi-select questions with empty arrays
         initialAnswers.set(q.id, [])
       }
     })
+
     return initialAnswers
   })
 
@@ -81,12 +107,39 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting }: Cl
 
       {/* Questions */}
       <div className="p-4 space-y-4">
-        {clarifier.questions.map((question, idx) => (
-          <div key={question.id} className="space-y-2">
-            <label className="block font-medium text-gray-900 text-sm">
-              {idx + 1}. {question.text}
-              {question.required && <span className="text-red-500 ml-1">*</span>}
-            </label>
+        {clarifier.questions.map((question, idx) => {
+          // S7-PERSIST: Check if this question was answered in a previous round
+          const wasPreviouslyAnswered = getPreviousAnswer(question.id) !== undefined
+
+          return (
+            <div key={question.id} className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block font-medium text-gray-900 text-sm">
+                  {idx + 1}. {question.text}
+                  {question.required && <span className="text-red-500 ml-1">*</span>}
+                </label>
+                {/* S7-PERSIST: Show indicator if question was previously answered */}
+                {wasPreviouslyAnswered && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 border border-blue-200">
+                    <History className="w-3 h-3" />
+                    Pre-filled
+                  </span>
+                )}
+              </div>
+
+              {/* S7-HINTS: Show impact hint if provided */}
+              {question.impact_hint && (
+                <div
+                  className="flex items-start gap-1.5 px-3 py-2 bg-blue-50 rounded-md border border-blue-100"
+                  role="note"
+                  aria-label="Impact hint"
+                >
+                  <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-blue-800 leading-relaxed">
+                    {question.impact_hint}
+                  </p>
+                </div>
+              )}
 
             {question.type === 'mcq' && question.options ? (
               <div className="space-y-2">
@@ -127,8 +180,9 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting }: Cl
                 required={question.required}
               />
             )}
-          </div>
-        ))}
+            </div>
+          )
+        })}
       </div>
 
       {/* Actions */}

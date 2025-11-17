@@ -40,6 +40,7 @@ const FLAGS_CONFIG = {
   diagnostics: {
     envKey: 'VITE_FEATURE_DIAGNOSTICS',
     storageKey: 'feature.diagnostics',
+    defaultValue: true,
   },
   scenariosV2: {
     envKey: 'VITE_FEATURE_SCENARIOS_V2',
@@ -197,6 +198,33 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_WHITEBOARD',
     storageKey: 'feature.whiteboard',
   },
+  inputsOutputs: {
+    envKey: 'VITE_FEATURE_INPUTS_OUTPUTS',
+    storageKey: 'feature.inputsOutputs',
+    defaultValue: true,
+  },
+  commandPalette: {
+    envKey: 'VITE_FEATURE_COMMAND_PALETTE',
+    storageKey: 'feature.commandPalette',
+    defaultValue: true,
+  },
+  degradedBanner: {
+    envKey: 'VITE_FEATURE_DEGRADED_BANNER',
+    storageKey: 'feature.degradedBanner',
+    defaultValue: true,
+  },
+  optimiseBeta: {
+    envKey: 'VITE_FEATURE_OPTIMISE_BETA',
+    storageKey: 'feature.optimiseBeta',
+  },
+  debug: {
+    envKey: 'VITE_FEATURE_DEBUG',
+    storageKey: 'feature.debug',
+  },
+  snapshotsV2: {
+    envKey: 'VITE_FEATURE_SNAPSHOTS_V2',
+    storageKey: 'feature.snapshotsV2',
+  },
 } as const
 
 // ============================================================================
@@ -252,6 +280,12 @@ const flags = {
   sandboxTriggersBasic: makeFlag(FLAGS_CONFIG.sandboxTriggersBasic),
   sandboxVoting: makeFlag(FLAGS_CONFIG.sandboxVoting),
   whiteboard: makeFlag(FLAGS_CONFIG.whiteboard),
+  inputsOutputs: makeFlag(FLAGS_CONFIG.inputsOutputs),
+  commandPalette: makeFlag(FLAGS_CONFIG.commandPalette),
+  degradedBanner: makeFlag(FLAGS_CONFIG.degradedBanner),
+  optimiseBeta: makeFlag(FLAGS_CONFIG.optimiseBeta),
+  debug: makeFlag(FLAGS_CONFIG.debug),
+  snapshotsV2: makeFlag(FLAGS_CONFIG.snapshotsV2),
 }
 
 // Export with original naming convention for backward compatibility
@@ -302,6 +336,12 @@ export const isSandboxStrategyBridgeEnabled = flags.sandboxStrategyBridge
 export const isSandboxTriggersBasicEnabled = flags.sandboxTriggersBasic
 export const isSandboxVotingEnabled = flags.sandboxVoting
 export const isWhiteboardEnabled = flags.whiteboard
+export const isInputsOutputsEnabled = flags.inputsOutputs
+export const isCommandPaletteEnabled = flags.commandPalette
+export const isDegradedBannerEnabled = flags.degradedBanner
+export const isOptimiseBetaEnabled = flags.optimiseBeta
+export const isDebugEnabled = flags.debug
+export const isSnapshotsV2Enabled = flags.snapshotsV2
 
 // ============================================================================
 // POC FLAGS (special pattern - constant object, not functions)

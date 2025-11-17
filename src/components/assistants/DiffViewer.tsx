@@ -1,10 +1,11 @@
 /**
- * M2.4: Patch-First Diff Viewer
+ * M2.4 + S7-RATIONALE: Patch-First Diff Viewer
  * Shows added nodes/edges with Apply/Undo actions
+ * S7-RATIONALE: Displays inline rationales explaining why changes were made
  */
 
 import { useState } from 'react'
-import { Plus, Check, X, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Check, X, ChevronDown, ChevronRight, Info } from 'lucide-react'
 import type { DraftResponse } from '../../adapters/assistants/types'
 
 interface DiffViewerProps {
@@ -112,24 +113,36 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
         {showNodes && (
           <div className="divide-y divide-gray-100">
             {nodeItems.map((item) => (
-              <label
-                key={item.id}
-                className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={item.selected}
-                  onChange={() => toggleItem(item.id)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                />
-                <Plus className="w-3 h-3 text-green-600" />
-                <span className="flex-1 text-sm">{item.label}</span>
-                {item.data.type && (
-                  <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
-                    {item.data.type}
-                  </span>
+              <div key={item.id} className="hover:bg-gray-50">
+                <label className="flex items-center gap-3 px-4 py-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={item.selected}
+                    onChange={() => toggleItem(item.id)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <Plus className="w-3 h-3 text-green-600" />
+                  <span className="flex-1 text-sm">{item.label}</span>
+                  {item.data.type && (
+                    <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                      {item.data.type}
+                    </span>
+                  )}
+                </label>
+                {/* S7-RATIONALE: Show inline rationale if provided */}
+                {item.data.rationale && (
+                  <div
+                    className="mx-4 mb-2 flex items-start gap-1.5 px-3 py-2 bg-blue-50 rounded-md border border-blue-100"
+                    role="note"
+                    aria-label="Rationale"
+                  >
+                    <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-blue-800 leading-relaxed">
+                      {item.data.rationale}
+                    </p>
+                  </div>
                 )}
-              </label>
+              </div>
             ))}
           </div>
         )}
@@ -173,19 +186,31 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
         {showEdges && (
           <div className="divide-y divide-gray-100">
             {edgeItems.map((item) => (
-              <label
-                key={item.id}
-                className="flex items-center gap-3 px-4 py-2 hover:bg-gray-50 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={item.selected}
-                  onChange={() => toggleItem(item.id)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                />
-                <Plus className="w-3 h-3 text-green-600" />
-                <span className="flex-1 text-sm font-mono text-xs">{item.label}</span>
-              </label>
+              <div key={item.id} className="hover:bg-gray-50">
+                <label className="flex items-center gap-3 px-4 py-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={item.selected}
+                    onChange={() => toggleItem(item.id)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                  />
+                  <Plus className="w-3 h-3 text-green-600" />
+                  <span className="flex-1 text-sm font-mono text-xs">{item.label}</span>
+                </label>
+                {/* S7-RATIONALE: Show inline rationale if provided */}
+                {item.data.rationale && (
+                  <div
+                    className="mx-4 mb-2 flex items-start gap-1.5 px-3 py-2 bg-blue-50 rounded-md border border-blue-100"
+                    role="note"
+                    aria-label="Rationale"
+                  >
+                    <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-blue-800 leading-relaxed">
+                      {item.data.rationale}
+                    </p>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}

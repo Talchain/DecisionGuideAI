@@ -104,6 +104,9 @@ export function runStream(
       const decoder = new TextDecoder()
       let buffer = ''
       let eventType = ''
+      const correlationIdHeader = response.headers.get('X-Correlation-Id') ?? undefined
+      const degradedHeader = response.headers.get('X-Olumi-Degraded')
+      const degradedFlag = degradedHeader === '1' || degradedHeader === 'true'
 
       while (!isClosed) {
         const { done, value } = await reader.read()
@@ -120,7 +123,15 @@ export function runStream(
           } else if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6))
-              handleEvent(eventType, data, handlers, throttledProgress, resetHeartbeat)
+              handleEvent(
+                eventType,
+                data,
+                handlers,
+                throttledProgress,
+                resetHeartbeat,
+                correlationIdHeader,
+                degradedFlag
+              )
               eventType = '' // Reset for next event
             } catch (err) {
               console.warn('[plot/v1] Failed to parse SSE event:', err)
@@ -163,7 +174,9 @@ function handleEvent(
   data: any,
   handlers: V1StreamHandlers,
   throttledProgress: (data: V1ProgressData) => void,
-  resetHeartbeat: () => void
+  resetHeartbeat: () => void,
+  correlationIdHeader?: string,
+  degradedFlag?: boolean
 ) {
   // Reset heartbeat on any event
   resetHeartbeat()
@@ -195,7 +208,11 @@ function handleEvent(
     case 'COMPLETE': // v1.2: new event name (alias)
       // Send final 100% progress before completion
       throttledProgress({ percent: 100 })
-      handlers.onComplete(data as V1CompleteData)
+      handlers.onComplete({
+        ...(data as V1CompleteData),
+        correlation_id_header: correlationIdHeader,
+        degraded: degradedFlag ?? (data as any)?.degraded ?? false,
+      })
       break
 
     case 'error':
