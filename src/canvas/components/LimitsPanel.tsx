@@ -9,6 +9,7 @@ import { Box, GitBranch, Clock, Database, AlertTriangle, RefreshCw } from 'lucid
 import { BottomSheet } from './BottomSheet'
 import { useEngineLimits } from '../hooks/useEngineLimits'
 import { deriveLimitsStatus } from '../utils/limitsStatus'
+import { typography } from '../../styles/typography'
 
 interface LimitsPanelProps {
   isOpen: boolean
@@ -20,6 +21,55 @@ interface LimitsPanelProps {
 function formatTimestamp(timestamp: number): string {
   const date = new Date(timestamp)
   return date.toLocaleString()
+}
+
+/**
+ * Phase 3: Enhanced progress bar with soft/hard limit awareness
+ */
+function ProgressBar({
+  current,
+  soft,
+  hard,
+  label
+}: {
+  current: number
+  soft: number
+  hard: number
+  label: string
+}) {
+  const percentage = (current / soft) * 100
+  const isWarning = current > soft * 0.8
+  const isDanger = current > soft
+
+  const barColor = isDanger ? 'bg-carrot-500' :
+                   isWarning ? 'bg-sun-500' : 'bg-mint-500'
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <span className={typography.label}>{label}</span>
+        <span className={`${typography.body} tabular-nums`}>
+          {current} / {soft}
+        </span>
+      </div>
+
+      <div className="relative h-2 bg-sand-200 rounded-full overflow-hidden">
+        <div
+          className={`h-full ${barColor} transition-all duration-300`}
+          style={{ width: `${Math.min(percentage, 100)}%` }}
+        />
+        {current > soft && (
+          <div className="absolute top-0 right-0 h-full w-1 bg-carrot-700" />
+        )}
+      </div>
+
+      {isDanger && (
+        <p className={`${typography.caption} text-carrot-700`}>
+          Exceeds recommended limit (hard cap: {hard})
+        </p>
+      )}
+    </div>
+  )
 }
 
 export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: LimitsPanelProps) {
@@ -62,22 +112,7 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
     }
 
     const limitsStatus = deriveLimitsStatus(limits, currentNodes, currentEdges)
-
-    const nodesPercent = limitsStatus?.nodes.percent ?? 0
-    const edgesPercent = limitsStatus?.edges.percent ?? 0
     const timestamp = fetchedAt ? formatTimestamp(fetchedAt) : 'Unknown'
-
-    const getStatusColor = (percent: number) => {
-      if (percent >= 90) return 'text-danger-600'
-      if (percent >= 70) return 'text-warning-600'
-      return 'text-success-600'
-    }
-
-    const getProgressColor = (percent: number) => {
-      if (percent >= 90) return 'bg-danger-500'
-      if (percent >= 70) return 'bg-warning-500'
-      return 'bg-success-500'
-    }
 
     return (
       <div className="space-y-6">
@@ -122,50 +157,21 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
           </div>
         )}
 
-        {/* Nodes */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Box className="w-5 h-5 text-ink-900/70" />
-              <span className="text-sm font-medium text-ink-900">Nodes</span>
-            </div>
-            <div className="text-sm tabular-nums">
-              <span className={`font-semibold ${getStatusColor(nodesPercent)}`}>
-                {currentNodes}
-              </span>
-              <span className="text-ink-900/60"> / {limits.nodes.max}</span>
-              <span className="ml-2 text-ink-900/50">({nodesPercent}%)</span>
-            </div>
-          </div>
-          <div className="w-full bg-sand-200 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full transition-all ${getProgressColor(nodesPercent)}`}
-              style={{ width: `${Math.min(nodesPercent, 100)}%` }}
-            />
-          </div>
-        </div>
+        {/* Phase 3: Enhanced progress bars with soft/hard limits */}
+        <div className="space-y-3">
+          <ProgressBar
+            current={currentNodes}
+            soft={limits.nodes.max}
+            hard={Math.ceil(limits.nodes.max * 1.5)}
+            label="Nodes"
+          />
 
-        {/* Edges */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <GitBranch className="w-5 h-5 text-ink-900/70" />
-              <span className="text-sm font-medium text-ink-900">Edges</span>
-            </div>
-            <div className="text-sm tabular-nums">
-              <span className={`font-semibold ${getStatusColor(edgesPercent)}`}>
-                {currentEdges}
-              </span>
-              <span className="text-ink-900/60"> / {limits.edges.max}</span>
-              <span className="ml-2 text-ink-900/50">({edgesPercent}%)</span>
-            </div>
-          </div>
-          <div className="w-full bg-sand-200 rounded-full h-2">
-            <div
-              className={`h-2 rounded-full transition-all ${getProgressColor(edgesPercent)}`}
-              style={{ width: `${Math.min(edgesPercent, 100)}%` }}
-            />
-          </div>
+          <ProgressBar
+            current={currentEdges}
+            soft={limits.edges.max}
+            hard={Math.ceil(limits.edges.max * 1.5)}
+            label="Edges"
+          />
         </div>
 
         {/* p95 Budget (optional) */}

@@ -34,6 +34,7 @@ import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
 import { InfluenceExplainer, useInfluenceExplainer } from '../components/assistants/InfluenceExplainer'
 import { DraftChat } from './components/DraftChat'
+import { CanvasEmptyState } from './components/CanvasEmptyState'
 // N5: Code-split heavy panels with named chunks
 const InspectorPanel = lazy(() => import(/* webpackChunkName: "inspector-panel" */ './panels/InspectorPanel').then(m => ({ default: m.InspectorPanel })))
 import { useResultsRun } from './hooks/useResultsRun'
@@ -102,6 +103,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const [quickAddMode, setQuickAddMode] = useState(false)
   const [radialMenuPosition, setRadialMenuPosition] = useState<{ x: number; y: number } | null>(null)
   const addNode = useCanvasStore(s => s.addNode)
+
+  // Phase 3: Empty state actions
+  const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
+  const openTemplatesPanel = useCanvasStore(s => s.openTemplatesPanel)
 
   // P0-8: Auto-connect state
   const [connectPrompt, setConnectPrompt] = useState<{
@@ -857,6 +862,14 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
             </defs>
           </svg>
         </ReactFlow>
+
+        {/* Phase 3: Empty state for new users */}
+        {nodes.length === 0 && (
+          <CanvasEmptyState
+            onDraft={() => setShowDraftChat(true)}
+            onTemplate={() => openTemplatesPanel()}
+          />
+        )}
       </div>
 
       {/* Highlight layer for Results drivers (keyed off global showResultsPanel flag) */}

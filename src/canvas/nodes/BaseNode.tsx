@@ -11,9 +11,7 @@
 
 import { memo, useState, useCallback, type ReactNode } from 'react'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
-import { getNodeTheme, NODE_SIZES, NODE_SHADOWS, NODE_TRANSITIONS } from '../theme/nodes'
 import type { NodeType } from '../domain/nodes'
-import { useIsDark } from '../hooks/useTheme'
 import type { LucideIcon } from 'lucide-react'
 import { sanitizeMarkdown } from '../utils/markdown'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
@@ -21,6 +19,8 @@ import { NodeBadge } from '../components/NodeBadge'
 import { useCEEInsights } from '../../hooks/useCEEInsights'
 import { useISLValidation } from '../../hooks/useISLValidation'
 import { useCanvasStore } from '../store'
+import { nodeColors } from './colors'
+import { typography } from '../../styles/typography'
 
 interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
@@ -34,10 +34,11 @@ interface BaseNodeProps extends NodeProps {
  * Double-click to expand/collapse description
  */
 export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, children }: BaseNodeProps) => {
-  const isDark = useIsDark()
-  const theme = getNodeTheme(nodeType, isDark)
   const label = data?.label || 'Untitled'
   const description = data?.description
+
+  // Phase 3: Get node colors from new system
+  const colors = nodeColors[nodeType as keyof typeof nodeColors] || nodeColors.factor
 
   // Local state for expand/collapse (no persistence per spec)
   const [isExpanded, setIsExpanded] = useState(false)
@@ -61,7 +62,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
 
   // Phase 2: Uncertain node styling
   const isUncertain = (data?.uncertainty ?? 0) > 0.4
-  const borderStyle = isUncertain ? '2px dashed' : '2px solid'
+  const borderStyle = isUncertain ? 'border-dashed' : ''
 
   // Accessible name combines node type and label
   const accessibleName = `${nodeType} node: ${label}`
@@ -78,30 +79,29 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
     }, 100)
   }, [id, description, updateNodeInternals])
 
-  // Dynamic sizing based on expansion state
-  const nodeWidth = isExpanded ? 300 : NODE_SIZES.minWidth
-  const nodeMinHeight = isExpanded ? 120 : NODE_SIZES.minHeight
-
   return (
     <div
       role="group"
       aria-label={accessibleName}
       aria-expanded={description ? isExpanded : undefined}
-      className="base-node"
-      onDoubleClick={handleDoubleClick}
+      className={`
+        relative rounded-lg border-2 shadow-sm
+        ${colors.border} ${borderStyle}
+        transition-all duration-200
+        ${description ? 'cursor-pointer' : 'cursor-default'}
+        ${selected ? 'ring-2 ring-sky-500 ring-offset-2' : ''}
+      `}
       style={{
-        background: theme.background,
-        border: `${borderStyle} ${theme.border}`,
-        borderRadius: NODE_SIZES.radius,
-        padding: NODE_SIZES.padding,
-        width: nodeWidth,
-        minHeight: nodeMinHeight,
-        boxShadow: selected ? NODE_SHADOWS.selected : NODE_SHADOWS.default,
-        transition: NODE_TRANSITIONS.default,
-        position: 'relative',
-        cursor: description ? 'pointer' : 'default',
+        backgroundColor: 'white', // Solid background
+        padding: '12px',
+        minWidth: '140px',
+        maxWidth: isExpanded ? '300px' : '200px',
+        minHeight: isExpanded ? '120px' : undefined,
       }}
+      onDoubleClick={handleDoubleClick}
     >
+      {/* Phase 3: Border color overlay for subtle tint */}
+      <div className={`absolute inset-0 rounded-lg ${colors.bg} opacity-10 -z-10`} />
       {/* Phase 2: Node badges for CEE/ISL warnings */}
       <NodeBadge
         nodeId={id}
@@ -113,8 +113,8 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       <Handle
         type="target"
         position={Position.Top}
+        className={`${colors.border.replace('border-', 'bg-')}`}
         style={{
-          background: theme.border,
           width: 12,
           height: 12,
           border: '2px solid white',
@@ -143,17 +143,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         </span>
 
         <span
-          style={{
-            display: 'inline-block',
-            fontSize: '11px',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em',
-            color: theme.badgeText,
-            background: theme.badge,
-            padding: '2px 6px',
-            borderRadius: '4px',
-          }}
+          className={`${typography.caption} ${colors.text} ${colors.bg} uppercase tracking-wide font-semibold px-1.5 py-0.5 rounded`}
         >
           {nodeType}
         </span>
@@ -165,31 +155,14 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       </div>
       
       {/* Node label */}
-      <div
-        style={{
-          fontSize: '13px',
-          fontWeight: 600,
-          color: theme.text,
-          lineHeight: 1.4,
-          wordBreak: 'break-word',
-        }}
-      >
+      <div className={`${typography.nodeTitle} ${colors.text} break-words`}>
         {label}
       </div>
 
       {/* Expanded description (markdown) */}
       {isExpanded && description && (
         <div
-          style={{
-            marginTop: '12px',
-            fontSize: '12px',
-            color: theme.text,
-            opacity: 0.85,
-            lineHeight: 1.5,
-            maxHeight: '200px',
-            overflowY: 'auto',
-          }}
-          className="node-description"
+          className={`${typography.nodeLabel} ${colors.text} opacity-85 mt-3 max-h-[200px] overflow-y-auto node-description`}
           dangerouslySetInnerHTML={{
             __html: sanitizeMarkdown(description)
           }}
@@ -198,14 +171,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
 
       {/* Optional children (description, metrics, etc.) */}
       {children && (
-        <div
-          style={{
-            marginTop: '8px',
-            fontSize: '12px',
-            color: theme.text,
-            opacity: 0.8,
-          }}
-        >
+        <div className={`${typography.nodeLabel} ${colors.text} opacity-80 mt-2`}>
           {children}
         </div>
       )}
@@ -213,8 +179,8 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       <Handle
         type="source"
         position={Position.Bottom}
+        className={`${colors.border.replace('border-', 'bg-')}`}
         style={{
-          background: theme.border,
           width: 12,
           height: 12,
           border: '2px solid white',

@@ -31,10 +31,10 @@ export const typography = {
   // Special - Inter
   code: 'text-xs font-mono leading-normal',                      // 12px monospace
 
-  // Graph Nodes - Inter
-  nodeTitle: 'text-sm font-semibold font-body leading-tight',    // 14px
-  nodeLabel: 'text-xs font-body leading-tight',                  // 12px
-  edgeLabel: 'text-[11px] font-body leading-tight',              // 11px for edge labels
+  // Graph Nodes - Inter (Phase 3: optimized sizing)
+  nodeTitle: 'text-[13px] font-semibold font-body leading-tight',    // 13px
+  nodeLabel: 'text-[11px] font-body leading-tight',                   // 11px
+  edgeLabel: 'text-[11px] font-body leading-tight',                   // 11px for edge labels
 } as const
 
 export type TypographyKey = keyof typeof typography
