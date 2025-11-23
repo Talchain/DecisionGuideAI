@@ -119,8 +119,8 @@ interface CanvasState {
   graphHealth: GraphHealth | null
   showIssuesPanel: boolean
   needleMovers: NeedleMover[]
-  // Phase 3: Interaction enhancements
-  highlightedNodes: string[]
+  // Phase 3: Interaction enhancements (Set for O(1) lookup)
+  highlightedNodes: Set<string>
   // M5: Grounding & Provenance
   documents: Document[]
   citations: Citation[]
@@ -337,7 +337,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   // M4: Graph Health & Repair
   graphHealth: null,
   needleMovers: [],
-  highlightedNodes: [],
+  highlightedNodes: new Set<string>(),
   // M5: Grounding & Provenance
   documents: [],
   citations: [],
@@ -1458,9 +1458,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     set({ needleMovers: movers })
   },
 
-  // Phase 3: Interaction actions
+  // Phase 3: Interaction actions (accepts array, stores as Set for O(1) lookup)
   setHighlightedNodes: (ids: string[]) => {
-    set({ highlightedNodes: ids })
+    set({ highlightedNodes: new Set(ids) })
   },
 
   // M5: Provenance actions

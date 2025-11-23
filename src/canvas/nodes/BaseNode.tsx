@@ -50,9 +50,9 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
   const setOutputsDockTab = useCanvasStore(s => s.setOutputsDockTab)
   const setOutputsDockOpen = useCanvasStore(s => s.setOutputsDockOpen)
 
-  // Phase 3: Node highlighting
+  // Phase 3: Node highlighting (Set for O(1) lookup)
   const highlightedNodes = useCanvasStore(s => s.highlightedNodes)
-  const isHighlighted = highlightedNodes.includes(id)
+  const isHighlighted = highlightedNodes.has(id)
 
   const ceeWarnings = ceeInsights?.structural_health.warnings || []
   const islAffected = islValidation?.suggestions.some(suggestion =>

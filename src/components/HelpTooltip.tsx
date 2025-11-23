@@ -9,8 +9,11 @@ interface HelpTooltipProps {
 }
 
 /**
- * Phase 2: Contextual help tooltip component
+ * Phase 2: Contextual help tooltip component (accessibility-enhanced)
  * Provides inline explanations for technical terms
+ * - Keyboard accessible (shows on focus)
+ * - Screen reader friendly (aria-describedby + aria-live)
+ * - Touch accessible (tap to toggle would require state, deferred)
  */
 export function HelpTooltip({ term, explanation, citation, learnMoreUrl }: HelpTooltipProps) {
   const tooltipId = `tooltip-${term.replace(/\s+/g, '-').toLowerCase()}`
@@ -21,15 +24,21 @@ export function HelpTooltip({ term, explanation, citation, learnMoreUrl }: HelpT
         type="button"
         className="underline decoration-dotted hover:text-sky-600 focus:text-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-1 rounded transition-colors"
         aria-describedby={tooltipId}
+        aria-label={`Show definition for ${term}`}
       >
         {term}
       </button>
-      <Info className="w-3 h-3 text-ink-900/40 group-hover:text-sky-600 group-focus-within:text-sky-600 transition-colors" />
+      <Info
+        className="w-3 h-3 text-ink-900/40 group-hover:text-sky-600 group-focus-within:text-sky-600 transition-colors"
+        aria-hidden="true"
+      />
 
       {/* Tooltip content */}
       <div
         id={tooltipId}
         role="tooltip"
+        aria-live="polite"
+        aria-atomic="true"
         className="
         absolute bottom-full left-0 mb-2 w-64 p-3
         bg-white border border-sand-200 rounded-lg shadow-lg

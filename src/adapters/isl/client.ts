@@ -11,11 +11,20 @@ import type {
 
 const ISL_BASE_URL = (import.meta as any).env?.VITE_ISL_BFF_BASE || '/bff/isl'
 
+/**
+ * Generate correlation ID for request tracking
+ * Mirrors pattern from Assistants client
+ */
+function generateCorrelationId(): string {
+  return crypto.randomUUID()
+}
+
 export class ISLError extends Error {
   constructor(
     message: string,
     public status: number,
-    public details?: unknown
+    public details?: unknown,
+    public correlationId?: string
   ) {
     super(message)
     this.name = 'ISLError'
@@ -36,6 +45,7 @@ export class ISLClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
+    const correlationId = generateCorrelationId()
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
@@ -45,6 +55,7 @@ export class ISLClient {
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
+          'x-correlation-id': correlationId,
           ...options.headers,
         },
       })
@@ -56,7 +67,8 @@ export class ISLClient {
         throw new ISLError(
           error.message || `Request failed: ${response.status}`,
           response.status,
-          error
+          error,
+          correlationId
         )
       }
 
@@ -64,7 +76,7 @@ export class ISLClient {
     } catch (error) {
       clearTimeout(timeoutId)
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new ISLError('Request timeout', 408)
+        throw new ISLError('Request timeout', 408, undefined, correlationId)
       }
       throw error
     }

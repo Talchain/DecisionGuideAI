@@ -6,11 +6,20 @@ import type {
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 
+/**
+ * Generate correlation ID for request tracking
+ * Mirrors pattern from Assistants client
+ */
+function generateCorrelationId(): string {
+  return crypto.randomUUID()
+}
+
 export class CEEError extends Error {
   constructor(
     message: string,
     public status: number,
-    public details?: unknown
+    public details?: unknown,
+    public correlationId?: string
   ) {
     super(message)
     this.name = 'CEEError'
@@ -31,6 +40,7 @@ export class CEEClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
+    const correlationId = generateCorrelationId()
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
@@ -40,6 +50,7 @@ export class CEEClient {
         signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
+          'x-correlation-id': correlationId,
           ...options.headers,
         },
       })
@@ -51,7 +62,8 @@ export class CEEClient {
         throw new CEEError(
           error.message || `Request failed: ${response.status}`,
           response.status,
-          error
+          error,
+          correlationId
         )
       }
 
@@ -59,7 +71,7 @@ export class CEEClient {
     } catch (error) {
       clearTimeout(timeoutId)
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new CEEError('Request timeout', 408)
+        throw new CEEError('Request timeout', 408, undefined, correlationId)
       }
       throw error
     }
