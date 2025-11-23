@@ -11,7 +11,7 @@ export function DraftChat() {
   const [description, setDescription] = useState('')
   const [feedback, setFeedback] = useState<CEEFramingFeedback | null>(null)
   const { data: draft, loading, error, draft: generateDraft } = useCEEDraft()
-  const { setShowDraftChat, addNodes, addEdges } = useCanvasStore()
+  const { showDraftChat, setShowDraftChat, addNodes, addEdges } = useCanvasStore()
 
   const client = new CEEClient()
 
@@ -74,6 +74,11 @@ export function DraftChat() {
 
   const handleReject = () => {
     setShowDraftChat(false)
+  }
+
+  // Don't render if panel is closed
+  if (!showDraftChat) {
+    return null
   }
 
   return (

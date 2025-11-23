@@ -15,6 +15,17 @@ interface Badge {
   priority: number // Higher = render first
 }
 
+// Map color names to full Tailwind class names for JIT/purge safety
+const getBorderClass = (color: string): string => {
+  const colorMap: Record<string, string> = {
+    'sun-500': 'border-sun-500',
+    'carrot-500': 'border-carrot-500',
+    'sky-500': 'border-sky-500',
+    'mint-500': 'border-mint-500',
+  }
+  return colorMap[color] || 'border-gray-500'
+}
+
 export function NodeBadge({ nodeId, ceeWarnings, islAffected, onClick }: NodeBadgeProps) {
   const badges: Badge[] = []
 
@@ -81,7 +92,7 @@ export function NodeBadge({ nodeId, ceeWarnings, islAffected, onClick }: NodeBad
           onClick={onClick}
           title={badge.label}
           className={`
-            w-6 h-6 rounded-full bg-white border-2 border-${badge.color}
+            w-6 h-6 rounded-full bg-white border-2 ${getBorderClass(badge.color)}
             flex items-center justify-center text-xs shadow-sm
             hover:scale-110 transition-transform cursor-pointer
           `}

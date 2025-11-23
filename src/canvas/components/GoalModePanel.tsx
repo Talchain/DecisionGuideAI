@@ -23,6 +23,12 @@ export function GoalModePanel({ onClose }: GoalModePanelProps) {
   const handleFindPath = async () => {
     if (!targetNodeId || !targetValue) return
 
+    // Validate target value is a valid number
+    const parsedValue = parseFloat(targetValue)
+    if (Number.isNaN(parsedValue)) {
+      return
+    }
+
     await findPath({
       graph: {
         nodes: nodes.map(n => ({
@@ -35,7 +41,7 @@ export function GoalModePanel({ onClose }: GoalModePanelProps) {
       currentState: {},
       targetState: {
         nodeId: targetNodeId,
-        targetValue: parseFloat(targetValue),
+        targetValue: parsedValue,
       },
       constraints: {
         maxChanges: 3,
@@ -98,7 +104,7 @@ export function GoalModePanel({ onClose }: GoalModePanelProps) {
 
           <button
             onClick={handleFindPath}
-            disabled={!targetNodeId || !targetValue || loading}
+            disabled={!targetNodeId || !targetValue || Number.isNaN(parseFloat(targetValue)) || loading}
             className={`
               ${typography.button} w-full py-2.5 rounded
               bg-sky-500 text-white hover:bg-sky-600

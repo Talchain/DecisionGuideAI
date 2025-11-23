@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { PanelsTopLeft, Sparkles } from 'lucide-react'
-import { useCanvasStore, hasValidationErrors } from './store'
+import { useCanvasStore } from './store'
 import { useReactFlow } from '@xyflow/react'
 import { SnapshotManager } from './components/SnapshotManager'
 import { ImportExportDialog } from './components/ImportExportDialog'

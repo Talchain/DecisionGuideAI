@@ -13,21 +13,29 @@ interface HelpTooltipProps {
  * Provides inline explanations for technical terms
  */
 export function HelpTooltip({ term, explanation, citation, learnMoreUrl }: HelpTooltipProps) {
+  const tooltipId = `tooltip-${term.replace(/\s+/g, '-').toLowerCase()}`
+
   return (
     <span className="inline-flex items-center gap-1 group relative">
       <button
         type="button"
-        className="underline decoration-dotted hover:text-sky-600 transition-colors"
+        className="underline decoration-dotted hover:text-sky-600 focus:text-sky-600 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-1 rounded transition-colors"
+        aria-describedby={tooltipId}
       >
         {term}
       </button>
-      <Info className="w-3 h-3 text-ink-900/40 group-hover:text-sky-600 transition-colors" />
+      <Info className="w-3 h-3 text-ink-900/40 group-hover:text-sky-600 group-focus-within:text-sky-600 transition-colors" />
 
       {/* Tooltip content */}
-      <div className="
+      <div
+        id={tooltipId}
+        role="tooltip"
+        className="
         absolute bottom-full left-0 mb-2 w-64 p-3
         bg-white border border-sand-200 rounded-lg shadow-lg
-        opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto
+        opacity-0 pointer-events-none
+        group-hover:opacity-100 group-hover:pointer-events-auto
+        group-focus-within:opacity-100 group-focus-within:pointer-events-auto
         transition-opacity duration-200 z-50
       ">
         <p className={`${typography.bodySmall} text-ink-900`}>
