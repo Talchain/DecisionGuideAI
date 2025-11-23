@@ -107,51 +107,79 @@ interface PredictionCardProps {
   nodes: any[]
 }
 
+// Tailwind-safe class mappings (avoids JIT purge issues)
+const getQualityClasses = (quality: 'excellent' | 'good' | 'fair' | 'poor') => {
+  const classMap = {
+    excellent: {
+      container: 'border-mint-200 bg-mint-50',
+      icon: 'text-mint-600',
+      label: 'text-mint-900',
+      caption: 'text-mint-700',
+      captionDark: 'text-mint-800',
+    },
+    good: {
+      container: 'border-sky-200 bg-sky-50',
+      icon: 'text-sky-600',
+      label: 'text-sky-900',
+      caption: 'text-sky-700',
+      captionDark: 'text-sky-800',
+    },
+    fair: {
+      container: 'border-sun-200 bg-sun-50',
+      icon: 'text-sun-600',
+      label: 'text-sun-900',
+      caption: 'text-sun-700',
+      captionDark: 'text-sun-800',
+    },
+    poor: {
+      container: 'border-carrot-200 bg-carrot-50',
+      icon: 'text-carrot-600',
+      label: 'text-carrot-900',
+      caption: 'text-carrot-700',
+      captionDark: 'text-carrot-800',
+    },
+  }
+  return classMap[quality] || classMap.fair
+}
+
 function PredictionCard({ prediction, nodes }: PredictionCardProps) {
   const node = nodes.find(n => n.id === prediction.node_id)
   const nodeName = node?.data?.label || prediction.node_id
 
-  const qualityColors = {
-    excellent: 'mint',
-    good: 'sky',
-    fair: 'sun',
-    poor: 'carrot',
-  }
-
-  const color = qualityColors[prediction.calibration_quality as keyof typeof qualityColors]
+  const classes = getQualityClasses(prediction.calibration_quality as 'excellent' | 'good' | 'fair' | 'poor')
 
   return (
-    <div className={`p-3 rounded border border-${color}-200 bg-${color}-50`}>
+    <div className={`p-3 rounded border ${classes.container}`}>
       <div className="flex items-start gap-2">
-        <TrendingUp className={`w-4 h-4 text-${color}-600 mt-0.5`} />
+        <TrendingUp className={`w-4 h-4 ${classes.icon} mt-0.5`} />
         <div className="flex-1">
-          <p className={`${typography.label} text-${color}-900`}>
+          <p className={`${typography.label} ${classes.label}`}>
             {nodeName}
           </p>
           <div className="mt-2 space-y-1">
             <div className="flex items-center justify-between">
-              <span className={`${typography.caption} text-${color}-700`}>
+              <span className={`${typography.caption} ${classes.caption}`}>
                 Prediction:
               </span>
-              <span className={`${typography.body} text-${color}-900 font-semibold`}>
+              <span className={`${typography.body} ${classes.label} font-semibold`}>
                 {typeof prediction.prediction === 'number'
                   ? prediction.prediction.toFixed(2)
                   : String(prediction.prediction)}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className={`${typography.caption} text-${color}-700`}>
+              <span className={`${typography.caption} ${classes.caption}`}>
                 95% Range:
               </span>
-              <span className={`${typography.caption} text-${color}-800 font-mono`}>
+              <span className={`${typography.caption} ${classes.captionDark} font-mono`}>
                 [{prediction.confidence_interval.lower.toFixed(2)}, {prediction.confidence_interval.upper.toFixed(2)}]
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className={`${typography.caption} text-${color}-700`}>
+              <span className={`${typography.caption} ${classes.caption}`}>
                 Quality:
               </span>
-              <span className={`${typography.caption} text-${color}-800 capitalize`}>
+              <span className={`${typography.caption} ${classes.captionDark} capitalize`}>
                 {prediction.calibration_quality}
               </span>
             </div>

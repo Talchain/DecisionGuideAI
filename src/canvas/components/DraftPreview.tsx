@@ -11,24 +11,28 @@ interface DraftPreviewProps {
   onReject: () => void
 }
 
+// Tailwind-safe quality config with static class names
 function getQualityConfig(quality: number) {
   if (quality >= 7) {
     return {
-      color: 'mint',
+      containerClasses: 'bg-mint-50 border-mint-200',
+      iconClasses: 'text-mint-600',
       icon: CheckCircle,
       label: 'Ready to use',
       actionText: 'Accept Draft',
     }
   } else if (quality >= 4) {
     return {
-      color: 'sun',
+      containerClasses: 'bg-sun-50 border-sun-200',
+      iconClasses: 'text-sun-600',
       icon: AlertTriangle,
       label: 'Review recommended',
       actionText: 'Review & Edit',
     }
   } else {
     return {
-      color: 'carrot',
+      containerClasses: 'bg-carrot-50 border-carrot-200',
+      iconClasses: 'text-carrot-600',
       icon: AlertCircle,
       label: 'Needs improvement',
       actionText: 'Improve & Retry',
@@ -49,10 +53,10 @@ export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPrevie
     <div className="space-y-4 p-4 bg-white rounded-lg border border-sand-200 shadow-panel">
       {/* Quality Badge */}
       <div className={`
-        flex items-center gap-3 p-3 rounded-lg
-        bg-${config.color}-50 border border-${config.color}-200
+        flex items-center gap-3 p-3 rounded-lg border
+        ${config.containerClasses}
       `}>
-        <Icon className={`w-5 h-5 text-${config.color}-600`} />
+        <Icon className={`w-5 h-5 ${config.iconClasses}`} />
         <div className="flex-1">
           <div className="flex items-baseline gap-2">
             <span className={typography.label}>

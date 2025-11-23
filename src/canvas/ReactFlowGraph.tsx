@@ -368,12 +368,15 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     // Open Results panel and trigger analysis
     setShowResultsPanel(true)
 
+    // Get latest state for graph data
+    const { nodes, edges, outcomeNodeId } = useCanvasStore.getState()
+
     // Run analysis with canvas graph
     await runAnalysis({
       template_id: 'canvas-graph',
       seed: 1337,
-      graph: { nodes: store.nodes, edges: store.edges },
-      outcome_node: store.outcomeNodeId || undefined,
+      graph: { nodes, edges },
+      outcome_node: outcomeNodeId || undefined,
     })
   }, [checkRunEligibility, runAnalysis, setShowResultsPanel])
 

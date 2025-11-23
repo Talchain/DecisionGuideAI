@@ -95,16 +95,39 @@ interface HealthMetricProps {
   value: number
 }
 
+// Tailwind-safe class mappings for health metrics
+const getHealthClasses = (value: number) => {
+  if (value >= 0.8) {
+    return {
+      container: 'bg-mint-50 border-mint-200',
+      heading: 'text-mint-700',
+      caption: 'text-mint-600',
+    }
+  } else if (value >= 0.5) {
+    return {
+      container: 'bg-sun-50 border-sun-200',
+      heading: 'text-sun-700',
+      caption: 'text-sun-600',
+    }
+  } else {
+    return {
+      container: 'bg-carrot-50 border-carrot-200',
+      heading: 'text-carrot-700',
+      caption: 'text-carrot-600',
+    }
+  }
+}
+
 function HealthMetric({ label, value }: HealthMetricProps) {
   const percentage = Math.round(value * 100)
-  const color = value >= 0.8 ? 'mint' : value >= 0.5 ? 'sun' : 'carrot'
+  const classes = getHealthClasses(value)
 
   return (
-    <div className={`p-2 rounded bg-${color}-50 border border-${color}-200`}>
-      <div className={`${typography.h3} text-${color}-700 font-bold`}>
+    <div className={`p-2 rounded border ${classes.container}`}>
+      <div className={`${typography.h3} ${classes.heading} font-bold`}>
         {percentage}%
       </div>
-      <div className={`${typography.caption} text-${color}-600`}>
+      <div className={`${typography.caption} ${classes.caption}`}>
         {label}
       </div>
     </div>
@@ -115,6 +138,34 @@ interface SuggestionCardProps {
   suggestion: ISLValidationSuggestion
 }
 
+// Tailwind-safe class mappings for suggestion severity
+const getSeverityClasses = (severity: 'error' | 'warning' | 'info') => {
+  const classMap = {
+    error: {
+      container: 'border-carrot-200 bg-carrot-50',
+      icon: 'text-carrot-600',
+      text: 'text-carrot-900',
+      caption: 'text-carrot-700',
+      button: 'bg-carrot-500 hover:bg-carrot-600',
+    },
+    warning: {
+      container: 'border-sun-200 bg-sun-50',
+      icon: 'text-sun-600',
+      text: 'text-sun-900',
+      caption: 'text-sun-700',
+      button: 'bg-sun-500 hover:bg-sun-600',
+    },
+    info: {
+      container: 'border-sky-200 bg-sky-50',
+      icon: 'text-sky-600',
+      text: 'text-sky-900',
+      caption: 'text-sky-700',
+      button: 'bg-sky-500 hover:bg-sky-600',
+    },
+  }
+  return classMap[severity]
+}
+
 function SuggestionCard({ suggestion }: SuggestionCardProps) {
   const iconMap = {
     error: AlertCircle,
@@ -122,14 +173,8 @@ function SuggestionCard({ suggestion }: SuggestionCardProps) {
     info: CheckCircle,
   }
 
-  const colorMap = {
-    error: 'carrot',
-    warning: 'sun',
-    info: 'sky',
-  }
-
   const Icon = iconMap[suggestion.severity]
-  const color = colorMap[suggestion.severity]
+  const classes = getSeverityClasses(suggestion.severity)
 
   const handleQuickFix = () => {
     if (!suggestion.quickFix) return
@@ -142,16 +187,16 @@ function SuggestionCard({ suggestion }: SuggestionCardProps) {
   }
 
   return (
-    <div className={`p-3 rounded border border-${color}-200 bg-${color}-50`}>
+    <div className={`p-3 rounded border ${classes.container}`}>
       <div className="flex items-start gap-3">
-        <Icon className={`w-5 h-5 text-${color}-600 flex-shrink-0 mt-0.5`} />
+        <Icon className={`w-5 h-5 ${classes.icon} flex-shrink-0 mt-0.5`} />
         <div className="flex-1 space-y-2">
-          <p className={`${typography.body} text-${color}-900`}>
+          <p className={`${typography.body} ${classes.text}`}>
             {suggestion.message}
           </p>
 
           {suggestion.affectedNodes.length > 0 && (
-            <p className={`${typography.caption} text-${color}-700`}>
+            <p className={`${typography.caption} ${classes.caption}`}>
               Affects: {suggestion.affectedNodes.join(', ')}
             </p>
           )}
@@ -161,8 +206,7 @@ function SuggestionCard({ suggestion }: SuggestionCardProps) {
               onClick={handleQuickFix}
               className={`
                 ${typography.button} inline-flex items-center gap-1 px-3 py-1.5 rounded
-                bg-${color}-500 text-white hover:bg-${color}-600
-                transition-colors
+                ${classes.button} text-white transition-colors
               `}
             >
               <Wrench className="w-3 h-3" />
