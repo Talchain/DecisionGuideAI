@@ -14,7 +14,8 @@
  */
 
 import { useState, useEffect, useRef } from 'react'
-import { sanitizeLabel } from '../utils/sanitize'
+import { sanitizeLabel } from '../persist'
+import { typography } from '../../styles/typography'
 
 export interface Template {
   id: string
@@ -151,11 +152,11 @@ export function EmptyState({
       <div className="w-full max-w-4xl px-8">
         {/* Heading */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Get Started with Canvas
+          <h1 className={`${typography.h1} text-ink-900 mb-2`}>
+            Start your decision canvas
           </h1>
-          <p className="text-gray-600">
-            Choose a template to begin, or start from scratch
+          <p className={`${typography.body} text-ink-900/70`}>
+            Pick a starting template that fits your situation, or start from scratch to build your own model.
           </p>
         </div>
 
@@ -174,8 +175,8 @@ export function EmptyState({
                 p-6 rounded-lg border-2 transition-all text-left
                 ${
                   selectedIndex === idx
-                    ? 'border-blue-500 bg-blue-50 shadow-lg'
-                    : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow'
+                    ? 'border-sky-500 bg-sky-50 shadow-lg'
+                    : 'border-sand-200 bg-white hover:border-sand-300 hover:shadow'
                 }
               `}
               aria-selected={selectedIndex === idx}
@@ -183,7 +184,7 @@ export function EmptyState({
             >
               {/* Thumbnail placeholder */}
               {template.thumbnail && (
-                <div className="w-full h-24 mb-4 bg-gray-100 rounded flex items-center justify-center overflow-hidden">
+                <div className="w-full h-24 mb-4 bg-sand-100 rounded flex items-center justify-center overflow-hidden">
                   <img
                     src={template.thumbnail}
                     alt=""
@@ -193,12 +194,12 @@ export function EmptyState({
               )}
 
               {/* Title */}
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">
+              <h2 className={`${typography.h4} text-ink-900 mb-2`}>
                 {sanitizeLabel(template.title)}
               </h2>
 
               {/* Description */}
-              <p className="text-sm text-gray-600 mb-3">
+              <p className={`${typography.body} text-ink-900/70 mb-3`}>
                 {sanitizeLabel(template.description)}
               </p>
 
@@ -208,7 +209,7 @@ export function EmptyState({
                   {template.tags.map(tag => (
                     <span
                       key={tag}
-                      className="px-2 py-0.5 text-xs rounded bg-gray-100 text-gray-700"
+                      className={`px-2 py-0.5 ${typography.caption} rounded bg-sand-100 text-ink-900/70`}
                     >
                       {sanitizeLabel(tag)}
                     </span>
@@ -226,34 +227,34 @@ export function EmptyState({
               p-6 rounded-lg border-2 border-dashed transition-all
               ${
                 selectedIndex === templates.length
-                  ? 'border-blue-500 bg-blue-50 shadow-lg'
-                  : 'border-gray-300 bg-gray-50 hover:border-gray-400'
+                  ? 'border-sky-500 bg-sky-50 shadow-lg'
+                  : 'border-sand-300 bg-sand-50 hover:border-sand-400'
               }
             `}
             aria-selected={selectedIndex === templates.length}
             role="listitem"
           >
             <div className="flex flex-col items-center justify-center h-full text-center">
-              <div className="w-16 h-16 mb-4 rounded-full bg-gray-200 flex items-center justify-center">
+              <div className="w-16 h-16 mb-4 rounded-full bg-sky-50 flex items-center justify-center">
                 <svg
-                  className="w-8 h-8 text-gray-500"
+                  className="w-8 h-8 text-ink-900/40"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
                   aria-hidden="true"
+                  strokeWidth="1.5"
                 >
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={2}
                     d="M12 4v16m8-8H4"
                   />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-gray-900 mb-2">
+              <h2 className={`${typography.h4} text-ink-900 mb-2`}>
                 Start from Scratch
               </h2>
-              <p className="text-sm text-gray-600">
+              <p className={`${typography.body} text-ink-900/70`}>
                 Build your own decision graph
               </p>
             </div>
@@ -261,15 +262,15 @@ export function EmptyState({
         </div>
 
         {/* Keyboard hints */}
-        <div className="text-center text-sm text-gray-500">
-          <kbd className="px-2 py-1 bg-gray-100 rounded mr-1">←</kbd>
-          <kbd className="px-2 py-1 bg-gray-100 rounded mr-2">→</kbd>
+        <div className={`text-center ${typography.body} text-ink-900/60`}>
+          <kbd className="px-2 py-1 bg-sand-100 rounded mr-1">←</kbd>
+          <kbd className="px-2 py-1 bg-sand-100 rounded mr-2">→</kbd>
           to navigate
           <span className="mx-4">•</span>
-          <kbd className="px-2 py-1 bg-gray-100 rounded mr-2">Enter</kbd>
+          <kbd className="px-2 py-1 bg-sand-100 rounded mr-2">Enter</kbd>
           to select
           <span className="mx-4">•</span>
-          <kbd className="px-2 py-1 bg-gray-100 rounded mr-2">ESC</kbd>
+          <kbd className="px-2 py-1 bg-sand-100 rounded mr-2">ESC</kbd>
           to dismiss
         </div>
 
@@ -277,7 +278,7 @@ export function EmptyState({
         <div className="text-center mt-6">
           <button
             onClick={handleDismiss}
-            className="text-sm text-gray-500 hover:text-gray-700 underline"
+            className={`${typography.body} text-ink-900/60 hover:text-ink-900 underline`}
           >
             Don't show this again
           </button>

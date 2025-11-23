@@ -42,7 +42,7 @@ export class CanvasErrorBoundary extends Component<Props, State> {
         // Show temporary success message
         const msg = document.createElement('div')
         msg.textContent = '✓ Canvas state copied to clipboard!'
-        msg.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:white;padding:12px 20px;border-radius:8px;z-index:10000;font-size:14px;box-shadow:0 4px 6px rgba(0,0,0,0.1)'
+        msg.style.cssText = 'position:fixed;top:20px;right:20px;background:var(--semantic-success);color:var(--text-on-info);padding:12px 20px;border-radius:8px;z-index:10000;font-size:14px;box-shadow:0 4px 6px rgba(0,0,0,0.1)'
         document.body.appendChild(msg)
         setTimeout(() => msg.remove(), 3000)
       }
@@ -85,7 +85,7 @@ export class CanvasErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gray-900/95 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg mx-4">
+          <div className="bg-white rounded-2xl shadow-panel p-8 max-w-lg mx-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -107,7 +107,7 @@ export class CanvasErrorBoundary extends Component<Props, State> {
             <div className="space-y-3">
               <button
                 onClick={this.handleRecover}
-                className="w-full px-4 py-3 bg-[#EA7B4B] text-white rounded-lg hover:bg-[#EA7B4B]/90 transition-colors font-medium flex items-center justify-center gap-2"
+                className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors font-medium flex items-center justify-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />

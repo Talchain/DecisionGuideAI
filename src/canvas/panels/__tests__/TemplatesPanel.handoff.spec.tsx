@@ -46,7 +46,7 @@ vi.mock('../../store', () => {
   }
 })
 
-describe('TemplatesPanel - P0-3: Hand-off & Semantics', () => {
+describe('TemplatesPanel - P0-3: Hand-off and semantics', () => {
   const mockOnClose = vi.fn()
   const mockOnInsertBlueprint = vi.fn()
   const mockSetShowResultsPanel = vi.fn()
@@ -110,8 +110,8 @@ describe('TemplatesPanel - P0-3: Hand-off & Semantics', () => {
       expect(screen.getByText('Test Template')).toBeInTheDocument()
     })
 
-    // Click "Create scenario" button to select template
-    const insertButton = screen.getByRole('button', { name: /create scenario/i })
+    // Click primary "Start from Template" button to select template
+    const insertButton = screen.getByRole('button', { name: /start from .*template/i })
     fireEvent.click(insertButton)
 
     // Wait for template details to load
@@ -269,8 +269,8 @@ describe('TemplatesPanel - P0-3: Hand-off & Semantics', () => {
       expect(screen.getByText('Test Template')).toBeInTheDocument()
     })
 
-    // Click "Create scenario" button to select template
-    const insertButton = screen.getByRole('button', { name: /create scenario/i })
+    // Click primary "Start from Template" button to select template
+    const insertButton = screen.getByRole('button', { name: /start from .*template/i })
     fireEvent.click(insertButton)
 
     // Wait for Run button to appear

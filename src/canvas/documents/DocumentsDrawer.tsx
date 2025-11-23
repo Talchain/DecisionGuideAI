@@ -14,13 +14,12 @@ interface DocumentsDrawerProps {
 
 const MAX_FILE_SIZE = 1024 * 1024 // 1 MB
 const MAX_CHARS_PER_FILE = 5000
-const MAX_TOTAL_CHARS = 25000
 
 export function DocumentsDrawer({ documents, isOpen, onClose }: DocumentsDrawerProps) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-white border-l border-gray-200 shadow-lg z-50 flex flex-col">
+    <div className="fixed inset-y-0 right-0 w-96 bg-white border-l border-gray-200 shadow-panel z-50 flex flex-col">
       <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">Documents</h2>
         <button
@@ -60,11 +59,11 @@ function DocumentPreview({ document }: { document: Document }) {
         <FileText className="w-4 h-4 text-gray-600 mt-0.5" />
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-gray-900 truncate">
-            {document.filename}
+            {document.name}
           </div>
           <div className="flex items-center gap-2 mt-1">
             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-              {getFileType(document.filename)}
+              {getFileType(document.name)}
             </span>
             {(document as any).size && (
               <span className="text-xs text-gray-600">

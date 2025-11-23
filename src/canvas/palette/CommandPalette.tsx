@@ -11,7 +11,7 @@
 import { useEffect, useRef } from 'react'
 import { usePalette } from './usePalette'
 import type { PaletteItemKind, SearchResult } from './indexers'
-import { sanitizeLabel } from '../utils/sanitize'
+import { sanitizeLabel } from '../persist'
 
 const KIND_LABELS: Record<PaletteItemKind, string> = {
   action: 'Actions',
@@ -102,7 +102,7 @@ export function CommandPalette({ enabled = false }: CommandPaletteProps) {
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
 
       {/* Palette */}
-      <div className="relative w-full max-w-2xl rounded-lg bg-white shadow-2xl">
+      <div className="relative w-full max-w-2xl rounded-lg bg-white shadow-panel">
         {/* Search input */}
         <div className="border-b border-gray-200 p-4">
           <input

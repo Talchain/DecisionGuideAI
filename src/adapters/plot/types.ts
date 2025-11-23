@@ -76,6 +76,7 @@ export interface TemplateDetail extends TemplateSummary {
 }
 
 export interface TemplateListV1 {
+  schema: 'template-list.v1'
   items: TemplateSummary[]
 }
 
@@ -90,6 +91,10 @@ export interface RunRequest {
     nodes: Array<{ id: string; data?: { label?: string; body?: string; [key: string]: unknown }; [key: string]: unknown }>
     edges: Array<{ id: string; source: string; target: string; data?: { confidence?: number; weight?: number; [key: string]: unknown }; [key: string]: unknown }>
   } // Optional: if provided, use this graph instead of fetching template
+  // CEE (Cognitive Enhancement Engine) trigger fields
+  scenario_id?: string  // Unique scenario identifier
+  scenario_name?: string  // Human-readable scenario name
+  save?: boolean  // If true, trigger CEE Decision Review generation
 }
 
 export type StreamEvent =
@@ -108,4 +113,65 @@ export type CanonicalRun = {
   bands: { p10: number | null; p50: number | null; p90: number | null }
   confidence?: { level?: string; reason?: string; score?: number }
   critique?: Array<{ severity: 'INFO' | 'WARNING' | 'BLOCKER'; message: string }>
+}
+
+/**
+ * CEE (Cognitive Enhancement Engine) Types
+ * Decision Review feature integration
+ */
+
+export interface CEEKeyDriver {
+  label: string
+  why: string
+  impact?: number
+  node_id?: string
+  edge_id?: string
+}
+
+export interface CEENextAction {
+  label: string
+  why: string
+  priority?: 'low' | 'medium' | 'high'
+}
+
+export interface CEEStory {
+  headline: string
+  key_drivers: CEEKeyDriver[]
+  next_actions: CEENextAction[]
+  summary?: string
+}
+
+export interface CEEJourney {
+  is_complete: boolean
+  missing_envelopes: string[]
+  completion_percent?: number
+}
+
+export interface CEEReview {
+  story: CEEStory
+  journey: CEEJourney
+  generated_at?: string
+}
+
+export interface CEETrace {
+  requestId: string
+  degraded: boolean
+  timestamp: string
+  engine_version?: string
+}
+
+export type CEEErrorCode =
+  | 'CEE_TEMPORARY'
+  | 'CEE_UNAVAILABLE'
+  | 'CEE_TIMEOUT'
+  | 'CEE_INVALID_INPUT'
+  | 'CEE_QUOTA_EXCEEDED'
+
+export interface CEEError {
+  code: CEEErrorCode
+  retryable: boolean
+  traceId: string
+  suggestedAction: 'retry' | 'contact_support' | 'check_input'
+  message?: string
+  details?: Record<string, unknown>
 }

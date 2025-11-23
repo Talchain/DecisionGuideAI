@@ -17,6 +17,10 @@ import { useIsDark } from '../hooks/useTheme'
 import type { LucideIcon } from 'lucide-react'
 import { sanitizeMarkdown } from '../utils/markdown'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
+import { NodeBadge } from '../components/NodeBadge'
+import { useCEEInsights } from '../../hooks/useCEEInsights'
+import { useISLValidation } from '../../hooks/useISLValidation'
+import { useCanvasStore } from '../store'
 
 interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
@@ -38,6 +42,26 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
   // Local state for expand/collapse (no persistence per spec)
   const [isExpanded, setIsExpanded] = useState(false)
   const updateNodeInternals = useUpdateNodeInternals()
+
+  // Phase 2: Badge system integration
+  const { data: ceeInsights } = useCEEInsights()
+  const { data: islValidation } = useISLValidation()
+  const setOutputsDockTab = useCanvasStore(s => s.setOutputsDockTab)
+  const setOutputsDockOpen = useCanvasStore(s => s.setOutputsDockOpen)
+
+  const ceeWarnings = ceeInsights?.structural_health.warnings || []
+  const islAffected = islValidation?.suggestions.some(suggestion =>
+    suggestion.affectedNodes.includes(id)
+  ) || false
+
+  const handleBadgeClick = () => {
+    setOutputsDockTab('diagnostics')
+    setOutputsDockOpen(true)
+  }
+
+  // Phase 2: Uncertain node styling
+  const isUncertain = (data?.uncertainty ?? 0) > 0.4
+  const borderStyle = isUncertain ? '2px dashed' : '2px solid'
 
   // Accessible name combines node type and label
   const accessibleName = `${nodeType} node: ${label}`
@@ -67,7 +91,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       onDoubleClick={handleDoubleClick}
       style={{
         background: theme.background,
-        border: `2px solid ${theme.border}`,
+        border: `${borderStyle} ${theme.border}`,
         borderRadius: NODE_SIZES.radius,
         padding: NODE_SIZES.padding,
         width: nodeWidth,
@@ -78,6 +102,13 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         cursor: description ? 'pointer' : 'default',
       }}
     >
+      {/* Phase 2: Node badges for CEE/ISL warnings */}
+      <NodeBadge
+        nodeId={id}
+        ceeWarnings={ceeWarnings}
+        islAffected={islAffected}
+        onClick={handleBadgeClick}
+      />
       {/* Connection handles */}
       <Handle
         type="target"
@@ -136,7 +167,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       {/* Node label */}
       <div
         style={{
-          fontSize: '14px',
+          fontSize: '13px',
           fontWeight: 600,
           color: theme.text,
           lineHeight: 1.4,

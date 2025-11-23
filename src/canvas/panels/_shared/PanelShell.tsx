@@ -78,7 +78,7 @@ export function PanelShell({
 
   return (
     <aside
-      className={`flex flex-col bg-white shadow-lg rounded-l-2xl border-l border-gray-200 ${widthClass}`}
+      className={`flex flex-col bg-paper-50 shadow-panel rounded-l-2xl border-l border-sand-200 transition-shadow duration-200 ${widthClass}`}
       style={{
         height: `calc(100vh - ${TOOLBAR_SAFE_AREA}px)`,
         maxHeight: `calc(100vh - ${TOOLBAR_SAFE_AREA}px)`,
@@ -88,10 +88,10 @@ export function PanelShell({
       data-testid="panel-shell"
     >
       {/* Header */}
-      <header className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white rounded-tl-2xl">
+      <header className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-sand-200 bg-paper-50 rounded-tl-2xl">
         <div className="flex items-center gap-2">
-          {icon && <span className="text-gray-600">{icon}</span>}
-          <h3 className="text-[15px] font-semibold text-gray-900">{title}</h3>
+          {icon && <span className="text-ink-900/70">{icon}</span>}
+          <h3 className="text-[15px] font-semibold text-ink-900">{title}</h3>
           {chips}
         </div>
         {onClose && (
@@ -121,7 +121,7 @@ export function PanelShell({
 
       {/* Optional tabs row */}
       {tabs && (
-        <div className="shrink-0 px-4 pt-2 border-b border-gray-100">
+        <div className="shrink-0 px-4 pt-2 border-b border-sand-200">
           {tabs}
         </div>
       )}
@@ -133,7 +133,7 @@ export function PanelShell({
 
       {/* Sticky footer - stays visible while body scrolls */}
       {footer && (
-        <div className="shrink-0 sticky bottom-0 px-4 py-3 border-t border-gray-200 bg-white/95 backdrop-blur-sm flex items-center gap-2 rounded-bl-2xl z-10">
+        <div className="shrink-0 sticky bottom-0 px-4 py-3 border-t border-sand-200 bg-paper-50/95 backdrop-blur-sm flex items-center gap-2 rounded-bl-2xl z-10">
           {footer}
         </div>
       )}

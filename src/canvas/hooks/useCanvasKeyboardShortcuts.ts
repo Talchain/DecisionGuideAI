@@ -6,7 +6,7 @@
  * - T: Open Templates panel
  * - Alt+V: Cycle through validation errors
  * - Cmd/Ctrl+Enter: Run simulation
- * - Cmd/Ctrl+3: Toggle Results panel
+ * - Cmd/Ctrl+3: Open Results view in Outputs dock
  * - Cmd/Ctrl+I: Toggle Inspector panel
  * - Cmd/Ctrl+D: Toggle Documents drawer (M5)
  * - ?: Show keyboard map
@@ -33,6 +33,19 @@ export function useCanvasKeyboardShortcuts({
   onShowToast
 }: UseCanvasKeyboardShortcutsOptions = {}) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Ignore plain-key shortcuts when typing in text inputs/areas or editable content
+    const target = e.target as HTMLElement | null
+    const tagName = target?.tagName
+    const isTextInputTarget = !!target && (
+      tagName === 'INPUT' ||
+      tagName === 'TEXTAREA' ||
+      target.isContentEditable
+    )
+
+    if (!e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && isTextInputTarget) {
+      return
+    }
+
     // P: Focus inline probabilities editor for selected decision
     if (e.key === 'p' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
       e.preventDefault()
@@ -113,7 +126,7 @@ export function useCanvasKeyboardShortcuts({
       return
     }
 
-    // Cmd/Ctrl+3: Toggle Results panel
+    // Cmd/Ctrl+3: Open docked Results view
     if ((e.metaKey || e.ctrlKey) && e.key === '3') {
       e.preventDefault()
 

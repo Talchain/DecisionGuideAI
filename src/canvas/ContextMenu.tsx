@@ -113,16 +113,43 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   let actionIndex = -1
 
   return (
-    <div ref={menuRef} role="menu" aria-label="Canvas context menu" className="fixed bg-white rounded-xl shadow-xl border border-gray-200 py-1 z-[9999] min-w-[200px]" style={{ left: position.x, top: position.y }} onClick={(e) => e.stopPropagation()}>
+    <div
+      ref={menuRef}
+      role="menu"
+      aria-label="Canvas context menu"
+      className="fixed bg-white rounded-xl shadow-panel border border-gray-200 py-1 z-[9999] min-w-[200px]"
+      style={{ left: position.x, top: position.y }}
+      onClick={(e) => e.stopPropagation()}
+    >
       {menuItems.map((item, index) => {
-        if ('type' in item && item.type === 'divider') return <div key={index} className="h-px bg-gray-200 my-1" role="separator" />
+        if ('type' in item && item.type === 'divider') {
+          return <div key={index} className="h-px bg-gray-200 my-1" role="separator" />
+        }
+
         actionIndex++
         const currentActionIndex = actionIndex
         const enabled = 'enabled' in item ? item.enabled : true
         const isFocused = currentActionIndex === focusedIndex
+
+        const stateClasses = !enabled
+          ? 'opacity-40 cursor-not-allowed'
+          : isFocused
+            ? 'bg-danger-50 text-danger-700 cursor-pointer'
+            : 'hover:bg-danger-50 hover:text-danger-700 cursor-pointer'
+
         return (
-          <button key={index} role="menuitem" onClick={() => enabled && handleAction(item.action)} onMouseEnter={() => setFocusedIndex(currentActionIndex)} disabled={!enabled} className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between transition-colors ${enabled ? isFocused ? 'bg-[#EA7B4B]/10 text-[#EA7B4B]' : 'hover:bg-[#EA7B4B]/10 hover:text-[#EA7B4B]' : 'opacity-40'} ${enabled ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
-            <span className="flex items-center gap-2"><span className="text-base">{item.icon}</span><span>{item.label}</span></span>
+          <button
+            key={index}
+            role="menuitem"
+            onClick={() => enabled && handleAction(item.action)}
+            onMouseEnter={() => setFocusedIndex(currentActionIndex)}
+            disabled={!enabled}
+            className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between transition-colors ${stateClasses}`}
+          >
+            <span className="flex items-center gap-2">
+              <span className="text-base">{item.icon}</span>
+              <span>{item.label}</span>
+            </span>
             {item.shortcut && <span className="text-xs text-gray-400 font-mono">{item.shortcut}</span>}
           </button>
         )

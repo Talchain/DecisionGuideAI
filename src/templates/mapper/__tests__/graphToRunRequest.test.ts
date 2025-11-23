@@ -62,34 +62,34 @@ describe('validateGraph', () => {
     expect(result.errors).toContain('Graph must have at least one node')
   })
 
-  it('validates too many nodes', () => {
-    const nodes = Array.from({ length: 13 }, (_, i) => ({
+  it('does not enforce a hard node-count limit', () => {
+    const nodes = Array.from({ length: 60 }, (_, i) => ({
       id: `n${i}`,
       data: { label: `Node ${i}` },
       position: { x: 0, y: 0 }
     }))
-    
+
     const result = validateGraph({ nodes, edges: [] })
-    
-    expect(result.valid).toBe(false)
-    expect(result.errors).toContain('Graph cannot have more than 12 nodes')
+
+    expect(result.valid).toBe(true)
+    expect(result.errors).toEqual([])
   })
 
-  it('validates too many edges', () => {
+  it('does not enforce a hard edge-count limit', () => {
     const nodes = [
       { id: 'n1', data: { label: 'N1' }, position: { x: 0, y: 0 } },
       { id: 'n2', data: { label: 'N2' }, position: { x: 0, y: 0 } }
     ]
-    const edges = Array.from({ length: 21 }, (_, i) => ({
+    const edges = Array.from({ length: 210 }, (_, i) => ({
       id: `e${i}`,
       source: 'n1',
       target: 'n2'
     }))
-    
+
     const result = validateGraph({ nodes, edges })
-    
-    expect(result.valid).toBe(false)
-    expect(result.errors).toContain('Graph cannot have more than 20 edges')
+
+    expect(result.valid).toBe(true)
+    expect(result.errors).toEqual([])
   })
 
   it('validates edge references', () => {

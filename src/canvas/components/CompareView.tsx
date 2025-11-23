@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { ArrowLeft, Download } from 'lucide-react'
 import { loadRuns, type StoredRun } from '../store/runHistory'
+import { useCanvasStore } from '../store'
 import { EdgeDiffTable } from '../compare/EdgeDiffTable'
 import { CompareSummary } from '../compare/CompareSummary'
 import { exportDecisionBrief } from '../export/decisionBrief'
@@ -18,6 +19,7 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
   const [runB, setRunB] = useState<StoredRun | null>(null)
   const [rationale, setRationale] = useState('')
   const [title, setTitle] = useState('Decision Comparison')
+  const scenarioTitle = useCanvasStore(s => s.currentScenarioFraming?.title ?? null)
 
   useEffect(() => setRuns(loadRuns()), [])
   useEffect(() => {
@@ -79,6 +81,16 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
         <h2 className="text-lg font-semibold text-gray-900">Compare Runs</h2>
         <div className="w-20" />
       </div>
+
+      {scenarioTitle && (
+        <div
+          className="px-4 py-2 text-xs text-gray-500"
+          data-testid="compare-view-scenario-context"
+        >
+          Current decision:{' '}
+          <span className="font-medium text-gray-900">{scenarioTitle}</span>
+        </div>
+      )}
 
       <div className="p-4 grid grid-cols-2 gap-4 border-b border-gray-200 bg-gray-50">
         <div>

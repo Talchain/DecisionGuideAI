@@ -6,9 +6,17 @@
 
 import { useState, useEffect } from 'react'
 import { Info, X, ChevronDown, ChevronUp } from 'lucide-react'
+import { typography } from '../../styles/typography'
 
 const STORAGE_KEY = 'olumi_seen_influence_explainer'
 const STORAGE_VERSION = 'v1'
+
+function getSafeLocalStorage(): Storage | null {
+  if (typeof globalThis !== 'undefined' && 'localStorage' in globalThis) {
+    return (globalThis as any).localStorage as Storage
+  }
+  return null
+}
 
 interface InfluenceExplainerProps {
   /**
@@ -26,85 +34,83 @@ interface InfluenceExplainerProps {
 }
 
 export function InfluenceExplainer({ forceShow = false, onDismiss, compact = false }: InfluenceExplainerProps) {
-  const [isDismissed, setIsDismissed] = useState(false)
-  const [isExpanded, setIsExpanded] = useState(false)
-
-  // Load dismissed state from localStorage
-  useEffect(() => {
+  const [isDismissed, setIsDismissed] = useState(() => {
     try {
-      const seen = localStorage.getItem(STORAGE_KEY)
-      if (seen === STORAGE_VERSION) {
-        setIsDismissed(true)
+      const storage = getSafeLocalStorage()
+      if (storage) {
+        const seen = storage.getItem(STORAGE_KEY)
+        if (seen === STORAGE_VERSION && !forceShow) {
+          return true
+        }
       }
     } catch (e) {
-      console.warn('Failed to check influence explainer status:', e)
+      console['warn']('Failed to check influence explainer status:', e)
     }
-  }, [])
+
+    return false
+  })
+  const [isExpanded, setIsExpanded] = useState(false)
 
   const handleDismiss = () => {
     setIsDismissed(true)
 
     // Save to localStorage
     try {
-      localStorage.setItem(STORAGE_KEY, STORAGE_VERSION)
+      const storage = getSafeLocalStorage()
+      if (storage) {
+        storage.setItem(STORAGE_KEY, STORAGE_VERSION)
+      }
     } catch (e) {
-      console.warn('Failed to save influence explainer status:', e)
+      console['warn']('Failed to save influence explainer status:', e)
     }
 
     onDismiss?.()
   }
 
-  // Don't show if dismissed and not forced
-  if (isDismissed && !forceShow) {
+  if (isDismissed) {
     return null
   }
 
   return (
     <div
-      className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4"
+      className="bg-sky-50 border border-sky-200 rounded-lg p-3 mb-3"
       role="region"
       aria-label="Influence model explanation"
     >
       {/* Header */}
-      <div className="flex items-start gap-3">
-        <Info className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" aria-hidden="true" />
+      <div className="flex items-start gap-2">
+        <Info className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" aria-hidden="true" />
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <h3 className="font-semibold text-sm text-blue-900">
+            <h3 className={`${typography.label} text-sky-900`}>
               Understanding Influence Models
             </h3>
             <button
               onClick={handleDismiss}
-              className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors shrink-0"
+              className="p-0.5 text-sky-600 hover:text-sky-800 hover:bg-sky-100 rounded transition-colors shrink-0"
               aria-label="Dismiss explanation"
               title="Dismiss"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
 
           {/* Summary */}
-          <div className="mt-2 text-sm text-blue-800 space-y-2">
+          <div className={`mt-1.5 ${typography.caption} text-sky-800 space-y-1.5`}>
             <p>
-              Olumi uses <strong>influence models</strong>, not probability models. Here's what that means:
+              Olumi uses influence models, not probability models.
             </p>
 
             {!compact && (
-              <ul className="list-disc list-inside space-y-1 ml-2">
-                <li>
-                  <strong>Nodes</strong> represent factors, beliefs, or evidence in your decision
-                </li>
-                <li>
-                  <strong>Edges</strong> represent causal influence (not correlation) between factors
-                </li>
-                <li>
-                  <strong>Weights</strong> (-1 to +1) represent the strength and direction of influence
-                </li>
+              <ul className="list-disc list-inside space-y-0.5 ml-2">
+                <li>Nodes = factors in your decision</li>
+                <li>Edges = causal influence between factors</li>
+                <li>Weights (-1 to +1) = strength and direction</li>
               </ul>
             )}
 
             {compact && (
-              <p className="text-xs">
+              <p className={typography.code}>
                 Nodes = factors, Edges = causal influence, Weights = strength (-1 to +1)
               </p>
             )}
@@ -112,10 +118,10 @@ export function InfluenceExplainer({ forceShow = false, onDismiss, compact = fal
 
           {/* Expandable details */}
           {!compact && (
-            <div className="mt-3">
+            <div className="mt-2">
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="flex items-center gap-1 text-xs text-blue-700 hover:text-blue-900 font-medium transition-colors"
+                className={`flex items-center gap-1 ${typography.code} text-sky-700 hover:text-sky-900 font-medium transition-colors`}
                 aria-expanded={isExpanded}
                 aria-controls="influence-details"
               >
@@ -135,27 +141,16 @@ export function InfluenceExplainer({ forceShow = false, onDismiss, compact = fal
               {isExpanded && (
                 <div
                   id="influence-details"
-                  className="mt-3 text-xs text-blue-700 space-y-2 bg-white/50 rounded p-3 border border-blue-100"
+                  className={`mt-2 ${typography.code} text-sky-700 space-y-1.5 bg-white/50 rounded p-2 border border-sky-100`}
                 >
                   <div>
-                    <strong className="text-blue-900">Positive influence (+):</strong> When the source
-                    factor increases, the target factor tends to increase. Example: "More budget" →
-                    "Better outcome" (weight: +0.8)
+                    <strong className="text-sky-900">Positive (+):</strong> Source ↑ → Target ↑ (e.g., Budget → Outcome: +0.8)
                   </div>
                   <div>
-                    <strong className="text-blue-900">Negative influence (-):</strong> When the source
-                    factor increases, the target factor tends to decrease. Example: "More risk" →
-                    "Team confidence" (weight: -0.6)
+                    <strong className="text-sky-900">Negative (-):</strong> Source ↑ → Target ↓ (e.g., Risk → Confidence: -0.6)
                   </div>
                   <div>
-                    <strong className="text-blue-900">Weight magnitude:</strong> Closer to 0 = weak
-                    influence, closer to ±1 = strong influence. Values like ±0.2 are subtle, ±0.8 are
-                    dominant.
-                  </div>
-                  <div>
-                    <strong className="text-blue-900">Why not probability?</strong> Influence models
-                    capture how factors affect each other, not just their likelihood. This is better
-                    suited for reasoning about decisions where causal relationships matter.
+                    <strong className="text-sky-900">Magnitude:</strong> Near 0 = weak, near ±1 = strong
                   </div>
                 </div>
               )}
@@ -177,12 +172,15 @@ export function useInfluenceExplainer() {
   // Check if user has seen the explainer
   useEffect(() => {
     try {
-      const seen = localStorage.getItem(STORAGE_KEY)
-      if (seen !== STORAGE_VERSION) {
-        setShouldShow(true)
+      const storage = getSafeLocalStorage()
+      if (storage) {
+        const seen = storage.getItem(STORAGE_KEY)
+        if (seen !== STORAGE_VERSION) {
+          setShouldShow(true)
+        }
       }
     } catch (e) {
-      console.warn('Failed to check influence explainer status:', e)
+      console['warn']('Failed to check influence explainer status:', e)
     }
   }, [])
 
@@ -191,20 +189,28 @@ export function useInfluenceExplainer() {
   }
 
   const hide = () => {
+    setShouldShow(false)
     setIsForceShown(false)
     try {
-      localStorage.setItem(STORAGE_KEY, STORAGE_VERSION)
+      const storage = getSafeLocalStorage()
+      if (storage) {
+        storage.setItem(STORAGE_KEY, STORAGE_VERSION)
+      }
     } catch (e) {
-      console.warn('Failed to save influence explainer status:', e)
+      console['warn']('Failed to save influence explainer status:', e)
     }
   }
 
   const reset = () => {
     try {
-      localStorage.removeItem(STORAGE_KEY)
+      const storage = getSafeLocalStorage()
+      if (storage) {
+        storage.removeItem(STORAGE_KEY)
+      }
       setShouldShow(true)
+      setIsForceShown(false)
     } catch (e) {
-      console.warn('Failed to reset influence explainer:', e)
+      console['warn']('Failed to reset influence explainer:', e)
     }
   }
 

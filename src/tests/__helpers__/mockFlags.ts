@@ -41,6 +41,7 @@ export function mockFlags(overrides: Partial<FlagFns> = {}) {
     isCommentsEnabled: () => false,
     isSnapshotsEnabled: () => false,
     isCompareEnabled: () => false,
+    isDecisionReviewEnabled: () => false,
     isScorecardEnabled: () => false,
     isDiagnosticsEnabled: () => false,
     isScenariosV2Enabled: () => false,
@@ -54,6 +55,10 @@ export function mockFlags(overrides: Partial<FlagFns> = {}) {
     isSnapshotsV2Enabled: () => false,
   }
   const flags = { ...base, ...overrides } as FlagFns
-  vi.doMock('../../flags', () => flags)
+  vi.doMock('../../flags', () => ({
+    ...flags,
+    isOnboardingTourEnabled: () => false,
+    pocFlags: { contextBar: false },
+  }))
   return flags
 }

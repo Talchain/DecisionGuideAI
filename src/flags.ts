@@ -37,6 +37,11 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_SCORECARD',
     storageKey: 'feature.scorecard',
   },
+  decisionReview: {
+    envKey: 'VITE_FEATURE_DECISION_REVIEW',
+    storageKey: 'feature.decisionReview',
+    defaultValue: true,
+  },
   diagnostics: {
     envKey: 'VITE_FEATURE_DIAGNOSTICS',
     storageKey: 'feature.diagnostics',
@@ -225,6 +230,10 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_SNAPSHOTS_V2',
     storageKey: 'feature.snapshotsV2',
   },
+  onboardingTour: {
+    envKey: 'VITE_FEATURE_ONBOARDING',
+    storageKey: 'feature.onboardingTour',
+  },
 } as const
 
 // ============================================================================
@@ -239,6 +248,7 @@ const flags = {
   comments: makeFlag(FLAGS_CONFIG.comments),
   snapshots: makeFlag(FLAGS_CONFIG.snapshots),
   compare: makeFlag(FLAGS_CONFIG.compare),
+  decisionReview: makeFlag(FLAGS_CONFIG.decisionReview),
   scorecard: makeFlag(FLAGS_CONFIG.scorecard),
   diagnostics: makeFlag(FLAGS_CONFIG.diagnostics),
   scenariosV2: makeFlag(FLAGS_CONFIG.scenariosV2),
@@ -286,6 +296,7 @@ const flags = {
   optimiseBeta: makeFlag(FLAGS_CONFIG.optimiseBeta),
   debug: makeFlag(FLAGS_CONFIG.debug),
   snapshotsV2: makeFlag(FLAGS_CONFIG.snapshotsV2),
+  onboardingTour: makeFlag(FLAGS_CONFIG.onboardingTour),
 }
 
 // Export with original naming convention for backward compatibility
@@ -295,6 +306,7 @@ export const isGuidedV1Enabled = flags.guidedV1
 export const isCommentsEnabled = flags.comments
 export const isSnapshotsEnabled = flags.snapshots
 export const isCompareEnabled = flags.compare
+export const isDecisionReviewEnabled = flags.decisionReview
 export const isScorecardEnabled = flags.scorecard
 export const isDiagnosticsEnabled = flags.diagnostics
 export const isScenariosV2Enabled = flags.scenariosV2
@@ -342,6 +354,7 @@ export const isDegradedBannerEnabled = flags.degradedBanner
 export const isOptimiseBetaEnabled = flags.optimiseBeta
 export const isDebugEnabled = flags.debug
 export const isSnapshotsV2Enabled = flags.snapshotsV2
+export const isOnboardingTourEnabled = flags.onboardingTour
 
 // ============================================================================
 // POC FLAGS (special pattern - constant object, not functions)
@@ -366,6 +379,7 @@ export const pocFlags = {
   triggersBasic: on(env?.VITE_FEATURE_SANDBOX_TRIGGERS_BASIC),
   voting: on(env?.VITE_FEATURE_SANDBOX_VOTING),
   whiteboard: on(env?.VITE_FEATURE_WHITEBOARD),
+  contextBar: on(env?.VITE_FEATURE_CONTEXT_BAR),
 }
 
 // Debug helper: dump all flags for inspection

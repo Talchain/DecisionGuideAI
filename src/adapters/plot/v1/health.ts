@@ -6,7 +6,7 @@
  */
 
 const getProxyBase = (): string => {
-  return import.meta.env.VITE_PLOT_PROXY_BASE || 'https://plot-lite-service.onrender.com'
+  return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
 }
 
 export type HealthStatus = 'healthy' | 'unhealthy'

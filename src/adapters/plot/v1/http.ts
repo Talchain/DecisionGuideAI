@@ -25,7 +25,7 @@ import {
 import { validatePayloadSize } from './payloadGuard'
 
 const getProxyBase = (): string => {
-  return import.meta.env.VITE_PLOT_PROXY_BASE || '/api/plot'
+  return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
 }
 
 const getTimeouts = () => ({

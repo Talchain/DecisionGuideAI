@@ -37,3 +37,21 @@
   for = "/assets/*.css"
   [headers.values]
   cache-control = "public, max-age=31536000, immutable"
+
+[[redirects]]
+  from = "/bff/engine/*"
+  to = "https://plot-lite-service.onrender.com/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/bff/cee/*"
+  to = "https://cee-service.onrender.com/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/bff/isl/*"
+  to = "https://isl-service.onrender.com/:splat"
+  status = 200
+  force = true

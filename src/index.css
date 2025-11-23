@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=League+Spartan:wght@400;600&display=swap');
 
 /* Olumi Design System Tokens */
 @import './styles/brand.css';
@@ -9,8 +9,12 @@
 
 @layer base {
   html {
-    font-family: 'Roboto', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     scroll-behavior: smooth;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'League Spartan', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   }
 
 /* Reduced motion support */
@@ -26,15 +30,15 @@
 }
 
   body {
-    @apply bg-gray-50;
+    @apply bg-canvas-25 text-ink-900;
   }
 
   *:focus {
-    @apply outline-none ring-2 ring-indigo-500 ring-opacity-50;
+    @apply outline-none ring-2 ring-info-500 ring-opacity-50;
   }
 
   ::selection {
-    @apply bg-indigo-100;
+    @apply bg-info-100;
   }
 }
 
@@ -118,8 +122,9 @@
 /* Node palette (legacy - to be migrated) */
 :root {
   /* Layout bars */
-  --bottombar-h: 56px; /* Canvas toolbar height (matches CanvasToolbar comment) */
-  --topbar-h: 0px;     /* Set to non-zero if a fixed top bar is introduced */
+  --toolbar-margin: 1rem;  /* Space below toolbar (16px) */
+  --bottombar-h: 72px;     /* Total reserved space at bottom: toolbar (56px) + margin (16px) */
+  --topbar-h: 0px;         /* Set to non-zero if a fixed top bar is introduced */
 
   --node-goal-bg: #1A1E28;
   --node-goal-border: #F7C948;

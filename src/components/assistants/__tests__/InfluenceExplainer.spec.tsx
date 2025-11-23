@@ -78,11 +78,12 @@ describe('InfluenceExplainer', () => {
     it('handles localStorage errors gracefully on save', () => {
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-      // Mock localStorage.setItem to throw
-      const originalSetItem = localStorage.setItem
-      localStorage.setItem = vi.fn(() => {
-        throw new Error('localStorage disabled')
-      })
+      // Mock Storage.setItem to throw
+      const setItemSpy = vi
+        .spyOn(Storage.prototype, 'setItem')
+        .mockImplementation(() => {
+          throw new Error('localStorage disabled')
+        })
 
       render(<InfluenceExplainer />)
       const dismissButton = screen.getByLabelText('Dismiss explanation')
@@ -93,19 +94,19 @@ describe('InfluenceExplainer', () => {
         expect.any(Error)
       )
 
-      // Restore
-      localStorage.setItem = originalSetItem
+      setItemSpy.mockRestore()
       consoleWarnSpy.mockRestore()
     })
 
     it('handles localStorage errors gracefully on load', () => {
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-      // Mock localStorage.getItem to throw
-      const originalGetItem = localStorage.getItem
-      localStorage.getItem = vi.fn(() => {
-        throw new Error('localStorage disabled')
-      })
+      // Mock Storage.getItem to throw
+      const getItemSpy = vi
+        .spyOn(Storage.prototype, 'getItem')
+        .mockImplementation(() => {
+          throw new Error('localStorage disabled')
+        })
 
       render(<InfluenceExplainer />)
 
@@ -117,8 +118,7 @@ describe('InfluenceExplainer', () => {
       // Should still render (graceful fallback)
       expect(screen.getByText('Understanding Influence Models')).toBeInTheDocument()
 
-      // Restore
-      localStorage.getItem = originalGetItem
+      getItemSpy.mockRestore()
       consoleWarnSpy.mockRestore()
     })
   })
@@ -356,10 +356,11 @@ describe('InfluenceExplainer', () => {
     it('handles localStorage errors gracefully in reset()', () => {
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-      const originalRemoveItem = localStorage.removeItem
-      localStorage.removeItem = vi.fn(() => {
-        throw new Error('localStorage disabled')
-      })
+      const removeItemSpy = vi
+        .spyOn(Storage.prototype, 'removeItem')
+        .mockImplementation(() => {
+          throw new Error('localStorage disabled')
+        })
 
       const TestComponent = () => {
         const { reset } = useInfluenceExplainer()
@@ -374,18 +375,18 @@ describe('InfluenceExplainer', () => {
         expect.any(Error)
       )
 
-      // Restore
-      localStorage.removeItem = originalRemoveItem
+      removeItemSpy.mockRestore()
       consoleWarnSpy.mockRestore()
     })
 
     it('handles localStorage errors gracefully in hide()', () => {
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-      const originalSetItem = localStorage.setItem
-      localStorage.setItem = vi.fn(() => {
-        throw new Error('localStorage disabled')
-      })
+      const setItemSpy = vi
+        .spyOn(Storage.prototype, 'setItem')
+        .mockImplementation(() => {
+          throw new Error('localStorage disabled')
+        })
 
       const TestComponent = () => {
         const { hide } = useInfluenceExplainer()
@@ -400,8 +401,7 @@ describe('InfluenceExplainer', () => {
         expect.any(Error)
       )
 
-      // Restore
-      localStorage.setItem = originalSetItem
+      setItemSpy.mockRestore()
       consoleWarnSpy.mockRestore()
     })
   })

@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { TemplatesPanel } from '../../../src/canvas/panels/TemplatesPanel'
 import * as plotAdapter from '../../../src/adapters/plot'
 import * as blueprintsModule from '../../../src/templates/blueprints'
+import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../src/lib/telemetry'
 
 vi.mock('../../../src/adapters/plot', () => ({
   plot: {
@@ -73,6 +74,11 @@ describe('TemplatesPanel', () => {
       confidence: { level: 'medium', why: 'test' },
       drivers: []
     })
+
+    try {
+      localStorage.setItem('feature.telemetry', '1')
+    } catch {}
+    __resetTelemetryCounters()
   })
 
   it('renders when open', () => {
@@ -171,5 +177,59 @@ describe('TemplatesPanel', () => {
       expect(toggle).toHaveAttribute('aria-checked', 'true')
       expect(screen.getByText(/Adapter: mock/i)).toBeInTheDocument()
     })
+  })
+
+  it('tracks sandbox.run.blocked when Run is executed with an invalid seed', async () => {
+    render(<TemplatesPanel isOpen={true} onClose={() => {}} onInsertBlueprint={() => {}} />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /insert pricing strategy/i })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /insert pricing strategy/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('switch')).toBeInTheDocument()
+    })
+
+    const toggle = screen.getByRole('switch')
+    fireEvent.click(toggle)
+
+    const seedInput = await screen.findByLabelText(/seed/i)
+    fireEvent.change(seedInput, { target: { value: '0' } })
+
+    const runButton = screen.getByRole('button', { name: 'Run' })
+    fireEvent.click(runButton)
+
+    const counters = __getTelemetryCounters()
+    expect(counters['sandbox.run.blocked']).toBe(1)
+    expect(counters['sandbox.run.clicked']).toBe(0)
+  })
+
+  it('tracks sandbox.run.clicked when Run is executed with a valid seed', async () => {
+    render(<TemplatesPanel isOpen={true} onClose={() => {}} onInsertBlueprint={() => {}} />)
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /insert pricing strategy/i })).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /insert pricing strategy/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('switch')).toBeInTheDocument()
+    })
+
+    const toggle = screen.getByRole('switch')
+    fireEvent.click(toggle)
+
+    const seedInput = await screen.findByLabelText(/seed/i)
+    fireEvent.change(seedInput, { target: { value: '1337' } })
+
+    const runButton = screen.getByRole('button', { name: 'Run' })
+    fireEvent.click(runButton)
+
+    const counters = __getTelemetryCounters()
+    expect(counters['sandbox.run.clicked']).toBe(1)
+    expect(counters['sandbox.run.blocked']).toBe(0)
   })
 })

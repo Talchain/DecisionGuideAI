@@ -1,12 +1,20 @@
 /**
- * ResultsPanel - Enhanced with 3-tab structure
+ * ResultsPanel - Legacy comprehensive results panel (NOT currently in use)
  *
- * Tabs:
- * 1. Latest Run - Shows current analysis with KPI headline, range, confidence, drivers
- * 2. History - Shows last 20 runs with pin/delete/compare
- * 3. Compare - Side-by-side comparison of selected runs
+ * ⚠️ ARCHITECTURE NOTE:
+ * This component is NOT currently rendered in the main canvas flow.
+ * The canonical Results UX is now **OutputsDock** (src/canvas/components/OutputsDock.tsx),
+ * which provides a streamlined dock-based interface with tabs for Results, Insights, Compare, and Diagnostics.
  *
- * Features:
+ * This panel remains for:
+ * - Test coverage and backwards compatibility
+ * - Potential future use if a full-screen results view is needed
+ * - Reference implementation for results features
+ *
+ * The store flag `showResultsPanel` is used for UI coordination, NOT for rendering this component.
+ *
+ * Original Features:
+ * - 3-tab structure (Latest Run, History, Compare)
  * - Keyboard navigation (Cmd+1-3 to switch tabs)
  * - Streaming progress with cancel
  * - Error handling with retry
@@ -15,7 +23,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { History as HistoryIcon, GitCompare as CompareIcon, BarChart3, Play } from 'lucide-react'
-import { useCanvasStore, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash } from '../store'
+import { useCanvasStore, hasValidationErrors, selectResultsStatus, selectProgress, selectReport, selectError, selectSeed, selectHash } from '../store'
 import { ProgressStrip } from '../components/ProgressStrip'
 import { WhyPanel } from '../../routes/templates/components/WhyPanel'
 import { useLayerRegistration } from '../components/LayerProvider'
@@ -25,17 +33,62 @@ import { CompareView } from '../components/CompareView'
 import { KPIHeadline } from '../components/KPIHeadline'
 import { RangeChips } from '../components/RangeChips'
 import { ConfidenceBadge } from '../components/ConfidenceBadge'
-import { ActionsRow } from '../components/ActionsRow'
-import { loadRuns, type StoredRun } from '../store/runHistory'
+import { loadRuns } from '../store/runHistory'
 import { useToast } from '../ToastContext'
 import { PanelShell } from './_shared/PanelShell'
 import { PanelSection } from './_shared/PanelSection'
-import { plot } from '../../adapters/plot'
+import { plot, adapterName } from '../../adapters/plot'
 import { useResultsRun } from '../hooks/useResultsRun'
 import { ValidationBanner, type ValidationError } from '../components/ValidationBanner'
 import { useValidationFeedback } from '../hooks/useValidationFeedback'
 import { ResultsSkeleton } from '../components/ResultsSkeleton'
 import { Tooltip } from '../components/Tooltip'
+import { useEngineLimits } from '../hooks/useEngineLimits'
+import { deriveLimitsStatus } from '../utils/limitsStatus'
+import { useRunEligibilityCheck } from '../hooks/useRunEligibilityCheck'
+import { trackCompareOpened } from '../utils/sandboxTelemetry'
+import { typography } from '../../styles/typography'
+import type { GraphHealth } from '../validation/types'
+import { DecisionReviewPanel, type DecisionReviewStatus } from '../components/DecisionReviewPanel'
+import { isDecisionReviewEnabled } from '../../flags'
+
+function buildHealthStrings(graphHealth: GraphHealth | null) {
+  if (!graphHealth) {
+    return {
+      label: 'Health: Unknown',
+      detail: 'No recent health check. Run diagnostics to analyse this graph.',
+    }
+  }
+
+  const totalIssues = graphHealth.issues.length
+  const issuesPart = totalIssues > 0 ? ` • ${totalIssues} issues` : ''
+
+  if (graphHealth.status === 'healthy') {
+    return {
+      label: 'Health: Good',
+      detail: `Score: ${graphHealth.score}/100${issuesPart}`,
+    }
+  }
+
+  if (graphHealth.status === 'warnings') {
+    return {
+      label: 'Health: Warnings',
+      detail: `Score: ${graphHealth.score}/100${issuesPart}`,
+    }
+  }
+
+  if (graphHealth.status === 'errors') {
+    return {
+      label: 'Health: Errors',
+      detail: `Score: ${graphHealth.score}/100${issuesPart}`,
+    }
+  }
+
+  return {
+    label: 'Health: Unknown',
+    detail: 'No recent health check. Run diagnostics to analyse this graph.',
+  }
+}
 
 interface ResultsPanelProps {
   isOpen: boolean
@@ -55,17 +108,31 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const error = useCanvasStore(selectError)
   const seed = useCanvasStore(selectSeed)
   const hash = useCanvasStore(selectHash)
-  const isDuplicateRun = useCanvasStore(s => s.results.isDuplicateRun)
-  const wasForced = useCanvasStore(s => s.results.wasForced)
+  const runMeta = useCanvasStore(s => s.runMeta)
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
+  const framing = useCanvasStore(s => s.currentScenarioFraming)
+  const graphHealth = useCanvasStore(s => s.graphHealth)
+  const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
 
   const resultsReset = useCanvasStore(s => s.resultsReset)
   const resultsLoadHistorical = useCanvasStore(s => s.resultsLoadHistorical)
   const { showToast } = useToast()
   const { run } = useResultsRun()
   const { formatErrors, focusError } = useValidationFeedback()
+  const { limits } = useEngineLimits()
+  const checkRunEligibility = useRunEligibilityCheck()
+
+  const limitsStatusForStory = limits ? deriveLimitsStatus(limits, nodes.length, edges.length) : null
+  const healthView = buildHealthStrings(graphHealth ?? null)
+
+  const canonicalBands = report?.run?.bands ?? null
+  const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results.likely ?? null
+  const conservativeValue = canonicalBands ? canonicalBands.p10 : report?.results.conservative ?? null
+  const optimisticValue = canonicalBands ? canonicalBands.p90 : report?.results.optimistic ?? null
+  const resultUnits = report?.results.units
+  const resultUnitSymbol = report?.results.unitSymbol
 
   const [isRunning, setIsRunning] = useState(false)
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
@@ -76,6 +143,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
   // Compare state
   const [compareRunIds, setCompareRunIds] = useState<string[]>([])
+  const [hasTrackedCompare, setHasTrackedCompare] = useState(false)
 
   // Register with LayerProvider for panel exclusivity and Esc handling
   useLayerRegistration('results-panel', 'panel', isOpen, onClose)
@@ -104,6 +172,10 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
       } else if (isMod && e.key === '3') {
         e.preventDefault()
         if (compareRunIds.length >= 2) {
+          if (!hasTrackedCompare) {
+            trackCompareOpened()
+            setHasTrackedCompare(true)
+          }
           setActiveTab('compare')
         }
       }
@@ -111,14 +183,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, compareRunIds])
-
-  // v1.2: Show toast when duplicate run is detected (unless it was a forced rerun)
-  useEffect(() => {
-    if (isDuplicateRun && status === 'complete' && hash && !wasForced) {
-      showToast(`Already analysed (same hash: ${hash.slice(0, 8)}...)`, 'info')
-    }
-  }, [isDuplicateRun, status, hash, wasForced, showToast])
+  }, [isOpen, compareRunIds, hasTrackedCompare])
 
   const handleClose = useCallback(() => {
     onClose()
@@ -128,21 +193,31 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
     resultsReset()
     setActiveTab('latest')
     setCompareRunIds([])
+    setHasTrackedCompare(false)
   }, [resultsReset])
 
   const handleCompare = useCallback((runIds: string[]) => {
     const next = runIds.slice(0, 2)
     setCompareRunIds(next)
+    if (!hasTrackedCompare && next.length >= 2) {
+      trackCompareOpened()
+      setHasTrackedCompare(true)
+    }
     setActiveTab('compare')
-  }, [])
+  }, [hasTrackedCompare])
 
   const handleCloseCompare = useCallback(() => {
     setActiveTab('latest')
   }, [])
 
   const handleCompareSelectionChange = useCallback((runIds: string[]) => {
-    setCompareRunIds(runIds.slice(0, 2))
-  }, [])
+    const next = runIds.slice(0, 2)
+    setCompareRunIds(next)
+    if (!hasTrackedCompare && next.length >= 2) {
+      trackCompareOpened()
+      setHasTrackedCompare(true)
+    }
+  }, [hasTrackedCompare])
 
   const handleRunAgain = useCallback(async () => {
     // v1.2: Force re-run with current graph state, bypassing hash dedupe
@@ -184,14 +259,12 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   }, [hash, showToast])
 
   const handleRunAnalysis = useCallback(async () => {
-    if (nodes.length === 0) {
-      setValidationErrors([{
-        code: 'EMPTY_GRAPH',
-        message: 'Cannot run analysis: Graph is empty. Add at least one node.',
-        severity: 'error' as const
-      }])
+    const eligibility = checkRunEligibility()
+    if (!eligibility.canRun) {
       return
     }
+
+    const state = useCanvasStore.getState()
 
     // Clear previous validation errors and violations
     setValidationErrors([])
@@ -237,7 +310,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
     } finally {
       setIsRunning(false)
     }
-  }, [nodes, edges, run, formatErrors])
+  }, [limits, run, formatErrors, showToast, outcomeNodeId, nodes, edges])
 
   if (!isOpen) return null
 
@@ -245,6 +318,22 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const isComplete = status === 'complete'
   const isError = status === 'error'
   const isCancelled = status === 'cancelled'
+
+  const decisionReviewFlagOn = isDecisionReviewEnabled()
+  const ceeReview = runMeta.ceeReview ?? null
+  const ceeTrace = runMeta.ceeTrace ?? null
+  const ceeError = runMeta.ceeError ?? null
+
+  let decisionReviewStatus: DecisionReviewStatus | null = null
+  if (decisionReviewFlagOn && isComplete && report) {
+    if (ceeError) {
+      decisionReviewStatus = 'error'
+    } else if (ceeReview) {
+      decisionReviewStatus = 'ready'
+    } else {
+      decisionReviewStatus = 'empty'
+    }
+  }
 
   // Status chip
   const statusChip = (() => {
@@ -266,7 +355,7 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
     }
 
     return (
-      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${className}`}>
+      <span className={`px-2.5 py-1 rounded-full ${typography.caption} font-medium ${className}`}>
         {text}
       </span>
     )
@@ -330,14 +419,19 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop (constrained to top/bottom bars so it never covers the toolbar) */}
       <div
-        className="fixed inset-0 bg-black/50 z-[1999]"
+        className="fixed inset-x-0 bg-black/50 z-[1999]"
+        style={{ top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }}
         onClick={handleClose}
       />
 
-      {/* Panel Shell */}
-      <div className="fixed right-0 top-0 bottom-0 z-[2000]" ref={panelRef}>
+      {/* Panel Shell container (also respects top/bottom layout bars) */}
+      <div
+        className="fixed right-0 z-[2000]"
+        ref={panelRef}
+        style={{ top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }}
+      >
         <PanelShell
           icon={<BarChart3 className="w-5 h-5" />}
           title="Analysis Results"
@@ -379,40 +473,121 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
               {isComplete && report && (
                 <>
                   {/* v1.2 Critique Advisory (BLOCKER items) */}
-                  {report.run?.critique && report.run.critique.some(c => c.severity === 'BLOCKER') && (
-                    <div className="mb-4 p-4 rounded-lg border border-danger-300 bg-danger-50">
-                      <h3 className="text-sm font-semibold text-danger-700 mb-2">
-                        Critical Issues Detected
-                      </h3>
-                      <ul className="space-y-1 text-sm text-danger-600">
-                        {report.run.critique
-                          .filter(c => c.severity === 'BLOCKER')
-                          .map((c, i) => (
+                  {(() => {
+                    const blockers = report.run?.critique?.filter(c => c.severity === 'BLOCKER') ?? []
+
+                    if (blockers.length === 0) return null
+
+                    return (
+                      <div className="mb-4 p-4 rounded-lg border border-danger-300 bg-danger-50">
+                        <h3 className="text-sm font-semibold text-danger-700 mb-2">
+                          Critical Issues Detected
+                        </h3>
+                        <ul className="space-y-1 text-sm text-danger-600">
+                          {blockers.map((c, i) => (
                             <li key={i}>• {c.message}</li>
                           ))}
-                      </ul>
-                    </div>
-                  )}
+                        </ul>
+                      </div>
+                    )
+                  })()}
 
                   {/* Most Likely Outcome */}
                   <PanelSection title="Most Likely Outcome">
                     <div className="space-y-4">
                       <KPIHeadline
-                        value={report.run?.bands.p50 ?? report.results.likely}
+                        value={mostLikelyValue}
                         label="Expected Value"
-                        units={report.results.units}
-                        unitSymbol={report.results.unitSymbol}
+                        units={resultUnits}
+                        unitSymbol={resultUnitSymbol}
                       />
                       <div className="space-y-2">
                         <div className="text-xs text-gray-500 font-medium">Range</div>
                         <RangeChips
-                          conservative={report.run?.bands.p10 ?? report.results.conservative}
-                          likely={report.run?.bands.p50 ?? report.results.likely}
-                          optimistic={report.run?.bands.p90 ?? report.results.optimistic}
-                          units={report.results.units}
-                          unitSymbol={report.results.unitSymbol}
+                          conservative={conservativeValue}
+                          likely={mostLikelyValue}
+                          optimistic={optimisticValue}
+                          units={resultUnits}
+                          unitSymbol={resultUnitSymbol}
                         />
                       </div>
+                    </div>
+                  </PanelSection>
+
+                  {decisionReviewStatus !== null && (
+                    <PanelSection title="Decision Review">
+                      <DecisionReviewPanel
+                        status={decisionReviewStatus}
+                        review={ceeReview ?? undefined}
+                        error={ceeError ?? undefined}
+                        trace={ceeTrace ?? undefined}
+                      />
+                    </PanelSection>
+                  )}
+
+                  {/* Decision story */}
+                  <PanelSection title="Decision story">
+                    <div className="space-y-2 text-sm text-gray-700">
+                      <p>
+                        {framing && (framing.title || framing.goal || framing.timeline) ? (
+                          <>
+                            You are deciding
+                            {framing.title ? (
+                              <>
+                                {': '}
+                                <span className="font-medium text-gray-900">{framing.title}</span>
+                              </>
+                            ) : (
+                              ' on this decision context'
+                            )}
+                            {framing.goal && (
+                              <>
+                                {'. Primary goal: '}
+                                <span className="font-medium text-gray-900">{framing.goal}</span>
+                              </>
+                            )}
+                            {framing.timeline && (
+                              <>
+                                {'. Time horizon: '}
+                                <span className="font-medium text-gray-900">{framing.timeline}</span>
+                              </>
+                            )}
+                          </>
+                        ) : (
+                          'You are reviewing this decision based on the current graph and results.'
+                        )}
+                      </p>
+                      <p>
+                        {limitsStatusForStory ? (
+                          <>
+                            Limits:{' '}
+                            <span className="font-medium text-gray-900">{limitsStatusForStory.zoneLabel}</span>.{' '}
+                            {limitsStatusForStory.message}
+                          </>
+                        ) : (
+                          'Limits: Limits unavailable. You can still edit the graph, but run behaviour may be constrained.'
+                        )}
+                      </p>
+                      <p>
+                        <span className="font-medium text-gray-900">{healthView.label}</span>{' '}
+                        <span className="text-gray-700">{healthView.detail}</span>
+                      </p>
+                      {graphHealth && (
+                        <>
+                          <p>
+                            <button
+                              type="button"
+                              onClick={() => setShowIssuesPanel(true)}
+                              className="inline-flex items-center px-2 py-1 rounded border border-blue-200 text-blue-700 text-xs font-medium hover:bg-blue-50"
+                            >
+                              Open graph issues
+                            </button>
+                          </p>
+                          <p className="text-[11px] text-gray-500">
+                            See Graph Issues panel for fixable problems detected here.
+                          </p>
+                        </>
+                      )}
                     </div>
                   </PanelSection>
 
@@ -433,59 +608,33 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                   {/* Recommendations */}
                   <WhyPanel report={report} />
 
-                  {/* Reproducibility Info */}
-                  {(seed !== undefined || hash) && (
-                    <PanelSection title="Reproducibility">
-                      <div className="space-y-2 text-sm">
-                        {seed !== undefined && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-500">Seed</span>
-                            <code className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{seed}</code>
-                          </div>
-                        )}
-                        {hash && (
-                          <div className="space-y-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-500">Response Hash</span>
-                              <code className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                                {hash.slice(0, 12)}...
-                              </code>
-                            </div>
-                            <button
-                              onClick={() => {
-                                navigator.clipboard.writeText(hash)
-                                showToast('Hash copied to clipboard', 'success')
-                              }}
-                              className="w-full px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
-                              type="button"
-                            >
-                              Copy Full Hash
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </PanelSection>
-                  )}
+                  {/* Trust & reproducibility footer */}
+                  <ResultsTrustFooter seed={seed} hash={hash} showToast={showToast} />
                 </>
               )}
 
               {/* Error */}
               {isError && error && (
-                <div className="p-4 rounded-lg border border-red-300 bg-red-100">
-                  <h3 className="text-base font-semibold text-red-600 mb-2">
+                <div className="p-4 rounded-lg border border-danger-200 bg-danger-50">
+                  <h3 className="text-base font-semibold text-danger-700 mb-2">
                     {error.code}
                   </h3>
                   <p className="text-sm text-gray-700 mb-3">
                     {error.message}
                   </p>
                   {error.retryAfter && (
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-gray-500 mb-2">
                       Retry after {error.retryAfter} seconds
+                    </p>
+                  )}
+                  {(runMeta.correlationIdHeader || runMeta.diagnostics?.correlation_id) && (
+                    <p className="text-xs text-gray-600 font-mono mb-2">
+                      Request ID: {runMeta.correlationIdHeader || runMeta.diagnostics?.correlation_id}
                     </p>
                   )}
                   <button
                     onClick={handleReset}
-                    className="mt-3 px-4 py-2 text-sm rounded-md border-none bg-red-600 hover:bg-red-700 text-white cursor-pointer font-medium transition-colors"
+                    className="mt-3 px-4 py-2 text-sm rounded-md border-none bg-danger-600 hover:bg-danger-700 text-white cursor-pointer font-medium transition-colors"
                   >
                     Retry
                   </button>
@@ -607,6 +756,71 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
         </PanelShell>
       </div>
     </>
+  )
+}
+
+interface ResultsTrustFooterProps {
+  seed: number | undefined
+  hash: string | undefined
+  showToast: (message: string, variant?: 'error' | 'success' | 'info' | 'warning') => void
+}
+
+function ResultsTrustFooter({ seed, hash, showToast }: ResultsTrustFooterProps) {
+  const hasSeed = seed !== undefined
+  const hasHash = Boolean(hash)
+
+  const seedValue = hasSeed ? String(seed) : 'Not available for this run'
+  const hashPreview = hasHash && hash ? `${hash.slice(0, 12)}...` : 'Not available for this run'
+
+  const engineLabel = (() => {
+    if (adapterName === 'mock') return 'PLoT (mock)'
+    if (adapterName === 'httpv1') return 'PLoT (staging)'
+    if (adapterName === 'auto') return 'PLoT (auto-detect)'
+    return 'PLoT (unknown mode)'
+  })()
+
+  const handleCopyHash = () => {
+    if (!hash) return
+    try {
+      navigator.clipboard.writeText(hash)
+      showToast('Hash copied to clipboard', 'success')
+    } catch {
+      // Best-effort copy; avoid noisy errors in UI
+    }
+  }
+
+  return (
+    <div className="mt-6 border-t border-gray-200 pt-3 text-xs text-gray-600" aria-label="Trust and reproducibility details">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-gray-500">Seed</span>
+          <span className="font-mono text-[11px] bg-gray-50 px-2 py-0.5 rounded text-gray-800">
+            {seedValue}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-gray-500">Response</span>
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[11px] bg-gray-50 px-2 py-0.5 rounded text-gray-800">
+              {hashPreview}
+            </span>
+            {hasHash && (
+              <button
+                type="button"
+                onClick={handleCopyHash}
+                className="px-2 py-0.5 text-[11px] font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
+              >
+                Copy full hash
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-gray-500">Engine</span>
+          <span className="text-[11px] text-gray-800">{engineLabel}</span>
+        </div>
+      </div>
+    </div>
   )
 }
 

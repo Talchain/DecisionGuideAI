@@ -143,7 +143,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
           <div className="mb-6">
             <button
               onClick={handleSave}
-              className="w-full px-4 py-3 bg-[#EA7B4B] text-white rounded-lg hover:bg-[#EA7B4B]/90 transition-colors font-medium"
+              className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors font-medium"
             >
               💾 Save Current Canvas
             </button>
@@ -153,7 +153,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
           </div>
 
           {/* Snapshot List */}
-          {snapshots.length === 0 ? (
+            {snapshots.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
               <p>No snapshots yet</p>
               <p className="text-sm mt-2">Save your current canvas to create a snapshot</p>
@@ -163,7 +163,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
               {snapshots.map((snapshot) => (
                 <div
                   key={snapshot.key}
-                  className="border border-gray-200 rounded-lg p-4 hover:border-[#EA7B4B] transition-colors"
+                  className="border border-gray-200 rounded-lg p-4 hover:border-primary transition-colors"
                 >
                   {/* Name */}
                   {editingKey === snapshot.key ? (
@@ -184,7 +184,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
                       onBlur={handleRenameCancel}
                       maxLength={50}
                       autoFocus
-                      className="font-medium text-gray-900 w-full border border-[#EA7B4B] rounded px-2 py-1 outline-none"
+                      className="font-medium text-gray-900 w-full border border-primary rounded px-2 py-1 outline-none"
                     />
                   ) : (
                     <h3 className="font-medium text-gray-900">{snapshot.name}</h3>
@@ -203,7 +203,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
                   <div className="mt-3 flex items-center gap-2">
                     <button
                       onClick={() => handleRestore(snapshot.key)}
-                      className="px-3 py-1.5 text-sm bg-[#EA7B4B] text-white rounded hover:bg-[#EA7B4B]/90 transition-colors"
+                      className="px-3 py-1.5 text-sm bg-primary text-white rounded hover:bg-primary-hover transition-colors"
                     >
                       Restore
                     </button>

@@ -18,6 +18,7 @@ import { PanelSection } from './_shared/PanelSection'
 import { useCanvasStore } from '../store'
 import { createScenario, saveScenarios, loadScenarios, setCurrentScenarioId } from '../store/scenarios'
 import { TemplateSkeleton } from '../components/TemplateSkeleton'
+import { trackRunAttempt } from '../utils/sandboxTelemetry'
 
 interface TemplatesPanelProps {
   isOpen: boolean
@@ -303,6 +304,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
     let seedNum = parseInt(seed, 10)
     if (isNaN(seedNum) || seedNum < 1) {
       showToast('Please enter a valid seed (≥1)')
+      trackRunAttempt({ canRun: false, reason: 'validation', message: '' })
       return
     }
 
@@ -312,9 +314,11 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
       setSeed(String(seedNum))
     }
 
-    // P0-3: Hand-off to Results panel - close Templates panel and open Results
+    // P0-3: Hand-off to Results view - close Templates panel and show Results in the Outputs dock
     onClose() // Close Templates panel
-    useCanvasStore.getState().setShowResultsPanel(true) // Open Results panel
+    useCanvasStore.getState().setShowResultsPanel(true) // Ensure Results view is visible
+
+    trackRunAttempt({ canRun: true, reason: 'ok', message: '' })
 
     await run({ template_id: selectedBlueprintId, seed: seedNum })
   }, [selectedBlueprintId, seed, run, onClose, result])
@@ -540,14 +544,19 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop (constrained to top/bottom bars so it never covers the toolbar) */}
       <div
-        className="fixed inset-0 bg-black/50 z-[1999]"
+        className="fixed inset-x-0 bg-black/50 z-[1999]"
+        style={{ top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }}
         onClick={handleClose}
       />
 
-      {/* Panel Shell */}
-      <div className="fixed right-0 top-0 bottom-0 z-[2000]" ref={panelRef}>
+      {/* Panel Shell container (also respects top/bottom layout bars) */}
+      <div
+        className="fixed right-0 z-[2000]"
+        ref={panelRef}
+        style={{ top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }}
+      >
         <PanelShell
           icon={<Layout className="w-5 h-5" />}
           title="Templates"
@@ -775,7 +784,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
               <div
                 role="status"
                 aria-live="polite"
-                className="absolute bottom-4 left-0 right-0 mx-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-lg text-sm"
+                className="absolute bottom-4 left-0 right-0 mx-4 bg-gray-900 text-white px-4 py-3 rounded-lg shadow-panel text-sm"
               >
                 {toastMessage}
               </div>

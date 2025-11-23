@@ -8,6 +8,7 @@
 import { Box, GitBranch, Clock, Database, AlertTriangle, RefreshCw } from 'lucide-react'
 import { BottomSheet } from './BottomSheet'
 import { useEngineLimits } from '../hooks/useEngineLimits'
+import { deriveLimitsStatus } from '../utils/limitsStatus'
 
 interface LimitsPanelProps {
   isOpen: boolean
@@ -33,11 +34,11 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
       return (
         <div className="py-6 text-center">
           <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-danger-500" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Limits Unavailable</h3>
-          <p className="text-sm text-gray-600 mb-4">
+          <h3 className="text-lg font-medium text-ink-900 mb-2">Limits Unavailable</h3>
+          <p className="text-sm text-ink-900/70 mb-4">
             {error.message}
           </p>
-          <p className="text-xs text-gray-400 mb-4">
+          <p className="text-xs text-ink-900/60 mb-4">
             Last attempt: {timestamp}
           </p>
           <button
@@ -55,13 +56,15 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
       return (
         <div className="py-12 text-center">
           <div className="w-8 h-8 mx-auto mb-4 border-4 border-info-200 border-t-info-600 rounded-full animate-spin" />
-          <p className="text-sm text-gray-500">Loading limits...</p>
+          <p className="text-sm text-ink-900/70">Loading limits...</p>
         </div>
       )
     }
 
-    const nodesPercent = Math.round((currentNodes / limits.nodes.max) * 100)
-    const edgesPercent = Math.round((currentEdges / limits.edges.max) * 100)
+    const limitsStatus = deriveLimitsStatus(limits, currentNodes, currentEdges)
+
+    const nodesPercent = limitsStatus?.nodes.percent ?? 0
+    const edgesPercent = limitsStatus?.edges.percent ?? 0
     const timestamp = fetchedAt ? formatTimestamp(fetchedAt) : 'Unknown'
 
     const getStatusColor = (percent: number) => {
@@ -79,14 +82,14 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
     return (
       <div className="space-y-6">
         {/* Source Info */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-200">
+        <div className="flex items-center justify-between p-3 rounded-lg bg-paper-50 border border-sand-200">
           <div className="flex items-center gap-2 text-sm">
-            <Database className="w-4 h-4 text-gray-500" />
-            <span className="text-gray-700">
-              Source: <span className="font-medium">{source === 'live' ? 'Live' : 'Fallback'}</span>
+            <Database className="w-4 h-4 text-ink-900/70" />
+            <span className="text-ink-900/80">
+              Source: <span className="font-medium text-ink-900">{source === 'live' ? 'Live' : 'Fallback'}</span>
             </span>
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-ink-900/60">
             Fetched: {timestamp}
           </div>
         </div>
@@ -105,22 +108,36 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
           </div>
         )}
 
+        {limitsStatus && (
+          <div className="p-3 rounded-lg bg-paper-50 border border-sand-200">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-ink-900">{limitsStatus.zoneLabel}</span>
+            </div>
+            <p className="mt-1 text-xs text-ink-900/70">
+              {limitsStatus.message}
+            </p>
+            <p className="mt-1 text-[11px] text-ink-900/60">
+              Current limits: up to {limits.nodes.max} nodes and {limits.edges.max} edges per run.
+            </p>
+          </div>
+        )}
+
         {/* Nodes */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Box className="w-5 h-5 text-gray-600" />
-              <span className="text-sm font-medium text-gray-900">Nodes</span>
+              <Box className="w-5 h-5 text-ink-900/70" />
+              <span className="text-sm font-medium text-ink-900">Nodes</span>
             </div>
             <div className="text-sm tabular-nums">
               <span className={`font-semibold ${getStatusColor(nodesPercent)}`}>
                 {currentNodes}
               </span>
-              <span className="text-gray-500"> / {limits.nodes.max}</span>
-              <span className="ml-2 text-gray-400">({nodesPercent}%)</span>
+              <span className="text-ink-900/60"> / {limits.nodes.max}</span>
+              <span className="ml-2 text-ink-900/50">({nodesPercent}%)</span>
             </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-sand-200 rounded-full h-2">
             <div
               className={`h-2 rounded-full transition-all ${getProgressColor(nodesPercent)}`}
               style={{ width: `${Math.min(nodesPercent, 100)}%` }}
@@ -132,18 +149,18 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <GitBranch className="w-5 h-5 text-gray-600" />
-              <span className="text-sm font-medium text-gray-900">Edges</span>
+              <GitBranch className="w-5 h-5 text-ink-900/70" />
+              <span className="text-sm font-medium text-ink-900">Edges</span>
             </div>
             <div className="text-sm tabular-nums">
               <span className={`font-semibold ${getStatusColor(edgesPercent)}`}>
                 {currentEdges}
               </span>
-              <span className="text-gray-500"> / {limits.edges.max}</span>
-              <span className="ml-2 text-gray-400">({edgesPercent}%)</span>
+              <span className="text-ink-900/60"> / {limits.edges.max}</span>
+              <span className="ml-2 text-ink-900/50">({edgesPercent}%)</span>
             </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-sand-200 rounded-full h-2">
             <div
               className={`h-2 rounded-full transition-all ${getProgressColor(edgesPercent)}`}
               style={{ width: `${Math.min(edgesPercent, 100)}%` }}
@@ -156,14 +173,14 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Clock className="w-5 h-5 text-gray-600" />
-                <span className="text-sm font-medium text-gray-900">Engine p95 Budget</span>
+                <Clock className="w-5 h-5 text-ink-900/70" />
+                <span className="text-sm font-medium text-ink-900">Engine p95 Budget</span>
               </div>
               <div className="text-sm tabular-nums">
                 <span className="font-semibold text-info-600">{limits.engine_p95_ms_budget}ms</span>
               </div>
             </div>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-ink-900/70">
               Maximum expected execution time (95th percentile)
             </p>
           </div>

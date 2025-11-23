@@ -16,9 +16,27 @@ export function DiagnosticsOverlay() {
   const { history, nodes, edges } = useCanvasStore()
 
   useEffect(() => {
-    // Check for ?diag=1 in URL
-    const params = new URLSearchParams(window.location.search)
-    setIsVisible(params.get('diag') === '1')
+    const getDiagParam = () => {
+      try {
+        // Prefer real query string: /canvas?diag=1
+        const searchParams = new URLSearchParams(window.location.search)
+        const fromSearch = searchParams.get('diag')
+        if (fromSearch) return fromSearch
+
+        // Fallback: read from hash fragment: /#/canvas?diag=1
+        const hash = window.location.hash
+        const qIndex = hash.indexOf('?')
+        if (qIndex !== -1) {
+          const hashQuery = hash.slice(qIndex + 1)
+          const fromHash = new URLSearchParams(hashQuery).get('diag')
+          if (fromHash) return fromHash
+        }
+      } catch {}
+      return null
+    }
+
+    const value = getDiagParam()
+    setIsVisible(value === '1')
   }, [])
 
   useEffect(() => {

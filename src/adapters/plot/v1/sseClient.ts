@@ -15,7 +15,7 @@ import type {
 import { TIMEOUTS } from './constants'
 
 const getProxyBase = (): string => {
-  return import.meta.env.VITE_PLOT_PROXY_BASE || '/api/plot'
+  return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
 }
 
 /**

@@ -109,8 +109,8 @@ export function RadialQuickAddMenu({ position, onSelect, onCancel }: RadialQuick
             <g key={nodeType}>
               <path
                 d={getSegmentPath(index)}
-                fill={isHovered ? '#3B82F6' : '#F1F5F9'}
-                stroke="#CBD5E1"
+                fill={isHovered ? 'var(--info-500)' : 'var(--surface-app)'}
+                stroke="var(--surface-border)"
                 strokeWidth="1.5"
                 onMouseEnter={() => setSelectedIndex(index)}
                 onMouseLeave={() => setSelectedIndex(-1)}
@@ -124,7 +124,7 @@ export function RadialQuickAddMenu({ position, onSelect, onCancel }: RadialQuick
                 dominantBaseline="middle"
                 fontSize="10"
                 fontWeight="500"
-                fill={isHovered ? '#FFFFFF' : '#475569'}
+                fill={isHovered ? 'var(--text-on-info)' : 'var(--text-secondary)'}
                 pointerEvents="none"
               >
                 {def?.label.split(' ')[0] || nodeType}

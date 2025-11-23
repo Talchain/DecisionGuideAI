@@ -1,5 +1,27 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { useCanvasStore } from '../store'
+import { __resetTelemetryCounters, __getTelemetryCounters } from '../../lib/telemetry'
+
+function seedDemoGraph() {
+  useCanvasStore.setState({
+    nodes: [
+      { id: '1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } } as any,
+      { id: '2', type: 'decision', position: { x: 200, y: 0 }, data: { label: 'Decision' } } as any,
+      { id: '3', type: 'option', position: { x: 400, y: 0 }, data: { label: 'Option A' } } as any,
+      { id: '4', type: 'option', position: { x: 400, y: 120 }, data: { label: 'Option B' } } as any,
+    ],
+    edges: [
+      { id: 'e1', source: '1', target: '2', data: {} } as any,
+      { id: 'e2', source: '2', target: '3', data: {} } as any,
+      { id: 'e3', source: '2', target: '4', data: {} } as any,
+      { id: 'e4', source: '3', target: '4', data: {} } as any,
+    ],
+    selection: { nodeIds: new Set(), edgeIds: new Set() },
+    history: { past: [], future: [] },
+    nextNodeId: 5,
+    nextEdgeId: 5,
+  })
+}
 
 describe('Canvas Store', () => {
   beforeEach(() => {
@@ -12,17 +34,18 @@ describe('Canvas Store', () => {
     vi.useRealTimers()
   })
 
-  it('initializes with 4 demo nodes', () => {
-    const { nodes } = useCanvasStore.getState()
-    expect(nodes).toHaveLength(4)
+  it('initializes with empty graph', () => {
+    const { nodes, edges } = useCanvasStore.getState()
+    expect(nodes).toHaveLength(0)
+    expect(edges).toHaveLength(0)
   })
 
   it('adds node with stable ID', () => {
     const { addNode } = useCanvasStore.getState()
     addNode()
     const newNodes = useCanvasStore.getState().nodes
-    expect(newNodes).toHaveLength(5)
-    expect(newNodes[4].id).toBe('5')
+    expect(newNodes).toHaveLength(1)
+    expect(newNodes[0].id).toBe('1')
   })
 
   it('generates monotonic node IDs', () => {
@@ -36,8 +59,9 @@ describe('Canvas Store', () => {
     const { createEdgeId } = useCanvasStore.getState()
     const id1 = createEdgeId()
     const id2 = createEdgeId()
-    expect(id1).toBe('e5')
-    expect(id2).toBe('e6')
+    expect(id1).toMatch(/^e\d+$/)
+    expect(id2).toMatch(/^e\d+$/)
+    expect(parseInt(id2.slice(1), 10)).toBeGreaterThan(parseInt(id1.slice(1), 10))
   })
 
   it('supports multiple edges between same nodes', () => {
@@ -126,6 +150,7 @@ describe('Canvas Store', () => {
   })
 
   it('tracks selection', () => {
+    seedDemoGraph()
     const { onSelectionChange, nodes } = useCanvasStore.getState()
     onSelectionChange({ nodes: [nodes[0]], edges: [] })
     const newSelection = useCanvasStore.getState().selection
@@ -133,7 +158,9 @@ describe('Canvas Store', () => {
   })
 
   it('deletes selected nodes and connected edges', () => {
-    const { onSelectionChange, deleteSelected, nodes, edges } = useCanvasStore.getState()
+    seedDemoGraph()
+    const { onSelectionChange, deleteSelected } = useCanvasStore.getState()
+    const { nodes, edges } = useCanvasStore.getState()
     const initialEdges = edges.length
     onSelectionChange({ nodes: [nodes[0]], edges: [] })
     deleteSelected()
@@ -143,19 +170,21 @@ describe('Canvas Store', () => {
   })
 
   it('updates node label', () => {
+    seedDemoGraph()
     const { updateNodeLabel } = useCanvasStore.getState()
     updateNodeLabel('1', 'New Label')
     const updated = useCanvasStore.getState().nodes.find(n => n.id === '1')
     expect(updated?.data.label).toBe('New Label')
   })
 
-  it('reset clears history and restores demo', () => {
+  it('reset clears history and restores initial empty graph', () => {
     const { addNode, reset } = useCanvasStore.getState()
     addNode()
     addNode()
     reset()
-    const { nodes, history } = useCanvasStore.getState()
-    expect(nodes).toHaveLength(4)
+    const { nodes, edges, history } = useCanvasStore.getState()
+    expect(nodes).toHaveLength(0)
+    expect(edges).toHaveLength(0)
     expect(history.past).toHaveLength(0)
     expect(history.future).toHaveLength(0)
   })
@@ -170,6 +199,7 @@ describe('Canvas Store', () => {
 
   // Authoring feature tests
   it('duplicates selected nodes with offset', () => {
+    seedDemoGraph()
     const { nodes, duplicateSelected } = useCanvasStore.getState()
     
     // Select first node
@@ -190,6 +220,7 @@ describe('Canvas Store', () => {
   })
 
   it('copies selected nodes to clipboard', () => {
+    seedDemoGraph()
     const { copySelected } = useCanvasStore.getState()
     
     useCanvasStore.setState({ 
@@ -203,6 +234,7 @@ describe('Canvas Store', () => {
   })
 
   it('pastes from clipboard with offset', () => {
+    seedDemoGraph()
     const { copySelected, pasteClipboard } = useCanvasStore.getState()
     
     useCanvasStore.setState({ 
@@ -217,6 +249,7 @@ describe('Canvas Store', () => {
   })
 
   it('cuts selected nodes', () => {
+    seedDemoGraph()
     const { cutSelected } = useCanvasStore.getState()
     
     useCanvasStore.setState({ 
@@ -231,7 +264,8 @@ describe('Canvas Store', () => {
   })
 
   it('selects all nodes and edges', () => {
-    const { selectAll, nodes, edges } = useCanvasStore.getState()
+    seedDemoGraph()
+    const { selectAll } = useCanvasStore.getState()
 
     selectAll()
 
@@ -245,6 +279,7 @@ describe('Canvas Store', () => {
   })
 
   it('select all → unselect some → delete removes only selected items', () => {
+    seedDemoGraph()
     const { selectAll } = useCanvasStore.getState()
 
     // Step 1: Select all
@@ -255,12 +290,12 @@ describe('Canvas Store', () => {
 
     // Step 2: Manually unselect node '1' and edge 'e1' (simulating user clicking with modifier key)
     useCanvasStore.setState(s => ({
-      nodes: s.nodes.map(n => n.id === '1' ? { ...n, selected: false } : n),
-      edges: s.edges.map(e => e.id === 'e1' ? { ...e, selected: false } : e),
+      nodes: s.nodes.map(n => (n.id === '1' ? { ...n, selected: false } : n)),
+      edges: s.edges.map(e => (e.id === 'e1' ? { ...e, selected: false } : e)),
       selection: {
         nodeIds: new Set(['2', '3', '4']),
-        edgeIds: new Set(['e2', 'e3', 'e4'])
-      }
+        edgeIds: new Set(['e2', 'e3', 'e4']),
+      },
     }))
 
     // Step 3: Delete selected
@@ -275,6 +310,7 @@ describe('Canvas Store', () => {
   })
 
   it('select all → delete removes everything', () => {
+    seedDemoGraph()
     const { selectAll, deleteSelected } = useCanvasStore.getState()
 
     selectAll()
@@ -286,6 +322,7 @@ describe('Canvas Store', () => {
   })
 
   it('select all → delete → undo restores all nodes and edges', () => {
+    seedDemoGraph()
     const { selectAll, deleteSelected, undo, canUndo } = useCanvasStore.getState()
 
     // Initial state
@@ -313,6 +350,7 @@ describe('Canvas Store', () => {
   })
 
   it('nudges selected nodes', () => {
+    seedDemoGraph()
     const { nodes, nudgeSelected } = useCanvasStore.getState()
     const originalX = nodes[0].position.x
     
@@ -344,9 +382,75 @@ describe('Canvas Store', () => {
     Storage.prototype.setItem = originalSetItem
   })
 
+  describe('hasCompletedFirstRun flag', () => {
+    it('is false initially', () => {
+      const state = useCanvasStore.getState()
+      expect(state.hasCompletedFirstRun).toBe(false)
+    })
+
+    it('flips to true after resultsComplete', () => {
+      const { resultsComplete } = useCanvasStore.getState()
+
+      const fakeReport: any = {
+        schema: 'report.v1',
+        meta: { seed: 1337, response_id: 'test', elapsed_ms: 10 },
+        model_card: {
+          response_hash: 'hash-1',
+          response_hash_algo: 'sha256',
+          normalized: true,
+        },
+        results: {},
+      }
+
+      expect(useCanvasStore.getState().hasCompletedFirstRun).toBe(false)
+
+      resultsComplete({ report: fakeReport, hash: 'hash-1' } as any)
+
+      expect(useCanvasStore.getState().hasCompletedFirstRun).toBe(true)
+    })
+
+    it('flips to true after resultsLoadHistorical', () => {
+      const { resultsLoadHistorical, reset } = useCanvasStore.getState()
+
+      reset()
+      expect(useCanvasStore.getState().hasCompletedFirstRun).toBe(false)
+
+      const now = Date.now()
+      const fakeRun: any = {
+        id: 'run-1',
+        ts: now,
+        seed: 1337,
+        hash: 'hash-2',
+        adapter: 'auto',
+        summary: '',
+        graphHash: 'graph-hash',
+        report: {
+          schema: 'report.v1',
+          meta: { seed: 1337, response_id: 'test-2', elapsed_ms: 20 },
+          model_card: {
+            response_hash: 'hash-2',
+            response_hash_algo: 'sha256',
+            normalized: true,
+          },
+          results: {},
+        },
+        drivers: [],
+        graph: { nodes: [], edges: [] },
+        ceeReview: null,
+        ceeTrace: null,
+        ceeError: null,
+      }
+
+      resultsLoadHistorical(fakeRun)
+
+      expect(useCanvasStore.getState().hasCompletedFirstRun).toBe(true)
+    })
+  })
+
   // Selection stability tests (prevent render loops)
   describe('onSelectionChange stability', () => {
     it('keeps same selection reference when IDs unchanged', () => {
+      seedDemoGraph()
       const { nodes, onSelectionChange } = useCanvasStore.getState()
       
       // Set initial selection
@@ -362,6 +466,7 @@ describe('Canvas Store', () => {
     })
 
     it('creates new selection reference when node IDs change', () => {
+      seedDemoGraph()
       const { nodes, onSelectionChange } = useCanvasStore.getState()
       
       // Set initial selection
@@ -381,6 +486,7 @@ describe('Canvas Store', () => {
     })
 
     it('creates new selection reference when edge IDs change', () => {
+      seedDemoGraph()
       const { edges, onSelectionChange } = useCanvasStore.getState()
       
       // Set initial selection with edge
@@ -415,6 +521,7 @@ describe('Canvas Store', () => {
     })
 
     it('handles rapid identical selection changes without updates', () => {
+      seedDemoGraph()
       const { nodes, onSelectionChange } = useCanvasStore.getState()
       
       // Set initial selection
@@ -436,6 +543,7 @@ describe('Canvas Store', () => {
   describe('Type Validation', () => {
     it('rejects invalid node type in updateNode', () => {
       const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      seedDemoGraph()
       const { nodes, updateNode } = useCanvasStore.getState()
       const initialNode = nodes[0]
       const initialNodeCount = nodes.length
@@ -458,6 +566,7 @@ describe('Canvas Store', () => {
     })
 
     it('allows valid node type updates', () => {
+      seedDemoGraph()
       const { nodes, updateNode } = useCanvasStore.getState()
       const initialNode = nodes[0]
 
@@ -580,6 +689,40 @@ describe('Canvas Store', () => {
 
       // focus() should have been called but may fail silently
       // We just verify no error was thrown
+    })
+  })
+
+  describe('Telemetry panel events', () => {
+    it('tracks sandbox.results.viewed only on false→true transitions', () => {
+      try {
+        localStorage.setItem('feature.telemetry', '1')
+      } catch {}
+      __resetTelemetryCounters()
+
+      const { setShowResultsPanel } = useCanvasStore.getState()
+
+      setShowResultsPanel(false)
+      setShowResultsPanel(true)
+      setShowResultsPanel(true)
+
+      const counters = __getTelemetryCounters()
+      expect(counters['sandbox.results.viewed']).toBe(1)
+    })
+
+    it('tracks sandbox.issues.opened only on false→true transitions', () => {
+      try {
+        localStorage.setItem('feature.telemetry', '1')
+      } catch {}
+      __resetTelemetryCounters()
+
+      const { setShowIssuesPanel } = useCanvasStore.getState()
+
+      setShowIssuesPanel(false)
+      setShowIssuesPanel(true)
+      setShowIssuesPanel(true)
+
+      const counters = __getTelemetryCounters()
+      expect(counters['sandbox.issues.opened']).toBe(1)
     })
   })
 })

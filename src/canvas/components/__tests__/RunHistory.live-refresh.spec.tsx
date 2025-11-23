@@ -10,10 +10,12 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../lib/telemetry'
 import { RunHistory } from '../RunHistory'
 import * as runHistory from '../../store/runHistory'
 import * as runsBus from '../../store/runsBus'
-import type { ReportV1 } from '../../../adapters/plot/v1/types'
+import { useCanvasStore } from '../../store'
+import type { ReportV1 } from '../../../adapters/plot/types'
 
 // Helper to create a mock run
 function createMockRun(id: string, seed: number, hash: string, ts: number = Date.now()): runHistory.StoredRun {
@@ -56,6 +58,9 @@ describe('RunHistory Live Refresh (Codex P1)', () => {
 
     // Suppress window.confirm
     vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    // Reset scenario framing
+    useCanvasStore.setState({ currentScenarioFraming: null } as any)
   })
 
   afterEach(() => {
@@ -307,6 +312,61 @@ describe('RunHistory Live Refresh (Codex P1)', () => {
     expect(screen.getByText(/Compare 2 runs/)).toBeInTheDocument()
   })
 
+  it('shows current decision label when a scenario title is present and runs exist', async () => {
+    const runs = [
+      createMockRun('run-1', 1337, 'hash-1', Date.now()),
+    ]
+    runHistory.saveRuns(runs)
+
+    useCanvasStore.setState({
+      currentScenarioFraming: { title: 'Choose pricing strategy' },
+    } as any)
+
+    render(<RunHistory onViewRun={mockOnViewRun} onCompare={mockOnCompare} />)
+
+    await waitFor(() => {
+      const context = screen.getByTestId('run-history-scenario-context')
+      expect(context).toHaveTextContent('Choose pricing strategy')
+    })
+  })
+
+  it('highlights the last run for the current decision when scenario metadata is present', async () => {
+    const runs = [
+      createMockRun('run-1', 1337, 'aaaa1111', Date.now() - 2000),
+      createMockRun('run-2', 1338, 'bbbb2222', Date.now()),
+    ]
+    runHistory.saveRuns(runs)
+
+    useCanvasStore.setState({
+      currentScenarioFraming: { title: 'Choose pricing strategy' },
+      currentScenarioLastResultHash: 'bbbb2222',
+      results: { hash: 'aaaa1111' },
+    } as any)
+
+    render(<RunHistory onViewRun={mockOnViewRun} onCompare={mockOnCompare} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Seed: 1338')).toBeInTheDocument()
+    }, { timeout: 500 })
+
+    const badges = screen.getAllByTestId('run-history-scenario-last-run')
+    expect(badges).toHaveLength(1)
+    expect(badges[0]).toHaveTextContent('Last run for this decision')
+  })
+
+  it('shows decision-aware empty state when there are no runs but a scenario title', async () => {
+    useCanvasStore.setState({
+      currentScenarioFraming: { title: 'Choose pricing strategy' },
+    } as any)
+
+    render(<RunHistory onViewRun={mockOnViewRun} onCompare={mockOnCompare} />)
+
+    const empty = await screen.findByTestId('run-history-empty')
+    expect(empty).toHaveTextContent('No runs yet for this decision')
+    const context = screen.getByTestId('run-history-scenario-context')
+    expect(context).toHaveTextContent('Choose pricing strategy')
+  })
+
   it('removes deleted run from selection', async () => {
     // Start with 3 runs
     const runs = [
@@ -378,5 +438,32 @@ describe('RunHistory Live Refresh (Codex P1)', () => {
     expect(seedLabels[0]).toHaveTextContent('Seed: 1339')
     expect(seedLabels[1]).toHaveTextContent('Seed: 1337')
     expect(seedLabels[2]).toHaveTextContent('Seed: 1338')
+  })
+
+  it('emits sandbox.history.item.selected for each new selection', async () => {
+    try {
+      localStorage.setItem('feature.telemetry', '1')
+    } catch {}
+    __resetTelemetryCounters()
+
+    const runs = [
+      createMockRun('run-1', 1337, 'hash-1', Date.now()),
+      createMockRun('run-2', 1338, 'hash-2', Date.now() - 1000),
+      createMockRun('run-3', 1339, 'hash-3', Date.now() - 2000),
+    ]
+    runHistory.saveRuns(runs)
+
+    const { container } = render(<RunHistory onViewRun={mockOnViewRun} onCompare={mockOnCompare} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Seed: 1337')).toBeInTheDocument()
+    }, { timeout: 500 })
+
+    const runCards = container.querySelectorAll('.cursor-pointer')
+    fireEvent.click(runCards[0])
+    fireEvent.click(runCards[1])
+
+    const counters = __getTelemetryCounters()
+    expect(counters['sandbox.history.item.selected']).toBe(2)
   })
 })

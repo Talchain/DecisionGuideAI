@@ -78,11 +78,6 @@ export function ScenarioSwitcher() {
     }
   }, [currentScenarioId, saveCurrentScenario])
 
-  const handleSaveAs = useCallback(() => {
-    setShowSaveDialog(true)
-    setInputValue(currentScenario?.name || 'New scenario')
-  }, [currentScenario])
-
   const handleSaveDialogSubmit = useCallback(() => {
     if (inputValue.trim()) {
       saveCurrentScenario(inputValue.trim())
@@ -213,7 +208,7 @@ export function ScenarioSwitcher() {
         {/* Dropdown menu */}
         {isOpen && (
           <div
-            className="absolute bottom-full left-0 mb-1 w-72 bg-white border border-gray-200 rounded-lg shadow-lg z-50"
+            className="absolute bottom-full left-0 mb-1 w-72 bg-white border border-gray-200 rounded-lg shadow-panel z-50"
             role="menu"
           >
             {/* Current scenario actions */}
@@ -321,7 +316,9 @@ export function ScenarioSwitcher() {
                           <div className="flex items-center justify-between">
                             <span className="truncate flex-1">{scenario.name}</span>
                             {scenario.id === currentScenarioId && isDirty && (
-                              <AlertCircle className="w-3 h-3 text-warning-500 flex-shrink-0 ml-2" title="Unsaved changes" />
+                              <span className="flex-shrink-0 ml-2" title="Unsaved changes">
+                                <AlertCircle className="w-3 h-3 text-warning-500" aria-hidden="true" />
+                              </span>
                             )}
                           </div>
                           <div className="text-xs text-gray-500 mt-0.5">
@@ -352,7 +349,9 @@ export function ScenarioSwitcher() {
                           <div className="flex items-center justify-between">
                             <span className="truncate flex-1">{scenario.name}</span>
                             {scenario.id === currentScenarioId && isDirty && (
-                              <AlertCircle className="w-3 h-3 text-warning-500 flex-shrink-0 ml-2" title="Unsaved changes" />
+                              <span className="flex-shrink-0 ml-2" title="Unsaved changes">
+                                <AlertCircle className="w-3 h-3 text-warning-500" aria-hidden="true" />
+                              </span>
                             )}
                           </div>
                           <div className="text-xs text-gray-500 mt-0.5">
@@ -372,7 +371,7 @@ export function ScenarioSwitcher() {
       {/* Save dialog */}
       {showSaveDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[2001]">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-panel">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Save scenario</h3>
             <input
               type="text"
@@ -416,7 +415,7 @@ export function ScenarioSwitcher() {
       {/* Rename dialog */}
       {showRenameDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[2001]">
-          <div className="bg-white rounded-lg p-6 w-96 shadow-xl">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-panel">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Rename scenario</h3>
             <input
               type="text"

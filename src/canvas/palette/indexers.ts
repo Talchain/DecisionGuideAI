@@ -10,7 +10,7 @@
  * Performance target: ≤75ms P95 on 1k items
  */
 
-import { sanitizeLabel } from '../utils/sanitize'
+import { sanitizeLabel } from '../persist'
 
 export type PaletteItemKind =
   | 'node'
@@ -99,17 +99,56 @@ export function indexTemplates(
 /**
  * Index recent runs from history
  */
+interface IndexRunsOptions {
+  scenarioLastRunId?: string | null
+  scenarioTitle?: string | null
+}
+
 export function indexRuns(
-  runs: Array<{ id: string; seed?: number; hash?: string; timestamp: number }>
+  runs: Array<{ id: string; seed?: number; hash?: string; timestamp: number }>,
+  options?: IndexRunsOptions
 ): PaletteItem[] {
-  return runs.map(run => ({
-    id: `run:${run.id}`,
-    kind: 'run' as const,
-    label: `Run ${run.seed ? `seed=${run.seed}` : run.id.slice(0, 8)}`,
-    description: `Run • ${run.hash?.slice(0, 12) || 'No hash'} • ${new Date(run.timestamp).toLocaleString()}`,
-    keywords: ['run', 'history', 'result'],
-    metadata: { runId: run.id, seed: run.seed, hash: run.hash },
-  }))
+  const scenarioLastRunId = options?.scenarioLastRunId ?? null
+  const scenarioTitle = options?.scenarioTitle ?? null
+
+  return runs.map(run => {
+    const isScenarioLastRun = !!scenarioLastRunId && run.id === scenarioLastRunId
+    const baseLabel = run.seed ? `Run seed=${run.seed}` : `Run ${run.id.slice(0, 8)}`
+    const hashSnippet = run.hash?.slice(0, 12) || 'No hash'
+    const timeText = new Date(run.timestamp).toLocaleString()
+
+    let label = baseLabel
+    if (isScenarioLastRun && scenarioTitle) {
+      label = `Last run  ${sanitizeLabel(scenarioTitle)}`
+    } else if (isScenarioLastRun) {
+      label = `${baseLabel}  Last run`
+    }
+
+    let descriptionPrefix = 'Run'
+    if (isScenarioLastRun && scenarioTitle) {
+      descriptionPrefix = 'Last run for this decision'
+    } else if (isScenarioLastRun) {
+      descriptionPrefix = 'Last run for current decision'
+    }
+
+    const description = `${descriptionPrefix}  ${hashSnippet}  ${timeText}`
+
+    const keywords = ['run', 'history', 'result']
+    if (isScenarioLastRun) {
+      // Keep both "scenario" and "decision" as keywords so users can
+      // find the last run using either mental model.
+      keywords.push('last', 'scenario', 'decision')
+    }
+
+    return {
+      id: `run:${run.id}`,
+      kind: 'run' as const,
+      label,
+      description,
+      keywords,
+      metadata: { runId: run.id, seed: run.seed, hash: run.hash, isScenarioLastRun },
+    }
+  })
 }
 
 /**
@@ -155,7 +194,7 @@ export function indexActions(): PaletteItem[] {
     {
       id: 'action:copy-seed',
       kind: 'action',
-      label: 'Copy Seed & Hash',
+      label: 'Copy seed and hash',
       description: 'Copy seed and response hash to clipboard',
       keywords: ['copy', 'seed', 'hash', 'clipboard'],
     },

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { HelpCircle } from 'lucide-react'
+import { typography } from '../../styles/typography'
 
 interface HelpMenuProps {
   onShowOnboarding: () => void
@@ -75,13 +76,14 @@ export function HelpMenu({ onShowOnboarding, onShowKeyboardLegend, onShowInfluen
         ref={buttonRef}
         type="button"
         onClick={handleToggle}
-        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/90 border border-gray-200 shadow-sm text-sm font-medium text-gray-800 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500"
+        className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-sky-50 border border-sky-200 shadow-sm text-sky-600 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-sky-500"
         aria-haspopup="true"
         aria-expanded={isOpen}
         aria-controls="canvas-help-menu"
+        aria-label="Help menu"
+        title="Help"
       >
         <HelpCircle className="w-4 h-4" aria-hidden="true" />
-        Help
       </button>
 
       {isOpen && (
@@ -89,19 +91,19 @@ export function HelpMenu({ onShowOnboarding, onShowKeyboardLegend, onShowInfluen
           id="canvas-help-menu"
           role="menu"
           aria-label="Canvas help"
-          className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-[1100]"
+          className="absolute right-0 mt-2 w-72 bg-paper-50 rounded-xl shadow-panel border border-sand-200 py-2 z-[1100]"
         >
-          <p className="px-4 pb-2 text-xs uppercase tracking-wide text-gray-500">Need a refresher?</p>
+          <p className={`px-4 pb-2 ${typography.caption} uppercase tracking-wide text-ink-900/70`}>Need a refresher?</p>
           <div className="flex flex-col">
             {menuItems.map(item => (
               <button
                 key={item.label}
                 role="menuitem"
                 onClick={() => handleAction(item.action)}
-                className="text-left px-4 py-3 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                className="text-left px-4 py-3 hover:bg-paper-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               >
-                <span className="block text-sm font-semibold text-gray-900">{item.label}</span>
-                <span className="block text-xs text-gray-600">{item.description}</span>
+                <span className={`block ${typography.label} text-ink-900`}>{item.label}</span>
+                <span className={`block ${typography.caption} text-ink-900/70`}>{item.description}</span>
               </button>
             ))}
           </div>

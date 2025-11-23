@@ -40,9 +40,12 @@ export default function EngineAuditPanel() {
   const vary = hdr['vary'] || hdr['Vary'] || null
 
   return (
-    <div data-testid="audit-panel" className="mt-3 p-3 rounded-md border border-gray-200 bg-white text-sm">
+    <div
+      data-testid="audit-panel"
+      className="mt-3 p-4 rounded-lg border border-sand-200 bg-paper-50 shadow-panel text-sm"
+    >
       <div className="flex items-center justify-between mb-2">
-        <h2 className="font-semibold">Engine Audit</h2>
+        <h2 className="font-semibold text-ink-900">Engine Audit</h2>
         <div className="flex items-center gap-2">
           <button type="button" data-testid="audit-fetch-btn" onClick={onFetch} disabled={busy} className="px-2 py-1 rounded border text-xs">Fetch</button>
           <button type="button" data-testid="audit-refetch-btn" onClick={onRefetch} disabled={busy} className="px-2 py-1 rounded border text-xs">Re-fetch</button>
@@ -50,24 +53,24 @@ export default function EngineAuditPanel() {
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <div className="text-[11px] text-gray-600">Last status</div>
+          <div className="text-[11px] text-ink-900/70">Last status</div>
           <div data-testid="audit-last-status" className="text-sm">{info.lastStatus ?? '—'}</div>
         </div>
         <div>
-          <div className="text-[11px] text-gray-600">Cached ETag</div>
+          <div className="text-[11px] text-ink-900/70">Cached ETag</div>
           <div data-testid="audit-cached-etag" className="text-sm">{info.cachedEtag ?? '—'}</div>
         </div>
         <div>
-          <div className="text-[11px] text-gray-600">Last data hash</div>
+          <div className="text-[11px] text-ink-900/70">Last data hash</div>
           <div data-testid="audit-data-hash" className="text-sm">{dataHash ?? '—'}</div>
         </div>
         <div className="col-span-2 mt-2">
-          <div className="text-[11px] text-gray-600 mb-1">Headers (last /draft-flows)</div>
+          <div className="text-[11px] text-ink-900/70 mb-1">Headers (last /draft-flows)</div>
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div><span className="text-gray-600">ETag:</span> <span data-testid="audit-header-etag">{etag ?? '—'}</span></div>
-            <div><span className="text-gray-600">Content-Length:</span> <span data-testid="audit-header-content-length">{contentLength ?? '—'}</span></div>
-            <div><span className="text-gray-600">Cache-Control:</span> <span data-testid="audit-header-cache-control">{cacheControl ?? '—'}</span></div>
-            <div><span className="text-gray-600">Vary:</span> <span data-testid="audit-header-vary">{vary ?? '—'}</span></div>
+            <div><span className="text-ink-900/70">ETag:</span> <span data-testid="audit-header-etag">{etag ?? '—'}</span></div>
+            <div><span className="text-ink-900/70">Content-Length:</span> <span data-testid="audit-header-content-length">{contentLength ?? '—'}</span></div>
+            <div><span className="text-ink-900/70">Cache-Control:</span> <span data-testid="audit-header-cache-control">{cacheControl ?? '—'}</span></div>
+            <div><span className="text-ink-900/70">Vary:</span> <span data-testid="audit-header-vary">{vary ?? '—'}</span></div>
           </div>
         </div>
       </div>

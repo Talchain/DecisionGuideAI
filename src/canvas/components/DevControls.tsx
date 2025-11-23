@@ -36,7 +36,7 @@ export function DevControls({ debug, onDebugChange, className = '' }: DevControl
 
       {/* Expanded panel */}
       {isExpanded && (
-        <div className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 p-3 z-50">
+        <div className="absolute right-0 mt-1 w-56 bg-white rounded-lg shadow-panel border border-gray-200 p-3 z-50">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-xs font-semibold text-gray-700">Developer Controls</h4>
             <button

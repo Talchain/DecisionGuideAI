@@ -229,7 +229,7 @@ describe('S5-BFF: Assist calls are BFF-only', () => {
 
       await expect(draftGraph(mockRequest)).rejects.toMatchObject({
         code: 'SERVER_ERROR',
-        message: 'Internal server error'
+        message: "We couldn't reach the service. Please try again in a moment."
       })
     })
 
@@ -238,7 +238,7 @@ describe('S5-BFF: Assist calls are BFF-only', () => {
 
       await expect(draftGraph(mockRequest)).rejects.toMatchObject({
         code: 'NETWORK_ERROR',
-        message: 'Network failure'
+        message: 'Connection lost. Check your internet and try again.'
       })
     })
 
@@ -255,7 +255,7 @@ describe('S5-BFF: Assist calls are BFF-only', () => {
         draftGraph(mockRequest, { signal: controller.signal })
       ).rejects.toMatchObject({
         code: 'TIMEOUT',
-        message: 'Request aborted'
+        message: 'Request timed out. Please try again.'
       })
     })
   })

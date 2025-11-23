@@ -37,7 +37,7 @@ export const ReproduceShareCard = memo<ReproduceShareCardProps>(({
 
   return (
     <div className="bg-white border rounded-lg p-6" data-testid="reproduce-card">
-      <h3 className="text-lg font-semibold mb-4">Reproduce & Share</h3>
+      <h3 className="text-lg font-semibold mb-4">Reproduce and share</h3>
       
       <div className="space-y-3 mb-4">
         <div className="flex items-center justify-between">

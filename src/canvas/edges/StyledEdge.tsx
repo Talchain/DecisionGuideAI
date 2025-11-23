@@ -19,6 +19,7 @@ import { getEdgeLabel } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { EdgeEditPopover } from './EdgeEditPopover'
 import { useCanvasStore } from '../store'
+import { typography } from '../../styles/typography'
 
 /**
  * StyledEdge with semantic visual properties
@@ -124,10 +125,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             position: 'absolute',
             transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
             pointerEvents: 'all',
-            fontSize: '11px',
             padding: '3px 8px',
             borderRadius: '4px',
-            opacity: 0.95,
             maxWidth: '160px',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -137,10 +136,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             gap: '4px',
             cursor: 'pointer',
           }}
-          className={`nodrag nopan shadow-sm border ${
+          className={`nodrag nopan border shadow-panel ${typography.edgeLabel} ${
             isDark
               ? 'bg-gray-900 text-gray-100 border-gray-600'
-              : 'bg-white text-gray-800 border-gray-200'
+              : 'bg-paper-50/95 text-ink-900 border-sand-200'
           }`}
           role="note"
           aria-label={ariaLabel}

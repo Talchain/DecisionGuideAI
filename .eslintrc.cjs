@@ -26,6 +26,21 @@ module.exports = {
       }
     },
     {
+      // Design tokens guard: disallow raw hex colours in canvas JSX/TSX components
+      files: ['src/canvas/**/*.{tsx,jsx}'],
+      excludedFiles: ['src/canvas/**/__tests__/**', 'src/canvas/**/*.spec.*'],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector: "Literal[raw=/['\"]#[0-9A-Fa-f]{3,6}['\"]/]",
+            message:
+              'Use design tokens (CSS variables or Tailwind semantic colours) instead of raw hex colour literals in canvas components.',
+          },
+        ],
+      },
+    },
+    {
       // AIR-GAP: Safe entry and boot helpers must never import React/Zustand/React Flow/shim
       files: ['src/poc/safe/**/*', 'src/boot/safe-*.ts'],
       rules: {

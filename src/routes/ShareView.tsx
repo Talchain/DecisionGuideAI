@@ -18,7 +18,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
-import { sanitizeLabel } from '../canvas/utils/sanitize'
+import { sanitizeLabel } from '../canvas/persist'
 
 interface ShareData {
   hash: string

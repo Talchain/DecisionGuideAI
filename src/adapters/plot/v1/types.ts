@@ -40,6 +40,10 @@ export interface V1RunRequest {
   include_debug?: boolean  // Include debug metadata in response
   idempotencyKey?: string
   clientHash?: string
+  // CEE (Cognitive Enhancement Engine) trigger fields
+  scenario_id?: string  // Unique scenario identifier
+  scenario_name?: string  // Human-readable scenario name
+  save?: boolean  // If true, trigger CEE Decision Review generation
 }
 
 // Response types

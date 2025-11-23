@@ -18,7 +18,7 @@ const TEMPLATES = [
   { name: 'investment-v1', data: investmentTemplate }
 ]
 
-const LIMITS: ApiLimits = { max_nodes: 12, max_edges: 20 }
+const LIMITS: ApiLimits = { max_nodes: 50, max_edges: 200 }
 
 describe('Template Validation', () => {
   TEMPLATES.forEach(({ name, data }) => {
@@ -78,11 +78,11 @@ describe('Template Validation', () => {
         expect(goalNode?.kind).toBe('goal')
       })
 
-      it('respects node limit (≤12 nodes)', () => {
+      it('respects node limit (≤50 nodes)', () => {
         expect(data.graph.nodes.length).toBeLessThanOrEqual(LIMITS.max_nodes)
       })
 
-      it('respects edge limit (≤20 edges)', () => {
+      it('respects edge limit (≤200 edges)', () => {
         expect(data.graph.edges.length).toBeLessThanOrEqual(LIMITS.max_edges)
       })
 

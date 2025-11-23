@@ -2,34 +2,49 @@
 /**
  * Local shim for `use-sync-external-store/shim`.
  * React 18+ provides `useSyncExternalStore` natively.
- * We re-export React's hooks to bypass the package that crashes at runtime.
+ * We re-export React's hooks and implement a minimal `withSelector` helper
+ * that follows the recommended pattern: the selector is composed into
+ * the `getSnapshot` function passed to React, so the selected value itself
+ * is treated as the snapshot. This avoids the "getSnapshot should be cached"
+ * warning and plays nicely with libraries like Zustand.
  */
 
-import { useSyncExternalStore as useSyncExternalStoreBase } from 'react';
+import { useSyncExternalStore as useSyncExternalStoreBase } from 'react'
 
 // Re-export the base hook
-export const useSyncExternalStore = useSyncExternalStoreBase;
+export const useSyncExternalStore = useSyncExternalStoreBase
 
 /**
  * Minimal selector variant for compatibility.
  * Many libs import `useSyncExternalStoreWithSelector` from the shim.
- * This implementation is intentionally simple; memoization can be added if needed.
+ *
+ * Notes:
+ * - We intentionally keep this thin and rely on React's own caching.
+ * - The optional `isEqual` parameter is accepted for compatibility but
+ *   not used; callers still get stable behaviour via React's snapshot
+ *   comparison.
  */
 export function useSyncExternalStoreWithSelector<T, Selection>(
   subscribe: (onStoreChange: () => void) => () => void,
   getSnapshot: () => T,
   getServerSnapshot: (() => T) | undefined,
   selector: (snapshot: T) => Selection,
-  isEqual?: (a: Selection, b: Selection) => boolean
+  isEqual?: (a: Selection, b: Selection) => boolean,
 ): Selection {
-  const snapshot = useSyncExternalStoreBase(subscribe, getSnapshot, getServerSnapshot);
-  const selection = selector(snapshot);
-  // Optional: add memoization using useRef/useEffect if a lib requires strict isEqual semantics.
-  if (process.env.NODE_ENV !== 'production' && typeof isEqual === 'function') {
-    // No-op hint; we're not double-comparing here to keep it minimal.
-  }
-  return selection;
+  // Touch isEqual once to satisfy TypeScript's unused-parameter checks while
+  // still keeping the full signature for libraries that expect it.
+  void isEqual
+
+  const getSelectedSnapshot = () => selector(getSnapshot())
+  const getSelectedServerSnapshot =
+    getServerSnapshot != null ? () => selector(getServerSnapshot()) : getSelectedSnapshot
+
+  return useSyncExternalStoreBase(
+    subscribe,
+    getSelectedSnapshot,
+    getSelectedServerSnapshot,
+  )
 }
 
 // Default export for broad import patterns
-export default { useSyncExternalStore, useSyncExternalStoreWithSelector };
+export default { useSyncExternalStore, useSyncExternalStoreWithSelector }

@@ -10,10 +10,10 @@ import type { V1LimitsResponse } from './types'
 
 /**
  * Get proxy base URL, aligned with http.ts pattern
- * Defaults to /api/plot to go through hardened proxy (CORS, auth, rate limits)
+ * Defaults to /bff/engine to go through hardened proxy (CORS, auth, rate limits)
  */
 const getProxyBase = (): string => {
-  return import.meta.env.VITE_PLOT_PROXY_BASE || '/api/plot'
+  return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
 }
 
 const CACHE_KEY = 'plot_limits_cache'

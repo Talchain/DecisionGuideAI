@@ -59,25 +59,25 @@ export default function JobsProgressPanel() {
   }
 
   return (
-    <section aria-labelledby="jobs-hdr" className="p-3 rounded-md border border-gray-200 bg-white text-sm">
+    <section aria-labelledby="jobs-hdr" className="p-3 rounded-md border border-sand-200 bg-paper-50 text-sm shadow-panel">
       <h2 id="jobs-hdr" className="font-semibold mb-2">Jobs</h2>
       <ul role="list" data-testid="jobs-list" aria-live="polite" className="space-y-1">
         {jobs.map((j) => {
           const isActive = j.status === 'queued' || j.status === 'running'
           return (
             <li key={j.id} data-testid="job-item" className="flex items-center gap-2">
-              <span data-testid="job-status" className="text-xs px-2 py-0.5 rounded-full border border-gray-300 bg-gray-50">
+              <span data-testid="job-status" className="text-xs px-2 py-0.5 rounded-full border border-sand-200 bg-paper-50 text-ink-900/80">
                 {j.status === 'queued' && 'Queued'}
                 {j.status === 'running' && 'Running'}
                 {j.status === 'done' && 'Done'}
                 {j.status === 'failed' && 'Failed'}
                 {j.status === 'cancelled' && 'Cancelled'}
               </span>
-              <span className="text-xs text-gray-700">{j.id}</span>
-              <time data-testid="job-time" className="text-[11px] text-gray-400 ml-1">just now</time>
+              <span className="text-xs text-ink-900/80">{j.id}</span>
+              <time data-testid="job-time" className="text-[11px] text-ink-900/50 ml-1">just now</time>
               <div className="ml-auto flex items-center gap-2">
                 {typeof j.progress === 'number' && (
-                  <div className="w-24 bg-gray-100 rounded h-2" aria-hidden="true">
+                  <div className="w-24 bg-sand-200 rounded h-2" aria-hidden="true">
                     <div className="h-2 rounded bg-emerald-500" style={{ width: `${j.progress}%` }} />
                   </div>
                 )}
@@ -87,7 +87,7 @@ export default function JobsProgressPanel() {
                     data-testid="job-cancel-btn"
                     aria-label={`Cancel job ${j.id}`}
                     title="Cancel job"
-                    className="px-2 py-0.5 rounded border border-gray-300 text-xs"
+                    className="px-2 py-0.5 rounded border border-sand-200 text-xs text-ink-900/80 hover:bg-paper-50"
                     onClick={() => cancel(j.id)}
                     ref={cancelBtnRef}
                     disabled={cancelling}

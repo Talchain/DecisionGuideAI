@@ -96,7 +96,7 @@ export default function CriteriaForm() {
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto p-4">
-      <h2 className="text-2xl font-bold">Define Criteria & Weights</h2>
+      <h2 className="text-2xl font-bold">Define criteria and weights</h2>
       {error && (
         <div className="bg-red-50 p-3 rounded">
           <AlertTriangle className="inline-block mr-2 text-red-500" />

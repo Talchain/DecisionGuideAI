@@ -32,7 +32,7 @@ export function NeedleMoversOverlay({ movers, onFocusNode }: NeedleMoversOverlay
   const sortedMovers = [...movers].sort((a, b) => b.impact - a.impact)
 
   return (
-    <div className="absolute top-4 right-4 bg-white rounded-lg border border-gray-200 shadow-lg p-3 w-72 z-10">
+    <div className="absolute top-4 right-4 bg-white rounded-lg border border-gray-200 shadow-panel p-3 w-72 z-10">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <Target className="w-5 h-5 text-purple-600" />

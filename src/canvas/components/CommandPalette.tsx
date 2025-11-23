@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
+import { runLayoutWithProgress } from '../layout/runLayoutWithProgress'
 import { useReactFlow } from '@xyflow/react'
 import { plot } from '../../adapters/plot'
 import { useResultsRun } from '../hooks/useResultsRun'
 import { ValidationBanner, type ValidationError } from './ValidationBanner'
 import { useValidationFeedback } from '../hooks/useValidationFeedback'
+import { trackRunAttempt } from '../utils/sandboxTelemetry'
 
 interface Action {
   id: string
@@ -29,7 +31,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
   const [validationViolations, setValidationViolations] = useState<ValidationError[]>([]) // v1.2: coaching warnings
   const inputRef = useRef<HTMLInputElement>(null)
-  const { addNode, selectAll, saveSnapshot, applyLayout } = useCanvasStore()
+  const { addNode, selectAll, saveSnapshot } = useCanvasStore()
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const { fitView } = useReactFlow()
@@ -54,6 +56,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
             message: 'Cannot run analysis: Graph is empty. Add at least one node.',
             severity: 'error' as const
           }])
+          trackRunAttempt({ canRun: false, reason: 'empty', message: '' })
           return
         }
 
@@ -74,11 +77,13 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
               // Show validation errors in banner (keep dialog open)
               const formattedErrors = formatErrors(validationResult.errors)
               setValidationErrors(formattedErrors)
+              trackRunAttempt({ canRun: false, reason: 'validation', message: '' })
               return
             }
           }
 
           // Validation passed - start execution
+          trackRunAttempt({ canRun: true, reason: 'ok', message: '' })
           setIsExecuting(true)
 
           // Run analysis with default seed
@@ -102,10 +107,11 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
         }
       }
     },
-    // Node type actions
+    // Node type actions (Rich Node Types)
     { id: 'add-goal', label: 'Add Goal Node', execute: () => addNode(undefined, 'goal') },
     { id: 'add-decision', label: 'Add Decision Node', execute: () => addNode(undefined, 'decision') },
     { id: 'add-option', label: 'Add Option Node', execute: () => addNode(undefined, 'option') },
+    { id: 'add-factor', label: 'Add Factor Node', execute: () => addNode(undefined, 'factor') },
     { id: 'add-risk', label: 'Add Risk Node', execute: () => addNode(undefined, 'risk') },
     { id: 'add-outcome', label: 'Add Outcome Node', execute: () => addNode(undefined, 'outcome') },
     // Panel actions
@@ -114,7 +120,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
     { id: 'tidy-layout', label: 'Tidy Layout', execute: async () => {
       setIsExecuting(true)
       try {
-        await applyLayout()
+        await runLayoutWithProgress()
       } finally {
         setIsExecuting(false)
       }
@@ -170,7 +176,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
   return (
     <div className="fixed inset-0 z-[3000] flex items-start justify-center pt-32 bg-black/50" onClick={onClose}>
       <div 
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl"
+        className="bg-white rounded-2xl shadow-panel w-full max-w-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Input */}

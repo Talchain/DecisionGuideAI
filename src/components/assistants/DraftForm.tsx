@@ -66,7 +66,7 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
 
     // AUDIT FIX 5: Use inline error instead of alert
     if (!prompt.trim()) {
-      setError('Please enter a description of your decision problem.')
+      setError('Please add a short description of the decision you are making.')
       return
     }
     setError(null) // Clear error on valid submission
@@ -81,10 +81,10 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-4 bg-white rounded-lg border border-gray-200">
+    <form onSubmit={handleSubmit} className="space-y-6 p-4 bg-paper-50 rounded-lg border border-sand-200 shadow-panel">
       <div>
-        <label htmlFor="prompt" className="block text-sm font-medium text-gray-700 mb-1">
-          Describe your decision problem
+        <label htmlFor="prompt" className="block text-sm font-medium text-ink-900 mb-1">
+          What decision are you making?
         </label>
         <textarea
           id="prompt"
@@ -95,9 +95,9 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
               setError(null) // AUDIT FIX 5: Clear error when user starts typing
             }
           }}
-          placeholder="e.g., Should we launch product X or Y? What factors matter?"
+          placeholder="For example: Which supplier strategy should we adopt for next year?"
           rows={4}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           disabled={isSubmitting}
           required
         />
@@ -105,15 +105,15 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
 
       <div>
         <label htmlFor="context" className="block text-sm font-medium text-gray-700 mb-1">
-          Additional context (optional)
+          What else should Olumi know? (optional)
         </label>
         <textarea
           id="context"
           value={context}
           onChange={(e) => setContext(e.target.value)}
-          placeholder="Any background information, constraints, or requirements..."
+          placeholder="Key constraints, timelines, stakeholders, or risks we should consider"
           rows={2}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 min-h-[44px] border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           disabled={isSubmitting}
         />
       </div>
@@ -121,7 +121,7 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
       {/* File attachments */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Attach documents (optional, max 5)
+          Supporting documents (optional, max 5)
         </label>
         <div className="space-y-2">
           {files.map((file, index) => (
@@ -146,7 +146,7 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
           ))}
 
           {files.length < 5 && (
-            <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
+            <label className="flex items-center gap-2 px-3 py-2 min-h-[44px] border border-dashed border-gray-300 rounded-md cursor-pointer hover:bg-gray-50">
               <Upload className="w-4 h-4 text-gray-400" />
               <span className="text-sm text-gray-600">Upload file (.txt, .md, .csv)</span>
               <input
@@ -176,7 +176,7 @@ export function DraftForm({ onSubmit, isSubmitting }: DraftFormProps) {
       <button
         type="submit"
         disabled={isSubmitting || !prompt.trim()}
-        className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+        className="w-full px-4 py-2 min-h-[44px] bg-primary text-ink-900 rounded-md hover:bg-primary-hover disabled:bg-primary-disabled disabled:cursor-not-allowed font-medium"
       >
         {isSubmitting ? 'Generating draft...' : 'Draft my model'}
       </button>

@@ -135,6 +135,7 @@ Deno.serve(async (req) => {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${ASSIST_API_KEY}`,
+          "x-api-key": ASSIST_API_KEY,
           "x-correlation-id": correlationId, // M2.6: Forward correlation ID
         },
         body: JSON.stringify(payload),

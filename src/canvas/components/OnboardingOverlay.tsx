@@ -78,7 +78,7 @@ export function OnboardingOverlay({
       aria-labelledby="onboarding-title"
       aria-modal="true"
     >
-      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-panel max-w-2xl w-full overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-info-500 to-info-600 p-6 text-white">
           <div className="flex items-start justify-between">

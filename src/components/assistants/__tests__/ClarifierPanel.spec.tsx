@@ -174,7 +174,7 @@ describe('ClarifierPanel (M3)', () => {
       />
     )
 
-    const skipButton = screen.getByRole('button', { name: /skip & continue/i })
+    const skipButton = screen.getByRole('button', { name: /skip and continue/i })
     fireEvent.click(skipButton)
 
     expect(onSkip).toHaveBeenCalled()

@@ -148,9 +148,12 @@ export function DriverChips({ drivers }: DriverChipsProps) {
   // Get polarity color
   const getPolarityColor = (polarity: string) => {
     switch (polarity) {
-      case 'up': return '#10B981'  // green-500
-      case 'down': return '#EF4444'  // red-500
-      default: return '#111827'  // gray-900
+      case 'up':
+        return 'var(--success-500)'
+      case 'down':
+        return 'var(--danger-500)'
+      default:
+        return 'var(--text-primary)'
     }
   }
 

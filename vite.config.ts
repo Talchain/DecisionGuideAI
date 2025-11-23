@@ -126,6 +126,19 @@ optimizeDeps: {
       strict: true
     },
     proxy: {
+      '/bff/engine': {
+        target: 'https://plot-lite-service.onrender.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/bff\/engine/, ''),
+        configure: (proxy) => {
+          console.log('[PROXY] Engine target: https://plot-lite-service.onrender.com')
+
+          proxy.on('error', (err) => {
+            console.error('[PROXY ERROR] /bff/engine', err.message)
+          })
+        }
+      },
       '/api/plot': {
         target: env.PLOT_API_URL || 'http://localhost:4311',
         changeOrigin: true,
@@ -150,13 +163,113 @@ optimizeDeps: {
             console.log('[PROXY] No API key configured')
           }
         }
+      },
+      '/bff/assist': {
+        // Dev-time proxy for Assistants BFF so Draft My Model does not 404
+        // Configure ASSIST_BFF_URL to point at your assist-proxy function
+        target: env.ASSIST_BFF_URL || 'http://127.0.0.1:54321/functions/v1/assist-proxy',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/bff\/assist/, ''),
+        configure: (proxy) => {
+          console.log(
+            `[PROXY] Assist BFF target: ${env.ASSIST_BFF_URL || 'http://127.0.0.1:54321/functions/v1/assist-proxy'}`
+          )
+
+          proxy.on('error', (err) => {
+            console.error('[PROXY ERROR] /bff/assist', err.message)
+          })
+        }
+      },
+      '/bff/cee': {
+        target: env.CEE_SERVICE_URL || 'https://cee-service.onrender.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/bff\/cee/, ''),
+        configure: (proxy) => {
+          console.log(`[PROXY] CEE target: ${env.CEE_SERVICE_URL || 'https://cee-service.onrender.com'}`)
+
+          proxy.on('error', (err) => {
+            console.error('[PROXY ERROR] /bff/cee', err.message)
+          })
+        }
+      },
+      '/bff/isl': {
+        target: env.ISL_SERVICE_URL || 'https://isl-service.onrender.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/bff\/isl/, ''),
+        configure: (proxy) => {
+          console.log(`[PROXY] ISL target: ${env.ISL_SERVICE_URL || 'https://isl-service.onrender.com'}`)
+
+          proxy.on('error', (err) => {
+            console.error('[PROXY ERROR] /bff/isl', err.message)
+          })
+        }
       }
     }
   },
   preview: {
     port: 5173,
     strictPort: true,
-    host: true
+    host: true,
+    proxy: {
+      '/bff/engine': {
+        target: 'https://plot-lite-service.onrender.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/bff\/engine/, ''),
+        configure: (proxy) => {
+          console.log('[PROXY] Engine target: https://plot-lite-service.onrender.com')
+
+          proxy.on('error', (err) => {
+            console.error('[PROXY ERROR] /bff/engine', err.message)
+          })
+        }
+      },
+      '/bff/assist': {
+        // Preview-time proxy for Assistants BFF so Draft My Model does not 404 under `pnpm preview`
+        target: env.ASSIST_BFF_URL || 'http://127.0.0.1:54321/functions/v1/assist-proxy',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/bff\/assist/, ''),
+        configure: (proxy) => {
+          console.log(
+            `[PROXY] Assist BFF target: ${env.ASSIST_BFF_URL || 'http://127.0.0.1:54321/functions/v1/assist-proxy'}`
+          )
+
+          proxy.on('error', (err) => {
+            console.error('[PROXY ERROR] /bff/assist', err.message)
+          })
+        }
+      },
+      '/bff/cee': {
+        target: env.CEE_SERVICE_URL || 'https://cee-service.onrender.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/bff\/cee/, ''),
+        configure: (proxy) => {
+          console.log(`[PROXY] CEE target: ${env.CEE_SERVICE_URL || 'https://cee-service.onrender.com'}`)
+
+          proxy.on('error', (err) => {
+            console.error('[PROXY ERROR] /bff/cee', err.message)
+          })
+        }
+      },
+      '/bff/isl': {
+        target: env.ISL_SERVICE_URL || 'https://isl-service.onrender.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path.replace(/^\/bff\/isl/, ''),
+        configure: (proxy) => {
+          console.log(`[PROXY] ISL target: ${env.ISL_SERVICE_URL || 'https://isl-service.onrender.com'}`)
+
+          proxy.on('error', (err) => {
+            console.error('[PROXY ERROR] /bff/isl', err.message)
+          })
+        }
+      }
+    }
   },
   css: {
     devSourcemap: true

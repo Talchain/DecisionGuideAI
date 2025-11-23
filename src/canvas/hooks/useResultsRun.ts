@@ -46,7 +46,14 @@ export function useResultsRun(): UseResultsRunReturn {
     resultsStart({ seed, wasForced: options?.forceRerun })
 
     // Reset run metadata for new run
-    setRunMeta({ diagnostics: undefined, correlationIdHeader: undefined, degraded: undefined })
+    setRunMeta({
+      diagnostics: undefined,
+      correlationIdHeader: undefined,
+      degraded: undefined,
+      ceeReview: null,
+      ceeTrace: null,
+      ceeError: null,
+    })
 
     // Check if adapter supports streaming
     const adapter = plot as any
@@ -80,23 +87,42 @@ export function useResultsRun(): UseResultsRunReturn {
           }) => {
             const report = data.report
 
+            const anyData = data as any
+            const ceeReview = anyData.ceeReview ?? null
+            const ceeTrace = anyData.ceeTrace ?? null
+            const ceeError = anyData.ceeError ?? null
+
             // Extract drivers from report (if present)
             // Note: Current ReportV1 has drivers as labels, not IDs
             // We'll need to map them later when we have node/edge metadata
             const drivers = undefined // TODO: Map report.drivers to node/edge IDs
 
+            // Persist results and any CEE metadata into history
             resultsComplete({
               report,
               hash: report.model_card.response_hash,
-              drivers
+              drivers,
+              ceeReview,
+              ceeTrace,
+              ceeError,
             })
 
-            // Capture diagnostics + correlation metadata when available
-            if (data.diagnostics || data.correlationIdHeader || typeof data.degraded === 'boolean') {
+            // Capture diagnostics, correlation metadata, and any CEE metadata when available
+            if (
+              data.diagnostics ||
+              data.correlationIdHeader ||
+              typeof data.degraded === 'boolean' ||
+              ceeReview ||
+              ceeTrace ||
+              ceeError
+            ) {
               setRunMeta({
                 diagnostics: data.diagnostics,
                 correlationIdHeader: data.correlationIdHeader,
-                degraded: data.degraded
+                degraded: data.degraded,
+                ceeReview,
+                ceeTrace,
+                ceeError,
               })
             }
             cancelRef.current = null
@@ -105,7 +131,7 @@ export function useResultsRun(): UseResultsRunReturn {
             // Map error to user-friendly message
             const friendlyError = mapErrorToUserMessage({
               code: error.code,
-              status: error.status,
+              status: (error as any).status,
               message: error.error,
               retryAfter: error.retry_after
             })
@@ -126,7 +152,7 @@ export function useResultsRun(): UseResultsRunReturn {
         // Map error to user-friendly message
         const friendlyError = mapErrorToUserMessage({
           code: error.code,
-          status: error.status,
+          status: (error as any).status,
           message: error.error || error.message
         })
 
@@ -158,7 +184,7 @@ export function useResultsRun(): UseResultsRunReturn {
         // Map error to user-friendly message
         const friendlyError = mapErrorToUserMessage({
           code: error.code,
-          status: error.status,
+          status: (error as any).status,
           message: error.error || error.message,
           retryAfter: error.retry_after
         })

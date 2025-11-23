@@ -21,7 +21,7 @@ test('Tidy Layout creates single undo frame', async ({ page }) => {
   })
   
   // Apply layout
-  await page.locator('button:has-text("�� Layout")').click()
+  await page.locator('button[data-testid="btn-elklayout"]').click()
   await page.locator('button:has-text("Apply Layout")').click()
   await page.waitForTimeout(2000)
   
