@@ -75,6 +75,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const { getViewport, setCenter } = useReactFlow()
+
+  // Phase 3: Memoize heavy computations for performance
+  const memoizedNodes = useMemo(() => nodes, [nodes])
+  const memoizedEdges = useMemo(() => edges, [edges])
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
   
@@ -825,8 +829,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         }}
       >
         <ReactFlow
-          nodes={nodes}
-          edges={edges}
+          nodes={memoizedNodes}
+          edges={memoizedEdges}
           onNodesChange={handleNodesChange}
           onEdgesChange={handleEdgesChange}
           onConnect={onConnect}

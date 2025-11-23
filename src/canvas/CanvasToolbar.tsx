@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import { PanelsTopLeft, Sparkles } from 'lucide-react'
 import { useCanvasStore } from './store'
 import { useReactFlow } from '@xyflow/react'
@@ -19,7 +19,10 @@ import { checkLimits, formatLimitError } from './utils/limitGuard'
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { Tooltip } from './components/Tooltip'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
-import { GoalModePanel } from './components/GoalModePanel'
+import { Spinner } from '../components/Spinner'
+
+// Phase 3: Lazy load heavy components for better performance
+const GoalModePanel = lazy(() => import('./components/GoalModePanel').then(m => ({ default: m.GoalModePanel })))
 
 export function CanvasToolbar() {
   const [isMinimized, setIsMinimized] = useState(false)
@@ -512,7 +515,9 @@ export function CanvasToolbar() {
       {/* Phase 2: Goal Mode Panel Modal */}
       {showGoalPanel && (
         <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-[1000] p-4">
-          <GoalModePanel onClose={() => setShowGoalPanel(false)} />
+          <Suspense fallback={<Spinner size="lg" />}>
+            <GoalModePanel onClose={() => setShowGoalPanel(false)} />
+          </Suspense>
         </div>
       )}
 

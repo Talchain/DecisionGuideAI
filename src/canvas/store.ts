@@ -19,6 +19,7 @@ import type { Document, Citation } from './share/types'
 import type { Snapshot, DecisionRationale } from './snapshots/types'
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from './decisionReview/types'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
+import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 
 /**
  * Generate deterministic content hash using FNV-1a algorithm
@@ -118,6 +119,8 @@ interface CanvasState {
   graphHealth: GraphHealth | null
   showIssuesPanel: boolean
   needleMovers: NeedleMover[]
+  // Phase 3: Interaction enhancements
+  highlightedNodes: string[]
   // M5: Grounding & Provenance
   documents: Document[]
   citations: Citation[]
@@ -212,6 +215,8 @@ interface CanvasState {
   applyRepair: (issueId: string) => void
   applyAllRepairs: () => void
   setNeedleMovers: (movers: NeedleMover[]) => void
+  // Phase 3: Interaction actions
+  setHighlightedNodes: (ids: string[]) => void
   // M5: Provenance actions
   addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
   removeDocument: (id: string) => void
@@ -316,28 +321,32 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   isDirty: false,
   isSaving: false,  // P0-2: Initially not saving
   lastSavedAt: null,  // P0-2: No save yet
-  // Panel visibility
-  showResultsPanel: false,
-  showInspectorPanel: false,
-  showTemplatesPanel: false,
+  // Phase 3: Panel visibility with persistence
+  ...{
+    showResultsPanel: false,
+    showInspectorPanel: false,
+    showTemplatesPanel: false,
+    showDraftChat: false,
+    showIssuesPanel: false,
+    showProvenanceHub: false,
+    showDocumentsDrawer: false,
+    showComparePanel: false,
+    ...loadUIPreferences(), // Override with persisted preferences
+  },
   templatesPanelInvoker: null,
-  showDraftChat: false,
   // M4: Graph Health & Repair
   graphHealth: null,
-  showIssuesPanel: false,
   needleMovers: [],
+  highlightedNodes: [],
   // M5: Grounding & Provenance
   documents: [],
   citations: [],
-  showProvenanceHub: false,
-  showDocumentsDrawer: false,
   provenanceRedactionEnabled: true, // M5: Redaction ON by default
   // S7-FILEOPS: Document management initial state
   documentSearchQuery: loadSearchQuery(),
   ...loadSortPreferences(),
   // M6: Compare & Decision Rationale
   selectedSnapshotsForComparison: [],
-  showComparePanel: false,
   currentDecisionRationale: null,
 
   createNodeId: () => {
@@ -1330,10 +1339,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       trackResultsViewed()
     }
     set({ showResultsPanel: show })
+    saveUIPreference('showResultsPanel', show)
   },
 
   setShowInspectorPanel: (show: boolean) => {
     set({ showInspectorPanel: show })
+    saveUIPreference('showInspectorPanel', show)
   },
 
   openTemplatesPanel: (invoker?: HTMLElement) => {
@@ -1341,6 +1352,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       showTemplatesPanel: true,
       templatesPanelInvoker: invoker || null
     })
+    saveUIPreference('showTemplatesPanel', true)
   },
 
   closeTemplatesPanel: () => {
@@ -1349,6 +1361,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       showTemplatesPanel: false,
       templatesPanelInvoker: null
     })
+    saveUIPreference('showTemplatesPanel', false)
 
     // Restore focus to invoker after a brief delay (allows panel to unmount)
     if (templatesPanelInvoker && typeof templatesPanelInvoker.focus === 'function') {
@@ -1364,6 +1377,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setShowDraftChat: (show: boolean) => {
     set({ showDraftChat: show })
+    saveUIPreference('showDraftChat', show)
   },
 
   // M4: Graph Health actions
@@ -1383,6 +1397,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       trackIssuesOpened()
     }
     set({ showIssuesPanel: show })
+    saveUIPreference('showIssuesPanel', show)
   },
 
   applyRepair: async (issueId: string) => {
@@ -1441,6 +1456,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setNeedleMovers: (movers: NeedleMover[]) => {
     set({ needleMovers: movers })
+  },
+
+  // Phase 3: Interaction actions
+  setHighlightedNodes: (ids: string[]) => {
+    set({ highlightedNodes: ids })
   },
 
   // M5: Provenance actions
@@ -1547,10 +1567,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setShowProvenanceHub: (show: boolean) => {
     set({ showProvenanceHub: show })
+    saveUIPreference('showProvenanceHub', show)
   },
 
   setShowDocumentsDrawer: (show: boolean) => {
     set({ showDocumentsDrawer: show })
+    saveUIPreference('showDocumentsDrawer', show)
   },
 
   toggleProvenanceRedaction: () => {
@@ -1575,6 +1597,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setShowComparePanel: (show: boolean) => {
     set({ showComparePanel: show })
+    saveUIPreference('showComparePanel', show)
   },
 
   setDecisionRationale: (rationale: DecisionRationale | null) => {

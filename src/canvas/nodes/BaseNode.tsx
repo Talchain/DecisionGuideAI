@@ -50,6 +50,10 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
   const setOutputsDockTab = useCanvasStore(s => s.setOutputsDockTab)
   const setOutputsDockOpen = useCanvasStore(s => s.setOutputsDockOpen)
 
+  // Phase 3: Node highlighting
+  const highlightedNodes = useCanvasStore(s => s.highlightedNodes)
+  const isHighlighted = highlightedNodes.includes(id)
+
   const ceeWarnings = ceeInsights?.structural_health.warnings || []
   const islAffected = islValidation?.suggestions.some(suggestion =>
     suggestion.affectedNodes.includes(id)
@@ -87,9 +91,10 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       className={`
         relative rounded-lg border-2 shadow-sm
         ${colors.border} ${borderStyle}
-        transition-all duration-200
+        transition-all duration-300
         ${description ? 'cursor-pointer' : 'cursor-default'}
         ${selected ? 'ring-2 ring-sky-500 ring-offset-2' : ''}
+        ${isHighlighted ? 'ring-4 ring-sun-500 ring-opacity-50' : ''}
       `}
       style={{
         backgroundColor: 'white', // Solid background
