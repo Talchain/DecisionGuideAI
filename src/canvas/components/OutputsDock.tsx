@@ -130,6 +130,9 @@ export function OutputsDock() {
   const ceeTrace = runMeta.ceeTrace ?? null
   const ceeError = runMeta.ceeError ?? null
 
+  // Phase 1 Section 3: CEE degraded state (non-blocking overlay behavior)
+  const ceeDegraded = ceeTrace?.degraded === true
+
   let decisionReviewStatus: DecisionReviewStatus | null = null
   if (decisionReviewFlagOn) {
     if (resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming') {
@@ -429,6 +432,16 @@ export function OutputsDock() {
                         <div className={`${typography.code} font-medium text-ink-900/70 mb-1`}>
                           Decision Review
                         </div>
+                        {ceeDegraded && (
+                          <div
+                            className={`mb-2 p-2 bg-sun-50 border border-sun-200 rounded ${typography.code} text-sun-900`}
+                            data-testid="cee-degraded-banner"
+                            role="alert"
+                            aria-live="polite"
+                          >
+                            <span className="font-medium">Partial analysis:</span> Decision Review ran with reduced functionality. Core results remain accurate.
+                          </div>
+                        )}
                         <DecisionReviewPanel
                           status={decisionReviewStatus}
                           review={ceeReview ?? undefined}

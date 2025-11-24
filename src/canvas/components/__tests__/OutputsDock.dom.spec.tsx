@@ -621,6 +621,158 @@ it('shows graph health summary and opens Issues panel from Diagnostics tab', () 
   expect(setShowIssuesPanelSpy).toHaveBeenCalledWith(true)
 })
 
+// Phase 1 Section 3.3: Non-blocking CEE and degraded banner tests
+it('shows degraded banner when ceeTrace.degraded is true', () => {
+  const baseResults = useCanvasStore.getState().results
+
+  const fakeReport: any = {
+    results: {
+      conservative: 10,
+      likely: 20,
+      optimistic: 30,
+      units: 'percent',
+      unitSymbol: '%',
+    },
+    run: {
+      bands: { p10: 10, p50: 20, p90: 30 },
+    },
+  }
+
+  useCanvasStore.setState({
+    hasCompletedFirstRun: true,
+    results: {
+      ...baseResults,
+      status: 'complete',
+      report: fakeReport,
+    },
+    runMeta: {
+      ceeReview: {
+        story: {
+          headline: 'Test Review',
+          key_drivers: [],
+          next_actions: [],
+        },
+      },
+      ceeTrace: {
+        requestId: 'req-degraded',
+        degraded: true, // CEE ran in degraded mode
+        timestamp: '2025-11-20T18:30:00Z',
+      },
+    } as any,
+  } as any)
+
+  render(<OutputsDock />)
+
+  // Degraded banner should appear
+  const banner = screen.getByTestId('cee-degraded-banner')
+  expect(banner).toBeInTheDocument()
+  expect(banner).toHaveTextContent('Partial analysis:')
+  expect(banner).toHaveTextContent('Decision Review ran with reduced functionality')
+  expect(banner).toHaveAttribute('role', 'alert')
+
+  // Decision Review should still render (non-blocking)
+  expect(screen.getByTestId('decision-review-ready')).toBeInTheDocument()
+})
+
+it('does NOT show degraded banner when ceeTrace.degraded is false', () => {
+  const baseResults = useCanvasStore.getState().results
+
+  const fakeReport: any = {
+    results: {
+      conservative: 10,
+      likely: 20,
+      optimistic: 30,
+      units: 'percent',
+      unitSymbol: '%',
+    },
+    run: {
+      bands: { p10: 10, p50: 20, p90: 30 },
+    },
+  }
+
+  useCanvasStore.setState({
+    hasCompletedFirstRun: true,
+    results: {
+      ...baseResults,
+      status: 'complete',
+      report: fakeReport,
+    },
+    runMeta: {
+      ceeReview: {
+        story: {
+          headline: 'Test Review',
+          key_drivers: [],
+          next_actions: [],
+        },
+      },
+      ceeTrace: {
+        requestId: 'req-normal',
+        degraded: false, // CEE ran normally
+        timestamp: '2025-11-20T18:30:00Z',
+      },
+    } as any,
+  } as any)
+
+  render(<OutputsDock />)
+
+  // Banner should NOT appear
+  expect(screen.queryByTestId('cee-degraded-banner')).not.toBeInTheDocument()
+
+  // Decision Review should still render
+  expect(screen.getByTestId('decision-review-ready')).toBeInTheDocument()
+})
+
+it('renders Results immediately without waiting for CEE (non-blocking verification)', () => {
+  const baseResults = useCanvasStore.getState().results
+
+  const fakeReport: any = {
+    results: {
+      conservative: 10,
+      likely: 20,
+      optimistic: 30,
+      units: 'percent',
+      unitSymbol: '%',
+    },
+    run: {
+      bands: { p10: 10, p50: 20, p90: 30 },
+    },
+  }
+
+  // Set up Results as complete, but CEE still loading (no ceeReview/ceeError, only ceeTrace)
+  useCanvasStore.setState({
+    hasCompletedFirstRun: true,
+    results: {
+      ...baseResults,
+      status: 'complete', // Results are complete
+      report: fakeReport,
+    },
+    runMeta: {
+      // CEE engaged but no review/error yet (simulates CEE still processing)
+      ceeTrace: {
+        requestId: 'req-processing',
+        degraded: false,
+        timestamp: '2025-11-20T18:30:00Z',
+      },
+    } as any,
+  } as any)
+
+  render(<OutputsDock />)
+
+  // Results should render immediately (non-blocking)
+  const summary = screen.getByTestId('outputs-inline-summary')
+  expect(summary).toBeInTheDocument()
+  expect(screen.getByText('Expected Value')).toBeInTheDocument()
+
+  // Verify the KPI values are rendered (multiple instances OK - one in headline, one in range chips)
+  expect(screen.getAllByText('20.0%').length).toBeGreaterThan(0)
+
+  // Decision Review shows empty state (CEE engaged but no review yet)
+  expect(screen.getByTestId('decision-review-empty')).toBeInTheDocument()
+
+  // Core results are fully accessible - not blocked by CEE
+  expect(screen.getByText('Range')).toBeInTheDocument()
+})
+
 function seedRunHistory(runs: StoredRun[]): void {
   localStorage.setItem(RUN_HISTORY_STORAGE_KEY, JSON.stringify(runs))
 }

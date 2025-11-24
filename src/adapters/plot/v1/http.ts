@@ -23,6 +23,7 @@ import {
   isRetryableErrorCode,
 } from './constants'
 import { validatePayloadSize } from './payloadGuard'
+import { parseCeeDebugHeaders } from '../../../canvas/utils/ceeDebugHeaders' // Phase 1 Section 4.1
 
 const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
@@ -264,7 +265,18 @@ async function runSyncOnce(
       throw await mapHttpError(response)
     }
 
-    return await response.json()
+    // Phase 1 Section 4.1: Parse CEE debug headers (dev-only)
+    const result: V1SyncRunResponse = await response.json()
+
+    // Parse debug headers if available (may not exist in test mocks)
+    if (response.headers) {
+      const debugHeaders = parseCeeDebugHeaders(response.headers)
+      if (Object.keys(debugHeaders).length > 0) {
+        (result as any).__ceeDebugHeaders = debugHeaders
+      }
+    }
+
+    return result
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
       throw {

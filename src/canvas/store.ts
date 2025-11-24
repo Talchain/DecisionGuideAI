@@ -18,6 +18,7 @@ import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/typ
 import type { Document, Citation } from './share/types'
 import type { Snapshot, DecisionRationale } from './snapshots/types'
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from './decisionReview/types'
+import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 
@@ -67,6 +68,7 @@ export type RunMetaState = {
   ceeReview?: CeeDecisionReviewPayload | null
   ceeTrace?: CeeTraceMeta | null
   ceeError?: CeeErrorViewModel | null
+  ceeDebugHeaders?: CeeDebugHeaders // Phase 1 Section 4.1: Dev-only debug headers
 }
 
 const initialNodes: Node[] = []

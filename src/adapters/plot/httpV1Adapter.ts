@@ -255,7 +255,15 @@ export const httpV1Adapter = {
         console.log(`✅ [httpV1] Sync completed: ${response.execution_ms || 0}ms`)
       }
 
-      return mapV1ResultToReport(response, input.template_id, response.execution_ms || 0)
+      const report = mapV1ResultToReport(response, input.template_id, response.execution_ms || 0)
+
+      // Section 4: Wire debug headers through adapter
+      // Extract __ceeDebugHeaders from response and attach to report (non-standard field)
+      if ((response as any).__ceeDebugHeaders) {
+        (report as any).__ceeDebugHeaders = (response as any).__ceeDebugHeaders
+      }
+
+      return report
     } catch (err: any) {
       // Handle validation errors from mapper
       if (err.code === 'LIMIT_EXCEEDED' || err.code === 'BAD_INPUT') {
@@ -525,6 +533,7 @@ export const httpV1Adapter = {
           const ceeReview = (data as any).ceeReview
           const ceeTrace = (data as any).ceeTrace
           const ceeError = (data as any).ceeError
+          const ceeDebugHeaders = (data as any).__ceeDebugHeaders // Section 4: Debug headers
 
           handlers.onDone({
             response_id: report.model_card.response_hash || `http-v1-${Date.now()}`,
@@ -535,6 +544,7 @@ export const httpV1Adapter = {
             ceeReview,
             ceeTrace,
             ceeError,
+            ceeDebugHeaders,
           } as any)
         },
         onError: (error) => {
