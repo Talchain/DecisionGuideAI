@@ -10,6 +10,7 @@ import { isE2EEnabled } from './flags'
 import { isPocOnly } from './lib/poc'
 import { checkAccessValidation } from './lib/auth/accessValidation'
 import { useAuth } from './contexts/AuthContext'
+import { useLimitsStore } from './stores/limitsStore'
 import ErrorBoundary from './components/ErrorBoundary'
 import Navbar from './components/navigation/Navbar'
 
@@ -41,28 +42,37 @@ import CriteriaForm from './components/CriteriaForm'
 import Analysis from './components/Analysis'
 
 import SandboxStreamPanel from './components/SandboxStreamPanel'
-import SandboxV1 from './routes/SandboxV1'
 import GhostPanel from './plotLite/GhostPanel'
 import { DecisionProvider } from './contexts/DecisionContext'
 import { TeamsProvider }  from './contexts/TeamsContext'
 import { TemplatesErrorBoundary } from './routes/templates/TemplatesErrorBoundary'
 
-// Lazy load Templates route for code splitting
+// Lazy load heavy routes for code splitting
+const LazySandboxStreamPanel = lazy(() => import('./components/SandboxStreamPanel'))
+const LazySandboxV1 = lazy(() => import('./routes/SandboxV1'))
 const DecisionTemplates = lazy(() => import('./routes/templates/DecisionTemplates').then(m => ({ default: m.DecisionTemplates })))
 
 export default function App() {
   const location = useLocation()
   const { authenticated, loading } = useAuth()
   const hasValidAccess = checkAccessValidation()
+  const { loadLimits } = useLimitsStore()
 
-  // quick sanity check
+  // quick sanity check + load engine limits
   useEffect(() => {
     supabase.auth.getSession().then(({ data, error }) => {
       if (import.meta.env.DEV && (typeof localStorage !== 'undefined') && localStorage.getItem('debug.logging') === '1') {
         console.log('session: [redacted]', { hasData: !!data, hasError: !!error })
       }
     })
-  }, [])
+
+    // Load engine limits on app mount
+    loadLimits().catch(err => {
+      if (import.meta.env.DEV) {
+        console.error('[App] Failed to load engine limits:', err)
+      }
+    })
+  }, [loadLimits])
 
   const isAuthRoute = [
     '/login','/signup','/forgot-password','/reset-password'
@@ -115,8 +125,22 @@ export default function App() {
                   {/* Public */}
                   <Route path="/" element={<LandingPage />} />
                   <Route path="/about" element={<About />} />
-                  <Route path="/sandbox" element={<SandboxStreamPanel />} />
-                  <Route path="/sandbox-v1" element={<SandboxV1 />} />
+                  <Route
+                    path="/sandbox"
+                    element={
+                      <Suspense fallback={<LoadingSpinner />}>
+                        <LazySandboxStreamPanel />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/sandbox-v1"
+                    element={
+                      <Suspense fallback={<LoadingSpinner />}>
+                        <LazySandboxV1 />
+                      </Suspense>
+                    }
+                  />
                   <Route path="/ghost" element={<GhostPanel />} />
 
                   {/* Auth */}

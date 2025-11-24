@@ -219,14 +219,19 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop (constrained to top/bottom bars so it never covers the toolbar) */}
       <div
-        className="fixed inset-0 bg-black/50 z-[1999]"
+        className="fixed inset-x-0 bg-black/50 z-[1999]"
+        style={{ top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }}
         onClick={handleClose}
       />
 
-      {/* Panel Shell */}
-      <div className="fixed right-0 top-0 bottom-0 z-[2000]" ref={panelRef}>
+      {/* Panel Shell container (also respects top/bottom layout bars) */}
+      <div
+        className="fixed right-0 z-[2000]"
+        ref={panelRef}
+        style={{ top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }}
+      >
         <PanelShell
           icon={<Settings className="w-5 h-5" />}
           title="Inspector"
@@ -236,20 +241,21 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
         >
           {/* Empty state or multi-selection message */}
           {!selectedEdge && (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Settings className="w-12 h-12 text-gray-300 mb-4" />
+            <div className="flex flex-col items-center justify-center py-12 text-center text-ink-900/70">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-sand-50">
+                <Settings className="w-6 h-6 text-ink-900/50" aria-hidden="true" />
+              </div>
               {hasMultipleEdges ? (
                 <>
-                  <p className="text-sm text-gray-600 mb-2">Multiple edges selected</p>
-                  <p className="text-xs text-gray-500">
-                    Inspector only supports editing one edge at a time. <br />
-                    Select a single edge to continue.
+                  <p className="text-sm font-medium">Multiple edges selected</p>
+                  <p className="mt-1 text-xs text-ink-900/60">
+                    Inspector only supports editing one edge at a time. Select a single edge to continue.
                   </p>
                 </>
               ) : (
                 <>
-                  <p className="text-sm text-gray-600 mb-2">Select an edge to inspect</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm font-medium">Select an edge to inspect</p>
+                  <p className="mt-1 text-xs text-ink-900/60">
                     Click an edge on the canvas to view and edit its metadata.
                   </p>
                 </>

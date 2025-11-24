@@ -38,8 +38,8 @@ describe('KeyboardLegend', () => {
       render(<KeyboardLegend isOpen={true} onClose={() => {}} />)
       expect(screen.getByRole('dialog', { name: /keyboard legend/i })).toBeInTheDocument()
       expect(screen.getByText('Graph Operations')).toBeInTheDocument()
-      expect(screen.getByText('Run & Analyse')).toBeInTheDocument()
-      expect(screen.getByText('Weights & Belief Sliders')).toBeInTheDocument()
+      expect(screen.getByText('Run and analyse')).toBeInTheDocument()
+      expect(screen.getByText('Weights and belief sliders')).toBeInTheDocument()
       expect(screen.getByText('Cmd/Ctrl + Enter')).toBeInTheDocument()
     })
 

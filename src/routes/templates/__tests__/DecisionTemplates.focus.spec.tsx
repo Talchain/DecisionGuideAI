@@ -1,9 +1,9 @@
 /**
- * Focus & Keyboard A11y Tests
+ * Focus and keyboard A11y tests
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-describe('DecisionTemplates - Focus & Keyboard A11y', () => {
+describe('DecisionTemplates - Focus and keyboard A11y', () => {
   beforeEach(() => {
     // Mock env token
     vi.stubEnv('VITE_PLOT_API_TOKEN', 'test-token')

@@ -14,6 +14,15 @@
 
 import type { Node, Edge } from '@xyflow/react'
 
+export interface ScenarioFraming {
+  title?: string          // Decision or question
+  goal?: string           // Primary goal or outcome
+  timeline?: string       // Timeline or horizon (free text)
+  constraints?: string    // Key constraints (optional)
+  risks?: string          // Key risks (optional)
+  uncertainties?: string  // Key unknowns (optional)
+}
+
 export interface Scenario {
   id: string // uuid
   name: string
@@ -26,6 +35,9 @@ export interface Scenario {
     edges: Edge[]
   }
   last_result_hash?: string // Most recent analysis hash for this scenario
+  last_run_at?: string // ISO timestamp of last analysis run for this scenario
+  last_run_seed?: string // Seed used for last analysis run
+  framing?: ScenarioFraming
 }
 
 const STORAGE_KEY = 'olumi-canvas-scenarios'
@@ -129,6 +141,10 @@ function reseedIds(nodes: Node[], edges: Edge[], currentCanvasNodes?: Node[], cu
     nodes: remappedNodes,
     edges: remappedEdges
   }
+}
+
+function deepCloneGraph(nodes: Node[], edges: Edge[]): { nodes: Node[]; edges: Edge[] } {
+  return JSON.parse(JSON.stringify({ nodes, edges }))
 }
 
 /**
@@ -246,8 +262,13 @@ export function createScenario(params: {
   edges: Edge[]
   source_template_id?: string
   source_template_version?: string
+  framing?: ScenarioFraming
+  last_result_hash?: string
+  last_run_at?: string
+  last_run_seed?: string
 }): Scenario {
   const now = Date.now()
+  const { nodes, edges } = deepCloneGraph(params.nodes, params.edges)
   const scenario: Scenario = {
     id: generateId(),
     name: params.name,
@@ -256,9 +277,13 @@ export function createScenario(params: {
     source_template_id: params.source_template_id,
     source_template_version: params.source_template_version,
     graph: {
-      nodes: params.nodes,
-      edges: params.edges
-    }
+      nodes,
+      edges
+    },
+    last_result_hash: params.last_result_hash,
+    last_run_at: params.last_run_at,
+    last_run_seed: params.last_run_seed,
+    framing: params.framing
   }
 
   const scenarios = loadScenarios()
@@ -281,9 +306,19 @@ export function updateScenario(id: string, updates: Partial<Omit<Scenario, 'id' 
     return
   }
 
+  const nextUpdates: Partial<Omit<Scenario, 'id' | 'createdAt'>> = { ...updates }
+
+  if (updates.graph) {
+    const { nodes, edges } = deepCloneGraph(updates.graph.nodes, updates.graph.edges)
+    nextUpdates.graph = {
+      nodes,
+      edges,
+    }
+  }
+
   scenarios[index] = {
     ...scenarios[index],
-    ...updates,
+    ...nextUpdates,
     updatedAt: Date.now()
   }
 
@@ -308,13 +343,20 @@ export function duplicateScenario(id: string, newName?: string): Scenario | null
   }
 
   const now = Date.now()
+  const { nodes, edges } = deepCloneGraph(original.graph.nodes, original.graph.edges)
   const duplicate: Scenario = {
     ...original,
     id: generateId(),
     name: newName || `${original.name} (Copy)`,
     createdAt: now,
     updatedAt: now,
-    last_result_hash: undefined // Don't copy last result
+    last_result_hash: undefined, // Don't copy last result
+    last_run_at: undefined,
+    last_run_seed: undefined,
+    graph: {
+      nodes,
+      edges,
+    },
   }
 
   const scenarios = loadScenarios()

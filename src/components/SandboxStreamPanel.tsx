@@ -8,6 +8,7 @@ import { isE2EEnabled } from '../flags'
 import { isConfigDrawerEnabled } from '../flags'
 import { isCanvasEnabled } from '../flags'
 import { useStreamConnection, type StreamConfig } from '../streams/useStreamConnection'
+import { useLimitsStore } from '../stores/limitsStore'
 import StreamParametersPanel from './stream/StreamParametersPanel'
 import { StreamControlBar } from './stream/StreamControlBar'
 import StreamOutputDisplay from './stream/StreamOutputDisplay'
@@ -49,6 +50,9 @@ export default function SandboxStreamPanel() {
     try { if (isE2EEnabled()) { (window as any).__PANEL_RENDERED = true } } catch {}
   }, [])
 
+  // Get engine limits for dynamic thresholds
+  const limits = useLimitsStore(state => state.limits)
+
   // P1 Polish (Task A): Extract flags to StreamFlagsProvider hook
   const {
     simplifyFlag,
@@ -77,7 +81,7 @@ export default function SandboxStreamPanel() {
   const [simplifyOn, setSimplifyOn] = useState<boolean>(false)
   // Compute dynamic simplify threshold per PRD rules
   const width = (() => { try { return (globalThis as any)?.innerWidth || 1024 } catch { return 1024 } })()
-  const T = computeSimplifyThreshold({ nodeCount: graph.nodes.length, width, defaultT: 0.3 })
+  const T = computeSimplifyThreshold({ nodeCount: graph.nodes.length, width, defaultT: 0.3, maxNodes: limits?.max_nodes })
   const filteredEdges = useMemo(() => simplifyEdges(graph.edges, simplifyOn && simplifyFlag, T), [graph, simplifyOn, simplifyFlag, T])
   const nHidden = graph.edges.length - filteredEdges.length
   const bands = useMemo(() => bandEdgesByWeight(filteredEdges as any), [filteredEdges])
@@ -104,7 +108,7 @@ export default function SandboxStreamPanel() {
   const [ariaGuidedMsg, setAriaGuidedMsg] = useState<string>('')
 
   const [listFirst, setListFirst] = useState<boolean>(() => mobileGuardFlag && isNarrowViewport())
-  const caps = useMemo(() => mobileGuardFlag ? getMobileCaps(graph.nodes.length) : { warn: false, stop: false, message: null as string | null }, [mobileGuardFlag, graph.nodes.length])
+  const caps = useMemo(() => mobileGuardFlag ? getMobileCaps(graph.nodes.length, limits?.max_nodes) : { warn: false, stop: false, message: null as string | null }, [mobileGuardFlag, graph.nodes.length, limits?.max_nodes])
   const listContainerRef = useRef<HTMLDivElement | null>(null)
   const onListKeyDown = (e: React.KeyboardEvent) => {
     const key = e.key

@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { plot } from '../../adapters/plot'
 import type { RunRequest, ErrorV1, ReportV1 } from '../../adapters/plot/types'
+import { generateIdempotencyKey, isCeeIdempotencyEnabled } from '../../utils/idempotency'
 import { mapErrorToUserMessage } from '../utils/errorTaxonomy'
 
 interface UseResultsRunReturn {
@@ -46,7 +47,20 @@ export function useResultsRun(): UseResultsRunReturn {
     resultsStart({ seed, wasForced: options?.forceRerun })
 
     // Reset run metadata for new run
-    setRunMeta({ diagnostics: undefined, correlationIdHeader: undefined, degraded: undefined })
+    setRunMeta({
+      diagnostics: undefined,
+      correlationIdHeader: undefined,
+      degraded: undefined,
+      ceeReview: null,
+      ceeTrace: null,
+      ceeError: null,
+    })
+
+    // Decide whether to attach an Idempotency-Key for this run. In
+    // production this is always enabled; in development it can be
+    // toggled off via the debug tray.
+    const shouldAttachIdempotencyKey = isCeeIdempotencyEnabled()
+    const idempotencyKey = shouldAttachIdempotencyKey ? generateIdempotencyKey() : undefined
 
     // Check if adapter supports streaming
     const adapter = plot as any
@@ -55,8 +69,9 @@ export function useResultsRun(): UseResultsRunReturn {
     if (hasStreaming) {
       // Use streaming API - wrap in try/catch to handle setup errors
       try {
-        // Use bumped seed if force-rerun
-        const actualRequest = options?.forceRerun ? { ...request, seed } : request
+        // Use bumped seed if force-rerun and attach idempotency key when enabled
+        const baseRequest: RunRequest = options?.forceRerun ? { ...request, seed } : request
+        const actualRequest: RunRequest = idempotencyKey ? { ...baseRequest, idempotencyKey } : baseRequest
         cancelRef.current = adapter.stream.run(actualRequest, {
           onHello: (data: { response_id: string }) => {
             resultsConnecting(data.response_id)
@@ -80,23 +95,42 @@ export function useResultsRun(): UseResultsRunReturn {
           }) => {
             const report = data.report
 
+            const anyData = data as any
+            const ceeReview = anyData.ceeReview ?? null
+            const ceeTrace = anyData.ceeTrace ?? null
+            const ceeError = anyData.ceeError ?? null
+
             // Extract drivers from report (if present)
             // Note: Current ReportV1 has drivers as labels, not IDs
             // We'll need to map them later when we have node/edge metadata
             const drivers = undefined // TODO: Map report.drivers to node/edge IDs
 
+            // Persist results and any CEE metadata into history
             resultsComplete({
               report,
               hash: report.model_card.response_hash,
-              drivers
+              drivers,
+              ceeReview,
+              ceeTrace,
+              ceeError,
             })
 
-            // Capture diagnostics + correlation metadata when available
-            if (data.diagnostics || data.correlationIdHeader || typeof data.degraded === 'boolean') {
+            // Capture diagnostics, correlation metadata, and any CEE metadata when available
+            if (
+              data.diagnostics ||
+              data.correlationIdHeader ||
+              typeof data.degraded === 'boolean' ||
+              ceeReview ||
+              ceeTrace ||
+              ceeError
+            ) {
               setRunMeta({
                 diagnostics: data.diagnostics,
                 correlationIdHeader: data.correlationIdHeader,
-                degraded: data.degraded
+                degraded: data.degraded,
+                ceeReview,
+                ceeTrace,
+                ceeError,
               })
             }
             cancelRef.current = null
@@ -105,7 +139,7 @@ export function useResultsRun(): UseResultsRunReturn {
             // Map error to user-friendly message
             const friendlyError = mapErrorToUserMessage({
               code: error.code,
-              status: error.status,
+              status: (error as any).status,
               message: error.error,
               retryAfter: error.retry_after
             })
@@ -126,7 +160,7 @@ export function useResultsRun(): UseResultsRunReturn {
         // Map error to user-friendly message
         const friendlyError = mapErrorToUserMessage({
           code: error.code,
-          status: error.status,
+          status: (error as any).status,
           message: error.error || error.message
         })
 
@@ -143,8 +177,9 @@ export function useResultsRun(): UseResultsRunReturn {
         // Show preparing state briefly
         await new Promise(resolve => setTimeout(resolve, 200))
 
-        // Use bumped seed if force-rerun
-        const actualRequest = options?.forceRerun ? { ...request, seed } : request
+        // Use bumped seed if force-rerun and attach idempotency key when enabled
+        const baseRequest: RunRequest = options?.forceRerun ? { ...request, seed } : request
+        const actualRequest: RunRequest = idempotencyKey ? { ...baseRequest, idempotencyKey } : baseRequest
         const report = await plot.run(actualRequest)
 
         resultsComplete({
@@ -158,7 +193,7 @@ export function useResultsRun(): UseResultsRunReturn {
         // Map error to user-friendly message
         const friendlyError = mapErrorToUserMessage({
           code: error.code,
-          status: error.status,
+          status: (error as any).status,
           message: error.error || error.message,
           retryAfter: error.retry_after
         })

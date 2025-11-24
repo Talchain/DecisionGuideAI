@@ -237,7 +237,7 @@ export function CoachMarks({ show, onComplete, steps = DEFAULT_STEPS }: CoachMar
 
       {/* Tooltip */}
       <div
-        className="fixed z-50 w-80 bg-white rounded-lg shadow-2xl p-6"
+        className="fixed z-50 w-80 bg-white rounded-lg shadow-panel p-6"
         style={tooltipStyle}
         role="dialog"
         aria-labelledby="coach-mark-title"

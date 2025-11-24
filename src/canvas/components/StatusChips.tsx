@@ -8,6 +8,7 @@
 
 import { AlertTriangle } from 'lucide-react'
 import { useEngineLimits } from '../hooks/useEngineLimits'
+import { deriveLimitsStatus } from '../utils/limitsStatus'
 
 interface StatusChipsProps {
   currentNodes?: number
@@ -22,7 +23,7 @@ function formatTimestamp(timestamp: number): string {
 }
 
 export function StatusChips({ currentNodes = 0, currentEdges = 0, className = '', onClick }: StatusChipsProps) {
-  const { limits, loading, error, fetchedAt, retry } = useEngineLimits()
+  const { limits, loading, error, fetchedAt, retry, source } = useEngineLimits()
 
   // Error state: limits unavailable
   if (error) {
@@ -61,25 +62,29 @@ export function StatusChips({ currentNodes = 0, currentEdges = 0, className = ''
     )
   }
 
-  const nodesPercent = Math.round((currentNodes / limits.nodes.max) * 100)
-  const edgesPercent = Math.round((currentEdges / limits.edges.max) * 100)
+  const limitsStatus = deriveLimitsStatus(limits, currentNodes, currentEdges)
+
+  const nodesPercent = limitsStatus?.nodes.percent ?? 0
+  const edgesPercent = limitsStatus?.edges.percent ?? 0
 
   // Determine highest usage to set chip color
   const maxPercent = Math.max(nodesPercent, edgesPercent)
   const getChipColor = () => {
     if (maxPercent >= 90) return 'text-danger-700 bg-danger-50 border-danger-200 hover:bg-danger-100'
     if (maxPercent >= 70) return 'text-warning-700 bg-warning-50 border-warning-200 hover:bg-warning-100'
-    return 'text-gray-700 bg-gray-50 border-gray-200 hover:bg-gray-100'
+    return 'text-success-700 bg-success-50 border-success-200 hover:bg-success-100'
   }
 
   const timestamp = fetchedAt ? formatTimestamp(fetchedAt) : 'Unknown'
+  const zoneLabel = limitsStatus?.zoneLabel ?? 'Comfortable'
+  const sourceLabel = source === 'fallback' ? 'Fallback' : source === 'live' ? 'Live' : 'Unknown'
 
   return (
     <button
       onClick={onClick}
       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${getChipColor()} ${onClick ? 'cursor-pointer' : ''} ${className}`}
-      title={`Nodes: ${currentNodes}/${limits.nodes.max} (${nodesPercent}%)\nEdges: ${currentEdges}/${limits.edges.max} (${edgesPercent}%)\nLast fetched: ${timestamp}${onClick ? '\nClick for details' : ''}`}
-      aria-label={`Graph limits: ${currentNodes} of ${limits.nodes.max} nodes, ${currentEdges} of ${limits.edges.max} edges${onClick ? ' - click for details' : ''}`}
+      title={`Status: ${zoneLabel}\nNodes: ${currentNodes}/${limits.nodes.max} (${nodesPercent}%)\nEdges: ${currentEdges}/${limits.edges.max} (${edgesPercent}%)\nSource: ${sourceLabel}\nLast fetched: ${timestamp}${onClick ? '\nClick for details' : ''}`}
+      aria-label={`Graph limits (${zoneLabel}): ${currentNodes} of ${limits.nodes.max} nodes, ${currentEdges} of ${limits.edges.max} edges${onClick ? ' - click for details' : ''}`}
       disabled={!onClick}
     >
       <span className="tabular-nums">

@@ -25,9 +25,12 @@ export function RangeChips({ conservative, likely, optimistic, units = 'percent'
       className="range-chips-container"
       style={{
         display: 'flex',
-        gap: '0.5rem',
+        gap: '0.375rem',
         flexWrap: 'wrap'
       }}
+      role="list"
+      aria-label="Outcome range"
+      aria-live="polite"
     >
       {ranges.map((range) => (
         <RangeChip
@@ -63,16 +66,18 @@ function RangeChip({ label, value, variant, units, unitSymbol }: RangeChipProps)
   return (
     <div
       className={`
-        flex flex-col items-center flex-1 min-w-[100px] p-3 rounded-lg border cursor-default
+        flex flex-col items-center flex-1 min-w-[96px] p-2.5 rounded-lg border cursor-default
         transition-all duration-200
         ${variantClasses[variant]}
       `}
       title={`${label}: ${formattedValue}`}
+      role="listitem"
+      aria-label={`${label} estimate: ${formattedValue}`}
     >
-      <div className="text-xl font-semibold mb-1">
+      <div className="text-lg font-semibold mb-1">
         {formattedValue}
       </div>
-      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+      <div className="text-[11px] font-medium text-ink-900/70 uppercase tracking-wide">
         {label}
       </div>
     </div>

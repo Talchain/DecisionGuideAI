@@ -72,7 +72,7 @@ export function KeyboardCheatsheet({ isOpen, onClose }: KeyboardCheatsheetProps)
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-y-auto"
+        className="bg-white rounded-2xl shadow-panel w-full max-w-3xl max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-label="Keyboard shortcuts"

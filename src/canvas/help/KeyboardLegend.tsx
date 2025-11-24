@@ -124,7 +124,7 @@ const SHORTCUT_SECTIONS: ShortcutSection[] = [
     ],
   },
   {
-    title: 'Editing & Documents',
+    title: 'Editing and documents',
     items: [
       { keys: ['F2'], description: 'Rename document, node, or edge' },
       { keys: ['Cmd/Ctrl + D'], description: 'Toggle Documents drawer' },
@@ -132,14 +132,14 @@ const SHORTCUT_SECTIONS: ShortcutSection[] = [
     ],
   },
   {
-    title: 'Run & Analyse',
+    title: 'Run and analyse',
     items: [
       { keys: ['Cmd/Ctrl + Enter'], description: 'Run analysis' },
       { keys: ['Esc'], description: 'Stop run or close active overlay' },
     ],
   },
   {
-    title: 'Weights & Belief Sliders',
+    title: 'Weights and belief sliders',
     items: [
       { keys: ['Arrow keys'], description: 'Adjust weight / belief by 1%' },
       { keys: ['Shift + Arrow'], description: 'Adjust weight / belief by 10%' },
@@ -183,7 +183,7 @@ export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
     >
       <div
         ref={panelRef}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[80vh] overflow-hidden focus:outline-none"
+        className="bg-white rounded-xl shadow-panel w-full max-w-3xl max-h-[80vh] overflow-hidden focus:outline-none"
         tabIndex={-1}
         onClick={event => event.stopPropagation()}
       >

@@ -15,7 +15,7 @@
 
 import { useEffect, useRef } from 'react'
 import type { SnapshotNode, SnapshotEdge } from './snapshots'
-import { sanitizeLabel } from '../utils/sanitize'
+import { sanitizeLabel } from '../persist'
 
 export interface VisualDiffProps {
   /** Whether the diff overlay is enabled */

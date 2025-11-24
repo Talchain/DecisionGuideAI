@@ -5,16 +5,15 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { DraftForm } from '../DraftForm'
-import type { DraftRequest } from '../../../adapters/assistants/types'
 
 describe('DraftForm (M2.2)', () => {
   it('renders form with all fields', () => {
     const onSubmit = vi.fn()
     render(<DraftForm onSubmit={onSubmit} isSubmitting={false} />)
 
-    expect(screen.getByLabelText(/describe your decision problem/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/additional context/i)).toBeInTheDocument()
-    expect(screen.getByText(/attach documents/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/what decision are you making/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/what else should olumi know/i)).toBeInTheDocument()
+    expect(screen.getByText(/supporting documents/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /draft my model/i })).toBeInTheDocument()
   })
 
@@ -22,7 +21,7 @@ describe('DraftForm (M2.2)', () => {
     const onSubmit = vi.fn()
     render(<DraftForm onSubmit={onSubmit} isSubmitting={false} />)
 
-    const promptInput = screen.getByLabelText(/describe your decision problem/i)
+    const promptInput = screen.getByLabelText(/what decision are you making/i)
     fireEvent.change(promptInput, { target: { value: 'Should we launch product X?' } })
 
     const submitButton = screen.getByRole('button', { name: /draft my model/i })
@@ -41,10 +40,10 @@ describe('DraftForm (M2.2)', () => {
     const onSubmit = vi.fn()
     render(<DraftForm onSubmit={onSubmit} isSubmitting={false} />)
 
-    const promptInput = screen.getByLabelText(/describe your decision problem/i)
+    const promptInput = screen.getByLabelText(/what decision are you making/i)
     fireEvent.change(promptInput, { target: { value: 'Launch decision' } })
 
-    const contextInput = screen.getByLabelText(/additional context/i)
+    const contextInput = screen.getByLabelText(/what else should olumi know/i)
     fireEvent.change(contextInput, { target: { value: 'Q4 2025 timeline' } })
 
     const submitButton = screen.getByRole('button', { name: /draft my model/i })
@@ -71,7 +70,7 @@ describe('DraftForm (M2.2)', () => {
     const onSubmit = vi.fn()
     render(<DraftForm onSubmit={onSubmit} isSubmitting={true} />)
 
-    const promptInput = screen.getByLabelText(/describe your decision problem/i)
+    const promptInput = screen.getByLabelText(/what decision are you making/i)
     expect(promptInput).toBeDisabled()
 
     const submitButton = screen.getByRole('button', { name: /generating draft/i })

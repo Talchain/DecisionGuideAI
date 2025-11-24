@@ -74,7 +74,7 @@ export function EdgeEditPopover({ edge, position, onUpdate, onClose }: EdgeEditP
   return (
     <div
       ref={popoverRef}
-      className="fixed bg-white border border-gray-300 rounded-lg shadow-lg p-4 z-[3000]"
+      className="fixed bg-white border border-gray-300 rounded-lg shadow-panel p-4 z-[3000]"
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,

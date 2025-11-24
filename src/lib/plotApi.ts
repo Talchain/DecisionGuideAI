@@ -35,7 +35,7 @@ export type ApiError = { code: string; message: string; field?: string; max?: nu
 
 const API_BASE = import.meta.env.VITE_PLOT_API_BASE_URL || 'https://plot-api.example.com'
 const UI_BUILD = import.meta.env.VITE_BUILD_ID || 'dev'
-const DEFAULT_LIMITS: ApiLimits = { max_nodes: 12, max_edges: 20 }
+const DEFAULT_LIMITS: ApiLimits = { max_nodes: 50, max_edges: 200 }
 const CACHE_TTL_MS = 60_000
 
 let cachedLimits: ApiLimits | null = null

@@ -13,7 +13,7 @@ export default function SafeMode() {
     }
     
     // Use proxy only (NEVER call origin directly from browser - causes CORS)
-    const proxyBase = (import.meta as any)?.env?.VITE_PLOT_PROXY_BASE || '/api/plot'
+    const proxyBase = (import.meta as any)?.env?.VITE_PLOT_PROXY_BASE || '/bff/engine'
     const urls = [`${proxyBase}/v1/health`]
     ;(async () => {
       for (const u of urls) {

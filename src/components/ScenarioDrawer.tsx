@@ -83,26 +83,26 @@ export default function ScenarioDrawer({ open, onClose, restoreFocusRef, seed, b
     >
       <div
         ref={drawerRef}
-        className="w-[24rem] h-full bg-white shadow-xl p-4 border-l border-gray-200 flex flex-col gap-3"
+        className="w-[24rem] h-full bg-paper-50 shadow-panel p-4 border-l border-sand-200 flex flex-col gap-3"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="font-semibold text-base mb-2">Scenarios</h2>
+        <h2 className="font-semibold text-base mb-2 text-ink-900">Scenarios</h2>
 
         <div className="space-y-2">
-          <label className="text-sm text-gray-700 flex flex-col gap-1">
+          <label className="text-sm text-ink-900/80 flex flex-col gap-1">
             <span>Name</span>
             <input ref={firstRef} data-testid="scenario-name" type="text" className="px-2 py-1 border rounded" value={name} onChange={(e) => setName(e.target.value)} />
           </label>
-          <label className="text-sm text-gray-700 flex flex-col gap-1">
+          <label className="text-sm text-ink-900/80 flex flex-col gap-1">
             <span>Description (optional)</span>
             <textarea data-testid="scenario-desc" className="px-2 py-1 border rounded" rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} />
           </label>
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-sm text-ink-900/80">
             <input type="checkbox" data-testid="scenario-remember" checked={remember} onChange={(e) => { setRememberState(e.target.checked); try { setRemember(e.target.checked) } catch {} }} />
             <span>Remember last template</span>
           </label>
           <div className="flex items-center gap-2">
-            <button type="button" data-testid="scenario-save-btn" className="text-xs px-2 py-1 rounded border border-gray-300" onClick={onSave} disabled={!name.trim()}>Save</button>
+            <button type="button" data-testid="scenario-save-btn" className="text-xs px-2 py-1 rounded border border-sand-200" onClick={onSave} disabled={!name.trim()}>Save</button>
           </div>
           {toast && (
             <div data-testid="scenarios-toast" aria-hidden="true" className="text-xs text-emerald-700">{toast}</div>

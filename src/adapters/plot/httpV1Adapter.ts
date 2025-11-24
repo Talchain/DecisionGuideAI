@@ -27,6 +27,18 @@ import { runStream as v1runStream } from './v1/sseClient'
 import { V1_LIMITS } from './v1/types'
 import { graphToV1Request, computeClientHash, toCanonicalRun, type ReactFlowGraph } from './v1/mapper'
 import { shouldUseSync } from './v1/constants'
+import { getDiagnosticsFromCompleteEvent, getGraphCaps } from './v1/sdkHelpers'
+
+const ENABLE_HTTPV1_DEBUG: boolean = (() => {
+  try {
+    const env: any = (import.meta as any)?.env || {}
+    return !!(env?.DEV) && String(env?.VITE_DEBUG_HTTPV1) === '1'
+  } catch {
+    return false
+  }
+})()
+
+let loggedLimitsSuccess = false
 
 /**
  * Load template graph from live v1 endpoint
@@ -199,6 +211,11 @@ export const httpV1Adapter = {
     try {
       const v1Request = mapGraphToV1Request(graph, input.seed)
 
+      // Forward idempotency key when provided so the Engine can engage CEE
+      if (input.idempotencyKey) {
+        v1Request.idempotencyKey = input.idempotencyKey
+      }
+
       // Add outcome_node if provided
       if (input.outcome_node) {
         v1Request.outcome_node = input.outcome_node
@@ -207,6 +224,17 @@ export const httpV1Adapter = {
       // Add debug flag if requested
       if (input.include_debug) {
         v1Request.include_debug = true
+      }
+
+      // Add CEE trigger fields if provided
+      if (input.scenario_id) {
+        v1Request.scenario_id = input.scenario_id
+      }
+      if (input.scenario_name) {
+        v1Request.scenario_name = input.scenario_name
+      }
+      if (input.save !== undefined) {
+        v1Request.save = input.save
       }
 
       const nodeCount = graph.nodes.length
@@ -221,7 +249,9 @@ export const httpV1Adapter = {
       const response = await v1http.runSync(v1Request)
 
       if (import.meta.env.DEV) {
-        console.log('[httpV1] Full response:', JSON.stringify(response, null, 2))
+        if (ENABLE_HTTPV1_DEBUG) {
+          console.log('[httpV1] Full response:', JSON.stringify(response, null, 2))
+        }
         console.log(`✅ [httpV1] Sync completed: ${response.execution_ms || 0}ms`)
       }
 
@@ -280,7 +310,7 @@ export const httpV1Adapter = {
         v1http.templates(),
       ])
 
-      if (import.meta.env.DEV) {
+      if (ENABLE_HTTPV1_DEBUG) {
         console.log('[httpV1Adapter] template() graphResponse:', JSON.stringify(graphResponse, null, 2))
       }
 
@@ -307,7 +337,7 @@ export const httpV1Adapter = {
         graph,
       }
 
-      if (import.meta.env.DEV) {
+      if (ENABLE_HTTPV1_DEBUG) {
         console.log('[httpV1Adapter] template() returning:', JSON.stringify(result, null, 2))
       }
 
@@ -325,19 +355,21 @@ export const httpV1Adapter = {
     try {
       const response = await v1http.limits()
 
-      if (import.meta.env.DEV) {
+      if (import.meta.env.DEV && !loggedLimitsSuccess) {
         console.log('[httpV1] /v1/limits succeeded (live)')
+        loggedLimitsSuccess = true
       }
 
-      // Map backend format (max_nodes, max_edges, max_body_kb) to UI format (nodes.max, edges.max, body_kb.max)
+      // Map backend format (limits.v1) to UI format using central helper
+      const caps = getGraphCaps(response)
       const mappedData: LimitsV1 = {
-        nodes: { max: (response as any).max_nodes || response.nodes?.max || V1_LIMITS.MAX_NODES },
-        edges: { max: (response as any).max_edges || response.edges?.max || V1_LIMITS.MAX_EDGES },
+        nodes: { max: caps.maxNodes },
+        edges: { max: caps.maxEdges },
       }
 
       // Include max_body_kb if present (v1.2: 96 KB prod limit)
-      if ((response as any).max_body_kb) {
-        mappedData.body_kb = { max: (response as any).max_body_kb }
+      if (caps.maxBodyKb !== undefined) {
+        mappedData.body_kb = { max: caps.maxBodyKb }
       }
 
       // Include engine_p95_ms_budget if present (v1.2 feature)
@@ -424,7 +456,7 @@ export const httpV1Adapter = {
       // Call v1 validate endpoint for server-side validation
       const response = await v1http.validate({ graph: v1Request.graph })
 
-      if (import.meta.env.DEV) {
+      if (ENABLE_HTTPV1_DEBUG) {
         console.log('[httpV1] Validation result:', JSON.stringify(response, null, 2))
       }
 
@@ -483,10 +515,16 @@ export const httpV1Adapter = {
           const executionMs = Date.now() - startTime
           const report = mapV1ResultToReport(data, input.template_id, executionMs)
 
-          const completePayload: any = data
-          const diagnostics = completePayload.diagnostics
-          const correlationIdHeader = completePayload.correlation_id_header as string | undefined
-          const degraded = typeof completePayload.degraded === 'boolean' ? completePayload.degraded : undefined
+          const diagnostics = getDiagnosticsFromCompleteEvent(data)
+          const correlationIdHeader = data.correlation_id_header as string | undefined
+          const degraded = typeof data.degraded === 'boolean' ? data.degraded : undefined
+
+          // Pass through any CEE-related metadata from the COMPLETE event without
+          // assuming a strict backend schema. The UI layer is responsible for
+          // interpreting these payloads.
+          const ceeReview = (data as any).ceeReview
+          const ceeTrace = (data as any).ceeTrace
+          const ceeError = (data as any).ceeError
 
           handlers.onDone({
             response_id: report.model_card.response_hash || `http-v1-${Date.now()}`,
@@ -494,14 +532,16 @@ export const httpV1Adapter = {
             diagnostics,
             correlationIdHeader,
             degraded,
+            ceeReview,
+            ceeTrace,
+            ceeError,
           } as any)
         },
         onError: (error) => {
           // If SSE fails with 404 or 5xx, fall back to sync (if not already aborted)
-          if (
-            !fallbackAborted &&
-            (error.code === 'NOT_FOUND' || error.code === 'SERVER_ERROR' || error.code === 'TIMEOUT')
-          ) {
+          const shouldFallback = ['NOT_FOUND', 'SERVER_ERROR', 'TIMEOUT'].includes(error.code as any)
+
+          if (!fallbackAborted && shouldFallback) {
             if (import.meta.env.DEV) {
               console.warn(
                 `[httpV1] Stream failed (${error.code}), falling back to sync endpoint`
@@ -527,6 +567,22 @@ export const httpV1Adapter = {
         try {
           const graph = input.graph || await loadTemplateGraph(input.template_id)
           const v1Request = mapGraphToV1Request(graph, input.seed)
+
+          // Forward idempotency key when provided so the Engine can engage CEE
+          if (input.idempotencyKey) {
+            v1Request.idempotencyKey = input.idempotencyKey
+          }
+
+          // Add CEE trigger fields if provided
+          if (input.scenario_id) {
+            v1Request.scenario_id = input.scenario_id
+          }
+          if (input.scenario_name) {
+            v1Request.scenario_name = input.scenario_name
+          }
+          if (input.save !== undefined) {
+            v1Request.save = input.save
+          }
 
           if (import.meta.env.DEV) {
             const nodeCount = graph.nodes.length

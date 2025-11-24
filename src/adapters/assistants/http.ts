@@ -9,6 +9,59 @@ const getBffBase = (): string => {
   return import.meta.env.VITE_BFF_BASE || '/bff/assist'
 }
 
+const nowIso = () => new Date().toISOString()
+
+function makeHttpAssistError(status: number, body: any, correlationId: string): AssistError {
+  let code: AssistError['code']
+  let message: string
+
+  if (status === 400) {
+    code = 'BAD_INPUT'
+    message = body?.error || "We couldn't process that request. Please check your description and try again."
+  } else if (status === 404) {
+    code = 'SERVER_ERROR'
+    message = 'Drafting is currently unavailable. Please try again later.'
+  } else if (status >= 500 && status < 600) {
+    code = 'SERVER_ERROR'
+    message = "We couldn't reach the service. Please try again in a moment."
+  } else {
+    code = 'SERVER_ERROR'
+    message = body?.error || 'Draft failed. Please try again.'
+  }
+
+  return {
+    code,
+    message,
+    details: {
+      ...body,
+      status,
+      correlationId,
+      timestamp: nowIso(),
+    },
+  }
+}
+
+function makeTimeoutError(): AssistError {
+  return {
+    code: 'TIMEOUT',
+    message: 'Request timed out. Please try again.',
+    details: {
+      timestamp: nowIso(),
+    },
+  }
+}
+
+function makeNetworkError(err: unknown): AssistError {
+  return {
+    code: 'NETWORK_ERROR',
+    message: 'Connection lost. Check your internet and try again.',
+    details: {
+      rawError: err instanceof Error ? err.message : String(err),
+      timestamp: nowIso(),
+    },
+  }
+}
+
 /**
  * Generate correlation ID for request tracking (M2.6)
  */
@@ -17,7 +70,7 @@ function generateCorrelationId(): string {
 }
 
 /**
- * POST /bff/assist/draft-graph (sync)
+ * POST /bff/engine/v1/draft-flows (sync)
  */
 export async function draftGraph(
   request: DraftRequest,
@@ -27,7 +80,7 @@ export async function draftGraph(
   const correlationId = options?.correlationId || generateCorrelationId()
 
   try {
-    const response = await fetch(`${base}/draft-graph`, {
+    const response = await fetch(`${base}/v1/draft-flows`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -42,33 +95,23 @@ export async function draftGraph(
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({}))
-      throw {
-        code: response.status === 400 ? 'BAD_INPUT' : 'SERVER_ERROR',
-        message: errorBody.error || `HTTP ${response.status}`,
-        details: errorBody,
-      } as AssistError
+      throw makeHttpAssistError(response.status, errorBody, correlationId)
     }
 
     return await response.json()
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw {
-        code: 'TIMEOUT',
-        message: 'Request aborted',
-      } as AssistError
+      throw makeTimeoutError()
     }
     if ((err as any).code) {
       throw err // Already an AssistError
     }
-    throw {
-      code: 'NETWORK_ERROR',
-      message: err instanceof Error ? err.message : String(err),
-    } as AssistError
+    throw makeNetworkError(err)
   }
 }
 
 /**
- * POST /bff/assist/draft-graph/stream (streaming)
+ * POST /bff/engine/v1/draft-flows (streaming)
  * Returns async generator of events
  */
 export async function* draftGraphStream(
@@ -81,41 +124,33 @@ export async function* draftGraphStream(
   let response: Response
 
   try {
-    response = await fetch(`${base}/draft-graph/stream`, {
+    response = await fetch(`${base}/v1/draft-flows`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-correlation-id': correlationId,
+        'Accept': 'text/event-stream',
       },
       body: JSON.stringify({
         path: '/draft-graph/stream',
         payload: request,
+        stream: true,
       }),
       signal: options?.signal,
     })
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({}))
-      throw {
-        code: response.status === 400 ? 'BAD_INPUT' : 'SERVER_ERROR',
-        message: errorBody.error || `HTTP ${response.status}`,
-        details: errorBody,
-      } as AssistError
+      throw makeHttpAssistError(response.status, errorBody, correlationId)
     }
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      throw {
-        code: 'TIMEOUT',
-        message: 'Request aborted',
-      } as AssistError
+      throw makeTimeoutError()
     }
     if ((err as any).code) {
       throw err
     }
-    throw {
-      code: 'NETWORK_ERROR',
-      message: err instanceof Error ? err.message : String(err),
-    } as AssistError
+    throw makeNetworkError(err)
   }
 
   // Parse SSE stream

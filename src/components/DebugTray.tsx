@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, Copy, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useLimitsStore } from '../stores/limitsStore'
+import { isCeeIdempotencyEnabled, setCeeIdempotencyEnabled } from '../utils/idempotency'
 
 interface DebugTrayProps {
   requestId?: string
@@ -37,6 +38,13 @@ export function DebugTray({
   const [isOpen, setIsOpen] = useState(false)
   const [copiedHash, setCopiedHash] = useState(false)
   const { limits } = useLimitsStore()
+  const [ceeIdempotencyEnabled, setCeeIdempotencyEnabledState] = useState<boolean>(() => {
+    try {
+      return isCeeIdempotencyEnabled()
+    } catch {
+      return true
+    }
+  })
 
   // S5-DEBUG: Check if clipboard API is available
   const clipboardAvailable = typeof navigator !== 'undefined' &&
@@ -115,6 +123,31 @@ export function DebugTray({
           <div>
             <div className="text-gray-400 mb-1">Environment:</div>
             <div className="text-gray-300">{import.meta.env.MODE}</div>
+          </div>
+
+          <div>
+            <div className="text-gray-400 mb-1">CEE Idempotency-Key:</div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-300" data-testid="cee-idempotency-status">
+                {ceeIdempotencyEnabled ? 'Enabled' : 'Disabled'}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !ceeIdempotencyEnabled
+                  try {
+                    setCeeIdempotencyEnabled(next)
+                  } catch {
+                    // Ignore storage errors; UI state will still reflect the toggle
+                  }
+                  setCeeIdempotencyEnabledState(next)
+                }}
+                className="px-2 py-1 rounded border border-gray-700 text-[10px] uppercase tracking-wide text-gray-200 hover:bg-gray-800"
+                data-testid="cee-idempotency-toggle"
+              >
+                {ceeIdempotencyEnabled ? 'Disable (dev only)' : 'Enable'}
+              </button>
+            </div>
           </div>
 
           {/* S5-DEBUG: Response Hash (Determinism) */}

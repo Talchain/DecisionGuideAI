@@ -10,13 +10,16 @@ import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
 import type { ReportV1, ErrorV1 } from '../adapters/plot/types'
+import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, type StoredRun } from './store/runHistory'
 import * as scenarios from './store/scenarios'
-import type { Scenario } from './store/scenarios'
+import type { Scenario, ScenarioFraming } from './store/scenarios'
 import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/types'
 import type { Document, Citation } from './share/types'
 import type { Snapshot, DecisionRationale } from './snapshots/types'
+import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from './decisionReview/types'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
+import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 
 /**
  * Generate deterministic content hash using FNV-1a algorithm
@@ -61,6 +64,9 @@ export type RunMetaState = {
   diagnostics?: SseDiagnostics
   correlationIdHeader?: string
   degraded?: boolean
+  ceeReview?: CeeDecisionReviewPayload | null
+  ceeTrace?: CeeTraceMeta | null
+  ceeError?: CeeErrorViewModel | null
 }
 
 const initialNodes: Node[] = []
@@ -95,6 +101,11 @@ interface CanvasState {
   runMeta: RunMetaState
   // Scenario state
   currentScenarioId: string | null  // Active scenario ID
+  currentScenarioFraming: ScenarioFraming | null
+  currentScenarioLastResultHash: string | null  // Most recent analysis hash for the active scenario
+  currentScenarioLastRunAt: string | null  // ISO timestamp of last analysis run for the active scenario
+  currentScenarioLastRunSeed: string | null  // Seed used for last analysis run (stringified)
+  hasCompletedFirstRun: boolean  // True after at least one successful or restored run in this session
   isDirty: boolean  // Has unsaved changes
   isSaving: boolean  // P0-2: Currently saving
   lastSavedAt: number | null  // P0-2: Timestamp of last successful save
@@ -103,10 +114,13 @@ interface CanvasState {
   showInspectorPanel: boolean
   showTemplatesPanel: boolean
   templatesPanelInvoker: HTMLElement | null
+  showDraftChat: boolean
   // M4: Graph Health & Repair
   graphHealth: GraphHealth | null
   showIssuesPanel: boolean
   needleMovers: NeedleMover[]
+  // Phase 3: Interaction enhancements (Set for O(1) lookup)
+  highlightedNodes: Set<string>
   // M5: Grounding & Provenance
   documents: Document[]
   citations: Citation[]
@@ -121,6 +135,7 @@ interface CanvasState {
   selectedSnapshotsForComparison: string[] // Snapshot IDs
   showComparePanel: boolean
   currentDecisionRationale: DecisionRationale | null
+  updateScenarioFraming: (partial: ScenarioFraming) => void
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
@@ -166,7 +181,14 @@ interface CanvasState {
   resultsStart: (params: { seed: number; wasForced?: boolean }) => void
   resultsConnecting: (runId: string) => void
   resultsProgress: (percent: number) => void
-  resultsComplete: (params: { report: ReportV1; hash: string; drivers?: Array<{ kind: 'node' | 'edge'; id: string }> }) => void
+  resultsComplete: (params: {
+    report: ReportV1
+    hash: string
+    drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
+    ceeReview?: CeeDecisionReviewPayload | null
+    ceeTrace?: CeeTraceMeta | null
+    ceeError?: CeeErrorViewModel | null
+  }) => void
   resultsError: (params: { code: string; message: string; retryAfter?: number }) => void
   resultsCancelled: () => void
   resultsReset: () => void
@@ -186,12 +208,15 @@ interface CanvasState {
   setShowInspectorPanel: (show: boolean) => void
   openTemplatesPanel: (invoker?: HTMLElement) => void
   closeTemplatesPanel: () => void
+  setShowDraftChat: (show: boolean) => void
   // M4: Graph Health actions
   validateGraph: () => void
   setShowIssuesPanel: (show: boolean) => void
   applyRepair: (issueId: string) => void
   applyAllRepairs: () => void
   setNeedleMovers: (movers: NeedleMover[]) => void
+  // Phase 3: Interaction actions
+  setHighlightedNodes: (ids: string[]) => void
   // M5: Provenance actions
   addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
   removeDocument: (id: string) => void
@@ -288,30 +313,40 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   runMeta: {},
   // Scenario state
   currentScenarioId: scenarios.getCurrentScenarioId(),
+  currentScenarioFraming: null,
+  currentScenarioLastResultHash: null,
+  currentScenarioLastRunAt: null,
+  currentScenarioLastRunSeed: null,
+  hasCompletedFirstRun: false,
   isDirty: false,
   isSaving: false,  // P0-2: Initially not saving
   lastSavedAt: null,  // P0-2: No save yet
-  // Panel visibility
-  showResultsPanel: false,
-  showInspectorPanel: false,
-  showTemplatesPanel: false,
+  // Phase 3: Panel visibility with persistence
+  ...{
+    showResultsPanel: false,
+    showInspectorPanel: false,
+    showTemplatesPanel: false,
+    showDraftChat: false,
+    showIssuesPanel: false,
+    showProvenanceHub: false,
+    showDocumentsDrawer: false,
+    showComparePanel: false,
+    ...loadUIPreferences(), // Override with persisted preferences
+  },
   templatesPanelInvoker: null,
   // M4: Graph Health & Repair
   graphHealth: null,
-  showIssuesPanel: false,
   needleMovers: [],
+  highlightedNodes: new Set<string>(),
   // M5: Grounding & Provenance
   documents: [],
   citations: [],
-  showProvenanceHub: false,
-  showDocumentsDrawer: false,
   provenanceRedactionEnabled: true, // M5: Redaction ON by default
   // S7-FILEOPS: Document management initial state
   documentSearchQuery: loadSearchQuery(),
   ...loadSortPreferences(),
   // M6: Compare & Decision Rationale
   selectedSnapshotsForComparison: [],
-  showComparePanel: false,
   currentDecisionRationale: null,
 
   createNodeId: () => {
@@ -702,7 +737,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       nodes: imported.nodes,
       edges: imported.edges,
       history: { past: [], future: [] },
-      selection: { nodeIds: new Set(), edgeIds: new Set() }
+      selection: { nodeIds: new Set(), edgeIds: new Set() },
+      showDraftChat: false,
     })
     
     return true
@@ -734,6 +770,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       set({ nodes: layoutedNodes })
     } catch (err) {
       console.error('[CANVAS] Layout failed:', err)
+      // Rethrow so callers can provide user-facing error feedback
+      throw err
     }
   },
 
@@ -835,7 +873,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       edges: [],
       touchedNodeIds: new Set(),
       nextNodeId: 1,
-      nextEdgeId: 1
+      nextEdgeId: 1,
+      showDraftChat: false,
     })
   },
 
@@ -932,7 +971,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       selection: { nodeIds: new Set(), edgeIds: new Set() },
       nextNodeId: 1,
       nextEdgeId: 1,
-      _internal: { lastHistoryHash: historyHash(initialNodes, initialEdges) }
+      _internal: { lastHistoryHash: historyHash(initialNodes, initialEdges) },
+      hasCompletedFirstRun: false,
+      showDraftChat: false,
     })
   },
 
@@ -982,8 +1023,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }))
   },
 
-  resultsComplete: ({ report, hash, drivers }) => {
-    const { nodes, edges, results } = get()
+  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError }) => {
+    const { nodes, edges, results, currentScenarioId } = get()
+
+    const finishedAt = Date.now()
+    const completedAtIso = new Date(finishedAt).toISOString()
+    const seedString = results.seed != null ? String(results.seed) : null
 
     set(s => ({
       results: {
@@ -993,14 +1038,32 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         report,
         hash,
         drivers,
-        finishedAt: Date.now(),
+        finishedAt,
         error: undefined
-      }
+      },
+      currentScenarioLastResultHash: hash ?? null,
+      currentScenarioLastRunAt: completedAtIso,
+      currentScenarioLastRunSeed: seedString,
+      hasCompletedFirstRun: true
     }))
+
+    // Persist last run metadata onto the active scenario record (if any)
+    if (currentScenarioId) {
+      scenarios.updateScenario(currentScenarioId, {
+        last_result_hash: hash,
+        last_run_at: completedAtIso,
+        last_run_seed: seedString || undefined
+      })
+    }
 
     // Save to run history
     if (report && results.seed !== undefined) {
       const graphHash = generateGraphHash(nodes, edges, results.seed)
+
+      const graphSnapshot = JSON.parse(JSON.stringify({ nodes, edges })) as {
+        nodes: typeof nodes
+        edges: typeof edges
+      }
 
       const storedRun: StoredRun = {
         id: results.runId || crypto.randomUUID(),
@@ -1008,7 +1071,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         seed: results.seed,
         hash,
         adapter: 'auto', // TODO: Track actual adapter used
-        summary: report.summary || '',
+        summary: (report as any).summary || '',
         graphHash,
         report,
         drivers: drivers?.map(d => ({
@@ -1016,7 +1079,10 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
           id: d.id,
           label: undefined // Backend should provide label if available
         })),
-        graph: { nodes, edges } // v1.2: Store graph snapshot for computing deltas
+        graph: graphSnapshot, // v1.2: Store graph snapshot for computing deltas
+        ceeReview: ceeReview ?? null,
+        ceeTrace: ceeTrace ?? null,
+        ceeError: ceeError ?? null
       }
 
       const isDuplicate = addRun(storedRun)
@@ -1063,10 +1129,19 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         report: run.report,
         startedAt: run.ts,
         finishedAt: run.ts,
-        drivers: run.drivers,
+        drivers: run.drivers as any,
         error: undefined
       },
-      isDirty: false // Mark as clean since loading historical data
+      runMeta: {
+        diagnostics: undefined,
+        correlationIdHeader: undefined,
+        degraded: undefined,
+        ceeReview: run.ceeReview ?? null,
+        ceeTrace: run.ceeTrace ?? null,
+        ceeError: run.ceeError ?? null
+      },
+      isDirty: false,
+      hasCompletedFirstRun: true
     })
   },
 
@@ -1079,7 +1154,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     })
   },
 
-  setRunMeta: (meta) => {
+  setRunMeta: (meta: RunMetaState) => {
     set(s => ({
       runMeta: {
         ...s.runMeta,
@@ -1096,7 +1171,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       return false
     }
 
-    const { nodes, edges } = scenario.graph
+    const { nodes, edges: rawEdges } = scenario.graph
+
+    // Upgrade persisted edges (generic Edge) to strongly-typed Edge<EdgeData>
+    const edges: Edge<EdgeData>[] = rawEdges.map((edge) => ({
+      ...edge,
+      data: {
+        ...DEFAULT_EDGE_DATA,
+        ...(edge.data as Partial<EdgeData> | undefined ?? {}),
+      },
+    }))
 
     // Reseed IDs to avoid conflicts
     get().reseedIds(nodes, edges)
@@ -1105,10 +1189,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       nodes,
       edges,
       currentScenarioId: id,
+      currentScenarioFraming: scenario.framing ?? null,
+      currentScenarioLastResultHash: scenario.last_result_hash ?? null,
+      currentScenarioLastRunAt: scenario.last_run_at ?? null,
+      currentScenarioLastRunSeed: scenario.last_run_seed ?? null,
       isDirty: false,
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set() },
-      touchedNodeIds: new Set()
+      touchedNodeIds: new Set(),
+      showDraftChat: false,
     })
 
     scenarios.setCurrentScenarioId(id)
@@ -1116,7 +1205,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   saveCurrentScenario: (name?: string) => {
-    const { nodes, edges, currentScenarioId } = get()
+    const {
+      nodes,
+      edges,
+      currentScenarioId,
+      currentScenarioFraming,
+      currentScenarioLastResultHash,
+      currentScenarioLastRunAt,
+      currentScenarioLastRunSeed,
+    } = get()
 
     // P0-2: Set saving state
     set({ isSaving: true })
@@ -1126,7 +1223,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         // Update existing scenario
         scenarios.updateScenario(currentScenarioId, {
           name,
-          graph: { nodes, edges }
+          graph: { nodes, edges },
+          framing: currentScenarioFraming || undefined,
+          last_result_hash: currentScenarioLastResultHash || undefined,
+          last_run_at: currentScenarioLastRunAt || undefined,
+          last_run_seed: currentScenarioLastRunSeed || undefined,
         })
         set({
           isDirty: false,
@@ -1145,7 +1246,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         const scenario = scenarios.createScenario({
           name,
           nodes,
-          edges
+          edges,
+          framing: currentScenarioFraming || undefined,
+          last_result_hash: currentScenarioLastResultHash || undefined,
+          last_run_at: currentScenarioLastRunAt || undefined,
+          last_run_seed: currentScenarioLastRunSeed || undefined,
         })
 
         set({
@@ -1176,7 +1281,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
     set({
       currentScenarioId: scenario.id,
-      isDirty: false
+      isDirty: false,
+      showDraftChat: false,
     })
 
     return scenario.id
@@ -1228,11 +1334,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   // Panel actions
   setShowResultsPanel: (show: boolean) => {
+    const prev = get().showResultsPanel
+    if (!prev && show) {
+      trackResultsViewed()
+    }
     set({ showResultsPanel: show })
+    saveUIPreference('showResultsPanel', show)
   },
 
   setShowInspectorPanel: (show: boolean) => {
     set({ showInspectorPanel: show })
+    saveUIPreference('showInspectorPanel', show)
   },
 
   openTemplatesPanel: (invoker?: HTMLElement) => {
@@ -1240,6 +1352,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       showTemplatesPanel: true,
       templatesPanelInvoker: invoker || null
     })
+    saveUIPreference('showTemplatesPanel', true)
   },
 
   closeTemplatesPanel: () => {
@@ -1248,6 +1361,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       showTemplatesPanel: false,
       templatesPanelInvoker: null
     })
+    saveUIPreference('showTemplatesPanel', false)
 
     // Restore focus to invoker after a brief delay (allows panel to unmount)
     if (templatesPanelInvoker && typeof templatesPanelInvoker.focus === 'function') {
@@ -1259,6 +1373,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
         }
       }, 100)
     }
+  },
+
+  setShowDraftChat: (show: boolean) => {
+    set({ showDraftChat: show })
+    saveUIPreference('showDraftChat', show)
   },
 
   // M4: Graph Health actions
@@ -1273,7 +1392,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   setShowIssuesPanel: (show: boolean) => {
+    const prev = get().showIssuesPanel
+    if (!prev && show) {
+      trackIssuesOpened()
+    }
     set({ showIssuesPanel: show })
+    saveUIPreference('showIssuesPanel', show)
   },
 
   applyRepair: async (issueId: string) => {
@@ -1289,7 +1413,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const { applyRepair: apply } = await import('./validation/graphRepair')
     const { nodes: repairedNodes, edges: repairedEdges } = apply(nodes, edges, issue.suggestedFix)
 
-    set({ nodes: repairedNodes, edges: repairedEdges })
+    const typedEdges: Edge<EdgeData>[] = repairedEdges.map(edge => ({
+      ...edge,
+      data: {
+        ...DEFAULT_EDGE_DATA,
+        ...(edge.data as Partial<EdgeData> | undefined ?? {}),
+      },
+    }))
+
+    set({ nodes: repairedNodes, edges: typedEdges })
 
     // Re-validate after repair
     get().validateGraph()
@@ -1308,7 +1440,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     const { quickFixAll } = await import('./validation/graphRepair')
     const { nodes: repairedNodes, edges: repairedEdges } = quickFixAll(nodes, edges, graphHealth.issues)
 
-    set({ nodes: repairedNodes, edges: repairedEdges })
+    const typedEdges: Edge<EdgeData>[] = repairedEdges.map(edge => ({
+      ...edge,
+      data: {
+        ...DEFAULT_EDGE_DATA,
+        ...(edge.data as Partial<EdgeData> | undefined ?? {}),
+      },
+    }))
+
+    set({ nodes: repairedNodes, edges: typedEdges })
 
     // Re-validate after repairs
     get().validateGraph()
@@ -1316,6 +1456,11 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setNeedleMovers: (movers: NeedleMover[]) => {
     set({ needleMovers: movers })
+  },
+
+  // Phase 3: Interaction actions (accepts array, stores as Set for O(1) lookup)
+  setHighlightedNodes: (ids: string[]) => {
+    set({ highlightedNodes: new Set(ids) })
   },
 
   // M5: Provenance actions
@@ -1422,10 +1567,12 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setShowProvenanceHub: (show: boolean) => {
     set({ showProvenanceHub: show })
+    saveUIPreference('showProvenanceHub', show)
   },
 
   setShowDocumentsDrawer: (show: boolean) => {
     set({ showDocumentsDrawer: show })
+    saveUIPreference('showDocumentsDrawer', show)
   },
 
   toggleProvenanceRedaction: () => {
@@ -1450,6 +1597,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
 
   setShowComparePanel: (show: boolean) => {
     set({ showComparePanel: show })
+    saveUIPreference('showComparePanel', show)
   },
 
   setDecisionRationale: (rationale: DecisionRationale | null) => {
@@ -1509,7 +1657,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
   },
 
-  cleanup: clearTimers
+  cleanup: clearTimers,
+
+  updateScenarioFraming: (partial) => {
+    set(s => ({
+      currentScenarioFraming: {
+        ...(s.currentScenarioFraming ?? {}),
+        ...partial,
+      },
+      isDirty: true,
+    }))
+  }
 }))
 
 // Expose store on window for E2E tests (Playwright helpers and direct injection)

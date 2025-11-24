@@ -25,7 +25,7 @@ import {
 import { validatePayloadSize } from './payloadGuard'
 
 const getProxyBase = (): string => {
-  return import.meta.env.VITE_PLOT_PROXY_BASE || '/api/plot'
+  return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
 }
 
 const getTimeouts = () => ({
@@ -216,8 +216,16 @@ async function runSyncOnce(
   }
 
   try {
+    const idempotencyKey = request.idempotencyKey || request.clientHash
+
+    // Build wire payload without idempotencyKey field (header-only in v1 API)
+    const requestForBody: V1RunRequest = {
+      ...request,
+      idempotencyKey: undefined,
+    }
+
     // M1.6: Validate payload size (96KB guard)
-    const payloadCheck = validatePayloadSize(request)
+    const payloadCheck = validatePayloadSize(requestForBody)
     if (!payloadCheck.valid) {
       throw {
         code: 'LIMIT_EXCEEDED',
@@ -225,8 +233,6 @@ async function runSyncOnce(
         details: { sizeKB: payloadCheck.sizeKB, maxKB: 96 },
       } as V1Error
     }
-
-    const idempotencyKey = request.idempotencyKey || request.clientHash
 
     // M1.4: Generate request ID if not provided
     const requestId = options?.requestId || crypto.randomUUID()
@@ -250,7 +256,7 @@ async function runSyncOnce(
     const response = await fetch(`${base}/v1/run`, {
       method: 'POST',
       headers,
-      body: JSON.stringify(request),
+      body: JSON.stringify(requestForBody),
       signal: controller.signal,
     })
 

@@ -13,7 +13,7 @@ interface ConnectPromptProps {
 export function ConnectPrompt({ targetNodeLabel, position, onConfirm, onCancel }: ConnectPromptProps) {
   return (
     <div
-      className="fixed z-[3000] bg-white border border-gray-300 rounded-lg shadow-lg p-3 min-w-[200px]"
+      className="fixed z-[3000] bg-white border border-gray-300 rounded-lg shadow-panel p-3 min-w-[200px]"
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,

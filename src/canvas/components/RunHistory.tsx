@@ -12,8 +12,11 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { Pin, Trash2, Eye, GitCompare } from 'lucide-react'
+import { useCanvasStore } from '../store'
 import { loadRuns, togglePin, deleteRun, computeRunSummary, STORAGE_KEY, type StoredRun } from '../store/runHistory'
 import * as runsBus from '../store/runsBus'
+import { selectScenarioLastRun } from '../shared/lastRun'
+import { trackHistoryItemSelected } from '../utils/sandboxTelemetry'
 
 interface RunHistoryProps {
   // eslint-disable-next-line no-unused-vars
@@ -25,6 +28,9 @@ interface RunHistoryProps {
 export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
   const [runs, setRuns] = useState<StoredRun[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const scenarioTitle = useCanvasStore(s => s.currentScenarioFraming?.title ?? null)
+  const scenarioLastResultHash = useCanvasStore(s => s.currentScenarioLastResultHash ?? null)
+  const currentResultsHash = useCanvasStore(s => s.results.hash ?? null)
 
   /**
    * Debounced refresh function
@@ -64,6 +70,18 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
       }, 200)
     }
   }, [])
+
+  const scenarioLastRunId = useMemo(() => {
+    if (!runs.length) return null
+
+    const selected = selectScenarioLastRun({
+      runs,
+      scenarioLastResultHash,
+      currentResultsHash,
+    })
+
+    return selected?.id ?? null
+  }, [runs, scenarioLastResultHash, currentResultsHash])
 
   /**
    * Subscribe to runs updates
@@ -122,13 +140,14 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
       const next = new Set(prev)
       if (next.has(runId)) {
         next.delete(runId)
-      } else {
-        if (next.size >= 3) {
-          // Max 3 selections
-          return prev
-        }
-        next.add(runId)
+        return next
       }
+      if (next.size >= 3) {
+        // Max 3 selections
+        return prev
+      }
+      next.add(runId)
+      trackHistoryItemSelected()
       return next
     })
   }, [])
@@ -141,14 +160,33 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
 
   if (runs.length === 0) {
     return (
-      <div className="text-center py-4 text-sm text-gray-400">
-        No runs yet. Run an analysis to build history.
+      <div className="text-center py-4 text-sm text-gray-400" data-testid="run-history-empty">
+        {scenarioTitle && (
+          <div className="mb-1 text-xs text-gray-500" data-testid="run-history-scenario-context">
+            Current decision:{' '}
+            <span className="font-medium text-gray-900">{scenarioTitle}</span>
+          </div>
+        )}
+        <div>
+          {scenarioTitle
+            ? 'No runs yet for this decision. Run an analysis to build history.'
+            : 'No runs yet. Run an analysis to build history.'}
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-2">
+      {scenarioTitle && (
+        <div
+          className="text-xs text-gray-500"
+          data-testid="run-history-scenario-context"
+        >
+          Current decision:{' '}
+          <span className="font-medium text-gray-900">{scenarioTitle}</span>
+        </div>
+      )}
       {/* Compare CTA */}
       {selectedIds.size >= 2 && (
         <button
@@ -165,6 +203,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
         {runs.map((run, index) => {
           const isSelected = selectedIds.has(run.id)
           const isPinned = run.isPinned
+          const isScenarioLastRun = scenarioLastRunId === run.id
 
           // Get prior run for delta computation (immediately preceding run)
           const priorRun = index < runs.length - 1 ? runs[index + 1] : undefined
@@ -217,6 +256,15 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
               <div className="text-sm mb-2 line-clamp-2 text-gray-900">
                 {run.summary || 'No summary'}
               </div>
+
+              {isScenarioLastRun && scenarioTitle && (
+                <div
+                  className="mt-1 text-[11px] font-medium text-blue-700"
+                  data-testid="run-history-scenario-last-run"
+                >
+                  Last run for this decision
+                </div>
+              )}
 
               {/* v1.2: Duplicate indicator */}
               {run.isDuplicate && run.duplicateCount && (

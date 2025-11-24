@@ -43,7 +43,7 @@ export function ConfirmDialog({
       aria-modal="true"
       aria-labelledby="confirm-title"
     >
-      <div className="bg-white rounded-xl shadow-2xl p-6 max-w-md mx-4">
+      <div className="bg-white rounded-xl shadow-panel p-6 max-w-md mx-4">
         <div className="flex items-start gap-4 mb-4">
           <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-warning-100">
             <AlertTriangle className="w-5 h-5 text-warning-600" />

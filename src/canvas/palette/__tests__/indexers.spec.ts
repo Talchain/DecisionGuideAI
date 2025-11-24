@@ -37,9 +37,8 @@ describe('Command Palette Indexers', () => {
         description: 'Node • n1',
       })
 
-      // Should sanitize HTML
+      // Should sanitize HTML tags but preserve plain text content
       expect(items[1].label).not.toContain('<script>')
-      expect(items[1].label).not.toContain('alert')
 
       // Should use ID when no label
       expect(items[2].label).toBe('n3')
@@ -139,6 +138,32 @@ describe('Command Palette Indexers', () => {
       expect(items[0].label).toContain('seed=42')
       expect(items[0].description).toContain('abc123def456')
       expect(items[1].label).toContain('r2')
+    })
+
+    it('highlights the scenario last run with title in label, description, and metadata', () => {
+      const now = Date.now()
+      const runs = [
+        { id: 'run-1', seed: 7, hash: 'aaaa1111aaaa1111', timestamp: now },
+        { id: 'run-2', seed: 9, hash: 'bbbb2222bbbb2222', timestamp: now - 1_000 },
+      ]
+
+      const items = indexRuns(runs, {
+        scenarioLastRunId: 'run-1',
+        scenarioTitle: 'Choose pricing strategy',
+      })
+
+      const lastRunItem = items.find(item => item.id === 'run:run-1')
+      expect(lastRunItem).toBeDefined()
+      expect(lastRunItem?.label).toContain('Last run')
+      expect(lastRunItem?.label).toContain('Choose pricing strategy')
+      expect(lastRunItem?.description).toContain('Last run for this decision')
+      expect(lastRunItem?.description).toContain('aaaa1111aaaa1111'.slice(0, 12))
+      expect(lastRunItem?.metadata?.isScenarioLastRun).toBe(true)
+      expect(lastRunItem?.keywords).toEqual(expect.arrayContaining(['last', 'scenario']))
+
+      const otherItem = items.find(item => item.id === 'run:run-2')
+      expect(otherItem?.metadata?.isScenarioLastRun).not.toBe(true)
+      expect(otherItem?.label).not.toContain('Last run')
     })
   })
 

@@ -103,7 +103,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
               onClick={() => setDirection('LR')}
               className={`flex-1 px-3 py-2 text-sm rounded transition-colors ${
                 direction === 'LR'
-                  ? 'bg-[#EA7B4B] text-white'
+                  ? 'bg-primary text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
               aria-pressed={direction === 'LR'}
@@ -115,7 +115,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
               onClick={() => setDirection('TB')}
               className={`flex-1 px-3 py-2 text-sm rounded transition-colors ${
                 direction === 'TB'
-                  ? 'bg-[#EA7B4B] text-white'
+                  ? 'bg-primary text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
               aria-pressed={direction === 'TB'}
@@ -138,7 +138,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
                 onClick={() => setSpacing(preset)}
                 className={`flex-1 px-3 py-2 text-sm rounded transition-colors ${
                   spacing === preset
-                    ? 'bg-[#EA7B4B] text-white'
+                    ? 'bg-primary text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
                 aria-pressed={spacing === preset}
@@ -161,7 +161,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
               type="checkbox"
               checked={placeGoalsFirst}
               onChange={(e) => setPlaceGoalsFirst(e.target.checked)}
-              className="w-4 h-4 text-[#EA7B4B] rounded focus:ring-2 focus:ring-[#EA7B4B]"
+              className="w-4 h-4 text-primary rounded focus:ring-2 focus:ring-primary"
               data-testid="toggle-goals-first"
             />
             <span className="text-sm text-gray-700">Place Goals first</span>
@@ -172,7 +172,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
               type="checkbox"
               checked={placeOutcomesLast}
               onChange={(e) => setPlaceOutcomesLast(e.target.checked)}
-              className="w-4 h-4 text-[#EA7B4B] rounded focus:ring-2 focus:ring-[#EA7B4B]"
+              className="w-4 h-4 text-primary rounded focus:ring-2 focus:ring-primary"
               data-testid="toggle-outcomes-last"
             />
             <span className="text-sm text-gray-700">Place Outcomes last</span>
@@ -189,7 +189,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
                   onClick={() => setRiskPlacement(placement)}
                   className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
                     riskPlacement === placement
-                      ? 'bg-[#EA7B4B] text-white'
+                      ? 'bg-primary text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                   aria-pressed={riskPlacement === placement}
@@ -209,7 +209,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
               type="checkbox"
               checked={respectLocked}
               onChange={(e) => setRespectLocked(e.target.checked)}
-              className="w-4 h-4 text-[#EA7B4B] rounded focus:ring-2 focus:ring-[#EA7B4B]"
+              className="w-4 h-4 text-primary rounded focus:ring-2 focus:ring-primary"
               data-testid="toggle-respect-locked"
             />
             <span className="text-sm text-gray-700">Respect locked node positions</span>
@@ -237,7 +237,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
             disabled={!canApply}
             className={`flex-1 px-4 py-2 text-sm font-medium rounded transition-colors ${
               canApply
-                ? 'bg-[#EA7B4B] text-white hover:bg-[#D96A3A]'
+                ? 'bg-primary text-white hover:bg-primary-hover'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
             data-testid="guided-apply"

@@ -33,6 +33,8 @@ import { useAutosave } from './hooks/useAutosave'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
 import { InfluenceExplainer, useInfluenceExplainer } from '../components/assistants/InfluenceExplainer'
+import { DraftChat } from './components/DraftChat'
+import { CanvasEmptyState } from './components/CanvasEmptyState'
 // N5: Code-split heavy panels with named chunks
 const InspectorPanel = lazy(() => import(/* webpackChunkName: "inspector-panel" */ './panels/InspectorPanel').then(m => ({ default: m.InspectorPanel })))
 import { useResultsRun } from './hooks/useResultsRun'
@@ -43,16 +45,24 @@ import { loadRuns } from './store/runHistory'
 import { useEdgeLabelModeSync } from './store/edgeLabelMode'
 import { HealthStatusBar } from './components/HealthStatusBar'
 import { DegradedBanner } from './components/DegradedBanner'
+import { LayoutProgressBanner } from './components/LayoutProgressBanner'
+import { ContextBar } from './components/ContextBar'
 const IssuesPanel = lazy(() => import(/* webpackChunkName: "issues-panel" */ './panels/IssuesPanel').then(m => ({ default: m.IssuesPanel })))
 import { NeedleMoversOverlay } from './components/NeedleMoversOverlay'
 import { DocumentsManager } from './components/DocumentsManager'
 import { ProvenanceHubTab } from './components/ProvenanceHubTab'
 import { RadialQuickAddMenu } from './components/RadialQuickAddMenu'
 import { ConnectPrompt } from './components/ConnectPrompt'
+import { ConnectivityChip } from './components/ConnectivityChip'
+import { StatusChips } from './components/StatusChips'
+import { EdgeLabelToggle } from './components/EdgeLabelToggle'
+import { LimitsPanel } from './components/LimitsPanel'
 import type { NodeType } from './domain/nodes'
 import { InputsDock } from './components/InputsDock'
 import { OutputsDock } from './components/OutputsDock'
-import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled } from '../flags'
+import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled, pocFlags } from '../flags'
+import { useEngineLimits } from './hooks/useEngineLimits'
+import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 
 interface ReactFlowGraphProps {
   blueprintEventBus?: {
@@ -65,6 +75,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const { getViewport, setCenter } = useReactFlow()
+
+  // Phase 3: Memoize heavy computations for performance
+  const memoizedNodes = useMemo(() => nodes, [nodes])
+  const memoizedEdges = useMemo(() => edges, [edges])
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
   
@@ -81,6 +95,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
   const { isOpen: isKeyboardLegendOpen, open: openKeyboardLegend, close: closeKeyboardLegend } = useKeyboardLegend()
   const { isOpen: isOnboardingOpen, open: openOnboarding, close: closeOnboarding } = useOnboarding()
+  const onboardingEnabled = isOnboardingTourEnabled()
   const {
     shouldShow: shouldShowInfluenceExplainer,
     forceShow: isInfluenceExplainerForced,
@@ -93,6 +108,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const [radialMenuPosition, setRadialMenuPosition] = useState<{ x: number; y: number } | null>(null)
   const addNode = useCanvasStore(s => s.addNode)
 
+  // Phase 3: Empty state actions
+  const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
+  const openTemplatesPanel = useCanvasStore(s => s.openTemplatesPanel)
+
   // P0-8: Auto-connect state
   const [connectPrompt, setConnectPrompt] = useState<{
     newNodeId: string
@@ -101,6 +120,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     position: { x: number; y: number }
   } | null>(null)
   const addEdge = useCanvasStore(s => s.addEdge)
+  const [showLimits, setShowLimits] = useState(false)
 
   // M4: Graph Health state
   const graphHealth = useCanvasStore(s => s.graphHealth)
@@ -126,6 +146,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const inputsOutputsEnabled = isInputsOutputsEnabled()
   const paletteEnabled = isCommandPaletteEnabled()
   const degradedBannerEnabled = isDegradedBannerEnabled()
+  const { limits } = useEngineLimits()
+  const checkRunEligibility = useRunEligibilityCheck()
 
   // Diagnostics resume toast (B3)
   useRunDiagnosticsToast()
@@ -149,16 +171,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     return useEdgeLabelModeSync()
   }, [])
 
-  // Auto-open Results panel when run starts (v1.2: Task Group A requirement)
-  const resultsStatus = useCanvasStore(s => s.results.status)
-  useEffect(() => {
-    // Auto-open panel when transitioning to running states
-    const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
-    if (isRunning && !showResultsPanel) {
-      setShowResultsPanel(true)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resultsStatus, showResultsPanel])  // setShowResultsPanel is stable, omit to avoid render loop
+  // Auto-open behaviour for Results is now handled by OutputsDock based on results.status.
 
   const handleSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
     useCanvasStore.getState().onSelectionChange(params)
@@ -335,7 +348,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     const viewport = getViewport()
     setCenter(midX, midY, {
       zoom: viewport.zoom,
-      duration: 300
+      duration: 300,
     })
   }, [getViewport, setCenter])
 
@@ -345,45 +358,27 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     return () => unregisterFocusHelpers()
   }, [handleFocusNode, handleFocusEdge])
 
-  // Run simulation handler with validation gating
+  // Run simulation handler with shared eligibility gating
   const handleRunSimulation = useCallback(async () => {
-    const store = useCanvasStore.getState()
-
-    // Check if graph has any nodes
-    if (store.nodes.length === 0) {
-      showToast('Add nodes to the canvas before running', 'info')
-      return
-    }
-
-    // M4: Trigger validation before run to ensure fresh health check
-    await store.validateGraph()
-
-    // Check for probability validation errors (existing flow)
-    if (hasValidationErrors(store)) {
-      showToast('Fix probability errors before running (Alt+V to navigate)', 'warning')
-      return
-    }
-
-    // M4: Check for critical graph health issues
-    const { graphHealth } = useCanvasStore.getState()
-    if (graphHealth && graphHealth.status === 'errors') {
-      const errorCount = graphHealth.issues.filter(i => i.severity === 'error').length
-      showToast(`Fix ${errorCount} graph error${errorCount > 1 ? 's' : ''} before running — see Issues panel`, 'error')
+    const eligibility = checkRunEligibility()
+    if (!eligibility.canRun) {
       return
     }
 
     // Open Results panel and trigger analysis
     setShowResultsPanel(true)
 
+    // Get latest state for graph data
+    const { nodes, edges, outcomeNodeId } = useCanvasStore.getState()
+
     // Run analysis with canvas graph
     await runAnalysis({
       template_id: 'canvas-graph',
       seed: 1337,
-      graph: { nodes: store.nodes, edges: store.edges },
-      outcome_node: store.outcomeNodeId || undefined
+      graph: { nodes, edges },
+      outcome_node: outcomeNodeId || undefined,
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])  // No dependencies - stable functions (showToast, runAnalysis, setShowResultsPanel)
+  }, [checkRunEligibility, runAnalysis, setShowResultsPanel])
 
   // M4: Health panel handlers
   const handleFixIssue = useCallback(async (issue: any) => {
@@ -477,8 +472,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     onFocusNode: handleFocusNode,
     onRunSimulation: handleRunSimulation,
     onToggleResults: () => {
-      const next = !useCanvasStore.getState().showResultsPanel
-      setShowResultsPanel(next)
+      // Cmd/Ctrl+3: ensure Results are visible in the Outputs dock.
+      setShowResultsPanel(true)
     },
     onToggleInspector: () => {
       const next = !useCanvasStore.getState().showInspectorPanel
@@ -819,18 +814,26 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         cursor: quickAddMode ? 'crosshair' : undefined,
       }}
     >
+      {pocFlags.contextBar && (
+        <div className="absolute top-4 left-4 right-4 z-[1010] flex justify-start">
+          <div className="max-w-xl">
+            <ContextBar />
+          </div>
+        </div>
+      )}
+
       <div
         style={{
           position: 'absolute',
-          top: 0,
-          bottom: 0,
+          top: 'var(--topbar-h)',
+          bottom: 'var(--bottombar-h)',
           left: inputsOutputsEnabled ? 'var(--dock-left-offset, 0rem)' : 0,
           right: inputsOutputsEnabled ? 'var(--dock-right-offset, 0rem)' : 0,
         }}
       >
         <ReactFlow
-          nodes={nodes}
-          edges={edges}
+          nodes={memoizedNodes}
+          edges={memoizedEdges}
           onNodesChange={handleNodesChange}
           onEdgesChange={handleEdgesChange}
           onConnect={onConnect}
@@ -858,17 +861,25 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
             <defs>
               {/* Arrowheads matching edge colors - original size (6x6), fixed regardless of stroke width */}
               <marker id="arrowhead-default" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                <polygon points="0 0, 6 3, 0 6" fill="#94A3B8" />
+                <polygon points="0 0, 6 3, 0 6" fill="var(--surface-border)" />
               </marker>
               <marker id="arrowhead-selected" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                <polygon points="0 0, 6 3, 0 6" fill="#63ADCF" />
+                <polygon points="0 0, 6 3, 0 6" fill="var(--info-500)" />
               </marker>
             </defs>
           </svg>
         </ReactFlow>
+
+        {/* Phase 3: Empty state for new users */}
+        {nodes.length === 0 && (
+          <CanvasEmptyState
+            onDraft={() => setShowDraftChat(true)}
+            onTemplate={() => openTemplatesPanel()}
+          />
+        )}
       </div>
 
-      {/* Highlight layer for Results panel drivers */}
+      {/* Highlight layer for Results drivers (keyed off global showResultsPanel flag) */}
       <HighlightLayer isResultsOpen={showResultsPanel} />
 
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
@@ -876,7 +887,22 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       {reconnecting && <ReconnectBanner />}
 
       <CanvasToolbar />
-      <div className="absolute top-6 right-6 z-[1200] flex flex-col items-end gap-3">
+      <div
+        className="absolute z-[1200] flex flex-col items-end gap-3"
+        style={{
+          top: 'calc(var(--topbar-h, 0px) + 1rem)',
+          right: inputsOutputsEnabled ? 'calc(var(--dock-right-offset, 0rem) + 1rem)' : '1rem',
+        }}
+      >
+        <div className="flex flex-col items-end gap-2">
+          <ConnectivityChip />
+          <StatusChips
+            currentNodes={nodes.length}
+            currentEdges={edges.length}
+            onClick={() => setShowLimits(true)}
+          />
+          {edges.length > 0 && <EdgeLabelToggle showLabel={false} />}
+        </div>
         <HelpMenu
           onShowOnboarding={openOnboarding}
           onShowKeyboardLegend={openKeyboardLegend}
@@ -891,6 +917,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       <DiagnosticsOverlay />
       <ValidationChip onFocusNode={handleFocusNode} />
       <RecoveryBanner />
+      <LayoutProgressBanner />
 
       {/* M4: Graph Health UI */}
       {graphHealth && graphHealth.issues.length > 0 && (
@@ -937,8 +964,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           DocumentsManager is rendered inside the InputsDock instead of this drawer. */}
       {!inputsOutputsEnabled && showDocumentsDrawer && (
         <div
-          className="fixed left-0 top-0 bottom-0 w-96 bg-white border-r border-gray-200 shadow-lg overflow-hidden"
-          style={{ zIndex: 2000 }}
+          className="fixed left-0 w-96 bg-white border-r border-gray-200 shadow-panel overflow-hidden"
+          style={{ zIndex: 2000, top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }}
           data-testid="documents-drawer"
           tabIndex={-1}
         >
@@ -952,7 +979,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
               ✕
             </button>
           </div>
-          <div className="h-[calc(100vh-56px)]">
+          <div className="h-full">
             <DocumentsManager
               onUpload={handleUploadDocuments}
               onDelete={handleDeleteDocument}
@@ -964,8 +991,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       {/* M5: Provenance Hub panel (right side) */}
       {showProvenanceHub && (
         <div
-          className="fixed right-0 top-0 bottom-0 w-[32rem] bg-white border-l border-gray-200 shadow-lg overflow-hidden"
-          style={{ zIndex: 2000 }}
+          className="fixed right-0 w-[32rem] bg-white border-l border-gray-200 shadow-panel overflow-hidden"
+          style={{ zIndex: 2000, top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }}
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
             <h2 className="font-semibold text-gray-900">Provenance Hub</h2>
@@ -977,7 +1004,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
               ✕
             </button>
           </div>
-          <div className="h-[calc(100vh-56px)]">
+          <div className="h-full">
             <ProvenanceHubTab
               citations={citations}
               documents={documents}
@@ -1020,12 +1047,14 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       )}
 
       {/* Onboarding overlay for first-time users */}
-      <OnboardingOverlay
-        isOpen={isOnboardingOpen}
-        onClose={closeOnboarding}
-        onShowKeyboardLegend={openKeyboardLegend}
-        onShowInfluenceExplainer={showInfluenceExplainer}
-      />
+      {onboardingEnabled && (
+        <OnboardingOverlay
+          isOpen={isOnboardingOpen}
+          onClose={closeOnboarding}
+          onShowKeyboardLegend={openKeyboardLegend}
+          onShowInfluenceExplainer={showInfluenceExplainer}
+        />
+      )}
 
       {inputsOutputsEnabled && (
         <>
@@ -1044,12 +1073,19 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
             />
           </div>
           <div className="absolute inset-y-0 right-0 z-[1500] flex">
-            <OutputsDock
-              onShowResults={() => setShowResultsPanel(true)}
-            />
+            <OutputsDock />
           </div>
         </>
       )}
+      <LimitsPanel
+        isOpen={showLimits}
+        onClose={() => setShowLimits(false)}
+        currentNodes={nodes.length}
+        currentEdges={edges.length}
+      />
+
+      {/* R1: Draft My Model chat loop (bottom overlay above toolbar) */}
+      <DraftChat />
     </div>
   )
 }

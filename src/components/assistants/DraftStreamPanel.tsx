@@ -51,24 +51,26 @@ export function DraftStreamPanel({
   }
 
   return (
-    <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+    <div className="p-4 bg-paper-50 rounded-lg border border-sand-200 shadow-panel">
       <div className="flex items-center gap-2 mb-3">
         {status === 'streaming' && (
           <>
-            <Sparkles className="w-5 h-5 text-blue-600 animate-pulse" />
-            <span className="font-medium text-blue-900">Drafting your model...</span>
+            <Sparkles className="w-5 h-5 text-sky-500 animate-pulse" />
+            <span className="font-medium text-ink-900">Drafting your model...</span>
           </>
         )}
         {status === 'complete' && (
           <>
-            <CheckCircle2 className="w-5 h-5 text-green-600" />
-            <span className="font-medium text-green-900">Draft complete!</span>
+            <CheckCircle2 className="w-5 h-5 text-sun-500" />
+            <span className="font-medium text-ink-900">Draft complete!</span>
           </>
         )}
         {status === 'error' && (
           <>
-            <AlertCircle className="w-5 h-5 text-red-600" />
-            <span className="font-medium text-red-900">Draft failed</span>
+            <AlertCircle className="w-5 h-5 text-carrot-500" />
+            <span className="font-medium text-ink-900">
+              Draft failed. Check your connection or try a shorter, simpler description.
+            </span>
           </>
         )}
       </div>
@@ -76,21 +78,21 @@ export function DraftStreamPanel({
       <div className="space-y-2">
         <div className="flex items-center gap-4 text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-            <span className="text-gray-700">
+            <div className="w-2 h-2 rounded-full bg-sky-500" />
+            <span className="text-ink-900/70">
               <strong>{nodeCount}</strong> nodes
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-            <span className="text-gray-700">
+            <div className="w-2 h-2 rounded-full bg-sun-500" />
+            <span className="text-ink-900/70">
               <strong>{edgeCount}</strong> edges
             </span>
           </div>
         </div>
 
         {/* Recent events */}
-        <div className="max-h-32 overflow-y-auto space-y-1 text-xs text-gray-600">
+        <div className="max-h-32 overflow-y-auto space-y-1 text-xs text-ink-900/70">
           {events.slice(-5).map((event, i) => (
             <div key={i} className="py-1">
               {event.type === 'node' && `+ Node: ${event.data.label}`}

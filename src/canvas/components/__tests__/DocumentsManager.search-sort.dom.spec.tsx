@@ -1,5 +1,5 @@
 /**
- * S7-FILEOPS: DocumentsManager Search & Sort Tests (RTL DOM)
+ * S7-FILEOPS: DocumentsManager search and sort tests (RTL DOM)
  * Tests search filtering, sorting by multiple fields, and session persistence
  */
 
@@ -14,7 +14,7 @@ vi.mock('../../store', () => ({
   useCanvasStore: vi.fn(),
 }))
 
-describe('DocumentsManager - Search & Sort (S7-FILEOPS)', () => {
+describe('DocumentsManager - Search and sort (S7-FILEOPS)', () => {
   const mockDocuments: Document[] = [
     {
       id: 'doc1',
@@ -461,7 +461,7 @@ describe('DocumentsManager - Search & Sort (S7-FILEOPS)', () => {
     })
   })
 
-  describe('Performance & Edge Cases', () => {
+  describe('Performance and edge cases', () => {
     it('handles empty search query gracefully', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 

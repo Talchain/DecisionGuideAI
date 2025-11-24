@@ -183,6 +183,66 @@ describe('errorTaxonomy', () => {
       expect(result.title).toBe('Engine error')
       expect(result.message).toBeTruthy()
     })
+
+    // Phase 1 Section 1.2: Non-string message handling
+    it('handles null message gracefully', () => {
+      const result = mapErrorToUserMessage({
+        status: 500,
+        message: null as any
+      })
+
+      expect(result.title).toBe('Engine error')
+      expect(result.message).toBe('Something went wrong on the analysis engine.')
+      expect(result.severity).toBe('error')
+      expect(result.retryable).toBe(true)
+    })
+
+    it('handles undefined message gracefully', () => {
+      const result = mapErrorToUserMessage({
+        status: 500,
+        message: undefined
+      })
+
+      expect(result.title).toBe('Engine error')
+      expect(result.message).toBe('Something went wrong on the analysis engine.')
+      expect(result.severity).toBe('error')
+      expect(result.retryable).toBe(true)
+    })
+
+    it('handles object message by converting to string', () => {
+      const result = mapErrorToUserMessage({
+        status: 400,
+        message: { nested: 'object', code: 42 } as any
+      })
+
+      expect(result.title).toBe('Invalid request')
+      // Object should be converted to string via String()
+      expect(result.message).toBe('[object Object]')
+      expect(result.suggestion).toContain('valid nodes')
+    })
+
+    it('handles array message by converting to string', () => {
+      const result = mapErrorToUserMessage({
+        status: 400,
+        message: ['error', 'details'] as any
+      })
+
+      expect(result.title).toBe('Invalid request')
+      // Array should be converted to string via String()
+      expect(result.message).toBe('error,details')
+      expect(result.suggestion).toContain('valid nodes')
+    })
+
+    it('uses fallback message when non-string message normalizes to empty', () => {
+      const result = mapErrorToUserMessage({
+        code: 'UNKNOWN_ERROR',
+        message: null as any
+      })
+
+      expect(result.title).toBe('Analysis failed')
+      expect(result.message).toBe('An unexpected error occurred.')
+      expect(result.retryable).toBe(true)
+    })
   })
 
   describe('isOffline', () => {

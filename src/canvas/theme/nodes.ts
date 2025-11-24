@@ -33,28 +33,31 @@ const LIGHT_THEME: Record<NodeType, NodeThemeTokens> = {
     badgeText: '#78350F',
   },
   decision: {
-    background: '#DBEAFE', // Sky blue
-    border: '#3B82F6',
-    text: '#1E3A8A', // 4.5:1 contrast
-    icon: '#3B82F6',
-    badge: '#BFDBFE',
-    badgeText: '#1E3A8A',
+    // Sky-500 accent for decisions
+    background: 'var(--info-100, #E1EFF7)',
+    border: 'var(--sky-500, #63ADCF)',
+    text: 'var(--text-primary, #262626)',
+    icon: 'var(--sky-500, #63ADCF)',
+    badge: 'var(--info-50, #F0F7FB)',
+    badgeText: 'var(--text-secondary, rgba(38, 38, 38, 0.70))',
   },
   option: {
-    background: '#D1FAE5', // Emerald green
-    border: '#10B981',
-    text: '#065F46', // 4.5:1 contrast
-    icon: '#10B981',
-    badge: '#A7F3D0',
-    badgeText: '#065F46',
+    // Mint-500 accent for options
+    background: 'var(--success-100, #E0F5EB)',
+    border: 'var(--mint-500, #67C89E)',
+    text: 'var(--text-primary, #262626)',
+    icon: 'var(--mint-500, #67C89E)',
+    badge: 'var(--success-50, #F0FAF5)',
+    badgeText: 'var(--text-secondary, rgba(38, 38, 38, 0.70))',
   },
   factor: {
-    background: '#F3F4F6', // Gray - neutral for technical factors
-    border: '#6B7280',
-    text: '#1F2937', // 4.5:1 contrast
-    icon: '#6B7280',
-    badge: '#E5E7EB',
-    badgeText: '#1F2937',
+    // Neutral sand-200 for factors
+    background: 'var(--sand-200, #E1D8C7)',
+    border: 'rgba(38, 38, 38, 0.24)',
+    text: 'var(--text-primary, #262626)',
+    icon: 'var(--text-secondary, rgba(38, 38, 38, 0.70))',
+    badge: 'rgba(38, 38, 38, 0.06)',
+    badgeText: 'var(--text-secondary, rgba(38, 38, 38, 0.70))',
   },
   risk: {
     background: '#FEE2E2', // Red
@@ -65,12 +68,13 @@ const LIGHT_THEME: Record<NodeType, NodeThemeTokens> = {
     badgeText: '#7F1D1D',
   },
   outcome: {
-    background: '#E9D5FF', // Purple
-    border: '#A855F7',
-    text: '#581C87', // 4.5:1 contrast
-    icon: '#A855F7',
-    badge: '#DDD6FE',
-    badgeText: '#581C87',
+    // Lilac-400 accent for outcomes (fully opaque background for better legibility)
+    background: 'var(--lilac-50, #F3E8FF)',
+    border: 'var(--lilac-400, #9E9AF1)',
+    text: 'var(--text-primary, #262626)',
+    icon: 'var(--lilac-400, #9E9AF1)',
+    badge: 'var(--lilac-100, #EDE9FE)',
+    badgeText: 'var(--text-secondary, rgba(38, 38, 38, 0.70))',
   },
 }
 

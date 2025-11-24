@@ -103,11 +103,11 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
   }
 
   return (
-    <div className="h-full flex flex-col bg-white">
+    <div className="h-full flex flex-col bg-paper-50">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-200">
-        <h3 className="font-semibold text-gray-900">Source Documents</h3>
-        <p className="text-xs text-gray-600 mt-1">
+      <div className="px-4 py-3 border-b border-sand-200 bg-paper-50">
+        <h3 className="text-sm font-semibold text-ink-900">Documents</h3>
+        <p className="text-[11px] text-ink-900/70 mt-1">
           {documents.length} document{documents.length !== 1 ? 's' : ''}
           {searchQuery && filteredAndSorted.length !== documents.length && (
             <span> ({filteredAndSorted.length} filtered)</span>
@@ -169,8 +169,8 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
       <div
         className={`m-4 border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
           isDragging
-            ? 'border-blue-500 bg-blue-50'
-            : 'border-gray-300 hover:border-gray-400'
+            ? 'border-sky-500 bg-sky-50'
+            : 'border-sand-200 bg-paper-50 hover:border-sand-300'
         }`}
         onDragOver={(e) => {
           e.preventDefault()
@@ -179,11 +179,11 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
       >
-        <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" aria-hidden="true" />
-        <p className="text-sm text-gray-700 mb-2">
-          Drag & drop files here, or click to browse
+        <Upload className="w-8 h-8 mx-auto mb-2 text-ink-900/50" aria-hidden="true" />
+        <p className="text-sm text-ink-900/80 mb-2">
+          Drag and drop files here, or click to browse
         </p>
-        <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md cursor-pointer hover:bg-blue-700 text-sm font-medium">
+        <label className="inline-block px-4 py-2 bg-info-500 text-white rounded-md cursor-pointer hover:bg-info-600 text-sm font-medium">
           Browse Files
           <input
             type="file"
@@ -194,7 +194,7 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
             data-testid="documents-file-input"
           />
         </label>
-        <p className="text-xs text-gray-500 mt-2">
+        <p className="text-[11px] text-ink-900/60 mt-2">
           Supports: PDF, TXT, MD, CSV (max 1MB each, 25K chars total)
         </p>
       </div>
@@ -202,16 +202,22 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
       {/* Documents list */}
       <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
         {documents.length === 0 ? (
-          <div className="text-centre py-8 text-gray-500">
-            <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No documents yet</p>
-            <p className="text-xs mt-1">Upload files to get started</p>
+          <div className="flex flex-col items-center justify-center py-10 text-center text-ink-900/70">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sky-50">
+              <FileText className="w-6 h-6 text-sky-600" aria-hidden="true" />
+            </div>
+            <p className="text-sm font-medium">No documents yet</p>
+            <p className="mt-1 text-xs text-ink-900/60">
+              Attach research, specs, or data Olumi should consider.
+            </p>
           </div>
         ) : filteredAndSorted.length === 0 ? (
-          <div className="text-centre py-8 text-gray-500">
-            <Search className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No documents match '{searchQuery}'</p>
-            <p className="text-xs mt-1">Try a different search term</p>
+          <div className="flex flex-col items-center justify-center py-10 text-center text-ink-900/70">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sand-50">
+              <Search className="w-6 h-6 text-ink-900/50" aria-hidden="true" />
+            </div>
+            <p className="text-sm font-medium">No documents match '{searchQuery}'</p>
+            <p className="mt-1 text-xs text-ink-900/60">Try a different search term</p>
           </div>
         ) : (
           filteredAndSorted.map((doc) => (

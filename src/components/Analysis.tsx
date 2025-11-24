@@ -591,7 +591,7 @@ export default function Analysis() {
             </button>
           {/* Save Button - Disable if no permanentId state */}
           <button onClick={handleSave} disabled={saveInProgress || analysisLoading || !!analysisHookError || optionsLoading || !!optionsError || !permanentId} className="flex items-center px-4 py-2 text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors border" >
-            {saveInProgress ? ( <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving... </> ) : ( 'Save & Finalize Analysis' )}
+            {saveInProgress ? ( <> <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving... </> ) : ( 'Save and Finalize Analysis' )}
           </button>
           </div>
         </div>

@@ -85,7 +85,7 @@ export function RecoveryBanner() {
       role="alert"
       aria-live="assertive"
     >
-      <div className="flex items-start gap-3 p-4 bg-warning-50 border-2 border-warning-500 rounded-lg shadow-lg">
+      <div className="flex items-start gap-3 p-4 bg-warning-50 border-2 border-warning-500 rounded-lg shadow-panel">
         <AlertCircle className="w-5 h-5 text-warning-700 flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-warning-900">

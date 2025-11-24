@@ -7,6 +7,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useCanvasStore } from '../store'
+import { loadRuns, getRun } from '../store/runHistory'
+import { selectScenarioLastRun } from '../shared/lastRun'
+import { getTemplateMetas } from '../../templates/blueprints'
 import type { PaletteItem, SearchResult } from './indexers'
 import {
   indexNodes,
@@ -60,28 +63,68 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const selectNodeWithoutHistory = useCanvasStore(s => s.selectNodeWithoutHistory)
-  const setHighlightedDriver = useCanvasStore(s => s.setHighlightedDriver)
+  const setHighlightedDriver = useCanvasStore(s => (s as any).setHighlightedDriver) as
+    | ((driver: { kind: 'node' | 'edge'; id: string } | null) => void)
+    | undefined
   const resultsState = useCanvasStore(s => s.results)
+  const scenarioTitle = useCanvasStore(s => s.currentScenarioFraming?.title ?? null)
+  const scenarioLastResultHash = useCanvasStore(s => s.currentScenarioLastResultHash ?? null)
+  const resultsLoadHistorical = useCanvasStore(s => s.resultsLoadHistorical)
+  const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
+  const setShowInspectorPanel = useCanvasStore(s => s.setShowInspectorPanel)
+  const openTemplatesPanel = useCanvasStore(s => s.openTemplatesPanel)
 
   // Index all searchable items (debounced)
   useEffect(() => {
     if (!enabled) return
 
     const timer = setTimeout(() => {
+      const runs = loadRuns()
+      const recentRuns = runs.slice(0, 10).map(run => ({
+        id: run.id,
+        seed: run.seed,
+        hash: run.hash,
+        timestamp: run.ts,
+      }))
+
+      const scenarioLastRun = selectScenarioLastRun({
+        runs,
+        scenarioLastResultHash,
+        currentResultsHash: resultsState.hash ?? null,
+      })
+
+      const scenarioLastRunId = scenarioLastRun?.id ?? null
+
+      // Drivers from the current results report (if available). These are the same
+      // drivers shown in ResultsPanel and are already privacy-reviewed.
+      const drivers = resultsState.report?.drivers ?? []
+
+      // Templates from local blueprints metadata (no network calls).
+      const templateMetas = getTemplateMetas()
+      const templateItems = indexTemplates(
+        templateMetas.map(meta => ({
+          id: meta.id,
+          title: meta.name,
+          tags: meta.category ? [meta.category] : undefined,
+        })),
+      )
+
       const items: PaletteItem[] = [
         ...indexActions(),
         ...indexNodes(nodes),
         ...indexEdges(edges),
-        // TODO: Add drivers, templates, runs when stores exist
-        // ...indexDrivers(drivers),
-        // ...indexTemplates(templates),
-        // ...indexRuns(runs),
+        ...indexDrivers(drivers),
+        ...templateItems,
+        ...indexRuns(recentRuns, {
+          scenarioLastRunId,
+          scenarioTitle,
+        }),
       ]
       setAllItems(items)
     }, indexDebounce)
 
     return () => clearTimeout(timer)
-  }, [nodes, edges, indexDebounce, enabled])
+  }, [nodes, edges, indexDebounce, enabled, isOpen, scenarioTitle, scenarioLastResultHash, resultsState.hash])
 
   // Search results
   const results = useMemo(() => {
@@ -187,27 +230,37 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
         break
 
       case 'action:run':
-        // TODO: Implement run trigger when useResultsRun hook can be accessed
-        // This requires passing run function from parent component
-        console.log('[Palette] Run action not yet wired - needs useResultsRun hook access')
+        // BLOCKED: Palette cannot safely trigger runs yet. This should be wired
+        // through a shared run controller (wrapping useResultsRun) so we do not
+        // duplicate CanvasToolbar / ResultsPanel gating and diagnostics logic.
+        console.log('[Palette] Run action is not yet wired - waiting on shared run controller')
         break
 
       case 'action:cancel':
-        // TODO: Implement cancel trigger
-        console.log('[Palette] Cancel action not yet wired - needs useResultsRun hook access')
+        // BLOCKED: Palette cancel should delegate to the same controller as the
+        // toolbar and ResultsPanel once that exists. Until then this remains a
+        // no-op to avoid inconsistent behaviour.
+        console.log('[Palette] Cancel action is not yet wired - waiting on shared run controller')
         break
 
       case 'action:compare':
+        // BLOCKED: Opening Compare from palette depends on panel state wiring
+        // in OutputsDock/ResultsPanel. For now we keep this as a no-op.
+        console.log(`[Palette] ${actionId} - Compare opening not yet wired`)
+        break
+
       case 'action:inspector':
+        setShowInspectorPanel(true)
+        break
+
       case 'action:results':
-        // TODO: Implement panel opening when panel state management is available
-        console.log(`[Palette] ${actionId} - Panel opening not yet wired`)
+        setShowResultsPanel(true)
         break
 
       default:
         console.warn('[Palette] Unknown action:', actionId)
     }
-  }, [resultsState.seed, resultsState.hash])
+  }, [resultsState.seed, resultsState.hash, setShowResultsPanel, setShowInspectorPanel])
 
   const executeItem = useCallback(
     (item: PaletteItem) => {
@@ -222,7 +275,7 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
 
         case 'edge':
           // Highlight edge if metadata available
-          if (item.metadata?.edgeId) {
+          if (setHighlightedDriver && item.metadata?.edgeId) {
             setHighlightedDriver({ kind: 'edge', id: item.metadata.edgeId as string })
             // Auto-clear after 2s
             setTimeout(() => setHighlightedDriver(null), 2000)
@@ -235,20 +288,33 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
           break
 
         case 'template':
-          // TODO: Implement template loading when template store available
-          console.log('[Palette] Template loading not yet implemented:', item.id)
+          // Open Templates panel; actual template selection is handled within the panel.
+          if (openTemplatesPanel) {
+            openTemplatesPanel()
+          }
           break
 
         case 'run':
-          // TODO: Implement run restoration when run history API available
-          console.log('[Palette] Run restoration not yet implemented:', item.metadata?.runId)
+          // Restore a historical run into the Results panel using run history.
+          if (item.metadata?.runId && typeof item.metadata.runId === 'string') {
+            const runId = item.metadata.runId as string
+            const run = getRun(runId)
+            if (run) {
+              resultsLoadHistorical(run)
+              setShowResultsPanel(true)
+            } else {
+              console.warn('[Palette] Run not found for ID:', runId)
+            }
+          } else {
+            console.warn('[Palette] Run item missing runId metadata:', item)
+          }
           break
 
         case 'driver':
           // Focus the node or edge associated with this driver
           if (item.metadata?.nodeId) {
             selectNodeWithoutHistory(item.metadata.nodeId as string)
-          } else if (item.metadata?.edgeId) {
+          } else if (setHighlightedDriver && item.metadata?.edgeId) {
             setHighlightedDriver({ kind: 'edge', id: item.metadata.edgeId as string })
             setTimeout(() => setHighlightedDriver(null), 2000)
           }
@@ -258,7 +324,15 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
       // Close palette after execution
       close()
     },
-    [selectNodeWithoutHistory, setHighlightedDriver, handleAction, close]
+    [
+      selectNodeWithoutHistory,
+      setHighlightedDriver,
+      handleAction,
+      close,
+      resultsLoadHistorical,
+      setShowResultsPanel,
+      openTemplatesPanel,
+    ]
   )
 
   const executeSelected = useCallback(() => {

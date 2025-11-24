@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useLayoutStore } from '../layoutStore'
-import { useCanvasStore } from '../store'
 import { useToast } from '../ToastContext'
+import { runLayoutWithProgress } from '../layout/runLayoutWithProgress'
 
 export function LayoutOptionsPanel() {
   const [isOpen, setIsOpen] = useState(false)
@@ -17,8 +17,6 @@ export function LayoutOptionsPanel() {
     setLayerSpacing,
     setRespectLocked,
   } = useLayoutStore()
-  
-  const applyLayout = useCanvasStore(s => s.applyLayout)
   const { showToast } = useToast()
 
   const handleApplyLayout = async () => {
@@ -28,9 +26,13 @@ export function LayoutOptionsPanel() {
     showToast('Loading layout engine...', 'info')
     
     try {
-      await applyLayout()
-      setIsOpen(false)
-      showToast('Layout applied successfully', 'success')
+      const ok = await runLayoutWithProgress()
+      if (ok) {
+        setIsOpen(false)
+        showToast('Layout applied successfully', 'success')
+      } else {
+        showToast('Layout failed. Please try again.', 'error')
+      }
     } catch (error) {
       console.error('Layout failed:', error)
       showToast('Layout failed. Please try again.', 'error')
@@ -40,7 +42,7 @@ export function LayoutOptionsPanel() {
   }
 
   const handleLayoutClick = () => {
-    showToast('Auto-layout is in progress — coming soon.', 'info')
+    setIsOpen(true)
   }
 
   if (!isOpen) {
@@ -48,18 +50,17 @@ export function LayoutOptionsPanel() {
       <button
         onClick={handleLayoutClick}
         className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
-        aria-label="Auto-layout (coming soon)"
-        aria-disabled="true"
-        data-testid="btn-layout"
-        title="Auto-layout (coming soon)"
+        aria-label="Open layout options"
+        data-testid="btn-elklayout"
+        title="🔧 Layout"
       >
-        Layout
+        🔧 Layout
       </button>
     )
   }
 
   return (
-    <div className="fixed top-24 right-6 w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 z-[2000]">
+    <div className="fixed top-24 right-6 w-80 bg-white rounded-2xl shadow-panel border border-gray-200 p-6 z-[2000]">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">Layout Options</h3>
         <button
@@ -86,7 +87,7 @@ export function LayoutOptionsPanel() {
                 onClick={() => setDirection(dir)}
                 className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   direction === dir
-                    ? 'bg-[#EA7B4B] text-white'
+                    ? 'bg-primary text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -111,7 +112,7 @@ export function LayoutOptionsPanel() {
             step="10"
             value={nodeSpacing}
             onChange={(e) => setNodeSpacing(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#EA7B4B]"
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
           />
           <div className="flex justify-between text-xs text-gray-500 mt-1">
             <span>10px</span>
@@ -131,7 +132,7 @@ export function LayoutOptionsPanel() {
             step="10"
             value={layerSpacing}
             onChange={(e) => setLayerSpacing(Number(e.target.value))}
-            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#EA7B4B]"
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
           />
           <div className="flex justify-between text-xs text-gray-500 mt-1">
             <span>20px</span>
@@ -146,7 +147,7 @@ export function LayoutOptionsPanel() {
             type="checkbox"
             checked={respectLocked}
             onChange={(e) => setRespectLocked(e.target.checked)}
-            className="w-4 h-4 text-[#EA7B4B] rounded focus:ring-[#EA7B4B]"
+            className="w-4 h-4 text-primary rounded focus:ring-primary"
           />
         </label>
 
@@ -154,7 +155,7 @@ export function LayoutOptionsPanel() {
         <button
           onClick={handleApplyLayout}
           disabled={isApplying}
-          className="w-full px-4 py-3 bg-[#EA7B4B] text-white rounded-lg hover:bg-[#EA7B4B]/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isApplying ? (
             <span className="flex items-center justify-center gap-2">

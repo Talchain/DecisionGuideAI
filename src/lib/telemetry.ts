@@ -9,6 +9,24 @@ export type TelemetryEvent =
   | 'edge.stream.cancelled'
   | 'edge.stream.limited'
   | 'edge.stream.error'
+  // Draft My Model funnel (R1/R2)
+  | 'draft.request'
+  | 'draft.success'
+  | 'draft.error'
+  | 'draft.stream.start'
+  | 'draft.stream.done'
+  | 'draft.apply'
+  | 'draft.reject'
+  | 'draft.clarifier.submit'
+  | 'draft.clarifier.skip'
+  // Scenario Sandbox funnel (R2)
+  | 'sandbox.canvas.opened'
+  | 'sandbox.run.clicked'
+  | 'sandbox.run.blocked'
+  | 'sandbox.results.viewed'
+  | 'sandbox.compare.opened'
+  | 'sandbox.issues.opened'
+  | 'sandbox.history.item.selected'
 
 const counters: Record<TelemetryEvent, number> = {
   'edge.stream.start': 0,
@@ -17,6 +35,22 @@ const counters: Record<TelemetryEvent, number> = {
   'edge.stream.cancelled': 0,
   'edge.stream.limited': 0,
   'edge.stream.error': 0,
+  'draft.request': 0,
+  'draft.success': 0,
+  'draft.error': 0,
+  'draft.stream.start': 0,
+  'draft.stream.done': 0,
+  'draft.apply': 0,
+  'draft.reject': 0,
+  'draft.clarifier.submit': 0,
+  'draft.clarifier.skip': 0,
+  'sandbox.canvas.opened': 0,
+  'sandbox.run.clicked': 0,
+  'sandbox.run.blocked': 0,
+  'sandbox.results.viewed': 0,
+  'sandbox.compare.opened': 0,
+  'sandbox.issues.opened': 0,
+  'sandbox.history.item.selected': 0,
 }
 
 export function track(event: TelemetryEvent): void {

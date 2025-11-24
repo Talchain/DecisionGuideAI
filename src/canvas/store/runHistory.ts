@@ -8,10 +8,11 @@
  * enabling live refresh across components and tabs.
  */
 
-import type { ReportV1 } from '../../adapters/plot/v1/types'
+import type { ReportV1 } from '../../adapters/plot/types'
 import { computeClientHash } from '../../adapters/plot/v1/mapper'
 import type { Node, Edge } from '@xyflow/react'
 import * as runsBus from './runsBus'
+import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from '../decisionReview/types'
 
 export interface StoredRun {
   id: string // uuid
@@ -31,6 +32,9 @@ export interface StoredRun {
     nodes: Node[]
     edges: Edge[]
   }
+  ceeReview?: CeeDecisionReviewPayload | null
+  ceeTrace?: CeeTraceMeta | null
+  ceeError?: CeeErrorViewModel | null
 }
 
 export const STORAGE_KEY = 'olumi-canvas-run-history' // Exported for cross-tab listening
@@ -346,35 +350,37 @@ function countEdgesChanged(run: StoredRun, priorRun: StoredRun): number {
     }
 
     // Compare weight
-    const currentWeight = currentEdge.data?.weight ?? 0
-    const priorWeight = priorEdge.data?.weight ?? 0
+    const currentWeightRaw = currentEdge.data?.weight
+    const priorWeightRaw = priorEdge.data?.weight
+    const currentWeight = typeof currentWeightRaw === 'number' ? currentWeightRaw : 0
+    const priorWeight = typeof priorWeightRaw === 'number' ? priorWeightRaw : 0
     if (Math.abs(currentWeight - priorWeight) > EPSILON) {
       changedCount++
       continue
     }
 
     // Compare belief (if present)
-    const currentBelief = currentEdge.data?.belief
-    const priorBelief = priorEdge.data?.belief
-    if (currentBelief != null && priorBelief != null) {
-      if (Math.abs(currentBelief - priorBelief) > EPSILON) {
+    const currentBeliefRaw = currentEdge.data?.belief
+    const priorBeliefRaw = priorEdge.data?.belief
+    if (typeof currentBeliefRaw === 'number' && typeof priorBeliefRaw === 'number') {
+      if (Math.abs(currentBeliefRaw - priorBeliefRaw) > EPSILON) {
         changedCount++
         continue
       }
-    } else if (currentBelief != null || priorBelief != null) {
+    } else if (currentBeliefRaw != null || priorBeliefRaw != null) {
       // One has belief, the other doesn't - count as changed
       changedCount++
       continue
     }
 
     // Compare confidence (fallback if weight/belief not present)
-    const currentConfidence = currentEdge.data?.confidence
-    const priorConfidence = priorEdge.data?.confidence
-    if (currentConfidence != null && priorConfidence != null) {
-      if (Math.abs(currentConfidence - priorConfidence) > EPSILON) {
+    const currentConfidenceRaw = currentEdge.data?.confidence
+    const priorConfidenceRaw = priorEdge.data?.confidence
+    if (typeof currentConfidenceRaw === 'number' && typeof priorConfidenceRaw === 'number') {
+      if (Math.abs(currentConfidenceRaw - priorConfidenceRaw) > EPSILON) {
         changedCount++
       }
-    } else if (currentConfidence != null || priorConfidence != null) {
+    } else if (currentConfidenceRaw != null || priorConfidenceRaw != null) {
       // One has confidence, the other doesn't - count as changed
       changedCount++
     }

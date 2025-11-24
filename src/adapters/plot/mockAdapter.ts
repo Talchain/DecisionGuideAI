@@ -255,7 +255,47 @@ export const plot = {
         if (isCancelled) return
 
         const report = materialiseSuccessReport(seed, detail)
-        handlers.onDone?.({ response_id: responseId, report })
+
+        const mode = seed % 3
+
+        let ceeReview: import('./types').CEEReview | null = null
+        let ceeError: import('./types').CEEError | null = null
+
+        if (mode === 0) {
+          // Ready state: full Decision Review payload
+          ceeReview = {
+            story: {
+              headline: 'Mock Decision Review',
+              key_drivers: [
+                { label: 'Mock driver 1', why: 'Represents a key upside in the mock engine.' },
+                { label: 'Mock driver 2', why: 'Represents a key downside in the mock engine.' },
+              ],
+              next_actions: [
+                { label: 'Review this decision with your team', why: 'Align on risks and trade-offs before acting.' },
+              ],
+            },
+            journey: {
+              is_complete: true,
+              missing_envelopes: [],
+            },
+          }
+        } else if (mode === 2) {
+          // Error state: no review, CEE error view model
+          ceeError = {
+            code: 'CEE_TEMPORARY',
+            retryable: true,
+            traceId: `mock-trace-${seed}`,
+            suggestedAction: 'retry',
+          }
+        }
+
+        const ceeTrace: import('./types').CEETrace = {
+          requestId: responseId,
+          degraded: false,
+          timestamp: new Date().toISOString(),
+        }
+
+        handlers.onDone?.({ response_id: responseId, report, ceeReview, ceeTrace, ceeError } as any)
       })().catch((err) => {
         if (!isCancelled) {
           handlers.onError?.(err as ErrorV1)

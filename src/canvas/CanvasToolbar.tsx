@@ -1,13 +1,11 @@
-import { useState, useRef, useEffect } from 'react'
-import { PanelsTopLeft } from 'lucide-react'
+import { useState, useRef, useEffect, lazy, Suspense } from 'react'
+import { PanelsTopLeft, Sparkles } from 'lucide-react'
 import { useCanvasStore } from './store'
 import { useReactFlow } from '@xyflow/react'
 import { SnapshotManager } from './components/SnapshotManager'
 import { ImportExportDialog } from './components/ImportExportDialog'
 import { LayoutPopover } from './components/LayoutPopover'
 import { BottomSheet } from './components/BottomSheet'
-import { StatusChips } from './components/StatusChips'
-import { ConnectivityChip } from './components/ConnectivityChip'
 import { ScenarioSwitcher } from './components/ScenarioSwitcher'
 import { NODE_REGISTRY } from './domain/nodes'
 import type { NodeType } from './domain/nodes'
@@ -20,8 +18,11 @@ import { useToast } from './ToastContext'
 import { checkLimits, formatLimitError } from './utils/limitGuard'
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { Tooltip } from './components/Tooltip'
-import { EdgeLabelToggle } from './components/EdgeLabelToggle'
-import { LimitsPanel } from './components/LimitsPanel'
+import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
+import { Spinner } from '../components/Spinner'
+
+// Phase 3: Lazy load heavy components for better performance
+const GoalModePanel = lazy(() => import('./components/GoalModePanel').then(m => ({ default: m.GoalModePanel })))
 
 export function CanvasToolbar() {
   const [isMinimized, setIsMinimized] = useState(false)
@@ -30,21 +31,24 @@ export function CanvasToolbar() {
   const [showExport, setShowExport] = useState(false)
   const [showNodeMenu, setShowNodeMenu] = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
-  const [showLimits, setShowLimits] = useState(false)
   const [isRunning, setIsRunning] = useState(false)
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
   const [validationViolations, setValidationViolations] = useState<ValidationError[]>([]) // v1.2: coaching warnings
+  // Phase 2: Goal Mode
+  const [runMode, setRunMode] = useState<'what-if' | 'goal'>('what-if')
+  const [showGoalPanel, setShowGoalPanel] = useState(false)
   const nodeMenuRef = useRef<HTMLDivElement>(null)
   const templatesButtonRef = useRef<HTMLButtonElement>(null)
-  const { undo, redo, canUndo, canRedo, addNode, resetCanvas, nodes, edges, outcomeNodeId, setShowResultsPanel, openTemplatesPanel } = useCanvasStore()
+  const { undo, redo, canUndo, canRedo, addNode, resetCanvas, nodes, edges, outcomeNodeId, setShowResultsPanel, openTemplatesPanel, setShowDraftChat, showDraftChat } = useCanvasStore()
   const { fitView, zoomIn, zoomOut } = useReactFlow()
   const { run } = useResultsRun()
   const { formatErrors, focusError } = useValidationFeedback()
   const { showToast } = useToast()
   const { limits } = useEngineLimits() // v1.2: Shared limits hook
+  const checkRunEligibility = useRunEligibilityCheck()
 
   // v1.2: Check if node capacity is reached
-  const isAtNodeCapacity = limits && nodes.length >= limits.nodes.max
+  const isAtNodeCapacity = !!(limits && nodes.length >= limits.nodes.max)
 
   // Close node menu on outside click
   useEffect(() => {
@@ -76,14 +80,17 @@ export function CanvasToolbar() {
   }
 
   const handleRunAnalysis = async () => {
-    if (nodes.length === 0) return
+    const eligibility = checkRunEligibility()
+    if (!eligibility.canRun) {
+      return
+    }
 
     // Clear previous validation errors and violations
     setValidationErrors([])
     setValidationViolations([])
     setIsRunning(true)
 
-    // Force open Results panel BEFORE running
+    // Ensure the docked Results view is visible before running
     setShowResultsPanel(true)
 
     try {
@@ -152,10 +159,13 @@ export function CanvasToolbar() {
 
   if (isMinimized) {
     return (
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000]">
+      <div
+        className="fixed left-1/2 -translate-x-1/2 z-[1000]"
+        style={{ bottom: 'var(--toolbar-margin, 1rem)' }}
+      >
         <button
           onClick={() => setIsMinimized(false)}
-          className="px-3 py-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-lg border border-gray-200 hover:bg-white transition-colors"
+          className="px-3 py-2 bg-white/90 backdrop-blur-sm rounded-lg shadow-panel border border-gray-200 hover:bg-white transition-colors"
           title="Show toolbar"
           aria-label="Show toolbar"
         >
@@ -169,17 +179,12 @@ export function CanvasToolbar() {
 
   return (
     <>
-      {/* Status Chips (top-right corner) */}
-      <div className="fixed top-4 right-4 z-[999] flex flex-col gap-2 items-end">
-        <ConnectivityChip />
-        <StatusChips currentNodes={nodes.length} currentEdges={edges.length} onClick={() => setShowLimits(true)} />
-        {/* P1 Polish: Edge label toggle (human ⇄ numeric) */}
-        {edges.length > 0 && <EdgeLabelToggle showLabel={false} />}
-      </div>
-
       {/* Validation Banner (positioned above toolbar) */}
       {(validationErrors.length > 0 || validationViolations.length > 0) && (
-        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[1001] w-full max-w-2xl px-4">
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-[1001] w-full max-w-2xl px-4"
+          style={{ bottom: 'calc(var(--bottombar-h) + 1rem)' }}
+        >
           <ValidationBanner
             errors={validationErrors}
             violations={validationViolations}
@@ -192,11 +197,14 @@ export function CanvasToolbar() {
         </div>
       )}
 
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[1000]">
+      <div
+        className="fixed left-1/2 -translate-x-1/2 z-[1000]"
+        style={{ bottom: 'var(--toolbar-margin, 1rem)' }}
+      >
         <div
           role="toolbar"
           aria-label="Canvas editing toolbar"
-          className="flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-gray-200"
+          className="flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-sm rounded-xl shadow-panel border border-gray-200"
         >
         {/* Scenario Switcher */}
         <ScenarioSwitcher />
@@ -216,7 +224,7 @@ export function CanvasToolbar() {
                 className={`p-1.5 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center gap-1.5 ${
                   isAtNodeCapacity
                     ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
-                    : 'text-white bg-carrot-500 hover:bg-carrot-600 focus:ring-carrot-500'
+                    : 'text-white bg-info-500 hover:bg-info-600 focus:ring-info-500'
                 }`}
                 aria-label={isAtNodeCapacity ? `Node limit reached` : 'Add node to canvas'}
                 aria-expanded={showNodeMenu}
@@ -235,7 +243,7 @@ export function CanvasToolbar() {
           {showNodeMenu && (
             <div
               role="menu"
-              className="absolute bottom-full mb-2 left-0 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
+              className="absolute bottom-full mb-2 left-0 w-48 bg-white rounded-lg shadow-panel border border-gray-200 py-1 z-50"
             >
               {(Object.keys(NODE_REGISTRY) as NodeType[]).map((type) => {
                 const meta = NODE_REGISTRY[type]
@@ -269,33 +277,57 @@ export function CanvasToolbar() {
           <span>Templates</span>
         </button>
 
-        {/* Run Analysis Button (visible when nodes.length >= 1) */}
+        {/* AI: describe your decision to draft a starter model */}
+        <button
+          onClick={() => setShowDraftChat(!showDraftChat)}
+          className="p-1.5 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center gap-1.5 text-sky-700 bg-white hover:bg-sky-50 focus:ring-sky-400 border border-sky-300"
+          title="Describe your decision to draft a starter model"
+          aria-label="Open Quick Draft assistant"
+          data-testid="btn-quick-draft"
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>AI</span>
+        </button>
+
+        {/* Phase 2: Run Mode Selector & Run Button (visible when nodes.length >= 1) */}
         {nodes.length >= 1 && (
-          <button
-            onClick={handleRunAnalysis}
-            disabled={isRunning || validationErrors.length > 0}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-info-500 hover:bg-info-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info-500 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            title={validationErrors.length > 0 ? "Fix issues to run" : isRunning ? "Analysis in progress..." : "Run Analysis (⌘R)"}
-            aria-label={validationErrors.length > 0 ? "Cannot run - fix validation issues first" : isRunning ? "Analysis running - please wait" : "Run analysis on current graph"}
-            data-testid="btn-run-analysis"
-          >
-            {isRunning ? (
-              <>
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Running...
-              </>
-            ) : (
-              <>
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-                Run
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2">
+            <select
+              value={runMode}
+              onChange={(e) => setRunMode(e.target.value as 'what-if' | 'goal')}
+              className="px-2 py-1.5 text-sm border border-sand-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              title="Select analysis mode"
+            >
+              <option value="what-if">What-If Mode</option>
+              <option value="goal">Goal Mode</option>
+            </select>
+
+            <button
+              onClick={runMode === 'goal' ? () => setShowGoalPanel(true) : handleRunAnalysis}
+              disabled={isRunning || validationErrors.length > 0}
+              className="px-3 py-1.5 text-sm font-medium text-white bg-info-500 hover:bg-info-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info-500 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              title={validationErrors.length > 0 ? "Fix issues to run" : isRunning ? "Analysis in progress..." : runMode === 'goal' ? "Set Goal" : "Run Analysis (⌘R)"}
+              aria-label={validationErrors.length > 0 ? "Cannot run - fix validation issues first" : isRunning ? "Analysis running - please wait" : runMode === 'goal' ? "Open goal mode" : "Run analysis on current graph"}
+              data-testid="btn-run-analysis"
+            >
+              {isRunning ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Running...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  {runMode === 'goal' ? 'Set Goal' : 'Run'}
+                </>
+              )}
+            </button>
+          </div>
         )}
 
         <div className="w-px h-6 bg-gray-300" role="separator" />
@@ -334,38 +366,41 @@ export function CanvasToolbar() {
         <div className="w-px h-6 bg-gray-300" role="separator" />
 
         {/* Zoom */}
-        <button
-          onClick={() => zoomIn()}
-          className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
-          title="Zoom In"
-          aria-label="Zoom in"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
-          </svg>
-        </button>
+        <Tooltip content="Zoom in">
+          <button
+            onClick={() => zoomIn()}
+            className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
+            aria-label="Zoom in"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+            </svg>
+          </button>
+        </Tooltip>
 
-        <button
-          onClick={() => zoomOut()}
-          className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
-          title="Zoom Out"
-          aria-label="Zoom out"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM7 10h6" />
-          </svg>
-        </button>
+        <Tooltip content="Zoom out">
+          <button
+            onClick={() => zoomOut()}
+            className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
+            aria-label="Zoom out"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM7 10h6" />
+            </svg>
+          </button>
+        </Tooltip>
 
-        <button
-          onClick={() => fitView({ padding: 0.2, duration: 300 })}
-          className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
-          title="Fit View"
-          aria-label="Fit all nodes in view"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-          </svg>
-        </button>
+        <Tooltip content="Fit view to all nodes">
+          <button
+            onClick={() => fitView({ padding: 0.2, duration: 300 })}
+            className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
+            aria-label="Fit all nodes in view"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+            </svg>
+          </button>
+        </Tooltip>
 
         <div className="w-px h-6 bg-gray-300" role="separator" />
 
@@ -373,43 +408,46 @@ export function CanvasToolbar() {
         <LayoutPopover />
 
         {/* Snapshots */}
-        <button
-          onClick={openSnapshots}
-          className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
-          title="Manage Snapshots (⌘S)"
-          aria-label="Open snapshot manager"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </button>
+        <Tooltip content="Manage snapshots (⌘S)">
+          <button
+            onClick={openSnapshots}
+            className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
+            aria-label="Open snapshot manager"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+        </Tooltip>
 
         <div className="w-px h-6 bg-gray-300" role="separator" />
 
         {/* Import */}
-        <button
-          onClick={openImport}
-          className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
-          title="Import Canvas"
-          aria-label="Import canvas from file"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-          </svg>
-        </button>
+        <Tooltip content="Import canvas from file">
+          <button
+            onClick={openImport}
+            className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
+            aria-label="Import canvas from file"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+          </button>
+        </Tooltip>
 
         {/* Export */}
-        <button
-          onClick={openExport}
-          className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
-          title="Export Canvas"
-          aria-label="Export canvas to file"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-        </button>
+        <Tooltip content="Export canvas to file">
+          <button
+            onClick={openExport}
+            className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
+            aria-label="Export canvas to file"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          </button>
+        </Tooltip>
 
         <div className="w-px h-6 bg-gray-300" role="separator" />
 
@@ -431,16 +469,17 @@ export function CanvasToolbar() {
         </Tooltip>
 
         {/* Minimize */}
-        <button
-          onClick={() => setIsMinimized(true)}
-          className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
-          title="Minimize toolbar"
-          aria-label="Minimize toolbar"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
+        <Tooltip content="Minimize toolbar">
+          <button
+            onClick={() => setIsMinimized(true)}
+            className="p-1.5 text-gray-900 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 shadow-sm"
+            aria-label="Minimize toolbar"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </Tooltip>
       </div>
 
       {/* Modals */}
@@ -473,13 +512,15 @@ export function CanvasToolbar() {
         </div>
       </BottomSheet>
 
-      {/* Limits Panel (B5 P1 Polish) */}
-      <LimitsPanel
-        isOpen={showLimits}
-        onClose={() => setShowLimits(false)}
-        currentNodes={nodes.length}
-        currentEdges={edges.length}
-      />
+      {/* Phase 2: Goal Mode Panel Modal */}
+      {showGoalPanel && (
+        <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-[1000] p-4">
+          <Suspense fallback={<Spinner size="lg" />}>
+            <GoalModePanel onClose={() => setShowGoalPanel(false)} />
+          </Suspense>
+        </div>
+      )}
+
       </div>
     </>
   )

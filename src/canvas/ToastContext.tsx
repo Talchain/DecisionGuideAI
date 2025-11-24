@@ -54,7 +54,7 @@ function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: 
         <div
           key={toast.id}
           className={`
-            px-4 py-3 rounded-lg shadow-lg border flex items-center gap-3 min-w-[300px] max-w-md
+            px-4 py-3 rounded-lg shadow-panel border flex items-center gap-3 min-w-[300px] max-w-md
             animate-[slideIn_0.2s_ease-out]
             ${toast.type === 'success' ? 'bg-success-50 border-success-200 text-success-900' : ''}
             ${toast.type === 'error' ? 'bg-danger-50 border-danger-200 text-danger-900' : ''}

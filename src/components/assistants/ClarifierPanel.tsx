@@ -208,7 +208,7 @@ export function ClarifierPanel({ clarifier, onSubmit, onSkip, isSubmitting, prev
           className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 font-medium flex items-center gap-2"
         >
           <ArrowRight className="w-4 h-4" />
-          Skip & Continue
+          Skip and continue
         </button>
       </div>
 

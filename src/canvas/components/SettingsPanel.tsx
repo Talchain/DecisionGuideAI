@@ -20,7 +20,7 @@ export function SettingsPanel() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 p-3 bg-white rounded-full shadow-lg hover:shadow-xl transition-shadow border border-gray-200"
+        className="fixed bottom-6 right-6 p-3 bg-white rounded-full shadow-panel transition-shadow border border-gray-200"
         aria-label="Open settings"
       >
         <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -32,7 +32,7 @@ export function SettingsPanel() {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 w-80 bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 z-[2000]">
+    <div className="fixed bottom-6 right-6 w-80 bg-white rounded-2xl shadow-panel border border-gray-200 p-6 z-[2000]">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900">Settings</h3>
         <button
@@ -54,7 +54,7 @@ export function SettingsPanel() {
             type="checkbox"
             checked={showGrid}
             onChange={(e) => setShowGrid(e.target.checked)}
-            className="w-4 h-4 text-[#EA7B4B] rounded focus:ring-[#EA7B4B]"
+            className="w-4 h-4 text-primary rounded focus:ring-primary"
           />
         </label>
 
@@ -71,7 +71,7 @@ export function SettingsPanel() {
               step="8"
               value={gridSize}
               onChange={(e) => setGridSize(Number(e.target.value) as 8 | 16 | 24)}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#EA7B4B]"
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
             />
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>8px</span>
@@ -88,7 +88,7 @@ export function SettingsPanel() {
             type="checkbox"
             checked={snapToGrid}
             onChange={(e) => setSnapToGrid(e.target.checked)}
-            className="w-4 h-4 text-[#EA7B4B] rounded focus:ring-[#EA7B4B]"
+            className="w-4 h-4 text-primary rounded focus:ring-primary"
           />
         </label>
 
@@ -99,7 +99,7 @@ export function SettingsPanel() {
             type="checkbox"
             checked={showAlignmentGuides}
             onChange={(e) => setShowAlignmentGuides(e.target.checked)}
-            className="w-4 h-4 text-[#EA7B4B] rounded focus:ring-[#EA7B4B]"
+            className="w-4 h-4 text-primary rounded focus:ring-primary"
           />
         </label>
 
@@ -110,7 +110,7 @@ export function SettingsPanel() {
             type="checkbox"
             checked={highContrastMode}
             onChange={(e) => setHighContrastMode(e.target.checked)}
-            className="w-4 h-4 text-[#EA7B4B] rounded focus:ring-[#EA7B4B]"
+            className="w-4 h-4 text-primary rounded focus:ring-primary"
           />
         </label>
       </div>

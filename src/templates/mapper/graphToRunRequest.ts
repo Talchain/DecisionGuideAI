@@ -40,7 +40,7 @@ export interface MapperOptions {
  * Uses deterministic seed based on template ID if not provided
  */
 export function graphToRunRequest(
-  graph: GraphState,
+  _graph: GraphState,
   options: MapperOptions
 ): RunRequest {
   const { templateId, seed, inputs } = options
@@ -81,14 +81,6 @@ export function validateGraph(graph: GraphState): {
   
   if (!graph.nodes || graph.nodes.length === 0) {
     errors.push('Graph must have at least one node')
-  }
-  
-  if (graph.nodes && graph.nodes.length > 12) {
-    errors.push('Graph cannot have more than 12 nodes')
-  }
-  
-  if (graph.edges && graph.edges.length > 20) {
-    errors.push('Graph cannot have more than 20 edges')
   }
   
   // Validate edge references

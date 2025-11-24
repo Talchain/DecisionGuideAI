@@ -44,7 +44,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
   },
   {
     id: 'templates',
-    title: 'Templates & Merging',
+    title: 'Templates and merging',
     description:
       'Jump-start with curated templates or merge a template into your current work without overwriting anything.',
     icon: <Layers className="w-8 h-8 text-purple-600" aria-hidden="true" />,
@@ -56,7 +56,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
   },
   {
     id: 'save',
-    title: 'Save & Autosave',
+    title: 'Save and autosave',
     description:
       'Saved by you · just now ✓ — Olumi autosaves locally every 30 seconds and records who last edited each scenario.',
     icon: <Save className="w-8 h-8 text-emerald-600" aria-hidden="true" />,
@@ -91,7 +91,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
   },
   {
     id: 'compare',
-    title: 'Compare & Capture Rationale',
+    title: 'Compare and capture rationale',
     description:
       'Save snapshots (Scenario A, Scenario B, etc.), compare them side-by-side, then capture the decision rationale for auditability.',
     icon: <GitCompare className="w-8 h-8 text-rose-600" aria-hidden="true" />,
@@ -103,7 +103,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
   },
   {
     id: 'share',
-    title: 'Share & Export Safely',
+    title: 'Share and export safely',
     description:
       'Everything runs locally for single-user mode. Share links stay on your device unless you copy them out.',
     icon: <Share2 className="w-8 h-8 text-indigo-600" aria-hidden="true" />,
@@ -150,6 +150,13 @@ export function OnboardingOverlay({ onClose, isOpen, onShowKeyboardLegend, onSho
   const [currentStep, setCurrentStep] = useState(0)
   const overlayRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+
+  const handleClose = () => {
+    // Mark as seen
+    markOnboardingSeen()
+    setCurrentStep(0)
+    onClose()
+  }
 
   // Reset step whenever overlay re-opens
   useEffect(() => {
@@ -206,14 +213,7 @@ export function OnboardingOverlay({ onClose, isOpen, onShowKeyboardLegend, onSho
 
     document.addEventListener('keydown', handleEscape)
     return () => document.removeEventListener('keydown', handleEscape)
-  }, [isOpen])
-
-  const handleClose = () => {
-    // Mark as seen
-    markOnboardingSeen()
-    setCurrentStep(0)
-    onClose()
-  }
+  }, [isOpen, handleClose])
 
   const handleNext = () => {
     if (currentStep < ONBOARDING_STEPS.length - 1) {
@@ -248,7 +248,7 @@ export function OnboardingOverlay({ onClose, isOpen, onShowKeyboardLegend, onSho
       aria-labelledby="onboarding-title"
       ref={overlayRef}
     >
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 p-6 relative">
+      <div className="bg-white rounded-lg shadow-panel max-w-2xl w-full mx-4 p-6 relative">
         {/* Close button */}
         <button
           ref={closeButtonRef}

@@ -13,7 +13,7 @@
 
 import type { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
-import { sanitizeLabel } from '../utils/sanitize'
+import { sanitizeLabel } from '../persist'
 
 export interface SnapshotMeta {
   id: string
@@ -84,6 +84,11 @@ export function saveSnapshot(
   try {
     const snapshots = listSnapshots()
 
+    // Deep-clone graph before extracting snapshot fields to avoid retaining live references
+    const { nodes: safeNodes, edges: safeEdges } = JSON.parse(
+      JSON.stringify({ nodes, edges }),
+    ) as { nodes: Node[]; edges: Edge<EdgeData>[] }
+
     // Create snapshot with explicit property extraction
     const snapshot: Snapshot = {
       meta: {
@@ -93,14 +98,14 @@ export function saveSnapshot(
         seed: meta?.seed,
         hash: meta?.hash,
       },
-      nodes: nodes.map(node => ({
+      nodes: safeNodes.map(node => ({
         id: node.id,
         label: sanitizeLabel(node.data?.label || node.id),
         x: node.position.x,
         y: node.position.y,
         type: node.type,
       })),
-      edges: edges.map(edge => ({
+      edges: safeEdges.map(edge => ({
         from: edge.source,
         to: edge.target,
         label: edge.data?.label ? sanitizeLabel(edge.data.label) : undefined,

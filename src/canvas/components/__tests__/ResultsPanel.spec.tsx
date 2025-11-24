@@ -14,6 +14,15 @@ import type { ReportV1 } from '../../../adapters/plot/types'
 
 // toHaveNoViolations is already globally extended in tests/setup/rtl.ts
 
+// Mock validation feedback to avoid requiring a React Flow provider in these DOM tests
+vi.mock('../../hooks/useValidationFeedback', () => ({
+  useValidationFeedback: () => ({
+    focusError: () => {},
+    formatError: (error: any) => error,
+    formatErrors: (errors: any[]) => errors,
+  }),
+}))
+
 // Test wrapper with LayerProvider and ToastProvider
 function renderWithProviders(ui: React.ReactElement) {
   return render(
@@ -65,22 +74,22 @@ describe('ResultsPanel', () => {
       const { container } = renderWithProviders(
         <ResultsPanel isOpen={false} onClose={vi.fn()} />
       )
-      expect(container.querySelector('[role="dialog"]')).not.toBeInTheDocument()
+      expect(container.querySelector('[aria-label="Analysis Results"]')).not.toBeInTheDocument()
     })
 
     it('renders when isOpen is true', () => {
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
-      expect(screen.getByRole('dialog', { name: 'Results Panel' })).toBeInTheDocument()
+      expect(screen.getByRole('complementary', { name: 'Analysis Results' })).toBeInTheDocument()
     })
 
     it('displays Results heading', () => {
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
-      expect(screen.getByText('Results')).toBeInTheDocument()
+      expect(screen.getByText('Analysis Results')).toBeInTheDocument()
     })
 
-    it('displays tabs (Latest Run, History, Compare)', () => {
+    it('displays tabs (Latest, History, Compare)', () => {
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
-      expect(screen.getByRole('button', { name: /Latest Run/ })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Latest/ })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /History/ })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /Compare/ })).toBeInTheDocument()
     })
@@ -90,7 +99,7 @@ describe('ResultsPanel', () => {
     it('shows Idle state initially', () => {
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
       expect(screen.getByText('Ready to analyse')).toBeInTheDocument()
-      expect(screen.getByText('Click "Run Analysis" to start analysing your decision tree.')).toBeInTheDocument()
+      expect(screen.getByText('Add nodes to your canvas to get started.')).toBeInTheDocument()
     })
 
     it('shows Preparing state', () => {
@@ -116,6 +125,18 @@ describe('ResultsPanel', () => {
 
       expect(screen.getByText('Analyzing decision tree...')).toBeInTheDocument()
       expect(screen.getByText('45%')).toBeInTheDocument()
+    })
+
+    it('renders loading skeleton while analysis is streaming', () => {
+      useCanvasStore.getState().resultsStart({ seed: 1337 })
+      useCanvasStore.getState().resultsConnecting('test-run-123')
+      useCanvasStore.getState().resultsProgress(10)
+
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+
+      expect(
+        screen.getByRole('status', { name: 'Running analysis' }),
+      ).toBeInTheDocument()
     })
 
     it('shows Complete state with KPI and report details', () => {
@@ -190,7 +211,7 @@ describe('ResultsPanel', () => {
   })
 
   describe('Metadata Display', () => {
-    it('displays seed in reproducibility section when available', () => {
+    it('displays seed in trust footer when available', () => {
       useCanvasStore.getState().resultsStart({ seed: 1337 })
       useCanvasStore.getState().resultsComplete({
         report: mockReport,
@@ -198,21 +219,12 @@ describe('ResultsPanel', () => {
       })
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      // Open the reproducibility details section
-      const details = screen.getByText('Reproducibility Info').closest('details')
-      expect(details).toBeInTheDocument()
-
-      // Click to open
-      if (details) {
-        fireEvent.click(screen.getByText('Reproducibility Info'))
-      }
-
-      // Seed should now be visible
-      expect(screen.getByText(/Seed:/)).toBeInTheDocument()
+      // Trust footer should show Seed label and value
+      expect(screen.getByText('Seed')).toBeInTheDocument()
       expect(screen.getByText('1337')).toBeInTheDocument()
     })
 
-    it('displays hash in reproducibility section when available', () => {
+    it('displays hash in trust footer when available', () => {
       useCanvasStore.getState().resultsStart({ seed: 1337 })
       useCanvasStore.getState().resultsComplete({
         report: mockReport,
@@ -220,18 +232,152 @@ describe('ResultsPanel', () => {
       })
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      // Open the reproducibility details section
-      const details = screen.getByText('Reproducibility Info').closest('details')
-      expect(details).toBeInTheDocument()
-
-      // Click to open
-      if (details) {
-        fireEvent.click(screen.getByText('Reproducibility Info'))
-      }
-
-      // Hash should now be visible (first 16 chars)
-      expect(screen.getByText(/Hash:/)).toBeInTheDocument()
+      // Trust footer should show Response label and hash preview
+      expect(screen.getByText('Response')).toBeInTheDocument()
       expect(screen.getByText(/abc123def456/)).toBeInTheDocument()
+    })
+
+    it('shows not-available messages when seed and hash are missing', () => {
+      // Do not set seed or hash explicitly
+      useCanvasStore.getState().resultsComplete({
+        report: mockReport,
+        hash: undefined as any
+      })
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+
+      // Trust footer still renders with calm "Not available" copy
+      const notAvailableMessages = screen.getAllByText('Not available for this run')
+      expect(notAvailableMessages.length).toBeGreaterThanOrEqual(1)
+
+      // Copy button should not be rendered without a hash
+      expect(screen.queryByRole('button', { name: 'Copy full hash' })).not.toBeInTheDocument()
+    })
+
+    it('does not render trust footer when there is no report', () => {
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+
+      expect(screen.queryByLabelText('Trust and reproducibility details')).not.toBeInTheDocument()
+    })
+
+    it('copies full hash to clipboard when copy button is clicked', async () => {
+      const hash = 'sha256:abcdef1234567890abcdef1234567890'
+
+      // Mock clipboard API
+      Object.assign(navigator, {
+        clipboard: {
+          writeText: vi.fn().mockResolvedValue(undefined)
+        }
+      })
+
+      useCanvasStore.getState().resultsComplete({
+        report: mockReport,
+        hash
+      })
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+
+      const copyButton = screen.getByRole('button', { name: 'Copy full hash' })
+      fireEvent.click(copyButton)
+
+      expect(navigator.clipboard.writeText).toHaveBeenCalledWith(hash)
+    })
+
+    it('shows an engine label in the trust footer', () => {
+      useCanvasStore.getState().resultsComplete({
+        report: mockReport,
+        hash: mockReport.model_card.response_hash
+      })
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+
+      expect(screen.getByText('Engine')).toBeInTheDocument()
+      // Label is derived from adapterName (e.g. "PLoT (mock)", "PLoT (auto-detect)")
+      expect(screen.getByText(/PLoT/)).toBeInTheDocument()
+    })
+  })
+
+  describe('Decision story', () => {
+    it('falls back to generic copy when framing is missing', () => {
+      useCanvasStore.getState().resultsComplete({
+        report: mockReport,
+        hash: mockReport.model_card.response_hash
+      })
+
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+
+      // Section heading
+      expect(screen.getByText('Decision story')).toBeInTheDocument()
+
+      // Generic story when no framing has been captured
+      expect(
+        screen.getByText('You are reviewing this decision based on the current graph and results.'),
+      ).toBeInTheDocument()
+
+      // Limits and health summaries should use calm fallback copy
+      expect(
+        screen.getByText(
+          'Limits: Limits unavailable. You can still edit the graph, but run behaviour may be constrained.',
+        ),
+      ).toBeInTheDocument()
+
+      expect(screen.getByText('Health: Unknown')).toBeInTheDocument()
+      expect(
+        screen.getByText('No recent health check. Run diagnostics to analyse this graph.'),
+      ).toBeInTheDocument()
+    })
+
+    it('renders scenario framing when present in the store', () => {
+      useCanvasStore.setState({
+        currentScenarioFraming: {
+          title: 'Choose launch strategy',
+          goal: 'Maximise sustainable impact',
+          timeline: 'Next 6 months',
+        },
+      } as any)
+
+      useCanvasStore.getState().resultsComplete({
+        report: mockReport,
+        hash: mockReport.model_card.response_hash,
+      })
+
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+
+      expect(screen.getByText('Decision story')).toBeInTheDocument()
+      expect(screen.getByText(/You are deciding/)).toBeInTheDocument()
+      expect(screen.getByText('Choose launch strategy')).toBeInTheDocument()
+      // Goal and timeline text may be split across text nodes and spans
+      expect(screen.getByText(/Primary goal:/)).toBeInTheDocument()
+      expect(screen.getByText('Maximise sustainable impact')).toBeInTheDocument()
+      expect(screen.getByText(/Time horizon:/)).toBeInTheDocument()
+      expect(screen.getByText('Next 6 months')).toBeInTheDocument()
+    })
+
+    it('offers a CTA to open graph issues when health data is present', () => {
+      // Seed graph health in the store
+      useCanvasStore.setState({
+        graphHealth: {
+          status: 'errors',
+          score: 60,
+          issues: [
+            { id: 'i1', type: 'cycle', severity: 'error', message: 'Cycle detected' },
+          ],
+        },
+      } as any)
+
+      // Seed a completed report so the Decision story section renders
+      useCanvasStore.getState().resultsComplete({
+        report: mockReport,
+        hash: mockReport.model_card.response_hash,
+      })
+
+      const setShowIssuesPanelSpy = vi.spyOn(useCanvasStore.getState(), 'setShowIssuesPanel')
+
+      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+
+      const cta = screen.getByRole('button', { name: 'Open graph issues' })
+      expect(cta).toBeInTheDocument()
+
+      fireEvent.click(cta)
+
+      expect(setShowIssuesPanelSpy).toHaveBeenCalledWith(true)
     })
   })
 
@@ -283,10 +429,10 @@ describe('ResultsPanel', () => {
       })
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      expect(screen.getByRole('button', { name: 'Run Again' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Analyse again' })).toBeInTheDocument()
     })
 
-    it('calls onRunAgain when Run Again clicked', () => {
+    it('calls onRunAgain when Run Again clicked', async () => {
       useCanvasStore.getState().resultsComplete({
         report: mockReport,
         hash: mockReport.model_card.response_hash
@@ -294,10 +440,12 @@ describe('ResultsPanel', () => {
       const onRunAgain = vi.fn()
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} onRunAgain={onRunAgain} />)
 
-      const runAgainButton = screen.getByRole('button', { name: 'Run Again' })
+      const runAgainButton = screen.getByRole('button', { name: 'Analyse again' })
       fireEvent.click(runAgainButton)
 
-      expect(onRunAgain).toHaveBeenCalledTimes(1)
+      await waitFor(() => {
+        expect(onRunAgain).toHaveBeenCalledTimes(1)
+      })
     })
   })
 
@@ -425,7 +573,8 @@ describe('ResultsPanel', () => {
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
       // KPI headline should show p50 value
-      expect(screen.getByText('5000.0%')).toBeInTheDocument()
+      const kpiValues = screen.getAllByText('5000.0%')
+      expect(kpiValues.length).toBeGreaterThanOrEqual(1)
 
       // Range chips should show p10/p50/p90
       expect(screen.getByText('1000.0%')).toBeInTheDocument()
@@ -445,11 +594,12 @@ describe('ResultsPanel', () => {
         report: reportWithNullBands,
         hash: 'partial-hash'
       })
-      renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
+      const { container } = renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
       // Should show "—" placeholders (appears multiple times - KPIHeadline + 3 RangeChips)
-      const placeholders = screen.getAllByText('—')
-      expect(placeholders.length).toBeGreaterThanOrEqual(4)
+      const textContent = container.textContent || ''
+      const placeholderCount = (textContent.match(/—/g) || []).length
+      expect(placeholderCount).toBeGreaterThanOrEqual(4)
     })
 
     it('falls back to legacy results when canonical run not present', () => {
@@ -465,7 +615,8 @@ describe('ResultsPanel', () => {
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
       // Should show legacy results values
-      expect(screen.getByText('150.0%')).toBeInTheDocument() // likely
+      const likelyValues = screen.getAllByText('150.0%')
+      expect(likelyValues.length).toBeGreaterThanOrEqual(1)
       expect(screen.getByText('100.0%')).toBeInTheDocument() // conservative
       expect(screen.getByText('200.0%')).toBeInTheDocument() // optimistic
     })

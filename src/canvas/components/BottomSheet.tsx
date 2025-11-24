@@ -65,7 +65,7 @@ export function BottomSheet({ isOpen, onClose, title, children }: BottomSheetPro
     >
       <div
         ref={containerRef}
-        className="bg-white rounded-t-lg shadow-xl w-full max-w-2xl"
+        className="bg-white rounded-t-lg shadow-panel w-full max-w-2xl"
         style={{
           maxHeight: 'calc(100dvh - 112px)',
           paddingBottom: 'env(safe-area-inset-bottom, 0px)'

@@ -7,6 +7,7 @@ import ReactFlowGraph from '../canvas/ReactFlowGraph'
 import type { Blueprint } from '../templates/blueprints/types'
 import { useCanvasStore } from '../canvas/store'
 import { useResultsRun } from '../canvas/hooks/useResultsRun'
+import { trackCanvasOpened } from '../canvas/utils/sandboxTelemetry'
 
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
 
@@ -38,6 +39,7 @@ export default function CanvasMVP() {
 
   // Fetch version from /version.json (runtime)
   useEffect(() => {
+    trackCanvasOpened()
     fetch('/version.json')
       .then(r => r.json())
       .then(v => {
@@ -62,7 +64,7 @@ export default function CanvasMVP() {
       // Keep Templates panel open and show error
       setInsertionError(result.error)
     } else {
-      // Success: close Templates panel, open Results panel, clear error
+      // Success: close Templates panel, show docked Results view, clear error
       closeTemplatesPanel()
       useCanvasStore.getState().setShowResultsPanel(true)
       setInsertionError(null)

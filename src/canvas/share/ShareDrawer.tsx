@@ -14,9 +14,12 @@
  * Flag: VITE_FEATURE_SHARE_ALLOWLIST=0|1 (already exists)
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useCanvasStore } from '../store'
-import { sanitizeLabel } from '../utils/sanitize'
+import { sanitizeLabel } from '../persist'
+import { loadRuns } from '../store/runHistory'
+import { selectScenarioLastRun } from '../shared/lastRun'
+import { formatDecisionSummary } from './decisionSummary'
 
 export interface ShareDrawerProps {
   isOpen: boolean
@@ -59,12 +62,55 @@ function buildShareUrl(hash: string, templateId?: string): string {
 
 export function ShareDrawer({ isOpen, onClose, seed: propSeed, hash: propHash }: ShareDrawerProps) {
   const [copied, setCopied] = useState(false)
+  const [summaryCopied, setSummaryCopied] = useState(false)
   const [allowlistStatus, setAllowlistStatus] = useState<'checking' | 'allowed' | 'not-allowed' | 'unknown'>('unknown')
 
   // Use props if provided, otherwise fall back to canvas store
   const storeResults = useCanvasStore(s => s.results)
+  const framing = useCanvasStore(s => s.currentScenarioFraming)
+  const lastResultHashMeta = useCanvasStore(s => s.currentScenarioLastResultHash)
+  const lastRunAt = useCanvasStore(s => s.currentScenarioLastRunAt)
+  const lastRunSeed = useCanvasStore(s => s.currentScenarioLastRunSeed)
+
   const seed = propSeed !== undefined ? propSeed : storeResults.seed
   const hash = propHash || storeResults.hash
+
+  const currentResultsHash = hash ?? null
+
+  const lastRun = useMemo(() => {
+    const runs = loadRuns()
+    return selectScenarioLastRun({
+      runs,
+      scenarioLastResultHash: lastResultHashMeta,
+      currentResultsHash,
+    })
+  }, [lastResultHashMeta, currentResultsHash])
+
+  const handleCopySummary = () => {
+    const summaryText = formatDecisionSummary({
+      framing,
+      lastResultHash: lastResultHashMeta ?? lastRun?.hash ?? null,
+      lastRunAt,
+      lastRunSeed,
+      lastRun,
+    })
+
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard
+          .writeText(summaryText)
+          .then(() => {
+            setSummaryCopied(true)
+            setTimeout(() => setSummaryCopied(false), 2000)
+          })
+          .catch(() => {
+            // Best-effort copy; avoid noisy errors in UI
+          })
+      }
+    } catch {
+      // Swallow errors to keep UX calm
+    }
+  }
 
   // Check allowlist when drawer opens (if flag enabled)
   useEffect(() => {
@@ -132,7 +178,7 @@ export function ShareDrawer({ isOpen, onClose, seed: propSeed, hash: propHash }:
 
       {/* Drawer */}
       <div
-        className="relative w-full max-w-md bg-white rounded-lg shadow-xl p-6"
+        className="relative w-full max-w-md bg-white rounded-lg shadow-panel p-6"
         onClick={e => e.stopPropagation()}
         role="dialog"
         aria-label="Share link"
@@ -196,6 +242,16 @@ export function ShareDrawer({ isOpen, onClose, seed: propSeed, hash: propHash }:
             className="px-4 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Open
+          </button>
+        </div>
+
+        <div className="mt-3">
+          <button
+            onClick={handleCopySummary}
+            type="button"
+            className="w-full px-4 py-2 text-sm font-medium bg-gray-50 text-gray-700 rounded border border-gray-200 hover:bg-gray-100"
+          >
+            {summaryCopied ? 'Summary copied' : 'Copy decision summary'}
           </button>
         </div>
 
