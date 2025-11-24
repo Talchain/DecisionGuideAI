@@ -61,7 +61,7 @@ describe('errorTaxonomy', () => {
       const result = mapErrorToUserMessage({
         status: 429,
         message: 'Too many requests',
-        retryAfter: 60000 // milliseconds
+        retryAfter: 60 // seconds (from Retry-After header or body.retry_after)
       })
 
       expect(result.title).toBe('Rate limit exceeded')
