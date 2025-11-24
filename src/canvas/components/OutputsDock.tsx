@@ -203,7 +203,10 @@ export function OutputsDock() {
         return { ...prev, isOpen: true, activeTab: 'results' }
       })
     }
-  }, [resultsStatus, setState])
+    // We intentionally depend only on resultsStatus. setState from useDockState is stable
+    // (useCallback with empty deps) and does not need to be in the dependency array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resultsStatus])
 
   // Phase 2 Sprint 1B: Track elapsed time and show slow-run messages at 20s/40s
   useEffect(() => {
@@ -251,7 +254,10 @@ export function OutputsDock() {
         return { ...prev, isOpen: true, activeTab: 'results' }
       })
     }
-  }, [showResultsPanel, setState])
+    // We intentionally depend only on showResultsPanel. setState from useDockState is stable
+    // (useCallback with empty deps) and does not need to be in the dependency array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showResultsPanel])
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -285,12 +291,15 @@ export function OutputsDock() {
     setState(prev => {
       const nextIsOpen = !prev.isOpen
       // Keep showResultsPanel in sync primarily for highlighting & telemetry when
-      // the dock is explicitly opened or closed.
-      if (!nextIsOpen) {
-        setShowResultsPanel(false)
-      } else if (prev.activeTab === 'results') {
-        setShowResultsPanel(true)
-      }
+      // the dock is explicitly opened or closed. Schedule the store update on a
+      // microtask to avoid cascading updates during the same render cycle.
+      Promise.resolve().then(() => {
+        if (!nextIsOpen) {
+          setShowResultsPanel(false)
+        } else if (prev.activeTab === 'results') {
+          setShowResultsPanel(true)
+        }
+      })
       return { ...prev, isOpen: nextIsOpen }
     })
   }

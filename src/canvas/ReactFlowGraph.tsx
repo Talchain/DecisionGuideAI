@@ -149,6 +149,32 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const { limits } = useEngineLimits()
   const checkRunEligibility = useRunEligibilityCheck()
 
+  // SAFE_DEBUG: Lightweight instrumentation to detect render storms and state thrash in production.
+  // Logs only the first 50 renders to window.__SAFE_DEBUG__.logs as 'canvas:render' entries.
+  // This does not touch React state and is safe to remove once React 185 is resolved.
+  if (typeof window !== 'undefined') {
+    try {
+      const win = window as any
+      win.__SAFE_DEBUG__ ||= { logs: [] }
+      const debug = win.__SAFE_DEBUG__
+      debug.__canvas_render_count__ = (debug.__canvas_render_count__ || 0) + 1
+      const renderCount = debug.__canvas_render_count__
+      if (Array.isArray(debug.logs) && renderCount <= 50) {
+        debug.logs.push({
+          t: Date.now(),
+          m: 'canvas:render',
+          data: {
+            count: renderCount,
+            href: window.location.href,
+            showResultsPanel,
+          },
+        })
+      }
+    } catch {
+      // Swallow debug logging errors
+    }
+  }
+
   // Diagnostics resume toast (B3)
   useRunDiagnosticsToast()
 
@@ -191,6 +217,28 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       // Parse URL using robust parser (handles both sha256: prefix and plain hex)
       const fullUrl = window.location.href
       const runHash = parseRunHash(fullUrl)
+
+      // SAFE_DEBUG: Log share-link resolution attempts (capped) to help diagnose URL-driven loops.
+      try {
+        const win = window as any
+        win.__SAFE_DEBUG__ ||= { logs: [] }
+        const debug = win.__SAFE_DEBUG__
+        debug.__canvas_share_resolve_count__ = (debug.__canvas_share_resolve_count__ || 0) + 1
+        const resolveCount = debug.__canvas_share_resolve_count__
+        if (Array.isArray(debug.logs) && resolveCount <= 20) {
+          debug.logs.push({
+            t: Date.now(),
+            m: 'canvas:share:resolve',
+            data: {
+              count: resolveCount,
+              hasRunParam: Boolean(runHash),
+              href: fullUrl,
+            },
+          })
+        }
+      } catch {
+        // Swallow debug logging errors
+      }
 
       if (!runHash) {
         return // No run parameter in URL
@@ -1058,7 +1106,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
 
       {inputsOutputsEnabled && (
         <>
-          <div className="absolute inset-y-0 left-0 z-[1500] flex">
+          <div className="absolute inset-y-0 left-0 z-[900] flex pointer-events-none">
             <InputsDock
               currentNodes={nodes.length}
               currentEdges={edges.length}
@@ -1072,7 +1120,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
               )}
             />
           </div>
-          <div className="absolute inset-y-0 right-0 z-[1500] flex">
+          <div className="absolute inset-y-0 right-0 z-[900] flex pointer-events-none">
             <OutputsDock />
           </div>
         </>

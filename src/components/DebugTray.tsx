@@ -83,7 +83,7 @@ export function DebugTray({
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 bg-gray-900 text-gray-100 rounded-lg shadow-lg max-w-md">
+    <div className="fixed bottom-4 right-4 z-[1900] bg-gray-900 text-gray-100 rounded-lg shadow-lg max-w-md">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-4 py-2 flex items-center justify-between hover:bg-gray-800 rounded-t-lg transition-colors"

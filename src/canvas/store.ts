@@ -1121,6 +1121,26 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
   },
 
   resultsLoadHistorical: (run: StoredRun) => {
+    if (typeof window !== 'undefined') {
+      try {
+        const win = window as any
+        win.__SAFE_DEBUG__ ||= { logs: [] }
+        const debug = win.__SAFE_DEBUG__
+        const logs = Array.isArray(debug.logs) ? debug.logs : null
+        if (logs && logs.length < 1000) {
+          logs.push({
+            t: Date.now(),
+            m: 'canvas:resultsLoadHistorical',
+            data: {
+              id: run.id,
+              seed: run.seed,
+              hash: run.hash,
+            }
+          })
+        }
+      } catch {}
+    }
+
     set({
       results: {
         status: 'complete',
@@ -1342,6 +1362,22 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
     }
     set({ showResultsPanel: show })
     saveUIPreference('showResultsPanel', show)
+
+    if (typeof window !== 'undefined') {
+      try {
+        const win = window as any
+        win.__SAFE_DEBUG__ ||= { logs: [] }
+        const debug = win.__SAFE_DEBUG__
+        const logs = Array.isArray(debug.logs) ? debug.logs : null
+        if (logs && logs.length < 1000) {
+          logs.push({
+            t: Date.now(),
+            m: 'canvas:setShowResultsPanel',
+            data: { prev, next: show }
+          })
+        }
+      } catch {}
+    }
   },
 
   setShowInspectorPanel: (show: boolean) => {

@@ -485,7 +485,7 @@ export function InputsDock({ onShowDocuments, currentNodes = 0, currentEdges = 0
 
   return (
     <aside
-      className={`${transitionClass} fixed left-0 border-r border-sand-200 bg-paper-50 shadow-panel flex flex-col rounded-b-2xl relative`}
+      className={`${transitionClass} fixed left-0 border-r border-sand-200 bg-paper-50 shadow-panel flex flex-col rounded-b-2xl relative pointer-events-auto`}
       style={{
         width: state.isOpen ? 'var(--dock-left-expanded, 20rem)' : 'var(--dock-left-collapsed, 2.5rem)',
         top: 'var(--topbar-h, 0px)',
