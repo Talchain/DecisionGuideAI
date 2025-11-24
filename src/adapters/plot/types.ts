@@ -91,6 +91,10 @@ export interface RunRequest {
     nodes: Array<{ id: string; data?: { label?: string; body?: string; [key: string]: unknown }; [key: string]: unknown }>
     edges: Array<{ id: string; source: string; target: string; data?: { confidence?: number; weight?: number; [key: string]: unknown }; [key: string]: unknown }>
   } // Optional: if provided, use this graph instead of fetching template
+  // Optional idempotency key used to trigger CEE in the Engine when
+  // combined with server-side gating. When present, it is forwarded as
+  // the Idempotency-Key HTTP header by the v1 client.
+  idempotencyKey?: string
   // CEE (Cognitive Enhancement Engine) trigger fields
   scenario_id?: string  // Unique scenario identifier
   scenario_name?: string  // Human-readable scenario name

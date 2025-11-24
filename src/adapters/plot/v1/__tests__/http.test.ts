@@ -89,7 +89,6 @@ describe('v1/http', () => {
           answer: 'Expected: 100',
           confidence: 0.85,
           explanation: 'Test explanation',
-          drivers: [{ kind: 'node', id: 'a', label: 'Node A', impact: 0.5 }],
           response_hash: 'abc123',
           seed: 42,
         },
@@ -239,6 +238,80 @@ describe('v1/http', () => {
           }),
         })
       )
+    })
+
+    it('should include Idempotency-Key header when idempotencyKey provided', async () => {
+      const requestWithIdempotencyKey: V1RunRequest = {
+        ...validRequest,
+        idempotencyKey: 'idk-123',
+      }
+
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          result: {
+            answer: 'Test',
+            confidence: 0.8,
+            explanation: 'Test',
+            drivers: [],
+            response_hash: 'hash-idk-123',
+            seed: 42,
+          },
+          execution_ms: 100,
+        }),
+      })
+
+      await runSync(requestWithIdempotencyKey)
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/plot/v1/run',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'Idempotency-Key': 'idk-123',
+          }),
+        })
+      )
+    })
+
+    // Phase 1 Section 2.1: Verify idempotencyKey is header-only, NEVER in body
+    it('should exclude idempotencyKey from POST body while including it as header', async () => {
+      const requestWithIdempotencyKey: V1RunRequest = {
+        ...validRequest,
+        idempotencyKey: 'idk-456',
+      }
+
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          result: {
+            answer: 'Test',
+            confidence: 0.8,
+            explanation: 'Test',
+            drivers: [],
+            response_hash: 'hash-idk-456',
+            seed: 42,
+          },
+          execution_ms: 100,
+        }),
+      })
+
+      await runSync(requestWithIdempotencyKey)
+
+      // Verify the fetch call
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      const [, options] = fetchMock.mock.calls[0]
+
+      // 1. Header should include Idempotency-Key
+      expect(options.headers['Idempotency-Key']).toBe('idk-456')
+
+      // 2. Body should NOT include idempotencyKey field
+      const bodyObj = JSON.parse(options.body)
+      expect(bodyObj).not.toHaveProperty('idempotencyKey')
+
+      // 3. Body should still include other fields
+      expect(bodyObj).toHaveProperty('graph')
+      expect(bodyObj).toHaveProperty('seed')
+      expect(bodyObj.seed).toBe(42)
     })
 
     it.skip('should respect custom timeout', async () => {

@@ -3,6 +3,8 @@
  * These are the pure v1 types - not exposed to UI
  */
 
+import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from '../../../canvas/decisionReview/types'
+
 // Request types
 export interface V1Node {
   id: string
@@ -38,12 +40,12 @@ export interface V1RunRequest {
   seed?: number
   outcome_node?: string  // Target outcome node for analysis
   include_debug?: boolean  // Include debug metadata in response
-  idempotencyKey?: string
   clientHash?: string
   // CEE (Cognitive Enhancement Engine) trigger fields
   scenario_id?: string  // Unique scenario identifier
   scenario_name?: string  // Human-readable scenario name
   save?: boolean  // If true, trigger CEE Decision Review generation
+  // NOTE: idempotencyKey is header-only (Idempotency-Key), never in JSON body
 }
 
 // Response types
@@ -86,6 +88,10 @@ export interface V1RunResult {
 export interface V1SyncRunResponse {
   result: V1RunResult
   execution_ms: number
+  // CEE (Cognitive Enhancement Engine) overlay fields
+  ceeReview?: CeeDecisionReviewPayload
+  ceeTrace?: CeeTraceMeta
+  ceeError?: CeeErrorViewModel
 }
 
 // SSE event types (lowercase per v1 spec)
@@ -128,6 +134,10 @@ export interface V1CompleteData {
   // Optional metadata derived from HTTP response headers
   correlation_id_header?: string
   degraded?: boolean
+  // CEE (Cognitive Enhancement Engine) overlay fields
+  ceeReview?: CeeDecisionReviewPayload
+  ceeTrace?: CeeTraceMeta
+  ceeError?: CeeErrorViewModel
 }
 
 export interface V1ErrorData {

@@ -33,8 +33,17 @@ export function mapErrorToUserMessage(error: {
     }
   }
 
+  const rawMessage = error.message
+  const normalizedMessage =
+    typeof rawMessage === 'string'
+      ? rawMessage
+      : rawMessage != null
+      ? String(rawMessage)
+      : ''
+  const messageLower = normalizedMessage.toLowerCase()
+
   // CORS error (common in dev/staging misconfigurations)
-  if (error.message?.toLowerCase().includes('cors') || error.status === 0) {
+  if (messageLower.includes('cors') || error.status === 0) {
     return {
       title: 'Connection blocked',
       message: 'Unable to reach the analysis engine due to a security policy (CORS).',
@@ -68,7 +77,7 @@ export function mapErrorToUserMessage(error: {
   }
 
   // Timeout
-  if (error.code === 'ETIMEDOUT' || error.code === 'TIMEOUT' || error.message?.toLowerCase().includes('timeout')) {
+  if (error.code === 'ETIMEDOUT' || error.code === 'TIMEOUT' || messageLower.includes('timeout')) {
     return {
       title: 'Request timed out',
       message: 'The analysis is taking longer than expected.',
@@ -126,7 +135,7 @@ export function mapErrorToUserMessage(error: {
   if (error.status === 400 || error.code === 'BAD_INPUT') {
     return {
       title: 'Invalid request',
-      message: error.message || 'The engine couldn\'t process your graph.',
+      message: normalizedMessage || 'The engine couldn\'t process your graph.',
       suggestion: 'Check that your graph has valid nodes and edges, then try again.',
       retryable: true,
       severity: 'error',
@@ -137,7 +146,7 @@ export function mapErrorToUserMessage(error: {
   if (error.code === 'LIMIT_EXCEEDED') {
     return {
       title: 'Graph too large',
-      message: error.message || 'Your graph exceeds the engine\'s capacity limits.',
+      message: normalizedMessage || 'Your graph exceeds the engine\'s capacity limits.',
       suggestion: 'Reduce the number of nodes or edges and try again.',
       retryable: false,
       severity: 'error',
@@ -147,7 +156,7 @@ export function mapErrorToUserMessage(error: {
   // Generic fallback
   return {
     title: 'Analysis failed',
-    message: error.message || 'An unexpected error occurred.',
+    message: normalizedMessage || 'An unexpected error occurred.',
     suggestion: 'Try again in a moment. If the problem persists, contact support.',
     retryable: true,
     severity: 'error',

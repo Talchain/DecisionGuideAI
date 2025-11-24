@@ -77,13 +77,23 @@ export function runStream(
 
   const url = `${base}/v1/stream`
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'text/event-stream',
+  }
+
+  // Extract idempotency key for header-only usage; do not send it in JSON body
+  const { idempotencyKey, ...requestForBody } = request as any
+
+  // Forward idempotency key when provided so the Engine can engage CEE
+  if (idempotencyKey) {
+    headers['Idempotency-Key'] = idempotencyKey
+  }
+
   fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'text/event-stream',
-    },
-    body: JSON.stringify(request),
+    headers,
+    body: JSON.stringify(requestForBody),
     signal: controller.signal,
   })
     .then(async (response) => {

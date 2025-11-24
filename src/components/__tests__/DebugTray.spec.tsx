@@ -13,6 +13,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { DebugTray } from '../DebugTray'
 
+const mockIsCeeIdempotencyEnabled = vi.fn()
+const mockSetCeeIdempotencyEnabled = vi.fn()
+
 // Mock the stores
 vi.mock('../../stores/limitsStore', () => ({
   useLimitsStore: () => ({
@@ -24,6 +27,11 @@ vi.mock('../../stores/limitsStore', () => ({
       flags: { scm_lite: true }
     }
   })
+}))
+
+vi.mock('../../utils/idempotency', () => ({
+  isCeeIdempotencyEnabled: () => mockIsCeeIdempotencyEnabled(),
+  setCeeIdempotencyEnabled: (enabled: boolean) => mockSetCeeIdempotencyEnabled(enabled),
 }))
 
 describe('DebugTray - S5-DEBUG Features', () => {
@@ -38,6 +46,10 @@ describe('DebugTray - S5-DEBUG Features', () => {
         }
       }
     })
+
+    mockIsCeeIdempotencyEnabled.mockReset()
+    mockSetCeeIdempotencyEnabled.mockReset()
+    mockIsCeeIdempotencyEnabled.mockReturnValue(true)
   })
 
   afterEach(() => {
@@ -357,6 +369,44 @@ describe('DebugTray - S5-DEBUG Features', () => {
       fireEvent.click(screen.getByText('Debug Info'))
 
       expect(screen.getByText(/SCM Lite: ON/)).toBeInTheDocument()
+    })
+  })
+
+  describe('CEE Idempotency toggle', () => {
+    it('should show Enabled status by default when helper returns true and call setter when toggled', () => {
+      mockIsCeeIdempotencyEnabled.mockReturnValue(true)
+
+      render(<DebugTray />)
+
+      fireEvent.click(screen.getByText('Debug Info'))
+
+      const status = screen.getByTestId('cee-idempotency-status')
+      expect(status).toHaveTextContent('Enabled')
+
+      const toggle = screen.getByTestId('cee-idempotency-toggle')
+      expect(toggle).toHaveTextContent('Disable (dev only)')
+
+      fireEvent.click(toggle)
+
+      expect(mockSetCeeIdempotencyEnabled).toHaveBeenCalledWith(false)
+    })
+
+    it('should show Disabled status when helper returns false and re-enable when toggled', () => {
+      mockIsCeeIdempotencyEnabled.mockReturnValue(false)
+
+      render(<DebugTray />)
+
+      fireEvent.click(screen.getByText('Debug Info'))
+
+      const status = screen.getByTestId('cee-idempotency-status')
+      expect(status).toHaveTextContent('Disabled')
+
+      const toggle = screen.getByTestId('cee-idempotency-toggle')
+      expect(toggle).toHaveTextContent('Enable')
+
+      fireEvent.click(toggle)
+
+      expect(mockSetCeeIdempotencyEnabled).toHaveBeenCalledWith(true)
     })
   })
 

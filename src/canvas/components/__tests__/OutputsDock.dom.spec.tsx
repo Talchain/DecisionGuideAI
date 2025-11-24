@@ -6,6 +6,13 @@
  import { STORAGE_KEY as RUN_HISTORY_STORAGE_KEY, type StoredRun } from '../../store/runHistory'
  import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../lib/telemetry'
 
+ // Mock flags module with all required exports
+ vi.mock('../../../flags', () => ({
+   isDecisionReviewEnabled: vi.fn(() => true),
+   isTelemetryEnabled: () => true,
+   isCompareEnabled: () => true,
+ }))
+
 function ensureMatchMedia() {
   if (typeof window.matchMedia !== 'function') {
     Object.defineProperty(window, 'matchMedia', {
@@ -27,7 +34,7 @@ function ensureMatchMedia() {
 describe('OutputsDock DOM', () => {
   const STORAGE_KEY = 'canvas.outputsDock.v1'
 
-  beforeEach(() => {
+  beforeEach(async () => {
     ensureMatchMedia()
     try {
       sessionStorage.removeItem(STORAGE_KEY)
@@ -43,6 +50,10 @@ describe('OutputsDock DOM', () => {
       currentScenarioLastResultHash: null,
       hasCompletedFirstRun: false,
     } as any)
+
+    // Reset the flag mock to default (true) before each test
+    const { isDecisionReviewEnabled } = await import('../../../flags')
+    vi.mocked(isDecisionReviewEnabled).mockReturnValue(true)
   })
 
   it('renders with correct ARIA attributes and sections', () => {
@@ -225,6 +236,189 @@ describe('OutputsDock DOM', () => {
     const summary = screen.getByTestId('outputs-inline-summary')
     expect(summary).toBeInTheDocument()
     expect(screen.getByText('Expected Value')).toBeInTheDocument()
+  })
+
+  it('renders Decision Review ready state in Results tab when ceeReview is present', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    const fakeReport: any = {
+      results: {
+        conservative: 10,
+        likely: 20,
+        optimistic: 30,
+        units: 'percent',
+        unitSymbol: '%',
+      },
+      run: {
+        bands: { p10: 10, p50: 20, p90: 30 },
+      },
+    }
+
+    useCanvasStore.setState({
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'complete',
+        report: fakeReport,
+      },
+      runMeta: {
+        ceeReview: {
+          story: {
+            headline: 'CEE Ready Headline',
+            key_drivers: [],
+            next_actions: [],
+          },
+          journey: { is_complete: true, missing_envelopes: [] },
+        },
+      } as any,
+    } as any)
+
+    render(<OutputsDock />)
+
+    const container = screen.getByTestId('outputs-decision-review')
+    expect(container).toBeInTheDocument()
+
+    const headline = screen.getByTestId('decision-review-headline')
+    expect(headline).toHaveTextContent('CEE Ready Headline')
+  })
+
+  it('renders Decision Review error state with trace ID in Results tab when ceeError is present', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    const fakeReport: any = {
+      results: {
+        conservative: 10,
+        likely: 20,
+        optimistic: 30,
+        units: 'percent',
+        unitSymbol: '%',
+      },
+      run: {
+        bands: { p10: 10, p50: 20, p90: 30 },
+      },
+    }
+
+    useCanvasStore.setState({
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'complete',
+        report: fakeReport,
+      },
+      runMeta: {
+        ceeError: {
+          code: 'CEE_TEMPORARY',
+          retryable: true,
+          traceId: 'trace-xyz',
+          suggestedAction: 'retry',
+        },
+        ceeTrace: {
+          requestId: 'req-xyz',
+          degraded: false,
+          timestamp: '2025-11-20T18:30:00Z',
+        },
+      } as any,
+    } as any)
+
+    render(<OutputsDock />)
+
+    const container = screen.getByTestId('outputs-decision-review')
+    expect(container).toBeInTheDocument()
+
+    const errorPanel = screen.getByTestId('decision-review-error')
+    expect(errorPanel).toBeInTheDocument()
+
+    const trace = screen.getByTestId('decision-review-trace-id')
+    expect(trace).toHaveTextContent('req-xyz')
+  })
+
+  it('does NOT render Decision Review when feature flag is disabled', async () => {
+    // Mock the flag to return false for this test
+    const { isDecisionReviewEnabled } = await import('../../../flags')
+    vi.mocked(isDecisionReviewEnabled).mockReturnValue(false)
+
+    const baseResults = useCanvasStore.getState().results
+
+    const fakeReport: any = {
+      results: {
+        conservative: 10,
+        likely: 20,
+        optimistic: 30,
+        units: 'percent',
+        unitSymbol: '%',
+      },
+      run: {
+        bands: { p10: 10, p50: 20, p90: 30 },
+      },
+    }
+
+    useCanvasStore.setState({
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'complete',
+        report: fakeReport,
+      },
+      runMeta: {
+        ceeReview: {
+          story: {
+            headline: 'This should not render',
+            key_drivers: [],
+            next_actions: [],
+          },
+          journey: { is_complete: true, missing_envelopes: [] },
+        },
+      } as any,
+    } as any)
+
+    render(<OutputsDock />)
+
+    // Decision Review section should not exist in DOM when flag is off
+    expect(screen.queryByTestId('outputs-decision-review')).not.toBeInTheDocument()
+    expect(screen.queryByText('Decision Review')).not.toBeInTheDocument()
+  })
+
+  it('renders Decision Review empty state when ceeTrace exists but no review or error', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    const fakeReport: any = {
+      results: {
+        conservative: 10,
+        likely: 20,
+        optimistic: 30,
+        units: 'percent',
+        unitSymbol: '%',
+      },
+      run: {
+        bands: { p10: 10, p50: 20, p90: 30 },
+      },
+    }
+
+    useCanvasStore.setState({
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'complete',
+        report: fakeReport,
+      },
+      runMeta: {
+        // ceeTrace present but no ceeReview or ceeError
+        ceeTrace: {
+          requestId: 'req-abc',
+          degraded: false,
+          timestamp: '2025-11-20T18:30:00Z',
+        },
+      } as any,
+    } as any)
+
+    render(<OutputsDock />)
+
+    const container = screen.getByTestId('outputs-decision-review')
+    expect(container).toBeInTheDocument()
+
+    // Should show empty state message
+    const emptyState = screen.getByTestId('decision-review-empty')
+    expect(emptyState).toBeInTheDocument()
   })
 
   it('shows empty compare state when there are no runs yet', () => {

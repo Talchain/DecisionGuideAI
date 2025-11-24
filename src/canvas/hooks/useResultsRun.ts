@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react'
 import { useCanvasStore } from '../store'
 import { plot } from '../../adapters/plot'
 import type { RunRequest, ErrorV1, ReportV1 } from '../../adapters/plot/types'
+import { generateIdempotencyKey, isCeeIdempotencyEnabled } from '../../utils/idempotency'
 import { mapErrorToUserMessage } from '../utils/errorTaxonomy'
 
 interface UseResultsRunReturn {
@@ -55,6 +56,12 @@ export function useResultsRun(): UseResultsRunReturn {
       ceeError: null,
     })
 
+    // Decide whether to attach an Idempotency-Key for this run. In
+    // production this is always enabled; in development it can be
+    // toggled off via the debug tray.
+    const shouldAttachIdempotencyKey = isCeeIdempotencyEnabled()
+    const idempotencyKey = shouldAttachIdempotencyKey ? generateIdempotencyKey() : undefined
+
     // Check if adapter supports streaming
     const adapter = plot as any
     const hasStreaming = adapter.stream && typeof adapter.stream.run === 'function'
@@ -62,8 +69,9 @@ export function useResultsRun(): UseResultsRunReturn {
     if (hasStreaming) {
       // Use streaming API - wrap in try/catch to handle setup errors
       try {
-        // Use bumped seed if force-rerun
-        const actualRequest = options?.forceRerun ? { ...request, seed } : request
+        // Use bumped seed if force-rerun and attach idempotency key when enabled
+        const baseRequest: RunRequest = options?.forceRerun ? { ...request, seed } : request
+        const actualRequest: RunRequest = idempotencyKey ? { ...baseRequest, idempotencyKey } : baseRequest
         cancelRef.current = adapter.stream.run(actualRequest, {
           onHello: (data: { response_id: string }) => {
             resultsConnecting(data.response_id)
@@ -169,8 +177,9 @@ export function useResultsRun(): UseResultsRunReturn {
         // Show preparing state briefly
         await new Promise(resolve => setTimeout(resolve, 200))
 
-        // Use bumped seed if force-rerun
-        const actualRequest = options?.forceRerun ? { ...request, seed } : request
+        // Use bumped seed if force-rerun and attach idempotency key when enabled
+        const baseRequest: RunRequest = options?.forceRerun ? { ...request, seed } : request
+        const actualRequest: RunRequest = idempotencyKey ? { ...baseRequest, idempotencyKey } : baseRequest
         const report = await plot.run(actualRequest)
 
         resultsComplete({

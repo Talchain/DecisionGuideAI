@@ -34,6 +34,8 @@ import { selectScenarioLastRun } from '../shared/lastRun'
 import { trackCompareOpened } from '../utils/sandboxTelemetry'
 import { KPIHeadline } from './KPIHeadline'
 import { RangeChips } from './RangeChips'
+import { DecisionReviewPanel, type DecisionReviewStatus } from './DecisionReviewPanel'
+import { isDecisionReviewEnabled } from '../../flags'
 
 type OutputsDockTab = 'results' | 'insights' | 'compare' | 'diagnostics'
 
@@ -122,6 +124,28 @@ export function OutputsDock() {
   const resultUnits = report?.results.units
   const resultUnitSymbol = report?.results.unitSymbol
   const hasInlineSummary = Boolean(report && resultsStatus === 'complete')
+
+  const decisionReviewFlagOn = isDecisionReviewEnabled()
+  const ceeReview = runMeta.ceeReview ?? null
+  const ceeTrace = runMeta.ceeTrace ?? null
+  const ceeError = runMeta.ceeError ?? null
+
+  let decisionReviewStatus: DecisionReviewStatus | null = null
+  if (decisionReviewFlagOn) {
+    if (resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming') {
+      decisionReviewStatus = 'loading'
+    } else if (resultsStatus === 'complete' && report) {
+      if (ceeError) {
+        decisionReviewStatus = 'error'
+      } else if (ceeReview) {
+        decisionReviewStatus = 'ready'
+      } else if (ceeTrace) {
+        // CEE was engaged for this run (trace present) but no review/error was returned.
+        // Treat this as an "empty" Decision Review state.
+        decisionReviewStatus = 'empty'
+      }
+    }
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -397,6 +421,22 @@ export function OutputsDock() {
                         unitSymbol={resultUnitSymbol}
                       />
                     </div>
+                    {decisionReviewStatus && (
+                      <div
+                        className="mt-3 pt-3 border-t border-sand-200"
+                        data-testid="outputs-decision-review"
+                      >
+                        <div className={`${typography.code} font-medium text-ink-900/70 mb-1`}>
+                          Decision Review
+                        </div>
+                        <DecisionReviewPanel
+                          status={decisionReviewStatus}
+                          review={ceeReview ?? undefined}
+                          error={ceeError ?? undefined}
+                          trace={ceeTrace ?? undefined}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

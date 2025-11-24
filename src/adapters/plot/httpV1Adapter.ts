@@ -211,6 +211,11 @@ export const httpV1Adapter = {
     try {
       const v1Request = mapGraphToV1Request(graph, input.seed)
 
+      // Forward idempotency key when provided so the Engine can engage CEE
+      if (input.idempotencyKey) {
+        v1Request.idempotencyKey = input.idempotencyKey
+      }
+
       // Add outcome_node if provided
       if (input.outcome_node) {
         v1Request.outcome_node = input.outcome_node
@@ -562,6 +567,11 @@ export const httpV1Adapter = {
         try {
           const graph = input.graph || await loadTemplateGraph(input.template_id)
           const v1Request = mapGraphToV1Request(graph, input.seed)
+
+          // Forward idempotency key when provided so the Engine can engage CEE
+          if (input.idempotencyKey) {
+            v1Request.idempotencyKey = input.idempotencyKey
+          }
 
           // Add CEE trigger fields if provided
           if (input.scenario_id) {
