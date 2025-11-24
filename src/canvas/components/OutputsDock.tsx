@@ -181,9 +181,14 @@ export function OutputsDock() {
       }
 
       const initialTab = resolveTab()
-      if (initialTab) {
-        setState(prev => ({ ...prev, isOpen: true, activeTab: initialTab }))
-      }
+      if (!initialTab) return
+
+      setState(prev => {
+        if (prev.isOpen && prev.activeTab === initialTab) {
+          return prev
+        }
+        return { ...prev, isOpen: true, activeTab: initialTab }
+      })
     } catch {}
   }, [setState])
 
