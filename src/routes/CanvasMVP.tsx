@@ -8,6 +8,7 @@ import type { Blueprint } from '../templates/blueprints/types'
 import { useCanvasStore } from '../canvas/store'
 import { useResultsRun } from '../canvas/hooks/useResultsRun'
 import { trackCanvasOpened } from '../canvas/utils/sandboxTelemetry'
+import { DebugTray } from '../components/DebugTray'
 
 const TemplatesPanel = lazy(() => import('../canvas/panels/TemplatesPanel').then(m => ({ default: m.TemplatesPanel })))
 
@@ -33,6 +34,7 @@ export default function CanvasMVP() {
   const [insertionError, setInsertionError] = useState<string | null>(null)
   const showTemplatesPanel = useCanvasStore(state => state.showTemplatesPanel)
   const closeTemplatesPanel = useCanvasStore(state => state.closeTemplatesPanel)
+  const runMeta = useCanvasStore(state => state.runMeta)
 
   // v1.2: Auto-run analysis after template insertion
   const { run } = useResultsRun()
@@ -168,6 +170,12 @@ export default function CanvasMVP() {
           insertionError={insertionError}
         />
       </Suspense>
+
+      {/* Phase 1 Section 4.3: Debug Tray with CEE Debug Headers */}
+      <DebugTray
+        correlationId={runMeta?.correlationIdHeader}
+        ceeDebugHeaders={runMeta?.ceeDebugHeaders}
+      />
     </div>
   )
 }

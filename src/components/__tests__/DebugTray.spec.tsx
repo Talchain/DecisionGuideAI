@@ -410,6 +410,111 @@ describe('DebugTray - S5-DEBUG Features', () => {
     })
   })
 
+  describe('Phase 1 Section 4.3: CEE Debug Headers', () => {
+    it('should display CEE debug headers when provided', () => {
+      const ceeDebugHeaders = {
+        requestId: 'cee-req-12345',
+        executionMs: 250,
+        modelVersion: 'cee-v2.0.1',
+        degraded: false
+      }
+
+      render(<DebugTray ceeDebugHeaders={ceeDebugHeaders} />)
+      fireEvent.click(screen.getByText('Debug Info'))
+
+      const section = screen.getByTestId('cee-debug-headers')
+      expect(section).toBeInTheDocument()
+
+      expect(screen.getByText('CEE Debug Headers:')).toBeInTheDocument()
+      expect(screen.getByText('cee-req-12345')).toBeInTheDocument()
+      expect(screen.getByText('250ms')).toBeInTheDocument()
+      expect(screen.getByText('cee-v2.0.1')).toBeInTheDocument()
+      expect(screen.getByText('false')).toBeInTheDocument()
+    })
+
+    it('should display degraded status in orange when degraded is true', () => {
+      const ceeDebugHeaders = {
+        degraded: true
+      }
+
+      render(<DebugTray ceeDebugHeaders={ceeDebugHeaders} />)
+      fireEvent.click(screen.getByText('Debug Info'))
+
+      const section = screen.getByTestId('cee-debug-headers')
+      expect(section).toBeInTheDocument()
+
+      // Check that degraded: true is displayed with orange styling
+      const degradedSpan = screen.getByText('true')
+      expect(degradedSpan).toHaveClass('text-orange-400')
+    })
+
+    it('should display degraded status in green when degraded is false', () => {
+      const ceeDebugHeaders = {
+        degraded: false
+      }
+
+      render(<DebugTray ceeDebugHeaders={ceeDebugHeaders} />)
+      fireEvent.click(screen.getByText('Debug Info'))
+
+      const section = screen.getByTestId('cee-debug-headers')
+      expect(section).toBeInTheDocument()
+
+      // Check that degraded: false is displayed with green styling
+      const degradedSpan = screen.getByText('false')
+      expect(degradedSpan).toHaveClass('text-green-400')
+    })
+
+    it('should display additional custom debug headers', () => {
+      const ceeDebugHeaders = {
+        requestId: 'req-123',
+        customField: 'custom-value',
+        anotherDebugInfo: '42'
+      }
+
+      render(<DebugTray ceeDebugHeaders={ceeDebugHeaders} />)
+      fireEvent.click(screen.getByText('Debug Info'))
+
+      expect(screen.getByText('req-123')).toBeInTheDocument()
+      expect(screen.getByText('custom-value')).toBeInTheDocument()
+      expect(screen.getByText('42')).toBeInTheDocument()
+    })
+
+    it('should not display CEE debug headers section when headers not provided', () => {
+      render(<DebugTray />)
+      fireEvent.click(screen.getByText('Debug Info'))
+
+      expect(screen.queryByTestId('cee-debug-headers')).not.toBeInTheDocument()
+      expect(screen.queryByText('CEE Debug Headers:')).not.toBeInTheDocument()
+    })
+
+    it('should not display CEE debug headers section when headers object is empty', () => {
+      render(<DebugTray ceeDebugHeaders={{}} />)
+      fireEvent.click(screen.getByText('Debug Info'))
+
+      expect(screen.queryByTestId('cee-debug-headers')).not.toBeInTheDocument()
+    })
+
+    it('should display partial debug headers when only some fields are present', () => {
+      const ceeDebugHeaders = {
+        requestId: 'partial-req-456',
+        executionMs: 150
+        // modelVersion and degraded missing
+      }
+
+      render(<DebugTray ceeDebugHeaders={ceeDebugHeaders} />)
+      fireEvent.click(screen.getByText('Debug Info'))
+
+      const section = screen.getByTestId('cee-debug-headers')
+      expect(section).toBeInTheDocument()
+
+      expect(screen.getByText('partial-req-456')).toBeInTheDocument()
+      expect(screen.getByText('150ms')).toBeInTheDocument()
+      // modelVersion and degraded should not be displayed
+      expect(screen.queryByText('Model:')).not.toBeInTheDocument()
+      expect(screen.queryByText('Degraded:')).not.toBeInTheDocument()
+    })
+  })
+
   describe('Accessibility', () => {
     it('should have accessible button for copy hash', () => {
       render(<DebugTray responseHash="sha256:abc123" />)
