@@ -23,6 +23,30 @@ export class CanvasErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: any) {
     console.error('[CANVAS ERROR]:', error, errorInfo)
     
+    // Mirror canvas errors into the same SAFE_DEBUG structure used by main.tsx
+    // so we can inspect stacks and component stacks from production.
+    try {
+      if (typeof window !== 'undefined') {
+        // Ensure global debug container exists
+        ;(window as any).__SAFE_DEBUG__ ||= { logs: [] }
+        const debug = (window as any).__SAFE_DEBUG__
+        debug.fatal = String(error?.stack || error)
+        if (Array.isArray(debug.logs)) {
+          debug.logs.push({
+            t: Date.now(),
+            m: 'canvas-error-boundary:caught',
+            data: {
+              error: error.message,
+              stack: error.stack,
+              componentStack: errorInfo?.componentStack?.slice(0, 600),
+            },
+          })
+        }
+      }
+    } catch {
+      // Swallow debug logging errors to avoid impacting user experience
+    }
+
     // Capture to Sentry with context
     captureError(error, {
       component: 'Canvas',
