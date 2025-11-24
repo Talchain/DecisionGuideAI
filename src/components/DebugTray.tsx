@@ -8,6 +8,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, Copy, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useLimitsStore } from '../stores/limitsStore'
 import { isCeeIdempotencyEnabled, setCeeIdempotencyEnabled } from '../utils/idempotency'
+import type { CeeDebugHeaders } from '../canvas/utils/ceeDebugHeaders'
 
 interface DebugTrayProps {
   requestId?: string
@@ -25,6 +26,7 @@ interface DebugTrayProps {
     stack?: string
     correlationId?: string
   }>
+  ceeDebugHeaders?: CeeDebugHeaders // Phase 1 Section 4.3: CEE debug headers
 }
 
 export function DebugTray({
@@ -33,7 +35,8 @@ export function DebugTray({
   responseHash,
   lastRunTimestamp,
   performanceMetrics,
-  errors
+  errors,
+  ceeDebugHeaders
 }: DebugTrayProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [copiedHash, setCopiedHash] = useState(false)
@@ -186,6 +189,49 @@ export function DebugTray({
                 <span className="text-gray-500 ml-2">
                   ({Math.round((Date.now() - lastRunTimestamp) / 1000)}s ago)
                 </span>
+              </div>
+            </div>
+          )}
+
+          {/* Phase 1 Section 4.3: CEE Debug Headers */}
+          {ceeDebugHeaders && Object.keys(ceeDebugHeaders).length > 0 && (
+            <div data-testid="cee-debug-headers">
+              <div className="text-gray-400 mb-1">CEE Debug Headers:</div>
+              <div className="text-gray-300 space-y-1">
+                {ceeDebugHeaders.requestId && (
+                  <div>
+                    Request ID: <span className="text-cyan-400">{ceeDebugHeaders.requestId}</span>
+                  </div>
+                )}
+                {ceeDebugHeaders.executionMs !== undefined && (
+                  <div>
+                    Execution: <span className="text-yellow-400">{ceeDebugHeaders.executionMs}ms</span>
+                  </div>
+                )}
+                {ceeDebugHeaders.modelVersion && (
+                  <div>
+                    Model: <span className="text-blue-400">{ceeDebugHeaders.modelVersion}</span>
+                  </div>
+                )}
+                {ceeDebugHeaders.degraded !== undefined && (
+                  <div>
+                    Degraded: <span className={ceeDebugHeaders.degraded ? 'text-orange-400' : 'text-green-400'}>
+                      {ceeDebugHeaders.degraded ? 'true' : 'false'}
+                    </span>
+                  </div>
+                )}
+                {/* Display any additional X-Cee-Debug-* headers */}
+                {Object.entries(ceeDebugHeaders).map(([key, value]) => {
+                  // Skip standard fields already displayed
+                  if (['requestId', 'executionMs', 'modelVersion', 'degraded'].includes(key)) {
+                    return null
+                  }
+                  return (
+                    <div key={key}>
+                      {key}: <span className="text-gray-400">{String(value)}</span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
