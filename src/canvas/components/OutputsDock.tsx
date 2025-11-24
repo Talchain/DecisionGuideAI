@@ -195,6 +195,7 @@ export function OutputsDock() {
   }, [resultsStatus, setState])
 
   // Phase 2 Sprint 1B: Track elapsed time and show slow-run messages at 20s/40s
+  // Cleanup ensures timers are always cleared on unmount or status change
   useEffect(() => {
     const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
@@ -219,11 +220,13 @@ export function OutputsDock() {
         }
       }, 5000)
 
+      // Cleanup: always clear interval on unmount or status change
       return () => clearInterval(intervalId)
     } else {
-      // Clear tracking when run completes/errors/cancels
+      // Clear tracking when run completes/errors/cancels/navigates away
       runStartTimeRef.current = null
       setSlowRunMessage(null)
+      // No cleanup function needed when not running (no interval to clear)
     }
   }, [resultsStatus])
 

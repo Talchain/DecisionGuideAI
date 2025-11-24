@@ -66,7 +66,8 @@ export function mapErrorToUserMessage(error: {
 
   // 429 Rate Limited
   if (error.status === 429 || error.code === 'RATE_LIMITED') {
-    const waitTime = error.retryAfter ? Math.ceil(error.retryAfter / 1000) : 60
+    // retryAfter is already in seconds (from Retry-After header or body.retry_after)
+    const waitTime = error.retryAfter ? Math.ceil(error.retryAfter) : 60
     return {
       title: 'Rate limit exceeded',
       message: `You've made too many requests. Please wait ${waitTime} seconds before trying again.`,
