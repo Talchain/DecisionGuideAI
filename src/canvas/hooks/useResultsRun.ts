@@ -99,6 +99,7 @@ export function useResultsRun(): UseResultsRunReturn {
             const ceeReview = anyData.ceeReview ?? null
             const ceeTrace = anyData.ceeTrace ?? null
             const ceeError = anyData.ceeError ?? null
+            const ceeDebugHeaders = anyData.ceeDebugHeaders // Section 4: Debug headers
 
             // Extract drivers from report (if present)
             // Note: Current ReportV1 has drivers as labels, not IDs
@@ -122,7 +123,8 @@ export function useResultsRun(): UseResultsRunReturn {
               typeof data.degraded === 'boolean' ||
               ceeReview ||
               ceeTrace ||
-              ceeError
+              ceeError ||
+              ceeDebugHeaders
             ) {
               setRunMeta({
                 diagnostics: data.diagnostics,
@@ -131,6 +133,7 @@ export function useResultsRun(): UseResultsRunReturn {
                 ceeReview,
                 ceeTrace,
                 ceeError,
+                ceeDebugHeaders,
               })
             }
             cancelRef.current = null
@@ -182,11 +185,21 @@ export function useResultsRun(): UseResultsRunReturn {
         const actualRequest: RunRequest = idempotencyKey ? { ...baseRequest, idempotencyKey } : baseRequest
         const report = await plot.run(actualRequest)
 
+        // Section 4: Extract debug headers from report (non-standard field)
+        const ceeDebugHeaders = (report as any).__ceeDebugHeaders
+
         resultsComplete({
           report,
           hash: report.model_card.response_hash,
           drivers: undefined
         })
+
+        // Section 4: Wire debug headers to runMeta
+        if (ceeDebugHeaders) {
+          setRunMeta({
+            ceeDebugHeaders
+          })
+        }
       } catch (err) {
         const error = err as any
 
