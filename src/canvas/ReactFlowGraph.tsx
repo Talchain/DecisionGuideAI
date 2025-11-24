@@ -803,7 +803,31 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   useKeyboardShortcuts()
 
   useEffect(() => {
+    // Always load visual/settings preferences (grid, snap, etc.)
     loadSettings()
+
+    // In production, disable legacy canvas-storage graph persistence entirely.
+    // This avoids loading potentially incompatible or corrupted graphs that
+    // could trigger ReactFlow/React update loops on mount.
+    if (import.meta.env.PROD) {
+      if (typeof window !== 'undefined') {
+        try {
+          const win = window as any
+          win.__SAFE_DEBUG__ ||= { logs: [] }
+          const debug = win.__SAFE_DEBUG__
+          const logs = Array.isArray(debug.logs) ? debug.logs : null
+          if (logs && logs.length < 1000) {
+            logs.push({
+              t: Date.now(),
+              m: 'canvas:persist:skip',
+              data: { env: (import.meta as any)?.env?.MODE ?? 'production' }
+            })
+          }
+        } catch {}
+      }
+      return
+    }
+
     const loaded = loadState()
     if (loaded) {
       // P2: Use hydrateGraphSlice to avoid clobbering panels/results
@@ -815,7 +839,14 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   }, [loadSettings])
 
   useEffect(() => {
-    const unsubscribe = useCanvasStore.subscribe((state) => saveState({ nodes: state.nodes, edges: state.edges }))
+    // Disable graph auto-persistence to localStorage in production to avoid
+    // re-introducing bad or incompatible graph state. Dev keeps this enabled
+    // for convenience while iterating on the editor.
+    if (import.meta.env.PROD) return
+
+    const unsubscribe = useCanvasStore.subscribe((state) =>
+      saveState({ nodes: state.nodes, edges: state.edges })
+    )
     return unsubscribe
   }, [])
 
