@@ -21,8 +21,8 @@
  * - Syncs with `showResultsPanel` store flag for UI coordination
  */
 
-import { useEffect, useState, type ChangeEvent } from 'react'
-import { BarChart3, Sparkles, Shuffle, Activity } from 'lucide-react'
+import { useEffect, useState, useRef, type ChangeEvent } from 'react'
+import { BarChart3, Sparkles, Shuffle, Activity, Clock } from 'lucide-react'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
@@ -97,6 +97,11 @@ export function OutputsDock() {
     isOpen: true,
     activeTab: 'results',
   })
+
+  // Phase 2 Sprint 1B: Slow-run UX feedback (20s/40s thresholds)
+  const [slowRunMessage, setSlowRunMessage] = useState<string | null>(null)
+  const runStartTimeRef = useRef<number | null>(null)
+
   const runMeta = useCanvasStore(s => s.runMeta)
   const diagnostics = runMeta.diagnostics
   const correlationIdHeader = runMeta.correlationIdHeader
@@ -188,6 +193,39 @@ export function OutputsDock() {
       setState(prev => ({ ...prev, isOpen: true, activeTab: 'results' }))
     }
   }, [resultsStatus, setState])
+
+  // Phase 2 Sprint 1B: Track elapsed time and show slow-run messages at 20s/40s
+  useEffect(() => {
+    const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
+
+    if (isRunning) {
+      // Start tracking time when run begins
+      if (runStartTimeRef.current === null) {
+        runStartTimeRef.current = Date.now()
+        setSlowRunMessage(null)
+      }
+
+      // Check elapsed time every 5 seconds
+      const intervalId = setInterval(() => {
+        if (runStartTimeRef.current === null) return
+
+        const elapsedMs = Date.now() - runStartTimeRef.current
+        const elapsedSeconds = Math.floor(elapsedMs / 1000)
+
+        if (elapsedSeconds >= 40) {
+          setSlowRunMessage('Still working...')
+        } else if (elapsedSeconds >= 20) {
+          setSlowRunMessage('Taking longer than expected...')
+        }
+      }, 5000)
+
+      return () => clearInterval(intervalId)
+    } else {
+      // Clear tracking when run completes/errors/cancels
+      runStartTimeRef.current = null
+      setSlowRunMessage(null)
+    }
+  }, [resultsStatus])
 
   useEffect(() => {
     // When global Results visibility is toggled on (e.g. via toolbar, keyboard, or palette),
@@ -405,6 +443,18 @@ export function OutputsDock() {
                   <p className={`${typography.code} text-ink-900/60`}>
                     Run your first analysis from the toolbar above.
                   </p>
+                )}
+                {/* Phase 2 Sprint 1B: Slow-run UX feedback */}
+                {slowRunMessage && (
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 bg-sky-50 border border-sky-200 rounded text-sky-800"
+                    role="status"
+                    aria-live="polite"
+                    data-testid="slow-run-message"
+                  >
+                    <Clock className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                    <span className={`${typography.caption} text-sky-900`}>{slowRunMessage}</span>
+                  </div>
                 )}
                 {!isPreRun && hasInlineSummary && (
                   <div className="space-y-2" data-testid="outputs-inline-summary">

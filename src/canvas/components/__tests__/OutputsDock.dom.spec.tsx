@@ -773,6 +773,121 @@ it('renders Results immediately without waiting for CEE (non-blocking verificati
   expect(screen.getByText('Range')).toBeInTheDocument()
 })
 
+// Phase 2 Sprint 1B: Slow-run UX feedback tests
+it('shows "Taking longer than expected..." message after 20 seconds', async () => {
+  vi.useFakeTimers()
+
+  render(<OutputsDock />)
+
+  // Simulate a long-running analysis
+  const currentResults = useCanvasStore.getState().results
+  act(() => {
+    useCanvasStore.setState({
+      results: { ...currentResults, status: 'streaming' },
+      hasCompletedFirstRun: true,
+    } as any)
+  })
+
+  // Initially no message
+  expect(screen.queryByTestId('slow-run-message')).not.toBeInTheDocument()
+
+  // After 20 seconds, show first message
+  act(() => {
+    vi.advanceTimersByTime(20000)
+  })
+
+  expect(screen.getByTestId('slow-run-message')).toBeInTheDocument()
+  expect(screen.getByText('Taking longer than expected...')).toBeInTheDocument()
+
+  vi.useRealTimers()
+})
+
+it('escalates to "Still working..." message after 40 seconds', async () => {
+  vi.useFakeTimers()
+
+  render(<OutputsDock />)
+
+  // Simulate a long-running analysis
+  const currentResults = useCanvasStore.getState().results
+  act(() => {
+    useCanvasStore.setState({
+      results: { ...currentResults, status: 'streaming' },
+      hasCompletedFirstRun: true,
+    } as any)
+  })
+
+  // After 40 seconds, show escalated message
+  act(() => {
+    vi.advanceTimersByTime(40000)
+  })
+
+  expect(screen.getByTestId('slow-run-message')).toBeInTheDocument()
+  expect(screen.getByText('Still working...')).toBeInTheDocument()
+
+  vi.useRealTimers()
+})
+
+it('clears slow-run message when analysis completes', async () => {
+  vi.useFakeTimers()
+
+  render(<OutputsDock />)
+
+  // Simulate a long-running analysis
+  const currentResults = useCanvasStore.getState().results
+  act(() => {
+    useCanvasStore.setState({
+      results: { ...currentResults, status: 'streaming' },
+      hasCompletedFirstRun: true,
+    } as any)
+  })
+
+  // Advance to 20s to show message
+  act(() => {
+    vi.advanceTimersByTime(20000)
+  })
+
+  expect(screen.getByTestId('slow-run-message')).toBeInTheDocument()
+  expect(screen.getByText('Taking longer than expected...')).toBeInTheDocument()
+
+  // Complete the analysis
+  act(() => {
+    useCanvasStore.setState({
+      results: { ...currentResults, status: 'complete' },
+    } as any)
+  })
+
+  // Message should be cleared
+  expect(screen.queryByTestId('slow-run-message')).not.toBeInTheDocument()
+
+  vi.useRealTimers()
+})
+
+it('slow-run message has proper accessibility attributes', async () => {
+  vi.useFakeTimers()
+
+  render(<OutputsDock />)
+
+  // Simulate a long-running analysis
+  const currentResults = useCanvasStore.getState().results
+  act(() => {
+    useCanvasStore.setState({
+      results: { ...currentResults, status: 'streaming' },
+      hasCompletedFirstRun: true,
+    } as any)
+  })
+
+  // Advance to 20s to show message
+  act(() => {
+    vi.advanceTimersByTime(20000)
+  })
+
+  const message = screen.getByTestId('slow-run-message')
+  expect(message).toHaveAttribute('role', 'status')
+  expect(message).toHaveAttribute('aria-live', 'polite')
+
+  vi.useRealTimers()
+})
+
 function seedRunHistory(runs: StoredRun[]): void {
   localStorage.setItem(RUN_HISTORY_STORAGE_KEY, JSON.stringify(runs))
 }
