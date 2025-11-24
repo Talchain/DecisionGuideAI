@@ -887,7 +887,6 @@ it('slow-run message has proper accessibility attributes', async () => {
 
   vi.useRealTimers()
 })
-
 function seedRunHistory(runs: StoredRun[]): void {
   localStorage.setItem(RUN_HISTORY_STORAGE_KEY, JSON.stringify(runs))
 }
