@@ -193,9 +193,15 @@ export function OutputsDock() {
   }, [setState])
 
   useEffect(() => {
-    // When results are running, complete, or error, ensure the dock is open on the Results tab
+    // When results are running, complete, or error, ensure the dock is open on the Results tab.
+    // Guard against infinite update loops by only updating when the state actually changes.
     if (resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming' || resultsStatus === 'complete' || resultsStatus === 'error') {
-      setState(prev => ({ ...prev, isOpen: true, activeTab: 'results' }))
+      setState(prev => {
+        if (prev.isOpen && prev.activeTab === 'results') {
+          return prev
+        }
+        return { ...prev, isOpen: true, activeTab: 'results' }
+      })
     }
   }, [resultsStatus, setState])
 
@@ -236,8 +242,14 @@ export function OutputsDock() {
     // When global Results visibility is toggled on (e.g. via toolbar, keyboard, or palette),
     // ensure the dock is open on the Results tab. We intentionally do not collapse the dock
     // when the flag is false to preserve the user's dock layout preferences.
+    // Guard against infinite update loops by only updating when a change is needed.
     if (showResultsPanel) {
-      setState(prev => ({ ...prev, isOpen: true, activeTab: 'results' }))
+      setState(prev => {
+        if (prev.isOpen && prev.activeTab === 'results') {
+          return prev
+        }
+        return { ...prev, isOpen: true, activeTab: 'results' }
+      })
     }
   }, [showResultsPanel, setState])
 
@@ -343,7 +355,7 @@ export function OutputsDock() {
 
   return (
     <aside
-      className={`${transitionClass} fixed right-0 border-l border-sand-200 bg-paper-50 shadow-panel flex flex-col transition-shadow rounded-b-2xl relative`}
+      className={`${transitionClass} fixed right-0 border-l border-sand-200 bg-paper-50 shadow-panel flex flex-col transition-shadow rounded-b-2xl relative pointer-events-auto`}
       style={{
         width: state.isOpen ? 'var(--dock-right-expanded, 24rem)' : 'var(--dock-right-collapsed, 2.5rem)',
         top: 'var(--topbar-h, 0px)',
