@@ -64,6 +64,39 @@ import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnable
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 
+type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only'
+
+function getCanvasDebugMode(): CanvasDebugMode {
+  if (typeof window === 'undefined') return 'normal'
+  try {
+    const url = new URL(window.location.href)
+    const fromQuery = url.searchParams.get('canvasDebug')
+    const fromStorage = window.localStorage ? window.localStorage.getItem('CANVAS_DEBUG_MODE') : null
+    const raw = (fromQuery || fromStorage || '').toLowerCase()
+    if (raw === 'blank' || raw === 'no-reactflow' || raw === 'rf-only') return raw as CanvasDebugMode
+    return 'normal'
+  } catch {
+    return 'normal'
+  }
+}
+
+function logCanvasBreadcrumb(message: string, data?: Record<string, any>) {
+  if (typeof window === 'undefined') return
+  try {
+    const win = window as any
+    win.__SAFE_DEBUG__ ||= { logs: [] }
+    const debug = win.__SAFE_DEBUG__
+    const logs = Array.isArray(debug.logs) ? debug.logs : null
+    if (!logs || logs.length >= 2000) return
+    logs.push({ t: Date.now(), m: `canvas:trace:${message}`, data })
+    const mode = getCanvasDebugMode()
+    if (mode !== 'normal' && typeof console !== 'undefined' && console.log) {
+      // eslint-disable-next-line no-console
+      console.log('[CANVAS TRACE]', message, data || {})
+    }
+  } catch {}
+}
+
 interface ReactFlowGraphProps {
   blueprintEventBus?: {
     subscribe: (fn: (blueprint: Blueprint) => void) => () => void
@@ -75,6 +108,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const { getViewport, setCenter } = useReactFlow()
+  const debugMode: CanvasDebugMode = getCanvasDebugMode()
 
   // Phase 3: Memoize heavy computations for performance
   const memoizedNodes = useMemo(() => nodes, [nodes])
@@ -167,6 +201,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
             count: renderCount,
             href: window.location.href,
             showResultsPanel,
+            debugMode,
           },
         })
       }
@@ -181,13 +216,19 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   // E2E-only helper: when dock layout is OFF, auto-open the legacy documents drawer
   // so that documents flows remain testable without relying on shortcut ordering.
   useEffect(() => {
+    if (debugMode !== 'normal') {
+      logCanvasBreadcrumb('e2e-docs:skip', { debugMode, inputsOutputsEnabled })
+      return
+    }
+
     if (!inputsOutputsEnabled && typeof window !== 'undefined') {
       const win = window as any
       if (win.__E2E === '1') {
         setShowDocumentsDrawer(true)
+        logCanvasBreadcrumb('e2e-docs:auto-open', { debugMode })
       }
     }
-  }, [inputsOutputsEnabled, setShowDocumentsDrawer])
+  }, [inputsOutputsEnabled, setShowDocumentsDrawer, debugMode])
 
   // Autosave hook - saves graph every 30s when dirty
   useAutosave()
@@ -883,6 +924,30 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   }, [])
 
   const handleCloseContextMenu = useCallback(() => setContextMenu(null), [])
+
+  // Canvas debug mode: 'blank' short-circuits the full canvas UI so we can
+  // quickly determine whether React 185 is coming from inside the canvas
+  // subtree or elsewhere. When debugMode === 'blank', we render a minimal
+  // placeholder instead of mounting ReactFlow and related hooks.
+  if (debugMode === 'blank') {
+    logCanvasBreadcrumb('mode:blank', {})
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: '#f87171',
+          fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+          fontSize: 14,
+        }}
+      >
+        Canvas debug: BLANK MODE (canvas UI disabled)
+      </div>
+    )
+  }
 
   return (
     <div
