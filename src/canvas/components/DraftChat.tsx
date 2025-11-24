@@ -82,7 +82,7 @@ export function DraftChat() {
   }
 
   return (
-    <div className="fixed left-1/2 -translate-x-1/2 z-[995] w-full max-w-xl px-4"
+    <div className="fixed left-1/2 -translate-x-1/2 z-[2000] w-full max-w-xl px-4"
          style={{ bottom: 'calc(var(--bottombar-h) + 1rem)' }}>
 
       {!draft ? (

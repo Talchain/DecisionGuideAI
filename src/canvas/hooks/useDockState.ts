@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export function useDockState<T>(
   storageKey: string,
@@ -23,12 +23,21 @@ export function useDockState<T>(
     }
   })
 
+  const prevStateRef = useRef<T>(state)
+
   useEffect(() => {
     try {
       if (typeof sessionStorage === 'undefined') {
         return
       }
-      sessionStorage.setItem(storageKey, JSON.stringify(state))
+      const prevSerialized = JSON.stringify(prevStateRef.current)
+      const nextSerialized = JSON.stringify(state)
+      if (prevSerialized === nextSerialized) {
+        return
+      }
+
+      sessionStorage.setItem(storageKey, nextSerialized)
+      prevStateRef.current = state
     } catch {
     }
   }, [storageKey, state])
