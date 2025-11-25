@@ -1,5 +1,15 @@
+# BFF proxies (must come before SPA catch-all)
+/bff/engine/*  https://plot-lite-service.onrender.com/:splat  200!
+/bff/isl/*     https://isl-staging.onrender.com/:splat        200!
+
+# Legacy POC engine proxy
 /engine/*   https://plot-lite-service.onrender.com/:splat  200
+
+# Static routes
 /poc        /poc.html                                       200
 /fixtures/* /fixtures/:splat                                200
+
+# SPA catch-all (must be last)
 /*          /index.html                                     200
-# POC: engine proxy first, then static /poc, then fixtures (no SPA rewrite), then SPA catch-all
+
+# Note: /bff/cee/* is handled by Edge Function (netlify/edge-functions/cee-proxy.ts)
