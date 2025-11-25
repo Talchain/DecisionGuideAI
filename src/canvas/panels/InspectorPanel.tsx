@@ -23,7 +23,14 @@ import { useCanvasStore } from '../store'
 import { PanelShell } from './_shared/PanelShell'
 import { PanelSection } from './_shared/PanelSection'
 import { Tooltip } from '../components/Tooltip'
+import { FieldLabel } from '../../components/ui/FieldLabel'
 import { EDGE_CONSTRAINTS, clampBelief, trimProvenance } from '../domain/edges'
+import { EDGE_TERMINOLOGY } from '../../config/terminology'
+import {
+  beliefToConfidencePercent,
+  confidencePercentToBelief,
+  formatConfidencePercent,
+} from '../utils/beliefDisplay'
 import type { Edge } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
 
@@ -290,47 +297,60 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                 </div>
               </PanelSection>
 
-              {/* Belief slider */}
-              <PanelSection title="Belief (Epistemic Uncertainty)">
+              {/* Confidence slider (Phase 1A.2: UI-only transform from belief) */}
+              <PanelSection title={EDGE_TERMINOLOGY.belief.userLabel}>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <label htmlFor="belief-slider" className="text-sm text-gray-700">
-                      Uncertainty level
-                    </label>
+                    <FieldLabel
+                      label={EDGE_TERMINOLOGY.belief.userLabel}
+                      technicalTerm={EDGE_TERMINOLOGY.belief.technicalTerm}
+                      technicalDescription={EDGE_TERMINOLOGY.belief.description}
+                      htmlFor="confidence-slider"
+                    />
                     <input
                       type="number"
-                      value={belief.toFixed(2)}
-                      onChange={(e) => setBelief(parseFloat(e.target.value) || 0)}
+                      value={Math.round(beliefToConfidencePercent(belief))}
+                      onChange={(e) => {
+                        const confidencePercent = parseFloat(e.target.value) || 0
+                        const clampedConfidence = Math.max(0, Math.min(100, confidencePercent))
+                        setBelief(confidencePercentToBelief(clampedConfidence))
+                      }}
                       className="w-20 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-600"
-                      min={EDGE_CONSTRAINTS.belief.min}
-                      max={EDGE_CONSTRAINTS.belief.max}
-                      step={EDGE_CONSTRAINTS.belief.step}
+                      min={0}
+                      max={100}
+                      step={1}
                     />
                   </div>
                   <input
-                    id="belief-slider"
+                    id="confidence-slider"
                     type="range"
-                    value={belief}
-                    onChange={(e) => setBelief(parseFloat(e.target.value))}
+                    value={beliefToConfidencePercent(belief)}
+                    onChange={(e) => {
+                      const confidencePercent = parseFloat(e.target.value)
+                      setBelief(confidencePercentToBelief(confidencePercent))
+                    }}
                     className="w-full"
-                    min={EDGE_CONSTRAINTS.belief.min}
-                    max={EDGE_CONSTRAINTS.belief.max}
-                    step={EDGE_CONSTRAINTS.belief.step}
+                    min={0}
+                    max={100}
+                    step={1}
                   />
                   <div className="flex justify-between text-xs text-gray-500">
-                    <span>Certain (0)</span>
-                    <span>Maximum uncertainty (1)</span>
+                    <span>0% (Very uncertain)</span>
+                    <span>100% (Very certain)</span>
                   </div>
                 </div>
               </PanelSection>
 
-              {/* Weight slider */}
-              <PanelSection title="Weight">
+              {/* Influence slider (Phase 1A.2: renamed from Weight) */}
+              <PanelSection title={EDGE_TERMINOLOGY.weight.userLabel}>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <label htmlFor="weight-slider" className="text-sm text-gray-700">
-                      Edge weight
-                    </label>
+                    <FieldLabel
+                      label={EDGE_TERMINOLOGY.weight.userLabel}
+                      technicalTerm={EDGE_TERMINOLOGY.weight.technicalTerm}
+                      technicalDescription={EDGE_TERMINOLOGY.weight.description}
+                      htmlFor="influence-slider"
+                    />
                     <input
                       type="number"
                       value={weight.toFixed(1)}
@@ -342,7 +362,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                     />
                   </div>
                   <input
-                    id="weight-slider"
+                    id="influence-slider"
                     type="range"
                     value={weight}
                     onChange={(e) => setWeight(parseFloat(e.target.value))}
@@ -354,13 +374,20 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                 </div>
               </PanelSection>
 
-              {/* Provenance */}
-              <PanelSection title="Provenance">
+              {/* Source (Phase 1A.2: renamed from Provenance) */}
+              <PanelSection title={EDGE_TERMINOLOGY.provenance.userLabel}>
                 <div className="space-y-2">
+                  <FieldLabel
+                    label={EDGE_TERMINOLOGY.provenance.userLabel}
+                    technicalTerm={EDGE_TERMINOLOGY.provenance.technicalTerm}
+                    technicalDescription={EDGE_TERMINOLOGY.provenance.description}
+                    htmlFor="source-textarea"
+                  />
                   <textarea
+                    id="source-textarea"
                     value={provenance}
                     onChange={(e) => setProvenance(e.target.value)}
-                    placeholder="Source or rationale for this edge..."
+                    placeholder="Where this information came from..."
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none"
                     rows={3}
                     maxLength={EDGE_CONSTRAINTS.provenance.maxLength}
