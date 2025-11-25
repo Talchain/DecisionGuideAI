@@ -187,7 +187,21 @@ optimizeDeps: {
         secure: false,
         rewrite: (path) => path.replace(/^\/bff\/cee/, ''),
         configure: (proxy) => {
-          console.log(`[PROXY] CEE target: ${env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com'}`)
+          const ceeTarget = env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com'
+          const ceeApiKey = env.ASSIST_API_KEY
+          console.log(`[PROXY] CEE target: ${ceeTarget}`)
+          if (ceeApiKey) {
+            console.log('[PROXY] CEE auth: X-Olumi-Assist-Key configured')
+          } else {
+            console.warn('[PROXY] CEE auth: ASSIST_API_KEY not set - requests may fail with 401')
+          }
+
+          // Inject API key header for authenticated requests
+          proxy.on('proxyReq', (proxyReq) => {
+            if (ceeApiKey) {
+              proxyReq.setHeader('X-Olumi-Assist-Key', ceeApiKey)
+            }
+          })
 
           proxy.on('error', (err) => {
             console.error('[PROXY ERROR] /bff/cee', err.message)
@@ -249,7 +263,21 @@ optimizeDeps: {
         secure: false,
         rewrite: (path) => path.replace(/^\/bff\/cee/, ''),
         configure: (proxy) => {
-          console.log(`[PROXY] CEE target: ${env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com'}`)
+          const ceeTarget = env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com'
+          const ceeApiKey = env.ASSIST_API_KEY
+          console.log(`[PROXY] CEE target: ${ceeTarget}`)
+          if (ceeApiKey) {
+            console.log('[PROXY] CEE auth: X-Olumi-Assist-Key configured')
+          } else {
+            console.warn('[PROXY] CEE auth: ASSIST_API_KEY not set - requests may fail with 401')
+          }
+
+          // Inject API key header for authenticated requests
+          proxy.on('proxyReq', (proxyReq) => {
+            if (ceeApiKey) {
+              proxyReq.setHeader('X-Olumi-Assist-Key', ceeApiKey)
+            }
+          })
 
           proxy.on('error', (err) => {
             console.error('[PROXY ERROR] /bff/cee', err.message)
