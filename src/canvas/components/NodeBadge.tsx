@@ -91,6 +91,7 @@ export function NodeBadge({ nodeId, ceeWarnings, islAffected, onClick }: NodeBad
           key={i}
           onClick={onClick}
           title={badge.label}
+          aria-label={badge.label}
           className={`
             w-6 h-6 rounded-full bg-white border-2 ${getBorderClass(badge.color)}
             flex items-center justify-center text-xs shadow-sm

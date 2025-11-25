@@ -48,7 +48,7 @@
       // POC: Minimal inline script for build/edge display
       (function () {
         var build = document.querySelector('meta[name="x-build-id"]')?.content || new Date().toISOString();
-        var edge = '/engine';
+        var edge = '/bff/engine';
         var buildEl = document.getElementById('poc-build');
         var edgeEl = document.getElementById('poc-edge');
         var safeEl = document.getElementById('poc-safe');
