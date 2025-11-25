@@ -35,7 +35,11 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
 import { KPIHeadline } from './KPIHeadline'
 import { RangeChips } from './RangeChips'
 import { DecisionReviewPanel, type DecisionReviewStatus } from './DecisionReviewPanel'
+import { ObjectiveBanner } from './ObjectiveBanner'
+import { DeltaInterpretation } from './DeltaInterpretation'
 import { isDecisionReviewEnabled } from '../../flags'
+import { getObjectiveText, getGoalDirection } from '../utils/getObjectiveText'
+import { computeDelta } from '../utils/interpretOutcome'
 
 type OutputsDockTab = 'results' | 'insights' | 'compare' | 'diagnostics'
 
@@ -45,6 +49,9 @@ interface OutputsDockState {
 }
 
 const STORAGE_KEY = 'canvas.outputsDock.v1'
+
+// Feature flag for Phase 1A.1: Verdict Card + Delta Interpretation
+const SHOW_VERDICT_FEATURES = import.meta.env.VITE_SHOW_VERDICT_CARD === 'true'
 
 const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
   { id: 'results', label: 'Results' },
@@ -129,6 +136,12 @@ export function OutputsDock() {
   const resultUnits = report?.results.units
   const resultUnitSymbol = report?.results.unitSymbol
   const hasInlineSummary = Boolean(report && resultsStatus === 'complete')
+
+  // Phase 1A.1: Objective text and goal direction for verdict features
+  const nodes = useCanvasStore(s => s.nodes)
+  const framing = useCanvasStore(s => s.currentScenarioFraming)
+  const objectiveText = getObjectiveText({ framing, nodes })
+  const goalDirection = getGoalDirection(framing)
 
   const decisionReviewFlagOn = isDecisionReviewEnabled()
   const ceeReview = runMeta.ceeReview ?? null
@@ -485,6 +498,10 @@ export function OutputsDock() {
                     <span className={`${typography.caption} text-sky-900`}>{slowRunMessage}</span>
                   </div>
                 )}
+                {/* Phase 1A.1: Objective banner */}
+                {SHOW_VERDICT_FEATURES && !isPreRun && (
+                  <ObjectiveBanner objectiveText={objectiveText} goalDirection={goalDirection} />
+                )}
                 {!isPreRun && hasInlineSummary && (
                   <div className="space-y-2" data-testid="outputs-inline-summary">
                     <KPIHeadline
@@ -820,8 +837,42 @@ function OutcomeComparison({ baselineRun, currentRun }: OutcomeComparisonProps) 
   const units = currentBands.units || baselineBands.units
   const unitSymbol = currentBands.unitSymbol ?? baselineBands.unitSymbol
 
+  // Phase 1A.1: Get objective text and goal direction for delta interpretation
+  const canvasState = useCanvasStore.getState()
+  const nodes = canvasState.nodes
+  const framing = canvasState.currentScenarioFraming
+  const objectiveText = getObjectiveText({ framing, nodes })
+  const goalDirection = getGoalDirection(framing)
+
+  // Phase 1A.1: Compute delta interpretation
+  const baselineValue = baselineBands.p50 ?? 0
+  const currentValue = currentBands.p50 ?? 0
+  const delta = computeDelta({
+    currentValue,
+    baselineValue,
+    goalDirection,
+  })
+
+  const unitsString = units === 'currency' ? (unitSymbol ?? '$') : units === 'percent' ? '%' : ''
+
   return (
-    <div className="space-y-2" data-testid="compare-outcome">
+    <div className="space-y-3" data-testid="compare-outcome">
+      {/* Phase 1A.1: Objective banner */}
+      {SHOW_VERDICT_FEATURES && (
+        <ObjectiveBanner objectiveText={objectiveText} goalDirection={goalDirection} />
+      )}
+
+      {/* Phase 1A.1: Delta interpretation */}
+      {SHOW_VERDICT_FEATURES && baselineBands.p50 !== null && currentBands.p50 !== null && (
+        <DeltaInterpretation
+          delta={delta}
+          objectiveText={objectiveText}
+          fromValue={baselineValue}
+          toValue={currentValue}
+          units={unitsString}
+        />
+      )}
+
       <div className={`grid grid-cols-1 gap-2 ${typography.caption} text-ink-900/80`}>
         <OutcomeSummary label="Reference run" run={baselineRun} bands={baselineBands} />
         <OutcomeSummary label="Current run" run={currentRun} bands={currentBands} />
