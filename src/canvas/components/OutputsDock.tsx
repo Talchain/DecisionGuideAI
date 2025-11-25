@@ -39,7 +39,9 @@ import { VerdictCard } from './VerdictCard'
 import { DecisionReviewPanel, type DecisionReviewStatus } from './DecisionReviewPanel'
 import { ObjectiveBanner } from './ObjectiveBanner'
 import { DeltaInterpretation } from './DeltaInterpretation'
-import { ValidationSuggestionsSection } from './ValidationSuggestions'
+// ValidationSuggestionsSection disabled until ISL service is deployed
+// The component has a useEffect loop bug when ISL returns 404
+// import { ValidationSuggestionsSection } from './ValidationSuggestions'
 import { isDecisionReviewEnabled } from '../../flags'
 import { getObjectiveText, getGoalDirection } from '../utils/getObjectiveText'
 import { computeDelta, deriveVerdict } from '../utils/interpretOutcome'
@@ -646,8 +648,11 @@ export function OutputsDock() {
             )}
             {state.activeTab === 'diagnostics' && (
               <div className="space-y-3" data-testid="diagnostics-tab">
-                {/* Phase 1A.4: Validation Suggestions (always visible) */}
+                {/* Phase 1A.4: Validation Suggestions - DISABLED until ISL deployed
+                    The useEffect has a bug where `loading` in deps causes infinite loop
+                    when ISL returns 404. Re-enable when ISL is available.
                 <ValidationSuggestionsSection />
+                */}
 
                 {/* Graph Health Summary (always visible) */}
                 <div className="space-y-1 pt-2 border-t border-sand-200" data-testid="graph-health-card">
