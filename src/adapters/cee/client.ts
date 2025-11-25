@@ -85,11 +85,12 @@ export class CEEClient {
 
   /**
    * Generate draft model from description
+   * Calls CEE /assist/v1/draft-graph endpoint
    */
   async draftModel(description: string): Promise<CEEDraftResponse> {
-    return this.fetch<CEEDraftResponse>('/draft', {
+    return this.fetch<CEEDraftResponse>('/assist/v1/draft-graph', {
       method: 'POST',
-      body: JSON.stringify({ description }),
+      body: JSON.stringify({ brief: description }),
     })
   }
 
