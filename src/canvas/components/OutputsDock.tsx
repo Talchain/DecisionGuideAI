@@ -34,12 +34,18 @@ import { selectScenarioLastRun } from '../shared/lastRun'
 import { trackCompareOpened } from '../utils/sandboxTelemetry'
 import { KPIHeadline } from './KPIHeadline'
 import { RangeChips } from './RangeChips'
+import { RangeLabels } from './RangeLabels'
+import { VerdictCard } from './VerdictCard'
 import { DecisionReviewPanel, type DecisionReviewStatus } from './DecisionReviewPanel'
 import { ObjectiveBanner } from './ObjectiveBanner'
 import { DeltaInterpretation } from './DeltaInterpretation'
+// ValidationSuggestionsSection disabled until ISL service is deployed
+// The component has a useEffect loop bug when ISL returns 404
+// import { ValidationSuggestionsSection } from './ValidationSuggestions'
 import { isDecisionReviewEnabled } from '../../flags'
 import { getObjectiveText, getGoalDirection } from '../utils/getObjectiveText'
-import { computeDelta } from '../utils/interpretOutcome'
+import { computeDelta, deriveVerdict } from '../utils/interpretOutcome'
+import { useDebugShortcut } from '../hooks/useDebugShortcut'
 
 type OutputsDockTab = 'results' | 'insights' | 'compare' | 'diagnostics'
 
@@ -59,6 +65,46 @@ const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
   { id: 'compare', label: 'Compare' },
   { id: 'diagnostics', label: 'Diagnostics' },
 ]
+
+/**
+ * Format a range value for display in RangeLabels
+ */
+function formatRangeValue(
+  value: number | null,
+  units?: 'currency' | 'percent' | 'count',
+  unitSymbol?: string
+): string {
+  if (value === null || Number.isNaN(value)) {
+    return '—'
+  }
+
+  if (units === 'currency') {
+    const symbol = unitSymbol || '$'
+    const absolute = Math.abs(value)
+    const prefix = value < 0 ? '-' : ''
+    if (absolute >= 1_000_000) {
+      return `${prefix}${symbol}${(absolute / 1_000_000).toFixed(1)}M`
+    }
+    if (absolute >= 1_000) {
+      return `${prefix}${symbol}${(absolute / 1_000).toFixed(1)}K`
+    }
+    return `${prefix}${symbol}${absolute.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+  }
+
+  if (units === 'count') {
+    const absolute = Math.abs(value)
+    const prefix = value < 0 ? '-' : ''
+    if (absolute >= 1_000_000) {
+      return `${prefix}${(absolute / 1_000_000).toFixed(1)}M`
+    }
+    if (absolute >= 1_000) {
+      return `${prefix}${(absolute / 1_000).toFixed(1)}K`
+    }
+    return `${prefix}${absolute.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+  }
+
+  return `${value.toFixed(1)}%`
+}
 
 function buildHealthStrings(graphHealth: GraphHealth | null) {
   if (!graphHealth) {
@@ -105,6 +151,9 @@ export function OutputsDock() {
     activeTab: 'results',
   })
 
+  // Phase 1A.5: Debug controls visibility (Shift+D shortcut)
+  const { showDebug } = useDebugShortcut()
+
   // Phase 2 Sprint 1B: Slow-run UX feedback (20s/40s thresholds)
   const [slowRunMessage, setSlowRunMessage] = useState<string | null>(null)
   const runStartTimeRef = useRef<number | null>(null)
@@ -142,6 +191,17 @@ export function OutputsDock() {
   const framing = useCanvasStore(s => s.currentScenarioFraming)
   const objectiveText = getObjectiveText({ framing, nodes })
   const goalDirection = getGoalDirection(framing)
+
+  // Phase 1A.1: Compute verdict for VerdictCard
+  // Use baseline from framing or default to 0
+  const baselineValue = framing?.baseline ?? 0
+  const verdict = mostLikelyValue !== null
+    ? deriveVerdict({
+        outcomeValue: mostLikelyValue,
+        baselineValue,
+        goalDirection,
+      })
+    : null
 
   const decisionReviewFlagOn = isDecisionReviewEnabled()
   const ceeReview = runMeta.ceeReview ?? null
@@ -502,6 +562,15 @@ export function OutputsDock() {
                 {SHOW_VERDICT_FEATURES && !isPreRun && (
                   <ObjectiveBanner objectiveText={objectiveText} goalDirection={goalDirection} />
                 )}
+                {/* Phase 1A.1: Verdict card */}
+                {SHOW_VERDICT_FEATURES && !isPreRun && verdict && mostLikelyValue !== null && (
+                  <VerdictCard
+                    verdict={verdict}
+                    objectiveText={objectiveText}
+                    outcomeValue={mostLikelyValue}
+                    units={resultUnitSymbol}
+                  />
+                )}
                 {!isPreRun && hasInlineSummary && (
                   <div className="space-y-2" data-testid="outputs-inline-summary">
                     <KPIHeadline
@@ -512,13 +581,23 @@ export function OutputsDock() {
                     />
                     <div className="space-y-1">
                       <div className={`${typography.code} font-medium text-ink-900/70`}>Range</div>
-                      <RangeChips
-                        conservative={conservativeValue ?? null}
-                        likely={mostLikelyValue ?? null}
-                        optimistic={optimisticValue ?? null}
-                        units={resultUnits}
-                        unitSymbol={resultUnitSymbol}
-                      />
+                      {/* Phase 1A.3: User-friendly range labels with tooltips */}
+                      {SHOW_VERDICT_FEATURES ? (
+                        <RangeLabels
+                          conservative={formatRangeValue(conservativeValue, resultUnits, resultUnitSymbol)}
+                          likely={formatRangeValue(mostLikelyValue, resultUnits, resultUnitSymbol)}
+                          optimistic={formatRangeValue(optimisticValue, resultUnits, resultUnitSymbol)}
+                          showTooltips
+                        />
+                      ) : (
+                        <RangeChips
+                          conservative={conservativeValue ?? null}
+                          likely={mostLikelyValue ?? null}
+                          optimistic={optimisticValue ?? null}
+                          units={resultUnits}
+                          unitSymbol={resultUnitSymbol}
+                        />
+                      )}
                     </div>
                     {decisionReviewStatus && (
                       <div
@@ -569,69 +648,13 @@ export function OutputsDock() {
             )}
             {state.activeTab === 'diagnostics' && (
               <div className="space-y-3" data-testid="diagnostics-tab">
-                <div className={`${typography.label} text-ink-900 uppercase tracking-wide`}>
-                  Streaming diagnostics
-                </div>
+                {/* Phase 1A.4: Validation Suggestions - DISABLED until ISL deployed
+                    The useEffect has a bug where `loading` in deps causes infinite loop
+                    when ISL returns 404. Re-enable when ISL is available.
+                <ValidationSuggestionsSection />
+                */}
 
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between" data-testid="diag-resumes" title="Resumes: times the stream reconnected.">
-                    <span className="text-ink-900/70">Resumes</span>
-                    <span className="tabular-nums text-ink-900">{hasDiagnostics ? diagnostics?.resumes ?? 0 : 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between" data-testid="diag-recovered" title="Recovered events: events caught up after a resume.">
-                    <span className="text-ink-900/70">Recovered events</span>
-                    <span className="tabular-nums text-ink-900">{hasDiagnostics ? diagnostics?.recovered_events ?? 0 : 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between" data-testid="diag-trims" title="Buffer trimmed: older events were dropped to keep streaming responsive.">
-                    <span className="text-ink-900/70">Buffer trimmed</span>
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.code} font-medium border`} aria-label={hasTrim ? 'Buffer was trimmed' : 'Buffer was not trimmed'}>
-                      {hasTrim ? (
-                        <span className="bg-sun-50 text-sun-800 border-sun-200 px-1.5 py-0.5 rounded">Yes</span>
-                      ) : (
-                        <span className="text-ink-900/80 border-sand-200 px-1.5 py-0.5 rounded">No</span>
-                      )}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-1 pt-2 border-t border-sand-200">
-                  <div className="flex items-center justify-between" title="Correlation ID: include this when reporting issues.">
-                    <span className="text-ink-900/70">Correlation ID</span>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`font-mono ${typography.code} text-ink-900 max-w-[10rem] truncate`}
-                        data-testid="diag-correlation-value"
-                      >
-                        {effectiveCorrelationId ?? '—'}
-                      </span>
-                      {effectiveCorrelationId && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            try {
-                              if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-                                navigator.clipboard.writeText(effectiveCorrelationId)
-                              }
-                            } catch {}
-                          }}
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded border border-sand-200 ${typography.code} text-ink-900/80 hover:bg-paper-50`}
-                          data-testid="diag-correlation-copy"
-                        >
-                          Copy
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {correlationMismatch && (
-                    <p
-                      className={`${typography.code} text-sun-700`}
-                      data-testid="diag-correlation-mismatch"
-                    >
-                      Correlation ID in diagnostics ({diagnostics?.correlation_id}) does not match header ({correlationIdHeader}).
-                    </p>
-                  )}
-                </div>
-
+                {/* Graph Health Summary (always visible) */}
                 <div className="space-y-1 pt-2 border-t border-sand-200" data-testid="graph-health-card">
                   <div className={`${typography.label} text-ink-900`}>Graph health</div>
                   <div className={`${typography.code} text-ink-900`} aria-live="polite">
@@ -657,10 +680,85 @@ export function OutputsDock() {
                   )}
                 </div>
 
-                <p className={`${typography.code} text-ink-900/60`}>
-                  For deeper engine instrumentation, use the on-canvas diagnostics overlay via
-                  <code className="mx-1">?diag=1</code> and the debug tray configuration when needed.
-                </p>
+                {/* Phase 1A.5: Streaming Diagnostics - Hidden by default, Shift+D to show */}
+                {showDebug && (
+                  <>
+                    <div className={`${typography.label} text-ink-900 uppercase tracking-wide pt-2 border-t border-sand-200`}>
+                      Streaming diagnostics
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between" data-testid="diag-resumes" title="Resumes: times the stream reconnected.">
+                        <span className="text-ink-900/70">Resumes</span>
+                        <span className="tabular-nums text-ink-900">{hasDiagnostics ? diagnostics?.resumes ?? 0 : 0}</span>
+                      </div>
+                      <div className="flex items-center justify-between" data-testid="diag-recovered" title="Recovered events: events caught up after a resume.">
+                        <span className="text-ink-900/70">Recovered events</span>
+                        <span className="tabular-nums text-ink-900">{hasDiagnostics ? diagnostics?.recovered_events ?? 0 : 0}</span>
+                      </div>
+                      <div className="flex items-center justify-between" data-testid="diag-trims" title="Buffer trimmed: older events were dropped to keep streaming responsive.">
+                        <span className="text-ink-900/70">Buffer trimmed</span>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.code} font-medium border`} aria-label={hasTrim ? 'Buffer was trimmed' : 'Buffer was not trimmed'}>
+                          {hasTrim ? (
+                            <span className="bg-sun-50 text-sun-800 border-sun-200 px-1.5 py-0.5 rounded">Yes</span>
+                          ) : (
+                            <span className="text-ink-900/80 border-sand-200 px-1.5 py-0.5 rounded">No</span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 pt-2 border-t border-sand-200">
+                      <div className="flex items-center justify-between" title="Correlation ID: include this when reporting issues.">
+                        <span className="text-ink-900/70">Correlation ID</span>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`font-mono ${typography.code} text-ink-900 max-w-[10rem] truncate`}
+                            data-testid="diag-correlation-value"
+                          >
+                            {effectiveCorrelationId ?? '—'}
+                          </span>
+                          {effectiveCorrelationId && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                try {
+                                  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                                    navigator.clipboard.writeText(effectiveCorrelationId)
+                                  }
+                                } catch {}
+                              }}
+                              className={`inline-flex items-center px-1.5 py-0.5 rounded border border-sand-200 ${typography.code} text-ink-900/80 hover:bg-paper-50`}
+                              data-testid="diag-correlation-copy"
+                            >
+                              Copy
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {correlationMismatch && (
+                        <p
+                          className={`${typography.code} text-sun-700`}
+                          data-testid="diag-correlation-mismatch"
+                        >
+                          Correlation ID in diagnostics ({diagnostics?.correlation_id}) does not match header ({correlationIdHeader}).
+                        </p>
+                      )}
+                    </div>
+
+                    <p className={`${typography.code} text-ink-900/60`}>
+                      For deeper engine instrumentation, use the on-canvas diagnostics overlay via
+                      <code className="mx-1">?diag=1</code> and the debug tray configuration when needed.
+                    </p>
+                  </>
+                )}
+
+                {/* Hint to show debug controls */}
+                {!showDebug && (
+                  <p className={`${typography.caption} text-ink-900/50 pt-2 border-t border-sand-200`}>
+                    Press <kbd className="px-1.5 py-0.5 bg-sand-100 rounded text-xs font-mono">Shift+D</kbd> for streaming diagnostics
+                  </p>
+                )}
               </div>
             )}
           </div>
