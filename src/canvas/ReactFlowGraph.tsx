@@ -959,79 +959,79 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       }}
     >
       {pocFlags.contextBar && (
-
-      <div
-        style={{
-          position: 'absolute',
-          top: 'var(--topbar-h)',
-          bottom: 'var(--bottombar-h)',
-          left: inputsOutputsEnabled ? 'var(--dock-left-offset, 0rem)' : 0,
-          right: inputsOutputsEnabled ? 'var(--dock-right-offset, 0rem)' : 0,
-        }}
-      >
-        {debugMode === 'no-reactflow' ? (
-          (() => {
-            logCanvasBreadcrumb('mode:no-reactflow', { nodes: memoizedNodes.length, edges: memoizedEdges.length })
-            return (
-              <div
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: '1px dashed var(--surface-border)',
-                  color: '#4b5563',
-                  fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
-                  fontSize: 13,
-                  background: 'rgba(248, 250, 252, 0.85)',
-                }}
-              >
-                Canvas debug: NO-REACTFLOW MODE (graph rendering disabled)
-              </div>
-            )
-          })()
-        ) : (
-          <ReactFlow
-            nodes={memoizedNodes}
-            edges={memoizedEdges}
-            onNodesChange={handleNodesChange}
-            onEdgesChange={handleEdgesChange}
-            onConnect={onConnect}
-            onSelectionChange={handleSelectionChange}
-            onNodeClick={handleNodeClick}
-            onEdgeClick={handleEdgeClick}
-            onPaneClick={handlePaneClick}
-            onPaneContextMenu={onPaneContextMenu}
-            onNodeContextMenu={onNodeContextMenu}
-            onNodeDragStart={onNodeDragStart}
-            onNodeDragStop={onNodeDragStop}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            defaultEdgeOptions={defaultEdgeOpts}
-            snapToGrid={snapToGrid}
-            snapGrid={snapGridValue}
-            fitView
-            minZoom={0.1}
-            maxZoom={4}
-          >
-            <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
-            {/* TODO: Future enhancement - Add legend and interaction controls to MiniMap */}
-            <MiniMap style={miniMapStyle} />
-            <svg style={{ position: 'absolute', top: 0, left: 0 }}>
-              <defs>
-                {/* Arrowheads matching edge colors - original size (6x6), fixed regardless of stroke width */}
-                <marker id="arrowhead-default" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                  <polygon points="0 0, 6 3, 0 6" fill="var(--surface-border)" />
-                </marker>
-                <marker id="arrowhead-selected" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                  <polygon points="0 0, 6 3, 0 6" fill="var(--info-500)" />
-                </marker>
-              </defs>
-            </svg>
-          </ReactFlow>
-        )}
-      </div>
+        <div
+          style={{
+            position: 'absolute',
+            top: 'var(--topbar-h)',
+            bottom: 'var(--bottombar-h)',
+            left: inputsOutputsEnabled ? 'var(--dock-left-offset, 0rem)' : 0,
+            right: inputsOutputsEnabled ? 'var(--dock-right-offset, 0rem)' : 0,
+          }}
+        >
+          {debugMode === 'no-reactflow' ? (
+            (() => {
+              logCanvasBreadcrumb('mode:no-reactflow', { nodes: memoizedNodes.length, edges: memoizedEdges.length })
+              return (
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '1px dashed var(--surface-border)',
+                    color: '#4b5563',
+                    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+                    fontSize: 13,
+                    background: 'rgba(248, 250, 252, 0.85)',
+                  }}
+                >
+                  Canvas debug: NO-REACTFLOW MODE (graph rendering disabled)
+                </div>
+              )
+            })()
+          ) : (
+            <ReactFlow
+              nodes={memoizedNodes}
+              edges={memoizedEdges}
+              onNodesChange={handleNodesChange}
+              onEdgesChange={handleEdgesChange}
+              onConnect={onConnect}
+              onSelectionChange={handleSelectionChange}
+              onNodeClick={handleNodeClick}
+              onEdgeClick={handleEdgeClick}
+              onPaneClick={onPaneClick}
+              onPaneContextMenu={onPaneContextMenu}
+              onNodeContextMenu={onNodeContextMenu}
+              onNodeDragStart={onNodeDragStart}
+              onNodeDragStop={onNodeDragStop}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              defaultEdgeOptions={defaultEdgeOpts}
+              snapToGrid={snapToGrid}
+              snapGrid={snapGridValue}
+              fitView
+              minZoom={0.1}
+              maxZoom={4}
+            >
+              <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
+              {/* TODO: Future enhancement - Add legend and interaction controls to MiniMap */}
+              <MiniMap style={miniMapStyle} />
+              <svg style={{ position: 'absolute', top: 0, left: 0 }}>
+                <defs>
+                  {/* Arrowheads matching edge colors - original size (6x6), fixed regardless of stroke width */}
+                  <marker id="arrowhead-default" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                    <polygon points="0 0, 6 3, 0 6" fill="var(--surface-border)" />
+                  </marker>
+                  <marker id="arrowhead-selected" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                    <polygon points="0 0, 6 3, 0 6" fill="var(--info-500)" />
+                  </marker>
+                </defs>
+              </svg>
+            </ReactFlow>
+          )}
+        </div>
+      )}
 
       {/* Highlight layer for Results drivers (keyed off global showResultsPanel flag) */}
       <HighlightLayer isResultsOpen={showResultsPanel} />
