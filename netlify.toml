@@ -44,11 +44,9 @@
   status = 200
   force = true
 
-[[redirects]]
-  from = "/bff/cee/*"
-  to = "https://olumi-assistants-service.onrender.com/:splat"
-  status = 200
-  force = true
+# CEE (Assistants) Service proxy - handled by Edge Function for auth header injection
+# See: netlify/edge-functions/cee-proxy.ts
+# Requires ASSIST_API_KEY env var in Netlify dashboard
 
 [[redirects]]
   from = "/bff/isl/*"
