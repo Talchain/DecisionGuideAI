@@ -12,7 +12,7 @@
  * - Refreshes on tab visibility change
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { plot } from '../../adapters/plot'
 import type { LimitsV1, LimitsFetch } from '../../adapters/plot/types'
 
@@ -34,6 +34,11 @@ export function useEngineLimits(): UseEngineLimitsReturn {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
   const [fetchedAt, setFetchedAt] = useState<number | null>(null)
+
+  // Use ref to track loading state in event handler to avoid stale closure
+  // and prevent useEffect from re-running when loading changes
+  const loadingRef = useRef(loading)
+  loadingRef.current = loading
 
   const fetchLimitsWithRetry = useCallback(async () => {
     setLoading(true)
@@ -101,9 +106,11 @@ export function useEngineLimits(): UseEngineLimitsReturn {
   }, [fetchLimitsWithRetry])
 
   // Refresh on tab visibility change
+  // Note: Use loadingRef instead of loading state to avoid effect re-running
+  // on every loading change, which can cause infinite render loops (React #185)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && !loading) {
+      if (document.visibilityState === 'visible' && !loadingRef.current) {
         if (import.meta.env.DEV) {
           console.log('[useEngineLimits] Tab became visible, refreshing limits...')
         }
@@ -113,7 +120,7 @@ export function useEngineLimits(): UseEngineLimitsReturn {
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  }, [loading, fetchLimitsWithRetry])
+  }, [fetchLimitsWithRetry])
 
   return { limits, source, loading, error, fetchedAt, retry: fetchLimitsWithRetry }
 }
