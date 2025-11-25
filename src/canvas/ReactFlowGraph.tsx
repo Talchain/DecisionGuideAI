@@ -1032,6 +1032,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           </ReactFlow>
         )}
       </div>
+      )}
 
       {/* Highlight layer for Results drivers (keyed off global showResultsPanel flag) */}
       <HighlightLayer isResultsOpen={showResultsPanel} />
