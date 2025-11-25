@@ -46,12 +46,12 @@
 
 [[redirects]]
   from = "/bff/cee/*"
-  to = "https://cee-service.onrender.com/:splat"
+  to = "https://olumi-assistants-service.onrender.com/:splat"
   status = 200
   force = true
 
 [[redirects]]
   from = "/bff/isl/*"
-  to = "https://isl-service.onrender.com/:splat"
+  to = "https://isl-staging.onrender.com/:splat"
   status = 200
   force = true
