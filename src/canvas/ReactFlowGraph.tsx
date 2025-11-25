@@ -69,27 +69,10 @@ type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only'
 function getCanvasDebugMode(): CanvasDebugMode {
   if (typeof window === 'undefined') return 'normal'
   try {
-    const href = window.location.href
-    const url = new URL(href)
-
-    // Support both standard query params and hash-based params used by the
-    // hash router, e.g. '/#/canvas?canvasDebug=blank'. In the latter case,
-    // the entire '/canvas?canvasDebug=blank' segment lives in url.hash.
-    const fromSearch = url.searchParams.get('canvasDebug')
-
-    let fromHashQuery: string | null = null
-    if (!fromSearch && url.hash) {
-      const rawHash = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash
-      const qIndex = rawHash.indexOf('?')
-      if (qIndex !== -1) {
-        const query = rawHash.slice(qIndex + 1)
-        const hashParams = new URLSearchParams(query)
-        fromHashQuery = hashParams.get('canvasDebug')
-      }
-    }
-
+    const url = new URL(window.location.href)
+    const fromQuery = url.searchParams.get('canvasDebug')
     const fromStorage = window.localStorage ? window.localStorage.getItem('CANVAS_DEBUG_MODE') : null
-    const raw = (fromSearch || fromHashQuery || fromStorage || '').toLowerCase()
+    const raw = (fromQuery || fromStorage || '').toLowerCase()
     if (raw === 'blank' || raw === 'no-reactflow' || raw === 'rf-only') return raw as CanvasDebugMode
     return 'normal'
   } catch {
