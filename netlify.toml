@@ -45,8 +45,10 @@
   force = true
 
 # CEE (Assistants) Service proxy - handled by Edge Function for auth header injection
-# See: netlify/edge-functions/cee-proxy.ts
 # Requires ASSIST_API_KEY env var in Netlify dashboard
+[[edge_functions]]
+  function = "cee-proxy"
+  path = "/bff/cee/*"
 
 [[redirects]]
   from = "/bff/isl/*"

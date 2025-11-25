@@ -96,9 +96,10 @@ export class CEEClient {
 
   /**
    * Get real-time framing feedback
+   * Endpoint: /assist/v1/framing/feedback
    */
   async framingFeedback(partialDescription: string): Promise<CEEFramingFeedback> {
-    return this.fetch<CEEFramingFeedback>('/framing/feedback', {
+    return this.fetch<CEEFramingFeedback>('/assist/v1/framing/feedback', {
       method: 'POST',
       body: JSON.stringify({ description: partialDescription }),
     })
@@ -106,12 +107,13 @@ export class CEEClient {
 
   /**
    * Analyze decision for biases and quality
+   * Endpoint: /assist/v1/insights
    */
   async analyzeInsights(graph: {
     nodes: Array<{ id: string; label: string; type: string }>
     edges: Array<{ from: string; to: string }>
   }): Promise<CEEInsightsResponse> {
-    return this.fetch<CEEInsightsResponse>('/insights', {
+    return this.fetch<CEEInsightsResponse>('/assist/v1/insights', {
       method: 'POST',
       body: JSON.stringify({ graph }),
     })
