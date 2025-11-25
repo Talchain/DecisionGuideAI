@@ -59,8 +59,14 @@ export class CEEClient {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}))
+
+        const baseMessage =
+          response.status === 404
+            ? 'Draft My Model is not available in this environment.'
+            : error.message || `Request failed: ${response.status}`
+
         throw new CEEError(
-          error.message || `Request failed: ${response.status}`,
+          baseMessage,
           response.status,
           error,
           correlationId
