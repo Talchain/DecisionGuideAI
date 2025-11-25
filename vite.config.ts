@@ -182,12 +182,12 @@ optimizeDeps: {
         }
       },
       '/bff/cee': {
-        target: env.CEE_SERVICE_URL || 'https://cee-service.onrender.com',
+        target: env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/bff\/cee/, ''),
         configure: (proxy) => {
-          console.log(`[PROXY] CEE target: ${env.CEE_SERVICE_URL || 'https://cee-service.onrender.com'}`)
+          console.log(`[PROXY] CEE target: ${env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com'}`)
 
           proxy.on('error', (err) => {
             console.error('[PROXY ERROR] /bff/cee', err.message)
@@ -195,12 +195,12 @@ optimizeDeps: {
         }
       },
       '/bff/isl': {
-        target: env.ISL_SERVICE_URL || 'https://isl-service.onrender.com',
+        target: env.ISL_SERVICE_URL || 'https://isl-staging.onrender.com',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/bff\/isl/, ''),
         configure: (proxy) => {
-          console.log(`[PROXY] ISL target: ${env.ISL_SERVICE_URL || 'https://isl-service.onrender.com'}`)
+          console.log(`[PROXY] ISL target: ${env.ISL_SERVICE_URL || 'https://isl-staging.onrender.com'}`)
 
           proxy.on('error', (err) => {
             console.error('[PROXY ERROR] /bff/isl', err.message)
@@ -244,12 +244,12 @@ optimizeDeps: {
         }
       },
       '/bff/cee': {
-        target: env.CEE_SERVICE_URL || 'https://cee-service.onrender.com',
+        target: env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/bff\/cee/, ''),
         configure: (proxy) => {
-          console.log(`[PROXY] CEE target: ${env.CEE_SERVICE_URL || 'https://cee-service.onrender.com'}`)
+          console.log(`[PROXY] CEE target: ${env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com'}`)
 
           proxy.on('error', (err) => {
             console.error('[PROXY ERROR] /bff/cee', err.message)
@@ -257,12 +257,12 @@ optimizeDeps: {
         }
       },
       '/bff/isl': {
-        target: env.ISL_SERVICE_URL || 'https://isl-service.onrender.com',
+        target: env.ISL_SERVICE_URL || 'https://isl-staging.onrender.com',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/bff\/isl/, ''),
         configure: (proxy) => {
-          console.log(`[PROXY] ISL target: ${env.ISL_SERVICE_URL || 'https://isl-service.onrender.com'}`)
+          console.log(`[PROXY] ISL target: ${env.ISL_SERVICE_URL || 'https://isl-staging.onrender.com'}`)
 
           proxy.on('error', (err) => {
             console.error('[PROXY ERROR] /bff/isl', err.message)
