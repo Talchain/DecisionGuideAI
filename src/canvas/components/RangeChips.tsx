@@ -1,7 +1,7 @@
 /**
  * Range Chips Component
  *
- * Displays the three-point estimate: Conservative, Most Likely, Optimistic.
+ * Displays the three-point estimate with improved terminology (Phase 1A.3).
  * Compact strip with hover tooltips for additional context.
  */
 
@@ -11,13 +11,26 @@ interface RangeChipsProps {
   optimistic: number | null
   units?: 'currency' | 'percent' | 'count'
   unitSymbol?: string
+  useImprovedLabels?: boolean // Phase 1A.3: Use Cautious/Expected/Favorable
 }
 
-export function RangeChips({ conservative, likely, optimistic, units = 'percent', unitSymbol }: RangeChipsProps) {
-  const ranges = [
-    { label: 'Conservative', value: conservative, variant: 'conservative' as const },
-    { label: 'Most Likely', value: likely, variant: 'likely' as const },
-    { label: 'Optimistic', value: optimistic, variant: 'optimistic' as const }
+export function RangeChips({
+  conservative,
+  likely,
+  optimistic,
+  units = 'percent',
+  unitSymbol,
+  useImprovedLabels = false
+}: RangeChipsProps) {
+  // Phase 1A.3: Improved labels (Cautious/Expected/Favorable) vs legacy (Conservative/Most Likely/Optimistic)
+  const ranges = useImprovedLabels ? [
+    { label: 'Cautious', technicalLabel: 'Conservative (10th %ile)', value: conservative, variant: 'conservative' as const },
+    { label: 'Expected', technicalLabel: 'Most Likely (50th %ile)', value: likely, variant: 'likely' as const },
+    { label: 'Favorable', technicalLabel: 'Optimistic (90th %ile)', value: optimistic, variant: 'optimistic' as const }
+  ] : [
+    { label: 'Conservative', technicalLabel: 'Conservative', value: conservative, variant: 'conservative' as const },
+    { label: 'Most Likely', technicalLabel: 'Most Likely', value: likely, variant: 'likely' as const },
+    { label: 'Optimistic', technicalLabel: 'Optimistic', value: optimistic, variant: 'optimistic' as const }
   ]
 
   return (
@@ -36,6 +49,7 @@ export function RangeChips({ conservative, likely, optimistic, units = 'percent'
         <RangeChip
           key={range.label}
           label={range.label}
+          technicalLabel={range.technicalLabel}
           value={range.value}
           variant={range.variant}
           units={units}
@@ -48,13 +62,14 @@ export function RangeChips({ conservative, likely, optimistic, units = 'percent'
 
 interface RangeChipProps {
   label: string
+  technicalLabel: string // Phase 1A.3: Show in tooltip
   value: number | null
   variant: 'conservative' | 'likely' | 'optimistic'
   units: 'currency' | 'percent' | 'count'
   unitSymbol?: string
 }
 
-function RangeChip({ label, value, variant, units, unitSymbol }: RangeChipProps) {
+function RangeChip({ label, technicalLabel, value, variant, units, unitSymbol }: RangeChipProps) {
   const formattedValue = value === null ? '—' : formatValue(value, units, unitSymbol)
 
   const variantClasses = {
@@ -70,7 +85,7 @@ function RangeChip({ label, value, variant, units, unitSymbol }: RangeChipProps)
         transition-all duration-200
         ${variantClasses[variant]}
       `}
-      title={`${label}: ${formattedValue}`}
+      title={`${technicalLabel}: ${formattedValue}`}
       role="listitem"
       aria-label={`${label} estimate: ${formattedValue}`}
     >

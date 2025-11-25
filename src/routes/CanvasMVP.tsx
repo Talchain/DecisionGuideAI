@@ -7,6 +7,7 @@ import ReactFlowGraph from '../canvas/ReactFlowGraph'
 import type { Blueprint } from '../templates/blueprints/types'
 import { useCanvasStore } from '../canvas/store'
 import { useResultsRun } from '../canvas/hooks/useResultsRun'
+import { useDebugShortcut } from '../canvas/hooks/useDebugShortcut'
 import { trackCanvasOpened } from '../canvas/utils/sandboxTelemetry'
 import { DebugTray } from '../components/DebugTray'
 
@@ -35,6 +36,9 @@ export default function CanvasMVP() {
   const showTemplatesPanel = useCanvasStore(state => state.showTemplatesPanel)
   const closeTemplatesPanel = useCanvasStore(state => state.closeTemplatesPanel)
   const runMeta = useCanvasStore(state => state.runMeta)
+
+  // Phase 1A.5: Debug controls visibility (Shift+D shortcut)
+  const { showDebug } = useDebugShortcut()
 
   // v1.2: Auto-run analysis after template insertion
   const { run } = useResultsRun()
@@ -171,11 +175,13 @@ export default function CanvasMVP() {
         />
       </Suspense>
 
-      {/* Phase 1 Section 4.3: Debug Tray with CEE Debug Headers */}
-      <DebugTray
-        correlationId={runMeta?.correlationIdHeader}
-        ceeDebugHeaders={runMeta?.ceeDebugHeaders}
-      />
+      {/* Phase 1A.5: Debug Tray (hidden by default, Shift+D to toggle) */}
+      {showDebug && (
+        <DebugTray
+          correlationId={runMeta?.correlationIdHeader}
+          ceeDebugHeaders={runMeta?.ceeDebugHeaders}
+        />
+      )}
     </div>
   )
 }

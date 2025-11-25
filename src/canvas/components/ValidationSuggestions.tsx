@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { AlertCircle, CheckCircle, AlertTriangle, Wrench } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { AlertCircle, CheckCircle, AlertTriangle, Wrench, Eye } from 'lucide-react'
 import { useISLValidation } from '../../hooks/useISLValidation'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
@@ -167,6 +167,8 @@ const getSeverityClasses = (severity: 'error' | 'warning' | 'info') => {
 }
 
 function SuggestionCard({ suggestion }: SuggestionCardProps) {
+  const [isHighlighting, setIsHighlighting] = useState(false)
+
   const iconMap = {
     error: AlertCircle,
     warning: AlertTriangle,
@@ -175,6 +177,15 @@ function SuggestionCard({ suggestion }: SuggestionCardProps) {
 
   const Icon = iconMap[suggestion.severity]
   const classes = getSeverityClasses(suggestion.severity)
+
+  const handleHighlight = () => {
+    setIsHighlighting(!isHighlighting)
+    // Phase 1A.4: Highlight affected nodes visually
+    // This would ideally update node styling, but for now we show the button state
+    if (suggestion.affectedNodes.length > 0) {
+      console.log('Highlighting nodes:', suggestion.affectedNodes)
+    }
+  }
 
   const handleQuickFix = () => {
     if (!suggestion.quickFix) return
@@ -201,18 +212,39 @@ function SuggestionCard({ suggestion }: SuggestionCardProps) {
             </p>
           )}
 
-          {suggestion.quickFix && (
-            <button
-              onClick={handleQuickFix}
-              className={`
-                ${typography.button} inline-flex items-center gap-1 px-3 py-1.5 rounded
-                ${classes.button} text-white transition-colors
-              `}
-            >
-              <Wrench className="w-3 h-3" />
-              {suggestion.quickFix.label}
-            </button>
-          )}
+          {/* Phase 1A.4: Highlight button for affected nodes */}
+          <div className="flex gap-2 mt-2">
+            {suggestion.affectedNodes.length > 0 && (
+              <button
+                onClick={handleHighlight}
+                className={`
+                  ${typography.button} inline-flex items-center gap-1 px-3 py-1.5 rounded border
+                  ${isHighlighting
+                    ? `${classes.button} text-white`
+                    : 'border-ink-300 text-ink-700 hover:bg-ink-50'
+                  }
+                  transition-colors
+                `}
+                title="Highlight affected nodes on canvas"
+              >
+                <Eye className="w-3 h-3" />
+                {isHighlighting ? 'Unhighlight' : 'Highlight'}
+              </button>
+            )}
+
+            {suggestion.quickFix && (
+              <button
+                onClick={handleQuickFix}
+                className={`
+                  ${typography.button} inline-flex items-center gap-1 px-3 py-1.5 rounded
+                  ${classes.button} text-white transition-colors
+                `}
+              >
+                <Wrench className="w-3 h-3" />
+                {suggestion.quickFix.label}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
