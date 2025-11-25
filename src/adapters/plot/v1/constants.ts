@@ -9,7 +9,7 @@ export const LIMITS = {
 
 // Timeouts
 export const TIMEOUTS = {
-  SYNC_REQUEST_MS: 30_000, // 30 seconds for sync runs
+  SYNC_REQUEST_MS: 90_000, // 90 seconds for sync runs (backend P95 is ~48s, add buffer for cold starts)
   STREAM_HEARTBEAT_MS: 20_000, // 20 seconds for stream heartbeat
   HEALTH_CHECK_MS: 5_000, // 5 seconds for health checks
 } as const
