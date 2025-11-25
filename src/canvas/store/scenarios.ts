@@ -21,6 +21,7 @@ export interface ScenarioFraming {
   constraints?: string    // Key constraints (optional)
   risks?: string          // Key risks (optional)
   uncertainties?: string  // Key unknowns (optional)
+  baseline?: number       // Baseline value for verdict comparison (defaults to 0 = status quo)
 }
 
 export interface Scenario {
