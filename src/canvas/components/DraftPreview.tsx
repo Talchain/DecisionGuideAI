@@ -1,11 +1,11 @@
 import { useMemo } from 'react'
-import { AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react'
+import { AlertCircle, CheckCircle, AlertTriangle, CloudOff } from 'lucide-react'
 import type { CEEDraftResponse } from '../../adapters/cee/types'
 import { typography } from '../../styles/typography'
 import { Spinner } from '../../components/Spinner'
 
 interface DraftPreviewProps {
-  draft: CEEDraftResponse
+  draft: CEEDraftResponse | null | undefined
   loading?: boolean
   onAccept: () => void
   onReject: () => void
@@ -41,16 +41,54 @@ function getQualityConfig(quality: number) {
 }
 
 export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPreviewProps) {
-  const config = useMemo(() => getQualityConfig(draft.quality_overall), [draft.quality_overall])
+  // Null-safe derived values - prevent crashes when draft is missing or incomplete
+  const nodes = draft?.nodes ?? []
+  const edges = draft?.edges ?? []
+  const quality = draft?.quality_overall ?? 0
+  const structural = draft?.draft_warnings?.structural ?? []
+  const completeness = draft?.draft_warnings?.completeness ?? []
+
+  const config = useMemo(() => getQualityConfig(quality), [quality])
   const Icon = config.icon
 
   const uncertainNodes = useMemo(
-    () => draft.nodes.filter(n => n.uncertainty > 0.4),
-    [draft.nodes]
+    () => nodes.filter(n => n.uncertainty > 0.4),
+    [nodes]
   )
 
+  // Empty/unavailable state - show friendly message instead of crashing
+  if (!draft || nodes.length === 0) {
+    return (
+      <div className="space-y-4 p-4 bg-white rounded-lg border border-sand-200 shadow-panel" data-testid="draft-preview-empty">
+        <div className="flex items-center gap-3 p-3 rounded-lg border bg-paper-50 border-sand-200">
+          <CloudOff className="w-5 h-5 text-ink-900/50" />
+          <div className="flex-1">
+            <p className={`${typography.label} text-ink-900`}>
+              No draft available
+            </p>
+            <p className={`${typography.caption} text-ink-900/60`}>
+              The AI assistant couldn't generate a draft. Try describing your decision differently or check your connection.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2 pt-2">
+          <button
+            onClick={onReject}
+            className={`
+              ${typography.button} flex-1 py-2.5 rounded
+              border border-sand-200 hover:bg-paper-50
+              transition-colors
+            `}
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-4 p-4 bg-white rounded-lg border border-sand-200 shadow-panel">
+    <div className="space-y-4 p-4 bg-white rounded-lg border border-sand-200 shadow-panel" data-testid="draft-preview">
       {/* Quality Badge */}
       <div className={`
         flex items-center gap-3 p-3 rounded-lg border
@@ -60,7 +98,7 @@ export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPrevie
         <div className="flex-1">
           <div className="flex items-baseline gap-2">
             <span className={typography.label}>
-              Draft Quality: {draft.quality_overall}/10
+              Draft Quality: {quality}/10
             </span>
             <span className={`${typography.caption} text-ink-900/60`}>
               {config.label}
@@ -74,7 +112,7 @@ export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPrevie
         <div className="flex items-center justify-between">
           <span className={typography.label}>Graph Structure</span>
           <span className={`${typography.caption} text-ink-900/60`}>
-            {draft.nodes.length} nodes · {draft.edges.length} edges
+            {nodes.length} nodes · {edges.length} edges
           </span>
         </div>
 
@@ -90,13 +128,13 @@ export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPrevie
         )}
 
         {/* Structural Warnings */}
-        {draft.draft_warnings.structural.length > 0 && (
+        {structural.length > 0 && (
           <div className="flex items-start gap-2 p-2 bg-sun-50 border border-sun-200 rounded">
             <AlertCircle className="w-4 h-4 text-sun-700 mt-0.5 flex-shrink-0" />
             <div className="flex-1">
               <p className={`${typography.bodySmall} text-sun-800`}>
-                {draft.draft_warnings.structural.length} structural issue
-                {draft.draft_warnings.structural.length !== 1 ? 's' : ''} detected
+                {structural.length} structural issue
+                {structural.length !== 1 ? 's' : ''} detected
               </p>
               <button className={`${typography.caption} text-sky-600 underline hover:text-sky-700`}>
                 View details
@@ -150,13 +188,13 @@ export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPrevie
       </div>
 
       {/* Low Quality Help */}
-      {draft.quality_overall < 4 && draft.draft_warnings.completeness.length > 0 && (
+      {quality < 4 && completeness.length > 0 && (
         <div className="space-y-2 p-3 bg-paper-50 rounded border-l-4 border-sky-500">
           <p className={`${typography.label} text-ink-900`}>
-            💡 To improve quality, consider including:
+            To improve quality, consider including:
           </p>
           <ul className="space-y-1">
-            {draft.draft_warnings.completeness.slice(0, 5).map((suggestion, i) => (
+            {completeness.slice(0, 5).map((suggestion, i) => (
               <li key={i} className={`${typography.bodySmall} text-ink-900/70`}>
                 • {suggestion}
               </li>

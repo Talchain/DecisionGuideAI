@@ -60,7 +60,7 @@ import { LimitsPanel } from './components/LimitsPanel'
 import type { NodeType } from './domain/nodes'
 import { InputsDock } from './components/InputsDock'
 import { OutputsDock } from './components/OutputsDock'
-import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled, pocFlags } from '../flags'
+import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled } from '../flags'
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 
@@ -958,8 +958,6 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         cursor: quickAddMode ? 'crosshair' : undefined,
       }}
     >
-      {pocFlags.contextBar && (
-
       <div
         style={{
           position: 'absolute',
@@ -1032,7 +1030,6 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           </ReactFlow>
         )}
       </div>
-      )}
 
       {/* Highlight layer for Results drivers (keyed off global showResultsPanel flag) */}
       <HighlightLayer isResultsOpen={showResultsPanel} />

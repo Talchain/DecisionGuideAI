@@ -32,7 +32,8 @@ export class CEEClient {
 
   constructor(config: { timeout?: number } = {}) {
     this.baseURL = CEE_BASE_URL
-    this.timeout = config.timeout ?? 30000
+    // 60s timeout to handle Render cold starts (can take 30-45s)
+    this.timeout = config.timeout ?? 60000
   }
 
   private async fetch<T>(

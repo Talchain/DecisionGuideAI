@@ -1,35 +1,40 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useCEEDraft } from '../../hooks/useCEEDraft'
 import { DraftPreview } from './DraftPreview'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { CEEClient } from '../../adapters/cee/client'
-import type { CEEFramingFeedback } from '../../adapters/cee/types'
+import { CEEError } from '../../adapters/cee/client'
+
+/** Format CEE error for user-friendly display + debug info */
+function formatCEEError(error: CEEError | Error): { message: string; debugInfo?: string } {
+  if (error instanceof CEEError) {
+    // Map error codes to user-friendly messages
+    const friendlyMessages: Record<string, string> = {
+      'openai_response_invalid_schema': 'The AI service returned an unexpected response format. This is a temporary backend issue.',
+      'timeout': 'The request took too long. The AI service may be starting up - please try again.',
+      'rate_limit': 'Too many requests. Please wait a moment and try again.',
+    }
+
+    const friendlyMessage = friendlyMessages[error.message] || error.message
+    const debugParts = [`Code: ${error.message}`, `Status: ${error.status}`]
+    if (error.correlationId) {
+      debugParts.push(`ID: ${error.correlationId.slice(0, 8)}...`)
+    }
+
+    return {
+      message: friendlyMessage,
+      debugInfo: debugParts.join(' | '),
+    }
+  }
+
+  return { message: error.message }
+}
 
 export function DraftChat() {
   const [description, setDescription] = useState('')
-  const [feedback, setFeedback] = useState<CEEFramingFeedback | null>(null)
   const { data: draft, loading, error, draft: generateDraft } = useCEEDraft()
   const { showDraftChat, setShowDraftChat, addNodes, addEdges } = useCanvasStore()
-
-  const client = new CEEClient()
-
-  // Phase 2: Real-time framing feedback (debounced)
-  useEffect(() => {
-    if (description.length < 20) {
-      setFeedback(null)
-      return
-    }
-
-    const timer = setTimeout(() => {
-      client.framingFeedback(description)
-        .then(setFeedback)
-        .catch(() => setFeedback(null))
-    }, 500)
-
-    return () => clearTimeout(timer)
-  }, [description])
 
   const handleDraft = async () => {
     if (!description.trim()) return
@@ -42,7 +47,8 @@ export function DraftChat() {
   }
 
   const handleAccept = () => {
-    if (!draft) return
+    // Null-safe: bail out if draft or nodes/edges are missing
+    if (!draft?.nodes?.length) return
 
     // Convert CEE nodes to canvas nodes
     const nodes = draft.nodes.map(n => ({
@@ -55,7 +61,7 @@ export function DraftChat() {
       },
     }))
 
-    const edges = draft.edges.map((e, i) => ({
+    const edges = (draft.edges ?? []).map((e, i) => ({
       id: `e-${i}`,
       source: e.from,
       target: e.to,
@@ -65,11 +71,6 @@ export function DraftChat() {
     addNodes(nodes)
     addEdges(edges)
     setShowDraftChat(false)
-
-    // Trigger ISL validation after 500ms
-    setTimeout(() => {
-      // ISL validation will auto-trigger via useEffect in DiagnosticsTab
-    }, 500)
   }
 
   const handleReject = () => {
@@ -108,33 +109,21 @@ export function DraftChat() {
             </p>
           </div>
 
-          {/* Phase 2: Real-time framing feedback */}
-          {feedback && (
-            <div
-              className={`flex items-center gap-2 px-3 py-2 rounded ${
-                feedback.status === 'good'
-                  ? 'bg-mint-50 border border-mint-200'
-                  : feedback.status === 'needs_improvement'
-                  ? 'bg-sun-50 border border-sun-200'
-                  : 'bg-carrot-50 border border-carrot-200'
-              }`}
-            >
-              <span className={`${typography.bodySmall}`}>
-                {feedback.message}
-              </span>
-            </div>
-          )}
-
-          {error && (
-            <ErrorAlert
-              message={error.message}
-              severity="error"
-              action={{
-                label: 'Try again',
-                onClick: handleDraft
-              }}
-            />
-          )}
+          {error && (() => {
+            const formatted = formatCEEError(error)
+            return (
+              <ErrorAlert
+                title="Draft failed"
+                message={formatted.message}
+                severity="error"
+                debugInfo={formatted.debugInfo}
+                action={{
+                  label: 'Try again',
+                  onClick: handleDraft
+                }}
+              />
+            )
+          })()}
 
           <div className="flex gap-2">
             <button

@@ -17,6 +17,8 @@ interface ErrorAlertProps {
     onClick: () => void
   }
   className?: string
+  /** Debug details shown in POC mode - error codes, correlation IDs, etc. */
+  debugInfo?: string
 }
 
 const severityConfig = {
@@ -52,6 +54,7 @@ export function ErrorAlert({
   severity = 'error',
   action,
   className = '',
+  debugInfo,
 }: ErrorAlertProps) {
   const config = severityConfig[severity]
   const Icon = config.icon
@@ -74,6 +77,12 @@ export function ErrorAlert({
           <p className={`${typography.caption} ${config.textMuted}`}>
             {message}
           </p>
+          {/* Debug info for POC mode - helps developers understand errors */}
+          {debugInfo && (
+            <p className={`${typography.caption} ${config.textMuted} font-mono text-xs mt-1 opacity-70`}>
+              {debugInfo}
+            </p>
+          )}
           {action && (
             <button
               onClick={action.onClick}
