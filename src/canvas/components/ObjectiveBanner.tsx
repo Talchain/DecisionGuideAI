@@ -30,7 +30,7 @@ export function ObjectiveBanner({ objectiveText, goalDirection }: ObjectiveBanne
           <span className={`${typography.label} text-sky-900`}>Your objective</span>
           <div className="flex items-center gap-1 text-sky-700">
             <DirectionIcon className="w-3.5 h-3.5" aria-hidden="true" />
-            <span className="text-xs font-medium uppercase tracking-wide">{directionLabel}</span>
+            <span className={`${typography.labelSmall} uppercase tracking-wide`}>{directionLabel}</span>
           </div>
         </div>
         <p className={`${typography.body} text-sky-900`}>{objectiveText}</p>

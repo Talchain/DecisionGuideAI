@@ -1,8 +1,7 @@
 /**
- * Olumi Typography System
+ * Olumi Typography System (Phase 1B)
  *
- * Body/UI: Inter (--font-body)
- * Buttons: League Spartan (--font-heading)
+ * Single font family: Inter for all text
  *
  * Usage:
  * import { typography } from '@/styles/typography'
@@ -10,36 +9,49 @@
  */
 
 export const typography = {
+  // Display
+  display: 'text-5xl font-bold font-sans leading-tight tracking-tight',
+
   // Headings - Inter
-  h1: 'text-4xl font-semibold font-body leading-tight',          // 36px
-  h2: 'text-2xl font-semibold font-body leading-tight',          // 24px
-  h3: 'text-xl font-semibold font-body leading-snug',            // 20px
-  h4: 'text-lg font-medium font-body leading-snug',              // 18px
+  h1: 'text-4xl font-semibold font-sans leading-tight',
+  h2: 'text-2xl font-semibold font-sans leading-tight',
+  h3: 'text-xl font-semibold font-sans leading-snug',
+  h4: 'text-lg font-medium font-sans leading-snug',
+  h5: 'text-base font-medium font-sans leading-snug',
 
   // Body - Inter
-  bodyLarge: 'text-base font-body leading-relaxed',              // 16px
-  body: 'text-sm font-body leading-relaxed',                     // 14px
-  bodySmall: 'text-xs font-body leading-normal',                 // 12px
+  bodyLarge: 'text-base font-sans leading-relaxed',
+  body: 'text-sm font-sans leading-relaxed',
+  bodySmall: 'text-xs font-sans leading-normal',
 
   // UI Elements - Inter
-  label: 'text-sm font-medium font-body leading-normal',         // 14px
-  caption: 'text-xs font-body leading-normal',                   // 12px
+  label: 'text-sm font-medium font-sans leading-normal',
+  labelSmall: 'text-xs font-medium font-sans leading-normal',
+  caption: 'text-xs font-sans leading-normal',
 
-  // Buttons - League Spartan (ONLY exception)
-  button: 'text-sm font-medium font-heading leading-none',       // 14px
+  // Interactive - Inter (buttons now use Inter, not League Spartan)
+  button: 'text-sm font-semibold font-sans leading-none',
+  buttonSmall: 'text-xs font-semibold font-sans leading-none',
+  link: 'text-sm font-medium font-sans underline hover:no-underline',
 
-  // Special - Inter
-  code: 'text-xs font-mono leading-normal',                      // 12px monospace
+  // Specialized
+  code: 'text-xs font-mono leading-normal',
+  tabular: 'text-sm font-sans leading-normal tabular-nums',
 
-  // Graph Nodes - Inter (Phase 3: optimized sizing)
-  nodeTitle: 'text-[13px] font-semibold font-body leading-tight',    // 13px
-  nodeLabel: 'text-[11px] font-body leading-tight',                   // 11px
-  edgeLabel: 'text-[11px] font-body leading-tight',                   // 11px for edge labels
+  // Canvas/Graph - Inter
+  nodeTitle: 'text-[13px] font-semibold font-sans leading-tight',
+  nodeLabel: 'text-[11px] font-sans leading-tight',
+  edgeLabel: 'text-[10px] font-sans leading-tight',
+
+  // Utility
+  screenReaderOnly: 'sr-only',
 } as const
 
 export type TypographyKey = keyof typeof typography
 
-// Helper function
+/**
+ * Helper to combine typography with additional classes
+ */
 export function typo(key: TypographyKey, additional?: string): string {
   return additional ? `${typography[key]} ${additional}` : typography[key]
 }
