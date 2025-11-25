@@ -95,27 +95,70 @@ export class CEEClient {
   }
 
   /**
-   * Get real-time framing feedback
-   * Endpoint: /assist/v1/framing/feedback
+   * Check for cognitive biases in a decision graph
+   * Endpoint: POST /assist/v1/bias-check
+   *
+   * @param graph - The decision graph with nodes and edges
+   * @param archetype - Optional archetype for context
    */
-  async framingFeedback(partialDescription: string): Promise<CEEFramingFeedback> {
-    return this.fetch<CEEFramingFeedback>('/assist/v1/framing/feedback', {
+  async biasCheck(
+    graph: {
+      nodes: Array<{ id: string; label: string; type: string }>
+      edges: Array<{ from: string; to: string }>
+    },
+    archetype?: string
+  ): Promise<CEEInsightsResponse> {
+    return this.fetch<CEEInsightsResponse>('/assist/v1/bias-check', {
       method: 'POST',
-      body: JSON.stringify({ description: partialDescription }),
+      body: JSON.stringify({ graph, archetype }),
     })
   }
 
   /**
-   * Analyze decision for biases and quality
-   * Endpoint: /assist/v1/insights
+   * Get sensitivity analysis coaching for a decision
+   * Endpoint: POST /assist/v1/sensitivity-coach
+   *
+   * @param graph - The decision graph with nodes and edges
+   * @param inference - The inference/analysis context
+   */
+  async sensitivityCoach(
+    graph: {
+      nodes: Array<{ id: string; label: string; type: string }>
+      edges: Array<{ from: string; to: string }>
+    },
+    inference: Record<string, unknown>
+  ): Promise<CEEInsightsResponse> {
+    return this.fetch<CEEInsightsResponse>('/assist/v1/sensitivity-coach', {
+      method: 'POST',
+      body: JSON.stringify({ graph, inference }),
+    })
+  }
+
+  /**
+   * @deprecated Use biasCheck() instead. This method signature is incompatible with CEE API.
+   * CEE's bias-check endpoint requires a graph, not a text description.
+   * Keeping for backward compatibility - returns degraded response.
+   */
+  async framingFeedback(_partialDescription: string): Promise<CEEFramingFeedback> {
+    // CEE doesn't have a text-based framing feedback endpoint
+    // Return a degraded response instead of calling a non-existent endpoint
+    console.warn('[CEE] framingFeedback() is deprecated. CEE requires a graph for bias-check.')
+    return {
+      status: 'good',
+      message: 'Real-time feedback is temporarily unavailable.',
+      suggestions: [],
+    }
+  }
+
+  /**
+   * @deprecated Use biasCheck() or sensitivityCoach() instead.
+   * Keeping for backward compatibility with useCEEInsights hook.
    */
   async analyzeInsights(graph: {
     nodes: Array<{ id: string; label: string; type: string }>
     edges: Array<{ from: string; to: string }>
   }): Promise<CEEInsightsResponse> {
-    return this.fetch<CEEInsightsResponse>('/assist/v1/insights', {
-      method: 'POST',
-      body: JSON.stringify({ graph }),
-    })
+    // Delegate to biasCheck which is the correct endpoint
+    return this.biasCheck(graph)
   }
 }
