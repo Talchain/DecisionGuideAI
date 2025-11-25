@@ -27,6 +27,8 @@ export interface UseEngineLimitsReturn {
 }
 
 const RETRY_DELAYS = [0, 2000, 5000] // Exponential backoff: immediate, 2s, 5s
+const VISIBILITY_COOLDOWN_MS = 10000 // Minimum 10s between visibility-triggered fetches
+const MAX_FETCH_COUNT = 10 // Maximum fetches per session to prevent runaway loops
 
 export function useEngineLimits(): UseEngineLimitsReturn {
   const [limits, setLimits] = useState<LimitsV1 | null>(null)
@@ -40,7 +42,21 @@ export function useEngineLimits(): UseEngineLimitsReturn {
   const loadingRef = useRef(loading)
   loadingRef.current = loading
 
+  // Track last visibility fetch and total fetch count to prevent runaway loops
+  const lastVisibilityFetchRef = useRef<number>(0)
+  const fetchCountRef = useRef<number>(0)
+
   const fetchLimitsWithRetry = useCallback(async () => {
+    // Safety guard: prevent runaway fetch loops (React #185)
+    fetchCountRef.current += 1
+    if (fetchCountRef.current > MAX_FETCH_COUNT) {
+      if (import.meta.env.DEV) {
+        console.warn('[useEngineLimits] Max fetch count reached, stopping retries')
+      }
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setError(null)
 
@@ -111,6 +127,16 @@ export function useEngineLimits(): UseEngineLimitsReturn {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible' && !loadingRef.current) {
+        // Safety guard: enforce cooldown between visibility-triggered fetches
+        const now = Date.now()
+        if (now - lastVisibilityFetchRef.current < VISIBILITY_COOLDOWN_MS) {
+          if (import.meta.env.DEV) {
+            console.log('[useEngineLimits] Visibility change ignored (cooldown active)')
+          }
+          return
+        }
+        lastVisibilityFetchRef.current = now
+
         if (import.meta.env.DEV) {
           console.log('[useEngineLimits] Tab became visible, refreshing limits...')
         }
