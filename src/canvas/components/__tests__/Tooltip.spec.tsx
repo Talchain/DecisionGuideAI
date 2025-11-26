@@ -71,6 +71,22 @@ describe('Tooltip', () => {
       fireEvent.blur(trigger)
       expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
     })
+
+    it('dismisses tooltip on Escape key (WCAG 1.4.13)', () => {
+      render(
+        <Tooltip content="Helpful tip">
+          <button>Trigger</button>
+        </Tooltip>
+      )
+
+      const trigger = screen.getByText('Trigger')
+      fireEvent.mouseEnter(trigger)
+      expect(screen.getByRole('tooltip')).toBeInTheDocument()
+
+      // Press Escape to dismiss
+      fireEvent.keyDown(document, { key: 'Escape' })
+      expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+    })
   })
 
   describe('Event Handler Merging', () => {
@@ -364,8 +380,8 @@ describe('Tooltip', () => {
       const tooltip = screen.getByRole('tooltip')
       const styles = tooltip.style
 
-      expect(styles.backgroundColor).toContain('var(--surface-card)
-      expect(styles.color).toContain('var(--text-primary)
+      expect(styles.backgroundColor).toContain('var(--surface-card)')
+      expect(styles.color).toContain('var(--text-primary)')
     })
 
     it('has pointer-events: none to prevent interaction', () => {

@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import {
   DecisionReadinessBadge,
   DecisionReadinessBadgeCompact,
+  mapConfidenceToReadiness,
 } from '../DecisionReadinessBadge'
 import type { DecisionReadiness } from '../../../types/plot'
 
@@ -260,5 +261,93 @@ describe('DecisionReadinessBadgeCompact', () => {
 
     const badge = screen.getByTestId('decision-readiness-compact')
     expect(badge).toHaveClass('custom-class')
+  })
+})
+
+// P1.2: Trust signal contract tests for mapConfidenceToReadiness
+describe('mapConfidenceToReadiness', () => {
+  describe('HIGH confidence', () => {
+    it('maps HIGH confidence to ready state', () => {
+      const result = mapConfidenceToReadiness({ level: 'HIGH' })
+
+      expect(result).not.toBeNull()
+      expect(result?.ready).toBe(true)
+      expect(result?.confidence).toBe('high')
+      expect(result?.blockers).toEqual([])
+      expect(result?.passed).toContain('High confidence analysis - model is ready for decision-making')
+    })
+
+    it('handles lowercase high confidence', () => {
+      const result = mapConfidenceToReadiness({ level: 'high' })
+
+      expect(result?.ready).toBe(true)
+      expect(result?.confidence).toBe('high')
+    })
+  })
+
+  describe('MEDIUM confidence', () => {
+    it('maps MEDIUM confidence to not ready state with warnings', () => {
+      const result = mapConfidenceToReadiness({ level: 'MEDIUM' })
+
+      expect(result).not.toBeNull()
+      expect(result?.ready).toBe(false)
+      expect(result?.confidence).toBe('medium')
+      expect(result?.blockers).toEqual([])
+      expect(result?.warnings).toContain('Medium confidence - consider reviewing key factors and assumptions')
+      expect(result?.passed).toContain('Model structure is valid')
+    })
+
+    it('handles lowercase medium confidence', () => {
+      const result = mapConfidenceToReadiness({ level: 'medium' })
+
+      expect(result?.ready).toBe(false)
+      expect(result?.confidence).toBe('medium')
+    })
+  })
+
+  describe('LOW confidence', () => {
+    it('maps LOW confidence to not ready state with blockers', () => {
+      const result = mapConfidenceToReadiness({ level: 'LOW' })
+
+      expect(result).not.toBeNull()
+      expect(result?.ready).toBe(false)
+      expect(result?.confidence).toBe('low')
+      expect(result?.blockers).toContain('Low confidence analysis - add more factors or evidence')
+      expect(result?.warnings).toEqual([])
+    })
+
+    it('handles lowercase low confidence', () => {
+      const result = mapConfidenceToReadiness({ level: 'low' })
+
+      expect(result?.ready).toBe(false)
+      expect(result?.confidence).toBe('low')
+    })
+  })
+
+  describe('Edge cases', () => {
+    it('returns null when confidence is undefined', () => {
+      const result = mapConfidenceToReadiness(undefined)
+      expect(result).toBeNull()
+    })
+
+    it('returns null when confidence.level is undefined', () => {
+      const result = mapConfidenceToReadiness({})
+      expect(result).toBeNull()
+    })
+
+    it('returns null when confidence.level is empty', () => {
+      const result = mapConfidenceToReadiness({ level: '' })
+      expect(result).toBeNull()
+    })
+
+    it('preserves optional why field from input', () => {
+      const result = mapConfidenceToReadiness({
+        level: 'high',
+        why: 'Model has strong evidence coverage'
+      })
+
+      expect(result).not.toBeNull()
+      expect(result?.ready).toBe(true)
+    })
   })
 })

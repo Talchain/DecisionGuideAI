@@ -107,7 +107,8 @@ export function DecisionReadinessBadge({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
   const { ready, confidence, blockers, warnings, passed } = readiness
-  const confidenceConfig = CONFIDENCE_CONFIG[confidence]
+  // P2.2: Defensive fallback for invalid confidence values
+  const confidenceConfig = CONFIDENCE_CONFIG[confidence] ?? CONFIDENCE_CONFIG.medium
 
   const hasDetails = blockers.length > 0 || warnings.length > 0 || passed.length > 0
 
@@ -303,7 +304,6 @@ export function DecisionReadinessBadgeCompact({
   className = '',
 }: Pick<DecisionReadinessBadgeProps, 'readiness' | 'className'>) {
   const { ready, confidence, blockers } = readiness
-  const confidenceConfig = CONFIDENCE_CONFIG[confidence]
 
   const tooltipContent = ready
     ? `Ready for decision (${confidence} confidence)`
