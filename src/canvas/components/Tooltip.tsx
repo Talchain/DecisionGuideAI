@@ -10,6 +10,7 @@
  */
 
 import { useState, cloneElement, useId, type ReactElement, type MouseEvent, type FocusEvent } from 'react'
+import { typography } from '../../styles/typography'
 
 interface TooltipProps {
   content: string
@@ -115,7 +116,7 @@ export function Tooltip({ content, children, position = 'top' }: TooltipProps) {
         <div
           id={tooltipId}
           role="tooltip"
-          className="absolute z-[9000] px-2 py-1 text-xs rounded whitespace-nowrap pointer-events-none"
+          className={`absolute z-[9000] px-2 py-1 ${typography.caption} rounded whitespace-nowrap pointer-events-none`}
           style={{
             backgroundColor: 'var(--surface-card)',
             color: 'var(--text-primary)',

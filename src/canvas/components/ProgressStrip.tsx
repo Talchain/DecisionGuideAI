@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { X, Loader2 } from 'lucide-react'
+import { typography } from '../../styles/typography'
 
 interface ProgressStripProps {
   isVisible: boolean
@@ -43,13 +44,13 @@ export const ProgressStrip = memo<ProgressStripProps>(({
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2 mb-2">
               <span
-                className="text-sm font-medium text-gray-900"
+                className={`${typography.body} font-medium text-gray-900`}
                 aria-live="polite"
               >
                 {message}
               </span>
               {showProgress && (
-                <span className="text-xs font-semibold text-blue-600 tabular-nums">
+                <span className={`${typography.caption} font-semibold text-blue-600 tabular-nums`}>
                   {Math.round(progress)}%
                 </span>
               )}
@@ -72,7 +73,7 @@ export const ProgressStrip = memo<ProgressStripProps>(({
 
             {/* Indeterminate state hint */}
             {isIndeterminate && (
-              <p className="text-xs text-gray-600 mt-1">
+              <p className={`${typography.caption} text-gray-600 mt-1`}>
                 Connecting to analysis service…
               </p>
             )}

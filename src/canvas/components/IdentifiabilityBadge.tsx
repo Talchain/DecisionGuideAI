@@ -21,6 +21,23 @@ export type IdentifiabilityStatus =
   | 'overidentified'
   | 'unknown'
 
+/** Valid identifiability status values from backend */
+const VALID_STATUSES = new Set<IdentifiabilityStatus>([
+  'identifiable',
+  'underidentified',
+  'overidentified',
+  'unknown',
+])
+
+/**
+ * Safely normalize an identifiability tag from backend.
+ * Returns 'unknown' for invalid/unexpected values to prevent runtime errors.
+ */
+export function normalizeIdentifiabilityTag(tag: string | undefined | null): IdentifiabilityStatus | null {
+  if (!tag) return null
+  return VALID_STATUSES.has(tag as IdentifiabilityStatus) ? (tag as IdentifiabilityStatus) : 'unknown'
+}
+
 interface IdentifiabilityBadgeProps {
   status: IdentifiabilityStatus
   message?: string

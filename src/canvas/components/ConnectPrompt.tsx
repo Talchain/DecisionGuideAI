@@ -3,6 +3,8 @@
  * Shows prompt to connect newly created node to nearby nodes
  */
 
+import { typography } from '../../styles/typography'
+
 interface ConnectPromptProps {
   targetNodeLabel: string
   position: { x: number; y: number }
@@ -20,20 +22,20 @@ export function ConnectPrompt({ targetNodeLabel, position, onConfirm, onCancel }
         transform: 'translate(-50%, 10px)'
       }}
     >
-      <p className="text-sm text-gray-700 mb-3">
+      <p className={`${typography.body} text-gray-700 mb-3`}>
         Connect to <strong>{targetNodeLabel}</strong>?
       </p>
       <div className="flex gap-2">
         <button
           onClick={onConfirm}
-          className="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-info-500 hover:bg-info-600 rounded focus:outline-none focus:ring-2 focus:ring-info-500"
+          className={`flex-1 px-3 py-1.5 ${typography.caption} font-medium text-white bg-info-500 hover:bg-info-600 rounded focus:outline-none focus:ring-2 focus:ring-info-500`}
           autoFocus
         >
           Connect
         </button>
         <button
           onClick={onCancel}
-          className="flex-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-gray-400"
+          className={`flex-1 px-3 py-1.5 ${typography.caption} font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-gray-400`}
         >
           Skip
         </button>

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, lazy, Suspense } from 'react'
 import { PanelsTopLeft, Sparkles } from 'lucide-react'
 import { useCanvasStore } from './store'
+import { typography } from '../styles/typography'
 import { useReactFlow } from '@xyflow/react'
 import { SnapshotManager } from './components/SnapshotManager'
 import { ImportExportDialog } from './components/ImportExportDialog'
@@ -252,7 +253,7 @@ export function CanvasToolbar() {
                     key={type}
                     role="menuitem"
                     onClick={() => handleAddNode(type)}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors flex items-center gap-2"
+                    className={`w-full px-3 py-2 text-left ${typography.body} hover:bg-gray-100 transition-colors flex items-center gap-2`}
                     aria-label={`Add ${meta.label} node`}
                   >
                     {renderIcon(meta.icon, 16)}
@@ -295,7 +296,7 @@ export function CanvasToolbar() {
             <select
               value={runMode}
               onChange={(e) => setRunMode(e.target.value as 'what-if' | 'goal')}
-              className="px-2 py-1.5 text-sm border border-sand-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              className={`px-2 py-1.5 ${typography.body} border border-sand-200 rounded bg-white focus:outline-none focus:ring-2 focus:ring-sky-500`}
               title="Select analysis mode"
             >
               <option value="what-if">What-If Mode</option>
@@ -305,7 +306,7 @@ export function CanvasToolbar() {
             <button
               onClick={runMode === 'goal' ? () => setShowGoalPanel(true) : handleRunAnalysis}
               disabled={isRunning || validationErrors.length > 0}
-              className="px-3 py-1.5 text-sm font-medium text-white bg-info-500 hover:bg-info-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info-500 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`px-3 py-1.5 ${typography.label} text-white bg-info-500 hover:bg-info-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info-500 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
               title={validationErrors.length > 0 ? "Fix issues to run" : isRunning ? "Analysis in progress..." : runMode === 'goal' ? "Set Goal" : "Run Analysis (⌘R)"}
               aria-label={validationErrors.length > 0 ? "Cannot run - fix validation issues first" : isRunning ? "Analysis running - please wait" : runMode === 'goal' ? "Open goal mode" : "Run analysis on current graph"}
               data-testid="btn-run-analysis"
@@ -490,7 +491,7 @@ export function CanvasToolbar() {
       {/* Reset Confirmation */}
       <BottomSheet isOpen={showResetConfirm} onClose={() => setShowResetConfirm(false)} title="Reset canvas?">
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">This clears all nodes and edges. You can still undo.</p>
+          <p className={`${typography.body} text-gray-600`}>This clears all nodes and edges. You can still undo.</p>
           <div className="flex gap-2">
             <button
               onClick={() => setShowResetConfirm(false)}

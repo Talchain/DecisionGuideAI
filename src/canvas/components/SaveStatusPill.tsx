@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import { Check, Clock } from 'lucide-react'
+import { typography } from '../../styles/typography'
 
 export interface SaveStatusPillProps {
   isSaving: boolean
@@ -49,7 +50,7 @@ export function SaveStatusPill({ isSaving, lastSavedAt, savedBy }: SaveStatusPil
   if (isSaving) {
     return (
       <div
-        className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-600 bg-gray-100 rounded-full"
+        className={`flex items-center gap-1.5 px-2 py-1 ${typography.caption} text-gray-600 bg-gray-100 rounded-full`}
         data-testid="save-status-saving"
         role="status"
         aria-live="polite"
@@ -63,7 +64,7 @@ export function SaveStatusPill({ isSaving, lastSavedAt, savedBy }: SaveStatusPil
   if (lastSavedAt) {
     return (
       <div
-        className="flex items-center gap-1.5 px-2 py-1 text-xs text-success-700 bg-success-50 rounded-full"
+        className={`flex items-center gap-1.5 px-2 py-1 ${typography.caption} text-success-700 bg-success-50 rounded-full`}
         data-testid="save-status-saved"
         role="status"
         aria-live="polite"

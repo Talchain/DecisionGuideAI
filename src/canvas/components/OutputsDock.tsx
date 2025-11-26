@@ -47,6 +47,8 @@ import { getObjectiveText, getGoalDirection } from '../utils/getObjectiveText'
 import { computeDelta, deriveVerdict } from '../utils/interpretOutcome'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { RANGE_TERMINOLOGY } from '../../config/terminology'
+import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
+import { EvidenceCoverageCompact } from './EvidenceCoverage'
 
 type OutputsDockTab = 'results' | 'insights' | 'compare' | 'diagnostics'
 
@@ -559,6 +561,16 @@ export function OutputsDock() {
                     <span className={`${typography.caption} text-sky-900`}>{slowRunMessage}</span>
                   </div>
                 )}
+                {/* P0 Engine: Identifiability Badge */}
+                {(() => {
+                  // Safely normalize backend identifiability tag to prevent runtime errors
+                  const normalizedStatus = !isPreRun
+                    ? normalizeIdentifiabilityTag(report?.model_card?.identifiability_tag)
+                    : null
+                  return normalizedStatus && (
+                    <IdentifiabilityBadge status={normalizedStatus} />
+                  )
+                })()}
                 {/* Phase 1A.1: Objective banner */}
                 {SHOW_VERDICT_FEATURES && !isPreRun && (
                   <ObjectiveBanner objectiveText={objectiveText} goalDirection={goalDirection} />
@@ -648,123 +660,177 @@ export function OutputsDock() {
               <CompareTabBody />
             )}
             {state.activeTab === 'diagnostics' && (
-              <div className="space-y-3" data-testid="diagnostics-tab">
-                {/* Phase 1A.4: Validation Suggestions - DISABLED until ISL deployed
-                    The useEffect has a bug where `loading` in deps causes infinite loop
-                    when ISL returns 404. Re-enable when ISL is available.
-                <ValidationSuggestionsSection />
-                */}
-
-                {/* Graph Health Summary (always visible) */}
-                <div className="space-y-1 pt-2 border-t border-sand-200" data-testid="graph-health-card">
-                  <div className={`${typography.label} text-ink-900`}>Graph health</div>
-                  <div className={`${typography.code} text-ink-900`} aria-live="polite">
-                    {healthView.label}
-                  </div>
-                  <div className={`${typography.code} text-ink-900/70`} aria-live="polite">
-                    {healthView.detail}
-                  </div>
-                  {graphHealth && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setShowIssuesPanel(true)}
-                        className={`mt-1 inline-flex items-center px-2 py-1 rounded border border-blue-200 text-blue-700 ${typography.code} font-medium hover:bg-blue-50`}
-                        data-testid="graph-health-open-issues"
-                      >
-                        Open graph issues
-                      </button>
-                      <p className={`${typography.code} text-ink-900/60 mt-1`}>
-                        See Graph Issues panel for fixable problems detected here.
-                      </p>
-                    </>
-                  )}
-                </div>
-
-                {/* Phase 1A.5: Streaming Diagnostics - Hidden by default, Shift+D to show */}
-                {showDebug && (
-                  <>
-                    <div className={`${typography.label} text-ink-900 uppercase tracking-wide pt-2 border-t border-sand-200`}>
-                      Streaming diagnostics
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between" data-testid="diag-resumes" title="Resumes: times the stream reconnected.">
-                        <span className="text-ink-900/70">Resumes</span>
-                        <span className="tabular-nums text-ink-900">{hasDiagnostics ? diagnostics?.resumes ?? 0 : 0}</span>
-                      </div>
-                      <div className="flex items-center justify-between" data-testid="diag-recovered" title="Recovered events: events caught up after a resume.">
-                        <span className="text-ink-900/70">Recovered events</span>
-                        <span className="tabular-nums text-ink-900">{hasDiagnostics ? diagnostics?.recovered_events ?? 0 : 0}</span>
-                      </div>
-                      <div className="flex items-center justify-between" data-testid="diag-trims" title="Buffer trimmed: older events were dropped to keep streaming responsive.">
-                        <span className="text-ink-900/70">Buffer trimmed</span>
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.code} font-medium border`} aria-label={hasTrim ? 'Buffer was trimmed' : 'Buffer was not trimmed'}>
-                          {hasTrim ? (
-                            <span className="bg-sun-50 text-sun-800 border-sun-200 px-1.5 py-0.5 rounded">Yes</span>
-                          ) : (
-                            <span className="text-ink-900/80 border-sand-200 px-1.5 py-0.5 rounded">No</span>
-                          )}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1 pt-2 border-t border-sand-200">
-                      <div className="flex items-center justify-between" title="Correlation ID: include this when reporting issues.">
-                        <span className="text-ink-900/70">Correlation ID</span>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`font-mono ${typography.code} text-ink-900 max-w-[10rem] truncate`}
-                            data-testid="diag-correlation-value"
-                          >
-                            {effectiveCorrelationId ?? '—'}
-                          </span>
-                          {effectiveCorrelationId && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                try {
-                                  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-                                    navigator.clipboard.writeText(effectiveCorrelationId)
-                                  }
-                                } catch {}
-                              }}
-                              className={`inline-flex items-center px-1.5 py-0.5 rounded border border-sand-200 ${typography.code} text-ink-900/80 hover:bg-paper-50`}
-                              data-testid="diag-correlation-copy"
-                            >
-                              Copy
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                      {correlationMismatch && (
-                        <p
-                          className={`${typography.code} text-sun-700`}
-                          data-testid="diag-correlation-mismatch"
-                        >
-                          Correlation ID in diagnostics ({diagnostics?.correlation_id}) does not match header ({correlationIdHeader}).
-                        </p>
-                      )}
-                    </div>
-
-                    <p className={`${typography.code} text-ink-900/60`}>
-                      For deeper engine instrumentation, use the on-canvas diagnostics overlay via
-                      <code className="mx-1">?diag=1</code> and the debug tray configuration when needed.
-                    </p>
-                  </>
-                )}
-
-                {/* Hint to show debug controls */}
-                {!showDebug && (
-                  <p className={`${typography.caption} text-ink-900/50 pt-2 border-t border-sand-200`}>
-                    Press <kbd className="px-1.5 py-0.5 bg-sand-100 rounded text-xs font-mono">Shift+D</kbd> for streaming diagnostics
-                  </p>
-                )}
-              </div>
+              <DiagnosticsTabBody
+                healthView={healthView}
+                graphHealth={graphHealth}
+                setShowIssuesPanel={setShowIssuesPanel}
+                showDebug={showDebug}
+                hasDiagnostics={hasDiagnostics}
+                diagnostics={diagnostics}
+                hasTrim={hasTrim}
+                effectiveCorrelationId={effectiveCorrelationId}
+                correlationMismatch={correlationMismatch}
+                correlationIdHeader={correlationIdHeader}
+              />
             )}
           </div>
         )}
     </aside>
+  )
+}
+
+/**
+ * Diagnostics tab body - extracted for clarity
+ */
+function DiagnosticsTabBody({
+  healthView,
+  graphHealth,
+  setShowIssuesPanel,
+  showDebug,
+  hasDiagnostics,
+  diagnostics,
+  hasTrim,
+  effectiveCorrelationId,
+  correlationMismatch,
+  correlationIdHeader,
+}: {
+  healthView: { label: string; detail: string }
+  graphHealth: GraphHealth | null
+  setShowIssuesPanel: (show: boolean) => void
+  showDebug: boolean
+  hasDiagnostics: boolean
+  diagnostics: any
+  hasTrim: boolean
+  effectiveCorrelationId: string | null | undefined
+  correlationMismatch: boolean
+  correlationIdHeader: string | null | undefined
+}) {
+  // P0 Engine: Evidence coverage from local edge provenance
+  // NOTE: This uses UI-observed provenance on local graph edges.
+  // Future: When backend provides model_card.sources, prefer that as source of truth.
+  const edges = useCanvasStore(s => s.edges)
+  const totalEdges = edges.length
+  const evidencedEdges = edges.filter(e => e.data?.provenance && e.data.provenance.trim() !== '').length
+
+  return (
+    <div className="space-y-3" data-testid="diagnostics-tab">
+      {/* P0 Engine: Evidence Coverage (when edges exist) */}
+      {totalEdges > 0 && (
+        <div className="space-y-1" data-testid="evidence-coverage-section">
+          <div className={`${typography.label} text-ink-900`}>Evidence coverage</div>
+          <EvidenceCoverageCompact
+            evidencedCount={evidencedEdges}
+            totalCount={totalEdges}
+          />
+        </div>
+      )}
+
+      {/* Graph Health Summary (always visible) */}
+      <div className="space-y-1 pt-2 border-t border-sand-200" data-testid="graph-health-card">
+        <div className={`${typography.label} text-ink-900`}>Graph health</div>
+        <div className={`${typography.code} text-ink-900`} aria-live="polite">
+          {healthView.label}
+        </div>
+        <div className={`${typography.code} text-ink-900/70`} aria-live="polite">
+          {healthView.detail}
+        </div>
+        {graphHealth && (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowIssuesPanel(true)}
+              className={`mt-1 inline-flex items-center px-2 py-1 rounded border border-blue-200 text-blue-700 ${typography.code} font-medium hover:bg-blue-50`}
+              data-testid="graph-health-open-issues"
+            >
+              Open graph issues
+            </button>
+            <p className={`${typography.code} text-ink-900/60 mt-1`}>
+              See Graph Issues panel for fixable problems detected here.
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* Phase 1A.5: Streaming Diagnostics - Hidden by default, Shift+D to show */}
+      {showDebug && (
+        <>
+          <div className={`${typography.label} text-ink-900 uppercase tracking-wide pt-2 border-t border-sand-200`}>
+            Streaming diagnostics
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between" data-testid="diag-resumes" title="Resumes: times the stream reconnected.">
+              <span className="text-ink-900/70">Resumes</span>
+              <span className="tabular-nums text-ink-900">{hasDiagnostics ? diagnostics?.resumes ?? 0 : 0}</span>
+            </div>
+            <div className="flex items-center justify-between" data-testid="diag-recovered" title="Recovered events: events caught up after a resume.">
+              <span className="text-ink-900/70">Recovered events</span>
+              <span className="tabular-nums text-ink-900">{hasDiagnostics ? diagnostics?.recovered_events ?? 0 : 0}</span>
+            </div>
+            <div className="flex items-center justify-between" data-testid="diag-trims" title="Buffer trimmed: older events were dropped to keep streaming responsive.">
+              <span className="text-ink-900/70">Buffer trimmed</span>
+              <span className={`inline-flex items-center px-1.5 py-0.5 rounded ${typography.code} font-medium border`} aria-label={hasTrim ? 'Buffer was trimmed' : 'Buffer was not trimmed'}>
+                {hasTrim ? (
+                  <span className="bg-sun-50 text-sun-800 border-sun-200 px-1.5 py-0.5 rounded">Yes</span>
+                ) : (
+                  <span className="text-ink-900/80 border-sand-200 px-1.5 py-0.5 rounded">No</span>
+                )}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-1 pt-2 border-t border-sand-200">
+            <div className="flex items-center justify-between" title="Correlation ID: include this when reporting issues.">
+              <span className="text-ink-900/70">Correlation ID</span>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`font-mono ${typography.code} text-ink-900 max-w-[10rem] truncate`}
+                  data-testid="diag-correlation-value"
+                >
+                  {effectiveCorrelationId ?? '—'}
+                </span>
+                {effectiveCorrelationId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                          navigator.clipboard.writeText(effectiveCorrelationId)
+                        }
+                      } catch {}
+                    }}
+                    className={`inline-flex items-center px-1.5 py-0.5 rounded border border-sand-200 ${typography.code} text-ink-900/80 hover:bg-paper-50`}
+                    data-testid="diag-correlation-copy"
+                  >
+                    Copy
+                  </button>
+                )}
+              </div>
+            </div>
+            {correlationMismatch && (
+              <p
+                className={`${typography.code} text-sun-700`}
+                data-testid="diag-correlation-mismatch"
+              >
+                Correlation ID in diagnostics ({diagnostics?.correlation_id}) does not match header ({correlationIdHeader}).
+              </p>
+            )}
+          </div>
+
+          <p className={`${typography.code} text-ink-900/60`}>
+            For deeper engine instrumentation, use the on-canvas diagnostics overlay via
+            <code className="mx-1">?diag=1</code> and the debug tray configuration when needed.
+          </p>
+        </>
+      )}
+
+      {/* Hint to show debug controls */}
+      {!showDebug && (
+        <p className={`${typography.caption} text-ink-900/50 pt-2 border-t border-sand-200`}>
+          Press <kbd className={`px-1.5 py-0.5 bg-sand-100 rounded ${typography.caption} font-mono`}>Shift+D</kbd> for streaming diagnostics
+        </p>
+      )}
+    </div>
   )
 }
 

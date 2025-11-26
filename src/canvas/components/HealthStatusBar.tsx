@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { AlertCircle, AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Wrench } from 'lucide-react'
 import type { GraphHealth } from '../validation/types'
+import { typography } from '../../styles/typography'
 
 interface HealthStatusBarProps {
   health: GraphHealth
@@ -44,16 +45,16 @@ export function HealthStatusBar({ health, onShowIssues, onQuickFix }: HealthStat
         <div className="flex items-center gap-3">
           {statusIcons[health.status]}
           <div className="text-left">
-            <div className="font-medium text-sm">
+            <div className={`font-medium ${typography.body}`}>
               Graph Health: {health.status === 'healthy' ? 'Good' : health.status}
             </div>
-            <div className="text-xs opacity-80">Score: {health.score}/100</div>
+            <div className={`${typography.caption} opacity-80`}>Score: {health.score}/100</div>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           {health.issues.length > 0 && (
-            <div className="flex gap-2 text-xs">
+            <div className={`flex gap-2 ${typography.caption}`}>
               {errorCount > 0 && <span className="font-medium">{errorCount} errors</span>}
               {warningCount > 0 && <span>{warningCount} warnings</span>}
               {infoCount > 0 && <span>{infoCount} info</span>}
@@ -67,12 +68,12 @@ export function HealthStatusBar({ health, onShowIssues, onQuickFix }: HealthStat
       {isExpanded && health.issues.length > 0 && (
         <div className="border-t border-current/20 p-3 space-y-2">
           <div className="flex justify-between items-center">
-            <span className="text-sm font-medium">{health.issues.length} issues found</span>
+            <span className={`${typography.body} font-medium`}>{health.issues.length} issues found</span>
             <div className="flex gap-2">
               {fixableCount > 0 && onQuickFix && (
                 <button
                   onClick={onQuickFix}
-                  className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded text-xs font-medium hover:bg-blue-700"
+                  className={`flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded ${typography.caption} font-medium hover:bg-blue-700`}
                 >
                   <Wrench className="w-3 h-3" />
                   Quick Fix ({fixableCount})
@@ -80,7 +81,7 @@ export function HealthStatusBar({ health, onShowIssues, onQuickFix }: HealthStat
               )}
               <button
                 onClick={onShowIssues}
-                className="px-3 py-1 bg-white/50 rounded text-xs font-medium hover:bg-white/80"
+                className={`px-3 py-1 bg-white/50 rounded ${typography.caption} font-medium hover:bg-white/80`}
               >
                 View Details
               </button>

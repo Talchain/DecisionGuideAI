@@ -7,6 +7,7 @@ import { useResultsRun } from '../hooks/useResultsRun'
 import { ValidationBanner, type ValidationError } from './ValidationBanner'
 import { useValidationFeedback } from '../hooks/useValidationFeedback'
 import { trackRunAttempt } from '../utils/sandboxTelemetry'
+import { typography } from '../../styles/typography'
 
 interface Action {
   id: string
@@ -235,7 +236,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
               >
                 <span className="font-medium text-gray-900">{action.label}</span>
                 {action.shortcut && (
-                  <span className="text-sm text-gray-500">{action.shortcut}</span>
+                  <span className={`${typography.body} text-gray-500`}>{action.shortcut}</span>
                 )}
               </button>
             ))

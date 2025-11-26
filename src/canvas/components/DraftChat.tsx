@@ -6,9 +6,38 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { CEEError } from '../../adapters/cee/client'
 
-/** Format CEE error for user-friendly display + debug info */
-function formatCEEError(error: CEEError | Error): { message: string; debugInfo?: string } {
+/** Check if error indicates CEE service is unavailable */
+function isCEEUnavailable(error: CEEError | Error): boolean {
   if (error instanceof CEEError) {
+    // HTTP 404 (not found) or 503 (service unavailable)
+    return error.status === 404 || error.status === 503
+  }
+  // Network-level failures (no HTTP status) - treat as service unavailable
+  // These typically indicate the service is not reachable at all
+  const message = error.message?.toLowerCase() ?? ''
+  if (
+    message.includes('failed to fetch') ||
+    message.includes('network') ||
+    message.includes('connection refused') ||
+    message.includes('dns') ||
+    message.includes('econnrefused')
+  ) {
+    return true
+  }
+  return false
+}
+
+/** Format CEE error for user-friendly display + debug info */
+function formatCEEError(error: CEEError | Error): { message: string; debugInfo?: string; isUnavailable?: boolean } {
+  if (error instanceof CEEError) {
+    // Check if service is unavailable (404/503)
+    if (isCEEUnavailable(error)) {
+      return {
+        message: 'AI drafting is temporarily unavailable.',
+        isUnavailable: true,
+      }
+    }
+
     // Map error codes to user-friendly messages
     const friendlyMessages: Record<string, string> = {
       'openai_response_invalid_schema': 'The AI service returned an unexpected response format. This is a temporary backend issue.',
@@ -25,6 +54,14 @@ function formatCEEError(error: CEEError | Error): { message: string; debugInfo?:
     return {
       message: friendlyMessage,
       debugInfo: debugParts.join(' | '),
+    }
+  }
+
+  // Check if non-CEEError is a network failure (treat as unavailable)
+  if (isCEEUnavailable(error)) {
+    return {
+      message: 'AI drafting is temporarily unavailable.',
+      isUnavailable: true,
     }
   }
 
@@ -111,6 +148,26 @@ export function DraftChat() {
 
           {error && (() => {
             const formatted = formatCEEError(error)
+
+            // Show helpful alternatives when CEE is unavailable
+            if (formatted.isUnavailable) {
+              return (
+                <div className="p-3 bg-sun-50 border border-sun-200 rounded-lg space-y-2" data-testid="cee-unavailable-banner">
+                  <p className={`${typography.body} text-sun-800 font-medium`}>
+                    {formatted.message}
+                  </p>
+                  <p className={`${typography.bodySmall} text-sun-700`}>
+                    Build your model manually using:
+                  </p>
+                  <ul className={`${typography.bodySmall} text-sun-700 list-disc list-inside space-y-0.5`}>
+                    <li><strong>+ Node</strong> button to add factors</li>
+                    <li><strong>Templates</strong> drawer for pre-built models</li>
+                    <li>Right-click canvas for quick-add menu</li>
+                  </ul>
+                </div>
+              )
+            }
+
             return (
               <ErrorAlert
                 title="Draft failed"

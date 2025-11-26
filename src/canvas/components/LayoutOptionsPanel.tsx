@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLayoutStore } from '../layoutStore'
 import { useToast } from '../ToastContext'
 import { runLayoutWithProgress } from '../layout/runLayoutWithProgress'
+import { typography } from '../../styles/typography'
 
 export function LayoutOptionsPanel() {
   const [isOpen, setIsOpen] = useState(false)
@@ -49,7 +50,7 @@ export function LayoutOptionsPanel() {
     return (
       <button
         onClick={handleLayoutClick}
-        className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+        className={`px-3 py-1.5 ${typography.button} text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400`}
         aria-label="Open layout options"
         data-testid="btn-elklayout"
         title="🔧 Layout"
@@ -77,7 +78,7 @@ export function LayoutOptionsPanel() {
       <div className="space-y-4">
         {/* Direction */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className={`block ${typography.label} text-gray-700 mb-2`}>
             Direction
           </label>
           <div className="grid grid-cols-2 gap-2">
@@ -85,7 +86,7 @@ export function LayoutOptionsPanel() {
               <button
                 key={dir}
                 onClick={() => setDirection(dir)}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-3 py-2 rounded-lg ${typography.button} transition-colors ${
                   direction === dir
                     ? 'bg-primary text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -102,7 +103,7 @@ export function LayoutOptionsPanel() {
 
         {/* Node Spacing */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className={`block ${typography.label} text-gray-700 mb-2`}>
             Node Spacing: {nodeSpacing}px
           </label>
           <input
@@ -114,7 +115,7 @@ export function LayoutOptionsPanel() {
             onChange={(e) => setNodeSpacing(Number(e.target.value))}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
           />
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
+          <div className={`flex justify-between ${typography.caption} text-gray-500 mt-1`}>
             <span>10px</span>
             <span>100px</span>
           </div>
@@ -122,7 +123,7 @@ export function LayoutOptionsPanel() {
 
         {/* Layer Spacing */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className={`block ${typography.label} text-gray-700 mb-2`}>
             Layer Spacing: {layerSpacing}px
           </label>
           <input
@@ -134,7 +135,7 @@ export function LayoutOptionsPanel() {
             onChange={(e) => setLayerSpacing(Number(e.target.value))}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
           />
-          <div className="flex justify-between text-xs text-gray-500 mt-1">
+          <div className={`flex justify-between ${typography.caption} text-gray-500 mt-1`}>
             <span>20px</span>
             <span>150px</span>
           </div>
@@ -142,7 +143,7 @@ export function LayoutOptionsPanel() {
 
         {/* Respect Locked */}
         <label className="flex items-center justify-between cursor-pointer">
-          <span className="text-sm font-medium text-gray-700">Respect Locked Nodes</span>
+          <span className={`${typography.label} text-gray-700`}>Respect Locked Nodes</span>
           <input
             type="checkbox"
             checked={respectLocked}

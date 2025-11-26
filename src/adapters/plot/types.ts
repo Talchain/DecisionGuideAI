@@ -11,6 +11,9 @@ export interface ReportV1 {
     response_hash: string
     response_hash_algo: 'sha256'
     normalized: true
+    // P0 Engine Features (optional - may not be present in all responses)
+    identifiability_tag?: 'identifiable' | 'underidentified' | 'overidentified' | 'unknown'
+    sources?: Array<{ edge_id: string; provenance?: string }>
   }
   results: {
     conservative: number

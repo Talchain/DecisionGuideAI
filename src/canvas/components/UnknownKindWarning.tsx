@@ -8,6 +8,7 @@
 
 import { AlertTriangle } from 'lucide-react'
 import { getUnknownKindWarning } from '../adapters/backendKinds'
+import { typography } from '../../styles/typography'
 
 interface UnknownKindWarningProps {
   originalKind: string
@@ -19,7 +20,7 @@ export function UnknownKindWarning({ originalKind, className = '' }: UnknownKind
 
   return (
     <div
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-amber-50 text-amber-700 border border-amber-200 ${className}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded ${typography.caption} bg-amber-50 text-amber-700 border border-amber-200 ${className}`}
       role="status"
       aria-label={warning}
       title={warning}

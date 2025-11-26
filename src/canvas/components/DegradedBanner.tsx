@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { fetchHealth, type Health } from '../../lib/health'
 import { useCanvasStore } from '../store'
+import { typography } from '../../styles/typography'
 
 export function DegradedBanner() {
   const [health, setHealth] = useState<Health | null>(null)
@@ -75,13 +76,13 @@ export function DegradedBanner() {
     <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[1050] w-full max-w-2xl px-4">
       <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-warning-200 bg-warning-50 text-warning-800 shadow-sm">
         <AlertTriangle className="w-4 h-4 mt-0.5" aria-hidden="true" />
-        <div className="text-sm">
+        <div className={typography.body}>
           <p className="font-medium">
             {isDown
               ? 'Engine currently unavailable; try again shortly.'
               : 'Engine running in degraded mode; performance reduced.'}
           </p>
-          <p className="mt-1 text-xs text-warning-900/80">
+          <p className={`mt-1 ${typography.caption} text-warning-900/80`}>
             {isDown
               ? 'Runs may fail until the engine recovers. You can still explore your graph and past results.'
               : 'Some runs may be slower or limited while the engine is in degraded mode.'}
@@ -89,7 +90,7 @@ export function DegradedBanner() {
           <button
             type="button"
             onClick={handleLearnMore}
-            className="mt-2 inline-flex items-center px-2 py-1 rounded border border-warning-300 text-xs font-medium text-warning-900 hover:bg-warning-100"
+            className={`mt-2 inline-flex items-center px-2 py-1 rounded border border-warning-300 ${typography.caption} font-medium text-warning-900 hover:bg-warning-100`}
           >
             Learn more
           </button>

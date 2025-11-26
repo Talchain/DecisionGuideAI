@@ -16,6 +16,7 @@ import { loadScenarios, getScenario, type Scenario, importScenarioFromFile } fro
 import { SaveStatusPill } from './SaveStatusPill'
 import { exportScenario } from '../export/exportScenario'
 import { useToast } from '../ToastContext'
+import { typography } from '../../styles/typography'
 
 export function ScenarioSwitcher() {
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
@@ -188,7 +189,7 @@ export function ScenarioSwitcher() {
         {/* Trigger button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-info-500 transition-colors"
+          className={`flex items-center gap-2 px-3 py-1.5 ${typography.label} text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-info-500 transition-colors`}
           type="button"
           aria-expanded={isOpen}
           aria-haspopup="true"
@@ -218,7 +219,7 @@ export function ScenarioSwitcher() {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={handleSave}
-                    className="flex-1 flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                    className={`flex-1 flex items-center gap-2 px-3 py-2 ${typography.body} text-gray-700 hover:bg-gray-100 rounded transition-colors`}
                     type="button"
                     role="menuitem"
                   >
@@ -229,7 +230,7 @@ export function ScenarioSwitcher() {
                     <>
                       <button
                         onClick={handleExport}
-                        className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        className={`px-3 py-2 ${typography.body} text-gray-700 hover:bg-gray-100 rounded transition-colors`}
                         type="button"
                         role="menuitem"
                         title="Export scenario"
@@ -238,7 +239,7 @@ export function ScenarioSwitcher() {
                       </button>
                       <button
                         onClick={handleDuplicate}
-                        className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        className={`px-3 py-2 ${typography.body} text-gray-700 hover:bg-gray-100 rounded transition-colors`}
                         type="button"
                         role="menuitem"
                         title="Duplicate"
@@ -247,7 +248,7 @@ export function ScenarioSwitcher() {
                       </button>
                       <button
                         onClick={handleRename}
-                        className="px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                        className={`px-3 py-2 ${typography.body} text-gray-700 hover:bg-gray-100 rounded transition-colors`}
                         type="button"
                         role="menuitem"
                         title="Rename"
@@ -256,7 +257,7 @@ export function ScenarioSwitcher() {
                       </button>
                       <button
                         onClick={() => handleDelete(currentScenarioId)}
-                        className="px-3 py-2 text-sm text-danger-600 hover:bg-danger-50 rounded transition-colors"
+                        className={`px-3 py-2 ${typography.body} text-danger-600 hover:bg-danger-50 rounded transition-colors`}
                         type="button"
                         role="menuitem"
                         title="Delete"
@@ -270,7 +271,7 @@ export function ScenarioSwitcher() {
                 {/* Import row */}
                 <button
                   onClick={handleImport}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                  className={`w-full flex items-center gap-2 px-3 py-2 ${typography.body} text-gray-700 hover:bg-gray-100 rounded transition-colors`}
                   type="button"
                   role="menuitem"
                 >
@@ -292,7 +293,7 @@ export function ScenarioSwitcher() {
             {/* Scenario list */}
             <div className="max-h-64 overflow-y-auto">
               {scenarios.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                <div className={`px-4 py-3 ${typography.body} text-gray-500 text-center`}>
                   No saved scenarios yet
                 </div>
               ) : (
@@ -300,14 +301,14 @@ export function ScenarioSwitcher() {
                   {/* Recent scenarios (first 5) */}
                   {scenarios.length > 0 && (
                     <>
-                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <div className={`px-4 py-2 ${typography.caption} font-semibold text-gray-500 uppercase tracking-wide`}>
                         Recent
                       </div>
                       {scenarios.slice(0, 5).map(scenario => (
                         <button
                           key={scenario.id}
                           onClick={() => handleLoadScenario(scenario.id)}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                          className={`w-full text-left px-4 py-2 ${typography.body} hover:bg-gray-100 transition-colors ${
                             scenario.id === currentScenarioId ? 'bg-info-50 text-info-700 font-medium' : 'text-gray-700'
                           }`}
                           type="button"
@@ -321,7 +322,7 @@ export function ScenarioSwitcher() {
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-gray-500 mt-0.5">
+                          <div className={`${typography.caption} text-gray-500 mt-0.5`}>
                             {formatTimestamp(scenario.updatedAt)}
                           </div>
                         </button>
@@ -333,14 +334,14 @@ export function ScenarioSwitcher() {
                   {scenarios.length > 5 && (
                     <>
                       <div className="border-t border-gray-200 my-1" />
-                      <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                      <div className={`px-4 py-2 ${typography.caption} font-semibold text-gray-500 uppercase tracking-wide`}>
                         All Scenarios
                       </div>
                       {scenarios.slice(5).map(scenario => (
                         <button
                           key={scenario.id}
                           onClick={() => handleLoadScenario(scenario.id)}
-                          className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 transition-colors ${
+                          className={`w-full text-left px-4 py-2 ${typography.body} hover:bg-gray-100 transition-colors ${
                             scenario.id === currentScenarioId ? 'bg-info-50 text-info-700 font-medium' : 'text-gray-700'
                           }`}
                           type="button"
@@ -354,7 +355,7 @@ export function ScenarioSwitcher() {
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-gray-500 mt-0.5">
+                          <div className={`${typography.caption} text-gray-500 mt-0.5`}>
                             {formatTimestamp(scenario.updatedAt)}
                           </div>
                         </button>
@@ -372,7 +373,7 @@ export function ScenarioSwitcher() {
       {showSaveDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[2001]">
           <div className="bg-white rounded-lg p-6 w-96 shadow-panel">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Save scenario</h3>
+            <h3 className={`${typography.h4} text-gray-900 mb-4`}>Save scenario</h3>
             <input
               type="text"
               value={inputValue}
@@ -416,7 +417,7 @@ export function ScenarioSwitcher() {
       {showRenameDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[2001]">
           <div className="bg-white rounded-lg p-6 w-96 shadow-panel">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Rename scenario</h3>
+            <h3 className={`${typography.h4} text-gray-900 mb-4`}>Rename scenario</h3>
             <input
               type="text"
               value={inputValue}

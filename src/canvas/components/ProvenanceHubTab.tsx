@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { FileText, Eye, EyeOff, Link as LinkIcon, Search } from 'lucide-react'
 import type { Citation, Document } from '../share/types'
+import { typography } from '../../styles/typography'
 
 interface ProvenanceHubTabProps {
   citations: Citation[]
@@ -62,7 +63,7 @@ export function ProvenanceHubTab({
           <h3 className="font-semibold text-gray-900">Provenance Hub</h3>
           <button
             onClick={onToggleRedaction}
-            className="flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100"
+            className={`flex items-center gap-1 ${typography.caption} text-gray-600 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-100`}
             title={redactionEnabled ? 'Show full snippets' : 'Redact snippets'}
           >
             {redactionEnabled ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
@@ -70,7 +71,7 @@ export function ProvenanceHubTab({
           </button>
         </div>
 
-        <p className="text-xs text-gray-600">
+        <p className={`${typography.caption} text-gray-600`}>
           {citations.length} citation{citations.length !== 1 ? 's' : ''} from {documents.length}{' '}
           document{documents.length !== 1 ? 's' : ''}
         </p>
@@ -85,7 +86,7 @@ export function ProvenanceHubTab({
             placeholder="Search citations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={`w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
           />
         </div>
       </div>
@@ -95,7 +96,7 @@ export function ProvenanceHubTab({
         <div className="px-4 py-2 border-b border-gray-200 flex gap-2 overflow-x-auto">
           <button
             onClick={() => setSelectedDocId(null)}
-            className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+            className={`px-3 py-1 rounded-full ${typography.caption} font-medium whitespace-nowrap ${
               selectedDocId === null
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -109,7 +110,7 @@ export function ProvenanceHubTab({
               <button
                 key={doc.id}
                 onClick={() => setSelectedDocId(doc.id)}
-                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
+                className={`px-3 py-1 rounded-full ${typography.caption} font-medium whitespace-nowrap ${
                   selectedDocId === doc.id
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -127,11 +128,11 @@ export function ProvenanceHubTab({
         {displayedCitations.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <LinkIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No citations found</p>
+            <p className={typography.body}>No citations found</p>
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="text-xs text-blue-600 hover:underline mt-1"
+                className={`${typography.caption} text-blue-600 hover:underline mt-1`}
               >
                 Clear search
               </button>
@@ -172,20 +173,20 @@ function CitationCard({
       {/* Node reference */}
       <button
         onClick={() => onFocusNode(citation.nodeId)}
-        className="text-sm font-medium text-blue-600 hover:underline mb-2"
+        className={`${typography.body} font-medium text-blue-600 hover:underline mb-2`}
       >
         → {citation.nodeId}
         {citation.edgeId && ` (edge: ${citation.edgeId})`}
       </button>
 
       {/* Snippet */}
-      <div className="text-sm text-gray-700 italic border-l-2 border-purple-300 pl-3 mb-2">
+      <div className={`${typography.body} text-gray-700 italic border-l-2 border-purple-300 pl-3 mb-2`}>
         "{snippet}"
       </div>
 
       {/* Document source */}
       {document && (
-        <div className="flex items-center gap-2 text-xs text-gray-600">
+        <div className={`flex items-center gap-2 ${typography.caption} text-gray-600`}>
           <FileText className="w-3 h-3" />
           <span className="font-medium">{document.name}</span>
           {document.truncated && (

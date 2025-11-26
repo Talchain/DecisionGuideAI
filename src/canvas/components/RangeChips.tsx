@@ -6,6 +6,7 @@
  */
 
 import { RANGE_TERMINOLOGY } from '../../config/terminology'
+import { typography } from '../../styles/typography'
 
 interface RangeChipsProps {
   conservative: number | null
@@ -88,7 +89,7 @@ function RangeChip({ label, technicalLabel, value, variant, units, unitSymbol }:
       <div className="text-lg font-semibold mb-1">
         {formattedValue}
       </div>
-      <div className="text-[11px] font-medium text-ink-900/70 uppercase tracking-wide">
+      <div className={`${typography.caption} font-medium text-ink-900/70 uppercase tracking-wide`}>
         {label}
       </div>
     </div>

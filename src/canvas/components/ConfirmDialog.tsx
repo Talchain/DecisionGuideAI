@@ -1,5 +1,6 @@
 import { useEffect, useCallback } from 'react'
 import { AlertTriangle } from 'lucide-react'
+import { typography } from '../../styles/typography'
 
 interface ConfirmDialogProps {
   title: string
@@ -49,10 +50,10 @@ export function ConfirmDialog({
             <AlertTriangle className="w-5 h-5 text-warning-600" />
           </div>
           <div className="flex-1">
-            <h3 id="confirm-title" className="text-lg font-semibold text-gray-900 mb-2">
+            <h3 id="confirm-title" className={`${typography.h4} text-gray-900 mb-2`}>
               {title}
             </h3>
-            <p className="text-sm text-gray-600">
+            <p className={`${typography.body} text-gray-600`}>
               {message}
             </p>
           </div>
@@ -61,13 +62,13 @@ export function ConfirmDialog({
         <div className="flex gap-3 justify-end">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors"
+            className={`px-4 py-2 ${typography.label} text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors`}
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 text-sm font-medium text-white bg-warning-500 hover:bg-warning-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-warning-500 transition-colors"
+            className={`px-4 py-2 ${typography.label} text-white bg-warning-500 hover:bg-warning-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-warning-500 transition-colors`}
             autoFocus
           >
             {confirmLabel}
