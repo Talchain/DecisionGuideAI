@@ -55,7 +55,7 @@ import { RadialQuickAddMenu } from './components/RadialQuickAddMenu'
 import { ConnectPrompt } from './components/ConnectPrompt'
 import { ConnectivityChip } from './components/ConnectivityChip'
 import { StatusChips } from './components/StatusChips'
-import { EdgeLabelToggle } from './components/EdgeLabelToggle'
+// EdgeLabelToggle moved to CanvasToolbar for cleaner UI
 import { LimitsPanel } from './components/LimitsPanel'
 import type { NodeType } from './domain/nodes'
 import { InputsDock } from './components/InputsDock'
@@ -1034,6 +1034,14 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       {/* Highlight layer for Results drivers (keyed off global showResultsPanel flag) */}
       <HighlightLayer isResultsOpen={showResultsPanel} />
 
+      {/* Empty canvas state - shows helpful prompts when no nodes exist */}
+      {nodes.length === 0 && debugMode === 'normal' && (
+        <CanvasEmptyState
+          onDraft={() => setShowDraftChat(true)}
+          onTemplate={() => openTemplatesPanel()}
+        />
+      )}
+
       {showAlignmentGuides && isDragging && <AlignmentGuides nodes={nodes} draggingNodeIds={draggingNodeIds} isActive={isDragging} />}
       {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
       {reconnecting && <ReconnectBanner />}
@@ -1053,7 +1061,6 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
             currentEdges={edges.length}
             onClick={() => setShowLimits(true)}
           />
-          {edges.length > 0 && <EdgeLabelToggle showLabel={false} />}
         </div>
         <HelpMenu
           onShowOnboarding={openOnboarding}
