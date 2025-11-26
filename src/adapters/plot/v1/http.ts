@@ -147,6 +147,16 @@ const mapHttpError = async (response: Response): Promise<V1Error> => {
     }
   }
 
+  // Handle gateway timeout (504) - proxy timeout, analysis took too long
+  // This is different from client-side TIMEOUT (AbortController) and engine down
+  if (response.status === 504) {
+    return {
+      code: 'GATEWAY_TIMEOUT',
+      message: 'Analysis timed out via gateway (proxy timeout). Try a smaller graph or "quick" mode.',
+      details: { ...body, status: response.status },
+    }
+  }
+
   // Server errors
   return {
     code: 'SERVER_ERROR',
@@ -220,8 +230,11 @@ async function runSyncOnce(
     const idempotencyKey = request.idempotencyKey || request.clientHash
 
     // Build wire payload without idempotencyKey field (header-only in v1 API)
+    // detail_level: 'quick' keeps analysis under Netlify's 26s proxy timeout
+    // 'quick' → K=16 samples, ~5-10s | 'standard' → K=32, ~15-25s | 'deep' → K=64, ~30-45s
     const requestForBody: V1RunRequest = {
       ...request,
+      detail_level: request.detail_level ?? 'quick',
       idempotencyKey: undefined,
     }
 

@@ -35,12 +35,15 @@ export interface V1Graph {
   }
 }
 
+export type V1DetailLevel = 'quick' | 'standard' | 'deep'
+
 export interface V1RunRequest {
   graph: V1Graph
   seed?: number
   outcome_node?: string  // Target outcome node for analysis
   include_debug?: boolean  // Include debug metadata in response
   clientHash?: string
+  detail_level?: V1DetailLevel  // Analysis depth: 'quick' (<20s), 'standard' (~35s), 'deep' (~60s+)
   // CEE (Cognitive Enhancement Engine) trigger fields
   scenario_id?: string  // Unique scenario identifier
   scenario_name?: string  // Human-readable scenario name
@@ -153,6 +156,7 @@ export type V1ErrorCode =
   | 'LIMIT_EXCEEDED'
   | 'SERVER_ERROR'
   | 'TIMEOUT'
+  | 'GATEWAY_TIMEOUT'  // 504: Proxy timeout (analysis took too long)
   | 'NETWORK_ERROR'
 
 export interface V1Error {
