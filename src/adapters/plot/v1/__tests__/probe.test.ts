@@ -32,10 +32,10 @@ describe('v1/probe', () => {
         json: async () => ({ status: 'ok' }),
       })
 
-      // Mock successful v1/run HEAD request
+      // Mock successful v1/run OPTIONS request (CORS preflight)
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        status: 200,
+        status: 204,
       })
 
       const customBase = 'https://custom.example.com/api'
@@ -48,7 +48,7 @@ describe('v1/probe', () => {
       )
       expect(mockFetch).toHaveBeenCalledWith(
         `${customBase}/v1/run`,
-        expect.objectContaining({ method: 'HEAD' })
+        expect.objectContaining({ method: 'OPTIONS' })
       )
     })
 
@@ -64,10 +64,10 @@ describe('v1/probe', () => {
         json: async () => ({ status: 'ok' }),
       })
 
-      // Mock successful v1/run HEAD request
+      // Mock successful v1/run OPTIONS request (CORS preflight)
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        status: 200,
+        status: 204,
       })
 
       await probeCapability()
@@ -79,7 +79,7 @@ describe('v1/probe', () => {
       )
       expect(mockFetch).toHaveBeenCalledWith(
         `${customProxyBase}/v1/run`,
-        expect.objectContaining({ method: 'HEAD' })
+        expect.objectContaining({ method: 'OPTIONS' })
       )
 
       vi.unstubAllEnvs()
@@ -96,10 +96,10 @@ describe('v1/probe', () => {
         json: async () => ({ status: 'ok' }),
       })
 
-      // Mock successful v1/run HEAD request
+      // Mock successful v1/run OPTIONS request (CORS preflight)
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        status: 200,
+        status: 204,
       })
 
       await probeCapability()
@@ -111,7 +111,7 @@ describe('v1/probe', () => {
       )
       expect(mockFetch).toHaveBeenCalledWith(
         '/api/plot/v1/run',
-        expect.objectContaining({ method: 'HEAD' })
+        expect.objectContaining({ method: 'OPTIONS' })
       )
     })
 
@@ -123,10 +123,10 @@ describe('v1/probe', () => {
         json: async () => ({ status: 'ok' }),
       })
 
-      // Mock successful v1/run HEAD request
+      // Mock successful v1/run OPTIONS request (CORS preflight returns 204)
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        status: 200,
+        status: 204,
       })
 
       const result = await probeCapability('/test')
@@ -135,7 +135,8 @@ describe('v1/probe', () => {
       expect(result.healthStatus).toBe('ok')
       expect(result.endpoints.health).toBe(true)
       expect(result.endpoints.run).toBe(true)
-      expect(result.endpoints.stream).toBe(true)
+      // Stream endpoint is NOT live yet (Oct 2025)
+      expect(result.endpoints.stream).toBe(false)
     })
 
     it('should mark v1 as unavailable when health fails', async () => {

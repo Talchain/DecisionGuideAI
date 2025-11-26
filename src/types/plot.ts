@@ -114,4 +114,49 @@ export interface RunResponse {
   confidence?: number
   explanation?: string
   response_hash?: string
+
+  // P0 Trust Signal Fields (Sprint N)
+  decision_readiness?: DecisionReadiness
+  insights?: Insights
+  graph_quality?: GraphQuality
+}
+
+// ============================================================================
+// P0 Trust Signal Types (Sprint N)
+// ============================================================================
+
+/**
+ * Decision Readiness - Primary go/no-go signal
+ * Shows whether the model is ready for decision-making
+ */
+export interface DecisionReadiness {
+  ready: boolean
+  confidence: 'high' | 'medium' | 'low'
+  blockers: string[]   // Hard gates - must fix
+  warnings: string[]   // Advisory - should review
+  passed: string[]     // Checks that passed
+}
+
+/**
+ * Insights - Summary, risks, and next steps
+ * Plain-English takeaway from the analysis
+ */
+export interface Insights {
+  summary: string        // ≤200 chars, plain English
+  risks: string[]        // Max 5 items
+  next_steps: string[]   // Max 3 items
+}
+
+/**
+ * Graph Quality - Engine's assessment of model quality
+ * NOTE: This is different from local `graphHealth` (structural health)
+ * This is the engine's assessment of completeness, coverage, and balance
+ */
+export interface GraphQuality {
+  score: number              // 0.00–1.00
+  completeness: number       // 0.00–1.00
+  evidence_coverage: number  // 0.00–1.00
+  balance: number            // 0.00–1.00
+  issues_count: number
+  recommendation?: string
 }

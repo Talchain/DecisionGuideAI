@@ -165,16 +165,24 @@ export async function probeCapability(
     // Step 2: Check v1 run endpoint
     if (result.endpoints.health) {
       try {
-        // Try HEAD first
+        // Use OPTIONS (CORS preflight) instead of HEAD
+        // HEAD requests don't work reliably through Netlify's proxy redirects
+        // which return 404 even when the backend route exists.
+        // OPTIONS with CORS headers reliably returns 204 when proxied.
         let runResponse = await fetch(`${resolvedBase}/v1/run`, {
-          method: 'HEAD',
+          method: 'OPTIONS',
+          headers: {
+            'Origin': typeof window !== 'undefined' ? window.location.origin : 'https://olumi.netlify.app',
+            'Access-Control-Request-Method': 'POST',
+          },
           signal: AbortSignal.timeout(5000),
         });
 
-        // 200 OK, 401, 403, or 405 all mean route exists
-        // (401/403 = auth issue, 405 = method not allowed, but route exists)
+        // 200/204 OK, 401, 403, or 405 all mean route exists
+        // (204 = CORS preflight success, 401/403 = auth issue, 405 = method not allowed)
         if (
           runResponse.ok ||
+          runResponse.status === 204 ||
           runResponse.status === 401 ||
           runResponse.status === 403 ||
           runResponse.status === 405
@@ -188,8 +196,7 @@ export async function probeCapability(
             console.log('[Probe] v1 stream NOT available (endpoint not deployed yet)');
           }
         } else if (runResponse.status === 404) {
-          // Route definitely doesn't exist - don't bother with OPTIONS fallback
-          // (OPTIONS often returns 200 even for non-existent routes due to CORS preflight)
+          // Route definitely doesn't exist
           if (import.meta.env.DEV) {
             console.warn('[Probe] v1 routes not available (404)');
           }
