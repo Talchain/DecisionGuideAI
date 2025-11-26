@@ -164,25 +164,30 @@ export function InfluenceExplainer({ forceShow = false, onDismiss, compact = fal
 
 /**
  * Hook to manage influence explainer visibility
+ *
+ * Note: Auto-show on startup is disabled. Users can access the explainer
+ * via the Help menu (?) button. This keeps the startup experience clean.
  */
 export function useInfluenceExplainer() {
+  // Disabled auto-show: start with shouldShow=false, only show when explicitly requested
   const [shouldShow, setShouldShow] = useState(false)
   const [isForceShown, setIsForceShown] = useState(false)
 
-  // Check if user has seen the explainer
-  useEffect(() => {
-    try {
-      const storage = getSafeLocalStorage()
-      if (storage) {
-        const seen = storage.getItem(STORAGE_KEY)
-        if (seen !== STORAGE_VERSION) {
-          setShouldShow(true)
-        }
-      }
-    } catch (e) {
-      console['warn']('Failed to check influence explainer status:', e)
-    }
-  }, [])
+  // Auto-show on startup is DISABLED - the explainer is available via Help menu
+  // To re-enable, uncomment the useEffect below:
+  // useEffect(() => {
+  //   try {
+  //     const storage = getSafeLocalStorage()
+  //     if (storage) {
+  //       const seen = storage.getItem(STORAGE_KEY)
+  //       if (seen !== STORAGE_VERSION) {
+  //         setShouldShow(true)
+  //       }
+  //     }
+  //   } catch (e) {
+  //     console['warn']('Failed to check influence explainer status:', e)
+  //   }
+  // }, [])
 
   const show = () => {
     setIsForceShown(true)

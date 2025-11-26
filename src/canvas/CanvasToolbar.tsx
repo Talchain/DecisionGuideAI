@@ -21,6 +21,7 @@ import { useEngineLimits } from './hooks/useEngineLimits'
 import { Tooltip } from './components/Tooltip'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 import { Spinner } from '../components/Spinner'
+import { EdgeLabelToggle } from './components/EdgeLabelToggle'
 
 // Phase 3: Lazy load heavy components for better performance
 const GoalModePanel = lazy(() => import('./components/GoalModePanel').then(m => ({ default: m.GoalModePanel })))
@@ -329,6 +330,11 @@ export function CanvasToolbar() {
               )}
             </button>
           </div>
+        )}
+
+        {/* Edge Label Toggle (Human/Numeric) - only shown when edges exist */}
+        {edges.length > 0 && (
+          <EdgeLabelToggle showLabel={false} />
         )}
 
         <div className="w-px h-6 bg-gray-300" role="separator" />
