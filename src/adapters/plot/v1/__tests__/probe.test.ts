@@ -25,30 +25,21 @@ describe('v1/probe', () => {
 
   describe('probeCapability', () => {
     it('should use custom base URL when provided', async () => {
-      // Mock successful health check
+      // Mock successful health check - only one request now (no /v1/run probe)
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => ({ status: 'ok' }),
       })
 
-      // Mock successful v1/run OPTIONS request (CORS preflight)
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 204,
-      })
-
       const customBase = 'https://custom.example.com/api'
       await probeCapability(customBase)
 
-      // Verify fetch was called with custom base
+      // Verify fetch was called with custom base for health check only
+      expect(mockFetch).toHaveBeenCalledTimes(1)
       expect(mockFetch).toHaveBeenCalledWith(
         `${customBase}/v1/health`,
         expect.objectContaining({ method: 'GET' })
-      )
-      expect(mockFetch).toHaveBeenCalledWith(
-        `${customBase}/v1/run`,
-        expect.objectContaining({ method: 'OPTIONS' })
       )
     })
 
@@ -64,69 +55,47 @@ describe('v1/probe', () => {
         json: async () => ({ status: 'ok' }),
       })
 
-      // Mock successful v1/run OPTIONS request (CORS preflight)
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 204,
-      })
-
       await probeCapability()
 
       // Verify fetch was called with env var base
+      expect(mockFetch).toHaveBeenCalledTimes(1)
       expect(mockFetch).toHaveBeenCalledWith(
         `${customProxyBase}/v1/health`,
         expect.objectContaining({ method: 'GET' })
       )
-      expect(mockFetch).toHaveBeenCalledWith(
-        `${customProxyBase}/v1/run`,
-        expect.objectContaining({ method: 'OPTIONS' })
-      )
 
       vi.unstubAllEnvs()
     })
 
-    it('should default to /api/plot when no base or env var provided', async () => {
-      // Ensure no env var is set
-      vi.unstubAllEnvs()
+    it('should default to /bff/engine when no base or env var provided', async () => {
+      // Explicitly stub env var as empty string to test actual default
+      vi.stubEnv('VITE_PLOT_PROXY_BASE', '')
 
       // Mock successful health check
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => ({ status: 'ok' }),
-      })
-
-      // Mock successful v1/run OPTIONS request (CORS preflight)
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 204,
       })
 
       await probeCapability()
 
-      // Verify fetch was called with default base
+      // Verify fetch was called with default base (/bff/engine)
+      expect(mockFetch).toHaveBeenCalledTimes(1)
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/plot/v1/health',
+        '/bff/engine/v1/health',
         expect.objectContaining({ method: 'GET' })
       )
-      expect(mockFetch).toHaveBeenCalledWith(
-        '/api/plot/v1/run',
-        expect.objectContaining({ method: 'OPTIONS' })
-      )
+
+      vi.unstubAllEnvs()
     })
 
-    it('should mark v1 as available when health and run checks pass', async () => {
-      // Mock successful health check
+    it('should mark v1 as available when health check passes', async () => {
+      // Mock successful health check - run is trusted to be available
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => ({ status: 'ok' }),
-      })
-
-      // Mock successful v1/run OPTIONS request (CORS preflight returns 204)
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 204,
       })
 
       const result = await probeCapability('/test')
@@ -134,6 +103,7 @@ describe('v1/probe', () => {
       expect(result.available).toBe(true)
       expect(result.healthStatus).toBe('ok')
       expect(result.endpoints.health).toBe(true)
+      // Run endpoint is trusted when health passes (no separate probe)
       expect(result.endpoints.run).toBe(true)
       // Stream endpoint is NOT live yet (Oct 2025)
       expect(result.endpoints.stream).toBe(false)
@@ -152,27 +122,36 @@ describe('v1/probe', () => {
       expect(result.endpoints.stream).toBe(false)
     })
 
-    it('should mark v1 as unavailable when run endpoint returns 404', async () => {
-      // Mock successful health check
+    it('should try fallback health endpoint when v1/health returns non-ok', async () => {
+      // Mock failed v1/health
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      })
+
+      // Mock successful fallback /health
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => ({ status: 'ok' }),
       })
 
-      // Mock 404 for v1/run HEAD request (no OPTIONS fallback anymore)
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
-        status: 404,
-      })
-
       const result = await probeCapability('/test')
 
-      expect(result.available).toBe(false)
-      expect(result.healthStatus).toBe('ok')
+      expect(mockFetch).toHaveBeenCalledTimes(2)
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        '/test/v1/health',
+        expect.objectContaining({ method: 'GET' })
+      )
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        '/test/health',
+        expect.objectContaining({ method: 'GET' })
+      )
+      expect(result.available).toBe(true)
       expect(result.endpoints.health).toBe(true)
-      expect(result.endpoints.run).toBe(false)
-      expect(result.endpoints.stream).toBe(false)
+      expect(result.endpoints.run).toBe(true)
     })
   })
 
