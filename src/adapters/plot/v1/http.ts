@@ -230,11 +230,12 @@ async function runSyncOnce(
     const idempotencyKey = request.idempotencyKey || request.clientHash
 
     // Build wire payload without idempotencyKey field (header-only in v1 API)
-    // detail_level: 'quick' keeps analysis under Netlify's 26s proxy timeout
+    // NOTE: detail_level NOT YET SUPPORTED by backend (returns 400 "Unknown field")
+    // Will enable when PLoT backend deploys support:
     // 'quick' → K=16 samples, ~5-10s | 'standard' → K=32, ~15-25s | 'deep' → K=64, ~30-45s
     const requestForBody: V1RunRequest = {
       ...request,
-      detail_level: request.detail_level ?? 'quick',
+      // detail_level: request.detail_level ?? 'quick', // DISABLED: backend not ready
       idempotencyKey: undefined,
     }
 
