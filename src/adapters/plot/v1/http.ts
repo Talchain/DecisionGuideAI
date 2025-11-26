@@ -35,6 +35,101 @@ const getTimeouts = () => ({
 })
 
 /**
+ * Cache for backend capabilities (expires after 5 minutes)
+ * Sprint N P1: Capability negotiation to prevent "Unknown field" errors
+ */
+let cachedCapabilities: { data: CapabilitiesResponse; fetchedAt: number } | null = null
+const CAPABILITIES_TTL_MS = 5 * 60 * 1000
+
+/**
+ * Capabilities response from /version endpoint
+ */
+export interface CapabilitiesResponse {
+  version: string
+  build?: string
+  capabilities: {
+    detail_level?: string[]
+    streaming?: string
+    max_recommended_latency_ms?: number
+  }
+}
+
+/**
+ * GET /version - Check backend capabilities before using features
+ * Prevents "Unknown field" errors from version drift
+ * Sprint N P1: Capability negotiation
+ */
+export async function getCapabilities(): Promise<CapabilitiesResponse> {
+  // Return cached if fresh
+  if (cachedCapabilities && Date.now() - cachedCapabilities.fetchedAt < CAPABILITIES_TTL_MS) {
+    return cachedCapabilities.data
+  }
+
+  const base = getProxyBase()
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+  try {
+    const response = await fetch(`${base}/version`, {
+      method: 'GET',
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      // Graceful degradation - return empty capabilities
+      if (import.meta.env.DEV) {
+        console.warn('[plot/v1] /version returned non-OK, using empty capabilities')
+      }
+      return { version: 'unknown', capabilities: {} }
+    }
+
+    const data = await response.json()
+    const caps: CapabilitiesResponse = {
+      version: data.version || 'unknown',
+      build: data.build,
+      capabilities: data.capabilities || {},
+    }
+    cachedCapabilities = { data: caps, fetchedAt: Date.now() }
+
+    if (import.meta.env.DEV) {
+      console.log('[plot/v1] Capabilities fetched:', caps)
+    }
+
+    return caps
+  } catch (err) {
+    // Network error - return empty capabilities
+    if (import.meta.env.DEV) {
+      console.warn('[plot/v1] Failed to fetch capabilities:', err)
+    }
+    return { version: 'unknown', capabilities: {} }
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+/**
+ * Check if backend supports a specific feature
+ * Sprint N P1: Helper for capability negotiation
+ */
+export async function hasCapability(feature: 'detail_level' | 'streaming'): Promise<boolean> {
+  const caps = await getCapabilities()
+  if (feature === 'detail_level') {
+    return Array.isArray(caps.capabilities?.detail_level) && caps.capabilities.detail_level.length > 0
+  }
+  if (feature === 'streaming') {
+    return caps.capabilities?.streaming === 'enhanced'
+  }
+  return false
+}
+
+/**
+ * Clear cached capabilities (useful for testing or force refresh)
+ */
+export function clearCapabilitiesCache(): void {
+  cachedCapabilities = null
+}
+
+/**
  * Generic retry wrapper with exponential backoff and jitter
  */
 async function withRetry<T>(
@@ -230,13 +325,23 @@ async function runSyncOnce(
     const idempotencyKey = request.idempotencyKey || request.clientHash
 
     // Build wire payload without idempotencyKey field (header-only in v1 API)
-    // NOTE: detail_level NOT YET SUPPORTED by backend (returns 400 "Unknown field")
-    // Will enable when PLoT backend deploys support:
+    // Sprint N P1: Use capability negotiation to conditionally include detail_level
     // 'quick' → K=16 samples, ~5-10s | 'standard' → K=32, ~15-25s | 'deep' → K=64, ~30-45s
     const requestForBody: V1RunRequest = {
       ...request,
-      // detail_level: request.detail_level ?? 'quick', // DISABLED: backend not ready
       idempotencyKey: undefined,
+    }
+
+    // Sprint N P1: Only include detail_level if backend supports it (prevents 400 "Unknown field")
+    const caps = await getCapabilities()
+    const desiredDetailLevel = request.detail_level ?? 'quick'
+    if (caps.capabilities?.detail_level?.includes(desiredDetailLevel)) {
+      requestForBody.detail_level = desiredDetailLevel
+      if (import.meta.env.DEV) {
+        console.log(`[plot/v1] Using detail_level: ${desiredDetailLevel}`)
+      }
+    } else if (import.meta.env.DEV) {
+      console.warn(`[plot/v1] Backend does not support detail_level=${desiredDetailLevel}, omitting parameter`)
     }
 
     // M1.6: Validate payload size (96KB guard)
