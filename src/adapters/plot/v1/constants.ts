@@ -25,11 +25,13 @@ export const RETRY = {
 // Retryable error conditions
 export const RETRYABLE_ERRORS = {
   // HTTP status codes
-  STATUS_CODES: [500, 502, 503, 504, 429] as const, // AUDIT FIX 3: Added 429 for rate limit retry
+  // 504 excluded - gateway timeout means proxy timed out, retrying won't help (use quick mode instead)
+  STATUS_CODES: [500, 502, 503, 429] as const, // AUDIT FIX 3: Added 429 for rate limit retry
 
   // Error codes (TIMEOUT excluded - not transient, requires manual retry)
   // SERVER_ERROR = 5xx responses, NETWORK_ERROR = fetch failures
   // RATE_LIMITED = 429 responses (AUDIT FIX 3: now retryable with respect to retry_after)
+  // GATEWAY_TIMEOUT excluded - proxy timeout, recommend quick mode instead
   ERROR_CODES: ['SERVER_ERROR', 'NETWORK_ERROR', 'RATE_LIMITED'] as const,
 } as const
 
