@@ -47,7 +47,7 @@ import { getObjectiveText, getGoalDirection } from '../utils/getObjectiveText'
 import { computeDelta, deriveVerdict } from '../utils/interpretOutcome'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { RANGE_TERMINOLOGY } from '../../config/terminology'
-import { IdentifiabilityBadge, type IdentifiabilityStatus } from './IdentifiabilityBadge'
+import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
 import { EvidenceCoverageCompact } from './EvidenceCoverage'
 
 type OutputsDockTab = 'results' | 'insights' | 'compare' | 'diagnostics'
@@ -562,11 +562,15 @@ export function OutputsDock() {
                   </div>
                 )}
                 {/* P0 Engine: Identifiability Badge */}
-                {!isPreRun && report?.model_card?.identifiability_tag && (
-                  <IdentifiabilityBadge
-                    status={report.model_card.identifiability_tag as IdentifiabilityStatus}
-                  />
-                )}
+                {(() => {
+                  // Safely normalize backend identifiability tag to prevent runtime errors
+                  const normalizedStatus = !isPreRun
+                    ? normalizeIdentifiabilityTag(report?.model_card?.identifiability_tag)
+                    : null
+                  return normalizedStatus && (
+                    <IdentifiabilityBadge status={normalizedStatus} />
+                  )
+                })()}
                 {/* Phase 1A.1: Objective banner */}
                 {SHOW_VERDICT_FEATURES && !isPreRun && (
                   <ObjectiveBanner objectiveText={objectiveText} goalDirection={goalDirection} />
@@ -701,7 +705,9 @@ function DiagnosticsTabBody({
   correlationMismatch: boolean
   correlationIdHeader: string | null | undefined
 }) {
-  // P0 Engine: Evidence coverage from edge provenance
+  // P0 Engine: Evidence coverage from local edge provenance
+  // NOTE: This uses UI-observed provenance on local graph edges.
+  // Future: When backend provides model_card.sources, prefer that as source of truth.
   const edges = useCanvasStore(s => s.edges)
   const totalEdges = edges.length
   const evidencedEdges = edges.filter(e => e.data?.provenance && e.data.provenance.trim() !== '').length

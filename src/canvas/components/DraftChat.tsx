@@ -9,7 +9,20 @@ import { CEEError } from '../../adapters/cee/client'
 /** Check if error indicates CEE service is unavailable */
 function isCEEUnavailable(error: CEEError | Error): boolean {
   if (error instanceof CEEError) {
+    // HTTP 404 (not found) or 503 (service unavailable)
     return error.status === 404 || error.status === 503
+  }
+  // Network-level failures (no HTTP status) - treat as service unavailable
+  // These typically indicate the service is not reachable at all
+  const message = error.message?.toLowerCase() ?? ''
+  if (
+    message.includes('failed to fetch') ||
+    message.includes('network') ||
+    message.includes('connection refused') ||
+    message.includes('dns') ||
+    message.includes('econnrefused')
+  ) {
+    return true
   }
   return false
 }
@@ -41,6 +54,14 @@ function formatCEEError(error: CEEError | Error): { message: string; debugInfo?:
     return {
       message: friendlyMessage,
       debugInfo: debugParts.join(' | '),
+    }
+  }
+
+  // Check if non-CEEError is a network failure (treat as unavailable)
+  if (isCEEUnavailable(error)) {
+    return {
+      message: 'AI drafting is temporarily unavailable.',
+      isUnavailable: true,
     }
   }
 
