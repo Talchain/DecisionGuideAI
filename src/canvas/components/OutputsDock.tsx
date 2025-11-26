@@ -49,6 +49,9 @@ import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { RANGE_TERMINOLOGY } from '../../config/terminology'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
 import { EvidenceCoverageCompact } from './EvidenceCoverage'
+import { DecisionReadinessBadge } from './DecisionReadinessBadge'
+import { ModelQualityScore } from './ModelQualityScore'
+import { InsightsPanel } from './InsightsPanel'
 
 type OutputsDockTab = 'results' | 'insights' | 'compare' | 'diagnostics'
 
@@ -573,6 +576,26 @@ export function OutputsDock() {
                     <IdentifiabilityBadge status={normalizedStatus} />
                   )
                 })()}
+                {/* Sprint N P0: Decision Readiness Badge */}
+                {!isPreRun && report?.decision_readiness && (
+                  <DecisionReadinessBadge
+                    readiness={report.decision_readiness}
+                    identifiability={normalizeIdentifiabilityTag(report?.model_card?.identifiability_tag) ?? undefined}
+                    evidenceCoverage={
+                      report.graph_quality?.evidence_coverage !== undefined
+                        ? {
+                            // Convert 0-1 ratio to estimated counts for display
+                            evidencedCount: Math.round(report.graph_quality.evidence_coverage * 10),
+                            totalCount: 10,
+                          }
+                        : undefined
+                    }
+                  />
+                )}
+                {/* Sprint N P0: Model Quality Score */}
+                {!isPreRun && report?.graph_quality && (
+                  <ModelQualityScore quality={report.graph_quality} />
+                )}
                 {/* Phase 1A.1: Objective banner */}
                 {SHOW_VERDICT_FEATURES && !isPreRun && (
                   <ObjectiveBanner objectiveText={objectiveText} goalDirection={goalDirection} />
@@ -645,7 +668,7 @@ export function OutputsDock() {
               </div>
             )}
             {state.activeTab === 'insights' && (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <p>
                   {isPreRun
                     ? 'Key drivers and narratives appear after your first analysis.'
@@ -655,6 +678,10 @@ export function OutputsDock() {
                   <p className={`${typography.code} text-ink-900/70`}>
                     Run your first analysis from the toolbar above.
                   </p>
+                )}
+                {/* Sprint N P0: Insights Panel */}
+                {!isPreRun && report?.insights && (
+                  <InsightsPanel insights={report.insights} />
                 )}
               </div>
             )}

@@ -43,5 +43,39 @@
   "critique": [
     "Demand elasticity assumes last quarter trend",
     "Scenario lacks competitor response modeling"
-  ]
+  ],
+  "decision_readiness": {
+    "ready": true,
+    "confidence": "high",
+    "blockers": [],
+    "warnings": [
+      "Price sensitivity estimate based on assumptions",
+      "Competition response not modelled"
+    ],
+    "passed": [
+      "Identifiable causal structure",
+      "Good evidence coverage",
+      "Graph size in optimal range"
+    ]
+  },
+  "insights": {
+    "summary": "Outcome likely to increase by 15% (range: 8% to 22%) with medium confidence.",
+    "risks": [
+      "Price sensitivity estimate based on assumptions",
+      "Only 43% of relationships have supporting evidence",
+      "Competition response not modelled"
+    ],
+    "next_steps": [
+      "Add evidence to strengthen key assumptions",
+      "Validate the Price to Demand relationship"
+    ]
+  },
+  "graph_quality": {
+    "score": 0.72,
+    "completeness": 0.85,
+    "evidence_coverage": 0.43,
+    "balance": 0.88,
+    "issues_count": 2,
+    "recommendation": "Add evidence to strengthen key relationships"
+  }
 }
