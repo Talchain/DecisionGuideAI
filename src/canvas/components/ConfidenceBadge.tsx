@@ -6,6 +6,7 @@
  */
 
 import { HelpCircle } from 'lucide-react'
+import { typography } from '../../styles/typography'
 
 interface ConfidenceBadgeProps {
   level?: 'low' | 'medium' | 'high'
@@ -22,7 +23,7 @@ export function ConfidenceBadge({ level, reason, score }: ConfidenceBadgeProps) 
         title="Confidence data not available"
       >
         <HelpCircle className="w-4 h-4" />
-        <span className="text-sm font-medium">Confidence N/A</span>
+        <span className={`${typography.body} font-medium`}>Confidence N/A</span>
       </div>
     )
   }
@@ -65,7 +66,7 @@ export function ConfidenceBadge({ level, reason, score }: ConfidenceBadgeProps) 
     >
       <HelpCircle className={`w-4 h-4 ${iconColor}`} aria-hidden="true" />
       <div className="flex flex-col gap-0.5">
-        <div className="text-sm font-semibold">
+        <div className={`${typography.body} font-semibold`}>
           {label}
           {score !== undefined && (
             <span className="ml-1.5 font-normal opacity-75">
@@ -74,7 +75,7 @@ export function ConfidenceBadge({ level, reason, score }: ConfidenceBadgeProps) 
           )}
         </div>
         {reason && (
-          <div className="text-xs opacity-75 leading-tight max-w-xs truncate">
+          <div className={`${typography.caption} opacity-75 leading-tight max-w-xs truncate`}>
             {reason}
           </div>
         )}

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { typography } from '../../styles/typography'
 
 interface KeyboardCheatsheetProps {
   isOpen: boolean
@@ -96,7 +97,7 @@ export function KeyboardCheatsheet({ isOpen, onClose }: KeyboardCheatsheetProps)
         <div className="px-6 py-4">
           {categories.map(category => (
             <div key={category} className="mb-6 last:mb-0">
-              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              <h3 className={`${typography.body} font-semibold text-gray-500 uppercase tracking-wide mb-3`}>
                 {category}
               </h3>
               <div className="space-y-2">
@@ -108,7 +109,7 @@ export function KeyboardCheatsheet({ isOpen, onClose }: KeyboardCheatsheetProps)
                       className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50"
                     >
                       <span className="text-gray-700">{shortcut.description}</span>
-                      <kbd className="px-3 py-1 bg-gray-100 border border-gray-300 rounded text-sm font-mono text-gray-800">
+                      <kbd className={`px-3 py-1 bg-gray-100 border border-gray-300 rounded ${typography.body} font-mono text-gray-800`}>
                         {shortcut.keys}
                       </kbd>
                     </div>
@@ -120,8 +121,8 @@ export function KeyboardCheatsheet({ isOpen, onClose }: KeyboardCheatsheetProps)
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-gray-50 px-6 py-4 border-t border-gray-200">
-          <p className="text-sm text-gray-600 text-center">
-            Press <kbd className="px-2 py-1 bg-white border border-gray-300 rounded text-xs font-mono">?</kbd> anytime to view this cheatsheet
+          <p className={`${typography.body} text-gray-600 text-center`}>
+            Press <kbd className={`px-2 py-1 bg-white border border-gray-300 rounded ${typography.caption} font-mono`}>?</kbd> anytime to view this cheatsheet
           </p>
         </div>
       </div>

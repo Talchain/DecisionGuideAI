@@ -1,4 +1,5 @@
 import { useLayoutProgressStore } from '../layoutProgressStore'
+import { typography } from '../../styles/typography'
 
 export function LayoutProgressBanner() {
   const { status, message, canRetry, retry, cancel } = useLayoutProgressStore()
@@ -21,13 +22,13 @@ export function LayoutProgressBanner() {
             aria-hidden="true"
           />
         )}
-        <span className="text-sm">{text}</span>
+        <span className={typography.body}>{text}</span>
         <div className="flex gap-2 ml-2">
           {isError && canRetry && retry && (
             <button
               type="button"
               onClick={retry}
-              className="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition-colors"
+              className={`${typography.caption} px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition-colors`}
             >
               Retry
             </button>
@@ -35,7 +36,7 @@ export function LayoutProgressBanner() {
           <button
             type="button"
             onClick={cancel}
-            className="text-xs px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition-colors"
+            className={`${typography.caption} px-2 py-1 rounded bg-white/10 hover:bg-white/20 transition-colors`}
           >
             Cancel
           </button>
