@@ -143,8 +143,12 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const addNode = useCanvasStore(s => s.addNode)
 
   // Phase 3: Empty state actions
+  // Use store selectors directly - Zustand actions are stable references
   const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
   const openTemplatesPanel = useCanvasStore(s => s.openTemplatesPanel)
+  // Stable callbacks for CanvasEmptyState (React #185 prevention)
+  const handleEmptyStateDraft = useCallback(() => setShowDraftChat(true), [setShowDraftChat])
+  const handleEmptyStateTemplate = useCallback(() => openTemplatesPanel(), [openTemplatesPanel])
 
   // P0-8: Auto-connect state
   const [connectPrompt, setConnectPrompt] = useState<{
@@ -1035,10 +1039,11 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       <HighlightLayer isResultsOpen={showResultsPanel} />
 
       {/* Empty canvas state - shows helpful prompts when no nodes exist */}
+      {/* Uses stable callbacks (handleEmptyStateDraft/handleEmptyStateTemplate) to prevent re-renders */}
       {nodes.length === 0 && debugMode === 'normal' && (
         <CanvasEmptyState
-          onDraft={() => setShowDraftChat(true)}
-          onTemplate={() => openTemplatesPanel()}
+          onDraft={handleEmptyStateDraft}
+          onTemplate={handleEmptyStateTemplate}
         />
       )}
 
