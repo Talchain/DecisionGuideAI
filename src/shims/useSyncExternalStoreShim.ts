@@ -2,48 +2,95 @@
 /**
  * Local shim for `use-sync-external-store/shim`.
  * React 18+ provides `useSyncExternalStore` natively.
- * We re-export React's hooks and implement a minimal `withSelector` helper
- * that follows the recommended pattern: the selector is composed into
- * the `getSnapshot` function passed to React, so the selected value itself
- * is treated as the snapshot. This avoids the "getSnapshot should be cached"
- * warning and plays nicely with libraries like Zustand.
+ *
+ * IMPORTANT: The `useSyncExternalStoreWithSelector` implementation MUST cache
+ * the snapshot functions to avoid React #185 infinite loops. The previous
+ * implementation created new closures on every render, violating React's
+ * useSyncExternalStore contract.
+ *
+ * This shim uses useRef to cache:
+ * 1. The selector function
+ * 2. The last snapshot
+ * 3. The last selected value
+ *
+ * This follows the pattern from the official use-sync-external-store package.
  */
 
-import { useSyncExternalStore as useSyncExternalStoreBase } from 'react'
+import { useSyncExternalStore as useSyncExternalStoreBase, useRef, useCallback } from 'react'
 
 // Re-export the base hook
 export const useSyncExternalStore = useSyncExternalStoreBase
 
 /**
- * Minimal selector variant for compatibility.
- * Many libs import `useSyncExternalStoreWithSelector` from the shim.
+ * Selector variant with proper caching to avoid infinite loops.
  *
- * Notes:
- * - We intentionally keep this thin and rely on React's own caching.
- * - The optional `isEqual` parameter is accepted for compatibility but
- *   not used; callers still get stable behaviour via React's snapshot
- *   comparison.
+ * This implementation caches the selector result and only recomputes when:
+ * 1. The snapshot actually changes
+ * 2. The selector function changes
  */
-export function useSyncExternalStoreWithSelector<T, Selection>(
+export function useSyncExternalStoreWithSelector<Snapshot, Selection>(
   subscribe: (onStoreChange: () => void) => () => void,
-  getSnapshot: () => T,
-  getServerSnapshot: (() => T) | undefined,
-  selector: (snapshot: T) => Selection,
+  getSnapshot: () => Snapshot,
+  getServerSnapshot: (() => Snapshot) | undefined,
+  selector: (snapshot: Snapshot) => Selection,
   isEqual?: (a: Selection, b: Selection) => boolean,
 ): Selection {
-  // Touch isEqual once to satisfy TypeScript's unused-parameter checks while
-  // still keeping the full signature for libraries that expect it.
-  void isEqual
+  // Cache refs for memoization
+  const instRef = useRef<{
+    hasValue: boolean
+    value: Selection | null
+    selector: typeof selector
+    snapshot: Snapshot | null
+    getSnapshot: typeof getSnapshot
+  } | null>(null)
 
-  const getSelectedSnapshot = () => selector(getSnapshot())
-  const getSelectedServerSnapshot =
-    getServerSnapshot != null ? () => selector(getServerSnapshot()) : getSelectedSnapshot
+  // Initialize ref on first render
+  if (instRef.current === null) {
+    instRef.current = {
+      hasValue: false,
+      value: null,
+      selector,
+      snapshot: null,
+      getSnapshot,
+    }
+  }
 
-  return useSyncExternalStoreBase(
-    subscribe,
-    getSelectedSnapshot,
-    getSelectedServerSnapshot,
-  )
+  const inst = instRef.current
+
+  // Memoized getSnapshot that returns the selected value
+  // This is stable across renders as long as selector/getSnapshot don't change
+  const getSelection = useCallback(() => {
+    const nextSnapshot = getSnapshot()
+
+    // Check if we can reuse cached value
+    if (inst.hasValue && inst.snapshot === nextSnapshot && inst.selector === selector) {
+      return inst.value as Selection
+    }
+
+    const nextSelection = selector(nextSnapshot)
+
+    // Check if selection is equal to cached value
+    if (inst.hasValue && isEqual !== undefined && isEqual(inst.value as Selection, nextSelection)) {
+      return inst.value as Selection
+    }
+
+    // Update cache
+    inst.hasValue = true
+    inst.value = nextSelection
+    inst.snapshot = nextSnapshot
+    inst.selector = selector
+
+    return nextSelection
+  }, [getSnapshot, selector, isEqual, inst])
+
+  const getServerSelection = useCallback(() => {
+    if (getServerSnapshot === undefined) {
+      return getSelection()
+    }
+    return selector(getServerSnapshot())
+  }, [getServerSnapshot, selector, getSelection])
+
+  return useSyncExternalStoreBase(subscribe, getSelection, getServerSelection)
 }
 
 // Default export for broad import patterns

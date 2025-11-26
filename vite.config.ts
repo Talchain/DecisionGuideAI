@@ -2,9 +2,9 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 
-// NOTE: Previously had a custom useSyncExternalStore shim that caused React #185
-// infinite loop. The shim's getSnapshot wasn't cached. Now using the real
-// use-sync-external-store package with dedupe instead.
+// Custom useSyncExternalStore shim with proper caching to avoid React #185 infinite loop.
+// The shim caches selector results using useRef to satisfy React's useSyncExternalStore contract.
+const shimPath = path.resolve(__dirname, 'src/shims/useSyncExternalStoreShim.ts');
 
 export default defineConfig(({ mode }) => {
   // Load env vars from .env.local (including non-VITE_ prefixed vars)
@@ -28,6 +28,12 @@ export default defineConfig(({ mode }) => {
         { find: '@supabase/gotrue-js',   replacement: path.resolve(__dirname, 'src/stubs/gotrue-stub.mjs') },
         { find: '@tanstack/react-query', replacement: path.resolve(__dirname, 'src/stubs/react-query-stub.mjs') },
       ] : []),
+      // Redirect use-sync-external-store to our fixed shim with proper caching
+      { find: /^use-sync-external-store\/shim\/with-selector(\.js)?$/, replacement: shimPath },
+      { find: /^use-sync-external-store\/with-selector(\.js)?$/,       replacement: shimPath },
+      { find: /^use-sync-external-store\/shim(\/index(\.js)?)?$/,      replacement: shimPath },
+      { find: /^use-sync-external-store\/.*$/,                         replacement: shimPath },
+      { find: /^use-sync-external-store$/,                             replacement: shimPath },
     ],
     // Dedupe to avoid multi-instance edge cases
     // - react/react-dom: Prevent multiple React instances
