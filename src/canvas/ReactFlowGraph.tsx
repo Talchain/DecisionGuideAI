@@ -64,7 +64,7 @@ import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnable
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 
-type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal'
+type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg'
 
 function getCanvasDebugMode(): CanvasDebugMode {
   if (typeof window === 'undefined') return 'normal'
@@ -73,7 +73,8 @@ function getCanvasDebugMode(): CanvasDebugMode {
     const fromQuery = url.searchParams.get('canvasDebug')
     const fromStorage = window.localStorage ? window.localStorage.getItem('CANVAS_DEBUG_MODE') : null
     const raw = (fromQuery || fromStorage || '').toLowerCase()
-    if (raw === 'blank' || raw === 'no-reactflow' || raw === 'rf-only' || raw === 'rf-bare' || raw === 'rf-minimal') return raw as CanvasDebugMode
+    const validModes = ['blank', 'no-reactflow', 'rf-only', 'rf-bare', 'rf-minimal', 'rf-empty', 'rf-no-fitview', 'rf-no-bg']
+    if (validModes.includes(raw)) return raw as CanvasDebugMode
     return 'normal'
   } catch {
     return 'normal'
@@ -1375,53 +1376,90 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
 }
 
 /**
- * RF-MINIMAL: A truly minimal ReactFlow component with NO hooks, NO state,
- * NO effects. This bypasses ReactFlowGraphInner entirely to isolate whether
- * the React #185 loop is in ReactFlow itself vs our hooks/effects.
- *
- * If rf-minimal crashes: The loop is in ReactFlow internals or our Provider setup.
- * If rf-minimal works: The loop is in our hooks/effects inside ReactFlowGraphInner.
+ * Debug label component for minimal modes
+ */
+function DebugLabel({ mode, color }: { mode: string; color: string }) {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 'calc(var(--topbar-h) + 8px)',
+        left: '8px',
+        padding: '4px 8px',
+        background: color,
+        color: 'white',
+        borderRadius: '4px',
+        fontSize: '11px',
+        fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+        fontWeight: 500,
+        zIndex: 1000,
+      }}
+    >
+      {mode}
+    </div>
+  )
+}
+
+/**
+ * RF-MINIMAL: ReactFlow with fitView, zoom, Background
+ * Tests: Full minimal ReactFlow configuration
  */
 function ReactFlowMinimal() {
-  // NO hooks, NO state - just render ReactFlow with absolutely nothing
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      <div
-        style={{
-          position: 'absolute',
-          top: 'var(--topbar-h)',
-          bottom: 'var(--bottombar-h)',
-          left: 0,
-          right: 0,
-        }}
-      >
-        <ReactFlow
-          nodes={[]}
-          edges={[]}
-          fitView
-          minZoom={0.1}
-          maxZoom={4}
-        >
+      <div style={{ position: 'absolute', top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)', left: 0, right: 0 }}>
+        <ReactFlow nodes={[]} edges={[]} fitView minZoom={0.1} maxZoom={4}>
           <Background variant={BackgroundVariant.Dots} gap={20} />
         </ReactFlow>
       </div>
-      <div
-        style={{
-          position: 'absolute',
-          top: 'calc(var(--topbar-h) + 8px)',
-          left: '8px',
-          padding: '4px 8px',
-          background: 'rgba(16, 185, 129, 0.9)',
-          color: 'white',
-          borderRadius: '4px',
-          fontSize: '11px',
-          fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
-          fontWeight: 500,
-          zIndex: 1000,
-        }}
-      >
-        RF-MINIMAL: Bypassed ReactFlowGraphInner (no hooks/effects)
+      <DebugLabel mode="RF-MINIMAL: fitView + zoom + Background" color="rgba(16, 185, 129, 0.9)" />
+    </div>
+  )
+}
+
+/**
+ * RF-EMPTY: Absolutely empty ReactFlow - no props, no children
+ * Tests: Is the loop in ReactFlow's core mounting logic?
+ */
+function ReactFlowEmpty() {
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)', left: 0, right: 0 }}>
+        <ReactFlow nodes={[]} edges={[]} />
       </div>
+      <DebugLabel mode="RF-EMPTY: No props, no children" color="rgba(220, 38, 38, 0.9)" />
+    </div>
+  )
+}
+
+/**
+ * RF-NO-FITVIEW: ReactFlow without fitView prop
+ * Tests: Is fitView causing the loop?
+ */
+function ReactFlowNoFitView() {
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)', left: 0, right: 0 }}>
+        <ReactFlow nodes={[]} edges={[]} minZoom={0.1} maxZoom={4}>
+          <Background variant={BackgroundVariant.Dots} gap={20} />
+        </ReactFlow>
+      </div>
+      <DebugLabel mode="RF-NO-FITVIEW: zoom + Background (no fitView)" color="rgba(251, 146, 60, 0.9)" />
+    </div>
+  )
+}
+
+/**
+ * RF-NO-BG: ReactFlow without Background child
+ * Tests: Is Background causing the loop?
+ */
+function ReactFlowNoBg() {
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)', left: 0, right: 0 }}>
+        <ReactFlow nodes={[]} edges={[]} fitView minZoom={0.1} maxZoom={4} />
+      </div>
+      <DebugLabel mode="RF-NO-BG: fitView + zoom (no Background)" color="rgba(139, 92, 246, 0.9)" />
     </div>
   )
 }
@@ -1430,14 +1468,21 @@ export default function ReactFlowGraph(props: ReactFlowGraphProps) {
   // Check debug mode BEFORE entering the complex component tree
   const debugMode = getCanvasDebugMode()
 
-  // RF-MINIMAL: Bypass the entire ReactFlowGraphInner to test if the loop
-  // is in our hooks vs ReactFlow itself
-  if (debugMode === 'rf-minimal') {
-    logCanvasBreadcrumb('mode:rf-minimal', {})
+  // RF-MINIMAL modes: Bypass ReactFlowGraphInner entirely to isolate ReactFlow issues
+  // Each mode tests a specific hypothesis about what's causing React #185
+  const minimalModes: Record<string, JSX.Element> = {
+    'rf-minimal': <ReactFlowMinimal />,
+    'rf-empty': <ReactFlowEmpty />,
+    'rf-no-fitview': <ReactFlowNoFitView />,
+    'rf-no-bg': <ReactFlowNoBg />,
+  }
+
+  if (debugMode in minimalModes) {
+    logCanvasBreadcrumb(`mode:${debugMode}`, {})
     return (
       <CanvasErrorBoundary>
         <ReactFlowProvider>
-          <ReactFlowMinimal />
+          {minimalModes[debugMode]}
         </ReactFlowProvider>
       </CanvasErrorBoundary>
     )
