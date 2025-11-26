@@ -12,7 +12,8 @@ export interface ReportV1 {
     response_hash_algo: 'sha256'
     normalized: true
     // P0 Engine Features (optional - may not be present in all responses)
-    identifiability_tag?: 'identifiable' | 'underidentified' | 'overidentified' | 'unknown'
+    // identifiability_tag can be enum OR string (from top-level identifiability field)
+    identifiability_tag?: 'identifiable' | 'underidentified' | 'overidentified' | 'unknown' | string
     sources?: Array<{ edge_id: string; provenance?: string }>
   }
   results: {
@@ -36,6 +37,21 @@ export interface ReportV1 {
   }>
   critique?: string[]
   run?: CanonicalRun // v1.2: normalized run data with p10/p50/p90 bands
+
+  // Sprint N P0: Trust Signal Fields (backend already returns these)
+  graph_quality?: {
+    score: number
+    completeness: number
+    evidence_coverage: number
+    balance: number
+    issues_count?: number
+    recommendation?: string
+  }
+  insights?: {
+    summary: string
+    risks: string[]
+    next_steps: string[]
+  }
 }
 
 export interface ErrorV1 {

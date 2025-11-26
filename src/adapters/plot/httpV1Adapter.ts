@@ -144,6 +144,8 @@ function mapV1ResultToReport(
       response_hash: canonicalRun.responseHash,
       response_hash_algo: 'sha256',
       normalized: true,
+      // Sprint N P0: Use top-level identifiability string from response
+      identifiability_tag: response.identifiability || response.result?.identifiability,
     },
     results: {
       conservative,
@@ -157,6 +159,10 @@ function mapV1ResultToReport(
     },
     drivers,
     run: canonicalRun, // v1.2: attach canonical run for ResultsPanel
+
+    // Sprint N P0: Trust Signal Fields (backend already returns these)
+    graph_quality: response.graph_quality || response.result?.graph_quality,
+    insights: response.insights || response.result?.insights,
   }
 }
 

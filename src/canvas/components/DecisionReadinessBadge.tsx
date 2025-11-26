@@ -26,6 +26,39 @@ import { Tooltip } from './Tooltip'
 import { IdentifiabilityBadge, type IdentifiabilityStatus } from './IdentifiabilityBadge'
 import { EvidenceCoverageCompact } from './EvidenceCoverage'
 import type { DecisionReadiness } from '../../types/plot'
+import type { ConfidenceLevel } from '../../adapters/plot/types'
+
+/**
+ * Sprint N P1: Map confidence.level from backend to DecisionReadiness
+ * Backend does NOT return decision_readiness - we derive it from confidence.level
+ *
+ * @param confidence - Backend confidence object with level and optional score
+ * @returns DecisionReadiness object or null if no confidence data
+ */
+export function mapConfidenceToReadiness(
+  confidence?: { level?: string; score?: number; why?: string }
+): DecisionReadiness | null {
+  if (!confidence?.level) return null
+
+  const level = confidence.level.toUpperCase()
+  const normalizedConfidence = (confidence.level.toLowerCase() || 'medium') as 'high' | 'medium' | 'low'
+
+  return {
+    ready: level === 'HIGH',
+    confidence: normalizedConfidence,
+    blockers: level === 'LOW'
+      ? ['Low confidence analysis - add more factors or evidence']
+      : [],
+    warnings: level === 'MEDIUM'
+      ? ['Medium confidence - consider reviewing key factors and assumptions']
+      : [],
+    passed: level === 'HIGH'
+      ? ['High confidence analysis - model is ready for decision-making']
+      : level === 'MEDIUM'
+        ? ['Model structure is valid']
+        : [],
+  }
+}
 
 interface DecisionReadinessBadgeProps {
   /** Decision readiness data from engine response */
