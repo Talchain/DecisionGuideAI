@@ -147,6 +147,16 @@ const mapHttpError = async (response: Response): Promise<V1Error> => {
     }
   }
 
+  // Handle gateway timeout (504) - proxy timeout, analysis took too long
+  // This is different from client-side TIMEOUT (AbortController) and engine down
+  if (response.status === 504) {
+    return {
+      code: 'GATEWAY_TIMEOUT',
+      message: 'Analysis timed out via gateway (proxy timeout). Try a smaller graph or "quick" mode.',
+      details: { ...body, status: response.status },
+    }
+  }
+
   // Server errors
   return {
     code: 'SERVER_ERROR',
@@ -220,6 +230,8 @@ async function runSyncOnce(
     const idempotencyKey = request.idempotencyKey || request.clientHash
 
     // Build wire payload without idempotencyKey field (header-only in v1 API)
+    // NOTE: detail_level parameter NOT yet supported by backend (returns BAD_INPUT)
+    // Once backend enables it, uncomment: detail_level: request.detail_level ?? 'quick',
     const requestForBody: V1RunRequest = {
       ...request,
       idempotencyKey: undefined,
