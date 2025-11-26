@@ -2,6 +2,7 @@
 import { useMemo } from 'react'
 import type { ReportV1 } from './types'
 import { ConfidenceBadge } from './ConfidenceBadge'
+import { RANGE_TERMINOLOGY } from '../../config/terminology'
 
 interface ResultsSummaryProps {
   report: ReportV1
@@ -24,9 +25,9 @@ export function ResultsSummary({ report }: ResultsSummaryProps) {
       </div>
 
       <div className="space-y-3">
-        {/* Conservative (p10) */}
+        {/* Downside (p10) */}
         <div className="flex items-center gap-3">
-          <div className="w-24 text-sm font-medium text-gray-700">Conservative</div>
+          <div className="w-24 text-sm font-medium text-gray-700">{RANGE_TERMINOLOGY.conservative.userLabel}</div>
           <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
             <div 
               className="h-full bg-amber-400 transition-all duration-300"
@@ -40,9 +41,9 @@ export function ResultsSummary({ report }: ResultsSummaryProps) {
           <div className="w-16 text-sm font-semibold text-gray-900 text-right">{formatted.p10}%</div>
         </div>
 
-        {/* Likely (p50) */}
+        {/* Expected (p50) */}
         <div className="flex items-center gap-3">
-          <div className="w-24 text-sm font-medium text-gray-700">Likely</div>
+          <div className="w-24 text-sm font-medium text-gray-700">{RANGE_TERMINOLOGY.likely.userLabel}</div>
           <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
             <div 
               className="h-full bg-blue-500 transition-all duration-300"
@@ -56,9 +57,9 @@ export function ResultsSummary({ report }: ResultsSummaryProps) {
           <div className="w-16 text-sm font-semibold text-gray-900 text-right">{formatted.p50}%</div>
         </div>
 
-        {/* Optimistic (p90) */}
+        {/* Upside (p90) */}
         <div className="flex items-center gap-3">
-          <div className="w-24 text-sm font-medium text-gray-700">Optimistic</div>
+          <div className="w-24 text-sm font-medium text-gray-700">{RANGE_TERMINOLOGY.optimistic.userLabel}</div>
           <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
             <div 
               className="h-full bg-green-500 transition-all duration-300"

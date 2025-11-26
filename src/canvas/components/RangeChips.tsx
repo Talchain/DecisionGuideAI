@@ -1,9 +1,11 @@
 /**
  * Range Chips Component
  *
- * Displays the three-point estimate with improved terminology (Phase 1A.3).
+ * Displays the three-point estimate with standardized terminology.
  * Compact strip with hover tooltips for additional context.
  */
+
+import { RANGE_TERMINOLOGY } from '../../config/terminology'
 
 interface RangeChipsProps {
   conservative: number | null
@@ -11,7 +13,6 @@ interface RangeChipsProps {
   optimistic: number | null
   units?: 'currency' | 'percent' | 'count'
   unitSymbol?: string
-  useImprovedLabels?: boolean // Phase 1A.3: Use Cautious/Expected/Favorable
 }
 
 export function RangeChips({
@@ -20,17 +21,12 @@ export function RangeChips({
   optimistic,
   units = 'percent',
   unitSymbol,
-  useImprovedLabels = false
 }: RangeChipsProps) {
-  // Phase 1A.3: Improved labels (Cautious/Expected/Favorable) vs legacy (Conservative/Most Likely/Optimistic)
-  const ranges = useImprovedLabels ? [
-    { label: 'Cautious', technicalLabel: 'Conservative (10th %ile)', value: conservative, variant: 'conservative' as const },
-    { label: 'Expected', technicalLabel: 'Most Likely (50th %ile)', value: likely, variant: 'likely' as const },
-    { label: 'Favorable', technicalLabel: 'Optimistic (90th %ile)', value: optimistic, variant: 'optimistic' as const }
-  ] : [
-    { label: 'Conservative', technicalLabel: 'Conservative', value: conservative, variant: 'conservative' as const },
-    { label: 'Most Likely', technicalLabel: 'Most Likely', value: likely, variant: 'likely' as const },
-    { label: 'Optimistic', technicalLabel: 'Optimistic', value: optimistic, variant: 'optimistic' as const }
+  // Standardized labels: Downside/Expected/Upside
+  const ranges = [
+    { label: RANGE_TERMINOLOGY.conservative.userLabel, technicalLabel: RANGE_TERMINOLOGY.conservative.technicalTerm, value: conservative, variant: 'conservative' as const },
+    { label: RANGE_TERMINOLOGY.likely.userLabel, technicalLabel: RANGE_TERMINOLOGY.likely.technicalTerm, value: likely, variant: 'likely' as const },
+    { label: RANGE_TERMINOLOGY.optimistic.userLabel, technicalLabel: RANGE_TERMINOLOGY.optimistic.technicalTerm, value: optimistic, variant: 'optimistic' as const }
   ]
 
   return (
