@@ -162,49 +162,18 @@ export async function probeCapability(
       }
     }
 
-    // Step 2: Check v1 run endpoint
+    // Step 2: If health check passed, trust that v1 routes are available
+    // We skip probing /v1/run directly because:
+    // - HEAD requests return 404 through Netlify's proxy
+    // - OPTIONS requests return 400 (browser forbids setting Origin header)
+    // - Health and run endpoints are on the same server, so if health works, run works
     if (result.endpoints.health) {
-      try {
-        // Use OPTIONS (CORS preflight) instead of HEAD
-        // HEAD requests don't work reliably through Netlify's proxy redirects
-        // which return 404 even when the backend route exists.
-        // OPTIONS with CORS headers reliably returns 204 when proxied.
-        let runResponse = await fetch(`${resolvedBase}/v1/run`, {
-          method: 'OPTIONS',
-          headers: {
-            'Origin': typeof window !== 'undefined' ? window.location.origin : 'https://olumi.netlify.app',
-            'Access-Control-Request-Method': 'POST',
-          },
-          signal: AbortSignal.timeout(5000),
-        });
+      result.endpoints.run = true;
+      result.endpoints.stream = false; // Stream NOT live yet (Oct 2025)
+      result.available = true;
 
-        // 200/204 OK, 401, 403, or 405 all mean route exists
-        // (204 = CORS preflight success, 401/403 = auth issue, 405 = method not allowed)
-        if (
-          runResponse.ok ||
-          runResponse.status === 204 ||
-          runResponse.status === 401 ||
-          runResponse.status === 403 ||
-          runResponse.status === 405
-        ) {
-          result.endpoints.run = true;
-          result.endpoints.stream = false; // Stream NOT live yet (Oct 2025)
-          result.available = true;
-
-          if (import.meta.env.DEV) {
-            console.log('[Probe] v1 sync run available (status:', runResponse.status, ')');
-            console.log('[Probe] v1 stream NOT available (endpoint not deployed yet)');
-          }
-        } else if (runResponse.status === 404) {
-          // Route definitely doesn't exist
-          if (import.meta.env.DEV) {
-            console.warn('[Probe] v1 routes not available (404)');
-          }
-        }
-      } catch (err) {
-        if (import.meta.env.DEV) {
-          console.warn('[Probe] Failed to check v1 routes:', err);
-        }
+      if (import.meta.env.DEV) {
+        console.log('[Probe] v1 health passed - trusting run endpoint is available');
       }
     }
   } catch (err) {
