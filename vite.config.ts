@@ -2,7 +2,9 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 
-const shimPath = path.resolve(__dirname, 'src/shims/useSyncExternalStoreShim.ts');
+// NOTE: Previously had a custom useSyncExternalStore shim that caused React #185
+// infinite loop. The shim's getSnapshot wasn't cached. Now using the real
+// use-sync-external-store package with dedupe instead.
 
 export default defineConfig(({ mode }) => {
   // Load env vars from .env.local (including non-VITE_ prefixed vars)
@@ -20,27 +22,18 @@ export default defineConfig(({ mode }) => {
   },
   resolve: {
     alias: [
-      // 🔒 Regex aliases to prevent subpath concatenation issues.
-      // Order matters: specific patterns first, then catch-all, then base.
-      { find: /^use-sync-external-store\/shim\/with-selector(\.js)?$/, replacement: shimPath },
-      { find: /^use-sync-external-store\/with-selector(\.js)?$/,       replacement: shimPath },
-      { find: /^use-sync-external-store\/shim(\/index(\.js)?)?$/,      replacement: shimPath },
-      // Catch-all for any other subpaths (must come after specific ones)
-      { find: /^use-sync-external-store\/.*$/,                         replacement: shimPath },
-      // Base package
-      { find: /^use-sync-external-store$/,                             replacement: shimPath },
-
-      // Preserve existing POC/test stubs (merge; do not overwrite)
+      // POC/test stubs for guest mode
       ...(isPoc ? [
         { find: '@supabase/supabase-js', replacement: path.resolve(__dirname, 'src/stubs/supabase-stub.mjs') },
         { find: '@supabase/gotrue-js',   replacement: path.resolve(__dirname, 'src/stubs/gotrue-stub.mjs') },
         { find: '@tanstack/react-query', replacement: path.resolve(__dirname, 'src/stubs/react-query-stub.mjs') },
       ] : []),
     ],
-    // Dedupe React and Zustand to avoid multi-instance edge cases
+    // Dedupe to avoid multi-instance edge cases
     // - react/react-dom: Prevent multiple React instances
     // - zustand: @xyflow/react bundles v4, app uses v5 - must dedupe to prevent conflicts
-    dedupe: ['react', 'react-dom', 'zustand'],
+    // - use-sync-external-store: Ensure single instance for Zustand's useSyncExternalStore
+    dedupe: ['react', 'react-dom', 'zustand', 'use-sync-external-store'],
   },
   build: {
     target: 'esnext',
