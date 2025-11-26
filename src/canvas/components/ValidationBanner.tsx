@@ -1,4 +1,5 @@
 import { X, AlertCircle, Info } from 'lucide-react'
+import { typography } from '../../styles/typography'
 
 export interface ValidationError {
   code: string
@@ -58,7 +59,7 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
         {/* Content */}
         <div className="flex-1 min-w-0">
           <p
-            className={`text-sm font-medium ${
+            className={`${typography.label} ${
               isWarning ? 'text-warning-900' : 'text-danger-900'
             }`}
           >
@@ -66,7 +67,7 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
           </p>
           {hasMultiple && (
             <p
-              className={`text-xs mt-1 ${
+              className={`${typography.caption} mt-1 ${
                 isWarning ? 'text-warning-700' : 'text-danger-700'
               }`}
             >
@@ -76,7 +77,7 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
           {onFixNow && (firstError.node_id || firstError.edge_id) && (
             <button
               onClick={() => onFixNow(firstError)}
-              className={`mt-2 text-xs font-medium underline ${
+              className={`mt-2 ${typography.caption} font-medium underline ${
                 isWarning
                   ? 'text-warning-800 hover:text-warning-900'
                   : 'text-danger-800 hover:text-danger-900'
@@ -121,26 +122,26 @@ export function ValidationBanner({ errors, violations, onDismiss, onFixNow, clas
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-info-900">
+          <p className={`${typography.label} text-info-900`}>
             {firstViolation.message}
           </p>
           {firstViolation.suggestion && (
-            <p className="text-xs mt-1 text-info-700">
+            <p className={`${typography.caption} mt-1 text-info-700`}>
               Suggestion: {firstViolation.suggestion}
             </p>
           )}
           {hasMultiple && (
-            <p className="text-xs mt-1 text-info-700">
+            <p className={`${typography.caption} mt-1 text-info-700`}>
               +{violations.length - 1} more {violations.length === 2 ? 'suggestion' : 'suggestions'}
             </p>
           )}
-          <p className="text-xs mt-1.5 text-info-600 font-medium">
+          <p className={`${typography.caption} mt-1.5 text-info-600 font-medium`}>
             This is advisory only — you can still run your analysis.
           </p>
           {onFixNow && (firstViolation.node_id || firstViolation.edge_id) && (
             <button
               onClick={() => onFixNow(firstViolation)}
-              className="mt-2 text-xs font-medium underline text-info-800 hover:text-info-900"
+              className={`mt-2 ${typography.caption} font-medium underline text-info-800 hover:text-info-900`}
               type="button"
             >
               View in canvas

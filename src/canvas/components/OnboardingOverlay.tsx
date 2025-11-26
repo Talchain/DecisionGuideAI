@@ -12,6 +12,7 @@
 import { useState, useEffect } from 'react'
 import { Layout, Zap, Keyboard, X } from 'lucide-react'
 import { useCanvasStore } from '../store'
+import { typography } from '../../styles/typography'
 
 const STORAGE_KEY = 'olumi-canvas-onboarding-dismissed'
 
@@ -116,7 +117,7 @@ export function OnboardingOverlay({
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900 mb-1">Browse templates</h3>
-                <p className="text-sm text-gray-600">
+                <p className={`${typography.body} text-gray-600`}>
                   Start with ready-made scenarios
                 </p>
               </div>
@@ -133,7 +134,7 @@ export function OnboardingOverlay({
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900 mb-1">Create from scratch</h3>
-                <p className="text-sm text-gray-600">
+                <p className={`${typography.body} text-gray-600`}>
                   Build your own decision graph
                 </p>
               </div>
@@ -150,7 +151,7 @@ export function OnboardingOverlay({
               </div>
               <div>
                 <h3 className="font-semibold text-gray-900 mb-1">Learn shortcuts</h3>
-                <p className="text-sm text-gray-600">
+                <p className={`${typography.body} text-gray-600`}>
                   Master keyboard navigation
                 </p>
               </div>
@@ -159,8 +160,8 @@ export function OnboardingOverlay({
 
           {/* Keyboard Shortcuts Legend */}
           <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">Essential shortcuts</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+            <h3 className={`${typography.label} text-gray-700 mb-3`}>Essential shortcuts</h3>
+            <div className={`grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 ${typography.body}`}>
               <ShortcutRow keys={['⌘', 'K']} action="Command palette" />
               <ShortcutRow keys={['⌘', 'T']} action="Browse templates" />
               <ShortcutRow keys={['⌘', 'Z']} action="Undo" />
@@ -174,7 +175,7 @@ export function OnboardingOverlay({
 
           {/* Footer */}
           <div className="flex items-center justify-between pt-4 border-t border-gray-200">
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+            <label className={`flex items-center gap-2 ${typography.body} text-gray-600 cursor-pointer`}>
               <input
                 type="checkbox"
                 checked={dontShowAgain}
@@ -185,7 +186,7 @@ export function OnboardingOverlay({
             </label>
             <button
               onClick={handleDismiss}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
+              className={`px-4 py-2 ${typography.label} text-gray-700 hover:text-gray-900 transition-colors`}
               type="button"
             >
               Skip
@@ -208,7 +209,7 @@ function ShortcutRow({ keys, action }: { keys: string[]; action: string }) {
         {keys.map((key, i) => (
           <kbd
             key={i}
-            className="px-2 py-1 text-xs font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded"
+            className={`px-2 py-1 ${typography.caption} font-semibold text-gray-700 bg-gray-100 border border-gray-300 rounded`}
           >
             {key}
           </kbd>

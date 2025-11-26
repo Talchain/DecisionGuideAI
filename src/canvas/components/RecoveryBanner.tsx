@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react'
 import { AlertCircle, X } from 'lucide-react'
 import { loadAutosave, clearAutosave, hasUnsavedWork } from '../store/scenarios'
 import { useCanvasStore } from '../store'
+import { typography } from '../../styles/typography'
 
 const DISMISSED_KEY = 'autosave-recovery-dismissed'
 
@@ -88,16 +89,16 @@ export function RecoveryBanner() {
       <div className="flex items-start gap-3 p-4 bg-warning-50 border-2 border-warning-500 rounded-lg shadow-panel">
         <AlertCircle className="w-5 h-5 text-warning-700 flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-warning-900">
+          <p className={`${typography.label} text-warning-900`}>
             Autosave recovery available
           </p>
-          <p className="text-sm text-warning-700 mt-1">
+          <p className={`${typography.body} text-warning-700 mt-1`}>
             We found a more recent autosave from {timeDisplay}. Would you like to recover it?
           </p>
           <div className="flex gap-2 mt-3">
             <button
               onClick={handleRecover}
-              className="px-3 py-1.5 text-sm font-medium text-white bg-warning-600 hover:bg-warning-700 rounded-lg transition-colors"
+              className={`px-3 py-1.5 ${typography.label} text-white bg-warning-600 hover:bg-warning-700 rounded-lg transition-colors`}
               data-testid="btn-recover-autosave"
               type="button"
             >
@@ -105,7 +106,7 @@ export function RecoveryBanner() {
             </button>
             <button
               onClick={handleDismiss}
-              className="px-3 py-1.5 text-sm font-medium text-warning-700 bg-white hover:bg-warning-100 border border-warning-300 rounded-lg transition-colors"
+              className={`px-3 py-1.5 ${typography.label} text-warning-700 bg-white hover:bg-warning-100 border border-warning-300 rounded-lg transition-colors`}
               data-testid="btn-dismiss-recovery"
               type="button"
             >

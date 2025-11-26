@@ -3,6 +3,7 @@ import { useCanvasStore } from '../store'
 import { exportCanvas as exportCanvasData, sanitizeLabel } from '../persist'
 import { useToast } from '../ToastContext'
 import { BottomSheet } from './BottomSheet'
+import { typography } from '../../styles/typography'
 
 interface ImportExportDialogProps {
   isOpen: boolean
@@ -303,7 +304,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
                   📁 Choose JSON File
                 </button>
                 {importFile && (
-                  <p className="text-sm text-gray-600 mt-2">Selected: {importFile.name}</p>
+                  <p className={`${typography.body} text-gray-600 mt-2`}>Selected: {importFile.name}</p>
                 )}
               </div>
 
@@ -313,7 +314,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
                   <h3 className="font-medium text-gray-900 mb-2">Validation Issues</h3>
                   <div className="space-y-1">
                     {validationIssues.map((issue, i) => (
-                      <div key={i} className={`text-sm flex items-start gap-2 ${issue.type === 'error' ? 'text-red-600' : 'text-yellow-600'}`}>
+                      <div key={i} className={`${typography.body} flex items-start gap-2 ${issue.type === 'error' ? 'text-red-600' : 'text-yellow-600'}`}>
                         <span>{issue.type === 'error' ? '❌' : '⚠️'}</span>
                         <span>{issue.message}</span>
                         {issue.fixable && <span className="text-green-600">(fixable)</span>}
@@ -348,7 +349,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
             <div className="space-y-4">
               {/* Export Format */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Export Format</label>
+                <label className={`block ${typography.label} text-gray-700 mb-2`}>Export Format</label>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 p-3 border border-gray-200 rounded-lg hover:border-[#EA7B4B] cursor-pointer">
                     <input
@@ -361,7 +362,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
                     />
                     <div>
                       <div className="font-medium">JSON</div>
-                      <div className="text-sm text-gray-500">Full canvas data (recommended)</div>
+                      <div className={`${typography.body} text-gray-500`}>Full canvas data (recommended)</div>
                     </div>
                   </label>
                   <label className="flex items-center gap-2 p-3 border border-gray-200 rounded-lg hover:border-[#EA7B4B] cursor-pointer">
@@ -375,7 +376,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
                     />
                     <div>
                       <div className="font-medium">PNG</div>
-                      <div className="text-sm text-gray-500">Raster image (for presentations)</div>
+                      <div className={`${typography.body} text-gray-500`}>Raster image (for presentations)</div>
                     </div>
                   </label>
                   <label className="flex items-center gap-2 p-3 border border-gray-200 rounded-lg hover:border-[#EA7B4B] cursor-pointer">
@@ -389,14 +390,14 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
                     />
                     <div>
                       <div className="font-medium">SVG</div>
-                      <div className="text-sm text-gray-500">Vector graphic (scalable)</div>
+                      <div className={`${typography.body} text-gray-500`}>Vector graphic (scalable)</div>
                     </div>
                   </label>
                 </div>
               </div>
 
               {/* Export Info */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+              <div className={`bg-blue-50 border border-blue-200 rounded-lg p-4 ${typography.body} text-blue-800`}>
                 <p><strong>Current canvas:</strong> {nodes.length} nodes, {edges.length} edges</p>
                 {exportFormat === 'json' && <p className="mt-1">File will be editable and re-importable</p>}
                 {exportFormat === 'png' && <p className="mt-1">File will be 2x resolution for clarity</p>}

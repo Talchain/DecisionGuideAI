@@ -76,7 +76,7 @@ export function VerdictCard({ verdict, objectiveText, outcomeValue, units }: Ver
       <p className={`${typography.body} ${config.textColor}`}>{bodyText}</p>
 
       {outcomeValue !== null && outcomeValue !== undefined && (
-        <div className={`text-sm ${config.textColor} opacity-75 mt-1`}>
+        <div className={`${typography.body} ${config.textColor} opacity-75 mt-1`}>
           Expected outcome: <span className="font-medium tabular-nums">{formattedValue}</span>
         </div>
       )}

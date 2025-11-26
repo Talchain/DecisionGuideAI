@@ -3,6 +3,7 @@ import { listSnapshots, loadSnapshot, deleteSnapshot, saveSnapshot } from '../pe
 import { useCanvasStore } from '../store'
 import { useToast } from '../ToastContext'
 import { BottomSheet } from './BottomSheet'
+import { typography } from '../../styles/typography'
 
 interface SnapshotManagerProps {
   isOpen: boolean
@@ -147,7 +148,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
             >
               💾 Save Current Canvas
             </button>
-            <p className="text-xs text-gray-500 mt-2">
+            <p className={`${typography.caption} text-gray-500 mt-2`}>
               {snapshots.length}/10 snapshots • Auto-rotates oldest
             </p>
           </div>
@@ -156,7 +157,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
             {snapshots.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
               <p>No snapshots yet</p>
-              <p className="text-sm mt-2">Save your current canvas to create a snapshot</p>
+              <p className={`${typography.body} mt-2`}>Save your current canvas to create a snapshot</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -191,7 +192,7 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
                   )}
 
                   {/* Metadata */}
-                  <div className="text-sm text-gray-500 mt-1 flex items-center gap-3">
+                  <div className={`${typography.body} text-gray-500 mt-1 flex items-center gap-3`}>
                     <span>{formatDate(snapshot.timestamp)}</span>
                     <span>•</span>
                     <span>{snapshot.nodeCount} nodes, {snapshot.edgeCount} edges</span>
@@ -203,31 +204,31 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
                   <div className="mt-3 flex items-center gap-2">
                     <button
                       onClick={() => handleRestore(snapshot.key)}
-                      className="px-3 py-1.5 text-sm bg-primary text-white rounded hover:bg-primary-hover transition-colors"
+                      className={`px-3 py-1.5 ${typography.body} bg-primary text-white rounded hover:bg-primary-hover transition-colors`}
                     >
                       Restore
                     </button>
                     <button
                       onClick={() => handleRename(snapshot.key)}
-                      className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                      className={`px-3 py-1.5 ${typography.body} bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors`}
                     >
                       Rename
                     </button>
                     <button
                       onClick={() => handleCopyJSON(snapshot.key)}
-                      className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                      className={`px-3 py-1.5 ${typography.body} bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors`}
                     >
                       Copy JSON
                     </button>
                     <button
                       onClick={() => handleDownloadJSON(snapshot.key)}
-                      className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                      className={`px-3 py-1.5 ${typography.body} bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors`}
                     >
                       Download
                     </button>
                     <button
                       onClick={() => handleDelete(snapshot.key)}
-                      className="ml-auto px-3 py-1.5 text-sm bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
+                      className={`ml-auto px-3 py-1.5 ${typography.body} bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors`}
                     >
                       Delete
                     </button>
