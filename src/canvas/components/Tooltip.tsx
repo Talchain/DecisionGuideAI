@@ -9,7 +9,7 @@
  * - Merges event handlers instead of clobbering
  */
 
-import { useState, cloneElement, useId, type ReactElement, type MouseEvent, type FocusEvent } from 'react'
+import { useState, cloneElement, useId, useEffect, type ReactElement, type MouseEvent, type FocusEvent, type KeyboardEvent } from 'react'
 import { typography } from '../../styles/typography'
 
 interface TooltipProps {
@@ -21,6 +21,20 @@ interface TooltipProps {
 export function Tooltip({ content, children, position = 'top' }: TooltipProps) {
   const [show, setShow] = useState(false)
   const tooltipId = useId()
+
+  // A11y: Dismiss tooltip on Escape key (WCAG 1.4.13 Content on Hover or Focus)
+  useEffect(() => {
+    if (!show) return
+
+    const handleEscape = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShow(false)
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [show])
 
   // Preserve and merge existing event handlers
   const originalOnMouseEnter = children.props.onMouseEnter
