@@ -887,6 +887,204 @@ it('slow-run message has proper accessibility attributes', async () => {
 
   vi.useRealTimers()
 })
+
+// P0 Engine Integration: IdentifiabilityBadge in Results tab
+describe('P0 Engine: IdentifiabilityBadge', () => {
+  it('renders IdentifiabilityBadge when model_card has identifiability_tag', () => {
+    const baseResults = useCanvasStore.getState().results
+    const fakeReport: any = {
+      results: {
+        conservative: 10,
+        likely: 20,
+        optimistic: 30,
+        units: 'percent',
+        unitSymbol: '%',
+      },
+      run: {
+        bands: { p10: 10, p50: 20, p90: 30 },
+      },
+      model_card: {
+        response_hash: 'abc123',
+        response_hash_algo: 'sha256',
+        normalized: true,
+        identifiability_tag: 'identifiable',
+      },
+    }
+
+    useCanvasStore.setState({
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'complete',
+        report: fakeReport,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    const badge = screen.getByTestId('identifiability-badge')
+    expect(badge).toBeInTheDocument()
+    expect(screen.getByText('Identifiable')).toBeInTheDocument()
+  })
+
+  it('renders underidentified status with amber styling', () => {
+    const baseResults = useCanvasStore.getState().results
+    const fakeReport: any = {
+      results: {
+        conservative: 10,
+        likely: 20,
+        optimistic: 30,
+        units: 'percent',
+        unitSymbol: '%',
+      },
+      run: {
+        bands: { p10: 10, p50: 20, p90: 30 },
+      },
+      model_card: {
+        response_hash: 'abc123',
+        response_hash_algo: 'sha256',
+        normalized: true,
+        identifiability_tag: 'underidentified',
+      },
+    }
+
+    useCanvasStore.setState({
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'complete',
+        report: fakeReport,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    const badge = screen.getByTestId('identifiability-badge')
+    expect(badge).toBeInTheDocument()
+    expect(screen.getByText('Under-identified')).toBeInTheDocument()
+    expect(badge).toHaveClass('bg-amber-50')
+  })
+
+  it('does NOT render IdentifiabilityBadge when identifiability_tag is absent', () => {
+    const baseResults = useCanvasStore.getState().results
+    const fakeReport: any = {
+      results: {
+        conservative: 10,
+        likely: 20,
+        optimistic: 30,
+        units: 'percent',
+        unitSymbol: '%',
+      },
+      run: {
+        bands: { p10: 10, p50: 20, p90: 30 },
+      },
+      model_card: {
+        response_hash: 'abc123',
+        response_hash_algo: 'sha256',
+        normalized: true,
+        // No identifiability_tag
+      },
+    }
+
+    useCanvasStore.setState({
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'complete',
+        report: fakeReport,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    expect(screen.queryByTestId('identifiability-badge')).not.toBeInTheDocument()
+  })
+
+  it('does NOT render IdentifiabilityBadge in pre-run state', () => {
+    useCanvasStore.setState({
+      hasCompletedFirstRun: false,
+      results: {
+        status: 'idle',
+        report: null,
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    expect(screen.queryByTestId('identifiability-badge')).not.toBeInTheDocument()
+  })
+})
+
+// P0 Engine Integration: EvidenceCoverage in Diagnostics tab
+describe('P0 Engine: EvidenceCoverage', () => {
+  it('renders EvidenceCoverage in Diagnostics tab when edges exist', () => {
+    // Set up edges with some having provenance
+    useCanvasStore.setState({
+      edges: [
+        { id: 'e1', source: 'n1', target: 'n2', data: { provenance: 'template' } },
+        { id: 'e2', source: 'n2', target: 'n3', data: { provenance: 'user input' } },
+        { id: 'e3', source: 'n3', target: 'n4', data: {} }, // No provenance
+      ],
+    } as any)
+
+    render(<OutputsDock />)
+
+    openDiagnosticsTab()
+
+    const coverage = screen.getByTestId('evidence-coverage-section')
+    expect(coverage).toBeInTheDocument()
+    expect(screen.getByText('Evidence coverage')).toBeInTheDocument()
+
+    // Should show compact coverage badge
+    const compact = screen.getByTestId('evidence-coverage-compact')
+    expect(compact).toBeInTheDocument()
+    expect(compact).toHaveTextContent('67%') // 2/3 edges have provenance
+  })
+
+  it('does NOT render EvidenceCoverage when no edges exist', () => {
+    useCanvasStore.setState({
+      edges: [],
+    } as any)
+
+    render(<OutputsDock />)
+
+    openDiagnosticsTab()
+
+    expect(screen.queryByTestId('evidence-coverage-section')).not.toBeInTheDocument()
+  })
+
+  it('shows 100% coverage when all edges have provenance', () => {
+    useCanvasStore.setState({
+      edges: [
+        { id: 'e1', source: 'n1', target: 'n2', data: { provenance: 'template' } },
+        { id: 'e2', source: 'n2', target: 'n3', data: { provenance: 'user' } },
+      ],
+    } as any)
+
+    render(<OutputsDock />)
+
+    openDiagnosticsTab()
+
+    const compact = screen.getByTestId('evidence-coverage-compact')
+    expect(compact).toHaveTextContent('100%')
+  })
+
+  it('shows 0% coverage when no edges have provenance', () => {
+    useCanvasStore.setState({
+      edges: [
+        { id: 'e1', source: 'n1', target: 'n2', data: {} },
+        { id: 'e2', source: 'n2', target: 'n3', data: { provenance: '' } }, // Empty string
+      ],
+    } as any)
+
+    render(<OutputsDock />)
+
+    openDiagnosticsTab()
+
+    const compact = screen.getByTestId('evidence-coverage-compact')
+    expect(compact).toHaveTextContent('0%')
+  })
+})
 function seedRunHistory(runs: StoredRun[]): void {
   localStorage.setItem(RUN_HISTORY_STORAGE_KEY, JSON.stringify(runs))
 }
