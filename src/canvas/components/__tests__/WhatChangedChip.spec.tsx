@@ -10,7 +10,7 @@ import { render, screen } from '@testing-library/react'
 import { WhatChangedChip } from '../WhatChangedChip'
 import { useCanvasStore } from '../../store'
 import * as runHistoryModule from '../../store/runHistory'
-import type { Node, Edge } from 'reactflow'
+import type { Node, Edge } from '@xyflow/react'
 import type { StoredRun } from '../../store/runHistory'
 
 // Mock loadRuns from runHistory
