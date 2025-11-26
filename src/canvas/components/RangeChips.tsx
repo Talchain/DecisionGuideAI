@@ -6,6 +6,7 @@
  */
 
 import { RANGE_TERMINOLOGY } from '../../config/terminology'
+import { typography } from '../../styles/typography'
 
 interface RangeChipsProps {
   conservative: number | null
