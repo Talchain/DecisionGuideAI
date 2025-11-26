@@ -84,11 +84,11 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
       return (
         <div className="py-6 text-center">
           <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-danger-500" />
-          <h3 className="text-lg font-medium text-ink-900 mb-2">Limits Unavailable</h3>
-          <p className="text-sm text-ink-900/70 mb-4">
+          <h3 className={`${typography.h4} text-ink-900 mb-2`}>Limits Unavailable</h3>
+          <p className={`${typography.body} text-ink-900/70 mb-4`}>
             {error.message}
           </p>
-          <p className="text-xs text-ink-900/60 mb-4">
+          <p className={`${typography.caption} text-ink-900/60 mb-4`}>
             Last attempt: {timestamp}
           </p>
           <button
@@ -106,7 +106,7 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
       return (
         <div className="py-12 text-center">
           <div className="w-8 h-8 mx-auto mb-4 border-4 border-info-200 border-t-info-600 rounded-full animate-spin" />
-          <p className="text-sm text-ink-900/70">Loading limits...</p>
+          <p className={`${typography.body} text-ink-900/70`}>Loading limits...</p>
         </div>
       )
     }
@@ -118,25 +118,25 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
       <div className="space-y-6">
         {/* Source Info */}
         <div className="flex items-center justify-between p-3 rounded-lg bg-paper-50 border border-sand-200">
-          <div className="flex items-center gap-2 text-sm">
+          <div className={`flex items-center gap-2 ${typography.body}`}>
             <Database className="w-4 h-4 text-ink-900/70" />
             <span className="text-ink-900/80">
               Source: <span className="font-medium text-ink-900">{source === 'live' ? 'Live' : 'Fallback'}</span>
             </span>
           </div>
-          <div className="text-xs text-ink-900/60">
+          <div className={`${typography.caption} text-ink-900/60`}>
             Fetched: {timestamp}
           </div>
         </div>
 
         {source === 'fallback' && (
           <div className="p-3 rounded-lg bg-warning-50 border border-warning-200">
-            <p className="text-sm text-warning-800">
+            <p className={`${typography.body} text-warning-800`}>
               Using fallback limits because the live endpoint is unavailable.
             </p>
             <button
               onClick={retry}
-              className="mt-2 text-sm text-warning-700 hover:text-warning-800 underline"
+              className={`mt-2 ${typography.body} text-warning-700 hover:text-warning-800 underline`}
             >
               Retry connection
             </button>
@@ -146,12 +146,12 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
         {limitsStatus && (
           <div className="p-3 rounded-lg bg-paper-50 border border-sand-200">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-ink-900">{limitsStatus.zoneLabel}</span>
+              <span className={`${typography.label} text-ink-900`}>{limitsStatus.zoneLabel}</span>
             </div>
-            <p className="mt-1 text-xs text-ink-900/70">
+            <p className={`mt-1 ${typography.caption} text-ink-900/70`}>
               {limitsStatus.message}
             </p>
-            <p className="mt-1 text-[11px] text-ink-900/60">
+            <p className={`mt-1 ${typography.caption} text-ink-900/60`} style={{ fontSize: '11px' }}>
               Current limits: up to {limits.nodes.max} nodes and {limits.edges.max} edges per run.
             </p>
           </div>
@@ -180,13 +180,13 @@ export function LimitsPanel({ isOpen, onClose, currentNodes, currentEdges }: Lim
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock className="w-5 h-5 text-ink-900/70" />
-                <span className="text-sm font-medium text-ink-900">Engine p95 Budget</span>
+                <span className={`${typography.label} text-ink-900`}>Engine p95 Budget</span>
               </div>
-              <div className="text-sm tabular-nums">
+              <div className={`${typography.body} tabular-nums`}>
                 <span className="font-semibold text-info-600">{limits.engine_p95_ms_budget}ms</span>
               </div>
             </div>
-            <p className="text-xs text-ink-900/70">
+            <p className={`${typography.caption} text-ink-900/70`}>
               Maximum expected execution time (95th percentile)
             </p>
           </div>
