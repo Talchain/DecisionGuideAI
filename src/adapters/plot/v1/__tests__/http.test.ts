@@ -110,7 +110,8 @@ describe('v1/http', () => {
           headers: expect.objectContaining({
             'Content-Type': 'application/json',
           }),
-          body: JSON.stringify(validRequest),
+          // detail_level defaults to 'quick' to stay under Netlify proxy timeout
+          body: JSON.stringify({ ...validRequest, detail_level: 'quick' }),
         })
       )
     })
