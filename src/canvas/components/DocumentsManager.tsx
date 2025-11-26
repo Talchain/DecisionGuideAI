@@ -9,6 +9,7 @@ import { FileText, Upload, Trash2, ExternalLink, Download, Edit2, Check, X, Sear
 import type { Document } from '../share/types'
 import { useCanvasStore } from '../store'
 import { validateDocumentName, type ValidationError } from '../store/documents'
+import { typography } from '../../styles/typography'
 
 interface DocumentsManagerProps {
   onUpload: (files: File[]) => void
@@ -106,8 +107,8 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
     <div className="h-full flex flex-col bg-paper-50">
       {/* Header */}
       <div className="px-4 py-3 border-b border-sand-200 bg-paper-50">
-        <h3 className="text-sm font-semibold text-ink-900">Documents</h3>
-        <p className="text-[11px] text-ink-900/70 mt-1">
+        <h3 className={`${typography.body} font-semibold text-ink-900`}>Documents</h3>
+        <p className={`${typography.caption} text-ink-900/70 mt-1`}>
           {documents.length} document{documents.length !== 1 ? 's' : ''}
           {searchQuery && filteredAndSorted.length !== documents.length && (
             <span> ({filteredAndSorted.length} filtered)</span>
@@ -126,7 +127,7 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
               placeholder="Search documents..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className={`w-full pl-9 pr-8 py-1.5 ${typography.body} border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
               aria-label="Search documents"
             />
             {searchQuery && (
@@ -141,7 +142,7 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
           </div>
 
           {/* Sort */}
-          <div className="flex items-center gap-2 text-xs">
+          <div className={`flex items-center gap-2 ${typography.caption}`}>
             <ArrowUpDown className="w-3 h-3 text-gray-500" aria-hidden="true" />
             <span className="text-gray-600">Sort by:</span>
             {(['name', 'date', 'size', 'type'] as const).map((field) => (
@@ -180,10 +181,10 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
         onDrop={handleDrop}
       >
         <Upload className="w-8 h-8 mx-auto mb-2 text-ink-900/50" aria-hidden="true" />
-        <p className="text-sm text-ink-900/80 mb-2">
+        <p className={`${typography.body} text-ink-900/80 mb-2`}>
           Drag and drop files here, or click to browse
         </p>
-        <label className="inline-block px-4 py-2 bg-info-500 text-white rounded-md cursor-pointer hover:bg-info-600 text-sm font-medium">
+        <label className={`inline-block px-4 py-2 bg-info-500 text-white rounded-md cursor-pointer hover:bg-info-600 ${typography.button}`}>
           Browse Files
           <input
             type="file"
@@ -194,7 +195,7 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
             data-testid="documents-file-input"
           />
         </label>
-        <p className="text-[11px] text-ink-900/60 mt-2">
+        <p className={`${typography.caption} text-ink-900/60 mt-2`}>
           Supports: PDF, TXT, MD, CSV (max 1MB each, 25K chars total)
         </p>
       </div>
@@ -206,8 +207,8 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sky-50">
               <FileText className="w-6 h-6 text-sky-600" aria-hidden="true" />
             </div>
-            <p className="text-sm font-medium">No documents yet</p>
-            <p className="mt-1 text-xs text-ink-900/60">
+            <p className={`${typography.body} font-medium`}>No documents yet</p>
+            <p className={`mt-1 ${typography.caption} text-ink-900/60`}>
               Attach research, specs, or data Olumi should consider.
             </p>
           </div>
@@ -216,8 +217,8 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-sand-50">
               <Search className="w-6 h-6 text-ink-900/50" aria-hidden="true" />
             </div>
-            <p className="text-sm font-medium">No documents match '{searchQuery}'</p>
-            <p className="mt-1 text-xs text-ink-900/60">Try a different search term</p>
+            <p className={`${typography.body} font-medium`}>No documents match '{searchQuery}'</p>
+            <p className={`mt-1 ${typography.caption} text-ink-900/60`}>Try a different search term</p>
           </div>
         ) : (
           filteredAndSorted.map((doc) => (
@@ -333,7 +334,7 @@ function DocumentCard({
                   onBlur={handleRename}
                   autoFocus
                   maxLength={120}
-                  className="flex-1 px-2 py-1 text-sm border border-blue-500 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className={`flex-1 px-2 py-1 ${typography.body} border border-blue-500 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none`}
                   aria-label={`Rename document ${document.name}`}
                   aria-invalid={!!validationError}
                   aria-describedby={validationError ? `error-${document.id}` : undefined}
@@ -372,11 +373,11 @@ function DocumentCard({
               )}
             </div>
           ) : (
-            <div className="font-medium text-sm text-gray-900 truncate">
+            <div className={`font-medium ${typography.body} text-gray-900 truncate`}>
               {document.name}
             </div>
           )}
-          <div className="flex items-center gap-2 mt-1 text-xs text-gray-600">
+          <div className={`flex items-center gap-2 mt-1 ${typography.caption} text-gray-600`}>
             <span className="uppercase">{document.type}</span>
             <span aria-hidden="true">•</span>
             <span>{formatSize(document.size)}</span>
@@ -398,7 +399,7 @@ function DocumentCard({
               {document.metadata.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs"
+                  className={`px-2 py-0.5 bg-gray-100 text-gray-700 rounded ${typography.caption}`}
                 >
                   {tag}
                 </span>

@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { Plus, X, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import type { DecisionRationale } from '../snapshots/types'
+import { typography } from '../../styles/typography'
 
 interface DecisionRationaleFormProps {
   snapshotId: string
@@ -87,7 +88,7 @@ export function DecisionRationaleForm({
     >
       {/* Title */}
       <div>
-        <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="title" className={`block ${typography.label} text-gray-700 mb-1`}>
           Decision Title *
         </label>
         <input
@@ -103,7 +104,7 @@ export function DecisionRationaleForm({
 
       {/* Reasoning */}
       <div>
-        <label htmlFor="reasoning" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="reasoning" className={`block ${typography.label} text-gray-700 mb-1`}>
           Reasoning *
         </label>
         <textarea
@@ -119,7 +120,7 @@ export function DecisionRationaleForm({
 
       {/* Pros */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Pros</label>
+        <label className={`block ${typography.label} text-gray-700 mb-1`}>Pros</label>
         <div className="space-y-2">
           {pros.map((pro, index) => (
             <div key={index} className="flex gap-2">
@@ -128,7 +129,7 @@ export function DecisionRationaleForm({
                 value={pro}
                 onChange={(e) => handleProChange(index, e.target.value)}
                 placeholder="Enter a positive aspect..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
               />
               <button
                 type="button"
@@ -142,7 +143,7 @@ export function DecisionRationaleForm({
           <button
             type="button"
             onClick={handleAddPro}
-            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+            className={`flex items-center gap-1 ${typography.body} text-blue-600 hover:text-blue-700`}
           >
             <Plus className="w-4 h-4" />
             Add Pro
@@ -152,7 +153,7 @@ export function DecisionRationaleForm({
 
       {/* Cons */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Cons</label>
+        <label className={`block ${typography.label} text-gray-700 mb-1`}>Cons</label>
         <div className="space-y-2">
           {cons.map((con, index) => (
             <div key={index} className="flex gap-2">
@@ -161,7 +162,7 @@ export function DecisionRationaleForm({
                 value={con}
                 onChange={(e) => handleConChange(index, e.target.value)}
                 placeholder="Enter a negative aspect..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
               />
               <button
                 type="button"
@@ -175,7 +176,7 @@ export function DecisionRationaleForm({
           <button
             type="button"
             onClick={handleAddCon}
-            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+            className={`flex items-center gap-1 ${typography.body} text-blue-600 hover:text-blue-700`}
           >
             <Plus className="w-4 h-4" />
             Add Con
@@ -185,7 +186,7 @@ export function DecisionRationaleForm({
 
       {/* Alternatives */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className={`block ${typography.label} text-gray-700 mb-1`}>
           Alternatives Considered (optional)
         </label>
         <div className="space-y-2">
@@ -196,7 +197,7 @@ export function DecisionRationaleForm({
                 value={alt}
                 onChange={(e) => handleAlternativeChange(index, e.target.value)}
                 placeholder="Enter an alternative option..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`flex-1 px-3 py-2 border border-gray-300 rounded-md ${typography.body} focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
               />
               <button
                 type="button"
@@ -210,7 +211,7 @@ export function DecisionRationaleForm({
           <button
             type="button"
             onClick={handleAddAlternative}
-            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+            className={`flex items-center gap-1 ${typography.body} text-blue-600 hover:text-blue-700`}
           >
             <Plus className="w-4 h-4" />
             Add Alternative
@@ -220,7 +221,7 @@ export function DecisionRationaleForm({
 
       {/* Decision status */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Decision Status *</label>
+        <label className={`block ${typography.label} text-gray-700 mb-2`}>Decision Status *</label>
         <div className="flex gap-3">
           {(['approved', 'rejected', 'pending'] as const).map((status) => (
             <label
@@ -240,7 +241,7 @@ export function DecisionRationaleForm({
                 className="hidden"
               />
               {decisionIcons[status]}
-              <span className="text-sm font-medium capitalize">{status}</span>
+              <span className={`${typography.body} font-medium capitalize`}>{status}</span>
             </label>
           ))}
         </div>
@@ -248,7 +249,7 @@ export function DecisionRationaleForm({
 
       {/* Decided by */}
       <div>
-        <label htmlFor="decidedBy" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="decidedBy" className={`block ${typography.label} text-gray-700 mb-1`}>
           Decided By (optional)
         </label>
         <input
