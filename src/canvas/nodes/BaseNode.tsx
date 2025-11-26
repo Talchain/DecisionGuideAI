@@ -47,8 +47,6 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
   // Phase 2: Badge system integration
   const { data: ceeInsights } = useCEEInsights()
   const { data: islValidation } = useISLValidation()
-  const setOutputsDockTab = useCanvasStore(s => s.setOutputsDockTab)
-  const setOutputsDockOpen = useCanvasStore(s => s.setOutputsDockOpen)
 
   // Phase 3: Node highlighting (Set for O(1) lookup)
   const highlightedNodes = useCanvasStore(s => s.highlightedNodes)
@@ -60,8 +58,32 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
   ) || false
 
   const handleBadgeClick = () => {
-    setOutputsDockTab('diagnostics')
-    setOutputsDockOpen(true)
+    // Open diagnostics tab in OutputsDock using DOM click pattern
+    // (Same approach as DegradedBanner.tsx for consistency)
+    try {
+      const btn = document.querySelector('[data-testid="outputs-dock-tab-diagnostics"]') as HTMLButtonElement | null
+      if (btn) {
+        btn.click()
+        btn.focus()
+        return
+      }
+      // Fallback: update sessionStorage so OutputsDock opens on next render
+      if (typeof sessionStorage !== 'undefined') {
+        const existingRaw = sessionStorage.getItem('canvas.outputsDock.v1')
+        let next: { isOpen: boolean; activeTab: string } = { isOpen: true, activeTab: 'diagnostics' }
+        if (existingRaw) {
+          try {
+            const parsed = JSON.parse(existingRaw)
+            next = { ...parsed, isOpen: true, activeTab: 'diagnostics' }
+          } catch {
+            // ignore parse errors
+          }
+        }
+        sessionStorage.setItem('canvas.outputsDock.v1', JSON.stringify(next))
+      }
+    } catch {
+      // noop - badge click is best-effort
+    }
   }
 
   // Phase 2: Uncertain node styling
