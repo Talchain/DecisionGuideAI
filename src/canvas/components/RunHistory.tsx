@@ -260,7 +260,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
 
               {isScenarioLastRun && scenarioTitle && (
                 <div
-                  className="mt-1 text-[11px] font-medium text-blue-700"
+                  className={`mt-1 ${typography.caption} font-medium text-blue-700`}
                   data-testid="run-history-scenario-last-run"
                 >
                   Last run for this decision
@@ -271,7 +271,7 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
               {run.isDuplicate && run.duplicateCount && (
                 <div className="mb-2">
                   <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-info-50 border border-info-200 text-info-700"
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 ${typography.caption} font-medium rounded-full bg-info-50 border border-info-200 text-info-700`}
                     title={`This result has been re-run ${run.duplicateCount} times with identical output`}
                   >
                     Re-run (identical × {run.duplicateCount})

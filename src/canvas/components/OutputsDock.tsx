@@ -827,7 +827,7 @@ function DiagnosticsTabBody({
       {/* Hint to show debug controls */}
       {!showDebug && (
         <p className={`${typography.caption} text-ink-900/50 pt-2 border-t border-sand-200`}>
-          Press <kbd className="px-1.5 py-0.5 bg-sand-100 rounded text-xs font-mono">Shift+D</kbd> for streaming diagnostics
+          Press <kbd className={`px-1.5 py-0.5 bg-sand-100 rounded ${typography.caption} font-mono`}>Shift+D</kbd> for streaming diagnostics
         </p>
       )}
     </div>

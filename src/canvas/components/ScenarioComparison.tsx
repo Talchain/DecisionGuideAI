@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { GitCompare, ChevronLeft, Download } from 'lucide-react'
 import type { Snapshot, ComparisonResult } from '../snapshots/types'
+import { typography } from '../../styles/typography'
 
 interface ScenarioComparisonProps {
   snapshotA: Snapshot
@@ -46,7 +47,7 @@ export function ScenarioComparison({
           <GitCompare className="w-5 h-5 text-blue-600" />
           <div>
             <h3 className="font-semibold text-gray-900">Compare Scenarios</h3>
-            <p className="text-xs text-gray-600">
+            <p className={`${typography.caption} text-gray-600`}>
               {snapshotA.name} vs {snapshotB.name}
             </p>
           </div>
@@ -56,7 +57,7 @@ export function ScenarioComparison({
           <div className="flex bg-gray-100 rounded-md p-0.5">
             <button
               onClick={() => setSelectedView('split')}
-              className={`px-3 py-1 text-xs font-medium rounded ${
+              className={`px-3 py-1 ${typography.caption} font-medium rounded ${
                 selectedView === 'split'
                   ? 'bg-white shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
@@ -66,7 +67,7 @@ export function ScenarioComparison({
             </button>
             <button
               onClick={() => setSelectedView('changes')}
-              className={`px-3 py-1 text-xs font-medium rounded ${
+              className={`px-3 py-1 ${typography.caption} font-medium rounded ${
                 selectedView === 'changes'
                   ? 'bg-white shadow-sm'
                   : 'text-gray-600 hover:text-gray-900'
@@ -79,7 +80,7 @@ export function ScenarioComparison({
           {onExport && (
             <button
               onClick={onExport}
-              className="flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700"
+              className={`flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded ${typography.button} hover:bg-blue-700`}
             >
               <Download className="w-4 h-4" />
               Export
@@ -89,7 +90,7 @@ export function ScenarioComparison({
       </div>
 
       {/* Stats bar */}
-      <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex gap-4 text-xs">
+      <div className={`px-4 py-2 bg-gray-50 border-b border-gray-200 flex gap-4 ${typography.caption}`}>
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full bg-green-500" />
           <span className="font-medium">{stats.added} added</span>
@@ -127,15 +128,15 @@ function SplitView({ snapshotA, snapshotB }: { snapshotA: Snapshot; snapshotB: S
       <div className="flex flex-col">
         <div className="px-4 py-2 bg-blue-50 border-b border-blue-200">
           <h4 className="font-medium text-blue-900">{snapshotA.name}</h4>
-          <p className="text-xs text-blue-700 mt-0.5">
+          <p className={`${typography.caption} text-blue-700 mt-0.5`}>
             {snapshotA.nodes.length} nodes, {snapshotA.edges.length} edges
           </p>
         </div>
         <div className="flex-1 overflow-auto p-4">
-          <div className="text-sm text-gray-600">
+          <div className={`${typography.body} text-gray-600`}>
             Graph visualization placeholder
             <br />
-            <span className="text-xs">
+            <span className={typography.caption}>
               {new Date(snapshotA.createdAt).toLocaleString()}
             </span>
           </div>
@@ -146,15 +147,15 @@ function SplitView({ snapshotA, snapshotB }: { snapshotA: Snapshot; snapshotB: S
       <div className="flex flex-col">
         <div className="px-4 py-2 bg-green-50 border-b border-green-200">
           <h4 className="font-medium text-green-900">{snapshotB.name}</h4>
-          <p className="text-xs text-green-700 mt-0.5">
+          <p className={`${typography.caption} text-green-700 mt-0.5`}>
             {snapshotB.nodes.length} nodes, {snapshotB.edges.length} edges
           </p>
         </div>
         <div className="flex-1 overflow-auto p-4">
-          <div className="text-sm text-gray-600">
+          <div className={`${typography.body} text-gray-600`}>
             Graph visualization placeholder
             <br />
-            <span className="text-xs">
+            <span className={typography.caption}>
               {new Date(snapshotB.createdAt).toLocaleString()}
             </span>
           </div>
@@ -171,18 +172,18 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
       {(comparison.added.nodes.length > 0 || comparison.added.edges.length > 0) && (
         <div className="border border-green-200 rounded-lg overflow-hidden">
           <div className="px-3 py-2 bg-green-50 border-b border-green-200">
-            <h4 className="font-medium text-green-900 text-sm">
+            <h4 className={`font-medium text-green-900 ${typography.body}`}>
               Added ({comparison.added.nodes.length + comparison.added.edges.length})
             </h4>
           </div>
           <div className="p-3 space-y-1">
             {comparison.added.nodes.map((node) => (
-              <div key={node.id} className="text-sm text-gray-700">
+              <div key={node.id} className={`${typography.body} text-gray-700`}>
                 + Node: {node.data.label || node.id}
               </div>
             ))}
             {comparison.added.edges.map((edge) => (
-              <div key={edge.id} className="text-sm text-gray-700">
+              <div key={edge.id} className={`${typography.body} text-gray-700`}>
                 + Edge: {edge.source} → {edge.target}
               </div>
             ))}
@@ -194,18 +195,18 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
       {(comparison.removed.nodes.length > 0 || comparison.removed.edges.length > 0) && (
         <div className="border border-red-200 rounded-lg overflow-hidden">
           <div className="px-3 py-2 bg-red-50 border-b border-red-200">
-            <h4 className="font-medium text-red-900 text-sm">
+            <h4 className={`font-medium text-red-900 ${typography.body}`}>
               Removed ({comparison.removed.nodes.length + comparison.removed.edges.length})
             </h4>
           </div>
           <div className="p-3 space-y-1">
             {comparison.removed.nodes.map((node) => (
-              <div key={node.id} className="text-sm text-gray-700">
+              <div key={node.id} className={`${typography.body} text-gray-700`}>
                 - Node: {node.data.label || node.id}
               </div>
             ))}
             {comparison.removed.edges.map((edge) => (
-              <div key={edge.id} className="text-sm text-gray-700">
+              <div key={edge.id} className={`${typography.body} text-gray-700`}>
                 - Edge: {edge.source} → {edge.target}
               </div>
             ))}
@@ -217,18 +218,18 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
       {(comparison.modified.nodes.length > 0 || comparison.modified.edges.length > 0) && (
         <div className="border border-yellow-200 rounded-lg overflow-hidden">
           <div className="px-3 py-2 bg-yellow-50 border-b border-yellow-200">
-            <h4 className="font-medium text-yellow-900 text-sm">
+            <h4 className={`font-medium text-yellow-900 ${typography.body}`}>
               Modified ({comparison.modified.nodes.length + comparison.modified.edges.length})
             </h4>
           </div>
           <div className="p-3 space-y-1">
             {comparison.modified.nodes.map((node) => (
-              <div key={node.id} className="text-sm text-gray-700">
+              <div key={node.id} className={`${typography.body} text-gray-700`}>
                 ~ Node: {node.data.label || node.id}
               </div>
             ))}
             {comparison.modified.edges.map((edge) => (
-              <div key={edge.id} className="text-sm text-gray-700">
+              <div key={edge.id} className={`${typography.body} text-gray-700`}>
                 ~ Edge: {edge.source} → {edge.target}
               </div>
             ))}

@@ -365,7 +365,7 @@ function DocumentCard({
               {validationError && (
                 <div
                   id={`error-${document.id}`}
-                  className="text-xs text-red-600"
+                  className={`${typography.caption} text-red-600`}
                   role="alert"
                 >
                   {validationError.message}

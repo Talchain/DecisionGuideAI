@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useSettingsStore } from '../settingsStore'
+import { typography } from '../../styles/typography'
 
 export function SettingsPanel() {
   const [isOpen, setIsOpen] = useState(false)
@@ -49,7 +50,7 @@ export function SettingsPanel() {
       <div className="space-y-4">
         {/* Grid Toggle */}
         <label className="flex items-center justify-between cursor-pointer">
-          <span className="text-sm font-medium text-gray-700">Show Grid</span>
+          <span className={`${typography.label} text-gray-700`}>Show Grid</span>
           <input
             type="checkbox"
             checked={showGrid}
@@ -61,7 +62,7 @@ export function SettingsPanel() {
         {/* Grid Size Slider */}
         {showGrid && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className={`block ${typography.label} text-gray-700 mb-2`}>
               Grid Size: {gridSize}px
             </label>
             <input
@@ -73,7 +74,7 @@ export function SettingsPanel() {
               onChange={(e) => setGridSize(Number(e.target.value) as 8 | 16 | 24)}
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
             />
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <div className={`flex justify-between ${typography.caption} text-gray-500 mt-1`}>
               <span>8px</span>
               <span>16px</span>
               <span>24px</span>
@@ -83,7 +84,7 @@ export function SettingsPanel() {
 
         {/* Snap to Grid */}
         <label className="flex items-center justify-between cursor-pointer">
-          <span className="text-sm font-medium text-gray-700">Snap to Grid</span>
+          <span className={`${typography.label} text-gray-700`}>Snap to Grid</span>
           <input
             type="checkbox"
             checked={snapToGrid}
@@ -94,7 +95,7 @@ export function SettingsPanel() {
 
         {/* Alignment Guides */}
         <label className="flex items-center justify-between cursor-pointer">
-          <span className="text-sm font-medium text-gray-700">Alignment Guides</span>
+          <span className={`${typography.label} text-gray-700`}>Alignment Guides</span>
           <input
             type="checkbox"
             checked={showAlignmentGuides}
@@ -105,7 +106,7 @@ export function SettingsPanel() {
 
         {/* High Contrast */}
         <label className="flex items-center justify-between cursor-pointer">
-          <span className="text-sm font-medium text-gray-700">High Contrast Mode</span>
+          <span className={`${typography.label} text-gray-700`}>High Contrast Mode</span>
           <input
             type="checkbox"
             checked={highContrastMode}
