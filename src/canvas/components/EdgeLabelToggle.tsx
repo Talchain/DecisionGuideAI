@@ -15,6 +15,7 @@
 
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { Type, Binary } from 'lucide-react'
+import { typography } from '../../styles/typography'
 
 interface EdgeLabelToggleProps {
   className?: string
@@ -41,7 +42,7 @@ export function EdgeLabelToggle({ className = '', showLabel = true }: EdgeLabelT
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       {showLabel && (
-        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+        <span className={`${typography.caption} font-medium text-gray-700 dark:text-gray-300`}>
           Edge labels:
         </span>
       )}
@@ -68,7 +69,7 @@ export function EdgeLabelToggle({ className = '', showLabel = true }: EdgeLabelT
         )}
 
         {/* Mode label */}
-        <span className="text-xs font-medium text-gray-900 dark:text-gray-100">
+        <span className={`${typography.caption} font-medium text-gray-900 dark:text-gray-100`}>
           {mode === 'human' ? 'Human' : 'Numeric'}
         </span>
 

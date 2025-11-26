@@ -16,6 +16,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { Wifi, WifiOff, AlertTriangle, HelpCircle } from 'lucide-react'
 import { probeCapability, clearProbeCache, type ProbeResult } from '../../adapters/plot/v1/probe'
+import { typography } from '../../styles/typography'
 
 export type ConnectivityStatus = 'ok' | 'degraded' | 'offline' | 'unknown'
 
@@ -182,7 +183,7 @@ export function ConnectivityChip({ className = '', showLabel = true, onStatusCha
     >
       <config.Icon className="w-4 h-4" aria-hidden="true" />
       {showLabel && (
-        <span className="text-xs font-medium">
+        <span className={`${typography.caption} font-medium`}>
           {config.label}
           {nextRetryIn !== null && <span className="ml-1">({nextRetryIn}s)</span>}
         </span>
