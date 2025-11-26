@@ -377,7 +377,11 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         clearTimeout(validationTimerRef.current)
       }
     }
-  }, [nodes, edges, validateGraph]) // Re-run when graph structure changes
+    // NOTE: validateGraph intentionally omitted from deps - Zustand store actions
+    // are stable by design. Including it here caused React #185 infinite loops
+    // because the async function's reference could change on store updates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nodes, edges])
 
   const handleNodeClick = useCallback((_: any, node: any) => {
     // Close Templates panel when interacting with canvas
