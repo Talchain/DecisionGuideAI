@@ -64,7 +64,7 @@ import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnable
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 
-type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only'
+type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare'
 
 function getCanvasDebugMode(): CanvasDebugMode {
   if (typeof window === 'undefined') return 'normal'
@@ -73,7 +73,7 @@ function getCanvasDebugMode(): CanvasDebugMode {
     const fromQuery = url.searchParams.get('canvasDebug')
     const fromStorage = window.localStorage ? window.localStorage.getItem('CANVAS_DEBUG_MODE') : null
     const raw = (fromQuery || fromStorage || '').toLowerCase()
-    if (raw === 'blank' || raw === 'no-reactflow' || raw === 'rf-only') return raw as CanvasDebugMode
+    if (raw === 'blank' || raw === 'no-reactflow' || raw === 'rf-only' || raw === 'rf-bare') return raw as CanvasDebugMode
     return 'normal'
   } catch {
     return 'normal'
@@ -1014,6 +1014,60 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           }}
         >
           RF-ONLY MODE: ReactFlow without handlers (no toolbar/overlays)
+        </div>
+      </div>
+    )
+  }
+
+  // Canvas debug mode: 'rf-bare' renders ReactFlow with completely empty
+  // arrays and NO custom node/edge types. This isolates whether the loop
+  // is in our custom components vs ReactFlow itself.
+  if (debugMode === 'rf-bare') {
+    logCanvasBreadcrumb('mode:rf-bare', {})
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: 'var(--topbar-h)',
+            bottom: 'var(--bottombar-h)',
+            left: 0,
+            right: 0,
+          }}
+        >
+          <ReactFlow
+            nodes={[]}
+            edges={[]}
+            fitView
+            minZoom={0.1}
+            maxZoom={4}
+            // NOTE: No nodeTypes, edgeTypes, handlers - completely bare ReactFlow
+          >
+            <Background variant={BackgroundVariant.Dots} gap={20} />
+          </ReactFlow>
+        </div>
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(var(--topbar-h) + 8px)',
+            left: '8px',
+            padding: '4px 8px',
+            background: 'rgba(220, 38, 38, 0.9)',
+            color: 'white',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+            fontWeight: 500,
+            zIndex: 1000,
+          }}
+        >
+          RF-BARE MODE: Empty ReactFlow (no nodes/edges/types)
         </div>
       </div>
     )
