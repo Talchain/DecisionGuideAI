@@ -230,10 +230,11 @@ async function runSyncOnce(
     const idempotencyKey = request.idempotencyKey || request.clientHash
 
     // Build wire payload without idempotencyKey field (header-only in v1 API)
-    // NOTE: detail_level parameter NOT yet supported by backend (returns BAD_INPUT)
-    // Once backend enables it, uncomment: detail_level: request.detail_level ?? 'quick',
+    // detail_level: 'quick' keeps analysis under Netlify's 26s proxy timeout
+    // 'quick' → K=16 samples, ~5-10s | 'standard' → K=32, ~15-25s | 'deep' → K=64, ~30-45s
     const requestForBody: V1RunRequest = {
       ...request,
+      detail_level: request.detail_level ?? 'quick',
       idempotencyKey: undefined,
     }
 
