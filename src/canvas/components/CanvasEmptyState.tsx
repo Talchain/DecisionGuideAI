@@ -55,9 +55,9 @@ export function CanvasEmptyState({ onDraft, onTemplate }: CanvasEmptyStateProps)
             Quick tips:
           </p>
           <ul className={`${typography.bodySmall} text-ink-900/60 space-y-1`}>
-            <li>• Press <kbd className="px-1.5 py-0.5 bg-sand-200 rounded text-xs font-mono">T</kbd> for templates</li>
-            <li>• Press <kbd className="px-1.5 py-0.5 bg-sand-200 rounded text-xs font-mono">R</kbd> to run analysis</li>
-            <li>• Press <kbd className="px-1.5 py-0.5 bg-sand-200 rounded text-xs font-mono">?</kbd> for help</li>
+            <li>• Press <kbd className={`px-1.5 py-0.5 bg-sand-200 rounded ${typography.caption} font-mono`}>T</kbd> for templates</li>
+            <li>• Press <kbd className={`px-1.5 py-0.5 bg-sand-200 rounded ${typography.caption} font-mono`}>R</kbd> to run analysis</li>
+            <li>• Press <kbd className={`px-1.5 py-0.5 bg-sand-200 rounded ${typography.caption} font-mono`}>?</kbd> for help</li>
           </ul>
         </div>
       </div>

@@ -93,7 +93,7 @@ export function NodeBadge({ nodeId, ceeWarnings, islAffected, onClick }: NodeBad
           title={badge.label}
           className={`
             w-6 h-6 rounded-full bg-white border-2 ${getBorderClass(badge.color)}
-            flex items-center justify-center text-xs shadow-sm
+            flex items-center justify-center ${typography.caption} shadow-sm
             hover:scale-110 transition-transform cursor-pointer
           `}
         >
