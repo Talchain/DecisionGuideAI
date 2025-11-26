@@ -40,6 +40,30 @@ export const NODE_TERMINOLOGY: Record<string, TerminologyMapping> = {
 }
 
 /**
+ * Range/band terminology mappings
+ * Standardized to Downside/Expected/Upside across all surfaces
+ */
+export const RANGE_TERMINOLOGY = {
+  conservative: {
+    userLabel: 'Downside',
+    technicalTerm: 'Conservative (10th percentile)',
+    description: 'Lower-bound estimate, accounting for unfavorable scenarios',
+  },
+  likely: {
+    userLabel: 'Expected',
+    technicalTerm: 'Most Likely (50th percentile)',
+    description: 'Median outcome, most probable result',
+  },
+  optimistic: {
+    userLabel: 'Upside',
+    technicalTerm: 'Optimistic (90th percentile)',
+    description: 'Upper-bound estimate, accounting for favorable scenarios',
+  },
+} as const
+
+export type RangeKey = keyof typeof RANGE_TERMINOLOGY
+
+/**
  * Get user-friendly label for a technical term
  */
 export function getUserLabel(technicalKey: string): string {

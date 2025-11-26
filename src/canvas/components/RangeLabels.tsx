@@ -2,10 +2,11 @@
  * RangeLabels Component
  *
  * Provides user-friendly labels for outcome ranges.
- * Part of Phase 1A.3 for improved range terminology.
+ * Uses standardized Downside/Expected/Upside terminology.
  */
 
 import { typography } from '../../styles/typography'
+import { RANGE_TERMINOLOGY } from '../../config/terminology'
 import { Info } from 'lucide-react'
 import { useState } from 'react'
 
@@ -14,24 +15,6 @@ interface RangeLabelsProps {
   likely: string
   optimistic: string
   showTooltips?: boolean
-}
-
-const RANGE_TERMINOLOGY = {
-  conservative: {
-    userLabel: 'Cautious',
-    technicalTerm: 'Conservative (10th percentile)',
-    description: 'Lower-bound estimate, accounting for unfavorable scenarios',
-  },
-  likely: {
-    userLabel: 'Expected',
-    technicalTerm: 'Most Likely (50th percentile)',
-    description: 'Median outcome, most probable result',
-  },
-  optimistic: {
-    userLabel: 'Favorable',
-    technicalTerm: 'Optimistic (90th percentile)',
-    description: 'Upper-bound estimate, accounting for favorable scenarios',
-  },
 }
 
 export function RangeLabels({

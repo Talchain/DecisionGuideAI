@@ -46,6 +46,7 @@ import { isDecisionReviewEnabled } from '../../flags'
 import { getObjectiveText, getGoalDirection } from '../utils/getObjectiveText'
 import { computeDelta, deriveVerdict } from '../utils/interpretOutcome'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
+import { RANGE_TERMINOLOGY } from '../../config/terminology'
 
 type OutputsDockTab = 'results' | 'insights' | 'compare' | 'diagnostics'
 
@@ -990,9 +991,9 @@ interface OutcomeSummaryProps {
 
 function OutcomeSummary({ label, run, bands }: OutcomeSummaryProps) {
   const cells = [
-    { label: 'Conservative', value: bands.p10 },
-    { label: 'Most likely', value: bands.p50 },
-    { label: 'Optimistic', value: bands.p90 },
+    { label: RANGE_TERMINOLOGY.conservative.userLabel, value: bands.p10 },
+    { label: RANGE_TERMINOLOGY.likely.userLabel, value: bands.p50 },
+    { label: RANGE_TERMINOLOGY.optimistic.userLabel, value: bands.p90 },
   ]
 
   return (

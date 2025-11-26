@@ -29,7 +29,7 @@ export const typography = {
   labelSmall: 'text-xs font-medium font-sans leading-normal',
   caption: 'text-xs font-sans leading-normal',
 
-  // Interactive - Inter (buttons now use Inter, not League Spartan)
+  // Interactive - Inter
   button: 'text-sm font-semibold font-sans leading-none',
   buttonSmall: 'text-xs font-semibold font-sans leading-none',
   link: 'text-sm font-medium font-sans underline hover:no-underline',

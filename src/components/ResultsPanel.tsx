@@ -1,6 +1,8 @@
 // src/components/ResultsPanel.tsx
 // Right panel showing scenario results and thresholds
 
+import { RANGE_TERMINOLOGY } from '../config/terminology'
+
 interface ResultsPanelProps {
   flowResult: any
   isLiveData: boolean
@@ -11,9 +13,9 @@ interface ResultsPanelProps {
 // Mini chart component for scenario visualization
 function ScenarioChart({ results }: { results: any }) {
   const scenarios = [
-    { key: 'conservative', label: 'Conservative', color: 'bg-amber-400', textColor: 'text-amber-900' },
-    { key: 'most_likely', label: 'Most Likely', color: 'bg-indigo-400', textColor: 'text-indigo-900' },
-    { key: 'optimistic', label: 'Optimistic', color: 'bg-teal-400', textColor: 'text-teal-900' }
+    { key: 'conservative', label: RANGE_TERMINOLOGY.conservative.userLabel, color: 'bg-amber-400', textColor: 'text-amber-900' },
+    { key: 'most_likely', label: RANGE_TERMINOLOGY.likely.userLabel, color: 'bg-indigo-400', textColor: 'text-indigo-900' },
+    { key: 'optimistic', label: RANGE_TERMINOLOGY.optimistic.userLabel, color: 'bg-teal-400', textColor: 'text-teal-900' }
   ]
 
   // Extract numeric values
@@ -100,7 +102,7 @@ export default function ResultsPanel({ flowResult, isLiveData, biases, biasesSou
             <div className="space-y-2">
               {flowResult.results.conservative && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-2">
-                  <div className="text-[10px] font-semibold text-amber-900 mb-0.5">Conservative</div>
+                  <div className="text-[10px] font-semibold text-amber-900 mb-0.5">{RANGE_TERMINOLOGY.conservative.userLabel}</div>
                   <div className="text-sm font-bold text-amber-900">
                     {flowResult.results.conservative.cost_delta || flowResult.results.conservative.value}
                   </div>
@@ -116,7 +118,7 @@ export default function ResultsPanel({ flowResult, isLiveData, biases, biasesSou
 
               {flowResult.results.most_likely && (
                 <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-2">
-                  <div className="text-[10px] font-semibold text-indigo-900 mb-0.5">Most Likely</div>
+                  <div className="text-[10px] font-semibold text-indigo-900 mb-0.5">{RANGE_TERMINOLOGY.likely.userLabel}</div>
                   <div className="text-sm font-bold text-indigo-900">
                     {flowResult.results.most_likely.cost_delta || flowResult.results.most_likely.value}
                   </div>
@@ -132,7 +134,7 @@ export default function ResultsPanel({ flowResult, isLiveData, biases, biasesSou
 
               {flowResult.results.optimistic && (
                 <div className="bg-teal-50 border border-teal-200 rounded-lg p-2">
-                  <div className="text-[10px] font-semibold text-teal-900 mb-0.5">Optimistic</div>
+                  <div className="text-[10px] font-semibold text-teal-900 mb-0.5">{RANGE_TERMINOLOGY.optimistic.userLabel}</div>
                   <div className="text-sm font-bold text-teal-900">
                     {flowResult.results.optimistic.cost_delta || flowResult.results.optimistic.value}
                   </div>
