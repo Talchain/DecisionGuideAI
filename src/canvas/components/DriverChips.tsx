@@ -14,6 +14,7 @@ import { ChevronUp, ChevronDown } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { findDriverMatches, type Driver, type DriverMatch } from '../utils/driverMatching'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
+import { typography } from '../../styles/typography'
 
 interface DriverChipsProps {
   drivers: Array<{ label: string; polarity: 'up' | 'down' | 'neutral'; strength: 'low' | 'medium' | 'high' }>
@@ -167,7 +168,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
       aria-label="Key drivers"
       tabIndex={0}
     >
-      <h4 className="text-sm font-semibold text-gray-900">
+      <h4 className={`${typography.body} font-semibold text-gray-900`}>
         Key Drivers
       </h4>
       {driverList.map((driver, index) => {
@@ -196,10 +197,10 @@ export function DriverChips({ drivers }: DriverChipsProps) {
             aria-label={`Driver: ${driver.label}, ${matchCount} match${matchCount !== 1 ? 'es' : ''}`}
           >
             <div className="flex-1">
-              <div className="text-sm font-medium text-gray-900">
+              <div className={`${typography.body} font-medium text-gray-900`}>
                 {driver.label}
               </div>
-              <div className="text-xs text-gray-400">
+              <div className={`${typography.caption} text-gray-400`}>
                 {reportDriver.strength} impact
               </div>
             </div>
@@ -208,7 +209,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
             {matchCount > 0 && (
               <div className="flex items-center gap-1">
                 <div
-                  className={`px-2 py-1 rounded text-xs font-medium ${
+                  className={`px-2 py-1 rounded ${typography.caption} font-medium ${
                     matches[0].matchType === 'id'
                       ? 'bg-green-100 text-green-600'
                       : 'bg-yellow-100 text-yellow-600'
@@ -233,7 +234,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
 
             {matchCount === 0 && (
               <div
-                className="px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-600"
+                className={`px-2 py-1 rounded ${typography.caption} font-medium bg-red-100 text-red-600`}
                 title="No matches found on canvas"
               >
                 Not found
@@ -243,7 +244,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
         )
       })}
 
-      <div className="text-xs text-gray-400">
+      <div className={`${typography.caption} text-gray-400`}>
         Hover or click to highlight • ↑↓ to navigate • Enter to focus
       </div>
     </div>
