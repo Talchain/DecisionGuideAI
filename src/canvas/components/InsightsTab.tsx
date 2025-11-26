@@ -92,7 +92,7 @@ export function InsightsTabBody() {
               </span>
             </div>
 
-            <div className="flex items-center gap-4 text-sm">
+            <div className={`flex items-center gap-4 ${typography.body}`}>
               <span className={`${typography.bodySmall} text-ink-900/70`}>
                 {data.bias_findings.filter(b => b.severity === 'high').length} high-priority biases
               </span>
@@ -227,7 +227,7 @@ function TransportabilitySection() {
 
           {data.requiredAssumptions.length > 0 && (
             <div className="mt-2">
-              <p className={`${typography.label} text-sm mb-1`}>Verify:</p>
+              <p className={`${typography.label} mb-1`}>Verify:</p>
               <ul className={`${typography.bodySmall} list-disc list-inside space-y-0.5`}>
                 {data.requiredAssumptions.map((assumption, i) => (
                   <li key={i}>{assumption}</li>
@@ -238,7 +238,7 @@ function TransportabilitySection() {
 
           {data.missingData.length > 0 && (
             <div className="mt-2">
-              <p className={`${typography.label} text-sm mb-1`}>Missing data:</p>
+              <p className={`${typography.label} mb-1`}>Missing data:</p>
               <ul className={`${typography.bodySmall} list-disc list-inside space-y-0.5`}>
                 {data.missingData.map((item, i) => (
                   <li key={i}>{item}</li>
@@ -249,7 +249,7 @@ function TransportabilitySection() {
 
           {data.adaptations.length > 0 && (
             <div className="mt-2">
-              <p className={`${typography.label} text-sm mb-1`}>Recommended adaptations:</p>
+              <p className={`${typography.label} mb-1`}>Recommended adaptations:</p>
               <div className="space-y-1">
                 {data.adaptations.map((adaptation, i) => (
                   <div key={i} className={`${typography.bodySmall}`}>
@@ -298,7 +298,7 @@ function BiasCard({ bias, checked, expanded, onToggle, onExpand }: BiasCardProps
 
           {quickFix && (
             <div className="flex items-start gap-2 p-2 bg-sky-50 rounded">
-              <span className="text-sm">💡</span>
+              <span className={typography.body}>💡</span>
               <div className="flex-1">
                 <p className={`${typography.bodySmall} text-sky-800`}>
                   Quick fix ({quickFix.estimatedMinutes} min): {quickFix.action}

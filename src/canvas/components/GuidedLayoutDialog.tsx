@@ -9,6 +9,7 @@ import { useToast } from '../ToastContext'
 import { BottomSheet } from './BottomSheet'
 import type { LayoutPolicy, RiskPlacement } from '../layout/policy'
 import { DEFAULT_LAYOUT_POLICY } from '../layout/policy'
+import { typography } from '../../styles/typography'
 
 interface GuidedLayoutDialogProps {
   isOpen: boolean
@@ -95,13 +96,13 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
       <div className="space-y-6" onKeyDown={handleKeyDown}>
         {/* Direction */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className={`block ${typography.label} text-gray-700 mb-2`}>
             Direction
           </label>
           <div className="flex gap-2" role="group" aria-label="Layout direction">
             <button
               onClick={() => setDirection('LR')}
-              className={`flex-1 px-3 py-2 text-sm rounded transition-colors ${
+              className={`flex-1 px-3 py-2 ${typography.body} rounded transition-colors ${
                 direction === 'LR'
                   ? 'bg-primary text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -113,7 +114,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
             </button>
             <button
               onClick={() => setDirection('TB')}
-              className={`flex-1 px-3 py-2 text-sm rounded transition-colors ${
+              className={`flex-1 px-3 py-2 ${typography.body} rounded transition-colors ${
                 direction === 'TB'
                   ? 'bg-primary text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -128,7 +129,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
         
         {/* Spacing */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className={`block ${typography.label} text-gray-700 mb-2`}>
             Spacing
           </label>
           <div className="flex gap-2" role="group" aria-label="Node spacing">
@@ -136,7 +137,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
               <button
                 key={preset}
                 onClick={() => setSpacing(preset)}
-                className={`flex-1 px-3 py-2 text-sm rounded transition-colors ${
+                className={`flex-1 px-3 py-2 ${typography.body} rounded transition-colors ${
                   spacing === preset
                     ? 'bg-primary text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -152,7 +153,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
         
         {/* Semantic Toggles */}
         <div className="space-y-3">
-          <label className="block text-sm font-medium text-gray-700">
+          <label className={`block ${typography.label} text-gray-700`}>
             Semantics
           </label>
           
@@ -164,7 +165,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
               className="w-4 h-4 text-primary rounded focus:ring-2 focus:ring-primary"
               data-testid="toggle-goals-first"
             />
-            <span className="text-sm text-gray-700">Place Goals first</span>
+            <span className={`${typography.body} text-gray-700`}>Place Goals first</span>
           </label>
           
           <label className="flex items-center gap-2 cursor-pointer">
@@ -175,11 +176,11 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
               className="w-4 h-4 text-primary rounded focus:ring-2 focus:ring-primary"
               data-testid="toggle-outcomes-last"
             />
-            <span className="text-sm text-gray-700">Place Outcomes last</span>
+            <span className={`${typography.body} text-gray-700`}>Place Outcomes last</span>
           </label>
           
           <div>
-            <label className="block text-sm text-gray-700 mb-2">
+            <label className={`block ${typography.body} text-gray-700 mb-2`}>
               Keep Risks near their source
             </label>
             <div className="flex gap-2" role="group" aria-label="Risk placement">
@@ -187,7 +188,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
                 <button
                   key={placement}
                   onClick={() => setRiskPlacement(placement)}
-                  className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${
+                  className={`flex-1 px-2 py-1 ${typography.caption} rounded transition-colors ${
                     riskPlacement === placement
                       ? 'bg-primary text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -212,13 +213,13 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
               className="w-4 h-4 text-primary rounded focus:ring-2 focus:ring-primary"
               data-testid="toggle-respect-locked"
             />
-            <span className="text-sm text-gray-700">Respect locked node positions</span>
+            <span className={`${typography.body} text-gray-700`}>Respect locked node positions</span>
           </label>
         </div>
         
         {/* Helper text when < 2 nodes */}
         {!canApply && (
-          <div className="text-sm text-gray-500 bg-gray-50 p-3 rounded">
+          <div className={`${typography.body} text-gray-500 bg-gray-50 p-3 rounded`}>
             Add at least two nodes to apply layout
           </div>
         )}
@@ -227,7 +228,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
         <div className="flex gap-2 pt-2 border-t border-gray-200">
           <button
             onClick={handleCancel}
-            className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+            className={`flex-1 px-4 py-2 ${typography.button} text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors`}
             data-testid="guided-cancel"
           >
             Cancel
@@ -235,7 +236,7 @@ export function GuidedLayoutDialog({ isOpen, onClose }: GuidedLayoutDialogProps)
           <button
             onClick={handleApply}
             disabled={!canApply}
-            className={`flex-1 px-4 py-2 text-sm font-medium rounded transition-colors ${
+            className={`flex-1 px-4 py-2 ${typography.button} rounded transition-colors ${
               canApply
                 ? 'bg-primary text-white hover:bg-primary-hover'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
