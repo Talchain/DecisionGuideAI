@@ -397,18 +397,28 @@ async function runSyncOnce(
 
     return result
   } catch (err) {
+    // P2.3: Include requestId in all thrown errors for debugging
+    const requestId = options?.requestId || crypto.randomUUID()
+
     if (err instanceof Error && err.name === 'AbortError') {
       throw {
         code: 'TIMEOUT',
         message: `Request timed out after ${timeoutMs}ms`,
+        requestId,
       } as V1Error
     }
     if ((err as any).code) {
-      throw err // Already a V1Error
+      // Already a V1Error - add requestId if not present
+      const v1Err = err as V1Error
+      if (!v1Err.requestId) {
+        v1Err.requestId = requestId
+      }
+      throw v1Err
     }
     throw {
       code: 'NETWORK_ERROR',
       message: err instanceof Error ? err.message : String(err),
+      requestId,
     } as V1Error
   } finally {
     clearTimeout(timeoutId)
