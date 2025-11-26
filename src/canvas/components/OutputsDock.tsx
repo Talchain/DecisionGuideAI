@@ -268,21 +268,41 @@ export function OutputsDock() {
     } catch {}
   }, [setState])
 
+  // MERGED EFFECT: Handles both resultsStatus and showResultsPanel dock opening
+  // Fix for React #185: Previously two separate effects could cascade and cause infinite loops.
+  // Now unified with ref-based debounce to prevent rapid state updates.
+  const lastDockOpenRef = useRef<number>(0)
+
   useEffect(() => {
-    // When results are running, complete, or error, ensure the dock is open on the Results tab.
-    // Guard against infinite update loops by only updating when the state actually changes.
-    if (resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming' || resultsStatus === 'complete' || resultsStatus === 'error') {
-      setState(prev => {
-        if (prev.isOpen && prev.activeTab === 'results') {
-          return prev
-        }
-        return { ...prev, isOpen: true, activeTab: 'results' }
-      })
+    // Determine if dock should open based on either trigger
+    const shouldOpenForResults =
+      resultsStatus === 'preparing' ||
+      resultsStatus === 'connecting' ||
+      resultsStatus === 'streaming' ||
+      resultsStatus === 'complete' ||
+      resultsStatus === 'error'
+
+    const shouldOpen = shouldOpenForResults || showResultsPanel
+
+    if (!shouldOpen) return
+
+    // Debounce: prevent rapid updates within 50ms (React #185 fix)
+    const now = Date.now()
+    if (now - lastDockOpenRef.current < 50) {
+      return
     }
-    // We intentionally depend only on resultsStatus. setState from useDockState is stable
-    // (useCallback with empty deps) and does not need to be in the dependency array.
+    lastDockOpenRef.current = now
+
+    setState(prev => {
+      // Guard: only update if state actually needs to change
+      if (prev.isOpen && prev.activeTab === 'results') {
+        return prev // No change needed
+      }
+      return { ...prev, isOpen: true, activeTab: 'results' }
+    })
+    // We intentionally depend on both triggers. setState from useDockState is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resultsStatus])
+  }, [resultsStatus, showResultsPanel])
 
   // Phase 2 Sprint 1B: Track elapsed time and show slow-run messages at 20s/40s
   // Cleanup ensures timers are always cleared on unmount or status change
@@ -321,24 +341,6 @@ export function OutputsDock() {
   }, [resultsStatus])
 
   useEffect(() => {
-    // When global Results visibility is toggled on (e.g. via toolbar, keyboard, or palette),
-    // ensure the dock is open on the Results tab. We intentionally do not collapse the dock
-    // when the flag is false to preserve the user's dock layout preferences.
-    // Guard against infinite update loops by only updating when a change is needed.
-    if (showResultsPanel) {
-      setState(prev => {
-        if (prev.isOpen && prev.activeTab === 'results') {
-          return prev
-        }
-        return { ...prev, isOpen: true, activeTab: 'results' }
-      })
-    }
-    // We intentionally depend only on showResultsPanel. setState from useDockState is stable
-    // (useCallback with empty deps) and does not need to be in the dependency array.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showResultsPanel])
-
-  useEffect(() => {
     if (typeof document === 'undefined') return
     const root = document.documentElement
     const value = state.isOpen ? 'var(--dock-right-expanded)' : 'var(--dock-right-collapsed)'
@@ -372,11 +374,11 @@ export function OutputsDock() {
       // Keep showResultsPanel in sync primarily for highlighting & telemetry when
       // the dock is explicitly opened or closed. Schedule the store update on a
       // microtask to avoid cascading updates during the same render cycle.
+      // Guard: Only update store if value actually changes (React #185 fix)
       Promise.resolve().then(() => {
-        if (!nextIsOpen) {
-          setShowResultsPanel(false)
-        } else if (prev.activeTab === 'results') {
-          setShowResultsPanel(true)
+        const shouldShowResults = nextIsOpen && prev.activeTab === 'results'
+        if (shouldShowResults !== showResultsPanel) {
+          setShowResultsPanel(shouldShowResults)
         }
       })
       return { ...prev, isOpen: nextIsOpen }
@@ -388,10 +390,10 @@ export function OutputsDock() {
 
     // Treat the Results tab as the canonical "results visible" state for
     // highlight overlays and results-viewed telemetry.
-    if (tab === 'results') {
-      setShowResultsPanel(true)
-    } else {
-      setShowResultsPanel(false)
+    // Guard: Only update store if value actually changes (React #185 fix)
+    const shouldShowResults = tab === 'results'
+    if (shouldShowResults !== showResultsPanel) {
+      setShowResultsPanel(shouldShowResults)
     }
 
     if (tab === 'compare') {
