@@ -64,7 +64,7 @@ import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnable
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 
-type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare'
+type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal'
 
 function getCanvasDebugMode(): CanvasDebugMode {
   if (typeof window === 'undefined') return 'normal'
@@ -73,7 +73,7 @@ function getCanvasDebugMode(): CanvasDebugMode {
     const fromQuery = url.searchParams.get('canvasDebug')
     const fromStorage = window.localStorage ? window.localStorage.getItem('CANVAS_DEBUG_MODE') : null
     const raw = (fromQuery || fromStorage || '').toLowerCase()
-    if (raw === 'blank' || raw === 'no-reactflow' || raw === 'rf-only' || raw === 'rf-bare') return raw as CanvasDebugMode
+    if (raw === 'blank' || raw === 'no-reactflow' || raw === 'rf-only' || raw === 'rf-bare' || raw === 'rf-minimal') return raw as CanvasDebugMode
     return 'normal'
   } catch {
     return 'normal'
@@ -1374,7 +1374,75 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   )
 }
 
+/**
+ * RF-MINIMAL: A truly minimal ReactFlow component with NO hooks, NO state,
+ * NO effects. This bypasses ReactFlowGraphInner entirely to isolate whether
+ * the React #185 loop is in ReactFlow itself vs our hooks/effects.
+ *
+ * If rf-minimal crashes: The loop is in ReactFlow internals or our Provider setup.
+ * If rf-minimal works: The loop is in our hooks/effects inside ReactFlowGraphInner.
+ */
+function ReactFlowMinimal() {
+  // NO hooks, NO state - just render ReactFlow with absolutely nothing
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div
+        style={{
+          position: 'absolute',
+          top: 'var(--topbar-h)',
+          bottom: 'var(--bottombar-h)',
+          left: 0,
+          right: 0,
+        }}
+      >
+        <ReactFlow
+          nodes={[]}
+          edges={[]}
+          fitView
+          minZoom={0.1}
+          maxZoom={4}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={20} />
+        </ReactFlow>
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          top: 'calc(var(--topbar-h) + 8px)',
+          left: '8px',
+          padding: '4px 8px',
+          background: 'rgba(16, 185, 129, 0.9)',
+          color: 'white',
+          borderRadius: '4px',
+          fontSize: '11px',
+          fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+          fontWeight: 500,
+          zIndex: 1000,
+        }}
+      >
+        RF-MINIMAL: Bypassed ReactFlowGraphInner (no hooks/effects)
+      </div>
+    </div>
+  )
+}
+
 export default function ReactFlowGraph(props: ReactFlowGraphProps) {
+  // Check debug mode BEFORE entering the complex component tree
+  const debugMode = getCanvasDebugMode()
+
+  // RF-MINIMAL: Bypass the entire ReactFlowGraphInner to test if the loop
+  // is in our hooks vs ReactFlow itself
+  if (debugMode === 'rf-minimal') {
+    logCanvasBreadcrumb('mode:rf-minimal', {})
+    return (
+      <CanvasErrorBoundary>
+        <ReactFlowProvider>
+          <ReactFlowMinimal />
+        </ReactFlowProvider>
+      </CanvasErrorBoundary>
+    )
+  }
+
   return (
     <CanvasErrorBoundary>
       <ToastProvider>
