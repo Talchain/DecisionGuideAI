@@ -957,6 +957,68 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     )
   }
 
+  // Canvas debug mode: 'rf-only' renders ReactFlow WITHOUT any handlers
+  // to isolate whether the React #185 loop is in node/edge components
+  // vs the event handlers (onNodesChange, onSelectionChange, etc.)
+  if (debugMode === 'rf-only') {
+    logCanvasBreadcrumb('mode:rf-only', {
+      nodes: memoizedNodes.length,
+      edges: memoizedEdges.length,
+    })
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: 'var(--topbar-h)',
+            bottom: 'var(--bottombar-h)',
+            left: 0,
+            right: 0,
+          }}
+        >
+          <ReactFlow
+            nodes={memoizedNodes}
+            edges={memoizedEdges}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            defaultEdgeOptions={defaultEdgeOpts}
+            fitView
+            minZoom={0.1}
+            maxZoom={4}
+            // NOTE: No handlers passed - this isolates whether the loop is in
+            // node/edge components vs the handlers
+          >
+            <Background variant={showGrid ? BackgroundVariant.Dots : BackgroundVariant.Lines} gap={gridSize} />
+            <MiniMap style={miniMapStyle} />
+          </ReactFlow>
+        </div>
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(var(--topbar-h) + 8px)',
+            left: '8px',
+            padding: '4px 8px',
+            background: 'rgba(251, 191, 36, 0.9)',
+            color: '#78350f',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+            fontWeight: 500,
+            zIndex: 1000,
+          }}
+        >
+          RF-ONLY MODE: ReactFlow without handlers (no toolbar/overlays)
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       style={{
