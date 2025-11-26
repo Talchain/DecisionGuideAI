@@ -11,7 +11,7 @@
 import { useCanvasStore } from '../store'
 import { loadRuns } from '../store/runHistory'
 import { useMemo } from 'react'
-import type { Node, Edge } from 'reactflow'
+import type { Node, Edge } from '@xyflow/react'
 import { typography } from '../../styles/typography'
 
 interface GraphDiff {

@@ -38,7 +38,8 @@ export function InsightsPanel({
 }: InsightsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
-  const { summary, risks, next_steps } = insights
+  // P0.3: Provide defaults to prevent crashes when backend omits risks/next_steps
+  const { summary, risks = [], next_steps = [] } = insights
 
   const hasDetails = risks.length > 0 || next_steps.length > 0
 
@@ -171,7 +172,8 @@ export function InsightsSummaryCompact({
   insights,
   className = '',
 }: Pick<InsightsPanelProps, 'insights' | 'className'>) {
-  const { summary, risks, next_steps } = insights
+  // P0.3: Provide defaults to prevent crashes when backend omits risks/next_steps
+  const { summary, risks = [], next_steps = [] } = insights
   const detailsCount = risks.length + next_steps.length
 
   return (

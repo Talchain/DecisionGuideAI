@@ -49,7 +49,7 @@ import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { RANGE_TERMINOLOGY } from '../../config/terminology'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
 import { EvidenceCoverageCompact } from './EvidenceCoverage'
-import { DecisionReadinessBadge } from './DecisionReadinessBadge'
+import { DecisionReadinessBadge, mapConfidenceToReadiness } from './DecisionReadinessBadge'
 import { ModelQualityScore } from './ModelQualityScore'
 import { InsightsPanel } from './InsightsPanel'
 
@@ -194,7 +194,13 @@ export function OutputsDock() {
 
   // Phase 1A.1: Objective text and goal direction for verdict features
   const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
   const framing = useCanvasStore(s => s.currentScenarioFraming)
+
+  // P0.2: Compute evidence coverage from local edge provenance for consistency
+  // This ensures Results and Diagnostics tabs show the same numbers
+  const totalEdges = edges.length
+  const evidencedEdges = edges.filter(e => e.data?.provenance && e.data.provenance.trim() !== '').length
   const objectiveText = getObjectiveText({ framing, nodes })
   const goalDirection = getGoalDirection(framing)
 
@@ -576,22 +582,27 @@ export function OutputsDock() {
                     <IdentifiabilityBadge status={normalizedStatus} />
                   )
                 })()}
-                {/* Sprint N P0: Decision Readiness Badge */}
-                {!isPreRun && report?.decision_readiness && (
-                  <DecisionReadinessBadge
-                    readiness={report.decision_readiness}
-                    identifiability={normalizeIdentifiabilityTag(report?.model_card?.identifiability_tag) ?? undefined}
-                    evidenceCoverage={
-                      report.graph_quality?.evidence_coverage !== undefined
-                        ? {
-                            // Convert 0-1 ratio to estimated counts for display
-                            evidencedCount: Math.round(report.graph_quality.evidence_coverage * 10),
-                            totalCount: 10,
-                          }
-                        : undefined
-                    }
-                  />
-                )}
+                {/* Sprint N P0: Decision Readiness Badge - derive from confidence.level */}
+                {(() => {
+                  if (isPreRun) return null
+                  const readiness = mapConfidenceToReadiness(report?.confidence)
+                  if (!readiness) return null
+                  return (
+                    <DecisionReadinessBadge
+                      readiness={readiness}
+                      identifiability={normalizeIdentifiabilityTag(report?.model_card?.identifiability_tag) ?? undefined}
+                      evidenceCoverage={
+                        // P0.2: Use local edge provenance for consistency with Diagnostics tab
+                        totalEdges > 0
+                          ? {
+                              evidencedCount: evidencedEdges,
+                              totalCount: totalEdges,
+                            }
+                          : undefined
+                      }
+                    />
+                  )
+                })()}
                 {/* Sprint N P0: Model Quality Score */}
                 {!isPreRun && report?.graph_quality && (
                   <ModelQualityScore quality={report.graph_quality} />

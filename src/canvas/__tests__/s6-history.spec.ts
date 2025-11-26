@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useCanvasStore } from '../store'
-import type { Node, Edge } from 'reactflow'
+import type { Node, Edge } from '@xyflow/react'
 
 describe('S6-HISTORY: Undo/Redo with Analysis Integration', () => {
   beforeEach(() => {
