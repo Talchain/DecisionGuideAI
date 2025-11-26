@@ -14,43 +14,44 @@ import { useLimitsStore } from './stores/limitsStore'
 import ErrorBoundary from './components/ErrorBoundary'
 import Navbar from './components/navigation/Navbar'
 
+// Core components (always needed)
 import LandingPage from './components/LandingPage'
-import About from './components/About'
 import AuthLayout from './components/navigation/AuthLayout'
 import LoginForm from './components/auth/LoginForm'
 import SignUpForm from './components/auth/SignUpForm'
 import ForgotPasswordForm from './components/auth/ForgotPasswordForm'
 import ResetPasswordForm from './components/auth/ResetPasswordForm'
-import ProfileForm from './components/auth/ProfileForm'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import LoadingSpinner from './components/LoadingSpinner'
-
-import DecisionList from './components/decisions/DecisionList'
-import DecisionForm from './components/decisions/DecisionForm'
 import AuthNavigationGuard from './components/auth/AuthNavigationGuard'
-
-import MyTeams from './components/teams/MyTeams'
-import TeamDetails from './components/teams/TeamDetails'    // ← Newly added import
-
-import DecisionTypeSelector from './components/DecisionTypeSelector'
-import DecisionDetails from './components/DecisionDetails'
-import ImportanceSelector from './components/ImportanceSelector'
-import ReversibilitySelector from './components/ReversibilitySelector'
-import GoalClarificationScreen from './components/GoalClarificationScreen'
-import OptionsIdeation from './components/OptionsIdeation'
-import CriteriaForm from './components/CriteriaForm'
-import Analysis from './components/Analysis'
-
 import SandboxStreamPanel from './components/SandboxStreamPanel'
-import GhostPanel from './plotLite/GhostPanel'
 import { DecisionProvider } from './contexts/DecisionContext'
 import { TeamsProvider }  from './contexts/TeamsContext'
 import { TemplatesErrorBoundary } from './routes/templates/TemplatesErrorBoundary'
 
-// Lazy load heavy routes for code splitting
+// Lazy load heavy routes for code splitting (P1.2 Bundle Optimization)
 const LazySandboxStreamPanel = lazy(() => import('./components/SandboxStreamPanel'))
 const LazySandboxV1 = lazy(() => import('./routes/SandboxV1'))
 const DecisionTemplates = lazy(() => import('./routes/templates/DecisionTemplates').then(m => ({ default: m.DecisionTemplates })))
+
+// Lazy load protected routes
+const About = lazy(() => import('./components/About'))
+const ProfileForm = lazy(() => import('./components/auth/ProfileForm'))
+const DecisionList = lazy(() => import('./components/decisions/DecisionList'))
+const DecisionForm = lazy(() => import('./components/decisions/DecisionForm'))
+const MyTeams = lazy(() => import('./components/teams/MyTeams'))
+const TeamDetails = lazy(() => import('./components/teams/TeamDetails'))
+const GhostPanel = lazy(() => import('./plotLite/GhostPanel'))
+
+// Lazy load decision flow components (only needed when going through flow)
+const DecisionTypeSelector = lazy(() => import('./components/DecisionTypeSelector'))
+const DecisionDetails = lazy(() => import('./components/DecisionDetails'))
+const ImportanceSelector = lazy(() => import('./components/ImportanceSelector'))
+const ReversibilitySelector = lazy(() => import('./components/ReversibilitySelector'))
+const GoalClarificationScreen = lazy(() => import('./components/GoalClarificationScreen'))
+const OptionsIdeation = lazy(() => import('./components/OptionsIdeation'))
+const CriteriaForm = lazy(() => import('./components/CriteriaForm'))
+const Analysis = lazy(() => import('./components/Analysis'))
 
 export default function App() {
   const location = useLocation()
@@ -124,7 +125,11 @@ export default function App() {
                 <Routes>
                   {/* Public */}
                   <Route path="/" element={<LandingPage />} />
-                  <Route path="/about" element={<About />} />
+                  <Route path="/about" element={
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <About />
+                    </Suspense>
+                  } />
                   <Route
                     path="/sandbox"
                     element={
@@ -141,7 +146,11 @@ export default function App() {
                       </Suspense>
                     }
                   />
-                  <Route path="/ghost" element={<GhostPanel />} />
+                  <Route path="/ghost" element={
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <GhostPanel />
+                    </Suspense>
+                  } />
 
                   {/* Auth */}
                   <Route element={<AuthLayout />}>
@@ -157,50 +166,52 @@ export default function App() {
                     />
                   </Route>
 
-                  {/* Decision Flow */}
+                  {/* Decision Flow (lazy loaded) */}
                   {(authenticated || hasValidAccess) && (
                     <>
                       <Route
                         path="/decision"
-                        element={<DecisionTypeSelector />}
+                        element={<Suspense fallback={<LoadingSpinner />}><DecisionTypeSelector /></Suspense>}
                       />
                       <Route
                         path="/decision/details"
-                        element={<DecisionDetails />}
+                        element={<Suspense fallback={<LoadingSpinner />}><DecisionDetails /></Suspense>}
                       />
                       <Route
                         path="/decision/importance"
-                        element={<ImportanceSelector />}
+                        element={<Suspense fallback={<LoadingSpinner />}><ImportanceSelector /></Suspense>}
                       />
                       <Route
                         path="/decision/reversibility"
-                        element={<ReversibilitySelector />}
+                        element={<Suspense fallback={<LoadingSpinner />}><ReversibilitySelector /></Suspense>}
                       />
                       <Route
                         path="/decision/goals"
-                        element={<GoalClarificationScreen />}
+                        element={<Suspense fallback={<LoadingSpinner />}><GoalClarificationScreen /></Suspense>}
                       />
                       <Route
                         path="/decision/options"
-                        element={<OptionsIdeation />}
+                        element={<Suspense fallback={<LoadingSpinner />}><OptionsIdeation /></Suspense>}
                       />
                       <Route
                         path="/decision/criteria"
-                        element={<CriteriaForm />}
+                        element={<Suspense fallback={<LoadingSpinner />}><CriteriaForm /></Suspense>}
                       />
                       <Route
                         path="/decision/analysis"
-                        element={<Analysis />}
+                        element={<Suspense fallback={<LoadingSpinner />}><Analysis /></Suspense>}
                       />
                     </>
                   )}
 
-                  {/* Protected */}
+                  {/* Protected (lazy loaded) */}
                   <Route
                     path="/decisions"
                     element={
                       <ProtectedRoute>
-                        <DecisionList />
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <DecisionList />
+                        </Suspense>
                       </ProtectedRoute>
                     }
                   />
@@ -208,17 +219,21 @@ export default function App() {
                     path="/decisions/new"
                     element={
                       <ProtectedRoute>
-                        <DecisionForm />
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <DecisionForm />
+                        </Suspense>
                       </ProtectedRoute>
                     }
                   />
 
-                  {/* Teams listing and details */}
+                  {/* Teams listing and details (lazy loaded) */}
                   <Route
                     path="/teams"
                     element={
                       <ProtectedRoute>
-                        <MyTeams />
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <MyTeams />
+                        </Suspense>
                       </ProtectedRoute>
                     }
                   />
@@ -226,7 +241,9 @@ export default function App() {
                     path="/teams/:teamId"
                     element={
                       <ProtectedRoute>
-                        <TeamDetails />
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <TeamDetails />
+                        </Suspense>
                       </ProtectedRoute>
                     }
                   />
@@ -235,7 +252,9 @@ export default function App() {
                     path="/profile"
                     element={
                       <ProtectedRoute>
-                        <ProfileForm />
+                        <Suspense fallback={<LoadingSpinner />}>
+                          <ProfileForm />
+                        </Suspense>
                       </ProtectedRoute>
                     }
                   />
