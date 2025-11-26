@@ -64,7 +64,7 @@ import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnable
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 
-type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg'
+type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg' | 'provider-only' | 'no-provider'
 
 function getCanvasDebugMode(): CanvasDebugMode {
   if (typeof window === 'undefined') return 'normal'
@@ -73,7 +73,7 @@ function getCanvasDebugMode(): CanvasDebugMode {
     const fromQuery = url.searchParams.get('canvasDebug')
     const fromStorage = window.localStorage ? window.localStorage.getItem('CANVAS_DEBUG_MODE') : null
     const raw = (fromQuery || fromStorage || '').toLowerCase()
-    const validModes = ['blank', 'no-reactflow', 'rf-only', 'rf-bare', 'rf-minimal', 'rf-empty', 'rf-no-fitview', 'rf-no-bg']
+    const validModes = ['blank', 'no-reactflow', 'rf-only', 'rf-bare', 'rf-minimal', 'rf-empty', 'rf-no-fitview', 'rf-no-bg', 'provider-only', 'no-provider']
     if (validModes.includes(raw)) return raw as CanvasDebugMode
     return 'normal'
   } catch {
@@ -1464,9 +1464,81 @@ function ReactFlowNoBg() {
   )
 }
 
+/**
+ * PROVIDER-ONLY: ReactFlowProvider with just a div (no ReactFlow component)
+ * Tests: Is the loop in ReactFlowProvider itself?
+ */
+function ProviderOnlyContent() {
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div
+        style={{
+          position: 'absolute',
+          top: 'var(--topbar-h)',
+          bottom: 'var(--bottombar-h)',
+          left: 0,
+          right: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#f8fafc',
+          border: '2px dashed #cbd5e1',
+        }}
+      >
+        <span style={{ color: '#64748b', fontSize: '14px' }}>
+          ReactFlowProvider active, no ReactFlow component
+        </span>
+      </div>
+      <DebugLabel mode="PROVIDER-ONLY: ReactFlowProvider with div child" color="rgba(59, 130, 246, 0.9)" />
+    </div>
+  )
+}
+
 export default function ReactFlowGraph(props: ReactFlowGraphProps) {
   // Check debug mode BEFORE entering the complex component tree
   const debugMode = getCanvasDebugMode()
+
+  // NO-PROVIDER: Render WITHOUT ReactFlowProvider to test if provider is the issue
+  if (debugMode === 'no-provider') {
+    logCanvasBreadcrumb('mode:no-provider', {})
+    return (
+      <CanvasErrorBoundary>
+        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+          <div
+            style={{
+              position: 'absolute',
+              top: 'var(--topbar-h)',
+              bottom: 'var(--bottombar-h)',
+              left: 0,
+              right: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: '#fef2f2',
+              border: '2px dashed #fca5a5',
+            }}
+          >
+            <span style={{ color: '#dc2626', fontSize: '14px' }}>
+              NO ReactFlowProvider - just CanvasErrorBoundary + div
+            </span>
+          </div>
+          <DebugLabel mode="NO-PROVIDER: No ReactFlowProvider at all" color="rgba(220, 38, 38, 0.9)" />
+        </div>
+      </CanvasErrorBoundary>
+    )
+  }
+
+  // PROVIDER-ONLY: ReactFlowProvider with div child (no ReactFlow component)
+  if (debugMode === 'provider-only') {
+    logCanvasBreadcrumb('mode:provider-only', {})
+    return (
+      <CanvasErrorBoundary>
+        <ReactFlowProvider>
+          <ProviderOnlyContent />
+        </ReactFlowProvider>
+      </CanvasErrorBoundary>
+    )
+  }
 
   // RF-* modes: Bypass ReactFlowGraphInner entirely to isolate ReactFlow issues
   // Each mode tests a specific hypothesis about what's causing React #185
