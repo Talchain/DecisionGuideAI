@@ -70,7 +70,19 @@ function getCanvasDebugMode(): CanvasDebugMode {
   if (typeof window === 'undefined') return 'normal'
   try {
     const url = new URL(window.location.href)
-    const fromQuery = url.searchParams.get('canvasDebug')
+    // Check standard query params first (e.g., ?canvasDebug=rf-empty#/canvas)
+    let fromQuery = url.searchParams.get('canvasDebug')
+
+    // For hash-based routing, also check query params in the hash
+    // e.g., #/canvas?canvasDebug=rf-empty
+    if (!fromQuery && url.hash.includes('?')) {
+      const hashQuery = url.hash.split('?')[1]
+      if (hashQuery) {
+        const hashParams = new URLSearchParams(hashQuery)
+        fromQuery = hashParams.get('canvasDebug')
+      }
+    }
+
     const fromStorage = window.localStorage ? window.localStorage.getItem('CANVAS_DEBUG_MODE') : null
     const raw = (fromQuery || fromStorage || '').toLowerCase()
     const validModes = ['blank', 'no-reactflow', 'rf-only', 'rf-bare', 'rf-minimal', 'rf-empty', 'rf-no-fitview', 'rf-no-bg', 'provider-only', 'no-provider']
