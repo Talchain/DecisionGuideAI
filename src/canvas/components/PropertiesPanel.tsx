@@ -5,6 +5,7 @@
 import { NodeInspector } from '../ui/NodeInspector'
 import { EdgeInspector } from '../ui/EdgeInspector'
 import { useCanvasStore } from '../store'
+import { typography } from '../../styles/typography'
 
 export function PropertiesPanel() {
   const selection = useCanvasStore(s => s.selection)
@@ -21,6 +22,6 @@ export function PropertiesPanel() {
   if (edgeId) return wrapper(<EdgeInspector edgeId={edgeId} onClose={() => {}} />)
 
   return wrapper(
-    <p className="text-sm text-gray-600">Select a node or edge to edit its details.</p>
+    <p className={`${typography.body} text-gray-600`}>Select a node or edge to edit its details.</p>
   )
 }

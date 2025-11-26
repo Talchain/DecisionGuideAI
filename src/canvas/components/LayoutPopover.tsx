@@ -4,6 +4,7 @@ import { useToast } from '../ToastContext'
 import type { LayoutPreset, LayoutSpacing } from '../layout/types'
 import { BottomSheet } from './BottomSheet'
 import { GuidedLayoutDialog } from './GuidedLayoutDialog'
+import { typography } from '../../styles/typography'
 
 export function LayoutPopover() {
   const [isOpen, setIsOpen] = useState(false)
@@ -51,33 +52,33 @@ export function LayoutPopover() {
         <div className="space-y-4">
           {/* Presets */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Layout Style</label>
+            <label className={`block ${typography.label} text-gray-700 mb-2`}>Layout Style</label>
             <div className="space-y-2">
-              <button onClick={() => handleApplyLayout('grid')} className="w-full px-3 py-2 text-left text-sm bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-colors" data-testid="layout-preset-grid">
+              <button onClick={() => handleApplyLayout('grid')} className={`w-full px-3 py-2 text-left ${typography.body} bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-colors`} data-testid="layout-preset-grid">
                 <div className="font-medium">📊 Neat Grid</div>
-                <div className="text-xs text-gray-500">Arrange in rows and columns</div>
+                <div className={`${typography.caption} text-gray-500`}>Arrange in rows and columns</div>
               </button>
-              <button onClick={() => handleApplyLayout('hierarchy')} className="w-full px-3 py-2 text-left text-sm bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-colors" data-testid="layout-preset-hierarchy">
+              <button onClick={() => handleApplyLayout('hierarchy')} className={`w-full px-3 py-2 text-left ${typography.body} bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-colors`} data-testid="layout-preset-hierarchy">
                 <div className="font-medium">🌳 Hierarchy</div>
-                <div className="text-xs text-gray-500">Top-down tree structure</div>
+                <div className={`${typography.caption} text-gray-500`}>Top-down tree structure</div>
               </button>
-              <button onClick={() => handleApplyLayout('flow')} className="w-full px-3 py-2 text-left text-sm bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-colors" data-testid="layout-preset-flow">
+              <button onClick={() => handleApplyLayout('flow')} className={`w-full px-3 py-2 text-left ${typography.body} bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-colors`} data-testid="layout-preset-flow">
                 <div className="font-medium">➡️ Flow</div>
-                <div className="text-xs text-gray-500">Left-to-right flow</div>
+                <div className={`${typography.caption} text-gray-500`}>Left-to-right flow</div>
               </button>
-              <button onClick={handleGuidedLayout} className="w-full px-3 py-2 text-left text-sm bg-carrot-500/10 hover:bg-carrot-500/20 rounded border border-carrot-500/30 transition-colors">
+              <button onClick={handleGuidedLayout} className={`w-full px-3 py-2 text-left ${typography.body} bg-carrot-500/10 hover:bg-carrot-500/20 rounded border border-carrot-500/30 transition-colors`}>
                 <div className="font-medium text-carrot-500">✨ Guided Layout</div>
-                <div className="text-xs text-gray-600">Smart semantic layout</div>
+                <div className={`${typography.caption} text-gray-600`}>Smart semantic layout</div>
               </button>
             </div>
           </div>
 
           {/* Spacing */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Spacing</label>
+            <label className={`block ${typography.label} text-gray-700 mb-2`}>Spacing</label>
             <div className="flex gap-2">
               {(['small', 'medium', 'large'] as LayoutSpacing[]).map(s => (
-                <button key={s} onClick={() => setSpacing(s)} className={`flex-1 px-2 py-1 text-xs rounded transition-colors ${spacing === s ? 'bg-carrot-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
+                <button key={s} onClick={() => setSpacing(s)} className={`flex-1 px-2 py-1 ${typography.caption} rounded transition-colors ${spacing === s ? 'bg-carrot-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                   {s.charAt(0).toUpperCase() + s.slice(1)}
                 </button>
               ))}

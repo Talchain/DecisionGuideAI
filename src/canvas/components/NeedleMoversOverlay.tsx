@@ -5,6 +5,7 @@
 
 import { TrendingUp, Target } from 'lucide-react'
 import type { NeedleMover } from '../validation/types'
+import { typography } from '../../styles/typography'
 
 interface NeedleMoversOverlayProps {
   movers: NeedleMover[]
@@ -55,24 +56,24 @@ export function NeedleMoversOverlay({ movers, onFocusNode }: NeedleMoversOverlay
               </div>
 
               {/* Node label */}
-              <span className="font-medium text-sm flex-1 truncate">
+              <span className={`font-medium ${typography.body} flex-1 truncate`}>
                 {mover.nodeId}
               </span>
 
               {/* Impact percentage */}
-              <span className="text-xs font-semibold">
+              <span className={`${typography.caption} font-semibold`}>
                 {Math.round(mover.impact * 100)}%
               </span>
             </div>
 
             {/* Reason */}
-            <p className="text-xs opacity-80 truncate">{mover.reason}</p>
+            <p className={`${typography.caption} opacity-80 truncate`}>{mover.reason}</p>
           </button>
         ))}
       </div>
 
       {/* Legend */}
-      <div className="mt-3 pt-3 border-t border-gray-200 flex gap-3 text-xs">
+      <div className={`mt-3 pt-3 border-t border-gray-200 flex gap-3 ${typography.caption}`}>
         <div className="flex items-center gap-1">
           <div className="w-2 h-2 rounded-full bg-red-500" />
           <span className="text-gray-600">High</span>
