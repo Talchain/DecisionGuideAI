@@ -112,7 +112,7 @@
     "axe-core": "^4.11.0",
     "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
-    "eslint": "9.10.0",
+    "eslint": "^9.39.1",
     "eslint-config-prettier": "9.1.0",
     "eslint-plugin-react": "7.35.0",
     "jsdom": "^24.0.0",
