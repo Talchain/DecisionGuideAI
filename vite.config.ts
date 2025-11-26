@@ -37,8 +37,10 @@ export default defineConfig(({ mode }) => {
         { find: '@tanstack/react-query', replacement: path.resolve(__dirname, 'src/stubs/react-query-stub.mjs') },
       ] : []),
     ],
-    // Dedupe React to avoid multi-React edge cases (shim is local, no need to dedupe it)
-    dedupe: ['react', 'react-dom'],
+    // Dedupe React and Zustand to avoid multi-instance edge cases
+    // - react/react-dom: Prevent multiple React instances
+    // - zustand: @xyflow/react bundles v4, app uses v5 - must dedupe to prevent conflicts
+    dedupe: ['react', 'react-dom', 'zustand'],
   },
   build: {
     target: 'esnext',
