@@ -296,7 +296,70 @@ function getMaxNumericId(ids: string[]): number {
   }, 0)
 }
 
-export const useCanvasStore = create<CanvasState>((set, get) => ({
+// React #185 DEBUG: Check if stateDebug=1 is in URL (supports HashRouter)
+function isStateDebugEnabled(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('stateDebug') === '1') return true
+    // HashRouter: query params may be in hash fragment
+    const hash = window.location.hash
+    const queryIndex = hash.indexOf('?')
+    if (queryIndex !== -1) {
+      const hashParams = new URLSearchParams(hash.slice(queryIndex + 1))
+      if (hashParams.get('stateDebug') === '1') return true
+    }
+  } catch { /* ignore */ }
+  return false
+}
+
+// React #185 DEBUG: Middleware to instrument internal set() calls
+// This captures stack traces for ALL store updates, not just external setState
+type SetState<T> = (
+  partial: T | Partial<T> | ((state: T) => T | Partial<T>),
+  replace?: boolean | undefined
+) => void
+
+function createDebugSet<T>(originalSet: SetState<T>, debugEnabled: boolean): SetState<T> {
+  if (!debugEnabled) return originalSet
+
+  console.log('[React #185 DEBUG] Internal set() logger ENABLED - capturing ALL store updates')
+
+  return (partial, replace) => {
+    const win = window as unknown as { __SAFE_DEBUG__?: { logs: Array<{ t: number; m: string; data: unknown }> } }
+    win.__SAFE_DEBUG__ ||= { logs: [] }
+    const debug = win.__SAFE_DEBUG__
+    const stack = new Error().stack?.split('\n').slice(1, 8).join('\n') || 'no stack'
+
+    // Get keys being updated for easier filtering
+    let keys: string[] = []
+    if (typeof partial === 'function') {
+      keys = ['<function>']
+    } else if (partial && typeof partial === 'object') {
+      keys = Object.keys(partial)
+    }
+
+    if (Array.isArray(debug.logs) && debug.logs.length < 5000) {
+      debug.logs.push({
+        t: Date.now(),
+        m: 'canvas:set',
+        data: { keys, stack },
+      })
+    }
+
+    return originalSet(partial, replace)
+  }
+}
+
+// Create the store with optional debugging middleware
+// Enable via URL param ?stateDebug=1 to capture ALL set() calls with stack traces
+const _stateDebugEnabled = isStateDebugEnabled()
+
+export const useCanvasStore = create<CanvasState>((originalSet, get) => {
+  // Wrap set with debugging if enabled
+  const set = createDebugSet(originalSet, _stateDebugEnabled)
+
+  return {
   nodes: initialNodes,
   edges: initialEdges,
   history: { past: [], future: [] },
@@ -1706,12 +1769,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => ({
       isDirty: true,
     }))
   }
-}))
+}})
 
 // Expose store on window for E2E tests (Playwright helpers and direct injection)
 if (typeof window !== 'undefined') {
   ;(window as any).useCanvasStore = useCanvasStore
 }
+
+// React #185 DEBUG: Internal set() instrumentation is now done at store creation time
+// (see createDebugSet function above) - this captures ALL store updates including
+// those from store actions that use the internal `set` function.
+//
+// Usage: Add ?stateDebug=1 to URL, then after React #185 error, run in console:
+//   window.__SAFE_DEBUG__.logs.filter(l => l.m === 'canvas:set').slice(-30)
+// Look for repeating stack traces - that's the looping culprit!
 
 /**
  * Validation selectors and helpers

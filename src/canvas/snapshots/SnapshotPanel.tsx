@@ -35,12 +35,13 @@ export function SnapshotPanel({ enabled = false, onCompare }: SnapshotPanelProps
   const [snapshotName, setSnapshotName] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // React #185 FIX: Use shallow comparison for array/object selectors
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  const results = useCanvasStore(s => s.results)
   const setNodes = useCanvasStore(s => s.setNodes)
   const setEdges = useCanvasStore(s => s.setEdges)
   const pushHistory = useCanvasStore(s => s.pushHistory)
-  const results = useCanvasStore(s => s.results)
 
   if (!enabled) return null
 

@@ -4,7 +4,7 @@
  * Dismissible with localStorage persistence
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Info, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { typography } from '../../styles/typography'
 
@@ -51,7 +51,7 @@ export function InfluenceExplainer({ forceShow = false, onDismiss, compact = fal
   })
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const handleDismiss = () => {
+  const handleDismiss = useCallback(() => {
     setIsDismissed(true)
 
     // Save to localStorage
@@ -65,7 +65,7 @@ export function InfluenceExplainer({ forceShow = false, onDismiss, compact = fal
     }
 
     onDismiss?.()
-  }
+  }, [onDismiss])
 
   if (isDismissed) {
     return null
@@ -189,11 +189,14 @@ export function useInfluenceExplainer() {
   //   }
   // }, [])
 
-  const show = () => {
+  // React #185 FIX: Memoize callbacks to prevent unnecessary re-renders.
+  // Without useCallback, new function references are created on every render,
+  // causing consumers to re-render even when state hasn't changed.
+  const show = useCallback(() => {
     setIsForceShown(true)
-  }
+  }, [])
 
-  const hide = () => {
+  const hide = useCallback(() => {
     setShouldShow(false)
     setIsForceShown(false)
     try {
@@ -204,9 +207,9 @@ export function useInfluenceExplainer() {
     } catch (e) {
       console['warn']('Failed to save influence explainer status:', e)
     }
-  }
+  }, [])
 
-  const reset = () => {
+  const reset = useCallback(() => {
     try {
       const storage = getSafeLocalStorage()
       if (storage) {
@@ -217,7 +220,7 @@ export function useInfluenceExplainer() {
     } catch (e) {
       console['warn']('Failed to reset influence explainer:', e)
     }
-  }
+  }, [])
 
   return {
     shouldShow: shouldShow || isForceShown,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 
 export const ONBOARDING_STORAGE_KEY = 'olumi_seen_onboarding'
 export const ONBOARDING_STORAGE_VERSION = 'v1'
@@ -35,21 +35,24 @@ export function useOnboarding() {
     }
   }, [])
 
-  const open = () => {
+  // React #185 FIX: Memoize callbacks to prevent unnecessary re-renders.
+  // Without useCallback, new function references are created on every render,
+  // causing consumers to re-render even when state hasn't changed.
+  const open = useCallback(() => {
     setIsOpen(true)
     setShouldShow(true)
-  }
+  }, [])
 
-  const close = () => {
+  const close = useCallback(() => {
     setIsOpen(false)
     setShouldShow(false)
-  }
+  }, [])
 
-  const reset = () => {
+  const reset = useCallback(() => {
     resetOnboardingProgress()
     setShouldShow(true)
     setIsOpen(true)
-  }
+  }, [])
 
   return { shouldShow, isOpen, open, close, reset }
 }

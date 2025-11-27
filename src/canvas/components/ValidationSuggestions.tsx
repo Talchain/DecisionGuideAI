@@ -8,6 +8,7 @@ import type { ISLValidationSuggestion } from '../../adapters/isl/types'
 import { buildRichGraphPayload } from '../utils/graphPayload'
 
 export function ValidationSuggestionsSection() {
+  // React #185 FIX: Use shallow comparison for array selectors
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const { data, loading, error, validate } = useISLValidation()

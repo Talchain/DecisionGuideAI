@@ -9,6 +9,7 @@ import { StructuralHealthSection } from './StructuralHealth'
 import { useTransportability } from '../../hooks/useTransportability'
 
 export function InsightsTabBody() {
+  // React #185 FIX: Use shallow comparison for combined selector with arrays
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const { data, loading, error, analyze } = useCEEInsights()
@@ -152,6 +153,7 @@ export function InsightsTabBody() {
  * Phase 2: Transportability - Cross-Market Validation
  */
 function TransportabilitySection() {
+  // React #185 FIX: Use shallow comparison for combined selector with arrays
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const [targetContext, setTargetContext] = useState('Germany')

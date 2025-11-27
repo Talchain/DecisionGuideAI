@@ -62,11 +62,11 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
   // Canvas store selectors
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  const resultsState = useCanvasStore(s => s.results)
   const selectNodeWithoutHistory = useCanvasStore(s => s.selectNodeWithoutHistory)
   const setHighlightedDriver = useCanvasStore(s => (s as any).setHighlightedDriver) as
     | ((driver: { kind: 'node' | 'edge'; id: string } | null) => void)
     | undefined
-  const resultsState = useCanvasStore(s => s.results)
   const scenarioTitle = useCanvasStore(s => s.currentScenarioFraming?.title ?? null)
   const scenarioLastResultHash = useCanvasStore(s => s.currentScenarioLastResultHash ?? null)
   const resultsLoadHistorical = useCanvasStore(s => s.resultsLoadHistorical)

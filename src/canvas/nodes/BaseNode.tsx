@@ -48,9 +48,11 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
   const { data: ceeInsights } = useCEEInsights()
   const { data: islValidation } = useISLValidation()
 
-  // Phase 3: Node highlighting (Set for O(1) lookup)
-  const highlightedNodes = useCanvasStore(s => s.highlightedNodes)
-  const isHighlighted = highlightedNodes.has(id)
+  // Phase 3: Node highlighting
+  // React #185 FIX: Return primitive boolean from selector to prevent re-renders
+  // on every store update. Selecting the entire Set causes infinite loops since
+  // Set references change on each store update.
+  const isHighlighted = useCanvasStore(s => s.highlightedNodes.has(id))
 
   const ceeWarnings = ceeInsights?.structural_health.warnings || []
   const islAffected = islValidation?.suggestions.some(suggestion =>

@@ -8,9 +8,19 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 
 export function PropertiesPanel() {
-  const selection = useCanvasStore(s => s.selection)
-  const nodeId = selection.nodeIds.size === 1 ? [...selection.nodeIds][0] : null
-  const edgeId = selection.edgeIds.size === 1 ? [...selection.edgeIds][0] : null
+  // React #185 FIX: Return primitive values from selectors to prevent re-renders
+  // on every store update. Selecting the entire `selection` object (which contains
+  // Sets) causes infinite loops since Set references change on each store update.
+  const nodeId = useCanvasStore(s => {
+    const ids = s.selection.nodeIds
+    if (ids.size !== 1) return null
+    return ids.values().next().value ?? null
+  })
+  const edgeId = useCanvasStore(s => {
+    const ids = s.selection.edgeIds
+    if (ids.size !== 1) return null
+    return ids.values().next().value ?? null
+  })
 
   const wrapper = (children: React.ReactNode) => (
     <div className="fixed right-6 top-24 w-80 rounded-2xl shadow bg-white border border-gray-200/50 max-h-[calc(100vh-7rem)] overflow-y-auto">

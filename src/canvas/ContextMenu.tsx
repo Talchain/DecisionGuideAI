@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCanvasStore } from './store'
 import { useToast } from './ToastContext'
-import { shallow } from 'zustand/shallow'
 
 interface ContextMenuProps {
   x: number
@@ -13,11 +12,9 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [focusedIndex, setFocusedIndex] = useState(0)
 
-  // Performance: Use granular selectors to prevent unnecessary re-renders
-  const { clipboard, selection } = useCanvasStore(
-    (s) => ({ clipboard: s.clipboard, selection: s.selection }),
-    shallow
-  )
+  // React 18 + Zustand v5: use individual selectors instead of object+shallow
+  const clipboard = useCanvasStore((s) => s.clipboard)
+  const selection = useCanvasStore((s) => s.selection)
   const addNode = useCanvasStore((s) => s.addNode)
   const deleteSelected = useCanvasStore((s) => s.deleteSelected)
   const duplicateSelected = useCanvasStore((s) => s.duplicateSelected)

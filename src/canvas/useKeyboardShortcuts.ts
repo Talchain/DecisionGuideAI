@@ -5,12 +5,22 @@ import { useEffect } from 'react'
 import { useCanvasStore } from './store'
 
 export function useKeyboardShortcuts() {
-  const { 
-    undo, redo, canUndo, canRedo, 
-    deleteSelected, duplicateSelected, 
-    copySelected, pasteClipboard, cutSelected,
-    selectAll, nudgeSelected, saveSnapshot
-  } = useCanvasStore()
+  // React #185 FIX: Use individual selectors instead of destructuring from useCanvasStore()
+  // Calling useCanvasStore() without a selector subscribes to the ENTIRE store,
+  // causing re-renders on ANY state change. Actions are stable references, so
+  // using selectors avoids the entire-store subscription that causes loops.
+  const undo = useCanvasStore(s => s.undo)
+  const redo = useCanvasStore(s => s.redo)
+  const canUndo = useCanvasStore(s => s.canUndo)
+  const canRedo = useCanvasStore(s => s.canRedo)
+  const deleteSelected = useCanvasStore(s => s.deleteSelected)
+  const duplicateSelected = useCanvasStore(s => s.duplicateSelected)
+  const copySelected = useCanvasStore(s => s.copySelected)
+  const pasteClipboard = useCanvasStore(s => s.pasteClipboard)
+  const cutSelected = useCanvasStore(s => s.cutSelected)
+  const selectAll = useCanvasStore(s => s.selectAll)
+  const nudgeSelected = useCanvasStore(s => s.nudgeSelected)
+  const saveSnapshot = useCanvasStore(s => s.saveSnapshot)
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

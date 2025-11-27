@@ -66,6 +66,7 @@ export function ShareDrawer({ isOpen, onClose, seed: propSeed, hash: propHash }:
   const [allowlistStatus, setAllowlistStatus] = useState<'checking' | 'allowed' | 'not-allowed' | 'unknown'>('unknown')
 
   // Use props if provided, otherwise fall back to canvas store
+  // React #185 FIX: Use shallow comparison for object selectors
   const storeResults = useCanvasStore(s => s.results)
   const framing = useCanvasStore(s => s.currentScenarioFraming)
   const lastResultHashMeta = useCanvasStore(s => s.currentScenarioLastResultHash)

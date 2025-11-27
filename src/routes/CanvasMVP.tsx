@@ -35,7 +35,9 @@ export default function CanvasMVP() {
   const [insertionError, setInsertionError] = useState<string | null>(null)
   const showTemplatesPanel = useCanvasStore(state => state.showTemplatesPanel)
   const closeTemplatesPanel = useCanvasStore(state => state.closeTemplatesPanel)
-  const runMeta = useCanvasStore(state => state.runMeta)
+  // React #185 FIX: runMeta is an object - use shallow comparison to prevent infinite re-renders
+  const correlationIdHeader = useCanvasStore(state => state.runMeta.correlationIdHeader)
+  const ceeDebugHeaders = useCanvasStore(state => state.runMeta.ceeDebugHeaders)
 
   // Phase 1A.5: Debug controls visibility (Shift+D shortcut)
   const { showDebug } = useDebugShortcut()
@@ -178,8 +180,8 @@ export default function CanvasMVP() {
       {/* Phase 1A.5: Debug Tray (hidden by default, Shift+D to toggle) */}
       {showDebug && (
         <DebugTray
-          correlationId={runMeta?.correlationIdHeader}
-          ceeDebugHeaders={runMeta?.ceeDebugHeaders}
+          correlationId={correlationIdHeader}
+          ceeDebugHeaders={ceeDebugHeaders}
         />
       )}
     </div>

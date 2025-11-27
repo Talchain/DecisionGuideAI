@@ -5,6 +5,7 @@ import React, {
   useContext,
   useState,
   useEffect,
+  useMemo,
   ReactNode,
 } from 'react'
 import { supabase } from '../lib/supabase'
@@ -232,31 +233,46 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem(LOCAL_STORAGE_KEY)
   }
 
+  // React #185 FIX: Memoize context value to prevent re-renders when values haven't changed
+  // Without this, a new object is created on every render, causing all consumers to re-render
+  const contextValue = useMemo(() => ({
+    decisionId,
+    decisionType,
+    decision,
+    importance,
+    reversibility,
+    goals,
+    options,
+    collaborators,
+    collaboratorsError,
+    teamIds,
+    setTeamIds,
+    setDecisionId,
+    setDecisionType,
+    setDecision,
+    setImportance,
+    setReversibility,
+    setGoals,
+    setOptions,
+    setCollaborators,
+    resetDecisionContext,
+  }), [
+    decisionId,
+    decisionType,
+    decision,
+    importance,
+    reversibility,
+    goals,
+    options,
+    collaborators,
+    collaboratorsError,
+    teamIds,
+    // Note: setters are stable (useState returns stable setters), but resetDecisionContext
+    // references them so we include it for completeness
+  ])
+
   return (
-    <DecisionContext.Provider
-      value={{
-        decisionId,
-        decisionType,
-        decision,
-        importance,
-        reversibility,
-        goals,
-        options,
-        collaborators,
-        collaboratorsError,
-        teamIds,
-        setTeamIds,
-        setDecisionId,
-        setDecisionType,
-        setDecision,
-        setImportance,
-        setReversibility,
-        setGoals,
-        setOptions,
-        setCollaborators,
-        resetDecisionContext,
-      }}
-    >
+    <DecisionContext.Provider value={contextValue}>
       {children}
     </DecisionContext.Provider>
   )

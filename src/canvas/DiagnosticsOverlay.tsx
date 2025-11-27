@@ -13,8 +13,6 @@ export function DiagnosticsOverlay() {
     edgeCount: 0,
   })
 
-  const { history, nodes, edges } = useCanvasStore()
-
   useEffect(() => {
     const getDiagParam = () => {
       try {
@@ -49,6 +47,9 @@ export function DiagnosticsOverlay() {
       // Count event listeners (approximate)
       const listeners = (window as any).__activeListeners?.size || 0
 
+      const state = useCanvasStore.getState()
+      const { history, nodes, edges } = state
+
       setMetrics({
         timers,
         listeners,
@@ -61,7 +62,7 @@ export function DiagnosticsOverlay() {
     }, 500)
 
     return () => clearInterval(interval)
-  }, [isVisible, history, nodes, edges])
+  }, [isVisible])
 
   if (!isVisible) return null
 

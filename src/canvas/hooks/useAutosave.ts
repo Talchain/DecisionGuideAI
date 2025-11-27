@@ -11,7 +11,6 @@
  */
 
 import { useEffect, useRef } from 'react'
-import { shallow } from 'zustand/shallow'
 import { useCanvasStore } from '../store'
 import { saveAutosave } from '../store/scenarios'
 
@@ -20,15 +19,10 @@ const AUTOSAVE_INTERVAL_MS = 30 * 1000 // 30 seconds
 export function useAutosave() {
   // React #185 FIX: Use shallow comparison for object/array selectors
   // to prevent infinite re-renders when references change but contents are identical
-  const { nodes, edges, currentScenarioId, isDirty } = useCanvasStore(
-    s => ({
-      nodes: s.nodes,
-      edges: s.edges,
-      currentScenarioId: s.currentScenarioId,
-      isDirty: s.isDirty,
-    }),
-    shallow
-  )
+  const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
+  const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  const isDirty = useCanvasStore(s => s.isDirty)
   const markDirty = useCanvasStore(s => s.markDirty)
 
   // Track if any changes have been made to the graph

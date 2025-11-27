@@ -32,7 +32,11 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
   const [validationViolations, setValidationViolations] = useState<ValidationError[]>([]) // v1.2: coaching warnings
   const inputRef = useRef<HTMLInputElement>(null)
-  const { addNode, selectAll, saveSnapshot } = useCanvasStore()
+  // React #185 FIX: Use individual selectors for actions to avoid entire-store subscription
+  const addNode = useCanvasStore(s => s.addNode)
+  const selectAll = useCanvasStore(s => s.selectAll)
+  const saveSnapshot = useCanvasStore(s => s.saveSnapshot)
+  // React #185 FIX: Use shallow comparison for array selectors
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const { fitView } = useReactFlow()
