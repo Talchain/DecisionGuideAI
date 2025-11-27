@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, lazy, Suspense } from 'react'
+import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react'
 import { PanelsTopLeft, Sparkles } from 'lucide-react'
 import { useCanvasStore } from './store'
+import { shallow } from 'zustand/shallow'
 import { typography } from '../styles/typography'
 import { useReactFlow } from '@xyflow/react'
 import { SnapshotManager } from './components/SnapshotManager'
@@ -41,7 +42,26 @@ export function CanvasToolbar() {
   const [showGoalPanel, setShowGoalPanel] = useState(false)
   const nodeMenuRef = useRef<HTMLDivElement>(null)
   const templatesButtonRef = useRef<HTMLButtonElement>(null)
-  const { undo, redo, canUndo, canRedo, addNode, resetCanvas, nodes, edges, outcomeNodeId, setShowResultsPanel, openTemplatesPanel, setShowDraftChat, showDraftChat } = useCanvasStore()
+
+  // Performance: Use granular selectors to prevent unnecessary re-renders
+  const { nodes, edges, outcomeNodeId, showDraftChat } = useCanvasStore(
+    (s) => ({
+      nodes: s.nodes,
+      edges: s.edges,
+      outcomeNodeId: s.outcomeNodeId,
+      showDraftChat: s.showDraftChat
+    }),
+    shallow
+  )
+  const undo = useCanvasStore((s) => s.undo)
+  const redo = useCanvasStore((s) => s.redo)
+  const canUndo = useCanvasStore((s) => s.canUndo)
+  const canRedo = useCanvasStore((s) => s.canRedo)
+  const addNode = useCanvasStore((s) => s.addNode)
+  const resetCanvas = useCanvasStore((s) => s.resetCanvas)
+  const setShowResultsPanel = useCanvasStore((s) => s.setShowResultsPanel)
+  const openTemplatesPanel = useCanvasStore((s) => s.openTemplatesPanel)
+  const setShowDraftChat = useCanvasStore((s) => s.setShowDraftChat)
   const { fitView, zoomIn, zoomOut } = useReactFlow()
   const { run } = useResultsRun()
   const { formatErrors, focusError } = useValidationFeedback()
@@ -52,18 +72,20 @@ export function CanvasToolbar() {
   // v1.2: Check if node capacity is reached
   const isAtNodeCapacity = !!(limits && nodes.length >= limits.nodes.max)
 
+  // Performance: Memoize click handler to avoid recreation on each render
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    if (nodeMenuRef.current && !nodeMenuRef.current.contains(e.target as Node)) {
+      setShowNodeMenu(false)
+    }
+  }, [])
+
   // Close node menu on outside click
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (nodeMenuRef.current && !nodeMenuRef.current.contains(e.target as Node)) {
-        setShowNodeMenu(false)
-      }
-    }
     if (showNodeMenu) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [showNodeMenu])
+  }, [showNodeMenu, handleClickOutside])
 
   const handleAddNode = (type: NodeType) => {
     // v1.2: Gate on node capacity with consistent error messaging

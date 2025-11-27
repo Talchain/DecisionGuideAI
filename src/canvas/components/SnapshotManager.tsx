@@ -4,6 +4,7 @@ import { useCanvasStore } from '../store'
 import { useToast } from '../ToastContext'
 import { BottomSheet } from './BottomSheet'
 import { typography } from '../../styles/typography'
+import { shallow } from 'zustand/shallow'
 
 interface SnapshotManagerProps {
   isOpen: boolean
@@ -23,7 +24,11 @@ export function SnapshotManager({ isOpen, onClose }: SnapshotManagerProps) {
   const [snapshots, setSnapshots] = useState<SnapshotItem[]>([])
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
-  const { nodes, edges } = useCanvasStore()
+  // Performance: Use granular selectors to prevent unnecessary re-renders
+  const { nodes, edges } = useCanvasStore(
+    (s) => ({ nodes: s.nodes, edges: s.edges }),
+    shallow
+  )
   const { showToast } = useToast()
 
   const refreshSnapshots = () => {
