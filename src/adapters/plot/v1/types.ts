@@ -166,6 +166,7 @@ export interface V1Error {
   max?: number
   retry_after?: number
   details?: unknown
+  requestId?: string  // P2.3: Request ID for debugging
 }
 
 // Limits

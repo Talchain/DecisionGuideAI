@@ -168,13 +168,31 @@ function mapV1ResultToReport(
 
 /**
  * Map v1 Error to UI ErrorV1
+ * P2.3: Include request ID in error message for debugging support tickets
  */
 function mapV1ErrorToUI(error: V1Error): ErrorV1 {
+  // P2.3: Append request ID to error message if present
+  const errorMessage = error.requestId
+    ? `${error.message} (Request ID: ${error.requestId})`
+    : error.message
+
+  // P2.3: Add actionable hints for specific error types
+  let hint: string | undefined
+  if (error.code === 'GATEWAY_TIMEOUT') {
+    hint = 'Try Quick mode for faster analysis'
+  } else if (error.code === 'TIMEOUT') {
+    hint = 'The analysis took too long. Try a smaller graph or Quick mode.'
+  } else if (error.code === 'RATE_LIMITED') {
+    hint = error.retry_after
+      ? `Please wait ${error.retry_after} seconds before retrying.`
+      : 'You have exceeded the rate limit. Please wait before trying again.'
+  }
+
   return {
     schema: 'error.v1',
     code: error.code as any, // Type compatible
-    error: error.message,
-    hint: undefined,
+    error: errorMessage,
+    hint,
     fields: error.field
       ? {
           field: error.field,
