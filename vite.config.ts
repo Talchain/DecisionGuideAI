@@ -57,8 +57,10 @@ export default defineConfig(({ mode }) => {
         manualChunks(id) {
           if (!id.includes('node_modules')) return
           
-          // Core React libraries + use-sync-external-store (must load WITH React, not before)
-          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router') || id.includes('use-sync-external-store')) {
+          // Core React libraries + zustand + use-sync-external-store
+          // All must be in same chunk to prevent TDZ errors from initialization order
+          // Dependency chain: React → use-sync-external-store → zustand
+          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router') || id.includes('use-sync-external-store') || id.includes('zustand')) {
             return 'react-vendor'
           }
           // ReactFlow (large, used only in Canvas)
@@ -97,6 +99,7 @@ export default defineConfig(({ mode }) => {
   },
 optimizeDeps: {
     // Prebundle core deps to ensure correct initialization order
+    // Order matters: React first, then its dependents
     include: [
       'react',
       'react-dom',
@@ -104,6 +107,9 @@ optimizeDeps: {
       'use-sync-external-store',
       'use-sync-external-store/shim',
       'use-sync-external-store/shim/with-selector',
+      'zustand',
+      'zustand/vanilla',
+      'zustand/traditional',
       '@supabase/supabase-js',
       'date-fns'
     ],
