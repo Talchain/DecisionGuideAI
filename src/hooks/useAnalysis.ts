@@ -121,6 +121,7 @@ export function useAnalysis({
 
   // Debug logging
   const logDebug = useCallback((action: string, data?: any) => {
+    if (!import.meta.env.DEV) return;
     const timestamp = Date.now();
     console.log(`[DEBUG] useAnalysis ${action}:`, {
       timestamp: new Date(timestamp).toISOString(),
@@ -257,7 +258,9 @@ export function useAnalysis({
       });
 
       // Log the entire options data for debugging
-      console.log("API returned options:", optionsResponse?.options);
+      if (import.meta.env.DEV) {
+        console.log("API returned options:", optionsResponse?.options);
+      }
 
       updateStateFromResponses(
         analysisResponse.analysis,

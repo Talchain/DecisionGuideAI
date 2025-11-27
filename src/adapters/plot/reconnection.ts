@@ -152,9 +152,11 @@ export class ReconnectionManager {
 
     const delay = calculateBackoffDelay(this.state.attempt, this.config)
 
-    console.log(
-      `[Reconnection] Scheduling retry ${this.state.attempt + 1}/${this.config.maxAttempts} in ${delay}ms`
-    )
+    if (import.meta.env.DEV) {
+      console.log(
+        `[Reconnection] Scheduling retry ${this.state.attempt + 1}/${this.config.maxAttempts} in ${delay}ms`
+      )
+    }
 
     this.state.reconnecting = true
 
@@ -187,7 +189,9 @@ export class ReconnectionManager {
    */
   recordError(error: string) {
     this.state.lastError = error
-    console.error('[Reconnection] Error:', error)
+    if (import.meta.env.DEV) {
+      console.error('[Reconnection] Error:', error)
+    }
   }
 
   /**
@@ -196,7 +200,9 @@ export class ReconnectionManager {
    */
   markCompleted(): boolean {
     if (this.completedOnce) {
-      console.warn('[Reconnection] Ignoring duplicate completion event')
+      if (import.meta.env.DEV) {
+        console.warn('[Reconnection] Ignoring duplicate completion event')
+      }
       return false
     }
 
@@ -258,7 +264,9 @@ export class HeartbeatMonitor {
 
     this.timeoutId = window.setTimeout(() => {
       const elapsed = Date.now() - this.lastHeartbeat
-      console.warn(`[Heartbeat] Timeout after ${elapsed}ms`)
+      if (import.meta.env.DEV) {
+        console.warn(`[Heartbeat] Timeout after ${elapsed}ms`)
+      }
       this.onTimeout?.()
     }, this.timeoutMs)
   }
@@ -293,7 +301,9 @@ export async function withReconnection<T>(
       manager.recordError(errorMsg)
 
       if (!manager.shouldRetry()) {
-        console.error('[Reconnection] Max attempts exceeded, giving up')
+        if (import.meta.env.DEV) {
+          console.error('[Reconnection] Max attempts exceeded, giving up')
+        }
         throw new Error(`Connection failed after ${manager.getState().attempt} attempts: ${errorMsg}`)
       }
 
@@ -301,7 +311,9 @@ export async function withReconnection<T>(
       await manager.scheduleRetry()
 
       // Continue to next attempt
-      console.log('[Reconnection] Retrying connection...')
+      if (import.meta.env.DEV) {
+        console.log('[Reconnection] Retrying connection...')
+      }
     }
   }
 }

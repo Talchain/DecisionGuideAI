@@ -122,6 +122,37 @@ npm run e2e:ui         # Interactive UI mode
 3. Run `npm run typecheck && npm run test`
 4. Create a PR with a descriptive title
 
+### Code Patterns for Contributors
+
+**Debug Logging:** Always guard debug logs with `import.meta.env.DEV`:
+
+```typescript
+// ✅ Correct: Tree-shaken in production
+if (import.meta.env.DEV) {
+  console.log('[Module] Debug:', data)
+}
+
+// ❌ Avoid: Leaks to production bundle
+console.log('[Module] Debug:', data)
+```
+
+**Structured Logging:** Use the logger utility for consistent logging:
+
+```typescript
+import { logger } from '@/lib/logger'
+
+logger.debug('Debug info')  // Dev only
+logger.error('Critical error', { context })  // Always logged
+```
+
+**Encrypted Storage:** Use `secureStorage` for sensitive data:
+
+```typescript
+import { secureStorage } from '@/lib/secureStorage'
+
+await secureStorage.setItem('key', sensitiveValue)
+```
+
 See [PARALLEL_DEV_PROTOCOL.md](./technical/PARALLEL_DEV_PROTOCOL.md) for team coordination guidelines.
 
 ## Need Help?

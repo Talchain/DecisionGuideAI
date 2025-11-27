@@ -119,13 +119,17 @@ export function saveSnapshot(
     // Rotate if exceeds max (FIFO)
     if (snapshots.length > MAX_SNAPSHOTS) {
       const removed = snapshots.shift()
-      console.log(`[Snapshots] Rotated out oldest snapshot: ${removed?.meta.name}`)
+      if (import.meta.env.DEV) {
+        console.log(`[Snapshots] Rotated out oldest snapshot: ${removed?.meta.name}`)
+      }
     }
 
     // Save to localStorage
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshots))
 
-    console.log(`[Snapshots] Saved "${snapshot.meta.name}" (${snapshot.meta.id})`)
+    if (import.meta.env.DEV) {
+      console.log(`[Snapshots] Saved "${snapshot.meta.name}" (${snapshot.meta.id})`)
+    }
     return snapshot.meta.id
   } catch (err) {
     console.error('[Snapshots] Failed to save:', err)
@@ -155,7 +159,9 @@ export function deleteSnapshot(id: string): boolean {
     }
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
-    console.log(`[Snapshots] Deleted snapshot: ${id}`)
+    if (import.meta.env.DEV) {
+      console.log(`[Snapshots] Deleted snapshot: ${id}`)
+    }
     return true
   } catch (err) {
     console.error('[Snapshots] Failed to delete:', err)
@@ -202,7 +208,9 @@ export function restoreSnapshot(id: string): {
 export function clearAllSnapshots(): void {
   try {
     localStorage.removeItem(STORAGE_KEY)
-    console.log('[Snapshots] Cleared all snapshots')
+    if (import.meta.env.DEV) {
+      console.log('[Snapshots] Cleared all snapshots')
+    }
   } catch (err) {
     console.error('[Snapshots] Failed to clear:', err)
   }

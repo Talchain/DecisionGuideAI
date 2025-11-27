@@ -180,7 +180,9 @@ function isValidDecisionInsert(obj: any): obj is DecisionInsert {
 export async function createDecision(
   decision: Omit<DecisionInsert, 'id' | 'created_at' | 'updated_at'>
 ) {
-  console.log('[Supabase] ▶️ createDecision called with', decision)
+  if (import.meta.env.DEV) {
+    console.log('[Supabase] ▶️ createDecision called with', decision)
+  }
 
   if (!isValidDecisionInsert(decision)) {
     const msg = 'Invalid decision data: type must be one of ' + VALID_DECISION_TYPES.join(', ')
@@ -189,13 +191,17 @@ export async function createDecision(
   }
 
   try {
-    console.log('[Supabase] ⏳ inserting via supabase-js…')
+    if (import.meta.env.DEV) {
+      console.log('[Supabase] ⏳ inserting via supabase-js…')
+    }
     const { data, error } = await supabase
       .from('decisions')
       .insert([decision] as Database['public']['Tables']['decisions']['Insert'][])
       .select()
       .single()
-    console.log('[Supabase] ⏪ insert response', { data, error })
+    if (import.meta.env.DEV) {
+      console.log('[Supabase] ⏪ insert response', { data, error })
+    }
 
     if (!data && !error) {
       throw new Error(
@@ -592,7 +598,9 @@ export async function createInvitation(email: string) {
 export async function testSupabaseConnection() {
   try {
     await supabase.from('decisions').select('id', { head: true }).limit(1)
-    console.log('Supabase connection OK.')
+    if (import.meta.env.DEV) {
+      console.log('Supabase connection OK.')
+    }
     return { success: true }
   } catch (err) {
     console.error('testSupabaseConnection failed:', err)
