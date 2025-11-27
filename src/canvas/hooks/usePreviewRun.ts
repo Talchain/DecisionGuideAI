@@ -42,7 +42,9 @@ export function usePreviewRun(): UsePreviewRunReturn {
 
     // Cancel any in-flight request
     if (cancelRef.current) {
-      console.log('[usePreviewRun] Cancelling in-flight request to start new run')
+      if (import.meta.env.DEV) {
+        console.log('[usePreviewRun] Cancelling in-flight request to start new run')
+      }
       cancelRef.current()
       cancelRef.current = null
     }

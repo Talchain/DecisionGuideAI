@@ -220,12 +220,16 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
         if (resultsState.seed !== undefined || resultsState.hash) {
           const text = `Seed: ${resultsState.seed ?? 'N/A'}\nHash: ${resultsState.hash ?? 'N/A'}`
           navigator.clipboard.writeText(text).then(() => {
-            console.log('[Palette] Copied seed & hash to clipboard')
+            if (import.meta.env.DEV) {
+              console.log('[Palette] Copied seed & hash to clipboard')
+            }
           }).catch(err => {
             console.error('[Palette] Failed to copy:', err)
           })
         } else {
-          console.warn('[Palette] No seed or hash available to copy')
+          if (import.meta.env.DEV) {
+            console.warn('[Palette] No seed or hash available to copy')
+          }
         }
         break
 
@@ -233,20 +237,26 @@ export function usePalette(options: UsePaletteOptions = {}): PaletteState & Pale
         // BLOCKED: Palette cannot safely trigger runs yet. This should be wired
         // through a shared run controller (wrapping useResultsRun) so we do not
         // duplicate CanvasToolbar / ResultsPanel gating and diagnostics logic.
-        console.log('[Palette] Run action is not yet wired - waiting on shared run controller')
+        if (import.meta.env.DEV) {
+          console.log('[Palette] Run action is not yet wired - waiting on shared run controller')
+        }
         break
 
       case 'action:cancel':
         // BLOCKED: Palette cancel should delegate to the same controller as the
         // toolbar and ResultsPanel once that exists. Until then this remains a
         // no-op to avoid inconsistent behaviour.
-        console.log('[Palette] Cancel action is not yet wired - waiting on shared run controller')
+        if (import.meta.env.DEV) {
+          console.log('[Palette] Cancel action is not yet wired - waiting on shared run controller')
+        }
         break
 
       case 'action:compare':
         // BLOCKED: Opening Compare from palette depends on panel state wiring
         // in OutputsDock/ResultsPanel. For now we keep this as a no-op.
-        console.log(`[Palette] ${actionId} - Compare opening not yet wired`)
+        if (import.meta.env.DEV) {
+          console.log(`[Palette] ${actionId} - Compare opening not yet wired`)
+        }
         break
 
       case 'action:inspector':
