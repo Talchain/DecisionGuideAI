@@ -44,13 +44,12 @@ function buildHealthStrings(graphHealth: GraphHealth | null) {
 }
 
 export function ContextBar() {
-  const nodes = useCanvasStore(s => s.nodes)
-  const edges = useCanvasStore(s => s.edges)
+  // React #185 FIX: Select primitive values (lengths) directly to avoid re-renders
+  // on every store update when selecting entire arrays
+  const nodesCount = useCanvasStore(s => s.nodes.length)
+  const edgesCount = useCanvasStore(s => s.edges.length)
   const graphHealth = useCanvasStore(s => s.graphHealth)
   const { limits, loading, error } = useEngineLimits()
-
-  const nodesCount = nodes.length
-  const edgesCount = edges.length
 
   const limitsView = useMemo(() => {
     if (loading) {

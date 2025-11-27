@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { CheckCircle, AlertCircle } from 'lucide-react'
+import { shallow } from 'zustand/shallow'
 import { useCEEInsights } from '../../hooks/useCEEInsights'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
@@ -9,8 +10,11 @@ import { StructuralHealthSection } from './StructuralHealth'
 import { useTransportability } from '../../hooks/useTransportability'
 
 export function InsightsTabBody() {
-  const nodes = useCanvasStore(s => s.nodes)
-  const edges = useCanvasStore(s => s.edges)
+  // React #185 FIX: Use shallow comparison for combined selector with arrays
+  const { nodes, edges } = useCanvasStore(
+    s => ({ nodes: s.nodes, edges: s.edges }),
+    shallow
+  )
   const { data, loading, error, analyze } = useCEEInsights()
   const [checkedBiases, setCheckedBiases] = useState<Set<string>>(new Set())
   const [expandedBiases, setExpandedBiases] = useState<Set<string>>(new Set())
@@ -152,8 +156,11 @@ export function InsightsTabBody() {
  * Phase 2: Transportability - Cross-Market Validation
  */
 function TransportabilitySection() {
-  const nodes = useCanvasStore(s => s.nodes)
-  const edges = useCanvasStore(s => s.edges)
+  // React #185 FIX: Use shallow comparison for combined selector with arrays
+  const { nodes, edges } = useCanvasStore(
+    s => ({ nodes: s.nodes, edges: s.edges }),
+    shallow
+  )
   const [targetContext, setTargetContext] = useState('Germany')
   const { data, loading, check } = useTransportability()
 
