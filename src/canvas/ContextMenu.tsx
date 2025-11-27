@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCanvasStore } from './store'
 import { useToast } from './ToastContext'
+import { shallow } from 'zustand/shallow'
 
 interface ContextMenuProps {
   x: number
@@ -11,11 +12,21 @@ interface ContextMenuProps {
 export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [focusedIndex, setFocusedIndex] = useState(0)
-  const { 
-    addNode, deleteSelected, duplicateSelected,
-    copySelected, pasteClipboard, cutSelected, selectAll,
-    clipboard, selection, deleteEdge, beginReconnect
-  } = useCanvasStore()
+
+  // Performance: Use granular selectors to prevent unnecessary re-renders
+  const { clipboard, selection } = useCanvasStore(
+    (s) => ({ clipboard: s.clipboard, selection: s.selection }),
+    shallow
+  )
+  const addNode = useCanvasStore((s) => s.addNode)
+  const deleteSelected = useCanvasStore((s) => s.deleteSelected)
+  const duplicateSelected = useCanvasStore((s) => s.duplicateSelected)
+  const copySelected = useCanvasStore((s) => s.copySelected)
+  const pasteClipboard = useCanvasStore((s) => s.pasteClipboard)
+  const cutSelected = useCanvasStore((s) => s.cutSelected)
+  const selectAll = useCanvasStore((s) => s.selectAll)
+  const deleteEdge = useCanvasStore((s) => s.deleteEdge)
+  const beginReconnect = useCanvasStore((s) => s.beginReconnect)
   const { showToast } = useToast()
   const [position, setPosition] = useState({ x, y })
 
