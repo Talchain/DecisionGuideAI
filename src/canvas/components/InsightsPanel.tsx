@@ -23,23 +23,64 @@ import { typography } from '../../styles/typography'
 import type { Insights } from '../../types/plot'
 
 interface InsightsPanelProps {
-  /** Insights data from engine response */
-  insights: Insights
+  /** Insights data from engine response (may have missing/null fields) */
+  insights: Partial<Insights> | null | undefined
   /** Start expanded to show risks and next steps */
   defaultExpanded?: boolean
   /** Additional CSS classes */
   className?: string
 }
 
+/**
+ * P0.3: Normalize insights data with safe defaults
+ *
+ * Defends against:
+ * - null/undefined insights
+ * - missing fields (summary, risks, next_steps)
+ * - oversized arrays (risks > 5, next_steps > 3)
+ * - oversized summary (> 200 chars)
+ */
+function normalizeInsights(insights: Partial<Insights> | null | undefined): Insights {
+  const DEFAULT_SUMMARY = 'Analysis complete. Review the results above for details.'
+  const MAX_RISKS = 5
+  const MAX_NEXT_STEPS = 3
+  const MAX_SUMMARY_LENGTH = 200
+
+  if (!insights) {
+    return {
+      summary: DEFAULT_SUMMARY,
+      risks: [],
+      next_steps: [],
+    }
+  }
+
+  // Normalize and truncate summary
+  let summary = insights.summary?.trim() || DEFAULT_SUMMARY
+  if (summary.length > MAX_SUMMARY_LENGTH) {
+    summary = summary.slice(0, MAX_SUMMARY_LENGTH - 3) + '...'
+  }
+
+  // Normalize and limit arrays
+  const risks = Array.isArray(insights.risks)
+    ? insights.risks.slice(0, MAX_RISKS).filter(Boolean)
+    : []
+
+  const next_steps = Array.isArray(insights.next_steps)
+    ? insights.next_steps.slice(0, MAX_NEXT_STEPS).filter(Boolean)
+    : []
+
+  return { summary, risks, next_steps }
+}
+
 export function InsightsPanel({
-  insights,
+  insights: rawInsights,
   defaultExpanded = true,
   className = '',
 }: InsightsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
-  // P0.3: Provide defaults to prevent crashes when backend omits risks/next_steps
-  const { summary, risks = [], next_steps = [] } = insights
+  // P0.3: Normalize insights with safe defaults and limits
+  const { summary, risks, next_steps } = normalizeInsights(rawInsights)
 
   const hasDetails = risks.length > 0 || next_steps.length > 0
 
@@ -169,11 +210,11 @@ export function InsightsPanel({
  * Compact variant showing only the summary
  */
 export function InsightsSummaryCompact({
-  insights,
+  insights: rawInsights,
   className = '',
 }: Pick<InsightsPanelProps, 'insights' | 'className'>) {
-  // P0.3: Provide defaults to prevent crashes when backend omits risks/next_steps
-  const { summary, risks = [], next_steps = [] } = insights
+  // P0.3: Normalize insights with safe defaults
+  const { summary, risks, next_steps } = normalizeInsights(rawInsights)
   const detailsCount = risks.length + next_steps.length
 
   return (

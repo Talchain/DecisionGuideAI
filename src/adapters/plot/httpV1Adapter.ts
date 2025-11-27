@@ -90,6 +90,36 @@ function mapConfidenceLevel(conf: number): ConfidenceLevel {
 }
 
 /**
+ * P0.1: Normalize confidence.level to canonical DecisionReadiness
+ *
+ * This function is the single source of truth for deriving decision readiness
+ * from the backend's confidence.level field. By centralizing this in the adapter,
+ * we ensure all consumers receive a consistent, normalized model.
+ *
+ * @param level - Backend confidence level ('high', 'medium', 'low')
+ * @returns Canonical DecisionReadiness object
+ */
+function mapConfidenceToDecisionReadiness(level: ConfidenceLevel): ReportV1['decision_readiness'] {
+  const normalizedLevel = level.toLowerCase() as 'high' | 'medium' | 'low'
+
+  return {
+    ready: normalizedLevel === 'high',
+    confidence: normalizedLevel,
+    blockers: normalizedLevel === 'low'
+      ? ['Low confidence analysis - add more factors or evidence']
+      : [],
+    warnings: normalizedLevel === 'medium'
+      ? ['Medium confidence - consider reviewing key factors and assumptions']
+      : [],
+    passed: normalizedLevel === 'high'
+      ? ['High confidence analysis - model is ready for decision-making']
+      : normalizedLevel === 'medium'
+        ? ['Model structure is valid']
+        : [],
+  }
+}
+
+/**
  * Map v1 RunResult to UI ReportV1
  */
 function mapV1ResultToReport(
@@ -163,6 +193,9 @@ function mapV1ResultToReport(
     // Sprint N P0: Trust Signal Fields (backend already returns these)
     graph_quality: response.graph_quality || response.result?.graph_quality,
     insights: response.insights || response.result?.insights,
+
+    // P0.1: Canonical decision readiness (always populated from confidence.level)
+    decision_readiness: mapConfidenceToDecisionReadiness(mapConfidenceLevel(result.confidence ?? 0.5)),
   }
 }
 

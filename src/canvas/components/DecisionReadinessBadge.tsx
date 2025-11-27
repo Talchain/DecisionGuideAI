@@ -29,8 +29,12 @@ import type { DecisionReadiness } from '../../types/plot'
 import type { ConfidenceLevel } from '../../adapters/plot/types'
 
 /**
- * Sprint N P1: Map confidence.level from backend to DecisionReadiness
- * Backend does NOT return decision_readiness - we derive it from confidence.level
+ * @deprecated Use report.decision_readiness from the adapter instead.
+ * This function is now deprecated in favor of the canonical normalized field
+ * populated by the adapter (P0.1). The adapter ensures consistency by always
+ * deriving decision_readiness from confidence.level.
+ *
+ * Kept for backward compatibility with existing tests.
  *
  * @param confidence - Backend confidence object with level and optional score
  * @returns DecisionReadiness object or null if no confidence data

@@ -1,3 +1,38 @@
+/**
+ * Access Code Validation Module
+ *
+ * ⚠️ IMPORTANT SECURITY SEMANTICS ⚠️
+ *
+ * Access codes are UX GATING mechanisms, NOT security boundaries.
+ *
+ * What this means:
+ * - Access codes control UI visibility (e.g., limited beta access, soft paywalls)
+ * - The backend API is publicly accessible regardless of access code validation
+ * - A determined user can bypass access codes by:
+ *   - Setting localStorage flags directly
+ *   - Calling the API endpoints directly
+ *   - Inspecting network traffic
+ *
+ * Why this design:
+ * - Keeps frontend stateless and CDN-cacheable
+ * - Simplifies deployment (no server-side session management)
+ * - Appropriate for limited-access/beta programs where friction, not security, is the goal
+ *
+ * When TRUE security is needed:
+ * - Use Supabase authentication (sb-auth-token)
+ * - Implement server-side authorization checks
+ * - Add Row Level Security (RLS) policies on data
+ *
+ * This module provides:
+ * - Constant-time comparison to prevent timing attacks on code enumeration
+ * - 24-hour expiry to encourage re-validation
+ * - Cross-tab synchronization via storage events
+ * - Hashed storage to obscure codes in localStorage
+ *
+ * None of these measures make it a security boundary - they only make it
+ * a slightly better UX gate by discouraging casual inspection.
+ */
+
 import { authLogger } from './authLogger';
 
 // Constants

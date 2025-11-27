@@ -45,17 +45,14 @@
     "Scenario lacks competitor response modeling"
   ],
   "decision_readiness": {
-    "ready": true,
-    "confidence": "high",
+    "ready": false,
+    "confidence": "medium",
     "blockers": [],
     "warnings": [
-      "Price sensitivity estimate based on assumptions",
-      "Competition response not modelled"
+      "Medium confidence - consider reviewing key factors and assumptions"
     ],
     "passed": [
-      "Identifiable causal structure",
-      "Good evidence coverage",
-      "Graph size in optimal range"
+      "Model structure is valid"
     ]
   },
   "insights": {
