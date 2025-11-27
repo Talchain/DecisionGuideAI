@@ -30,21 +30,7 @@ const ProsConsList = memo(({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [displayOptions, setDisplayOptions] = useState<Option[]>([]);
   const optionsProcessedRef = useRef(false);
-  const renderCountRef = useRef(0);
   const lastInitialOptionsRef = useRef<Option[] | null>(null);
-
-  // Debug: Track render count
-  useEffect(() => {
-    renderCountRef.current++;
-    console.log(`[DEBUG] ProsConsList render #${renderCountRef.current}`, {
-      decision,
-      hasInitialOptions: !!initialOptions?.length,
-      initialOptionsCount: initialOptions?.length || 0,
-      displayOptionsCount: displayOptions?.length || 0,
-      initialized,
-      timestamp: new Date().toISOString()
-    });
-  });
 
   const {
     value: savedOptions,
@@ -85,11 +71,6 @@ const ProsConsList = memo(({
   // CRITICAL FIX: Add initialization effect with optimization
   useEffect(() => {
     if (shouldProcessInitialOptions()) {
-      console.log('[DEBUG] Processing initialOptions:', {
-        count: initialOptions.length,
-        timestamp: new Date().toISOString()
-      });
-      
       try {
         // Ensure all options have valid arrays for pros and cons
         const validatedOptions = initialOptions.map(opt => ({
@@ -103,33 +84,23 @@ const ProsConsList = memo(({
         setInitialized(true);
         optionsProcessedRef.current = true;
         lastInitialOptionsRef.current = [...initialOptions];
-
-        console.log('[DEBUG] Options processed successfully:', {
-          count: validatedOptions.length,
-          sample: validatedOptions[0]
-        });
       } catch (err) {
-        console.error('[DEBUG] Error processing options:', err);
+        console.error('[ProsConsList] Error processing options:', err);
       }
     }
   }, [initialOptions, updateHistory, shouldProcessInitialOptions]);
 
   const handleOptionsChange = useCallback((newOptions: Option[]) => {
     if (!Array.isArray(newOptions)) {
-      console.error('[DEBUG] Invalid options format:', newOptions);
+      console.error('[ProsConsList] Invalid options format:', newOptions);
       return;
     }
-    
-    console.log('[DEBUG] Handling options change:', {
-      newOptionsCount: newOptions.length,
-      currentOptionsCount: options?.length || 0
-    });
-    
+
     // Only update history if there are actual changes
     if (JSON.stringify(options) !== JSON.stringify(newOptions)) {
       updateHistory(newOptions);
     }
-    
+
     setDisplayOptions(newOptions);
     setSavedOptions(newOptions);
     if (onOptionsChange) {
@@ -263,9 +234,6 @@ const ProsConsList = memo(({
     handleOptionsChange(newOptions);
   }, [displayOptions, handleOptionsChange]);
 
-  // Only show debug info in development
-  const showDebugInfo = process.env.NODE_ENV === 'development';
-
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
       <Header
@@ -286,30 +254,6 @@ const ProsConsList = memo(({
         saveStatus={saveStatus}
         saveError={saveError}
       />
-
-      {/* Debug Info - only in development */}
-      {showDebugInfo && (
-        <div className="bg-blue-50 p-4 rounded-lg mb-4 text-xs">
-          <p className="text-blue-700 font-medium">Debug Info:</p>
-          <pre className="text-blue-600 mt-2 whitespace-pre-wrap">
-            {JSON.stringify({
-              initialized,
-              optionsCount: displayOptions?.length || 0,
-              initialOptionsCount: initialOptions?.length || 0,
-              savedOptionsCount: savedOptions?.length || 0,
-              hasOptions: !!(displayOptions?.length),
-              optionsProcessed: optionsProcessedRef.current,
-              options: displayOptions?.map(o => ({
-                id: o.id,
-                name: o.name,
-                prosCount: o.pros.length,
-                consCount: o.cons.length
-              })),
-              renderCount: renderCountRef.current
-            }, null, 2)}
-          </pre>
-        </div>
-      )}
 
       {displayOptions.length > 0 ? (
         <OptionsGrid
