@@ -53,48 +53,11 @@ export default defineConfig(({ mode }) => {
     },
     rollupOptions: {
       external: [], // do NOT externalize react/react-dom
-      output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return
-          
-          // Core React libraries + zustand + use-sync-external-store
-          // All must be in same chunk to prevent TDZ errors from initialization order
-          // Dependency chain: React → use-sync-external-store → zustand
-          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router') || id.includes('use-sync-external-store') || id.includes('zustand')) {
-            return 'react-vendor'
-          }
-          // ReactFlow (large, used only in Canvas)
-          if (id.includes('reactflow') || id.includes('@xyflow')) {
-            return 'rf-vendor'
-          }
-          // Sentry monitoring
-          if (id.includes('@sentry')) {
-            return 'sentry-vendor'
-          }
-          // Lucide icons
-          if (id.includes('lucide-react')) {
-            return 'icons-vendor'
-          }
-          // Supabase auth
-          if (id.includes('@supabase') || id.includes('openid') || id.includes('@auth')) {
-            return 'auth-vendor'
-          }
-          
-          // 🔥 Heavy lazy-loaded libraries - separate chunks
-          if (id.includes('tldraw') || id.includes('@tldraw')) {
-            return 'tldraw-vendor'
-          }
-          if (id.includes('html2canvas')) {
-            return 'html2canvas-vendor'
-          }
-          if (id.includes('elkjs') || id.includes('elk')) {
-            return 'elk-vendor'
-          }
-          
-          // Everything else
-          return 'vendor'
-        }
-      }
+      // ⚠️  manualChunks REMOVED - caused React #185 due to pattern matching bugs:
+      // - id.includes('react') incorrectly matched '@xyflow/react'
+      // - This bundled conflicting zustand versions together
+      // The fix: npm overrides force single zustand version + Vite dedupe handles the rest
+      // See: commit history for React #185 debugging saga
     }
   },
 optimizeDeps: {

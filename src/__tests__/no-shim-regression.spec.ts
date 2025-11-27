@@ -7,6 +7,8 @@
  * - Commit 0f3e914: ROOT CAUSE fix - removed shim aliases, used real package
  * - Commit 78837ab: Mistakenly re-added shim with "fix" that still caused #185
  * - Commit c8380a9: Permanent fix with regression tests
+ * - Nov 2024: Root cause found - dual zustand versions (v4.5.7 in @xyflow, v5.0.8 in app)
+ *   with incompatible useSyncExternalStore implementations
  *
  * The shim causes React #185 infinite loops because:
  * - useCallback dependencies include `selector` which is a new function each render
@@ -15,7 +17,9 @@
  * The CORRECT fix is:
  * - Use the real use-sync-external-store@1.2.0 package
  * - Use Vite's dedupe: ['react', 'react-dom', 'zustand', 'use-sync-external-store']
+ * - Use npm overrides to force single zustand version (prevents @xyflow from using v4)
  * - NO custom shim or aliases of ANY kind for use-sync-external-store
+ * - NO manualChunks (pattern matching bugs caused @xyflow/react to be misclassified)
  */
 
 import { describe, it, expect } from 'vitest'
@@ -87,5 +91,34 @@ describe('React #185 Regression Prevention', () => {
     // Verify override exists to pin the version
     expect(packageJson.overrides?.['use-sync-external-store']).toBeDefined()
     expect(packageJson.overrides['use-sync-external-store']).toMatch(/^\^?1\.2\./)
+  })
+
+  it('package.json has zustand override to prevent dual-version bug', () => {
+    const packageJsonPath = path.resolve(projectRoot, 'package.json')
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
+
+    // @xyflow/react bundles zustand v4.5.7 which has different useSyncExternalStore
+    // implementation than zustand v5.0.8. Without this override, both versions
+    // get bundled, causing React #185 infinite loops.
+    expect(packageJson.overrides?.zustand).toBeDefined(
+      `package.json must have zustand override.\n` +
+      `Without it, @xyflow/react uses zustand v4 while app uses v5,\n` +
+      `causing React #185 due to incompatible useSyncExternalStore implementations.`
+    )
+    expect(packageJson.overrides.zustand).toMatch(/^\^?5\./)
+  })
+
+  it('vite.config.ts does NOT use manualChunks (causes pattern matching bugs)', () => {
+    const viteConfigPath = path.resolve(projectRoot, 'vite.config.ts')
+    const viteConfig = fs.readFileSync(viteConfigPath, 'utf-8')
+
+    // manualChunks was removed because id.includes('react') incorrectly matched
+    // '@xyflow/react', bundling conflicting code together and causing React #185.
+    // Vite's dedupe + npm overrides handle instance deduplication correctly.
+    expect(viteConfig).not.toMatch(/manualChunks\s*[:(]/,
+      `vite.config.ts must NOT use manualChunks.\n` +
+      `Pattern matching like id.includes('react') incorrectly matches '@xyflow/react'.\n` +
+      `Let Vite's dedupe + npm overrides handle chunking instead.`
+    )
   })
 })
