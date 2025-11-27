@@ -8,7 +8,7 @@ import noCorsWildcard from './eslint-rules/no-cors-wildcard.js'
 import noOldImports from './eslint-rules/no-old-imports.js'
 
 export default [
-  // Ignore artefacts, Node scripts
+  // Ignore artefacts, Node scripts, and E2E tests (use Playwright's own linting)
   { ignores: [
     'dist/**',
     'docs/**',
@@ -18,6 +18,7 @@ export default [
     'tools/**',
     'supabase/**',
     'scripts/**',
+    'e2e/**',
     'test-*.js',
     '**/*.mjs',
     '**/*.cjs',
