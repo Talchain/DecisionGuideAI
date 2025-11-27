@@ -10,24 +10,59 @@ interface State {
   error: Error | null
   showDetails: boolean
   dismissed: boolean
+  errorCount: number
+  lastErrorTime: number
 }
 
 // GitHub issues URL for reporting
 const GITHUB_ISSUES_URL = 'https://github.com/Talchain/DecisionGuideAI/issues/new'
 
+// If more than this many errors in the time window, consider it a recurring error
+const RECURRING_ERROR_THRESHOLD = 3
+const RECURRING_ERROR_WINDOW_MS = 5000
+
 export class CanvasErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props)
-    this.state = { hasError: false, error: null, showDetails: false, dismissed: false }
+    this.state = {
+      hasError: false,
+      error: null,
+      showDetails: false,
+      dismissed: false,
+      errorCount: 0,
+      lastErrorTime: 0,
+    }
   }
 
   static getDerivedStateFromError(error: Error): Partial<State> {
-    return { hasError: true, error, showDetails: false, dismissed: false }
+    const now = Date.now()
+    return {
+      hasError: true,
+      error,
+      showDetails: false,
+      // Don't reset dismissed - we'll handle it in componentDidCatch
+      lastErrorTime: now,
+    }
   }
 
   componentDidCatch(error: Error, errorInfo: any) {
     console.error('[CANVAS ERROR]:', error, errorInfo)
-    
+
+    // Track error count for recurring error detection
+    const now = Date.now()
+    const isWithinWindow = now - this.state.lastErrorTime < RECURRING_ERROR_WINDOW_MS
+    const newErrorCount = isWithinWindow ? this.state.errorCount + 1 : 1
+
+    // If errors keep recurring after dismiss, mark as recurring
+    const isRecurring = newErrorCount >= RECURRING_ERROR_THRESHOLD
+
+    this.setState({
+      errorCount: newErrorCount,
+      // If user dismissed but errors keep recurring, un-dismiss to show error panel
+      // but with the recurring flag they'll see a different message
+      dismissed: isRecurring ? false : this.state.dismissed,
+    })
+
     // Mirror canvas errors into the same SAFE_DEBUG structure used by main.tsx
     // so we can inspect stacks and component stacks from production.
     try {
@@ -44,6 +79,8 @@ export class CanvasErrorBoundary extends Component<Props, State> {
               error: error.message,
               stack: error.stack,
               componentStack: errorInfo?.componentStack?.slice(0, 600),
+              errorCount: newErrorCount,
+              isRecurring,
             },
           })
         }
@@ -56,6 +93,8 @@ export class CanvasErrorBoundary extends Component<Props, State> {
     captureError(error, {
       component: 'Canvas',
       errorInfo: errorInfo.componentStack?.slice(0, 500), // Truncate for PII safety
+      isRecurring,
+      errorCount: newErrorCount,
     })
   }
 
@@ -162,6 +201,8 @@ export class CanvasErrorBoundary extends Component<Props, State> {
   }
 
   render() {
+    const isRecurring = this.state.errorCount >= RECURRING_ERROR_THRESHOLD
+
     // If error was dismissed, render children but show a warning banner
     if (this.state.hasError && this.state.dismissed) {
       return (
@@ -199,9 +240,22 @@ export class CanvasErrorBoundary extends Component<Props, State> {
               </div>
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Something went wrong</h2>
-                <p className="text-sm text-gray-600">The canvas encountered an unexpected error</p>
+                <p className="text-sm text-gray-600">
+                  {isRecurring
+                    ? 'A critical error keeps occurring. Please reload the page.'
+                    : 'The canvas encountered an unexpected error'}
+                </p>
               </div>
             </div>
+
+            {/* Recurring error warning */}
+            {isRecurring && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                <p className="text-sm text-amber-800">
+                  This error is recurring and cannot be dismissed. The page needs to be reloaded to recover.
+                </p>
+              </div>
+            )}
 
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
               <p className="text-sm font-mono text-gray-700 break-all">
@@ -273,15 +327,18 @@ export class CanvasErrorBoundary extends Component<Props, State> {
                 </button>
               </div>
 
-              <button
-                onClick={this.handleDismiss}
-                className="w-full px-4 py-2 text-gray-500 hover:text-gray-700 text-sm transition-colors flex items-center justify-center gap-1"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Dismiss and continue (not recommended)
-              </button>
+              {/* Only show dismiss for non-recurring errors */}
+              {!isRecurring && (
+                <button
+                  onClick={this.handleDismiss}
+                  className="w-full px-4 py-2 text-gray-500 hover:text-gray-700 text-sm transition-colors flex items-center justify-center gap-1"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Dismiss and continue (not recommended)
+                </button>
+              )}
             </div>
 
             <p className="text-xs text-gray-500 text-center mt-6">
