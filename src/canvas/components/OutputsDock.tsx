@@ -49,7 +49,7 @@ import { useDebugShortcut } from '../hooks/useDebugShortcut'
 import { RANGE_TERMINOLOGY } from '../../config/terminology'
 import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './IdentifiabilityBadge'
 import { EvidenceCoverageCompact } from './EvidenceCoverage'
-import { DecisionReadinessBadge, mapConfidenceToReadiness } from './DecisionReadinessBadge'
+import { DecisionReadinessBadge } from './DecisionReadinessBadge'
 import { ModelQualityScore } from './ModelQualityScore'
 import { InsightsPanel } from './InsightsPanel'
 
@@ -582,27 +582,22 @@ export function OutputsDock() {
                     <IdentifiabilityBadge status={normalizedStatus} />
                   )
                 })()}
-                {/* Sprint N P0: Decision Readiness Badge - derive from confidence.level */}
-                {(() => {
-                  if (isPreRun) return null
-                  const readiness = mapConfidenceToReadiness(report?.confidence)
-                  if (!readiness) return null
-                  return (
-                    <DecisionReadinessBadge
-                      readiness={readiness}
-                      identifiability={normalizeIdentifiabilityTag(report?.model_card?.identifiability_tag) ?? undefined}
-                      evidenceCoverage={
-                        // P0.2: Use local edge provenance for consistency with Diagnostics tab
-                        totalEdges > 0
-                          ? {
-                              evidencedCount: evidencedEdges,
-                              totalCount: totalEdges,
-                            }
-                          : undefined
-                      }
-                    />
-                  )
-                })()}
+                {/* Sprint N P0.1: Decision Readiness Badge - use canonical adapter-normalized field */}
+                {!isPreRun && report?.decision_readiness && (
+                  <DecisionReadinessBadge
+                    readiness={report.decision_readiness}
+                    identifiability={normalizeIdentifiabilityTag(report?.model_card?.identifiability_tag) ?? undefined}
+                    evidenceCoverage={
+                      // P0.2: Use local edge provenance for consistency with Diagnostics tab
+                      totalEdges > 0
+                        ? {
+                            evidencedCount: evidencedEdges,
+                            totalCount: totalEdges,
+                          }
+                        : undefined
+                    }
+                  />
+                )}
                 {/* Sprint N P0: Model Quality Score */}
                 {!isPreRun && report?.graph_quality && (
                   <ModelQualityScore quality={report.graph_quality} />

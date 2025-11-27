@@ -89,13 +89,14 @@ function MetricRow({ label, value, tooltip }: MetricRowProps) {
           {label}
         </span>
         <div className="flex items-center gap-2">
-          {/* Mini progress bar */}
+          {/* Mini progress bar - P1.7: Added aria-valuetext */}
           <div
             className="h-1.5 w-16 bg-sand-100 rounded-full overflow-hidden"
             role="progressbar"
             aria-valuenow={Math.round(value * 100)}
             aria-valuemin={0}
             aria-valuemax={100}
+            aria-valuetext={`${label}: ${formatPercent(value)}`}
           >
             <div
               className={`h-full ${colors.progress} transition-all duration-300`}
@@ -159,10 +160,11 @@ export function ModelQualityScore({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Main score display */}
+            {/* Main score display - P1.7: Added aria-live for score updates */}
             <span
               className={`${typography.h4} tabular-nums ${colors.text}`}
               role="status"
+              aria-live="polite"
               aria-label={`Model quality score: ${formatPercent(score)}`}
               data-testid="quality-score"
             >

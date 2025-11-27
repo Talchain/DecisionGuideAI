@@ -116,13 +116,14 @@ export function EvidenceCoverage({
           )}
         </div>
 
-        {/* Progress bar */}
+        {/* Progress bar - P1.7: Added aria-valuetext for screen readers */}
         <div
           className="h-1.5 w-full bg-sand-100 rounded-full overflow-hidden"
           role="progressbar"
           aria-valuenow={percentage}
           aria-valuemin={0}
           aria-valuemax={100}
+          aria-valuetext={`${percentage}% evidence coverage, ${evidencedCount} of ${totalCount} edges documented`}
           aria-label="Evidence coverage progress"
         >
           <div

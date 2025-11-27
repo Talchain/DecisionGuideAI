@@ -52,6 +52,16 @@ export interface ReportV1 {
     risks: string[]
     next_steps: string[]
   }
+
+  // P0.1: Canonical decision readiness (normalized from confidence.level)
+  // This field is always populated by the adapter from confidence.level
+  decision_readiness?: {
+    ready: boolean
+    confidence: 'high' | 'medium' | 'low'
+    blockers: string[]
+    warnings: string[]
+    passed: string[]
+  }
 }
 
 export interface ErrorV1 {

@@ -193,6 +193,76 @@ describe('InsightsPanel', () => {
   })
 })
 
+// P0.3: Hardening tests for defensive data handling
+describe('InsightsPanel hardening (P0.3)', () => {
+  it('handles null insights gracefully', () => {
+    render(<InsightsPanel insights={null} />)
+
+    const summary = screen.getByTestId('insights-summary')
+    expect(summary).toHaveTextContent('Analysis complete. Review the results above for details.')
+  })
+
+  it('handles undefined insights gracefully', () => {
+    render(<InsightsPanel insights={undefined} />)
+
+    const summary = screen.getByTestId('insights-summary')
+    expect(summary).toHaveTextContent('Analysis complete. Review the results above for details.')
+  })
+
+  it('handles missing summary with default', () => {
+    render(<InsightsPanel insights={{ risks: ['Risk 1'], next_steps: [] }} />)
+
+    const summary = screen.getByTestId('insights-summary')
+    expect(summary).toHaveTextContent('Analysis complete. Review the results above for details.')
+  })
+
+  it('truncates oversized summary to 200 characters', () => {
+    const longSummary = 'A'.repeat(250) // 250 chars
+    render(<InsightsPanel insights={{ summary: longSummary, risks: [], next_steps: [] }} />)
+
+    const summary = screen.getByTestId('insights-summary')
+    // Should be truncated to 197 + '...' = 200 chars
+    expect(summary.textContent?.length).toBeLessThanOrEqual(200)
+    expect(summary.textContent?.endsWith('...')).toBe(true)
+  })
+
+  it('limits risks to maximum 5 items', () => {
+    const manyRisks = Array.from({ length: 10 }, (_, i) => `Risk ${i + 1}`)
+    render(<InsightsPanel insights={{ summary: 'Test', risks: manyRisks, next_steps: [] }} />)
+
+    const risksList = screen.getByTestId('risks-list')
+    const items = risksList.querySelectorAll('li')
+    expect(items.length).toBe(5)
+  })
+
+  it('limits next_steps to maximum 3 items', () => {
+    const manySteps = Array.from({ length: 10 }, (_, i) => `Step ${i + 1}`)
+    render(<InsightsPanel insights={{ summary: 'Test', risks: [], next_steps: manySteps }} />)
+
+    const nextStepsList = screen.getByTestId('next-steps-list')
+    const items = nextStepsList.querySelectorAll('li')
+    expect(items.length).toBe(3)
+  })
+
+  it('filters out empty strings from arrays', () => {
+    render(<InsightsPanel insights={{ summary: 'Test', risks: ['Risk 1', '', 'Risk 2', null as any], next_steps: [] }} />)
+
+    const risksList = screen.getByTestId('risks-list')
+    const items = risksList.querySelectorAll('li')
+    expect(items.length).toBe(2)
+    expect(screen.getByText('Risk 1')).toBeInTheDocument()
+    expect(screen.getByText('Risk 2')).toBeInTheDocument()
+  })
+
+  it('handles empty object insights', () => {
+    render(<InsightsPanel insights={{}} />)
+
+    const summary = screen.getByTestId('insights-summary')
+    expect(summary).toHaveTextContent('Analysis complete. Review the results above for details.')
+    expect(screen.queryByTestId('insights-details')).not.toBeInTheDocument()
+  })
+})
+
 describe('InsightsSummaryCompact', () => {
   it('renders summary in compact form', () => {
     render(<InsightsSummaryCompact insights={mockFullInsights} />)
