@@ -53,46 +53,11 @@ export default defineConfig(({ mode }) => {
     },
     rollupOptions: {
       external: [], // do NOT externalize react/react-dom
-      output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return
-
-          // ⚠️ CRITICAL: Check @xyflow BEFORE react - prevents pattern collision!
-          // Previously id.includes('react') incorrectly matched '@xyflow/react'
-          if (id.includes('@xyflow') || id.includes('reactflow')) {
-            return 'rf-vendor'
-          }
-
-          // Core React - use path separators to avoid @xyflow/react collision
-          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('react-router')) {
-            return 'react-vendor'
-          }
-
-          // Sentry monitoring
-          if (id.includes('@sentry')) {
-            return 'sentry-vendor'
-          }
-          // Lucide icons
-          if (id.includes('lucide-react')) {
-            return 'icons-vendor'
-          }
-          // Supabase auth
-          if (id.includes('@supabase') || id.includes('openid') || id.includes('@auth')) {
-            return 'auth-vendor'
-          }
-
-          // Heavy lazy-loaded libraries
-          if (id.includes('html2canvas')) {
-            return 'html2canvas-vendor'
-          }
-          if (id.includes('elkjs') || id.includes('/elk/')) {
-            return 'elk-vendor'
-          }
-
-          // Everything else
-          return 'vendor'
-        }
-      }
+      // ⚠️ NO manualChunks - causes initialization order bugs!
+      // When React is in a separate chunk from use-sync-external-store,
+      // the shim executes before React loads, causing:
+      // "Cannot read properties of undefined (reading 'useState')"
+      // Let Vite/Rollup handle chunk ordering automatically.
     }
   },
 optimizeDeps: {

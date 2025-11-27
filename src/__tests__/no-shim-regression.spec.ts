@@ -107,24 +107,19 @@ describe('React #185 Regression Prevention', () => {
     expect(packageJson.overrides.zustand).toMatch(/^\^?5\./)
   })
 
-  it('vite.config.ts manualChunks checks @xyflow BEFORE react', () => {
+  it('vite.config.ts does NOT use manualChunks (causes initialization order bugs)', () => {
     const viteConfigPath = path.resolve(projectRoot, 'vite.config.ts')
     const viteConfig = fs.readFileSync(viteConfigPath, 'utf-8')
 
-    // manualChunks must check @xyflow before react, otherwise
-    // id.includes('react') incorrectly matches '@xyflow/react'
-    // and bundles them together, causing React #185
-    const xyflowMatch = viteConfig.indexOf("@xyflow")
-    const reactMatch = viteConfig.indexOf("'/react/'") // The specific pattern for react
-
-    // Both patterns must exist
-    expect(xyflowMatch).toBeGreaterThan(-1)
-    expect(reactMatch).toBeGreaterThan(-1)
-
-    // @xyflow must come BEFORE the react pattern in manualChunks
-    expect(xyflowMatch).toBeLessThan(reactMatch,
-      `manualChunks must check @xyflow BEFORE react.\n` +
-      `Otherwise id.includes('react') matches '@xyflow/react'.`
+    // manualChunks causes initialization order bugs:
+    // - Putting React in a separate chunk from use-sync-external-store
+    //   causes "Cannot read properties of undefined (reading 'useState')"
+    // - The shim executes before React loads
+    // Let Vite/Rollup handle chunk ordering automatically.
+    expect(viteConfig).not.toMatch(/manualChunks\s*[:(]/,
+      `vite.config.ts must NOT use manualChunks.\n` +
+      `It causes initialization order bugs where use-sync-external-store\n` +
+      `executes before React loads, causing useState undefined errors.`
     )
   })
 })
