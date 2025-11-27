@@ -53,11 +53,46 @@ export default defineConfig(({ mode }) => {
     },
     rollupOptions: {
       external: [], // do NOT externalize react/react-dom
-      // ⚠️  manualChunks REMOVED - caused React #185 due to pattern matching bugs:
-      // - id.includes('react') incorrectly matched '@xyflow/react'
-      // - This bundled conflicting zustand versions together
-      // The fix: npm overrides force single zustand version + Vite dedupe handles the rest
-      // See: commit history for React #185 debugging saga
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return
+
+          // ⚠️ CRITICAL: Check @xyflow BEFORE react - prevents pattern collision!
+          // Previously id.includes('react') incorrectly matched '@xyflow/react'
+          if (id.includes('@xyflow') || id.includes('reactflow')) {
+            return 'rf-vendor'
+          }
+
+          // Core React - use path separators to avoid @xyflow/react collision
+          if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('react-router')) {
+            return 'react-vendor'
+          }
+
+          // Sentry monitoring
+          if (id.includes('@sentry')) {
+            return 'sentry-vendor'
+          }
+          // Lucide icons
+          if (id.includes('lucide-react')) {
+            return 'icons-vendor'
+          }
+          // Supabase auth
+          if (id.includes('@supabase') || id.includes('openid') || id.includes('@auth')) {
+            return 'auth-vendor'
+          }
+
+          // Heavy lazy-loaded libraries
+          if (id.includes('html2canvas')) {
+            return 'html2canvas-vendor'
+          }
+          if (id.includes('elkjs') || id.includes('/elk/')) {
+            return 'elk-vendor'
+          }
+
+          // Everything else
+          return 'vendor'
+        }
+      }
     }
   },
 optimizeDeps: {

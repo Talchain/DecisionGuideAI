@@ -17,9 +17,8 @@
  * The CORRECT fix is:
  * - Use the real use-sync-external-store@1.2.0 package
  * - Use Vite's dedupe: ['react', 'react-dom', 'zustand', 'use-sync-external-store']
- * - Use npm overrides to force single zustand version (prevents @xyflow from using v4)
  * - NO custom shim or aliases of ANY kind for use-sync-external-store
- * - NO manualChunks (pattern matching bugs caused @xyflow/react to be misclassified)
+ * - manualChunks MUST check @xyflow BEFORE react to prevent pattern collision
  */
 
 import { describe, it, expect } from 'vitest'
@@ -108,17 +107,24 @@ describe('React #185 Regression Prevention', () => {
     expect(packageJson.overrides.zustand).toMatch(/^\^?5\./)
   })
 
-  it('vite.config.ts does NOT use manualChunks (causes pattern matching bugs)', () => {
+  it('vite.config.ts manualChunks checks @xyflow BEFORE react', () => {
     const viteConfigPath = path.resolve(projectRoot, 'vite.config.ts')
     const viteConfig = fs.readFileSync(viteConfigPath, 'utf-8')
 
-    // manualChunks was removed because id.includes('react') incorrectly matched
-    // '@xyflow/react', bundling conflicting code together and causing React #185.
-    // Vite's dedupe + npm overrides handle instance deduplication correctly.
-    expect(viteConfig).not.toMatch(/manualChunks\s*[:(]/,
-      `vite.config.ts must NOT use manualChunks.\n` +
-      `Pattern matching like id.includes('react') incorrectly matches '@xyflow/react'.\n` +
-      `Let Vite's dedupe + npm overrides handle chunking instead.`
+    // manualChunks must check @xyflow before react, otherwise
+    // id.includes('react') incorrectly matches '@xyflow/react'
+    // and bundles them together, causing React #185
+    const xyflowMatch = viteConfig.indexOf("@xyflow")
+    const reactMatch = viteConfig.indexOf("'/react/'") // The specific pattern for react
+
+    // Both patterns must exist
+    expect(xyflowMatch).toBeGreaterThan(-1)
+    expect(reactMatch).toBeGreaterThan(-1)
+
+    // @xyflow must come BEFORE the react pattern in manualChunks
+    expect(xyflowMatch).toBeLessThan(reactMatch,
+      `manualChunks must check @xyflow BEFORE react.\n` +
+      `Otherwise id.includes('react') matches '@xyflow/react'.`
     )
   })
 })
