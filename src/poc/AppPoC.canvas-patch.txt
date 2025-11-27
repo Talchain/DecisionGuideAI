@@ -1,7 +1,0 @@
-Add after line 21:
-const CanvasPage = lazy(() => import('../routes/canvas/CanvasPage').then(m => ({ default: m.CanvasPage })))
-
-Change line 860 from:
-<Route path="/canvas" element={<CanvasMVP />} />
-To:
-<Route path="/canvas" element={<CanvasPage />} />
