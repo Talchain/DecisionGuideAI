@@ -3,6 +3,7 @@ import React, {
   useContext,
   useState,
   useCallback,
+  useMemo,
   ReactNode,
 } from 'react';
 import { supabase } from '../lib/supabase';
@@ -262,13 +263,44 @@ export function TeamsProvider({ children }: { children: ReactNode }) {
     throw new Error('Deprecated: use sendInviteViaEdge in the modal');
   }, [user]);
 
+  // React #185 FIX: Memoize context value to prevent re-renders when values haven't changed
+  // Without this, a new object is created on every render, causing all consumers to re-render
+  const contextValue = useMemo(() => ({
+    teams,
+    loading,
+    error,
+    fetchTeams,
+    createTeam,
+    updateTeam,
+    deleteTeam,
+    addTeamMember,
+    removeTeamMember,
+    updateTeamMember,
+    inviteTeamMember,
+    getTeamInvitations,
+    revokeInvitation,
+    resendInvitation,
+    getUserIdByEmail,
+  }), [
+    teams,
+    loading,
+    error,
+    fetchTeams,
+    createTeam,
+    updateTeam,
+    deleteTeam,
+    addTeamMember,
+    removeTeamMember,
+    updateTeamMember,
+    inviteTeamMember,
+    getTeamInvitations,
+    revokeInvitation,
+    resendInvitation,
+    getUserIdByEmail,
+  ]);
+
   return (
-    <TeamsContext.Provider value={{
-      teams, loading, error, fetchTeams, createTeam, updateTeam, deleteTeam,
-      addTeamMember, removeTeamMember, updateTeamMember,
-      inviteTeamMember, getTeamInvitations, revokeInvitation, resendInvitation,
-      getUserIdByEmail
-    }}>
+    <TeamsContext.Provider value={contextValue}>
       {children}
     </TeamsContext.Provider>
   );

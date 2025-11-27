@@ -48,6 +48,7 @@ export function ContextBar() {
   // on every store update when selecting entire arrays
   const nodesCount = useCanvasStore(s => s.nodes.length)
   const edgesCount = useCanvasStore(s => s.edges.length)
+  // React #185 FIX: Use shallow comparison for object selector
   const graphHealth = useCanvasStore(s => s.graphHealth)
   const { limits, loading, error } = useEngineLimits()
 

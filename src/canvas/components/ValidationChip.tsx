@@ -6,31 +6,24 @@
 
 import { memo, useCallback, useMemo } from 'react'
 import { AlertTriangle } from 'lucide-react'
-import { shallow } from 'zustand/shallow'
-import { useCanvasStore, getNextInvalidNode } from '../store'
-import { getInvalidNodes as getInvalidNodesUtil } from '../utils/validateOutgoing'
+import { useCanvasStore, getNextInvalidNode, getInvalidNodes } from '../store'
 import styles from './ValidationChip.module.css'
 
 interface ValidationChipProps {
-  onFocusNode?: (nodeId: string) => void
+  onFocusNode?: (_nodeId: string) => void
 }
 
 export const ValidationChip = memo(({ onFocusNode }: ValidationChipProps) => {
-  // React #185 FIX: Use shallow comparison for combined selector with Sets/arrays
-  // touchedNodeIds is a Set - selecting it without shallow causes re-renders on every store update
-  const { nodes, edges, touchedNodeIds } = useCanvasStore(
-    s => ({
-      nodes: s.nodes,
-      edges: s.edges,
-      touchedNodeIds: s.touchedNodeIds,
-    }),
-    shallow
-  )
+  // React 18 + Zustand v5: use individual selectors instead of object+shallow
+  const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
+  const touchedNodeIds = useCanvasStore(s => s.touchedNodeIds)
 
   // Compute invalid nodes in useMemo with stable dependencies
-  // Call utility directly with properly typed arguments (no 'as any')
+  // Use store-level selector to avoid Node<NodeData> type mismatch
   const invalidNodes = useMemo(() => {
-    return getInvalidNodesUtil(nodes, edges, touchedNodeIds)
+    const state = useCanvasStore.getState()
+    return getInvalidNodes(state)
   }, [nodes, edges, touchedNodeIds])
 
   const handleClick = useCallback(() => {

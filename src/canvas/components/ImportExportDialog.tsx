@@ -24,7 +24,9 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
   const [canAutoFix, setCanAutoFix] = useState(false)
   const [exportFormat, setExportFormat] = useState<'json' | 'png' | 'svg'>('json')
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const { nodes, edges } = useCanvasStore()
+  // React 18 + Zustand v5: use individual selectors instead of object+shallow
+  const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
   const { showToast } = useToast()
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {

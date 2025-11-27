@@ -57,7 +57,8 @@ export default function App() {
   const location = useLocation()
   const { authenticated, loading } = useAuth()
   const hasValidAccess = checkAccessValidation()
-  const { loadLimits } = useLimitsStore()
+  // React #185 FIX: Don't destructure loadLimits as it creates a new reference each render
+  // Instead, access it directly from the store state in the effect
 
   // quick sanity check + load engine limits
   useEffect(() => {
@@ -67,13 +68,13 @@ export default function App() {
       }
     })
 
-    // Load engine limits on app mount
-    loadLimits().catch(err => {
+    // Load engine limits on app mount - access store method directly to avoid dependency issues
+    useLimitsStore.getState().loadLimits().catch(err => {
       if (import.meta.env.DEV) {
         console.error('[App] Failed to load engine limits:', err)
       }
     })
-  }, [loadLimits])
+  }, []) // Empty deps - only run on mount
 
   const isAuthRoute = [
     '/login','/signup','/forgot-password','/reset-password'

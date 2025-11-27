@@ -55,6 +55,30 @@ module.exports = {
           ]
         }]
       }
+    },
+    {
+      // React #185 guardrails: forbid unsafe Zustand selectors in canvas
+      files: ['src/canvas/**/*.{ts,tsx}'],
+      excludedFiles: ['src/canvas/components/OutputsDock.tsx'],
+      rules: {
+        'no-restricted-imports': ['error', {
+          paths: [
+            {
+              name: 'zustand/shallow',
+              message:
+                'Do not import zustand/shallow in canvas. Use individual selectors or useShallow in OutputsDock only.',
+            },
+          ],
+        }],
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector: "CallExpression[callee.name='useCanvasStore'] ObjectExpression",
+            message:
+              'Do not select plain objects from useCanvasStore; use individual selectors instead.',
+          },
+        ],
+      },
     }
   ]
 }

@@ -23,7 +23,7 @@
 
 import { useEffect, useState, useRef, type ChangeEvent } from 'react'
 import { BarChart3, Sparkles, Shuffle, Activity, Clock } from 'lucide-react'
-import { shallow } from 'zustand/shallow'
+import { useShallow } from 'zustand/react/shallow'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
@@ -179,7 +179,7 @@ export function OutputsDock() {
     edges,
     framing,
   } = useCanvasStore(
-    s => ({
+    useShallow(s => ({
       runMeta: s.runMeta,
       graphHealth: s.graphHealth,
       showResultsPanel: s.showResultsPanel,
@@ -187,8 +187,7 @@ export function OutputsDock() {
       nodes: s.nodes,
       edges: s.edges,
       framing: s.currentScenarioFraming,
-    }),
-    shallow
+    }))
   )
 
   // Actions don't need shallow - they're stable references
@@ -728,6 +727,7 @@ export function OutputsDock() {
                 effectiveCorrelationId={effectiveCorrelationId}
                 correlationMismatch={correlationMismatch}
                 correlationIdHeader={correlationIdHeader}
+                edges={edges}
               />
             )}
           </div>
@@ -750,6 +750,7 @@ function DiagnosticsTabBody({
   effectiveCorrelationId,
   correlationMismatch,
   correlationIdHeader,
+  edges,
 }: {
   healthView: { label: string; detail: string }
   graphHealth: GraphHealth | null
@@ -761,11 +762,11 @@ function DiagnosticsTabBody({
   effectiveCorrelationId: string | null | undefined
   correlationMismatch: boolean
   correlationIdHeader: string | null | undefined
+  edges: Array<{ id: string; data?: { provenance?: string } }>
 }) {
   // P0 Engine: Evidence coverage from local edge provenance
   // NOTE: This uses UI-observed provenance on local graph edges.
   // Future: When backend provides model_card.sources, prefer that as source of truth.
-  const edges = useCanvasStore(s => s.edges)
   const totalEdges = edges.length
   const evidencedEdges = edges.filter(e => e.data?.provenance && e.data.provenance.trim() !== '').length
 

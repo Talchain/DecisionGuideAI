@@ -21,6 +21,7 @@ export function DocumentsManager({ onUpload, onDownload, onDelete }: DocumentsMa
   const [isDragging, setIsDragging] = useState(false)
 
   // S7-FILEOPS: Get state from store
+  // React #185 FIX: Use shallow comparison for array selector
   const documents = useCanvasStore(s => s.documents)
   const searchQuery = useCanvasStore(s => s.documentSearchQuery)
   const sortField = useCanvasStore(s => s.documentSortField)

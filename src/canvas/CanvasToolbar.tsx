@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react'
 import { PanelsTopLeft, Sparkles } from 'lucide-react'
 import { useCanvasStore } from './store'
-import { shallow } from 'zustand/shallow'
 import { typography } from '../styles/typography'
 import { useReactFlow } from '@xyflow/react'
 import { SnapshotManager } from './components/SnapshotManager'
@@ -44,15 +43,10 @@ export function CanvasToolbar() {
   const templatesButtonRef = useRef<HTMLButtonElement>(null)
 
   // Performance: Use granular selectors to prevent unnecessary re-renders
-  const { nodes, edges, outcomeNodeId, showDraftChat } = useCanvasStore(
-    (s) => ({
-      nodes: s.nodes,
-      edges: s.edges,
-      outcomeNodeId: s.outcomeNodeId,
-      showDraftChat: s.showDraftChat
-    }),
-    shallow
-  )
+  const nodes = useCanvasStore((s) => s.nodes)
+  const edges = useCanvasStore((s) => s.edges)
+  const outcomeNodeId = useCanvasStore((s) => s.outcomeNodeId)
+  const showDraftChat = useCanvasStore((s) => s.showDraftChat)
   const undo = useCanvasStore((s) => s.undo)
   const redo = useCanvasStore((s) => s.redo)
   const canUndo = useCanvasStore((s) => s.canUndo)

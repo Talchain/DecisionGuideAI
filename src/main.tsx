@@ -10,11 +10,67 @@ declare global {
   }
 }
 
+const DEBUG_LOG_STORAGE_KEY = 'olumi_safe_debug_logs_v1';
+
 window.__SAFE_DEBUG__ ||= { logs: [] };
+const debug = window.__SAFE_DEBUG__!;
+
+// Hydrate debug logs from previous session (useful after hard crashes)
+try {
+  if (typeof localStorage !== 'undefined') {
+    const raw = localStorage.getItem(DEBUG_LOG_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        debug.logs = parsed;
+      }
+    }
+  }
+} catch {
+  // Ignore hydration errors - debug logging must never break boot
+}
+
+// Patch logs.push so every debug entry is persisted for post-mortem analysis
+try {
+  const originalPush = debug.logs.push.bind(debug.logs);
+  const MAX_PERSISTED = 500;
+  (debug.logs as any).push = (...entries: any[]) => {
+    const result = originalPush(...entries);
+    try {
+      const slice = debug.logs.slice(-MAX_PERSISTED);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(DEBUG_LOG_STORAGE_KEY, JSON.stringify(slice));
+      }
+    } catch {
+      // Ignore persistence errors - debug logging must not impact UX
+    }
+    return result;
+  };
+} catch {
+  // Ignore instrumentation errors - app should still run without enhanced logging
+}
+
 const log = (m: string, data?: any) => {
-  window.__SAFE_DEBUG__!.logs.push({ t: Date.now(), m, data });
+  debug.logs.push({ t: Date.now(), m, data });
   console.log('[main]', m, data ?? '');
 };
+
+// Capture unhandled promise rejections to SAFE_DEBUG
+window.addEventListener('unhandledrejection', (event) => {
+  try {
+    const reason: any = (event as any).reason;
+    debug.logs.push({
+      t: Date.now(),
+      m: 'unhandledrejection',
+      data: {
+        message: reason?.message ?? String(reason),
+        stack: reason?.stack,
+      },
+    });
+  } catch {
+    // Never let debug logging crash the app
+  }
+});
 
 const ENTRY_PROOF_TOKEN = 'ENTRY_PROOF_TOKEN::MAIN_TSX';
 

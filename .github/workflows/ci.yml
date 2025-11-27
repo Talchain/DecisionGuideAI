@@ -88,6 +88,9 @@ jobs:
       - name: Type check (no emit)
         run: npm run typecheck
 
+      - name: React 185 guard (Zustand selectors)
+        run: npm run ci:guard:zustand
+
   vitest:
     name: Tests
     runs-on: ubuntu-latest

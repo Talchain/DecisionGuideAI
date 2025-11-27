@@ -28,6 +28,7 @@ export function ScenarioSwitcher() {
   const duplicateCurrentScenario = useCanvasStore(s => s.duplicateCurrentScenario)
   const renameCurrentScenario = useCanvasStore(s => s.renameCurrentScenario)
   const deleteScenario = useCanvasStore(s => s.deleteScenario)
+  // React #185 FIX: Use shallow comparison for array selectors
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
 

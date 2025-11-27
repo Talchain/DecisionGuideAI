@@ -20,6 +20,7 @@ interface EdgeInspectorProps {
  * INP target: ≤100ms p75 for slider interactions
  */
 export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
+  // React 18 + Zustand v5: use individual selectors instead of object+shallow
   const edges = useCanvasStore(s => s.edges)
   const nodes = useCanvasStore(s => s.nodes)
   const updateEdge = useCanvasStore(s => s.updateEdge)

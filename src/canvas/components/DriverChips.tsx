@@ -21,6 +21,7 @@ interface DriverChipsProps {
 }
 
 export function DriverChips({ drivers }: DriverChipsProps) {
+  // React #185 FIX: Use shallow comparison for array selectors
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
 

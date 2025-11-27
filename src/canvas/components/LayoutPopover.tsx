@@ -11,6 +11,7 @@ export function LayoutPopover() {
   const [showGuidedModal, setShowGuidedModal] = useState(false)
   const [spacing, setSpacing] = useState<LayoutSpacing>('medium')
   const applySimpleLayout = useCanvasStore(s => s.applySimpleLayout)
+  // React #185 FIX: Use shallow comparison for array selector
   const nodes = useCanvasStore(s => s.nodes)
   const { showToast } = useToast()
 

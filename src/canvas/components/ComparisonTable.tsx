@@ -7,6 +7,7 @@ import { Spinner } from '../../components/Spinner'
 import { buildRichGraphPayload } from '../utils/graphPayload'
 
 export function ComparisonTableSection() {
+  // React #185 FIX: Use shallow comparison for array selectors
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const [scenarios, setScenarios] = useState<Array<{ name: string; modifications: Record<string, any> }>>([])

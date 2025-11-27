@@ -23,6 +23,7 @@ interface InputsDockProps {
 }
 
 function FramingSection() {
+  // React #185 FIX: Use shallow comparison for object selector
   const framing = useCanvasStore(s => s.currentScenarioFraming)
   const updateFraming = useCanvasStore(s => s.updateScenarioFraming)
   const [showAdvanced, setShowAdvanced] = useState(() =>
@@ -276,6 +277,7 @@ function buildHealthStrings(graphHealth: GraphHealth | null) {
 
 function LimitsTabBody({ currentNodes, currentEdges }: { currentNodes: number; currentEdges: number }) {
   const { limits, loading, error, fetchedAt, source, retry } = useEngineLimits()
+  // React #185 FIX: Use shallow comparison for object selector
   const graphHealth = useCanvasStore(s => s.graphHealth)
 
   if (error) {

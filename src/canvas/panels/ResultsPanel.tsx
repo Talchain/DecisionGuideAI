@@ -108,12 +108,13 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
   const error = useCanvasStore(selectError)
   const seed = useCanvasStore(selectSeed)
   const hash = useCanvasStore(selectHash)
+  // React #185 FIX: Use shallow comparison for array/object selectors
   const runMeta = useCanvasStore(s => s.runMeta)
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
-  const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
   const framing = useCanvasStore(s => s.currentScenarioFraming)
   const graphHealth = useCanvasStore(s => s.graphHealth)
+  const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
 
   const resultsReset = useCanvasStore(s => s.resultsReset)

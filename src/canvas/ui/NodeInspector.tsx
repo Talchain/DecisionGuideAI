@@ -26,6 +26,7 @@ interface ProbabilityRow {
 }
 
 export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
+  // React 18 + Zustand v5: use individual selectors instead of object+shallow
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const updateNode = useCanvasStore(s => s.updateNode)

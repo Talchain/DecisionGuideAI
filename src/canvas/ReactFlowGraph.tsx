@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense } fro
 import { useLocation } from 'react-router-dom'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { shallow } from 'zustand/shallow'
-import { useCanvasStore, hasValidationErrors } from './store'
+// Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
+// Use individual selectors instead (see React #185 fix comment below)
+import { useCanvasStore } from './store'
 import { DEFAULT_EDGE_DATA } from './domain/edges'
 import { parseRunHash } from './utils/shareLink'
 import { nodeTypes } from './nodes/registry'
@@ -30,7 +31,6 @@ import { RecoveryBanner } from './components/RecoveryBanner'
 import { OnboardingOverlay } from './onboarding/OnboardingOverlay'
 import { useOnboarding } from './onboarding/useOnboarding'
 import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
-import { useAutosave } from './hooks/useAutosave'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
 import { InfluenceExplainer, useInfluenceExplainer } from '../components/assistants/InfluenceExplainer'
@@ -39,15 +39,12 @@ import { CanvasEmptyState } from './components/CanvasEmptyState'
 // N5: Code-split heavy panels with named chunks
 const InspectorPanel = lazy(() => import(/* webpackChunkName: "inspector-panel" */ './panels/InspectorPanel').then(m => ({ default: m.InspectorPanel })))
 import { useResultsRun } from './hooks/useResultsRun'
-import { useRunDiagnosticsToast } from './hooks/useRunDiagnosticsToast'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
 import { loadRuns } from './store/runHistory'
-import { useEdgeLabelModeSync } from './store/edgeLabelMode'
 import { HealthStatusBar } from './components/HealthStatusBar'
 import { DegradedBanner } from './components/DegradedBanner'
 import { LayoutProgressBanner } from './components/LayoutProgressBanner'
-import { ContextBar } from './components/ContextBar'
 const IssuesPanel = lazy(() => import(/* webpackChunkName: "issues-panel" */ './panels/IssuesPanel').then(m => ({ default: m.IssuesPanel })))
 import { NeedleMoversOverlay } from './components/NeedleMoversOverlay'
 import { DocumentsManager } from './components/DocumentsManager'
@@ -65,16 +62,30 @@ import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnable
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 
-type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg' | 'provider-only' | 'no-provider'
+type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg' | 'rf-store' | 'provider-only' | 'no-provider'
 
 function getCanvasDebugMode(): CanvasDebugMode {
   if (typeof window === 'undefined') return 'normal'
   try {
     const url = new URL(window.location.href)
-    const fromQuery = url.searchParams.get('canvasDebug')
+    // First check regular query params (for non-HashRouter URLs)
+    let fromQuery = url.searchParams.get('canvasDebug')
+
+    // HashRouter: query params are AFTER the hash, e.g. #/canvas?canvasDebug=blank
+    // So we need to parse them from window.location.hash
+    if (!fromQuery && window.location.hash) {
+      const hash = window.location.hash
+      const queryIndex = hash.indexOf('?')
+      if (queryIndex !== -1) {
+        const hashQuery = hash.slice(queryIndex + 1)
+        const hashParams = new URLSearchParams(hashQuery)
+        fromQuery = hashParams.get('canvasDebug')
+      }
+    }
+
     const fromStorage = window.localStorage ? window.localStorage.getItem('CANVAS_DEBUG_MODE') : null
     const raw = (fromQuery || fromStorage || '').toLowerCase()
-    const validModes = ['blank', 'no-reactflow', 'rf-only', 'rf-bare', 'rf-minimal', 'rf-empty', 'rf-no-fitview', 'rf-no-bg', 'provider-only', 'no-provider']
+    const validModes = ['blank', 'no-reactflow', 'rf-only', 'rf-bare', 'rf-minimal', 'rf-empty', 'rf-no-fitview', 'rf-no-bg', 'rf-store', 'provider-only', 'no-provider']
     if (validModes.includes(raw)) return raw as CanvasDebugMode
     return 'normal'
   } catch {
@@ -107,45 +118,67 @@ interface ReactFlowGraphProps {
 }
 
 function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFlowGraphProps) {
-  // React #185 FIX: Combine state selectors with shallow comparison
-  // Using individual selectors for objects/arrays caused infinite re-render loops
-  // in production builds. The shallow comparator prevents unnecessary re-renders
-  // when object references change but contents are identical.
-  const {
-    nodes,
-    edges,
-    showResultsPanel,
-    showInspectorPanel,
-    graphHealth,
-    showIssuesPanel,
-    needleMovers,
-    documents,
-    citations,
-    showDocumentsDrawer,
-    showProvenanceHub,
-    provenanceRedactionEnabled,
-    reconnecting,
-  } = useCanvasStore(
-    s => ({
-      nodes: s.nodes,
-      edges: s.edges,
-      showResultsPanel: s.showResultsPanel,
-      showInspectorPanel: s.showInspectorPanel,
-      graphHealth: s.graphHealth,
-      showIssuesPanel: s.showIssuesPanel,
-      needleMovers: s.needleMovers,
-      documents: s.documents,
-      citations: s.citations,
-      showDocumentsDrawer: s.showDocumentsDrawer,
-      showProvenanceHub: s.showProvenanceHub,
-      provenanceRedactionEnabled: s.provenanceRedactionEnabled,
-      reconnecting: s.reconnecting,
-    }),
-    shallow
-  )
+  // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
+  //
+  // ROOT CAUSE: In Zustand v5 with useSyncExternalStore, when a selector returns a
+  // new object on every call (even with shallow comparison), it triggers infinite
+  // re-render loops in production builds. This is because the selector function
+  // `s => ({ ... })` creates a new object reference on every invocation.
+  //
+  // SOLUTION: Use individual selectors that return stable primitive/reference values.
+  // Each selector returns the exact same reference as long as that specific state
+  // slice hasn't changed.
+  //
+  // Evidence: rf-store debug mode crashed with object+shallow but works with individual selectors.
+  const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
+  const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
+  const showInspectorPanel = useCanvasStore(s => s.showInspectorPanel)
+  const graphHealth = useCanvasStore(s => s.graphHealth)
+  const showIssuesPanel = useCanvasStore(s => s.showIssuesPanel)
+  const needleMovers = useCanvasStore(s => s.needleMovers)
+  const documents = useCanvasStore(s => s.documents)
+  const citations = useCanvasStore(s => s.citations)
+  const showDocumentsDrawer = useCanvasStore(s => s.showDocumentsDrawer)
+  const showProvenanceHub = useCanvasStore(s => s.showProvenanceHub)
+  const provenanceRedactionEnabled = useCanvasStore(s => s.provenanceRedactionEnabled)
+  const reconnecting = useCanvasStore(s => s.reconnecting)
 
   const { getViewport, setCenter } = useReactFlow()
   const debugMode: CanvasDebugMode = getCanvasDebugMode()
+
+  const HARD_ISOLATE_MINIMAL_CANVAS = false
+  if (HARD_ISOLATE_MINIMAL_CANVAS) {
+    return (
+      <div
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: 'var(--topbar-h)',
+            bottom: 'var(--bottombar-h)',
+            left: 0,
+            right: 0,
+          }}
+        >
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            fitView
+            minZoom={0.1}
+            maxZoom={4}
+          >
+            <Background variant={BackgroundVariant.Dots} gap={20} />
+          </ReactFlow>
+        </div>
+      </div>
+    )
+  }
 
   // Phase 3: Memoize heavy computations for performance
   const memoizedNodes = useMemo(() => nodes, [nodes])
@@ -187,6 +220,19 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const handleEmptyStateDraft = useCallback(() => setShowDraftChat(true), [setShowDraftChat])
   const handleEmptyStateTemplate = useCallback(() => openTemplatesPanel(), [openTemplatesPanel])
 
+  // React #185 FIX: Memoize keyboard shortcut callbacks to prevent infinite re-render loops.
+  // Without useCallback, new function references are created on every render,
+  // causing useCanvasKeyboardShortcuts to re-run its effects.
+  const handleToggleResults = useCallback(() => {
+    // Cmd/Ctrl+3: ensure Results are visible in the Outputs dock.
+    setShowResultsPanel(true)
+  }, [setShowResultsPanel])
+
+  const handleToggleInspector = useCallback(() => {
+    const next = !useCanvasStore.getState().showInspectorPanel
+    setShowInspectorPanel(next)
+  }, [setShowInspectorPanel])
+
   // P0-8: Auto-connect state
   const [connectPrompt, setConnectPrompt] = useState<{
     newNodeId: string
@@ -197,12 +243,12 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const addEdge = useCanvasStore(s => s.addEdge)
   const [showLimits, setShowLimits] = useState(false)
 
-  // M4: Graph Health actions (state already in shallow selector above)
+  // M4: Graph Health actions (graphHealth, showIssuesPanel state selected above)
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
   const applyRepair = useCanvasStore(s => s.applyRepair)
   const applyAllRepairs = useCanvasStore(s => s.applyAllRepairs)
 
-  // M5: Grounding & Provenance actions (state already in shallow selector above)
+  // M5: Grounding & Provenance actions (documents, citations, etc. state selected above)
   const setShowDocumentsDrawer = useCanvasStore(s => s.setShowDocumentsDrawer)
   const setShowProvenanceHub = useCanvasStore(s => s.setShowProvenanceHub)
   const toggleProvenanceRedaction = useCanvasStore(s => s.toggleProvenanceRedaction)
@@ -213,7 +259,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const inputsOutputsEnabled = isInputsOutputsEnabled()
   const paletteEnabled = isCommandPaletteEnabled()
   const degradedBannerEnabled = isDegradedBannerEnabled()
-  const { limits } = useEngineLimits()
+  useEngineLimits()
   const checkRunEligibility = useRunEligibilityCheck()
 
   // SAFE_DEBUG: Lightweight instrumentation to detect render storms and state thrash in production.
@@ -244,7 +290,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   }
 
   // Diagnostics resume toast (B3)
-  useRunDiagnosticsToast()
+  // REACT #185 DEBUG: Disabled to isolate root cause
+  // useRunDiagnosticsToast()
 
   // E2E-only helper: when dock layout is OFF, auto-open the legacy documents drawer
   // so that documents flows remain testable without relying on shortcut ordering.
@@ -264,12 +311,14 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   }, [inputsOutputsEnabled, setShowDocumentsDrawer, debugMode])
 
   // Autosave hook - saves graph every 30s when dirty
-  useAutosave()
+  // REACT #185 DEBUG: Disabled to isolate root cause
+  // useAutosave()
 
   // P1 Polish: Cross-tab sync for edge label mode
-  useEffect(() => {
-    return useEdgeLabelModeSync()
-  }, [])
+  // REACT #185 DEBUG: Disabled to isolate root cause
+  // useEffect(() => {
+  //   return useEdgeLabelModeSync()
+  // }, [])
 
   // Auto-open behaviour for Results is now handled by OutputsDock based on results.status.
 
@@ -277,7 +326,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     useCanvasStore.getState().onSelectionChange(params)
   }, [])
 
-  // reconnecting state is already in the shallow selector above
+  // reconnecting state is selected at the top of this component
   const completeReconnect = useCanvasStore(s => s.completeReconnect)
   const { showToast } = useToast()
   const resultsLoadHistorical = useCanvasStore(s => s.resultsLoadHistorical)
@@ -285,6 +334,11 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   // v1.2: Share link resolver - load run from localStorage when ?run=hash is present
   // Uses useLocation to detect route changes and hashchange listener for direct navigation
   const location = useLocation()
+
+  // React #185 FIX: Track which share-link hash has been applied this session.
+  // This prevents re-triggering resultsLoadHistorical + setShowResultsPanel
+  // on every re-render when the URL contains a run parameter.
+  const appliedShareHashRef = useRef<string | null>(null)
 
   useEffect(() => {
     const resolveShareLink = () => {
@@ -307,6 +361,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
               count: resolveCount,
               hasRunParam: Boolean(runHash),
               href: fullUrl,
+              alreadyApplied: appliedShareHashRef.current === runHash,
             },
           })
         }
@@ -316,6 +371,15 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
 
       if (!runHash) {
         return // No run parameter in URL
+      }
+
+      // React #185 FIX: Skip if we've already applied this hash this session.
+      // This prevents the infinite loop: effect → setState → render → effect.
+      if (appliedShareHashRef.current === runHash) {
+        if (import.meta.env.DEV) {
+          console.log('[ReactFlowGraph] Share link already applied, skipping:', runHash.slice(0, 8))
+        }
+        return
       }
 
       if (import.meta.env.DEV) {
@@ -329,16 +393,25 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       const run = runs.find(r => r.hash === runHash)
 
       if (run) {
+        // Mark as applied BEFORE triggering state updates to prevent re-entry
+        appliedShareHashRef.current = runHash
+
         // Load historical run into canvas
         resultsLoadHistorical(run)
 
-        // Open Results panel to show the loaded run
-        setShowResultsPanel(true)
+        // React #185 FIX: Only open Results panel if not already open.
+        // This guards against unnecessary state updates that could trigger re-renders.
+        if (!useCanvasStore.getState().showResultsPanel) {
+          setShowResultsPanel(true)
+        }
 
         if (import.meta.env.DEV) {
           console.log('[ReactFlowGraph] Run loaded successfully:', run.summary)
         }
       } else {
+        // Run not found - still mark hash as "processed" to avoid repeated toasts
+        appliedShareHashRef.current = runHash
+
         // Run not found in localStorage
         console.warn('[ReactFlowGraph] Shared run not found in history:', runHash)
 
@@ -359,6 +432,12 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
 
     // Also listen for hashchange events (fallback for direct hash manipulation)
     const handleHashChange = () => {
+      // React #185 FIX: Clear the applied hash ref when URL actually changes
+      // so a new share link can be applied.
+      const newHash = parseRunHash(window.location.href)
+      if (newHash !== appliedShareHashRef.current) {
+        appliedShareHashRef.current = null
+      }
       if (import.meta.env.DEV) {
         console.log('[ReactFlowGraph] Hash changed, re-resolving share link')
       }
@@ -374,43 +453,41 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   }, [location.hash, location.search])  // Re-run when hash or search params change
 
   // M4: Graph Health validation lifecycle (debounced)
-  const validateGraph = useCanvasStore(s => s.validateGraph)
-  const validationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // REACT #185 DEBUG: Disabled validation effects temporarily to isolate root cause
+  // const validateGraph = useCanvasStore(s => s.validateGraph)
 
-  useEffect(() => {
-    // Validate on mount (initial load)
-    validateGraph()
+  // REACT #185 DEBUG: Validation effects disabled - uncomment to re-enable
+  // useEffect(() => {
+  //   // Validate on mount (initial load)
+  //   validateGraph()
+  //
+  //   // Cleanup timer on unmount
+  //   return () => {
+  //     if (validationTimerRef.current) {
+  //       clearTimeout(validationTimerRef.current)
+  //     }
+  //   }
+  // }, []) // Only run on mount
 
-    // Cleanup timer on unmount
-    return () => {
-      if (validationTimerRef.current) {
-        clearTimeout(validationTimerRef.current)
-      }
-    }
-  }, []) // Only run on mount
-
-  // Validate when graph changes (debounced to avoid excessive validation)
-  useEffect(() => {
-    // Clear existing timer
-    if (validationTimerRef.current) {
-      clearTimeout(validationTimerRef.current)
-    }
-
-    // Debounce validation by 500ms after graph changes
-    validationTimerRef.current = setTimeout(() => {
-      validateGraph()
-    }, 500)
-
-    return () => {
-      if (validationTimerRef.current) {
-        clearTimeout(validationTimerRef.current)
-      }
-    }
-    // NOTE: validateGraph intentionally omitted from deps - Zustand store actions
-    // are stable by design. Including it here caused React #185 infinite loops
-    // because the async function's reference could change on store updates.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, edges])
+  // REACT #185 DEBUG: Validation effect on graph changes disabled
+  // useEffect(() => {
+  //   // Clear existing timer
+  //   if (validationTimerRef.current) {
+  //     clearTimeout(validationTimerRef.current)
+  //   }
+  //
+  //   // Debounce validation by 500ms after graph changes
+  //   validationTimerRef.current = setTimeout(() => {
+  //     validateGraph()
+  //   }, 500)
+  //
+  //   return () => {
+  //     if (validationTimerRef.current) {
+  //       clearTimeout(validationTimerRef.current)
+  //     }
+  //   }
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [nodes, edges])
 
   const handleNodeClick = useCallback((_: any, node: any) => {
     // Close Templates panel when interacting with canvas
@@ -597,14 +674,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   useCanvasKeyboardShortcuts({
     onFocusNode: handleFocusNode,
     onRunSimulation: handleRunSimulation,
-    onToggleResults: () => {
-      // Cmd/Ctrl+3: ensure Results are visible in the Outputs dock.
-      setShowResultsPanel(true)
-    },
-    onToggleInspector: () => {
-      const next = !useCanvasStore.getState().showInspectorPanel
-      setShowInspectorPanel(next)
-    },
+    onToggleResults: handleToggleResults,
+    onToggleInspector: handleToggleInspector,
     onToggleDocuments: showDocuments,
     onShowToast: showToast
   })
@@ -1493,6 +1564,40 @@ function ReactFlowNoBg() {
 }
 
 /**
+ * RF-STORE: ReactFlow with nodes/edges from Zustand store, NO OTHER HOOKS
+ * Tests: Is the loop in the store selector or in other hooks?
+ *
+ * CRITICAL: Uses INDIVIDUAL selectors (not object + shallow) to guarantee stable references.
+ * In Zustand v5, object selectors with shallow can cause infinite loops with useSyncExternalStore
+ * because the selector creates a new object on every call.
+ *
+ * NOTE: Uses default node/edge types (not custom) for simplest possible isolation.
+ */
+function ReactFlowStoreOnly() {
+  // INDIVIDUAL SELECTORS - guaranteed stable references
+  // Each selector returns the exact same reference as long as that specific value hasn't changed
+  const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
+
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)', left: 0, right: 0 }}>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          fitView
+          minZoom={0.1}
+          maxZoom={4}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={20} />
+        </ReactFlow>
+      </div>
+      <DebugLabel mode={`RF-STORE: Store nodes(${nodes.length})/edges(${edges.length}), no handlers`} color="rgba(16, 185, 129, 0.9)" />
+    </div>
+  )
+}
+
+/**
  * PROVIDER-ONLY: ReactFlowProvider with just a div (no ReactFlow component)
  * Tests: Is the loop in ReactFlowProvider itself?
  */
@@ -1568,6 +1673,30 @@ export default function ReactFlowGraph(props: ReactFlowGraphProps) {
     )
   }
 
+  // BLANK: Absolutely minimal - just a div, no providers, no hooks
+  // This tests if the loop is in ToastProvider/LayerProvider/ReactFlowProvider
+  if (debugMode === 'blank') {
+    logCanvasBreadcrumb('mode:blank', {})
+    return (
+      <CanvasErrorBoundary>
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#f87171',
+            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+            fontSize: 14,
+          }}
+        >
+          Canvas debug: BLANK MODE (no providers, no hooks)
+        </div>
+      </CanvasErrorBoundary>
+    )
+  }
+
   // RF-* modes: Bypass ReactFlowGraphInner entirely to isolate ReactFlow issues
   // Each mode tests a specific hypothesis about what's causing React #185
   const minimalModes: Record<string, JSX.Element> = {
@@ -1575,6 +1704,8 @@ export default function ReactFlowGraph(props: ReactFlowGraphProps) {
     'rf-empty': <ReactFlowEmpty />,
     'rf-no-fitview': <ReactFlowNoFitView />,
     'rf-no-bg': <ReactFlowNoBg />,
+    'rf-bare': <ReactFlowEmpty />,  // Same as rf-empty but explicitly named
+    'rf-store': <ReactFlowStoreOnly />,  // Store selector ONLY, no other hooks
   }
 
   if (debugMode in minimalModes) {

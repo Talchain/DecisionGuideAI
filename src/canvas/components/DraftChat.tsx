@@ -71,7 +71,11 @@ function formatCEEError(error: CEEError | Error): { message: string; debugInfo?:
 export function DraftChat() {
   const [description, setDescription] = useState('')
   const { data: draft, loading, error, draft: generateDraft } = useCEEDraft()
-  const { showDraftChat, setShowDraftChat, addNodes, addEdges } = useCanvasStore()
+  // React #185 FIX: Use individual selectors instead of destructuring from useCanvasStore()
+  const showDraftChat = useCanvasStore(s => s.showDraftChat)
+  const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
+  const addNodes = useCanvasStore(s => s.addNodes)
+  const addEdges = useCanvasStore(s => s.addEdges)
 
   const handleDraft = async () => {
     if (!description.trim()) return

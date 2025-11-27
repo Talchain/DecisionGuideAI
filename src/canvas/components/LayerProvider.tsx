@@ -4,7 +4,7 @@
  * Esc key closes topmost layer, focus returns to invoker
  */
 
-import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo, type ReactNode } from 'react'
 
 // Z-Index hierarchy (from implementation plan)
 export const Z_INDEX = {
@@ -133,16 +133,22 @@ export function LayerProvider({ children }: LayerProviderProps) {
     return () => window.removeEventListener('keydown', handleEscape)
   }, [closeTopmost])
 
-  const value: LayerContextValue = {
-    layers,
-    pushLayer,
-    popLayer,
-    closeTopmost,
-    getZIndex
-  }
+  // React #185 FIX: Memoize context value to prevent infinite re-render loops.
+  // Without useMemo, a new object reference is created on every render,
+  // causing all context consumers to re-render even when values haven't changed.
+  const contextValue = useMemo(
+    () => ({
+      layers,
+      pushLayer,
+      popLayer,
+      closeTopmost,
+      getZIndex
+    }),
+    [layers, pushLayer, popLayer, closeTopmost, getZIndex]
+  )
 
   return (
-    <LayerContext.Provider value={value}>
+    <LayerContext.Provider value={contextValue}>
       {children}
     </LayerContext.Provider>
   )
