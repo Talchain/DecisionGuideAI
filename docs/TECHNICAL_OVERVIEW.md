@@ -17,6 +17,7 @@
 7. [Feature Flags](#feature-flags)
 8. [Testing Strategy](#testing-strategy)
 9. [Performance Considerations](#performance-considerations)
+10. [Production Hygiene](#production-hygiene)
 
 ---
 
@@ -92,14 +93,41 @@ Integrates with the PLoT backend for decision analysis.
 3. SSE connection established for progress
 4. Results streamed and displayed
 
-### 3. Authentication (`src/contexts/AuthContext.tsx`)
+### 3. Trust Signals (`src/canvas/components/`)
+
+Trust signal components display analysis quality indicators. Implemented in Sprint N (P0.1-P1.7).
+
+**Components:**
+
+| Component | Purpose | Data Source |
+|-----------|---------|-------------|
+| `DecisionReadinessBadge` | Ready/Not Ready indicator with tooltip | `report.decision_readiness` |
+| `InsightsPanel` | Summary, risks, next steps | `report.insights` |
+| `ModelQualityScore` | Expandable quality metrics | `report.graph_quality` |
+| `EvidenceCoverage` | Evidence percentage indicator | `report.graph_quality.evidence_coverage` |
+| `ProvenanceChip` | Model provenance display | `report.model_card` |
+
+**Confidence Level Mapping:**
+```typescript
+// Numeric confidence → Level → Decision Readiness
+>= 0.7 → 'high'   → { ready: true, blockers: [] }
+>= 0.4 → 'medium' → { ready: false, warnings: [...] }
+< 0.4  → 'low'    → { ready: false, blockers: [...] }
+```
+
+**Contract Tests:** `src/adapters/plot/__tests__/trustFields.contract.spec.ts`
+- 19 tests validating confidence → readiness mapping
+- graph_quality passthrough (top-level vs nested)
+- insights passthrough with array preservation
+
+### 4. Authentication (`src/contexts/AuthContext.tsx`)
 
 Uses Supabase Auth with:
 - Magic link authentication
 - Session persistence
 - Team/organization support
 
-### 4. Templates (`src/templates/`)
+### 5. Templates (`src/templates/`)
 
 Pre-built decision templates users can start from:
 - Investment decisions
@@ -148,11 +176,20 @@ The application uses Zustand with modular stores for better performance:
 ```
 src/canvas/stores/
 ├── index.ts           # Re-exports
-├── panelsStore.ts     # UI panel visibility
-├── resultsStore.ts    # Analysis results state machine
-├── documentsStore.ts  # Document citations
-└── graphHealthStore.ts # Validation state
+├── panelsStore.ts     # UI panel visibility (~140 lines)
+├── resultsStore.ts    # Analysis results state machine (~210 lines)
+├── documentsStore.ts  # Document citations (~139 lines)
+└── graphHealthStore.ts # Validation state (~64 lines)
 ```
+
+**Store Responsibilities:**
+
+| Store | Purpose | Key State |
+|-------|---------|-----------|
+| `panelsStore` | UI panel visibility | `showResultsPanel`, `showInspectorPanel`, `showIssuesPanel` |
+| `resultsStore` | Analysis lifecycle | Status machine, SSE diagnostics, correlation IDs |
+| `documentsStore` | Citations | Documents, citation references per node |
+| `graphHealthStore` | Validation | `graphHealth`, repair suggestions |
 
 **Import Pattern:**
 ```typescript
@@ -356,6 +393,73 @@ const store = useResultsStore()
 - Node components use `memo()` with custom comparators
 - Edge rendering is virtualized for large graphs
 - Layout calculations are debounced
+
+---
+
+## Production Hygiene
+
+### Console Log Guards
+
+All debug logs are guarded with `import.meta.env.DEV` for tree-shaking in production:
+
+```typescript
+// Pattern for debug logging
+if (import.meta.env.DEV) {
+  console.log('[Module] Debug info:', data)
+}
+```
+
+**Guarded Files:**
+| Module | Files |
+|--------|-------|
+| Adapters | `reconnection.ts`, `httpV1Adapter.ts` |
+| Hooks | `usePreviewRun.ts`, `usePalette.ts`, `useAnalysis.ts` |
+| Utils | `snapshots.ts`, `supabase.ts` |
+| Components | `ValidationSuggestions.tsx` |
+
+### Encrypted Storage (`src/lib/secureStorage.ts`)
+
+Sensitive data encryption using Web Crypto API:
+
+- **Algorithm:** AES-GCM with 256-bit key
+- **IV:** Random 12-byte IV per encryption
+- **Encoding:** Base64 for localStorage compatibility
+- **Fallback:** Plaintext in dev mode without `VITE_STORAGE_KEY`
+
+```typescript
+import { secureStorage } from '@/lib/secureStorage'
+
+// Encrypted write
+await secureStorage.setItem('key', sensitiveData)
+
+// Encrypted read
+const data = await secureStorage.getItem('key')
+```
+
+### Structured Logging (`src/lib/logger.ts`)
+
+Environment-aware logging:
+
+| Method | Production | Development |
+|--------|------------|-------------|
+| `logger.debug()` | No-op | Console |
+| `logger.info()` | No-op | Console |
+| `logger.warn()` | Console | Console |
+| `logger.error()` | Console | Console |
+
+### Request ID Error Propagation
+
+Errors include correlation IDs for debugging:
+
+```typescript
+// Error format with request ID
+"Analysis failed: timeout. (Request ID: abc123-def456)"
+```
+
+Actionable hints per error type:
+- `TIMEOUT` → "Try Quick mode"
+- `RATE_LIMIT` → "Retry after X seconds"
+- `SERVER_ERROR` → "Contact support with Request ID"
 
 ---
 
