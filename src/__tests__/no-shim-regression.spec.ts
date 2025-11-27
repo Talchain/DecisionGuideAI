@@ -88,9 +88,9 @@ describe('React #185 Regression Prevention', () => {
     const packageJsonPath = path.resolve(projectRoot, 'package.json')
     const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
 
-    // Verify override exists to pin the version
+    // Verify override exists to pin the version (must match zustand's peer dep)
     expect(packageJson.overrides?.['use-sync-external-store']).toBeDefined()
-    expect(packageJson.overrides['use-sync-external-store']).toMatch(/^\^?1\.2\./)
+    expect(packageJson.overrides['use-sync-external-store']).toMatch(/^\^?1\.[26]\./)
   })
 
   it('package.json has zustand override to prevent dual-version bug', () => {
