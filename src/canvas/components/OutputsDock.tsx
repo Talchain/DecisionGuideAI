@@ -23,6 +23,7 @@
 
 import { useEffect, useState, useRef, type ChangeEvent } from 'react'
 import { BarChart3, Sparkles, Shuffle, Activity, Clock } from 'lucide-react'
+import { shallow } from 'zustand/shallow'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
@@ -164,7 +165,37 @@ export function OutputsDock() {
   const [slowRunMessage, setSlowRunMessage] = useState<string | null>(null)
   const runStartTimeRef = useRef<number | null>(null)
 
-  const runMeta = useCanvasStore(s => s.runMeta)
+  // React #185 FIX: Combine state selectors with shallow comparison
+  // Using individual selectors for objects (runMeta, graphHealth, etc.) caused
+  // infinite re-render loops in production builds because Zustand v5's
+  // useSyncExternalStore triggers re-renders when object references change,
+  // even if contents are identical. The shallow comparator prevents this.
+  const {
+    runMeta,
+    graphHealth,
+    showResultsPanel,
+    hasCompletedFirstRun,
+    nodes,
+    edges,
+    framing,
+  } = useCanvasStore(
+    s => ({
+      runMeta: s.runMeta,
+      graphHealth: s.graphHealth,
+      showResultsPanel: s.showResultsPanel,
+      hasCompletedFirstRun: s.hasCompletedFirstRun,
+      nodes: s.nodes,
+      edges: s.edges,
+      framing: s.currentScenarioFraming,
+    }),
+    shallow
+  )
+
+  // Actions don't need shallow - they're stable references
+  const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
+  const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
+
+  // Derived values from runMeta
   const diagnostics = runMeta.diagnostics
   const correlationIdHeader = runMeta.correlationIdHeader
   const effectiveCorrelationId = correlationIdHeader || diagnostics?.correlation_id
@@ -174,12 +205,8 @@ export function OutputsDock() {
     diagnostics?.correlation_id &&
     correlationIdHeader &&
     diagnostics.correlation_id !== correlationIdHeader
-  const graphHealth = useCanvasStore(s => s.graphHealth)
-  const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
-  const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
-  const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
+
   const healthView = buildHealthStrings(graphHealth ?? null)
-  const hasCompletedFirstRun = useCanvasStore(s => s.hasCompletedFirstRun)
   const isPreRun = !hasCompletedFirstRun
   const resultsStatus = useCanvasStore(selectResultsStatus)
   const report = useCanvasStore(selectReport)
@@ -191,11 +218,6 @@ export function OutputsDock() {
   const resultUnits = report?.results.units
   const resultUnitSymbol = report?.results.unitSymbol
   const hasInlineSummary = Boolean(report && resultsStatus === 'complete')
-
-  // Phase 1A.1: Objective text and goal direction for verdict features
-  const nodes = useCanvasStore(s => s.nodes)
-  const edges = useCanvasStore(s => s.edges)
-  const framing = useCanvasStore(s => s.currentScenarioFraming)
 
   // P0.2: Compute evidence coverage from local edge provenance for consistency
   // This ensures Results and Diagnostics tabs show the same numbers

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense } fro
 import { useLocation } from 'react-router-dom'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { shallow } from 'zustand/shallow'
 import { useCanvasStore, hasValidationErrors } from './store'
 import { DEFAULT_EDGE_DATA } from './domain/edges'
 import { parseRunHash } from './utils/shareLink'
@@ -106,26 +107,61 @@ interface ReactFlowGraphProps {
 }
 
 function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFlowGraphProps) {
-  const nodes = useCanvasStore(s => s.nodes)
-  const edges = useCanvasStore(s => s.edges)
+  // React #185 FIX: Combine state selectors with shallow comparison
+  // Using individual selectors for objects/arrays caused infinite re-render loops
+  // in production builds. The shallow comparator prevents unnecessary re-renders
+  // when object references change but contents are identical.
+  const {
+    nodes,
+    edges,
+    showResultsPanel,
+    showInspectorPanel,
+    graphHealth,
+    showIssuesPanel,
+    needleMovers,
+    documents,
+    citations,
+    showDocumentsDrawer,
+    showProvenanceHub,
+    provenanceRedactionEnabled,
+    reconnecting,
+  } = useCanvasStore(
+    s => ({
+      nodes: s.nodes,
+      edges: s.edges,
+      showResultsPanel: s.showResultsPanel,
+      showInspectorPanel: s.showInspectorPanel,
+      graphHealth: s.graphHealth,
+      showIssuesPanel: s.showIssuesPanel,
+      needleMovers: s.needleMovers,
+      documents: s.documents,
+      citations: s.citations,
+      showDocumentsDrawer: s.showDocumentsDrawer,
+      showProvenanceHub: s.showProvenanceHub,
+      provenanceRedactionEnabled: s.provenanceRedactionEnabled,
+      reconnecting: s.reconnecting,
+    }),
+    shallow
+  )
+
   const { getViewport, setCenter } = useReactFlow()
   const debugMode: CanvasDebugMode = getCanvasDebugMode()
 
   // Phase 3: Memoize heavy computations for performance
   const memoizedNodes = useMemo(() => nodes, [nodes])
   const memoizedEdges = useMemo(() => edges, [edges])
+
+  // Actions are stable references - don't need shallow comparison
   const createNodeId = useCanvasStore(s => s.createNodeId)
   const createEdgeId = useCanvasStore(s => s.createEdgeId)
-  
+  const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
+  const setShowInspectorPanel = useCanvasStore(s => s.setShowInspectorPanel)
+
   // State declarations
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
-  const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
-  const showInspectorPanel = useCanvasStore(s => s.showInspectorPanel)
-  const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
-  const setShowInspectorPanel = useCanvasStore(s => s.setShowInspectorPanel)
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
   const { isOpen: isKeyboardLegendOpen, open: openKeyboardLegend, close: closeKeyboardLegend } = useKeyboardLegend()
@@ -161,22 +197,14 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const addEdge = useCanvasStore(s => s.addEdge)
   const [showLimits, setShowLimits] = useState(false)
 
-  // M4: Graph Health state
-  const graphHealth = useCanvasStore(s => s.graphHealth)
-  const showIssuesPanel = useCanvasStore(s => s.showIssuesPanel)
+  // M4: Graph Health actions (state already in shallow selector above)
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
   const applyRepair = useCanvasStore(s => s.applyRepair)
   const applyAllRepairs = useCanvasStore(s => s.applyAllRepairs)
-  const needleMovers = useCanvasStore(s => s.needleMovers)
 
-  // M5: Grounding & Provenance state
-  const documents = useCanvasStore(s => s.documents)
-  const citations = useCanvasStore(s => s.citations)
-  const showDocumentsDrawer = useCanvasStore(s => s.showDocumentsDrawer)
+  // M5: Grounding & Provenance actions (state already in shallow selector above)
   const setShowDocumentsDrawer = useCanvasStore(s => s.setShowDocumentsDrawer)
-  const showProvenanceHub = useCanvasStore(s => s.showProvenanceHub)
   const setShowProvenanceHub = useCanvasStore(s => s.setShowProvenanceHub)
-  const provenanceRedactionEnabled = useCanvasStore(s => s.provenanceRedactionEnabled)
   const toggleProvenanceRedaction = useCanvasStore(s => s.toggleProvenanceRedaction)
   const addDocument = useCanvasStore(s => s.addDocument)
 
@@ -248,8 +276,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const handleSelectionChange = useCallback((params: { nodes: any[]; edges: any[] }) => {
     useCanvasStore.getState().onSelectionChange(params)
   }, [])
-  
-  const reconnecting = useCanvasStore(s => s.reconnecting)
+
+  // reconnecting state is already in the shallow selector above
   const completeReconnect = useCanvasStore(s => s.completeReconnect)
   const { showToast } = useToast()
   const resultsLoadHistorical = useCanvasStore(s => s.resultsLoadHistorical)
