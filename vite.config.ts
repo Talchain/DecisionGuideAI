@@ -57,8 +57,8 @@ export default defineConfig(({ mode }) => {
         manualChunks(id) {
           if (!id.includes('node_modules')) return
           
-          // Core React libraries
-          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
+          // Core React libraries + use-sync-external-store (must load WITH React, not before)
+          if (id.includes('react') || id.includes('react-dom') || id.includes('react-router') || id.includes('use-sync-external-store')) {
             return 'react-vendor'
           }
           // ReactFlow (large, used only in Canvas)
@@ -96,11 +96,14 @@ export default defineConfig(({ mode }) => {
     }
   },
 optimizeDeps: {
-    // Prebundle core deps; shim is aliased to local file
+    // Prebundle core deps to ensure correct initialization order
     include: [
       'react',
       'react-dom',
       'react-router-dom',
+      'use-sync-external-store',
+      'use-sync-external-store/shim',
+      'use-sync-external-store/shim/with-selector',
       '@supabase/supabase-js',
       'date-fns'
     ],
