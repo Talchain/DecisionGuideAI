@@ -79,9 +79,16 @@ export function ErrorAlert({
           </p>
           {/* Debug info for POC mode - helps developers understand errors */}
           {debugInfo && (
-            <p className={`${typography.caption} ${config.textMuted} font-mono text-xs mt-1 opacity-70`}>
-              {debugInfo}
-            </p>
+            <details className="mt-1">
+              <summary className={`${typography.caption} ${config.textMuted} cursor-pointer select-none`}>
+                Technical details
+              </summary>
+              <pre
+                className={`${typography.caption} ${config.textMuted} font-mono text-xs mt-1 opacity-70 whitespace-pre-wrap break-all`}
+              >
+                {debugInfo}
+              </pre>
+            </details>
           )}
           {action && (
             <button

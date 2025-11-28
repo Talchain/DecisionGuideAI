@@ -5,6 +5,8 @@ import { ErrorAlert } from '../../components/ErrorAlert'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { CEEError } from '../../adapters/cee/client'
+import { DraftGuidancePanel } from './DraftGuidancePanel'
+import { RateLimitNotice } from './RateLimitNotice'
 
 /** Check if error indicates CEE service is unavailable */
 function isCEEUnavailable(error: CEEError | Error): boolean {
@@ -30,30 +32,51 @@ function isCEEUnavailable(error: CEEError | Error): boolean {
 /** Format CEE error for user-friendly display + debug info */
 function formatCEEError(error: CEEError | Error): { message: string; debugInfo?: string; isUnavailable?: boolean } {
   if (error instanceof CEEError) {
+    const debugParts = [`Message: ${error.message}`, `Status: ${error.status}`]
+    if (error.correlationId) {
+      debugParts.push(`Correlation ID: ${error.correlationId}`)
+    }
+    if (error.details) {
+      try {
+        const detailsString = typeof error.details === 'string'
+          ? error.details
+          : JSON.stringify(error.details, null, 2)
+        debugParts.push(`Details: ${detailsString}`)
+      } catch {
+        // Ignore JSON stringify failures
+      }
+    }
+
+    const debugInfo = debugParts.join('\n')
+
     // Check if service is unavailable (404/503)
     if (isCEEUnavailable(error)) {
       return {
         message: 'AI drafting is temporarily unavailable.',
         isUnavailable: true,
+        debugInfo,
       }
     }
 
-    // Map error codes to user-friendly messages
+    // Map well-known backend error codes / messages to friendlier text
     const friendlyMessages: Record<string, string> = {
       'openai_response_invalid_schema': 'The AI service returned an unexpected response format. This is a temporary backend issue.',
-      'timeout': 'The request took too long. The AI service may be starting up - please try again.',
-      'rate_limit': 'Too many requests. Please wait a moment and try again.',
+      'Request timeout': 'The request took too long. The AI service may be starting up - please try again.',
+      'Too Many Requests': 'Too many requests. Please wait a moment and try again.',
     }
 
-    const friendlyMessage = friendlyMessages[error.message] || error.message
-    const debugParts = [`Code: ${error.message}`, `Status: ${error.status}`]
-    if (error.correlationId) {
-      debugParts.push(`ID: ${error.correlationId.slice(0, 8)}...`)
+    const rawDetails = error.details as any
+    const reason = rawDetails?.reason ?? rawDetails?.details?.reason
+    const code = rawDetails?.code ?? rawDetails?.details?.code
+
+    let message = friendlyMessages[error.message] || error.message
+    if (reason === 'empty_draft' || reason === 'empty_graph' || code === 'CEE_GRAPH_INVALID') {
+      message = 'The AI assistant returned an empty draft for this description. Try adding more concrete context, factors, and relationships, then try again.'
     }
 
     return {
-      message: friendlyMessage,
-      debugInfo: debugParts.join(' | '),
+      message,
+      debugInfo,
     }
   }
 
@@ -70,12 +93,18 @@ function formatCEEError(error: CEEError | Error): { message: string; debugInfo?:
 
 export function DraftChat() {
   const [description, setDescription] = useState('')
-  const { data: draft, loading, error, draft: generateDraft } = useCEEDraft()
+  const {
+    data: draft,
+    loading,
+    error,
+    draft: generateDraft,
+    guidance,
+    retryAfterSeconds,
+  } = useCEEDraft()
   // React #185 FIX: Use individual selectors instead of destructuring from useCanvasStore()
   const showDraftChat = useCanvasStore(s => s.showDraftChat)
   const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
-  const addNodes = useCanvasStore(s => s.addNodes)
-  const addEdges = useCanvasStore(s => s.addEdges)
+  const pushHistory = useCanvasStore(s => s.pushHistory)
 
   const handleDraft = async () => {
     if (!description.trim()) return
@@ -92,7 +121,7 @@ export function DraftChat() {
     if (!draft?.nodes?.length) return
 
     // Convert CEE nodes to canvas nodes
-    const nodes = draft.nodes.map(n => ({
+    const nodes = draft.nodes.map((n: any) => ({
       id: n.id,
       type: n.type,
       position: { x: 0, y: 0 }, // Layout algorithm will position
@@ -102,20 +131,35 @@ export function DraftChat() {
       },
     }))
 
-    const edges = (draft.edges ?? []).map((e, i) => ({
+    const edges = (draft.edges ?? []).map((e: any, i: number) => ({
       id: `e-${i}`,
       source: e.from,
       target: e.to,
       type: 'default',
     }))
 
-    addNodes(nodes)
-    addEdges(edges)
+    // Push current state to history, then append nodes/edges in a single transaction
+    pushHistory()
+    const state = useCanvasStore.getState()
+    useCanvasStore.setState({
+      nodes: [...state.nodes, ...nodes],
+      edges: [...state.edges, ...edges],
+    })
     setShowDraftChat(false)
   }
 
   const handleReject = () => {
     setShowDraftChat(false)
+  }
+
+  const handleGuidanceQuestionClick = (question: string) => {
+    setDescription((previous: string) => {
+      const trimmed = previous.trim()
+      if (!trimmed) {
+        return question
+      }
+      return `${trimmed}\n\n${question}`
+    })
   }
 
   // Don't render if panel is closed
@@ -124,8 +168,14 @@ export function DraftChat() {
   }
 
   return (
-    <div className="fixed left-1/2 -translate-x-1/2 z-[2000] w-full max-w-xl px-4"
-         style={{ bottom: 'calc(var(--bottombar-h) + 1rem)' }}>
+    <div
+      className="fixed left-1/2 -translate-x-1/2 z-[2000] w-full max-w-xl px-4 resize-y overflow-y-auto"
+      style={{
+        bottom: 'calc(var(--bottombar-h) + 1rem)',
+        maxHeight: 'min(75vh, 640px)',
+        minHeight: '12rem',
+      }}
+    >
 
       {!draft ? (
         /* Input Form */
@@ -150,6 +200,13 @@ export function DraftChat() {
             </p>
           </div>
 
+          {guidance && (
+            <DraftGuidancePanel
+              guidance={guidance}
+              onQuestionClick={handleGuidanceQuestionClick}
+            />
+          )}
+
           {error && (() => {
             const formatted = formatCEEError(error)
 
@@ -168,6 +225,18 @@ export function DraftChat() {
                     <li><strong>Templates</strong> drawer for pre-built models</li>
                     <li>Right-click canvas for quick-add menu</li>
                   </ul>
+                  {formatted.debugInfo && (
+                    <details className="mt-1">
+                      <summary className={`${typography.caption} text-sun-700 cursor-pointer select-none`}>
+                        Technical details
+                      </summary>
+                      <pre
+                        className={`${typography.caption} text-sun-700 font-mono text-xs mt-1 opacity-70 whitespace-pre-wrap break-all`}
+                      >
+                        {formatted.debugInfo}
+                      </pre>
+                    </details>
+                  )}
                 </div>
               )
             }
@@ -185,6 +254,13 @@ export function DraftChat() {
               />
             )
           })()}
+
+          {retryAfterSeconds !== null && (
+            <RateLimitNotice
+              retryAfterSeconds={retryAfterSeconds}
+              onRetry={handleDraft}
+            />
+          )}
 
           <div className="flex gap-2">
             <button

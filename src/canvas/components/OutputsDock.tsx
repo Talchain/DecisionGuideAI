@@ -53,6 +53,7 @@ import { EvidenceCoverageCompact } from './EvidenceCoverage'
 import { DecisionReadinessBadge } from './DecisionReadinessBadge'
 import { ModelQualityScore } from './ModelQualityScore'
 import { InsightsPanel } from './InsightsPanel'
+import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 
 type OutputsDockTab = 'results' | 'insights' | 'compare' | 'diagnostics'
 
@@ -243,6 +244,30 @@ export function OutputsDock() {
 
   // Phase 1 Section 3: CEE degraded state (non-blocking overlay behavior)
   const ceeDegraded = ceeTrace?.degraded === true
+
+  // Sprint N P0.1: Decision readiness derived from confidence when available
+  const readinessFromConfidence = report?.confidence
+    ? mapConfidenceToReadiness({
+        level: report.confidence.level.toUpperCase() as 'HIGH' | 'MEDIUM' | 'LOW',
+        reason: report.confidence.why,
+      })
+    : null
+
+  // Prefer adapter-provided decision_readiness, fall back to mapper
+  const decisionReadiness = report?.decision_readiness || readinessFromConfidence
+
+  if (import.meta.env.DEV) {
+    // Dev-only instrumentation for trust signals visibility and gating
+    // eslint-disable-next-line no-console
+    console.debug('[TrustSignals] OutputsDock', {
+      isPreRun,
+      hasReport: !!report,
+      hasDecisionReadiness: !!decisionReadiness,
+      fromConfidence: !!readinessFromConfidence,
+      hasGraphQuality: !!report?.graph_quality,
+      hasInsights: !!report?.insights,
+    })
+  }
 
   let decisionReviewStatus: DecisionReviewStatus | null = null
   if (decisionReviewFlagOn) {
@@ -603,10 +628,10 @@ export function OutputsDock() {
                     <IdentifiabilityBadge status={normalizedStatus} />
                   )
                 })()}
-                {/* Sprint N P0.1: Decision Readiness Badge - use canonical adapter-normalized field */}
-                {!isPreRun && report?.decision_readiness && (
+                {/* Sprint N P0.1: Decision Readiness Badge - prefer canonical adapter field, fall back to confidence mapper */}
+                {!isPreRun && decisionReadiness && (
                   <DecisionReadinessBadge
-                    readiness={report.decision_readiness}
+                    readiness={decisionReadiness}
                     identifiability={normalizeIdentifiabilityTag(report?.model_card?.identifiability_tag) ?? undefined}
                     evidenceCoverage={
                       // P0.2: Use local edge provenance for consistency with Diagnostics tab

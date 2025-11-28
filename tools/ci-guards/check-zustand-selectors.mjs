@@ -17,8 +17,9 @@ async function main() {
   const shallowOffenders = []
   const selectorOffenders = []
 
-  // Detect real imports of zustand/shallow (ignore comments, require an import statement)
-  const importShallowRegex = /(^|\n)\s*import\s+[^;]*['"]zustand\/shallow['"]/m
+  // Detect real imports of zustand/shallow (ignore comments, require an import statement on a single line)
+  // Use [^;\n]* to prevent matching across lines (which would catch comments on later lines)
+  const importShallowRegex = /(^|\n)\s*import\s+[^;\n]*['"]zustand\/shallow['"]/m
   // Detect useCanvasStore(s => ({ ... })) object selectors
   const selectorRegex = /useCanvasStore\s*\([^)]*=>\s*\(\s*\{/m
 
