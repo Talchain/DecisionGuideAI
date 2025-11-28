@@ -100,15 +100,21 @@ export function DraftChat() {
     draft: generateDraft,
     guidance,
     retryAfterSeconds,
+<<<<<<< HEAD
     reset,
+=======
+>>>>>>> origin/main
   } = useCEEDraft()
   // React #185 FIX: Use individual selectors instead of destructuring from useCanvasStore()
   const showDraftChat = useCanvasStore(s => s.showDraftChat)
   const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
   const pushHistory = useCanvasStore(s => s.pushHistory)
+<<<<<<< HEAD
   const canvasNodes = useCanvasStore(s => s.nodes)
   const applyGuidedLayout = useCanvasStore(s => s.applyGuidedLayout)
   const resetCanvas = useCanvasStore(s => s.resetCanvas)
+=======
+>>>>>>> origin/main
 
   const handleDraft = async () => {
     if (!description.trim()) return
@@ -161,8 +167,11 @@ export function DraftChat() {
       type: 'default',
     }))
 
+<<<<<<< HEAD
     const hadExistingNodes = canvasNodes.length > 0
 
+=======
+>>>>>>> origin/main
     // Push current state to history, then append nodes/edges in a single transaction
     pushHistory()
     const state = useCanvasStore.getState()
@@ -170,6 +179,7 @@ export function DraftChat() {
       nodes: [...state.nodes, ...nodes],
       edges: [...state.edges, ...edges],
     })
+<<<<<<< HEAD
 
     if (!hadExistingNodes) {
       try {
@@ -180,6 +190,8 @@ export function DraftChat() {
     }
 
     reset()
+=======
+>>>>>>> origin/main
     setShowDraftChat(false)
   }
 
