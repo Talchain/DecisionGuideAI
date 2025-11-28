@@ -100,14 +100,43 @@ export function DraftChat() {
     draft: generateDraft,
     guidance,
     retryAfterSeconds,
+<<<<<<< HEAD
+    reset,
+=======
+>>>>>>> origin/main
   } = useCEEDraft()
   // React #185 FIX: Use individual selectors instead of destructuring from useCanvasStore()
   const showDraftChat = useCanvasStore(s => s.showDraftChat)
   const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
   const pushHistory = useCanvasStore(s => s.pushHistory)
+<<<<<<< HEAD
+  const canvasNodes = useCanvasStore(s => s.nodes)
+  const applyGuidedLayout = useCanvasStore(s => s.applyGuidedLayout)
+  const resetCanvas = useCanvasStore(s => s.resetCanvas)
+=======
+>>>>>>> origin/main
 
   const handleDraft = async () => {
     if (!description.trim()) return
+
+    // If there is already a graph on the canvas, confirm before clearing it
+    const { nodes, edges } = useCanvasStore.getState()
+    const hasExistingGraph = (nodes?.length ?? 0) > 0 || (edges?.length ?? 0) > 0
+
+    if (hasExistingGraph) {
+      const confirmed = window.confirm(
+        'Drafting a new decision will clear your current decision model from the canvas. Start a new draft?'
+      )
+
+      if (!confirmed) {
+        return
+      }
+
+      // resetCanvas also closes the Draft panel; immediately reopen it so the
+      // user stays in the drafting flow while we generate the new model.
+      resetCanvas()
+      setShowDraftChat(true)
+    }
 
     try {
       await generateDraft(description)
@@ -138,6 +167,11 @@ export function DraftChat() {
       type: 'default',
     }))
 
+<<<<<<< HEAD
+    const hadExistingNodes = canvasNodes.length > 0
+
+=======
+>>>>>>> origin/main
     // Push current state to history, then append nodes/edges in a single transaction
     pushHistory()
     const state = useCanvasStore.getState()
@@ -145,10 +179,24 @@ export function DraftChat() {
       nodes: [...state.nodes, ...nodes],
       edges: [...state.edges, ...edges],
     })
+<<<<<<< HEAD
+
+    if (!hadExistingNodes) {
+      try {
+        applyGuidedLayout()
+      } catch (error) {
+        console.error('[DraftChat] Guided layout failed after accepting draft', error)
+      }
+    }
+
+    reset()
+=======
+>>>>>>> origin/main
     setShowDraftChat(false)
   }
 
   const handleReject = () => {
+    reset()
     setShowDraftChat(false)
   }
 
