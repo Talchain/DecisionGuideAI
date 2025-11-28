@@ -91,6 +91,9 @@ jobs:
       - name: React 185 guard (Zustand selectors)
         run: npm run ci:guard:zustand
 
+      - name: Duplicate-suffix guard
+        run: npm run ci:guard:duplicates
+
   vitest:
     name: Tests
     runs-on: ubuntu-latest
