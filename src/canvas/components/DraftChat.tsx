@@ -108,9 +108,29 @@ export function DraftChat() {
   const pushHistory = useCanvasStore(s => s.pushHistory)
   const canvasNodes = useCanvasStore(s => s.nodes)
   const applyGuidedLayout = useCanvasStore(s => s.applyGuidedLayout)
+  const resetCanvas = useCanvasStore(s => s.resetCanvas)
 
   const handleDraft = async () => {
     if (!description.trim()) return
+
+    // If there is already a graph on the canvas, confirm before clearing it
+    const { nodes, edges } = useCanvasStore.getState()
+    const hasExistingGraph = (nodes?.length ?? 0) > 0 || (edges?.length ?? 0) > 0
+
+    if (hasExistingGraph) {
+      const confirmed = window.confirm(
+        'Drafting a new decision will clear your current decision model from the canvas. Start a new draft?'
+      )
+
+      if (!confirmed) {
+        return
+      }
+
+      // resetCanvas also closes the Draft panel; immediately reopen it so the
+      // user stays in the drafting flow while we generate the new model.
+      resetCanvas()
+      setShowDraftChat(true)
+    }
 
     try {
       await generateDraft(description)
