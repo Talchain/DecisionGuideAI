@@ -3,12 +3,54 @@ import { AlertCircle, CheckCircle, AlertTriangle, CloudOff } from 'lucide-react'
 import type { CEEDraftResponse } from '../../adapters/cee/types'
 import { typography } from '../../styles/typography'
 import { Spinner } from '../../components/Spinner'
+import { generateTemplatePreview } from '../utils/templatePreview'
+import type { NodeKind } from '../../templates/blueprints/types'
 
 interface DraftPreviewProps {
   draft: CEEDraftResponse | null | undefined
   loading?: boolean
   onAccept: () => void
   onReject: () => void
+}
+
+type DraftNode = CEEDraftResponse['nodes'][number]
+
+function normalizeDraftType(type: string | undefined): string {
+  return (type || '').toLowerCase()
+}
+
+function mapDraftTypeToNodeKind(type: string | undefined): NodeKind {
+  const t = normalizeDraftType(type)
+  if (t === 'goal') return 'goal'
+  if (t === 'decision') return 'decision'
+  if (t === 'option') return 'option'
+  if (t === 'outcome') return 'outcome'
+  if (t === 'risk') return 'risk'
+  if (t === 'event') return 'event'
+  if (t === 'factor') return 'event'
+  return 'decision'
+}
+
+function buildOutline(nodes: DraftNode[]) {
+  const goals = nodes.filter(n => normalizeDraftType(n.type) === 'goal')
+  const decisions = nodes.filter(n => normalizeDraftType(n.type) === 'decision')
+  const options = nodes.filter(n => normalizeDraftType(n.type) === 'option')
+  const outcomes = nodes.filter(n => normalizeDraftType(n.type) === 'outcome')
+  const factors = nodes.filter(n => {
+    const t = normalizeDraftType(n.type)
+    return t === 'risk' || t === 'factor' || t === 'event'
+  })
+  return { goals, decisions, options, outcomes, factors }
+}
+
+function formatOutlineList(nodes: DraftNode[], max: number): string {
+  if (!nodes.length) return 'Not identified yet'
+  if (nodes.length <= max) {
+    return nodes.map(n => n.label).join(', ')
+  }
+  const head = nodes.slice(0, max).map(n => n.label).join(', ')
+  const remaining = nodes.length - max
+  return `${head} (+${remaining} more)`
 }
 
 // Tailwind-safe quality config with static class names
@@ -55,6 +97,30 @@ export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPrevie
     () => nodes.filter(n => n.uncertainty > 0.4),
     [nodes]
   )
+
+  const outline = useMemo(() => buildOutline(nodes), [nodes])
+
+  const previewUrl = useMemo(() => {
+    if (!nodes.length) return null
+
+    const blueprintNodes = nodes.map((n, index) => ({
+      id: n.id || String(index),
+      label: n.label,
+      kind: mapDraftTypeToNodeKind(n.type),
+    }))
+
+    const blueprintEdges = edges.map((e, index) => ({
+      id: `e-${index}`,
+      from: e.from,
+      to: e.to,
+    }))
+
+    try {
+      return generateTemplatePreview(blueprintNodes as any, blueprintEdges as any)
+    } catch {
+      return null
+    }
+  }, [nodes, edges])
 
   // Empty/unavailable state - show friendly message instead of crashing
   if (!draft || nodes.length === 0) {
@@ -144,11 +210,46 @@ export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPrevie
         )}
       </div>
 
+      {/* Text Outline */}
+      <div className="space-y-1">
+        <p className={`${typography.caption} text-ink-900/60`}>Outline</p>
+        <ul className="space-y-0.5">
+          <li className={`${typography.bodySmall} text-ink-900/80`}>
+            <span className="font-semibold">Your goal: </span>
+            {formatOutlineList(outline.goals, 2)}
+          </li>
+          <li className={`${typography.bodySmall} text-ink-900/80`}>
+            <span className="font-semibold">The decision(s) you face: </span>
+            {formatOutlineList(outline.decisions, 3)}
+          </li>
+          <li className={`${typography.bodySmall} text-ink-900/80`}>
+            <span className="font-semibold">Some options to consider: </span>
+            {formatOutlineList(outline.options, 3)}
+          </li>
+          <li className={`${typography.bodySmall} text-ink-900/80`}>
+            <span className="font-semibold">Factors that might influence your decision: </span>
+            {formatOutlineList(outline.factors, 3)}
+          </li>
+          <li className={`${typography.bodySmall} text-ink-900/80`}>
+            <span className="font-semibold">Potential outcomes: </span>
+            {formatOutlineList(outline.outcomes, 3)}
+          </li>
+        </ul>
+      </div>
+
       {/* Mini Graph Preview */}
-      <div className="relative border border-sand-200 rounded-lg p-4 bg-canvas-25 min-h-[200px]">
-        <p className={`${typography.caption} text-ink-900/50 text-center py-8`}>
-          Graph preview will appear on canvas
-        </p>
+      <div className="relative border border-sand-200 rounded-lg p-3 bg-canvas-25 min-h-[200px] flex items-center justify-center">
+        {previewUrl ? (
+          <img
+            src={previewUrl}
+            alt="Draft graph preview"
+            className="max-w-full max-h-[180px] mx-auto"
+          />
+        ) : (
+          <p className={`${typography.caption} text-ink-900/50 text-center py-8`}>
+            Graph preview will appear on canvas
+          </p>
+        )}
       </div>
 
       {/* Actions */}
