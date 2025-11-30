@@ -7,6 +7,7 @@ import { typography } from '../../styles/typography'
 import { CEEError } from '../../adapters/cee/client'
 import { DraftGuidancePanel } from './DraftGuidancePanel'
 import { RateLimitNotice } from './RateLimitNotice'
+import { DEFAULT_EDGE_DATA, trimProvenance } from '../domain/edges'
 
 /** Check if error indicates CEE service is unavailable */
 function isCEEUnavailable(error: CEEError | Error): boolean {
@@ -100,21 +101,15 @@ export function DraftChat() {
     draft: generateDraft,
     guidance,
     retryAfterSeconds,
-<<<<<<< HEAD
     reset,
-=======
->>>>>>> origin/main
   } = useCEEDraft()
   // React #185 FIX: Use individual selectors instead of destructuring from useCanvasStore()
   const showDraftChat = useCanvasStore(s => s.showDraftChat)
   const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
   const pushHistory = useCanvasStore(s => s.pushHistory)
-<<<<<<< HEAD
   const canvasNodes = useCanvasStore(s => s.nodes)
   const applyGuidedLayout = useCanvasStore(s => s.applyGuidedLayout)
   const resetCanvas = useCanvasStore(s => s.resetCanvas)
-=======
->>>>>>> origin/main
 
   const handleDraft = async () => {
     if (!description.trim()) return
@@ -160,18 +155,46 @@ export function DraftChat() {
       },
     }))
 
-    const edges = (draft.edges ?? []).map((e: any, i: number) => ({
-      id: `e-${i}`,
-      source: e.from,
-      target: e.to,
-      type: 'default',
-    }))
+    const edges = (draft.edges ?? []).map((e: any, i: number) => {
+      const id = typeof e.id === 'string' && e.id.trim().length > 0 ? e.id : `e-${i}`
 
-<<<<<<< HEAD
+      const weight =
+        typeof e.weight === 'number'
+          ? Math.max(0, Math.min(1, e.weight))
+          : DEFAULT_EDGE_DATA.weight
+
+      const confidence =
+        typeof e.belief === 'number' ? Math.max(0, Math.min(1, e.belief)) : undefined
+
+      let provenanceText: string | undefined
+      if (typeof e.provenance === 'string' && e.provenance.trim().length > 0) {
+        provenanceText = trimProvenance(e.provenance)
+      } else if (e.provenance && typeof e.provenance === 'object') {
+        const source = e.provenance.source ?? ''
+        const quote = e.provenance.quote ?? ''
+        const location = e.provenance.location ?? ''
+        const combined = [source, quote, location].filter(Boolean).join(' • ')
+        if (combined) {
+          provenanceText = trimProvenance(combined)
+        }
+      }
+
+      return {
+        id,
+        source: e.from,
+        target: e.to,
+        type: 'styled',
+        data: {
+          ...DEFAULT_EDGE_DATA,
+          weight,
+          pathType: 'bezier',
+          confidence,
+          provenance: provenanceText,
+        },
+      }
+    })
+
     const hadExistingNodes = canvasNodes.length > 0
-
-=======
->>>>>>> origin/main
     // Push current state to history, then append nodes/edges in a single transaction
     pushHistory()
     const state = useCanvasStore.getState()
@@ -179,8 +202,6 @@ export function DraftChat() {
       nodes: [...state.nodes, ...nodes],
       edges: [...state.edges, ...edges],
     })
-<<<<<<< HEAD
-
     if (!hadExistingNodes) {
       try {
         applyGuidedLayout()
@@ -190,8 +211,6 @@ export function DraftChat() {
     }
 
     reset()
-=======
->>>>>>> origin/main
     setShowDraftChat(false)
   }
 
@@ -223,13 +242,20 @@ export function DraftChat() {
         maxHeight: 'min(75vh, 640px)',
         minHeight: '12rem',
       }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="draft-chat-title"
+      aria-describedby="draft-chat-description"
     >
 
       {!draft ? (
         /* Input Form */
         <div className="bg-white rounded-lg border border-sand-200 shadow-panel p-4 space-y-4">
           <div>
-            <label className={`${typography.label} block mb-2`}>
+            <label
+              id="draft-chat-title"
+              className={`${typography.label} block mb-2`}
+            >
               Describe your decision
             </label>
             <textarea
@@ -243,7 +269,10 @@ export function DraftChat() {
                 resize-none
               `}
             />
-            <p className={`${typography.caption} text-ink-900/50 mt-2`}>
+            <p
+              id="draft-chat-description"
+              className={`${typography.caption} text-ink-900/50 mt-2`}
+            >
               Include your options, key factors, and what you're trying to achieve
             </p>
           </div>

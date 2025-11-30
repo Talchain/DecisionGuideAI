@@ -11,9 +11,15 @@ export interface CEEDraftResponse {
     uncertainty: number // 0-1, higher = less certain
   }>
   edges: Array<{
+    id?: string
     from: string
     to: string
     weight?: number
+    belief?: number
+    provenance?:
+      | { source: string; quote: string; location?: string }
+      | string
+    provenance_source?: 'document' | 'metric' | 'hypothesis' | 'engine'
   }>
   draft_warnings: {
     structural: CEEStructuralWarning[]

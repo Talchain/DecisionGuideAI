@@ -169,4 +169,65 @@ describe('useResultsRun diagnostics wiring', () => {
     expect(runMeta.ceeTrace?.requestId).toBe('req-123')
     expect(runMeta.ceeError?.suggestedAction).toBe('fail')
   })
+
+  it('updates graphHealth from report.graph_quality on streaming completion', async () => {
+    const mockStreamRun = getMockStreamRun()
+
+    // Ensure clean health state for this run
+    useCanvasStore.getState().reset()
+    expect(useCanvasStore.getState().graphHealth).toBeNull()
+
+    mockStreamRun.mockImplementation((_request: any, handlers: any) => {
+      const report = {
+        schema: 'report.v1',
+        meta: {
+          seed: 7,
+          response_id: 'run-3',
+          elapsed_ms: 80,
+        },
+        model_card: {
+          response_hash: 'hash-3',
+          response_hash_algo: 'sha256',
+          normalized: true as const,
+        },
+        results: {
+          conservative: 1,
+          likely: 2,
+          optimistic: 3,
+          units: 'count' as const,
+        },
+        confidence: {
+          level: 'low' as const,
+          why: 'graph-quality-test',
+        },
+        drivers: [],
+        graph_quality: {
+          score: 0.5,
+          completeness: 0.5,
+          evidence_coverage: 0.5,
+          balance: 0.5,
+        },
+      }
+
+      handlers.onDone?.({
+        response_id: 'run-3',
+        report,
+        diagnostics: undefined,
+        correlationIdHeader: undefined,
+        degraded: false,
+      } as any)
+
+      return () => {}
+    })
+
+    const { result } = renderHook(() => useResultsRun())
+
+    await result.current.run({ template_id: 'tpl-3', seed: 7 } as any)
+
+    const health = useCanvasStore.getState().graphHealth
+
+    expect(health).not.toBeNull()
+    expect(health?.status).toBe('warnings')
+    expect(health?.score).toBe(50)
+  })
 })

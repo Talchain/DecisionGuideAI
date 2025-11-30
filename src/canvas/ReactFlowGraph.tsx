@@ -14,7 +14,8 @@ import { loadState, saveState } from './persist'
 import { ContextMenu } from './ContextMenu'
 import { CanvasToolbar } from './CanvasToolbar'
 import { AlignmentGuides } from './components/AlignmentGuides'
-import { PropertiesPanel } from './components/PropertiesPanel'
+import { InspectorPopover } from './components/InspectorPopover'
+import { InspectorModal } from './components/InspectorModal'
 import { CommandPalette } from './components/CommandPalette'
 import { ReconnectBanner } from './components/ReconnectBanner'
 import { KeyboardLegend, useKeyboardLegend } from './help/KeyboardLegend'
@@ -195,6 +196,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
+  const [showFullInspector, setShowFullInspector] = useState(false)
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
   const { isOpen: isKeyboardLegendOpen, open: openKeyboardLegend, close: closeKeyboardLegend } = useKeyboardLegend()
@@ -216,6 +218,19 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   // Use store selectors directly - Zustand actions are stable references
   const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
   const openTemplatesPanel = useCanvasStore(s => s.openTemplatesPanel)
+
+  // React #185 FIX: Selection state for inspector popover/modal
+  const selectedNodeId = useCanvasStore(s => {
+    const ids = s.selection.nodeIds
+    if (ids.size !== 1) return null
+    return ids.values().next().value ?? null
+  })
+  const selectedEdgeId = useCanvasStore(s => {
+    const ids = s.selection.edgeIds
+    if (ids.size !== 1) return null
+    return ids.values().next().value ?? null
+  })
+
   // Stable callbacks for CanvasEmptyState (React #185 prevention)
   const handleEmptyStateDraft = useCallback(() => setShowDraftChat(true), [setShowDraftChat])
   const handleEmptyStateTemplate = useCallback(() => openTemplatesPanel(), [openTemplatesPanel])
@@ -503,6 +518,15 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     // Close Templates panel when clicking an edge
     onCanvasInteraction?.()
   }, [onCanvasInteraction])
+
+  // Double-click handlers for opening full inspector modal
+  const handleNodeDoubleClick = useCallback((_: any, node: any) => {
+    setShowFullInspector(true)
+  }, [])
+
+  const handleEdgeDoubleClick = useCallback((_: any, edge: any) => {
+    setShowFullInspector(true)
+  }, [])
 
   // Focus node handler (for Alt+V validation cycling and Results panel drivers)
   const handleFocusNode = useCallback((nodeId: string) => {
@@ -1222,7 +1246,9 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
             onConnect={onConnect}
             onSelectionChange={handleSelectionChange}
             onNodeClick={handleNodeClick}
+            onNodeDoubleClick={handleNodeDoubleClick}
             onEdgeClick={handleEdgeClick}
+            onEdgeDoubleClick={handleEdgeDoubleClick}
             onPaneClick={handlePaneClick}
             onPaneContextMenu={onPaneContextMenu}
             onNodeContextMenu={onNodeContextMenu}
@@ -1296,7 +1322,14 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
         )}
       </div>
-      <PropertiesPanel />
+      <InspectorPopover onExpandToFull={() => setShowFullInspector(true)} />
+      {showFullInspector && (
+        <InspectorModal
+          nodeId={selectedNodeId}
+          edgeId={selectedEdgeId}
+          onClose={() => setShowFullInspector(false)}
+        />
+      )}
       <SettingsPanel />
       <DiagnosticsOverlay />
       <ValidationChip onFocusNode={handleFocusNode} />

@@ -421,6 +421,56 @@ describe('OutputsDock DOM', () => {
     expect(emptyState).toBeInTheDocument()
   })
 
+  it('renders an error banner in Results tab when results status is error', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'error',
+        error: {
+          code: 'SERVER_ERROR',
+          message: 'Something went wrong.',
+        },
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    const banner = screen.getByTestId('outputs-error-banner')
+    expect(banner).toBeInTheDocument()
+    expect(banner).toHaveTextContent('SERVER_ERROR')
+    expect(banner).toHaveTextContent('Something went wrong.')
+  })
+
+  it('renders retryAfter and request_id details in the error banner when provided', () => {
+    const baseResults = useCanvasStore.getState().results
+
+    useCanvasStore.setState({
+      hasCompletedFirstRun: true,
+      results: {
+        ...baseResults,
+        status: 'error',
+        error: {
+          code: 'RATE_LIMITED',
+          message: 'Too many requests.',
+          retryAfter: 42,
+          request_id: 'req-error-123',
+        },
+      },
+    } as any)
+
+    render(<OutputsDock />)
+
+    const banner = screen.getByTestId('outputs-error-banner')
+    expect(banner).toBeInTheDocument()
+    expect(banner).toHaveTextContent('RATE_LIMITED')
+    expect(banner).toHaveTextContent('Too many requests.')
+    expect(banner).toHaveTextContent('Retry after 42 seconds')
+    expect(banner).toHaveTextContent('PLoT Request ID: req-error-123')
+  })
+
   it('shows empty compare state when there are no runs yet', () => {
     render(<OutputsDock />)
 
@@ -589,8 +639,51 @@ it('shows graph health unknown message in Diagnostics tab when no health is avai
   openDiagnosticsTab()
 
   expect(screen.getByTestId('graph-health-card')).toBeInTheDocument()
-  expect(screen.getByText('Health: Unknown')).toBeInTheDocument()
+  expect(screen.getByText('Run analysis to check health')).toBeInTheDocument()
   expect(screen.getByText('No recent health check. Run diagnostics to analyse this graph.')).toBeInTheDocument()
+})
+
+it('shows engine-derived graph health summary in Diagnostics after a run completes', () => {
+  // Start from a clean store state to avoid leakage from other tests
+  useCanvasStore.getState().reset()
+
+  const { resultsComplete } = useCanvasStore.getState()
+
+  const report: any = {
+    schema: 'report.v1',
+    meta: { seed: 101, response_id: 'health-1', elapsed_ms: 50 },
+    model_card: {
+      response_hash: 'health-hash-1',
+      response_hash_algo: 'sha256',
+      normalized: true,
+    },
+    results: {
+      conservative: 10,
+      likely: 20,
+      optimistic: 30,
+      units: 'count' as const,
+    },
+    confidence: { level: 'medium', why: 'engine-health-test' },
+    drivers: [],
+    graph_quality: {
+      score: 0.75,
+      completeness: 0.8,
+      evidence_coverage: 0.7,
+      balance: 0.9,
+    },
+  }
+
+  // Simulate a completed run flowing through the canvas store
+  resultsComplete({ report, hash: 'health-hash-1' } as any)
+
+  render(<OutputsDock />)
+
+  openDiagnosticsTab()
+
+  expect(screen.getByTestId('graph-health-card')).toBeInTheDocument()
+  // 0.75 → 75 → healthy
+  expect(screen.getByText('Health: Good')).toBeInTheDocument()
+  expect(screen.getByText('Score: 75/100')).toBeInTheDocument()
 })
 
 it('shows graph health summary and opens Issues panel from Diagnostics tab', () => {

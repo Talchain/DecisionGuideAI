@@ -14,7 +14,10 @@ function escapeHtml(s: string): string {
 function sanitizeUrl(href: string): string {
   try {
     const u = String(href || '').trim()
-    if (/^(https?:\/\/|mailto:)/i.test(u)) return u
+    if (/^(https?:\/\/|mailto:)/i.test(u)) {
+      // Escape quotes so href can't break out of attribute context
+      return u.replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+    }
   } catch {}
   return '#'
 }

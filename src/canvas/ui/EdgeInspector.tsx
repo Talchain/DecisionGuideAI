@@ -6,7 +6,7 @@
 
 import { memo, useState, useCallback, useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
-import { EDGE_CONSTRAINTS, type EdgeStyle, DEFAULT_EDGE_DATA } from '../domain/edges'
+import { EDGE_CONSTRAINTS, type EdgeStyle, type EdgePathType, DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useToast } from '../ToastContext'
 import { Tooltip } from '../components/Tooltip'
 
@@ -35,6 +35,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   const [weight, setWeight] = useState<number>(edge?.data?.weight ?? 0.5)
   const [style, setStyle] = useState<EdgeStyle>(edge?.data?.style ?? 'solid')
   const [curvature, setCurvature] = useState<number>(edge?.data?.curvature ?? 0.15)
+  const [pathType, setPathType] = useState<EdgePathType>(edge?.data?.pathType ?? 'bezier')
   const [label, setLabel] = useState<string>(edge?.data?.label ?? '')
   const [belief, setBelief] = useState<number | undefined>(edge?.data?.belief) // v1.2
   const [provenance, setProvenance] = useState<string>(edge?.data?.provenance ?? '') // v1.2
@@ -74,7 +75,20 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     updateEdge(edgeId, { data: { ...current, style: value } })
     setAnnouncement(`Style changed to ${value}`)
   }, [edgeId, edge?.data, updateEdge])
-  
+
+  // Immediate path type update (no debounce needed for discrete choice)
+  const handlePathTypeChange = useCallback((value: EdgePathType) => {
+    setPathType(value)
+    const current = edge?.data ?? DEFAULT_EDGE_DATA
+    updateEdge(edgeId, { data: { ...current, pathType: value } })
+    const labels: Record<EdgePathType, string> = {
+      bezier: 'Curved',
+      smoothstep: 'Step',
+      straight: 'Straight',
+    }
+    setAnnouncement(`Path type changed to ${labels[value]}`)
+  }, [edgeId, edge?.data, updateEdge])
+
   // Debounced curvature update (~120ms)
   const handleCurvatureChange = useCallback((value: number) => {
     setCurvature(value)
@@ -324,27 +338,65 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           ))}
         </div>
       </div>
-      
-      {/* Curvature control */}
+
+      {/* Path type control */}
       <div className="mb-4">
-        <label htmlFor="edge-curvature" className="block text-xs font-medium text-gray-700 mb-1">
-          Curvature
-        </label>
-        <input
-          id="edge-curvature"
-          type="range"
-          min={EDGE_CONSTRAINTS.curvature.min}
-          max={EDGE_CONSTRAINTS.curvature.max}
-          step={0.01}
-          value={curvature}
-          onChange={(e) => handleCurvatureChange(parseFloat(e.target.value))}
-          className="w-full"
-          aria-valuemin={EDGE_CONSTRAINTS.curvature.min}
-          aria-valuemax={EDGE_CONSTRAINTS.curvature.max}
-          aria-valuenow={curvature}
-          aria-valuetext={`${(curvature * 100).toFixed(0)}%`}
-        />
+        <Tooltip content="Choose how the connector line is drawn between nodes" position="right">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            Path Type
+          </label>
+        </Tooltip>
+        <div className="flex gap-2" role="radiogroup" aria-label="Edge path type">
+          {([
+            { value: 'bezier' as const, label: 'Curved', icon: '⟿' },
+            { value: 'smoothstep' as const, label: 'Step', icon: '⊢' },
+            { value: 'straight' as const, label: 'Straight', icon: '╲' },
+          ]).map(({ value, label: pathLabel, icon }) => (
+            <button
+              key={value}
+              onClick={() => handlePathTypeChange(value)}
+              className={`
+                flex-1 px-3 py-2 text-xs font-medium rounded border transition-colors
+                ${pathType === value
+                  ? 'bg-info-50 border-info-500 text-info-700'
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                }
+              `}
+              role="radio"
+              aria-checked={pathType === value}
+              title={pathLabel}
+            >
+              <span className="mr-1">{icon}</span>
+              {pathLabel}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {/* Curvature control (only for smoothstep) */}
+      {pathType === 'smoothstep' && (
+        <div className="mb-4">
+          <Tooltip content="Corner roundness for step paths (0 = sharp corners, max = rounded)" position="right">
+            <label htmlFor="edge-curvature" className="block text-xs font-medium text-gray-700 mb-1">
+              Corner Radius
+            </label>
+          </Tooltip>
+          <input
+            id="edge-curvature"
+            type="range"
+            min={EDGE_CONSTRAINTS.curvature.min}
+            max={EDGE_CONSTRAINTS.curvature.max}
+            step={0.01}
+            value={curvature}
+            onChange={(e) => handleCurvatureChange(parseFloat(e.target.value))}
+            className="w-full"
+            aria-valuemin={EDGE_CONSTRAINTS.curvature.min}
+            aria-valuemax={EDGE_CONSTRAINTS.curvature.max}
+            aria-valuenow={curvature}
+            aria-valuetext={`${(curvature * 100).toFixed(0)}%`}
+          />
+        </div>
+      )}
       
       {/* Label control */}
       <div className="mb-4">

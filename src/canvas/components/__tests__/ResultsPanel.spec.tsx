@@ -318,7 +318,7 @@ describe('ResultsPanel', () => {
         ),
       ).toBeInTheDocument()
 
-      expect(screen.getByText('Health: Unknown')).toBeInTheDocument()
+      expect(screen.getByText('Run analysis to check health')).toBeInTheDocument()
       expect(
         screen.getByText('No recent health check. Run diagnostics to analyse this graph.'),
       ).toBeInTheDocument()

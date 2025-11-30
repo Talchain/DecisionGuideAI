@@ -66,13 +66,43 @@ export interface ReportV1 {
 
 export interface ErrorV1 {
   schema: 'error.v1'
-  code: 'BAD_INPUT' | 'LIMIT_EXCEEDED' | 'RATE_LIMITED' | 'UNAUTHORIZED' | 'SERVER_ERROR'
+  code:
+    | 'BAD_INPUT'
+    | 'LIMIT_EXCEEDED'
+    | 'RATE_LIMITED'
+    | 'UNAUTHORIZED'
+    | 'SERVER_ERROR'
+    | 'TIMEOUT'
+    | 'GATEWAY_TIMEOUT'
+    | 'NETWORK_ERROR'
+    | 'NOT_FOUND'
+    | 'SERVICE_UNAVAILABLE'
+    | 'METHOD_NOT_ALLOWED'
+    | 'CANCELLED'
+  /**
+   * Human-readable error message used by existing callers.
+   * For error.v1 envelopes this typically mirrors the top-level `message` field.
+   */
   error: string
+  /** Optional original message field from the backend envelope. */
+  message?: string
   hint?: string
+  /**
+   * Whether the operation is safe to retry from the engine's perspective.
+   * When absent, callers should fall back to local heuristics (e.g. by code/status).
+   */
+  retryable?: boolean
+  /** Source of the error, e.g. "plot". */
+  source?: string
+  /** Stable request identifier for support/debugging. */
+  request_id?: string
   fields?: {
     field?: 'graph.nodes' | 'graph.edges' | string
     max?: number
+    /** Optional structured path for validation errors (when provided by backend). */
+    path?: string[]
   }
+  /** Normalised retry-after delay in seconds. */
   retry_after?: number
 }
 

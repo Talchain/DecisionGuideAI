@@ -26,10 +26,11 @@ import { BarChart3, Sparkles, Shuffle, Activity, Clock } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
-import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
+import { useCanvasStore, selectResultsStatus, selectReport, selectError } from '../store'
 import { loadRuns, type StoredRun } from '../store/runHistory'
 import * as runsBus from '../store/runsBus'
 import { typography } from '../../styles/typography'
+import { buildHealthStrings } from '../utils/graphHealthStrings'
 import type { GraphHealth } from '../validation/types'
 import { selectScenarioLastRun } from '../shared/lastRun'
 import { trackCompareOpened } from '../utils/sandboxTelemetry'
@@ -114,44 +115,6 @@ function formatRangeValue(
   return `${value.toFixed(1)}%`
 }
 
-function buildHealthStrings(graphHealth: GraphHealth | null) {
-  if (!graphHealth) {
-    return {
-      label: 'Health: Unknown',
-      detail: 'No recent health check. Run diagnostics to analyse this graph.',
-    }
-  }
-
-  const totalIssues = graphHealth.issues.length
-  const issuesPart = totalIssues > 0 ? ` • ${totalIssues} issues` : ''
-
-  if (graphHealth.status === 'healthy') {
-    return {
-      label: 'Health: Good',
-      detail: `Score: ${graphHealth.score}/100${issuesPart}`,
-    }
-  }
-
-  if (graphHealth.status === 'warnings') {
-    return {
-      label: 'Health: Warnings',
-      detail: `Score: ${graphHealth.score}/100${issuesPart}`,
-    }
-  }
-
-  if (graphHealth.status === 'errors') {
-    return {
-      label: 'Health: Errors',
-      detail: `Score: ${graphHealth.score}/100${issuesPart}`,
-    }
-  }
-
-  return {
-    label: 'Health: Unknown',
-    detail: 'No recent health check. Run diagnostics to analyse this graph.',
-  }
-}
-
 export function OutputsDock() {
   const prefersReducedMotion = usePrefersReducedMotion()
   const [state, setState] = useDockState<OutputsDockState>(STORAGE_KEY, {
@@ -210,6 +173,7 @@ export function OutputsDock() {
   const isPreRun = !hasCompletedFirstRun
   const resultsStatus = useCanvasStore(selectResultsStatus)
   const report = useCanvasStore(selectReport)
+  const error = useCanvasStore(selectError)
 
   const canonicalBands = report?.run?.bands ?? null
   const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results.likely ?? null
@@ -225,6 +189,7 @@ export function OutputsDock() {
   const evidencedEdges = edges.filter(e => e.data?.provenance && e.data.provenance.trim() !== '').length
   const objectiveText = getObjectiveText({ framing, nodes })
   const goalDirection = getGoalDirection(framing)
+  const isError = resultsStatus === 'error'
 
   // Phase 1A.1: Compute verdict for VerdictCard
   // Use baseline from framing or default to 0
@@ -247,10 +212,13 @@ export function OutputsDock() {
 
   // Sprint N P0.1: Decision readiness derived from confidence when available
   const readinessFromConfidence = report?.confidence
-    ? mapConfidenceToReadiness({
-        level: report.confidence.level.toUpperCase() as 'HIGH' | 'MEDIUM' | 'LOW',
-        reason: report.confidence.why,
-      })
+    ? mapConfidenceToReadiness(
+        {
+          level: report.confidence.level.toUpperCase() as 'HIGH' | 'MEDIUM' | 'LOW',
+          reason: report.confidence.why,
+        },
+        verdict?.verdict === 'supports'
+      )
     : null
 
   // Prefer adapter-provided decision_readiness, fall back to mapper
@@ -596,6 +564,31 @@ export function OutputsDock() {
         <div className={`flex-1 px-3 py-3 ${typography.caption} text-ink-900/70 space-y-3 overflow-y-auto`} data-testid="outputs-dock-body">
             {state.activeTab === 'results' && (
               <div className="space-y-3">
+                {isError && error && (
+                  <div
+                    className="flex flex-col gap-1 px-3 py-2 bg-danger-50 border border-danger-200 rounded"
+                    role="alert"
+                    aria-live="polite"
+                    data-testid="outputs-error-banner"
+                  >
+                    <div className={`${typography.code} font-medium text-danger-800`}>
+                      {error.code}
+                    </div>
+                    <div className={`${typography.caption} text-ink-900/80`}>
+                      {error.message}
+                    </div>
+                    {typeof error.retryAfter === 'number' && error.retryAfter > 0 && (
+                      <div className={`${typography.caption} text-ink-900/70`}>
+                        Retry after {error.retryAfter} seconds
+                      </div>
+                    )}
+                    {error.request_id && (
+                      <div className={`${typography.code} text-ink-900/70`}>
+                        PLoT Request ID: {error.request_id}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <p>
                   {isPreRun
                     ? 'Results appear here after your first analysis.'
@@ -794,6 +787,7 @@ function DiagnosticsTabBody({
   // Future: When backend provides model_card.sources, prefer that as source of truth.
   const totalEdges = edges.length
   const evidencedEdges = edges.filter(e => e.data?.provenance && e.data.provenance.trim() !== '').length
+  const evidenceCoveragePercent = totalEdges > 0 ? Math.round((evidencedEdges / totalEdges) * 100) : 0
 
   return (
     <div className="space-y-3" data-testid="diagnostics-tab">
@@ -805,6 +799,11 @@ function DiagnosticsTabBody({
             evidencedCount={evidencedEdges}
             totalCount={totalEdges}
           />
+          {evidenceCoveragePercent === 0 && (
+            <p className={`${typography.caption} text-ink-900/60 mt-1`}>
+              Drag documents into the Documents panel to strengthen key assumptions
+            </p>
+          )}
         </div>
       )}
 
@@ -817,7 +816,7 @@ function DiagnosticsTabBody({
         <div className={`${typography.code} text-ink-900/70`} aria-live="polite">
           {healthView.detail}
         </div>
-        {graphHealth && (
+        {graphHealth && graphHealth.issues.length > 0 && (
           <>
             <button
               type="button"

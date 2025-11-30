@@ -97,6 +97,11 @@ export const ErrorBanner = memo<ErrorBannerProps>(({
           {error.hint && (
             <p className="text-sm mt-1 opacity-90">{error.hint}</p>
           )}
+          {error.request_id && (
+            <p className="text-xs mt-1 text-gray-700">
+              Reference ID: <span className="font-mono">{error.request_id}</span>
+            </p>
+          )}
           {isRateLimit && countdown > 0 && (
             <p className="text-sm mt-2">
               Please retry in {countdown} second{countdown !== 1 ? 's' : ''}.

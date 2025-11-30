@@ -47,60 +47,22 @@ import { useEngineLimits } from '../hooks/useEngineLimits'
 import { deriveLimitsStatus } from '../utils/limitsStatus'
 import { useRunEligibilityCheck } from '../hooks/useRunEligibilityCheck'
 import { trackCompareOpened } from '../utils/sandboxTelemetry'
-import { typography } from '../../styles/typography'
-import type { GraphHealth } from '../validation/types'
-import { DecisionReviewPanel, type DecisionReviewStatus } from '../components/DecisionReviewPanel'
-import { isDecisionReviewEnabled } from '../../flags'
+ import { typography } from '../../styles/typography'
+ import { buildHealthStrings } from '../utils/graphHealthStrings'
+ import { DecisionReviewPanel, type DecisionReviewStatus } from '../components/DecisionReviewPanel'
+ import { isDecisionReviewEnabled } from '../../flags'
 
-function buildHealthStrings(graphHealth: GraphHealth | null) {
-  if (!graphHealth) {
-    return {
-      label: 'Health: Unknown',
-      detail: 'No recent health check. Run diagnostics to analyse this graph.',
-    }
-  }
+ interface ResultsPanelProps {
+   isOpen: boolean
+   onClose: () => void
+   onCancel?: () => void
+   onRunAgain?: () => void
+ }
 
-  const totalIssues = graphHealth.issues.length
-  const issuesPart = totalIssues > 0 ? ` • ${totalIssues} issues` : ''
+ type TabId = 'latest' | 'history' | 'compare'
 
-  if (graphHealth.status === 'healthy') {
-    return {
-      label: 'Health: Good',
-      detail: `Score: ${graphHealth.score}/100${issuesPart}`,
-    }
-  }
-
-  if (graphHealth.status === 'warnings') {
-    return {
-      label: 'Health: Warnings',
-      detail: `Score: ${graphHealth.score}/100${issuesPart}`,
-    }
-  }
-
-  if (graphHealth.status === 'errors') {
-    return {
-      label: 'Health: Errors',
-      detail: `Score: ${graphHealth.score}/100${issuesPart}`,
-    }
-  }
-
-  return {
-    label: 'Health: Unknown',
-    detail: 'No recent health check. Run diagnostics to analyse this graph.',
-  }
-}
-
-interface ResultsPanelProps {
-  isOpen: boolean
-  onClose: () => void
-  onCancel?: () => void
-  onRunAgain?: () => void
-}
-
-type TabId = 'latest' | 'history' | 'compare'
-
-export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsPanelProps): JSX.Element | null {
-  const panelRef = useRef<HTMLDivElement>(null)
+ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsPanelProps): JSX.Element | null {
+   const panelRef = useRef<HTMLDivElement>(null)
 
   const status = useCanvasStore(selectResultsStatus)
   const progress = useCanvasStore(selectProgress)
@@ -628,9 +590,14 @@ export function ResultsPanel({ isOpen, onClose, onCancel, onRunAgain }: ResultsP
                       Retry after {error.retryAfter} seconds
                     </p>
                   )}
+                  {error.request_id && (
+                    <p className="text-xs text-gray-600 font-mono mb-2">
+                      PLoT Request ID: {error.request_id}
+                    </p>
+                  )}
                   {(runMeta.correlationIdHeader || runMeta.diagnostics?.correlation_id) && (
                     <p className="text-xs text-gray-600 font-mono mb-2">
-                      Request ID: {runMeta.correlationIdHeader || runMeta.diagnostics?.correlation_id}
+                      Correlation ID: {runMeta.correlationIdHeader || runMeta.diagnostics?.correlation_id}
                     </p>
                   )}
                   <button

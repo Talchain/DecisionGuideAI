@@ -13,46 +13,62 @@ interface Confidence {
  * This mapper creates equivalent UI data from confidence.
  */
 export function mapConfidenceToReadiness(
-  confidence: Confidence | undefined
+  confidence: Confidence | undefined,
+  supportsObjective?: boolean
 ): DecisionReadiness | null {
   if (!confidence) return null
 
   const level = confidence.level.toLowerCase() as 'high' | 'medium' | 'low'
 
+  // Helper to append an optional reason to a list
+  const withReason = (items: string[]): string[] =>
+    confidence.reason ? [...items, confidence.reason] : items
+
   switch (confidence.level) {
-    case 'HIGH':
+    case 'HIGH': {
+      // If the outcome does NOT support the objective, treat as not ready
+      if (supportsObjective === false) {
+        return {
+          ready: false,
+          confidence: level,
+          blockers: withReason(['High confidence the outcome works against your objective']),
+          warnings: [],
+          passed: [],
+        }
+      }
+
       return {
         ready: true,
         confidence: level,
         blockers: [],
         warnings: [],
-        passed: [
+        passed: withReason([
           'High confidence analysis',
           'Model structure validated',
-          confidence.reason || 'Analysis complete',
-        ].filter(Boolean) as string[],
+        ]),
       }
+    }
 
-    case 'MEDIUM':
+    case 'MEDIUM': {
+      const ready = supportsObjective !== false
+      const label = supportsObjective ? 'Proceed with caution' : 'Review required'
+
       return {
-        ready: true,
+        ready,
         confidence: level,
-        blockers: [],
-        warnings: [
-          'Medium confidence — consider reviewing key assumptions',
-          confidence.reason,
-        ].filter(Boolean) as string[],
-        passed: ['Model structure validated'],
+        blockers: ready ? [] : withReason(['Medium confidence and outcome does not clearly support your objective']),
+        warnings: ready
+          ? withReason(['Medium confidence — proceed with caution and review key assumptions'])
+          : withReason(['Medium confidence — review key assumptions before deciding']),
+        passed: ['Model structure validated', label],
       }
+    }
 
     case 'LOW':
       return {
         ready: false,
         confidence: level,
-        blockers: [
-          'Low confidence analysis',
-          confidence.reason || 'Review model inputs',
-        ].filter(Boolean) as string[],
+        blockers: withReason(['Low confidence analysis']),
         warnings: [],
         passed: [],
       }

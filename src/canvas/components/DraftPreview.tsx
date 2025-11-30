@@ -15,6 +15,35 @@ interface DraftPreviewProps {
 
 type DraftNode = CEEDraftResponse['nodes'][number]
 
+// Tailwind-safe quality config with static class names
+function getQualityConfig(quality: number) {
+  if (quality >= 7) {
+    return {
+      containerClasses: 'bg-mint-50 border-mint-200',
+      iconClasses: 'text-mint-600',
+      icon: CheckCircle,
+      label: 'Ready to use',
+      actionText: 'Accept Draft',
+    }
+  } else if (quality >= 4) {
+    return {
+      containerClasses: 'bg-sun-50 border-sun-200',
+      iconClasses: 'text-sun-600',
+      icon: AlertTriangle,
+      label: 'Review recommended',
+      actionText: 'Review & Edit',
+    }
+  } else {
+    return {
+      containerClasses: 'bg-carrot-50 border-carrot-200',
+      iconClasses: 'text-carrot-600',
+      icon: AlertCircle,
+      label: 'Needs improvement',
+      actionText: 'Improve & Retry',
+    }
+  }
+}
+
 function normalizeDraftType(type: string | undefined): string {
   return (type || '').toLowerCase()
 }
@@ -53,35 +82,6 @@ function formatOutlineList(nodes: DraftNode[], max: number): string {
   return `${head} (+${remaining} more)`
 }
 
-// Tailwind-safe quality config with static class names
-function getQualityConfig(quality: number) {
-  if (quality >= 7) {
-    return {
-      containerClasses: 'bg-mint-50 border-mint-200',
-      iconClasses: 'text-mint-600',
-      icon: CheckCircle,
-      label: 'Ready to use',
-      actionText: 'Accept Draft',
-    }
-  } else if (quality >= 4) {
-    return {
-      containerClasses: 'bg-sun-50 border-sun-200',
-      iconClasses: 'text-sun-600',
-      icon: AlertTriangle,
-      label: 'Review recommended',
-      actionText: 'Review & Edit',
-    }
-  } else {
-    return {
-      containerClasses: 'bg-carrot-50 border-carrot-200',
-      iconClasses: 'text-carrot-600',
-      icon: AlertCircle,
-      label: 'Needs improvement',
-      actionText: 'Improve & Retry',
-    }
-  }
-}
-
 export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPreviewProps) {
   // Null-safe derived values - prevent crashes when draft is missing or incomplete
   const nodes = draft?.nodes ?? []
@@ -92,11 +92,6 @@ export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPrevie
 
   const config = useMemo(() => getQualityConfig(quality), [quality])
   const Icon = config.icon
-
-  const uncertainNodes = useMemo(
-    () => nodes.filter(n => n.uncertainty > 0.4),
-    [nodes]
-  )
 
   const outline = useMemo(() => buildOutline(nodes), [nodes])
 
@@ -183,11 +178,11 @@ export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPrevie
         </div>
 
         {/* Uncertain Nodes Warning */}
-        {uncertainNodes.length > 0 && (
+        {nodes.filter(n => n.uncertainty > 0.4).length > 0 && (
           <div className="flex items-start gap-2 p-2 bg-sun-50 rounded">
             <AlertTriangle className="w-4 h-4 text-sun-600 mt-0.5 flex-shrink-0" />
             <p className={`${typography.bodySmall} text-sun-800`}>
-              {uncertainNodes.length} node{uncertainNodes.length !== 1 ? 's' : ''} marked as uncertain
+              {nodes.filter(n => n.uncertainty > 0.4).length} node{nodes.filter(n => n.uncertainty > 0.4).length !== 1 ? 's' : ''} marked as uncertain
               (shown with dotted borders)
             </p>
           </div>

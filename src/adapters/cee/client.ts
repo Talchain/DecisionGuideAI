@@ -143,11 +143,53 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
             : null
       if (!from || !to) return null
 
-      const weightRaw = (e as any).weight ?? (e as any).belief
-      const weight = typeof weightRaw === 'number' ? weightRaw : undefined
-      return weight !== undefined ? { from, to, weight } : { from, to }
+      const idRaw = (e as any).id
+      const id = typeof idRaw === 'string' && idRaw.trim().length > 0 ? idRaw : undefined
+
+      const weightRaw = (e as any).weight
+      const weight =
+        typeof weightRaw === 'number' ? Math.max(0, Math.min(1, weightRaw)) : undefined
+
+      const beliefRaw = (e as any).belief
+      const belief =
+        typeof beliefRaw === 'number' ? Math.max(0, Math.min(1, beliefRaw)) : undefined
+
+      const rawProv = (e as any).provenance
+      let provenance: CEEDraftResponse['edges'][number]['provenance']
+      if (rawProv && typeof rawProv === 'object') {
+        const source = rawProv.source != null ? String(rawProv.source) : ''
+        const quote = rawProv.quote != null ? String(rawProv.quote) : ''
+        const location =
+          rawProv.location !== undefined && rawProv.location !== null
+            ? String(rawProv.location)
+            : undefined
+        if (source || quote || location) {
+          provenance = { source, quote, ...(location ? { location } : {}) }
+        }
+      } else if (typeof rawProv === 'string' && rawProv.trim().length > 0) {
+        provenance = rawProv
+      }
+
+      const rawProvSource = (e as any).provenance_source
+      const allowedSources: Array<CEEDraftResponse['edges'][number]['provenance_source']> = [
+        'document',
+        'metric',
+        'hypothesis',
+        'engine',
+      ]
+      const provenance_source = allowedSources.includes(rawProvSource) ? rawProvSource : undefined
+
+      return {
+        ...(id && { id }),
+        from,
+        to,
+        ...(weight !== undefined && { weight }),
+        ...(belief !== undefined && { belief }),
+        ...(provenance !== undefined && { provenance }),
+        ...(provenance_source && { provenance_source }),
+      }
     })
-    .filter((edge): edge is { from: string; to: string; weight?: number } => edge !== null)
+    .filter((edge): edge is CEEDraftResponse['edges'][number] => edge !== null)
 
   const completeness: string[] = []
   if (Array.isArray((raw as any).issues)) {

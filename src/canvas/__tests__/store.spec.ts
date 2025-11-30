@@ -447,6 +447,97 @@ describe('Canvas Store', () => {
     })
   })
 
+  describe('graphHealth from engine graph_quality', () => {
+    it('derives graphHealth from report.graph_quality on resultsComplete when none exists', () => {
+      const { resultsComplete } = useCanvasStore.getState()
+
+      const report: any = {
+        schema: 'report.v1',
+        meta: { seed: 1337, response_id: 'gq-1', elapsed_ms: 10 },
+        model_card: {
+          response_hash: 'hash-gq-1',
+          response_hash_algo: 'sha256',
+          normalized: true,
+        },
+        results: {},
+        confidence: { level: 'high', why: 'test' },
+        drivers: [],
+        graph_quality: {
+          score: 0.82,
+          completeness: 0.9,
+          evidence_coverage: 0.8,
+          balance: 0.7,
+        },
+      }
+
+      expect(useCanvasStore.getState().graphHealth).toBeNull()
+
+      resultsComplete({ report, hash: 'hash-gq-1' } as any)
+
+      const health = useCanvasStore.getState().graphHealth as any
+      expect(health).not.toBeNull()
+      expect(health.status).toBe('healthy')
+      expect(health.score).toBe(82)
+      expect(Array.isArray(health.issues)).toBe(true)
+      expect(health.issues.length).toBe(0)
+    })
+
+    it('preserves existing structural issues when loading historical runs with graph_quality', () => {
+      useCanvasStore.setState({
+        graphHealth: {
+          status: 'errors',
+          score: 35,
+          issues: [
+            { id: 'i1', type: 'cycle', severity: 'error', message: 'Cycle detected' },
+          ],
+        },
+      } as any)
+
+      const initialHealth = useCanvasStore.getState().graphHealth
+      const { resultsLoadHistorical } = useCanvasStore.getState()
+
+      const now = Date.now()
+      const run: any = {
+        id: 'run-gq-1',
+        ts: now,
+        seed: 42,
+        hash: 'hash-gq-hist',
+        adapter: 'auto',
+        summary: '',
+        graphHash: 'graph-hash',
+        report: {
+          schema: 'report.v1',
+          meta: { seed: 42, response_id: 'hist', elapsed_ms: 20 },
+          model_card: {
+            response_hash: 'hash-gq-hist',
+            response_hash_algo: 'sha256',
+            normalized: true,
+          },
+          results: {},
+          graph_quality: {
+            score: 0.9,
+            completeness: 1,
+            evidence_coverage: 1,
+            balance: 1,
+          },
+        },
+        drivers: [],
+        graph: { nodes: [], edges: [] },
+        ceeReview: null,
+        ceeTrace: null,
+        ceeError: null,
+      }
+
+      resultsLoadHistorical(run)
+
+      const health = useCanvasStore.getState().graphHealth
+      expect(health).toBe(initialHealth)
+      expect(health?.issues.length).toBe(1)
+      expect(health?.status).toBe('errors')
+      expect(health?.score).toBe(35)
+    })
+  })
+
   // Selection stability tests (prevent render loops)
   describe('onSelectionChange stability', () => {
     it('keeps same selection reference when IDs unchanged', () => {

@@ -48,7 +48,7 @@ export interface ResultsState {
   seed?: number
   hash?: string                 // response_hash
   report?: ReportV1 | null
-  error?: { code: string; message: string; retryAfter?: number } | null
+  error?: { code: string; message: string; retryAfter?: number; request_id?: string } | null
   startedAt?: number
   finishedAt?: number
   drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
@@ -91,7 +91,7 @@ interface CanvasState {
   nodes: Node[]
   edges: Edge<EdgeData>[]
   history: { past: { nodes: Node[]; edges: Edge<EdgeData>[] }[]; future: { nodes: Node[]; edges: Edge<EdgeData>[] }[] }
-  selection: { nodeIds: Set<string>; edgeIds: Set<string> }
+  selection: { nodeIds: Set<string>; edgeIds: Set<string>; anchorPosition: { x: number; y: number } | null }
   clipboard: ClipboardData | null
   reconnecting: ReconnectState | null
   touchedNodeIds: Set<string>  // Nodes with edited probabilities
@@ -147,6 +147,8 @@ interface CanvasState {
   onEdgesChange: (changes: EdgeChange[]) => void
   onSelectionChange: (params: { nodes: Node[]; edges: Edge<EdgeData>[] }) => void
   selectNodeWithoutHistory: (nodeId: string) => void
+  selectNodes: (nodeIds: string[]) => void
+  clearSelection: () => void
   addEdge: (edge: Omit<Edge<EdgeData>, 'id'>) => void
   pushHistory: (debounced?: boolean) => void
   undo: () => void
@@ -191,7 +193,7 @@ interface CanvasState {
     ceeTrace?: CeeTraceMeta | null
     ceeError?: CeeErrorViewModel | null
   }) => void
-  resultsError: (params: { code: string; message: string; retryAfter?: number }) => void
+  resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string }) => void
   resultsCancelled: () => void
   resultsReset: () => void
   resultsLoadHistorical: (run: StoredRun) => void
@@ -251,6 +253,31 @@ function clearTimers() {
   if (nudgeTimer) {
     clearTimeout(nudgeTimer)
     nudgeTimer = null
+  }
+}
+
+// Derive a coarse GraphHealth view from engine-level graph_quality when
+// structural validation has not yet run. This keeps health chips in sync
+// with the latest analysis without overwriting validator results.
+function graphHealthFromQuality(quality: ReportV1['graph_quality'] | undefined): GraphHealth | null {
+  if (!quality) return null
+
+  const clampedScore = Math.max(0, Math.min(1, quality.score))
+  const score = Math.round(clampedScore * 100)
+
+  let status: GraphHealth['status']
+  if (score >= 70) {
+    status = 'healthy'
+  } else if (score >= 40) {
+    status = 'warnings'
+  } else {
+    status = 'errors'
+  }
+
+  return {
+    status,
+    score,
+    issues: [] as ValidationIssue[],
   }
 }
 
@@ -363,7 +390,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   nodes: initialNodes,
   edges: initialEdges,
   history: { past: [], future: [] },
-  selection: { nodeIds: new Set(), edgeIds: new Set() },
+  selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
   _internal: { lastHistoryHash: '' },
   clipboard: null,
   reconnecting: null,
@@ -501,11 +528,35 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   onNodesChange: (changes) => {
     // Guard no-op changes
     if (!changes || changes.length === 0) return
-    
-    set((s) => ({ nodes: applyNodeChanges(changes, s.nodes) }))
-    
+
     // Debounce history for drag operations
     const isDrag = changes.some(c => c.type === 'position' && (c as any).dragging)
+
+    set((s) => {
+      const updatedNodes = applyNodeChanges(changes, s.nodes)
+
+      let selection = s.selection
+      if (isDrag && selection.nodeIds.size === 1) {
+        const selectedId = selection.nodeIds.values().next().value as string | undefined
+        if (selectedId) {
+          const node = updatedNodes.find(n => n.id === selectedId)
+          if (node) {
+            const nodeWidth = node.measured?.width ?? node.width ?? 180
+            const nodeHeight = node.measured?.height ?? node.height ?? 60
+            selection = {
+              ...selection,
+              anchorPosition: {
+                x: node.position.x + nodeWidth,
+                y: node.position.y + nodeHeight / 2,
+              },
+            }
+          }
+        }
+      }
+
+      return { nodes: updatedNodes, selection }
+    })
+
     if (isDrag) {
       scheduleHistoryPush(get, set)
     } else {
@@ -528,7 +579,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const newNodeIds = new Set(nodes.map(n => n.id))
     const newEdgeIds = new Set(edges.map(e => e.id))
 
-    const { selection } = get()
+    const { selection, nodes: allNodes } = get()
 
     // Handle initial state safely
     const prevNodeIds = selection?.nodeIds ?? new Set<string>()
@@ -541,17 +592,58 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Early return if selection didn't actually change (prevents render loop)
     if (!nodeIdsChanged && !edgeIdsChanged) return
 
+    // Calculate anchor position for contextual inspector popover
+    let anchorPosition: { x: number; y: number } | null = null
+
+    if (nodes.length === 1) {
+      // Single node selected - anchor to right-center of node
+      const node = nodes[0]
+      const nodeWidth = node.measured?.width ?? node.width ?? 180
+      const nodeHeight = node.measured?.height ?? node.height ?? 60
+      anchorPosition = {
+        x: node.position.x + nodeWidth,
+        y: node.position.y + nodeHeight / 2,
+      }
+    } else if (edges.length === 1 && nodes.length === 0) {
+      // Single edge selected - anchor to midpoint between source and target
+      const edge = edges[0]
+      const sourceNode = allNodes.find(n => n.id === edge.source)
+      const targetNode = allNodes.find(n => n.id === edge.target)
+      if (sourceNode && targetNode) {
+        const sourceWidth = sourceNode.measured?.width ?? sourceNode.width ?? 180
+        const sourceHeight = sourceNode.measured?.height ?? sourceNode.height ?? 60
+        const targetWidth = targetNode.measured?.width ?? targetNode.width ?? 180
+        const targetHeight = targetNode.measured?.height ?? targetNode.height ?? 60
+        anchorPosition = {
+          x: (sourceNode.position.x + sourceWidth / 2 + targetNode.position.x + targetWidth / 2) / 2,
+          y: (sourceNode.position.y + sourceHeight / 2 + targetNode.position.y + targetHeight / 2) / 2,
+        }
+      }
+    }
+
     // Only commit when different
     set({
       selection: {
         nodeIds: newNodeIds,
         edgeIds: newEdgeIds,
+        anchorPosition,
       },
     })
   },
 
   // Select a node without pushing to history (for focus/navigation)
   selectNodeWithoutHistory: (nodeId) => {
+    const { nodes } = get()
+    const node = nodes.find(n => n.id === nodeId)
+    let anchorPosition: { x: number; y: number } | null = null
+    if (node) {
+      const nodeWidth = node.measured?.width ?? node.width ?? 180
+      const nodeHeight = node.measured?.height ?? node.height ?? 60
+      anchorPosition = {
+        x: node.position.x + nodeWidth,
+        y: node.position.y + nodeHeight / 2,
+      }
+    }
     set(s => ({
       nodes: s.nodes.map(n => ({
         ...n,
@@ -559,7 +651,50 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       })),
       selection: {
         nodeIds: new Set([nodeId]),
-        edgeIds: new Set()
+        edgeIds: new Set(),
+        anchorPosition,
+      }
+    }))
+  },
+
+  // Select multiple nodes (for probability editor navigation)
+  selectNodes: (nodeIds) => {
+    const { nodes } = get()
+    // Calculate anchor for first node if single selection
+    let anchorPosition: { x: number; y: number } | null = null
+    if (nodeIds.length === 1) {
+      const node = nodes.find(n => n.id === nodeIds[0])
+      if (node) {
+        const nodeWidth = node.measured?.width ?? node.width ?? 180
+        const nodeHeight = node.measured?.height ?? node.height ?? 60
+        anchorPosition = {
+          x: node.position.x + nodeWidth,
+          y: node.position.y + nodeHeight / 2,
+        }
+      }
+    }
+    set(s => ({
+      nodes: s.nodes.map(n => ({
+        ...n,
+        selected: nodeIds.includes(n.id)
+      })),
+      selection: {
+        nodeIds: new Set(nodeIds),
+        edgeIds: new Set(),
+        anchorPosition,
+      }
+    }))
+  },
+
+  // Clear all selection
+  clearSelection: () => {
+    set(s => ({
+      nodes: s.nodes.map(n => ({ ...n, selected: false })),
+      edges: s.edges.map(e => ({ ...e, selected: false })),
+      selection: {
+        nodeIds: new Set(),
+        edgeIds: new Set(),
+        anchorPosition: null,
       }
     }))
   },
@@ -624,7 +759,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set((s) => ({
       nodes: s.nodes.filter(n => !selection.nodeIds.has(n.id)),
       edges: s.edges.filter(e => !selection.nodeIds.has(e.source) && !selection.nodeIds.has(e.target) && !selection.edgeIds.has(e.id)),
-      selection: { nodeIds: new Set(), edgeIds: new Set() }
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }
     }))
   },
 
@@ -659,7 +794,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set((s) => ({
       nodes: [...s.nodes, ...newNodes],
       edges: [...s.edges, ...newEdges],
-      selection: { nodeIds: new Set(newNodes.map(n => n.id)), edgeIds: new Set() }
+      selection: { nodeIds: new Set(newNodes.map(n => n.id)), edgeIds: new Set(), anchorPosition: null }
     }))
   },
 
@@ -699,7 +834,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set((s) => ({
       nodes: [...s.nodes, ...newNodes],
       edges: [...s.edges, ...newEdges],
-      selection: { nodeIds: new Set(newNodes.map(n => n.id)), edgeIds: new Set() }
+      selection: { nodeIds: new Set(newNodes.map(n => n.id)), edgeIds: new Set(), anchorPosition: null }
     }))
   },
 
@@ -718,7 +853,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       clipboard: { nodes: selectedNodes, edges: selectedEdges },
       nodes: s.nodes.filter(n => !selection.nodeIds.has(n.id)),
       edges: s.edges.filter(e => !selection.nodeIds.has(e.source) && !selection.nodeIds.has(e.target) && !selection.edgeIds.has(e.id)),
-      selection: { nodeIds: new Set(), edgeIds: new Set() }
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }
     }))
   },
 
@@ -752,7 +887,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       edges: updatedEdges,
       selection: {
         nodeIds: new Set(nodes.map(n => n.id)),
-        edgeIds: new Set(edges.map(e => e.id))
+        edgeIds: new Set(edges.map(e => e.id)),
+        anchorPosition: null, // No single anchor when all selected
       }
     })
   },
@@ -802,7 +938,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       nodes: imported.nodes,
       edges: imported.edges,
       history: { past: [], future: [] },
-      selection: { nodeIds: new Set(), edgeIds: new Set() },
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       showDraftChat: false,
     })
     
@@ -1033,7 +1169,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       nodes: initialNodes,
       edges: initialEdges,
       history: { past: [], future: [] },
-      selection: { nodeIds: new Set(), edgeIds: new Set() },
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       nextNodeId: 1,
       nextEdgeId: 1,
       _internal: { lastHistoryHash: historyHash(initialNodes, initialEdges) },
@@ -1095,6 +1231,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const completedAtIso = new Date(finishedAt).toISOString()
     const seedString = results.seed != null ? String(results.seed) : null
 
+    const healthFromQuality = graphHealthFromQuality(report.graph_quality)
+
     set(s => ({
       results: {
         ...s.results,
@@ -1106,6 +1244,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         finishedAt,
         error: undefined
       },
+      graphHealth: (() => {
+        if (!healthFromQuality) return s.graphHealth ?? null
+        if (!s.graphHealth) return healthFromQuality
+        // Preserve structural validation output when issues are present,
+        // but allow engine-derived health to refresh when there are no issues.
+        if (s.graphHealth.issues.length > 0) return s.graphHealth
+        return healthFromQuality
+      })(),
       currentScenarioLastResultHash: hash ?? null,
       currentScenarioLastRunAt: completedAtIso,
       currentScenarioLastRunSeed: seedString,
@@ -1162,12 +1308,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
   },
 
-  resultsError: ({ code, message, retryAfter }) => {
+  resultsError: ({ code, message, retryAfter, request_id }) => {
     set(s => ({
       results: {
         ...s.results,
         status: 'error',
-        error: { code, message, retryAfter },
+        error: { code, message, retryAfter, request_id },
         finishedAt: Date.now()
       }
     }))
@@ -1204,7 +1350,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       } catch {}
     }
 
-    set({
+    const healthFromQuality = graphHealthFromQuality(run.report?.graph_quality)
+
+    set(s => ({
       results: {
         status: 'complete',
         progress: 100,
@@ -1225,9 +1373,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         ceeTrace: run.ceeTrace ?? null,
         ceeError: run.ceeError ?? null
       },
+      graphHealth: (() => {
+        if (!healthFromQuality) return s.graphHealth ?? null
+        if (!s.graphHealth) return healthFromQuality
+        if (s.graphHealth.issues.length > 0) return s.graphHealth
+        return healthFromQuality
+      })(),
       isDirty: false,
       hasCompletedFirstRun: true
-    })
+    }))
   },
 
   resultsReset: () => {
@@ -1280,7 +1434,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioLastRunSeed: scenario.last_run_seed ?? null,
       isDirty: false,
       history: { past: [], future: [] },
-      selection: { nodeIds: new Set(), edgeIds: new Set() },
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       touchedNodeIds: new Set(),
       showDraftChat: false,
     })
@@ -1823,7 +1977,7 @@ export const selectResultsStatus = (state: CanvasState): ResultsStatus => state.
 export const selectProgress = (state: CanvasState): number => state.results.progress
 export const selectReport = (state: CanvasState): ReportV1 | null | undefined => state.results.report
 export const selectDrivers = (state: CanvasState): Array<{ kind: 'node' | 'edge'; id: string }> | undefined => state.results.drivers
-export const selectError = (state: CanvasState): { code: string; message: string; retryAfter?: number } | null | undefined => state.results.error
+export const selectError = (state: CanvasState): { code: string; message: string; retryAfter?: number; request_id?: string } | null | undefined => state.results.error
 export const selectRunId = (state: CanvasState): string | undefined => state.results.runId
 export const selectSeed = (state: CanvasState): number | undefined => state.results.seed
 export const selectHash = (state: CanvasState): string | undefined => state.results.hash

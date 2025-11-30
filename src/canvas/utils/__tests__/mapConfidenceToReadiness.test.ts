@@ -23,6 +23,7 @@ describe('mapConfidenceToReadiness', () => {
       reason: 'Some assumptions unverified',
     })
     expect(result?.ready).toBe(true)
+    expect(result?.blockers ?? []).toHaveLength(0)
     expect(result?.warnings.length).toBeGreaterThan(0)
   })
 
@@ -36,5 +37,28 @@ describe('mapConfidenceToReadiness', () => {
     const reason = 'Key drivers are uncertain'
     const result = mapConfidenceToReadiness({ level: 'LOW', reason })
     expect(result?.blockers).toContain(reason)
+  })
+
+  it('marks HIGH confidence as not ready when outcome works against the objective', () => {
+    const result = mapConfidenceToReadiness({ level: 'HIGH' }, false)
+
+    expect(result?.ready).toBe(false)
+    expect(result?.confidence).toBe('high')
+    expect(result?.blockers).toContain(
+      'High confidence the outcome works against your objective',
+    )
+  })
+
+  it('marks MEDIUM confidence as not ready when outcome works against the objective', () => {
+    const result = mapConfidenceToReadiness(
+      { level: 'MEDIUM', reason: 'Outcome decreases the goal' },
+      false,
+    )
+
+    expect(result?.ready).toBe(false)
+    expect(result?.confidence).toBe('medium')
+    expect(result?.blockers).toContain(
+      'Medium confidence and outcome does not clearly support your objective',
+    )
   })
 })
