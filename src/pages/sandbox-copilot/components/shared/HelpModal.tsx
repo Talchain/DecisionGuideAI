@@ -1,9 +1,11 @@
 /**
  * Help Modal
  *
- * Shows keyboard shortcuts and tips for using the copilot variant
+ * Shows keyboard shortcuts and tips for using the copilot variant.
+ * Includes focus management to trap focus within modal when open.
  */
 
+import { useEffect, useRef } from 'react'
 import { KEYBOARD_SHORTCUTS } from '../../hooks/useKeyboardShortcuts'
 import { Button } from './Button'
 
@@ -13,17 +15,70 @@ export interface HelpModalProps {
 }
 
 export function HelpModal({ isOpen, onClose }: HelpModalProps): JSX.Element | null {
+  const modalRef = useRef<HTMLDivElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+
+  // Focus management: trap focus within modal
+  useEffect(() => {
+    if (!isOpen) return
+
+    // Focus close button when modal opens
+    closeButtonRef.current?.focus()
+
+    // Trap focus within modal
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return
+
+      const focusableElements = modalRef.current?.querySelectorAll(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      )
+      if (!focusableElements || focusableElements.length === 0) return
+
+      const firstElement = focusableElements[0] as HTMLElement
+      const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement
+
+      if (e.shiftKey) {
+        // Shift+Tab: if on first element, go to last
+        if (document.activeElement === firstElement) {
+          lastElement.focus()
+          e.preventDefault()
+        }
+      } else {
+        // Tab: if on last element, go to first
+        if (document.activeElement === lastElement) {
+          firstElement.focus()
+          e.preventDefault()
+        }
+      }
+    }
+
+    document.addEventListener('keydown', handleTab)
+    return () => document.removeEventListener('keydown', handleTab)
+  }, [isOpen])
+
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal-900/50 backdrop-blur-sm">
-      <div className="bg-white rounded-lg shadow-xl border border-storm-200 max-w-md w-full mx-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal-900/50 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="help-modal-title"
+    >
+      <div
+        ref={modalRef}
+        className="bg-white rounded-lg shadow-xl border border-storm-200 max-w-md w-full mx-4"
+      >
         {/* Header */}
         <div className="p-4 border-b border-storm-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-charcoal-900">Keyboard Shortcuts</h2>
+          <h2 id="help-modal-title" className="text-lg font-semibold text-charcoal-900">
+            Keyboard Shortcuts
+          </h2>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
             className="text-storm-600 hover:text-charcoal-900 transition-colors"
+            aria-label="Close help modal"
           >
             ✕
           </button>

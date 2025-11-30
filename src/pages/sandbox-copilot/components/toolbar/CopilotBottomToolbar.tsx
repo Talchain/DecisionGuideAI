@@ -47,8 +47,8 @@ export function CopilotBottomToolbar(): JSX.Element {
   }
 
   const handleHelp = () => {
-    // TODO: Open help modal or panel
-    console.log('Help requested')
+    // Help is triggered by keyboard shortcut '?' - this button is redundant
+    // Kept for discoverability but could trigger same help modal in future
   }
 
   return (

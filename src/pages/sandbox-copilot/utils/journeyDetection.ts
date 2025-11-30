@@ -11,10 +11,14 @@ export interface GraphData {
 
 /**
  * Results data from PLoT analysis
+ * Note: Using minimal type shape to avoid tight coupling to PLoT internals
  */
 export interface AnalysisResults {
   status: 'complete' | 'error' | 'idle'
-  report?: unknown  // Will be typed properly when we integrate with actual PLoT types
+  report?: {
+    drivers?: Array<{ node_id: string; label: string; contribution: number }>
+    decision_readiness?: { blockers?: string[] }
+  } | null
 }
 
 /**
@@ -81,6 +85,7 @@ export function determineJourneyStage(context: JourneyContext): JourneyStage {
  * Finds blocking issues that prevent running analysis
  *
  * Blockers include:
+ * - Invalid graph structure
  * - Missing outcome node
  * - Missing decision node
  * - No edges connecting nodes
@@ -88,9 +93,21 @@ export function determineJourneyStage(context: JourneyContext): JourneyStage {
 export function findBlockers(graph: GraphData): string[] {
   const blockers: string[] = []
 
+  // Validate graph structure
+  if (!graph || !Array.isArray(graph.nodes)) {
+    blockers.push('Invalid graph structure')
+    return blockers
+  }
+
+  // Validate edges
+  if (!Array.isArray(graph.edges)) {
+    blockers.push('Invalid edges structure')
+    return blockers
+  }
+
   // Must have outcome node
   const hasOutcome = graph.nodes.some(
-    (n) => n.data?.type === 'outcome' || n.type === 'outcome'
+    (n) => n?.data?.type === 'outcome' || n?.type === 'outcome'
   )
   if (!hasOutcome) {
     blockers.push('Missing outcome node')
@@ -98,7 +115,7 @@ export function findBlockers(graph: GraphData): string[] {
 
   // Must have decision node
   const hasDecision = graph.nodes.some(
-    (n) => n.data?.type === 'decision' || n.type === 'decision'
+    (n) => n?.data?.type === 'decision' || n?.type === 'decision'
   )
   if (!hasDecision) {
     blockers.push('Missing decision node')

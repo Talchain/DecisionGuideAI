@@ -27,6 +27,7 @@ export function ExpandableSection({
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between p-4 text-left hover:bg-storm-50 transition-colors"
         aria-expanded={isOpen}
+        aria-controls="expandable-content"
       >
         <div className="flex-1">{title}</div>
         <svg
@@ -34,11 +35,21 @@ export function ExpandableSection({
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
-      {isOpen && <div className="px-4 pb-4">{children}</div>}
+      {isOpen && (
+        <div
+          id="expandable-content"
+          className="px-4 pb-4"
+          role="region"
+          aria-live="polite"
+        >
+          {children}
+        </div>
+      )}
     </div>
   )
 }

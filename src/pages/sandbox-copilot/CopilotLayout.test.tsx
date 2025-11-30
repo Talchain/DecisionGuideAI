@@ -14,8 +14,8 @@ import { useResultsStore } from '@/canvas/stores/resultsStore'
 
 // Mock ReactFlow
 vi.mock('@xyflow/react', () => ({
-  ReactFlowProvider: ({ children }: any) => <div>{children}</div>,
-  Panel: ({ children }: any) => <div>{children}</div>,
+  ReactFlowProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Panel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   useReactFlow: () => ({
     getNode: vi.fn(),
     getEdge: vi.fn(),

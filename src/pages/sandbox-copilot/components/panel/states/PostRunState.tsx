@@ -55,7 +55,24 @@ export function PostRunState(): JSX.Element {
     )
   }
 
-  const { results, confidence, insights, drivers, critique, graph_quality } = report
+  // Destructure with safe defaults
+  const {
+    results,
+    confidence,
+    insights,
+    drivers = [],
+    critique,
+    graph_quality,
+  } = report
+
+  // Validate required data
+  if (!results || typeof results.likely !== 'number') {
+    return (
+      <div className="p-6">
+        <div className="text-storm-700 text-sm">Analysis results are incomplete or malformed</div>
+      </div>
+    )
+  }
 
   // Use CEE headline if available, fall back to PLoT summary
   const headline = ceeReview?.story?.headline || insights?.summary

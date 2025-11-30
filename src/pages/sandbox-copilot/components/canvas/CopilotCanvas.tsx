@@ -7,7 +7,7 @@
  * - Shows contextual canvas information post-run
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useOnNodesChange, useOnEdgesChange, type NodeChange, type EdgeChange } from '@xyflow/react'
 import { ReactFlowGraph } from '@/canvas/ReactFlowGraph'
 import { CopilotCanvasOverlay } from './CopilotCanvasOverlay'
@@ -19,13 +19,21 @@ export function CopilotCanvas(): JSX.Element {
   const resultsStatus = useResultsStore((state) => state.status)
   const hasResults = resultsStatus === 'complete'
   const selectElement = useCopilotStore((state) => state.selectElement)
+  const canvasRef = useRef<HTMLDivElement>(null)
 
   // Listen for node selection changes in the canvas
   // When a node is selected, update copilot state to show inspector
+  // NOTE: Scoped to canvas container to avoid interfering with other components
   useEffect(() => {
-    const handleNodeClick = (event: any) => {
+    const handleNodeClick = (event: MouseEvent) => {
+      // Only handle clicks within the canvas container
+      if (!canvasRef.current?.contains(event.target as Node)) {
+        return
+      }
+
       // Check if the click target is a node
-      const nodeElement = event.target.closest('[data-id]')
+      const target = event.target as HTMLElement
+      const nodeElement = target.closest('[data-id]')
       if (nodeElement) {
         const nodeId = nodeElement.getAttribute('data-id')
         if (nodeId) {
@@ -34,7 +42,7 @@ export function CopilotCanvas(): JSX.Element {
       }
     }
 
-    // Add global click listener
+    // Add click listener to document but scope checking to canvas
     document.addEventListener('click', handleNodeClick)
 
     return () => {
@@ -43,7 +51,7 @@ export function CopilotCanvas(): JSX.Element {
   }, [selectElement])
 
   return (
-    <div className="relative w-full h-full">
+    <div ref={canvasRef} className="relative w-full h-full">
       {/* Base canvas */}
       <ReactFlowGraph />
 

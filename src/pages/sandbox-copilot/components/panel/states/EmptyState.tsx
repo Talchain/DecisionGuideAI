@@ -19,13 +19,13 @@ export function EmptyState(): JSX.Element {
   }
 
   const handleTemplate = () => {
-    // TODO: Wire to templates panel when available
-    console.log('Open templates')
+    // TODO: Wire to templates panel when available (tracked in issue)
+    // Placeholder - will open templates modal in future
   }
 
   const handleDraft = () => {
-    // TODO: Wire to draft chat when available
-    console.log('Open draft chat')
+    // TODO: Wire to draft chat when available (tracked in issue)
+    // Placeholder - will open AI chat interface in future
   }
 
   return (

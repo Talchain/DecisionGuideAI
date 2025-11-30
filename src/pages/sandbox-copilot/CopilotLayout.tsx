@@ -1,15 +1,12 @@
-import { useEffect } from 'react'
 import { ReactFlowProvider } from '@xyflow/react'
-import { useCanvasStore } from '@/canvas/store'
-import { useResultsStore } from '@/canvas/stores/resultsStore'
-import { useCopilotStore } from './hooks/useCopilotStore'
-import { determineJourneyStage } from './utils/journeyDetection'
 import { CopilotCanvas } from './components/canvas/CopilotCanvas'
 import { CopilotPanel } from './components/panel/CopilotPanel'
 import { CopilotTopBar } from './components/topbar/CopilotTopBar'
 import { CopilotBottomToolbar } from './components/toolbar/CopilotBottomToolbar'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { useJourneyDetection } from './hooks/useJourneyDetection'
 import { HelpModal } from './components/shared/HelpModal'
+import { CopilotErrorBoundary } from './components/shared/CopilotErrorBoundary'
 
 /**
  * Copilot Layout - Main layout component for copilot variant
@@ -24,36 +21,11 @@ import { HelpModal } from './components/shared/HelpModal'
  * - Keyboard shortcuts: ?, Esc, R, C (Phase 5)
  */
 export default function CopilotLayout() {
-  // Read from shared canvas store (READ ONLY)
-  const nodes = useCanvasStore((state) => state.nodes)
-  const edges = useCanvasStore((state) => state.edges)
+  // Auto-detect journey stage based on canvas state, results, and selection
+  const journeyStage = useJourneyDetection()
 
-  // Read from shared results store (READ ONLY)
-  const resultsStatus = useResultsStore((state) => state.status)
-  const resultsReport = useResultsStore((state) => state.report)
-
-  // Copilot-specific state
-  const journeyStage = useCopilotStore((state) => state.journeyStage)
-  const selectedElement = useCopilotStore((state) => state.selectedElement)
-  const compareMode = useCopilotStore((state) => state.compareMode)
-  const setJourneyStage = useCopilotStore((state) => state.setJourneyStage)
-
-  // Keyboard shortcuts
+  // Keyboard shortcuts and help modal
   const { showHelp, setShowHelp } = useKeyboardShortcuts()
-
-  // Detect and update journey stage whenever context changes
-  useEffect(() => {
-    const stage = determineJourneyStage({
-      graph: { nodes, edges },
-      results: {
-        status: resultsStatus === 'complete' ? 'complete' : 'idle',
-        report: resultsReport,
-      },
-      selectedElement,
-      compareMode,
-    })
-    setJourneyStage(stage)
-  }, [nodes, edges, resultsStatus, resultsReport, selectedElement, compareMode, setJourneyStage])
 
   return (
     <div className="h-screen flex flex-col bg-mist-50">
@@ -63,15 +35,25 @@ export default function CopilotLayout() {
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Canvas - Flexible width */}
-        <div className="flex-1 relative bg-white">
+        <div
+          className="flex-1 relative bg-white"
+          role="main"
+          aria-label="Decision model canvas"
+        >
           <ReactFlowProvider>
             <CopilotCanvas />
           </ReactFlowProvider>
         </div>
 
         {/* Copilot Panel - Fixed 360px width */}
-        <div className="w-[360px] border-l border-storm-200 bg-white overflow-y-auto">
-          <CopilotPanel stage={journeyStage} />
+        <div
+          className="w-[360px] border-l border-storm-200 bg-white overflow-y-auto"
+          role="complementary"
+          aria-label="Copilot guidance panel"
+        >
+          <CopilotErrorBoundary>
+            <CopilotPanel stage={journeyStage} />
+          </CopilotErrorBoundary>
         </div>
       </div>
 
