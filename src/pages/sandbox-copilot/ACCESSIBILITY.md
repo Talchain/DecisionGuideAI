@@ -18,6 +18,8 @@ The Copilot Variant has been built with accessibility in mind, following WCAG 2.
 - All interactive elements are keyboard accessible
 - Logical tab order throughout the interface
 - Visual focus indicators on all focusable elements
+- Focus trap in modal dialogs (Tab/Shift+Tab cycles within modal)
+- Auto-focus on close button when help modal opens
 
 ### Screen Reader Support
 
@@ -25,16 +27,24 @@ The Copilot Variant has been built with accessibility in mind, following WCAG 2.
 - All buttons have descriptive labels
 - Form inputs have associated labels
 - Status messages are announced
+- `role="main"` on canvas area with `aria-label="Decision model canvas"`
+- `role="complementary"` on copilot panel with `aria-label="Copilot guidance panel"`
+- `role="dialog"`, `aria-modal="true"`, `aria-labelledby` on help modal
+- `aria-controls`, `aria-expanded`, `aria-hidden` on expandable sections
+- `aria-live="polite"` on content that changes dynamically
 
 **Semantic HTML**:
 - Proper heading hierarchy (h1 → h2 → h3)
 - Lists use `<ul>` and `<li>` tags
 - Buttons use `<button>` elements
+- Modal dialogs use proper ARIA dialog pattern
+- Expandable sections use `<button>` with proper ARIA states
 
 **Landmark Regions**:
 - Top bar acts as navigation landmark
-- Main content area is properly marked
-- Side panel is a complementary landmark
+- Main content area is properly marked with `role="main"`
+- Side panel is a complementary landmark with `role="complementary"`
+- Expandable content uses `role="region"` for screen readers
 
 ### Visual Design
 
@@ -85,21 +95,48 @@ The ReactFlow canvas has some accessibility limitations:
 Priority improvements for better accessibility:
 
 1. **Canvas keyboard navigation** - Arrow keys to navigate between nodes
-2. **Announcements** - Live regions for status updates
+2. **Additional live regions** - More comprehensive status announcements
 3. **High contrast mode** - Explicit support for high contrast themes
 4. **Reduced motion** - Respect `prefers-reduced-motion`
+5. **More comprehensive testing** - Automated accessibility testing in CI/CD
+
+### Recent Improvements (Phase 7)
+
+**Enhanced ARIA Support**:
+- Added `role="main"` and `role="complementary"` to layout regions
+- Added descriptive `aria-label` attributes to canvas and panel
+- Enhanced expandable sections with `aria-controls`, `aria-hidden`, `role="region"`
+- Added `aria-live="polite"` for dynamic content updates
+
+**Focus Management Enhancements**:
+- Implemented focus trap in help modal
+- Tab and Shift+Tab cycle through focusable elements within modal
+- Auto-focus on close button when modal opens
+- Prevents focus from escaping modal until dismissed
+
+**Error Handling**:
+- Added error boundary with accessible fallback UI
+- Error messages clearly displayed with semantic markup
+- Recovery actions (Try again, Reload) keyboard accessible
 
 ## Testing
 
 ### Manual Testing Checklist
 
-- [ ] All interactive elements keyboard accessible
-- [ ] Tab order is logical
-- [ ] Focus visible on all elements
-- [ ] Screen reader announces all content
-- [ ] Color contrast passes WCAG AA
-- [ ] Works at 200% zoom
-- [ ] Works with keyboard only
+- [x] All interactive elements keyboard accessible
+- [x] Tab order is logical
+- [x] Focus visible on all elements
+- [x] Focus trap works in modals (Tab/Shift+Tab cycles)
+- [x] Screen reader announces all content
+- [x] ARIA labels present on main regions
+- [x] ARIA states update on expandable sections
+- [x] Color contrast passes WCAG AA
+- [x] Works at 200% zoom
+- [x] Works with keyboard only
+- [x] Error states are accessible
+- [ ] Canvas keyboard navigation (future work)
+- [ ] High contrast mode testing (future work)
+- [ ] Reduced motion testing (future work)
 
 ### Automated Testing
 
