@@ -1,30 +1,50 @@
 /**
  * Node Badge Component
  *
- * Shows contribution percentage as a badge on top-driver nodes.
+ * Shows rank and contribution percentage as a badge on top-driver nodes.
  * Appears in the top-right corner of the node.
+ * Color varies by rank (1-3 get distinct colors).
  */
 
 import { useReactFlow } from '@xyflow/react'
 
 export interface NodeBadgeProps {
   nodeId: string
-  contribution: number
-  isTopDriver: boolean
+  percentage: number
+  rank: number
+  position?: 'top-right' | 'top-left'
 }
 
-export function NodeBadge({ nodeId, contribution, isTopDriver }: NodeBadgeProps): JSX.Element | null {
+export function NodeBadge({
+  nodeId,
+  percentage,
+  rank,
+  position = 'top-right',
+}: NodeBadgeProps): JSX.Element | null {
   const { getNode } = useReactFlow()
   const node = getNode(nodeId)
 
   if (!node) return null
 
-  // Calculate badge position (top-right of node)
-  const badgeX = (node.position?.x || 0) + (node.width || 180) - 10
-  const badgeY = (node.position?.y || 0) - 10
+  // Don't show badge if contribution is negligible
+  if (percentage < 5) return null
 
-  // Only show for significant contributions (>5%)
-  if (contribution < 0.05) return null
+  // Calculate badge position
+  const baseX = node.position?.x || 0
+  const baseY = node.position?.y || 0
+  const nodeWidth = node.width || 180
+  const nodeHeight = node.height || 60
+
+  const badgeX =
+    position === 'top-right' ? baseX + nodeWidth : baseX
+  const badgeY = baseY
+
+  // Color by rank (top 1-3 get different colors)
+  const colorClasses = {
+    1: 'bg-analytical-600 border-analytical-700',
+    2: 'bg-analytical-500 border-analytical-600',
+    3: 'bg-analytical-400 border-analytical-500',
+  }[rank] || 'bg-analytical-400 border-analytical-500'
 
   return (
     <div
@@ -32,20 +52,24 @@ export function NodeBadge({ nodeId, contribution, isTopDriver }: NodeBadgeProps)
       style={{
         left: `${badgeX}px`,
         top: `${badgeY}px`,
-        transform: 'translate(-50%, -50%)',
+        transform:
+          position === 'top-right'
+            ? 'translate(50%, -50%)'
+            : 'translate(-50%, -50%)',
       }}
+      role="status"
+      aria-label={`Rank ${rank}: Contributes ${percentage}% to outcome`}
     >
       <div
         className={`
-          px-2 py-0.5 rounded-full text-xs font-bold
-          ${
-            isTopDriver
-              ? 'bg-analytical-600 text-white shadow-lg'
-              : 'bg-analytical-100 text-analytical-800 border border-analytical-300'
-          }
+          px-2 py-1
+          ${colorClasses}
+          text-white
+          rounded-full text-xs font-bold
+          shadow-lg border-2 border-white
         `}
       >
-        {Math.round(contribution * 100)}%
+        #{rank} {percentage}%
       </div>
     </div>
   )
