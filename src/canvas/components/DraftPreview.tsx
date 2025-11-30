@@ -1,12 +1,10 @@
 import { useMemo } from 'react'
-import { ReactFlow, Background, BackgroundVariant } from '@xyflow/react'
 import { AlertCircle, CheckCircle, AlertTriangle, CloudOff } from 'lucide-react'
 import type { CEEDraftResponse } from '../../adapters/cee/types'
-import type { NodeType } from '../domain/nodes'
-import { nodeTypes } from '../nodes/registry'
-import { StyledEdge } from '../edges/StyledEdge'
 import { typography } from '../../styles/typography'
 import { Spinner } from '../../components/Spinner'
+import { generateTemplatePreview } from '../utils/templatePreview'
+import type { NodeKind } from '../../templates/blueprints/types'
 
 interface DraftPreviewProps {
   draft: CEEDraftResponse | null | undefined
@@ -16,41 +14,6 @@ interface DraftPreviewProps {
 }
 
 type DraftNode = CEEDraftResponse['nodes'][number]
-
-function normalizeDraftType(type: string | undefined): string {
-  return (type || '').toLowerCase()
-}
-
-function mapDraftTypeToNodeType(type: string | undefined): NodeType {
-  const t = normalizeDraftType(type)
-  if (t === 'goal' || t === 'decision' || t === 'option' || t === 'factor' || t === 'risk' || t === 'outcome') {
-    return t
-  }
-  if (t === 'event') return 'risk'
-  return 'factor'
-}
-
-function buildOutline(nodes: DraftNode[]) {
-  const goals = nodes.filter(n => normalizeDraftType(n.type) === 'goal')
-  const decisions = nodes.filter(n => normalizeDraftType(n.type) === 'decision')
-  const options = nodes.filter(n => normalizeDraftType(n.type) === 'option')
-  const outcomes = nodes.filter(n => normalizeDraftType(n.type) === 'outcome')
-  const factors = nodes.filter(n => {
-    const t = normalizeDraftType(n.type)
-    return t === 'risk' || t === 'factor' || t === 'event'
-  })
-  return { goals, decisions, options, outcomes, factors }
-}
-
-function formatOutlineList(nodes: DraftNode[], max: number): string {
-  if (!nodes.length) return 'Not identified yet'
-  if (nodes.length <= max) {
-    return nodes.map(n => n.label).join(', ')
-  }
-  const head = nodes.slice(0, max).map(n => n.label).join(', ')
-  const remaining = nodes.length - max
-  return `${head} (+${remaining} more)`
-}
 
 // Tailwind-safe quality config with static class names
 function getQualityConfig(quality: number) {
@@ -81,6 +44,44 @@ function getQualityConfig(quality: number) {
   }
 }
 
+function normalizeDraftType(type: string | undefined): string {
+  return (type || '').toLowerCase()
+}
+
+function mapDraftTypeToNodeKind(type: string | undefined): NodeKind {
+  const t = normalizeDraftType(type)
+  if (t === 'goal') return 'goal'
+  if (t === 'decision') return 'decision'
+  if (t === 'option') return 'option'
+  if (t === 'outcome') return 'outcome'
+  if (t === 'risk') return 'risk'
+  if (t === 'event') return 'event'
+  if (t === 'factor') return 'event'
+  return 'decision'
+}
+
+function buildOutline(nodes: DraftNode[]) {
+  const goals = nodes.filter(n => normalizeDraftType(n.type) === 'goal')
+  const decisions = nodes.filter(n => normalizeDraftType(n.type) === 'decision')
+  const options = nodes.filter(n => normalizeDraftType(n.type) === 'option')
+  const outcomes = nodes.filter(n => normalizeDraftType(n.type) === 'outcome')
+  const factors = nodes.filter(n => {
+    const t = normalizeDraftType(n.type)
+    return t === 'risk' || t === 'factor' || t === 'event'
+  })
+  return { goals, decisions, options, outcomes, factors }
+}
+
+function formatOutlineList(nodes: DraftNode[], max: number): string {
+  if (!nodes.length) return 'Not identified yet'
+  if (nodes.length <= max) {
+    return nodes.map(n => n.label).join(', ')
+  }
+  const head = nodes.slice(0, max).map(n => n.label).join(', ')
+  const remaining = nodes.length - max
+  return `${head} (+${remaining} more)`
+}
+
 export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPreviewProps) {
   // Null-safe derived values - prevent crashes when draft is missing or incomplete
   const nodes = draft?.nodes ?? []
@@ -92,62 +93,28 @@ export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPrevie
   const config = useMemo(() => getQualityConfig(quality), [quality])
   const Icon = config.icon
 
-  const uncertainNodes = useMemo(
-    () => nodes.filter(n => n.uncertainty > 0.4),
-    [nodes]
-  )
-
   const outline = useMemo(() => buildOutline(nodes), [nodes])
-  const edgeTypes = useMemo(() => ({ styled: StyledEdge as any }), [])
-  const defaultEdgeOptions = useMemo(() => ({ type: 'styled' as const, animated: false }), [])
 
-  const previewGraph = useMemo(() => {
+  const previewUrl = useMemo(() => {
     if (!nodes.length) return null
 
-    // Simple goal-first column layout to roughly mirror the main canvas:
-    // Goals → Decisions → Options/Factors/Risks → Outcomes
-    const columnRowIndex: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0 }
-    const columnWidth = 220
-    const rowHeight = 110
-
-    const positionedNodes = nodes.map((n, index) => {
-      const nodeType = mapDraftTypeToNodeType(n.type)
-
-      let column = 2
-      if (nodeType === 'goal') column = 0
-      else if (nodeType === 'decision') column = 1
-      else if (nodeType === 'outcome') column = 3
-
-      const row = columnRowIndex[column] ?? 0
-      columnRowIndex[column] = row + 1
-
-      return {
-        id: n.id || String(index),
-        type: nodeType,
-        data: {
-          label: n.label,
-          type: nodeType,
-          ...(typeof n.uncertainty === 'number' ? { uncertainty: n.uncertainty } : {}),
-        },
-        position: {
-          x: column * columnWidth,
-          y: row * rowHeight,
-        },
-      }
-    })
-
-    const rfEdges = edges.map((e, index) => ({
-      id: `e-${index}`,
-      source: e.from,
-      target: e.to,
-      type: 'styled' as const,
-      data: {
-        weight: typeof e.weight === 'number' ? e.weight : 1,
-      },
-      animated: false,
+    const blueprintNodes = nodes.map((n, index) => ({
+      id: n.id || String(index),
+      label: n.label,
+      kind: mapDraftTypeToNodeKind(n.type),
     }))
 
-    return { nodes: positionedNodes, edges: rfEdges }
+    const blueprintEdges = edges.map((e, index) => ({
+      id: `e-${index}`,
+      from: e.from,
+      to: e.to,
+    }))
+
+    try {
+      return generateTemplatePreview(blueprintNodes as any, blueprintEdges as any)
+    } catch {
+      return null
+    }
   }, [nodes, edges])
 
   // Empty/unavailable state - show friendly message instead of crashing
@@ -211,11 +178,11 @@ export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPrevie
         </div>
 
         {/* Uncertain Nodes Warning */}
-        {uncertainNodes.length > 0 && (
+        {nodes.filter(n => n.uncertainty > 0.4).length > 0 && (
           <div className="flex items-start gap-2 p-2 bg-sun-50 rounded">
             <AlertTriangle className="w-4 h-4 text-sun-600 mt-0.5 flex-shrink-0" />
             <p className={`${typography.bodySmall} text-sun-800`}>
-              {uncertainNodes.length} node{uncertainNodes.length !== 1 ? 's' : ''} marked as uncertain
+              {nodes.filter(n => n.uncertainty > 0.4).length} node{nodes.filter(n => n.uncertainty > 0.4).length !== 1 ? 's' : ''} marked as uncertain
               (shown with dotted borders)
             </p>
           </div>
@@ -267,23 +234,12 @@ export function DraftPreview({ draft, loading, onAccept, onReject }: DraftPrevie
 
       {/* Mini Graph Preview */}
       <div className="relative border border-sand-200 rounded-lg p-3 bg-canvas-25 min-h-[200px] flex items-center justify-center">
-        {previewGraph ? (
-          <div className="w-full h-[180px]">
-            <ReactFlow
-              nodes={previewGraph.nodes}
-              edges={previewGraph.edges}
-              nodeTypes={nodeTypes}
-              edgeTypes={edgeTypes}
-              defaultEdgeOptions={defaultEdgeOptions}
-              nodesDraggable={false}
-              panOnDrag={false}
-              zoomOnScroll={false}
-              zoomOnPinch={false}
-              fitView
-            >
-              <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-            </ReactFlow>
-          </div>
+        {previewUrl ? (
+          <img
+            src={previewUrl}
+            alt="Draft graph preview"
+            className="max-w-full max-h-[180px] mx-auto"
+          />
         ) : (
           <p className={`${typography.caption} text-ink-900/50 text-center py-8`}>
             Graph preview will appear on canvas
