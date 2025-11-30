@@ -6,16 +6,16 @@
  */
 
 import { useCanvasStore } from '@/canvas/store'
-import { useCopilotStore } from '../../../hooks/useCopilotStore'
+import { useGuideStore } from '../../../hooks/useGuideStore'
 import { Button } from '../../shared/Button'
 import { Card } from '../../shared/Card'
 import { Badge } from '../../shared/Badge'
 
 export function InspectorState(): JSX.Element {
-  const selectedElement = useCopilotStore((state) => state.selectedElement)
+  const selectedElement = useGuideStore((state) => state.selectedElement)
   const nodes = useCanvasStore((state) => state.nodes)
   const edges = useCanvasStore((state) => state.edges)
-  const selectElement = useCopilotStore((state) => state.selectElement)
+  const selectElement = useGuideStore((state) => state.selectElement)
 
   // Find the selected element
   const selectedNode = selectedElement

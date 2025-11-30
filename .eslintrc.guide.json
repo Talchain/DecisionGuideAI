@@ -2,15 +2,15 @@
   "extends": "./.eslintrc.cjs",
   "overrides": [
     {
-      "files": ["src/pages/sandbox-copilot/**/*.{ts,tsx}"],
+      "files": ["src/pages/sandbox-guide/**/*.{ts,tsx}"],
       "rules": {
         "no-restricted-imports": [
           "error",
           {
             "patterns": [
               {
-                "group": ["**/pages/sandbox/**", "!**/pages/sandbox-copilot/**"],
-                "message": "❌ SAFETY VIOLATION: Copilot variant must not import from existing sandbox pages. Import from @/services, @/stores, or @/components/shared only."
+                "group": ["**/pages/sandbox/**", "!**/pages/sandbox-guide/**"],
+                "message": "❌ SAFETY VIOLATION: Guide variant must not import from existing sandbox pages. Import from @/services, @/stores, or @/components/shared only."
               }
             ]
           }

@@ -1,14 +1,14 @@
 /**
- * Integration tests for CopilotLayout
+ * Integration tests for GuideLayout
  *
- * Tests the complete user journey through the copilot variant
+ * Tests the complete user journey through the guide variant
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
-import CopilotLayout from './CopilotLayout'
-import { useCopilotStore } from './hooks/useCopilotStore'
+import GuideLayout from './GuideLayout'
+import { useGuideStore } from './hooks/useGuideStore'
 import { useCanvasStore } from '@/canvas/store'
 import { useResultsStore } from '@/canvas/stores/resultsStore'
 
@@ -41,15 +41,15 @@ vi.mock('@/canvas/hooks/useResultsRun', () => ({
 const renderLayout = () => {
   return render(
     <BrowserRouter>
-      <CopilotLayout />
+      <GuideLayout />
     </BrowserRouter>
   )
 }
 
-describe('CopilotLayout - Integration', () => {
+describe('GuideLayout - Integration', () => {
   beforeEach(() => {
     // Reset all stores
-    useCopilotStore.setState({
+    useGuideStore.setState({
       journeyStage: 'empty',
       selectedElement: null,
       panelExpanded: true,
@@ -100,7 +100,7 @@ describe('CopilotLayout - Integration', () => {
     })
 
     await waitFor(() => {
-      expect(useCopilotStore.getState().journeyStage).toBe('building')
+      expect(useGuideStore.getState().journeyStage).toBe('building')
     })
   })
 
@@ -114,7 +114,7 @@ describe('CopilotLayout - Integration', () => {
     })
 
     await waitFor(() => {
-      expect(useCopilotStore.getState().journeyStage).toBe('pre-run-blocked')
+      expect(useGuideStore.getState().journeyStage).toBe('pre-run-blocked')
     })
   })
 
@@ -127,10 +127,10 @@ describe('CopilotLayout - Integration', () => {
       edges: [],
     })
 
-    useCopilotStore.getState().selectElement('n1')
+    useGuideStore.getState().selectElement('n1')
 
     await waitFor(() => {
-      expect(useCopilotStore.getState().journeyStage).toBe('inspector')
+      expect(useGuideStore.getState().journeyStage).toBe('inspector')
     })
   })
 
@@ -145,7 +145,7 @@ describe('CopilotLayout - Integration', () => {
   })
 
   it('should show top bar with journey stage', () => {
-    useCopilotStore.setState({ journeyStage: 'building' })
+    useGuideStore.setState({ journeyStage: 'building' })
     renderLayout()
 
     expect(screen.getByText('Building Model')).toBeInTheDocument()

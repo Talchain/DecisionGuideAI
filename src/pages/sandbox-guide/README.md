@@ -1,30 +1,30 @@
-# Copilot Variant - Persistent AI Coach Interface
+# Guide Variant - Persistent AI Coach Interface
 
 ## Overview
-Alternative UI implementation with persistent AI copilot panel.
+Alternative UI implementation with persistent AI guide panel.
 
-**Route**: `/sandbox/copilot`
-**Branch**: `feat/copilot-variant`
+**Route**: `/sandbox/guide`
+**Branch**: `feat/guide-variant`
 **Status**: In Development
 
 ## Safety Rules
 ✅ CAN import from: `@/services/*`, `@/stores/*`, `@/components/shared/*`
 ❌ CANNOT import from: `@/pages/sandbox/*`
-❌ CANNOT modify: Any files outside `src/pages/sandbox-copilot/`
+❌ CANNOT modify: Any files outside `src/pages/sandbox-guide/`
 
 ## Development
 ```bash
 # Start dev server
-npm run dev:copilot
+npm run dev:guide
 
 # Run tests
-npm run test:copilot
+npm run test:guide
 
 # Lint
-npm run lint:copilot
+npm run lint:guide
 ```
 
 ## Architecture
 - Shares backend: PLoT, CEE, Supabase, Auth
 - Separate UI: All components in this directory
-- Isolated state: useCopilotStore (separate from main UI)
+- Isolated state: useGuideStore (separate from main UI)

@@ -1,12 +1,12 @@
-# Copilot Variant - Development Status
+# Guide Variant - Development Status
 
-**Branch**: `feat/copilot-variant`
-**Route**: `/sandbox/copilot`
+**Branch**: `feat/guide-variant`
+**Route**: `/sandbox/guide`
 **Last Updated**: 2025-11-30
 
 ## 🎯 Project Overview
 
-The Copilot Variant is an alternative UI implementation of Olumi's Scenario Sandbox that transforms it from a graphing tool into a **proactive AI decision coach**. Instead of users having to ask for help, the AI copilot panel observes what they're doing and proactively suggests next actions, explains results, and guides them through their decision journey.
+The Guide Variant is an alternative UI implementation of Olumi's Scenario Sandbox that transforms it from a graphing tool into a **proactive AI decision coach**. Instead of users having to ask for help, the AI guide panel observes what they're doing and proactively suggests next actions, explains results, and guides them through their decision journey.
 
 ### Key Differentiators
 
@@ -22,14 +22,14 @@ The Copilot Variant is an alternative UI implementation of Olumi's Scenario Sand
 ### Phase 1: Foundation (Complete)
 
 **Core Infrastructure**:
-- ✅ `useCopilotStore.ts` - Zustand store for copilot state
+- ✅ `useGuideStore.ts` - Zustand store for guide state
 - ✅ `journeyDetection.ts` - Smart stage detection logic
-- ✅ `CopilotLayout.tsx` - 3-panel layout (top bar, canvas, copilot panel, bottom toolbar)
-- ✅ `CopilotPanel.tsx` - Adaptive panel container
+- ✅ `GuideLayout.tsx` - 3-panel layout (top bar, canvas, guide panel, bottom toolbar)
+- ✅ `GuidePanel.tsx` - Adaptive panel container
 - ✅ 7 panel states (placeholders): Empty, Building, PreRunBlocked, PreRunReady, PostRun, Inspector, Compare
 
 **Tests**:
-- ✅ useCopilotStore: 8 test cases, 100% coverage
+- ✅ useGuideStore: 8 test cases, 100% coverage
 - ✅ journeyDetection: 15 test cases, 100% coverage
 
 **Architecture**:
@@ -101,7 +101,7 @@ The Copilot Variant is an alternative UI implementation of Olumi's Scenario Sand
 - ✅ Edge details: source→target path, weight, confidence, evidence count
 - ✅ Close button to return to main journey
 - ✅ Action buttons (edit properties, view connections, add evidence)
-- ✅ Reads from selectedElement in copilot store
+- ✅ Reads from selectedElement in guide store
 
 **CompareState**:
 - ✅ Placeholder with planned features outlined
@@ -110,9 +110,9 @@ The Copilot Variant is an alternative UI implementation of Olumi's Scenario Sand
 
 ### Phase 4: Canvas Visual Enhancements (Complete)
 
-**CopilotCanvas Wrapper**:
+**GuideCanvas Wrapper**:
 - ✅ Wraps ReactFlowGraph without modifying it (isolation maintained)
-- ✅ Integrates with copilot state for node selection
+- ✅ Integrates with guide state for node selection
 - ✅ Only shows enhancements after analysis run completes
 
 **Visual Overlay - Top Drivers Legend**:
@@ -125,7 +125,7 @@ The Copilot Variant is an alternative UI implementation of Olumi's Scenario Sand
 - ✅ Backdrop blur + transparency for elegant overlay
 
 **Node Interaction**:
-- ✅ Node click handler integrated with copilot state
+- ✅ Node click handler integrated with guide state
 - ✅ Clicking any node selects it and opens InspectorState
 - ✅ Seamless integration with journey detection
 
@@ -136,14 +136,14 @@ The Copilot Variant is an alternative UI implementation of Olumi's Scenario Sand
 
 ### Phase 5: Top Bar & Bottom Toolbar (Complete)
 
-**CopilotTopBar**:
+**GuideTopBar**:
 - ✅ Branding and journey stage indicator
 - ✅ Dynamic badge showing current stage (Getting Started, Building, Blocked, Ready, Complete, etc.)
 - ✅ Critical alerts (blockers, errors, loading states)
 - ✅ Stats display (node count, edge count, driver count)
 - ✅ Responsive layout with center/right sections
 
-**CopilotBottomToolbar**:
+**GuideBottomToolbar**:
 - ✅ Chat interface toggle (placeholder for future)
 - ✅ Quick action buttons (Run, Clear, Help)
 - ✅ Run button state management (enabled/disabled based on journey)
@@ -159,7 +159,7 @@ The Copilot Variant is an alternative UI implementation of Olumi's Scenario Sand
 
 **HelpModal**:
 - ✅ Keyboard shortcuts reference
-- ✅ Quick tips for using copilot
+- ✅ Quick tips for using guide
 - ✅ Modal with backdrop and close button
 - ✅ Triggered by `?` key or help button
 
@@ -167,9 +167,9 @@ The Copilot Variant is an alternative UI implementation of Olumi's Scenario Sand
 
 **Component Tests**:
 - ✅ useKeyboardShortcuts.test.ts - 6 test cases
-- ✅ CopilotTopBar.test.tsx - 10 test cases
-- ✅ CopilotLayout.test.tsx - 9 integration tests
-- ✅ Existing tests: useCopilotStore (8), journeyDetection (15)
+- ✅ GuideTopBar.test.tsx - 10 test cases
+- ✅ GuideLayout.test.tsx - 9 integration tests
+- ✅ Existing tests: useGuideStore (8), journeyDetection (15)
 - ✅ Total: 48 test cases
 
 **Accessibility**:
@@ -190,7 +190,7 @@ The Copilot Variant is an alternative UI implementation of Olumi's Scenario Sand
 
 **Code Quality**:
 - ✅ TypeScript strict mode throughout
-- ✅ ESLint copilot rules enforced (no sandbox imports)
+- ✅ ESLint guide rules enforced (no sandbox imports)
 - ✅ Consistent design system usage
 - ✅ Progressive disclosure pattern enforced
 - ✅ Safety guarantees maintained (no contradictory signals)
@@ -198,20 +198,20 @@ The Copilot Variant is an alternative UI implementation of Olumi's Scenario Sand
 ### Phase 7: Code Quality & Security Review (Complete)
 
 **Critical Fixes (P0)**:
-- ✅ Removed all console.log statements (EmptyState, CopilotBottomToolbar)
+- ✅ Removed all console.log statements (EmptyState, GuideBottomToolbar)
 - ✅ Fixed type safety gaps (`event: MouseEvent`, typed report interface, typed React components)
-- ✅ Added ARIA labels (CopilotLayout main/complementary regions, ExpandableSection controls)
-- ✅ Isolated event listeners (CopilotCanvas scoped to canvas container with ref)
+- ✅ Added ARIA labels (GuideLayout main/complementary regions, ExpandableSection controls)
+- ✅ Isolated event listeners (GuideCanvas scoped to canvas container with ref)
 
 **High-Priority Improvements (P1)**:
 - ✅ Added defensive null checks (journeyDetection graph validation, PostRunState results validation)
-- ✅ Extracted custom hooks (useJourneyDetection - reduced CopilotLayout from 56 to 27 lines)
+- ✅ Extracted custom hooks (useJourneyDetection - reduced GuideLayout from 56 to 27 lines)
 - ✅ Added focus management (HelpModal focus trap with Tab/Shift+Tab cycling)
-- ✅ Added error boundaries (CopilotErrorBoundary wrapping CopilotPanel)
+- ✅ Added error boundaries (GuideErrorBoundary wrapping GuidePanel)
 
 **New Files Created**:
 - ✅ `hooks/useJourneyDetection.ts` - Encapsulates journey detection logic
-- ✅ `components/shared/CopilotErrorBoundary.tsx` - React error boundary with fallback UI
+- ✅ `components/shared/GuideErrorBoundary.tsx` - React error boundary with fallback UI
 
 **Accessibility Enhancements**:
 - ✅ `role="main"` and `role="complementary"` on layout regions
@@ -299,9 +299,9 @@ import { Button, Badge, Card } from '../../shared'
 ### File Structure
 
 ```
-src/pages/sandbox-copilot/
+src/pages/sandbox-guide/
 ├── index.tsx                      # Entry point
-├── CopilotLayout.tsx              # Main layout (3 panels)
+├── GuideLayout.tsx              # Main layout (3 panels)
 ├── Documentation/                 # NEW: Phase 8
 │   ├── README.md                 ✅ Safety rules, dev commands
 │   ├── GETTING_STARTED.md        ✅ Phase 8: 5-min quick start
@@ -310,7 +310,7 @@ src/pages/sandbox-copilot/
 │   └── ACCESSIBILITY.md          ✅ WCAG guidelines
 ├── components/
 │   ├── panel/
-│   │   ├── CopilotPanel.tsx       # Adaptive container
+│   │   ├── GuidePanel.tsx       # Adaptive container
 │   │   ├── states/                # 7 journey states
 │   │   │   ├── README.md          ✅ Phase 8: State machine guide
 │   │   │   ├── index.ts               ✅ Phase 8: Barrel export
@@ -327,17 +327,17 @@ src/pages/sandbox-copilot/
 │   │       ├── RisksSection.tsx            ✅
 │   │       └── AdvancedMetricsSection.tsx  ✅
 │   ├── canvas/                    # Canvas enhancements
-│   │   ├── CopilotCanvas.tsx             ✅ Wrapper component
-│   │   ├── CopilotCanvasOverlay.tsx      ✅ Top drivers legend
+│   │   ├── GuideCanvas.tsx             ✅ Wrapper component
+│   │   ├── GuideCanvasOverlay.tsx      ✅ Top drivers legend
 │   │   ├── NodeBadge.tsx                 📋 For future use
 │   │   ├── EdgeHighlight.tsx             📋 For future use
 │   │   └── NodeTooltip.tsx               📋 For future use
 │   ├── topbar/                    # Top bar
-│   │   ├── CopilotTopBar.tsx             ✅ Complete
-│   │   └── CopilotTopBar.test.tsx        ✅ 10 tests
+│   │   ├── GuideTopBar.tsx             ✅ Complete
+│   │   └── GuideTopBar.test.tsx        ✅ 10 tests
 │   ├── toolbar/                   # Bottom toolbar
-│   │   └── CopilotBottomToolbar.tsx      ✅ Complete
-│   └── shared/                    # Copilot-specific components
+│   │   └── GuideBottomToolbar.tsx      ✅ Complete
+│   └── shared/                    # Guide-specific components
 │       ├── README.md           ✅ Phase 8: Component catalog
 │       ├── index.ts            ✅ Phase 8: Barrel export
 │       ├── Badge.tsx              ✅
@@ -346,11 +346,11 @@ src/pages/sandbox-copilot/
 │       ├── ExpandableSection.tsx  ✅
 │       ├── MetricRow.tsx          ✅
 │       ├── HelpModal.tsx          ✅ Complete
-│       └── CopilotErrorBoundary.tsx ✅ Phase 7
+│       └── GuideErrorBoundary.tsx ✅ Phase 7
 ├── hooks/
 │   ├── index.ts                ✅ Phase 8: Barrel export
-│   ├── useCopilotStore.ts         ✅ Full coverage (8 tests)
-│   ├── useCopilotStore.test.ts    ✅
+│   ├── useGuideStore.ts         ✅ Full coverage (8 tests)
+│   ├── useGuideStore.test.ts    ✅
 │   ├── useKeyboardShortcuts.ts    ✅ Complete
 │   ├── useKeyboardShortcuts.test.ts ✅ 6 tests
 │   └── useJourneyDetection.ts     ✅ Custom hook (Phase 7)
@@ -359,8 +359,8 @@ src/pages/sandbox-copilot/
 │   ├── journeyDetection.ts        ✅ Full coverage (15 tests)
 │   └── journeyDetection.test.ts   ✅
 ├── types/
-│   └── copilot.types.ts
-├── CopilotLayout.test.tsx         ✅ 9 integration tests
+│   └── guide.types.ts
+├── GuideLayout.test.tsx         ✅ 9 integration tests
 ├── ACCESSIBILITY.md               ✅ Complete
 ├── STATUS.md                      ✅ This file
 └── README.md                      ✅ Setup guide
@@ -378,10 +378,10 @@ Results Store (READ ONLY)
 Journey Detection
     ↓ determines stage
 
-Copilot Store (WRITE)
+Guide Store (WRITE)
     ↓ journeyStage, selectedElement
 
-CopilotPanel
+GuidePanel
     ↓ switches content
 
 State Component (e.g., PostRunState)
@@ -392,19 +392,19 @@ State Component (e.g., PostRunState)
 
 | Module | Coverage | Tests | Status |
 |--------|----------|-------|--------|
-| useCopilotStore | 100% | 8 | ✅ |
+| useGuideStore | 100% | 8 | ✅ |
 | journeyDetection | 100% | 15 | ✅ |
 | useKeyboardShortcuts | 100% | 6 | ✅ |
-| CopilotTopBar | ~80% | 10 | ✅ |
-| CopilotLayout (integration) | ~70% | 9 | ✅ |
+| GuideTopBar | ~80% | 10 | ✅ |
+| GuideLayout (integration) | ~70% | 9 | ✅ |
 | useJourneyDetection | N/A | 0 | 📋 Covered by integration tests |
-| CopilotErrorBoundary | N/A | 0 | 📋 Class component (manual testing) |
+| GuideErrorBoundary | N/A | 0 | 📋 Class component (manual testing) |
 | UI Components | 0% | 0 | ⏳ Future work |
 | Panel States | 0% | 0 | ⏳ Future work |
 
 **Total**: 48 tests passing, ~65% coverage on core logic (infra + Phase 5 complete)
 
-**Note**: Phase 7 improvements (useJourneyDetection hook, CopilotErrorBoundary) are covered by existing integration tests and manual testing respectively.
+**Note**: Phase 7 improvements (useJourneyDetection hook, GuideErrorBoundary) are covered by existing integration tests and manual testing respectively.
 
 ## 🎨 Design System Compliance
 
@@ -424,7 +424,7 @@ All components follow the established design system:
 
 ### ✅ What Works Now
 
-1. **Route accessible** at `/sandbox/copilot` (with `VITE_COPILOT_ENABLED=true`)
+1. **Route accessible** at `/sandbox/guide` (with `VITE_GUIDE_ENABLED=true`)
 2. **Adaptive panel** switches content based on journey stage
 3. **Journey detection** works automatically across all 7 stages
 4. **All 7 panel states fully functional**:
@@ -468,7 +468,7 @@ All components follow the established design system:
 
 ### 🎯 Ready for Production
 
-The copilot variant is **feature-complete and enterprise-ready**:
+The guide variant is **feature-complete and enterprise-ready**:
 - ✅ User testing
 - ✅ Stakeholder demo
 - ✅ Production deployment (behind feature flag)
@@ -515,36 +515,36 @@ These are not blocking but could be added in future iterations:
 
 ## 🔒 Safety Guarantees
 
-1. ✅ **Code Isolation**: All code in `src/pages/sandbox-copilot/`
+1. ✅ **Code Isolation**: All code in `src/pages/sandbox-guide/`
 2. ✅ **No Imports**: ESLint prevents imports from `/pages/sandbox/`
 3. ✅ **READ ONLY**: Only reads from shared stores, never writes
-4. ✅ **Feature Flag**: Behind `VITE_COPILOT_ENABLED`
-5. ✅ **Verification Script**: `scripts/verify-copilot-safety.sh`
+4. ✅ **Feature Flag**: Behind `VITE_GUIDE_ENABLED`
+5. ✅ **Verification Script**: `scripts/verify-guide-safety.sh`
 6. ✅ **Zero Impact**: Existing `/sandbox` route unaffected
 
 ## 🧪 How to Test
 
 ### Development
 ```bash
-# Start dev server with copilot enabled
-npm run dev:copilot
+# Start dev server with guide enabled
+npm run dev:guide
 
-# Navigate to http://localhost:5173/#/sandbox/copilot
+# Navigate to http://localhost:5173/#/sandbox/guide
 ```
 
 ### Linting
 ```bash
-npm run lint:copilot
+npm run lint:guide
 ```
 
 ### Unit Tests
 ```bash
-npm run test:copilot
+npm run test:guide
 ```
 
 ### Verification
 ```bash
-./scripts/verify-copilot-safety.sh
+./scripts/verify-guide-safety.sh
 ```
 
 ## 📝 Key Implementation Notes
@@ -614,10 +614,10 @@ npm run test:copilot
 - `ReportV1` - PLoT response
 - `CeeDecisionReviewPayload` - CEE review
 
-### Copilot-Specific (New)
+### Guide-Specific (New)
 
 **Store**:
-- `useCopilotStore` - journeyStage, selectedElement, compareMode
+- `useGuideStore` - journeyStage, selectedElement, compareMode
 
 **Utils**:
 - `journeyDetection` - Stage determination logic

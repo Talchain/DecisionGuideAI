@@ -1,28 +1,28 @@
 /**
- * Copilot Canvas Wrapper
+ * Guide Canvas Wrapper
  *
- * Wraps the standard ReactFlowGraph with copilot-specific enhancements:
+ * Wraps the standard ReactFlowGraph with guide-specific enhancements:
  * - Adds visual overlay showing top drivers (Phase 4)
- * - Integrates with copilot state for node selection
+ * - Integrates with guide state for node selection
  * - Shows contextual canvas information post-run
  */
 
 import { useEffect, useRef } from 'react'
 import { useOnNodesChange, useOnEdgesChange, type NodeChange, type EdgeChange } from '@xyflow/react'
 import { ReactFlowGraph } from '@/canvas/ReactFlowGraph'
-import { CopilotCanvasOverlay } from './CopilotCanvasOverlay'
+import { GuideCanvasOverlay } from './GuideCanvasOverlay'
 import { useResultsStore } from '@/canvas/stores/resultsStore'
 import { useCanvasStore } from '@/canvas/store'
-import { useCopilotStore } from '../../hooks/useCopilotStore'
+import { useGuideStore } from '../../hooks/useGuideStore'
 
-export function CopilotCanvas(): JSX.Element {
+export function GuideCanvas(): JSX.Element {
   const resultsStatus = useResultsStore((state) => state.status)
   const hasResults = resultsStatus === 'complete'
-  const selectElement = useCopilotStore((state) => state.selectElement)
+  const selectElement = useGuideStore((state) => state.selectElement)
   const canvasRef = useRef<HTMLDivElement>(null)
 
   // Listen for node selection changes in the canvas
-  // When a node is selected, update copilot state to show inspector
+  // When a node is selected, update guide state to show inspector
   // NOTE: Scoped to canvas container to avoid interfering with other components
   useEffect(() => {
     const handleNodeClick = (event: MouseEvent) => {
@@ -55,8 +55,8 @@ export function CopilotCanvas(): JSX.Element {
       {/* Base canvas */}
       <ReactFlowGraph />
 
-      {/* Copilot enhancements overlay (only after run) */}
-      {hasResults && <CopilotCanvasOverlay enabled={true} />}
+      {/* Guide enhancements overlay (only after run) */}
+      {hasResults && <GuideCanvasOverlay enabled={true} />}
     </div>
   )
 }

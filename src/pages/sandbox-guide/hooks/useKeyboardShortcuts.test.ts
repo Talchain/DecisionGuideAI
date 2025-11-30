@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useKeyboardShortcuts, KEYBOARD_SHORTCUTS } from './useKeyboardShortcuts'
-import { useCopilotStore } from './useCopilotStore'
+import { useGuideStore } from './useGuideStore'
 import { useCanvasStore } from '@/canvas/store'
 
 // Mock dependencies
@@ -18,7 +18,7 @@ vi.mock('@/canvas/hooks/useResultsRun', () => ({
 describe('useKeyboardShortcuts', () => {
   beforeEach(() => {
     // Reset stores
-    useCopilotStore.setState({
+    useGuideStore.setState({
       journeyStage: 'building',
       selectedElement: null,
       panelExpanded: true,
@@ -75,34 +75,34 @@ describe('useKeyboardShortcuts', () => {
     const { result } = renderHook(() => useKeyboardShortcuts())
 
     act(() => {
-      useCopilotStore.getState().selectElement('node-1')
+      useGuideStore.getState().selectElement('node-1')
     })
 
-    expect(useCopilotStore.getState().selectedElement).toBe('node-1')
+    expect(useGuideStore.getState().selectedElement).toBe('node-1')
 
     act(() => {
       const event = new KeyboardEvent('keydown', { key: 'Escape' })
       window.dispatchEvent(event)
     })
 
-    expect(useCopilotStore.getState().selectedElement).toBe(null)
+    expect(useGuideStore.getState().selectedElement).toBe(null)
   })
 
   it('should clear selection on c key press', () => {
     const { result } = renderHook(() => useKeyboardShortcuts())
 
     act(() => {
-      useCopilotStore.getState().selectElement('node-1')
+      useGuideStore.getState().selectElement('node-1')
     })
 
-    expect(useCopilotStore.getState().selectedElement).toBe('node-1')
+    expect(useGuideStore.getState().selectedElement).toBe('node-1')
 
     act(() => {
       const event = new KeyboardEvent('keydown', { key: 'c' })
       window.dispatchEvent(event)
     })
 
-    expect(useCopilotStore.getState().selectedElement).toBe(null)
+    expect(useGuideStore.getState().selectedElement).toBe(null)
   })
 
   it('should export KEYBOARD_SHORTCUTS constant', () => {

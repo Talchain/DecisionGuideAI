@@ -1,8 +1,8 @@
-# Accessibility Guidelines - Copilot Variant
+# Accessibility Guidelines - Guide Variant
 
 ## Overview
 
-The Copilot Variant has been built with accessibility in mind, following WCAG 2.1 Level AA guidelines where possible.
+The Guide Variant has been built with accessibility in mind, following WCAG 2.1 Level AA guidelines where possible.
 
 ## Implemented Features
 
@@ -28,7 +28,7 @@ The Copilot Variant has been built with accessibility in mind, following WCAG 2.
 - Form inputs have associated labels
 - Status messages are announced
 - `role="main"` on canvas area with `aria-label="Decision model canvas"`
-- `role="complementary"` on copilot panel with `aria-label="Copilot guidance panel"`
+- `role="complementary"` on guide panel with `aria-label="Guide guidance panel"`
 - `role="dialog"`, `aria-modal="true"`, `aria-labelledby` on help modal
 - `aria-controls`, `aria-expanded`, `aria-hidden` on expandable sections
 - `aria-live="polite"` on content that changes dynamically
@@ -143,7 +143,7 @@ Priority improvements for better accessibility:
 Run accessibility tests:
 
 ```bash
-npm run test:copilot
+npm run test:guide
 ```
 
 ### Browser Testing

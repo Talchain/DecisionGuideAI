@@ -1,14 +1,14 @@
-# Getting Started with Copilot Variant
+# Getting Started with Guide Variant
 
-Welcome! This guide will help you understand and contribute to the Copilot Variant in under 10 minutes.
+Welcome! This guide will help you understand and contribute to the Guide Variant in under 10 minutes.
 
-## What is the Copilot Variant?
+## What is the Guide Variant?
 
-The Copilot Variant is an alternative UI for Olumi's Scenario Sandbox that transforms it from a graphing tool into a **proactive AI decision coach**. Instead of users asking for help, the AI copilot observes what they're doing and automatically suggests next actions, explains results, and guides them through their decision journey.
+The Guide Variant is an alternative UI for Olumi's Scenario Sandbox that transforms it from a graphing tool into a **proactive AI decision coach**. Instead of users asking for help, the AI guide observes what they're doing and automatically suggests next actions, explains results, and guides them through their decision journey.
 
 ### Quick Comparison
 
-| Feature | Original Sandbox | Copilot Variant |
+| Feature | Original Sandbox | Guide Variant |
 |---------|------------------|-----------------|
 | **UI Style** | Traditional canvas + sidebar | Canvas + persistent AI panel |
 | **Guidance** | User-initiated | Proactive and adaptive |
@@ -20,7 +20,7 @@ The Copilot Variant is an alternative UI for Olumi's Scenario Sandbox that trans
 - Node.js 18+ and npm
 - Familiarity with React, TypeScript, and Zustand
 - Basic understanding of the main Olumi codebase
-- Feature flag enabled: `VITE_COPILOT_ENABLED=true`
+- Feature flag enabled: `VITE_GUIDE_ENABLED=true`
 
 ## Quick Start (5 minutes)
 
@@ -39,29 +39,29 @@ npm install
 
 ```bash
 # Create .env.local file with feature flag
-echo "VITE_COPILOT_ENABLED=true" > .env.local
+echo "VITE_GUIDE_ENABLED=true" > .env.local
 ```
 
 ### 3. Run the Development Server
 
 ```bash
-# Start dev server with copilot enabled
-npm run dev:copilot
+# Start dev server with guide enabled
+npm run dev:guide
 
 # Or use the standard dev command (if flag is in .env.local)
 npm run dev
 ```
 
-### 4. View the Copilot Variant
+### 4. View the Guide Variant
 
 Open your browser and navigate to:
 ```
-http://localhost:5173/#/sandbox/copilot
+http://localhost:5173/#/sandbox/guide
 ```
 
-You should see the copilot interface with:
+You should see the guide interface with:
 - Canvas on the left (flexible width)
-- AI copilot panel on the right (fixed 360px)
+- AI guide panel on the right (fixed 360px)
 - Top bar with journey stage indicator
 - Bottom toolbar with quick actions
 
@@ -69,7 +69,7 @@ You should see the copilot interface with:
 
 ### 1. Journey Stages
 
-The copilot adapts its content based on 7 journey stages:
+The guide adapts its content based on 7 journey stages:
 
 ```
 empty → building → pre-run-blocked → pre-run-ready → post-run → inspector → compare
@@ -98,7 +98,7 @@ Each journey stage has a corresponding panel state component:
 
 ### 3. Adaptive Panel
 
-The `CopilotPanel` component automatically switches content based on the journey stage. No manual navigation required!
+The `GuidePanel` component automatically switches content based on the journey stage. No manual navigation required!
 
 ### 4. Progressive Disclosure
 
@@ -107,9 +107,9 @@ UI shows max 7 items at once. Additional content hidden behind "Show more" expan
 ## Project Structure
 
 ```
-src/pages/sandbox-copilot/
+src/pages/sandbox-guide/
 ├── index.tsx                 # Entry point (route handler)
-├── CopilotLayout.tsx         # Main 3-panel layout
+├── GuideLayout.tsx         # Main 3-panel layout
 ├── hooks/                    # Custom hooks (state, keyboard, detection)
 ├── utils/                    # Business logic (journey detection)
 ├── components/
@@ -129,21 +129,21 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed diagrams.
 ## Running Tests
 
 ```bash
-# Run all copilot tests
-npm run test:copilot
+# Run all guide tests
+npm run test:guide
 
 # Run tests in watch mode
-npm run test:copilot -- --watch
+npm run test:guide -- --watch
 
 # Run specific test file
-npm run test:copilot -- CopilotLayout.test.tsx
+npm run test:guide -- GuideLayout.test.tsx
 ```
 
 ## Linting and Type Checking
 
 ```bash
-# Lint copilot code (enforces isolation rules)
-npm run lint:copilot
+# Lint guide code (enforces isolation rules)
+npm run lint:guide
 
 # Type check
 npm run typecheck
@@ -172,10 +172,10 @@ npm run typecheck
 
 ### Safety Guardrails
 
-1. **NO IMPORTS FROM `/pages/sandbox/`** - Copilot is isolated
+1. **NO IMPORTS FROM `/pages/sandbox/`** - Guide is isolated
 2. **READ ONLY access to shared stores** - Never write to canvas/results stores
-3. **Use `useCopilotStore` for copilot state** - Don't pollute shared state
-4. **Test isolation** with `./scripts/verify-copilot-safety.sh`
+3. **Use `useGuideStore` for guide state** - Don't pollute shared state
+4. **Test isolation** with `./scripts/verify-guide-safety.sh`
 
 ### Code Quality
 
@@ -186,7 +186,7 @@ npm run typecheck
 
 ### Conventions
 
-1. **Component naming** - Prefix with `Copilot` where appropriate
+1. **Component naming** - Prefix with `Guide` where appropriate
 2. **File naming** - PascalCase for components, camelCase for utilities
 3. **Test files** - Co-locate with implementation (`.test.ts` or `.test.tsx`)
 4. **Type definitions** - Define in component file, export if shared
@@ -196,9 +196,9 @@ npm run typecheck
 ### How do I add a new panel state?
 
 1. Create component in `components/panel/states/NewState.tsx`
-2. Add stage to `JourneyStage` type in `types/copilot.types.ts`
+2. Add stage to `JourneyStage` type in `types/guide.types.ts`
 3. Update `determineJourneyStage()` in `utils/journeyDetection.ts`
-4. Add case in `CopilotPanel.tsx` switch statement
+4. Add case in `GuidePanel.tsx` switch statement
 5. Write tests in `utils/journeyDetection.test.ts`
 
 ### How do I modify journey detection logic?
@@ -249,6 +249,6 @@ Now that you're set up:
 
 **Ready to contribute?** Start with the issues labeled `good-first-issue` in the repo.
 
-**Questions?** File an issue with label `copilot-variant` or `question`.
+**Questions?** File an issue with label `guide-variant` or `question`.
 
 Welcome to the team! 🚀

@@ -9,7 +9,7 @@
 
 import { useCanvasStore } from '@/canvas/store'
 import { useResultsStore } from '@/canvas/stores/resultsStore'
-import { useCopilotStore } from '../../hooks/useCopilotStore'
+import { useGuideStore } from '../../hooks/useGuideStore'
 import { Button } from '../shared/Button'
 
 export interface NodeTooltipProps {
@@ -21,7 +21,7 @@ export interface NodeTooltipProps {
 export function NodeTooltip({ nodeId, position, contribution }: NodeTooltipProps): JSX.Element | null {
   const nodes = useCanvasStore((state) => state.nodes)
   const report = useResultsStore((state) => state.report)
-  const selectElement = useCopilotStore((state) => state.selectElement)
+  const selectElement = useGuideStore((state) => state.selectElement)
 
   const node = nodes.find((n) => n.id === nodeId)
   if (!node) return null

@@ -23,4 +23,4 @@ export type { MetricRowProps } from './MetricRow'
 export { HelpModal } from './HelpModal'
 export type { HelpModalProps } from './HelpModal'
 
-export { CopilotErrorBoundary } from './CopilotErrorBoundary'
+export { GuideErrorBoundary } from './GuideErrorBoundary'

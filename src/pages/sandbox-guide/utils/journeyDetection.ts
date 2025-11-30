@@ -1,5 +1,5 @@
 import type { Node, Edge } from '@xyflow/react'
-import type { JourneyStage } from '../hooks/useCopilotStore'
+import type { JourneyStage } from '../hooks/useGuideStore'
 
 /**
  * Graph data for journey detection

@@ -1,10 +1,10 @@
 # Panel States - Journey State Machine
 
-This directory contains the 7 panel state components that power the adaptive copilot panel.
+This directory contains the 7 panel state components that power the adaptive guide panel.
 
 ## Overview
 
-The copilot panel automatically switches its content based on the user's **journey stage**. Each stage has a dedicated component that renders contextually relevant content.
+The guide panel automatically switches its content based on the user's **journey stage**. Each stage has a dedicated component that renders contextually relevant content.
 
 ## Journey State Machine
 
@@ -199,7 +199,7 @@ See `utils/journeyDetection.ts` for implementation.
 **Key Features**:
 - Dual mode: node vs edge inspection
 - Close button to return to main journey
-- Reads `selectedElement` from `useCopilotStore`
+- Reads `selectedElement` from `useGuideStore`
 - Finds element data from canvas stores
 
 **Design Pattern**: Focused inspector with clear exit
@@ -238,7 +238,7 @@ Create `components/panel/states/YourNewState.tsx`:
  */
 
 import { useCanvasStore } from '@/canvas/store'
-import { useCopilotStore } from '../../../hooks/useCopilotStore'
+import { useGuideStore } from '../../../hooks/useGuideStore'
 import { Button } from '../../shared/Button'
 import { Card } from '../../shared/Card'
 
@@ -277,7 +277,7 @@ export function YourNewState(): JSX.Element {
 
 ### Step 2: Add to Type Definition
 
-Edit `types/copilot.types.ts`:
+Edit `types/guide.types.ts`:
 
 ```typescript
 export type JourneyStage =
@@ -308,7 +308,7 @@ export function determineJourneyStage(context: JourneyContext): JourneyStage {
 
 ### Step 4: Wire to Panel
 
-Edit `components/panel/CopilotPanel.tsx`:
+Edit `components/panel/GuidePanel.tsx`:
 
 ```typescript
 import { YourNewState } from './states/YourNewState'
@@ -398,16 +398,16 @@ const report = useResultsStore((state) => state.report)
 const ceeReview = useResultsStore((state) => state.ceeReview)
 ```
 
-### Copilot Store (READ/WRITE)
+### Guide Store (READ/WRITE)
 ```typescript
-import { useCopilotStore } from '../../../hooks/useCopilotStore'
+import { useGuideStore } from '../../../hooks/useGuideStore'
 
-const selectedElement = useCopilotStore((state) => state.selectedElement)
-const selectElement = useCopilotStore((state) => state.selectElement)
-const clearSelection = useCopilotStore((state) => state.clearSelection)
+const selectedElement = useGuideStore((state) => state.selectedElement)
+const selectElement = useGuideStore((state) => state.selectElement)
+const clearSelection = useGuideStore((state) => state.clearSelection)
 ```
 
-**IMPORTANT**: Never write to canvas or results stores. Use copilot store for copilot-specific state only.
+**IMPORTANT**: Never write to canvas or results stores. Use guide store for guide-specific state only.
 
 ---
 
@@ -434,7 +434,7 @@ describe('determineJourneyStage', () => {
 
 ### Integration Testing State Rendering
 
-Test the full flow in `CopilotLayout.test.tsx`:
+Test the full flow in `GuideLayout.test.tsx`:
 
 ```typescript
 it('should show YourNewState when [condition]', async () => {
@@ -495,8 +495,8 @@ it('should show YourNewState when [condition]', async () => {
 
 - [../../ARCHITECTURE.md](../../ARCHITECTURE.md) - System architecture
 - [../../utils/journeyDetection.ts](../../utils/journeyDetection.ts) - Detection logic
-- [../../hooks/useCopilotStore.ts](../../hooks/useCopilotStore.ts) - Copilot state
-- [../CopilotPanel.tsx](../CopilotPanel.tsx) - Panel container
+- [../../hooks/useGuideStore.ts](../../hooks/useGuideStore.ts) - Guide state
+- [../GuidePanel.tsx](../GuidePanel.tsx) - Panel container
 - [../sections/README.md](../sections/README.md) - Reusable sections
 
 ---

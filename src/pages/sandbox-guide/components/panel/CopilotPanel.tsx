@@ -1,4 +1,4 @@
-import type { JourneyStage } from '../../hooks/useCopilotStore'
+import type { JourneyStage } from '../../hooks/useGuideStore'
 import { EmptyState } from './states/EmptyState'
 import { BuildingState } from './states/BuildingState'
 import { PreRunBlockedState } from './states/PreRunBlockedState'
@@ -7,18 +7,18 @@ import { PostRunState } from './states/PostRunState'
 import { InspectorState } from './states/InspectorState'
 import { CompareState } from './states/CompareState'
 
-interface CopilotPanelProps {
+interface GuidePanelProps {
   stage: JourneyStage
 }
 
 /**
- * Copilot Panel - Adaptive panel container
+ * Guide Panel - Adaptive panel container
  *
  * Renders different content based on the current journey stage.
  * Each state component is responsible for showing relevant
  * information and actions for that stage of the user's journey.
  */
-export function CopilotPanel({ stage }: CopilotPanelProps) {
+export function GuidePanel({ stage }: GuidePanelProps) {
   // Render different content based on journey stage
   switch (stage) {
     case 'empty':

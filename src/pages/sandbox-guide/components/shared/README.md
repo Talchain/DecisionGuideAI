@@ -1,6 +1,6 @@
 # Shared Components - Design System Library
 
-This directory contains reusable UI components that form the copilot variant's design system. All components follow consistent patterns for styling, accessibility, and behavior.
+This directory contains reusable UI components that form the guide variant's design system. All components follow consistent patterns for styling, accessibility, and behavior.
 
 ## Quick Reference
 
@@ -12,7 +12,7 @@ This directory contains reusable UI components that form the copilot variant's d
 | [ExpandableSection](#expandablesection) | Progressive disclosure | - | `title`, `defaultOpen`, `children` |
 | [MetricRow](#metricrow) | Labeled metrics | - | `label`, `value` |
 | [HelpModal](#helpmodal) | Keyboard shortcuts | - | `isOpen`, `onClose` |
-| [CopilotErrorBoundary](#copiloterrorboundary) | Error handling | - | `children`, `fallback` |
+| [GuideErrorBoundary](#guideerrorboundary) | Error handling | - | `children`, `fallback` |
 
 ## Components
 
@@ -336,7 +336,7 @@ function MyComponent() {
 #### Features
 
 - **Keyboard Shortcuts Reference**: Lists all shortcuts from `useKeyboardShortcuts`
-- **Quick Tips**: Usage tips for copilot variant
+- **Quick Tips**: Usage tips for guide variant
 - **Focus Management**: Auto-focus close button on open
 - **Focus Trap**: Tab/Shift+Tab cycles within modal
 - **Backdrop**: Semi-transparent overlay with blur
@@ -352,9 +352,9 @@ function MyComponent() {
 
 ---
 
-### CopilotErrorBoundary
+### GuideErrorBoundary
 
-**File**: `CopilotErrorBoundary.tsx`
+**File**: `GuideErrorBoundary.tsx`
 **Purpose**: Catch rendering errors and display fallback UI
 
 #### Props
@@ -369,15 +369,15 @@ interface ErrorBoundaryProps {
 #### Usage
 
 ```tsx
-import { CopilotErrorBoundary } from '../shared/CopilotErrorBoundary'
+import { GuideErrorBoundary } from '../shared/GuideErrorBoundary'
 
 // Default fallback UI
-<CopilotErrorBoundary>
-  <CopilotPanel stage={journeyStage} />
-</CopilotErrorBoundary>
+<GuideErrorBoundary>
+  <GuidePanel stage={journeyStage} />
+</GuideErrorBoundary>
 
 // Custom fallback
-<CopilotErrorBoundary
+<GuideErrorBoundary
   fallback={
     <div className="p-6">
       <p>Custom error message</p>
@@ -385,7 +385,7 @@ import { CopilotErrorBoundary } from '../shared/CopilotErrorBoundary'
   }
 >
   <RiskyComponent />
-</CopilotErrorBoundary>
+</GuideErrorBoundary>
 ```
 
 #### Features
@@ -401,13 +401,13 @@ import { CopilotErrorBoundary } from '../shared/CopilotErrorBoundary'
 Error boundaries must be class components (React requirement):
 
 ```typescript
-export class CopilotErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class GuideErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error }
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Copilot Error Boundary caught:', error, errorInfo)
+    console.error('Guide Error Boundary caught:', error, errorInfo)
   }
 
   // ... render method
@@ -651,7 +651,7 @@ export function YourComponent({
 | `ExpandableSection.tsx` | ~55 | ExpandableSection, ExpandableSectionProps | Progressive disclosure |
 | `MetricRow.tsx` | ~30 | MetricRow, MetricRowProps | Labeled metrics |
 | `HelpModal.tsx` | ~125 | HelpModal, HelpModalProps | Keyboard shortcuts modal |
-| `CopilotErrorBoundary.tsx` | ~90 | CopilotErrorBoundary | Error boundary |
+| `GuideErrorBoundary.tsx` | ~90 | GuideErrorBoundary | Error boundary |
 
 **Total**: ~440 lines across 7 components
 

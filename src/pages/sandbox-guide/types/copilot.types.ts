@@ -1,5 +1,5 @@
 /**
- * Copilot Variant - Type Definitions
+ * Guide Variant - Type Definitions
  */
 
 export type JourneyStage =
@@ -11,7 +11,7 @@ export type JourneyStage =
   | 'post-run'
   | 'compare'
 
-export interface CopilotState {
+export interface GuideState {
   journeyStage: JourneyStage
   panelExpanded: boolean
   selectedElement: string | null

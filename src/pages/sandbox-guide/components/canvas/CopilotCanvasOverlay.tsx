@@ -1,7 +1,7 @@
 /**
- * Copilot Canvas Overlay
+ * Guide Canvas Overlay
  *
- * Provides visual enhancements to the canvas for the copilot variant:
+ * Provides visual enhancements to the canvas for the guide variant:
  * - Top driver highlighting (border glow on important nodes)
  * - Visual legend showing what colors/highlights mean
  * - Subtle importance indicators
@@ -11,20 +11,20 @@
 
 import { Panel } from '@xyflow/react'
 import { useResultsStore } from '@/canvas/stores/resultsStore'
-import { useCopilotStore } from '../../hooks/useCopilotStore'
+import { useGuideStore } from '../../hooks/useGuideStore'
 import { Badge } from '../shared/Badge'
 
-export interface CopilotCanvasOverlayProps {
+export interface GuideCanvasOverlayProps {
   enabled?: boolean
 }
 
 /**
- * Canvas overlay that adds copilot-specific visual enhancements
+ * Canvas overlay that adds guide-specific visual enhancements
  * Displayed as a legend in the bottom-left corner
  */
-export function CopilotCanvasOverlay({ enabled = true }: CopilotCanvasOverlayProps): JSX.Element | null {
+export function GuideCanvasOverlay({ enabled = true }: GuideCanvasOverlayProps): JSX.Element | null {
   const report = useResultsStore((state) => state.report)
-  const selectElement = useCopilotStore((state) => state.selectElement)
+  const selectElement = useGuideStore((state) => state.selectElement)
 
   // Don't render if disabled or no results
   if (!enabled || !report) {

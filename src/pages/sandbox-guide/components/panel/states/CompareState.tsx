@@ -5,12 +5,12 @@
  * Displays comparison between scenarios (placeholder for now - full implementation in later phase).
  */
 
-import { useCopilotStore } from '../../../hooks/useCopilotStore'
+import { useGuideStore } from '../../../hooks/useGuideStore'
 import { Button } from '../../shared/Button'
 import { Card } from '../../shared/Card'
 
 export function CompareState(): JSX.Element {
-  const setCompareMode = useCopilotStore((state) => state.setCompareMode)
+  const setCompareMode = useGuideStore((state) => state.setCompareMode)
 
   const handleExitCompare = () => {
     setCompareMode(false)

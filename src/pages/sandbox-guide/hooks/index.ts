@@ -2,11 +2,11 @@
  * Hooks - Barrel Export
  *
  * Centralizes exports for all custom hooks.
- * Enables cleaner imports: `import { useCopilotStore, useKeyboardShortcuts } from '../hooks'`
+ * Enables cleaner imports: `import { useGuideStore, useKeyboardShortcuts } from '../hooks'`
  */
 
-export { useCopilotStore } from './useCopilotStore'
-export type { CopilotState } from './useCopilotStore'
+export { useGuideStore } from './useGuideStore'
+export type { GuideState } from './useGuideStore'
 
 export { useKeyboardShortcuts, KEYBOARD_SHORTCUTS } from './useKeyboardShortcuts'
 

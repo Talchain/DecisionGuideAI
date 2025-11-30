@@ -1,13 +1,13 @@
 /**
- * Copilot Variant - Entry Point
- * Branch: feat/copilot-variant
- * Route: /sandbox/copilot
+ * Guide Variant - Entry Point
+ * Branch: feat/guide-variant
+ * Route: /sandbox/guide
  *
  * SAFETY: This variant is completely isolated from /sandbox
  */
 
-import CopilotLayout from './CopilotLayout'
+import GuideLayout from './GuideLayout'
 
-export default function CopilotSandboxPage() {
-  return <CopilotLayout />
+export default function GuideSandboxPage() {
+  return <GuideLayout />
 }

@@ -1,6 +1,6 @@
-# Architecture - Copilot Variant
+# Architecture - Guide Variant
 
-This document provides a visual and technical overview of the copilot variant's architecture, data flow, and component relationships.
+This document provides a visual and technical overview of the guide variant's architecture, data flow, and component relationships.
 
 ## Table of Contents
 
@@ -18,25 +18,25 @@ This document provides a visual and technical overview of the copilot variant's 
 
 ```mermaid
 graph TB
-    subgraph "Copilot Variant (/sandbox/copilot)"
+    subgraph "Guide Variant (/sandbox/guide)"
         Entry[index.tsx<br/>Entry Point]
-        Layout[CopilotLayout.tsx<br/>3-Panel Layout]
+        Layout[GuideLayout.tsx<br/>3-Panel Layout]
 
         subgraph "Top Bar"
-            TopBar[CopilotTopBar<br/>Journey Stage + Alerts]
+            TopBar[GuideTopBar<br/>Journey Stage + Alerts]
         end
 
         subgraph "Main Content"
-            Canvas[CopilotCanvas<br/>ReactFlow Wrapper]
-            Panel[CopilotPanel<br/>Adaptive Panel]
+            Canvas[GuideCanvas<br/>ReactFlow Wrapper]
+            Panel[GuidePanel<br/>Adaptive Panel]
         end
 
         subgraph "Bottom Toolbar"
-            Toolbar[CopilotBottomToolbar<br/>Quick Actions]
+            Toolbar[GuideBottomToolbar<br/>Quick Actions]
         end
 
         subgraph "State Management"
-            CopilotStore[useCopilotStore<br/>Journey + Selection]
+            GuideStore[useGuideStore<br/>Journey + Selection]
             Detection[useJourneyDetection<br/>Auto-detect Stage]
         end
 
@@ -46,7 +46,7 @@ graph TB
         Layout --> Panel
         Layout --> Toolbar
         Layout --> Detection
-        Detection --> CopilotStore
+        Detection --> GuideStore
     end
 
     subgraph "Shared Backend"
@@ -67,16 +67,16 @@ graph TB
 
     style Entry fill:#e1f5fe
     style Layout fill:#b3e5fc
-    style CopilotStore fill:#fff9c4
+    style GuideStore fill:#fff9c4
     style CanvasStore fill:#ffccbc
     style ResultsStore fill:#ffccbc
 ```
 
 ### Key Principles
 
-1. **Isolation**: Copilot code in `/sandbox-copilot/`, no imports from `/sandbox/`
-2. **Read-Only**: Copilot reads from shared stores, never writes
-3. **Separation**: `useCopilotStore` for copilot-specific state
+1. **Isolation**: Guide code in `/sandbox-guide/`, no imports from `/sandbox/`
+2. **Read-Only**: Guide reads from shared stores, never writes
+3. **Separation**: `useGuideStore` for guide-specific state
 4. **Shared Backend**: Reuses PLoT, CEE, canvas, auth from main app
 
 ---
@@ -85,18 +85,18 @@ graph TB
 
 ```mermaid
 graph TD
-    Root[CopilotLayout]
+    Root[GuideLayout]
 
-    Root --> TopBar[CopilotTopBar]
-    Root --> Canvas[CopilotCanvas]
-    Root --> Panel[CopilotPanel]
-    Root --> Toolbar[CopilotBottomToolbar]
+    Root --> TopBar[GuideTopBar]
+    Root --> Canvas[GuideCanvas]
+    Root --> Panel[GuidePanel]
+    Root --> Toolbar[GuideBottomToolbar]
     Root --> Modal[HelpModal]
 
     Canvas --> RFGraph[ReactFlowGraph<br/>Shared Component]
-    Canvas --> Overlay[CopilotCanvasOverlay]
+    Canvas --> Overlay[GuideCanvasOverlay]
 
-    Panel --> ErrorBoundary[CopilotErrorBoundary]
+    Panel --> ErrorBoundary[GuideErrorBoundary]
     ErrorBoundary --> States{Switch on<br/>Journey Stage}
 
     States --> Empty[EmptyState]
@@ -138,7 +138,7 @@ sequenceDiagram
     participant Canvas
     participant CanvasStore
     participant Detection
-    participant CopilotStore
+    participant GuideStore
     participant Panel
     participant PLoT
     participant Results
@@ -147,15 +147,15 @@ sequenceDiagram
     Canvas->>CanvasStore: Update nodes/edges
     CanvasStore-->>Detection: Subscribe (READ)
     Detection->>Detection: Determine journey stage
-    Detection->>CopilotStore: Set journey stage
-    CopilotStore-->>Panel: Subscribe
+    Detection->>GuideStore: Set journey stage
+    GuideStore-->>Panel: Subscribe
     Panel->>Panel: Switch to BuildingState
 
     User->>Canvas: Select node
-    Canvas->>CopilotStore: selectElement(nodeId)
-    CopilotStore-->>Detection: Subscribe
+    Canvas->>GuideStore: selectElement(nodeId)
+    GuideStore-->>Detection: Subscribe
     Detection->>Detection: Stage = inspector
-    Detection->>CopilotStore: Set stage
+    Detection->>GuideStore: Set stage
     Panel->>Panel: Switch to InspectorState
 
     User->>Panel: Click "Run Analysis"
@@ -163,7 +163,7 @@ sequenceDiagram
     PLoT->>Results: Update report
     Results-->>Detection: Subscribe (READ)
     Detection->>Detection: Stage = post-run
-    Detection->>CopilotStore: Set stage
+    Detection->>GuideStore: Set stage
     Panel->>Panel: Switch to PostRunState
     Panel->>Results: Read report (READ)
     Panel->>Panel: Display insights
@@ -171,22 +171,22 @@ sequenceDiagram
 
 ### Data Flow Rules
 
-1. **Canvas Store** → Copilot (READ ONLY)
+1. **Canvas Store** → Guide (READ ONLY)
    - Nodes, edges, outcomeNodeId
-   - Never modified by copilot
+   - Never modified by guide
 
-2. **Results Store** → Copilot (READ ONLY)
+2. **Results Store** → Guide (READ ONLY)
    - PLoT report, CEE review, status
-   - Never modified by copilot
+   - Never modified by guide
 
-3. **Copilot Store** → Copilot (READ/WRITE)
+3. **Guide Store** → Guide (READ/WRITE)
    - Journey stage, selected element, compare mode
-   - Only modified by copilot
+   - Only modified by guide
 
 4. **Journey Detection** → Auto Updates
-   - Subscribes to canvas, results, copilot stores
+   - Subscribes to canvas, results, guide stores
    - Automatically determines journey stage
-   - Updates copilot store with new stage
+   - Updates guide store with new stage
 
 ---
 
@@ -296,7 +296,7 @@ export function determineJourneyStage(context: JourneyContext): JourneyStage {
 
 ```mermaid
 graph TB
-    subgraph "Copilot Store (useCopilotStore)"
+    subgraph "Guide Store (useGuideStore)"
         CS_State[State]
         CS_Journey[journeyStage: JourneyStage]
         CS_Selected[selectedElement: string | null]
@@ -352,7 +352,7 @@ graph TB
 
     Detection -->|setJourneyStage| CS_SetJourney
 
-    Panel[CopilotPanel]
+    Panel[GuidePanel]
     Inspector[InspectorState]
     PostRun[PostRunState]
 
@@ -379,7 +379,7 @@ sequenceDiagram
     participant Canvas
     participant CanvasStore
     participant Detection
-    participant CopilotStore
+    participant GuideStore
     participant Panel
 
     User->>Canvas: Drag node onto canvas
@@ -390,10 +390,10 @@ sequenceDiagram
     CanvasStore-->>Detection: Notify: nodes changed
     Detection->>Detection: determineJourneyStage()
     Detection->>Detection: Stage = 'building'
-    Detection->>CopilotStore: setJourneyStage('building')
+    Detection->>GuideStore: setJourneyStage('building')
 
-    Note over Panel: Subscribed to CopilotStore
-    CopilotStore-->>Panel: Notify: stage changed
+    Note over Panel: Subscribed to GuideStore
+    GuideStore-->>Panel: Notify: stage changed
     Panel->>Panel: Render BuildingState
 ```
 
@@ -407,14 +407,14 @@ sequenceDiagram
     participant PLoT
     participant ResultsStore
     participant Detection
-    participant CopilotStore
+    participant GuideStore
     participant Panel
 
     User->>PreReady: Click "Run Analysis"
     PreReady->>ResultsRun: run({ graph, outcome_node, seed })
     ResultsRun->>ResultsStore: Set status = 'loading'
     ResultsStore-->>Detection: Notify: status changed
-    Detection->>CopilotStore: setJourneyStage('pre-run-ready')
+    Detection->>GuideStore: setJourneyStage('pre-run-ready')
     Note over Panel: Still shows PreRunReadyState<br/>with loading spinner
 
     ResultsRun->>PLoT: POST /analyze
@@ -425,9 +425,9 @@ sequenceDiagram
     ResultsStore-->>Detection: Notify: status changed
     Detection->>Detection: determineJourneyStage()
     Detection->>Detection: Stage = 'post-run'
-    Detection->>CopilotStore: setJourneyStage('post-run')
+    Detection->>GuideStore: setJourneyStage('post-run')
 
-    CopilotStore-->>Panel: Notify: stage changed
+    GuideStore-->>Panel: Notify: stage changed
     Panel->>Panel: Render PostRunState
     Panel->>ResultsStore: Read report (READ ONLY)
     Panel->>Panel: Display insights
@@ -439,22 +439,22 @@ sequenceDiagram
 sequenceDiagram
     actor User
     participant Canvas
-    participant CopilotStore
+    participant GuideStore
     participant Detection
     participant Panel
 
     User->>Canvas: Click node
     Canvas->>Canvas: Detect click on [data-id]
-    Canvas->>CopilotStore: selectElement(nodeId)
+    Canvas->>GuideStore: selectElement(nodeId)
 
-    CopilotStore-->>Detection: Notify: selectedElement changed
+    GuideStore-->>Detection: Notify: selectedElement changed
     Detection->>Detection: determineJourneyStage()
     Detection->>Detection: Stage = 'inspector' (priority 1)
-    Detection->>CopilotStore: setJourneyStage('inspector')
+    Detection->>GuideStore: setJourneyStage('inspector')
 
-    CopilotStore-->>Panel: Notify: stage changed
+    GuideStore-->>Panel: Notify: stage changed
     Panel->>Panel: Render InspectorState
-    Panel->>CopilotStore: Read selectedElement
+    Panel->>GuideStore: Read selectedElement
     Panel->>Panel: Display node details
 ```
 
@@ -466,8 +466,8 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    subgraph "Copilot Variant"
-        Canvas[CopilotCanvas]
+    subgraph "Guide Variant"
+        Canvas[GuideCanvas]
     end
 
     subgraph "Main App"
@@ -530,30 +530,30 @@ graph TD
         ResultsStore[useResultsStore<br/>report, ceeReview]
     end
 
-    subgraph "Copilot System"
+    subgraph "Guide System"
         Detection[useJourneyDetection]
-        CopilotStore[useCopilotStore<br/>stage, selection]
-        Panel[CopilotPanel]
+        GuideStore[useGuideStore<br/>stage, selection]
+        Panel[GuidePanel]
     end
 
     UA1 --> CanvasStore
     UA2 --> PLoT
-    UA3 --> CopilotStore
+    UA3 --> GuideStore
 
     CanvasStore -.READ.-> Detection
     PLoT --> ResultsStore
     CEE --> ResultsStore
     ResultsStore -.READ.-> Detection
-    CopilotStore -.READ/WRITE.-> Detection
+    GuideStore -.READ/WRITE.-> Detection
 
-    Detection --> CopilotStore
-    CopilotStore --> Panel
+    Detection --> GuideStore
+    GuideStore --> Panel
     CanvasStore -.READ.-> Panel
     ResultsStore -.READ.-> Panel
 
     style CanvasStore fill:#ffccbc
     style ResultsStore fill:#ffccbc
-    style CopilotStore fill:#fff9c4
+    style GuideStore fill:#fff9c4
     style Detection fill:#c5e1a5
     style Panel fill:#c5e1a5
 ```
@@ -619,14 +619,14 @@ const hiddenDrivers = drivers.slice(3)
 ## File Structure Map
 
 ```
-sandbox-copilot/
+sandbox-guide/
 │
 ├── index.tsx                     # Entry point (route handler)
-├── CopilotLayout.tsx             # Main layout orchestrator
+├── GuideLayout.tsx             # Main layout orchestrator
 │
 ├── hooks/                        # Custom hooks
 │   ├── index.ts                 # Barrel export
-│   ├── useCopilotStore.ts       # Copilot state (Zustand)
+│   ├── useGuideStore.ts       # Guide state (Zustand)
 │   ├── useJourneyDetection.ts   # Auto-detect journey stage
 │   └── useKeyboardShortcuts.ts  # Global keyboard shortcuts
 │
@@ -635,15 +635,15 @@ sandbox-copilot/
 │   └── journeyDetection.ts      # Journey detection algorithms
 │
 ├── types/                        # Type definitions
-│   └── copilot.types.ts         # Core types (JourneyStage, etc.)
+│   └── guide.types.ts         # Core types (JourneyStage, etc.)
 │
 ├── components/
 │   ├── canvas/                  # Canvas enhancements
-│   │   ├── CopilotCanvas.tsx        # Wrapper for ReactFlowGraph
-│   │   └── CopilotCanvasOverlay.tsx # Top drivers legend
+│   │   ├── GuideCanvas.tsx        # Wrapper for ReactFlowGraph
+│   │   └── GuideCanvasOverlay.tsx # Top drivers legend
 │   │
 │   ├── panel/                   # Adaptive panel
-│   │   ├── CopilotPanel.tsx         # Container (switches on stage)
+│   │   ├── GuidePanel.tsx         # Container (switches on stage)
 │   │   ├── states/                  # 7 journey state components
 │   │   │   ├── index.ts            # Barrel export
 │   │   │   ├── EmptyState.tsx
@@ -667,13 +667,13 @@ sandbox-copilot/
 │   │   ├── ExpandableSection.tsx
 │   │   ├── MetricRow.tsx
 │   │   ├── HelpModal.tsx
-│   │   └── CopilotErrorBoundary.tsx
+│   │   └── GuideErrorBoundary.tsx
 │   │
 │   ├── topbar/                  # Top bar
-│   │   └── CopilotTopBar.tsx
+│   │   └── GuideTopBar.tsx
 │   │
 │   └── toolbar/                 # Bottom toolbar
-│       └── CopilotBottomToolbar.tsx
+│       └── GuideBottomToolbar.tsx
 │
 ├── __tests__/                   # Test files
 │   ├── hooks/
@@ -712,7 +712,7 @@ Components subscribe to stores and automatically re-render on changes:
 
 ```typescript
 // Component subscribes to specific state
-const journeyStage = useCopilotStore((state) => state.journeyStage)
+const journeyStage = useGuideStore((state) => state.journeyStage)
 const nodes = useCanvasStore((state) => state.nodes)
 
 // Re-renders when journeyStage or nodes change
@@ -732,19 +732,19 @@ if (hasResults) return 'post-run'              // Priority 3
 
 ### 3. Container/Presentational Pattern
 
-- **Containers**: `CopilotPanel`, `CopilotCanvas` (manage state)
+- **Containers**: `GuidePanel`, `GuideCanvas` (manage state)
 - **Presentational**: All panel states, shared components (receive props)
 
 ### 4. Adapter Pattern (Canvas Integration)
 
-`CopilotCanvas` wraps `ReactFlowGraph` and adds copilot-specific features:
+`GuideCanvas` wraps `ReactFlowGraph` and adds guide-specific features:
 
 ```typescript
-export function CopilotCanvas() {
+export function GuideCanvas() {
   return (
     <div ref={canvasRef}>
       <ReactFlowGraph />  {/* Shared component, unmodified */}
-      {hasResults && <CopilotCanvasOverlay />}  {/* Copilot enhancement */}
+      {hasResults && <GuideCanvasOverlay />}  {/* Guide enhancement */}
     </div>
   )
 }
@@ -798,21 +798,21 @@ return (
 
 ### Code Isolation
 
-- All copilot code in `/sandbox-copilot/`
+- All guide code in `/sandbox-guide/`
 - ESLint rule prevents imports from `/sandbox/`
-- Verification script: `./scripts/verify-copilot-safety.sh`
+- Verification script: `./scripts/verify-guide-safety.sh`
 
 ### Read-Only Access
 
-- Copilot never writes to `useCanvasStore`
-- Copilot never writes to `useResultsStore`
-- Only writes to `useCopilotStore` (isolated)
+- Guide never writes to `useCanvasStore`
+- Guide never writes to `useResultsStore`
+- Only writes to `useGuideStore` (isolated)
 
 ### Feature Flag
 
-- Behind `VITE_COPILOT_ENABLED` environment variable
+- Behind `VITE_GUIDE_ENABLED` environment variable
 - No impact on main app if disabled
-- Route `/sandbox/copilot` only accessible when enabled
+- Route `/sandbox/guide` only accessible when enabled
 
 ---
 
@@ -826,4 +826,4 @@ return (
 
 ---
 
-**Questions?** File an issue with label `copilot-variant` or `architecture`.
+**Questions?** File an issue with label `guide-variant` or `architecture`.

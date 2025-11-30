@@ -1,7 +1,7 @@
 /**
- * Copilot Error Boundary
+ * Guide Error Boundary
  *
- * Catches rendering errors in copilot components and displays a fallback UI.
+ * Catches rendering errors in guide components and displays a fallback UI.
  * Prevents entire app from crashing if panel state has issues.
  */
 
@@ -18,7 +18,7 @@ interface ErrorBoundaryState {
   error: Error | null
 }
 
-export class CopilotErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+export class GuideErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props)
     this.state = { hasError: false, error: null }
@@ -30,7 +30,7 @@ export class CopilotErrorBoundary extends React.Component<ErrorBoundaryProps, Er
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log error to console in development
-    console.error('Copilot Error Boundary caught an error:', error, errorInfo)
+    console.error('Guide Error Boundary caught an error:', error, errorInfo)
 
     // In production, you might want to log to an error tracking service
     // e.g., Sentry.captureException(error, { extra: errorInfo })
@@ -55,7 +55,7 @@ export class CopilotErrorBoundary extends React.Component<ErrorBoundaryProps, Er
           </div>
 
           <div className="text-sm text-storm-700">
-            The copilot panel encountered an error. This might be due to unexpected data or a temporary issue.
+            The guide panel encountered an error. This might be due to unexpected data or a temporary issue.
           </div>
 
           {/* Show error details in development */}

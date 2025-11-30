@@ -1,5 +1,5 @@
 /**
- * Copilot Bottom Toolbar
+ * Guide Bottom Toolbar
  *
  * Provides quick access to key actions:
  * - Chat interface toggle
@@ -8,16 +8,16 @@
  */
 
 import { useState } from 'react'
-import { useCopilotStore } from '../../hooks/useCopilotStore'
+import { useGuideStore } from '../../hooks/useGuideStore'
 import { useResultsRun } from '@/canvas/hooks/useResultsRun'
 import { useCanvasStore } from '@/canvas/store'
 import { useResultsStore } from '@/canvas/stores/resultsStore'
 import { Button } from '../shared/Button'
 import { findBlockers } from '../../utils/journeyDetection'
 
-export function CopilotBottomToolbar(): JSX.Element {
+export function GuideBottomToolbar(): JSX.Element {
   const [showChat, setShowChat] = useState(false)
-  const journeyStage = useCopilotStore((state) => state.journeyStage)
+  const journeyStage = useGuideStore((state) => state.journeyStage)
   const nodes = useCanvasStore((state) => state.nodes)
   const edges = useCanvasStore((state) => state.edges)
   const outcomeNodeId = useCanvasStore((state) => state.outcomeNodeId)

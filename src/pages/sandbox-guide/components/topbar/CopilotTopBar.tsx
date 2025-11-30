@@ -1,5 +1,5 @@
 /**
- * Copilot Top Bar
+ * Guide Top Bar
  *
  * Displays critical alerts and status information:
  * - Journey stage indicator
@@ -8,15 +8,15 @@
  * - Quick actions
  */
 
-import { useCopilotStore } from '../../hooks/useCopilotStore'
+import { useGuideStore } from '../../hooks/useGuideStore'
 import { useResultsStore } from '@/canvas/stores/resultsStore'
 import { useCanvasStore } from '@/canvas/store'
 import { findBlockers } from '../../utils/journeyDetection'
 import { Badge } from '../shared/Badge'
 import { Button } from '../shared/Button'
 
-export function CopilotTopBar(): JSX.Element {
-  const journeyStage = useCopilotStore((state) => state.journeyStage)
+export function GuideTopBar(): JSX.Element {
+  const journeyStage = useGuideStore((state) => state.journeyStage)
   const nodes = useCanvasStore((state) => state.nodes)
   const edges = useCanvasStore((state) => state.edges)
   const resultsStatus = useResultsStore((state) => state.status)

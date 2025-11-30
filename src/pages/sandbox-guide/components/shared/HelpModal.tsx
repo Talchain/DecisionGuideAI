@@ -1,7 +1,7 @@
 /**
  * Help Modal
  *
- * Shows keyboard shortcuts and tips for using the copilot variant.
+ * Shows keyboard shortcuts and tips for using the guide variant.
  * Includes focus management to trap focus within modal when open.
  */
 

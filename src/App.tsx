@@ -32,7 +32,7 @@ import { TemplatesErrorBoundary } from './routes/templates/TemplatesErrorBoundar
 // Lazy load heavy routes for code splitting (P1.2 Bundle Optimization)
 const LazySandboxStreamPanel = lazy(() => import('./components/SandboxStreamPanel'))
 const LazySandboxV1 = lazy(() => import('./routes/SandboxV1'))
-const CopilotSandboxPage = lazy(() => import('./pages/sandbox-copilot'))
+const CopilotSandboxPage = lazy(() => import('./pages/sandbox-guide'))
 const DecisionTemplates = lazy(() => import('./routes/templates/DecisionTemplates').then(m => ({ default: m.DecisionTemplates })))
 
 // Lazy load protected routes
@@ -151,7 +151,7 @@ export default function App() {
                   {/* Copilot Variant - Feature Flag Controlled */}
                   {import.meta.env.VITE_COPILOT_ENABLED === 'true' && (
                     <Route
-                      path="/sandbox/copilot"
+                      path="/sandbox/guide"
                       element={
                         <Suspense fallback={<LoadingSpinner />}>
                           <CopilotSandboxPage />

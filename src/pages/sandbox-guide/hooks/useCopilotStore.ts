@@ -9,7 +9,7 @@ export type JourneyStage =
   | 'post-run'
   | 'compare'
 
-interface CopilotStore {
+interface GuideStore {
   journeyStage: JourneyStage
   panelExpanded: boolean
   selectedElement: string | null
@@ -21,7 +21,7 @@ interface CopilotStore {
   setCompareMode: (enabled: boolean) => void
 }
 
-export const useCopilotStore = create<CopilotStore>((set) => ({
+export const useGuideStore = create<GuideStore>((set) => ({
   journeyStage: 'empty',
   panelExpanded: true,
   selectedElement: null,

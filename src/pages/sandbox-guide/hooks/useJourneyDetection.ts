@@ -14,7 +14,7 @@
 import { useEffect } from 'react'
 import { useCanvasStore } from '@/canvas/store'
 import { useResultsStore } from '@/canvas/stores/resultsStore'
-import { useCopilotStore } from './useCopilotStore'
+import { useGuideStore } from './useGuideStore'
 import { determineJourneyStage } from '../utils/journeyDetection'
 
 /**
@@ -34,10 +34,10 @@ export function useJourneyDetection() {
   const resultsStatus = useResultsStore((state) => state.status)
   const resultsReport = useResultsStore((state) => state.report)
 
-  // Subscribe to copilot state
-  const selectedElement = useCopilotStore((state) => state.selectedElement)
-  const compareMode = useCopilotStore((state) => state.compareMode)
-  const setJourneyStage = useCopilotStore((state) => state.setJourneyStage)
+  // Subscribe to guide state
+  const selectedElement = useGuideStore((state) => state.selectedElement)
+  const compareMode = useGuideStore((state) => state.compareMode)
+  const setJourneyStage = useGuideStore((state) => state.setJourneyStage)
 
   // Update journey stage whenever context changes
   useEffect(() => {
@@ -54,5 +54,5 @@ export function useJourneyDetection() {
   }, [nodes, edges, resultsStatus, resultsReport, selectedElement, compareMode, setJourneyStage])
 
   // Return current stage for component use
-  return useCopilotStore((state) => state.journeyStage)
+  return useGuideStore((state) => state.journeyStage)
 }
