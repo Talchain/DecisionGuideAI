@@ -6,6 +6,10 @@ import { useCopilotStore } from './hooks/useCopilotStore'
 import { determineJourneyStage } from './utils/journeyDetection'
 import { CopilotCanvas } from './components/canvas/CopilotCanvas'
 import { CopilotPanel } from './components/panel/CopilotPanel'
+import { CopilotTopBar } from './components/topbar/CopilotTopBar'
+import { CopilotBottomToolbar } from './components/toolbar/CopilotBottomToolbar'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
+import { HelpModal } from './components/shared/HelpModal'
 
 /**
  * Copilot Layout - Main layout component for copilot variant
@@ -15,7 +19,9 @@ import { CopilotPanel } from './components/panel/CopilotPanel'
  * - Shares canvas: ReactFlowGraph component with copilot enhancements
  * - Separate state: useCopilotStore for copilot-specific UI state
  * - Adaptive panel: Changes content based on journey stage
- * - Visual enhancements: Node badges, edge highlights, tooltips (Phase 4)
+ * - Visual enhancements: Top drivers legend, node selection (Phase 4)
+ * - Top bar & bottom toolbar: Critical alerts, quick actions (Phase 5)
+ * - Keyboard shortcuts: ?, Esc, R, C (Phase 5)
  */
 export default function CopilotLayout() {
   // Read from shared canvas store (READ ONLY)
@@ -31,6 +37,9 @@ export default function CopilotLayout() {
   const selectedElement = useCopilotStore((state) => state.selectedElement)
   const compareMode = useCopilotStore((state) => state.compareMode)
   const setJourneyStage = useCopilotStore((state) => state.setJourneyStage)
+
+  // Keyboard shortcuts
+  const { showHelp, setShowHelp } = useKeyboardShortcuts()
 
   // Detect and update journey stage whenever context changes
   useEffect(() => {
@@ -48,10 +57,8 @@ export default function CopilotLayout() {
 
   return (
     <div className="h-screen flex flex-col bg-mist-50">
-      {/* Top Bar - To be built in Phase 5 */}
-      <div className="h-12 border-b border-storm-200 bg-white flex items-center px-4">
-        <div className="text-sm text-storm-600">Copilot Variant</div>
-      </div>
+      {/* Top Bar */}
+      <CopilotTopBar />
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
@@ -68,10 +75,11 @@ export default function CopilotLayout() {
         </div>
       </div>
 
-      {/* Bottom Toolbar - To be built in Phase 5 */}
-      <div className="h-12 border-t border-storm-200 bg-white flex items-center px-4">
-        <div className="text-sm text-storm-600">Bottom toolbar</div>
-      </div>
+      {/* Bottom Toolbar */}
+      <CopilotBottomToolbar />
+
+      {/* Help Modal */}
+      <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
     </div>
   )
 }
