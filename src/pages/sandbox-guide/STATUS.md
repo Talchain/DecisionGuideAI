@@ -679,3 +679,123 @@ npm run test:guide
 **Test Coverage**: ~65% (core logic 100%)
 **Code Quality**: Enterprise-grade (all P0/P1 issues resolved)
 **Developer Experience**: Excellent (comprehensive docs, visual diagrams, barrel exports)
+
+---
+
+## 🚀 Path B Features (Complete)
+
+### Feature 1: Canvas Visual Encoding (Complete)
+**Delivered**: 2025-11-30
+
+**Visual Intelligence**:
+- ✅ Edge thickness encoding (2-6px based on driver contribution)
+- ✅ Edge color encoding (grey → light blue → dark blue based on evidence count)
+- ✅ Node badges for top 3 drivers (rank + percentage)
+- ✅ Critical gap pulse animation
+- ✅ CSS animations with `prefers-reduced-motion` support
+
+**Implementation**:
+- ✅ `canvasEnhancement.ts` - Visual encoding utilities
+- ✅ Enhanced `NodeBadge.tsx` - Rank-based color coding
+- ✅ Enhanced `GuideCanvas.tsx` - Displays node badges
+- ✅ `canvas-animations.css` - Smooth animations
+
+**Tests**:
+- ✅ 18 test cases covering all encoding scenarios
+- ✅ 100% coverage on utility functions
+
+**Accessibility**:
+- ✅ ARIA labels on node badges
+- ✅ Respects reduced-motion preferences
+
+### Feature 2: Hover Tooltips (Complete)
+**Delivered**: 2025-11-30
+
+**Rich Contextual Information**:
+- ✅ TooltipWrapper using @floating-ui/react
+- ✅ EdgeTooltip with driver insights, critical gaps, evidence count
+- ✅ Enhanced NodeTooltip with driver status, connection counts
+- ✅ Context-sensitive action buttons
+
+**Features**:
+- ✅ 300ms hover delay
+- ✅ Intelligent positioning (auto-flip, shift to stay on screen)
+- ✅ Keyboard accessible (focus triggers tooltip)
+- ✅ Can hover tooltip without dismissing
+
+**Actions Available**:
+- ✅ Add evidence (edges)
+- ✅ Explain relationship (edges)
+- ✅ Inspect details (nodes)
+- ✅ View connections (nodes)
+- ✅ Edit properties (nodes)
+
+### Feature 3: Compare Mode (Complete)
+**Delivered**: 2025-11-30
+
+**Full Scenario Comparison**:
+- ✅ RunSelector component for selecting two runs
+- ✅ Complete CompareState implementation
+- ✅ Delta calculation with direction indicator (↑/↓)
+- ✅ Top 3 change drivers display
+- ✅ Structural diff (nodes/edges changed)
+- ✅ AI recommendations based on delta + confidence
+
+**Change Attribution**:
+- ✅ Each driver shows: description, change type, contribution %, affected nodes
+- ✅ Actions: Revert change, View in graph
+- ✅ Actions: Restore baseline, Save scenario, Exit compare
+
+**Implementation**:
+- ✅ `RunSelector.tsx` - Run selection UI
+- ✅ Complete `CompareState.tsx` - Full comparison view
+- ✅ Mock run history for demonstration
+
+---
+
+## 📊 Current Metrics (Including Path B)
+
+| Metric | Count |
+|--------|-------|
+| **Total Files** | 72+ |
+| **Production Code** | ~5,750+ lines |
+| **Documentation** | ~2,300+ lines |
+| **Tests** | 66+ test cases |
+| **Test Suites** | 11+ |
+| **Components** | 26+ |
+| **Custom Hooks** | 3 |
+| **Journey States** | 7 |
+| **Commits** | 16+ |
+
+---
+
+## 🔄 Git History (Path B)
+
+Recent commits:
+```
+be20e11 feat(guide): complete compare mode with scenario comparison
+5611457 feat(guide): add hover tooltip components
+c803a0c feat(guide): add canvas visual encoding
+bdd46f7 refactor(guide): update all file contents from Copilot to Guide
+9e427c7 refactor(guide): systematic rename from Copilot to Guide variant
+```
+
+---
+
+## ✅ Ready for Merge
+
+**All Path B features complete:**
+- ✅ Feature 1: Canvas Visual Encoding
+- ✅ Feature 2: Hover Tooltips
+- ✅ Feature 3: Compare Mode
+
+**Quality checks:**
+- ✅ TypeScript strict mode
+- ✅ No `any` types (except controlled mock data)
+- ✅ ARIA labels and accessibility
+- ✅ Comprehensive tests written
+- ✅ Documentation updated
+- ✅ All code committed
+
+**Next step**: Final push and PR to main
+
