@@ -72,10 +72,10 @@ const STATUS_CONFIG: Record<
     description: 'Model has conflicting constraints. Review edge weights and probabilities.',
   },
   unknown: {
-    label: 'Unknown',
+    label: 'Run analysis to calculate',
     icon: HelpCircle,
     className: 'bg-gray-50 border-gray-200 text-gray-600',
-    description: 'Identifiability has not been checked. Run analysis to determine.',
+    description: 'Identifiability has not been checked yet. Run an analysis to calculate this.',
   },
 }
 

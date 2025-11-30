@@ -197,14 +197,27 @@ const mapHttpError = async (response: Response): Promise<V1Error> => {
   if (response.status === 429) {
     // Check both header and body for retry_after
     const retryAfterHeader = response.headers.get('Retry-After')
-    const retryAfter = body.retry_after ?? (retryAfterHeader ? parseInt(retryAfterHeader, 10) : undefined)
+    const retryAfterBody =
+      typeof body.retry_after_s === 'number'
+        ? body.retry_after_s
+        : typeof body.retry_after_seconds === 'number'
+          ? body.retry_after_seconds
+          : typeof body.retry_after === 'number'
+            ? body.retry_after
+            : undefined
+    const retryAfter =
+      typeof retryAfterBody === 'number'
+        ? retryAfterBody
+        : retryAfterHeader
+          ? Number.parseInt(retryAfterHeader, 10)
+          : undefined
     const reason = response.headers.get('X-RateLimit-Reason') || body.reason || 'Rate limit exceeded'
 
     return {
       code: 'RATE_LIMITED',
       message: body.error || 'Too many requests',
       retry_after: retryAfter,
-      details: { ...body, status: response.status, reason },
+      details: { ...body, status: response.status, reason, retry_after: retryAfter },
     }
   }
 
@@ -253,10 +266,19 @@ const mapHttpError = async (response: Response): Promise<V1Error> => {
   }
 
   // Server errors
+  const serverRetryAfter =
+    typeof body.retry_after_s === 'number'
+      ? body.retry_after_s
+      : typeof body.retry_after_seconds === 'number'
+        ? body.retry_after_seconds
+        : typeof body.retry_after === 'number'
+          ? body.retry_after
+          : undefined
   return {
     code: 'SERVER_ERROR',
     message: body.error || `HTTP ${response.status}`,
-    details: { ...body, status: response.status },
+    retry_after: serverRetryAfter,
+    details: { ...body, status: response.status, retry_after: serverRetryAfter },
   }
 }
 

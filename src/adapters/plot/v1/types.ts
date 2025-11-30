@@ -48,7 +48,7 @@ export interface V1RunRequest {
   scenario_id?: string  // Unique scenario identifier
   scenario_name?: string  // Human-readable scenario name
   save?: boolean  // If true, trigger CEE Decision Review generation
-  // NOTE: idempotencyKey is header-only (Idempotency-Key), never in JSON body
+  idempotencyKey?: string
 }
 
 // Response types
@@ -165,7 +165,9 @@ export interface V1Error {
   field?: string
   max?: number
   retry_after?: number
-  details?: unknown
+  // Use a loose type here because different callers enrich details with
+  // HTTP status codes and backend-specific payloads.
+  details?: Record<string, unknown>
   requestId?: string  // P2.3: Request ID for debugging
 }
 

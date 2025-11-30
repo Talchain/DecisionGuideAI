@@ -2,16 +2,18 @@
  * Styled edge component with visual properties
  * Renders weight, style, curvature, label, and confidence
  * British English: visualisation, colour
- * 
- * Curvature implementation (Option A - SmoothStep with corner radius):
- * Uses getSmoothStepPath with borderRadius parameter.
- * Curvature range 0..0.5 maps to borderRadius 0..25px.
- * This maintains visual parity with existing smoothstep edges.
+ *
+ * Path type implementation:
+ * - bezier: Smooth curved lines (default, uses getBezierPath)
+ * - smoothstep: Right-angle paths with rounded corners (uses getSmoothStepPath)
+ * - straight: Direct diagonal lines (uses getStraightPath)
+ *
+ * For smoothstep, curvature range 0..0.5 maps to borderRadius 0..25px.
  */
 
 import { memo, useMemo, useState } from 'react'
-import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps, useReactFlow } from '@xyflow/react'
-import type { EdgeData } from '../domain/edges'
+import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow } from '@xyflow/react'
+import type { EdgeData, EdgePathType } from '../domain/edges'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { formatConfidence, shouldShowLabel } from '../domain/edges'
 import { useIsDark } from '../hooks/useTheme'
@@ -43,6 +45,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const weight = edgeData?.weight ?? 1.0
   const style = edgeData?.style ?? 'solid'
   const curvature = edgeData?.curvature ?? 0.15
+  const pathType: EdgePathType = edgeData?.pathType ?? 'bezier'
   const kind = edgeData?.kind ?? 'decision-probability'
   const label = edgeData?.label
   const confidence = edgeData?.confidence
@@ -67,16 +70,34 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [label, confidence, outgoingEdgeCount, kind]
   )
 
-  // Compute edge path
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
-    sourceX,
-    sourceY,
-    sourcePosition,
-    targetX,
-    targetY,
-    targetPosition,
-    borderRadius: visualProps.curvature * 50, // Map 0-0.5 to 0-25px
-  })
+  // Compute edge path based on pathType
+  const [edgePath, labelX, labelY] = useMemo(() => {
+    switch (pathType) {
+      case 'straight':
+        return getStraightPath({ sourceX, sourceY, targetX, targetY })
+      case 'smoothstep':
+        return getSmoothStepPath({
+          sourceX,
+          sourceY,
+          sourcePosition,
+          targetX,
+          targetY,
+          targetPosition,
+          borderRadius: visualProps.curvature * 50, // Map 0-0.5 to 0-25px
+        })
+      case 'bezier':
+      default:
+        return getBezierPath({
+          sourceX,
+          sourceY,
+          sourcePosition,
+          targetX,
+          targetY,
+          targetPosition,
+          curvature: 0.25, // Bezier curve intensity
+        })
+    }
+  }, [pathType, sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition, visualProps.curvature])
   
   // Improved accessible name using node titles
   const sourceNode = getNode(source)

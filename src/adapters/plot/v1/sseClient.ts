@@ -114,8 +114,22 @@ export function runStream(
       const decoder = new TextDecoder()
       let buffer = ''
       let eventType = ''
-      const correlationIdHeader = response.headers.get('X-Correlation-Id') ?? undefined
-      const degradedHeader = response.headers.get('X-Olumi-Degraded')
+
+      // Tests may provide a minimal mocked Response without headers. In real
+      // fetch responses, headers is always present, but we defensively guard
+      // here to avoid throwing in unit tests.
+      const rawHeaders: any = (response as any).headers
+      const safeGetHeader = (name: string): string | null => {
+        if (!rawHeaders || typeof rawHeaders.get !== 'function') return null
+        try {
+          return rawHeaders.get(name)
+        } catch {
+          return null
+        }
+      }
+
+      const correlationIdHeader = safeGetHeader('X-Correlation-Id') ?? undefined
+      const degradedHeader = safeGetHeader('X-Olumi-Degraded')
       const degradedFlag = degradedHeader === '1' || degradedHeader === 'true'
 
       while (!isClosed) {
@@ -245,7 +259,11 @@ function handleEvent(
 }
 
 /**
- * Map HTTP error response to V1Error
+ * Map HTTP error response from /v1/stream to V1Error.
+ *
+ * Mirrors the main HTTP client's behaviour so callers see consistent
+ * codes, retry semantics, and details regardless of whether the
+ * failure happened before or after the SSE stream was established.
  */
 async function mapStreamError(response: Response): Promise<V1Error> {
   let body: any
@@ -255,26 +273,92 @@ async function mapStreamError(response: Response): Promise<V1Error> {
     body = {}
   }
 
+  // Some unit tests provide a plain object instead of a real Response.
+  // Guard header access to avoid throwing when headers is missing.
+  const rawHeaders: any = (response as any).headers
+  const safeGetHeader = (name: string): string | null => {
+    if (!rawHeaders || typeof rawHeaders.get !== 'function') return null
+    try {
+      return rawHeaders.get(name)
+    } catch {
+      return null
+    }
+  }
+
+  // Rate limited (429) – honour Retry-After semantics and X-RateLimit-Reason
   if (response.status === 429) {
+    const retryAfterHeader = safeGetHeader('Retry-After')
+    const retryAfterBody =
+      typeof body.retry_after_s === 'number'
+        ? body.retry_after_s
+        : typeof body.retry_after_seconds === 'number'
+          ? body.retry_after_seconds
+          : typeof body.retry_after === 'number'
+            ? body.retry_after
+            : undefined
+    const retryAfter =
+      typeof retryAfterBody === 'number'
+        ? retryAfterBody
+        : retryAfterHeader
+          ? Number.parseInt(retryAfterHeader, 10)
+          : undefined
+    const reason = safeGetHeader('X-RateLimit-Reason') || body.reason || 'Rate limit exceeded'
+
     return {
       code: 'RATE_LIMITED',
       message: body.error || 'Too many requests',
-      retry_after: body.retry_after,
+      retry_after: retryAfter,
+      details: { ...body, status: response.status, reason, retry_after: retryAfter },
     }
   }
 
+  // Bad input (400) – propagate validation fields/max and attach status
   if (response.status === 400) {
+    if (body.reason === 'graph_too_large' && body.limits) {
+      const limits = body.limits
+      return {
+        code: 'LIMIT_EXCEEDED',
+        message: `Graph exceeds backend runtime limits: ${limits.nodes || '?'} nodes max, ${limits.edges || '?'} edges max`,
+        field: 'nodes',
+        max: limits.nodes,
+        details: { ...body, status: response.status },
+      }
+    }
+
     return {
       code: 'BAD_INPUT',
-      message: body.error || 'Invalid input',
+      message: body.error || body.reason || 'Invalid input',
       field: body.fields?.field,
       max: body.fields?.max,
+      details: { ...body, status: response.status },
     }
   }
 
+  // Payload too large / explicit LIMIT_EXCEEDED
+  if (response.status === 413 || body.code === 'LIMIT_EXCEEDED') {
+    return {
+      code: 'LIMIT_EXCEEDED',
+      message: body.error || 'Request exceeds limits',
+      field: body.fields?.field,
+      max: body.fields?.max,
+      details: { ...body, status: response.status },
+    }
+  }
+
+  // Gateway timeout (504) – proxy timeout, analysis took too long
+  if (response.status === 504) {
+    return {
+      code: 'GATEWAY_TIMEOUT',
+      message: 'Analysis timed out via gateway (proxy timeout). Try a smaller graph or "quick" mode.',
+      details: { ...body, status: response.status },
+    }
+  }
+
+  // Generic server error
   return {
     code: 'SERVER_ERROR',
     message: body.error || `HTTP ${response.status}`,
+    details: { ...body, status: response.status },
   }
 }
 
@@ -282,12 +366,14 @@ async function mapStreamError(response: Response): Promise<V1Error> {
  * Map SSE error event to V1Error
  */
 function mapEventError(data: any): V1Error {
+  const details = data.details ?? data
   return {
     code: data.code || 'SERVER_ERROR',
     message: data.message || 'Unknown error',
     field: data.field,
     max: data.max,
     retry_after: data.retry_after,
-    details: data.details,
+    details,
+    requestId: data.request_id || data.requestId || details?.request_id || details?.requestId,
   }
 }

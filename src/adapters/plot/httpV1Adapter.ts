@@ -26,7 +26,7 @@ import * as v1http from './v1/http'
 import { runStream as v1runStream } from './v1/sseClient'
 import { V1_LIMITS } from './v1/types'
 import { graphToV1Request, computeClientHash, toCanonicalRun, type ReactFlowGraph } from './v1/mapper'
-import { shouldUseSync } from './v1/constants'
+import { shouldUseSync, isRetryableErrorCode, isRetryableStatus } from './v1/constants'
 import { getDiagnosticsFromCompleteEvent, getGraphCaps } from './v1/sdkHelpers'
 
 const ENABLE_HTTPV1_DEBUG: boolean = (() => {
@@ -201,10 +201,20 @@ function mapV1ResultToReport(
 
 /**
  * Map v1 Error to UI ErrorV1
- * P2.3: Include request ID in error message for debugging support tickets
+ *
+ * Normalises backend V1Error into the richer error.v1 envelope used by the UI:
+ * - Preserves engine requestId for support/debug
+ * - Exposes retryability based on engine code + HTTP status
+ * - Normalises validation fields and optional path information
+ * - Adds human-friendly hints for common failure modes
  */
 function mapV1ErrorToUI(error: V1Error): ErrorV1 {
-  // P2.3: Append request ID to error message if present
+  // Extract HTTP status from details when present
+  const status = typeof (error.details as any)?.status === 'number'
+    ? (error.details as any).status as number
+    : undefined
+
+  // P2.3: Append request ID to error message if present for quick copy-paste
   const errorMessage = error.requestId
     ? `${error.message} (Request ID: ${error.requestId})`
     : error.message
@@ -212,26 +222,57 @@ function mapV1ErrorToUI(error: V1Error): ErrorV1 {
   // P2.3: Add actionable hints for specific error types
   let hint: string | undefined
   if (error.code === 'GATEWAY_TIMEOUT') {
-    hint = 'Try Quick mode for faster analysis'
+    hint = 'Try Quick mode for faster analysis.'
   } else if (error.code === 'TIMEOUT') {
     hint = 'The analysis took too long. Try a smaller graph or Quick mode.'
   } else if (error.code === 'RATE_LIMITED') {
-    hint = error.retry_after
-      ? `Please wait ${error.retry_after} seconds before retrying.`
-      : 'You have exceeded the rate limit. Please wait before trying again.'
+    const seconds = error.retry_after && error.retry_after > 0
+      ? Math.ceil(error.retry_after)
+      : undefined
+    hint = seconds
+      ? `Please wait about ${seconds} second${seconds === 1 ? '' : 's'} before retrying.`
+      : 'You have exceeded the rate limit. Please wait a short while before trying again.'
   }
+
+  // Determine retryability from engine code + HTTP status. TIMEOUT and
+  // GATEWAY_TIMEOUT are safe to retry manually even if we do not auto-retry.
+  const retryableByCode = isRetryableErrorCode(error.code)
+    || error.code === 'TIMEOUT'
+    || error.code === 'GATEWAY_TIMEOUT'
+  const retryableByStatus = typeof status === 'number' ? isRetryableStatus(status) : false
+  const retryable = retryableByCode || retryableByStatus
+
+  // Normalise validation fields for UI consumers (ErrorBanner, etc.)
+  const rawField = error.field
+  const normalizedField = rawField === 'nodes' || rawField === 'graph.nodes'
+    ? 'graph.nodes'
+    : rawField === 'edges' || rawField === 'graph.edges'
+      ? 'graph.edges'
+      : rawField
+
+  const details = error.details as any
+  const path: string[] | undefined = Array.isArray(details?.path)
+    ? details.path.map((p: unknown) => String(p))
+    : undefined
+
+  const fields = (normalizedField || typeof error.max === 'number' || (path && path.length))
+    ? {
+        field: normalizedField,
+        max: error.max,
+        path,
+      }
+    : undefined
 
   return {
     schema: 'error.v1',
-    code: error.code as any, // Type compatible
+    code: error.code as any, // Type compatible with UI union
     error: errorMessage,
+    message: error.message,
     hint,
-    fields: error.field
-      ? {
-          field: error.field,
-          max: error.max,
-        }
-      : undefined,
+    retryable,
+    source: 'plot',
+    request_id: error.requestId,
+    fields,
     retry_after: error.retry_after,
   }
 }

@@ -12,6 +12,15 @@ export const EdgeStyleEnum = z.enum(['solid', 'dashed', 'dotted'])
 export type EdgeStyle = z.infer<typeof EdgeStyleEnum>
 
 /**
+ * Edge path type options for connector rendering
+ * - bezier: Smooth curved lines (default, best for most graphs)
+ * - smoothstep: Right-angle paths with rounded corners
+ * - straight: Direct diagonal lines
+ */
+export const EdgePathTypeEnum = z.enum(['bezier', 'smoothstep', 'straight'])
+export type EdgePathType = z.infer<typeof EdgePathTypeEnum>
+
+/**
  * Edge kind - semantic type of the edge
  * Determines how the label/confidence value is interpreted
  */
@@ -39,16 +48,22 @@ export const EdgeDataSchema = z.object({
   // Visual properties
   weight: z.number().min(0).max(1).default(0.5),
   style: EdgeStyleEnum.default('solid'),
+  // Note: curvature is currently only applied for smoothstep paths in StyledEdge.
+  // Bezier paths use a fixed internal curvature value for now.
   curvature: z.number().min(0).max(0.5).default(0.15),
+  pathType: EdgePathTypeEnum.default('bezier'),
 
   // Semantic properties
   kind: EdgeKindEnum.default('decision-probability'),
   label: z.string().max(50).optional(),
+  // confidence: interpreted as branch probability (0-1). For decision nodes,
+  // NodeInspectorCompact treats confidence on outgoing edges as a probability
+  // distribution that should sum to ~1 across all branches.
   confidence: z.number().min(0).max(1).optional(),
 
   // P1B API metadata (Inspector-editable)
-  belief: z.number().min(0).max(1).optional(),           // Epistemic uncertainty (0 = certain, 1 = maximum uncertainty)
-  provenance: z.string().max(100).optional(),             // Source/rationale for this edge
+  belief: z.number().min(0).max(1).optional(),           // Epistemic uncertainty (0-1) for this connection
+  provenance: z.string().max(100).optional(),             // Short source/rationale tag (e.g. "template", "user", "inferred")
 
   // Template tracking
   templateId: z.string().optional(),
@@ -66,6 +81,7 @@ export const DEFAULT_EDGE_DATA: EdgeData = {
   weight: 0.5,
   style: 'solid',
   curvature: 0.15,
+  pathType: 'bezier',
   kind: 'decision-probability',
   schemaVersion: 3,
 }

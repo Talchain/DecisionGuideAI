@@ -150,7 +150,8 @@ export function useResultsRun(): UseResultsRunReturn {
             resultsError({
               code: error.code,
               message: `${friendlyError.title}: ${friendlyError.message}${friendlyError.suggestion ? ` ${friendlyError.suggestion}` : ''}`,
-              retryAfter: error.retry_after
+              retryAfter: error.retry_after,
+              request_id: error.request_id
             })
             cancelRef.current = null
           }
@@ -170,7 +171,8 @@ export function useResultsRun(): UseResultsRunReturn {
         resultsError({
           code: error.code || 'SERVER_ERROR',
           message: `${friendlyError.title}: ${friendlyError.message}${friendlyError.suggestion ? ` ${friendlyError.suggestion}` : ''}`,
-          retryAfter: error.retry_after
+          retryAfter: error.retry_after,
+          request_id: error.request_id
         })
         cancelRef.current = null
       }
@@ -214,7 +216,8 @@ export function useResultsRun(): UseResultsRunReturn {
         resultsError({
           code: error.code,
           message: `${friendlyError.title}: ${friendlyError.message}${friendlyError.suggestion ? ` ${friendlyError.suggestion}` : ''}`,
-          retryAfter: error.retry_after
+          retryAfter: error.retry_after,
+          request_id: error.request_id
         })
       }
     }

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { Insights } from '../../types/plot'
+import { focusNodeById } from '../utils/focusHelpers'
 
 interface InsightsPanelProps {
   /** Insights data from engine response (may have missing/null fields) */
@@ -153,14 +154,19 @@ export function InsightsPanel({
                 aria-label="Risks to consider"
                 data-testid="risks-list"
               >
-                {risks.map((risk, index) => (
-                  <li
-                    key={index}
-                    className={`${typography.bodySmall} text-ink-900/80 list-disc`}
-                  >
-                    {risk}
-                  </li>
-                ))}
+                {risks.map((risk, index) => {
+                  const label = String(risk)
+                  const key = `risk-${label}-${index}`
+
+                  return (
+                    <li
+                      key={key}
+                      className={`${typography.bodySmall} text-ink-900/80 list-disc`}
+                    >
+                      {risk}
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           )}
@@ -183,20 +189,44 @@ export function InsightsPanel({
                 aria-label="Recommended next steps"
                 data-testid="next-steps-list"
               >
-                {next_steps.map((step, index) => (
-                  <li
-                    key={index}
-                    className="flex items-start gap-2"
-                  >
-                    <ArrowRight
-                      className="w-3.5 h-3.5 text-green-600 flex-shrink-0 mt-0.5"
-                      aria-hidden="true"
-                    />
-                    <span className={`${typography.bodySmall} text-ink-900/80`}>
-                      {step}
-                    </span>
-                  </li>
-                ))}
+                {next_steps.map((step, index) => {
+                  const label = typeof step === 'string' ? step : step?.label ?? ''
+                  const nodeId = typeof step === 'string' ? undefined : step?.nodeId
+
+                  if (!label) return null
+
+                  const handleClick = () => {
+                    if (nodeId) {
+                      focusNodeById(nodeId)
+                    }
+                  }
+
+                  const isInteractive = Boolean(nodeId)
+                  const itemKey = nodeId ? `next-${nodeId}` : `next-${label}-${index}`
+
+                  return (
+                    <li
+                      key={itemKey}
+                      className="flex items-start gap-2"
+                    >
+                      <ArrowRight
+                        className="w-3.5 h-3.5 text-green-600 flex-shrink-0 mt-0.5"
+                        aria-hidden="true"
+                      />
+                      <button
+                        type="button"
+                        onClick={isInteractive ? handleClick : undefined}
+                        className={`${typography.bodySmall} text-ink-900/80 text-left ${
+                          isInteractive ? 'underline decoration-dotted hover:text-green-700' : ''
+                        }`}
+                        disabled={!isInteractive}
+                        data-testid="next-step-item"
+                      >
+                        {label}
+                      </button>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           )}

@@ -57,10 +57,12 @@ describe('SSE Client (Simplified)', () => {
       runStream(validRequest, handlers)
 
       await vi.waitFor(() => {
-        expect(handlers.onError).toHaveBeenCalledWith({
-          code: 'BAD_INPUT',
-          message: 'Invalid input',
-        })
+        expect(handlers.onError).toHaveBeenCalledWith(
+          expect.objectContaining({
+            code: 'BAD_INPUT',
+            message: 'Invalid input',
+          }),
+        )
       })
     })
 
@@ -76,10 +78,12 @@ describe('SSE Client (Simplified)', () => {
       runStream(validRequest, handlers)
 
       await vi.waitFor(() => {
-        expect(handlers.onError).toHaveBeenCalledWith({
-          code: 'SERVER_ERROR',
-          message: 'Server error',
-        })
+        expect(handlers.onError).toHaveBeenCalledWith(
+          expect.objectContaining({
+            code: 'SERVER_ERROR',
+            message: 'Server error',
+          }),
+        )
       })
     })
 
@@ -96,11 +100,13 @@ describe('SSE Client (Simplified)', () => {
       runStream(validRequest, handlers)
 
       await vi.waitFor(() => {
-        expect(handlers.onError).toHaveBeenCalledWith({
-          code: 'RATE_LIMITED',
-          message: 'Too many requests',
-          retry_after: 10,
-        })
+        expect(handlers.onError).toHaveBeenCalledWith(
+          expect.objectContaining({
+            code: 'RATE_LIMITED',
+            message: 'Too many requests',
+            retry_after: 10,
+          }),
+        )
       })
     })
 
@@ -110,10 +116,12 @@ describe('SSE Client (Simplified)', () => {
       runStream(validRequest, handlers)
 
       await vi.waitFor(() => {
-        expect(handlers.onError).toHaveBeenCalledWith({
-          code: 'NETWORK_ERROR',
-          message: 'Network failure',
-        })
+        expect(handlers.onError).toHaveBeenCalledWith(
+          expect.objectContaining({
+            code: 'NETWORK_ERROR',
+            message: 'Network failure',
+          }),
+        )
       })
     })
   })
@@ -230,10 +238,12 @@ describe('SSE Client (Simplified)', () => {
       runStream(validRequest, handlers)
 
       await vi.waitFor(() => {
-        expect(handlers.onError).toHaveBeenCalledWith({
-          code: 'SERVER_ERROR',
-          message: 'Failed',
-        })
+        expect(handlers.onError).toHaveBeenCalledWith(
+          expect.objectContaining({
+            code: 'SERVER_ERROR',
+            message: 'Failed',
+          }),
+        )
       })
     })
 

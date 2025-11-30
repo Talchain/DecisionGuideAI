@@ -2,46 +2,8 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import { useEngineLimits } from '../hooks/useEngineLimits'
 import { deriveLimitsStatus } from '../utils/limitsStatus'
-import type { GraphHealth } from '../validation/types'
+import { buildHealthStrings } from '../utils/graphHealthStrings'
 import { typography } from '../../styles/typography'
-
-function buildHealthStrings(graphHealth: GraphHealth | null) {
-  if (!graphHealth) {
-    return {
-      label: 'Health: Unknown',
-      detail: 'No recent health check. Run diagnostics to analyse this graph.',
-    }
-  }
-
-  const totalIssues = graphHealth.issues.length
-  const issuesPart = totalIssues > 0 ? ` • ${totalIssues} issues` : ''
-
-  if (graphHealth.status === 'healthy') {
-    return {
-      label: 'Health: Good',
-      detail: `Score: ${graphHealth.score}/100${issuesPart}`,
-    }
-  }
-
-  if (graphHealth.status === 'warnings') {
-    return {
-      label: 'Health: Warnings',
-      detail: `Score: ${graphHealth.score}/100${issuesPart}`,
-    }
-  }
-
-  if (graphHealth.status === 'errors') {
-    return {
-      label: 'Health: Errors',
-      detail: `Score: ${graphHealth.score}/100${issuesPart}`,
-    }
-  }
-
-  return {
-    label: 'Health: Unknown',
-    detail: 'No recent health check. Run diagnostics to analyse this graph.',
-  }
-}
 
 export function ContextBar() {
   // React #185 FIX: Select primitive values (lengths) directly to avoid re-renders

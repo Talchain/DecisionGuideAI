@@ -38,6 +38,7 @@ export default function CanvasMVP() {
   // React #185 FIX: runMeta is an object - use shallow comparison to prevent infinite re-renders
   const correlationIdHeader = useCanvasStore(state => state.runMeta.correlationIdHeader)
   const ceeDebugHeaders = useCanvasStore(state => state.runMeta.ceeDebugHeaders)
+  const latestErrorRequestId = useCanvasStore(state => state.results.error?.request_id)
 
   // Phase 1A.5: Debug controls visibility (Shift+D shortcut)
   const { showDebug } = useDebugShortcut()
@@ -180,6 +181,7 @@ export default function CanvasMVP() {
       {/* Phase 1A.5: Debug Tray (hidden by default, Shift+D to toggle) */}
       {showDebug && (
         <DebugTray
+          requestId={latestErrorRequestId}
           correlationId={correlationIdHeader}
           ceeDebugHeaders={ceeDebugHeaders}
         />

@@ -72,11 +72,12 @@ describe('ContextBar', () => {
 
     // Limits: under thresholds -> Comfortable
     expect(screen.getByText('Limits')).toBeInTheDocument()
-    expect(screen.getByText('Loading limits')).not.toBeInTheDocument()
+    expect(screen.queryByText('Loading limits')).not.toBeInTheDocument()
     expect(container.textContent).toContain('Comfortable')
 
     // Health: Unknown when no graphHealth
-    expect(container.textContent).toContain('Health: Unknown')
+    expect(container.textContent).toContain('Run analysis to check health')
+    expect(container.textContent).toContain('No recent health check. Run diagnostics to analyse this graph.')
   })
 
   it('shows loading limits state when hook is loading', () => {
