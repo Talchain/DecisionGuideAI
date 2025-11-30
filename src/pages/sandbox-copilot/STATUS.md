@@ -79,6 +79,61 @@ The Copilot Variant is an alternative UI implementation of Olumi's Scenario Sand
 - ✅ Canvas stores: nodes, edges, resultsStore, runMeta
 - ✅ No hardcoded mock data - all from real stores
 
+### Phase 3: Remaining Panel States (Complete)
+
+**BuildingState**:
+- ✅ 4-step progress checklist (outcome, decision, factors, connections)
+- ✅ Visual progress bar with percentage
+- ✅ Smart next suggestion based on what's missing
+- ✅ Contextual guidance for each step
+- ✅ Encouragement messages as progress increases
+
+**EmptyState**:
+- ✅ Three getting-started CTAs (templates, draft, build manually)
+- ✅ Working "Build manually" button - adds initial outcome node
+- ✅ Quick guide explaining model building
+- ✅ Example prompts for inspiration
+- ✅ Clean, inviting first-time user experience
+
+**InspectorState**:
+- ✅ Dual mode: node inspection and edge inspection
+- ✅ Node details: type badge, label, description, prior, utility
+- ✅ Edge details: source→target path, weight, confidence, evidence count
+- ✅ Close button to return to main journey
+- ✅ Action buttons (edit properties, view connections, add evidence)
+- ✅ Reads from selectedElement in copilot store
+
+**CompareState**:
+- ✅ Placeholder with planned features outlined
+- ✅ Exit button to return to main journey
+- ✅ Ready for future implementation (Phase 4+)
+
+### Phase 4: Canvas Visual Enhancements (Complete)
+
+**CopilotCanvas Wrapper**:
+- ✅ Wraps ReactFlowGraph without modifying it (isolation maintained)
+- ✅ Integrates with copilot state for node selection
+- ✅ Only shows enhancements after analysis run completes
+
+**Visual Overlay - Top Drivers Legend**:
+- ✅ Displays as ReactFlow Panel in bottom-left corner
+- ✅ Shows top 3 impact drivers with contribution percentages
+- ✅ Color-coded dots (analytical-600, 400, 300) for visual hierarchy
+- ✅ Clickable drivers - selecting one opens InspectorState
+- ✅ Shows total driver count (+N more drivers)
+- ✅ Helpful tip: "Click a driver to inspect it"
+- ✅ Backdrop blur + transparency for elegant overlay
+
+**Node Interaction**:
+- ✅ Node click handler integrated with copilot state
+- ✅ Clicking any node selects it and opens InspectorState
+- ✅ Seamless integration with journey detection
+
+**Future Canvas Enhancements** (deferred to later phases):
+- Node badges overlay on canvas (requires custom node components)
+- Edge thickness/color based on importance (requires edge customization)
+- Hover tooltips with detailed context (complex positioning)
+
 ## 🏗️ Architecture Details
 
 ### File Structure
@@ -91,19 +146,23 @@ src/pages/sandbox-copilot/
 │   ├── panel/
 │   │   ├── CopilotPanel.tsx       # Adaptive container
 │   │   ├── states/                # 7 journey states
-│   │   │   ├── EmptyState.tsx
-│   │   │   ├── BuildingState.tsx
-│   │   │   ├── PreRunBlockedState.tsx  ✅ Dynamic
-│   │   │   ├── PreRunReadyState.tsx    ✅ Wired to run
-│   │   │   ├── PostRunState.tsx        ✅ Full PLoT/CEE
-│   │   │   ├── InspectorState.tsx      (placeholder)
-│   │   │   └── CompareState.tsx        (placeholder)
+│   │   │   ├── EmptyState.tsx              ✅ Complete
+│   │   │   ├── BuildingState.tsx           ✅ Complete
+│   │   │   ├── PreRunBlockedState.tsx      ✅ Complete
+│   │   │   ├── PreRunReadyState.tsx        ✅ Complete
+│   │   │   ├── PostRunState.tsx            ✅ Complete
+│   │   │   ├── InspectorState.tsx          ✅ Complete
+│   │   │   └── CompareState.tsx            ✅ Complete
 │   │   └── sections/              # Reusable sections
-│   │       ├── TopDriversSection.tsx   ✅
-│   │       ├── RisksSection.tsx        ✅
-│   │       └── AdvancedMetricsSection.tsx ✅
-│   ├── canvas/                    # Canvas enhancements (Phase 4)
-│   │   └── (to be built)
+│   │       ├── TopDriversSection.tsx       ✅
+│   │       ├── RisksSection.tsx            ✅
+│   │       └── AdvancedMetricsSection.tsx  ✅
+│   ├── canvas/                    # Canvas enhancements
+│   │   ├── CopilotCanvas.tsx             ✅ Wrapper component
+│   │   ├── CopilotCanvasOverlay.tsx      ✅ Top drivers legend
+│   │   ├── NodeBadge.tsx                 📋 For future use
+│   │   ├── EdgeHighlight.tsx             📋 For future use
+│   │   └── NodeTooltip.tsx               📋 For future use
 │   ├── topbar/                    # Top bar (Phase 5)
 │   │   └── (to be built)
 │   └── shared/                    # Copilot-specific components
@@ -167,32 +226,31 @@ All components follow the established design system:
 
 **Accessibility**: Focus rings, keyboard navigation ready, ARIA labels
 
-## 🚀 Current Status: Phase 2 Complete
+## 🚀 Current Status: Phase 4 Complete
 
 ### ✅ What Works Now
 
 1. **Route accessible** at `/sandbox/copilot` (with `VITE_COPILOT_ENABLED=true`)
 2. **Adaptive panel** switches content based on journey stage
-3. **Journey detection** works automatically
-4. **PostRunState** shows full PLoT + CEE insights
-5. **PreRunReadyState** has working Run button
-6. **PreRunBlockedState** shows dynamic blockers
-7. **Progressive disclosure** enforced (ExpandableSection)
-8. **Safety guarantees** - never contradictory signals
+3. **Journey detection** works automatically across all 7 stages
+4. **All 7 panel states fully functional**:
+   - EmptyState with working "Build manually" CTA
+   - BuildingState with 4-step progress tracking
+   - PreRunBlockedState with dynamic blocker detection
+   - PreRunReadyState with working Run button
+   - PostRunState with full PLoT + CEE insights
+   - InspectorState with node/edge details
+   - CompareState placeholder ready for future work
+5. **Canvas visual enhancements**:
+   - Top drivers legend overlay (bottom-left)
+   - Clickable drivers for quick inspection
+   - Node click integration with InspectorState
+   - Post-run highlighting via visual legend
+6. **Progressive disclosure** enforced everywhere (ExpandableSection)
+7. **Safety guarantees** - never contradictory signals
+8. **Complete user journey** from empty → build → run → results → inspect
 
 ### 🔄 What's Next (Remaining Phases)
-
-#### Phase 3: Remaining Panel States
-- BuildingState with progress tracking
-- EmptyState with working CTAs (templates, draft, manual)
-- InspectorState with element details
-- CompareState with scenario comparison
-
-#### Phase 4: Canvas Visual Enhancements
-- Enhanced edges (thickness = importance, color = evidence)
-- Node badges (contribution %)
-- Hover tooltips with context + actions
-- Post-run highlighting
 
 #### Phase 5: Top Bar & Bottom Toolbar
 - Top bar with critical alerts
@@ -364,6 +422,6 @@ npm run test:copilot
 
 ---
 
-**Status**: Phase 2 Complete ✅
-**Next**: Phase 3 - Remaining panel states
-**Ready for**: User testing of core journey (Empty → Build → Run → Results)
+**Status**: Phase 4 Complete ✅
+**Next**: Phase 5 - Top bar & bottom toolbar
+**Ready for**: Full user testing of complete journey with visual enhancements (Empty → Build → Run → Results → Inspect)

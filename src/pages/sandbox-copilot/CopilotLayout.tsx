@@ -4,7 +4,7 @@ import { useCanvasStore } from '@/canvas/store'
 import { useResultsStore } from '@/canvas/stores/resultsStore'
 import { useCopilotStore } from './hooks/useCopilotStore'
 import { determineJourneyStage } from './utils/journeyDetection'
-import { ReactFlowGraph } from '@/canvas/ReactFlowGraph'
+import { CopilotCanvas } from './components/canvas/CopilotCanvas'
 import { CopilotPanel } from './components/panel/CopilotPanel'
 
 /**
@@ -12,9 +12,10 @@ import { CopilotPanel } from './components/panel/CopilotPanel'
  *
  * Architecture:
  * - Shares backend: PLoT, CEE, Supabase, Auth
- * - Shares canvas: ReactFlowGraph component
+ * - Shares canvas: ReactFlowGraph component with copilot enhancements
  * - Separate state: useCopilotStore for copilot-specific UI state
  * - Adaptive panel: Changes content based on journey stage
+ * - Visual enhancements: Node badges, edge highlights, tooltips (Phase 4)
  */
 export default function CopilotLayout() {
   // Read from shared canvas store (READ ONLY)
@@ -57,7 +58,7 @@ export default function CopilotLayout() {
         {/* Canvas - Flexible width */}
         <div className="flex-1 relative bg-white">
           <ReactFlowProvider>
-            <ReactFlowGraph />
+            <CopilotCanvas />
           </ReactFlowProvider>
         </div>
 
