@@ -5,6 +5,7 @@
  * - Visual encoding: edge thickness, colors, node badges
  * - Critical gap animations
  * - Top driver badges with rank
+ * - Post-run highlighting: emphasize drivers, fade non-critical paths
  * - Integrates with guide state for node selection
  * - Shows contextual canvas information post-run
  */
@@ -17,6 +18,7 @@ import { useResultsStore } from '@/canvas/stores/resultsStore'
 import { useCanvasStore } from '@/canvas/store'
 import { useGuideStore } from '../../hooks/useGuideStore'
 import { enhanceEdges, getNodeBadge } from '../../utils/canvasEnhancement'
+import { usePostRunHighlighting } from '../../hooks/usePostRunHighlighting'
 import './canvas-animations.css'
 
 export function GuideCanvas(): JSX.Element {
@@ -25,6 +27,9 @@ export function GuideCanvas(): JSX.Element {
   const hasResults = resultsStatus === 'complete'
   const selectElement = useGuideStore((state) => state.selectElement)
   const canvasRef = useRef<HTMLDivElement>(null)
+
+  // Apply post-run highlighting automatically
+  usePostRunHighlighting()
 
   // Get canvas data
   const nodes = useCanvasStore((state) => state.nodes)
