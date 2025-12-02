@@ -22,6 +22,7 @@ import { RisksSection } from '../sections/RisksSection'
 import { AdvancedMetricsSection } from '../sections/AdvancedMetricsSection'
 import { VerificationBadge } from '../sections/VerificationBadge'
 import { ProvenancePanel } from '../sections/ProvenancePanel'
+import { SeverityStyledCritiques } from '../sections/SeverityStyledCritiques'
 
 export function PostRunState(): JSX.Element {
   const report = useResultsStore((state) => state.results.report)
@@ -96,6 +97,7 @@ export function PostRunState(): JSX.Element {
   // Extract verification and provenance data from ceeReview/report (will be undefined until backend provides it)
   const verification = (ceeReview as any)?.trace?.verification
   const provenance = (report as any)?.model_card?.provenance_summary
+  const ceeCritiques = (ceeReview as any)?.critique
 
   return (
     <div className="divide-y divide-storm-100">
@@ -210,9 +212,13 @@ export function PostRunState(): JSX.Element {
       {/* TIER 2: Top Drivers */}
       {drivers && drivers.length > 0 && <TopDriversSection drivers={drivers} limit={3} />}
 
-      {/* Risks to Consider */}
-      {insights?.risks && insights.risks.length > 0 && (
-        <RisksSection risks={insights.risks} limit={3} />
+      {/* Issues & Recommendations - Use CEE critiques if available, otherwise show risks */}
+      {ceeCritiques && ceeCritiques.length > 0 ? (
+        <SeverityStyledCritiques critiques={ceeCritiques} />
+      ) : (
+        insights?.risks && insights.risks.length > 0 && (
+          <RisksSection risks={insights.risks} limit={3} />
+        )
       )}
 
       {/* Next Steps (from CEE or PLoT) */}
