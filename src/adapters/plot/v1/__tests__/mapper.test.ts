@@ -104,7 +104,8 @@ describe('v1/mapper', () => {
           { id: 'b', data: { label: 'Node B', body: 'Body B' } },
         ],
         edges: [
-          { id: 'e1', source: 'a', target: 'b', data: { confidence: 0.8, weight: 5 } },
+          // Single outgoing edge must have confidence summing to 1.0
+          { id: 'e1', source: 'a', target: 'b', data: { confidence: 1, weight: 5 } },
         ],
       }
 
@@ -116,7 +117,7 @@ describe('v1/mapper', () => {
             { id: 'a', label: 'Node A', body: 'Body A' },
             { id: 'b', label: 'Node B', body: 'Body B' },
           ],
-          edges: [{ from: 'a', to: 'b', confidence: 0.8, weight: 5 }],
+          edges: [{ id: 'e1', from: 'a', to: 'b', confidence: 1, weight: 5 }],
         },
         seed: 42,
       })
@@ -134,19 +135,36 @@ describe('v1/mapper', () => {
 
     it('should normalize confidence > 1 as percentage', () => {
       const graph: ReactFlowGraph = {
-        nodes: [{ id: 'a', data: {} }, { id: 'b', data: {} }],
-        edges: [{ id: 'e1', source: 'a', target: 'b', data: { confidence: 75 } }],
+        nodes: [
+          { id: 'a', data: {} },
+          { id: 'b', data: {} },
+          { id: 'c', data: {} },
+        ],
+        // 75% + 25% = 100% so validation passes; values are normalized to 0..1
+        edges: [
+          { id: 'e1', source: 'a', target: 'b', data: { confidence: 75 } },
+          { id: 'e2', source: 'a', target: 'c', data: { confidence: 25 } },
+        ],
       }
 
       const request = graphToV1Request(graph)
 
       expect(request.graph.edges[0].confidence).toBe(0.75)
+      expect(request.graph.edges[1].confidence).toBe(0.25)
     })
 
     it('should keep confidence <= 1 as-is', () => {
       const graph: ReactFlowGraph = {
-        nodes: [{ id: 'a', data: {} }, { id: 'b', data: {} }],
-        edges: [{ id: 'e1', source: 'a', target: 'b', data: { confidence: 0.75 } }],
+        nodes: [
+          { id: 'a', data: {} },
+          { id: 'b', data: {} },
+          { id: 'c', data: {} },
+        ],
+        // 0.75 + 0.25 = 1.0 so validation passes; values are kept as-is
+        edges: [
+          { id: 'e1', source: 'a', target: 'b', data: { confidence: 0.75 } },
+          { id: 'e2', source: 'a', target: 'c', data: { confidence: 0.25 } },
+        ],
       }
 
       const request = graphToV1Request(graph)
@@ -172,7 +190,8 @@ describe('v1/mapper', () => {
 
       const request = graphToV1Request(graph)
 
-      expect(request.graph.nodes[0]).toEqual({ id: 'a', label: undefined, body: undefined })
+      // Mapper now enforces a non-empty label, defaulting to the node id
+      expect(request.graph.nodes[0]).toEqual({ id: 'a', label: 'a', body: undefined })
     })
 
     it('should handle edges without confidence or weight', () => {
@@ -183,7 +202,7 @@ describe('v1/mapper', () => {
 
       const request = graphToV1Request(graph)
 
-      expect(request.graph.edges[0]).toEqual({ from: 'a', to: 'b' })
+      expect(request.graph.edges[0]).toEqual({ id: 'e1', from: 'a', to: 'b' })
     })
   })
 

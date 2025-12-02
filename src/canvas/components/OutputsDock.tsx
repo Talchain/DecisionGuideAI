@@ -207,7 +207,7 @@ export function OutputsDock() {
   const ceeTrace = runMeta.ceeTrace ?? null
   const ceeError = runMeta.ceeError ?? null
 
-  // Phase 1 Section 3: CEE degraded state (non-blocking overlay behavior)
+  // Phase 1 Section 3: CEE degraded state (non-blocking overlay behaviour)
   const ceeDegraded = ceeTrace?.degraded === true
 
   // Sprint N P0.1: Decision readiness derived from confidence when available

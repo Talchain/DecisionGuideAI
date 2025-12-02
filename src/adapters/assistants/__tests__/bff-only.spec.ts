@@ -35,8 +35,10 @@ describe('S5-BFF: Assist calls are BFF-only', () => {
       await draftGraph(mockRequest)
 
       expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/bff/assist/draft-graph'),
-        expect.any(Object)
+        expect.stringContaining('/bff/assist/v1/draft-flows'),
+        expect.objectContaining({
+          body: expect.stringContaining('"path":"/draft-graph"')
+        })
       )
     })
 
@@ -91,8 +93,10 @@ describe('S5-BFF: Assist calls are BFF-only', () => {
       await draftGraph(mockRequest)
 
       expect(fetchSpy).toHaveBeenCalledWith(
-        'https://custom-bff.example.com/api/draft-graph',
-        expect.any(Object)
+        'https://custom-bff.example.com/api/v1/draft-flows',
+        expect.objectContaining({
+          body: expect.stringContaining('"path":"/draft-graph"')
+        })
       )
 
       // Restore
@@ -111,8 +115,10 @@ describe('S5-BFF: Assist calls are BFF-only', () => {
       await draftGraph(mockRequest)
 
       expect(fetchSpy).toHaveBeenCalledWith(
-        '/bff/assist/draft-graph',
-        expect.any(Object)
+        '/bff/assist/v1/draft-flows',
+        expect.objectContaining({
+          body: expect.stringContaining('"path":"/draft-graph"')
+        })
       )
 
       // Restore
@@ -136,8 +142,10 @@ describe('S5-BFF: Assist calls are BFF-only', () => {
       await stream.next() // Start the stream
 
       expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/draft-graph/stream'),
-        expect.any(Object)
+        expect.stringContaining('/v1/draft-flows'),
+        expect.objectContaining({
+          body: expect.stringContaining('"path":"/draft-graph/stream"')
+        })
       )
     })
 

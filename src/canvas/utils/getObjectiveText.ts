@@ -49,7 +49,7 @@ export function getObjectiveText(params: {
 /**
  * Determine goal direction from framing text
  *
- * Analyzes the goal/title text for directional keywords.
+ * Analyses the goal/title text for directional keywords.
  * Defaults to 'maximize' if direction cannot be determined.
  *
  * Minimize keywords: reduce, minimize, decrease, lower, cut, shrink, limit

@@ -21,3 +21,73 @@ export function diff<T extends IdObj>(a: T[], b: T[]): { added: string[]; remove
   const by = (xs: string[]) => xs.slice().sort((x, y) => (x < y ? -1 : x > y ? 1 : 0))
   return { changed: by(changed), added: by(added), removed: by(removed) }
 }
+
+type CompareStats = {
+  p10: number
+  p50: number
+  p90: number
+  top3_edges: any[]
+}
+
+type CompareMap = Record<string, CompareStats>
+
+type CompareDeltaEntry = { a: number; b: number; delta: number }
+
+export type CompareResult = {
+  p10: CompareDeltaEntry
+  p50: CompareDeltaEntry
+  p90: CompareDeltaEntry
+  top3_edges: any[]
+}
+
+function isValidStats(value: any): value is CompareStats {
+  return (
+    value != null &&
+    typeof value === 'object' &&
+    typeof value.p10 === 'number' &&
+    typeof value.p50 === 'number' &&
+    typeof value.p90 === 'number' &&
+    Array.isArray(value.top3_edges)
+  )
+}
+
+function buildDelta(a: CompareStats, b: CompareStats): CompareResult {
+  const mk = (field: 'p10' | 'p50' | 'p90'): CompareDeltaEntry => ({
+    a: a[field],
+    b: b[field],
+    delta: b[field] - a[field],
+  })
+
+  return {
+    p10: mk('p10'),
+    p50: mk('p50'),
+    p90: mk('p90'),
+    top3_edges: b.top3_edges ?? [],
+  }
+}
+
+export function deriveCompare(
+  compareMap: CompareMap | undefined | null,
+  optionA: string,
+  optionB: string,
+): CompareResult | null {
+  if (!compareMap || typeof compareMap !== 'object') return null
+  const a = (compareMap as any)[optionA]
+  const b = (compareMap as any)[optionB]
+  if (!isValidStats(a) || !isValidStats(b)) return null
+  return buildDelta(a, b)
+}
+
+export function deriveCompareAcrossRuns(
+  compareMapA: CompareMap | undefined | null,
+  compareMapB: CompareMap | undefined | null,
+  option: string,
+): CompareResult | null {
+  if (!compareMapA || typeof compareMapA !== 'object') return null
+  if (!compareMapB || typeof compareMapB !== 'object') return null
+  const a = (compareMapA as any)[option]
+  const b = (compareMapB as any)[option]
+  if (!isValidStats(a) || !isValidStats(b)) return null
+  return buildDelta(a, b)
+}
+

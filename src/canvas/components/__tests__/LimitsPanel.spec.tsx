@@ -39,7 +39,7 @@ describe('LimitsPanel', () => {
     expect(queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('renders summary block and percentages for comfortable zone', () => {
+  it('renders summary block and usage counts for comfortable zone', () => {
     mockUseEngineLimits.mockReturnValue(createMockReturn())
 
     render(
@@ -52,9 +52,9 @@ describe('LimitsPanel', () => {
       screen.getByText(/comfortably within the engine's recommended range/i)
     ).toBeInTheDocument()
 
-    // Percentages (50/200 = 25%, 100/500 = 20%)
-    expect(screen.getByText('(25%)')).toBeInTheDocument()
-    expect(screen.getByText('(20%)')).toBeInTheDocument()
+    // Usage counts (50/200 nodes, 100/500 edges)
+    expect(screen.getByText('50 / 200')).toBeInTheDocument()
+    expect(screen.getByText('100 / 500')).toBeInTheDocument()
   })
 
   it('renders getting complex zone summary when usage between 70% and 89%', () => {
@@ -67,8 +67,8 @@ describe('LimitsPanel', () => {
     expect(screen.getByText('Getting complex')).toBeInTheDocument()
     expect(screen.getByText(/getting complex but is still within the engine's limits/i)).toBeInTheDocument()
 
-    // 150/200 = 75%
-    expect(screen.getByText('(75%)')).toBeInTheDocument()
+    // 150/200 nodes
+    expect(screen.getByText('150 / 200')).toBeInTheDocument()
   })
 
   it('renders at limit zone summary when usage is >= 90%', () => {
@@ -81,9 +81,9 @@ describe('LimitsPanel', () => {
     expect(screen.getByText('At limit')).toBeInTheDocument()
     expect(screen.getByText(/at the engine's recommended limit/i)).toBeInTheDocument()
 
-    // 190/200 = 95%, 480/500 = 96%
-    expect(screen.getByText('(95%)')).toBeInTheDocument()
-    expect(screen.getByText('(96%)')).toBeInTheDocument()
+    // 190/200 nodes, 480/500 edges
+    expect(screen.getByText('190 / 200')).toBeInTheDocument()
+    expect(screen.getByText('480 / 500')).toBeInTheDocument()
   })
 
   it('renders loading state when limits are loading', () => {

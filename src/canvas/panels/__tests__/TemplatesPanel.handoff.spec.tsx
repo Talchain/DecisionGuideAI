@@ -56,21 +56,24 @@ describe('TemplatesPanel - P0-3: Hand-off and semantics', () => {
 
     // Setup default mocks
     vi.mocked(plotAdapter.plot.templates).mockResolvedValue({
+      schema: 'templates.v1',
       items: [
-        { id: 'template-1', name: 'Test Template', description: 'Test description' }
+        { id: 'template-1', name: 'Test Template', description: 'Test description', version: '1.0' }
       ]
-    })
+    } as any)
 
     vi.mocked(plotAdapter.plot.template).mockResolvedValue({
+      schema: 'template.v1',
       id: 'template-1',
       name: 'Test Template',
       description: 'Test description',
+      version: '1.0',
       default_seed: 1337,
       graph: {
         nodes: [{ id: 'n1', label: 'Node 1', kind: 'goal' }],
         edges: []
       }
-    })
+    } as any)
 
     // Mock store getState
     vi.mocked(useCanvasStore.getState).mockReturnValue({
@@ -111,7 +114,7 @@ describe('TemplatesPanel - P0-3: Hand-off and semantics', () => {
     })
 
     // Click primary "Start from Template" button to select template
-    const insertButton = screen.getByRole('button', { name: /start from .*template/i })
+    const insertButton = screen.getByRole('button', { name: /insert .*template/i })
     fireEvent.click(insertButton)
 
     // Wait for template details to load
@@ -270,7 +273,8 @@ describe('TemplatesPanel - P0-3: Hand-off and semantics', () => {
     })
 
     // Click primary "Start from Template" button to select template
-    const insertButton = screen.getByRole('button', { name: /start from .*template/i })
+    // Accessible name comes from aria-label="Insert {template.name}" on TemplateCard
+    const insertButton = screen.getByRole('button', { name: /insert .*template/i })
     fireEvent.click(insertButton)
 
     // Wait for Run button to appear

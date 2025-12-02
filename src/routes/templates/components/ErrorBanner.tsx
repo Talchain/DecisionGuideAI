@@ -13,9 +13,11 @@ const getErrorMessage = (error: ErrorV1): string => {
     case 'BAD_INPUT':
       return error.error || 'Please check your input and try again.'
     case 'LIMIT_EXCEEDED':
-      const field = error.fields?.field === 'graph.nodes' ? 'nodes' : 'connections'
-      const max = error.fields?.max || 12
-      return `Too many ${field} for this plan. Please keep it to ${max} ${field}.`
+      {
+        const field = error.fields?.field === 'graph.nodes' ? 'nodes' : 'connections'
+        const max = error.fields?.max || 12
+        return `Too many ${field} for this plan. Please keep it to ${max} ${field}.`
+      }
     case 'RATE_LIMITED':
       return error.error || 'You\'re going fast — please retry shortly.'
     case 'UNAUTHORIZED':

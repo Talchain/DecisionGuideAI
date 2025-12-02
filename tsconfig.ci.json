@@ -1,10 +1,11 @@
 {
   "extends": "./tsconfig.app.json",
   "compilerOptions": {
-    "types": ["vite/client"]
+    "types": ["vite/client", "react", "react-dom"]
   },
   "include": [
     "src/flags.ts",
+    "src/lib/ci-shims.d.ts",
     "src/lib/sseClient.ts",
     "src/lib/markdown.ts",
     "src/lib/history.ts",

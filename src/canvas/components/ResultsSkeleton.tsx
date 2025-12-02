@@ -39,7 +39,7 @@ export function ResultsSkeleton() {
       </div>
 
       {/* Screen reader text */}
-      <span className="sr-only">Analyzing decision graph...</span>
+      <span className="sr-only">Analysing decision graph...</span>
     </div>
   )
 }

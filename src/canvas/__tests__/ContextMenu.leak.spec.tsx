@@ -2,15 +2,23 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
 import { ContextMenu } from '../ContextMenu'
 import * as store from '../store'
+import { ToastProvider } from '../ToastContext'
 
-vi.mock('../store')
+vi.mock('../store', () => ({
+  useCanvasStore: vi.fn(),
+}))
+
+function renderWithProviders(ui: React.ReactElement) {
+  return render(<ToastProvider>{ui}</ToastProvider>)
+}
 
 describe('ContextMenu - Leak Prevention', () => {
   const mockOnClose = vi.fn()
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(store.useCanvasStore).mockReturnValue({
+
+    const mockState = {
       addNode: vi.fn(),
       deleteSelected: vi.fn(),
       duplicateSelected: vi.fn(),
@@ -18,9 +26,15 @@ describe('ContextMenu - Leak Prevention', () => {
       pasteClipboard: vi.fn(),
       cutSelected: vi.fn(),
       selectAll: vi.fn(),
+      deleteEdge: vi.fn(),
+      beginReconnect: vi.fn(),
       clipboard: null,
-      selection: { nodeIds: new Set(), edgeIds: new Set() }
-    } as any)
+      selection: { nodeIds: new Set<string>(), edgeIds: new Set<string>() },
+    }
+
+    vi.mocked(store.useCanvasStore).mockImplementation((selector: any) =>
+      typeof selector === 'function' ? selector(mockState) : mockState,
+    )
   })
 
   afterEach(() => {
@@ -33,7 +47,7 @@ describe('ContextMenu - Leak Prevention', () => {
 
     // Open and close menu 50 times
     for (let i = 0; i < 50; i++) {
-      const { unmount } = render(
+      const { unmount } = renderWithProviders(
         <ContextMenu x={100} y={100} onClose={mockOnClose} />
       )
       unmount()
@@ -51,7 +65,7 @@ describe('ContextMenu - Leak Prevention', () => {
     const initialKeydownListeners = getEventListenerCount('keydown')
     const initialMousedownListeners = getEventListenerCount('mousedown')
 
-    const { unmount } = render(
+    const { unmount } = renderWithProviders(
       <ContextMenu x={100} y={100} onClose={mockOnClose} />
     )
 

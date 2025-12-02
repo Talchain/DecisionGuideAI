@@ -14,7 +14,9 @@ const mockSelectAll = vi.fn()
 const mockSaveSnapshot = vi.fn()
 const mockApplyLayout = vi.fn().mockResolvedValue(undefined)
 
-const mockRunLayoutWithProgress = vi.fn<[], Promise<boolean>>()
+const { mockRunLayoutWithProgress } = vi.hoisted(() => ({
+  mockRunLayoutWithProgress: vi.fn<[], Promise<boolean>>(),
+}))
 
 const baseState: any = {
   addNode: mockAddNode,
@@ -102,7 +104,7 @@ describe('CommandPalette DOM - Rich Node Types', () => {
 
     render(<CommandPalette isOpen onClose={onClose} />)
 
-    const runButton = await screen.findByRole('button', { name: 'Run Analysis' })
+    const runButton = await screen.findByRole('button', { name: /Run Analysis/ })
     fireEvent.click(runButton)
 
     await screen.findByText('Cannot run analysis: Graph is empty. Add at least one node.')
@@ -126,7 +128,7 @@ describe('CommandPalette DOM - Rich Node Types', () => {
 
     render(<CommandPalette isOpen onClose={onClose} />)
 
-    const runButton = await screen.findByRole('button', { name: 'Run Analysis' })
+    const runButton = await screen.findByRole('button', { name: /Run Analysis/ })
     fireEvent.click(runButton)
 
     const counters = __getTelemetryCounters()

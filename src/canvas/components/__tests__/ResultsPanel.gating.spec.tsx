@@ -10,6 +10,7 @@ import * as useResultsRunModule from '../../hooks/useResultsRun'
 import * as useEngineLimitsModule from '../../hooks/useEngineLimits'
 import type { UseEngineLimitsReturn } from '../../hooks/useEngineLimits'
 import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../lib/telemetry'
+import { useLimitsStore } from '../../../stores/limitsStore'
 
 vi.mock('../../hooks/useResultsRun', () => ({
   useResultsRun: vi.fn(),
@@ -60,6 +61,7 @@ describe('ResultsPanel run gating (idle state)', () => {
       ;(state as any).resetCanvas()
     }
     useCanvasStore.setState({ graphHealth: null } as any)
+    useLimitsStore.setState({ limits: null } as any)
     vi.clearAllMocks()
 
     mockUseResultsRun.mockReturnValue({
@@ -152,6 +154,18 @@ describe('ResultsPanel run gating (idle state)', () => {
     resetCanvas()
     addNode({ x: 0, y: 0 })
     addNode({ x: 100, y: 0 })
+
+    // Configure limits store so nodes are at/over the recommended limit
+    useLimitsStore.setState({
+      limits: {
+        schema: 'limits.v1',
+        max_nodes: 1,
+        max_edges: 100,
+        max_body_kb: 1024,
+        rate_limit_rpm: 60,
+        engine_p95_ms_budget: 30000,
+      } as any,
+    } as any)
 
     mockUseEngineLimits.mockReturnValue(
       createMockLimitsReturn({

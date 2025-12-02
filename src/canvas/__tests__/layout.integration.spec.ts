@@ -32,7 +32,7 @@ describe('Layout Integration', () => {
     const [nodes, edges, options] = call
     
     // Verify parameters
-    expect(nodes).toHaveLength(7) // 4 initial + 3 added
+    expect(nodes).toHaveLength(3) // 3 nodes added in this test
     expect(edges).toBeDefined()
     expect(options.preset).toBe('grid')
     expect(options.spacing).toBe('medium')

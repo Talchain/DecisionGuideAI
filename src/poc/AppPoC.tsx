@@ -2,6 +2,7 @@
 // POC: Full PoC UI (no auth, no Supabase) mounting real components with safe providers
 
 import { StrictMode, useState, useEffect, Suspense, useMemo, useCallback, useRef, lazy } from 'react'
+import type React from 'react'
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { simulateTokens, getJSON } from './adapters/StreamAdapter'

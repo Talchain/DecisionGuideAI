@@ -16,7 +16,7 @@ export function InsightsTabBody() {
   const [checkedBiases, setCheckedBiases] = useState<Set<string>>(new Set())
   const [expandedBiases, setExpandedBiases] = useState<Set<string>>(new Set())
 
-  // Auto-analyze on graph changes (debounced)
+  // Auto-analyse on graph changes (debounced)
   useEffect(() => {
     if (nodes.length === 0 || loading) return
 
@@ -75,7 +75,7 @@ export function InsightsTabBody() {
       {loading && (
         <div className="flex items-center gap-2">
           <Spinner size="sm" />
-          <span className={typography.body}>Analyzing decision...</span>
+          <span className={typography.body}>Analysing decision...</span>
         </div>
       )}
 

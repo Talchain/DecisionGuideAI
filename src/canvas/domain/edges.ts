@@ -69,7 +69,8 @@ export const EdgeDataSchema = z.object({
   templateId: z.string().optional(),
 
   // Schema version for migrations
-  schemaVersion: z.literal(3).default(3),
+  // Accept legacy v2 and current v3 values for backwards-compatible imports
+  schemaVersion: z.union([z.literal(2), z.literal(3)]).default(3),
 })
 
 export type EdgeData = z.infer<typeof EdgeDataSchema>

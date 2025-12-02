@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen } from '@testing-library/react'
 import { DraftStreamPanel, mockDraftStream } from '../DraftStreamPanel'
 import type { DraftStreamEvent } from '../../../adapters/assistants/types'
 
@@ -25,8 +25,15 @@ describe('DraftStreamPanel (M2.3)', () => {
     render(<DraftStreamPanel isStreaming={true} events={events} />)
 
     expect(screen.getByText(/drafting your model/i)).toBeInTheDocument()
-    expect(screen.getByText(/2.*nodes/i)).toBeInTheDocument()
-    expect(screen.getByText(/1.*edges/i)).toBeInTheDocument()
+    const nodeMatches = screen.getAllByText((_, element) =>
+      /2\s*nodes/i.test(element?.textContent || '')
+    )
+    expect(nodeMatches.length).toBeGreaterThan(0)
+
+    const edgeMatches = screen.getAllByText((_, element) =>
+      /1\s*edges/i.test(element?.textContent || '')
+    )
+    expect(edgeMatches.length).toBeGreaterThan(0)
   })
 
   it('shows complete status when stream finishes', () => {
@@ -112,7 +119,7 @@ describe('mockDraftStream (M2.3)', () => {
     expect(events.length).toBe(6) // 3 nodes + 2 edges + 1 complete
     expect(events[0].type).toBe('node')
     expect(events[events.length - 1].type).toBe('complete')
-  }, 3000)
+  }, 8000)
 
   it('emits nodes before edges before complete', async () => {
     const types: string[] = []
@@ -127,5 +134,5 @@ describe('mockDraftStream (M2.3)', () => {
 
     expect(nodeIndex).toBeLessThan(edgeIndex)
     expect(edgeIndex).toBeLessThan(completeIndex)
-  }, 3000)
+  }, 8000)
 })

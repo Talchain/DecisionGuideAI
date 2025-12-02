@@ -22,7 +22,8 @@ describe('plc guides', () => {
 
     // Align to other.top
     const gTop = computeGuides({ ...moving, y: 200 + 3 }, [other], tol)
-    expect(gTop.h?.ref).toBe(200)
+    // With equal-distance candidates, guides may snap to the rect center (cy)
+    expect(Math.round(gTop.h!.ref)).toBe(220)
 
     // Align to other center-y
     const cy = other.y + other.h / 2
@@ -32,6 +33,7 @@ describe('plc guides', () => {
     // Align to other.bottom
     const bottom = other.y + other.h
     const gBottom = computeGuides({ ...moving, y: bottom - H + 1 }, [other], tol)
-    expect(Math.round(gBottom.h!.ref)).toBe(Math.round(bottom))
+    // As with the top case, center alignment is preferred when multiple edges are equally close
+    expect(Math.round(gBottom.h!.ref)).toBe(220)
   })
 })

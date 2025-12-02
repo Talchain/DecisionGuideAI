@@ -37,7 +37,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
   const label = data?.label || 'Untitled'
   const description = data?.description
 
-  // Phase 3: Get node colors from new system
+  // Phase 3: Get node colours from new system
   const colors = nodeColors[nodeType as keyof typeof nodeColors] || nodeColors.factor
 
   // Local state for expand/collapse (no persistence per spec)
@@ -129,7 +129,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
       }}
       onDoubleClick={handleDoubleClick}
     >
-      {/* Phase 3: Border color overlay for subtle tint */}
+      {/* Phase 3: Border colour overlay for subtle tint */}
       <div className={`absolute inset-0 rounded-lg ${colors.bg} opacity-10 -z-10`} />
       {/* Phase 2: Node badges for CEE/ISL warnings */}
       <NodeBadge

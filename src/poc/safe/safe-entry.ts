@@ -26,7 +26,7 @@ export function showSafe(): void {
   const buildId = document.querySelector('meta[name="build-id"]')?.getAttribute('content') || 'dev'
   
   el.innerHTML = `
-    <pre style="white-space:pre-wrap;font-family:ui-monospace,monospace;padding:2rem">
+    <pre style="white-space:pre-wrap;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Oxygen,Ubuntu,Cantarell,'Open Sans','Helvetica Neue',sans-serif;padding:2rem">
 PoC HTML Safe Screen
 build: ${buildId}
 edge: /engine
