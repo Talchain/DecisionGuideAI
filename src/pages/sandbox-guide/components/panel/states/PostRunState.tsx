@@ -20,6 +20,7 @@ import { MetricRow } from '../../shared/MetricRow'
 import { TopDriversSection } from '../sections/TopDriversSection'
 import { RisksSection } from '../sections/RisksSection'
 import { AdvancedMetricsSection } from '../sections/AdvancedMetricsSection'
+import { VerificationBadge } from '../sections/VerificationBadge'
 
 export function PostRunState(): JSX.Element {
   const report = useResultsStore((state) => state.results.report)
@@ -91,13 +92,19 @@ export function PostRunState(): JSX.Element {
     }
   }
 
+  // Extract verification data from ceeReview (will be undefined until backend provides it)
+  const verification = (ceeReview as any)?.trace?.verification
+
   return (
     <div className="divide-y divide-storm-100">
       {/* Header */}
       <div className="p-6 bg-practical-50">
-        <div className="flex items-center gap-3 mb-2">
-          <span className="text-2xl">📊</span>
-          <h2 className="text-xl font-semibold text-charcoal-900">Analysis Complete</h2>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📊</span>
+            <h2 className="text-xl font-semibold text-charcoal-900">Analysis Complete</h2>
+          </div>
+          <VerificationBadge verification={verification} />
         </div>
       </div>
 
