@@ -23,6 +23,7 @@ import { AdvancedMetricsSection } from '../sections/AdvancedMetricsSection'
 import { VerificationBadge } from '../sections/VerificationBadge'
 import { ProvenancePanel } from '../sections/ProvenancePanel'
 import { SeverityStyledCritiques } from '../sections/SeverityStyledCritiques'
+import { BiasMitigation } from '../sections/BiasMitigation'
 
 export function PostRunState(): JSX.Element {
   const report = useResultsStore((state) => state.results.report)
@@ -98,6 +99,7 @@ export function PostRunState(): JSX.Element {
   const verification = (ceeReview as any)?.trace?.verification
   const provenance = (report as any)?.model_card?.provenance_summary
   const ceeCritiques = (ceeReview as any)?.critique
+  const biasFindings = (ceeReview as any)?.bias?.findings
 
   return (
     <div className="divide-y divide-storm-100">
@@ -219,6 +221,11 @@ export function PostRunState(): JSX.Element {
         insights?.risks && insights.risks.length > 0 && (
           <RisksSection risks={insights.risks} limit={3} />
         )
+      )}
+
+      {/* Bias Mitigation - Show AI-suggested fixes for structural problems */}
+      {biasFindings && biasFindings.length > 0 && (
+        <BiasMitigation findings={biasFindings} />
       )}
 
       {/* Next Steps (from CEE or PLoT) */}
