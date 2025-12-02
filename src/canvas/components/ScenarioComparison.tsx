@@ -134,7 +134,7 @@ function SplitView({ snapshotA, snapshotB }: { snapshotA: Snapshot; snapshotB: S
         </div>
         <div className="flex-1 overflow-auto p-4">
           <div className={`${typography.body} text-gray-600`}>
-            Graph visualization placeholder
+            Graph visualisation placeholder
             <br />
             <span className={typography.caption}>
               {new Date(snapshotA.createdAt).toLocaleString()}

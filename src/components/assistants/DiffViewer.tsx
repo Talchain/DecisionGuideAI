@@ -47,11 +47,11 @@ export function DiffViewer({ draft, onApply, onReject }: DiffViewerProps) {
   const [showEdges, setShowEdges] = useState(true)
 
   const toggleItem = (id: string) => {
-    setItems(items.map((item) => (item.id === id ? { ...item, selected: !item.selected } : item)))
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, selected: !item.selected } : item)))
   }
 
   const toggleAll = (type: 'node' | 'edge', selected: boolean) => {
-    setItems(items.map((item) => (item.type === type ? { ...item, selected } : item)))
+    setItems((prev) => prev.map((item) => (item.type === type ? { ...item, selected } : item)))
   }
 
   const handleApply = () => {

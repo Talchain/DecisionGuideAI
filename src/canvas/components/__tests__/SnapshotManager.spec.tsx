@@ -7,7 +7,16 @@ import * as store from '../../store'
 
 // Mock modules
 vi.mock('../../persist')
-vi.mock('../../store')
+vi.mock('../../store', () => ({
+  // Provide a selector-aware mock similar to Zustand's hook API
+  useCanvasStore: vi.fn((selector?: (state: any) => any) => {
+    const state = {
+      nodes: [{ id: '1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Test' } }],
+      edges: []
+    }
+    return selector ? selector(state) : state
+  })
+}))
 
 describe('SnapshotManager', () => {
   const mockOnClose = vi.fn()
@@ -19,12 +28,15 @@ describe('SnapshotManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     
-    // Mock store
-    vi.mocked(store.useCanvasStore).mockReturnValue({
-      nodes: [{ id: '1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Test' } }],
-      edges: []
-    } as any)
-    
+    // Reset store mock to default selector-aware implementation (defined in vi.mock above)
+    vi.mocked(store.useCanvasStore).mockImplementation((selector?: (state: any) => any) => {
+      const state = {
+        nodes: [{ id: '1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'Test' } }],
+        edges: []
+      }
+      return selector ? selector(state) : state
+    })
+
     // Mock localStorage
     Storage.prototype.getItem = vi.fn(() => null)
     Storage.prototype.setItem = vi.fn()
@@ -38,11 +50,12 @@ describe('SnapshotManager', () => {
   it('renders when open', () => {
     vi.mocked(persist.listSnapshots).mockReturnValue([])
     
-    const { container } = renderWithToast(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
+    renderWithToast(<SnapshotManager isOpen={true} onClose={mockOnClose} />)
     
     expect(screen.getByText('Snapshot Manager')).toBeTruthy()
     expect(screen.getByText('💾 Save Current Canvas')).toBeTruthy()
-    expect(container.querySelector('[aria-label="Close snapshot manager"]')).toBeTruthy()
+    // BottomSheet close button uses generic "Close" aria-label and is rendered via portal
+    expect(screen.getByLabelText('Close')).toBeTruthy()
   })
 
   it('does not render when closed', () => {
@@ -100,12 +113,15 @@ describe('SnapshotManager', () => {
   })
 
   it('shows toast when canvas exceeds 5MB', async () => {
-    // Mock very large canvas
+    // Mock very large canvas by overriding selector-aware implementation
     const largeLabel = 'x'.repeat(1000)
-    vi.mocked(store.useCanvasStore).mockReturnValue({
-      nodes: Array(10000).fill({ id: '1', type: 'decision', position: { x: 0, y: 0 }, data: { label: largeLabel } }),
-      edges: []
-    } as any)
+    vi.mocked(store.useCanvasStore).mockImplementation((selector?: (state: any) => any) => {
+      const state = {
+        nodes: Array(10000).fill({ id: '1', type: 'decision', position: { x: 0, y: 0 }, data: { label: largeLabel } }),
+        edges: []
+      }
+      return selector ? selector(state) : state
+    })
     
     vi.mocked(persist.listSnapshots).mockReturnValue([])
     

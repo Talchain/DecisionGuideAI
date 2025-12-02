@@ -24,11 +24,10 @@ import { PanelShell } from './_shared/PanelShell'
 import { PanelSection } from './_shared/PanelSection'
 import { Tooltip } from '../components/Tooltip'
 import { FieldLabel } from '../../components/ui/FieldLabel'
-import { EDGE_CONSTRAINTS, clampBelief, trimProvenance } from '../domain/edges'
+import { EDGE_CONSTRAINTS, clampBelief, trimProvenance, DEFAULT_EDGE_DATA } from '../domain/edges'
 import { EDGE_TERMINOLOGY } from '../../config/terminology'
 import {
   beliefToConfidencePercent,
-  confidencePercentToBelief,
   formatConfidencePercent,
 } from '../utils/beliefDisplay'
 import type { Edge } from '@xyflow/react'
@@ -41,7 +40,7 @@ interface InspectorPanelProps {
 
 export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.Element | null {
   const panelRef = useRef<HTMLDivElement>(null)
-  const edges = useCanvasStore(state => state.edges)
+  const edges = useCanvasStore(state => state.edges) as Edge<EdgeData>[]
   const selection = useCanvasStore(state => state.selection)
   const updateEdge = useCanvasStore(state => state.updateEdge)
 
@@ -84,7 +83,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
       return
     }
 
-    const original = selectedEdge.data || {}
+    const original: EdgeData = selectedEdge.data ?? DEFAULT_EDGE_DATA
     const changed =
       belief !== (original.belief ?? 0.5) ||
       provenance !== (original.provenance ?? '') ||
@@ -97,19 +96,9 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
   const validate = useCallback((): boolean => {
     const errors: string[] = []
 
-    // Belief must be 0-1
-    if (belief < 0 || belief > 1) {
-      errors.push('Belief must be between 0 and 1')
-    }
-
     // Weight must be 0.1-5.0 (visual) or 0-1 (API normalized)
     if (weight < EDGE_CONSTRAINTS.weight.min || weight > EDGE_CONSTRAINTS.weight.max) {
       errors.push(`Weight must be between ${EDGE_CONSTRAINTS.weight.min} and ${EDGE_CONSTRAINTS.weight.max}`)
-    }
-
-    // Provenance max length
-    if (provenance.length > EDGE_CONSTRAINTS.provenance.maxLength) {
-      errors.push(`Provenance must be ≤${EDGE_CONSTRAINTS.provenance.maxLength} characters`)
     }
 
     // Lint: missing provenance when belief ≥ 0.7
@@ -135,14 +124,15 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
     const clampedBelief = clampBelief(belief)
     const trimmedProvenance = trimProvenance(provenance)
 
-    // Update edge in store
+    // Update edge in store with safe defaults
+    const current: EdgeData = selectedEdge.data ?? DEFAULT_EDGE_DATA
     updateEdge(selectedEdge.id, {
       data: {
-        ...selectedEdge.data,
+        ...current,
         belief: clampedBelief,
         provenance: trimmedProvenance,
         weight,
-      }
+      },
     })
 
     setHasChanges(false)
@@ -297,46 +287,55 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                 </div>
               </PanelSection>
 
-              {/* Confidence slider (Phase 1A.2: UI-only transform from belief) */}
-              <PanelSection title={EDGE_TERMINOLOGY.belief.userLabel}>
+              {/* Belief & confidence controls */}
+              <PanelSection title="Belief & confidence">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <FieldLabel
-                      label={EDGE_TERMINOLOGY.belief.userLabel}
-                      technicalTerm={EDGE_TERMINOLOGY.belief.technicalTerm}
-                      technicalDescription={EDGE_TERMINOLOGY.belief.description}
-                      htmlFor="confidence-slider"
+                      label="Uncertainty level"
+                      technicalTerm="Belief"
+                      technicalDescription="0 = certain, 1 = maximum uncertainty"
+                      htmlFor="belief-input"
                     />
                     <input
+                      id="belief-input"
                       type="number"
-                      value={Math.round(beliefToConfidencePercent(belief))}
+                      aria-label="Uncertainty level"
+                      value={belief.toFixed(2)}
                       onChange={(e) => {
-                        const confidencePercent = parseFloat(e.target.value) || 0
-                        const clampedConfidence = Math.max(0, Math.min(100, confidencePercent))
-                        setBelief(confidencePercentToBelief(clampedConfidence))
+                        const next = parseFloat(e.target.value)
+                        setBelief(Number.isFinite(next) ? next : 0)
                       }}
-                      className="w-20 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-600"
+                      className="w-24 px-2 py-1 text-sm text-right border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-600"
                       min={0}
-                      max={100}
-                      step={1}
+                      max={1}
+                      step={0.01}
                     />
                   </div>
-                  <input
-                    id="confidence-slider"
-                    type="range"
-                    value={beliefToConfidencePercent(belief)}
-                    onChange={(e) => {
-                      const confidencePercent = parseFloat(e.target.value)
-                      setBelief(confidencePercentToBelief(confidencePercent))
-                    }}
-                    className="w-full"
-                    min={0}
-                    max={100}
-                    step={1}
-                  />
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>0% (Very uncertain)</span>
-                    <span>100% (Very certain)</span>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>Confidence</span>
+                      <span>{formatConfidencePercent(beliefToConfidencePercent(belief))}</span>
+                    </div>
+                    <input
+                      id="belief-confidence-slider"
+                      type="range"
+                      aria-label="Belief / confidence"
+                      value={belief}
+                      onChange={(e) => {
+                        const next = parseFloat(e.target.value)
+                        setBelief(Number.isFinite(next) ? next : 0)
+                      }}
+                      className="w-full"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                    />
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>0 (Very uncertain)</span>
+                      <span>1 (Very certain)</span>
+                    </div>
                   </div>
                 </div>
               </PanelSection>
@@ -387,7 +386,7 @@ export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.El
                     id="source-textarea"
                     value={provenance}
                     onChange={(e) => setProvenance(e.target.value)}
-                    placeholder="Where this information came from..."
+                    placeholder="Source or rationale for this connection..."
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 resize-none"
                     rows={3}
                     maxLength={EDGE_CONSTRAINTS.provenance.maxLength}

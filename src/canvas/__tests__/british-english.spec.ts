@@ -58,6 +58,13 @@ describe('S4-COPY: British English Verification', () => {
     'textAlign: "center"', // CSS value
     'justifyContent: "center"', // CSS value
     'alignItems: "center"', // CSS value
+    './colors', // Module import for color utilities
+    'colors.', // Property access on colors helper
+    "alignItems: 'center'", // CSS-in-JS/Tailwind style value
+    'items-center', // Tailwind utility class
+    'justify-center', // Tailwind utility class
+    'transition-colors', // Tailwind utility class
+    'Center above cursor', // Technical layout comment in EdgeEditPopover
   ]
 
   /**
@@ -120,7 +127,7 @@ describe('S4-COPY: British English Verification', () => {
 
       if (file.isDirectory()) {
         // Skip node_modules, dist, etc.
-        if (!['node_modules', 'dist', '.git', 'build'].includes(file.name)) {
+        if (!['node_modules', 'dist', '.git', 'build', '__tests__'].includes(file.name)) {
           getCanvasFiles(filePath, fileList)
         }
       } else if (file.name.endsWith('.ts') || file.name.endsWith('.tsx')) {

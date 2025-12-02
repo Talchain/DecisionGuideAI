@@ -48,7 +48,9 @@ describe('EdgeDiffTable', () => {
 
     // Should show matched edge with delta
     expect(screen.getByText('n1 → n2')).toBeInTheDocument()
-    expect(screen.getByText('+0.200')).toBeInTheDocument() // weight delta: 0.7 - 0.5
+    // UI now renders labelled weight/belief deltas (Δw and Δb)
+    expect(screen.getByText('Δw:')).toBeInTheDocument()
+    expect(screen.getByText('Δb:')).toBeInTheDocument()
   })
 
   it('marks added edges correctly', () => {

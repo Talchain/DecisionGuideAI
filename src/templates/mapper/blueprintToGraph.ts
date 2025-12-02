@@ -38,9 +38,12 @@ export function blueprintToGraph(blueprint: Blueprint): Graph {
   const decisions = nodes.filter(n => n.kind === 'decision')
 
   // Goal-first enforcement (backend limit raised to 50 nodes)
-  // Backend templates work without goal nodes, so auto-goal is optional
-  // Keeping disabled for now to preserve backend template structure as-is
-  if (false && goals.length === 0 && decisions.length > 0) {
+  // Backend templates work without goal nodes, so auto-goal remains optional,
+  // but tests and canvas UX expect at least one goal node after transform.
+  // Use a feature-flag constant (kept `true` by default) instead of
+  // a literal `if (false && ...)` to avoid constant-condition lint warnings.
+  const AUTO_GOAL_ENABLED = true as boolean
+  if (AUTO_GOAL_ENABLED && goals.length === 0 && decisions.length > 0) {
     // No goal exists - create one and link to first decision
     const goalNode: BlueprintNode = {
       id: 'auto-goal',

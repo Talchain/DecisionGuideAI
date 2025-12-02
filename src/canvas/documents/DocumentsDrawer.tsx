@@ -48,11 +48,19 @@ export function DocumentsDrawer({ documents, isOpen, onClose }: DocumentsDrawerP
 }
 
 function DocumentPreview({ document }: { document: Document }) {
-  const content = document.content || ''
-  const truncated = content.slice(0, 500)
+  const anyDoc = document as any
+  const displayName = anyDoc.name || anyDoc.filename || 'Untitled'
+  const content: string =
+    typeof anyDoc.content === 'string'
+      ? anyDoc.content
+      : typeof document.content === 'string'
+        ? document.content
+        : ''
+  const truncated = content.slice(0, MAX_CHARS_PER_FILE)
   const lines = truncated.split('\n')
   const isTruncated = content.length > MAX_CHARS_PER_FILE
-  const isOversized = (document as any).size > MAX_FILE_SIZE
+  const size = (anyDoc.size as number | undefined) ?? document.size ?? document.displayBytes
+  const isOversized = typeof size === 'number' && size > MAX_FILE_SIZE
 
   return (
     <div className="border border-gray-200 rounded-lg p-3">
@@ -60,15 +68,15 @@ function DocumentPreview({ document }: { document: Document }) {
         <FileText className="w-4 h-4 text-gray-600 mt-0.5" />
         <div className="flex-1 min-w-0">
           <div className={`${typography.label} text-gray-900 truncate`}>
-            {document.name}
+            {displayName}
           </div>
           <div className="flex items-center gap-2 mt-1">
             <span className={`inline-flex items-center px-2 py-0.5 rounded ${typography.caption} font-medium bg-gray-100 text-gray-800`}>
-              {getFileType(document.name)}
+              {getFileType(displayName)}
             </span>
-            {(document as any).size && (
+            {typeof anyDoc.size === 'number' && (
               <span className={`${typography.caption} text-gray-600`}>
-                {formatFileSize((document as any).size)}
+                {formatFileSize(anyDoc.size)}
               </span>
             )}
           </div>
@@ -89,7 +97,7 @@ function DocumentPreview({ document }: { document: Document }) {
 
       <div className="bg-gray-50 rounded border border-gray-200 p-2 max-h-48 overflow-y-auto">
         <pre className={`${typography.code} text-gray-800 whitespace-pre-wrap`}>
-          {lines.map((line, idx) => (
+          {lines.map((line: string, idx: number) => (
             <div key={idx} className="flex gap-2">
               <span className="text-gray-400 select-none text-right" style={{ minWidth: '2em' }}>
                 {idx + 1}

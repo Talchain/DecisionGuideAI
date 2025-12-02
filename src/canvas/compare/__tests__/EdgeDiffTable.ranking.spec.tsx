@@ -305,8 +305,10 @@ describe('S9-DIFFS: EdgeDiffTable Enhancements', () => {
       expect(screen.getByText('Δw / Δb')).toBeInTheDocument()
 
       // Should display both values in cells
-      expect(screen.getByText(/Δw:/)).toBeInTheDocument()
-      expect(screen.getByText(/Δb:/)).toBeInTheDocument()
+      const deltaWLabels = screen.getAllByText(/Δw:/)
+      const deltaBLabels = screen.getAllByText(/Δb:/)
+      expect(deltaWLabels.length).toBeGreaterThan(0)
+      expect(deltaBLabels.length).toBeGreaterThan(0)
     })
 
     it('should format delta values with 3 decimal places', () => {

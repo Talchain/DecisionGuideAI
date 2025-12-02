@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 
+if (!process.env.VITEST) {
 test.describe('Templates on Canvas UX', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/#/canvas')
@@ -51,3 +52,4 @@ test.describe('Templates on Canvas UX', () => {
     await expect(nav).toBeVisible()
   })
 })
+}

@@ -27,20 +27,62 @@ const QUICK_NODE_TYPES: NodeType[] = [
 ]
 
 export function RadialQuickAddMenu({ position, onSelect, onCancel }: RadialQuickAddMenuProps) {
-  const [selectedIndex, setSelectedIndex] = useState<number>(-1)
+  // Start with the first item selected by default
+  const [selectedIndex, setSelectedIndex] = useState<number>(0)
 
-  // Handle ESC key to cancel
+  // Keyboard navigation & selection
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        onCancel()
+      const { key, shiftKey } = event
+
+      const navigationKeys = ['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'Tab', 'Enter', 'Escape']
+      const isNumberKey = key >= '1' && key <= '6'
+
+      if (!navigationKeys.includes(key) && !isNumberKey) {
+        return
       }
+
+      event.preventDefault()
+
+      if (key === 'Escape') {
+        onCancel()
+        return
+      }
+
+      if (isNumberKey) {
+        const index = parseInt(key, 10) - 1
+        if (index >= 0 && index < SEGMENT_COUNT) {
+          setSelectedIndex(index)
+        }
+        return
+      }
+
+      if (key === 'Enter') {
+        if (selectedIndex >= 0 && selectedIndex < QUICK_NODE_TYPES.length) {
+          onSelect(QUICK_NODE_TYPES[selectedIndex])
+        }
+        return
+      }
+
+      const step =
+        key === 'ArrowRight' || key === 'ArrowDown' || (key === 'Tab' && !shiftKey)
+          ? 1
+          : key === 'ArrowLeft' || key === 'ArrowUp' || (key === 'Tab' && shiftKey)
+          ? -1
+          : 0
+
+      if (step === 0) return
+
+      setSelectedIndex(prev => {
+        const current = prev < 0 ? 0 : prev
+        const next = (current + step + SEGMENT_COUNT) % SEGMENT_COUNT
+        return next
+      })
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onCancel])
+  }, [onCancel, onSelect, selectedIndex])
 
   // Calculate segment angle and position
   const getSegmentPath = (index: number): string => {
@@ -103,17 +145,20 @@ export function RadialQuickAddMenu({ position, onSelect, onCancel }: RadialQuick
       >
         {QUICK_NODE_TYPES.slice(0, SEGMENT_COUNT).map((nodeType, index) => {
           const def = NODE_REGISTRY[nodeType]
-          const isHovered = selectedIndex === index
+          const isSelected = selectedIndex === index
+          const primaryLabel = def?.label.split(' ')[0] ?? nodeType.charAt(0).toUpperCase() + nodeType.slice(1)
 
           return (
             <g key={nodeType}>
               <path
                 d={getSegmentPath(index)}
-                fill={isHovered ? 'var(--info-500)' : 'var(--surface-app)'}
+                fill={isSelected ? '#3B82F6' : '#F1F5F9'}
                 stroke="var(--surface-border)"
                 strokeWidth="1.5"
+                data-testid={`radial-menu-item-${index}`}
+                role="button"
+                aria-label={`Select ${primaryLabel}`}
                 onMouseEnter={() => setSelectedIndex(index)}
-                onMouseLeave={() => setSelectedIndex(-1)}
                 onClick={() => onSelect(nodeType)}
                 style={{ cursor: 'pointer' }}
               />
@@ -124,7 +169,7 @@ export function RadialQuickAddMenu({ position, onSelect, onCancel }: RadialQuick
                 dominantBaseline="middle"
                 fontSize="10"
                 fontWeight="500"
-                fill={isHovered ? 'var(--text-on-info)' : 'var(--text-secondary)'}
+                fill={isSelected ? 'var(--text-on-info)' : 'var(--text-secondary)'}
                 pointerEvents="none"
               >
                 {def?.label.split(' ')[0] || nodeType}

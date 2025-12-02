@@ -139,7 +139,7 @@ describe('Markdown Copy Code (flags ON)', () => {
 
     act(() => { es.emit('open'); es.emit('token', md, '1'); es.emit('done') })
 
-    // Allow microtask flush
+    // Allow microtask flush and async effects (md preview + copy overlays)
     await Promise.resolve(); await Promise.resolve()
     await vi.advanceTimersByTimeAsync(0)
 

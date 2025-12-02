@@ -101,7 +101,7 @@ export function OptionsTiles({ context, onOptionSelect }: OptionsTilesProps) {
       {options.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {options.map((option) => (
-            <OptionCard
+            <OptionCardTile
               key={option.id}
               option={option}
               onSelect={onOptionSelect}
@@ -125,7 +125,7 @@ interface OptionCardProps {
   onSelect?: (option: OptionCard) => void
 }
 
-function OptionCard({ option, onSelect }: OptionCardProps) {
+function OptionCardTile({ option, onSelect }: OptionCardProps) {
   return (
     <div
       className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"

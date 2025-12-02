@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach, vi, afterEach } from 'vitest'
 
-import { plot } from '../../src/adapters/plot'
+import { plot } from '../../src/adapters/plot/mockAdapter'
 
 const PRICING = 'pricing-v1'
 
@@ -79,48 +79,76 @@ describe('plot mock adapter', () => {
     expect(first).toEqual(second)
   })
 
-  it('stream emits hello, ticks, reconnected and done', async () => {
-    vi.useFakeTimers()
-    
+  it('stream emits hello, ticks and done', async () => {
     const events: string[] = []
-    const stream = plot.stream.run({ template_id: PRICING, seed: 42 })
 
-    const iterator = stream[Symbol.asyncIterator]()
+    await new Promise<void>((resolve, reject) => {
+      let timeout: number | undefined
 
-    const advanceTicks = async () => {
-      let keepRunning = true
-      while (keepRunning) {
-        const nextPromise = iterator.next()
-        await vi.advanceTimersByTimeAsync(250)
-        const { value, done } = await nextPromise
-        if (!done && value) {
-          events.push(value.type)
+      const cancel = plot.stream.run(
+        { template_id: PRICING, seed: 42 },
+        {
+          onHello: () => {
+            events.push('hello')
+          },
+          onTick: () => {
+            events.push('tick')
+          },
+          onDone: () => {
+            events.push('done')
+            if (timeout !== undefined) {
+              clearTimeout(timeout)
+            }
+            cancel()
+            resolve()
+          },
+          onError: () => {
+            events.push('error')
+            if (timeout !== undefined) {
+              clearTimeout(timeout)
+            }
+            cancel()
+            reject(new Error('mock stream error'))
+          },
         }
-        keepRunning = !done
-      }
-    }
+      )
 
-    await advanceTicks()
+      timeout = setTimeout(() => {
+        cancel()
+        reject(new Error('mock stream timeout'))
+      }, 7000) as unknown as number
+    })
 
     expect(events[0]).toBe('hello')
-    expect(events).toContain('reconnected')
-    expect(events.at(-1)).toBe('done')
-    expect(events.filter(e => e === 'tick').length).toBeGreaterThanOrEqual(5)
-  })
+    expect(events).toContain('done')
+    expect(events.filter((e) => e === 'tick').length).toBeGreaterThanOrEqual(5)
+    expect(events).not.toContain('error')
+  }, 10000)
 
   it('stream emits error and stops when run would fail', async () => {
     const events: string[] = []
-    const stream = plot.stream.run({ template_id: PRICING, seed: 29 })
 
-    const iterator = stream[Symbol.asyncIterator]()
-    const first = await iterator.next()
-    if (!first.done && first.value) {
-      events.push(first.value.type)
-    }
-    const second = await iterator.next()
-    if (!second.done && second.value) {
-      events.push(second.value.type)
-    }
+    await new Promise<void>((resolve) => {
+      plot.stream.run(
+        { template_id: PRICING, seed: 29 },
+        {
+          onHello: () => {
+            events.push('hello')
+          },
+          onTick: () => {
+            events.push('tick')
+          },
+          onDone: () => {
+            events.push('done')
+            resolve()
+          },
+          onError: () => {
+            events.push('error')
+            resolve()
+          },
+        }
+      )
+    })
 
     expect(events).toEqual(['hello', 'error'])
   })

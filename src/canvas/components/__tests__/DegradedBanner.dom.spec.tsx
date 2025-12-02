@@ -35,27 +35,27 @@ describe('DegradedBanner (S8 degraded stub)', () => {
     vi.restoreAllMocks()
   })
 
-  it('shows banner when health status is degraded', () => {
+  it('shows banner when health status is degraded', async () => {
     mockFetchHealth.mockResolvedValueOnce({ status: 'degraded', p95_ms: 123 })
 
     render(<DegradedBanner />)
 
     // Heading text for degraded mode
-    const heading = screen.getByText('Engine running in degraded mode; performance reduced.')
+    const heading = await screen.findByText('Engine running in degraded mode; performance reduced.')
     expect(heading).toBeInTheDocument()
 
     // Body copy should also be present
     expect(
-      screen.getByText('Some runs may be slower or limited while the engine is in degraded mode.'),
+      await screen.findByText('Some runs may be slower or limited while the engine is in degraded mode.'),
     ).toBeInTheDocument()
   })
 
-  it('shows banner when health status is down', () => {
+  it('shows banner when health status is down', async () => {
     mockFetchHealth.mockResolvedValueOnce({ status: 'down', p95_ms: 123 })
 
     render(<DegradedBanner />)
 
-    const heading = screen.getByText('Engine currently unavailable; try again shortly.')
+    const heading = await screen.findByText('Engine currently unavailable; try again shortly.')
     expect(heading).toBeInTheDocument()
   })
 
@@ -74,9 +74,8 @@ describe('DegradedBanner (S8 degraded stub)', () => {
     render(<DegradedBanner />)
 
     await waitFor(() => {
-      expect(screen.queryByText('Engine is currently unavailable')).not.toBeInTheDocument()
-      expect(screen.queryByText('Engine is running in degraded mode')).not.toBeInTheDocument()
+      expect(screen.queryByText('Engine currently unavailable; try again shortly.')).not.toBeInTheDocument()
+      expect(screen.queryByText('Engine running in degraded mode; performance reduced.')).not.toBeInTheDocument()
     })
   })
 })
-

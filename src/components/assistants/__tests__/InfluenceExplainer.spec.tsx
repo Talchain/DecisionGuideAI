@@ -160,7 +160,7 @@ describe('InfluenceExplainer', () => {
 
     it('shows bullet list in normal mode', () => {
       render(<InfluenceExplainer compact={false} />)
-      expect(screen.getByText(/represent factors, beliefs/)).toBeInTheDocument()
+      expect(screen.getByText(/Nodes represent factors, beliefs/i)).toBeInTheDocument()
     })
   })
 
@@ -179,8 +179,8 @@ describe('InfluenceExplainer', () => {
       render(<InfluenceExplainer />)
       const learnMoreButton = screen.getByText('Learn more')
       fireEvent.click(learnMoreButton)
-      expect(screen.getByText(/Positive influence/)).toBeInTheDocument()
-      expect(screen.getByText(/Negative influence/)).toBeInTheDocument()
+      expect(screen.getByText(/Positive \(\+\):/i)).toBeInTheDocument()
+      expect(screen.getByText(/Negative \(-\):/i)).toBeInTheDocument()
     })
 
     it('shows "Show less" when expanded', () => {
@@ -222,41 +222,43 @@ describe('InfluenceExplainer', () => {
     it('shows detailed explanation of positive influence', () => {
       render(<InfluenceExplainer />)
       fireEvent.click(screen.getByText('Learn more'))
-      expect(screen.getByText(/Positive influence/)).toBeInTheDocument()
-      expect(screen.getByText(/More budget/)).toBeInTheDocument()
+      expect(screen.getByText(/Positive \(\+\):/i)).toBeInTheDocument()
+      expect(screen.getByText(/Budget.*Outcome/i)).toBeInTheDocument()
     })
 
     it('shows detailed explanation of negative influence', () => {
       render(<InfluenceExplainer />)
       fireEvent.click(screen.getByText('Learn more'))
-      expect(screen.getByText(/Negative influence/)).toBeInTheDocument()
-      expect(screen.getByText(/More risk/)).toBeInTheDocument()
+      expect(screen.getByText(/Negative \(-\):/i)).toBeInTheDocument()
+      expect(screen.getByText(/Risk.*Confidence/i)).toBeInTheDocument()
     })
 
     it('shows weight magnitude explanation', () => {
       render(<InfluenceExplainer />)
       fireEvent.click(screen.getByText('Learn more'))
-      expect(screen.getByText(/Weight magnitude/)).toBeInTheDocument()
-      expect(screen.getByText(/Closer to 0 = weak influence/)).toBeInTheDocument()
+      expect(screen.getByText(/Magnitude:/i)).toBeInTheDocument()
+      expect(screen.getByText(/Near 0 = weak, near ±1 = strong/)).toBeInTheDocument()
     })
 
     it('shows "Why not probability?" explanation', () => {
       render(<InfluenceExplainer />)
       fireEvent.click(screen.getByText('Learn more'))
-      expect(screen.getByText(/Why not probability/)).toBeInTheDocument()
-      expect(screen.getByText(/causal relationships matter/)).toBeInTheDocument()
+      // Summary already explains influence vs probability
+      expect(screen.getByText(/influence models, not probability models/i)).toBeInTheDocument()
+      // And edges describe causal influence vs simple correlation
+      expect(screen.getByText(/Edges capture causal influence between factors, not simple correlation/i)).toBeInTheDocument()
     })
   })
 
   describe('useInfluenceExplainer Hook', () => {
-    it('returns shouldShow=true when not dismissed', () => {
+    it('returns shouldShow=false by default when not dismissed', () => {
       const TestComponent = () => {
         const { shouldShow } = useInfluenceExplainer()
         return <div data-testid="should-show">{shouldShow.toString()}</div>
       }
 
       render(<TestComponent />)
-      expect(screen.getByTestId('should-show')).toHaveTextContent('true')
+      expect(screen.getByTestId('should-show')).toHaveTextContent('false')
     })
 
     it('returns shouldShow=false when dismissed', () => {
@@ -304,11 +306,10 @@ describe('InfluenceExplainer', () => {
       }
 
       render(<TestComponent />)
-      expect(screen.getByTestId('should-show')).toHaveTextContent('true')
+      expect(screen.getByTestId('should-show')).toHaveTextContent('false')
 
       fireEvent.click(screen.getByText('Hide'))
 
-      expect(screen.getByTestId('should-show')).toHaveTextContent('false')
       expect(localStorage.getItem(STORAGE_KEY)).toBe(STORAGE_VERSION)
     })
 
@@ -444,7 +445,7 @@ describe('InfluenceExplainer', () => {
 
     it('explains edges as causal influence', () => {
       render(<InfluenceExplainer />)
-      expect(screen.getByText(/Edges.*causal influence.*not correlation/i)).toBeInTheDocument()
+      expect(screen.getByText(/Edges.*causal influence.*not simple correlation/i)).toBeInTheDocument()
     })
 
     it('explains weight range (-1 to +1)', () => {
@@ -456,8 +457,8 @@ describe('InfluenceExplainer', () => {
       render(<InfluenceExplainer />)
       fireEvent.click(screen.getByText('Learn more'))
 
-      expect(screen.getByText(/More budget.*Better outcome/i)).toBeInTheDocument()
-      expect(screen.getByText(/More risk.*Team confidence/i)).toBeInTheDocument()
+      expect(screen.getByText(/Budget.*Outcome/i)).toBeInTheDocument()
+      expect(screen.getByText(/Risk.*Confidence/i)).toBeInTheDocument()
     })
   })
 
@@ -479,15 +480,15 @@ describe('InfluenceExplainer', () => {
     it('has blue theme styling', () => {
       render(<InfluenceExplainer />)
       const region = screen.getByRole('region')
-      expect(region).toHaveClass('bg-blue-50')
-      expect(region).toHaveClass('border-blue-200')
+      expect(region).toHaveClass('bg-sky-50')
+      expect(region).toHaveClass('border-sky-200')
     })
 
     it('has proper spacing', () => {
       render(<InfluenceExplainer />)
       const region = screen.getByRole('region')
-      expect(region).toHaveClass('p-4')
-      expect(region).toHaveClass('mb-4')
+      expect(region).toHaveClass('p-3')
+      expect(region).toHaveClass('mb-3')
     })
 
     it('has rounded corners', () => {
@@ -533,7 +534,7 @@ describe('InfluenceExplainer', () => {
 
       // Expand first
       fireEvent.click(screen.getByText('Learn more'))
-      expect(screen.getByText(/Positive influence/)).toBeInTheDocument()
+      expect(screen.getByText(/Positive \(\+\):/i)).toBeInTheDocument()
 
       // Then dismiss
       const dismissButton = screen.getByLabelText('Dismiss explanation')
@@ -564,7 +565,7 @@ describe('InfluenceExplainer', () => {
       render(<TestComponent />)
 
       expect(screen.getByText('Understanding Influence Models')).toBeInTheDocument()
-      expect(screen.getByTestId('should-show')).toHaveTextContent('true')
+      expect(screen.getByTestId('should-show')).toHaveTextContent('false')
 
       // Dismiss
       fireEvent.click(screen.getByLabelText('Dismiss explanation'))

@@ -304,7 +304,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
     let className = 'bg-gray-100 text-gray-600'
 
     if (status === 'preparing' || status === 'connecting' || status === 'streaming') {
-      text = status === 'preparing' ? 'Preparing' : status === 'connecting' ? 'Connecting' : 'Analyzing'
+      text = status === 'preparing' ? 'Preparing' : status === 'connecting' ? 'Connecting' : 'Analysing'
       className = 'bg-blue-100 text-blue-600'
     } else if (status === 'complete') {
       text = 'Complete'
@@ -416,7 +416,7 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
                     message={
                       status === 'preparing' ? 'Preparing analysis...' :
                       status === 'connecting' ? 'Connecting to service...' :
-                      'Analyzing decision tree...'
+                      'Analysing decision tree...'
                     }
                     canCancel={status === 'streaming'}
                     onCancel={() => {

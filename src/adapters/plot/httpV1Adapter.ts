@@ -133,8 +133,11 @@ function mapV1ResultToReport(
   // v1.2: Normalize response to canonical format
   const canonicalRun = toCanonicalRun(response)
 
+  // Prefer canonical responseHash, but fall back to legacy model_card.response_hash when present
+  const responseHash = canonicalRun.responseHash || result.model_card?.response_hash
+
   // Deterministic hash guard - enforce response_hash presence
-  if (!canonicalRun.responseHash) {
+  if (!responseHash) {
     const errorMsg = 'Backend response missing response_hash - determinism cannot be guaranteed'
 
     if (import.meta.env.PROD) {
@@ -167,11 +170,11 @@ function mapV1ResultToReport(
     schema: 'report.v1',
     meta: {
       seed: result.seed || 1337,
-      response_id: canonicalRun.responseHash || `http-v1-${Date.now()}`,
+      response_id: responseHash || `http-v1-${Date.now()}`,
       elapsed_ms: executionMs,
     },
     model_card: {
-      response_hash: canonicalRun.responseHash,
+      response_hash: responseHash || '',
       response_hash_algo: 'sha256',
       normalized: true,
       // Sprint N P0: Use top-level identifiability string from response
@@ -319,8 +322,17 @@ export const httpV1Adapter = {
         v1Request.outcome_node = input.outcome_node
       }
 
-      // Add debug flag if requested
-      if (input.include_debug) {
+      // Add debug flag based on request flag or feature flag (VITE_FEATURE_COMPARE_DEBUG)
+      let includeDebug = input.include_debug
+      try {
+        const env: any = (import.meta as any)?.env || {}
+        if (includeDebug === undefined && String(env?.VITE_FEATURE_COMPARE_DEBUG) === '1') {
+          includeDebug = true
+        }
+      } catch {
+        // Ignore env access errors in non-Vite environments
+      }
+      if (includeDebug) {
         v1Request.include_debug = true
       }
 
@@ -341,7 +353,7 @@ export const httpV1Adapter = {
       if (import.meta.env.DEV) {
         console.log(
           `🚀 [httpV1] POST /v1/run (${nodeCount} nodes, using sync endpoint) ` +
-          `template=${input.template_id}, seed=${input.seed}, outcome=${input.outcome_node || 'none'}, debug=${!!input.include_debug}`
+          `template=${input.template_id}, seed=${input.seed}, outcome=${input.outcome_node || 'none'}, debug=${!!includeDebug}`
         )
       }
       const response = await v1http.runSync(v1Request)
@@ -359,6 +371,11 @@ export const httpV1Adapter = {
       // Extract __ceeDebugHeaders from response and attach to report (non-standard field)
       if ((response as any).__ceeDebugHeaders) {
         (report as any).__ceeDebugHeaders = (response as any).__ceeDebugHeaders
+      }
+
+      // Pass through backend debug slices when present (used by determinism tests and inspector tooling)
+      if ((response.result && (response.result as any).debug) || (response as any).debug) {
+        (report as any).debug = (response.result && (response.result as any).debug) || (response as any).debug
       }
 
       return report
@@ -562,8 +579,10 @@ export const httpV1Adapter = {
       // Call v1 validate endpoint for server-side validation
       const response = await v1http.validate({ graph: v1Request.graph })
 
-      if (ENABLE_HTTPV1_DEBUG) {
-        console.log('[httpV1] Validation result:', JSON.stringify(response, null, 2))
+      if (import.meta.env.DEV) {
+        if (ENABLE_HTTPV1_DEBUG) {
+          console.log('[httpV1] Validation result:', JSON.stringify(response, null, 2))
+        }
       }
 
       // v1.2: Pass through violations (non-blocking coaching warnings)

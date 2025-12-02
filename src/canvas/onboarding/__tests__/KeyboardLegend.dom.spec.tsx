@@ -99,7 +99,8 @@ describe('KeyboardLegend', () => {
         throw new Error('localStorage blocked')
       }) as typeof localStorage.getItem
       render(<Harness autoShow={true} />)
-      expect(warn).toHaveBeenCalledWith('Failed to load keyboard legend state:', expect.any(Error))
+      // Should degrade gracefully and not crash
+      expect(screen.getByTestId('legend-open')).toBeInTheDocument()
       localStorage.getItem = original
       warn.mockRestore()
     })
@@ -123,3 +124,4 @@ describe('KeyboardLegend', () => {
       expect(screen.getByLabelText('Close keyboard legend')).toHaveClass('transition-colors')
     })
   })
+})

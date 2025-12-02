@@ -72,4 +72,4 @@ async function _sendInvitationEmail(
 // Re-export the RPC helper under both names for backward compatibility
 export { _sendInvitationEmail as sendInvitationEmail };
 // Legacy alias
-export { sendInvitationEmail as sendTeamInvitationEmail };
+export { _sendInvitationEmail as sendTeamInvitationEmail };

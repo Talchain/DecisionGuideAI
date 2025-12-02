@@ -5,7 +5,7 @@
 
 import React from 'react'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { InspectorPanel } from '../../../src/canvas/panels/InspectorPanel'
 import { useCanvasStore } from '../../../src/canvas/store'
 import type { Edge } from '@xyflow/react'
@@ -108,13 +108,14 @@ describe('InspectorPanel', () => {
     it('displays edge label when present', () => {
       render(<InspectorPanel isOpen={true} onClose={() => {}} />)
 
-      expect(screen.getByText('50%')).toBeInTheDocument()
+      const edgeDetailsSection = screen.getByText('Edge Details').closest('section') as HTMLElement
+      expect(within(edgeDetailsSection).getByText('50%')).toBeInTheDocument()
     })
 
     it('loads initial belief value', () => {
       render(<InspectorPanel isOpen={true} onClose={() => {}} />)
 
-      const beliefInput = screen.getByRole('spinbutton', { name: /uncertainty level/i }) as HTMLInputElement
+      const beliefInput = screen.getAllByRole('spinbutton')[0] as HTMLInputElement
       expect(beliefInput.value).toBe('0.50')
     })
 
@@ -130,22 +131,22 @@ describe('InspectorPanel', () => {
     it('updates belief value when slider moves', () => {
       render(<InspectorPanel isOpen={true} onClose={() => {}} />)
 
-      const beliefSlider = screen.getByRole('slider', { name: /belief/i }) as HTMLInputElement
+      const beliefSlider = screen.getByRole('slider', { name: /confidence/i }) as HTMLInputElement
       fireEvent.change(beliefSlider, { target: { value: '0.75' } })
 
       expect(beliefSlider.value).toBe('0.75')
 
-      const beliefNumericInput = screen.getByRole('spinbutton', { name: /uncertainty level/i }) as HTMLInputElement
+      const beliefNumericInput = screen.getAllByRole('spinbutton')[0] as HTMLInputElement
       expect(beliefNumericInput.value).toBe('0.75')
     })
 
     it('syncs slider and numeric input', () => {
       render(<InspectorPanel isOpen={true} onClose={() => {}} />)
 
-      const beliefNumericInput = screen.getByRole('spinbutton', { name: /uncertainty level/i }) as HTMLInputElement
+      const beliefNumericInput = screen.getAllByRole('spinbutton')[0] as HTMLInputElement
       fireEvent.change(beliefNumericInput, { target: { value: '0.25' } })
 
-      const beliefSlider = screen.getByRole('slider', { name: /belief/i }) as HTMLInputElement
+      const beliefSlider = screen.getByRole('slider', { name: /confidence/i }) as HTMLInputElement
       expect(beliefSlider.value).toBe('0.25')
     })
   })
@@ -194,7 +195,7 @@ describe('InspectorPanel', () => {
 
       render(<InspectorPanel isOpen={true} onClose={() => {}} />)
 
-      const beliefSlider = screen.getByRole('slider', { name: /belief/i }) as HTMLInputElement
+      const beliefSlider = screen.getByRole('slider', { name: /confidence/i }) as HTMLInputElement
       fireEvent.change(beliefSlider, { target: { value: '0.8' } })
 
       await waitFor(() => {

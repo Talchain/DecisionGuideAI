@@ -211,7 +211,7 @@ function handleEvent(
       handlers.onStarted(data as V1RunStartedData)
       break
 
-    case 'progress':
+    case 'progress': {
       // Cap progress at 90% until COMPLETE event to avoid premature 100%
       const cappedData = {
         ...data,
@@ -219,6 +219,7 @@ function handleEvent(
       }
       throttledProgress(cappedData as V1ProgressData)
       break
+    }
 
     case 'interim':
       handlers.onInterim(data as V1InterimFindingsData)

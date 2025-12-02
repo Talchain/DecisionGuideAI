@@ -83,7 +83,7 @@ export default function ScenarioDrawer({ open, onClose, restoreFocusRef, seed, b
     >
       <div
         ref={drawerRef}
-        className="w-[24rem] h-full bg-paper-50 shadow-panel p-4 border-l border-sand-200 flex flex-col gap-3"
+        className="w-[24rem] h-full bg-paper-50 shadow-panel p-4 border-l border-sand-200 flex flex-col gap-3 font-sans"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="font-semibold text-base mb-2 text-ink-900">Scenarios</h2>

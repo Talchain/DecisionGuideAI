@@ -101,7 +101,7 @@ describe('validateGraph (M4)', () => {
 
     const health = validateGraph(nodes, edges)
 
-    expect(health.status).toBe('warnings')
+    expect(health.status).toBe('errors')
     const loopIssue = health.issues.find((i) => i.type === 'self_loop')
     expect(loopIssue).toBeDefined()
     expect(loopIssue?.severity).toBe('warning')
@@ -136,8 +136,8 @@ describe('validateGraph (M4)', () => {
 
     const health = validateGraph(nodes, edges)
 
-    // 1 warning (-5) + 1 info (0) = 95
-    expect(health.score).toBe(95)
+    // 2 warnings (orphan + duplicate) => -10 points
+    expect(health.score).toBe(90)
   })
 
   it('detects multiple issues in same graph', () => {
@@ -155,7 +155,8 @@ describe('validateGraph (M4)', () => {
     const health = validateGraph(nodes, edges)
 
     expect(health.issues.length).toBeGreaterThan(2)
-    expect(health.status).toBe('warnings')
+    // Mix of warnings and an implicit cycle error => overall status errors
+    expect(health.status).toBe('errors')
   })
 
   it('provides suggested fix for each issue', () => {

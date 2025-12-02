@@ -1,47 +1,52 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { waitFor } from '@testing-library/react'
-import { renderCanvas, cleanupCanvas, flushRAF } from './__helpers__/renderCanvas'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { __resetTelemetryCounters, __getTelemetryCounters } from '../../lib/telemetry'
 import { useCanvasStore } from '../store'
+import * as useEngineLimitsModule from '../hooks/useEngineLimits'
+import type { UseEngineLimitsReturn } from '../hooks/useEngineLimits'
+import { render, waitFor } from '@testing-library/react'
+import { ToastProvider } from '../ToastContext'
+import { useCanvasKeyboardShortcuts } from '../hooks/useCanvasKeyboardShortcuts'
+import { useRunEligibilityCheck } from '../hooks/useRunEligibilityCheck'
 
-function ensureMatchMedia() {
-  if (typeof window !== 'undefined' && typeof window.matchMedia !== 'function') {
-    Object.defineProperty(window, 'matchMedia', {
-      writable: true,
-      value: (query: string) => ({
-        matches: query === '(prefers-reduced-motion: reduce)',
-        media: query,
-        onchange: null,
-        addListener: () => {},
-        removeListener: () => {},
-        addEventListener: () => {},
-        removeEventListener: () => {},
-        dispatchEvent: () => true,
-      }),
-    })
+vi.mock('../hooks/useEngineLimits', () => ({
+  useEngineLimits: vi.fn(),
+}))
+
+const mockUseEngineLimits = vi.mocked(useEngineLimitsModule.useEngineLimits)
+
+const createMockLimitsReturn = (overrides?: Partial<UseEngineLimitsReturn>): UseEngineLimitsReturn => ({
+  limits: {
+    nodes: { max: 200 },
+    edges: { max: 500 },
+    engine_p95_ms_budget: 30000,
+  },
+  source: 'live',
+  loading: false,
+  error: null,
+  fetchedAt: Date.now(),
+  retry: vi.fn(),
+  ...overrides,
+})
+
+function KeyboardRunHarness() {
+  const checkRunEligibility = useRunEligibilityCheck()
+
+  const handleRunSimulation = () => {
+    checkRunEligibility()
   }
-}
 
-function ensureResizeObserver() {
-  if (typeof (globalThis as any).ResizeObserver !== 'function') {
-    class ResizeObserverStub {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    }
-    ;(globalThis as any).ResizeObserver = ResizeObserverStub
-  }
-}
+  useCanvasKeyboardShortcuts({
+    onRunSimulation: handleRunSimulation,
+  })
 
-async function renderCanvasMVP() {
-  ensureMatchMedia()
-  ensureResizeObserver()
-  const { default: CanvasMVP } = await import('../../routes/CanvasMVP')
-  return renderCanvas(<CanvasMVP />)
+  return null
 }
 
 describe('ReactFlowGraph keyboard run telemetry', () => {
   beforeEach(() => {
+    mockUseEngineLimits.mockReset()
+    mockUseEngineLimits.mockReturnValue(createMockLimitsReturn())
+
     try {
       localStorage.setItem('feature.telemetry', '1')
     } catch {}
@@ -49,12 +54,18 @@ describe('ReactFlowGraph keyboard run telemetry', () => {
   })
 
   afterEach(() => {
-    cleanupCanvas()
+    useCanvasStore.getState().resetCanvas()
   })
 
   it('tracks sandbox.run.blocked when Cmd+Enter is pressed on an empty graph', async () => {
-    await renderCanvasMVP()
-    await flushRAF()
+    // Ensure clean empty graph
+    useCanvasStore.getState().resetCanvas()
+
+    render(
+      <ToastProvider>
+        <KeyboardRunHarness />
+      </ToastProvider>,
+    )
 
     const event = new KeyboardEvent('keydown', { metaKey: true, key: 'Enter' })
     window.dispatchEvent(event)
@@ -67,12 +78,16 @@ describe('ReactFlowGraph keyboard run telemetry', () => {
   })
 
   it('tracks sandbox.run.clicked when Cmd+Enter is pressed on a non-empty, healthy graph', async () => {
-    await renderCanvasMVP()
-    await flushRAF()
-
-    const { addNode } = useCanvasStore.getState()
+    const { resetCanvas, addNode } = useCanvasStore.getState()
+    resetCanvas()
     addNode({ x: 0, y: 0 })
     useCanvasStore.setState({ graphHealth: null } as any)
+
+    render(
+      <ToastProvider>
+        <KeyboardRunHarness />
+      </ToastProvider>,
+    )
 
     const event = new KeyboardEvent('keydown', { metaKey: true, key: 'Enter' })
     window.dispatchEvent(event)

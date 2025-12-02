@@ -20,6 +20,7 @@
     "test:connection": "node --loader ts-node/esm src/lib/test-connection.ts",
     "test": "vitest run --reporter=verbose",
     "test:unit": "vitest run",
+    "test:full": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vitest --bail=1",
     "test:e2e:chromium": "playwright test --project=chromium -c playwright.config.ts",
     "e2e:report": "playwright show-report",
     "e2e": "playwright test",
@@ -62,7 +63,7 @@
     "migrate:tokens": "node scripts/migrate-olumi-tokens.mjs",
     "test:e2e:firefox": "playwright test --project=firefox -c playwright.config.ts",
     "test:e2e:webkit": "playwright test --project=webkit -c playwright.config.ts",
-    "ci:all": "npm run typecheck && npm run lint && npm run test && npm run e2e && npm run ci:guard:zustand && npm run ci:guard:duplicates"
+    "ci:all": "npm run typecheck && npm run lint && npm run test:full && npm run e2e && npm run ci:guard:zustand && npm run ci:guard:duplicates"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

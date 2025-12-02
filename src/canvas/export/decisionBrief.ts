@@ -70,7 +70,7 @@ export function generateDecisionBriefHTML(data: DecisionBriefData): string {
 
     /* Base styles */
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       line-height: 1.6;
       color: #1f2937;
       max-width: 800px;
@@ -151,7 +151,7 @@ export function generateDecisionBriefHTML(data: DecisionBriefData): string {
 
     .stat-value {
       font-weight: 700;
-      font-family: 'SF Mono', Consolas, monospace;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       color: #111827;
     }
 
@@ -212,7 +212,7 @@ export function generateDecisionBriefHTML(data: DecisionBriefData): string {
     }
 
     .mono {
-      font-family: 'SF Mono', Consolas, monospace;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       font-size: 0.875em;
     }
 
@@ -245,7 +245,7 @@ export function generateDecisionBriefHTML(data: DecisionBriefData): string {
     }
 
     .hash-value {
-      font-family: 'SF Mono', Consolas, monospace;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
       color: #374151;
     }
 
@@ -315,28 +315,33 @@ export function generateDecisionBriefHTML(data: DecisionBriefData): string {
 
 function generateStatCard(label: string, run: StoredRun): string {
   const report = run.report
-  if (!report?.summary) {
+
+  // Prefer normalized bands from report.run when available, otherwise fall back to legacy results
+  const p10 = report.run?.bands?.p10 ?? report.results?.conservative ?? null
+  const p50 = report.run?.bands?.p50 ?? report.results?.likely ?? null
+  const p90 = report.run?.bands?.p90 ?? report.results?.optimistic ?? null
+  const units = report.results?.unitSymbol || report.results?.units || ''
+
+  if (p10 == null || p50 == null || p90 == null) {
     return `<div class="stat-card">
       <h3>${escapeHtml(label)}</h3>
       <div style="color: #9ca3af; font-size: 0.875rem;">No data available</div>
     </div>`
   }
 
-  const { conservative, likely, optimistic, units } = report.summary
-
   return `<div class="stat-card">
     <h3>${escapeHtml(label)}</h3>
     <div class="stat-row">
       <span class="stat-label">p10 (Conservative):</span>
-      <span class="stat-value">${conservative.toFixed(1)} ${escapeHtml(units)}</span>
+      <span class="stat-value">${p10.toFixed(1)} ${escapeHtml(units)}</span>
     </div>
     <div class="stat-row">
       <span class="stat-label">p50 (Most Likely):</span>
-      <span class="stat-value">${likely.toFixed(1)} ${escapeHtml(units)}</span>
+      <span class="stat-value">${p50.toFixed(1)} ${escapeHtml(units)}</span>
     </div>
     <div class="stat-row">
       <span class="stat-label">p90 (Optimistic):</span>
-      <span class="stat-value">${optimistic.toFixed(1)} ${escapeHtml(units)}</span>
+      <span class="stat-value">${p90.toFixed(1)} ${escapeHtml(units)}</span>
     </div>
   </div>`
 }

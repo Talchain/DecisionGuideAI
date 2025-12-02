@@ -341,7 +341,7 @@ describe('S6-INLINE: EdgeEditPopover Keyboard Navigation', () => {
         />
       )
 
-      const weightSlider = screen.getByLabelText('Weight slider')
+      const weightSlider = screen.getByLabelText('Weight')
       const dialog = screen.getByRole('dialog')
 
       // Focus the dialog container (not a slider)
@@ -364,7 +364,6 @@ describe('S6-INLINE: EdgeEditPopover Keyboard Navigation', () => {
       )
 
       const weightSlider = screen.getByLabelText('Weight slider')
-      const beliefSlider = screen.getByLabelText('Belief slider')
 
       // Focus weight slider
       weightSlider.focus()
@@ -477,7 +476,10 @@ describe('S6-INLINE: EdgeEditPopover Keyboard Navigation', () => {
         />
       )
 
-      expect(screen.getByText(/Arrow keys: ±0\.01 \(Shift: ±0\.05\)/)).toBeInTheDocument()
+      const hint = screen.getByText((text) =>
+        text.includes('Arrow keys:') && text.includes('0.01') && text.includes('0.05')
+      )
+      expect(hint).toBeInTheDocument()
     })
   })
 })

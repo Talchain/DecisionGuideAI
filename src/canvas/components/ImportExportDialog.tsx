@@ -265,7 +265,7 @@ export function ImportExportDialog({ isOpen, onClose, mode }: ImportExportDialog
       const label = (node.data?.label || 'Node').replace(/[<>&'"]/g, '') // Escape XML special chars
       const nodeWidth = estimateNodeWidth(label)
       svg += `<rect x="${x}" y="${y}" width="${nodeWidth}" height="${nodeHeights}" rx="16" fill="white" stroke="#EA7B4B" stroke-width="2"/>`
-      svg += `<text x="${x + nodeWidth / 2}" y="${y + nodeHeights / 2 + 5}" text-anchor="middle" font-family="system-ui" font-size="14" fill="#1f2937">${label}</text>`
+      svg += `<text x="${x + nodeWidth / 2}" y="${y + nodeHeights / 2 + 5}" text-anchor="middle" font-family="Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif" font-size="14" fill="#1f2937">${label}</text>`
     })
 
     svg += `</svg>`

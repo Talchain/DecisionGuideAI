@@ -67,7 +67,7 @@ export function TemplateCard({ template, nodes, edges, onInsert, onMerge, onLear
             onInsert(template.id)
           }}
           className="w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-info-500 hover:bg-info-600 rounded-md focus:outline-none focus:ring-2 focus:ring-info-500 transition-colors"
-          aria-label={`Start from ${template.name} template`}
+          aria-label={`Insert ${template.name}`}
         >
           <Plus className="w-3.5 h-3.5" />
           Start from Template

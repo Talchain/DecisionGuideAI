@@ -520,11 +520,11 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   }, [onCanvasInteraction])
 
   // Double-click handlers for opening full inspector modal
-  const handleNodeDoubleClick = useCallback((_: any, node: any) => {
+  const handleNodeDoubleClick = useCallback(() => {
     setShowFullInspector(true)
   }, [])
 
-  const handleEdgeDoubleClick = useCallback((_: any, edge: any) => {
+  const handleEdgeDoubleClick = useCallback(() => {
     setShowFullInspector(true)
   }, [])
 
@@ -1322,7 +1322,9 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
           <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
         )}
       </div>
-      <InspectorPopover onExpandToFull={() => setShowFullInspector(true)} />
+      {!showFullInspector && (
+        <InspectorPopover onExpandToFull={() => setShowFullInspector(true)} />
+      )}
       {showFullInspector && (
         <InspectorModal
           nodeId={selectedNodeId}

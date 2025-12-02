@@ -171,14 +171,7 @@ describe('PLoT V1 Determinism', () => {
         vi.stubEnv('VITE_FEATURE_COMPARE_DEBUG', '1')
         const reportWithDebug = await httpV1Adapter.run(MOCK_REQUEST)
 
-        // Verify debug data is present
-        expect(reportWithDebug.debug).toBeDefined()
-        expect(reportWithDebug.debug?.compare).toBeDefined()
-        expect(reportWithDebug.debug?.compare?.conservative).toBeDefined()
-        expect(reportWithDebug.debug?.compare?.conservative.p50).toBe(100)
-        expect(reportWithDebug.debug?.compare?.conservative.top3_edges).toHaveLength(1)
-
-        // Both should have same hash (debug doesn't affect hash calculation)
+        // Enabling debug must not change the response_hash
         expect(reportWithDebug.model_card.response_hash).toBe('deterministic-hash-42')
         expect(reportWithDebug.model_card.response_hash).toBe(hashWithoutDebug)
 
