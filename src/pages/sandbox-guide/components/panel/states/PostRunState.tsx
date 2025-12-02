@@ -21,6 +21,7 @@ import { TopDriversSection } from '../sections/TopDriversSection'
 import { RisksSection } from '../sections/RisksSection'
 import { AdvancedMetricsSection } from '../sections/AdvancedMetricsSection'
 import { VerificationBadge } from '../sections/VerificationBadge'
+import { ProvenancePanel } from '../sections/ProvenancePanel'
 
 export function PostRunState(): JSX.Element {
   const report = useResultsStore((state) => state.results.report)
@@ -92,20 +93,22 @@ export function PostRunState(): JSX.Element {
     }
   }
 
-  // Extract verification data from ceeReview (will be undefined until backend provides it)
+  // Extract verification and provenance data from ceeReview/report (will be undefined until backend provides it)
   const verification = (ceeReview as any)?.trace?.verification
+  const provenance = (report as any)?.model_card?.provenance_summary
 
   return (
     <div className="divide-y divide-storm-100">
       {/* Header */}
-      <div className="p-6 bg-practical-50">
-        <div className="flex items-center justify-between mb-2">
+      <div className="p-6 bg-practical-50 space-y-4">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-2xl">📊</span>
             <h2 className="text-xl font-semibold text-charcoal-900">Analysis Complete</h2>
           </div>
           <VerificationBadge verification={verification} />
         </div>
+        <ProvenancePanel provenance={provenance} />
       </div>
 
       {/* TIER 1: Always Visible - Key Insight */}
