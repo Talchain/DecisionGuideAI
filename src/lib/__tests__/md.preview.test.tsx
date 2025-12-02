@@ -97,13 +97,14 @@ describe('Markdown preview', () => {
     const es = FakeEventSource.instances[0]
 
     act(() => { es.emit('open'); es.emit('token', 'Hello', '1') })
-    // Before flush
-    expect(screen.getByTestId('md-preview').innerHTML).toBe('')
+    // Before flush, preview container may not exist yet
+    expect(screen.queryByTestId('md-preview')).toBeNull()
 
     // Allow microtask flush
     await Promise.resolve(); await Promise.resolve()
 
-    expect(screen.getByTestId('md-preview').innerHTML).toContain('Hello')
+    const preview = screen.getByTestId('md-preview')
+    expect(preview.innerHTML).toContain('Hello')
   })
 
   it('sanitizes HTML content', async () => {
@@ -130,12 +131,13 @@ describe('Markdown preview', () => {
     const es = FakeEventSource.instances[0]
     act(() => { es.emit('open'); es.emit('token', '# Title', '1') })
 
-    // Without flush, preview should still be empty
+    // Without flush completion, preview container may not yet exist
     await Promise.resolve(); await Promise.resolve()
-    expect(screen.getByTestId('md-preview').innerHTML).toBe('')
+    expect(screen.queryByTestId('md-preview')).toBeNull()
 
     act(() => { es.emit('done') })
     await Promise.resolve(); await Promise.resolve()
-    expect(screen.getByTestId('md-preview').innerHTML).toContain('<h1>Title</h1>')
+    const preview = screen.getByTestId('md-preview')
+    expect(preview.innerHTML).toContain('<h1>Title</h1>')
   })
 })

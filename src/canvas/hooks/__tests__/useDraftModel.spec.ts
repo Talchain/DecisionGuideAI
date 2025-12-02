@@ -18,6 +18,7 @@ const createInitialState = (): DraftModelState => ({
   draft: null,
   events: [],
   error: null,
+  errorDetails: null,
 })
 
 describe('useDraftModel', () => {

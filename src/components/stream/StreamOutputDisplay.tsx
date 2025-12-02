@@ -6,7 +6,7 @@
  * Provides accessible streaming status updates.
  */
 
-import { memo, useRef } from 'react'
+import { memo, useRef, type Ref } from 'react'
 import { formatUSD } from '../../lib/currency'
 
 interface StreamOutputProps {
@@ -14,6 +14,7 @@ interface StreamOutputProps {
   status: 'idle' | 'starting' | 'streaming' | 'complete' | 'error' | 'cancelled' | 'aborted' | 'limited' | 'done'
   mdHtml?: string
   mdEnabled?: boolean
+  mdPreviewRef?: Ref<HTMLDivElement>
   copyEnabled?: boolean
   copyOverlays?: Array<{ id: number; top: number; left: number; code: string; lang?: string }>
   onCopyCode?: (id: number, code: string) => void
@@ -37,6 +38,7 @@ function StreamOutputDisplay({
   status,
   mdHtml,
   mdEnabled = false,
+  mdPreviewRef: externalMdPreviewRef,
   copyEnabled = false,
   copyOverlays = [],
   onCopyCode,
@@ -48,7 +50,8 @@ function StreamOutputDisplay({
   perfEnabled = false,
   bufferEnabled = true,
 }: StreamOutputProps) {
-  const mdPreviewRef = useRef<HTMLDivElement | null>(null)
+  const localMdPreviewRef = useRef<HTMLDivElement | null>(null)
+  const mdPreviewRef = externalMdPreviewRef ?? localMdPreviewRef
 
   return (
     <>

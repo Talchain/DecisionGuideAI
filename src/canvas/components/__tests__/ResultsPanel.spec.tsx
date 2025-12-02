@@ -123,7 +123,7 @@ describe('ResultsPanel', () => {
       useCanvasStore.getState().resultsProgress(45)
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      expect(screen.getByText('Analyzing decision tree...')).toBeInTheDocument()
+      expect(screen.getByText('Analysing decision tree...')).toBeInTheDocument()
       expect(screen.getByText('45%')).toBeInTheDocument()
     })
 
@@ -541,7 +541,7 @@ describe('ResultsPanel', () => {
       useCanvasStore.getState().resultsProgress(50)
       renderWithProviders(<ResultsPanel isOpen={true} onClose={vi.fn()} />)
 
-      expect(screen.getByText('Analyzing decision tree...')).toBeInTheDocument()
+      expect(screen.getByText('Analysing decision tree...')).toBeInTheDocument()
     })
 
     it('displays error messages prominently', () => {

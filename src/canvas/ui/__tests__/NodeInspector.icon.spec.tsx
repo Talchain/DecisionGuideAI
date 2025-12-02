@@ -14,9 +14,13 @@ vi.mock('../../store', () => ({
       nodes: [
         { id: 'test-1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Test Goal', type: 'goal' } }
       ],
-      updateNode: vi.fn()
+      edges: [],
+      updateNode: vi.fn(),
+      pushHistory: vi.fn(),
+      outcomeNodeId: undefined,
+      setOutcomeNode: vi.fn()
     }
-    return selector ? selector(state) : state
+    return selector ? selector(state as any) : (state as any)
   })
 }))
 

@@ -12,7 +12,7 @@ function writeSnap(v: boolean) { try { localStorage.setItem('plc.snap', v ? '1' 
 export default function PlcLab() {
   const enabled = useMemo(() => {
     try {
-      const qs = new URLSearchParams(location.search)
+      const qs = new URLSearchParams(window.location.search)
       if (qs.get('plc') === '1' || qs.get('dev') === '1' || qs.get('e2e') === '1') return true
       return localStorage.getItem('PLC_ENABLED') === '1'
     } catch { return false }

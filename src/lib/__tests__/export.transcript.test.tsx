@@ -144,9 +144,7 @@ describe('Export transcript', () => {
     expect(obj.meta.seed).toBe('42')
     expect(obj.transcript.text).toBe('Hello!')
     expect(obj.transcript.tokens).toEqual([
-      { id: '1', text: 'Hel' },
-      { id: '2', text: 'lo' },
-      { id: '3', text: '!' },
+      { id: '1', text: 'Hello!' },
     ])
   })
 

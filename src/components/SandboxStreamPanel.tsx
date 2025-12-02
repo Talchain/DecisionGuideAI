@@ -1391,6 +1391,7 @@ export default function SandboxStreamPanel() {
           status={status}
           mdHtml={mdHtml}
           mdEnabled={mdFlag}
+          mdPreviewRef={mdPreviewRef}
           copyEnabled={copyFlag}
           copyOverlays={copyOverlays}
           onCopyCode={handleCopy}

@@ -19,7 +19,7 @@ describe('DegradedBanner design tokens', () => {
     const message = await screen.findByText(/Engine running in degraded mode/i)
 
     // The token classes live on the flex container wrapping the icon + text
-    const flexContainer = message.closest('div')?.parentElement?.parentElement as HTMLElement | null
+    const flexContainer = message.closest('div')?.parentElement as HTMLElement | null
     expect(flexContainer).not.toBeNull()
     if (!flexContainer) return
 

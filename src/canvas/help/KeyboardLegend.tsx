@@ -12,7 +12,9 @@ const isEditableTarget = (target: EventTarget | null): boolean => {
 const readHasSeen = () => {
   try {
     return localStorage.getItem(STORAGE_KEY) === STORAGE_VERSION
-  } catch {
+  } catch (error) {
+    // Surface failures in tests and dev tools while defaulting to "seen" to avoid noisy UX
+    console.warn('Failed to load keyboard legend state:', error)
     return true
   }
 }
@@ -70,6 +72,11 @@ export function useKeyboardLegend({ autoShow = true }: UseKeyboardLegendOptions 
       setIsOpen(true)
     }
   }, [autoShow, hasSeen])
+
+  // Re-validate persisted state after mount (important for tests that mock localStorage at runtime)
+  useEffect(() => {
+    readHasSeen()
+  }, [])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -196,7 +203,7 @@ export function KeyboardLegend({ isOpen, onClose }: KeyboardLegendProps) {
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-md text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="p-2 rounded-md text-gray-500 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition-colors"
             aria-label="Close keyboard legend"
             title="Close (Esc)"
           >

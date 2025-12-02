@@ -82,16 +82,17 @@ export function ConnectivityChip({ className = '', showLabel = true, onStatusCha
         console.error('[ConnectivityChip] Failed to check connectivity:', err)
       }
 
-      // Check if actually offline
+      // Distinguish browser offline vs engine/probe error while online
+      let nextStatus: ConnectivityStatus
       if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-        setStatus('offline')
+        nextStatus = 'offline'
       } else {
-        // Probe failed but network is online → offline (can't reach engine)
-        setStatus('offline')
+        nextStatus = 'unknown'
       }
 
+      setStatus(nextStatus)
       setLastChecked(new Date())
-      onStatusChange?.(status)
+      onStatusChange?.(nextStatus)
       scheduleRetry()
     } finally {
       setIsLoading(false)

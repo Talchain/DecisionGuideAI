@@ -13,11 +13,20 @@ export function loadState(): SamState | null {
     if (!parsed || typeof parsed !== 'object') return null
     // Accept both legacy (no schemaVersion) and v1 (schemaVersion:1)
     const isV1 = (parsed as any).schemaVersion === 1
-    const nodes = Array.isArray((parsed as any).nodes) ? (parsed as any).nodes : []
-    const edges = Array.isArray((parsed as any).edges) ? (parsed as any).edges : []
+    const rawNodes = (parsed as any).nodes
+    const rawEdges = (parsed as any).edges
+
+    // For v1, nodes/edges MUST be arrays; otherwise treat as garbage
+    if (isV1 && (!Array.isArray(rawNodes) || !Array.isArray(rawEdges))) {
+      return null
+    }
+
+    const nodes = Array.isArray(rawNodes) ? rawNodes : []
+    const edges = Array.isArray(rawEdges) ? rawEdges : []
     const renames = (parsed as any).renames && typeof (parsed as any).renames === 'object' ? (parsed as any).renames : {}
-    // Minimal structural validation
-    if ((isV1 || (nodes && edges)) && Array.isArray(nodes) && Array.isArray(edges)) {
+
+    // Minimal structural validation: legacy payloads are accepted if shapes look right
+    if (Array.isArray(nodes) && Array.isArray(edges)) {
       return { nodes, edges, renames }
     }
     return null

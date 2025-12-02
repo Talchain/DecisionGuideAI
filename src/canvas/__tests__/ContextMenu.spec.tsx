@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, cleanup } from '@testing-library/react'
 import { ContextMenu } from '../ContextMenu'
+import { ToastProvider } from '../ToastContext'
+
+function renderWithProviders(ui: React.ReactElement) {
+  return render(<ToastProvider>{ui}</ToastProvider>)
+}
 
 describe('ContextMenu', () => {
   beforeEach(() => {
@@ -23,7 +28,7 @@ describe('ContextMenu', () => {
     
     // Mount and unmount 50 times
     for (let i = 0; i < 50; i++) {
-      const { unmount } = render(
+      const { unmount } = renderWithProviders(
         <ContextMenu x={100} y={100} onClose={onClose} />
       )
       unmount()
@@ -52,7 +57,7 @@ describe('ContextMenu', () => {
 
   it('closes on Escape key', () => {
     const onClose = vi.fn()
-    render(<ContextMenu x={100} y={100} onClose={onClose} />)
+    renderWithProviders(<ContextMenu x={100} y={100} onClose={onClose} />)
     
     const escEvent = new KeyboardEvent('keydown', { key: 'Escape' })
     document.dispatchEvent(escEvent)
@@ -62,7 +67,7 @@ describe('ContextMenu', () => {
 
   it('closes on outside click', () => {
     const onClose = vi.fn()
-    render(<ContextMenu x={100} y={100} onClose={onClose} />)
+    renderWithProviders(<ContextMenu x={100} y={100} onClose={onClose} />)
     
     // Click on document (outside menu)
     const clickEvent = new MouseEvent('mousedown', { bubbles: true })

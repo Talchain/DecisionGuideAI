@@ -35,7 +35,7 @@ describe('IdentifiabilityBadge', () => {
 
     const badge = screen.getByTestId('identifiability-badge')
     expect(badge).toBeInTheDocument()
-    expect(screen.getByText('Unknown')).toBeInTheDocument()
+    expect(screen.getByText('Run analysis to calculate')).toBeInTheDocument()
     expect(badge).toHaveClass('bg-gray-50', 'border-gray-200', 'text-gray-600')
   })
 

@@ -111,7 +111,7 @@ describe('S2-QUICKADD: RadialQuickAddMenu DOM Integration', () => {
       expect(firstPath.getAttribute('fill')).toBe('#3B82F6')
     })
 
-    it('should remove highlight on mouse leave', () => {
+    it('should keep segment highlighted after hover', () => {
       const { container } = render(<RadialQuickAddMenu {...defaultProps} />)
 
       const firstPath = container.querySelector('path')!
@@ -120,7 +120,8 @@ describe('S2-QUICKADD: RadialQuickAddMenu DOM Integration', () => {
       expect(firstPath.getAttribute('fill')).toBe('#3B82F6')
 
       fireEvent.mouseLeave(firstPath)
-      expect(firstPath.getAttribute('fill')).toBe('#F1F5F9')
+      // Selection state persists after hover; highlight remains
+      expect(firstPath.getAttribute('fill')).toBe('#3B82F6')
     })
 
     it('should call onSelect with correct node type on click', () => {
@@ -206,19 +207,21 @@ describe('S2-QUICKADD: RadialQuickAddMenu DOM Integration', () => {
     it('should change label color on hover', () => {
       const { container } = render(<RadialQuickAddMenu {...defaultProps} />)
 
-      const firstPath = container.querySelector('path')!
-      const firstLabel = container.querySelectorAll('text')[0]
+      const paths = container.querySelectorAll('path')
+      const labels = container.querySelectorAll('text')
 
-      // Initial state: dark text
-      expect(firstLabel.getAttribute('fill')).toBe('#475569')
+      const secondPath = paths[1]
+      const firstLabel = labels[0]
+      const secondLabel = labels[1]
 
-      // Hover: white text
-      fireEvent.mouseEnter(firstPath)
-      expect(firstLabel.getAttribute('fill')).toBe('#FFFFFF')
+      // Initial state: first segment selected by default
+      expect(firstLabel.getAttribute('fill')).toBe('var(--text-on-info)')
+      expect(secondLabel.getAttribute('fill')).toBe('var(--text-secondary)')
 
-      // Leave: back to dark
-      fireEvent.mouseLeave(firstPath)
-      expect(firstLabel.getAttribute('fill')).toBe('#475569')
+      // Hover second segment: selection moves, colors swap
+      fireEvent.mouseEnter(secondPath)
+      expect(firstLabel.getAttribute('fill')).toBe('var(--text-secondary)')
+      expect(secondLabel.getAttribute('fill')).toBe('var(--text-on-info)')
     })
 
     it('should maintain consistent segment sizes', () => {

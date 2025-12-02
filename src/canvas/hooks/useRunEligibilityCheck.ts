@@ -7,6 +7,7 @@ import { deriveRunEligibility, type RunEligibilityResult } from '../utils/runEli
 import { trackRunAttempt } from '../utils/sandboxTelemetry'
 import { hasValidationErrors } from '../store'
 import type { LimitsV1 } from '../../adapters/plot/types'
+import { useEngineLimits } from './useEngineLimits'
 
 /**
  * Hook to check run eligibility with consistent gating logic.
@@ -14,19 +15,23 @@ import type { LimitsV1 } from '../../adapters/plot/types'
  * This consolidates the duplicate gating logic from CanvasToolbar, ReactFlowGraph, and ResultsPanel.
  */
 export function useRunEligibilityCheck() {
-  const limits = useLimitsStore(state => state.limits)
+  const storeLimits = useLimitsStore(state => state.limits)
+  const { limits: engineLimits } = useEngineLimits()
   const { showToast } = useToast()
 
   return useCallback((): RunEligibilityResult => {
     const state = useCanvasStore.getState()
 
-    // Normalize V1LimitsResponse from the limits store into a LimitsV1 shape
-    const normalizedLimits: LimitsV1 | null = limits
+    // Prefer live LimitsV1 from useEngineLimits (shared with CanvasToolbar/ReactFlowGraph)
+    // Fall back to V1LimitsResponse from limits store when engine limits are not available.
+    const normalizedLimits: LimitsV1 | null = engineLimits
+      ? engineLimits
+      : storeLimits
       ? {
-          nodes: { max: limits.max_nodes },
-          edges: { max: limits.max_edges },
-          body_kb: { max: limits.max_body_kb },
-          engine_p95_ms_budget: limits.engine_p95_ms_budget,
+          nodes: { max: storeLimits.max_nodes },
+          edges: { max: storeLimits.max_edges },
+          body_kb: { max: storeLimits.max_body_kb },
+          engine_p95_ms_budget: storeLimits.engine_p95_ms_budget,
         }
       : null
 
@@ -57,5 +62,5 @@ export function useRunEligibilityCheck() {
     }
 
     return eligibility
-  }, [limits, showToast])
+  }, [engineLimits, storeLimits, showToast])
 }

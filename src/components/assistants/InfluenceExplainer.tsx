@@ -103,8 +103,8 @@ export function InfluenceExplainer({ forceShow = false, onDismiss, compact = fal
 
             {!compact && (
               <ul className="list-disc list-inside space-y-0.5 ml-2">
-                <li>Nodes = factors in your decision</li>
-                <li>Edges = causal influence between factors</li>
+                <li>Nodes represent factors, beliefs in your decision</li>
+                <li>Edges capture causal influence between factors, not simple correlation</li>
                 <li>Weights (-1 to +1) = strength and direction</li>
               </ul>
             )}

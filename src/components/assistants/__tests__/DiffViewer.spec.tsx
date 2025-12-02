@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { DiffViewer } from '../DiffViewer'
 import type { DraftResponse } from '../../../adapters/assistants/types'
 
@@ -29,7 +29,8 @@ describe('DiffViewer (M2.4)', () => {
 
     expect(screen.getByText('Node 1')).toBeInTheDocument()
     expect(screen.getByText('Node 2')).toBeInTheDocument()
-    expect(screen.getByText(/n1 → n2/i)).toBeInTheDocument()
+    // Edges are rendered using their label when present
+    expect(screen.getByText('Edge 1')).toBeInTheDocument()
   })
 
   it('shows correct counts in section headers', () => {
@@ -63,15 +64,16 @@ describe('DiffViewer (M2.4)', () => {
     render(<DiffViewer draft={mockDraft} onApply={onApply} onReject={onReject} />)
 
     // First deselect one
-    const checkboxes = screen.getAllByRole('checkbox')
-    fireEvent.click(checkboxes[0])
+    const initialCheckboxes = screen.getAllByRole('checkbox')
+    fireEvent.click(initialCheckboxes[0])
 
-    // Then click "Select all"
-    const selectAllButtons = screen.getAllByRole('button', { name: /select all/i })
-    fireEvent.click(selectAllButtons[0]) // First "Select all" is for nodes
+    // Then click "Select all" in the nodes header
+    const nodesHeaderButton = screen.getByText(/2 nodes/i).closest('button') as HTMLElement
+    const selectAllButton = within(nodesHeaderButton).getByRole('button', { name: /^select all$/i })
+    fireEvent.click(selectAllButton)
 
     // All node checkboxes should be checked
-    const nodeCheckboxes = checkboxes.slice(0, 2) // First 2 are nodes
+    const nodeCheckboxes = screen.getAllByRole('checkbox').slice(0, 2) // First 2 are nodes
     nodeCheckboxes.forEach((cb) => {
       expect(cb).toBeChecked()
     })
@@ -83,11 +85,11 @@ describe('DiffViewer (M2.4)', () => {
 
     render(<DiffViewer draft={mockDraft} onApply={onApply} onReject={onReject} />)
 
-    const deselectAllButtons = screen.getAllByRole('button', { name: /deselect all/i })
-    fireEvent.click(deselectAllButtons[0]) // First "Deselect all" is for nodes
+    const nodesHeaderButton = screen.getByText(/2 nodes/i).closest('button') as HTMLElement
+    const deselectAllButton = within(nodesHeaderButton).getByRole('button', { name: /^deselect all$/i })
+    fireEvent.click(deselectAllButton)
 
-    const checkboxes = screen.getAllByRole('checkbox')
-    const nodeCheckboxes = checkboxes.slice(0, 2)
+    const nodeCheckboxes = screen.getAllByRole('checkbox').slice(0, 2)
     nodeCheckboxes.forEach((cb) => {
       expect(cb).not.toBeChecked()
     })

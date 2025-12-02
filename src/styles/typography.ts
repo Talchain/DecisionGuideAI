@@ -35,7 +35,7 @@ export const typography = {
   link: 'text-sm font-medium font-sans underline hover:no-underline',
 
   // Specialized
-  code: 'text-xs font-mono leading-normal',
+  code: 'text-xs font-sans leading-normal',
   tabular: 'text-sm font-sans leading-normal tabular-nums',
 
   // Canvas/Graph - Inter

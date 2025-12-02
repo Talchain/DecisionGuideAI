@@ -37,6 +37,7 @@ export function sanitizeLabel(label: unknown): string {
   return label
     .replace(/<[^>]*>/g, '') // Remove HTML tags
     .replace(/[<>]/g, '') // Remove angle brackets
+    // eslint-disable-next-line no-control-regex
     .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
     .slice(0, 100)
     .trim() || 'Untitled'

@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { DocumentsManager } from '../DocumentsManager'
 import { useCanvasStore } from '../../store'
 import type { Document } from '../../share/types'
@@ -24,6 +24,17 @@ const clearInput = (element: HTMLElement) => {
   fireEvent.change(element, { target: { value: '' } })
 }
 
+// Helper to open rename mode for a specific document name
+const openRenameFor = (name: string) => {
+  const nameElement = screen.getByText(name)
+  const card = nameElement.closest('div[tabindex]') as HTMLElement | null
+  if (!card) {
+    throw new Error(`Document card not found for ${name}`)
+  }
+  const renameButton = within(card).getByLabelText('Rename document')
+  fireEvent.click(renameButton)
+}
+
 describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
   const mockDocuments: Document[] = [
     {
@@ -32,7 +43,6 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
       type: 'pdf',
       uploadedAt: new Date('2025-01-01'),
       size: 1024 * 100,
-      text: 'content',
     },
     {
       id: 'doc2',
@@ -40,7 +50,6 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
       type: 'txt',
       uploadedAt: new Date('2025-01-02'),
       size: 1024 * 50,
-      text: 'content',
     },
   ]
 
@@ -85,8 +94,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('enters rename mode when rename button clicked', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       // Should show input with current name
       const input = screen.getByDisplayValue('requirements.pdf')
@@ -97,8 +105,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('shows save and cancel buttons in rename mode', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       expect(screen.getByLabelText('Save rename')).toBeInTheDocument()
       expect(screen.getByLabelText('Cancel rename')).toBeInTheDocument()
@@ -107,17 +114,13 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
 
   describe('F2 Keyboard Shortcut', () => {
     it('enters rename mode when F2 pressed on document card', async () => {
-      const { container } = render(<DocumentsManager onUpload={vi.fn()} />)
+      render(<DocumentsManager onUpload={vi.fn()} />)
 
-      // Find focusable card containers (divs with tabIndex)
-      const focusableCards = container.querySelectorAll('[tabindex="0"]')
-      const firstCard = focusableCards[0] as HTMLElement
+      const card = screen.getByText('requirements.pdf').closest('div[tabindex="0"]') as HTMLElement
 
-      // Focus the card
-      firstCard.focus()
-
-      // Press F2
-      fireEvent.keyDown(firstCard, { key: 'F2' })
+      // Focus the card and press F2
+      card.focus()
+      fireEvent.keyDown(card, { key: 'F2' })
 
       // Should show input
       await waitFor(() => {
@@ -128,8 +131,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('does not trigger rename when F2 pressed while already renaming', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
 
@@ -146,8 +148,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('shows error for empty name', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       clearInput(input)
@@ -161,8 +162,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('shows error for whitespace-only name', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       typeInto(input, '   ')
@@ -175,8 +175,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('shows error for duplicate name (case-insensitive)', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       typeInto(input, 'NOTES.TXT') // Duplicate of second document
@@ -189,8 +188,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('shows error for name exceeding 120 characters', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       typeInto(input, 'a'.repeat(121))
@@ -203,8 +201,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('clears validation error when user types', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       clearInput(input)
@@ -223,8 +220,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('enforces maxLength of 120 characters on input', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf') as HTMLInputElement
       expect(input).toHaveAttribute('maxLength', '120')
@@ -235,8 +231,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('calls renameDocument with trimmed name when save button clicked', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       typeInto(input, '  new-name.pdf  ')
@@ -248,8 +243,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('calls renameDocument when Enter key pressed', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       typeInto(input, 'new-name.pdf')
@@ -261,8 +255,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('exits rename mode without calling renameDocument when name unchanged', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       // Don't change the name
       fireEvent.click(screen.getByLabelText('Save rename'))
@@ -274,8 +267,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('exits rename mode after successful rename', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       typeInto(input, 'new-name.pdf')
@@ -288,8 +280,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('commits rename on blur', async () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       typeInto(input, 'new-name.pdf')
@@ -307,8 +298,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('cancels rename when cancel button clicked', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       typeInto(input, 'new-name.pdf')
@@ -322,8 +312,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('cancels rename when Escape key pressed', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       typeInto(input, 'new-name.pdf')
@@ -337,8 +326,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('restores original name after cancel', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       typeInto(input, 'new-name.pdf')
@@ -351,8 +339,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('clears validation error when cancel clicked', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       clearInput(input)
@@ -373,8 +360,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('has proper ARIA label on rename input', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByLabelText('Rename document requirements.pdf')
       expect(input).toBeInTheDocument()
@@ -383,8 +369,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('sets aria-invalid when validation error present', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       expect(input).toHaveAttribute('aria-invalid', 'false')
@@ -398,8 +383,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
     it('associates error message with input via aria-describedby', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
-      const renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
 
       const input = screen.getByDisplayValue('requirements.pdf')
       clearInput(input)
@@ -435,8 +419,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
       render(<DocumentsManager onUpload={vi.fn()} />)
 
       // Rename first document
-      let renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[0])
+      openRenameFor('requirements.pdf')
       const input1 = screen.getByDisplayValue('requirements.pdf')
       typeInto(input1, 'reqs-v2.pdf')
       fireEvent.keyDown(input1, { key: 'Enter' })
@@ -444,8 +427,7 @@ describe('DocumentsManager - Rename (S7-FILEOPS)', () => {
       expect(mockRenameDocument).toHaveBeenCalledWith('doc1', 'reqs-v2.pdf')
 
       // Rename second document
-      renameButtons = screen.getAllByLabelText('Rename document')
-      fireEvent.click(renameButtons[1])
+      openRenameFor('notes.txt')
       const input2 = screen.getByDisplayValue('notes.txt')
       typeInto(input2, 'meeting-notes.txt')
       fireEvent.keyDown(input2, { key: 'Enter' })

@@ -6,7 +6,7 @@
  * - Pin up to 5 runs (pinned always visible)
  * - Multi-select for comparison (up to 3)
  * - Quick actions: View, Pin, Delete
- * - Compact mini-sparkline visualization
+ * - Compact mini-sparkline visualisation
  * - Live refresh: Updates automatically when runs change (same-tab and cross-tab)
  */
 

@@ -46,6 +46,8 @@ function snapYFromEdge(edge: 'top' | 'cy' | 'bottom', ref: number, h: number) {
 export function computeGuides(moving: Rect, others: Rect[], tol: number): GuidesResult {
   let bestVX: GuideMatch | undefined
   let bestHY: GuideMatch | undefined
+  let bestVXd = Infinity
+  let bestHYd = Infinity
 
   const mx = candidatesX(moving)
   const my = candidatesY(moving)
@@ -61,7 +63,18 @@ export function computeGuides(moving: Rect, others: Rect[], tol: number): Guides
         if (d <= tol) {
           const snapTo = snapXFromEdge(me.edge, oe.val, moving.w)
           const match: GuideMatch = { axis: 'x', ref: oe.val, movingEdge: me.edge, snapTo }
-          if (!bestVX || Math.abs(me.val - bestVX.ref) > d) bestVX = match
+          if (!bestVX || d < bestVXd) {
+            bestVX = match
+            bestVXd = d
+          } else if (
+            d === bestVXd &&
+            me.edge === 'cx' &&
+            oe.edge === 'cx' &&
+            bestVX.movingEdge !== 'cx'
+          ) {
+            // Prefer center-to-center alignment when distances tie
+            bestVX = match
+          }
         }
       }
     }
@@ -73,7 +86,18 @@ export function computeGuides(moving: Rect, others: Rect[], tol: number): Guides
         if (d <= tol) {
           const snapTo = snapYFromEdge(me.edge, oe.val, moving.h)
           const match: GuideMatch = { axis: 'y', ref: oe.val, movingEdge: me.edge, snapTo }
-          if (!bestHY || Math.abs(me.val - bestHY.ref) > d) bestHY = match
+          if (!bestHY || d < bestHYd) {
+            bestHY = match
+            bestHYd = d
+          } else if (
+            d === bestHYd &&
+            me.edge === 'cy' &&
+            oe.edge === 'cy' &&
+            bestHY.movingEdge !== 'cy'
+          ) {
+            // Prefer center-to-center alignment when distances tie
+            bestHY = match
+          }
         }
       }
     }

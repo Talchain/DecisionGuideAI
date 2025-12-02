@@ -12,6 +12,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import type React from 'react'
 import { openStream, type StreamHandle } from '../lib/sseClient'
 import { getDefaults } from '../lib/session'
 import { track } from '../lib/telemetry'

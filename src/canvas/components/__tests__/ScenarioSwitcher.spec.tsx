@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ScenarioSwitcher } from '../ScenarioSwitcher'
+import { ToastProvider } from '../../ToastContext'
 import { useCanvasStore } from '../../store'
 import * as scenarios from '../../store/scenarios'
 
@@ -30,6 +31,12 @@ describe('ScenarioSwitcher (A3)', () => {
   const mockDuplicateCurrentScenario = vi.fn()
   const mockRenameCurrentScenario = vi.fn()
   const mockDeleteScenario = vi.fn()
+
+  const renderWithToast = () => render(
+    <ToastProvider>
+      <ScenarioSwitcher />
+    </ToastProvider>
+  )
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -77,7 +84,7 @@ describe('ScenarioSwitcher (A3)', () => {
       return selector(state)
     })
 
-    render(<ScenarioSwitcher />)
+    renderWithToast()
 
     expect(screen.getByTestId('save-status-saving')).toBeInTheDocument()
     expect(screen.getByText('Saving…')).toBeInTheDocument()
@@ -101,7 +108,7 @@ describe('ScenarioSwitcher (A3)', () => {
       return selector(state)
     })
 
-    render(<ScenarioSwitcher />)
+    renderWithToast()
 
     expect(screen.getByTestId('save-status-saved')).toBeInTheDocument()
     expect(screen.getByText(/Saved just now/)).toBeInTheDocument()
@@ -125,7 +132,7 @@ describe('ScenarioSwitcher (A3)', () => {
       return selector(state)
     })
 
-    render(<ScenarioSwitcher />)
+    renderWithToast()
 
     expect(screen.getByText(/Saved 30s ago/)).toBeInTheDocument()
   })
@@ -146,7 +153,7 @@ describe('ScenarioSwitcher (A3)', () => {
       return selector(state)
     })
 
-    render(<ScenarioSwitcher />)
+    renderWithToast()
 
     // Saving pill should be visible
     expect(screen.getByTestId('save-status-saving')).toBeInTheDocument()
@@ -189,7 +196,7 @@ describe('ScenarioSwitcher (A3)', () => {
       graph: { nodes: [], edges: [] }
     })
 
-    render(<ScenarioSwitcher />)
+    renderWithToast()
 
     // Open dropdown
     const button = screen.getByRole('button', { expanded: false })
@@ -241,7 +248,7 @@ describe('ScenarioSwitcher (A3)', () => {
 
     vi.mocked(scenarios.loadScenarios).mockReturnValue([])
 
-    render(<ScenarioSwitcher />)
+    renderWithToast()
 
     expect(screen.getByText('Untitled scenario')).toBeInTheDocument()
   })
@@ -262,14 +269,14 @@ describe('ScenarioSwitcher (A3)', () => {
       return selector(state)
     })
 
-    render(<ScenarioSwitcher />)
+    renderWithToast()
 
     expect(screen.queryByTestId('save-status-saving')).not.toBeInTheDocument()
     expect(screen.queryByTestId('save-status-saved')).not.toBeInTheDocument()
   })
 
   it('save button triggers saveCurrentScenario', async () => {
-    render(<ScenarioSwitcher />)
+    renderWithToast()
 
     // Open dropdown
     const button = screen.getByRole('button', { expanded: false })
