@@ -1,0 +1,1 @@
+./scripts/verify-current-state.sh: line 83: npm: command not found

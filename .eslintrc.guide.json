@@ -1,0 +1,24 @@
+{
+  "extends": "./.eslintrc.cjs",
+  "overrides": [
+    {
+      "files": ["src/pages/sandbox-guide/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/pages/sandbox/**", "!**/pages/sandbox-guide/**"],
+                "message": "❌ SAFETY VIOLATION: Guide variant must not import from existing sandbox pages. Import from @/services, @/stores, or @/components/shared only."
+              }
+            ]
+          }
+        ],
+        "@typescript-eslint/no-explicit-any": "error",
+        "@typescript-eslint/explicit-function-return-type": "warn",
+        "@typescript-eslint/strict-boolean-expressions": "off"
+      }
+    }
+  ]
+}

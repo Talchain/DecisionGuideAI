@@ -1,0 +1,118 @@
+/**
+ * Canvas Animations
+ *
+ * Custom animations for guide canvas visual encoding:
+ * - Pulse animation for critical gaps
+ * - Glow effect for high-contribution edges
+ */
+
+/* Pulse animation for critical gaps */
+@keyframes pulse-warning {
+  0%,
+  100% {
+    stroke: #f59e0b; /* creative-500 */
+    opacity: 1;
+  }
+  50% {
+    stroke: #fbbf24; /* creative-400 */
+    opacity: 0.7;
+  }
+}
+
+.react-flow__edge.critical-gap-edge {
+  animation: pulse-warning 2s ease-in-out infinite;
+  stroke-dasharray: 5, 5;
+}
+
+/* Glow effect for high-contribution edges */
+@keyframes edge-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 2px rgba(66, 153, 225, 0.4));
+  }
+  50% {
+    filter: drop-shadow(0 0 4px rgba(66, 153, 225, 0.6));
+  }
+}
+
+/* Apply glow to thick edges (thickness=6) */
+.react-flow__edge[data-thickness='6'] {
+  animation: edge-glow 3s ease-in-out infinite;
+}
+
+/* Ensure animations are smooth and not distracting */
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__edge.critical-gap-edge,
+  .react-flow__edge[data-thickness='6'] {
+    animation: none;
+  }
+}
+/**
+ * Post-Run Highlighting Animations
+ *
+ * Smooth fade transitions and glow effects for driver highlighting:
+ * - Fade transitions for opacity changes
+ * - Driver glow effect
+ * - Temporary focus state
+ * - Animated flow on driver paths
+ */
+
+/* Fade transitions for highlighting */
+.react-flow__node.faded-node,
+.react-flow__edge.faded-edge,
+.react-flow__node.super-faded-node,
+.react-flow__edge.super-faded-edge {
+  transition: opacity 0.3s ease-out, filter 0.3s ease-out;
+}
+
+/* Driver glow effect */
+.react-flow__node.driver-node {
+  transition: all 0.3s ease-out;
+  filter: drop-shadow(0 0 6px rgba(66, 153, 225, 0.3));
+}
+
+/* Temporary focus state (stronger glow) */
+.react-flow__node.focused-node {
+  transition: all 0.5s ease-out;
+  filter: drop-shadow(0 0 12px rgba(66, 153, 225, 0.6));
+}
+
+/* Animated flow on driver paths */
+@keyframes driver-flow {
+  0% {
+    stroke-dashoffset: 24;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.react-flow__edge.driver-edge.animated {
+  stroke-dasharray: 8, 4;
+  animation: driver-flow 1s linear infinite;
+}
+
+/* Focused edge (temporary highlight) */
+.react-flow__edge.focused-edge {
+  transition: all 0.5s ease-out;
+  filter: drop-shadow(0 0 4px rgba(66, 153, 225, 0.5));
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__node.driver-node,
+  .react-flow__node.focused-node,
+  .react-flow__node.faded-node,
+  .react-flow__node.super-faded-node,
+  .react-flow__edge.driver-edge,
+  .react-flow__edge.focused-edge,
+  .react-flow__edge.faded-edge,
+  .react-flow__edge.super-faded-edge {
+    animation: none;
+    transition: none;
+  }
+  
+  .react-flow__edge.driver-edge.animated {
+    animation: none;
+  }
+}
