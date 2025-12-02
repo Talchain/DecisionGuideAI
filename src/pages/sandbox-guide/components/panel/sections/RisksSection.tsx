@@ -21,17 +21,17 @@ export function RisksSection({ risks, limit = 3 }: RisksSectionProps): JSX.Eleme
   const hasMore = hiddenRisks.length > 0
 
   return (
-    <div className="border-t border-storm-100">
+    <div className="font-sans border-t border-storm-100">
       <ExpandableSection
         title={
-          <div className="flex items-center gap-2">
+          <div className="font-sans flex items-center gap-2">
             <span className="text-sm font-semibold text-charcoal-900">⚠️ Risks to Consider</span>
             <span className="text-xs text-storm-500">({risks.length})</span>
           </div>
         }
         defaultOpen={risks.length <= 3}
       >
-        <div className="space-y-2">
+        <div className="font-sans space-y-2">
           {visibleRisks.map((risk, idx) => (
             <div
               key={idx}
@@ -44,8 +44,8 @@ export function RisksSection({ risks, limit = 3 }: RisksSectionProps): JSX.Eleme
         </div>
 
         {hasMore && (
-          <div className="mt-3 space-y-2">
-            <div className="text-xs text-storm-600 font-medium">
+          <div className="font-sans mt-3 space-y-2">
+            <div className="font-sans text-xs text-storm-600 font-medium">
               Additional risks ({hiddenRisks.length}):
             </div>
             {hiddenRisks.map((risk, idx) => (

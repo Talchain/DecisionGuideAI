@@ -29,7 +29,7 @@ export function EmptyState(): JSX.Element {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 font-sans">
       {/* Header */}
       <div className="flex items-center gap-3">
         <span className="text-2xl">🎯</span>

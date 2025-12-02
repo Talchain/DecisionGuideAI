@@ -45,7 +45,7 @@ export function RunSelector({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="font-sans space-y-4">
       <div>
         <label
           htmlFor="baseline-select"
@@ -92,7 +92,7 @@ export function RunSelector({
         </select>
       </div>
 
-      <div className="flex gap-2">
+      <div className="font-sans flex gap-2">
         <Button
           variant="primary"
           fullWidth

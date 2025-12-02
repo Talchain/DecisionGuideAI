@@ -44,10 +44,10 @@ export function TopDriversSection({ drivers, limit = 3 }: TopDriversSectionProps
   }
 
   return (
-    <div className="border-t border-storm-100">
-      <div className="p-6">
+    <div className="font-sans border-t border-storm-100">
+      <div className="font-sans p-6">
         <h3 className="text-sm font-semibold text-charcoal-900 mb-3">🎯 Top Drivers</h3>
-        <div className="space-y-2">
+        <div className="font-sans space-y-2">
           {visibleDrivers.map((driver, idx) => (
             <div
               key={idx}
@@ -56,10 +56,10 @@ export function TopDriversSection({ drivers, limit = 3 }: TopDriversSectionProps
               <span className={`text-xl ${getPolarityColor(driver.polarity)}`}>
                 {getPolarityIcon(driver.polarity)}
               </span>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-charcoal-900 text-sm">{driver.label}</div>
+              <div className="font-sans flex-1 min-w-0">
+                <div className="font-sans font-medium text-charcoal-900 text-sm">{driver.label}</div>
                 {driver.action && (
-                  <div className="text-xs text-storm-600 mt-1">{driver.action}</div>
+                  <div className="font-sans text-xs text-storm-600 mt-1">{driver.action}</div>
                 )}
               </div>
               <span className="text-xs font-medium text-storm-500">{driver.strength}</span>
@@ -77,7 +77,7 @@ export function TopDriversSection({ drivers, limit = 3 }: TopDriversSectionProps
             defaultOpen={false}
             className="mt-3 border-0"
           >
-            <div className="space-y-2 mt-2">
+            <div className="font-sans space-y-2 mt-2">
               {hiddenDrivers.map((driver, idx) => (
                 <div
                   key={idx + limit}
@@ -86,10 +86,10 @@ export function TopDriversSection({ drivers, limit = 3 }: TopDriversSectionProps
                   <span className={`text-xl ${getPolarityColor(driver.polarity)}`}>
                     {getPolarityIcon(driver.polarity)}
                   </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-charcoal-900 text-sm">{driver.label}</div>
+                  <div className="font-sans flex-1 min-w-0">
+                    <div className="font-sans font-medium text-charcoal-900 text-sm">{driver.label}</div>
                     {driver.action && (
-                      <div className="text-xs text-storm-600 mt-1">{driver.action}</div>
+                      <div className="font-sans text-xs text-storm-600 mt-1">{driver.action}</div>
                     )}
                   </div>
                   <span className="text-xs font-medium text-storm-500">{driver.strength}</span>

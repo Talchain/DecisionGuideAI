@@ -22,18 +22,18 @@ export function AdvancedMetricsSection({
   }
 
   return (
-    <div className="border-t border-storm-100">
+    <div className="font-sans border-t border-storm-100">
       <ExpandableSection
         title={
           <span className="text-sm font-semibold text-charcoal-900">🔬 Advanced Metrics</span>
         }
         defaultOpen={false}
       >
-        <div className="space-y-4">
+        <div className="font-sans space-y-4">
           {graphQuality && (
             <div>
-              <div className="text-xs font-medium text-storm-600 mb-2">Graph Quality</div>
-              <div className="space-y-1">
+              <div className="font-sans text-xs font-medium text-storm-600 mb-2">Graph Quality</div>
+              <div className="font-sans space-y-1">
                 <MetricRow
                   label="Overall Score"
                   value={`${Math.round(graphQuality.score * 100)}%`}
@@ -52,11 +52,11 @@ export function AdvancedMetricsSection({
                 />
               </div>
               {graphQuality.recommendation && (
-                <div className="mt-3 p-3 bg-analytical-50 rounded-lg border border-analytical-200">
-                  <div className="text-xs font-medium text-analytical-800 mb-1">
+                <div className="font-sans mt-3 p-3 bg-analytical-50 rounded-lg border border-analytical-200">
+                  <div className="font-sans text-xs font-medium text-analytical-800 mb-1">
                     Recommendation
                   </div>
-                  <div className="text-xs text-charcoal-900">{graphQuality.recommendation}</div>
+                  <div className="font-sans text-xs text-charcoal-900">{graphQuality.recommendation}</div>
                 </div>
               )}
             </div>
@@ -64,10 +64,10 @@ export function AdvancedMetricsSection({
 
           {critique && critique.length > 0 && (
             <div>
-              <div className="text-xs font-medium text-storm-600 mb-2">
+              <div className="font-sans text-xs font-medium text-storm-600 mb-2">
                 Observations ({critique.length})
               </div>
-              <div className="space-y-2">
+              <div className="font-sans space-y-2">
                 {critique.map((item, idx) => (
                   <div
                     key={idx}

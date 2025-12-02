@@ -16,7 +16,7 @@ export function PreRunBlockedState(): JSX.Element {
   const blockers = findBlockers({ nodes, edges })
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 font-sans">
       <div className="flex items-center gap-3">
         <span className="text-2xl">⚠️</span>
         <h2 className="text-xl font-semibold text-charcoal-900">Cannot Run Analysis</h2>

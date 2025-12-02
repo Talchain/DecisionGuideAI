@@ -38,7 +38,7 @@ export function PostRunState(): JSX.Element {
   const blockers = report.decision_readiness?.blockers || []
   if (blockers.length > 0) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="p-6 space-y-6 font-sans">
         <div className="flex items-center gap-3">
           <span className="text-2xl">⚠️</span>
           <h2 className="text-xl font-semibold text-charcoal-900">Analysis Incomplete</h2>
