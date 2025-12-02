@@ -28,7 +28,7 @@ export default function GuideLayout() {
   const { showHelp, setShowHelp } = useKeyboardShortcuts()
 
   return (
-    <div className="h-screen flex flex-col bg-mist-50">
+    <div className="h-screen flex flex-col bg-mist-50 font-sans">
       {/* Top Bar */}
       <GuideTopBar />
 
