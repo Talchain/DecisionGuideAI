@@ -26,11 +26,45 @@ export function GhostSuggestionsOverlay(): JSX.Element | null {
   const edges = useCanvasStore((state) => state.edges)
   const journeyStage = useGuideStore((state) => state.journeyStage)
 
+  // DEBUG: Log component mount and unmount
+  useEffect(() => {
+    console.log('[GhostOverlay] 🚀 Component MOUNTED', {
+      journeyStage,
+      nodeCount: nodes.length,
+      edgeCount: edges.length,
+      timestamp: new Date().toISOString()
+    })
+    return () => console.log('[GhostOverlay] 💀 Component UNMOUNTED')
+  }, [])
+
+  // DEBUG: Log state changes
+  useEffect(() => {
+    console.log('[GhostOverlay] 📊 State update:', {
+      journeyStage,
+      nodeCount: nodes.length,
+      edgeCount: edges.length,
+      suggestionCount: suggestions.length,
+      hoveredNode,
+      shouldShow: shouldShowGhosts(journeyStage, nodes.length)
+    })
+  }, [journeyStage, nodes.length, edges.length, suggestions.length, hoveredNode])
+
   // Handle node mouse enter
   const handleNodeMouseEnter = useCallback(
     (nodeId: string) => {
+      console.log('[GhostOverlay] 🖱️ Mouse enter node:', nodeId)
+
       // Check if should show ghosts
-      if (!shouldShowGhosts(journeyStage, nodes.length)) {
+      const canShow = shouldShowGhosts(journeyStage, nodes.length)
+      console.log('[GhostOverlay] 🔍 Can show ghosts?', {
+        canShow,
+        journeyStage,
+        nodeCount: nodes.length,
+        requiredStage: 'building',
+        requiredNodes: 2
+      })
+
+      if (!canShow) {
         return
       }
 
@@ -40,9 +74,12 @@ export function GhostSuggestionsOverlay(): JSX.Element | null {
       }
 
       // Delay to avoid flashing on quick hover
+      console.log('[GhostOverlay] ⏱️ Starting 300ms delay timer...')
       hoverTimeoutRef.current = setTimeout(() => {
+        console.log('[GhostOverlay] ⏰ Timer fired! Generating suggestions...')
         setHoveredNode(nodeId)
         const newSuggestions = generateGhostSuggestions(nodeId, nodes, edges)
+        console.log('[GhostOverlay] ✨ Generated suggestions:', newSuggestions)
         setSuggestions(newSuggestions)
       }, 300) // 300ms delay before showing
     },
@@ -91,6 +128,8 @@ export function GhostSuggestionsOverlay(): JSX.Element | null {
 
   // Set up DOM event listeners for node hover
   useEffect(() => {
+    console.log('[GhostOverlay] 🎣 Setting up event listeners...')
+
     const handleMouseOver = (event: MouseEvent) => {
       const target = event.target as HTMLElement
       const nodeElement = target.closest('.react-flow__node')
@@ -114,15 +153,21 @@ export function GhostSuggestionsOverlay(): JSX.Element | null {
     }
 
     const canvas = document.querySelector('.react-flow')
+    console.log('[GhostOverlay] 🎨 Canvas element found:', !!canvas)
+
     if (canvas) {
       canvas.addEventListener('mouseover', handleMouseOver)
       canvas.addEventListener('mouseout', handleMouseOut)
+      console.log('[GhostOverlay] ✅ Event listeners attached')
+    } else {
+      console.warn('[GhostOverlay] ⚠️ Canvas element NOT found!')
     }
 
     return () => {
       if (canvas) {
         canvas.removeEventListener('mouseover', handleMouseOver)
         canvas.removeEventListener('mouseout', handleMouseOut)
+        console.log('[GhostOverlay] 🧹 Event listeners cleaned up')
       }
       if (hoverTimeoutRef.current) {
         clearTimeout(hoverTimeoutRef.current)

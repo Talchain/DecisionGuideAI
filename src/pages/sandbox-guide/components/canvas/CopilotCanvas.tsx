@@ -29,6 +29,16 @@ export function GuideCanvas(): JSX.Element {
   const selectElement = useGuideStore((state) => state.selectElement)
   const canvasRef = useRef<HTMLDivElement>(null)
 
+  // DEBUG: Log component mount
+  useEffect(() => {
+    console.log('[GuideCanvas] 🎨 Component MOUNTED', {
+      hasResults,
+      resultsStatus,
+      timestamp: new Date().toISOString()
+    })
+    return () => console.log('[GuideCanvas] Component unmounted')
+  }, [])
+
   // Apply post-run highlighting automatically
   usePostRunHighlighting()
 
@@ -107,6 +117,14 @@ export function GuideCanvas(): JSX.Element {
     }
   }, [selectElement])
 
+  // DEBUG: Log render
+  console.log('[GuideCanvas] 🎬 RENDERING', {
+    hasResults,
+    nodeBadgeCount: nodeBadges.length,
+    nodeCount: nodes.length,
+    edgeCount: edges.length
+  })
+
   return (
     <div ref={canvasRef} className="relative w-full h-full">
       {/* Base canvas */}
@@ -127,6 +145,7 @@ export function GuideCanvas(): JSX.Element {
       {hasResults && <GuideCanvasOverlay enabled={true} />}
 
       {/* Ghost suggestions overlay (building stage only) */}
+      {console.log('[GuideCanvas] 👻 Rendering GhostSuggestionsOverlay')}
       <GhostSuggestionsOverlay />
     </div>
   )
