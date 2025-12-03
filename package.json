@@ -28,6 +28,7 @@
     "test:e2e:chromium": "playwright test --project=chromium -c playwright.config.ts",
     "e2e:report": "playwright show-report",
     "e2e": "playwright test",
+    "e2e:guide": "playwright test e2e/guide/",
     "size:check": "node scripts/check-bundle-size.js",
     "bundle:check": "node scripts/verify-bundle-budget.mjs",
     "typecheck": "tsc -p tsconfig.ci.json --noEmit",
