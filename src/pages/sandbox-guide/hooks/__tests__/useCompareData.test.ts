@@ -201,7 +201,7 @@ describe('useCompareData', () => {
   })
 
   describe('Change Drivers', () => {
-    it('extracts change drivers from explain_delta', () => {
+    it('extracts change drivers from explain_delta (legacy format)', () => {
       const { result } = renderHook(() =>
         useCompareData({
           baselineRunId: 'run-a',
@@ -210,18 +210,111 @@ describe('useCompareData', () => {
       )
 
       expect(result.current.changeDrivers).toHaveLength(2)
-      expect(result.current.changeDrivers[0]).toEqual({
+      expect(result.current.changeDrivers[0]).toMatchObject({
         nodeId: 'node-1',
         nodeLabel: 'Market Demand',
         contribution: 0.5,
         direction: 'positive',
+        affectedNodes: ['node-1'],
+        contributionPct: 0.5,
       })
-      expect(result.current.changeDrivers[1]).toEqual({
+      expect(result.current.changeDrivers[1]).toMatchObject({
         nodeId: 'node-2',
         nodeLabel: 'Product Quality',
         contribution: -0.2,
         direction: 'negative',
+        affectedNodes: ['node-2'],
+        contributionPct: -0.2,
       })
+    })
+
+    it('prefers change_attribution over explain_delta when both present', () => {
+      const runWithChangeAttribution = {
+        ...mockRunB,
+        report: {
+          ...mockRunB.report,
+          change_attribution: {
+            primary_drivers: [
+              {
+                driver_id: 'driver-1',
+                driver_label: 'Market Expansion',
+                contribution_pct: 65.5,
+                affected_nodes: ['node-1', 'node-3', 'node-4'],
+                polarity: 'increase',
+              },
+              {
+                driver_id: 'driver-2',
+                driver_label: 'Cost Reduction',
+                contribution_pct: 34.5,
+                affected_nodes: ['node-2'],
+                polarity: 'decrease',
+              },
+            ],
+          },
+        },
+      } as any
+      vi.mocked(runHistory.loadRuns).mockReturnValue([mockRunA, runWithChangeAttribution])
+
+      const { result } = renderHook(() =>
+        useCompareData({
+          baselineRunId: 'run-a',
+          currentRunId: runWithChangeAttribution.id,
+        })
+      )
+
+      expect(result.current.changeDrivers).toHaveLength(2)
+      expect(result.current.changeDrivers[0]).toEqual({
+        nodeId: 'node-1',
+        nodeLabel: 'Market Expansion',
+        contribution: 65.5,
+        direction: 'positive',
+        affectedNodes: ['node-1', 'node-3', 'node-4'],
+        contributionPct: 65.5,
+      })
+      expect(result.current.changeDrivers[1]).toEqual({
+        nodeId: 'node-2',
+        nodeLabel: 'Cost Reduction',
+        contribution: 34.5,
+        direction: 'negative',
+        affectedNodes: ['node-2'],
+        contributionPct: 34.5,
+      })
+    })
+
+    it('extracts multiple affected nodes from change_attribution', () => {
+      const runWithMultipleNodes = {
+        ...mockRunB,
+        report: {
+          ...mockRunB.report,
+          change_attribution: {
+            primary_drivers: [
+              {
+                driver_id: 'driver-multi',
+                driver_label: 'Regional Growth',
+                contribution_pct: 80.0,
+                affected_nodes: ['node-a', 'node-b', 'node-c', 'node-d', 'node-e'],
+                polarity: 'increase',
+              },
+            ],
+          },
+        },
+      } as any
+      vi.mocked(runHistory.loadRuns).mockReturnValue([mockRunA, runWithMultipleNodes])
+
+      const { result } = renderHook(() =>
+        useCompareData({
+          baselineRunId: 'run-a',
+          currentRunId: runWithMultipleNodes.id,
+        })
+      )
+
+      expect(result.current.changeDrivers[0].affectedNodes).toEqual([
+        'node-a',
+        'node-b',
+        'node-c',
+        'node-d',
+        'node-e',
+      ])
     })
 
     it('returns empty array when explain_delta is missing', () => {
