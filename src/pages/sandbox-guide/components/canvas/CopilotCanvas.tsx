@@ -14,6 +14,7 @@ import { useEffect, useRef, useMemo } from 'react'
 import { ReactFlowGraph } from '@/canvas/ReactFlowGraph'
 import { GuideCanvasOverlay } from './GuideCanvasOverlay'
 import { NodeBadge } from './NodeBadge'
+import { GhostSuggestionsOverlay } from './GhostSuggestionsOverlay'
 import { useResultsStore } from '@/canvas/stores/resultsStore'
 import { useCanvasStore } from '@/canvas/store'
 import { useGuideStore } from '../../hooks/useGuideStore'
@@ -124,6 +125,9 @@ export function GuideCanvas(): JSX.Element {
 
       {/* Guide enhancements overlay (only after run) */}
       {hasResults && <GuideCanvasOverlay enabled={true} />}
+
+      {/* Ghost suggestions overlay (building stage only) */}
+      <GhostSuggestionsOverlay />
     </div>
   )
 }
