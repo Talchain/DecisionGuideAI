@@ -183,3 +183,55 @@ export function focusOnDriver(
     edges: focusedEdges,
   }
 }
+
+/**
+ * Temporarily focus on a single edge (2s highlight)
+ *
+ * Fades everything except the focused edge and its source/target nodes
+ */
+export function focusOnEdge(
+  nodes: Node[],
+  edges: Edge[],
+  edgeId: string
+): HighlightingResult {
+  const targetEdge = edges.find((e) => e.id === edgeId)
+
+  if (!targetEdge) {
+    // Edge not found, return unchanged
+    return { nodes, edges }
+  }
+
+  // Get source and target nodes for this edge
+  const relevantNodeIds = new Set([targetEdge.source, targetEdge.target])
+
+  // Highlight source and target nodes, fade others
+  const focusedNodes = nodes.map((node) => ({
+    ...node,
+    style: {
+      ...node.style,
+      opacity: relevantNodeIds.has(node.id) ? 1 : 0.2,
+    },
+    className: relevantNodeIds.has(node.id)
+      ? 'focused-node'
+      : node.className?.replace(/\b(driver-node|faded-node)\b/g, 'super-faded-node'),
+  }))
+
+  // Highlight target edge, fade others
+  const focusedEdges = edges.map((edge) => ({
+    ...edge,
+    style: {
+      ...edge.style,
+      opacity: edge.id === edgeId ? 1 : 0.1,
+      strokeWidth: edge.id === edgeId ? 3 : undefined,
+    },
+    className: edge.id === edgeId
+      ? 'focused-edge'
+      : edge.className?.replace(/\b(driver-edge|faded-edge)\b/g, 'super-faded-edge'),
+    animated: edge.id === edgeId,
+  }))
+
+  return {
+    nodes: focusedNodes,
+    edges: focusedEdges,
+  }
+}
