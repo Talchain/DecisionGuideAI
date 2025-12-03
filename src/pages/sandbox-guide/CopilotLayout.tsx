@@ -7,6 +7,7 @@ import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 import { useJourneyDetection } from './hooks/useJourneyDetection'
 import { HelpModal } from './components/shared/HelpModal'
 import { GuideErrorBoundary } from './components/shared/GuideErrorBoundary'
+import { DiagnosticBanner } from './DiagnosticBanner'
 
 /**
  * Guide Layout - Main layout component for guide variant
@@ -29,6 +30,9 @@ export default function GuideLayout() {
 
   return (
     <div className="h-screen flex flex-col bg-mist-50 font-sans">
+      {/* Diagnostic Banner - Remove after debugging */}
+      <DiagnosticBanner />
+
       {/* Top Bar */}
       <GuideTopBar />
 
