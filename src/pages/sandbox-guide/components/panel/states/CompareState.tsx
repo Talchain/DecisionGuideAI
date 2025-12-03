@@ -247,7 +247,7 @@ export function CompareState(): JSX.Element {
                       {idx + 1}. {driver.nodeLabel}
                     </div>
                     <div className="text-xs text-storm-600">
-                      Contribution: {driver.contribution.toFixed(2)}
+                      Contribution: {(driver.contributionPct || driver.contribution).toFixed(1)}%
                     </div>
                   </div>
                   <div
@@ -260,10 +260,35 @@ export function CompareState(): JSX.Element {
                       }
                     `}
                   >
-                    {driver.direction === 'positive' ? '+' : '-'}
-                    {Math.abs(driver.contribution * 100).toFixed(0)}%
+                    {driver.direction === 'positive' ? '↑' : '↓'}
                   </div>
                 </div>
+
+                {/* Affected Nodes - show all nodes if multiple */}
+                {driver.affectedNodes && driver.affectedNodes.length > 1 && (
+                  <div className="mt-2 mb-2">
+                    <div className="text-xs text-storm-600 mb-1">
+                      Affected nodes ({driver.affectedNodes.length}):
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {driver.affectedNodes.slice(0, 5).map((nodeId: string) => (
+                        <button
+                          key={nodeId}
+                          onClick={() => handleViewInGraph(nodeId)}
+                          className="text-xs px-2 py-1 bg-storm-100 hover:bg-analytical-100
+                                   text-storm-700 hover:text-analytical-700 rounded transition"
+                        >
+                          {nodeId}
+                        </button>
+                      ))}
+                      {driver.affectedNodes.length > 5 && (
+                        <span className="text-xs text-storm-600 px-2 py-1">
+                          +{driver.affectedNodes.length - 5} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-3 flex gap-2">
                   <Button

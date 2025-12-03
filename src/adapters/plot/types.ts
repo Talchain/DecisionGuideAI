@@ -62,6 +62,17 @@ export interface ReportV1 {
     warnings: string[]
     passed: string[]
   }
+
+  // Change Attribution - Explains why outcomes changed between runs
+  change_attribution?: {
+    primary_drivers: Array<{
+      driver_id: string
+      driver_label: string
+      contribution_pct: number
+      affected_nodes: string[]
+      polarity: 'increase' | 'decrease'
+    }>
+  }
 }
 
 export interface ErrorV1 {

@@ -119,6 +119,25 @@ export interface RunResponse {
   decision_readiness?: DecisionReadiness
   insights?: Insights
   graph_quality?: GraphQuality
+
+  // Change Attribution - Explains why outcomes changed between runs
+  change_attribution?: ChangeAttribution
+}
+
+/**
+ * Change Attribution - Detailed breakdown of what changed between runs
+ * Shows primary drivers with their contribution percentages and affected nodes
+ */
+export interface ChangeAttribution {
+  primary_drivers: ChangeDriver[]
+}
+
+export interface ChangeDriver {
+  driver_id: string           // Unique identifier for the driver
+  driver_label: string         // Human-readable label
+  contribution_pct: number     // 0-100 percentage contribution
+  affected_nodes: string[]     // Node IDs affected by this driver
+  polarity: 'increase' | 'decrease'  // Direction of change
 }
 
 // ============================================================================

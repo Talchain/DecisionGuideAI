@@ -80,14 +80,36 @@ export function useCompareData({
         })()
       : null
 
-  // Extract change drivers from explain_delta.top_drivers
-  const changeDrivers =
-    current?.report?.explain_delta?.top_drivers?.map((driver: any) => ({
-      nodeId: driver.node_id || driver.nodeId || '',
-      nodeLabel: driver.node_label || driver.label || driver.node_id || 'Unknown Node',
-      contribution: driver.contribution || driver.impact || 0,
-      direction: (driver.contribution || driver.impact || 0) >= 0 ? ('positive' as const) : ('negative' as const),
-    })) || []
+  // Extract change drivers - prefer change_attribution, fallback to explain_delta.top_drivers
+  const changeDrivers = (() => {
+    // Try new change_attribution field first
+    if (current?.report?.change_attribution?.primary_drivers) {
+      return current.report.change_attribution.primary_drivers.map((driver: any) => ({
+        nodeId: driver.affected_nodes?.[0] || driver.driver_id || '',
+        nodeLabel: driver.driver_label || 'Unknown Node',
+        contribution: driver.contribution_pct || 0,
+        direction: driver.polarity === 'increase' ? ('positive' as const) : ('negative' as const),
+        // NEW: Include all affected nodes for multi-node highlighting
+        affectedNodes: driver.affected_nodes || [],
+        contributionPct: driver.contribution_pct || 0,
+      }))
+    }
+
+    // Fallback to old explain_delta.top_drivers format
+    if (current?.report?.explain_delta?.top_drivers) {
+      return current.report.explain_delta.top_drivers.map((driver: any) => ({
+        nodeId: driver.node_id || driver.nodeId || '',
+        nodeLabel: driver.node_label || driver.label || driver.node_id || 'Unknown Node',
+        contribution: driver.contribution || driver.impact || 0,
+        direction: (driver.contribution || driver.impact || 0) >= 0 ? ('positive' as const) : ('negative' as const),
+        // Legacy format - single node only
+        affectedNodes: driver.node_id ? [driver.node_id] : [],
+        contributionPct: driver.contribution || driver.impact || 0,
+      }))
+    }
+
+    return []
+  })()
 
   // Fetch structural diff from /v1/diff endpoint
   useEffect(() => {
