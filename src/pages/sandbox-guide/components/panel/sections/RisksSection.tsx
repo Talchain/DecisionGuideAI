@@ -1,10 +1,13 @@
 /**
  * RisksSection - Shows risks from PLoT insights
  *
- * Displays potential concerns and risks identified in the analysis
+ * Displays potential concerns and risks identified in the analysis.
+ * Supports structured node/edge references via InsightItem component.
  */
 
 import { ExpandableSection } from '../../shared/ExpandableSection'
+import { InsightItem } from '../../shared/InsightItem'
+import { useCanvasFocus } from '../../../hooks/useCanvasFocus'
 
 export interface RisksSectionProps {
   risks: string[]
@@ -12,6 +15,8 @@ export interface RisksSectionProps {
 }
 
 export function RisksSection({ risks, limit = 3 }: RisksSectionProps): JSX.Element {
+  const { highlightDriver, highlightEdge } = useCanvasFocus()
+
   if (!risks || risks.length === 0) {
     return <></>
   }
@@ -38,7 +43,12 @@ export function RisksSection({ risks, limit = 3 }: RisksSectionProps): JSX.Eleme
               className="flex items-start gap-2 p-3 rounded-lg bg-creative-50 border border-creative-200"
             >
               <span className="text-creative-600 mt-0.5">•</span>
-              <span className="text-sm text-charcoal-900 flex-1">{risk}</span>
+              <InsightItem
+                text={risk}
+                onNodeClick={highlightDriver}
+                onEdgeClick={highlightEdge}
+                className="flex-1"
+              />
             </div>
           ))}
         </div>
@@ -54,7 +64,12 @@ export function RisksSection({ risks, limit = 3 }: RisksSectionProps): JSX.Eleme
                 className="flex items-start gap-2 p-3 rounded-lg bg-creative-50 border border-creative-200"
               >
                 <span className="text-creative-600 mt-0.5">•</span>
-                <span className="text-sm text-charcoal-900 flex-1">{risk}</span>
+                <InsightItem
+                  text={risk}
+                  onNodeClick={highlightDriver}
+                  onEdgeClick={highlightEdge}
+                  className="flex-1"
+                />
               </div>
             ))}
           </div>

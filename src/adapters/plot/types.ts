@@ -51,6 +51,16 @@ export interface ReportV1 {
     summary: string
     risks: string[]
     next_steps: string[]
+    node_references?: Array<{
+      node_id: string
+      label?: string
+      context?: string
+    }>
+    edge_references?: Array<{
+      edge_id: string
+      label?: string
+      context?: string
+    }>
   }
 
   // P0.1: Canonical decision readiness (normalized from confidence.level)

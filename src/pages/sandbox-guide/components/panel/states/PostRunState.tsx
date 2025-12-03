@@ -17,6 +17,7 @@ import { Badge } from '../../shared/Badge'
 import { Button } from '../../shared/Button'
 import { ExpandableSection } from '../../shared/ExpandableSection'
 import { MetricRow } from '../../shared/MetricRow'
+import { InsightItem } from '../../shared/InsightItem'
 import { TopDriversSection } from '../sections/TopDriversSection'
 import { RisksSection } from '../sections/RisksSection'
 import { AdvancedMetricsSection } from '../sections/AdvancedMetricsSection'
@@ -24,10 +25,12 @@ import { VerificationBadge } from '../sections/VerificationBadge'
 import { ProvenancePanel } from '../sections/ProvenancePanel'
 import { SeverityStyledCritiques } from '../sections/SeverityStyledCritiques'
 import { BiasMitigation } from '../sections/BiasMitigation'
+import { useCanvasFocus } from '../../../hooks/useCanvasFocus'
 
 export function PostRunState(): JSX.Element {
   const report = useResultsStore((state) => state.results.report)
   const ceeReview = useResultsStore((state) => state.runMeta.ceeReview)
+  const { highlightDriver, highlightEdge } = useCanvasFocus()
 
   // Safety: Should not happen, but guard against empty results
   if (!report) {
@@ -240,8 +243,20 @@ export function PostRunState(): JSX.Element {
                 <div key={idx} className="flex items-start gap-2 text-sm">
                   <span className="text-analytical-600 mt-0.5">→</span>
                   <div className="flex-1">
-                    <span className="text-storm-700">{actionText}</span>
-                    {actionWhy && <div className="text-xs text-storm-600 mt-1">{actionWhy}</div>}
+                    <InsightItem
+                      text={actionText}
+                      onNodeClick={highlightDriver}
+                      onEdgeClick={highlightEdge}
+                    />
+                    {actionWhy && (
+                      <div className="text-xs text-storm-600 mt-1">
+                        <InsightItem
+                          text={actionWhy}
+                          onNodeClick={highlightDriver}
+                          onEdgeClick={highlightEdge}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               )

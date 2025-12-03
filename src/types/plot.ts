@@ -164,6 +164,29 @@ export interface Insights {
   summary: string        // ≤200 chars, plain English
   risks: string[]        // Max 5 items
   next_steps: string[]   // Max 3 items
+  // Optional: Structured node/edge references for interactive insights
+  node_references?: NodeReference[]
+  edge_references?: EdgeReference[]
+}
+
+/**
+ * Node Reference - Structured reference to a specific node in insights
+ * Allows UI to render clickable badges that highlight nodes on canvas
+ */
+export interface NodeReference {
+  node_id: string
+  label?: string
+  context?: string  // Why this node is referenced
+}
+
+/**
+ * Edge Reference - Structured reference to a specific edge in insights
+ * Allows UI to render clickable badges that highlight edges on canvas
+ */
+export interface EdgeReference {
+  edge_id: string
+  label?: string
+  context?: string  // Why this edge is referenced
 }
 
 /**
