@@ -13,9 +13,9 @@ npm run dev:guide
 ```
 
 This will:
-- Start Vite dev server
+- Start Vite dev server on port 5175
 - Load `.env.local` with `VITE_COPILOT_ENABLED=true`
-- Auto-open browser to `http://localhost:5173/#/sandbox/guide`
+- Auto-open browser to `http://localhost:5175/#/sandbox/guide`
 
 ### 3. Test Ghost Suggestions
 
@@ -114,9 +114,12 @@ Should show all `VITE_*` variables.
 
 ## Port Configuration
 
-- Default: `http://localhost:5173`
-- If port busy, Vite will auto-increment to 5174, 5175, etc.
-- Watch console output for actual URL
+- Guide dev server: `http://localhost:5175` (configured in package.json)
+- Main dev server: `http://localhost:5173`
+- Sandbox dev server: `http://localhost:5174`
+
+**If port 5175 is busy**, Vite will auto-increment to 5176, 5177, etc.
+Watch console output for the actual URL.
 
 ---
 
@@ -157,10 +160,14 @@ No need to restart server for code changes!
 
 ## Comparing with Deployed Site
 
-**Local:** `http://localhost:5173/#/sandbox/guide`
+**Local:** `http://localhost:5175/#/sandbox/guide`
 **Deployed:** `https://olumi.netlify.app/#/sandbox/guide`
 
 Both should show identical behavior once deployment completes.
+
+**Note:** You can run both servers simultaneously:
+- Main UI on port 5173
+- Guide variant on port 5175
 
 ---
 
