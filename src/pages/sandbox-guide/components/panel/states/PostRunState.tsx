@@ -25,6 +25,7 @@ import { VerificationBadge } from '../sections/VerificationBadge'
 import { ProvenancePanel } from '../sections/ProvenancePanel'
 import { SeverityStyledCritiques } from '../sections/SeverityStyledCritiques'
 import { BiasMitigation } from '../sections/BiasMitigation'
+import { DataQualityWarning } from '../../shared/DataQualityWarning'
 import { useCanvasFocus } from '../../../hooks/useCanvasFocus'
 
 export function PostRunState(): JSX.Element {
@@ -115,7 +116,7 @@ export function PostRunState(): JSX.Element {
           </div>
           <VerificationBadge verification={verification} />
         </div>
-        <ProvenancePanel provenance={provenance} />
+        <ProvenancePanel provenance={provenance} evidenceFreshness={report.evidence_freshness} />
       </div>
 
       {/* TIER 1: Always Visible - Key Insight */}
@@ -213,6 +214,13 @@ export function PostRunState(): JSX.Element {
           </div>
         </ExpandableSection>
       </div>
+
+      {/* Data Quality Warning - Show if evidence is stale or aging */}
+      {report.evidence_freshness && (
+        <div className="p-6">
+          <DataQualityWarning evidenceFreshness={report.evidence_freshness} />
+        </div>
+      )}
 
       {/* TIER 2: Top Drivers */}
       {drivers && drivers.length > 0 && <TopDriversSection drivers={drivers} limit={3} />}

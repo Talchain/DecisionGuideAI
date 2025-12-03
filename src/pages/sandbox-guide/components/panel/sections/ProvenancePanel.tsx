@@ -6,13 +6,17 @@
  *
  * Displays:
  * - Evidence coverage (edges with provenance / total edges)
+ * - Evidence freshness quality indicators
  * - Progress bar visualization
- * - List of data sources
+ * - List of data sources with quality badges
  * - Warning when no external evidence exists
  */
 
 import { FileText, AlertTriangle } from 'lucide-react'
 import { useState } from 'react'
+import type { EvidenceFreshness } from '../../../../../types/plot'
+import { EvidenceQualityBadge } from '../../shared/EvidenceQualityBadge'
+import { useCanvasStore } from '../../../../../canvas/store'
 
 interface ProvenancePanelProps {
   provenance?: {
@@ -21,10 +25,12 @@ interface ProvenancePanelProps {
     edges_with_provenance: number
     edges_total: number
   }
+  evidenceFreshness?: EvidenceFreshness
 }
 
-export function ProvenancePanel({ provenance }: ProvenancePanelProps): JSX.Element | null {
+export function ProvenancePanel({ provenance, evidenceFreshness }: ProvenancePanelProps): JSX.Element | null {
   const [expanded, setExpanded] = useState(false)
+  const edges = useCanvasStore((state) => state.edges)
 
   if (!provenance) return null
 
@@ -34,6 +40,11 @@ export function ProvenancePanel({ provenance }: ProvenancePanelProps): JSX.Eleme
       : 0
 
   const isLowCoverage = coverage < 50
+
+  // Create lookup map for edge freshness
+  const edgeFreshnessMap = new Map(
+    evidenceFreshness?.edge_freshness.map((ef) => [ef.edge_id, ef]) || []
+  )
 
   return (
     <div className="border border-storm-200 rounded-lg overflow-hidden font-sans">
@@ -79,22 +90,67 @@ export function ProvenancePanel({ provenance }: ProvenancePanelProps): JSX.Eleme
             </div>
           </div>
 
+          {/* Evidence Freshness Summary */}
+          {evidenceFreshness && (
+            <div className="space-y-2 p-3 bg-white border border-storm-200 rounded">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-storm-700">Data Quality:</p>
+                <EvidenceQualityBadge quality={evidenceFreshness.overall_quality} />
+              </div>
+              {(evidenceFreshness.stale_count > 0 || evidenceFreshness.aging_count > 0) && (
+                <div className="text-xs text-storm-600 space-y-1">
+                  {evidenceFreshness.fresh_count > 0 && (
+                    <div className="flex items-center gap-2">
+                      <EvidenceQualityBadge quality="FRESH" showLabel={false} />
+                      <span>{evidenceFreshness.fresh_count} fresh</span>
+                    </div>
+                  )}
+                  {evidenceFreshness.aging_count > 0 && (
+                    <div className="flex items-center gap-2">
+                      <EvidenceQualityBadge quality="AGING" showLabel={false} />
+                      <span>{evidenceFreshness.aging_count} aging</span>
+                    </div>
+                  )}
+                  {evidenceFreshness.stale_count > 0 && (
+                    <div className="flex items-center gap-2">
+                      <EvidenceQualityBadge quality="STALE" showLabel={false} />
+                      <span>{evidenceFreshness.stale_count} stale</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Sources list */}
           {provenance.source_count > 0 ? (
             <div className="space-y-1">
               <p className="text-xs font-medium text-storm-700">Sources:</p>
               <ul className="space-y-1">
-                {provenance.sources.slice(0, 5).map((source, idx) => (
-                  <li
-                    key={idx}
-                    className="text-xs text-storm-600 flex items-start gap-1"
-                  >
-                    <span className="text-analytical-500 mt-0.5" aria-hidden="true">
-                      •
-                    </span>
-                    <span>{source}</span>
-                  </li>
-                ))}
+                {provenance.sources.slice(0, 5).map((source, idx) => {
+                  // Try to find matching edge for this source
+                  const matchingEdge = edges.find((e) => e.data?.provenance === source)
+                  const freshness = matchingEdge ? edgeFreshnessMap.get(matchingEdge.id) : undefined
+
+                  return (
+                    <li
+                      key={idx}
+                      className="text-xs text-storm-600 flex items-start gap-2"
+                    >
+                      <span className="text-analytical-500 mt-0.5" aria-hidden="true">
+                        •
+                      </span>
+                      <span className="flex-1">{source}</span>
+                      {freshness && (
+                        <EvidenceQualityBadge
+                          quality={freshness.quality}
+                          ageDays={freshness.age_days}
+                          showLabel={false}
+                        />
+                      )}
+                    </li>
+                  )
+                })}
                 {provenance.sources.length > 5 && (
                   <li className="text-xs text-analytical-600 pl-3">
                     +{provenance.sources.length - 5} more

@@ -83,6 +83,22 @@ export interface ReportV1 {
       polarity: 'increase' | 'decrease'
     }>
   }
+
+  // Evidence Freshness - Data quality and age indicators
+  evidence_freshness?: {
+    overall_quality: 'FRESH' | 'AGING' | 'STALE' | 'UNKNOWN'
+    edge_freshness: Array<{
+      edge_id: string
+      quality: 'FRESH' | 'AGING' | 'STALE' | 'UNKNOWN'
+      age_days?: number
+      last_updated?: string
+      provenance?: string
+    }>
+    stale_count: number
+    fresh_count: number
+    aging_count: number
+    unknown_count: number
+  }
 }
 
 export interface ErrorV1 {

@@ -122,6 +122,9 @@ export interface RunResponse {
 
   // Change Attribution - Explains why outcomes changed between runs
   change_attribution?: ChangeAttribution
+
+  // Evidence Freshness - Data quality and age indicators
+  evidence_freshness?: EvidenceFreshness
 }
 
 /**
@@ -201,4 +204,27 @@ export interface GraphQuality {
   balance: number            // 0.00–1.00
   issues_count: number
   recommendation?: string
+}
+
+/**
+ * Evidence Freshness - Data quality and age indicators
+ * Helps users assess reliability of analysis based on data age
+ */
+export interface EvidenceFreshness {
+  overall_quality: FreshnessQuality
+  edge_freshness: EdgeFreshness[]
+  stale_count: number
+  fresh_count: number
+  aging_count: number
+  unknown_count: number
+}
+
+export type FreshnessQuality = 'FRESH' | 'AGING' | 'STALE' | 'UNKNOWN'
+
+export interface EdgeFreshness {
+  edge_id: string
+  quality: FreshnessQuality
+  age_days?: number
+  last_updated?: string  // ISO date string
+  provenance?: string
 }
