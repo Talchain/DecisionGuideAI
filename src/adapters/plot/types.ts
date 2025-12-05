@@ -54,6 +54,16 @@ export interface ReportV1 {
     summary: string
     risks: string[]
     next_steps: string[]
+    node_references?: Array<{
+      node_id: string
+      label?: string
+      context?: string
+    }>
+    edge_references?: Array<{
+      edge_id: string
+      label?: string
+      context?: string
+    }>
   }
 
   // P0.1: Canonical decision readiness (normalized from confidence.level)
@@ -64,6 +74,33 @@ export interface ReportV1 {
     blockers: string[]
     warnings: string[]
     passed: string[]
+  }
+
+  // Change Attribution - Explains why outcomes changed between runs
+  change_attribution?: {
+    primary_drivers: Array<{
+      driver_id: string
+      driver_label: string
+      contribution_pct: number
+      affected_nodes: string[]
+      polarity: 'increase' | 'decrease'
+    }>
+  }
+
+  // Evidence Freshness - Data quality and age indicators
+  evidence_freshness?: {
+    overall_quality: 'FRESH' | 'AGING' | 'STALE' | 'UNKNOWN'
+    edge_freshness: Array<{
+      edge_id: string
+      quality: 'FRESH' | 'AGING' | 'STALE' | 'UNKNOWN'
+      age_days?: number
+      last_updated?: string
+      provenance?: string
+    }>
+    stale_count: number
+    fresh_count: number
+    aging_count: number
+    unknown_count: number
   }
 }
 

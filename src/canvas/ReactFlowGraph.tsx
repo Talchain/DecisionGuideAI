@@ -140,9 +140,10 @@ export interface BlueprintEventBus {
 interface ReactFlowGraphProps {
   blueprintEventBus?: BlueprintEventBus
   onCanvasInteraction?: () => void
+  enableGhostSuggestions?: boolean
 }
 
-function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFlowGraphProps) {
+function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGhostSuggestions = false }: ReactFlowGraphProps) {
   // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
   //
   // ROOT CAUSE: In Zustand v5 with useSyncExternalStore, when a selector returns a
@@ -327,6 +328,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const addEdge = useCanvasStore(s => s.addEdge)
   const [showLimits, setShowLimits] = useState(false)
   const [showResetConfirm, setShowResetConfirm] = useState(false)
+
 
   // M4: Graph Health actions (graphHealth, showIssuesPanel state selected above)
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)

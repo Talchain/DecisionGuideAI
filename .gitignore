@@ -46,3 +46,4 @@ supabase/functions/**/.env.*
 # evidence/pack/**
 # docs/evidence/unified/**
 tests/p2-1-stream-canary.test.ts
+# Trigger Netlify rebuild - Tue Dec  2 18:49:57 GMT 2025

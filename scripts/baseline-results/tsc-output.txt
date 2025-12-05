@@ -1,0 +1,1 @@
+./scripts/verify-current-state.sh: line 57: npx: command not found
