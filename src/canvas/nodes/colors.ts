@@ -10,6 +10,13 @@
  */
 
 export const nodeColors = {
+  goal: {
+    bg: 'bg-amber-50',
+    border: 'border-amber-500',
+    hover: 'hover:border-amber-600',
+    selected: 'ring-4 ring-amber-400 ring-opacity-50',
+    text: 'text-amber-900',
+  },
   decision: {
     bg: 'bg-sky-50',
     border: 'border-sky-500',
@@ -37,6 +44,13 @@ export const nodeColors = {
     hover: 'hover:border-sand-500',
     selected: 'ring-4 ring-sand-300 ring-opacity-50',
     text: 'text-ink-900',
+  },
+  risk: {
+    bg: 'bg-red-50',
+    border: 'border-red-500',
+    hover: 'hover:border-red-600',
+    selected: 'ring-4 ring-red-400 ring-opacity-50',
+    text: 'text-red-900',
   },
 } as const
 

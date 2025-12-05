@@ -214,8 +214,9 @@ describe('httpV1Adapter MSW Contract Tests', () => {
       expect(result.confidence.level).toBe('high') // 0.85 → 'high'
       expect(result.confidence.why).toContain('Based on historical data')
       expect(result.drivers).toHaveLength(2)
-      expect(result.drivers[0].node_id).toBe('revenue')
-      expect(result.drivers[1].edge_id).toBe('revenue->costs')
+      // Adapter converts snake_case (API) to camelCase (UI)
+      expect(result.drivers[0].nodeId).toBe('revenue')
+      expect(result.drivers[1].edgeId).toBe('revenue->costs')
       expect(result.meta.seed).toBe(42)
       expect(result.meta.elapsed_ms).toBe(450)
     })

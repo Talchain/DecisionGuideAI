@@ -1,0 +1,198 @@
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 45px;
+  padding: 0 24px;
+  background: var(--canvas-25);
+  border-bottom: 1px solid var(--sand-200);
+  position: sticky;
+  top: 0;
+  z-index: 3000;
+}
+
+.topBarLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo {
+  display: block;
+  height: 24px;
+  width: auto;
+}
+
+.logoLink:focus {
+  outline: 2px solid var(--sky-500);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.titleButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 150ms;
+}
+
+.titleButton:hover {
+  background: var(--paper-50);
+}
+
+.titleButton:focus {
+  outline: 2px solid var(--sky-500);
+  outline-offset: 2px;
+}
+
+.titleText {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-900);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevronIcon {
+  color: var(--ink-600);
+  transition: transform 150ms;
+}
+
+.titleButton:hover .chevronIcon {
+  transform: translateY(2px);
+}
+
+.titleInput {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border: 2px solid var(--sky-500);
+  border-radius: 6px;
+  background: white;
+  max-width: 320px;
+  outline: none;
+}
+
+.dirtyIndicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--carrot-500);
+  margin-left: -6px;
+}
+
+.topBarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.saveButton,
+.shareButton,
+.menuButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid var(--sand-200);
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  transition: all 150ms;
+}
+
+.saveButton:hover:not(:disabled),
+.shareButton:hover,
+.menuButton:hover {
+  border-color: var(--sky-500);
+  background: var(--sky-50);
+}
+
+.saveButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.saveButtonSaved {
+  border-color: var(--mint-500);
+  background: var(--mint-50);
+  color: var(--mint-700);
+}
+
+.buttonLabel {
+  display: inline;
+}
+
+@media (max-width: 768px) {
+  .buttonLabel {
+    display: none;
+  }
+}
+
+.menuDropdown {
+  position: relative;
+}
+
+.dropdownMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  background: white;
+  border: 1px solid var(--sand-200);
+  border-radius: 10px;
+  box-shadow: var(--shadow-2);
+  padding: 6px;
+  z-index: 4000;
+}
+
+.dropdownMenuButton {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 12px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 150ms;
+}
+
+.dropdownMenuButton:hover {
+  background: var(--paper-50);
+}
+
+.dropdownMenuDivider {
+  margin: 8px 0;
+  border: none;
+  border-top: 1px solid var(--sand-200);
+}
+
+.dropdownMenuLabel {
+  padding: 6px 10px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-600);
+}
+
+.dropdownMenuButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dropdownMenuButton svg {
+  color: var(--ink-500);
+  flex-shrink: 0;
+}

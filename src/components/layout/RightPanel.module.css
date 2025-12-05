@@ -1,0 +1,74 @@
+.rightPanel {
+  position: fixed;
+  right: 12px;
+  top: calc(var(--topbar-h) + 1rem);
+  /* Leave space at bottom for toolbar */
+  bottom: calc(var(--bottombar-h, 0px) + 1rem);
+  display: flex;
+  flex-direction: column;
+  /* Floating panel style - matches LeftSidebar */
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--sand-200);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  z-index: 2000;
+  animation: rightPanelSlideIn var(--duration-base) var(--ease-in-out);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--sand-200);
+  flex-shrink: 0;
+  /* Match panel's top border-radius */
+  border-radius: 16px 16px 0 0;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink-900);
+  margin: 0;
+}
+
+.closeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--ink-600);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.closeButton:hover {
+  background: var(--sand-100);
+  color: var(--ink-900);
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  /* Ensure content doesn't clip rounded corners at bottom */
+  padding-bottom: 8px;
+}
+
+@keyframes rightPanelSlideIn {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}

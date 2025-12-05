@@ -16,7 +16,36 @@
  * these representations for consistent UI display.
  */
 
+import type { Edge } from '@xyflow/react'
 import type { CoverageLevel } from '../components/EvidenceCoverage'
+
+/**
+ * Edge data shape for provenance checking
+ */
+interface EdgeWithProvenance {
+  data?: {
+    provenance?: string
+  }
+}
+
+/**
+ * Count edges with evidence (non-empty provenance excluding 'assumption' and 'template')
+ *
+ * This is the canonical counting function used across all components.
+ * "Evidence" means provenance that represents actual supporting data,
+ * not default placeholders like 'assumption' or 'template'.
+ *
+ * @param edges - Array of edges to count
+ * @returns Object with evidenced and total counts
+ */
+export function countEdgesWithEvidence(edges: EdgeWithProvenance[]): { evidenced: number; total: number } {
+  const total = edges.length
+  const evidenced = edges.filter(e => {
+    const provenance = e.data?.provenance
+    return provenance && provenance !== 'assumption' && provenance !== 'template'
+  }).length
+  return { evidenced, total }
+}
 
 /**
  * Normalized evidence coverage structure

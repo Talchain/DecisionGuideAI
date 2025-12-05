@@ -89,15 +89,15 @@ const CONFIDENCE_CONFIG: Record<
 > = {
   high: {
     label: 'High Confidence',
-    className: 'text-green-700 bg-green-50',
+    className: 'text-green-700 bg-paper-50 border border-sand-200',
   },
   medium: {
     label: 'Medium Confidence',
-    className: 'text-amber-700 bg-amber-50',
+    className: 'text-amber-700 bg-paper-50 border border-sand-200',
   },
   low: {
     label: 'Low Confidence',
-    className: 'text-red-700 bg-red-50',
+    className: 'text-red-700 bg-paper-50 border border-sand-200',
   },
 }
 
@@ -122,11 +122,7 @@ export function DecisionReadinessBadge({
 
   return (
     <div
-      className={`rounded-lg border ${
-        ready
-          ? 'border-green-200 bg-green-50/50'
-          : 'border-red-200 bg-red-50/50'
-      } ${className}`}
+      className={`rounded-lg border border-sand-200 bg-paper-50 ${className}`}
       data-testid="decision-readiness-badge"
     >
       {/* Header - Always visible */}
@@ -316,10 +312,8 @@ export function DecisionReadinessBadgeCompact({
   return (
     <Tooltip content={tooltipContent} position="bottom">
       <div
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${
-          ready
-            ? 'bg-green-50 border-green-200 text-green-700'
-            : 'bg-red-50 border-red-200 text-red-700'
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-sand-200 bg-paper-50 ${
+          ready ? 'text-green-700' : 'text-red-700'
         } ${className}`}
         role="status"
         aria-label={`Decision readiness: ${ready ? 'Ready' : 'Not Ready'}`}

@@ -31,7 +31,7 @@ export interface UseKeyboardLegendOptions {
   autoShow?: boolean
 }
 
-export function useKeyboardLegend({ autoShow = true }: UseKeyboardLegendOptions = {}) {
+export function useKeyboardLegend({ autoShow = false }: UseKeyboardLegendOptions = {}) {
   const [isOpen, setIsOpen] = useState(false)
   const [hasSeen, setHasSeen] = useState(() => readHasSeen())
 

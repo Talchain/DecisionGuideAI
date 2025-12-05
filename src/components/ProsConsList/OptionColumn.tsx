@@ -33,24 +33,6 @@ const OptionColumn = memo(({
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // DEBUG: Add render counter
-  const renderCountRef = useRef(0);
-  const optionId = option.id;
-  
-  // Only log render count in development
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      renderCountRef.current++;
-      console.log(`[DEBUG] OptionColumn render #${renderCountRef.current} for option:`, {
-        id: option.id,
-        name: option.name,
-        prosCount: option.pros.length,
-        consCount: option.cons.length
-      });
-    }
-  // Explicitly including dependencies that matter for logging
-  }, [optionId, option.name]);
-
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (

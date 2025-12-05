@@ -66,7 +66,7 @@ export default function Tooltip({ children, content, className = '' }: TooltipPr
         {isOpen && (
           <div
             ref={refs.setFloating}
-            className={`z-50 px-3 py-2 text-sm bg-gray-900 text-white rounded-lg max-w-xs ${className}`}
+            className={`z-[9999] px-3 py-2 text-sm bg-gray-900 text-white rounded-lg max-w-xs ${className}`}
             style={{
               position: strategy,
               top: y ?? 0,

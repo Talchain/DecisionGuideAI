@@ -71,13 +71,10 @@ export const autoDetectAdapter = {
     const probe = await getProbeResult();
 
     if (probe.available) {
-      if (import.meta.env.DEV) {
-        console.log('[AutoDetect] Using httpV1 adapter');
-      }
       return httpV1Adapter.run(input);
     } else {
       if (import.meta.env.DEV) {
-        console.log('[AutoDetect] v1 unavailable, using mock adapter');
+        console.debug('[AutoDetect] v1 unavailable, using mock adapter');
       }
       return mockAdapter.run(input);
     }
@@ -88,9 +85,6 @@ export const autoDetectAdapter = {
 
     if (probe.available) {
       try {
-        if (import.meta.env.DEV) {
-          console.log('[AutoDetect] Using httpV1 templates');
-        }
         return await httpV1Adapter.templates();
       } catch (err) {
         // Network error or API failure - fall back to mock
@@ -101,7 +95,7 @@ export const autoDetectAdapter = {
       }
     } else {
       if (import.meta.env.DEV) {
-        console.log('[AutoDetect] v1 unavailable, using mock templates');
+        console.debug('[AutoDetect] v1 unavailable, using mock templates');
       }
       return mockAdapter.templates();
     }
@@ -112,9 +106,6 @@ export const autoDetectAdapter = {
 
     if (probe.available) {
       try {
-        if (import.meta.env.DEV) {
-          console.log('[AutoDetect] Using httpV1 template detail');
-        }
         return await httpV1Adapter.template(id);
       } catch (err) {
         // Network error or API failure - fall back to mock
@@ -125,7 +116,7 @@ export const autoDetectAdapter = {
       }
     } else {
       if (import.meta.env.DEV) {
-        console.log('[AutoDetect] v1 unavailable, using mock template detail');
+        console.debug('[AutoDetect] v1 unavailable, using mock template detail');
       }
       return mockAdapter.template(id);
     }

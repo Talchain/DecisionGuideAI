@@ -3,13 +3,13 @@
  *
  * ✅ ARCHITECTURE NOTE:
  * This is the **canonical Results UX** for the canvas. It provides a streamlined,
- * dock-based interface with multiple tabs:
+ * dock-based interface with three tabs:
  *
  * Tabs:
- * - Results: Inline summary with KPI headline and range chips
- * - Insights: Key drivers and narratives
- * - Compare: Side-by-side run comparison
- * - Diagnostics: Streaming diagnostics and correlation IDs
+ * - Results: Pre-run validation + Run button, post-run KPI headline, range display,
+ *            insights panel, decision review, top drivers
+ * - Compare: Side-by-side run comparison with delta interpretation
+ * - Structure: Graph text view with node breakdown, evidence stats, streaming diagnostics
  *
  * This component supersedes the legacy ResultsPanel (src/canvas/panels/ResultsPanel.tsx),
  * which is NOT currently rendered in the main canvas flow.
@@ -19,10 +19,12 @@
  * - Resizable width
  * - Persistent state in localStorage
  * - Syncs with `showResultsPanel` store flag for UI coordination
+ * - Auto-fix for validation issues with telemetry tracking
+ * - Slow-run feedback messages (20s/40s thresholds)
  */
 
-import { useEffect, useState, useRef, type ChangeEvent } from 'react'
-import { BarChart3, Sparkles, Shuffle, Activity, Clock } from 'lucide-react'
+import { useEffect, useState, useRef, useMemo, useCallback, type ChangeEvent } from 'react'
+import { BarChart3, Shuffle, Activity, Clock, PlayCircle, RefreshCw } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
@@ -33,10 +35,16 @@ import { typography } from '../../styles/typography'
 import { buildHealthStrings } from '../utils/graphHealthStrings'
 import type { GraphHealth } from '../validation/types'
 import { selectScenarioLastRun } from '../shared/lastRun'
-import { trackCompareOpened } from '../utils/sandboxTelemetry'
+import {
+  trackCompareOpened,
+  trackAutoFixClicked,
+  trackAutoFixSuccess,
+  trackAutoFixFailed,
+} from '../utils/sandboxTelemetry'
 import { KPIHeadline } from './KPIHeadline'
 import { RangeChips } from './RangeChips'
 import { RangeLabels } from './RangeLabels'
+import { RangeDisplay } from './RangeDisplay'
 import { VerdictCard } from './VerdictCard'
 import { DecisionReviewPanel, type DecisionReviewStatus } from './DecisionReviewPanel'
 import { ObjectiveBanner } from './ObjectiveBanner'
@@ -53,10 +61,69 @@ import { IdentifiabilityBadge, normalizeIdentifiabilityTag } from './Identifiabi
 import { EvidenceCoverageCompact } from './EvidenceCoverage'
 import { DecisionReadinessBadge } from './DecisionReadinessBadge'
 import { ModelQualityScore } from './ModelQualityScore'
+import { UnifiedStatusBadge } from './UnifiedStatusBadge'
 import { InsightsPanel } from './InsightsPanel'
+import { DriverChips } from './DriverChips'
+import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
+import { GraphTextView } from './GraphTextView'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
+import { useResultsRun } from '../hooks/useResultsRun'
+import { focusNodeById } from '../utils/focusHelpers'
+import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
+import type { CritiqueItemV1 } from '../../adapters/plot/types'
+import type { ValidationIssue } from '../validation/types'
+import type { Node, Edge } from '@xyflow/react'
 
-type OutputsDockTab = 'results' | 'insights' | 'compare' | 'diagnostics'
+/**
+ * Map API critique format (CritiqueItemV1) to ValidationPanel format
+ * Converts severity to level and passes through node/edge references for click-to-focus
+ * Only marks items as auto_fixable if we actually support that fix type
+ */
+function mapCritiqueToValidation(critique: CritiqueItemV1[] | undefined): CritiqueItem[] {
+  if (!critique || critique.length === 0) return []
+
+  return critique.map(c => ({
+    level: c.severity === 'BLOCKER' ? 'blocker' : c.severity === 'WARNING' ? 'warning' : 'info',
+    message: c.message,
+    code: c.code,
+    node_id: c.node_id,
+    edge_id: c.edge_id,
+    suggested_fix: c.suggested_fix,
+    // Only show auto-fix button if we actually support this fix type
+    auto_fixable: c.auto_fixable && c.code ? !!determineFixType(c.code) : false,
+  }))
+}
+
+/**
+ * Map graphHealth validation issues to ValidationPanel format
+ * Used in pre-run state to show graph issues before analysis
+ * Only marks items as auto_fixable if we actually support that fix type
+ */
+function mapGraphHealthToValidation(issues: ValidationIssue[] | undefined): CritiqueItem[] {
+  if (!issues || issues.length === 0) return []
+
+  return issues.map(issue => {
+    const code = issue.type.toUpperCase()
+    // Only allow auto-fix if we have both a suggested fix AND we support this fix type
+    const canAutoFix = !!issue.suggestedFix && !!determineFixType(code)
+
+    return {
+      // Map severity: 'error' → 'blocker', 'warning' → 'warning', 'info' → 'info'
+      level: issue.severity === 'error' ? 'blocker' : issue.severity,
+      message: issue.message,
+      code,
+      // Take first node/edge ID if available
+      node_id: issue.nodeIds?.[0],
+      edge_id: issue.edgeIds?.[0],
+      suggested_fix: issue.suggestedFix?.type
+        ? `${issue.suggestedFix.type.replace(/_/g, ' ')} (${issue.suggestedFix.targetId})`
+        : undefined,
+      auto_fixable: canAutoFix,
+    }
+  })
+}
+
+type OutputsDockTab = 'results' | 'compare' | 'diagnostics'
 
 interface OutputsDockState {
   isOpen: boolean
@@ -70,9 +137,8 @@ const SHOW_VERDICT_FEATURES = import.meta.env.VITE_SHOW_VERDICT_CARD === 'true'
 
 const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
   { id: 'results', label: 'Results' },
-  { id: 'insights', label: 'Insights' },
   { id: 'compare', label: 'Compare' },
-  { id: 'diagnostics', label: 'Diagnostics' },
+  { id: 'diagnostics', label: 'Structure' },
 ]
 
 /**
@@ -103,6 +169,10 @@ function formatRangeValue(
   if (units === 'count') {
     const absolute = Math.abs(value)
     const prefix = value < 0 ? '-' : ''
+    // Auto-detect probability format for count units
+    if (absolute >= 0 && absolute <= 1 && (absolute !== Math.floor(absolute) || absolute === 0 || absolute === 1)) {
+      return `${prefix}${(absolute * 100).toFixed(1)}%`
+    }
     if (absolute >= 1_000_000) {
       return `${prefix}${(absolute / 1_000_000).toFixed(1)}M`
     }
@@ -112,7 +182,11 @@ function formatRangeValue(
     return `${prefix}${absolute.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
   }
 
-  return `${value.toFixed(1)}%`
+  // Default (percent): auto-detect if value is in 0-1 probability form
+  // Values in 0-1 range (inclusive) are treated as probabilities: 0.5 → 50%, 1 → 100%
+  const isProbability = value >= 0 && value <= 1
+  const displayValue = isProbability ? value * 100 : value
+  return `${displayValue.toFixed(1)}%`
 }
 
 export function OutputsDock() {
@@ -138,6 +212,7 @@ export function OutputsDock() {
     runMeta,
     graphHealth,
     showResultsPanel,
+    showComparePanel,
     hasCompletedFirstRun,
     nodes,
     edges,
@@ -147,6 +222,7 @@ export function OutputsDock() {
       runMeta: s.runMeta,
       graphHealth: s.graphHealth,
       showResultsPanel: s.showResultsPanel,
+      showComparePanel: s.showComparePanel,
       hasCompletedFirstRun: s.hasCompletedFirstRun,
       nodes: s.nodes,
       edges: s.edges,
@@ -157,6 +233,7 @@ export function OutputsDock() {
   // Actions don't need shallow - they're stable references
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
+  const setShowComparePanel = useCanvasStore(s => s.setShowComparePanel)
 
   // Derived values from runMeta
   const diagnostics = runMeta.diagnostics
@@ -164,16 +241,94 @@ export function OutputsDock() {
   const effectiveCorrelationId = correlationIdHeader || diagnostics?.correlation_id
   const hasTrim = diagnostics?.trims === 1
   const hasDiagnostics = !!diagnostics
-  const correlationMismatch =
+  const correlationMismatch = !!(
     diagnostics?.correlation_id &&
     correlationIdHeader &&
     diagnostics.correlation_id !== correlationIdHeader
+  )
 
   const healthView = buildHealthStrings(graphHealth ?? null)
   const isPreRun = !hasCompletedFirstRun
   const resultsStatus = useCanvasStore(selectResultsStatus)
   const report = useCanvasStore(selectReport)
   const error = useCanvasStore(selectError)
+
+  // Pre-run validation: map graphHealth issues to critique format
+  const { run: runAnalysis } = useResultsRun()
+  const preRunCritique = useMemo(
+    () => mapGraphHealthToValidation(graphHealth?.issues),
+    [graphHealth?.issues]
+  )
+  const hasPreRunBlockers = useMemo(
+    () => preRunCritique.some(c => c.level === 'blocker'),
+    [preRunCritique]
+  )
+  const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
+
+  // Handle Run button click
+  const handleRunAnalysis = useCallback(async () => {
+    if (hasPreRunBlockers || isRunning) return
+    await runAnalysis({
+      template_id: framing?.templateId || 'canvas-graph',
+      seed: framing?.seed ?? 1337,
+      graph: { nodes, edges },
+    })
+  }, [hasPreRunBlockers, isRunning, runAnalysis, framing, nodes, edges])
+
+  // Handle auto-fix for validation issues
+  const handleAutoFix = useCallback(async (item: CritiqueItem): Promise<boolean> => {
+    // Track that auto-fix was clicked
+    trackAutoFixClicked()
+
+    if (!item.code) {
+      trackAutoFixFailed()
+      return false
+    }
+
+    const fixType = determineFixType(item.code)
+    if (!fixType) {
+      console.warn('[OutputsDock] No auto-fix available for code:', item.code)
+      trackAutoFixFailed()
+      return false
+    }
+
+    const params: AutoFixParams = {
+      fixType,
+      nodeId: item.node_id,
+      edgeId: item.edge_id,
+    }
+
+    try {
+      const result = executeAutoFix(params, nodes, edges)
+
+      if (result.success) {
+        // Update canvas state with fixed nodes/edges
+        if (result.updatedNodes) {
+          useCanvasStore.setState({ nodes: result.updatedNodes })
+        }
+        if (result.updatedEdges) {
+          useCanvasStore.setState({ edges: result.updatedEdges })
+        }
+
+        // Re-trigger graph health validation to clear fixed issues
+        // Use setTimeout to ensure state is updated before validation runs
+        setTimeout(() => {
+          useCanvasStore.getState().validateGraph()
+        }, 50)
+
+        trackAutoFixSuccess()
+        return true
+      }
+
+      console.warn('[OutputsDock] Auto-fix failed:', result.message)
+      trackAutoFixFailed()
+      return false
+    } catch (err) {
+      console.error('[OutputsDock] Auto-fix error:', err)
+      trackAutoFixFailed()
+      return false
+    }
+  }, [nodes, edges])
 
   const canonicalBands = report?.run?.bands ?? null
   const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results.likely ?? null
@@ -221,8 +376,10 @@ export function OutputsDock() {
       )
     : null
 
-  // Prefer adapter-provided decision_readiness, fall back to mapper
   const decisionReadiness = report?.decision_readiness || readinessFromConfidence
+  const hasDecisionReadiness = !isPreRun && !!decisionReadiness
+  const hasBlockers = hasDecisionReadiness && decisionReadiness!.blockers.length > 0
+  const isReadyForOutcome = hasDecisionReadiness && decisionReadiness!.ready && !hasBlockers
 
   if (import.meta.env.DEV) {
     // Dev-only instrumentation for trust signals visibility and gating
@@ -326,6 +483,21 @@ export function OutputsDock() {
     // We intentionally depend on both triggers. setState from useDockState is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resultsStatus, showResultsPanel])
+
+  // Effect: Switch to compare tab when showComparePanel flag is set
+  useEffect(() => {
+    if (!showComparePanel) return
+
+    setState(prev => {
+      if (prev.isOpen && prev.activeTab === 'compare') {
+        return prev // Already on compare tab
+      }
+      return { ...prev, isOpen: true, activeTab: 'compare' }
+    })
+
+    // Reset the flag after switching (one-shot trigger)
+    setShowComparePanel(false)
+  }, [showComparePanel, setState, setShowComparePanel])
 
   // Phase 2 Sprint 1B: Track elapsed time and show slow-run messages at 20s/40s
   // Cleanup ensures timers are always cleared on unmount or status change
@@ -468,12 +640,20 @@ export function OutputsDock() {
 
   return (
     <aside
-      className={`${transitionClass} fixed right-0 border-l border-sand-200 bg-paper-50 shadow-panel flex flex-col transition-shadow rounded-b-2xl relative pointer-events-auto`}
+      className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto`}
       style={{
+        position: 'fixed',
         width: state.isOpen ? 'var(--dock-right-expanded, 24rem)' : 'var(--dock-right-collapsed, 2.5rem)',
-        top: 'var(--topbar-h, 0px)',
-        height: 'calc(100vh - var(--topbar-h, 0px) - var(--bottombar-h))',
-        maxHeight: 'calc(100vh - var(--topbar-h, 0px) - var(--bottombar-h))',
+        right: 12,
+        top: 'calc(var(--topbar-h) + 1rem)',
+        bottom: 'calc(var(--bottombar-h) + 1rem)',
+        background: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(8px)',
+        border: '1px solid var(--sand-200)',
+        borderRadius: 16,
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)',
+        zIndex: 900,
+        overflow: 'hidden',
       }}
       aria-label="Outputs dock"
       data-testid="outputs-dock"
@@ -485,7 +665,7 @@ export function OutputsDock() {
           className="absolute inset-y-0 left-0 w-1 cursor-col-resize bg-transparent hover:bg-sand-200/60"
         />
       )}
-      <div className="sticky top-0 z-10 bg-paper-50 border-b border-sand-200">
+      <div className="sticky top-0 z-10 border-b border-sand-200 rounded-t-2xl" style={{ background: 'rgba(255, 255, 255, 0.95)' }}>
         <div className="flex items-center justify-between px-2 py-2">
           {state.isOpen && (
             <span className={`mr-2 ${typography.caption} font-medium text-ink-900/70 truncate`} aria-live="polite">
@@ -535,8 +715,6 @@ export function OutputsDock() {
             const Icon =
               tab.id === 'results'
                 ? BarChart3
-                : tab.id === 'insights'
-                ? Sparkles
                 : tab.id === 'compare'
                 ? Shuffle
                 : Activity
@@ -589,15 +767,71 @@ export function OutputsDock() {
                     )}
                   </div>
                 )}
-                <p>
-                  {isPreRun
-                    ? 'Results appear here after your first analysis.'
-                    : 'View charts, confidence scores, and outcome breakdowns after each run.'}
-                </p>
+                {/* Post-run: Rerun analysis button */}
+                {!isPreRun && (
+                  <button
+                    type="button"
+                    onClick={handleRunAnalysis}
+                    disabled={isRunning}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
+                      isRunning
+                        ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
+                        : 'bg-sky-500 text-white hover:bg-sky-600'
+                    }`}
+                    data-testid="outputs-rerun-button"
+                  >
+                    <RefreshCw className={`w-5 h-5 ${isRunning ? 'animate-spin' : ''}`} aria-hidden="true" />
+                    {isRunning ? 'Running...' : 'Rerun Analysis'}
+                  </button>
+                )}
+                {/* Pre-run state: Show validation issues and Run button */}
                 {isPreRun && (
-                  <p className={`${typography.code} text-ink-900/60`}>
-                    Run your first analysis from the toolbar above.
-                  </p>
+                  <div className="space-y-4" data-testid="outputs-pre-run">
+                    {/* Pre-run validation issues from graphHealth - prominent display */}
+                    {preRunCritique.length > 0 && (
+                      <div className="space-y-3">
+                        {/* Clear action header */}
+                        <div
+                          className="flex items-center gap-2 px-3 py-2 bg-carrot-50 border border-carrot-200 rounded-lg"
+                          role="alert"
+                        >
+                          <span className={`${typography.bodySmall} font-medium text-carrot-700`}>
+                            {hasPreRunBlockers
+                              ? 'Fix these issues to run analysis'
+                              : 'Review these warnings before running'}
+                          </span>
+                        </div>
+                        <ValidationPanel
+                          critique={preRunCritique}
+                          onAutoFix={handleAutoFix}
+                          data-testid="outputs-prerun-validation"
+                        />
+                      </div>
+                    )}
+
+                    {/* Run analysis button */}
+                    <button
+                      type="button"
+                      onClick={handleRunAnalysis}
+                      disabled={hasPreRunBlockers || isRunning}
+                      className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
+                        hasPreRunBlockers || isRunning
+                          ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
+                          : 'bg-sky-500 text-white hover:bg-sky-600'
+                      }`}
+                      data-testid="outputs-run-button"
+                    >
+                      <PlayCircle className="w-5 h-5" aria-hidden="true" />
+                      {isRunning ? 'Running...' : 'Run Analysis'}
+                    </button>
+
+                    {/* Intro text when no validation issues */}
+                    {preRunCritique.length === 0 && !isRunning && (
+                      <p className={`${typography.caption} text-ink-500 text-center`}>
+                        Results will appear here after analysis
+                      </p>
+                    )}
+                  </div>
                 )}
                 {/* Phase 2 Sprint 1B: Slow-run UX feedback */}
                 {slowRunMessage && (
@@ -621,32 +855,34 @@ export function OutputsDock() {
                     <IdentifiabilityBadge status={normalizedStatus} />
                   )
                 })()}
-                {/* Sprint N P0.1: Decision Readiness Badge - prefer canonical adapter field, fall back to confidence mapper */}
-                {!isPreRun && decisionReadiness && (
-                  <DecisionReadinessBadge
+                {/* Quick Win #1: Single unified status badge replacing dual DecisionReadiness + ModelQuality */}
+                {!isPreRun && (decisionReadiness || report?.graph_quality) && (
+                  <UnifiedStatusBadge
                     readiness={decisionReadiness}
-                    identifiability={normalizeIdentifiabilityTag(report?.model_card?.identifiability_tag) ?? undefined}
-                    evidenceCoverage={
-                      // P0.2: Use local edge provenance for consistency with Diagnostics tab
-                      totalEdges > 0
-                        ? {
-                            evidencedCount: evidencedEdges,
-                            totalCount: totalEdges,
-                          }
-                        : undefined
+                    quality={report?.graph_quality}
+                    confidenceScore={
+                      decisionReadiness?.confidence === 'high' ? 0.8 :
+                      decisionReadiness?.confidence === 'medium' ? 0.5 : 0.3
                     }
                   />
                 )}
-                {/* Sprint N P0: Model Quality Score */}
-                {!isPreRun && report?.graph_quality && (
-                  <ModelQualityScore quality={report.graph_quality} />
+                {/* v1.1 Contract: Engine critique shown post-run only if blockers exist
+                    Note: Pre-run validation uses graphHealth, post-run uses engine critique
+                    Only show if engine detected blockers that prevented clean results */}
+                {!isPreRun && report?.run?.critique && report.run.critique.some(c => c.severity === 'BLOCKER') && (
+                  <div data-testid="outputs-engine-critique">
+                    <ValidationPanel
+                      critique={mapCritiqueToValidation(report.run.critique)}
+                      onAutoFix={handleAutoFix}
+                    />
+                  </div>
                 )}
                 {/* Phase 1A.1: Objective banner */}
                 {SHOW_VERDICT_FEATURES && !isPreRun && (
                   <ObjectiveBanner objectiveText={objectiveText} goalDirection={goalDirection} />
                 )}
                 {/* Phase 1A.1: Verdict card */}
-                {SHOW_VERDICT_FEATURES && !isPreRun && verdict && mostLikelyValue !== null && (
+                {SHOW_VERDICT_FEATURES && !isPreRun && verdict && mostLikelyValue !== null && isReadyForOutcome && (
                   <VerdictCard
                     verdict={verdict}
                     objectiveText={objectiveText}
@@ -656,11 +892,14 @@ export function OutputsDock() {
                 )}
                 {!isPreRun && hasInlineSummary && (
                   <div className="space-y-2" data-testid="outputs-inline-summary">
+                    {/* Quick Win #2: Added baseline and goalDirection props */}
                     <KPIHeadline
                       value={mostLikelyValue ?? null}
                       label="Expected Value"
                       units={resultUnits}
                       unitSymbol={resultUnitSymbol}
+                      baseline={baselineValue}
+                      goalDirection={goalDirection}
                     />
                     <div className="space-y-1">
                       <div className={`${typography.code} font-medium text-ink-900/70`}>Range</div>
@@ -681,10 +920,35 @@ export function OutputsDock() {
                           unitSymbol={resultUnitSymbol}
                         />
                       )}
+                      <RangeDisplay
+                        p10={conservativeValue ?? null}
+                        p50={mostLikelyValue ?? null}
+                        p90={optimisticValue ?? null}
+                        units={resultUnits}
+                        unitSymbol={resultUnitSymbol}
+                        baseline={baselineValue}
+                        goalDirection={goalDirection}
+                      />
                     </div>
+                    {/* Insights: interpretation of results ("what does this mean?") */}
+                    {!isPreRun && report?.insights && (
+                      <InsightsPanel
+                        insights={report.insights}
+                        className="mt-6"
+                        outcomeValue={mostLikelyValue}
+                        baselineValue={baselineValue}
+                        goalDirection={goalDirection}
+                      />
+                    )}
+                    {/* Top Drivers: causality ("why this result?") */}
+                    {!isPreRun && report?.drivers && report.drivers.length > 0 && (
+                      <div className="mt-6 pt-4 border-t border-sand-200">
+                        <DriverChips drivers={report.drivers} />
+                      </div>
+                    )}
                     {decisionReviewStatus && (
                       <div
-                        className="mt-3 pt-3 border-t border-sand-200"
+                        className="mt-6 pt-4 border-t border-sand-200"
                         data-testid="outputs-decision-review"
                       >
                         <div className={`${typography.code} font-medium text-ink-900/70 mb-1`}>
@@ -712,24 +976,6 @@ export function OutputsDock() {
                 )}
               </div>
             )}
-            {state.activeTab === 'insights' && (
-              <div className="space-y-3">
-                <p>
-                  {isPreRun
-                    ? 'Key drivers and narratives appear after your first analysis.'
-                    : 'Explore key drivers and detailed narratives for your latest run.'}
-                </p>
-                {isPreRun && (
-                  <p className={`${typography.code} text-ink-900/70`}>
-                    Run your first analysis from the toolbar above.
-                  </p>
-                )}
-                {/* Sprint N P0: Insights Panel */}
-                {!isPreRun && report?.insights && (
-                  <InsightsPanel insights={report.insights} />
-                )}
-              </div>
-            )}
             {state.activeTab === 'compare' && (
               <CompareTabBody />
             )}
@@ -745,6 +991,7 @@ export function OutputsDock() {
                 effectiveCorrelationId={effectiveCorrelationId}
                 correlationMismatch={correlationMismatch}
                 correlationIdHeader={correlationIdHeader}
+                nodes={nodes}
                 edges={edges}
               />
             )}
@@ -768,6 +1015,7 @@ function DiagnosticsTabBody({
   effectiveCorrelationId,
   correlationMismatch,
   correlationIdHeader,
+  nodes,
   edges,
 }: {
   healthView: { label: string; detail: string }
@@ -780,57 +1028,19 @@ function DiagnosticsTabBody({
   effectiveCorrelationId: string | null | undefined
   correlationMismatch: boolean
   correlationIdHeader: string | null | undefined
-  edges: Array<{ id: string; data?: { provenance?: string } }>
+  nodes: Node[]
+  edges: Edge[]
 }) {
-  // P0 Engine: Evidence coverage from local edge provenance
-  // NOTE: This uses UI-observed provenance on local graph edges.
-  // Future: When backend provides model_card.sources, prefer that as source of truth.
-  const totalEdges = edges.length
-  const evidencedEdges = edges.filter(e => e.data?.provenance && e.data.provenance.trim() !== '').length
-  const evidenceCoveragePercent = totalEdges > 0 ? Math.round((evidencedEdges / totalEdges) * 100) : 0
-
   return (
     <div className="space-y-3" data-testid="diagnostics-tab">
-      {/* P0 Engine: Evidence Coverage (when edges exist) */}
-      {totalEdges > 0 && (
-        <div className="space-y-1" data-testid="evidence-coverage-section">
-          <div className={`${typography.label} text-ink-900`}>Evidence coverage</div>
-          <EvidenceCoverageCompact
-            evidencedCount={evidencedEdges}
-            totalCount={totalEdges}
-          />
-          {evidenceCoveragePercent === 0 && (
-            <p className={`${typography.caption} text-ink-900/60 mt-1`}>
-              Drag documents into the Documents panel to strengthen key assumptions
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* Graph Health Summary (always visible) */}
-      <div className="space-y-1 pt-2 border-t border-sand-200" data-testid="graph-health-card">
-        <div className={`${typography.label} text-ink-900`}>Graph health</div>
-        <div className={`${typography.code} text-ink-900`} aria-live="polite">
-          {healthView.label}
-        </div>
-        <div className={`${typography.code} text-ink-900/70`} aria-live="polite">
-          {healthView.detail}
-        </div>
-        {graphHealth && graphHealth.issues.length > 0 && (
-          <>
-            <button
-              type="button"
-              onClick={() => setShowIssuesPanel(true)}
-              className={`mt-1 inline-flex items-center px-2 py-1 rounded border border-blue-200 text-blue-700 ${typography.code} font-medium hover:bg-blue-50`}
-              data-testid="graph-health-open-issues"
-            >
-              Open graph issues
-            </button>
-            <p className={`${typography.code} text-ink-900/60 mt-1`}>
-              See Graph Issues panel for fixable problems detected here.
-            </p>
-          </>
-        )}
+      {/* Graph Structure Text View - hierarchical view with search and click-to-focus */}
+      <div className="space-y-1" data-testid="graph-structure-section">
+        <div className={`${typography.label} text-ink-900`}>Graph structure</div>
+        <GraphTextView
+          nodes={nodes}
+          edges={edges}
+          onNodeClick={focusNodeById}
+        />
       </div>
 
       {/* Phase 1A.5: Streaming Diagnostics - Hidden by default, Shift+D to show */}
@@ -1245,6 +1455,10 @@ function formatOutcomeValue(value: number | null, units: OutcomeUnits, unitSymbo
   if (units === 'count') {
     const absolute = Math.abs(value)
     const prefix = value < 0 ? '-' : ''
+    // Auto-detect probability format for count units
+    if (absolute >= 0 && absolute <= 1 && (absolute !== Math.floor(absolute) || absolute === 0 || absolute === 1)) {
+      return `${prefix}${(absolute * 100).toFixed(1)}%`
+    }
     if (absolute >= 1_000_000) {
       return `${prefix}${(absolute / 1_000_000).toFixed(1)}M`
     }
@@ -1254,7 +1468,11 @@ function formatOutcomeValue(value: number | null, units: OutcomeUnits, unitSymbo
     return `${prefix}${absolute.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
   }
 
-  return `${value.toFixed(1)}%`
+  // Default (percent): auto-detect if value is in 0-1 probability form
+  // Values in 0-1 range (inclusive) are treated as probabilities: 0.5 → 50%, 1 → 100%
+  const isProbability = value >= 0 && value <= 1
+  const displayValue = isProbability ? value * 100 : value
+  return `${displayValue.toFixed(1)}%`
 }
 
 function describeDelta(

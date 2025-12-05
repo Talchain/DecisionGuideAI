@@ -511,15 +511,25 @@ export function CanvasToolbar() {
       <ImportExportDialog isOpen={showExport} onClose={() => setShowExport(false)} mode="export" />
       
       {/* Reset Confirmation */}
-      <BottomSheet isOpen={showResetConfirm} onClose={() => setShowResetConfirm(false)} title="Reset canvas?">
+      <BottomSheet isOpen={showResetConfirm} onClose={() => setShowResetConfirm(false)} title="Start fresh?">
         <div className="space-y-4">
-          <p className={`${typography.body} text-gray-600`}>This clears all nodes and edges. You can still undo.</p>
+          <p className={`${typography.body} text-gray-600`}>
+            This will clear your entire decision, including:
+          </p>
+          <ul className={`${typography.body} text-gray-600 list-disc pl-5 space-y-1`}>
+            <li>All nodes and connections in your graph</li>
+            <li>Any analysis results</li>
+            <li>AI assistant conversation</li>
+          </ul>
+          <p className={`${typography.caption} text-gray-500`}>
+            You can undo this action with Ctrl+Z (Cmd+Z on Mac).
+          </p>
           <div className="flex gap-2">
             <button
               onClick={() => setShowResetConfirm(false)}
               className="flex-1 px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
             >
-              Cancel
+              Keep working
             </button>
             <button
               onClick={() => {
@@ -529,7 +539,7 @@ export function CanvasToolbar() {
               className="flex-1 px-4 py-2 bg-danger-600 text-white rounded hover:bg-danger-700"
               data-testid="btn-confirm-reset"
             >
-              Reset
+              Reset everything
             </button>
           </div>
         </div>

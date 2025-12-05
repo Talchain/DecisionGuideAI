@@ -13,14 +13,14 @@ describe('errorTaxonomy', () => {
   })
 
   describe('mapErrorToUserMessage', () => {
-    it('maps offline state to friendly message', () => {
+    it('maps offline state to friendly message when no code/status provided', () => {
       // Mock offline state using vi.spyOn
       vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false)
 
+      // Only show "No internet connection" when no specific error code is available
       const result = mapErrorToUserMessage({
-        code: 'NETWORK_ERROR',
-        status: 0,
         message: 'Network request failed'
+        // No code or status - triggers offline fallback
       })
 
       expect(result.title).toBe('No internet connection')
@@ -28,6 +28,25 @@ describe('errorTaxonomy', () => {
       expect(result.retryable).toBe(true)
       expect(result.message).toContain('offline')
       expect(result.suggestion).toContain('editing')
+
+      // Spy auto-restored by afterEach
+    })
+
+    it('shows specific error code message even when offline (navigator.onLine unreliable)', () => {
+      // Mock offline state - but we have a specific error code
+      vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false)
+
+      // When we have a specific error code, show that instead of "No internet connection"
+      // This prevents misleading messages when navigator.onLine is wrong (VPNs, etc.)
+      const result = mapErrorToUserMessage({
+        code: 'BAD_INPUT',
+        status: 400,
+        message: 'Invalid graph data'
+      })
+
+      // Should NOT say "No internet connection" - should show the actual error
+      expect(result.title).toBe('Invalid request')
+      expect(result.message).toBe('Invalid graph data')
 
       // Spy auto-restored by afterEach
     })
@@ -160,6 +179,29 @@ describe('errorTaxonomy', () => {
       expect(result.retryable).toBe(false)
       expect(result.message).toContain('Too many nodes')
       expect(result.suggestion).toContain('Reduce')
+    })
+
+    it('maps EMPTY_CANVAS code', () => {
+      const result = mapErrorToUserMessage({
+        code: 'EMPTY_CANVAS',
+        message: 'Cannot run analysis on an empty canvas'
+      })
+
+      expect(result.title).toBe('Empty canvas')
+      expect(result.severity).toBe('warning')
+      expect(result.retryable).toBe(false)
+      expect(result.message).toContain('Add nodes')
+      expect(result.suggestion).toContain('Goal node')
+    })
+
+    it('maps EMPTY_CANVAS from message string', () => {
+      const result = mapErrorToUserMessage({
+        message: 'EMPTY_CANVAS: Cannot run analysis on an empty canvas.'
+      })
+
+      expect(result.title).toBe('Empty canvas')
+      expect(result.severity).toBe('warning')
+      expect(result.retryable).toBe(false)
     })
 
     it('falls back to generic error for unknown codes', () => {

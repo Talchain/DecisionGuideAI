@@ -151,20 +151,65 @@ function mapV1ResultToReport(
   }
 
   // Use v1.2 bands for results (with fallback to legacy summary)
-  const conservative = canonicalRun.bands.p10 ?? result.summary?.conservative ?? 0
-  const likely = canonicalRun.bands.p50 ?? result.summary?.likely ?? 0
-  const optimistic = canonicalRun.bands.p90 ?? result.summary?.optimistic ?? 0
+  // Contract v1.1: results.most_likely.outcome (nested) or result.summary.likely (legacy)
+  const conservative = canonicalRun.bands.p10
+    ?? result.results?.conservative?.outcome
+    ?? result.summary?.conservative ?? 0
+  const likely = canonicalRun.bands.p50
+    ?? result.results?.most_likely?.outcome
+    ?? result.summary?.most_likely
+    ?? result.summary?.likely ?? 0
+  const optimistic = canonicalRun.bands.p90
+    ?? result.results?.optimistic?.outcome
+    ?? result.summary?.optimistic ?? 0
   const units = result.summary?.units || 'count'
 
+  // Contract v1.1: explain_delta at top-level, fall back to nested for backward compat
+  const explainDelta = response.explain_delta || result.explain_delta
+
   // Extract drivers from explain_delta.top_drivers (actual API structure)
-  const drivers = (result.explain_delta?.top_drivers ?? []).map((d: any) => ({
-    label: d.label || d.node_id || d.edge_id || 'Unknown',
-    polarity: (d.impact || 0) > 0 ? 'up' : (d.impact || 0) < 0 ? 'down' : 'neutral',
-    strength: Math.abs(d.impact || 0) > 0.7 ? 'high' : Math.abs(d.impact || 0) > 0.3 ? 'medium' : 'low',
-    // Preserve IDs for canvas highlighting
-    node_id: d.node_id,
-    edge_id: d.edge_id,
-  }))
+  // API v1.1 sends: { node_id, node_label, contribution (0-100), sign ('+'/'-') }
+  const drivers = (explainDelta?.top_drivers ?? []).map((d: any) => {
+    // Handle both old (impact) and new (contribution + sign) formats
+    let impact = d.impact ?? 0
+    // Preserve raw contribution (0-100) for UI display
+    const rawContribution = d.contribution ?? 0
+    if (d.contribution !== undefined && d.sign !== undefined) {
+      // Convert contribution (0-100) and sign to signed impact (-1 to 1)
+      const normalizedContribution = Math.min(d.contribution, 100) / 100
+      impact = d.sign === '-' ? -normalizedContribution : normalizedContribution
+    }
+
+    // Use node_label (API v1) or label (older format) for display
+    const label = d.node_label || d.label || d.node_id || d.edge_id || 'Unknown'
+
+    return {
+      label,
+      polarity: (impact > 0 ? 'up' : impact < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral',
+      strength: (Math.abs(impact) > 0.7 ? 'high' : Math.abs(impact) > 0.3 ? 'medium' : 'low') as 'low' | 'medium' | 'high',
+      // Contribution as 0-1 for percentage display (Quick Win #4)
+      contribution: rawContribution / 100,
+      // Use camelCase IDs to match DriverChips interface
+      nodeId: d.node_id,
+      edgeId: d.edge_id,
+      // Pass through node_kind from API for client-side filtering (v1.1 contract)
+      nodeKind: d.node_kind?.toLowerCase() || null,
+    }
+  })
+
+  // Contract v1.1: confidence as structured object { level, score, reason, factors }
+  // Backward compat: scalar number (0-1) converted via mapConfidenceLevel
+  const rawConfidence = response.confidence || result.confidence
+  const isStructuredConfidence = typeof rawConfidence === 'object' && rawConfidence !== null
+  const confidenceScore = isStructuredConfidence
+    ? (rawConfidence.score ?? 0.5)
+    : (typeof rawConfidence === 'number' ? rawConfidence : 0.5)
+  const confidenceLevel: ConfidenceLevel = isStructuredConfidence && rawConfidence.level
+    ? (rawConfidence.level.toLowerCase() as ConfidenceLevel)
+    : mapConfidenceLevel(confidenceScore)
+  const confidenceReason = isStructuredConfidence
+    ? (rawConfidence.reason || result.explanation || 'No explanation provided')
+    : (result.explanation || 'No explanation provided')
 
   return {
     schema: 'report.v1',
@@ -187,8 +232,8 @@ function mapV1ResultToReport(
       units,
     },
     confidence: {
-      level: mapConfidenceLevel(result.confidence ?? 0.5),
-      why: result.explanation || 'No explanation provided',
+      level: confidenceLevel,
+      why: confidenceReason,
     },
     drivers,
     run: canonicalRun, // v1.2: attach canonical run for ResultsPanel
@@ -198,7 +243,7 @@ function mapV1ResultToReport(
     insights: response.insights || response.result?.insights,
 
     // P0.1: Canonical decision readiness (always populated from confidence.level)
-    decision_readiness: mapConfidenceToDecisionReadiness(mapConfidenceLevel(result.confidence ?? 0.5)),
+    decision_readiness: mapConfidenceToDecisionReadiness(confidenceLevel),
   }
 }
 
@@ -306,8 +351,20 @@ function mapGraphToV1Request(graph: any, seed?: number): V1RunRequest {
 export const httpV1Adapter = {
   // Run: uses sync endpoint only (stream not deployed yet)
   async run(input: RunRequest): Promise<ReportV1> {
+    // Guard: Validate graph is provided for canvas runs
+    const hasValidGraph = input.graph?.nodes && input.graph.nodes.length > 0
+
+    if (!hasValidGraph && input.template_id === 'canvas-graph') {
+      throw new Error(
+        'EMPTY_CANVAS: Cannot run analysis on an empty canvas. ' +
+        'Add at least one node to your decision graph before running analysis.'
+      )
+    }
+
     // Use provided graph (from canvas edits), or fetch template as fallback
-    const graph = input.graph || await loadTemplateGraph(input.template_id)
+    const graph = hasValidGraph
+      ? input.graph!
+      : await loadTemplateGraph(input.template_id)
 
     try {
       const v1Request = mapGraphToV1Request(graph, input.seed)

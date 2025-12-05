@@ -137,6 +137,20 @@ interface CanvasState {
   selectedSnapshotsForComparison: string[] // Snapshot IDs
   showComparePanel: boolean
   currentDecisionRationale: DecisionRationale | null
+  // Week 3: AI Clarifier
+  showAIClarifier: boolean
+  clarifierSession: {
+    prompt: string
+    context: string
+    answers: Array<{ question_id: string; answer: string }>
+    round: number
+    status: 'active' | 'complete' | 'error'
+  } | null
+  clarifierPreviewNodeIds: string[]
+  clarifierPreviewEdgeIds: string[]
+  // Pending fit view request (set by AI graph insertion, cleared by ReactFlowGraph)
+  pendingFitView: boolean
+  setPendingFitView: (value: boolean) => void
   updateScenarioFraming: (partial: ScenarioFraming) => void
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
   updateNodeLabel: (id: string, label: string) => void
@@ -238,6 +252,13 @@ interface CanvasState {
   exportLocal: () => string
   // P2: Hydration hygiene
   hydrateGraphSlice: (loaded: { nodes?: Node[]; edges?: Edge<EdgeData>[]; currentScenarioId?: string | null }) => void
+  // Week 3: AI Clarifier actions
+  setShowAIClarifier: (show: boolean) => void
+  startClarifierSession: (prompt: string, context: string) => void
+  updateClarifierAnswers: (answers: Array<{ question_id: string; answer: string }>) => void
+  completeClarifierSession: () => void
+  applyClarifierGraph: (graph: { nodes: any[]; edges: any[] }, options: { preview: boolean }) => void
+  clearClarifierPreview: () => void
 }
 
 let historyTimer: ReturnType<typeof setTimeout> | null = null
@@ -350,7 +371,7 @@ type SetState<T> = (
 function createDebugSet<T>(originalSet: SetState<T>, debugEnabled: boolean): SetState<T> {
   if (!debugEnabled) return originalSet
 
-  console.log('[React #185 DEBUG] Internal set() logger ENABLED - capturing ALL store updates')
+  // Debug logger enabled - check window.__SAFE_DEBUG__.logs for captured updates
 
   return (partial, replace) => {
     const win = window as unknown as { __SAFE_DEBUG__?: { logs: Array<{ t: number; m: string; data: unknown }> } }
@@ -440,6 +461,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // M6: Compare & Decision Rationale
   selectedSnapshotsForComparison: [],
   currentDecisionRationale: null,
+  // Week 3: AI Clarifier initial state
+  showAIClarifier: false,
+  clarifierSession: null,
+  clarifierPreviewNodeIds: [],
+  clarifierPreviewEdgeIds: [],
+  // Pending fit view request (set by AI graph insertion, cleared by ReactFlowGraph)
+  pendingFitView: false,
 
   createNodeId: () => {
     const { nextNodeId } = get()
@@ -487,6 +515,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   updateEdge: (id, updates) => {
     pushToHistory(get, set)
+    let confidenceChanged = false
+
     set((s) => {
       const touchedNodeIds = new Set(s.touchedNodeIds)
 
@@ -500,6 +530,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         // If confidence changed, mark source node as touched
         if (newConfidence !== undefined && oldConfidence !== newConfidence) {
           touchedNodeIds.add(e.source)
+          confidenceChanged = true
         }
 
         // Merge updates, ensuring required EdgeData fields are preserved
@@ -513,6 +544,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
       return { edges, touchedNodeIds }
     })
+
+    // Phase 3: Re-validate graph when confidence changes to update ValidationPanel
+    if (confidenceChanged) {
+      // Debounce validation to avoid running on every keystroke
+      setTimeout(() => get().validateGraph(), 100)
+    }
   },
 
   updateEdgeData: (id, data) => {
@@ -1070,12 +1107,23 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     pushToHistory(get, set)
     set({
+      // Clear graph
       nodes: [],
       edges: [],
       touchedNodeIds: new Set(),
       nextNodeId: 1,
       nextEdgeId: 1,
+      // Clear AI assistant and draft state
       showDraftChat: false,
+      // Clear results and analysis state
+      results: { status: 'idle', progress: 0 },
+      runMeta: {},
+      hasCompletedFirstRun: false,
+      // Clear validation state
+      graphHealth: null,
+      needleMovers: [],
+      // Close results panel
+      showResultsPanel: false,
     })
   },
 
@@ -1265,6 +1313,19 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         last_run_at: completedAtIso,
         last_run_seed: seedString || undefined
       })
+    }
+
+    // Auto-save baseline on first run: if no baseline exists, use p50 from this run
+    // This enables baseline comparison for subsequent analyses
+    const { currentScenarioFraming } = get()
+    const p50 = report?.results?.likely
+    if (
+      currentScenarioFraming?.baseline === undefined ||
+      currentScenarioFraming?.baseline === null
+    ) {
+      if (typeof p50 === 'number' && !Number.isNaN(p50)) {
+        get().updateScenarioFraming({ baseline: p50 })
+      }
     }
 
     // Save to run history
@@ -1857,6 +1918,252 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setDecisionRationale: (rationale: DecisionRationale | null) => {
     set({ currentDecisionRationale: rationale })
+  },
+
+  // Pending fit view setter
+  setPendingFitView: (value: boolean) => {
+    set({ pendingFitView: value })
+  },
+
+  // Week 3: AI Clarifier actions
+  setShowAIClarifier: (show: boolean) => {
+    set({ showAIClarifier: show })
+    // Close draft chat when opening clarifier
+    if (show) {
+      set({ showDraftChat: false })
+    }
+    // Clean up clarifier state when closing
+    if (!show) {
+      get().completeClarifierSession()
+    }
+  },
+
+  startClarifierSession: (prompt: string, context: string) => {
+    set({
+      clarifierSession: {
+        prompt,
+        context,
+        answers: [],
+        round: 0,
+        status: 'active',
+      },
+      clarifierPreviewNodeIds: [],
+      clarifierPreviewEdgeIds: [],
+    })
+  },
+
+  updateClarifierAnswers: (answers: Array<{ question_id: string; answer: string }>) => {
+    set(s => {
+      if (!s.clarifierSession) return s
+      return {
+        clarifierSession: {
+          ...s.clarifierSession,
+          answers,
+          round: s.clarifierSession.round + 1,
+        },
+      }
+    })
+  },
+
+  completeClarifierSession: () => {
+    const state = get()
+    // Remove any preview nodes/edges that weren't finalized
+    if (state.clarifierPreviewNodeIds.length > 0 || state.clarifierPreviewEdgeIds.length > 0) {
+      set(s => ({
+        nodes: s.nodes.filter(n => !s.clarifierPreviewNodeIds.includes(n.id)),
+        edges: s.edges.filter(e => !s.clarifierPreviewEdgeIds.includes(e.id)),
+        clarifierSession: null,
+        clarifierPreviewNodeIds: [],
+        clarifierPreviewEdgeIds: [],
+      }))
+    } else {
+      set({
+        clarifierSession: null,
+        clarifierPreviewNodeIds: [],
+        clarifierPreviewEdgeIds: [],
+      })
+    }
+  },
+
+  applyClarifierGraph: (graph: { nodes: any[]; edges: any[] }, options: { preview: boolean }) => {
+    const state = get()
+
+    // Remove any existing preview nodes/edges first
+    const existingNodes = state.nodes.filter(n => !state.clarifierPreviewNodeIds.includes(n.id))
+    const existingEdges = state.edges.filter(e => !state.clarifierPreviewEdgeIds.includes(e.id))
+
+    // CRITICAL: Build ID mapping from old -> new node IDs
+    // This ensures edges point to the correct newly-created nodes
+    const nodeIdMap = new Map<string, string>()
+
+    if (options.preview) {
+      // Add as ghost nodes/edges (preview mode)
+      const previewNodes = graph.nodes.map((n: any, idx: number) => {
+        const newId = `preview-${state.nextNodeId + idx}`
+        // Map original node ID to new preview ID
+        nodeIdMap.set(n.id, newId)
+
+        return {
+          id: newId,
+          type: n.kind || n.type || 'decision',
+          position: n.position || { x: 200 + (idx % 3) * 250, y: 100 + Math.floor(idx / 3) * 200 },
+          data: {
+            label: n.label || 'Untitled',
+            body: n.body,
+            isPreview: true,
+          },
+          style: {
+            opacity: 0.6,
+            border: '2px dashed var(--sky-500)',
+          },
+        }
+      })
+
+      const previewEdges = graph.edges.map((e: any, i: number) => {
+        const originalSource = e.from || e.source
+        const originalTarget = e.to || e.target
+
+        // Use mapped IDs - this is the critical fix!
+        const mappedSource = nodeIdMap.get(originalSource)
+        const mappedTarget = nodeIdMap.get(originalTarget)
+
+        // Skip edge if nodes don't exist in mapping
+        if (!mappedSource || !mappedTarget) {
+          console.warn('[applyClarifierGraph] Skipping edge - node not found in mapping:', {
+            originalSource,
+            originalTarget,
+            availableIds: Array.from(nodeIdMap.keys()),
+          })
+          return null
+        }
+
+        // v1.2: Determine edge kind based on data available
+        // If probability is present → decision-probability, otherwise → influence-weight
+        const hasProb = e.probability !== undefined
+        const edgeKind = hasProb ? 'decision-probability' as const : 'influence-weight' as const
+        // Use probability for confidence, fall back to belief if no probability
+        const confidence = e.probability ?? e.belief ?? 0.5
+
+        return {
+          id: `preview-e${state.nextEdgeId + i}`,
+          source: mappedSource,
+          target: mappedTarget,
+          type: 'styled',
+          data: {
+            ...DEFAULT_EDGE_DATA,
+            kind: edgeKind,
+            weight: e.weight ?? 0.5,
+            belief: e.belief ?? confidence,
+            confidence,
+            isPreview: true,
+          },
+          style: {
+            strokeDasharray: '5,5',
+            opacity: 0.6,
+          },
+        }
+      }).filter(Boolean) as typeof existingEdges
+
+      set({
+        nodes: [...existingNodes, ...previewNodes],
+        edges: [...existingEdges, ...previewEdges],
+        clarifierPreviewNodeIds: previewNodes.map(n => n.id),
+        clarifierPreviewEdgeIds: previewEdges.map(e => e.id),
+      })
+
+      // Auto-layout to arrange nodes in proper flow (goal → decision → outcomes)
+      get().applyLayout()
+      // Request fit view after layout completes (handled by ReactFlowGraph)
+      set({ pendingFitView: true })
+    } else {
+      // Apply permanently (finalize mode)
+      pushToHistory(get, set)
+
+      const finalNodes = graph.nodes.map((n: any, idx: number) => {
+        const newId = state.createNodeId()
+        // Map original node ID to new final ID
+        nodeIdMap.set(n.id, newId)
+
+        return {
+          id: newId,
+          type: n.kind || n.type || 'decision',
+          position: n.position || { x: 200 + (idx % 3) * 250, y: 100 + Math.floor(idx / 3) * 200 },
+          data: {
+            label: n.label || 'Untitled',
+            body: n.body,
+            uncertainty: n.uncertainty,
+          },
+        }
+      })
+
+      const finalEdges = graph.edges.map((e: any) => {
+        const originalSource = e.from || e.source
+        const originalTarget = e.to || e.target
+
+        // Use mapped IDs - this is the critical fix!
+        const mappedSource = nodeIdMap.get(originalSource)
+        const mappedTarget = nodeIdMap.get(originalTarget)
+
+        // Skip edge if nodes don't exist in mapping
+        if (!mappedSource || !mappedTarget) {
+          console.warn('[applyClarifierGraph] Skipping edge - node not found in mapping:', {
+            originalSource,
+            originalTarget,
+            availableIds: Array.from(nodeIdMap.keys()),
+          })
+          return null
+        }
+
+        const id = state.createEdgeId()
+        // v1.2: Determine edge kind based on data available
+        // If probability is present → decision-probability, otherwise → influence-weight
+        const hasProb = e.probability !== undefined
+        const edgeKind = hasProb ? 'decision-probability' as const : 'influence-weight' as const
+        // Use probability for confidence, fall back to belief if no probability
+        const confidence = e.probability ?? e.belief ?? 0.5
+
+        return {
+          id,
+          source: mappedSource,
+          target: mappedTarget,
+          type: 'styled',
+          data: {
+            ...DEFAULT_EDGE_DATA,
+            kind: edgeKind,
+            weight: e.weight ?? 0.5,
+            belief: e.belief ?? confidence,
+            confidence,
+            provenance: e.provenance || 'AI-drafted',
+          },
+        }
+      }).filter(Boolean) as typeof existingEdges
+
+      set({
+        nodes: [...existingNodes, ...finalNodes],
+        edges: [...existingEdges, ...finalEdges],
+        clarifierPreviewNodeIds: [],
+        clarifierPreviewEdgeIds: [],
+        clarifierSession: null,
+        showAIClarifier: false,
+      })
+
+      // Auto-layout to arrange nodes in proper flow (goal → decision → outcomes)
+      get().applyLayout()
+      // Request fit view after layout completes (handled by ReactFlowGraph)
+      set({ pendingFitView: true })
+    }
+  },
+
+  clearClarifierPreview: () => {
+    const state = get()
+    const remainingNodes = state.nodes.filter(n => !state.clarifierPreviewNodeIds.includes(n.id))
+    const remainingEdges = state.edges.filter(e => !state.clarifierPreviewEdgeIds.includes(e.id))
+    set({
+      nodes: remainingNodes,
+      edges: remainingEdges,
+      clarifierPreviewNodeIds: [],
+      clarifierPreviewEdgeIds: [],
+    })
   },
 
   exportLocal: () => {

@@ -37,8 +37,9 @@ describe('graphPreflight', () => {
     })
 
     describe('node count limit', () => {
+      // Contract v1.1: max 50 nodes
       it('should reject graph with too many nodes', () => {
-        const nodes = Array.from({ length: 201 }, (_, i) => ({
+        const nodes = Array.from({ length: 51 }, (_, i) => ({
           id: `n${i}`,
           label: `Node ${i}`,
           data: { label: `Node ${i}` },
@@ -52,14 +53,14 @@ describe('graphPreflight', () => {
         expect(result.violations[0]).toMatchObject({
           code: 'LIMIT_EXCEEDED',
           field: 'nodes',
-          max: 200,
-          current: 201,
+          max: 50,
+          current: 51,
         })
         expect(result.violations[0].message).toContain('too many nodes')
       })
 
       it('should accept graph at exact node limit', () => {
-        const nodes = Array.from({ length: 200 }, (_, i) => ({
+        const nodes = Array.from({ length: 50 }, (_, i) => ({
           id: `n${i}`,
           label: `Node ${i}`,
           data: { label: `Node ${i}` },
@@ -73,12 +74,13 @@ describe('graphPreflight', () => {
     })
 
     describe('edge count limit', () => {
+      // Contract v1.1: max 200 edges
       it('should reject graph with too many edges', () => {
         const nodes = [
           { id: 'n1', label: 'Node 1', data: { label: 'Node 1' } },
           { id: 'n2', label: 'Node 2', data: { label: 'Node 2' } },
         ]
-        const edges = Array.from({ length: 501 }, (_, i) => ({
+        const edges = Array.from({ length: 201 }, (_, i) => ({
           id: `e${i}`,
           source: 'n1',
           target: 'n2',
@@ -93,8 +95,8 @@ describe('graphPreflight', () => {
         expect(result.violations[0]).toMatchObject({
           code: 'LIMIT_EXCEEDED',
           field: 'edges',
-          max: 500,
-          current: 501,
+          max: 200,
+          current: 201,
         })
       })
 
@@ -103,7 +105,7 @@ describe('graphPreflight', () => {
           { id: 'n1', label: 'Node 1', data: { label: 'Node 1' } },
           { id: 'n2', label: 'Node 2', data: { label: 'Node 2' } },
         ]
-        const edges = Array.from({ length: 500 }, (_, i) => ({
+        const edges = Array.from({ length: 200 }, (_, i) => ({
           id: `e${i}`,
           source: 'n1',
           target: 'n2',
@@ -347,24 +349,25 @@ describe('graphPreflight', () => {
   })
 
   describe('isWithinLimits()', () => {
+    // Contract v1.1: max 50 nodes, max 200 edges
     it('should return true if both counts within limits', () => {
-      expect(isWithinLimits(100, 250)).toBe(true)
+      expect(isWithinLimits(30, 100)).toBe(true)
     })
 
     it('should return true at exact limits', () => {
-      expect(isWithinLimits(200, 500)).toBe(true)
+      expect(isWithinLimits(50, 200)).toBe(true)
     })
 
     it('should return false if node count exceeds limit', () => {
-      expect(isWithinLimits(201, 250)).toBe(false)
+      expect(isWithinLimits(51, 100)).toBe(false)
     })
 
     it('should return false if edge count exceeds limit', () => {
-      expect(isWithinLimits(100, 501)).toBe(false)
+      expect(isWithinLimits(30, 201)).toBe(false)
     })
 
     it('should return false if both counts exceed limits', () => {
-      expect(isWithinLimits(201, 501)).toBe(false)
+      expect(isWithinLimits(51, 201)).toBe(false)
     })
   })
 
@@ -372,9 +375,10 @@ describe('graphPreflight', () => {
     it('should return limits from singleton', () => {
       const limits = getCurrentLimits()
 
+      // Contract v1.1: max 50 nodes, max 200 edges
       expect(limits).toEqual({
-        nodes: { max: 200 },
-        edges: { max: 500 },
+        nodes: { max: 50 },
+        edges: { max: 200 },
         label: { max: 120 },
         body: { max: 2000 },
         rateLimit: { rpm: 60 },

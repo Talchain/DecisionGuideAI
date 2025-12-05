@@ -7,6 +7,7 @@
 
 import { HelpCircle } from 'lucide-react'
 import { typography } from '../../styles/typography'
+import { Tooltip } from './Tooltip'
 
 interface ConfidenceBadgeProps {
   level?: 'low' | 'medium' | 'high'
@@ -18,13 +19,14 @@ export function ConfidenceBadge({ level, reason, score }: ConfidenceBadgeProps) 
   // Graceful degradation: if no level provided, show neutral state
   if (!level) {
     return (
-      <div
-        className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md border bg-gray-50 border-gray-200 text-gray-600 cursor-default"
-        title="Confidence data not available"
-      >
-        <HelpCircle className="w-4 h-4" />
-        <span className={`${typography.body} font-medium`}>Confidence N/A</span>
-      </div>
+      <Tooltip content="Confidence data not available" position="bottom">
+        <div
+          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-md border bg-gray-50 border-gray-200 text-gray-600 cursor-default"
+        >
+          <HelpCircle className="w-4 h-4" />
+          <span className={`${typography.body} font-medium`}>Confidence N/A</span>
+        </div>
+      </Tooltip>
     )
   }
 
@@ -58,28 +60,29 @@ export function ConfidenceBadge({ level, reason, score }: ConfidenceBadgeProps) 
       : label
 
   return (
-    <div
-      className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-md border cursor-default ${classes}`}
-      title={tooltipText}
-      role="status"
-      aria-label={`${label}${reason ? `: ${reason}` : ''}`}
-    >
-      <HelpCircle className={`w-4 h-4 ${iconColor}`} aria-hidden="true" />
-      <div className="flex flex-col gap-0.5">
-        <div className={`${typography.body} font-semibold`}>
-          {label}
-          {score !== undefined && (
-            <span className="ml-1.5 font-normal opacity-75">
-              ({Math.round(score * 100)}%)
-            </span>
+    <Tooltip content={tooltipText} position="bottom">
+      <div
+        className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-md border cursor-default ${classes}`}
+        role="status"
+        aria-label={`${label}${reason ? `: ${reason}` : ''}`}
+      >
+        <HelpCircle className={`w-4 h-4 ${iconColor}`} aria-hidden="true" />
+        <div className="flex flex-col gap-0.5">
+          <div className={`${typography.body} font-semibold`}>
+            {label}
+            {score !== undefined && (
+              <span className="ml-1.5 font-normal opacity-75">
+                ({Math.round(score * 100)}%)
+              </span>
+            )}
+          </div>
+          {reason && (
+            <div className={`${typography.caption} opacity-75 leading-tight max-w-xs truncate`}>
+              {reason}
+            </div>
           )}
         </div>
-        {reason && (
-          <div className={`${typography.caption} opacity-75 leading-tight max-w-xs truncate`}>
-            {reason}
-          </div>
-        )}
       </div>
-    </div>
+    </Tooltip>
   )
 }

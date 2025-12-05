@@ -30,3 +30,15 @@ export function trackIssuesOpened(): void {
 export function trackHistoryItemSelected(): void {
   track('sandbox.history.item.selected')
 }
+
+export function trackAutoFixClicked(): void {
+  track('sandbox.autofix.clicked')
+}
+
+export function trackAutoFixSuccess(): void {
+  track('sandbox.autofix.success')
+}
+
+export function trackAutoFixFailed(): void {
+  track('sandbox.autofix.failed')
+}
