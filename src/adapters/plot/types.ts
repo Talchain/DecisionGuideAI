@@ -31,9 +31,12 @@ export interface ReportV1 {
     label: string
     polarity: 'up' | 'down' | 'neutral'
     strength: 'low' | 'medium' | 'high'
-    action?: string
-    node_id?: string // For canvas highlighting
-    edge_id?: string // For canvas highlighting
+    /** Contribution as 0-1 for percentage display */
+    contribution?: number
+    /** Node ID for canvas highlighting (camelCase) */
+    nodeId?: string
+    /** Edge ID for canvas highlighting (camelCase) */
+    edgeId?: string
   }>
   critique?: string[]
   run?: CanonicalRun // v1.2: normalized run data with p10/p50/p90 bands
@@ -168,6 +171,20 @@ export type StreamEvent =
   | { type: 'error'; data: ErrorV1 }
 
 /**
+ * Critique item from PLoT Engine v1.1 contract
+ * Includes severity tiers, optional node/edge references, and auto-fix metadata
+ */
+export interface CritiqueItemV1 {
+  severity: 'INFO' | 'WARNING' | 'BLOCKER'
+  message: string
+  code?: string
+  node_id?: string
+  edge_id?: string
+  suggested_fix?: string
+  auto_fixable?: boolean
+}
+
+/**
  * Canonical run result structure for v1.2
  * Normalizes both legacy and v1.2 response formats
  */
@@ -175,7 +192,7 @@ export type CanonicalRun = {
   responseHash: string
   bands: { p10: number | null; p50: number | null; p90: number | null }
   confidence?: { level?: string; reason?: string; score?: number }
-  critique?: Array<{ severity: 'INFO' | 'WARNING' | 'BLOCKER'; message: string }>
+  critique?: CritiqueItemV1[]
 }
 
 /**

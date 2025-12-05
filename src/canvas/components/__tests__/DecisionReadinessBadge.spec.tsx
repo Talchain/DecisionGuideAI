@@ -25,39 +25,39 @@ const mockNotReadyData: DecisionReadiness = {
 
 describe('DecisionReadinessBadge', () => {
   describe('Ready state', () => {
-    it('renders ready status with green styling', () => {
+    it('renders ready status with neutral background', () => {
       render(<DecisionReadinessBadge readiness={mockReadyData} />)
 
       const badge = screen.getByTestId('decision-readiness-badge')
       expect(badge).toBeInTheDocument()
-      expect(badge).toHaveClass('border-green-200', 'bg-green-50/50')
+      expect(badge).toHaveClass('border-sand-200', 'bg-paper-50')
       expect(screen.getByText('Ready')).toBeInTheDocument()
     })
 
-    it('displays high confidence indicator', () => {
+    it('displays high confidence indicator with semantic text color', () => {
       render(<DecisionReadinessBadge readiness={mockReadyData} />)
 
       const confidence = screen.getByTestId('confidence-indicator')
       expect(confidence).toHaveTextContent('High Confidence')
-      expect(confidence).toHaveClass('text-green-700', 'bg-green-50')
+      expect(confidence).toHaveClass('text-green-700', 'bg-paper-50')
     })
   })
 
   describe('Not Ready state', () => {
-    it('renders not ready status with red styling', () => {
+    it('renders not ready status with neutral background', () => {
       render(<DecisionReadinessBadge readiness={mockNotReadyData} />)
 
       const badge = screen.getByTestId('decision-readiness-badge')
-      expect(badge).toHaveClass('border-red-200', 'bg-red-50/50')
+      expect(badge).toHaveClass('border-sand-200', 'bg-paper-50')
       expect(screen.getByText('Not Ready')).toBeInTheDocument()
     })
 
-    it('displays low confidence indicator', () => {
+    it('displays low confidence indicator with semantic text color', () => {
       render(<DecisionReadinessBadge readiness={mockNotReadyData} />)
 
       const confidence = screen.getByTestId('confidence-indicator')
       expect(confidence).toHaveTextContent('Low Confidence')
-      expect(confidence).toHaveClass('text-red-700', 'bg-red-50')
+      expect(confidence).toHaveClass('text-red-700', 'bg-paper-50')
     })
   })
 
@@ -200,7 +200,7 @@ describe('DecisionReadinessBadge', () => {
   })
 
   describe('Medium confidence', () => {
-    it('displays medium confidence with amber styling', () => {
+    it('displays medium confidence with semantic text color', () => {
       const mediumConfidence: DecisionReadiness = {
         ...mockReadyData,
         confidence: 'medium',
@@ -210,7 +210,7 @@ describe('DecisionReadinessBadge', () => {
 
       const confidence = screen.getByTestId('confidence-indicator')
       expect(confidence).toHaveTextContent('Medium Confidence')
-      expect(confidence).toHaveClass('text-amber-700', 'bg-amber-50')
+      expect(confidence).toHaveClass('text-amber-700', 'bg-paper-50')
     })
   })
 
@@ -225,20 +225,20 @@ describe('DecisionReadinessBadge', () => {
 })
 
 describe('DecisionReadinessBadgeCompact', () => {
-  it('renders ready state in compact form', () => {
+  it('renders ready state in compact form with neutral background', () => {
     render(<DecisionReadinessBadgeCompact readiness={mockReadyData} />)
 
     const badge = screen.getByTestId('decision-readiness-compact')
     expect(badge).toBeInTheDocument()
-    expect(badge).toHaveClass('bg-green-50', 'border-green-200', 'text-green-700')
+    expect(badge).toHaveClass('bg-paper-50', 'border-sand-200', 'text-green-700')
     expect(screen.getByText('Ready')).toBeInTheDocument()
   })
 
-  it('renders not ready state with blocker count', () => {
+  it('renders not ready state with blocker count and neutral background', () => {
     render(<DecisionReadinessBadgeCompact readiness={mockNotReadyData} />)
 
     const badge = screen.getByTestId('decision-readiness-compact')
-    expect(badge).toHaveClass('bg-red-50', 'border-red-200', 'text-red-700')
+    expect(badge).toHaveClass('bg-paper-50', 'border-sand-200', 'text-red-700')
     expect(screen.getByText('Not Ready')).toBeInTheDocument()
     expect(screen.getByText('(2)')).toBeInTheDocument() // 2 blockers
   })

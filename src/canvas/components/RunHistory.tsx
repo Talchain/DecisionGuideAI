@@ -11,13 +11,15 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
-import { Pin, Trash2, Eye, GitCompare } from 'lucide-react'
+import { Pin, Trash2, Eye, GitCompare, Clock } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { loadRuns, togglePin, deleteRun, computeRunSummary, STORAGE_KEY, type StoredRun } from '../store/runHistory'
 import * as runsBus from '../store/runsBus'
 import { selectScenarioLastRun } from '../shared/lastRun'
 import { trackHistoryItemSelected } from '../utils/sandboxTelemetry'
 import { typography } from '../../styles/typography'
+import { Tooltip } from './Tooltip'
+import { EmptyState } from './EmptyState'
 
 interface RunHistoryProps {
   // eslint-disable-next-line no-unused-vars
@@ -161,18 +163,22 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
 
   if (runs.length === 0) {
     return (
-      <div className={`text-center py-4 ${typography.body} text-gray-400`} data-testid="run-history-empty">
+      <div data-testid="run-history-empty">
         {scenarioTitle && (
-          <div className={`mb-1 ${typography.caption} text-gray-500`} data-testid="run-history-scenario-context">
+          <div className={`mb-2 ${typography.caption} text-gray-500 text-center`} data-testid="run-history-scenario-context">
             Current decision:{' '}
             <span className="font-medium text-gray-900">{scenarioTitle}</span>
           </div>
         )}
-        <div>
-          {scenarioTitle
-            ? 'No runs yet for this decision. Run an analysis to build history.'
-            : 'No runs yet. Run an analysis to build history.'}
-        </div>
+        <EmptyState
+          icon={Clock}
+          title="No runs yet"
+          description={scenarioTitle
+            ? 'Run an analysis to start building a history of scenarios you can compare.'
+            : 'Run an analysis to build history.'}
+          hint="Each run is saved so you can track changes over time"
+          testId="run-history-empty-state"
+        />
       </div>
     )
   }
@@ -227,9 +233,11 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
                 <div className="flex items-center gap-2 text-gray-500">
                   <span>Seed: {run.seed}</span>
                   <span>•</span>
-                  <span title={run.hash}>
-                    Hash: {run.hash?.slice(0, 6) || 'N/A'}
-                  </span>
+                  <Tooltip content={run.hash || 'N/A'} position="bottom">
+                    <span>
+                      Hash: {run.hash?.slice(0, 6) || 'N/A'}
+                    </span>
+                  </Tooltip>
                 </div>
                 <span className="text-gray-400">
                   {formatTimestamp(run.ts)}
@@ -270,12 +278,16 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
               {/* v1.2: Duplicate indicator */}
               {run.isDuplicate && run.duplicateCount && (
                 <div className="mb-2">
-                  <span
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 ${typography.caption} font-medium rounded-full bg-info-50 border border-info-200 text-info-700`}
-                    title={`This result has been re-run ${run.duplicateCount} times with identical output`}
+                  <Tooltip
+                    content={`This result has been re-run ${run.duplicateCount} times with identical output`}
+                    position="bottom"
                   >
-                    Re-run (identical × {run.duplicateCount})
-                  </span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 ${typography.caption} font-medium rounded-full bg-info-50 border border-info-200 text-info-700`}
+                    >
+                      Re-run (identical × {run.duplicateCount})
+                    </span>
+                  </Tooltip>
                 </div>
               )}
 
@@ -283,11 +295,15 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
               {run.drivers && run.drivers.length > 0 && (
                 <div className="flex items-center gap-1 mb-2">
                   {run.drivers.slice(0, 5).map((driver, i) => (
-                    <div
+                    <Tooltip
                       key={i}
-                      className="h-1 flex-1 rounded bg-info-500"
-                      title={driver.label || driver.id}
-                    />
+                      content={driver.label ?? driver.id ?? ''}
+                      position="bottom"
+                    >
+                      <div
+                        className="h-1 flex-1 rounded bg-info-500"
+                      />
+                    </Tooltip>
                   ))}
                   {run.drivers.length > 5 && (
                     <span className={`${typography.caption} text-gray-400`}>
@@ -299,39 +315,42 @@ export function RunHistory({ onViewRun, onCompare }: RunHistoryProps) {
 
               {/* Actions */}
               <div className="flex items-center gap-1">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onViewRun(run)
-                  }}
-                  className={`px-2 py-1 rounded ${typography.caption} bg-info-100 text-info-600 hover:bg-info-200 transition-colors`}
-                  title="View"
-                  aria-label="View"
-                >
-                  <Eye className="w-3 h-3" />
-                </button>
+                <Tooltip content="View" position="bottom">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onViewRun(run)
+                    }}
+                    className={`px-2 py-1 rounded ${typography.caption} bg-info-100 text-info-600 hover:bg-info-200 transition-colors`}
+                    aria-label="View"
+                  >
+                    <Eye className="w-3 h-3" />
+                  </button>
+                </Tooltip>
 
-                <button
-                  onClick={(e) => handleTogglePin(run.id, e)}
-                  className={`px-2 py-1 rounded ${typography.caption} transition-colors ${
-                    isPinned
-                      ? 'bg-warning-100 text-warning-600 hover:bg-warning-200'
-                      : 'bg-info-100 text-gray-600 hover:bg-info-200'
-                  }`}
-                  title={isPinned ? 'Unpin' : 'Pin'}
-                  aria-label={isPinned ? 'Unpin' : 'Pin'}
-                >
-                  <Pin className="w-3 h-3" />
-                </button>
+                <Tooltip content={isPinned ? 'Unpin' : 'Pin'} position="bottom">
+                  <button
+                    onClick={(e) => handleTogglePin(run.id, e)}
+                    className={`px-2 py-1 rounded ${typography.caption} transition-colors ${
+                      isPinned
+                        ? 'bg-warning-100 text-warning-600 hover:bg-warning-200'
+                        : 'bg-info-100 text-gray-600 hover:bg-info-200'
+                    }`}
+                    aria-label={isPinned ? 'Unpin' : 'Pin'}
+                  >
+                    <Pin className="w-3 h-3" />
+                  </button>
+                </Tooltip>
 
-                <button
-                  onClick={(e) => handleDelete(run.id, e)}
-                  className={`px-2 py-1 rounded ${typography.caption} bg-red-100 text-red-600 hover:bg-red-200 transition-colors`}
-                  title="Delete"
-                  aria-label="Delete"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
+                <Tooltip content="Delete" position="bottom">
+                  <button
+                    onClick={(e) => handleDelete(run.id, e)}
+                    className={`px-2 py-1 rounded ${typography.caption} bg-red-100 text-red-600 hover:bg-red-200 transition-colors`}
+                    aria-label="Delete"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </Tooltip>
               </div>
             </div>
           )

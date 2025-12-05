@@ -13,20 +13,22 @@ import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { loadState, saveState } from './persist'
 import { ContextMenu } from './ContextMenu'
 import { CanvasToolbar } from './CanvasToolbar'
+import { LeftSidebar } from '../components/layout/LeftSidebar'
+import { RightPanel } from '../components/layout/RightPanel'
 import { AlignmentGuides } from './components/AlignmentGuides'
 import { InspectorPopover } from './components/InspectorPopover'
 import { InspectorModal } from './components/InspectorModal'
 import { CommandPalette } from './components/CommandPalette'
 import { ReconnectBanner } from './components/ReconnectBanner'
 import { KeyboardLegend, useKeyboardLegend } from './help/KeyboardLegend'
-import { HelpMenu } from './help/HelpMenu'
+// HelpMenu moved to TopBar dropdown - now using custom events
 import { SettingsPanel } from './components/SettingsPanel'
 import { useSettingsStore } from './settingsStore'
 import { CanvasErrorBoundary } from './ErrorBoundary'
 import { ToastProvider, useToast } from './ToastContext'
 import { DiagnosticsOverlay } from './DiagnosticsOverlay'
 import { ConfirmDialog } from './components/ConfirmDialog'
-import { ValidationChip } from './components/ValidationChip'
+// ValidationChip removed - validation consolidated into OutputsDock panel
 import { LayerProvider } from './components/LayerProvider'
 import { RecoveryBanner } from './components/RecoveryBanner'
 import { OnboardingOverlay } from './onboarding/OnboardingOverlay'
@@ -43,11 +45,14 @@ import { useResultsRun } from './hooks/useResultsRun'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
 import { loadRuns } from './store/runHistory'
-import { HealthStatusBar } from './components/HealthStatusBar'
+// HealthStatusBar removed - validation consolidated into OutputsDock panel
 import { DegradedBanner } from './components/DegradedBanner'
 import { LayoutProgressBanner } from './components/LayoutProgressBanner'
 const IssuesPanel = lazy(() => import(/* webpackChunkName: "issues-panel" */ './panels/IssuesPanel').then(m => ({ default: m.IssuesPanel })))
+const AIClarifierChat = lazy(() => import(/* webpackChunkName: "ai-clarifier" */ './panels/AIClarifierChat').then(m => ({ default: m.AIClarifierChat })))
 import { NeedleMoversOverlay } from './components/NeedleMoversOverlay'
+import { CoachingNudge } from '../components/coaching/CoachingNudge'
+import { useCEECoaching } from './hooks/useCEECoaching'
 import { DocumentsManager } from './components/DocumentsManager'
 import { ProvenanceHubTab } from './components/ProvenanceHubTab'
 import { RadialQuickAddMenu } from './components/RadialQuickAddMenu'
@@ -56,10 +61,11 @@ import { ConnectivityChip } from './components/ConnectivityChip'
 import { StatusChips } from './components/StatusChips'
 // EdgeLabelToggle moved to CanvasToolbar for cleaner UI
 import { LimitsPanel } from './components/LimitsPanel'
+import { BottomSheet } from './components/BottomSheet'
 import type { NodeType } from './domain/nodes'
 import { InputsDock } from './components/InputsDock'
 import { OutputsDock } from './components/OutputsDock'
-import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled } from '../flags'
+import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled, pocFlags } from '../flags'
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
 
@@ -111,10 +117,28 @@ function logCanvasBreadcrumb(message: string, data?: Record<string, any>) {
   } catch {}
 }
 
+// Week 2 Layout Migration: New layout is NOW THE DEFAULT
+// Old dock layout (InputsDock, OutputsDock, CanvasToolbar) is deprecated
+// Set VITE_FEATURE_CONTEXT_BAR=0 to temporarily revert to old layout
+// Note: pocFlags.contextBar requires VITE_POC_ONLY=1 or explicit opt-in
+// So we hardcode true and only check for explicit opt-OUT
+const USE_NEW_LAYOUT = (import.meta as any)?.env?.VITE_FEATURE_CONTEXT_BAR !== '0'
+
+// Debug: Log layout mode once on module load
+if (typeof window !== 'undefined') {
+  console.log('[LAYOUT]', USE_NEW_LAYOUT ? 'NEW (canvas-first)' : 'OLD (docks)')
+}
+
+export interface BlueprintInsertResult {
+  error?: string
+}
+
+export interface BlueprintEventBus {
+  subscribe: (fn: (blueprint: Blueprint) => BlueprintInsertResult) => () => void
+}
+
 interface ReactFlowGraphProps {
-  blueprintEventBus?: {
-    subscribe: (fn: (blueprint: Blueprint) => void) => () => void
-  }
+  blueprintEventBus?: BlueprintEventBus
   onCanvasInteraction?: () => void
 }
 
@@ -144,9 +168,37 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const showProvenanceHub = useCanvasStore(s => s.showProvenanceHub)
   const provenanceRedactionEnabled = useCanvasStore(s => s.provenanceRedactionEnabled)
   const reconnecting = useCanvasStore(s => s.reconnecting)
+  // Week 3: AI Clarifier
+  const showAIClarifier = useCanvasStore(s => s.showAIClarifier)
+  const setShowAIClarifier = useCanvasStore(s => s.setShowAIClarifier)
 
-  const { getViewport, setCenter } = useReactFlow()
+  // Week 3: AI Coaching
+  const { activeNudge } = useCEECoaching()
+
+  const { getViewport, setCenter, fitView, zoomIn, zoomOut } = useReactFlow()
+
+  // Canvas control actions from store
+  const undo = useCanvasStore(s => s.undo)
+  const redo = useCanvasStore(s => s.redo)
+  const canUndo = useCanvasStore(s => s.canUndo)
+  const canRedo = useCanvasStore(s => s.canRedo)
+  const resetCanvas = useCanvasStore(s => s.resetCanvas)
+  const applyLayout = useCanvasStore(s => s.applyLayout)
+  const pendingFitView = useCanvasStore(s => s.pendingFitView)
+  const setPendingFitView = useCanvasStore(s => s.setPendingFitView)
   const debugMode: CanvasDebugMode = getCanvasDebugMode()
+
+  // Handle pending fit view request (from AI graph insertion)
+  useEffect(() => {
+    if (pendingFitView) {
+      // Small delay to allow layout to settle
+      const timer = setTimeout(() => {
+        fitView({ padding: 0.2, duration: 400 })
+        setPendingFitView(false)
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [pendingFitView, fitView, setPendingFitView])
 
   const HARD_ISOLATE_MINIMAL_CANVAS = false
   if (HARD_ISOLATE_MINIMAL_CANVAS) {
@@ -196,7 +248,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const [draggingNodeIds, setDraggingNodeIds] = useState<Set<string>>(new Set())
   const [isDragging, setIsDragging] = useState(false)
   const [showCommandPalette, setShowCommandPalette] = useState(false)
-  const [showFullInspector, setShowFullInspector] = useState(false)
+  const [showFullInspector, setShowFullInspector] = useState(true)
   const [pendingBlueprint, setPendingBlueprint] = useState<Blueprint | null>(null)
   const [existingTemplate, setExistingTemplate] = useState<{ id: string; name: string } | null>(null)
   const { isOpen: isKeyboardLegendOpen, open: openKeyboardLegend, close: closeKeyboardLegend } = useKeyboardLegend()
@@ -208,6 +260,23 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
     show: showInfluenceExplainer,
     hide: hideInfluenceExplainer
   } = useInfluenceExplainer()
+
+  // Listen for help events from TopBar dropdown
+  useEffect(() => {
+    const handleShowOnboarding = () => openOnboarding()
+    const handleShowKeyboard = () => openKeyboardLegend()
+    const handleShowInfluence = () => showInfluenceExplainer()
+
+    window.addEventListener('topbar:show-onboarding', handleShowOnboarding)
+    window.addEventListener('topbar:show-keyboard-legend', handleShowKeyboard)
+    window.addEventListener('topbar:show-influence-explainer', handleShowInfluence)
+
+    return () => {
+      window.removeEventListener('topbar:show-onboarding', handleShowOnboarding)
+      window.removeEventListener('topbar:show-keyboard-legend', handleShowKeyboard)
+      window.removeEventListener('topbar:show-influence-explainer', handleShowInfluence)
+    }
+  }, [openOnboarding, openKeyboardLegend, showInfluenceExplainer])
 
   // P0-7: Quick-add mode state
   const [quickAddMode, setQuickAddMode] = useState(false)
@@ -257,6 +326,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   } | null>(null)
   const addEdge = useCanvasStore(s => s.addEdge)
   const [showLimits, setShowLimits] = useState(false)
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
 
   // M4: Graph Health actions (graphHealth, showIssuesPanel state selected above)
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
@@ -272,10 +342,24 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   // Results run hook
   const { run: runAnalysis } = useResultsRun()
   const inputsOutputsEnabled = isInputsOutputsEnabled()
+  const dockLayoutEnabled = inputsOutputsEnabled && !USE_NEW_LAYOUT
   const paletteEnabled = isCommandPaletteEnabled()
   const degradedBannerEnabled = isDegradedBannerEnabled()
   useEngineLimits()
   const checkRunEligibility = useRunEligibilityCheck()
+
+  useEffect(() => {
+    if (!USE_NEW_LAYOUT || typeof document === 'undefined') return
+
+    const root = document.documentElement
+    const computed = getComputedStyle(root).getPropertyValue('--bottombar-h')
+    const previous = root.style.getPropertyValue('--bottombar-h') || computed
+    root.style.setProperty('--bottombar-h', '0px')
+
+    return () => {
+      root.style.setProperty('--bottombar-h', previous || '0px')
+    }
+  }, [])
 
   // SAFE_DEBUG: Lightweight instrumentation to detect render storms and state thrash in production.
   // Logs only the first 50 renders to window.__SAFE_DEBUG__.logs as 'canvas:render' entries.
@@ -344,6 +428,25 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   // reconnecting state is selected at the top of this component
   const completeReconnect = useCanvasStore(s => s.completeReconnect)
   const { showToast } = useToast()
+  const handleQuickAddClick = useCallback(() => {
+    setQuickAddMode(true)
+    setRadialMenuPosition(null)
+    showToast('Quick-add mode enabled. Click canvas to add nodes.', 'info')
+  }, [showToast])
+  const handleOpenCompare = useCallback(() => {
+    // Check if we have runs to compare (need at least 2)
+    // Use loadRuns() which reads from localStorage (store.runHistory doesn't exist)
+    const runs = loadRuns()
+    if (runs.length < 2) {
+      showToast('Need at least 2 analysis runs to compare. Run analysis first.', 'info')
+      return
+    }
+
+    // Open results panel in compare mode
+    const store = useCanvasStore.getState()
+    store.setShowResultsPanel(true)
+    store.setShowComparePanel(true)
+  }, [showToast])
   const resultsLoadHistorical = useCanvasStore(s => s.resultsLoadHistorical)
 
   // v1.2: Share link resolver - load run from localStorage when ?run=hash is present
@@ -354,6 +457,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   // This prevents re-triggering resultsLoadHistorical + setShowResultsPanel
   // on every re-render when the URL contains a run parameter.
   const appliedShareHashRef = useRef<string | null>(null)
+  const validationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     const resolveShareLink = () => {
@@ -468,41 +572,44 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   }, [location.hash, location.search])  // Re-run when hash or search params change
 
   // M4: Graph Health validation lifecycle (debounced)
-  // REACT #185 DEBUG: Disabled validation effects temporarily to isolate root cause
-  // const validateGraph = useCanvasStore(s => s.validateGraph)
+  // REACT #185 FIX: Re-enabled with stable dependencies (lengths instead of arrays)
+  const validateGraph = useCanvasStore(s => s.validateGraph)
 
-  // REACT #185 DEBUG: Validation effects disabled - uncomment to re-enable
-  // useEffect(() => {
-  //   // Validate on mount (initial load)
-  //   validateGraph()
-  //
-  //   // Cleanup timer on unmount
-  //   return () => {
-  //     if (validationTimerRef.current) {
-  //       clearTimeout(validationTimerRef.current)
-  //     }
-  //   }
-  // }, []) // Only run on mount
+  // Validate on mount (initial load)
+  useEffect(() => {
+    validateGraph()
 
-  // REACT #185 DEBUG: Validation effect on graph changes disabled
-  // useEffect(() => {
-  //   // Clear existing timer
-  //   if (validationTimerRef.current) {
-  //     clearTimeout(validationTimerRef.current)
-  //   }
-  //
-  //   // Debounce validation by 500ms after graph changes
-  //   validationTimerRef.current = setTimeout(() => {
-  //     validateGraph()
-  //   }, 500)
-  //
-  //   return () => {
-  //     if (validationTimerRef.current) {
-  //       clearTimeout(validationTimerRef.current)
-  //     }
-  //   }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [nodes, edges])
+    // Cleanup timer on unmount
+    return () => {
+      if (validationTimerRef.current) {
+        clearTimeout(validationTimerRef.current)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Only run on mount
+
+  // Stable dependencies for graph changes - use lengths to avoid array reference issues
+  const nodeCount = nodes.length
+  const edgeCount = edges.length
+
+  // Debounced validation on graph changes
+  useEffect(() => {
+    // Clear existing timer
+    if (validationTimerRef.current) {
+      clearTimeout(validationTimerRef.current)
+    }
+
+    // Debounce validation by 500ms after graph changes
+    validationTimerRef.current = setTimeout(() => {
+      validateGraph()
+    }, 500)
+
+    return () => {
+      if (validationTimerRef.current) {
+        clearTimeout(validationTimerRef.current)
+      }
+    }
+  }, [nodeCount, edgeCount, validateGraph])
 
   const handleNodeClick = useCallback((_: any, node: any) => {
     // Close Templates panel when interacting with canvas
@@ -589,23 +696,41 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   const handleRunSimulation = useCallback(async () => {
     const eligibility = checkRunEligibility()
     if (!eligibility.canRun) {
+      // Toast already shown by checkRunEligibility
       return
     }
-
-    // Open Results panel and trigger analysis
-    setShowResultsPanel(true)
 
     // Get latest state for graph data
     const { nodes, edges, outcomeNodeId } = useCanvasStore.getState()
 
-    // Run analysis with canvas graph
-    await runAnalysis({
-      template_id: 'canvas-graph',
-      seed: 1337,
-      graph: { nodes, edges },
-      outcome_node: outcomeNodeId || undefined,
-    })
-  }, [checkRunEligibility, runAnalysis, setShowResultsPanel])
+    // Additional validation: Check for empty graph
+    if (nodes.length === 0) {
+      showToast('Add at least one node before running analysis.', 'warning')
+      return
+    }
+
+    // Check for disconnected graph (nodes without any edges)
+    if (nodes.length > 1 && edges.length === 0) {
+      showToast('Connect your nodes with edges before running analysis.', 'warning')
+      return
+    }
+
+    // Open Results panel before running
+    setShowResultsPanel(true)
+
+    try {
+      // Run analysis with canvas graph
+      await runAnalysis({
+        template_id: 'canvas-graph',
+        seed: 1337,
+        graph: { nodes, edges },
+        outcome_node: outcomeNodeId || undefined,
+      })
+    } catch (err: any) {
+      console.error('[ReactFlowGraph] Run analysis failed:', err)
+      showToast(err?.message || 'Analysis failed. Please try again.', 'error')
+    }
+  }, [checkRunEligibility, runAnalysis, setShowResultsPanel, showToast])
 
   // M4: Health panel handlers
   const handleFixIssue = useCallback(async (issue: any) => {
@@ -657,7 +782,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
   }, [showToast])
 
   const showDocuments = useCallback(() => {
-    if (inputsOutputsEnabled) {
+    if (dockLayoutEnabled) {
       if (typeof document === 'undefined') return
 
       const dock = document.querySelector('[data-testid="inputs-dock"]') as HTMLElement | null
@@ -692,7 +817,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       const drawer = document.querySelector('[data-testid="documents-drawer"]') as HTMLElement | null
       drawer?.focus()
     })
-  }, [inputsOutputsEnabled, setShowDocumentsDrawer])
+  }, [dockLayoutEnabled, setShowDocumentsDrawer])
 
   // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, ?)
   useCanvasKeyboardShortcuts({
@@ -888,15 +1013,16 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       }
     })
 
-    // Batch update store
+    // Batch update store - REPLACE existing graph, not merge
+    // This matches the user expectation from "Start from Template" confirmation
     const store = useCanvasStore.getState()
     store.pushHistory()
-    useCanvasStore.setState(state => ({
-      nodes: [...state.nodes, ...newNodes],
-      edges: [...state.edges, ...newEdges]
+    useCanvasStore.setState(() => ({
+      nodes: newNodes,
+      edges: newEdges
     }))
 
-    showToast(`Inserted ${blueprint.name} to canvas.`, 'success')
+    showToast(`Started from "${blueprint.name}" template.`, 'success')
 
     // Return result object for caller to check
     return { nodeIdMap, newNodes, newEdges }
@@ -1210,9 +1336,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         style={{
           position: 'absolute',
           top: 'var(--topbar-h)',
-          bottom: 'var(--bottombar-h)',
-          left: inputsOutputsEnabled ? 'var(--dock-left-offset, 0rem)' : 0,
-          right: inputsOutputsEnabled ? 'var(--dock-right-offset, 0rem)' : 0,
+          bottom: dockLayoutEnabled ? 'var(--bottombar-h)' : 0,
+          // New layout: offset for LeftSidebar (48px). Old layout: offset for InputsDock
+          left: dockLayoutEnabled ? 'var(--dock-left-offset, 0rem)' : 'var(--leftsidebar-w, 48px)',
+          right: dockLayoutEnabled ? 'var(--dock-right-offset, 0rem)' : 0,
         }}
       >
         {debugMode === 'no-reactflow' ? (
@@ -1297,31 +1424,84 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={handleCloseContextMenu} />}
       {reconnecting && <ReconnectBanner />}
 
-      <CanvasToolbar />
+      {!USE_NEW_LAYOUT && <CanvasToolbar />}
+      <LeftSidebar
+        onAiClick={() => setShowDraftChat(true)}
+        onAddNodeClick={handleQuickAddClick}
+        onTemplatesClick={handleEmptyStateTemplate}
+        onRunClick={handleRunSimulation}
+        onCompareClick={handleOpenCompare}
+        onEvidenceClick={() => setShowProvenanceHub(true)}
+        onFitClick={() => fitView({ padding: 0.2, duration: 300 })}
+        onHelpClick={openKeyboardLegend}
+        // Canvas control actions (new)
+        onUndoClick={undo}
+        onRedoClick={redo}
+        onResetClick={() => {
+          if (nodes.length === 0 && edges.length === 0) {
+            showToast('Canvas is already empty.', 'info')
+            return
+          }
+          setShowResetConfirm(true)
+        }}
+        onZoomInClick={() => zoomIn({ duration: 200 })}
+        onZoomOutClick={() => zoomOut({ duration: 200 })}
+        onAutoArrangeClick={() => {
+          if (nodes.length === 0) {
+            showToast('No nodes to arrange.', 'info')
+            return
+          }
+          applyLayout()
+          showToast('Auto-arranged layout.', 'success')
+        }}
+        onExportClick={() => {
+          // Export and download as JSON file
+          const state = useCanvasStore.getState()
+          const json = state.exportLocal()
+
+          // Create blob and trigger download
+          const blob = new Blob([json], { type: 'application/json' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `decision-graph-${new Date().toISOString().slice(0, 10)}.json`
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          URL.revokeObjectURL(url)
+
+          showToast('Canvas exported and downloaded.', 'success')
+        }}
+        canUndo={canUndo()}
+        canRedo={canRedo()}
+      />
+      {/* Status badges - positioned in bottom-left to avoid dock tabs */}
       <div
-        className="absolute z-[1200] flex flex-col items-end gap-3"
+        className="absolute z-[1200] flex flex-row items-center gap-2"
         style={{
-          top: 'calc(var(--topbar-h, 0px) + 1rem)',
-          right: inputsOutputsEnabled ? 'calc(var(--dock-right-offset, 0rem) + 1rem)' : '1rem',
+          bottom: 'calc(var(--bottombar-h, 3rem) + 1rem)',
+          left: dockLayoutEnabled ? 'calc(var(--dock-left-offset, 0rem) + 1rem)' : '1rem',
         }}
       >
-        <div className="flex flex-col items-end gap-2">
-          <ConnectivityChip />
-          <StatusChips
-            currentNodes={nodes.length}
-            currentEdges={edges.length}
-            onClick={() => setShowLimits(true)}
-          />
-        </div>
-        <HelpMenu
-          onShowOnboarding={openOnboarding}
-          onShowKeyboardLegend={openKeyboardLegend}
-          onShowInfluenceExplainer={showInfluenceExplainer}
+        <ConnectivityChip />
+        <StatusChips
+          currentNodes={nodes.length}
+          currentEdges={edges.length}
+          onClick={() => setShowLimits(true)}
         />
-        {shouldShowInfluenceExplainer && (
-          <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
-        )}
       </div>
+      {/* Influence Explainer - shown when triggered from TopBar dropdown */}
+      {shouldShowInfluenceExplainer && (
+        <div
+          className="absolute z-[1200] flex flex-col items-end gap-3"
+          style={{
+            top: 'calc(var(--topbar-h, 0px) + 1rem)',
+            right: dockLayoutEnabled ? 'calc(var(--dock-right-offset, 0rem) + 1rem)' : '1rem',
+          }}
+        >
+          <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
+        </div>
+      )}
       {!showFullInspector && (
         <InspectorPopover onExpandToFull={() => setShowFullInspector(true)} />
       )}
@@ -1334,20 +1514,11 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
       )}
       <SettingsPanel />
       <DiagnosticsOverlay />
-      <ValidationChip onFocusNode={handleFocusNode} />
+      {/* ValidationChip removed - consolidated into OutputsDock */}
       <RecoveryBanner />
       <LayoutProgressBanner />
 
-      {/* M4: Graph Health UI */}
-      {graphHealth && graphHealth.issues.length > 0 && (
-        <div className="absolute top-20 left-4 right-4 z-10 max-w-2xl">
-          <HealthStatusBar
-            health={graphHealth}
-            onShowIssues={() => setShowIssuesPanel(true)}
-            onQuickFix={handleQuickFixAll}
-          />
-        </div>
-      )}
+      {/* M4: Graph Health UI - HealthStatusBar removed, consolidated into OutputsDock */}
       {needleMovers.length > 0 && (
         <NeedleMoversOverlay
           movers={needleMovers}
@@ -1381,7 +1552,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
 
       {/* M5: Documents drawer (left side). When inputs/outputs layout is enabled, the
           DocumentsManager is rendered inside the InputsDock instead of this drawer. */}
-      {!inputsOutputsEnabled && showDocumentsDrawer && (
+      {!dockLayoutEnabled && showDocumentsDrawer && (
         <div
           className="fixed left-0 w-96 bg-white border-r border-gray-200 shadow-panel overflow-hidden"
           style={{ zIndex: 2000, top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }}
@@ -1409,30 +1580,32 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
 
       {/* M5: Provenance Hub panel (right side) */}
       {showProvenanceHub && (
-        <div
-          className="fixed right-0 w-[32rem] bg-white border-l border-gray-200 shadow-panel overflow-hidden"
-          style={{ zIndex: 2000, top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }}
+        <RightPanel
+          width="32rem"
+          title="Provenance Hub"
+          onClose={() => setShowProvenanceHub(false)}
         >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-            <h2 className="font-semibold text-gray-900">Provenance Hub</h2>
-            <button
-              onClick={() => setShowProvenanceHub(false)}
-              className="p-1 hover:bg-gray-100 rounded"
-              aria-label="Close provenance panel"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="h-full">
-            <ProvenanceHubTab
-              citations={citations}
-              documents={documents}
-              redactionEnabled={provenanceRedactionEnabled}
-              onToggleRedaction={toggleProvenanceRedaction}
-              onFocusNode={handleFocusNode}
-            />
-          </div>
-        </div>
+          <ProvenanceHubTab
+            citations={citations}
+            documents={documents}
+            redactionEnabled={provenanceRedactionEnabled}
+            onToggleRedaction={toggleProvenanceRedaction}
+            onFocusNode={handleFocusNode}
+          />
+        </RightPanel>
+      )}
+
+      {/* Week 3: AI Clarifier panel */}
+      {showAIClarifier && (
+        <RightPanel
+          width="400px"
+          title="Olumi AI"
+          onClose={() => setShowAIClarifier(false)}
+        >
+          <Suspense fallback={<div className="flex items-center justify-center p-8"><div className="text-sm text-gray-500">Loading...</div></div>}>
+            <AIClarifierChat />
+          </Suspense>
+        </RightPanel>
       )}
 
       {existingTemplate && pendingBlueprint && (
@@ -1475,27 +1648,24 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
         />
       )}
 
-      {inputsOutputsEnabled && (
-        <>
-          <div className="absolute inset-y-0 left-0 z-[900] flex pointer-events-none">
-            <InputsDock
-              currentNodes={nodes.length}
-              currentEdges={edges.length}
-              renderDocumentsTab={() => (
-                <div className="h-full overflow-auto" data-testid="documents-panel" tabIndex={-1}>
-                  <DocumentsManager
-                    onUpload={handleUploadDocuments}
-                    onDelete={handleDeleteDocument}
-                  />
-                </div>
-              )}
-            />
-          </div>
-          <div className="absolute inset-y-0 right-0 z-[900] flex pointer-events-none">
-            <OutputsDock />
-          </div>
-        </>
+      {dockLayoutEnabled && (
+        <div className="absolute inset-y-0 left-0 z-[900] flex pointer-events-none">
+          <InputsDock
+            currentNodes={nodes.length}
+            currentEdges={edges.length}
+            renderDocumentsTab={() => (
+              <div className="h-full overflow-auto" data-testid="documents-panel" tabIndex={-1}>
+                <DocumentsManager
+                  onUpload={handleUploadDocuments}
+                  onDelete={handleDeleteDocument}
+                />
+              </div>
+            )}
+          />
+        </div>
       )}
+      {/* OutputsDock (Results panel) - render in both old and new layouts */}
+      <OutputsDock />
       <LimitsPanel
         isOpen={showLimits}
         onClose={() => setShowLimits(false)}
@@ -1505,6 +1675,45 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction }: ReactFl
 
       {/* R1: Draft My Model chat loop (bottom overlay above toolbar) */}
       <DraftChat />
+
+      {/* Week 3: AI Coaching nudges */}
+      {activeNudge && <CoachingNudge nudge={activeNudge} />}
+
+      {/* Reset Canvas Confirmation */}
+      <BottomSheet isOpen={showResetConfirm} onClose={() => setShowResetConfirm(false)} title="Start fresh?">
+        <div className="space-y-4">
+          <p className="text-base text-gray-600">
+            This will clear your entire decision, including:
+          </p>
+          <ul className="text-base text-gray-600 list-disc pl-5 space-y-1">
+            <li>All nodes and connections in your graph</li>
+            <li>Any analysis results</li>
+            <li>AI assistant conversation</li>
+          </ul>
+          <p className="text-sm text-gray-500">
+            You can undo this action with Ctrl+Z (Cmd+Z on Mac).
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowResetConfirm(false)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
+            >
+              Keep working
+            </button>
+            <button
+              onClick={() => {
+                resetCanvas()
+                setShowResetConfirm(false)
+                showToast('Canvas reset.', 'success')
+              }}
+              className="flex-1 px-4 py-2 bg-danger-600 text-white rounded hover:bg-danger-700"
+              data-testid="btn-confirm-reset-sidebar"
+            >
+              Reset everything
+            </button>
+          </div>
+        </div>
+      </BottomSheet>
     </div>
   )
 }

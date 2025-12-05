@@ -27,6 +27,10 @@ export type TelemetryEvent =
   | 'sandbox.compare.opened'
   | 'sandbox.issues.opened'
   | 'sandbox.history.item.selected'
+  // Auto-fix events
+  | 'sandbox.autofix.clicked'
+  | 'sandbox.autofix.success'
+  | 'sandbox.autofix.failed'
 
 const counters: Record<TelemetryEvent, number> = {
   'edge.stream.start': 0,
@@ -51,6 +55,9 @@ const counters: Record<TelemetryEvent, number> = {
   'sandbox.compare.opened': 0,
   'sandbox.issues.opened': 0,
   'sandbox.history.item.selected': 0,
+  'sandbox.autofix.clicked': 0,
+  'sandbox.autofix.success': 0,
+  'sandbox.autofix.failed': 0,
 }
 
 export function track(event: TelemetryEvent): void {

@@ -23,12 +23,15 @@ export function useOnboarding() {
   const [shouldShow, setShouldShow] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
 
+  // Note: We no longer auto-show onboarding on first load.
+  // Users go straight to the canvas and can access onboarding via Help menu.
   useEffect(() => {
     try {
       const seenVersion = localStorage.getItem(ONBOARDING_STORAGE_KEY)
       if (seenVersion !== ONBOARDING_STORAGE_VERSION) {
         setShouldShow(true)
-        setIsOpen(true)
+        // Don't auto-open - let users explore the canvas first
+        // setIsOpen(true)
       }
     } catch (error) {
       console.warn('Failed to check onboarding status:', error)

@@ -105,10 +105,13 @@ export interface RunResponse {
   explain_delta?: {
     top_drivers?: Array<{
       label?: string
+      node_label?: string  // API v1 uses this instead of label
       kind?: 'node' | 'edge'
       node_id?: string
       edge_id?: string
       impact?: number
+      contribution?: number  // API v1 uses this instead of impact
+      sign?: '+' | '-'  // API v1 uses this with contribution
     }>
   }
   confidence?: number
@@ -157,6 +160,6 @@ export interface GraphQuality {
   completeness: number       // 0.00–1.00
   evidence_coverage: number  // 0.00–1.00
   balance: number            // 0.00–1.00
-  issues_count: number
+  issues_count?: number
   recommendation?: string
 }

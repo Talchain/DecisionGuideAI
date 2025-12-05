@@ -171,10 +171,10 @@ export interface V1Error {
   requestId?: string  // P2.3: Request ID for debugging
 }
 
-// Limits
+// Limits (PLoT Engine v1.1 Contract)
 export const V1_LIMITS = {
-  MAX_NODES: 200,
-  MAX_EDGES: 500,
+  MAX_NODES: 50,      // Contract: max 50 nodes
+  MAX_EDGES: 200,     // Contract: max 200 edges
   MAX_LABEL_LENGTH: 120,
   MAX_BODY_LENGTH: 2000,
   RATE_LIMIT_RPM: 60,

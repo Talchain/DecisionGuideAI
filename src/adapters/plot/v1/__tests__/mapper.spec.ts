@@ -503,9 +503,56 @@ describe('toCanonicalRun - v1.2 Response Normalization', () => {
     const canonical = toCanonicalRun(response)
 
     expect(canonical.critique).toHaveLength(3)
-    expect(canonical.critique?.[0]).toEqual({ severity: 'INFO', message: 'Graph is well-formed' })
-    expect(canonical.critique?.[1]).toEqual({ severity: 'WARNING', message: 'Low confidence on edge E1' })
-    expect(canonical.critique?.[2]).toEqual({ severity: 'BLOCKER', message: 'Cycle detected in graph' })
+    expect(canonical.critique?.[0]).toMatchObject({ severity: 'INFO', message: 'Graph is well-formed' })
+    expect(canonical.critique?.[1]).toMatchObject({ severity: 'WARNING', message: 'Low confidence on edge E1' })
+    expect(canonical.critique?.[2]).toMatchObject({ severity: 'BLOCKER', message: 'Cycle detected in graph' })
+  })
+
+  it('extracts v1.1 critique fields (node_id, code, suggested_fix, auto_fixable)', () => {
+    const response = {
+      result: {
+        summary: { p50: 5000 },
+        response_hash: 'critique-v11',
+      },
+      critique: [
+        {
+          severity: 'BLOCKER',
+          message: 'Probability sum invalid',
+          code: 'PROBABILITY_SUM_INVALID',
+          node_id: 'goal_revenue',
+          suggested_fix: 'Normalize edge probabilities',
+          auto_fixable: true,
+        },
+        {
+          severity: 'WARNING',
+          message: 'Orphan nodes detected',
+          code: 'ORPHAN_NODES',
+          edge_id: 'edge_orphan_1',
+        },
+      ],
+    }
+
+    const canonical = toCanonicalRun(response)
+
+    expect(canonical.critique).toHaveLength(2)
+    expect(canonical.critique?.[0]).toEqual({
+      severity: 'BLOCKER',
+      message: 'Probability sum invalid',
+      code: 'PROBABILITY_SUM_INVALID',
+      node_id: 'goal_revenue',
+      edge_id: undefined,
+      suggested_fix: 'Normalize edge probabilities',
+      auto_fixable: true,
+    })
+    expect(canonical.critique?.[1]).toEqual({
+      severity: 'WARNING',
+      message: 'Orphan nodes detected',
+      code: 'ORPHAN_NODES',
+      node_id: undefined,
+      edge_id: 'edge_orphan_1',
+      suggested_fix: undefined,
+      auto_fixable: undefined,
+    })
   })
 
   it('handles empty critique array gracefully', () => {
