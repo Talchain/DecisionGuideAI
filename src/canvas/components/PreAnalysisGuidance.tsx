@@ -22,6 +22,7 @@ import { typography } from '../../styles/typography'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { trackAutoFixClicked, trackAutoFixSuccess, trackAutoFixFailed } from '../utils/sandboxTelemetry'
+import { mapSeverityToGuidance } from '../utils/severityMapping'
 
 /**
  * Human-readable titles for validation codes
@@ -66,36 +67,7 @@ function getValidationTitle(code: string | undefined, fallbackTitle?: string): s
   return VALIDATION_TITLE_MAP[upperCode] || fallbackTitle || code.replace(/_/g, ' ')
 }
 
-/**
- * Map validation severity to guidance severity
- */
-function mapValidationSeverity(severity: string): GuidanceSeverity {
-  switch (severity) {
-    case 'error':
-    case 'blocker':
-      return 'blocker'
-    case 'warning':
-      return 'warning'
-    default:
-      return 'info'
-  }
-}
-
-/**
- * Map bias severity to guidance severity
- */
-function mapBiasSeverity(severity: string): GuidanceSeverity {
-  switch (severity) {
-    case 'critical':
-    case 'high':
-      return 'blocker'
-    case 'warning':
-    case 'medium':
-      return 'warning'
-    default:
-      return 'info'
-  }
-}
+// Note: Severity mapping now uses centralized mapSeverityToGuidance from severityMapping.ts
 
 interface PreAnalysisGuidanceProps {
   /** Whether blockers are present (controls Run button state) */
@@ -293,7 +265,7 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
     // 2. Validation issues from graphHealth
     if (graphHealth?.issues) {
       for (const issue of graphHealth.issues) {
-        const severity = mapValidationSeverity(issue.severity)
+        const severity = mapSeverityToGuidance(issue.severity, 'validation')
         const code = issue.code?.toUpperCase() || issue.type?.toUpperCase()
         // Check if we can auto-fix this issue
         const canAutoFix = !!issue.suggestedFix && !!code && !!determineFixType(code)
@@ -360,7 +332,7 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
     const biasFindings = runMeta?.ceeReview?.bias_findings
     if (biasFindings && Array.isArray(biasFindings)) {
       for (const bias of biasFindings) {
-        const severity = mapBiasSeverity(bias.severity || 'info')
+        const severity = mapSeverityToGuidance(bias.severity || 'info', 'bias')
         const item: GuidanceItem = {
           id: `bias-${bias.code || bias.type || 'unknown'}`,
           type: 'bias',

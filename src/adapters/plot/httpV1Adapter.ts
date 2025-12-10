@@ -15,6 +15,15 @@ import type {
   ConfidenceLevel,
   RunBundleRequest,
   RunBundleResponse,
+  KeyInsightRequest,
+  KeyInsightResponse,
+  BeliefElicitRequest,
+  BeliefElicitResponse,
+  UtilityWeightRequest,
+  UtilityWeightResponse,
+  RiskQuestionsResponse,
+  RiskProfileResponse,
+  RiskProfilePreset,
 } from './types'
 import type {
   V1RunRequest,
@@ -758,6 +767,142 @@ export const httpV1Adapter = {
         } as ErrorV1
       }
       // Handle v1 HTTP errors
+      throw mapV1ErrorToUI(err as V1Error)
+    }
+  },
+
+  // CEE Assist: Key Insight after run completes (Phase 2)
+  async keyInsight(request: KeyInsightRequest): Promise<KeyInsightResponse> {
+    try {
+      if (import.meta.env.DEV) {
+        console.log(`🔮 [httpV1] POST /v1/assist/key-insight (run_id=${request.run_id})`)
+      }
+
+      const response = await v1http.keyInsight({
+        run_id: request.run_id,
+        scenario_name: request.scenario_name,
+        include_drivers: request.include_drivers,
+      })
+
+      if (import.meta.env.DEV) {
+        console.log(`✅ [httpV1] Key insight received: "${response.headline?.slice(0, 50)}..."`)
+      }
+
+      return response
+    } catch (err: any) {
+      throw mapV1ErrorToUI(err as V1Error)
+    }
+  },
+
+  // CEE Elicit: Parse natural language to belief value (Phase 2)
+  async elicitBelief(request: BeliefElicitRequest): Promise<BeliefElicitResponse> {
+    try {
+      if (import.meta.env.DEV) {
+        console.log(`💭 [httpV1] POST /v1/elicit/belief (text="${request.text.slice(0, 30)}...")`)
+      }
+
+      const response = await v1http.elicitBelief({
+        text: request.text,
+        factor_context: request.factor_context,
+        scenario_name: request.scenario_name,
+      })
+
+      if (import.meta.env.DEV) {
+        console.log(`✅ [httpV1] Belief elicited: ${response.suggested_value} (${response.confidence} confidence)`)
+      }
+
+      return response
+    } catch (err: any) {
+      throw mapV1ErrorToUI(err as V1Error)
+    }
+  },
+
+  // CEE Suggest: Utility weight suggestions for outcome nodes (Phase 2)
+  async suggestUtilityWeights(request: UtilityWeightRequest): Promise<UtilityWeightResponse> {
+    try {
+      if (import.meta.env.DEV) {
+        console.log(`⚖️ [httpV1] POST /v1/suggest/utility-weights (${request.outcome_node_ids.length} outcomes)`)
+      }
+
+      const response = await v1http.suggestUtilityWeights({
+        graph: request.graph,
+        outcome_node_ids: request.outcome_node_ids,
+        user_goal: request.user_goal,
+        scenario_name: request.scenario_name,
+      })
+
+      if (import.meta.env.DEV) {
+        console.log(`✅ [httpV1] Utility weights suggested: ${response.suggestions.length} outcomes (${response.confidence} confidence)`)
+      }
+
+      return response
+    } catch (err: any) {
+      throw mapV1ErrorToUI(err as V1Error)
+    }
+  },
+
+  // CEE Elicit: Risk tolerance questionnaire and profile (Phase 2)
+  async getRiskQuestions(context?: { decision_domain?: string; time_horizon?: 'short' | 'medium' | 'long' }): Promise<RiskQuestionsResponse> {
+    try {
+      if (import.meta.env.DEV) {
+        console.log(`🎯 [httpV1] POST /v1/elicit/risk-tolerance (mode=get_questions)`)
+      }
+
+      const response = await v1http.elicitRiskTolerance({
+        mode: 'get_questions',
+        context,
+      })
+
+      if (import.meta.env.DEV) {
+        console.log(`✅ [httpV1] Risk questions received: ${(response as RiskQuestionsResponse).questions?.length || 0} questions`)
+      }
+
+      return response as RiskQuestionsResponse
+    } catch (err: any) {
+      throw mapV1ErrorToUI(err as V1Error)
+    }
+  },
+
+  async submitRiskAnswers(answers: Array<{ question_id: string; answer: string | number }>, context?: { decision_domain?: string; time_horizon?: 'short' | 'medium' | 'long' }): Promise<RiskProfileResponse> {
+    try {
+      if (import.meta.env.DEV) {
+        console.log(`🎯 [httpV1] POST /v1/elicit/risk-tolerance (mode=submit_answers, ${answers.length} answers)`)
+      }
+
+      const response = await v1http.elicitRiskTolerance({
+        mode: 'submit_answers',
+        answers,
+        context,
+      })
+
+      if (import.meta.env.DEV) {
+        console.log(`✅ [httpV1] Risk profile determined: ${(response as RiskProfileResponse).profile?.label}`)
+      }
+
+      return response as RiskProfileResponse
+    } catch (err: any) {
+      throw mapV1ErrorToUI(err as V1Error)
+    }
+  },
+
+  async getRiskProfileFromPreset(preset: RiskProfilePreset, context?: { decision_domain?: string; time_horizon?: 'short' | 'medium' | 'long' }): Promise<RiskProfileResponse> {
+    try {
+      if (import.meta.env.DEV) {
+        console.log(`🎯 [httpV1] POST /v1/elicit/risk-tolerance (preset=${preset})`)
+      }
+
+      const response = await v1http.elicitRiskTolerance({
+        mode: 'submit_answers',
+        preset,
+        context,
+      })
+
+      if (import.meta.env.DEV) {
+        console.log(`✅ [httpV1] Risk profile from preset: ${(response as RiskProfileResponse).profile?.label}`)
+      }
+
+      return response as RiskProfileResponse
+    } catch (err: any) {
       throw mapV1ErrorToUI(err as V1Error)
     }
   },

@@ -10,6 +10,7 @@ import { useCanvasStore } from '../store'
 import { EDGE_CONSTRAINTS, type EdgeStyle, type EdgePathType, DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useToast } from '../ToastContext'
 import { Tooltip } from '../components/Tooltip'
+import { BeliefInput } from '../components/BeliefInput'
 import type { WeightSuggestion } from '../decisionReview/types'
 
 interface EdgeInspectorProps {
@@ -338,33 +339,21 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         </div>
       )}
 
-      {/* v1.2: Belief control (epistemic certainty) */}
+      {/* v1.2: Belief control (epistemic certainty) with natural language input */}
       <div className="mb-4">
-        <Tooltip content="Your certainty about this connection (0% = uncertain, 100% = certain)" position="right">
-          <label htmlFor="edge-belief" className="block text-xs font-medium text-gray-700 mb-1">
-            Belief (epistemic certainty)
-          </label>
-        </Tooltip>
-        <p className="text-[10px] text-gray-500 mb-1.5">0% = uncertain, 100% = certain</p>
-        <div className="flex items-center gap-2">
-          <input
-            id="edge-belief"
-            type="range"
-            min={EDGE_CONSTRAINTS.belief.min}
-            max={EDGE_CONSTRAINTS.belief.max}
-            step={EDGE_CONSTRAINTS.belief.step}
-            value={belief ?? EDGE_CONSTRAINTS.belief.default}
-            onChange={(e) => handleBeliefChange(parseFloat(e.target.value))}
-            className="flex-1"
-            aria-valuemin={EDGE_CONSTRAINTS.belief.min}
-            aria-valuemax={EDGE_CONSTRAINTS.belief.max}
-            aria-valuenow={belief ?? EDGE_CONSTRAINTS.belief.default}
-            aria-valuetext={`${Math.round((belief ?? EDGE_CONSTRAINTS.belief.default) * 100)}%`}
-          />
-          <span className="w-14 text-xs font-medium text-gray-900 tabular-nums text-right">
-            {Math.round((belief ?? EDGE_CONSTRAINTS.belief.default) * 100)}%
-          </span>
-        </div>
+        <BeliefInput
+          value={belief ?? EDGE_CONSTRAINTS.belief.default}
+          onChange={handleBeliefChange}
+          label="Belief (certainty)"
+          factorContext={{
+            label: edge?.data?.label || 'this connection',
+            node_id: edge?.source,
+          }}
+          min={EDGE_CONSTRAINTS.belief.min}
+          max={EDGE_CONSTRAINTS.belief.max}
+          step={EDGE_CONSTRAINTS.belief.step}
+          placeholder="e.g., 'fairly confident' or 'about 70-80%'"
+        />
       </div>
 
       {/* v1.2: Provenance display (source tracking) */}

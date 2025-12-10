@@ -15,9 +15,16 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import { useGraphReadiness, type GraphImprovement } from './useGraphReadiness'
 import { determineFixType } from '../utils/autoFix'
+import {
+  mapSeverityToPriority,
+  sortByPriority,
+  isBlockingPriority,
+  type ActionPriority,
+  type ActionSource,
+} from '../utils/severityMapping'
 
-export type ActionPriority = 'critical' | 'high' | 'medium' | 'low'
-export type ActionSource = 'readiness' | 'validation' | 'critique' | 'bias'
+// Re-export types for backwards compatibility
+export type { ActionPriority, ActionSource }
 
 export interface UnifiedAction {
   id: string
@@ -80,52 +87,7 @@ interface BiasFindingRaw {
   }
 }
 
-/**
- * Map severity strings to ActionPriority
- */
-function mapSeverityToPriority(severity: string, source: ActionSource): ActionPriority {
-  const upperSeverity = severity?.toUpperCase() || ''
-
-  // Validation severity mapping
-  if (source === 'validation') {
-    if (upperSeverity === 'ERROR' || upperSeverity === 'BLOCKER') return 'critical'
-    if (upperSeverity === 'WARNING') return 'high'
-    return 'medium'
-  }
-
-  // Critique severity mapping
-  if (source === 'critique') {
-    if (upperSeverity === 'BLOCKER') return 'critical'
-    if (upperSeverity === 'WARNING') return 'high'
-    return 'medium'
-  }
-
-  // Bias severity mapping
-  if (source === 'bias') {
-    if (upperSeverity === 'CRITICAL' || upperSeverity === 'HIGH') return 'critical'
-    if (upperSeverity === 'MEDIUM' || upperSeverity === 'WARNING') return 'high'
-    return 'medium'
-  }
-
-  // Readiness improvement priority
-  if (source === 'readiness') {
-    if (upperSeverity === 'HIGH') return 'high'
-    if (upperSeverity === 'MEDIUM') return 'medium'
-    return 'low'
-  }
-
-  return 'medium'
-}
-
-/**
- * Priority sort order (lower = higher priority)
- */
-const priorityOrder: Record<ActionPriority, number> = {
-  critical: 0,
-  high: 1,
-  medium: 2,
-  low: 3,
-}
+// Note: mapSeverityToPriority, sortByPriority imported from severityMapping.ts
 
 export interface UseUnifiedActionsResult {
   /** All actions sorted by priority */
@@ -268,8 +230,8 @@ export function useUnifiedActions(): UseUnifiedActionsResult {
       }
     }
 
-    // Sort by priority
-    return items.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
+    // Sort by priority using centralized utility
+    return sortByPriority(items)
   }, [readiness, graphHealth, results, runMeta])
 
   // Group by priority

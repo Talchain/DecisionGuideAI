@@ -375,3 +375,222 @@ export interface RunBundleRequest {
   baseline_index?: number // 0-indexed, which delta is baseline
   sort_by?: 'p10' | 'p50' | 'p90'
 }
+
+// =============================================================================
+// Key Insight Types (CEE Assist - Phase 2)
+// =============================================================================
+
+/**
+ * Request for key insight after run completes
+ */
+export interface KeyInsightRequest {
+  /** Run ID or response hash from completed analysis */
+  run_id: string
+  /** Optional scenario context for richer insight */
+  scenario_name?: string
+  /** Optional: include drivers in response */
+  include_drivers?: boolean
+}
+
+/**
+ * Key insight response
+ */
+export interface KeyInsightResponse {
+  /** Main headline insight (e.g., "Option A leads to 25% higher success") */
+  headline: string
+  /** Primary driver explanation */
+  primary_driver?: {
+    label: string
+    contribution_pct: number
+    explanation: string
+    node_id?: string
+  }
+  /** Confidence statement (e.g., "High confidence based on 3 validated factors") */
+  confidence_statement?: string
+  /** Optional caveat/warning (e.g., "However, this assumes stable market conditions") */
+  caveat?: string
+  /** Source attribution */
+  provenance: 'cee'
+}
+
+// =============================================================================
+// Belief Elicitation Types (CEE Elicit - Phase 2)
+// =============================================================================
+
+/**
+ * Request for belief elicitation from natural language
+ */
+export interface BeliefElicitRequest {
+  /** Natural language input (e.g., "I think market adoption will be around 60-70%") */
+  text: string
+  /** Context about the factor being estimated */
+  factor_context?: {
+    label: string
+    node_id?: string
+    current_value?: number
+  }
+  /** Optional: scenario context for better interpretation */
+  scenario_name?: string
+}
+
+/**
+ * Parsed belief from natural language
+ */
+export interface BeliefElicitResponse {
+  /** Suggested numeric value (0-1 for probabilities, or raw value) */
+  suggested_value: number
+  /** Confidence in the parse */
+  confidence: 'high' | 'medium' | 'low'
+  /** Explanation of how value was derived */
+  reasoning: string
+  /** Source attribution */
+  provenance: 'cee'
+  /** If true, CEE needs clarification before providing value */
+  needs_clarification?: boolean
+  /** Clarifying question to ask user */
+  clarifying_question?: string
+  /** Options for clarification (when needs_clarification is true) */
+  options?: Array<{
+    label: string
+    value: number
+  }>
+  /** Original text echoed back */
+  original_text?: string
+}
+
+// =============================================================================
+// Utility Weight Suggestion Types (UI layer)
+// =============================================================================
+
+/**
+ * Request for utility weight suggestions
+ */
+export interface UtilityWeightRequest {
+  /** Graph context for understanding outcomes */
+  graph: {
+    nodes: Array<{
+      id: string
+      type?: string
+      label?: string
+    }>
+    edges: Array<{
+      source: string
+      target: string
+    }>
+  }
+  /** Outcome nodes to weight */
+  outcome_node_ids: string[]
+  /** Optional: user's stated goal for context */
+  user_goal?: string
+  /** Optional: scenario context */
+  scenario_name?: string
+}
+
+/**
+ * Individual weight suggestion for an outcome
+ */
+export interface UtilityWeightSuggestion {
+  node_id: string
+  label: string
+  suggested_weight: number
+  reasoning: string
+}
+
+/**
+ * Alternative weighting preset
+ */
+export interface WeightingPreset {
+  id: string
+  label: string
+  description: string
+  weights: Record<string, number>
+  icon?: string
+}
+
+/**
+ * Response from utility weight suggestion
+ */
+export interface UtilityWeightResponse {
+  suggestions: UtilityWeightSuggestion[]
+  confidence: 'high' | 'medium' | 'low'
+  reasoning: string
+  alternatives?: WeightingPreset[]
+  provenance: 'cee'
+}
+
+// =============================================================================
+// Risk Tolerance Elicitation Types (UI layer)
+// =============================================================================
+
+/** Risk profile preset values */
+export type RiskProfilePreset = 'risk_averse' | 'neutral' | 'risk_seeking'
+
+/**
+ * Request for risk tolerance elicitation
+ */
+export interface RiskToleranceRequest {
+  mode: 'get_questions' | 'submit_answers'
+  answers?: Array<{
+    question_id: string
+    answer: string | number
+  }>
+  preset?: RiskProfilePreset
+  context?: {
+    decision_domain?: string
+    time_horizon?: 'short' | 'medium' | 'long'
+  }
+}
+
+/**
+ * Individual questionnaire question
+ */
+export interface RiskQuestion {
+  id: string
+  text: string
+  type: 'scale' | 'choice' | 'numeric'
+  scale?: {
+    min: number
+    max: number
+    min_label: string
+    max_label: string
+  }
+  choices?: Array<{
+    value: string | number
+    label: string
+  }>
+  range?: {
+    min?: number
+    max?: number
+    step?: number
+  }
+}
+
+/**
+ * Response with questionnaire questions
+ */
+export interface RiskQuestionsResponse {
+  questions: RiskQuestion[]
+  estimated_minutes?: number
+  provenance: 'cee'
+}
+
+/**
+ * Risk profile result
+ */
+export interface RiskProfile {
+  profile: RiskProfilePreset
+  label: string
+  score: number
+  confidence: 'high' | 'medium' | 'low'
+  reasoning: string
+  capacity_note?: string
+}
+
+/**
+ * Response with risk profile
+ */
+export interface RiskProfileResponse {
+  profile: RiskProfile
+  recommendations?: string[]
+  provenance: 'cee'
+}

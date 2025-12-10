@@ -21,11 +21,14 @@ import {
   Zap,
   Info,
   GitCompare,
+  Sparkles,
+  Loader2,
 } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useISLConformal } from '../../hooks/useISLConformal'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
+import { useKeyInsight } from '../hooks/useKeyInsight'
 import { buildRichGraphPayload } from '../utils/graphPayload'
 import { formatOutcomeValue } from '../../lib/format'
 import { typography } from '../../styles/typography'
@@ -111,6 +114,17 @@ export function DecisionSummary({
   // Comparison detection and orchestration
   const { canCompare, optionNodes } = useComparisonDetection()
   const { startComparison, loading: comparisonLoading } = useScenarioComparison()
+
+  // Key insight from CEE (Phase 2)
+  const responseHash = report?.model_card?.response_hash
+  const {
+    insight: keyInsight,
+    loading: keyInsightLoading,
+  } = useKeyInsight({
+    responseHash,
+    autoFetch: true,
+    includeDrivers: true,
+  })
 
   // Conformal predictions for specific guidance
   const { data: conformalData, loading: conformalLoading, predict } = useISLConformal()
@@ -360,9 +374,44 @@ export function DecisionSummary({
           </div>
         )}
 
-        {/* Headline from CEE story */}
-        {summaryData.headline && (
-          <p className={`${typography.body} text-ink-700 mt-2`}>{summaryData.headline}</p>
+        {/* Key Insight headline - prefer API response, fallback to CEE story */}
+        {(keyInsight?.headline || summaryData.headline) && (
+          <div className="mt-2">
+            <div className="flex items-start gap-2">
+              {keyInsight?.provenance === 'cee' && (
+                <Sparkles className="h-4 w-4 text-violet-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
+              )}
+              <p className={`${typography.body} text-ink-800 font-medium`}>
+                {keyInsight?.headline || summaryData.headline}
+              </p>
+            </div>
+            {/* Confidence statement from key insight */}
+            {keyInsight?.confidence_statement && (
+              <p className={`${typography.caption} text-ink-500 mt-1 ml-6`}>
+                {keyInsight.confidence_statement}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Key Insight caveat - amber styling */}
+        {keyInsight?.caveat && (
+          <div className="mt-2 p-2 rounded-lg bg-banana-50 border border-banana-200">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-banana-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+              <p className={`${typography.caption} text-banana-800`}>
+                {keyInsight.caveat}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Loading indicator for key insight */}
+        {keyInsightLoading && !keyInsight && (
+          <div className="mt-2 flex items-center gap-2">
+            <Loader2 className="h-4 w-4 text-ink-400 animate-spin" />
+            <span className={`${typography.caption} text-ink-500`}>Loading insight...</span>
+          </div>
         )}
       </div>
 
@@ -408,19 +457,24 @@ export function DecisionSummary({
         </div>
       </div>
 
-      {/* Top driver - if available */}
-      {summaryData.topDriver && (
+      {/* Top driver - prefer key insight primary_driver, fallback to CEE story */}
+      {(keyInsight?.primary_driver || summaryData.topDriver) && (
         <div className="px-4 py-3 border-b border-sand-100">
           <div className="flex items-start gap-2">
             <Zap className="h-4 w-4 text-sky-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
-            <div>
+            <div className="flex-1">
               <span className={`${typography.caption} text-ink-500`}>Key driver: </span>
               <span className={`${typography.bodySmall} text-ink-800 font-medium`}>
-                {summaryData.topDriver.label}
+                {keyInsight?.primary_driver?.label || summaryData.topDriver?.label}
               </span>
-              {summaryData.topDriver.why && (
+              {keyInsight?.primary_driver?.contribution_pct !== undefined && (
+                <span className={`${typography.caption} text-sky-600 ml-2`}>
+                  ({keyInsight.primary_driver.contribution_pct}% impact)
+                </span>
+              )}
+              {(keyInsight?.primary_driver?.explanation || summaryData.topDriver?.why) && (
                 <p className={`${typography.caption} text-ink-500 mt-0.5`}>
-                  {summaryData.topDriver.why}
+                  {keyInsight?.primary_driver?.explanation || summaryData.topDriver?.why}
                 </p>
               )}
             </div>

@@ -15,6 +15,15 @@ import type {
   V1LimitsResponse,
   V1RunBundleRequest,
   V1RunBundleResponse,
+  V1KeyInsightRequest,
+  V1KeyInsightResponse,
+  V1BeliefElicitRequest,
+  V1BeliefElicitResponse,
+  V1UtilityWeightRequest,
+  V1UtilityWeightResponse,
+  V1RiskToleranceRequest,
+  V1RiskQuestionsResponse,
+  V1RiskProfileResponse,
 } from './types'
 import {
   RETRY,
@@ -684,6 +693,217 @@ export async function runBundle(request: V1RunBundleRequest): Promise<V1RunBundl
     }
     if ((err as any).code) {
       throw err // Already a V1Error
+    }
+    throw {
+      code: 'NETWORK_ERROR',
+      message: err instanceof Error ? err.message : String(err),
+    } as V1Error
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+// =============================================================================
+// CEE Assist/Elicit Endpoints (Phase 2)
+// =============================================================================
+
+/**
+ * POST /v1/assist/key-insight
+ * Get key insight headline after run completes
+ */
+export async function keyInsight(request: V1KeyInsightRequest): Promise<V1KeyInsightResponse> {
+  const base = getProxyBase()
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+  try {
+    const response = await fetch(`${base}/v1/assist/key-insight`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Request-Id': crypto.randomUUID(),
+        'x-olumi-sdk': 'plot-client/1.0.0',
+      },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      throw await mapHttpError(response)
+    }
+
+    const data = await response.json()
+
+    // Ensure provenance is set
+    return {
+      ...data,
+      provenance: 'cee',
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw {
+        code: 'TIMEOUT',
+        message: 'Key insight request timed out after 10000ms',
+      } as V1Error
+    }
+    if ((err as any).code) {
+      throw err // Already a V1Error
+    }
+    throw {
+      code: 'NETWORK_ERROR',
+      message: err instanceof Error ? err.message : String(err),
+    } as V1Error
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+/**
+ * POST /v1/elicit/belief
+ * Parse natural language to belief value
+ */
+export async function elicitBelief(request: V1BeliefElicitRequest): Promise<V1BeliefElicitResponse> {
+  const base = getProxyBase()
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+  try {
+    const response = await fetch(`${base}/v1/elicit/belief`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Request-Id': crypto.randomUUID(),
+        'x-olumi-sdk': 'plot-client/1.0.0',
+      },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      throw await mapHttpError(response)
+    }
+
+    const data = await response.json()
+
+    // Ensure provenance is set
+    return {
+      ...data,
+      provenance: 'cee',
+      original_text: request.text,
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw {
+        code: 'TIMEOUT',
+        message: 'Belief elicitation request timed out after 10000ms',
+      } as V1Error
+    }
+    if ((err as any).code) {
+      throw err // Already a V1Error
+    }
+    throw {
+      code: 'NETWORK_ERROR',
+      message: err instanceof Error ? err.message : String(err),
+    } as V1Error
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+/**
+ * POST /v1/suggest/utility-weights
+ * Get AI-suggested utility weights for outcome nodes
+ */
+export async function suggestUtilityWeights(
+  request: V1UtilityWeightRequest
+): Promise<V1UtilityWeightResponse> {
+  const base = getProxyBase()
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 15000) // Longer timeout for complex analysis
+
+  try {
+    const response = await fetch(`${base}/v1/suggest/utility-weights`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Request-Id': crypto.randomUUID(),
+        'x-olumi-sdk': 'plot-client/1.0.0',
+      },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      throw await mapHttpError(response)
+    }
+
+    const data = await response.json()
+
+    return {
+      ...data,
+      provenance: 'cee',
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw {
+        code: 'TIMEOUT',
+        message: 'Utility weight suggestion request timed out after 15000ms',
+      } as V1Error
+    }
+    if ((err as any).code) {
+      throw err
+    }
+    throw {
+      code: 'NETWORK_ERROR',
+      message: err instanceof Error ? err.message : String(err),
+    } as V1Error
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+/**
+ * POST /v1/elicit/risk-tolerance
+ * Elicit risk tolerance via questionnaire or preset
+ */
+export async function elicitRiskTolerance(
+  request: V1RiskToleranceRequest
+): Promise<V1RiskQuestionsResponse | V1RiskProfileResponse> {
+  const base = getProxyBase()
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 10000)
+
+  try {
+    const response = await fetch(`${base}/v1/elicit/risk-tolerance`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Request-Id': crypto.randomUUID(),
+        'x-olumi-sdk': 'plot-client/1.0.0',
+      },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      throw await mapHttpError(response)
+    }
+
+    const data = await response.json()
+
+    return {
+      ...data,
+      provenance: 'cee',
+    }
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw {
+        code: 'TIMEOUT',
+        message: 'Risk tolerance elicitation request timed out after 10000ms',
+      } as V1Error
+    }
+    if ((err as any).code) {
+      throw err
     }
     throw {
       code: 'NETWORK_ERROR',

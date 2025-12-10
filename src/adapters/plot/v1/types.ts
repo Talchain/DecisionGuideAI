@@ -303,3 +303,246 @@ export interface V1RunBundleResponse {
   results: V1RunBundleResult[]
   ranking_summary?: V1RankingSummary
 }
+
+// =============================================================================
+// Key Insight Types (CEE Assist - Phase 2)
+// =============================================================================
+
+/**
+ * Request for key insight after run_bundle completes
+ */
+export interface V1KeyInsightRequest {
+  /** Run ID or response hash from completed analysis */
+  run_id: string
+  /** Optional scenario context for richer insight */
+  scenario_name?: string
+  /** Optional: include drivers in response */
+  include_drivers?: boolean
+}
+
+/**
+ * Key insight response from /v1/assist/key-insight
+ */
+export interface V1KeyInsightResponse {
+  /** Main headline insight (e.g., "Option A leads to 25% higher success") */
+  headline: string
+  /** Primary driver explanation */
+  primary_driver?: {
+    label: string
+    contribution_pct: number
+    explanation: string
+    node_id?: string
+  }
+  /** Confidence statement (e.g., "High confidence based on 3 validated factors") */
+  confidence_statement?: string
+  /** Optional caveat/warning (e.g., "However, this assumes stable market conditions") */
+  caveat?: string
+  /** Source attribution */
+  provenance: 'cee'
+}
+
+// =============================================================================
+// Belief Elicitation Types (CEE Elicit - Phase 2)
+// =============================================================================
+
+/**
+ * Request for belief elicitation from natural language
+ */
+export interface V1BeliefElicitRequest {
+  /** Natural language input (e.g., "I think market adoption will be around 60-70%") */
+  text: string
+  /** Context about the factor being estimated */
+  factor_context?: {
+    label: string
+    node_id?: string
+    current_value?: number
+  }
+  /** Optional: scenario context for better interpretation */
+  scenario_name?: string
+}
+
+/**
+ * Parsed belief from natural language
+ */
+export interface V1BeliefElicitResponse {
+  /** Suggested numeric value (0-1 for probabilities, or raw value) */
+  suggested_value: number
+  /** Confidence in the parse */
+  confidence: 'high' | 'medium' | 'low'
+  /** Explanation of how value was derived */
+  reasoning: string
+  /** Source attribution */
+  provenance: 'cee'
+  /** If true, CEE needs clarification before providing value */
+  needs_clarification?: boolean
+  /** Clarifying question to ask user */
+  clarifying_question?: string
+  /** Options for clarification (when needs_clarification is true) */
+  options?: Array<{
+    label: string
+    value: number
+  }>
+  /** Original text echoed back */
+  original_text?: string
+}
+
+// =============================================================================
+// Utility Weight Suggestion Types (CEE Suggest - Phase 2)
+// =============================================================================
+
+/**
+ * Request for utility weight suggestions
+ */
+export interface V1UtilityWeightRequest {
+  /** Graph context for understanding outcomes */
+  graph: {
+    nodes: Array<{
+      id: string
+      type?: string
+      label?: string
+    }>
+    edges: Array<{
+      source: string
+      target: string
+    }>
+  }
+  /** Outcome nodes to weight */
+  outcome_node_ids: string[]
+  /** Optional: user's stated goal for context */
+  user_goal?: string
+  /** Optional: scenario context */
+  scenario_name?: string
+}
+
+/**
+ * Individual weight suggestion for an outcome
+ */
+export interface V1UtilityWeightSuggestion {
+  node_id: string
+  label: string
+  suggested_weight: number // 0-1, normalised
+  reasoning: string
+}
+
+/**
+ * Alternative weighting preset
+ */
+export interface V1WeightingPreset {
+  id: string
+  label: string
+  description: string
+  weights: Record<string, number> // node_id -> weight
+  icon?: string // emoji or icon name
+}
+
+/**
+ * Response from /v1/suggest/utility-weights
+ */
+export interface V1UtilityWeightResponse {
+  /** Suggested weights for each outcome */
+  suggestions: V1UtilityWeightSuggestion[]
+  /** Confidence in suggestions */
+  confidence: 'high' | 'medium' | 'low'
+  /** Overall reasoning */
+  reasoning: string
+  /** Alternative preset weightings */
+  alternatives?: V1WeightingPreset[]
+  /** Source attribution */
+  provenance: 'cee'
+}
+
+// =============================================================================
+// Risk Tolerance Elicitation Types (CEE Elicit - Phase 2)
+// =============================================================================
+
+/** Risk profile preset values */
+export type RiskProfilePreset = 'risk_averse' | 'neutral' | 'risk_seeking'
+
+/**
+ * Request for risk tolerance elicitation
+ */
+export interface V1RiskToleranceRequest {
+  /** Mode: 'get_questions' to fetch questionnaire, 'submit_answers' to get profile */
+  mode: 'get_questions' | 'submit_answers'
+  /** Required when mode='submit_answers': answers to questions */
+  answers?: Array<{
+    question_id: string
+    answer: string | number
+  }>
+  /** Optional: preset selection (skips questionnaire) */
+  preset?: RiskProfilePreset
+  /** Optional: context for better calibration */
+  context?: {
+    decision_domain?: string // e.g., 'business', 'personal', 'investment'
+    time_horizon?: 'short' | 'medium' | 'long'
+  }
+}
+
+/**
+ * Individual questionnaire question
+ */
+export interface V1RiskQuestion {
+  id: string
+  text: string
+  type: 'scale' | 'choice' | 'numeric'
+  /** For scale questions: min/max values */
+  scale?: {
+    min: number
+    max: number
+    min_label: string
+    max_label: string
+  }
+  /** For choice questions: available options */
+  choices?: Array<{
+    value: string | number
+    label: string
+  }>
+  /** For numeric: optional range */
+  range?: {
+    min?: number
+    max?: number
+    step?: number
+  }
+}
+
+/**
+ * Response from /v1/elicit/risk-tolerance (mode='get_questions')
+ */
+export interface V1RiskQuestionsResponse {
+  /** List of questions to answer */
+  questions: V1RiskQuestion[]
+  /** Estimated completion time */
+  estimated_minutes?: number
+  /** Source attribution */
+  provenance: 'cee'
+}
+
+/**
+ * Risk profile result
+ */
+export interface V1RiskProfile {
+  /** Profile classification */
+  profile: RiskProfilePreset
+  /** Human-readable label */
+  label: string
+  /** Numeric score (0=risk averse, 1=risk seeking) */
+  score: number
+  /** Confidence in assessment */
+  confidence: 'high' | 'medium' | 'low'
+  /** Explanation of assessment */
+  reasoning: string
+  /** Risk capacity indicator (separate from risk tolerance) */
+  capacity_note?: string
+}
+
+/**
+ * Response from /v1/elicit/risk-tolerance (mode='submit_answers' or preset)
+ */
+export interface V1RiskProfileResponse {
+  /** The determined risk profile */
+  profile: V1RiskProfile
+  /** Recommendations based on profile */
+  recommendations?: string[]
+  /** Source attribution */
+  provenance: 'cee'
+}
