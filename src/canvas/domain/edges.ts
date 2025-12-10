@@ -33,6 +33,33 @@ export const EdgeKindEnum = z.enum([
 export type EdgeKind = z.infer<typeof EdgeKindEnum>
 
 /**
+ * Edge function type - how input values transform to output (Phase 3)
+ * Allows non-linear relationships for more accurate modelling
+ */
+export const EdgeFunctionTypeEnum = z.enum([
+  'linear',              // Default: y = x (proportional)
+  'diminishing_returns', // y = x^c where c < 1 (early gains larger)
+  'threshold',           // y = 0 if x < t, else 1 (step function)
+  's_curve',             // Logistic curve (adoption/saturation)
+])
+export type EdgeFunctionType = z.infer<typeof EdgeFunctionTypeEnum>
+
+/**
+ * Parameters for non-linear edge functions
+ */
+export const EdgeFunctionParamsSchema = z.object({
+  /** Threshold value for threshold function (0-1) */
+  threshold: z.number().min(0).max(1).optional(),
+  /** Curvature for diminishing returns (0.1-2, <1 = more diminishing) */
+  curvature: z.number().min(0.1).max(2).optional(),
+  /** Midpoint for s-curve (0-1, where steepest slope occurs) */
+  midpoint: z.number().min(0).max(1).optional(),
+  /** Steepness for s-curve (1-10, higher = sharper transition) */
+  steepness: z.number().min(1).max(10).optional(),
+})
+export type EdgeFunctionParams = z.infer<typeof EdgeFunctionParamsSchema>
+
+/**
  * Edge data schema (v3)
  * Extends React Flow's base edge with semantic properties
  *
@@ -65,6 +92,10 @@ export const EdgeDataSchema = z.object({
   belief: z.number().min(0).max(1).optional(),           // Epistemic uncertainty (0-1) for this connection
   provenance: z.string().max(100).optional(),             // Short source/rationale tag (e.g. "template", "user", "inferred")
 
+  // Phase 3: Non-linear edge functions
+  functionType: EdgeFunctionTypeEnum.default('linear'),   // How input transforms to output
+  functionParams: EdgeFunctionParamsSchema.optional(),    // Parameters for non-linear functions
+
   // Template tracking
   templateId: z.string().optional(),
 
@@ -84,6 +115,7 @@ export const DEFAULT_EDGE_DATA: EdgeData = {
   curvature: 0.15,
   pathType: 'bezier',
   kind: 'decision-probability',
+  functionType: 'linear',
   schemaVersion: 3,
 }
 
@@ -118,6 +150,13 @@ export const EDGE_CONSTRAINTS = {
   },
   provenance: {
     maxLength: 100,
+  },
+  // Phase 3: Function parameters
+  functionParams: {
+    threshold: { min: 0, max: 1, step: 0.05, default: 0.5 },
+    curvature: { min: 0.1, max: 2, step: 0.1, default: 0.5 },
+    midpoint: { min: 0, max: 1, step: 0.05, default: 0.5 },
+    steepness: { min: 1, max: 10, step: 0.5, default: 5 },
   },
 } as const
 

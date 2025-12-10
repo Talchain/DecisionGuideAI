@@ -7,10 +7,11 @@
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Lightbulb, Check } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { EDGE_CONSTRAINTS, type EdgeStyle, type EdgePathType, DEFAULT_EDGE_DATA } from '../domain/edges'
+import { EDGE_CONSTRAINTS, type EdgeStyle, type EdgePathType, type EdgeFunctionType, type EdgeFunctionParams, DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useToast } from '../ToastContext'
 import { Tooltip } from '../components/Tooltip'
 import { BeliefInput } from '../components/BeliefInput'
+import { EdgeFunctionTypeSelector } from '../components/EdgeFunctionTypeSelector'
 import type { WeightSuggestion } from '../decisionReview/types'
 
 interface EdgeInspectorProps {
@@ -58,6 +59,9 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   const [label, setLabel] = useState<string>(edge?.data?.label ?? '')
   const [belief, setBelief] = useState<number | undefined>(edge?.data?.belief) // v1.2
   const [provenance, setProvenance] = useState<string>(edge?.data?.provenance ?? '') // v1.2
+  // Phase 3: Function type and params
+  const [functionType, setFunctionType] = useState<EdgeFunctionType>(edge?.data?.functionType ?? 'linear')
+  const [functionParams, setFunctionParams] = useState<EdgeFunctionParams | undefined>(edge?.data?.functionParams)
   
   // Debounce timer refs
   const weightTimerRef = useRef<NodeJS.Timeout>()
@@ -143,6 +147,22 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     const current = edge?.data ?? DEFAULT_EDGE_DATA
     updateEdge(edgeId, { data: { ...current, provenance: provenance || undefined } })
   }, [edgeId, edge?.data, provenance, updateEdge])
+
+  // Phase 3: Handle function type and params change
+  const handleFunctionTypeChange = useCallback((type: EdgeFunctionType, params?: EdgeFunctionParams) => {
+    setFunctionType(type)
+    setFunctionParams(params)
+    const current = edge?.data ?? DEFAULT_EDGE_DATA
+    updateEdge(edgeId, { data: { ...current, functionType: type, functionParams: params } })
+    setAnnouncement(`Function type changed to ${type}`)
+  }, [edgeId, edge?.data, updateEdge])
+
+  // Phase 3: Handle function provenance change
+  const handleFunctionProvenanceChange = useCallback((newProvenance: string) => {
+    setProvenance(newProvenance)
+    const current = edge?.data ?? DEFAULT_EDGE_DATA
+    updateEdge(edgeId, { data: { ...current, provenance: newProvenance } })
+  }, [edgeId, edge?.data, updateEdge])
 
   // Apply weight suggestion from CEE/ISL
   const handleApplySuggestion = useCallback(() => {
@@ -466,7 +486,19 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           />
         </div>
       )}
-      
+
+      {/* Phase 3: Function Type Selector */}
+      <div className="mb-4 pt-4 border-t border-gray-200">
+        <EdgeFunctionTypeSelector
+          edgeId={edgeId}
+          value={functionType}
+          params={functionParams}
+          onChange={handleFunctionTypeChange}
+          provenance={provenance}
+          onProvenanceChange={handleFunctionProvenanceChange}
+        />
+      </div>
+
       {/* Label control */}
       <div className="mb-4">
         <label htmlFor="edge-label" className="block text-xs font-medium text-gray-700 mb-1">
