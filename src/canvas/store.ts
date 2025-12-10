@@ -16,7 +16,7 @@ import * as scenarios from './store/scenarios'
 import type { Scenario, ScenarioFraming } from './store/scenarios'
 import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/types'
 import type { Document, Citation } from './share/types'
-import type { Snapshot, DecisionRationale } from './snapshots/types'
+import type { Snapshot, DecisionRationale, ComparisonResult } from './snapshots/types'
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from './decisionReview/types'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
@@ -137,6 +137,18 @@ interface CanvasState {
   selectedSnapshotsForComparison: string[] // Snapshot IDs
   showComparePanel: boolean
   currentDecisionRationale: DecisionRationale | null
+  // M6: Scenario Comparison Mode (replaces main canvas with side-by-side view)
+  comparisonMode: {
+    active: boolean
+    scenarioA: { nodes: Node[]; edges: Edge<EdgeData>[]; label: string } | null
+    scenarioB: { nodes: Node[]; edges: Edge<EdgeData>[]; label: string } | null
+    comparison: ComparisonResult | null // Diff data for stats bar and changes view
+    // ISL compare API response with outcome predictions per scenario
+    apiResponse?: {
+      base_scenario?: { id: string; name: string; outcome_predictions: Record<string, number> }
+      alternative_scenarios?: Array<{ id: string; name: string; outcome_predictions: Record<string, number> }>
+    } | null
+  }
   // Week 3: AI Clarifier
   showAIClarifier: boolean
   clarifierSession: {
@@ -250,6 +262,9 @@ interface CanvasState {
   setShowComparePanel: (show: boolean) => void
   setDecisionRationale: (rationale: DecisionRationale | null) => void
   exportLocal: () => string
+  // M6: Scenario Comparison Mode actions
+  enterComparisonMode: (scenarioA: { nodes: Node[]; edges: Edge<EdgeData>[]; label: string }, scenarioB: { nodes: Node[]; edges: Edge<EdgeData>[]; label: string }, comparison?: ComparisonResult | null, apiResponse?: { base_scenario?: { id: string; name: string; outcome_predictions: Record<string, number> }; alternative_scenarios?: Array<{ id: string; name: string; outcome_predictions: Record<string, number> }> } | null) => void
+  exitComparisonMode: () => void
   // P2: Hydration hygiene
   hydrateGraphSlice: (loaded: { nodes?: Node[]; edges?: Edge<EdgeData>[]; currentScenarioId?: string | null }) => void
   // Week 3: AI Clarifier actions
@@ -445,6 +460,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     showDocumentsDrawer: false,
     showComparePanel: false,
     ...loadUIPreferences(), // Override with persisted preferences
+  },
+  // M6: Scenario Comparison Mode
+  comparisonMode: {
+    active: false,
+    scenarioA: null,
+    scenarioB: null,
+    comparison: null,
+    apiResponse: null,
   },
   templatesPanelInvoker: null,
   // M4: Graph Health & Repair
@@ -1124,6 +1147,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       needleMovers: [],
       // Close results panel
       showResultsPanel: false,
+      // M6: Exit comparison mode if active
+      comparisonMode: {
+        active: false,
+        scenarioA: null,
+        scenarioB: null,
+        comparison: null,
+        apiResponse: null,
+      },
     })
   },
 
@@ -1231,7 +1262,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   // Results actions
+  // Note: Preserve existing report/hash during re-run so UI doesn't flash empty
+  // Results only fully cleared in resetCanvas() or when new results arrive
   resultsStart: ({ seed, wasForced }) => {
+    const prevResults = get().results
     set({
       results: {
         status: 'preparing',
@@ -1240,11 +1274,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         wasForced,
         startedAt: Date.now(),
         error: undefined,
-        report: undefined,
-        hash: undefined,
+        // Preserve previous results during re-run
+        report: prevResults.report,
+        hash: prevResults.hash,
+        drivers: prevResults.drivers,
         runId: undefined,
         finishedAt: undefined,
-        drivers: undefined,
         isDuplicateRun: undefined
       }
     })
@@ -1315,18 +1350,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       })
     }
 
-    // Auto-save baseline on first run: if no baseline exists, use p50 from this run
-    // This enables baseline comparison for subsequent analyses
-    const { currentScenarioFraming } = get()
-    const p50 = report?.results?.likely
-    if (
-      currentScenarioFraming?.baseline === undefined ||
-      currentScenarioFraming?.baseline === null
-    ) {
-      if (typeof p50 === 'number' && !Number.isNaN(p50)) {
-        get().updateScenarioFraming({ baseline: p50 })
-      }
-    }
+    // NOTE: Baseline defaults to 0 ("do nothing" scenario) in OutputsDock.tsx
+    // This allows comparison display: "+X pts above 'do nothing'"
+    // Future: Could store per-option outcomes for cross-option comparison
 
     // Save to run history
     if (report && results.seed !== undefined) {
@@ -1498,6 +1524,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       touchedNodeIds: new Set(),
       showDraftChat: false,
+      // M6: Exit comparison mode when switching scenarios
+      comparisonMode: {
+        active: false,
+        scenarioA: null,
+        scenarioB: null,
+        comparison: null,
+        apiResponse: null,
+      },
     })
 
     scenarios.setCurrentScenarioId(id)
@@ -1918,6 +1952,31 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setDecisionRationale: (rationale: DecisionRationale | null) => {
     set({ currentDecisionRationale: rationale })
+  },
+
+  // M6: Scenario Comparison Mode actions
+  enterComparisonMode: (scenarioA, scenarioB, comparison = null, apiResponse = null) => {
+    set({
+      comparisonMode: {
+        active: true,
+        scenarioA,
+        scenarioB,
+        comparison,
+        apiResponse,
+      },
+    })
+  },
+
+  exitComparisonMode: () => {
+    set({
+      comparisonMode: {
+        active: false,
+        scenarioA: null,
+        scenarioB: null,
+        comparison: null,
+        apiResponse: null,
+      },
+    })
   },
 
   // Pending fit view setter

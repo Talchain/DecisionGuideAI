@@ -51,8 +51,7 @@ import { LayoutProgressBanner } from './components/LayoutProgressBanner'
 const IssuesPanel = lazy(() => import(/* webpackChunkName: "issues-panel" */ './panels/IssuesPanel').then(m => ({ default: m.IssuesPanel })))
 const AIClarifierChat = lazy(() => import(/* webpackChunkName: "ai-clarifier" */ './panels/AIClarifierChat').then(m => ({ default: m.AIClarifierChat })))
 import { NeedleMoversOverlay } from './components/NeedleMoversOverlay'
-import { CoachingNudge } from '../components/coaching/CoachingNudge'
-import { useCEECoaching } from './hooks/useCEECoaching'
+// CoachingNudge and useCEECoaching removed - coaching now in GuidancePanel (OutputsDock)
 import { DocumentsManager } from './components/DocumentsManager'
 import { ProvenanceHubTab } from './components/ProvenanceHubTab'
 import { RadialQuickAddMenu } from './components/RadialQuickAddMenu'
@@ -65,6 +64,7 @@ import { BottomSheet } from './components/BottomSheet'
 import type { NodeType } from './domain/nodes'
 import { InputsDock } from './components/InputsDock'
 import { OutputsDock } from './components/OutputsDock'
+import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
 import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled, pocFlags } from '../flags'
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
@@ -173,8 +173,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
   const showAIClarifier = useCanvasStore(s => s.showAIClarifier)
   const setShowAIClarifier = useCanvasStore(s => s.setShowAIClarifier)
 
-  // Week 3: AI Coaching
-  const { activeNudge } = useCEECoaching()
+  // M6: Scenario Comparison Mode
+  const comparisonModeActive = useCanvasStore(s => s.comparisonMode.active)
+
+  // Week 3: AI Coaching moved to GuidancePanel in OutputsDock
 
   const { getViewport, setCenter, fitView, zoomIn, zoomOut } = useReactFlow()
 
@@ -1344,7 +1346,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
           right: dockLayoutEnabled ? 'var(--dock-right-offset, 0rem)' : 0,
         }}
       >
-        {debugMode === 'no-reactflow' ? (
+        {/* M6: Comparison mode - show side-by-side canvases instead of main canvas */}
+        {comparisonModeActive ? (
+          <ComparisonCanvasLayout />
+        ) : debugMode === 'no-reactflow' ? (
           (() => {
             logCanvasBreadcrumb('mode:no-reactflow', { nodes: memoizedNodes.length, edges: memoizedEdges.length })
             return (
@@ -1678,8 +1683,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
       {/* R1: Draft My Model chat loop (bottom overlay above toolbar) */}
       <DraftChat />
 
-      {/* Week 3: AI Coaching nudges */}
-      {activeNudge && <CoachingNudge nudge={activeNudge} />}
+      {/* Week 3: AI Coaching nudges moved to GuidancePanel in OutputsDock */}
 
       {/* Reset Canvas Confirmation */}
       <BottomSheet isOpen={showResetConfirm} onClose={() => setShowResetConfirm(false)} title="Start fresh?">

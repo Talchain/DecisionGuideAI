@@ -211,35 +211,6 @@ function BandRow({ label, value, unit }: { label: string; value: number; unit: s
   )
 }
 
-function EdgeDiffCard({ diff, rank }: { diff: EdgeDiff; rank: number }) {
-  const isIncrease = diff.runB.value > diff.runA.value
-  return (
-    <div className="border border-gray-200 rounded-lg p-3 bg-white hover:shadow-sm transition-shadow">
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className={`w-5 h-5 rounded-full bg-info-100 text-info-700 ${typography.caption} font-bold flex items-center justify-center`}>{rank}</span>
-          <span className={`${typography.body} font-medium text-gray-900`}>{diff.label}</span>
-        </div>
-        <div className="flex items-center gap-1">
-          {isIncrease ? <TrendingUp className="w-4 h-4 text-success-600" /> : <TrendingDown className="w-4 h-4 text-danger-600" />}
-          <span className={`${typography.body} font-semibold ${isIncrease ? 'text-success-600' : 'text-danger-600'}`}>{formatDeltaPercent(diff.deltaPercent)}</span>
-        </div>
-      </div>
-      <div className={`grid grid-cols-3 gap-4 ${typography.caption}`}>
-        <div><div className="text-gray-500 mb-1 font-medium">Run A</div><div className="font-mono font-semibold text-gray-900">{formatEdgeValue(diff.runA.value)}</div></div>
-        <div className="flex items-center justify-center"><ArrowRight className="w-3 h-3 text-gray-400" /></div>
-        <div><div className="text-gray-500 mb-1 font-medium">Run B</div><div className="font-mono font-semibold text-gray-900">{formatEdgeValue(diff.runB.value)}</div></div>
-      </div>
-      {(diff.runA.provenance || diff.runB.provenance) && (
-        <div className={`mt-2 pt-2 border-t border-gray-100 ${typography.caption} text-gray-600`}>
-          {diff.runA.provenance && <div className="mb-1"><span className="font-semibold">A:</span> {diff.runA.provenance}</div>}
-          {diff.runB.provenance && <div><span className="font-semibold">B:</span> {diff.runB.provenance}</div>}
-        </div>
-      )}
-    </div>
-  )
-}
-
 function formatTimestamp(ts: number): string {
   const diff = Date.now() - ts
   const m = Math.floor(diff / 60000)

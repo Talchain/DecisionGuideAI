@@ -292,3 +292,86 @@ export interface CEEError {
   message?: string
   details?: Record<string, unknown>
 }
+
+// =============================================================================
+// Run Bundle Types (Option Ranking)
+// =============================================================================
+
+/**
+ * Node sensitivity data - shows which nodes contribute most to uncertainty
+ */
+export interface NodeSensitivity {
+  node_id: string
+  node_label: string
+  contribution_pct: number // 0-100 percentage of variance contribution
+}
+
+/**
+ * Change attribution - explains why outcomes differ from baseline
+ */
+export interface ChangeAttribution {
+  summary: string // Human-readable explanation
+  primary_factors?: string[]
+}
+
+/**
+ * Delta from baseline - comparison to reference scenario
+ */
+export interface DeltaFromBaseline {
+  p50: number // Delta in p50 (median) outcome
+  p10?: number
+  p90?: number
+  change_attribution?: ChangeAttribution
+}
+
+/**
+ * Individual option result in run_bundle response
+ */
+export interface RunBundleResult {
+  label: string // Option name (e.g., "2 days in office")
+  rank: number // 1-indexed rank (1 = best)
+  success_probability: number // 0-1 probability
+  summary: {
+    p10: number
+    p50: number
+    p90: number
+  }
+  sensitivity_by_node?: NodeSensitivity[]
+  delta_from_baseline?: DeltaFromBaseline
+}
+
+/**
+ * Ranking summary - overall ranking outcome
+ */
+export interface RankingSummary {
+  winner: string // Label of winning option
+  winner_p50: number // Winner's median outcome
+  margin_pct: number // Percentage margin over second place
+  ranking_confidence: 'high' | 'medium' | 'low'
+}
+
+/**
+ * Run bundle response - compares multiple options
+ */
+export interface RunBundleResponse {
+  results: RunBundleResult[]
+  ranking_summary?: RankingSummary
+}
+
+/**
+ * Run bundle request parameters
+ */
+export interface RunBundleRequest {
+  base_graph: {
+    nodes: Array<{ id: string; label?: string; [key: string]: unknown }>
+    edges: Array<{ source: string; target: string; [key: string]: unknown }>
+  }
+  deltas: Array<{
+    name: string
+    modifications: Record<string, unknown>
+  }>
+  include_ranking?: boolean
+  include_change_attribution?: boolean
+  baseline_index?: number // 0-indexed, which delta is baseline
+  sort_by?: 'p10' | 'p50' | 'p90'
+}

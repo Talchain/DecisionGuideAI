@@ -1,5 +1,6 @@
 /**
  * M6: Scenario Comparison Tests
+ * Note: ResizeObserver and matchMedia are globally mocked in tests/setup/rtl.ts
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -192,5 +193,51 @@ describe('ScenarioComparison (M6)', () => {
     fireEvent.click(changesButton)
 
     expect(screen.getByText(/- Node: Node 2/i)).toBeInTheDocument()
+  })
+
+  it('shows sync toggle in split view and toggles between synced/independent', () => {
+    const onExport = vi.fn()
+    const onClose = vi.fn()
+
+    render(
+      <ScenarioComparison
+        snapshotA={snapshotA}
+        snapshotB={snapshotB}
+        comparison={comparison}
+        onExport={onExport}
+        onClose={onClose}
+      />
+    )
+
+    // Default view is split, should show sync toggle
+    const syncToggle = screen.getByRole('button', { name: /synced/i })
+    expect(syncToggle).toBeInTheDocument()
+    expect(syncToggle).toHaveTextContent(/synced/i)
+
+    // Click to toggle to independent
+    fireEvent.click(syncToggle)
+    expect(syncToggle).toHaveTextContent(/independent/i)
+
+    // Click again to toggle back to synced
+    fireEvent.click(syncToggle)
+    expect(syncToggle).toHaveTextContent(/synced/i)
+  })
+
+  it('shows Fit Both button in split view', () => {
+    const onExport = vi.fn()
+    const onClose = vi.fn()
+
+    render(
+      <ScenarioComparison
+        snapshotA={snapshotA}
+        snapshotB={snapshotB}
+        comparison={comparison}
+        onExport={onExport}
+        onClose={onClose}
+      />
+    )
+
+    const fitBothButton = screen.getByRole('button', { name: /fit both/i })
+    expect(fitBothButton).toBeInTheDocument()
   })
 })

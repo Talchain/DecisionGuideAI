@@ -133,9 +133,9 @@ export function mapErrorToUserMessage(error: {
 
     if (isProbabilityError) {
       return {
-        title: 'Probability issues detected',
-        message: 'Some nodes have outgoing edges with probabilities that don\'t sum to 100%.',
-        suggestion: 'Use the "Fix automatically" buttons in the Results panel to resolve these issues before running analysis.',
+        title: 'Branch probabilities need adjustment',
+        message: 'When a decision splits into multiple paths, the likelihood of each path must add up to 100%. Some of your branches don\'t add up correctly yet.',
+        suggestion: 'Look for the yellow warning badges on your canvas and click "Fix automatically" to balance the probabilities.',
         retryable: false,
         severity: 'warning',
       }

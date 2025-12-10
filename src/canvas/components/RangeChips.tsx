@@ -145,7 +145,7 @@ function RangeChip({ label, technicalLabel, value, variant, units, unitSymbol }:
       <div className="text-lg font-semibold mb-1">
         {formattedValue}
       </div>
-      <div className={`${typography.caption} font-medium text-ink-900/70 uppercase tracking-wide`}>
+      <div className={`${typography.caption} font-medium text-ink-900/70`}>
         {label}
       </div>
     </div>

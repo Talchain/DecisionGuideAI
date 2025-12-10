@@ -116,7 +116,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
         nodeKind = node?.data?.kind?.toLowerCase() || node?.type?.toLowerCase() || null
       }
 
-      // 4) Fallback: find node by label match (case-insensitive, trimmed)
+      // 4) Fallback: find node by exact label match (case-insensitive, trimmed)
       if (!nodeKind) {
         const normalizedLabel = d.label.toLowerCase().trim()
         const node = nodes.find(n => {
@@ -126,12 +126,48 @@ export function DriverChips({ drivers }: DriverChipsProps) {
         nodeKind = node?.data?.kind?.toLowerCase() || node?.type?.toLowerCase() || null
       }
 
+      // 5) Fallback: partial label match (driver label contains node label or vice versa)
+      if (!nodeKind) {
+        const normalizedLabel = d.label.toLowerCase().trim()
+        const node = nodes.find(n => {
+          const canvasLabel = n.data?.label?.toLowerCase().trim()
+          if (!canvasLabel) return false
+          // Check if driver label contains node label or node label contains driver label
+          return normalizedLabel.includes(canvasLabel) || canvasLabel.includes(normalizedLabel)
+        })
+        nodeKind = node?.data?.kind?.toLowerCase() || node?.type?.toLowerCase() || null
+      }
+
+      // 6) Fallback: word overlap match (at least 2 words in common)
+      if (!nodeKind) {
+        const driverWords = new Set(d.label.toLowerCase().split(/\s+/).filter(w => w.length > 2))
+        let bestMatch: { node: typeof nodes[0]; overlap: number } | null = null
+
+        for (const node of nodes) {
+          const canvasLabel = node.data?.label?.toLowerCase() || ''
+          const canvasWords = new Set(canvasLabel.split(/\s+/).filter(w => w.length > 2))
+
+          let overlap = 0
+          for (const word of driverWords) {
+            if (canvasWords.has(word)) overlap++
+          }
+
+          if (overlap >= 2 && (!bestMatch || overlap > bestMatch.overlap)) {
+            bestMatch = { node, overlap }
+          }
+        }
+
+        if (bestMatch) {
+          nodeKind = bestMatch.node.data?.kind?.toLowerCase() || bestMatch.node.type?.toLowerCase() || null
+        }
+      }
+
       // Dev-only logging for diagnosis (won't appear in production builds)
       if (import.meta.env.DEV && !nodeKind) {
         console.debug('[DriverChips] Could not determine nodeKind for driver:', {
           label: d.label,
           nodeId: d.nodeId,
-          canvasNodeLabels: nodes.map(n => ({ id: n.id, label: n.data?.label, kind: n.data?.kind })),
+          canvasNodeLabels: nodes.map(n => ({ id: n.id, label: n.data?.label, type: n.type })),
         })
       }
 

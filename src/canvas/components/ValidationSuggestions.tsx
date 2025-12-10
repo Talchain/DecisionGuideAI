@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { AlertCircle, CheckCircle, AlertTriangle, Wrench, Eye } from 'lucide-react'
+import { useEffect, useState, useRef, useMemo } from 'react'
+import { AlertCircle, CheckCircle, AlertTriangle, Wrench, Eye, RefreshCw } from 'lucide-react'
 import { useISLValidation } from '../../hooks/useISLValidation'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
@@ -7,24 +7,77 @@ import { Spinner } from '../../components/Spinner'
 import type { ISLValidationSuggestion } from '../../adapters/isl/types'
 import { buildRichGraphPayload } from '../utils/graphPayload'
 
+/**
+ * Simple hash of graph structure for change detection
+ * Only re-validate when graph content actually changes
+ */
+function computeGraphHash(nodes: unknown[], edges: unknown[]): string {
+  // Use JSON stringify of IDs and key data for lightweight hashing
+  const nodeIds = nodes.map((n: any) => `${n.id}:${n.type}:${n.data?.label ?? ''}`).sort().join('|')
+  const edgeIds = edges.map((e: any) => `${e.source}->${e.target}`).sort().join('|')
+  return `${nodeIds}::${edgeIds}`
+}
+
 export function ValidationSuggestionsSection() {
   // React #185 FIX: Use shallow comparison for array selectors
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const { data, loading, error, validate } = useISLValidation()
 
-  // Auto-validate on graph changes (debounced)
+  // Track last validated graph hash to avoid redundant requests
+  const lastValidatedHashRef = useRef<string | null>(null)
+  // Track if we hit a persistent error (4xx) to stop auto-retry
+  const persistentErrorRef = useRef(false)
+  // Manual retry trigger
+  const [retryCount, setRetryCount] = useState(0)
+
+  // Compute current graph hash
+  const currentHash = useMemo(
+    () => computeGraphHash(nodes, edges),
+    [nodes, edges]
+  )
+
+  // Reset persistent error flag when graph changes substantially
   useEffect(() => {
-    if (nodes.length === 0 || loading) return
+    if (lastValidatedHashRef.current !== currentHash) {
+      persistentErrorRef.current = false
+    }
+  }, [currentHash])
+
+  // Auto-validate on graph changes (debounced) - with retry protection
+  useEffect(() => {
+    // Skip if: no nodes, already loading, hash unchanged, or persistent error
+    if (
+      nodes.length === 0 ||
+      loading ||
+      lastValidatedHashRef.current === currentHash ||
+      persistentErrorRef.current
+    ) {
+      return
+    }
 
     const timer = setTimeout(() => {
+      lastValidatedHashRef.current = currentHash
       validate({
         graph: buildRichGraphPayload(nodes, edges),
-      }).catch(console.error)
+      }).catch((err) => {
+        // Mark as persistent error for 4xx responses to stop auto-retry
+        if (err?.status >= 400 && err?.status < 500) {
+          persistentErrorRef.current = true
+        }
+        console.error('ISL validation failed:', err)
+      })
     }, 1000)
 
     return () => clearTimeout(timer)
-  }, [nodes, edges, validate, loading])
+  }, [nodes, edges, validate, loading, currentHash, retryCount])
+
+  // Manual retry handler
+  const handleRetry = () => {
+    persistentErrorRef.current = false
+    lastValidatedHashRef.current = null
+    setRetryCount(c => c + 1)
+  }
 
   if (nodes.length === 0) {
     return (
@@ -85,6 +138,13 @@ export function ValidationSuggestionsSection() {
           <p className={`${typography.body} text-carrot-800`}>
             Failed to validate: {error.message}
           </p>
+          <button
+            onClick={handleRetry}
+            className={`${typography.button} mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-carrot-300 text-carrot-700 hover:bg-carrot-100 transition-colors`}
+          >
+            <RefreshCw className="w-3 h-3" />
+            Retry
+          </button>
         </div>
       )}
     </div>

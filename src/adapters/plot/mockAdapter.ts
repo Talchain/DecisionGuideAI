@@ -95,9 +95,42 @@ const setCached = <T>(key: string, data: T): CacheEntry<T> => {
   return entry
 }
 
+// Pre-load all template fixtures at build time using import.meta.glob
+// This avoids Vite's "Unknown variable dynamic import" error
+const templateModules = import.meta.glob<{ default: TemplateDetail }>(
+  '../../fixtures/plot/templates.byId/*.json',
+  { eager: true }
+)
+
+// Build a map of template ID -> template data
+const templateCache = new Map<string, TemplateDetail>()
+for (const [path, module] of Object.entries(templateModules)) {
+  // Extract ID from path: "../../fixtures/plot/templates.byId/pricing-v1.json" -> "pricing-v1"
+  const match = path.match(/\/([^/]+)\.json$/)
+  if (match) {
+    templateCache.set(match[1], module.default)
+  }
+}
+
+// Default template for unknown IDs (like 'canvas-graph')
+const defaultTemplate: TemplateDetail = {
+  id: 'default',
+  name: 'Default Template',
+  description: 'A default template for custom graphs',
+  category: 'general',
+  tags: [],
+  graph: { nodes: [], edges: [] },
+  framing: {},
+}
+
 const loadTemplateById = async (id: string): Promise<TemplateDetail> => {
-  const detail = await import(`../../fixtures/plot/templates.byId/${id}.json`)
-  return detail.default as TemplateDetail
+  const template = templateCache.get(id)
+  if (template) {
+    return template
+  }
+  // Return default template for unknown IDs (e.g., 'canvas-graph')
+  console.warn(`[mockAdapter] Unknown template ID "${id}", using default template`)
+  return { ...defaultTemplate, id, name: `Custom: ${id}` }
 }
 
 const chooseErrorForSeed = (seed: number): ErrorV1 | null => {

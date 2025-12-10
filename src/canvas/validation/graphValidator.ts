@@ -237,7 +237,8 @@ function detectMissingLabels(nodes: Node[]): ValidationIssue[] {
 
 /**
  * Phase 3: Detect probability errors
- * Nodes with 2+ outgoing edges must have probabilities that sum to 100% (± 1% tolerance)
+ * - Nodes with 2+ outgoing edges must have probabilities that sum to 100% (± 1% tolerance)
+ * - Single-edge nodes with non-100%, non-0% probability are also flagged (incomplete branch)
  */
 function detectProbabilityErrors(nodes: Node[], edges: Edge[]): ValidationIssue[] {
   const issues: ValidationIssue[] = []
@@ -247,8 +248,8 @@ function detectProbabilityErrors(nodes: Node[], edges: Edge[]): ValidationIssue[
     // Get outgoing edges for this node
     const outgoingEdges = edges.filter(e => e.source === node.id)
 
-    // Only validate nodes with 2+ outgoing edges
-    if (outgoingEdges.length < 2) {
+    // Skip nodes with no outgoing edges
+    if (outgoingEdges.length === 0) {
       continue
     }
 
@@ -261,24 +262,31 @@ function detectProbabilityErrors(nodes: Node[], edges: Edge[]): ValidationIssue[
     // Filter to non-zero confidences
     const nonZeroConfidences = confidences.filter(c => c > 0)
 
-    // Skip if no meaningful probabilities set (all zeros = pristine state)
-    if (nonZeroConfidences.length < 2) {
+    // Skip if no probabilities set at all (all zeros = pristine state)
+    // But if ANY probability is set, we need to validate the sum
+    if (nonZeroConfidences.length === 0) {
       continue
     }
 
-    // Calculate sum
-    const sum = nonZeroConfidences.reduce((acc, c) => acc + c, 0)
+    // Calculate sum of ALL confidences (including zeros)
+    // If user has set any probability, all edges must sum to 100%
+    const sum = confidences.reduce((acc, c) => acc + c, 0)
 
     // Check if sum is valid (should be 1.0 = 100%)
     if (Math.abs(sum - 1.0) > TOLERANCE) {
       const nodeLabel = node.data?.label || node.id
       const percentSum = Math.round(sum * 100)
 
+      // Different message for single-edge vs multi-edge cases
+      const message = outgoingEdges.length === 1
+        ? `"${nodeLabel}" has incomplete probability (${percentSum}%). Single branches should be 100% or add more paths.`
+        : `"${nodeLabel}" probabilities sum to ${percentSum}% (should be 100%)`
+
       issues.push({
         id: `probability-${node.id}`,
         type: 'probability_error' as IssueType,
-        severity: 'error',  // Changed from 'warning' - probability errors block analysis
-        message: `"${nodeLabel}" probabilities sum to ${percentSum}% (should be 100%)`,
+        severity: 'error',  // Probability errors block analysis
+        message,
         nodeIds: [node.id],
         edgeIds: outgoingEdges.map(e => e.id),
         suggestedFix: {

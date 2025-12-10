@@ -51,18 +51,27 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
     { type: 'divider' as const },
     { label: 'Delete', icon: '🗑️', shortcut: 'Del', action: deleteSelected, enabled: selection.nodeIds.size > 0 || selection.edgeIds.size > 0 },
     { type: 'divider' as const },
-    { 
-      label: 'Reconnect Source', 
-      icon: '🔄', 
-      shortcut: null, 
+    {
+      label: 'Edit Connector',
+      icon: '✏️',
+      shortcut: null,
+      action: () => {
+        showToast('Double-click the connector label to edit weight & belief', 'info')
+      },
+      enabled: selection.edgeIds.size === 1
+    },
+    {
+      label: 'Reconnect Source',
+      icon: '🔄',
+      shortcut: null,
       action: () => {
         const edgeId = Array.from(selection.edgeIds)[0]
         if (edgeId) {
           beginReconnect(edgeId, 'source')
           showToast('Reconnect source: click a node or press Esc', 'info')
         }
-      }, 
-      enabled: selection.edgeIds.size === 1 
+      },
+      enabled: selection.edgeIds.size === 1
     },
     { 
       label: 'Reconnect Target', 

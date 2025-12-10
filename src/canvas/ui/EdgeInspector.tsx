@@ -4,11 +4,13 @@
  * British English: visualisation, colour
  */
 
-import { memo, useState, useCallback, useEffect, useRef } from 'react'
+import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { Lightbulb, Check } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { EDGE_CONSTRAINTS, type EdgeStyle, type EdgePathType, DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useToast } from '../ToastContext'
 import { Tooltip } from '../components/Tooltip'
+import type { WeightSuggestion } from '../decisionReview/types'
 
 interface EdgeInspectorProps {
   edgeId: string
@@ -27,9 +29,25 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   const deleteEdge = useCanvasStore(s => s.deleteEdge)
   const beginReconnect = useCanvasStore(s => s.beginReconnect)
   const selectNodes = useCanvasStore(s => s.selectNodes)
+  const ceeReview = useCanvasStore(s => s.runMeta.ceeReview)
   const { showToast } = useToast()
 
   const edge = edges.find(e => e.id === edgeId)
+
+  // Find weight suggestion for this edge (if any)
+  const weightSuggestion = useMemo((): WeightSuggestion | undefined => {
+    if (!ceeReview?.weight_suggestions) return undefined
+    return ceeReview.weight_suggestions.find(s => s.edge_id === edgeId)
+  }, [ceeReview?.weight_suggestions, edgeId])
+
+  // Check if this suggestion was already applied (via provenance marker or auto_applied flag)
+  const suggestionAlreadyApplied = useMemo(() => {
+    if (!weightSuggestion) return false
+    if (weightSuggestion.auto_applied) return true
+    // Check if user applied via "Apply suggestion" button (sets provenance to 'ai-suggested')
+    if (edge?.data?.provenance === 'ai-suggested') return true
+    return false
+  }, [weightSuggestion, edge?.data?.provenance])
 
   // Local state for immediate UI updates with proper defaults
   const [weight, setWeight] = useState<number>(edge?.data?.weight ?? 0.5)
@@ -124,6 +142,28 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     const current = edge?.data ?? DEFAULT_EDGE_DATA
     updateEdge(edgeId, { data: { ...current, provenance: provenance || undefined } })
   }, [edgeId, edge?.data, provenance, updateEdge])
+
+  // Apply weight suggestion from CEE/ISL
+  const handleApplySuggestion = useCallback(() => {
+    if (!weightSuggestion) return
+    const current = edge?.data ?? DEFAULT_EDGE_DATA
+    const updates: Record<string, number | string | undefined> = {
+      ...current,
+      weight: weightSuggestion.suggested_weight,
+      provenance: 'ai-suggested',
+    }
+    if (weightSuggestion.suggested_belief !== undefined) {
+      updates.belief = weightSuggestion.suggested_belief
+    }
+    updateEdge(edgeId, { data: updates })
+    setWeight(weightSuggestion.suggested_weight)
+    if (weightSuggestion.suggested_belief !== undefined) {
+      setBelief(weightSuggestion.suggested_belief)
+    }
+    setProvenance('ai-suggested')
+    showToast('Applied AI-suggested weight', 'success')
+    setAnnouncement(`Applied suggested weight: ${weightSuggestion.suggested_weight.toFixed(2)}`)
+  }, [edgeId, edge?.data, weightSuggestion, updateEdge, showToast])
   // Delete edge
   const handleDelete = useCallback(() => {
     deleteEdge(edgeId)
@@ -202,7 +242,47 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           ×
         </button>
       </div>
-      
+
+      {/* Weight Suggestion Banner (when ISL/CEE provides one) */}
+      {weightSuggestion && !suggestionAlreadyApplied && (
+        <div
+          className="mb-4 p-3 rounded-lg bg-sky-50 border border-sky-200"
+          role="region"
+          aria-label="AI weight suggestion"
+          data-testid="weight-suggestion-banner"
+        >
+          <div className="flex items-start gap-2">
+            <Lightbulb className="w-4 h-4 text-sky-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-sky-900">
+                  Suggested weight: {weightSuggestion.suggested_weight.toFixed(2)}
+                </span>
+                <span className={`
+                  text-[10px] px-1.5 py-0.5 rounded font-medium
+                  ${weightSuggestion.confidence === 'high' ? 'bg-mint-100 text-mint-700' : ''}
+                  ${weightSuggestion.confidence === 'medium' ? 'bg-sun-100 text-sun-700' : ''}
+                  ${weightSuggestion.confidence === 'low' ? 'bg-gray-100 text-gray-600' : ''}
+                `}>
+                  {weightSuggestion.confidence} confidence
+                </span>
+              </div>
+              <p className="text-[11px] text-sky-700 mb-2 line-clamp-2">
+                {weightSuggestion.rationale}
+              </p>
+              <button
+                onClick={handleApplySuggestion}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded bg-sky-500 text-white hover:bg-sky-600 transition-colors"
+                data-testid="btn-apply-weight-suggestion"
+              >
+                <Check className="w-3 h-3" aria-hidden="true" />
+                Apply suggestion
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Weight control */}
       <div className="mb-4">
         <Tooltip content="Strength of this connection (0 = no influence, 1 = strong influence)" position="right">

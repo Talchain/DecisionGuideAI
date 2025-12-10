@@ -29,11 +29,19 @@ interface EdgeWithProvenance {
 }
 
 /**
- * Count edges with evidence (non-empty provenance excluding 'assumption' and 'template')
+ * Provenance values that do NOT count as real evidence.
+ * - 'assumption': User assumption, not external evidence
+ * - 'template': Template default, not user-provided evidence
+ * - 'ai-suggested': AI weight suggestion, not external evidence
+ */
+const NON_EVIDENCE_PROVENANCE = ['assumption', 'template', 'ai-suggested']
+
+/**
+ * Count edges with evidence (non-empty provenance excluding non-evidence markers)
  *
  * This is the canonical counting function used across all components.
  * "Evidence" means provenance that represents actual supporting data,
- * not default placeholders like 'assumption' or 'template'.
+ * not default placeholders like 'assumption', 'template', or AI suggestions.
  *
  * @param edges - Array of edges to count
  * @returns Object with evidenced and total counts
@@ -42,7 +50,7 @@ export function countEdgesWithEvidence(edges: EdgeWithProvenance[]): { evidenced
   const total = edges.length
   const evidenced = edges.filter(e => {
     const provenance = e.data?.provenance
-    return provenance && provenance !== 'assumption' && provenance !== 'template'
+    return provenance && !NON_EVIDENCE_PROVENANCE.includes(provenance)
   }).length
   return { evidenced, total }
 }

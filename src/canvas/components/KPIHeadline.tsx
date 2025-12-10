@@ -12,6 +12,8 @@
  * - Shows helpful placeholder when no value is available
  */
 
+import { formatOutcomeValue } from '../../lib/format'
+
 interface KPIHeadlineProps {
   value: number | null
   label: string
@@ -54,8 +56,7 @@ export function KPIHeadline({
             fontSize: '0.875rem',
             fontWeight: 500,
             color: 'rgba(232, 236, 245, 0.6)',
-            textTransform: 'uppercase',
-            letterSpacing: '0.05em'
+            letterSpacing: '0.02em'
           }}
         >
           {label}
@@ -75,7 +76,7 @@ export function KPIHeadline({
     )
   }
 
-  const formattedValue = formatValue(value, units, unitSymbol)
+  const formattedValue = formatOutcomeValue(value, units, unitSymbol)
 
   // Quick Win #2: Calculate baseline comparison
   const comparison = getBaselineComparison(value, baseline, units, unitSymbol, goalDirection)
@@ -100,8 +101,7 @@ export function KPIHeadline({
           fontSize: '0.875rem',
           fontWeight: 500,
           color: 'rgba(232, 236, 245, 0.6)',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em'
+          letterSpacing: '0.02em'
         }}
       >
         {label}
@@ -129,36 +129,6 @@ export function KPIHeadline({
       )}
     </div>
   )
-}
-
-function formatValue(value: number, units: 'currency' | 'percent' | 'count', unitSymbol?: string): string {
-  if (units === 'currency') {
-    const symbol = unitSymbol || '$'
-    // Quick Win #2: Smart formatting for large numbers
-    if (Math.abs(value) >= 1_000_000) {
-      return `${symbol}${(value / 1_000_000).toFixed(1)}M`
-    }
-    if (Math.abs(value) >= 1_000) {
-      return `${symbol}${(value / 1_000).toFixed(1)}K`
-    }
-    return `${symbol}${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-  }
-
-  if (units === 'percent') {
-    // Auto-detect if value is in 0-1 probability form vs already percentage
-    // Values in 0-1 range (inclusive) are treated as probabilities: 0.5 → 50%, 1 → 100%
-    const isProbability = value >= 0 && value <= 1
-    const displayValue = isProbability ? value * 100 : value
-    return `${displayValue.toFixed(1)}%`
-  }
-
-  // For 'count' or undefined units: auto-detect probability format
-  // Values in 0-1 range (inclusive) with decimals or boundary values suggest probability format
-  if (value >= 0 && value <= 1 && (value !== Math.floor(value) || value === 0 || value === 1)) {
-    return `${(value * 100).toFixed(1)}%`
-  }
-
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
 }
 
 /**
@@ -192,8 +162,8 @@ function getBaselineComparison(
   }
 
   // Format the delta value
-  const formattedDelta = formatValue(Math.abs(absoluteDelta), units, unitSymbol)
-  const formattedBaseline = formatValue(baseline, units, unitSymbol)
+  const formattedDelta = formatOutcomeValue(Math.abs(absoluteDelta), units, unitSymbol)
+  const formattedBaseline = formatOutcomeValue(baseline, units, unitSymbol)
 
   // Determine direction and icon
   const isIncrease = percentChange > 0

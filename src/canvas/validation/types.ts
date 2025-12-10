@@ -35,6 +35,8 @@ export interface GraphHealth {
   status: 'healthy' | 'warnings' | 'errors'
   issues: ValidationIssue[]
   score: number // 0-100
+  /** Variance status from CEE/ISL analysis - 'limited' when outcomes lack spread */
+  variance_status?: 'limited' | 'healthy'
 }
 
 export interface NeedleMover {

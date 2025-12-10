@@ -149,6 +149,15 @@ describe('evidenceCoverage utils', () => {
       expect(result).toEqual({ evidenced: 1, total: 2 })
     })
 
+    it('excludes "ai-suggested" provenance', () => {
+      const edges = [
+        { id: 'e1', data: { provenance: 'ai-suggested' } },
+        { id: 'e2', data: { provenance: 'expert interview' } },
+      ]
+      const result = countEdgesWithEvidence(edges)
+      expect(result).toEqual({ evidenced: 1, total: 2 })
+    })
+
     it('excludes empty provenance', () => {
       const edges = [
         { id: 'e1', data: { provenance: '' } },

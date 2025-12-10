@@ -1,7 +1,12 @@
 /**
  * ObjectiveBanner Component
  *
- * Displays the current objective/goal at the top of Results and Compare views.
+ * @deprecated LEGACY - No longer used in the main OutputsDock Results flow.
+ * Retained for ResultsPanel (legacy) and potential future use cases.
+ *
+ * Previously displayed the objective/goal at the top of Results and Compare views.
+ * Now replaced by the new Signal components in OutputsDock.
+ *
  * Shows goal direction (maximize/minimize) with appropriate icon.
  */
 

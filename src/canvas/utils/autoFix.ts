@@ -39,6 +39,11 @@ export interface AutoFixParams {
  * Note: `confidence` is the branch probability field (0-1, should sum to 1).
  * This is distinct from `belief` which represents epistemic uncertainty.
  *
+ * Strategy:
+ * - If ALL edges have non-zero confidence: scale proportionally to sum to 100%
+ * - If SOME edges have zero/undefined confidence: distribute evenly across ALL edges
+ *   (This ensures no edges are left at 0% which would fail backend validation)
+ *
  * @param nodeId - Node with probability sum issue
  * @param edges - Current edge list
  * @returns AutoFixResult with updated edges
@@ -53,20 +58,23 @@ export function normalizeProbabilities(
     return { success: false, message: 'No outgoing edges to normalize' }
   }
 
-  const total = outgoingEdges.reduce((sum, e) => {
-    const confidence = (e.data as EdgeData)?.confidence ?? 0
-    return sum + confidence
-  }, 0)
+  // Count edges with meaningful (non-zero) confidence
+  const confidenceValues = outgoingEdges.map(e => (e.data as EdgeData)?.confidence ?? 0)
+  const nonZeroCount = confidenceValues.filter(c => c > 0).length
+  const total = confidenceValues.reduce((sum, c) => sum + c, 0)
 
-  if (total === 0) {
-    // Can't normalize if all confidences are zero - distribute evenly
+  // If any edges have zero/undefined confidence, OR total is 0,
+  // distribute evenly to ensure all branches have valid probabilities
+  const shouldDistributeEvenly = total === 0 || nonZeroCount < outgoingEdges.length
+
+  if (shouldDistributeEvenly) {
     const evenConfidence = 1 / outgoingEdges.length
     const updatedEdges = edges.map(edge => {
       if (edge.source === nodeId) {
         return {
           ...edge,
           data: {
-            ...(edge.data as EdgeData),
+            ...((edge.data as EdgeData) || {}),
             confidence: evenConfidence,
           },
         }
@@ -74,13 +82,15 @@ export function normalizeProbabilities(
       return edge
     })
 
+    const percentage = Math.round(evenConfidence * 100)
     return {
       success: true,
-      message: `Distributed probability evenly across ${outgoingEdges.length} edges`,
+      message: `Set all ${outgoingEdges.length} edges to ${percentage}% each (totaling 100%)`,
       updatedEdges,
     }
   }
 
+  // All edges have non-zero confidence - normalize proportionally
   const updatedEdges = edges.map(edge => {
     if (edge.source === nodeId) {
       const currentConfidence = (edge.data as EdgeData)?.confidence ?? 0
@@ -88,7 +98,7 @@ export function normalizeProbabilities(
       return {
         ...edge,
         data: {
-          ...(edge.data as EdgeData),
+          ...((edge.data as EdgeData) || {}),
           confidence: normalizedConfidence,
         },
       }

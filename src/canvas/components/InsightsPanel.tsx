@@ -23,6 +23,14 @@ import { typography } from '../../styles/typography'
 import type { Insights } from '../../types/plot'
 import { focusNodeById } from '../utils/focusHelpers'
 
+/** Driver information for insight generation */
+interface DriverSummary {
+  label: string
+  polarity: 'up' | 'down' | 'neutral'
+  strength?: 'low' | 'medium' | 'high'
+  contribution?: number
+}
+
 interface InsightsPanelProps {
   /** Insights data from engine response (may have missing/null fields) */
   insights: Partial<Insights> | null | undefined
@@ -36,6 +44,8 @@ interface InsightsPanelProps {
   baselineValue?: number | null
   /** Quick Win #5: Goal direction for interpreting changes */
   goalDirection?: 'maximize' | 'minimize'
+  /** Top drivers for driver-focused insight */
+  topDrivers?: DriverSummary[]
 }
 
 /**
@@ -170,6 +180,67 @@ function validateInsightConsistency(
   return { summary, wasContradictory: false }
 }
 
+/**
+ * Generate driver-focused insight text instead of restating percentages
+ */
+function generateDriverInsight(
+  drivers: DriverSummary[] | undefined,
+  goalDirection: 'maximize' | 'minimize'
+): string | null {
+  if (!drivers || drivers.length === 0) return null
+
+  // Get top 2 drivers that are having an impact
+  const impactfulDrivers = drivers
+    .filter(d => d.polarity !== 'neutral')
+    .slice(0, 2)
+
+  if (impactfulDrivers.length === 0) return null
+
+  // Determine if outcome is positive based on drivers and goal
+  const positiveDrivers = impactfulDrivers.filter(d =>
+    (d.polarity === 'up' && goalDirection === 'maximize') ||
+    (d.polarity === 'down' && goalDirection === 'minimize')
+  )
+  const negativeDrivers = impactfulDrivers.filter(d =>
+    (d.polarity === 'down' && goalDirection === 'maximize') ||
+    (d.polarity === 'up' && goalDirection === 'minimize')
+  )
+
+  // Generate insight based on driver analysis
+  if (positiveDrivers.length > 0 && negativeDrivers.length === 0) {
+    const topDriver = positiveDrivers[0]
+    const strengthText = topDriver.strength === 'high' ? 'strongly' : topDriver.strength === 'medium' ? 'moderately' : ''
+    return `${topDriver.label} is ${strengthText} driving favorable outcomes${positiveDrivers.length > 1 ? `, supported by ${positiveDrivers[1].label}` : ''}.`
+  }
+
+  if (negativeDrivers.length > 0 && positiveDrivers.length === 0) {
+    const topDriver = negativeDrivers[0]
+    const strengthText = topDriver.strength === 'high' ? 'significantly' : topDriver.strength === 'medium' ? 'moderately' : ''
+    return `${topDriver.label} is ${strengthText} limiting outcomes${negativeDrivers.length > 1 ? `, compounded by ${negativeDrivers[1].label}` : ''}.`
+  }
+
+  // Mixed drivers
+  if (positiveDrivers.length > 0 && negativeDrivers.length > 0) {
+    return `${positiveDrivers[0].label} is helping, but ${negativeDrivers[0].label} is holding back results.`
+  }
+
+  return null
+}
+
+/**
+ * Remove percentage patterns from insight summary to avoid redundancy
+ * with OutcomesSignal which already shows the percentage prominently
+ */
+function stripPercentageFromSummary(summary: string): string {
+  // Remove patterns like "65% success", "outcome of 65%", etc.
+  return summary
+    .replace(/\b\d+(\.\d+)?%\s*(success|probability|likelihood|chance|outcome)/gi, '')
+    .replace(/\b(success|probability|likelihood|chance|outcome)\s*(of|is|at)\s*\d+(\.\d+)?%/gi, '')
+    .replace(/\s{2,}/g, ' ') // Clean up double spaces
+    .replace(/^[,.\s]+/, '') // Clean up leading punctuation
+    .trim()
+}
+
 export function InsightsPanel({
   insights: rawInsights,
   defaultExpanded = true,
@@ -177,6 +248,7 @@ export function InsightsPanel({
   outcomeValue,
   baselineValue,
   goalDirection = 'maximize',
+  topDrivers,
 }: InsightsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
@@ -184,13 +256,20 @@ export function InsightsPanel({
   const normalized = normalizeInsights(rawInsights)
 
   // Quick Win #5: Validate and correct contradictory insights
-  const { summary, wasContradictory } = validateInsightConsistency(
+  const { summary: rawSummary, wasContradictory } = validateInsightConsistency(
     normalized.summary,
     outcomeValue,
     baselineValue,
     goalDirection
   )
   const { risks, next_steps } = normalized
+
+  // Generate driver-focused insight OR strip percentage from backend summary
+  const driverInsight = generateDriverInsight(topDrivers, goalDirection)
+  const cleanedSummary = stripPercentageFromSummary(rawSummary)
+
+  // Prefer driver insight, fall back to cleaned summary
+  const summary = driverInsight || (cleanedSummary.length > 20 ? cleanedSummary : rawSummary)
 
   const hasDetails = risks.length > 0 || next_steps.length > 0
 

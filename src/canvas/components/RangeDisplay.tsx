@@ -1,15 +1,15 @@
 /**
  * RangeDisplay Component
  *
- * Structured two-column display for outcome ranges (p10/p50/p90).
- * Shows band labels on the left, values on the right, with optional
- * baseline comparison and range width interpretation.
+ * Visual display for outcome ranges (p10/p50/p90) with progress bar visualization.
+ * Shows a large primary outcome value with visual range bar and user-friendly labels.
  */
 
 import { typography } from '../../styles/typography'
 import { computeDelta } from '../utils/interpretOutcome'
+import { formatOutcomeValue, formatOutcomeValueCompact, type OutcomeUnits } from '../../lib/format'
 
-type Units = 'currency' | 'percent' | 'count'
+type Units = OutcomeUnits
 
 interface RangeDisplayProps {
   p10: number | null
@@ -52,6 +52,28 @@ function formatValue(value: number | null, units: Units, unitSymbol?: string): s
   const isProbability = value >= 0 && value <= 1
   const displayValue = isProbability ? value * 100 : value
   return `${displayValue.toFixed(1)}%`
+}
+
+function formatValueCompact(value: number | null, units: Units, unitSymbol?: string): string {
+  if (value === null || Number.isNaN(value)) {
+    return '—'
+  }
+
+  if (units === 'currency') {
+    const symbol = unitSymbol || '$'
+    if (Math.abs(value) >= 1_000_000) {
+      return `${symbol}${(value / 1_000_000).toFixed(0)}M`
+    }
+    if (Math.abs(value) >= 1_000) {
+      return `${symbol}${(value / 1_000).toFixed(0)}K`
+    }
+    return `${symbol}${Math.round(value)}`
+  }
+
+  // Default (percent)
+  const isProbability = value >= 0 && value <= 1
+  const displayValue = isProbability ? value * 100 : value
+  return `${Math.round(displayValue)}%`
 }
 
 function getRangeWidthLabel(p10: number | null, p50: number | null, p90: number | null): string | null {
@@ -102,33 +124,6 @@ function getBaselineMessage(
   return `${magnitudeWord.charAt(0).toUpperCase() + magnitudeWord.slice(1)} ${directionWord} than baseline${percentText}`
 }
 
-/**
- * Row component for the range grid
- */
-function RangeRow({
-  label,
-  value,
-  tooltip,
-  isHighlighted = false,
-}: {
-  label: string
-  value: string
-  tooltip?: string
-  isHighlighted?: boolean
-}) {
-  return (
-    <div
-      className={`grid grid-cols-2 gap-4 py-1.5 ${isHighlighted ? 'bg-sky-50 -mx-2 px-2 rounded' : ''}`}
-      title={tooltip}
-    >
-      <span className={`${typography.caption} text-ink-600`}>{label}</span>
-      <span className={`${typography.caption} font-medium text-ink-900 text-right tabular-nums`}>
-        {value}
-      </span>
-    </div>
-  )
-}
-
 export function RangeDisplay({
   p10,
   p50,
@@ -155,51 +150,86 @@ export function RangeDisplay({
   const rangeWidthMessage = getRangeWidthLabel(p10, p50, p90)
   const baselineMessage = getBaselineMessage(p50, baseline ?? null, goalDirection)
 
-  // Format values
-  const conservativeValue = formatValue(p10, safeUnits, unitSymbol)
-  const mostLikelyValue = formatValue(p50, safeUnits, unitSymbol)
-  const optimisticValue = formatValue(p90, safeUnits, unitSymbol)
+  // Calculate p50 position on the bar (as percentage from p10 to p90)
+  let p50Position = 50 // Default to middle if can't calculate
+  if (p10 !== null && p50 !== null && p90 !== null && !Number.isNaN(p10) && !Number.isNaN(p50) && !Number.isNaN(p90)) {
+    const range = p90 - p10
+    if (range > 0) {
+      p50Position = ((p50 - p10) / range) * 100
+    }
+  }
 
   return (
-    <div className="space-y-2" data-testid="range-display">
-      {/* Structured grid layout */}
-      <div className="divide-y divide-sand-100">
-        {p10 !== null && !Number.isNaN(p10) && (
-          <RangeRow
-            label="Conservative (p10)"
-            value={conservativeValue}
-            tooltip="10th percentile: 90% of outcomes expected to be better than this"
-          />
-        )}
-        {p50 !== null && !Number.isNaN(p50) && (
-          <RangeRow
-            label="Most likely (p50)"
-            value={mostLikelyValue}
-            tooltip="50th percentile: median expected outcome"
-            isHighlighted
-          />
-        )}
-        {p90 !== null && !Number.isNaN(p90) && (
-          <RangeRow
-            label="Optimistic (p90)"
-            value={optimisticValue}
-            tooltip="90th percentile: only 10% of outcomes expected to exceed this"
-          />
-        )}
-      </div>
+    <div className="space-y-4" data-testid="range-display">
+      {/* Large primary outcome value */}
+      {p50 !== null && !Number.isNaN(p50) && (
+        <div>
+          <div className="text-4xl font-bold text-ink-900 tabular-nums">
+            {formatValue(p50, safeUnits, unitSymbol)}
+          </div>
+          <div className={`${typography.caption} text-ink-500 mt-1`}>
+            Most likely outcome
+          </div>
+        </div>
+      )}
+
+      {/* Visual range bar */}
+      {p10 !== null && p90 !== null && !Number.isNaN(p10) && !Number.isNaN(p90) && (
+        <div className="space-y-2">
+          {/* Range header */}
+          <div className={`${typography.caption} font-medium text-ink-700`}>Range</div>
+
+          {/* Bar container */}
+          <div className="relative">
+            {/* Background bar */}
+            <div className="h-2 bg-sand-200 rounded-full">
+              {/* Filled range bar */}
+              <div className="h-full bg-sky-400 rounded-full" />
+            </div>
+
+            {/* p50 marker */}
+            {p50 !== null && !Number.isNaN(p50) && (
+              <div
+                className="absolute top-0 w-0.5 h-4 bg-ink-800 -translate-y-1"
+                style={{ left: `${p50Position}%` }}
+              />
+            )}
+          </div>
+
+          {/* Range labels */}
+          <div className="flex justify-between items-start">
+            <div>
+              <div className={`${typography.caption} font-medium text-ink-700 tabular-nums`}>
+                {formatValueCompact(p10, safeUnits, unitSymbol)}
+              </div>
+              <div className={`${typography.caption} text-ink-500`}>
+                Worst case
+              </div>
+            </div>
+            <div className="text-right">
+              <div className={`${typography.caption} font-medium text-ink-700 tabular-nums`}>
+                {formatValueCompact(p90, safeUnits, unitSymbol)}
+              </div>
+              <div className={`${typography.caption} text-ink-500`}>
+                Best case
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Interpretation messages */}
       {(rangeWidthMessage || baselineMessage) && (
-        <div className="pt-1 space-y-0.5">
+        <div className="space-y-1">
           {rangeWidthMessage && (
-            <div className={`${typography.caption} text-ink-500`}>
+            <p className={`${typography.caption} text-ink-600 leading-relaxed`}>
               {rangeWidthMessage}
-            </div>
+            </p>
           )}
           {baselineMessage && (
-            <div className={`${typography.caption} text-ink-500`}>
+            <p className={`${typography.caption} text-ink-600 leading-relaxed`}>
               {baselineMessage}
-            </div>
+            </p>
           )}
         </div>
       )}
