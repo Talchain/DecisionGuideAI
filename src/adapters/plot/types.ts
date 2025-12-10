@@ -382,6 +382,7 @@ export interface RunBundleRequest {
 
 /**
  * Request for key insight after run completes
+ * PLoT requires full context (graph + results), not just run_id
  */
 export interface KeyInsightRequest {
   /** Run ID or response hash from completed analysis */
@@ -390,10 +391,25 @@ export interface KeyInsightRequest {
   scenario_name?: string
   /** Optional: include drivers in response */
   include_drivers?: boolean
+  /** Graph context (required by PLoT /v1/assist/key-insight) */
+  graph?: {
+    nodes: Array<{ id: string; label: string; kind?: string; value?: number }>
+    edges: Array<{ id: string; source: string; target: string; weight?: number }>
+  }
+  /** Results context (required by PLoT /v1/assist/key-insight) */
+  results?: {
+    outcome_node_id?: string
+    expected_value?: number
+    percentiles?: { p10?: number; p50?: number; p90?: number }
+    confidence?: { level?: string; why?: string }
+  }
+  /** Ranked actions from run_bundle (optional) */
+  ranked_actions?: Array<{ node_id: string; label: string; rank: number; score: number }>
 }
 
 /**
  * Key insight response
+ * CEE key_insight.v1 schema: { insight: { insight, confidence, evidence, next_steps }, ranked_actions, ranking_confidence }
  */
 export interface KeyInsightResponse {
   /** Main headline insight (e.g., "Option A leads to 25% higher success") */
@@ -411,6 +427,30 @@ export interface KeyInsightResponse {
   caveat?: string
   /** Source attribution */
   provenance: 'cee'
+
+  // Additional CEE key_insight.v1 fields
+  /** Ranked actions from CEE analysis */
+  ranked_actions?: Array<{
+    node_id?: string
+    label: string
+    rank: number
+    score?: number
+    rationale?: string
+  }>
+  /** Overall ranking confidence */
+  ranking_confidence?: 'high' | 'medium' | 'low'
+  /** Evidence supporting the insight */
+  evidence?: Array<{
+    source?: string
+    claim?: string
+    strength?: 'strong' | 'moderate' | 'weak'
+  }>
+  /** Suggested next steps */
+  next_steps?: Array<{
+    action: string
+    priority?: 'high' | 'medium' | 'low'
+    rationale?: string
+  }>
 }
 
 // =============================================================================

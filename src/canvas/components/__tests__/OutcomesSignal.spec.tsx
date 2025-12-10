@@ -55,8 +55,18 @@ describe('OutcomesSignal', () => {
       expect(screen.getByTestId('outcomes-signal')).toBeInTheDocument()
     })
 
-    it('displays success likelihood value', () => {
+    it('displays compact view when collapsed (avoiding duplication with DecisionSummary)', () => {
       render(<OutcomesSignal />)
+      // When collapsed, shows "Outcome Details" label to avoid duplicating DecisionSummary
+      expect(screen.getByText('Outcome Details')).toBeInTheDocument()
+      // Shows range summary in collapsed view
+      expect(screen.getByText(/Range:/)).toBeInTheDocument()
+      // Does NOT show full "Success Likelihood" - that's in DecisionSummary
+      expect(screen.queryByText('Success Likelihood')).not.toBeInTheDocument()
+    })
+
+    it('displays success likelihood value when expanded', () => {
+      render(<OutcomesSignal defaultExpanded={true} />)
       expect(screen.getByText('Success Likelihood')).toBeInTheDocument()
       // Format shows one decimal place
       expect(screen.getByText('25.0%')).toBeInTheDocument()
@@ -81,23 +91,24 @@ describe('OutcomesSignal', () => {
 
   describe('baseline comparison', () => {
     describe('baseline === 0 (status quo)', () => {
-      it('shows comparison when baseline is exactly 0', () => {
-        render(<OutcomesSignal baseline={0} baselineName="do nothing" />)
+      it('shows comparison when baseline is exactly 0 (expanded)', () => {
+        render(<OutcomesSignal baseline={0} baselineName="do nothing" defaultExpanded={true} />)
 
         // Should show "25 pts above" since outcome is 25% (0.25) and baseline is 0
         expect(screen.getByText(/pts above/)).toBeInTheDocument()
-        expect(screen.getByText(/vs\. do nothing/)).toBeInTheDocument()
+        // Text appears in both header and detail section
+        expect(screen.getAllByText(/vs\. do nothing/).length).toBeGreaterThan(0)
       })
 
-      it('formats absolute change correctly with baseline=0', () => {
-        render(<OutcomesSignal baseline={0} baselineName="status quo" />)
+      it('formats absolute change correctly with baseline=0 (expanded)', () => {
+        render(<OutcomesSignal baseline={0} baselineName="status quo" defaultExpanded={true} />)
 
         // Outcome is 0.25 (25%), baseline is 0
         // Should show "+25 pts above status quo"
         expect(screen.getByText(/\+25 pts above/)).toBeInTheDocument()
       })
 
-      it('shows negative absolute change when outcome below baseline', () => {
+      it('shows negative absolute change when outcome below baseline (expanded)', () => {
         vi.mocked(useCanvasStore).mockImplementation((selector) => {
           const state = {
             results: {
@@ -116,7 +127,7 @@ describe('OutcomesSignal', () => {
         })
 
         // outcome 10% vs baseline 25% = -15 pts
-        render(<OutcomesSignal baseline={0.25} goalDirection="maximize" />)
+        render(<OutcomesSignal baseline={0.25} goalDirection="maximize" defaultExpanded={true} />)
 
         // Should show "worse" since outcome < baseline and goal is maximize
         expect(screen.getByText(/worse/)).toBeInTheDocument()
@@ -124,23 +135,23 @@ describe('OutcomesSignal', () => {
     })
 
     describe('identical options (negligible difference)', () => {
-      it('returns null comparison for negligible difference in 0-1 scale', () => {
+      it('returns null comparison for negligible difference in 0-1 scale (expanded)', () => {
         // Outcome is 0.25 (25%), baseline is 0.252 (25.2%)
         // Delta = -0.002 which is < 0.005 threshold
-        render(<OutcomesSignal baseline={0.252} />)
+        render(<OutcomesSignal baseline={0.252} defaultExpanded={true} />)
 
         expect(screen.getByText('No baseline for comparison')).toBeInTheDocument()
       })
 
-      it('returns null comparison for exactly identical values', () => {
-        render(<OutcomesSignal baseline={0.25} />)
+      it('returns null comparison for exactly identical values (expanded)', () => {
+        render(<OutcomesSignal baseline={0.25} defaultExpanded={true} />)
 
         expect(screen.getByText('No baseline for comparison')).toBeInTheDocument()
       })
 
-      it('shows comparison when difference is meaningful', () => {
+      it('shows comparison when difference is meaningful (expanded)', () => {
         // Baseline 0.20 (20%), outcome 0.25 (25%) = 5% difference
-        render(<OutcomesSignal baseline={0.20} />)
+        render(<OutcomesSignal baseline={0.20} defaultExpanded={true} />)
 
         expect(screen.queryByText('No baseline for comparison')).not.toBeInTheDocument()
         expect(screen.getByText(/better/)).toBeInTheDocument()
@@ -148,39 +159,39 @@ describe('OutcomesSignal', () => {
     })
 
     describe('no meaningful difference', () => {
-      it('handles null baseline gracefully', () => {
-        render(<OutcomesSignal baseline={null} />)
+      it('handles null baseline gracefully (expanded)', () => {
+        render(<OutcomesSignal baseline={null} defaultExpanded={true} />)
 
         expect(screen.getByText('No baseline for comparison')).toBeInTheDocument()
       })
 
-      it('handles undefined baseline gracefully', () => {
-        render(<OutcomesSignal baseline={undefined} />)
+      it('handles undefined baseline gracefully (expanded)', () => {
+        render(<OutcomesSignal baseline={undefined} defaultExpanded={true} />)
 
         expect(screen.getByText('No baseline for comparison')).toBeInTheDocument()
       })
     })
 
     describe('relative vs absolute comparison', () => {
-      it('uses percentage change for non-zero baseline', () => {
+      it('uses percentage change for non-zero baseline (expanded)', () => {
         // Baseline 0.20, outcome 0.25: (0.25-0.20)/0.20 = 25% increase
-        render(<OutcomesSignal baseline={0.20} />)
+        render(<OutcomesSignal baseline={0.20} defaultExpanded={true} />)
 
         // Should show "25% better" not "5 pts"
         expect(screen.getByText(/25% better/)).toBeInTheDocument()
       })
 
-      it('uses absolute pts for baseline=0', () => {
+      it('uses absolute pts for baseline=0 (expanded)', () => {
         // Baseline 0, outcome 0.25: show +25 pts
-        render(<OutcomesSignal baseline={0} />)
+        render(<OutcomesSignal baseline={0} defaultExpanded={true} />)
 
         expect(screen.getByText(/25 pts above/)).toBeInTheDocument()
       })
     })
 
     describe('goal direction interpretation', () => {
-      it('marks increase as positive when goal is maximize', () => {
-        render(<OutcomesSignal baseline={0.10} goalDirection="maximize" />)
+      it('marks increase as positive when goal is maximize (expanded)', () => {
+        render(<OutcomesSignal baseline={0.10} goalDirection="maximize" defaultExpanded={true} />)
 
         // Outcome 25% > baseline 10% = increase = positive for maximize
         // Should use mint-600 (positive color)
@@ -188,7 +199,7 @@ describe('OutcomesSignal', () => {
         expect(comparison).toHaveClass('text-mint-600')
       })
 
-      it('marks decrease as positive when goal is minimize', () => {
+      it('marks decrease as positive when goal is minimize (expanded)', () => {
         vi.mocked(useCanvasStore).mockImplementation((selector) => {
           const state = {
             results: {
@@ -206,14 +217,14 @@ describe('OutcomesSignal', () => {
           return selector(state as any)
         })
 
-        render(<OutcomesSignal baseline={0.25} goalDirection="minimize" />)
+        render(<OutcomesSignal baseline={0.25} goalDirection="minimize" defaultExpanded={true} />)
 
         // Outcome 10% < baseline 25% = decrease = positive for minimize
         const comparison = screen.getByText(/better/)
         expect(comparison).toHaveClass('text-mint-600')
       })
 
-      it('marks increase as negative when goal is minimize', () => {
+      it('marks increase as negative when goal is minimize (expanded)', () => {
         vi.mocked(useCanvasStore).mockImplementation((selector) => {
           const state = {
             results: {
@@ -231,7 +242,7 @@ describe('OutcomesSignal', () => {
           return selector(state as any)
         })
 
-        render(<OutcomesSignal baseline={0.20} goalDirection="minimize" />)
+        render(<OutcomesSignal baseline={0.20} goalDirection="minimize" defaultExpanded={true} />)
 
         // Outcome 40% > baseline 20% = increase = negative for minimize
         const comparison = screen.getByText(/worse/)

@@ -155,7 +155,8 @@ optimizeDeps: {
         target: env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/bff\/cee/, ''),
+        // Rewrite /bff/cee/* → /assist/v1/* (CEE service expects /assist/v1 prefix)
+        rewrite: (path) => path.replace(/^\/bff\/cee/, '/assist/v1'),
         configure: (proxy) => {
           const ceeTarget = env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com'
           const ceeApiKey = env.ASSIST_API_KEY
@@ -231,7 +232,8 @@ optimizeDeps: {
         target: env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/bff\/cee/, ''),
+        // Rewrite /bff/cee/* → /assist/v1/* (CEE service expects /assist/v1 prefix)
+        rewrite: (path) => path.replace(/^\/bff\/cee/, '/assist/v1'),
         configure: (proxy) => {
           const ceeTarget = env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com'
           const ceeApiKey = env.ASSIST_API_KEY

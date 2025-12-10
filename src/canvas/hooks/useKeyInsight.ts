@@ -10,10 +10,12 @@
  * - Error handling with retry
  * - Caches result per response_hash
  * - Manual refresh capability
+ * - Passes full graph and results context to PLoT (required by /v1/assist/key-insight)
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { httpV1Adapter } from '../../adapters/plot/httpV1Adapter'
+import { useCanvasStore } from '../store'
 import type { KeyInsightResponse } from '../../adapters/plot/types'
 
 interface UseKeyInsightOptions {
@@ -51,6 +53,11 @@ export function useKeyInsight({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Get graph and results from store (required by PLoT /v1/assist/key-insight)
+  const nodes = useCanvasStore((s) => s.nodes)
+  const edges = useCanvasStore((s) => s.edges)
+  const results = useCanvasStore((s) => s.results)
+
   // Track last fetched hash to prevent duplicate fetches
   const lastFetchedHashRef = useRef<string | null>(null)
 
@@ -79,10 +86,44 @@ export function useKeyInsight({
     setError(null)
 
     try {
+      // Build graph payload for PLoT (required by /v1/assist/key-insight)
+      const graphPayload = {
+        nodes: nodes.map((n) => ({
+          id: n.id,
+          label: (n.data as any)?.label || n.id,
+          kind: n.type,
+          value: (n.data as any)?.value,
+        })),
+        edges: edges.map((e) => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          weight: (e.data as any)?.weight,
+        })),
+      }
+
+      // Build results payload from analysis results
+      const report = results?.report
+      const resultsPayload = report?.results ? {
+        outcome_node_id: report.model_card?.outcome_node_id,
+        expected_value: report.results.likely,
+        percentiles: {
+          p10: report.results.conservative,
+          p50: report.results.likely,
+          p90: report.results.optimistic,
+        },
+        confidence: report.confidence ? {
+          level: report.confidence.level,
+          why: report.confidence.why,
+        } : undefined,
+      } : undefined
+
       const response = await httpV1Adapter.keyInsight({
         run_id: responseHash,
         scenario_name: scenarioName,
         include_drivers: includeDrivers,
+        graph: graphPayload,
+        results: resultsPayload,
       })
 
       // Cache the result
@@ -99,7 +140,7 @@ export function useKeyInsight({
     } finally {
       setLoading(false)
     }
-  }, [responseHash, scenarioName, includeDrivers, loading])
+  }, [responseHash, scenarioName, includeDrivers, loading, nodes, edges, results])
 
   // Auto-fetch when responseHash changes
   useEffect(() => {

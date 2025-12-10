@@ -310,6 +310,7 @@ export interface V1RunBundleResponse {
 
 /**
  * Request for key insight after run_bundle completes
+ * PLoT requires full context (graph + results), not just run_id
  */
 export interface V1KeyInsightRequest {
   /** Run ID or response hash from completed analysis */
@@ -318,6 +319,20 @@ export interface V1KeyInsightRequest {
   scenario_name?: string
   /** Optional: include drivers in response */
   include_drivers?: boolean
+  /** Graph context (required by PLoT /v1/assist/key-insight) */
+  graph?: {
+    nodes: Array<{ id: string; label: string; kind?: string; value?: number }>
+    edges: Array<{ id: string; source: string; target: string; weight?: number }>
+  }
+  /** Results context (required by PLoT /v1/assist/key-insight) */
+  results?: {
+    outcome_node_id?: string
+    expected_value?: number
+    percentiles?: { p10?: number; p50?: number; p90?: number }
+    confidence?: { level?: string; why?: string }
+  }
+  /** Ranked actions from run_bundle (optional) */
+  ranked_actions?: Array<{ node_id: string; label: string; rank: number; score: number }>
 }
 
 /**

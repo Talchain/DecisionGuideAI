@@ -176,7 +176,7 @@ export function OutcomesSignal({
         </div>
       )}
 
-      {/* Main outcome display */}
+      {/* Main outcome display - minimal when collapsed to avoid duplication with DecisionSummary */}
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -189,19 +189,27 @@ export function OutcomesSignal({
           ) : (
             <ChevronRight className="h-4 w-4 text-ink-500" />
           )}
-          <div>
-            <span className={`${typography.caption} text-ink-500 block`}>
-              Success Likelihood
+          {isExpanded ? (
+            // Full display when expanded
+            <div>
+              <span className={`${typography.caption} text-ink-500 block`}>
+                Success Likelihood
+              </span>
+              <span className={`${typography.h3} font-bold text-ink-900`}>
+                {formatOutcomeValue(outcomes.p50, outcomes.units, outcomes.unitSymbol)}
+              </span>
+            </div>
+          ) : (
+            // Minimal display when collapsed - just a label since DecisionSummary shows the main value
+            <span className={`${typography.body} font-medium text-ink-800`}>
+              Outcome Details
             </span>
-            <span className={`${typography.h3} font-bold text-ink-900`}>
-              {formatOutcomeValue(outcomes.p50, outcomes.units, outcomes.unitSymbol)}
-            </span>
-          </div>
+          )}
         </div>
 
-        {/* Comparison context */}
+        {/* Comparison context - only show when expanded */}
         <div className="text-right">
-          {comparison ? (
+          {isExpanded && comparison ? (
             <div className="flex flex-col items-end">
               <span
                 className={`${typography.bodySmall} flex items-center gap-1 font-medium ${
@@ -223,6 +231,11 @@ export function OutcomesSignal({
                 vs. {baselineName}
               </span>
             </div>
+          ) : !isExpanded ? (
+            // Collapsed: show compact summary
+            <span className={`${typography.caption} text-ink-500`}>
+              Range: {formatOutcomeValueCompact(outcomes.p10, outcomes.units, outcomes.unitSymbol)} – {formatOutcomeValueCompact(outcomes.p90, outcomes.units, outcomes.unitSymbol)}
+            </span>
           ) : (
             <span className={`${typography.caption} text-ink-400`}>
               No baseline for comparison

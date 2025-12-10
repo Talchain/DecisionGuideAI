@@ -11,7 +11,7 @@
  * the recommendation in <10 seconds.
  */
 
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 import {
   Target,
   TrendingUp,
@@ -129,9 +129,15 @@ export function DecisionSummary({
   // Conformal predictions for specific guidance
   const { data: conformalData, loading: conformalLoading, predict } = useISLConformal()
 
-  // Auto-fetch conformal predictions when results exist
+  // Track if we've attempted conformal fetch (don't retry on failure)
+  const conformalAttemptedRef = useRef(false)
+
+  // Auto-fetch conformal predictions when results exist (with circuit breaker)
   useEffect(() => {
-    if (!report?.results || nodes.length === 0 || conformalData || conformalLoading) return
+    if (!report?.results || nodes.length === 0 || conformalData || conformalLoading || conformalAttemptedRef.current) return
+
+    // Mark as attempted immediately to prevent retry loop
+    conformalAttemptedRef.current = true
 
     const timer = setTimeout(() => {
       predict({
@@ -140,13 +146,24 @@ export function DecisionSummary({
           enable_conformal: true,
           confidence_level: 0.95,
         },
-      }).catch(() => {
-        // Silently fail - specific guidance is optional
+      }).catch((err) => {
+        // Log but don't retry - 401/404 won't fix themselves
+        const status = err?.status || err?.code
+        if (status === 401 || status === 404) {
+          console.warn(`[DecisionSummary] ISL conformal unavailable (${status})`)
+        }
       })
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [report?.results, nodes, edges, conformalData, conformalLoading, predict])
+  }, [report?.results, nodes.length, edges.length, conformalData, conformalLoading, predict])
+
+  // Reset attempted flag when results change (new analysis run)
+  useEffect(() => {
+    if (!report?.results) {
+      conformalAttemptedRef.current = false
+    }
+  }, [report?.results])
 
   // Find worst calibrated node for specific guidance
   const worstCalibratedNode = useMemo(() => {

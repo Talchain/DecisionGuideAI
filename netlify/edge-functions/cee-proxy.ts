@@ -15,9 +15,10 @@ const CEE_TARGET = 'https://olumi-assistants-service.onrender.com'
 export default async function handler(request: Request, context: Context) {
   const apiKey = Deno.env.get('ASSIST_API_KEY')
 
-  // Extract the path after /bff/cee/
+  // Extract the path after /bff/cee/ and prefix with /assist/v1
+  // e.g., /bff/cee/key-insight → /assist/v1/key-insight
   const url = new URL(request.url)
-  const targetPath = url.pathname.replace(/^\/bff\/cee/, '')
+  const targetPath = url.pathname.replace(/^\/bff\/cee/, '/assist/v1')
   const targetUrl = `${CEE_TARGET}${targetPath}${url.search}`
 
   // Clone headers and add auth

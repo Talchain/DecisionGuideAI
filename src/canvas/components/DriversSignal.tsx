@@ -13,7 +13,7 @@
  * - Color-coded polarity indicators
  */
 
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import {
   ChevronDown,
   ChevronRight,
@@ -28,6 +28,7 @@ import { useCanvasStore } from '../store'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 import { typography } from '../../styles/typography'
 import { useISLConformal } from '../../hooks/useISLConformal'
+import { useKeyInsight } from '../hooks/useKeyInsight'
 import { buildRichGraphPayload } from '../utils/graphPayload'
 import type { ISLConformalPrediction } from '../../adapters/isl/types'
 
@@ -130,15 +131,30 @@ export function DriversSignal({
   const setHighlightedNodes = useCanvasStore((s) => s.setHighlightedNodes)
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
+  const runMeta = useCanvasStore((s) => s.runMeta)
   const report = results?.report
 
-  // Conformal predictions for sensitivity badges
-  const { data: conformalData, loading: conformalLoading, predict } = useISLConformal()
+  // Key Insight from CEE (fallback for drivers when ISL fails)
+  const responseHash = report?.model_card?.response_hash
+  const { insight: keyInsight } = useKeyInsight({
+    responseHash,
+    autoFetch: true,
+    includeDrivers: true,
+  })
 
-  // Auto-fetch conformal predictions when results exist
+  // Conformal predictions for sensitivity badges
+  const { data: conformalData, loading: conformalLoading, error: conformalError, predict } = useISLConformal()
+
+  // Track if we've attempted conformal fetch (don't retry on failure)
+  const conformalAttemptedRef = useRef(false)
+
+  // Auto-fetch conformal predictions when results exist (with circuit breaker)
   useEffect(() => {
-    // Only fetch if we have results, nodes, and haven't fetched yet
-    if (!report?.drivers || nodes.length === 0 || conformalData || conformalLoading) return
+    // Only fetch if we have results, nodes, and haven't attempted yet
+    if (!report?.drivers || nodes.length === 0 || conformalData || conformalLoading || conformalAttemptedRef.current) return
+
+    // Mark as attempted immediately to prevent retry loop
+    conformalAttemptedRef.current = true
 
     const timer = setTimeout(() => {
       predict({
@@ -147,13 +163,28 @@ export function DriversSignal({
           enable_conformal: true,
           confidence_level: 0.95,
         },
-      }).catch(() => {
-        // Silently fail - badges are optional enhancement
+      }).catch((err) => {
+        // Log but don't retry - 401/404 won't fix themselves
+        const status = err?.status || err?.code
+        if (status === 401) {
+          console.warn('[DriversSignal] ISL conformal unauthorized (401) - check ISL_API_KEY')
+        } else if (status === 404) {
+          console.warn('[DriversSignal] ISL conformal endpoint not found (404)')
+        } else {
+          console.warn('[DriversSignal] ISL conformal failed:', err?.message || err)
+        }
       })
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [report?.drivers, nodes, edges, conformalData, conformalLoading, predict])
+  }, [report?.drivers, nodes.length, edges.length, conformalData, conformalLoading, predict])
+
+  // Reset attempted flag when results change (new analysis run)
+  useEffect(() => {
+    if (!report?.drivers) {
+      conformalAttemptedRef.current = false
+    }
+  }, [report?.drivers])
 
   // Create mapping from node_id to conformal prediction
   const conformalByNodeId = useMemo(() => {
@@ -212,16 +243,57 @@ export function DriversSignal({
 
   // Extract and filter drivers to causal factors only
   // If we can't determine the kind, include it (assume causal) rather than excluding
-  const { causalDrivers, otherDrivers } = useMemo(() => {
-    if (!report?.drivers) return { causalDrivers: [], otherDrivers: [] }
+  // Falls back to Key Insight's primary_driver when ISL/analysis drivers unavailable
+  const { causalDrivers, otherDrivers, hasFallbackDriver } = useMemo(() => {
+    // Primary source: report.drivers from analysis
+    let reportDrivers = report?.drivers || []
 
-    const causal: typeof report.drivers = []
-    const other: typeof report.drivers = []
+    // Fallback source: Key Insight's primary_driver from CEE
+    // Also try CEE story's key_drivers as secondary fallback
+    if (reportDrivers.length === 0) {
+      const fallbackDrivers: typeof reportDrivers = []
+
+      // Try Key Insight primary_driver first
+      if (keyInsight?.primary_driver) {
+        fallbackDrivers.push({
+          label: keyInsight.primary_driver.label,
+          polarity: 'up' as const, // Default to positive since it's the "primary driver"
+          strength: 'high' as const, // Primary driver is high importance
+          contribution: keyInsight.primary_driver.contribution_pct / 100,
+        })
+      }
+
+      // Try CEE story key_drivers as additional fallback
+      const storyDrivers = runMeta?.ceeReview?.story?.key_drivers || []
+      for (const sd of storyDrivers) {
+        // Don't duplicate if already added from primary_driver
+        if (fallbackDrivers.some(d => d.label === sd.label)) continue
+        fallbackDrivers.push({
+          label: sd.label,
+          polarity: sd.polarity || ('up' as const),
+          strength: sd.impact === 'high' ? ('high' as const) : sd.impact === 'low' ? ('low' as const) : ('medium' as const),
+          contribution: sd.contribution_pct ? sd.contribution_pct / 100 : undefined,
+        })
+      }
+
+      if (fallbackDrivers.length > 0) {
+        return {
+          causalDrivers: fallbackDrivers,
+          otherDrivers: [],
+          hasFallbackDriver: true,
+        }
+      }
+
+      return { causalDrivers: [], otherDrivers: [], hasFallbackDriver: false }
+    }
+
+    const causal: typeof reportDrivers = []
+    const other: typeof reportDrivers = []
 
     // Structural types to explicitly exclude (these are not causal factors)
     const STRUCTURAL_TYPES = new Set(['goal', 'decision', 'option', 'outcome'])
 
-    for (const driver of report.drivers) {
+    for (const driver of reportDrivers) {
       const kind = getDriverNodeKind(driver)
       // Exclude known structural types, but include everything else
       // This handles the case where backend doesn't return node_kind
@@ -234,7 +306,7 @@ export function DriversSignal({
     }
 
     // Sort each group by contribution (highest first) or strength
-    const sortDrivers = (drivers: typeof report.drivers) =>
+    const sortDrivers = (drivers: typeof reportDrivers) =>
       [...drivers].sort((a, b) => {
         if (a.contribution !== undefined && b.contribution !== undefined) {
           return b.contribution - a.contribution
@@ -246,8 +318,9 @@ export function DriversSignal({
     return {
       causalDrivers: sortDrivers(causal),
       otherDrivers: sortDrivers(other),
+      hasFallbackDriver: false,
     }
-  }, [report, getDriverNodeKind])
+  }, [report, getDriverNodeKind, keyInsight, runMeta])
 
   // Primary drivers to display (causal factors with >5% contribution)
   // Limit to max 5 for scanability
@@ -301,16 +374,24 @@ export function DriversSignal({
       )
     }
 
+    // Different messages based on whether we have results but ISL failed
+    const hasResults = report?.results
+    const islFailed = conformalError || conformalAttemptedRef.current
+
     return (
       <div className="p-4 bg-sand-50 border border-sand-200 rounded-xl">
         <div className="flex items-center gap-3">
           <Zap className="h-5 w-5 text-sand-400 flex-shrink-0" />
           <div>
             <p className={`${typography.body} text-sand-600`}>
-              No drivers identified
+              {hasResults && islFailed
+                ? 'Driver analysis unavailable'
+                : 'No drivers identified'}
             </p>
             <p className={`${typography.caption} text-sand-500`}>
-              Run analysis to see key factors influencing the outcome
+              {hasResults && islFailed
+                ? 'Sensitivity data temporarily unavailable'
+                : 'Run analysis to see key factors influencing the outcome'}
             </p>
           </div>
         </div>
@@ -435,19 +516,28 @@ export function DriversSignal({
         })}
 
         {/* Footer with count and note about filtering */}
-        {hasFilteredDrivers && (
+        {(hasFilteredDrivers || hasFallbackDriver) && (
           <div className="px-4 py-2 bg-sand-50">
             <span className={`${typography.caption} text-ink-500`}>
-              {drivers.length} driver{drivers.length !== 1 ? 's' : ''} with &gt;5% impact
-              {filteredOutCount > 0 && (
-                <span className="text-ink-400">
-                  {' '}• {filteredOutCount} minor factor{filteredOutCount !== 1 ? 's' : ''} hidden
-                </span>
-              )}
-              {otherDrivers.length > 0 && (
-                <span className="text-ink-400">
-                  {' '}• {otherDrivers.length} structural node{otherDrivers.length !== 1 ? 's' : ''} excluded
-                </span>
+              {hasFallbackDriver ? (
+                <>
+                  <span className="text-violet-600">From Key Insight</span>
+                  <span className="text-ink-400"> • Sensitivity data unavailable</span>
+                </>
+              ) : (
+                <>
+                  {drivers.length} driver{drivers.length !== 1 ? 's' : ''} with &gt;5% impact
+                  {filteredOutCount > 0 && (
+                    <span className="text-ink-400">
+                      {' '}• {filteredOutCount} minor factor{filteredOutCount !== 1 ? 's' : ''} hidden
+                    </span>
+                  )}
+                  {otherDrivers.length > 0 && (
+                    <span className="text-ink-400">
+                      {' '}• {otherDrivers.length} structural node{otherDrivers.length !== 1 ? 's' : ''} excluded
+                    </span>
+                  )}
+                </>
               )}
             </span>
           </div>

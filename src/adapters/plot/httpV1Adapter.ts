@@ -776,19 +776,55 @@ export const httpV1Adapter = {
     try {
       if (import.meta.env.DEV) {
         console.log(`🔮 [httpV1] POST /v1/assist/key-insight (run_id=${request.run_id})`)
+        console.log(`🔮 [httpV1] Graph nodes: ${request.graph?.nodes?.length || 0}, edges: ${request.graph?.edges?.length || 0}`)
+        console.log(`🔮 [httpV1] Results: ${request.results ? 'present' : 'absent'}`)
       }
 
+      // Pass through ALL fields including graph and results (required by PLoT)
       const response = await v1http.keyInsight({
         run_id: request.run_id,
         scenario_name: request.scenario_name,
         include_drivers: request.include_drivers,
+        graph: request.graph,
+        results: request.results,
+        ranked_actions: request.ranked_actions,
       })
 
+      // DEBUG: Log full raw response to identify correct property path
       if (import.meta.env.DEV) {
-        console.log(`✅ [httpV1] Key insight received: "${response.headline?.slice(0, 50)}..."`)
+        console.log(`🔮 [httpV1] Key insight RAW response:`, JSON.stringify(response, null, 2))
       }
 
-      return response
+      // Map response to UI type - handle multiple possible structures from backend
+      // CEE key_insight.v1 returns: { insight: { insight: string, confidence, evidence, next_steps } }
+      const rawResponse = response as any
+      const headline = rawResponse.headline
+        ?? rawResponse.insight?.insight     // CEE key_insight.v1: nested insight.insight
+        ?? rawResponse.insight?.summary
+        ?? rawResponse.insight?.headline
+        ?? rawResponse.key_insight
+        ?? rawResponse.summary
+        ?? null
+
+      if (import.meta.env.DEV) {
+        console.log(`✅ [httpV1] Key insight extracted headline: "${headline?.slice(0, 50) ?? 'null'}..."`)
+      }
+
+      // Extract confidence from nested insight object or top-level
+      const confidence = rawResponse.insight?.confidence ?? rawResponse.ranking_confidence ?? rawResponse.confidence
+
+      return {
+        headline: headline || '',
+        primary_driver: rawResponse.primary_driver ?? rawResponse.insight?.primary_driver,
+        confidence_statement: confidence ? `Confidence: ${confidence}` : rawResponse.confidence_statement,
+        caveat: rawResponse.caveat ?? rawResponse.insight?.caveat,
+        provenance: 'cee',
+        // Pass through additional CEE fields for UI consumption
+        ranked_actions: rawResponse.ranked_actions,
+        ranking_confidence: rawResponse.ranking_confidence,
+        evidence: rawResponse.insight?.evidence,
+        next_steps: rawResponse.insight?.next_steps,
+      } as KeyInsightResponse
     } catch (err: any) {
       throw mapV1ErrorToUI(err as V1Error)
     }

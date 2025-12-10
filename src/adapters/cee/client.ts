@@ -27,7 +27,7 @@ export class CEEError extends Error {
   }
 }
 
-// Adapt the raw /assist/v1/draft-graph response into the CEEDraftResponse
+// Adapt the raw /draft-graph response into the CEEDraftResponse
 // shape expected by the UI. This is defensive so partially malformed
 // responses can still yield a reasonable graph.
 export function adaptDraftResponse(raw: any): CEEDraftResponse {
@@ -275,10 +275,10 @@ export class CEEClient {
 
   /**
    * Generate draft model from description
-   * Calls CEE /assist/v1/draft-graph endpoint
+   * Calls CEE /draft-graph endpoint (proxy adds /assist/v1 prefix)
    */
   async draftModel(description: string): Promise<CEEDraftResponse> {
-    const raw = await this.fetch<any>('/assist/v1/draft-graph', {
+    const raw = await this.fetch<any>('/draft-graph', {
       method: 'POST',
       body: JSON.stringify({ brief: description }),
     })
@@ -288,7 +288,7 @@ export class CEEClient {
 
   /**
    * Check for cognitive biases in a decision graph
-   * Endpoint: POST /assist/v1/bias-check
+   * Endpoint: POST /bias-check (proxy adds /assist/v1 prefix)
    *
    * @param graph - The decision graph with nodes and edges
    * @param archetype - Optional archetype for context
@@ -300,7 +300,7 @@ export class CEEClient {
     },
     archetype?: string
   ): Promise<CEEInsightsResponse> {
-    return this.fetch<CEEInsightsResponse>('/assist/v1/bias-check', {
+    return this.fetch<CEEInsightsResponse>('/bias-check', {
       method: 'POST',
       body: JSON.stringify({ graph, archetype }),
     })
@@ -308,7 +308,7 @@ export class CEEClient {
 
   /**
    * Get sensitivity analysis coaching for a decision
-   * Endpoint: POST /assist/v1/sensitivity-coach
+   * Endpoint: POST /sensitivity-coach (proxy adds /assist/v1 prefix)
    *
    * @param graph - The decision graph with nodes and edges
    * @param inference - The inference/analysis context
@@ -320,7 +320,7 @@ export class CEEClient {
     },
     inference: Record<string, unknown>
   ): Promise<CEEInsightsResponse> {
-    return this.fetch<CEEInsightsResponse>('/assist/v1/sensitivity-coach', {
+    return this.fetch<CEEInsightsResponse>('/sensitivity-coach', {
       method: 'POST',
       body: JSON.stringify({ graph, inference }),
     })

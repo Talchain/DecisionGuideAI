@@ -107,18 +107,30 @@ function validateInsightConsistency(
   if (extremeClaimMatch) {
     const claimedChange = parseInt(extremeClaimMatch[1], 10)
 
-    // If claiming >50% change, validate against actual outcome
+    // If claiming >50% change, validate against actual values
     if (claimedChange > 50 && outcomeValue != null) {
+      // Calculate actual percentage change if we have baseline
+      let actualChangePercent: number | null = null
+      if (baselineValue != null && baselineValue !== 0) {
+        actualChangePercent = ((outcomeValue - baselineValue) / Math.abs(baselineValue)) * 100
+      }
+
+      // Detect mismatch: claimed change significantly differs from actual
+      const isMismatch = actualChangePercent != null &&
+        Math.abs(claimedChange - Math.abs(actualChangePercent)) > 30
+
       // If outcome is a reasonable probability (0-1 range or 0-100 range),
       // extreme claims are likely backend calculation errors
       const isReasonableOutcome = (outcomeValue >= 0 && outcomeValue <= 1) ||
                                   (outcomeValue >= 0 && outcomeValue <= 100)
 
-      if (isReasonableOutcome) {
+      if (isReasonableOutcome && (isMismatch || actualChangePercent === null)) {
         console.warn('[InsightsPanel] Extreme percentage claim detected:', {
           summary,
           claimedChange: `${claimedChange}%`,
           outcomeValue,
+          baselineValue,
+          actualChangePercent: actualChangePercent != null ? `${actualChangePercent.toFixed(1)}%` : 'N/A',
         })
 
         // Generate a sensible summary based on actual outcome
@@ -137,8 +149,29 @@ function validateInsightConsistency(
     }
   }
 
-  // Original baseline comparison logic
-  if (outcomeValue == null || baselineValue == null || baselineValue === 0) {
+  // Handle baseline = 0 case separately (the "do nothing" scenario)
+  // We can't calculate percentage change from 0, but we can validate the summary direction
+  if (baselineValue === 0 && outcomeValue != null) {
+    // When baseline is 0, any positive outcome is an improvement
+    const isPositiveOutcome = outcomeValue > 0
+    const claimsDecrease = /decrease|drop|decline|fall|worse|lower|reduce|down by/i.test(summary)
+
+    // Contradiction: positive outcome but claims decrease from baseline
+    if (isPositiveOutcome && claimsDecrease) {
+      console.warn('[InsightsPanel] Baseline 0 contradiction detected:', { outcomeValue, summary })
+      const displayValue = outcomeValue >= 0 && outcomeValue <= 1
+        ? `${(outcomeValue * 100).toFixed(0)}%`
+        : `${outcomeValue.toFixed(0)}%`
+      return {
+        summary: `Expected outcome is ${displayValue} with this approach, compared to baseline of 0% without action.`,
+        wasContradictory: true
+      }
+    }
+    return { summary, wasContradictory: false }
+  }
+
+  // Original baseline comparison logic - skip if values unavailable
+  if (outcomeValue == null || baselineValue == null) {
     return { summary, wasContradictory: false }
   }
 
@@ -182,6 +215,7 @@ function validateInsightConsistency(
 
 /**
  * Generate driver-focused insight text instead of restating percentages
+ * Avoids circular phrasing like "X is driving outcomes, supported by X"
  */
 function generateDriverInsight(
   drivers: DriverSummary[] | undefined,
@@ -209,19 +243,41 @@ function generateDriverInsight(
   // Generate insight based on driver analysis
   if (positiveDrivers.length > 0 && negativeDrivers.length === 0) {
     const topDriver = positiveDrivers[0]
-    const strengthText = topDriver.strength === 'high' ? 'strongly' : topDriver.strength === 'medium' ? 'moderately' : ''
-    return `${topDriver.label} is ${strengthText} driving favorable outcomes${positiveDrivers.length > 1 ? `, supported by ${positiveDrivers[1].label}` : ''}.`
+    const strengthText = topDriver.strength === 'high' ? 'strongly ' : topDriver.strength === 'medium' ? '' : 'somewhat '
+
+    // For single driver, don't mention "supported by" at all
+    if (positiveDrivers.length === 1) {
+      return `${topDriver.label} is the key factor ${strengthText}driving favorable outcomes.`
+    }
+
+    // For multiple drivers, only add second driver if it's different
+    const secondDriver = positiveDrivers[1]
+    if (secondDriver.label.toLowerCase() !== topDriver.label.toLowerCase()) {
+      return `${topDriver.label} ${strengthText}drives favorable outcomes, reinforced by ${secondDriver.label}.`
+    }
+
+    return `${topDriver.label} is the key factor ${strengthText}driving favorable outcomes.`
   }
 
   if (negativeDrivers.length > 0 && positiveDrivers.length === 0) {
     const topDriver = negativeDrivers[0]
-    const strengthText = topDriver.strength === 'high' ? 'significantly' : topDriver.strength === 'medium' ? 'moderately' : ''
-    return `${topDriver.label} is ${strengthText} limiting outcomes${negativeDrivers.length > 1 ? `, compounded by ${negativeDrivers[1].label}` : ''}.`
+    const strengthText = topDriver.strength === 'high' ? 'significantly ' : topDriver.strength === 'medium' ? '' : 'somewhat '
+
+    if (negativeDrivers.length === 1) {
+      return `${topDriver.label} is ${strengthText}limiting outcomes - consider addressing this factor.`
+    }
+
+    const secondDriver = negativeDrivers[1]
+    if (secondDriver.label.toLowerCase() !== topDriver.label.toLowerCase()) {
+      return `${topDriver.label} ${strengthText}limits outcomes, compounded by ${secondDriver.label}.`
+    }
+
+    return `${topDriver.label} is ${strengthText}limiting outcomes - consider addressing this factor.`
   }
 
   // Mixed drivers
   if (positiveDrivers.length > 0 && negativeDrivers.length > 0) {
-    return `${positiveDrivers[0].label} is helping, but ${negativeDrivers[0].label} is holding back results.`
+    return `${positiveDrivers[0].label} helps outcomes, while ${negativeDrivers[0].label} acts as a constraint.`
   }
 
   return null

@@ -40,6 +40,15 @@ const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
 }
 
+/**
+ * Get CEE (assistants) service base URL for DIRECT CEE calls
+ * Only used for endpoints without PLoT proxy: draft-graph, bias-check, graph-readiness
+ * Most CEE endpoints (key-insight, elicit/*, suggest/*) go through PLoT via getProxyBase()
+ */
+const getCeeBase = (): string => {
+  return import.meta.env.VITE_CEE_BFF_BASE || '/bff/cee'
+}
+
 const getTimeouts = () => ({
   sync: parseInt(import.meta.env.VITE_PLOT_SYNC_TIMEOUT_MS || String(TIMEOUTS.SYNC_REQUEST_MS), 10),
   stream: parseInt(import.meta.env.VITE_PLOT_STREAM_TIMEOUT_MS || String(TIMEOUTS.SYNC_REQUEST_MS * 4), 10),
@@ -712,11 +721,18 @@ export async function runBundle(request: V1RunBundleRequest): Promise<V1RunBundl
  * Get key insight headline after run completes
  */
 export async function keyInsight(request: V1KeyInsightRequest): Promise<V1KeyInsightResponse> {
-  const base = getProxyBase()
+  const base = getProxyBase() // Route through PLoT (which proxies to CEE)
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 10000)
 
+  // Debug logging for 400 errors
+  if (import.meta.env.DEV) {
+    console.log('[keyInsight] Request:', JSON.stringify(request, null, 2))
+    console.log('[keyInsight] URL:', `${base}/v1/assist/key-insight`)
+  }
+
   try {
+    // PLoT proxies /v1/assist/* to CEE
     const response = await fetch(`${base}/v1/assist/key-insight`, {
       method: 'POST',
       headers: {
@@ -729,6 +745,16 @@ export async function keyInsight(request: V1KeyInsightRequest): Promise<V1KeyIns
     })
 
     if (!response.ok) {
+      // Debug: Log response body for 400 errors
+      if (import.meta.env.DEV && response.status === 400) {
+        try {
+          const errorBody = await response.clone().json()
+          console.error('[keyInsight] 400 Bad Request - response:', errorBody)
+        } catch {
+          const errorText = await response.clone().text()
+          console.error('[keyInsight] 400 Bad Request - response:', errorText)
+        }
+      }
       throw await mapHttpError(response)
     }
 
@@ -763,11 +789,12 @@ export async function keyInsight(request: V1KeyInsightRequest): Promise<V1KeyIns
  * Parse natural language to belief value
  */
 export async function elicitBelief(request: V1BeliefElicitRequest): Promise<V1BeliefElicitResponse> {
-  const base = getProxyBase()
+  const base = getProxyBase() // Route through PLoT (which proxies to CEE)
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 10000)
 
   try {
+    // PLoT proxies /v1/elicit/* to CEE
     const response = await fetch(`${base}/v1/elicit/belief`, {
       method: 'POST',
       headers: {
@@ -817,11 +844,12 @@ export async function elicitBelief(request: V1BeliefElicitRequest): Promise<V1Be
 export async function suggestUtilityWeights(
   request: V1UtilityWeightRequest
 ): Promise<V1UtilityWeightResponse> {
-  const base = getProxyBase()
+  const base = getProxyBase() // Route through PLoT (which proxies to CEE)
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 15000) // Longer timeout for complex analysis
 
   try {
+    // PLoT proxies /v1/suggest/* to CEE
     const response = await fetch(`${base}/v1/suggest/utility-weights`, {
       method: 'POST',
       headers: {
@@ -869,11 +897,12 @@ export async function suggestUtilityWeights(
 export async function elicitRiskTolerance(
   request: V1RiskToleranceRequest
 ): Promise<V1RiskQuestionsResponse | V1RiskProfileResponse> {
-  const base = getProxyBase()
+  const base = getProxyBase() // Route through PLoT (which proxies to CEE)
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 10000)
 
   try {
+    // PLoT proxies /v1/elicit/* to CEE
     const response = await fetch(`${base}/v1/elicit/risk-tolerance`, {
       method: 'POST',
       headers: {
