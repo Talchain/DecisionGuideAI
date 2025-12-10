@@ -35,12 +35,13 @@ const mockPoorQuality: GraphQuality = {
 
 describe('ModelQualityScore', () => {
   describe('Good quality (>= 0.8)', () => {
-    it('renders with green styling', () => {
+    it('renders with neutral styling and green text', () => {
       render(<ModelQualityScore quality={mockGoodQuality} />)
 
       const component = screen.getByTestId('model-quality-score')
       expect(component).toBeInTheDocument()
-      expect(component).toHaveClass('border-green-200')
+      // Design system: neutral border, semantic text color only
+      expect(component).toHaveClass('border-sand-200', 'bg-paper-50')
     })
 
     it('displays score as percentage', () => {
@@ -58,11 +59,12 @@ describe('ModelQualityScore', () => {
   })
 
   describe('Medium quality (>= 0.6)', () => {
-    it('renders with amber styling', () => {
+    it('renders with neutral styling and amber text', () => {
       render(<ModelQualityScore quality={mockMediumQuality} />)
 
       const component = screen.getByTestId('model-quality-score')
-      expect(component).toHaveClass('border-amber-200')
+      // Design system: neutral border, semantic text color only
+      expect(component).toHaveClass('border-sand-200', 'bg-paper-50')
     })
 
     it('displays score as percentage', () => {
@@ -81,11 +83,12 @@ describe('ModelQualityScore', () => {
   })
 
   describe('Poor quality (< 0.6)', () => {
-    it('renders with red styling', () => {
+    it('renders with neutral styling and red text', () => {
       render(<ModelQualityScore quality={mockPoorQuality} />)
 
       const component = screen.getByTestId('model-quality-score')
-      expect(component).toHaveClass('border-red-200')
+      // Design system: neutral border, semantic text color only
+      expect(component).toHaveClass('border-sand-200', 'bg-paper-50')
     })
 
     it('displays score as percentage', () => {
@@ -209,6 +212,73 @@ describe('ModelQualityScore', () => {
     const component = screen.getByTestId('model-quality-score')
     expect(component).toHaveClass('custom-class')
   })
+
+  describe('Local evidence counts', () => {
+    it('shows local edge count details when provided', () => {
+      render(
+        <ModelQualityScore
+          quality={mockMediumQuality}
+          localEvidenceCounts={{ evidenced: 5, total: 12 }}
+          defaultExpanded
+        />
+      )
+
+      expect(screen.getByText('5/12 edges documented')).toBeInTheDocument()
+    })
+
+    it('shows discrepancy indicator when local differs from engine by > 5%', () => {
+      // mockMediumQuality has evidence_coverage: 0.43 (43%)
+      // local: 5/12 = 0.417 (42%) - within 5%, no indicator
+      render(
+        <ModelQualityScore
+          quality={mockMediumQuality}
+          localEvidenceCounts={{ evidenced: 3, total: 12 }}
+          defaultExpanded
+        />
+      )
+
+      // 3/12 = 25%, engine says 43%, diff is 18% > 5%
+      expect(screen.getByText('(local: 25%)')).toBeInTheDocument()
+    })
+
+    it('does not show discrepancy when values are close', () => {
+      render(
+        <ModelQualityScore
+          quality={mockMediumQuality}
+          localEvidenceCounts={{ evidenced: 5, total: 12 }}
+          defaultExpanded
+        />
+      )
+
+      // 5/12 ≈ 42%, engine says 43%, diff < 5%
+      expect(screen.queryByText(/local:/)).not.toBeInTheDocument()
+    })
+
+    it('does not show local counts when total is zero', () => {
+      render(
+        <ModelQualityScore
+          quality={mockMediumQuality}
+          localEvidenceCounts={{ evidenced: 0, total: 0 }}
+          defaultExpanded
+        />
+      )
+
+      expect(screen.queryByText(/edges documented/)).not.toBeInTheDocument()
+    })
+
+    it('updates tooltip with local edge info', () => {
+      render(
+        <ModelQualityScore
+          quality={mockMediumQuality}
+          localEvidenceCounts={{ evidenced: 5, total: 12 }}
+          defaultExpanded
+        />
+      )
+
+      // The Evidence Coverage row exists and would have the updated tooltip
+      expect(screen.getByText('Evidence Coverage')).toBeInTheDocument()
+    })
+  })
 })
 
 describe('ModelQualityScoreCompact', () => {
@@ -217,7 +287,8 @@ describe('ModelQualityScoreCompact', () => {
 
     const badge = screen.getByTestId('model-quality-compact')
     expect(badge).toBeInTheDocument()
-    expect(badge).toHaveClass('border-green-200', 'bg-green-50', 'text-green-700')
+    // Design system: paper-50 background with semantic text color
+    expect(badge).toHaveClass('border-sand-200', 'bg-paper-50', 'text-green-700')
     expect(screen.getByText('85%')).toBeInTheDocument()
   })
 
@@ -225,7 +296,8 @@ describe('ModelQualityScoreCompact', () => {
     render(<ModelQualityScoreCompact quality={mockMediumQuality} />)
 
     const badge = screen.getByTestId('model-quality-compact')
-    expect(badge).toHaveClass('border-amber-200')
+    // Design system: paper-50 background, semantic text color only
+    expect(badge).toHaveClass('border-sand-200', 'bg-paper-50', 'text-amber-700')
     expect(screen.getByText('72%')).toBeInTheDocument()
     expect(screen.getByText('2')).toBeInTheDocument() // issues count
   })

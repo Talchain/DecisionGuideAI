@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { InputsDock } from '../InputsDock'
 import { useCanvasStore } from '../../store'
 import * as useEngineLimitsModule from '../../hooks/useEngineLimits'
 import type { UseEngineLimitsReturn } from '../../hooks/useEngineLimits'
-import { deriveLimitsStatus } from '../../utils/limitsStatus'
 
 vi.mock('../../hooks/useEngineLimits', () => ({
   useEngineLimits: vi.fn(),
@@ -222,6 +221,31 @@ describe('InputsDock DOM', () => {
     )
   })
 
+  it('collapses core framing fields behind a Collapsible when framing already exists', () => {
+    useCanvasStore.setState({
+      currentScenarioFraming: {
+        title: 'Existing decision',
+        goal: 'Existing goal',
+        timeline: 'Next 6 months',
+      },
+    } as any)
+
+    render(<InputsDock />)
+    fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
+
+    const framingToggle = screen.getByRole('button', { name: /Framing/ })
+    expect(framingToggle).toHaveAttribute('aria-expanded', 'false')
+
+    // Core framing fields should be hidden until expanded
+    expect(screen.queryByLabelText('Decision or question')).toBeNull()
+
+    fireEvent.click(framingToggle)
+
+    expect(screen.getByLabelText('Decision or question')).toBeInTheDocument()
+    expect(screen.getByLabelText('Primary goal')).toBeInTheDocument()
+    expect(screen.getByLabelText('Timeline or horizon')).toBeInTheDocument()
+  })
+
   it('persists framing per scenario across save, load, and switching', () => {
     // Start from a clean store and storage
     useCanvasStore.setState({
@@ -312,7 +336,8 @@ describe('InputsDock DOM', () => {
 
       const emptySummary = screen.getByTestId('scenario-run-summary-empty')
       expect(emptySummary).toBeInTheDocument()
-      expect(emptySummary).toHaveTextContent('No runs yet for this decision')
+      // Phase 3: Updated to actionable empty state text
+      expect(emptySummary).toHaveTextContent('Ready to analyze')
     })
 
     it('renders last run metadata when present', () => {

@@ -31,9 +31,12 @@ export interface ReportV1 {
     label: string
     polarity: 'up' | 'down' | 'neutral'
     strength: 'low' | 'medium' | 'high'
-    action?: string
-    node_id?: string // For canvas highlighting
-    edge_id?: string // For canvas highlighting
+    /** Contribution as 0-1 for percentage display */
+    contribution?: number
+    /** Node ID for canvas highlighting (camelCase) */
+    nodeId?: string
+    /** Edge ID for canvas highlighting (camelCase) */
+    edgeId?: string
   }>
   critique?: string[]
   run?: CanonicalRun // v1.2: normalized run data with p10/p50/p90 bands
@@ -205,6 +208,20 @@ export type StreamEvent =
   | { type: 'error'; data: ErrorV1 }
 
 /**
+ * Critique item from PLoT Engine v1.1 contract
+ * Includes severity tiers, optional node/edge references, and auto-fix metadata
+ */
+export interface CritiqueItemV1 {
+  severity: 'INFO' | 'WARNING' | 'BLOCKER'
+  message: string
+  code?: string
+  node_id?: string
+  edge_id?: string
+  suggested_fix?: string
+  auto_fixable?: boolean
+}
+
+/**
  * Canonical run result structure for v1.2
  * Normalizes both legacy and v1.2 response formats
  */
@@ -212,7 +229,7 @@ export type CanonicalRun = {
   responseHash: string
   bands: { p10: number | null; p50: number | null; p90: number | null }
   confidence?: { level?: string; reason?: string; score?: number }
-  critique?: Array<{ severity: 'INFO' | 'WARNING' | 'BLOCKER'; message: string }>
+  critique?: CritiqueItemV1[]
 }
 
 /**
@@ -274,4 +291,87 @@ export interface CEEError {
   suggestedAction: 'retry' | 'contact_support' | 'check_input'
   message?: string
   details?: Record<string, unknown>
+}
+
+// =============================================================================
+// Run Bundle Types (Option Ranking)
+// =============================================================================
+
+/**
+ * Node sensitivity data - shows which nodes contribute most to uncertainty
+ */
+export interface NodeSensitivity {
+  node_id: string
+  node_label: string
+  contribution_pct: number // 0-100 percentage of variance contribution
+}
+
+/**
+ * Change attribution - explains why outcomes differ from baseline
+ */
+export interface ChangeAttribution {
+  summary: string // Human-readable explanation
+  primary_factors?: string[]
+}
+
+/**
+ * Delta from baseline - comparison to reference scenario
+ */
+export interface DeltaFromBaseline {
+  p50: number // Delta in p50 (median) outcome
+  p10?: number
+  p90?: number
+  change_attribution?: ChangeAttribution
+}
+
+/**
+ * Individual option result in run_bundle response
+ */
+export interface RunBundleResult {
+  label: string // Option name (e.g., "2 days in office")
+  rank: number // 1-indexed rank (1 = best)
+  success_probability: number // 0-1 probability
+  summary: {
+    p10: number
+    p50: number
+    p90: number
+  }
+  sensitivity_by_node?: NodeSensitivity[]
+  delta_from_baseline?: DeltaFromBaseline
+}
+
+/**
+ * Ranking summary - overall ranking outcome
+ */
+export interface RankingSummary {
+  winner: string // Label of winning option
+  winner_p50: number // Winner's median outcome
+  margin_pct: number // Percentage margin over second place
+  ranking_confidence: 'high' | 'medium' | 'low'
+}
+
+/**
+ * Run bundle response - compares multiple options
+ */
+export interface RunBundleResponse {
+  results: RunBundleResult[]
+  ranking_summary?: RankingSummary
+}
+
+/**
+ * Run bundle request parameters
+ */
+export interface RunBundleRequest {
+  base_graph: {
+    nodes: Array<{ id: string; label?: string; [key: string]: unknown }>
+    edges: Array<{ source: string; target: string; [key: string]: unknown }>
+  }
+  deltas: Array<{
+    name: string
+    modifications: Record<string, unknown>
+  }>
+  include_ranking?: boolean
+  include_change_attribution?: boolean
+  baseline_index?: number // 0-indexed, which delta is baseline
+  sort_by?: 'p10' | 'p50' | 'p90'
 }

@@ -1,0 +1,230 @@
+/* CoachingNudge - Contextual AI coaching suggestions */
+
+.nudge {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  max-width: 480px;
+  width: calc(100% - 48px);
+  padding: 20px;
+  background: white;
+  border: 2px solid var(--sand-200);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08);
+  z-index: 3000;
+  animation: slideUp 300ms ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 24px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.dismissing {
+  animation: slideDown 200ms ease-in forwards;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, 24px);
+  }
+}
+
+/* Severity variants */
+.nudge.high {
+  border-color: var(--carrot-300);
+  background: linear-gradient(to right, rgba(255, 107, 73, 0.04), white);
+}
+
+.nudge.medium {
+  border-color: var(--sun-300);
+  background: linear-gradient(to right, rgba(247, 201, 72, 0.04), white);
+}
+
+.nudge.low {
+  border-color: var(--sky-300);
+  background: linear-gradient(to right, rgba(59, 130, 246, 0.04), white);
+}
+
+.iconWrapper {
+  flex-shrink: 0;
+}
+
+.icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  transition: transform 200ms ease;
+}
+
+.icon:hover {
+  transform: scale(1.05);
+}
+
+.iconHigh {
+  background: var(--carrot-100);
+  color: var(--carrot-600);
+}
+
+.iconMedium {
+  background: var(--sun-100);
+  color: var(--sun-700);
+}
+
+.iconLow {
+  background: var(--sky-100);
+  color: var(--sky-600);
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-700);
+}
+
+.badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: capitalize;
+}
+
+.badgeHigh {
+  background: var(--carrot-100);
+  color: var(--carrot-700);
+}
+
+.badgeMedium {
+  background: var(--sun-100);
+  color: var(--sun-800);
+}
+
+.badgeLow {
+  background: var(--sky-100);
+  color: var(--sky-700);
+}
+
+.message {
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0 0 16px 0;
+  color: var(--ink-800);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.primaryAction,
+.secondaryAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.primaryAction {
+  background: var(--sky-500);
+  color: white;
+  border: none;
+}
+
+.primaryAction:hover {
+  background: var(--sky-600);
+}
+
+.primaryAction:active {
+  transform: scale(0.98);
+}
+
+.secondaryAction {
+  background: transparent;
+  color: var(--ink-600);
+  border: 1px solid var(--sand-200);
+}
+
+.secondaryAction:hover {
+  background: var(--sand-50);
+  border-color: var(--sand-300);
+}
+
+.closeButton {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 6px;
+  border: none;
+  background: transparent;
+  color: var(--ink-400);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 150ms ease;
+}
+
+.closeButton:hover {
+  background: var(--sand-100);
+  color: var(--ink-600);
+}
+
+/* Responsive */
+@media (max-width: 520px) {
+  .nudge {
+    bottom: 16px;
+    max-width: none;
+    width: calc(100% - 32px);
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .actions {
+    flex-direction: column;
+  }
+
+  .primaryAction,
+  .secondaryAction {
+    justify-content: center;
+    width: 100%;
+  }
+}

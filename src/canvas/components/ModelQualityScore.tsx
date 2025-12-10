@@ -25,10 +25,15 @@ import { Tooltip } from './Tooltip'
 import type { GraphQuality } from '../../types/plot'
 
 interface ModelQualityScoreProps {
-  /** Graph quality data from engine response */
-  quality: GraphQuality
+  /** Graph quality data from engine response (nullable for no-data state) */
+  quality: GraphQuality | null | undefined
   /** Start expanded to show sub-metrics */
   defaultExpanded?: boolean
+  /** Local edge provenance counts (optional supplement to engine data) */
+  localEvidenceCounts?: {
+    evidenced: number
+    total: number
+  }
   /** Additional CSS classes */
   className?: string
 }
@@ -45,26 +50,27 @@ function getScoreColor(score: number): {
   border: string
   progress: string
 } {
+  // Use paper-50 background for all states - semantic colors only for text/icons
   if (score >= 0.8) {
     return {
       text: 'text-green-700',
-      bg: 'bg-green-50',
-      border: 'border-green-200',
+      bg: 'bg-paper-50',
+      border: 'border-sand-200',
       progress: 'bg-green-500',
     }
   }
   if (score >= 0.6) {
     return {
       text: 'text-amber-700',
-      bg: 'bg-amber-50',
-      border: 'border-amber-200',
+      bg: 'bg-paper-50',
+      border: 'border-sand-200',
       progress: 'bg-amber-500',
     }
   }
   return {
     text: 'text-red-700',
-    bg: 'bg-red-50',
-    border: 'border-red-200',
+    bg: 'bg-paper-50',
+    border: 'border-sand-200',
     progress: 'bg-red-500',
   }
 }
@@ -115,9 +121,40 @@ function MetricRow({ label, value, tooltip }: MetricRowProps) {
 export function ModelQualityScore({
   quality,
   defaultExpanded = false,
+  localEvidenceCounts,
   className = '',
 }: ModelQualityScoreProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+
+  // Phase 3: No-data state
+  if (!quality) {
+    return (
+      <div
+        className={`rounded-lg border border-sand-200 bg-paper-50 ${className}`}
+        data-testid="model-quality-score-empty"
+      >
+        <div className="flex items-center justify-between gap-3 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <Activity
+              className="w-5 h-5 text-sand-400"
+              aria-hidden="true"
+            />
+            <span className={`${typography.label} text-sand-500`}>
+              Model Quality
+            </span>
+          </div>
+          <span className={`${typography.body} text-sand-400`}>
+            —
+          </span>
+        </div>
+        <div className="px-3 pb-2">
+          <p className={`${typography.caption} text-sand-500`}>
+            Run analysis to see quality metrics
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   const {
     score,
@@ -128,6 +165,11 @@ export function ModelQualityScore({
     recommendation,
   } = quality
 
+  // Compute local evidence coverage percentage when counts are provided
+  const localEvidencePercent = localEvidenceCounts && localEvidenceCounts.total > 0
+    ? localEvidenceCounts.evidenced / localEvidenceCounts.total
+    : null
+
   const colors = getScoreColor(score)
   const hasRecommendation = recommendation && recommendation.length > 0
 
@@ -137,7 +179,7 @@ export function ModelQualityScore({
 
   return (
     <div
-      className={`rounded-lg border ${colors.border} ${colors.bg}/50 ${className}`}
+      className={`rounded-lg border ${colors.border} ${colors.bg} ${className}`}
       data-testid="model-quality-score"
     >
       {/* Header - Always visible */}
@@ -210,8 +252,22 @@ export function ModelQualityScore({
             <MetricRow
               label="Evidence Coverage"
               value={evidence_coverage}
-              tooltip="What percentage of relationships have supporting evidence?"
+              tooltip={localEvidenceCounts
+                ? `${localEvidenceCounts.evidenced} of ${localEvidenceCounts.total} edges have documented evidence sources`
+                : "What percentage of relationships have supporting evidence?"
+              }
             />
+            {/* Show local evidence count detail when available */}
+            {localEvidenceCounts && localEvidenceCounts.total > 0 && (
+              <div className={`flex items-center justify-between py-0.5 pl-4 ${typography.caption} text-ink-900/60`}>
+                <span>{localEvidenceCounts.evidenced}/{localEvidenceCounts.total} edges documented</span>
+                {localEvidencePercent !== null && Math.abs(localEvidencePercent - evidence_coverage) > 0.05 && (
+                  <span className="text-amber-600" title="Local count differs from engine assessment">
+                    (local: {formatPercent(localEvidencePercent)})
+                  </span>
+                )}
+              </div>
+            )}
             <MetricRow
               label="Balance"
               value={balance}
@@ -249,6 +305,23 @@ export function ModelQualityScoreCompact({
   quality,
   className = '',
 }: Pick<ModelQualityScoreProps, 'quality' | 'className'>) {
+  // Phase 3: No-data state for compact variant
+  if (!quality) {
+    return (
+      <div
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-sand-200 bg-paper-50 text-sand-400 ${className}`}
+        role="status"
+        aria-label="Model quality: not available"
+        data-testid="model-quality-compact-empty"
+      >
+        <Activity className="w-3.5 h-3.5" aria-hidden="true" />
+        <span className={`${typography.labelSmall} font-medium`}>
+          —
+        </span>
+      </div>
+    )
+  }
+
   const { score, issues_count } = quality
   const colors = getScoreColor(score)
 

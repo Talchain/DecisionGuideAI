@@ -1,9 +1,10 @@
 /**
  * M4: Graph Validator
- * Detects cycles, dangling edges, orphans, and other issues
+ * Detects cycles, dangling edges, orphans, probability errors, and other issues
  */
 
 import type { Node, Edge } from '@xyflow/react'
+import type { EdgeData } from '../domain/edges'
 import type { ValidationIssue, GraphHealth, IssueType, IssueSeverity } from './types'
 
 /**
@@ -29,6 +30,9 @@ export function validateGraph(nodes: Node[], edges: Edge[]): GraphHealth {
 
   // M4: Detect missing labels
   issues.push(...detectMissingLabels(nodes))
+
+  // Phase 3: Detect probability errors (outgoing edges must sum to 100%)
+  issues.push(...detectProbabilityErrors(nodes, edges))
 
   // Calculate health score
   const errorCount = issues.filter((i) => i.severity === 'error').length
@@ -223,6 +227,71 @@ function detectMissingLabels(nodes: Node[]): ValidationIssue[] {
           type: 'update_node',
           targetId: node.id,
           data: { label: `Node ${node.id}` },
+        },
+      })
+    }
+  }
+
+  return issues
+}
+
+/**
+ * Phase 3: Detect probability errors
+ * - Nodes with 2+ outgoing edges must have probabilities that sum to 100% (± 1% tolerance)
+ * - Single-edge nodes with non-100%, non-0% probability are also flagged (incomplete branch)
+ */
+function detectProbabilityErrors(nodes: Node[], edges: Edge[]): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  const TOLERANCE = 0.01 // 1% tolerance
+
+  for (const node of nodes) {
+    // Get outgoing edges for this node
+    const outgoingEdges = edges.filter(e => e.source === node.id)
+
+    // Skip nodes with no outgoing edges
+    if (outgoingEdges.length === 0) {
+      continue
+    }
+
+    // Get confidence values from edges (treat undefined as 0)
+    const confidences = outgoingEdges.map(e => {
+      const data = e.data as EdgeData | undefined
+      return data?.confidence ?? 0
+    })
+
+    // Filter to non-zero confidences
+    const nonZeroConfidences = confidences.filter(c => c > 0)
+
+    // Skip if no probabilities set at all (all zeros = pristine state)
+    // But if ANY probability is set, we need to validate the sum
+    if (nonZeroConfidences.length === 0) {
+      continue
+    }
+
+    // Calculate sum of ALL confidences (including zeros)
+    // If user has set any probability, all edges must sum to 100%
+    const sum = confidences.reduce((acc, c) => acc + c, 0)
+
+    // Check if sum is valid (should be 1.0 = 100%)
+    if (Math.abs(sum - 1.0) > TOLERANCE) {
+      const nodeLabel = node.data?.label || node.id
+      const percentSum = Math.round(sum * 100)
+
+      // Different message for single-edge vs multi-edge cases
+      const message = outgoingEdges.length === 1
+        ? `"${nodeLabel}" has incomplete probability (${percentSum}%). Single branches should be 100% or add more paths.`
+        : `"${nodeLabel}" probabilities sum to ${percentSum}% (should be 100%)`
+
+      issues.push({
+        id: `probability-${node.id}`,
+        type: 'probability_error' as IssueType,
+        severity: 'error',  // Probability errors block analysis
+        message,
+        nodeIds: [node.id],
+        edgeIds: outgoingEdges.map(e => e.id),
+        suggestedFix: {
+          type: 'normalize_probabilities',
+          targetId: node.id,
         },
       })
     }

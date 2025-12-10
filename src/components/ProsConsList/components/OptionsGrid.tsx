@@ -52,22 +52,8 @@ const OptionsGrid = memo(({
     })
   );
 
-  // Log options for debugging only once per unique options prop
-  React.useEffect(() => {
-    console.log('[DEBUG] OptionsGrid rendering with options:', {
-      count: options?.length || 0,
-      options: options?.map(o => ({
-        id: o.id,
-        name: o.name,
-        prosCount: o.pros?.length || 0,
-        consCount: o.cons?.length || 0
-      }))
-    });
-  }, [JSON.stringify(options)]); // Only log when options actually change
-
   // Don't render if no options
   if (!options || options.length === 0) {
-    console.log('[DEBUG] OptionsGrid not rendering - no options');
     return null;
   }
 
@@ -80,7 +66,6 @@ const OptionsGrid = memo(({
   );
 
   if (validOptions.length === 0) {
-    console.log('[DEBUG] OptionsGrid not rendering - no valid options');
     return (
       <div className="p-6 bg-yellow-50 rounded-lg text-center">
         <p className="text-yellow-700">No valid options available. Please add an option to get started.</p>

@@ -26,6 +26,8 @@ export function applyRepair(
       return updateNode(nodes, edges, action.targetId, action.data)
     case 'update_edge':
       return updateEdge(nodes, edges, action.targetId, action.data)
+    case 'normalize_probabilities':
+      return normalizeProbabilities(nodes, edges, action.targetId)
     default:
       return { nodes, edges }
   }
@@ -51,6 +53,7 @@ export function applyRepairs(
       cycle: 4,
       missing_label: 5,
       orphan_node: 6,
+      probability_error: 7,
     }
     return (order[a.type] || 99) - (order[b.type] || 99)
   })
@@ -162,4 +165,54 @@ export function quickFixAll(
     ...result,
     fixedCount: fixableIssues.length,
   }
+}
+
+/**
+ * Phase 3: Normalize probabilities for a node's outgoing edges
+ * Distributes probabilities to sum to 100% (1.0)
+ */
+function normalizeProbabilities(
+  nodes: Node[],
+  edges: Edge[],
+  nodeId: string
+): { nodes: Node[]; edges: Edge[] } {
+  // Get outgoing edges for this node
+  const outgoingEdges = edges.filter(e => e.source === nodeId)
+
+  if (outgoingEdges.length < 2) {
+    return { nodes, edges }
+  }
+
+  // Calculate current sum of confidences
+  const confidences = outgoingEdges.map(e => (e.data as any)?.confidence ?? 0)
+  const sum = confidences.reduce((acc, c) => acc + c, 0)
+
+  // If sum is 0, distribute evenly
+  // Otherwise, normalize proportionally
+  const normalizedEdges = edges.map(edge => {
+    if (edge.source !== nodeId) {
+      return edge
+    }
+
+    const currentConfidence = (edge.data as any)?.confidence ?? 0
+    let newConfidence: number
+
+    if (sum === 0) {
+      // Distribute evenly
+      newConfidence = 1.0 / outgoingEdges.length
+    } else {
+      // Normalize proportionally
+      newConfidence = currentConfidence / sum
+    }
+
+    return {
+      ...edge,
+      data: {
+        ...(edge.data || {}),
+        confidence: newConfidence,
+      },
+    }
+  })
+
+  return { nodes, edges: normalizedEdges }
 }

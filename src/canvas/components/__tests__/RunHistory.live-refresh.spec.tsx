@@ -362,7 +362,8 @@ describe('RunHistory Live Refresh (Codex P1)', () => {
     render(<RunHistory onViewRun={mockOnViewRun} onCompare={mockOnCompare} />)
 
     const empty = await screen.findByTestId('run-history-empty')
-    expect(empty).toHaveTextContent('No runs yet for this decision')
+    // Phase 3: Updated to match new EmptyState component text
+    expect(empty).toHaveTextContent('No runs yet')
     const context = screen.getByTestId('run-history-scenario-context')
     expect(context).toHaveTextContent('Choose pricing strategy')
   })

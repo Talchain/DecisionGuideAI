@@ -13,6 +13,7 @@
 
 import { memo, useMemo, useState } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow } from '@xyflow/react'
+import { Lightbulb } from 'lucide-react'
 import type { EdgeData, EdgePathType } from '../domain/edges'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { formatConfidence, shouldShowLabel } from '../domain/edges'
@@ -22,6 +23,7 @@ import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { EdgeEditPopover } from './EdgeEditPopover'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
+import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 
 /**
  * StyledEdge with semantic visual properties
@@ -35,13 +37,30 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // P1 Polish: Edge label mode from Zustand store (live updates, cross-tab sync)
   const labelMode = useEdgeLabelMode(state => state.mode)
 
+  // P1.6: First-time edge edit hint
+  const { showHint: showEdgeHint, dismissHint: dismissEdgeHint } = useEdgeEditHint()
+  const edges = getEdges()
+  const isFirstEdge = edges.length > 0 && edges[0].id === id
+
   // P0-9: Inline edit popover state
   const [showEditPopover, setShowEditPopover] = useState(false)
   const [editPopoverPosition, setEditPopoverPosition] = useState({ x: 0, y: 0 })
   const updateEdgeData = useCanvasStore(state => state.updateEdgeData)
+  const ceeReview = useCanvasStore(state => state.runMeta.ceeReview)
 
   // Extract edge data with defaults
   const edgeData = data as EdgeData | undefined
+
+  // Check if this edge has a pending weight suggestion (not yet applied)
+  // Treat provenance='ai-suggested' as "already applied" to clear the highlight
+  const hasSuggestion = useMemo(() => {
+    if (!ceeReview?.weight_suggestions) return false
+    const suggestion = ceeReview.weight_suggestions.find(s => s.edge_id === id)
+    if (!suggestion || suggestion.auto_applied) return false
+    // If user already applied via EdgeInspector, provenance will be 'ai-suggested'
+    if (edgeData?.provenance === 'ai-suggested') return false
+    return true
+  }, [ceeReview?.weight_suggestions, id, edgeData?.provenance])
   const weight = edgeData?.weight ?? 1.0
   const style = edgeData?.style ?? 'solid'
   const curvature = edgeData?.curvature ?? 0.15
@@ -117,6 +136,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     event.stopPropagation()
     setEditPopoverPosition({ x: event.clientX, y: event.clientY })
     setShowEditPopover(true)
+    // Dismiss first-time hint when user discovers edge editing
+    if (showEdgeHint) dismissEdgeHint()
   }
 
   // P0-9: Handle edge data update from popover
@@ -161,12 +182,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             isDark
               ? 'bg-gray-900 text-gray-100 border-gray-600'
               : 'bg-paper-50/95 text-ink-900 border-sand-200'
-          }`}
+          } ${hasSuggestion ? 'ring-2 ring-sky-400 ring-offset-1' : ''} ${isFirstEdge && showEdgeHint ? 'edge-hint-active' : ''}`}
           role="note"
           aria-label={ariaLabel}
           title={(() => {
             const desc = getEdgeLabel(weight, belief, labelMode)
-            return provenance ? `${desc.tooltip} • Source: ${provenance}` : desc.tooltip
+            const baseTooltip = provenance ? `${desc.tooltip} • Source: ${provenance}` : desc.tooltip
+            return `${baseTooltip}\n\nDouble-click to edit`
           })()}
           onDoubleClick={handleLabelDoubleClick}
         >
@@ -174,6 +196,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             const desc = getEdgeLabel(weight, belief, labelMode)
             return (
               <>
+                {/* Weight suggestion indicator */}
+                {hasSuggestion && (
+                  <Lightbulb
+                    className="w-3 h-3 text-sky-500 flex-shrink-0"
+                    aria-label="Weight suggestion available"
+                    data-testid="edge-suggestion-indicator"
+                  />
+                )}
                 <span style={{
                   fontWeight: 500,
                   fontFamily: labelMode === 'numeric' ? 'ui-monospace, monospace' : undefined

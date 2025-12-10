@@ -179,7 +179,7 @@ export default function Analysis() {
        if (componentMountedRef.current) setPermanentId(state.decisionId);
        return state.decisionId;
      }
-     console.log("Creating permanent decision...");
+     // Creating permanent decision
      try {
       const safeType: DecisionType = toDecisionType(state.decisionType);
       const { data, error } = await createDecision({
@@ -218,7 +218,7 @@ export default function Analysis() {
     }
     
     try {
-      console.log(`Fetching collaborator user IDs for decision ID: ${decisionId}`);
+      // Fetching collaborators for decision
       
       let collabData: CollaboratorRow[] = [];
       
@@ -249,7 +249,6 @@ export default function Analysis() {
       }
 
       if (!collabData || collabData.length === 0) {
-          console.log("No collaborators found for this decision.");
           if (componentMountedRef.current) setCollaborators([]);
           // No need to fetch users if no collaborators
           if (componentMountedRef.current) setCollaboratorsLoading(false);
@@ -259,13 +258,11 @@ export default function Analysis() {
       // Step 2: Extract user IDs and fetch user details
       const userIds = collabData.map((c: CollaboratorRow) => c.user_id).filter((id): id is string => Boolean(id));
       if (userIds.length === 0) {
-          console.log("Collaborator rows found, but no valid user IDs associated.");
           if (componentMountedRef.current) setCollaborators(collabData as unknown as Collaborator[]); // Set data without emails
           if (componentMountedRef.current) setCollaboratorsLoading(false);
           return;
       }
 
-      console.log(`Fetching user details for IDs:`, userIds);
       // Use auth.users table through a secure RPC function
       const { data: usersData, error: usersError } = await supabase
         .from('user_profiles')
@@ -282,7 +279,6 @@ export default function Analysis() {
           email: usersMap.get(collab.user_id) || undefined // Add email if found
       }));
 
-      console.log("Collaborators processed:", combinedData);
       if (componentMountedRef.current) setCollaborators(combinedData);
 
     } catch (err) {
@@ -291,7 +287,7 @@ export default function Analysis() {
           // Implement retry logic with exponential backoff
           if (collaborationRetryCount < 3) {
             const retryDelay = Math.pow(2, collaborationRetryCount) * 1000; // 1s, 2s, 4s
-            console.log(`Will retry fetching collaborators in ${retryDelay}ms (attempt ${collaborationRetryCount + 1}/3)`);
+            console.warn(`[WARN] Retrying collaborators fetch in ${retryDelay}ms (attempt ${collaborationRetryCount + 1}/3)`);
             
             if (collaborationRetryTimeoutRef.current) {
               window.clearTimeout(collaborationRetryTimeoutRef.current);
@@ -417,7 +413,6 @@ export default function Analysis() {
      if (!user) { return { success: false, error: "User not logged in" }; }
      if (!dataToSave || !dataToSave.analysis) { return { success: false, error: "Missing analysis data" }; }
      if (!isValidDecisionId(decisionId)) { return { success: false, error: "Invalid decision ID passed to save function" }; }
-     console.log(`Saving analysis (status: ${status}) for decision: ${decisionId}`);
      if (saveTimeoutRef.current) window.clearTimeout(saveTimeoutRef.current);
      saveTimeoutRef.current = window.setTimeout(() => { /* ... timeout logic ... */ }, SAVE_TIMEOUT);
      try {
@@ -442,7 +437,6 @@ export default function Analysis() {
     // ... (implementation remains the same) ...
     if (!permanentId && user && !analysisLoading && aiAnalysis && !creationAttemptedRef.current) {
         creationAttemptedRef.current = true;
-        console.log("Attempting to establish permanent ID...");
         (async () => {
             const newPermId = await createPermanentDecision();
             if (!newPermId && componentMountedRef.current) {
@@ -457,7 +451,6 @@ export default function Analysis() {
   // Effect Hook for Fetching Collaborators
   useEffect(() => {
       if (permanentId) {
-          console.log("Permanent ID available, fetching collaborators:", permanentId);
           fetchCollaborators(permanentId);
       } else {
            if (componentMountedRef.current) {
@@ -470,21 +463,9 @@ export default function Analysis() {
 
   // Auto-Save Effect Hook
   useEffect(() => {
-    // DEBUG: Log all dependency values for auto-save check
-    console.log("Auto-save check:", {
-        permanentId: !!permanentId,
-        user: !!user,
-        aiAnalysis: !!aiAnalysis,
-        analysisLoading,
-        analysisHookError: !!analysisHookError,
-        saveInProgress
-    });
-
     if (!permanentId || !user || !aiAnalysis || analysisLoading || analysisHookError || saveInProgress) {
       return; // Skip if conditions not met
     }
-
-    console.log("Auto-save triggered for decision:", permanentId);
     if (componentMountedRef.current) setSaveInProgress(true);
 
     const dataToSave: AnalysisDataToSave = {
@@ -496,9 +477,7 @@ export default function Analysis() {
       try {
         const { success, error } = await saveAnalysisToDatabase(permanentId, dataToSave);
         if (!success) {
-          console.error("Auto-save failed:", error);
-        } else {
-          console.log("Auto-save successful for decision:", permanentId);
+          console.error("[ERROR] Auto-save failed:", error);
         }
       } catch (err) {
         console.error("Unexpected error during auto-save effect:", err);
@@ -556,20 +535,6 @@ export default function Analysis() {
         navigate('/decision/goals', { state: { ...state } });
     }
   }, [navigate, state]);
-
-  // DEBUG: Effect to log button disabled state dependencies
-  useEffect(() => {
-      console.log("Save Button State Debug:", {
-          saveInProgress,
-          analysisLoading,
-          analysisHookError: !!analysisHookError,
-          optionsLoading,
-          optionsError: !!optionsError,
-          permanentId: !!permanentId,
-          isDisabled: saveInProgress || analysisLoading || !!analysisHookError || optionsLoading || !!optionsError || !permanentId
-      });
-  }, [saveInProgress, analysisLoading, analysisHookError, optionsLoading, optionsError, permanentId]);
-
 
   // Render Logic
   return (

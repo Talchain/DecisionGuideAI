@@ -23,6 +23,14 @@ import { typography } from '../../styles/typography'
 import type { Insights } from '../../types/plot'
 import { focusNodeById } from '../utils/focusHelpers'
 
+/** Driver information for insight generation */
+interface DriverSummary {
+  label: string
+  polarity: 'up' | 'down' | 'neutral'
+  strength?: 'low' | 'medium' | 'high'
+  contribution?: number
+}
+
 interface InsightsPanelProps {
   /** Insights data from engine response (may have missing/null fields) */
   insights: Partial<Insights> | null | undefined
@@ -30,6 +38,14 @@ interface InsightsPanelProps {
   defaultExpanded?: boolean
   /** Additional CSS classes */
   className?: string
+  /** Quick Win #5: Current outcome value for consistency check */
+  outcomeValue?: number | null
+  /** Quick Win #5: Baseline value for consistency check */
+  baselineValue?: number | null
+  /** Quick Win #5: Goal direction for interpreting changes */
+  goalDirection?: 'maximize' | 'minimize'
+  /** Top drivers for driver-focused insight */
+  topDrivers?: DriverSummary[]
 }
 
 /**
@@ -73,15 +89,187 @@ function normalizeInsights(insights: Partial<Insights> | null | undefined): Insi
   return { summary, risks, next_steps }
 }
 
+/**
+ * Quick Win #5: Check if insight text contradicts actual outcome direction
+ * Returns a corrected summary if contradiction detected
+ *
+ * Also detects nonsensical claims like "99% decrease" when values are reasonable
+ */
+function validateInsightConsistency(
+  summary: string,
+  outcomeValue: number | null | undefined,
+  baselineValue: number | null | undefined,
+  goalDirection: 'maximize' | 'minimize' = 'maximize'
+): { summary: string; wasContradictory: boolean } {
+  // Check for extreme percentage claims that are likely calculation errors
+  // e.g., "decrease by 99%" when actual values are reasonable
+  const extremeClaimMatch = summary.match(/(?:decrease|drop|decline|fall|reduce|increase|rise|grow|gain)\s*(?:by\s*)?(?:approximately\s*)?(\d{2,3})%/i)
+  if (extremeClaimMatch) {
+    const claimedChange = parseInt(extremeClaimMatch[1], 10)
+
+    // If claiming >50% change, validate against actual outcome
+    if (claimedChange > 50 && outcomeValue != null) {
+      // If outcome is a reasonable probability (0-1 range or 0-100 range),
+      // extreme claims are likely backend calculation errors
+      const isReasonableOutcome = (outcomeValue >= 0 && outcomeValue <= 1) ||
+                                  (outcomeValue >= 0 && outcomeValue <= 100)
+
+      if (isReasonableOutcome) {
+        console.warn('[InsightsPanel] Extreme percentage claim detected:', {
+          summary,
+          claimedChange: `${claimedChange}%`,
+          outcomeValue,
+        })
+
+        // Generate a sensible summary based on actual outcome
+        const displayValue = outcomeValue >= 0 && outcomeValue <= 1
+          ? `${(outcomeValue * 100).toFixed(0)}%`
+          : `${outcomeValue.toFixed(0)}%`
+
+        const isPositive = goalDirection === 'maximize' ? outcomeValue > 0.5 : outcomeValue < 0.5
+        const sentiment = isPositive ? 'favorable' : 'moderate'
+
+        return {
+          summary: `Expected outcome is ${displayValue}, indicating ${sentiment} conditions for your objective.`,
+          wasContradictory: true
+        }
+      }
+    }
+  }
+
+  // Original baseline comparison logic
+  if (outcomeValue == null || baselineValue == null || baselineValue === 0) {
+    return { summary, wasContradictory: false }
+  }
+
+  // Calculate actual change
+  const actualChange = ((outcomeValue - baselineValue) / Math.abs(baselineValue)) * 100
+
+  // Detect direction claims in insight text
+  const claimsDecrease = /decrease|drop|decline|fall|worse|lower|reduce|down by/i.test(summary)
+  const claimsIncrease = /increase|rise|improve|grow|better|higher|up by|gain/i.test(summary)
+
+  // Check for contradictions
+  const isContradictory =
+    (actualChange > 5 && claimsDecrease && !claimsIncrease) ||
+    (actualChange < -5 && claimsIncrease && !claimsDecrease)
+
+  if (isContradictory) {
+    console.warn('[InsightsPanel] Contradictory insight detected:', {
+      summary,
+      actualChange: `${actualChange.toFixed(1)}%`,
+      claimsDecrease,
+      claimsIncrease,
+    })
+
+    // Generate corrected summary
+    const direction = actualChange > 0 ? 'increase' : 'decrease'
+    const magnitude = Math.abs(actualChange)
+    const magnitudeWord = magnitude > 50 ? 'significantly' : magnitude > 20 ? 'moderately' : 'slightly'
+
+    // Interpret based on goal direction
+    const isPositive = (goalDirection === 'maximize' && actualChange > 0) ||
+                       (goalDirection === 'minimize' && actualChange < 0)
+    const sentiment = isPositive ? 'improving' : 'declining'
+
+    const correctedSummary = `Outcome is expected to ${direction} by approximately ${magnitude.toFixed(0)}% compared to baseline, ${magnitudeWord} ${sentiment} your objective.`
+
+    return { summary: correctedSummary, wasContradictory: true }
+  }
+
+  return { summary, wasContradictory: false }
+}
+
+/**
+ * Generate driver-focused insight text instead of restating percentages
+ */
+function generateDriverInsight(
+  drivers: DriverSummary[] | undefined,
+  goalDirection: 'maximize' | 'minimize'
+): string | null {
+  if (!drivers || drivers.length === 0) return null
+
+  // Get top 2 drivers that are having an impact
+  const impactfulDrivers = drivers
+    .filter(d => d.polarity !== 'neutral')
+    .slice(0, 2)
+
+  if (impactfulDrivers.length === 0) return null
+
+  // Determine if outcome is positive based on drivers and goal
+  const positiveDrivers = impactfulDrivers.filter(d =>
+    (d.polarity === 'up' && goalDirection === 'maximize') ||
+    (d.polarity === 'down' && goalDirection === 'minimize')
+  )
+  const negativeDrivers = impactfulDrivers.filter(d =>
+    (d.polarity === 'down' && goalDirection === 'maximize') ||
+    (d.polarity === 'up' && goalDirection === 'minimize')
+  )
+
+  // Generate insight based on driver analysis
+  if (positiveDrivers.length > 0 && negativeDrivers.length === 0) {
+    const topDriver = positiveDrivers[0]
+    const strengthText = topDriver.strength === 'high' ? 'strongly' : topDriver.strength === 'medium' ? 'moderately' : ''
+    return `${topDriver.label} is ${strengthText} driving favorable outcomes${positiveDrivers.length > 1 ? `, supported by ${positiveDrivers[1].label}` : ''}.`
+  }
+
+  if (negativeDrivers.length > 0 && positiveDrivers.length === 0) {
+    const topDriver = negativeDrivers[0]
+    const strengthText = topDriver.strength === 'high' ? 'significantly' : topDriver.strength === 'medium' ? 'moderately' : ''
+    return `${topDriver.label} is ${strengthText} limiting outcomes${negativeDrivers.length > 1 ? `, compounded by ${negativeDrivers[1].label}` : ''}.`
+  }
+
+  // Mixed drivers
+  if (positiveDrivers.length > 0 && negativeDrivers.length > 0) {
+    return `${positiveDrivers[0].label} is helping, but ${negativeDrivers[0].label} is holding back results.`
+  }
+
+  return null
+}
+
+/**
+ * Remove percentage patterns from insight summary to avoid redundancy
+ * with OutcomesSignal which already shows the percentage prominently
+ */
+function stripPercentageFromSummary(summary: string): string {
+  // Remove patterns like "65% success", "outcome of 65%", etc.
+  return summary
+    .replace(/\b\d+(\.\d+)?%\s*(success|probability|likelihood|chance|outcome)/gi, '')
+    .replace(/\b(success|probability|likelihood|chance|outcome)\s*(of|is|at)\s*\d+(\.\d+)?%/gi, '')
+    .replace(/\s{2,}/g, ' ') // Clean up double spaces
+    .replace(/^[,.\s]+/, '') // Clean up leading punctuation
+    .trim()
+}
+
 export function InsightsPanel({
   insights: rawInsights,
   defaultExpanded = true,
   className = '',
+  outcomeValue,
+  baselineValue,
+  goalDirection = 'maximize',
+  topDrivers,
 }: InsightsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
   // P0.3: Normalize insights with safe defaults and limits
-  const { summary, risks, next_steps } = normalizeInsights(rawInsights)
+  const normalized = normalizeInsights(rawInsights)
+
+  // Quick Win #5: Validate and correct contradictory insights
+  const { summary: rawSummary, wasContradictory } = validateInsightConsistency(
+    normalized.summary,
+    outcomeValue,
+    baselineValue,
+    goalDirection
+  )
+  const { risks, next_steps } = normalized
+
+  // Generate driver-focused insight OR strip percentage from backend summary
+  const driverInsight = generateDriverInsight(topDrivers, goalDirection)
+  const cleanedSummary = stripPercentageFromSummary(rawSummary)
+
+  // Prefer driver insight, fall back to cleaned summary
+  const summary = driverInsight || (cleanedSummary.length > 20 ? cleanedSummary : rawSummary)
 
   const hasDetails = risks.length > 0 || next_steps.length > 0
 

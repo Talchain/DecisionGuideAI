@@ -22,16 +22,8 @@ export function mapErrorToUserMessage(error: {
   message?: string
   retryAfter?: number
 }): UserFriendlyError {
-  // Network offline
-  if (!navigator.onLine) {
-    return {
-      title: 'No internet connection',
-      message: 'You appear to be offline. Please check your network connection.',
-      suggestion: 'You can continue editing your graph, but analysis requires an internet connection.',
-      retryable: true,
-      severity: 'warning',
-    }
-  }
+  // NOTE: Check specific error codes FIRST, then network status as fallback
+  // navigator.onLine can be unreliable (VPNs, slow networks) - don't let it hide real errors
 
   const rawMessage = error.message
   const normalizedMessage =
@@ -132,8 +124,23 @@ export function mapErrorToUserMessage(error: {
     }
   }
 
-  // 400 Bad Request
+  // 400 Bad Request - with specific handling for probability errors
   if (error.status === 400 || error.code === 'BAD_INPUT') {
+    // Detect probability validation errors and provide actionable message
+    const isProbabilityError = messageLower.includes('probabilities sum to') ||
+                               messageLower.includes('probability') ||
+                               messageLower.includes('outgoing edges')
+
+    if (isProbabilityError) {
+      return {
+        title: 'Branch probabilities need adjustment',
+        message: 'When a decision splits into multiple paths, the likelihood of each path must add up to 100%. Some of your branches don\'t add up correctly yet.',
+        suggestion: 'Look for the yellow warning badges on your canvas and click "Fix automatically" to balance the probabilities.',
+        retryable: false,
+        severity: 'warning',
+      }
+    }
+
     return {
       title: 'Invalid request',
       message: normalizedMessage || 'The engine couldn\'t process your graph.',
@@ -151,6 +158,29 @@ export function mapErrorToUserMessage(error: {
       suggestion: 'Reduce the number of nodes or edges and try again.',
       retryable: false,
       severity: 'error',
+    }
+  }
+
+  // Empty canvas (no nodes to analyze)
+  if (error.code === 'EMPTY_CANVAS' || messageLower.includes('empty_canvas')) {
+    return {
+      title: 'Empty canvas',
+      message: 'Add nodes to your decision graph before running analysis.',
+      suggestion: 'Start by adding a Goal node, then build out your decision structure.',
+      retryable: false,
+      severity: 'warning',
+    }
+  }
+
+  // Network offline check - ONLY as fallback when no specific error code is available
+  // navigator.onLine is unreliable (VPNs, slow networks), so don't let it mask real errors
+  if (!navigator.onLine && !error.code && !error.status) {
+    return {
+      title: 'No internet connection',
+      message: 'You appear to be offline. Please check your network connection.',
+      suggestion: 'You can continue editing your graph, but analysis requires an internet connection.',
+      retryable: true,
+      severity: 'warning',
     }
   }
 

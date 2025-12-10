@@ -1,12 +1,16 @@
 /**
  * M6: Scenario Comparison
  * Side-by-side comparison of graph snapshots
+ * Phase 2: Synced pan/zoom between canvases
  */
 
 import { useState } from 'react'
-import { GitCompare, ChevronLeft, Download } from 'lucide-react'
+import { GitCompare, ChevronLeft, Download, Link2, Link2Off, Maximize2 } from 'lucide-react'
+import { ReactFlowProvider } from '@xyflow/react'
 import type { Snapshot, ComparisonResult } from '../snapshots/types'
 import { typography } from '../../styles/typography'
+import { MiniCanvas } from './MiniCanvas'
+import { useSyncedViewports } from '../hooks/useSyncedViewports'
 
 interface ScenarioComparisonProps {
   snapshotA: Snapshot
@@ -121,43 +125,107 @@ export function ScenarioComparison({
   )
 }
 
-function SplitView({ snapshotA, snapshotB }: { snapshotA: Snapshot; snapshotB: Snapshot }) {
+interface SplitViewProps {
+  snapshotA: Snapshot
+  snapshotB: Snapshot
+}
+
+function SplitView({ snapshotA, snapshotB }: SplitViewProps) {
+  const [syncEnabled, setSyncEnabled] = useState(true)
+  const {
+    setInstanceA,
+    setInstanceB,
+    onMoveEndA,
+    onMoveEndB,
+    fitBoth,
+  } = useSyncedViewports({ enabled: syncEnabled })
+
   return (
-    <div className="h-full grid grid-cols-2 divide-x divide-gray-200">
-      {/* Left: Snapshot A */}
-      <div className="flex flex-col">
-        <div className="px-4 py-2 bg-blue-50 border-b border-blue-200">
-          <h4 className="font-medium text-blue-900">{snapshotA.name}</h4>
-          <p className={`${typography.caption} text-blue-700 mt-0.5`}>
-            {snapshotA.nodes.length} nodes, {snapshotA.edges.length} edges
-          </p>
+    <div className="h-full flex flex-col">
+      {/* Sync controls */}
+      <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setSyncEnabled(!syncEnabled)}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded text-sm ${
+              syncEnabled
+                ? 'bg-info-100 text-info-700'
+                : 'bg-gray-100 text-gray-600'
+            }`}
+            title={syncEnabled ? 'Disable synced pan/zoom' : 'Enable synced pan/zoom'}
+          >
+            {syncEnabled ? (
+              <Link2 className="w-4 h-4" />
+            ) : (
+              <Link2Off className="w-4 h-4" />
+            )}
+            <span>{syncEnabled ? 'Synced' : 'Independent'}</span>
+          </button>
+          <button
+            onClick={fitBoth}
+            className="flex items-center gap-1.5 px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200 text-sm"
+            title="Fit both canvases to view"
+          >
+            <Maximize2 className="w-4 h-4" />
+            <span>Fit Both</span>
+          </button>
         </div>
-        <div className="flex-1 overflow-auto p-4">
-          <div className={`${typography.body} text-gray-600`}>
-            Graph visualisation placeholder
-            <br />
-            <span className={typography.caption}>
+        <p className={`${typography.caption} text-gray-500`}>
+          Pan and zoom to explore • {syncEnabled ? 'Both views synced' : 'Views independent'}
+        </p>
+      </div>
+
+      {/* Side-by-side canvases */}
+      <div className="flex-1 grid grid-cols-2 divide-x divide-gray-200">
+        {/* Left: Snapshot A */}
+        <div className="flex flex-col min-h-0">
+          <div className="px-4 py-2 bg-info-50 border-b border-info-200 flex items-center justify-between">
+            <div>
+              <h4 className="font-medium text-info-900">{snapshotA.name}</h4>
+              <p className={`${typography.caption} text-info-700 mt-0.5`}>
+                {snapshotA.nodes.length} nodes, {snapshotA.edges.length} edges
+              </p>
+            </div>
+            <span className={`${typography.caption} text-info-600`}>
               {new Date(snapshotA.createdAt).toLocaleString()}
             </span>
           </div>
+          <div className="flex-1 min-h-0">
+            <ReactFlowProvider>
+              <MiniCanvas
+                nodes={snapshotA.nodes}
+                edges={snapshotA.edges}
+                onInit={setInstanceA}
+                onMoveEnd={onMoveEndA}
+                ariaLabel={`Snapshot A: ${snapshotA.name}`}
+              />
+            </ReactFlowProvider>
+          </div>
         </div>
-      </div>
 
-      {/* Right: Snapshot B */}
-      <div className="flex flex-col">
-        <div className="px-4 py-2 bg-green-50 border-b border-green-200">
-          <h4 className="font-medium text-green-900">{snapshotB.name}</h4>
-          <p className={`${typography.caption} text-green-700 mt-0.5`}>
-            {snapshotB.nodes.length} nodes, {snapshotB.edges.length} edges
-          </p>
-        </div>
-        <div className="flex-1 overflow-auto p-4">
-          <div className={`${typography.body} text-gray-600`}>
-            Graph visualization placeholder
-            <br />
-            <span className={typography.caption}>
+        {/* Right: Snapshot B */}
+        <div className="flex flex-col min-h-0">
+          <div className="px-4 py-2 bg-mint-50 border-b border-mint-200 flex items-center justify-between">
+            <div>
+              <h4 className="font-medium text-mint-900">{snapshotB.name}</h4>
+              <p className={`${typography.caption} text-mint-700 mt-0.5`}>
+                {snapshotB.nodes.length} nodes, {snapshotB.edges.length} edges
+              </p>
+            </div>
+            <span className={`${typography.caption} text-mint-600`}>
               {new Date(snapshotB.createdAt).toLocaleString()}
             </span>
+          </div>
+          <div className="flex-1 min-h-0">
+            <ReactFlowProvider>
+              <MiniCanvas
+                nodes={snapshotB.nodes}
+                edges={snapshotB.edges}
+                onInit={setInstanceB}
+                onMoveEnd={onMoveEndB}
+                ariaLabel={`Snapshot B: ${snapshotB.name}`}
+              />
+            </ReactFlowProvider>
           </div>
         </div>
       </div>

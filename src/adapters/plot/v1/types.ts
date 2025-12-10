@@ -171,10 +171,10 @@ export interface V1Error {
   requestId?: string  // P2.3: Request ID for debugging
 }
 
-// Limits
+// Limits (PLoT Engine v1.1 Contract)
 export const V1_LIMITS = {
-  MAX_NODES: 200,
-  MAX_EDGES: 500,
+  MAX_NODES: 50,      // Contract: max 50 nodes
+  MAX_EDGES: 200,     // Contract: max 200 edges
   MAX_LABEL_LENGTH: 120,
   MAX_BODY_LENGTH: 2000,
   RATE_LIMIT_RPM: 60,
@@ -243,4 +243,63 @@ export interface V1ValidateResponse {
   valid: boolean
   errors: V1ValidationError[] // Hard errors (block execution)
   violations?: V1ValidationError[] // v1.2: soft coaching warnings (non-blocking)
+}
+
+// =============================================================================
+// Run Bundle Types (Option Ranking - v1.3)
+// =============================================================================
+
+export interface V1RunBundleRequest {
+  base_graph: V1Graph
+  deltas: Array<{
+    name: string
+    modifications: Record<string, unknown>
+  }>
+  include_ranking?: boolean
+  include_change_attribution?: boolean
+  baseline_index?: number // 0-indexed, which delta is baseline
+  sort_by?: 'p10' | 'p50' | 'p90'
+}
+
+export interface V1NodeSensitivity {
+  node_id: string
+  node_label: string
+  contribution_pct: number // 0-100
+}
+
+export interface V1ChangeAttribution {
+  summary: string
+  primary_factors?: string[]
+}
+
+export interface V1DeltaFromBaseline {
+  p50: number
+  p10?: number
+  p90?: number
+  change_attribution?: V1ChangeAttribution
+}
+
+export interface V1RunBundleResult {
+  label: string
+  rank: number
+  success_probability: number
+  summary: {
+    p10: number
+    p50: number
+    p90: number
+  }
+  sensitivity_by_node?: V1NodeSensitivity[]
+  delta_from_baseline?: V1DeltaFromBaseline
+}
+
+export interface V1RankingSummary {
+  winner: string
+  winner_p50: number
+  margin_pct: number
+  ranking_confidence: 'high' | 'medium' | 'low'
+}
+
+export interface V1RunBundleResponse {
+  results: V1RunBundleResult[]
+  ranking_summary?: V1RankingSummary
 }

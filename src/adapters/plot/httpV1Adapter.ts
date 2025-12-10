@@ -13,6 +13,8 @@ import type {
   TemplateDetail,
   TemplateListV1,
   ConfidenceLevel,
+  RunBundleRequest,
+  RunBundleResponse,
 } from './types'
 import type {
   V1RunRequest,
@@ -23,6 +25,7 @@ import type {
   V1ValidateResponse,
 } from './v1/types'
 import * as v1http from './v1/http'
+import type { V1RunBundleRequest } from './v1/types'
 import { runStream as v1runStream } from './v1/sseClient'
 import { V1_LIMITS } from './v1/types'
 import { graphToV1Request, computeClientHash, toCanonicalRun, type ReactFlowGraph } from './v1/mapper'
@@ -151,20 +154,92 @@ function mapV1ResultToReport(
   }
 
   // Use v1.2 bands for results (with fallback to legacy summary)
-  const conservative = canonicalRun.bands.p10 ?? result.summary?.conservative ?? 0
-  const likely = canonicalRun.bands.p50 ?? result.summary?.likely ?? 0
-  const optimistic = canonicalRun.bands.p90 ?? result.summary?.optimistic ?? 0
+  // Contract v1.1: results.most_likely.outcome (nested) or result.summary.likely (legacy)
+  const conservative = canonicalRun.bands.p10
+    ?? result.results?.conservative?.outcome
+    ?? result.summary?.conservative ?? 0
+  const likely = canonicalRun.bands.p50
+    ?? result.results?.most_likely?.outcome
+    ?? result.summary?.most_likely
+    ?? result.summary?.likely ?? 0
+  const optimistic = canonicalRun.bands.p90
+    ?? result.results?.optimistic?.outcome
+    ?? result.summary?.optimistic ?? 0
   const units = result.summary?.units || 'count'
 
+  // Contract v1.1: explain_delta at top-level, fall back to nested for backward compat
+  const explainDelta = response.explain_delta || result.explain_delta
+
   // Extract drivers from explain_delta.top_drivers (actual API structure)
-  const drivers = (result.explain_delta?.top_drivers ?? []).map((d: any) => ({
-    label: d.label || d.node_id || d.edge_id || 'Unknown',
-    polarity: (d.impact || 0) > 0 ? 'up' : (d.impact || 0) < 0 ? 'down' : 'neutral',
-    strength: Math.abs(d.impact || 0) > 0.7 ? 'high' : Math.abs(d.impact || 0) > 0.3 ? 'medium' : 'low',
-    // Preserve IDs for canvas highlighting
-    node_id: d.node_id,
-    edge_id: d.edge_id,
-  }))
+  // API v1.1 sends: { node_id, node_label, contribution (0-100), sign ('+'/'-') }
+  const drivers = (explainDelta?.top_drivers ?? []).map((d: any) => {
+    // Handle both old (impact) and new (contribution + sign) formats
+    let impact = d.impact ?? 0
+    // Preserve raw contribution (0-100) for UI display
+    const rawContribution = d.contribution ?? 0
+    if (d.contribution !== undefined && d.sign !== undefined) {
+      // Convert contribution (0-100) and sign to signed impact (-1 to 1)
+      const normalizedContribution = Math.min(d.contribution, 100) / 100
+      impact = d.sign === '-' ? -normalizedContribution : normalizedContribution
+    }
+
+    // Use node_label (API v1) or label (older format) for display
+    const label = d.node_label || d.label || d.node_id || d.edge_id || 'Unknown'
+
+    return {
+      label,
+      polarity: (impact > 0 ? 'up' : impact < 0 ? 'down' : 'neutral') as 'up' | 'down' | 'neutral',
+      strength: (Math.abs(impact) > 0.7 ? 'high' : Math.abs(impact) > 0.3 ? 'medium' : 'low') as 'low' | 'medium' | 'high',
+      // Contribution as 0-1 for percentage display (Quick Win #4)
+      contribution: rawContribution / 100,
+      // Use camelCase IDs to match DriverChips interface
+      nodeId: d.node_id,
+      edgeId: d.edge_id,
+      // Pass through node_kind from API for client-side filtering (v1.1 contract)
+      nodeKind: d.node_kind?.toLowerCase() || null,
+    }
+  })
+
+  // Contract v1.1: confidence as structured object { level, score, reason, factors }
+  // Backward compat: scalar number (0-1) converted via mapConfidenceLevel
+  const rawConfidence = response.confidence || result.confidence
+  const isStructuredConfidence = typeof rawConfidence === 'object' && rawConfidence !== null
+  const confidenceScore = isStructuredConfidence
+    ? (rawConfidence.score ?? 0.5)
+    : (typeof rawConfidence === 'number' ? rawConfidence : 0.5)
+  const confidenceLevel: ConfidenceLevel = isStructuredConfidence && rawConfidence.level
+    ? (rawConfidence.level.toLowerCase() as ConfidenceLevel)
+    : mapConfidenceLevel(confidenceScore)
+
+  // Sanitize confidence reason to strip debug/technical info
+  // Patterns that indicate backend debug text that shouldn't be shown to users
+  const DEBUG_PATTERNS = [
+    /model_based/i,
+    /K=\d+/,
+    /unique_graphs/,
+    /_based\s*\(/,
+    /samples?:/i,
+    /\bK\s*=\s*\d+/,
+    /graphs?\s*=\s*\d+/i,
+  ]
+
+  const sanitizeConfidenceReason = (reason: string): string => {
+    if (!reason) return ''
+    // Check if reason looks like debug info
+    if (DEBUG_PATTERNS.some(pattern => pattern.test(reason))) {
+      // Return empty - let UI show generic confidence guidance
+      if (import.meta.env.DEV) {
+        console.warn('[httpV1Adapter] Stripped debug text from confidence.why:', reason)
+      }
+      return ''
+    }
+    return reason
+  }
+
+  const rawReason = isStructuredConfidence
+    ? (rawConfidence.reason || result.explanation || '')
+    : (result.explanation || '')
+  const confidenceReason = sanitizeConfidenceReason(rawReason) || 'Based on model analysis'
 
   return {
     schema: 'report.v1',
@@ -187,8 +262,8 @@ function mapV1ResultToReport(
       units,
     },
     confidence: {
-      level: mapConfidenceLevel(result.confidence ?? 0.5),
-      why: result.explanation || 'No explanation provided',
+      level: confidenceLevel,
+      why: confidenceReason,
     },
     drivers,
     run: canonicalRun, // v1.2: attach canonical run for ResultsPanel
@@ -198,7 +273,7 @@ function mapV1ResultToReport(
     insights: response.insights || response.result?.insights,
 
     // P0.1: Canonical decision readiness (always populated from confidence.level)
-    decision_readiness: mapConfidenceToDecisionReadiness(mapConfidenceLevel(result.confidence ?? 0.5)),
+    decision_readiness: mapConfidenceToDecisionReadiness(confidenceLevel),
   }
 }
 
@@ -306,8 +381,20 @@ function mapGraphToV1Request(graph: any, seed?: number): V1RunRequest {
 export const httpV1Adapter = {
   // Run: uses sync endpoint only (stream not deployed yet)
   async run(input: RunRequest): Promise<ReportV1> {
+    // Guard: Validate graph is provided for canvas runs
+    const hasValidGraph = input.graph?.nodes && input.graph.nodes.length > 0
+
+    if (!hasValidGraph && input.template_id === 'canvas-graph') {
+      throw new Error(
+        'EMPTY_CANVAS: Cannot run analysis on an empty canvas. ' +
+        'Add at least one node to your decision graph before running analysis.'
+      )
+    }
+
     // Use provided graph (from canvas edits), or fetch template as fallback
-    const graph = input.graph || await loadTemplateGraph(input.template_id)
+    const graph = hasValidGraph
+      ? input.graph!
+      : await loadTemplateGraph(input.template_id)
 
     try {
       const v1Request = mapGraphToV1Request(graph, input.seed)
@@ -604,6 +691,73 @@ export const httpV1Adapter = {
         }
       }
       // Handle v1 HTTP errors (network, timeout, etc.)
+      throw mapV1ErrorToUI(err as V1Error)
+    }
+  },
+
+  // Run bundle - compare multiple options and get ranking
+  async runBundle(request: RunBundleRequest): Promise<RunBundleResponse> {
+    try {
+      // Convert UI graph format to V1 format
+      const rfGraph: ReactFlowGraph = {
+        nodes: request.base_graph.nodes.map(n => ({
+          id: n.id,
+          data: { label: n.label, ...n },
+        })),
+        edges: request.base_graph.edges.map(e => ({
+          id: `${e.source}-${e.target}`,
+          source: e.source,
+          target: e.target,
+          data: { ...e },
+        })),
+      }
+
+      const v1Graph = graphToV1Request(rfGraph, undefined).graph
+
+      const v1Request: V1RunBundleRequest = {
+        base_graph: v1Graph,
+        deltas: request.deltas,
+        include_ranking: request.include_ranking,
+        include_change_attribution: request.include_change_attribution,
+        baseline_index: request.baseline_index,
+        sort_by: request.sort_by,
+      }
+
+      if (import.meta.env.DEV) {
+        console.log(
+          `🚀 [httpV1] POST /v1/run_bundle (${request.deltas.length} options, ranking=${request.include_ranking})`
+        )
+      }
+
+      const response = await v1http.runBundle(v1Request)
+
+      if (import.meta.env.DEV) {
+        console.log(`✅ [httpV1] Run bundle completed with ${response.results.length} results`)
+      }
+
+      // Map V1 response to UI types (direct mapping since structures match)
+      return {
+        results: response.results.map(r => ({
+          label: r.label,
+          rank: r.rank,
+          success_probability: r.success_probability,
+          summary: r.summary,
+          sensitivity_by_node: r.sensitivity_by_node,
+          delta_from_baseline: r.delta_from_baseline,
+        })),
+        ranking_summary: response.ranking_summary,
+      }
+    } catch (err: any) {
+      // Handle validation errors from mapper
+      if (err.code === 'LIMIT_EXCEEDED' || err.code === 'BAD_INPUT') {
+        throw {
+          schema: 'error.v1',
+          code: err.code,
+          error: err.message,
+          fields: err.field ? { field: err.field, max: err.max } : undefined,
+        } as ErrorV1
+      }
+      // Handle v1 HTTP errors
       throw mapV1ErrorToUI(err as V1Error)
     }
   },

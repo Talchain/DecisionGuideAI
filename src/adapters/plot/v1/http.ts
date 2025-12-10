@@ -13,6 +13,8 @@ import type {
   V1ValidateRequest,
   V1ValidateResponse,
   V1LimitsResponse,
+  V1RunBundleRequest,
+  V1RunBundleResponse,
 } from './types'
 import {
   RETRY,
@@ -630,6 +632,54 @@ export async function limits(): Promise<V1LimitsResponse> {
       throw {
         code: 'TIMEOUT',
         message: 'Limits request timed out after 5000ms',
+      } as V1Error
+    }
+    if ((err as any).code) {
+      throw err // Already a V1Error
+    }
+    throw {
+      code: 'NETWORK_ERROR',
+      message: err instanceof Error ? err.message : String(err),
+    } as V1Error
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+/**
+ * POST /v1/run_bundle
+ * Compare multiple options and get ranking (v1.3)
+ */
+export async function runBundle(request: V1RunBundleRequest): Promise<V1RunBundleResponse> {
+  const base = getProxyBase()
+  const timeouts = getTimeouts()
+  const controller = new AbortController()
+  // Longer timeout for bundle (multiple options)
+  const timeoutMs = timeouts.sync * 2
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(`${base}/v1/run_bundle`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Request-Id': crypto.randomUUID(),
+        'x-olumi-sdk': 'plot-client/1.0.0',
+      },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      throw await mapHttpError(response)
+    }
+
+    return await response.json()
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw {
+        code: 'TIMEOUT',
+        message: `Run bundle request timed out after ${timeoutMs}ms`,
       } as V1Error
     }
     if ((err as any).code) {

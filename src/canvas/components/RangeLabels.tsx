@@ -38,7 +38,7 @@ export function RangeLabels({
     return (
       <div className="flex flex-col items-center gap-1 relative">
         <div className="flex items-center gap-1">
-          <span className={`${typography.code} font-medium uppercase text-ink-900/70 tracking-wide`}>
+          <span className={`${typography.code} font-medium text-ink-900/70`}>
             {config.userLabel}
           </span>
           {showTooltips && (

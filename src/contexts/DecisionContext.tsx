@@ -111,7 +111,6 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
     const fetchCollaborators = async () => {
       setCollaboratorsError(null)
       try {
-        console.log(`Fetching collaborators for decision: ${decisionId}`)
         
         // First try the RPC function
         try {
@@ -127,7 +126,6 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
             throw error
           }
           
-          console.log(`Collaborators fetched successfully: ${data?.length || 0} found`)
           setCollaborators(data || [])
           return
         } catch (rpcError) {
@@ -142,7 +140,6 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
         
         if (directError) throw directError
         
-        console.log(`Collaborators fetched via fallback: ${directData?.length || 0} found`)
         setCollaborators(directData || [])
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error'
@@ -167,14 +164,11 @@ export const DecisionProvider = ({ children }: { children: ReactNode }) => {
             table: 'decision_collaborators',
             filter: `decision_id=eq.${decisionId}`,
           },
-          (payload) => {
-            console.log('Collaborator change detected:', payload)
+          () => {
             fetchCollaborators()
           }
         )
-        .subscribe((status) => {
-          console.log(`Realtime subscription status: ${status}`)
-        })
+        .subscribe()
     } catch (subError) {
       console.error('Failed to create realtime subscription:', subError)
     }

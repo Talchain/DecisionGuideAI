@@ -1,6 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { useCanvasStore } from './store'
 import { useToast } from './ToastContext'
+import type { NodeType } from './domain/nodes'
+
+// Node type options for submenu
+const NODE_TYPE_OPTIONS: { type: NodeType; label: string; icon: string }[] = [
+  { type: 'goal', label: 'Goal', icon: '🎯' },
+  { type: 'decision', label: 'Decision', icon: '⚖️' },
+  { type: 'option', label: 'Option', icon: '📋' },
+  { type: 'factor', label: 'Factor', icon: '📊' },
+  { type: 'risk', label: 'Risk', icon: '⚠️' },
+  { type: 'outcome', label: 'Outcome', icon: '✅' },
+]
 
 interface ContextMenuProps {
   x: number
@@ -11,6 +22,7 @@ interface ContextMenuProps {
 export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const [focusedIndex, setFocusedIndex] = useState(0)
+  const [showNodeTypeSubmenu, setShowNodeTypeSubmenu] = useState(false)
 
   // React 18 + Zustand v5: use individual selectors instead of object+shallow
   const clipboard = useCanvasStore((s) => s.clipboard)
@@ -28,7 +40,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const [position, setPosition] = useState({ x, y })
 
   const menuItems = [
-    { label: 'Add Node Here', icon: '➕', shortcut: null, action: () => addNode({ x, y }), enabled: true },
+    { label: 'Add Node...', icon: '➕', shortcut: null, action: () => setShowNodeTypeSubmenu(true), enabled: true, hasSubmenu: true },
     { type: 'divider' as const },
     { label: 'Select All', icon: '☑️', shortcut: '⌘A', action: selectAll, enabled: true },
     { type: 'divider' as const },
@@ -39,18 +51,27 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
     { type: 'divider' as const },
     { label: 'Delete', icon: '🗑️', shortcut: 'Del', action: deleteSelected, enabled: selection.nodeIds.size > 0 || selection.edgeIds.size > 0 },
     { type: 'divider' as const },
-    { 
-      label: 'Reconnect Source', 
-      icon: '🔄', 
-      shortcut: null, 
+    {
+      label: 'Edit Connector',
+      icon: '✏️',
+      shortcut: null,
+      action: () => {
+        showToast('Double-click the connector label to edit weight & belief', 'info')
+      },
+      enabled: selection.edgeIds.size === 1
+    },
+    {
+      label: 'Reconnect Source',
+      icon: '🔄',
+      shortcut: null,
       action: () => {
         const edgeId = Array.from(selection.edgeIds)[0]
         if (edgeId) {
           beginReconnect(edgeId, 'source')
           showToast('Reconnect source: click a node or press Esc', 'info')
         }
-      }, 
-      enabled: selection.edgeIds.size === 1 
+      },
+      enabled: selection.edgeIds.size === 1
     },
     { 
       label: 'Reconnect Target', 
@@ -118,7 +139,48 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   }, [onClose])
 
   const handleAction = (action: () => void) => { action(); onClose() }
+
+  const handleAddNodeWithType = (type: NodeType) => {
+    addNode({ x, y }, type)
+    onClose()
+  }
+
   let actionIndex = -1
+
+  // If submenu is shown, render just the submenu
+  if (showNodeTypeSubmenu) {
+    return (
+      <div
+        ref={menuRef}
+        role="menu"
+        aria-label="Select node type"
+        className="fixed bg-white rounded-xl shadow-panel border border-gray-200 py-1 z-[9999] min-w-[180px]"
+        style={{ left: position.x, top: position.y }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          role="menuitem"
+          onClick={() => setShowNodeTypeSubmenu(false)}
+          className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 text-gray-500 hover:bg-gray-50 cursor-pointer"
+        >
+          <span>←</span>
+          <span>Back</span>
+        </button>
+        <div className="h-px bg-gray-200 my-1" role="separator" />
+        {NODE_TYPE_OPTIONS.map((opt) => (
+          <button
+            key={opt.type}
+            role="menuitem"
+            onClick={() => handleAddNodeWithType(opt.type)}
+            className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 hover:bg-info-50 hover:text-info-700 cursor-pointer transition-colors"
+          >
+            <span className="text-base">{opt.icon}</span>
+            <span>{opt.label}</span>
+          </button>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div
@@ -138,6 +200,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
         const currentActionIndex = actionIndex
         const enabled = 'enabled' in item ? item.enabled : true
         const isFocused = currentActionIndex === focusedIndex
+        const hasSubmenu = 'hasSubmenu' in item && item.hasSubmenu
 
         const stateClasses = !enabled
           ? 'opacity-40 cursor-not-allowed'
@@ -149,7 +212,7 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
           <button
             key={index}
             role="menuitem"
-            onClick={() => enabled && handleAction(item.action)}
+            onClick={() => enabled && (hasSubmenu ? item.action() : handleAction(item.action))}
             onMouseEnter={() => setFocusedIndex(currentActionIndex)}
             disabled={!enabled}
             className={`w-full text-left px-4 py-2 text-sm flex items-center justify-between transition-colors ${stateClasses}`}
@@ -158,7 +221,11 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
               <span className="text-base">{item.icon}</span>
               <span>{item.label}</span>
             </span>
-            {item.shortcut && <span className="text-xs text-gray-400 font-mono">{item.shortcut}</span>}
+            {hasSubmenu ? (
+              <span className="text-gray-400">▶</span>
+            ) : item.shortcut ? (
+              <span className="text-xs text-gray-400 font-mono">{item.shortcut}</span>
+            ) : null}
           </button>
         )
       })}

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { ISLClient, ISLError } from '../adapters/isl/client'
 import type {
   ContrastiveExplanationRequest,
@@ -18,7 +18,8 @@ export function useContrastiveExplanation() {
     error: null,
   })
 
-  const client = new ISLClient()
+  // Memoize client to prevent recreation on every render
+  const client = useMemo(() => new ISLClient(), [])
 
   const findPath = useCallback(
     async (request: ContrastiveExplanationRequest) => {
@@ -37,7 +38,7 @@ export function useContrastiveExplanation() {
         throw islError
       }
     },
-    []
+    [client]
   )
 
   return {

@@ -1,7 +1,12 @@
 /**
  * ObjectiveBanner Component
  *
- * Displays the current objective/goal at the top of Results and Compare views.
+ * @deprecated LEGACY - No longer used in the main OutputsDock Results flow.
+ * Retained for ResultsPanel (legacy) and potential future use cases.
+ *
+ * Previously displayed the objective/goal at the top of Results and Compare views.
+ * Now replaced by the new Signal components in OutputsDock.
+ *
  * Shows goal direction (maximize/minimize) with appropriate icon.
  */
 
@@ -15,7 +20,7 @@ interface ObjectiveBannerProps {
 
 export function ObjectiveBanner({ objectiveText, goalDirection }: ObjectiveBannerProps) {
   const DirectionIcon = goalDirection === 'maximize' ? TrendingUp : TrendingDown
-  const directionLabel = goalDirection === 'maximize' ? 'Maximize' : 'Minimize'
+  const directionLabel = goalDirection === 'maximize' ? 'Maximise' : 'Minimise'
 
   return (
     <div
@@ -30,7 +35,7 @@ export function ObjectiveBanner({ objectiveText, goalDirection }: ObjectiveBanne
           <span className={`${typography.label} text-sky-900`}>Your objective</span>
           <div className="flex items-center gap-1 text-sky-700">
             <DirectionIcon className="w-3.5 h-3.5" aria-hidden="true" />
-            <span className={`${typography.labelSmall} uppercase tracking-wide`}>{directionLabel}</span>
+            <span className={`${typography.labelSmall} tracking-wide`}>{directionLabel}</span>
           </div>
         </div>
         <p className={`${typography.body} text-sky-900`}>{objectiveText}</p>

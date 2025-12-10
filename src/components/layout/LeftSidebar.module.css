@@ -1,0 +1,90 @@
+.sidebar {
+  position: fixed;
+  /* Position below topbar with some spacing */
+  top: calc(var(--topbar-h) + 1rem);
+  left: 12px;
+  width: var(--leftsidebar-w, 52px);
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 1100;
+  /* Floating panel style - fit content height */
+  height: fit-content;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--sand-200);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  align-items: center;
+  padding: 4px 0;
+}
+
+/* Add divider line between groups */
+.group:not(:last-child)::after {
+  content: '';
+  display: block;
+  width: 24px;
+  height: 1px;
+  background: var(--sand-200);
+  margin-top: 6px;
+}
+
+.iconButton,
+.iconButtonPrimary {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--sand-200);
+  background: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease, transform 80ms ease, box-shadow 120ms ease;
+  pointer-events: auto;
+}
+
+.iconButtonPrimary {
+  background: var(--info-500);
+  border-color: var(--info-500);
+  color: white;
+}
+
+.iconButton:hover,
+.iconButtonPrimary:hover {
+  background: var(--paper-50);
+  border-color: var(--info-500);
+  box-shadow: 0 0 0 1px var(--info-100);
+}
+
+.iconButtonPrimary:hover {
+  background: var(--info-600);
+}
+
+.iconButton:focus-visible,
+.iconButtonPrimary:focus-visible {
+  outline: 2px solid var(--info-500);
+  outline-offset: 2px;
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
+  }
+}

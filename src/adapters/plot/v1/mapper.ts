@@ -263,10 +263,16 @@ export function toCanonicalRun(res: any): CanonicalRun {
     : undefined
 
   // Extract critique if present (skip empty arrays)
+  // v1.1 contract: includes severity tiers, node/edge references, and auto-fix metadata
   const critique = Array.isArray(res?.critique) && res.critique.length > 0
     ? res.critique.map((c: any) => ({
-        severity: c.severity as 'INFO' | 'WARNING' | 'BLOCKER',
+        severity: (c.severity || c.level?.toUpperCase()) as 'INFO' | 'WARNING' | 'BLOCKER',
         message: c.message,
+        code: c.code,
+        node_id: c.node_id,
+        edge_id: c.edge_id,
+        suggested_fix: c.suggested_fix,
+        auto_fixable: c.auto_fixable,
       }))
     : undefined
 

@@ -7,6 +7,7 @@ import {
   fromBackendPercentage,
   fromLocalCounts,
   getBestEvidenceCoverage,
+  countEdgesWithEvidence,
 } from '../evidenceCoverage'
 
 describe('evidenceCoverage utils', () => {
@@ -116,6 +117,68 @@ describe('evidenceCoverage utils', () => {
     it('handles NaN backend percentage', () => {
       const result = getBestEvidenceCoverage(null, NaN)
       expect(result).toBeNull()
+    })
+  })
+
+  describe('countEdgesWithEvidence', () => {
+    it('counts edges with valid provenance', () => {
+      const edges = [
+        { id: 'e1', data: { provenance: 'user research' } },
+        { id: 'e2', data: { provenance: 'market study' } },
+        { id: 'e3', data: {} },
+      ]
+      const result = countEdgesWithEvidence(edges)
+      expect(result).toEqual({ evidenced: 2, total: 3 })
+    })
+
+    it('excludes "assumption" provenance', () => {
+      const edges = [
+        { id: 'e1', data: { provenance: 'user research' } },
+        { id: 'e2', data: { provenance: 'assumption' } },
+      ]
+      const result = countEdgesWithEvidence(edges)
+      expect(result).toEqual({ evidenced: 1, total: 2 })
+    })
+
+    it('excludes "template" provenance', () => {
+      const edges = [
+        { id: 'e1', data: { provenance: 'template' } },
+        { id: 'e2', data: { provenance: 'document analysis' } },
+      ]
+      const result = countEdgesWithEvidence(edges)
+      expect(result).toEqual({ evidenced: 1, total: 2 })
+    })
+
+    it('excludes "ai-suggested" provenance', () => {
+      const edges = [
+        { id: 'e1', data: { provenance: 'ai-suggested' } },
+        { id: 'e2', data: { provenance: 'expert interview' } },
+      ]
+      const result = countEdgesWithEvidence(edges)
+      expect(result).toEqual({ evidenced: 1, total: 2 })
+    })
+
+    it('excludes empty provenance', () => {
+      const edges = [
+        { id: 'e1', data: { provenance: '' } },
+        { id: 'e2', data: { provenance: 'valid source' } },
+      ]
+      const result = countEdgesWithEvidence(edges)
+      expect(result).toEqual({ evidenced: 1, total: 2 })
+    })
+
+    it('handles edges without data', () => {
+      const edges = [
+        { id: 'e1' },
+        { id: 'e2', data: { provenance: 'valid' } },
+      ]
+      const result = countEdgesWithEvidence(edges)
+      expect(result).toEqual({ evidenced: 1, total: 2 })
+    })
+
+    it('returns zero counts for empty array', () => {
+      const result = countEdgesWithEvidence([])
+      expect(result).toEqual({ evidenced: 0, total: 0 })
     })
   })
 })

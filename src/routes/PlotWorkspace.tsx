@@ -53,8 +53,10 @@ function PlotWorkspaceInner() {
   }, [])
 
   useEffect(() => {
-    // eslint-disable-next-line no-console
-    console.log('[PLOT] route=/plot component=PlotWorkspace canvas=%s source=%s', sel.usePlc ? 'PLC' : 'Legacy', sel.source)
+    if (import.meta.env.DEV) {
+      // eslint-disable-next-line no-console
+      console.debug('[PLOT] route=/plot component=PlotWorkspace canvas=%s source=%s', sel.usePlc ? 'PLC' : 'Legacy', sel.source)
+    }
   }, [sel])
 
   // Parse query params
@@ -68,7 +70,9 @@ function PlotWorkspaceInner() {
     const elm = (x: number, y: number) => document.elementsFromPoint(x, y)
       .map(e => ({ id: e.id, z: getComputedStyle(e).zIndex, pe: getComputedStyle(e).pointerEvents }))
     const rightMid = elm(innerWidth * 0.75, innerHeight * 0.5)
-    console.log('[PLOT:DIAG]', { hitRightMid: rightMid.slice(0, 4) })
+    if (import.meta.env.DEV && isDiagMode) {
+      console.debug('[PLOT:DIAG]', { hitRightMid: rightMid.slice(0, 4) })
+    }
     
     const top = rightMid[0]
     if (top?.id !== 'plot-canvas-root') {
@@ -141,11 +145,12 @@ function PlotWorkspaceInner() {
       if (savedState.stickyNotes) {
         setStickyNotes(savedState.stickyNotes)
       }
-      console.info('✅ Restored workspace:', savedState.nodes.length, 'nodes,', (savedState.stickyNotes?.length || 0), 'notes,', (savedState.whiteboardPaths?.length || 0), 'paths from', new Date(savedState.lastSaved || 0))
+      if (import.meta.env.DEV) {
+        console.debug('[PLOT] Restored workspace:', savedState.nodes.length, 'nodes')
+      }
       setWorkspaceLoaded(true) // Mark as loaded with data
     } else {
       // No saved workspace - will fetch fresh scenario
-      console.info('No saved workspace - will fetch fresh scenario')
       setWorkspaceLoaded(true)
     }
   }, [setCamera])
@@ -176,23 +181,11 @@ function PlotWorkspaceInner() {
 
     // Only fetch fresh scenario if we have no nodes
     if (nodes.length === 0) {
-      console.info('🔄 No nodes found - fetching fresh scenario')
       runFlow()
-    } else {
-      console.info('✅ Using restored workspace -', nodes.length, 'nodes')
     }
-    
+
     // Load biases
     loadBiases()
-
-    console.info('UI_PLOT_WORKSPACE', {
-      route: '/plot',
-      mode: 'canvas_workspace',
-      unified_camera: true,
-      whiteboard_bundled: true,
-      autosave: true,
-      restored: nodes.length > 0
-    })
 
     // Mark initialization as complete
     setInitializationComplete(true)

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { ISLClient, ISLError } from '../adapters/isl/client'
 import type { ISLValidationResponse, ISLRunRequest } from '../adapters/isl/types'
 
@@ -15,7 +15,8 @@ export function useISLValidation() {
     error: null,
   })
 
-  const client = new ISLClient()
+  // Memoize client to prevent recreation on every render
+  const client = useMemo(() => new ISLClient(), [])
 
   const validate = useCallback(
     async (request: ISLRunRequest) => {
@@ -34,7 +35,7 @@ export function useISLValidation() {
         throw islError
       }
     },
-    []
+    [client]
   )
 
   return {

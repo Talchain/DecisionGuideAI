@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { ISLClient, ISLError } from '../adapters/isl/client'
 import type {
   TransportabilityRequest,
@@ -18,7 +18,8 @@ export function useTransportability() {
     error: null,
   })
 
-  const client = new ISLClient()
+  // Memoize client to prevent recreation on every render
+  const client = useMemo(() => new ISLClient(), [])
 
   const check = useCallback(
     async (request: TransportabilityRequest) => {
@@ -37,7 +38,7 @@ export function useTransportability() {
         throw islError
       }
     },
-    []
+    [client]
   )
 
   return {

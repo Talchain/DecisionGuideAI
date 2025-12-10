@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, GitBranch, Activity } from 'lucide-react'
+import { FileText, GitBranch, Activity, PlayCircle } from 'lucide-react'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore } from '../store'
@@ -7,6 +7,8 @@ import { useEngineLimits } from '../hooks/useEngineLimits'
 import { deriveLimitsStatus } from '../utils/limitsStatus'
 import { buildHealthStrings } from '../utils/graphHealthStrings'
 import { typography } from '../../styles/typography'
+import { Collapsible } from '../../components/Collapsible'
+import { EmptyState } from './EmptyState'
 
 type InputsDockTab = 'documents' | 'scenarios' | 'limits'
 
@@ -30,6 +32,8 @@ function FramingSection() {
     Boolean(framing?.constraints || framing?.risks || framing?.uncertainties)
   )
 
+  const hasCoreFraming = Boolean(framing?.title || framing?.goal || framing?.timeline)
+
   const handleChange = (field: 'title' | 'goal' | 'timeline' | 'constraints' | 'risks' | 'uncertainties') =>
     (event: any) => {
       updateFraming({ [field]: event.target.value } as any)
@@ -41,113 +45,114 @@ function FramingSection() {
       data-testid="framing-section"
       className="space-y-4"
     >
-      <div className="space-y-1">
-        <h2 className={`${typography.label} text-ink-900 uppercase tracking-wide`}>Framing</h2>
-        <p className={`${typography.code} text-ink-900/70`}>
-          Capture the decision, goal, and timing so each scenario stays grounded.
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        <div className="space-y-1">
-          <label htmlFor="framing-title" className={`block ${typography.code} font-medium text-ink-900`}>
-            Decision or question
-          </label>
-          <input
-            id="framing-title"
-            type="text"
-            className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            value={framing?.title ?? ''}
-            onChange={handleChange('title')}
-            placeholder="What decision are you making?"
-          />
-        </div>
-
-        <div className="space-y-1">
-          <label htmlFor="framing-goal" className={`block ${typography.code} font-medium text-ink-900`}>
-            Primary goal
-          </label>
-          <textarea
-            id="framing-goal"
-            rows={2}
-            className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
-            value={framing?.goal ?? ''}
-            onChange={handleChange('goal')}
-            placeholder="What does a good outcome look like?"
-          />
-        </div>
-
-        <div className="space-y-1">
-          <label htmlFor="framing-timeline" className={`block ${typography.code} font-medium text-ink-900`}>
-            Timeline or horizon
-          </label>
-          <input
-            id="framing-timeline"
-            type="text"
-            className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            value={framing?.timeline ?? ''}
-            onChange={handleChange('timeline')}
-            placeholder="For example: next quarter, 12–18 months."
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(v => !v)}
-          className={`inline-flex items-center ${typography.code} font-medium text-blue-700 hover:text-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded`}
-          data-testid="framing-toggle-advanced"
-        >
-          {showAdvanced ? 'Hide extra structure' : 'Add more structure'}
-        </button>
-
-        {showAdvanced && (
-          <div className="mt-1 space-y-3" data-testid="framing-advanced">
-            <div className="space-y-1">
-              <label htmlFor="framing-constraints" className={`block ${typography.code} font-medium text-ink-900`}>
-                Constraints
-              </label>
-              <textarea
-                id="framing-constraints"
-                rows={2}
-                className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
-                value={framing?.constraints ?? ''}
-                onChange={handleChange('constraints')}
-                placeholder="Key constraints or non-negotiables."
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label htmlFor="framing-risks" className={`block ${typography.code} font-medium text-ink-900`}>
-                Risks
-              </label>
-              <textarea
-                id="framing-risks"
-                rows={2}
-                className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
-                value={framing?.risks ?? ''}
-                onChange={handleChange('risks')}
-                placeholder="What could go wrong or be costly?"
-              />
-            </div>
-
-            <div className="space-y-1">
-              <label htmlFor="framing-uncertainties" className={`block ${typography.code} font-medium text-ink-900`}>
-                Uncertainties
-              </label>
-              <textarea
-                id="framing-uncertainties"
-                rows={2}
-                className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
-                value={framing?.uncertainties ?? ''}
-                onChange={handleChange('uncertainties')}
-                placeholder="Unknowns, assumptions, or information gaps."
-              />
-            </div>
+      <Collapsible
+        title="Framing"
+        description="Capture the decision, goal, and timing so each scenario stays grounded."
+        defaultOpen={!hasCoreFraming}
+        className="space-y-2"
+        bodyClassName="mt-2 space-y-4"
+      >
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <label htmlFor="framing-title" className={`block ${typography.code} font-medium text-ink-900`}>
+              Decision or question
+            </label>
+            <input
+              id="framing-title"
+              type="text"
+              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+              value={framing?.title ?? ''}
+              onChange={handleChange('title')}
+              placeholder="What decision are you making?"
+            />
           </div>
-        )}
-      </div>
+
+          <div className="space-y-1">
+            <label htmlFor="framing-goal" className={`block ${typography.code} font-medium text-ink-900`}>
+              Primary goal
+            </label>
+            <textarea
+              id="framing-goal"
+              rows={2}
+              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
+              value={framing?.goal ?? ''}
+              onChange={handleChange('goal')}
+              placeholder="What does a good outcome look like?"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label htmlFor="framing-timeline" className={`block ${typography.code} font-medium text-ink-900`}>
+              Timeline or horizon
+            </label>
+            <input
+              id="framing-timeline"
+              type="text"
+              className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+              value={framing?.timeline ?? ''}
+              onChange={handleChange('timeline')}
+              placeholder="For example: next quarter, 12–18 months."
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(v => !v)}
+            className={`inline-flex items-center ${typography.code} font-medium text-blue-700 hover:text-blue-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded`}
+            data-testid="framing-toggle-advanced"
+          >
+            {showAdvanced ? 'Hide extra structure' : 'Add more structure'}
+          </button>
+
+          {showAdvanced && (
+            <div className="mt-1 space-y-3" data-testid="framing-advanced">
+              <div className="space-y-1">
+                <label htmlFor="framing-constraints" className={`block ${typography.code} font-medium text-ink-900`}>
+                  Constraints
+                </label>
+                <textarea
+                  id="framing-constraints"
+                  rows={2}
+                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
+                  value={framing?.constraints ?? ''}
+                  onChange={handleChange('constraints')}
+                  placeholder="Key constraints or non-negotiables."
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label htmlFor="framing-risks" className={`block ${typography.code} font-medium text-ink-900`}>
+                  Risks
+                </label>
+                <textarea
+                  id="framing-risks"
+                  rows={2}
+                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
+                  value={framing?.risks ?? ''}
+                  onChange={handleChange('risks')}
+                  placeholder="What could go wrong or be costly?"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label htmlFor="framing-uncertainties" className={`block ${typography.code} font-medium text-ink-900`}>
+                  Uncertainties
+                </label>
+                <textarea
+                  id="framing-uncertainties"
+                  rows={2}
+                  className={`w-full rounded border border-sand-300 px-2 py-1 ${typography.caption} text-ink-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none`}
+                  value={framing?.uncertainties ?? ''}
+                  onChange={handleChange('uncertainties')}
+                  placeholder="Unknowns, assumptions, or information gaps."
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </Collapsible>
     </section>
   )
 }
@@ -180,18 +185,15 @@ function ScenarioRunSummary() {
         className="mt-4"
         data-testid="scenario-run-summary-empty"
       >
-        <div className="flex flex-col items-start rounded-lg border border-sand-200 bg-paper-50 px-3 py-2 text-left">
-          <div className="mb-1 flex items-center gap-2">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-sky-50">
-              <Activity className="w-3.5 h-3.5 text-sky-600" aria-hidden="true" />
-            </span>
-            <span className={`${typography.code} font-medium text-ink-900/80`}>
-              No runs yet for this decision
-            </span>
-          </div>
-          <p className={`${typography.code} text-ink-900/60`}>
-            Run an analysis to see results here.
-          </p>
+        <div className="rounded-lg border border-sand-200 bg-paper-50">
+          <EmptyState
+            icon={PlayCircle}
+            title="Ready to analyze"
+            description="Run an analysis to see how your decision model performs with current inputs."
+            hint="Results will appear in the Outputs panel"
+            className="py-4"
+            testId="scenario-run-empty-state"
+          />
         </div>
       </section>
     )
