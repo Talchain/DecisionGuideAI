@@ -67,6 +67,9 @@ import { OutcomesSignal } from './OutcomesSignal'
 import { TrustSignal } from './TrustSignal'
 import { DriversSignal } from './DriversSignal'
 import { DecisionSummary } from './DecisionSummary'
+import { RiskTolerancePanel } from './RiskTolerancePanel'
+import { RiskAdjustedDisplay } from './RiskAdjustedDisplay'
+import { ThresholdDisplay } from './ThresholdDisplay'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useResultsRun } from '../hooks/useResultsRun'
 import { focusNodeById } from '../utils/focusHelpers'
@@ -837,6 +840,17 @@ export function OutputsDock() {
                   />
                 )}
 
+                {/* Risk Tolerance Panel - CEE elicitation with Accept/Override */}
+                {!isPreRun && hasInlineSummary && (
+                  <RiskTolerancePanel
+                    context={{
+                      decision_domain: framing?.title,
+                      time_horizon: framing?.timeHorizon as 'short' | 'medium' | 'long' | undefined,
+                    }}
+                    defaultExpanded={false}
+                  />
+                )}
+
                 {/* Signal Components - Decision-first hierarchy:
                     1. DriversSignal - Why? (understanding)
                     2. OutcomesSignal - What? (validation)
@@ -852,7 +866,22 @@ export function OutputsDock() {
                       objectiveText={objectiveText}
                       baselineName={baselineValue === 0 ? '"do nothing"' : 'your baseline'}
                     />
+                    {/* Risk-Adjusted View - shows outcomes weighted by user's risk tolerance */}
+                    {report?.results && (
+                      <RiskAdjustedDisplay
+                        bands={{
+                          p10: report.results.conservative,
+                          p50: report.results.likely,
+                          p90: report.results.optimistic,
+                        }}
+                        units={report.results.units}
+                        unitSymbol={report.results.unitSymbol}
+                        goalDirection={goalDirection}
+                      />
+                    )}
                     <TrustSignal />
+                    {/* Threshold Display - shows critical tipping points */}
+                    <ThresholdDisplay defaultExpanded={false} />
                     <ActionsSignal maxCollapsed={3} />
                   </div>
                 )}
