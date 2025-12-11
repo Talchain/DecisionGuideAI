@@ -33,24 +33,37 @@ export interface AcceptOverrideControlProps<T> {
   testIdPrefix?: string
 }
 
-const confidenceConfig: Record<ConfidenceLevel, { bg: string; border: string; text: string; badge: string }> = {
+const confidenceConfig: Record<ConfidenceLevel, {
+  bg: string
+  border: string
+  text: string
+  badge: string
+  label: string
+  shortLabel: string
+}> = {
   high: {
     bg: 'bg-mint-50',
     border: 'border-mint-200',
     text: 'text-mint-700',
     badge: 'bg-mint-100 text-mint-700',
+    label: 'Recommended based on pattern',
+    shortLabel: 'Recommended',
   },
   medium: {
     bg: 'bg-sun-50',
     border: 'border-sun-200',
     text: 'text-sun-700',
     badge: 'bg-sun-100 text-sun-700',
+    label: 'Suggestion — review recommended',
+    shortLabel: 'Review',
   },
   low: {
     bg: 'bg-sand-50',
     border: 'border-sand-200',
     text: 'text-sand-600',
     badge: 'bg-sand-100 text-sand-600',
+    label: 'Suggestion — please verify',
+    shortLabel: 'Verify',
   },
 }
 
@@ -90,10 +103,13 @@ function AcceptOverrideControlInner<T>({
             <span className={`${typography.label} text-ink-900`}>
               {formatValue(suggestedValue)}
             </span>
+            {/* Task 3.5: Confidence-based messaging */}
             <span
               className={`${typography.caption} px-1.5 py-0.5 rounded font-medium ${config.badge}`}
+              title={`${confidence} confidence`}
+              data-testid={`${testIdPrefix}-confidence`}
             >
-              {confidence} confidence
+              {config.label}
             </span>
           </div>
 

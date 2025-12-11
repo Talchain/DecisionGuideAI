@@ -33,6 +33,8 @@ import { buildRichGraphPayload } from '../utils/graphPayload'
 import { formatOutcomeValue } from '../../lib/format'
 import { typography } from '../../styles/typography'
 import { cleanInsightText, quoteOptionNames } from '../utils/cleanInsightText'
+import { detectBaseline, formatBaselineComparison } from '../utils/baselineDetection'
+import { CONFIDENCE_RANGES } from '../utils/confidenceRangeLabels'
 import type { ConfidenceLevel } from '../../adapters/plot/types'
 
 export interface RankingData {
@@ -378,10 +380,10 @@ export function DecisionSummary({
           </div>
         </div>
 
-        {/* 70% confidence band */}
+        {/* 70% confidence band - Task 3.9: consistent labels */}
         {summaryData.confidenceBand && (
-          <p className={`${typography.caption} text-ink-500 mb-2`}>
-            70% likely: {formatOutcomeValue(summaryData.confidenceBand.p15, summaryData.units, summaryData.unitSymbol)}–{formatOutcomeValue(summaryData.confidenceBand.p85, summaryData.units, summaryData.unitSymbol)}
+          <p className={`${typography.caption} text-ink-500 mb-2`} title={CONFIDENCE_RANGES.core.description}>
+            {CONFIDENCE_RANGES.core.shortLabel}: {formatOutcomeValue(summaryData.confidenceBand.p15, summaryData.units, summaryData.unitSymbol)}–{formatOutcomeValue(summaryData.confidenceBand.p85, summaryData.units, summaryData.unitSymbol)}
           </p>
         )}
 
@@ -392,45 +394,51 @@ export function DecisionSummary({
           </p>
         )}
 
-        {/* Baseline comparison */}
-        {summaryData.baselineComparison && (
-          <div className="flex items-center gap-2 mb-2">
-            {summaryData.baselineComparison.isIncrease ? (
-              <TrendingUp
-                className={`h-4 w-4 ${
-                  summaryData.baselineComparison.isPositive ? 'text-mint-600' : 'text-carrot-600'
+        {/* Baseline comparison - Task 1.7: Proper baseline labeling */}
+        {summaryData.baselineComparison && (() => {
+          // Detect if baselineName is a recognized baseline option
+          const baselineDetection = detectBaseline(baselineName)
+          const formattedComparison = formatBaselineComparison(baselineName, baselineDetection.isBaseline)
+
+          return (
+            <div className="flex items-center gap-2 mb-2">
+              {summaryData.baselineComparison.isIncrease ? (
+                <TrendingUp
+                  className={`h-4 w-4 ${
+                    summaryData.baselineComparison.isPositive ? 'text-mint-600' : 'text-carrot-600'
+                  }`}
+                />
+              ) : (
+                <TrendingDown
+                  className={`h-4 w-4 ${
+                    summaryData.baselineComparison.isPositive ? 'text-mint-600' : 'text-carrot-600'
+                  }`}
+                />
+              )}
+              <span
+                className={`${typography.bodySmall} font-medium ${
+                  summaryData.baselineComparison.isPositive ? 'text-mint-700' : 'text-carrot-700'
                 }`}
-              />
-            ) : (
-              <TrendingDown
-                className={`h-4 w-4 ${
-                  summaryData.baselineComparison.isPositive ? 'text-mint-600' : 'text-carrot-600'
-                }`}
-              />
-            )}
-            <span
-              className={`${typography.bodySmall} font-medium ${
-                summaryData.baselineComparison.isPositive ? 'text-mint-700' : 'text-carrot-700'
-              }`}
-            >
-              {summaryData.baselineComparison.display}{' '}
-              {summaryData.baselineComparison.isPositive ? 'better' : 'worse'} than {baselineName}
-            </span>
-            {/* Baseline tooltip explanation */}
-            <button
-              type="button"
-              className="p-0.5 rounded hover:bg-sand-100 transition-colors"
-              title={
-                baselineName === '"do nothing"'
-                  ? 'Baseline is 0% — comparing against taking no action'
-                  : 'Baseline is your reference scenario for comparison. Click "Set Baseline" in Scenario Setup to change it.'
-              }
-              aria-label="What is baseline?"
-            >
-              <Info className="h-3.5 w-3.5 text-ink-400" />
-            </button>
-          </div>
-        )}
+              >
+                {summaryData.baselineComparison.display}{' '}
+                {summaryData.baselineComparison.isPositive ? 'better' : 'worse'} {formattedComparison}
+              </span>
+              {/* Baseline tooltip explanation */}
+              <button
+                type="button"
+                className="p-0.5 rounded hover:bg-sand-100 transition-colors"
+                title={
+                  baselineDetection.isBaseline
+                    ? 'Comparing against your current baseline scenario'
+                    : 'Baseline is your reference scenario for comparison. Click "Set Baseline" in Scenario Setup to change it.'
+                }
+                aria-label="What is baseline?"
+              >
+                <Info className="h-3.5 w-3.5 text-ink-400" />
+              </button>
+            </div>
+          )
+        })()}
 
         {/* Key Insight headline - prefer API response, fallback to CEE story */}
         {(keyInsight?.headline || quotedHeadline) && (

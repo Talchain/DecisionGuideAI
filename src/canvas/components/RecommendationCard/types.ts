@@ -115,6 +115,42 @@ export interface ValidationStep {
   assumption_index?: number
 }
 
+// ============================================================================
+// Constraint Violation Types (Task 1.3)
+// ============================================================================
+
+export interface ConstraintViolation {
+  /** Option that was excluded */
+  option_id: string
+  /** Option label for display */
+  option_label: string
+  /** Which constraint was violated */
+  constraint_label: string
+  /** Type of constraint */
+  constraint_type: 'budget' | 'time' | 'resource' | 'regulatory' | 'other'
+  /** The limit value */
+  limit_value?: number
+  /** The option's value that exceeded the limit */
+  actual_value?: number
+  /** Units for display */
+  units?: string
+}
+
+export interface ActiveConstraint {
+  /** Constraint label */
+  label: string
+  /** Type of constraint */
+  type: 'budget' | 'time' | 'resource' | 'regulatory' | 'other'
+  /** Current value (at the boundary) */
+  current_value: number
+  /** Limit value */
+  limit_value: number
+  /** Units for display */
+  units?: string
+  /** Whether relaxing this could improve outcomes */
+  relaxation_benefit?: string
+}
+
 export interface TraceMetadata {
   request_id: string
   model_version?: string

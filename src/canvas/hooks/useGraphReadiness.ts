@@ -36,6 +36,17 @@ export interface GraphImprovement {
   suggested_node_type?: SuggestedNodeType
   /** Current score for this quality factor (0-100) */
   current_score?: number
+  /** Issue code for categorization (e.g., 'ORPHAN_OUTCOME', 'MISSING_GOAL_LINK') */
+  issue_code?: string
+  /** Node labels for display purposes */
+  affected_node_labels?: string[]
+}
+
+/** Orphaned outcome warning from graph-readiness */
+export interface OrphanedOutcome {
+  node_id: string
+  label: string
+  reason: string
 }
 
 export interface GraphReadiness {
@@ -44,6 +55,8 @@ export interface GraphReadiness {
   can_run_analysis: boolean
   confidence_explanation: string
   improvements: GraphImprovement[]
+  /** Outcomes not connected to goal (Task 1.2) */
+  orphaned_outcomes?: OrphanedOutcome[]
 }
 
 export function useGraphReadiness() {

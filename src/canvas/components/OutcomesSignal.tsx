@@ -25,6 +25,12 @@ import {
 import { useCanvasStore } from '../store'
 import { formatOutcomeValue, formatOutcomeValueCompact } from '../../lib/format'
 import { typography } from '../../styles/typography'
+import { detectBaseline, formatBaselineComparison } from '../utils/baselineDetection'
+import {
+  PERCENTILE_LABELS,
+  CONFIDENCE_RANGES,
+  getConfidenceRangeTooltip,
+} from '../utils/confidenceRangeLabels'
 
 interface OutcomesSignalProps {
   /** Start expanded */
@@ -66,6 +72,15 @@ export function OutcomesSignal({
       unitSymbol: report.results.unitSymbol,
     }
   }, [report])
+
+  // Task 1.7: Detect if baselineName is a recognized baseline option
+  const baselineDisplay = useMemo(() => {
+    const detection = detectBaseline(baselineName)
+    return {
+      isBaseline: detection.isBaseline,
+      formattedComparison: formatBaselineComparison(baselineName, detection.isBaseline),
+    }
+  }, [baselineName])
 
   // Calculate baseline comparison
   // Note: baseline === 0 is valid (status quo = 0% success / "do nothing" scenario)
@@ -200,7 +215,7 @@ export function OutcomesSignal({
                 }
               </span>
               <span className={`${typography.caption} text-ink-500`}>
-                vs. {baselineName}
+                {baselineDisplay.formattedComparison}
               </span>
             </div>
           ) : !isExpanded ? (
@@ -215,39 +230,39 @@ export function OutcomesSignal({
       {/* Expanded content */}
       {isExpanded && (
         <div className="border-t border-sand-200 px-4 py-4 space-y-4">
-          {/* 70% Confidence Range - main takeaway */}
-          <div className="p-3 bg-sky-50 rounded-lg">
+          {/* 70% Confidence Range - main takeaway (Task 3.9: consistent labels) */}
+          <div className="p-3 bg-sky-50 rounded-lg" title={getConfidenceRangeTooltip('core')}>
             <div className="flex items-center justify-between mb-1">
               <span className={`${typography.bodySmall} font-medium text-sky-800`}>
-                70% Confidence Range
+                {CONFIDENCE_RANGES.core.label}
               </span>
               <span className={`${typography.body} font-semibold text-sky-700`}>
                 {formatOutcomeValueCompact(outcomes.p15, outcomes.units, outcomes.unitSymbol)} – {formatOutcomeValueCompact(outcomes.p85, outcomes.units, outcomes.unitSymbol)}
               </span>
             </div>
             <p className={`${typography.caption} text-sky-600`}>
-              Most outcomes will fall within this range
+              {CONFIDENCE_RANGES.core.description}
             </p>
           </div>
 
-          {/* Full Range bands - 2 columns (worst/best case) since Most Likely is in header */}
+          {/* Full Range bands - 2 columns (worst/best case) since Most Likely is in header (Task 3.9: consistent labels) */}
           <div className="grid grid-cols-2 gap-4">
             {/* P10 - Worst case */}
-            <div className="text-center p-2 bg-sand-50 rounded-lg">
-              <p className={`${typography.caption} text-ink-500 mb-1`}>Worst Case</p>
+            <div className="text-center p-2 bg-sand-50 rounded-lg" title={PERCENTILE_LABELS.p10.explanation}>
+              <p className={`${typography.caption} text-ink-500 mb-1`}>{PERCENTILE_LABELS.p10.long}</p>
               <p className={`${typography.body} font-semibold text-ink-700`}>
                 {formatOutcomeValue(outcomes.p10, outcomes.units, outcomes.unitSymbol)}
               </p>
-              <p className={`${typography.caption} text-ink-400`}>10th percentile</p>
+              <p className={`${typography.caption} text-ink-400`}>{PERCENTILE_LABELS.p10.percentile}</p>
             </div>
 
             {/* P90 - Best case */}
-            <div className="text-center p-2 bg-sand-50 rounded-lg">
-              <p className={`${typography.caption} text-ink-500 mb-1`}>Best Case</p>
+            <div className="text-center p-2 bg-sand-50 rounded-lg" title={PERCENTILE_LABELS.p90.explanation}>
+              <p className={`${typography.caption} text-ink-500 mb-1`}>{PERCENTILE_LABELS.p90.long}</p>
               <p className={`${typography.body} font-semibold text-ink-700`}>
                 {formatOutcomeValue(outcomes.p90, outcomes.units, outcomes.unitSymbol)}
               </p>
-              <p className={`${typography.caption} text-ink-400`}>90th percentile</p>
+              <p className={`${typography.caption} text-ink-400`}>{PERCENTILE_LABELS.p90.percentile}</p>
             </div>
           </div>
 
@@ -268,10 +283,10 @@ export function OutcomesSignal({
 
           {/* Note: Confidence badge removed - shown once in DecisionSummary for consistency */}
 
-          {/* Baseline comparison detail */}
+          {/* Baseline comparison detail - Task 1.7: Proper baseline labeling */}
           {comparison && (
             <div className="flex items-center justify-between pt-2 border-t border-sand-100">
-              <span className={`${typography.caption} text-ink-500`}>vs. {baselineName}</span>
+              <span className={`${typography.caption} text-ink-500`}>{baselineDisplay.formattedComparison}</span>
               <div className="flex items-center gap-2">
                 <span className={`${typography.caption} text-ink-500`}>
                   {formatOutcomeValueCompact(baseline!, outcomes.units, outcomes.unitSymbol)}

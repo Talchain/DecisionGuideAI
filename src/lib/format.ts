@@ -146,3 +146,53 @@ export function formatConfidence(confidence: number | undefined): string {
 export function formatConfidencePercent(percent: number): string {
   return `${Math.round(percent)}%`
 }
+
+/**
+ * Format a range of values with consistent en-dash delimiter.
+ * Standardizes "X – Y" format across all range displays.
+ *
+ * @param lower - Lower bound value
+ * @param upper - Upper bound value
+ * @param units - Unit type for formatting values
+ * @param unitSymbol - Optional currency symbol
+ */
+export function formatRange(
+  lower: number | null,
+  upper: number | null,
+  units: OutcomeUnits = 'percent',
+  unitSymbol?: string
+): string {
+  const formattedLower = formatOutcomeValueCompact(lower, units, unitSymbol)
+  const formattedUpper = formatOutcomeValueCompact(upper, units, unitSymbol)
+  // Use en-dash with spaces for consistent range formatting
+  return `${formattedLower} – ${formattedUpper}`
+}
+
+/**
+ * Format a delta value with sign prefix.
+ * Shows "+X%" for increases, "-X%" for decreases.
+ *
+ * @param value - The change value (already as percentage points)
+ * @param showPositiveSign - Whether to show "+" for positive values (default: true)
+ */
+export function formatDelta(
+  value: number,
+  showPositiveSign = true
+): string {
+  const sign = value > 0 && showPositiveSign ? '+' : ''
+  return `${sign}${value.toFixed(0)}%`
+}
+
+/**
+ * Format a value as percentage, ensuring "X%" format (never "X pts" or "X points").
+ * Auto-detects 0-1 probability scale.
+ *
+ * @param value - The value to format
+ * @param decimals - Decimal places (default: 0)
+ */
+export function formatPercent(value: number, decimals = 0): string {
+  // Auto-detect if value is in 0-1 probability form
+  const isProbability = value >= 0 && value <= 1
+  const displayValue = isProbability ? value * 100 : value
+  return `${displayValue.toFixed(decimals)}%`
+}

@@ -110,7 +110,26 @@ export function validateGraph(graph: UiGraph): ValidationResult {
     }
   })
 
-  // 4. Validate edges
+  // 4. Check for disconnected constraint nodes (Task 4.5)
+  const connectedNodeIds = new Set<string>()
+  graph.edges.forEach((edge) => {
+    connectedNodeIds.add(edge.source)
+    connectedNodeIds.add(edge.target)
+  })
+
+  graph.nodes.forEach((node, idx) => {
+    const nodeType = node.type ?? node.data?.type
+    if (nodeType === 'constraint' && !connectedNodeIds.has(node.id)) {
+      const label = node.label ?? node.data?.label ?? node.id
+      violations.push({
+        code: 'BAD_INPUT',
+        message: `Constraint "${label}" is not connected to any nodes. Connect it to the factor or option it limits.`,
+        field: `nodes[${idx}].id`,
+      })
+    }
+  })
+
+  // 5. Validate edges
   graph.edges.forEach((edge, idx) => {
     // Check source exists
     if (!edge.source || edge.source.trim() === '') {

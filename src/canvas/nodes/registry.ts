@@ -12,6 +12,7 @@ import { FactorNode } from './FactorNode'
 import { RiskNode } from './RiskNode'
 import { OutcomeNode } from './OutcomeNode'
 import { ActionNode } from './ActionNode'
+import { ConstraintNode } from './ConstraintNode'
 
 /**
  * React Flow node types registry
@@ -25,4 +26,5 @@ export const nodeTypes: NodeTypes = {
   risk: RiskNode,
   outcome: OutcomeNode,
   action: ActionNode,
+  constraint: ConstraintNode,
 }

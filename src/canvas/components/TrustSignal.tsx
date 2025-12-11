@@ -35,6 +35,12 @@ import {
   tierConfig as baseTierConfig,
   normalizeToPercent,
 } from '../utils/qualityTiers'
+import {
+  IdentifiabilityBadge,
+  normalizeIdentifiabilityTag,
+  isIdentifiabilityWarning,
+  type IdentifiabilityStatus,
+} from './IdentifiabilityBadge'
 
 interface TrustSignalProps {
   /** Start expanded */
@@ -54,6 +60,13 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
   const results = useCanvasStore((s) => s.results)
   const graphHealth = useCanvasStore((s) => s.graphHealth)
   const report = results?.report
+
+  // Task 3.2: Extract identifiability status from model_card
+  const identifiability = useMemo((): IdentifiabilityStatus | null => {
+    const modelCard = report?.model_card as { identifiability_tag?: string } | undefined
+    if (!modelCard?.identifiability_tag) return null
+    return normalizeIdentifiabilityTag(modelCard.identifiability_tag)
+  }, [report])
 
   // Extract quality metrics
   const metrics = useMemo(() => {
@@ -152,6 +165,22 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
               </div>
             </div>
           </div>
+
+          {/* Task 3.2: Identifiability Status */}
+          {identifiability && (
+            <div
+              className="space-y-2"
+              data-testid="identifiability-section"
+            >
+              <p className={`${typography.caption} font-medium text-ink-600 uppercase tracking-wide`}>
+                Causal Analysis
+              </p>
+              <IdentifiabilityBadge
+                status={identifiability}
+                showExplanation={isIdentifiabilityWarning(identifiability)}
+              />
+            </div>
+          )}
 
           {/* Basis for assessment */}
           <div className="space-y-2">

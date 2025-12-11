@@ -73,6 +73,7 @@ import { ThresholdDisplay } from './ThresholdDisplay'
 import { DetailedAnalysisSection } from './DetailedAnalysisSection'
 import { RecommendationCard } from './RecommendationCard'
 import { SequentialView } from './SequentialView'
+import { MultiGoalParetoPanel } from './MultiGoalParetoPanel'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useResultsRun } from '../hooks/useResultsRun'
 import { focusNodeById } from '../utils/focusHelpers'
@@ -123,6 +124,10 @@ const SHOW_RECOMMENDATION_CARD = import.meta.env.VITE_SHOW_RECOMMENDATION_CARD =
 // Feature flag for Phase 4: Sequential Stage Visualization
 // When enabled, shows SequentialView for multi-stage decisions
 const SHOW_SEQUENTIAL_VIEW = import.meta.env.VITE_SHOW_SEQUENTIAL_VIEW === 'true'
+
+// Feature flag for Phase 5: Multi-Goal Pareto Visualization
+// When enabled, shows trade-off analysis for conflicting goals
+const SHOW_PARETO_PANEL = import.meta.env.VITE_SHOW_PARETO_PANEL === 'true'
 
 const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
   { id: 'results', label: 'Results' },
@@ -910,6 +915,22 @@ export function OutputsDock() {
                       // Could navigate to stage details in future
                       console.log('[SequentialView] Stage details clicked:', stageIndex)
                     }}
+                  />
+                )}
+
+                {/* Phase 5: Multi-Goal Pareto Visualization (Task 5.3) */}
+                {SHOW_PARETO_PANEL && !isPreRun && hasInlineSummary && (
+                  <MultiGoalParetoPanel
+                    onOptionClick={(optionId) => {
+                      // Focus the option node
+                      const optionNode = nodes.find(n => n.id === optionId)
+                      if (optionNode) {
+                        setHighlightedNodes([optionId])
+                        focusNodeById(optionId)
+                        setTimeout(() => setHighlightedNodes([]), 3000)
+                      }
+                    }}
+                    defaultExpanded={false}
                   />
                 )}
 

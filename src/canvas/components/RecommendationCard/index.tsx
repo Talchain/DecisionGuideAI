@@ -10,7 +10,7 @@
  * Replaces/enhances DecisionSummary with richer CEE integration.
  */
 
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import {
   Sparkles,
   CheckCircle,
@@ -18,17 +18,22 @@ import {
   HelpCircle,
   Loader2,
   RefreshCw,
+  Ban,
 } from 'lucide-react'
 import { useRecommendation } from '../../hooks/useRecommendation'
+import { useConditionalRecommendations } from '../../hooks/useConditionalRecommendations'
 import { useCanvasStore } from '../../store'
 import { typography } from '../../../styles/typography'
 import { ExpandableSection } from './ExpandableSection'
 import { DriversSection } from './DriversSection'
 import { TradeoffsSection } from './TradeoffsSection'
 import { AssumptionsSection } from './AssumptionsSection'
+import { ConstraintViolationsSection } from './ConstraintViolationsSection'
+import { RobustnessIndicator } from './RobustnessIndicator'
 import { ConditionalGuidance } from '../ConditionalGuidance'
 import { cleanInsightText } from '../../utils/cleanInsightText'
-import type { RecommendationCardProps } from './types'
+import { checkRecommendationCoherence, getCoherenceWarningMessage } from '../../utils/coherenceCheck'
+import type { RecommendationCardProps, ConstraintViolation, ActiveConstraint } from './types'
 import type { ConfidenceLevel } from '../../../adapters/plot/types'
 
 // Confidence styling
@@ -114,6 +119,16 @@ export function RecommendationCard({
   // Get highlighted nodes for visual feedback
   const setHighlightedNodes = useCanvasStore((s) => s.setHighlightedNodes)
 
+  // Task 3.1: Fetch robustness data for ranking stability indicator
+  const {
+    conditions: conditionalData,
+    loading: robustnessLoading,
+  } = useConditionalRecommendations({
+    runId,
+    responseHash,
+    autoFetch: true,
+  })
+
   // Handle driver click with highlighting
   const handleDriverClick = (edgeId: string, nodeId?: string) => {
     if (nodeId) {
@@ -142,6 +157,79 @@ export function RecommendationCard({
   const driverCount = recommendation?.reasoning?.primary_drivers?.length ?? 0
   const tradeoffCount = recommendation?.reasoning?.key_tradeoffs?.length ?? 0
   const assumptionCount = recommendation?.reasoning?.assumptions?.length ?? 0
+
+  // Get results for coherence check and constraint violations
+  const results = useCanvasStore((s) => s.results)
+  const outcomeValue = results?.report?.results?.likely
+
+  // Task 1.6: Coherence check - detect contradictions between recommendation and outcome
+  const coherenceCheck = useMemo(() => {
+    if (!recommendation) return { isCoherent: true }
+
+    const outcomeDescription = results?.report?.insights?.summary || ''
+    return checkRecommendationCoherence(
+      recommendation.recommendation.headline,
+      outcomeDescription,
+      outcomeValue
+    )
+  }, [recommendation, results?.report?.insights?.summary, outcomeValue])
+
+  // Log incoherence to console (would be Sentry in production)
+  useEffect(() => {
+    if (!coherenceCheck.isCoherent && coherenceCheck.contradiction) {
+      console.warn('[RecommendationCard] Coherence issue detected:', {
+        type: coherenceCheck.contradiction.type,
+        description: coherenceCheck.contradiction.description,
+        recommendation: coherenceCheck.contradiction.recommendationText,
+        outcome: coherenceCheck.contradiction.outcomeText,
+      })
+      // In production, this would be: Sentry.captureMessage('Recommendation coherence issue', { extra: coherenceCheck.contradiction })
+    }
+  }, [coherenceCheck])
+
+  // Task 1.3: Extract constraint violations from results (if present)
+  const constraintData = useMemo(() => {
+    const violations: ConstraintViolation[] = []
+    const activeConstraints: ActiveConstraint[] = []
+
+    // Check if results contain constraint information
+    const reportData = results?.report as any
+
+    // Look for excluded options due to constraints
+    if (reportData?.excluded_options && Array.isArray(reportData.excluded_options)) {
+      for (const excluded of reportData.excluded_options) {
+        violations.push({
+          option_id: excluded.option_id || excluded.id,
+          option_label: excluded.option_label || excluded.label || 'Unknown option',
+          constraint_label: excluded.constraint_label || excluded.reason || 'constraint',
+          constraint_type: excluded.constraint_type || 'other',
+          limit_value: excluded.limit_value,
+          actual_value: excluded.actual_value,
+          units: excluded.units,
+        })
+      }
+    }
+
+    // Look for binding constraints
+    if (reportData?.binding_constraints && Array.isArray(reportData.binding_constraints)) {
+      for (const binding of reportData.binding_constraints) {
+        activeConstraints.push({
+          label: binding.label || binding.name || 'Constraint',
+          type: binding.type || 'other',
+          current_value: binding.current_value ?? binding.value ?? 0,
+          limit_value: binding.limit_value ?? binding.limit ?? 0,
+          units: binding.units,
+          relaxation_benefit: binding.relaxation_benefit || (
+            `Relaxing this constraint may improve outcomes`
+          ),
+        })
+      }
+    }
+
+    return { violations, activeConstraints }
+  }, [results?.report])
+
+  const hasConstraintIssues = constraintData.violations.length > 0 || constraintData.activeConstraints.length > 0
 
   // Loading state
   if (loading && !recommendation) {
@@ -227,19 +315,53 @@ export function RecommendationCard({
           {cleanInsightText(rec.headline) || rec.headline}
         </h3>
 
-        {/* Confidence indicator */}
-        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${config.bgColor}`}>
-          <span className={`${typography.caption} ${config.textColor}`}>Confidence:</span>
-          <ConfidenceDots level={confidenceLevel} filled={config.dots} />
-          <span className={`${typography.caption} font-medium ${config.textColor}`}>
-            {config.label}
-          </span>
+        {/* Confidence and Robustness indicators */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Confidence indicator */}
+          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg ${config.bgColor}`}>
+            <span className={`${typography.caption} ${config.textColor}`}>Confidence:</span>
+            <ConfidenceDots level={confidenceLevel} filled={config.dots} />
+            <span className={`${typography.caption} font-medium ${config.textColor}`}>
+              {config.label}
+            </span>
+          </div>
+
+          {/* Task 3.1: Robustness indicator */}
+          {conditionalData?.robustness_summary && (
+            <RobustnessIndicator
+              level={conditionalData.robustness_summary.level}
+              switchingScenarios={conditionalData.robustness_summary.switching_scenarios}
+              explanation={conditionalData.robustness_summary.explanation}
+              compact
+            />
+          )}
         </div>
 
         {/* Summary - cleaned to remove meaningless metrics */}
         <p className={`${typography.body} text-ink-700 mt-3`}>
           {cleanInsightText(rec.summary) || rec.summary}
         </p>
+
+        {/* Task 1.6: Coherence warning banner */}
+        {!coherenceCheck.isCoherent && coherenceCheck.contradiction && (
+          <div
+            className="mt-3 p-3 bg-banana-50 border border-banana-200 rounded-lg"
+            data-testid="coherence-warning"
+            role="alert"
+          >
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-banana-600 mt-0.5 flex-shrink-0" aria-hidden="true" />
+              <div>
+                <p className={`${typography.bodySmall} font-medium text-banana-800`}>
+                  {getCoherenceWarningMessage(coherenceCheck.contradiction.type)}
+                </p>
+                <p className={`${typography.caption} text-banana-700 mt-1`}>
+                  {coherenceCheck.contradiction.description}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Expandable Sections */}
@@ -281,6 +403,21 @@ export function RecommendationCard({
             onAssumptionClick={handleAssumptionClick}
           />
         </ExpandableSection>
+
+        {/* Task 1.3: Constraint violations and binding constraints */}
+        {hasConstraintIssues && (
+          <ExpandableSection
+            title="Constraint impacts"
+            badgeCount={constraintData.violations.length}
+            badgeVariant={constraintData.violations.length > 0 ? 'warning' : 'default'}
+            testId="section-constraints"
+          >
+            <ConstraintViolationsSection
+              violations={constraintData.violations}
+              activeConstraints={constraintData.activeConstraints}
+            />
+          </ExpandableSection>
+        )}
 
         {/* When to reconsider - Conditional Guidance (Deliverable 2) */}
         <ExpandableSection

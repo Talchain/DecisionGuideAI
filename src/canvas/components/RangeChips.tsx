@@ -11,12 +11,13 @@
 import { CheckCircle2 } from 'lucide-react'
 import { RANGE_TERMINOLOGY } from '../../config/terminology'
 import { typography } from '../../styles/typography'
+import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
 
 interface RangeChipsProps {
   conservative: number | null
   likely: number | null
   optimistic: number | null
-  units?: 'currency' | 'percent' | 'count'
+  units?: OutcomeUnits
   unitSymbol?: string
 }
 
@@ -61,7 +62,7 @@ export function RangeChips({
   if (!isRangeMeaningful(conservative, likely, optimistic)) {
     const expectedValue = likely ?? optimistic ?? conservative
     const formattedValue = expectedValue !== null
-      ? formatValue(expectedValue, units, unitSymbol)
+      ? formatOutcomeValue(expectedValue, units, unitSymbol)
       : '—'
 
     return (
@@ -118,12 +119,12 @@ interface RangeChipProps {
   technicalLabel: string // Phase 1A.3: Show in tooltip
   value: number | null
   variant: 'conservative' | 'likely' | 'optimistic'
-  units: 'currency' | 'percent' | 'count'
+  units: OutcomeUnits
   unitSymbol?: string
 }
 
 function RangeChip({ label, technicalLabel, value, variant, units, unitSymbol }: RangeChipProps) {
-  const formattedValue = value === null ? '—' : formatValue(value, units, unitSymbol)
+  const formattedValue = value === null ? '—' : formatOutcomeValue(value, units, unitSymbol)
 
   const variantClasses = {
     conservative: 'bg-yellow-50 border-yellow-200 text-yellow-600',
@@ -152,38 +153,3 @@ function RangeChip({ label, technicalLabel, value, variant, units, unitSymbol }:
   )
 }
 
-function formatValue(value: number, units: 'currency' | 'percent' | 'count', unitSymbol?: string): string {
-  if (units === 'currency') {
-    const symbol = unitSymbol || '$'
-    if (value >= 1000000) {
-      return `${symbol}${(value / 1000000).toFixed(1)}M`
-    }
-    if (value >= 1000) {
-      return `${symbol}${(value / 1000).toFixed(1)}K`
-    }
-    return `${symbol}${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-  }
-
-  if (units === 'percent') {
-    // Auto-detect if value is in 0-1 probability form vs already percentage
-    // Values in 0-1 range (inclusive) are treated as probabilities: 0.5 → 50%, 1 → 100%
-    // This handles the common case where backend returns normalized probabilities
-    const isProbability = value >= 0 && value <= 1
-    const displayValue = isProbability ? value * 100 : value
-    return `${displayValue.toFixed(1)}%`
-  }
-
-  // For 'count' or undefined units: auto-detect probability format
-  // Values in 0-1 range (inclusive) with decimals suggest probability format
-  if (value >= 0 && value <= 1 && (value !== Math.floor(value) || value === 0 || value === 1)) {
-    return `${(value * 100).toFixed(1)}%`
-  }
-
-  if (value >= 1000000) {
-    return `${(value / 1000000).toFixed(1)}M`
-  }
-  if (value >= 1000) {
-    return `${(value / 1000).toFixed(1)}K`
-  }
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
-}

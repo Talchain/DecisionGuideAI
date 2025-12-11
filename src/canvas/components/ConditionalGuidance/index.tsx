@@ -11,7 +11,7 @@
  * - Links to relevant graph elements
  */
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Shield,
   ShieldAlert,
@@ -23,8 +23,10 @@ import {
   Loader2,
   RefreshCw,
   Zap,
+  Info,
 } from 'lucide-react'
 import { useConditionalRecommendations } from '../../hooks/useConditionalRecommendations'
+import { useCanvasStore } from '../../store'
 import { typography } from '../../../styles/typography'
 import type { ConditionalGuidanceProps, NarratedCondition } from './types'
 
@@ -85,6 +87,10 @@ export function ConditionalGuidance({
 }: ConditionalGuidanceProps) {
   const [showAll, setShowAll] = useState(false)
 
+  // Task 3.8: Track whether analysis has completed to distinguish states
+  const results = useCanvasStore((s) => s.results)
+  const hasResults = !!results?.report
+
   const {
     conditions,
     narratedConditions,
@@ -132,8 +138,29 @@ export function ConditionalGuidance({
     )
   }
 
-  // No data yet - show placeholder
+  // No data yet - show appropriate message based on analysis state
+  // Task 3.8: Distinguish pre-analysis from post-analysis states
   if (!narratedConditions || !conditions) {
+    // Post-analysis: ISL data unavailable, show helpful default guidance
+    if (hasResults) {
+      return (
+        <div className="p-3 bg-paper-50 border border-sand-200 rounded-lg" data-testid="conditional-guidance-default">
+          <div className="flex items-start gap-2">
+            <Info className="h-4 w-4 text-ink-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <div>
+              <p className={`${typography.bodySmall} text-ink-700 mb-1`}>
+                Reconsider if key assumptions change
+              </p>
+              <p className={`${typography.caption} text-ink-500`}>
+                The recommendation is based on your current inputs. If your estimates for the most influential factors change significantly, re-run the analysis.
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    // Pre-analysis: Show placeholder explaining what will be shown
     return (
       <div className="p-3 bg-sky-50 border border-sky-200 rounded-lg">
         <div className="flex items-start gap-2">

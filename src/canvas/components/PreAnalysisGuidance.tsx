@@ -36,6 +36,7 @@ const VALIDATION_TITLE_MAP: Record<string, string> = {
   // Graph structure
   'ORPHAN_NODE': 'Disconnected node found',
   'ORPHAN': 'Disconnected node found',
+  'ORPHAN_OUTCOME': 'Outcome not connected to goal',
   'DANGLING_EDGE': 'Edge references missing node',
   'DANGLING': 'Edge references missing node',
   'CYCLE_DETECTED': 'Circular dependency detected',
@@ -56,6 +57,8 @@ const VALIDATION_TITLE_MAP: Record<string, string> = {
   'DECISION_AFTER_OUTCOME': 'Decision placed after outcome',
   'UNBALANCED_FACTORS': 'Unbalanced factor weights',
   'MISSING_EVIDENCE': 'Claim needs supporting evidence',
+  // Goal-Outcome linkage (Task 1.2)
+  'MISSING_GOAL_LINK': 'Outcome not connected to goal',
 }
 
 /**
@@ -390,12 +393,74 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
       }
     }
 
+    // 6. Task 1.2: Orphaned Outcome Warnings (Goal-Outcome linkage)
+    // High severity - outcomes not connected to goal won't affect analysis correctly
+    if (readiness?.orphaned_outcomes && Array.isArray(readiness.orphaned_outcomes)) {
+      for (const orphan of readiness.orphaned_outcomes) {
+        const item: GuidanceItem = {
+          id: `orphan-outcome-${orphan.node_id}`,
+          type: 'validation',
+          severity: 'warning', // High severity - orange/red indicator
+          title: 'Outcome not connected to goal',
+          message: `"${orphan.label}" isn't connected to your goal — results may not reflect what you're trying to achieve`,
+          affectedNodes: [orphan.node_id],
+          code: 'ORPHAN_OUTCOME',
+          action: {
+            label: 'Fix: Connect to goal',
+            onClick: () => {
+              // Highlight the orphaned outcome node for user to fix
+              setHighlightedNodes([orphan.node_id])
+              focusNodeById(orphan.node_id)
+              setTimeout(() => setHighlightedNodes([]), 5000)
+            },
+          },
+        }
+        // Add to improvements (warnings) since it's important but not a hard blocker
+        improvementsArr.unshift(item) // Add at the beginning for visibility
+      }
+    }
+
+    // Also check improvements for ORPHAN_OUTCOME or MISSING_GOAL_LINK issue codes
+    // This handles cases where the backend reports these through the improvements array
+    if (readiness?.improvements && Array.isArray(readiness.improvements)) {
+      for (const imp of readiness.improvements) {
+        if (imp.issue_code === 'ORPHAN_OUTCOME' || imp.issue_code === 'MISSING_GOAL_LINK') {
+          // Already added via improvements loop, but ensure high visibility
+          const existingIdx = improvementsArr.findIndex(
+            i => i.code === 'ORPHAN_OUTCOME' && i.affectedNodes?.[0] === imp.affected_nodes?.[0]
+          )
+          if (existingIdx === -1 && imp.affected_nodes?.[0]) {
+            const nodeLabel = imp.affected_node_labels?.[0] || imp.affected_nodes[0]
+            improvementsArr.unshift({
+              id: `goal-link-${imp.affected_nodes[0]}`,
+              type: 'validation',
+              severity: 'warning',
+              title: 'Outcome not connected to goal',
+              message: `"${nodeLabel}" isn't connected to your goal — results may not reflect what you're trying to achieve`,
+              affectedNodes: imp.affected_nodes,
+              code: 'ORPHAN_OUTCOME',
+              action: {
+                label: 'Fix: Connect to goal',
+                onClick: () => {
+                  if (imp.affected_nodes?.[0]) {
+                    setHighlightedNodes([imp.affected_nodes[0]])
+                    focusNodeById(imp.affected_nodes[0])
+                    setTimeout(() => setHighlightedNodes([]), 5000)
+                  }
+                },
+              },
+            })
+          }
+        }
+      }
+    }
+
     return {
       blockers: blockersArr,
       improvements: improvementsArr,
       coaching: coachingArr,
     }
-  }, [activeNudge, dismissNudge, graphHealth, results, runMeta, readiness])
+  }, [activeNudge, dismissNudge, graphHealth, results, runMeta, readiness, setHighlightedNodes])
 
   // Notify parent about blocker state (moved from useMemo to useEffect)
   useEffect(() => {
