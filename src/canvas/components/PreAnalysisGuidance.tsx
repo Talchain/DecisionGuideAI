@@ -370,7 +370,7 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
           ? ` (→${Math.round(imp.target_quality)}%)`
           : ''
         const impactText = imp.quality_impact !== undefined
-          ? ` +${imp.quality_impact}pts`
+          ? ` +${imp.quality_impact}%`
           : ''
         const message = imp.current_gap
           ? `${imp.current_gap}${impactText}${targetText}`

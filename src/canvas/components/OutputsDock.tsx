@@ -56,7 +56,7 @@ import { EvidenceCoverageCompact } from './EvidenceCoverage'
 import { DecisionReadinessBadge } from './DecisionReadinessBadge'
 import { ModelQualityScore } from './ModelQualityScore'
 import { UnifiedStatusBadge } from './UnifiedStatusBadge'
-import { InsightsPanel } from './InsightsPanel'
+// InsightsPanel removed - key insight now shown once in DecisionSummary
 import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
 import { GraphTextView } from './GraphTextView'
 import { PreAnalysisGuidance } from './PreAnalysisGuidance'
@@ -70,6 +70,9 @@ import { DecisionSummary } from './DecisionSummary'
 import { RiskTolerancePanel } from './RiskTolerancePanel'
 import { RiskAdjustedDisplay } from './RiskAdjustedDisplay'
 import { ThresholdDisplay } from './ThresholdDisplay'
+import { DetailedAnalysisSection } from './DetailedAnalysisSection'
+import { RecommendationCard } from './RecommendationCard'
+import { SequentialView } from './SequentialView'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useResultsRun } from '../hooks/useResultsRun'
 import { focusNodeById } from '../utils/focusHelpers'
@@ -112,6 +115,14 @@ const STORAGE_KEY = 'canvas.outputsDock.v1'
 
 // Feature flag for Phase 1A.1: Verdict Card + Delta Interpretation
 const SHOW_VERDICT_FEATURES = import.meta.env.VITE_SHOW_VERDICT_CARD === 'true'
+
+// Feature flag for Phase 4: CEE-powered Recommendation Card
+// When enabled, shows the new RecommendationCard above DecisionSummary
+const SHOW_RECOMMENDATION_CARD = import.meta.env.VITE_SHOW_RECOMMENDATION_CARD === 'true'
+
+// Feature flag for Phase 4: Sequential Stage Visualization
+// When enabled, shows SequentialView for multi-stage decisions
+const SHOW_SEQUENTIAL_VIEW = import.meta.env.VITE_SHOW_SEQUENTIAL_VIEW === 'true'
 
 const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
   { id: 'results', label: 'Results' },
@@ -177,6 +188,7 @@ export function OutputsDock() {
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
   const setShowComparePanel = useCanvasStore(s => s.setShowComparePanel)
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
+  const setHighlightedEdges = useCanvasStore(s => s.setHighlightedEdges)
 
   // Derived values from runMeta
   const diagnostics = runMeta.diagnostics
@@ -830,7 +842,47 @@ export function OutputsDock() {
                     units={resultUnitSymbol}
                   />
                 )}
-                {/* Decision Summary - Top-level decision synthesis */}
+                {/* ═══════════════════════════════════════════════════════════
+                    SECTION 1: RECOMMENDATION (always visible)
+                    Phase 4: RecommendationCard (CEE-powered) above DecisionSummary
+                    DecisionSummary: What to do, why, confidence, compare CTA
+                ═══════════════════════════════════════════════════════════ */}
+                {/* Phase 4: CEE-powered Recommendation Card */}
+                {SHOW_RECOMMENDATION_CARD && !isPreRun && hasInlineSummary && (
+                  <RecommendationCard
+                    runId={runMeta.runId}
+                    responseHash={report?.model_card?.response_hash}
+                    autoFetch={true}
+                    onDriverClick={(edgeId, nodeId) => {
+                      // Highlight edge if available, otherwise highlight node
+                      if (edgeId) {
+                        setHighlightedEdges([edgeId])
+                        setTimeout(() => setHighlightedEdges([]), 3000)
+                      }
+                      if (nodeId) {
+                        setHighlightedNodes([nodeId])
+                        focusNodeById(nodeId)
+                        setTimeout(() => setHighlightedNodes([]), 3000)
+                      }
+                    }}
+                    onAssumptionClick={(edgeId, nodeId) => {
+                      // Highlight edge if available, otherwise highlight node
+                      if (edgeId) {
+                        setHighlightedEdges([edgeId])
+                        setTimeout(() => setHighlightedEdges([]), 3000)
+                      }
+                      if (nodeId) {
+                        setHighlightedNodes([nodeId])
+                        focusNodeById(nodeId)
+                        setTimeout(() => setHighlightedNodes([]), 3000)
+                      }
+                    }}
+                    optionCount={comparison.optionNodes.length}
+                    isAnalyzing={isRunning}
+                  />
+                )}
+                {/* DecisionSummary - contains Compare CTA and outcome summary
+                    Shown alongside RecommendationCard (not mutually exclusive) */}
                 {!isPreRun && hasInlineSummary && (
                   <DecisionSummary
                     baseline={baselineValue}
@@ -840,50 +892,47 @@ export function OutputsDock() {
                   />
                 )}
 
-                {/* Risk Tolerance Panel - CEE elicitation with Accept/Override */}
-                {!isPreRun && hasInlineSummary && (
-                  <RiskTolerancePanel
-                    context={{
-                      decision_domain: framing?.title,
-                      time_horizon: framing?.timeHorizon as 'short' | 'medium' | 'long' | undefined,
+                {/* Phase 4: Sequential Stage Visualization (for multi-stage decisions) */}
+                {SHOW_SEQUENTIAL_VIEW && !isPreRun && hasInlineSummary && (
+                  <SequentialView
+                    autoDetect={true}
+                    onStageClick={(stageIndex) => {
+                      // Find decision node at this stage and focus it
+                      const decisionNodes = nodes.filter(n => n.type === 'decision')
+                      if (decisionNodes[stageIndex]) {
+                        const nodeId = decisionNodes[stageIndex].id
+                        setHighlightedNodes([nodeId])
+                        focusNodeById(nodeId)
+                        setTimeout(() => setHighlightedNodes([]), 3000)
+                      }
                     }}
-                    defaultExpanded={false}
+                    onStageDetailsClick={(stageIndex) => {
+                      // Could navigate to stage details in future
+                      console.log('[SequentialView] Stage details clicked:', stageIndex)
+                    }}
                   />
                 )}
 
-                {/* Signal Components - Decision-first hierarchy:
-                    1. DriversSignal - Why? (understanding)
-                    2. OutcomesSignal - What? (validation)
-                    3. TrustSignal - How confident? (reliability)
-                    4. ActionsSignal - What next? (actions)
-                */}
+                {/* ═══════════════════════════════════════════════════════════
+                    SECTION 2: VALIDATE (always visible)
+                    ActionsSignal: Actionable validation steps
+                ═══════════════════════════════════════════════════════════ */}
                 {!isPreRun && hasInlineSummary && (
-                  <div className="space-y-3" data-testid="outputs-signals">
-                    <DriversSignal maxCollapsed={3} />
-                    <OutcomesSignal
-                      baseline={baselineValue}
-                      goalDirection={goalDirection}
-                      objectiveText={objectiveText}
-                      baselineName={baselineValue === 0 ? '"do nothing"' : 'your baseline'}
-                    />
-                    {/* Risk-Adjusted View - shows outcomes weighted by user's risk tolerance */}
-                    {report?.results && (
-                      <RiskAdjustedDisplay
-                        bands={{
-                          p10: report.results.conservative,
-                          p50: report.results.likely,
-                          p90: report.results.optimistic,
-                        }}
-                        units={report.results.units}
-                        unitSymbol={report.results.unitSymbol}
-                        goalDirection={goalDirection}
-                      />
-                    )}
-                    <TrustSignal />
-                    {/* Threshold Display - shows critical tipping points */}
-                    <ThresholdDisplay defaultExpanded={false} />
-                    <ActionsSignal maxCollapsed={3} />
-                  </div>
+                  <ActionsSignal maxCollapsed={3} defaultExpanded={true} />
+                )}
+
+                {/* ═══════════════════════════════════════════════════════════
+                    SECTION 3: DETAILED ANALYSIS (collapsed by default)
+                    Grouped: Drivers, Outcomes, Risk-Adjusted, Model Quality, Thresholds
+                ═══════════════════════════════════════════════════════════ */}
+                {!isPreRun && hasInlineSummary && (
+                  <DetailedAnalysisSection
+                    baselineValue={baselineValue}
+                    goalDirection={goalDirection}
+                    objectiveText={objectiveText}
+                    report={report}
+                    framing={framing}
+                  />
                 )}
 
                 {/* Additional context - kept from original inline summary */}
@@ -908,21 +957,8 @@ export function OutputsDock() {
                         </div>
                       </div>
                     )}
-                    {/* Insights: interpretation of results ("what does this mean?") */}
-                    {report?.insights && (
-                      <InsightsPanel
-                        insights={report.insights}
-                        outcomeValue={mostLikelyValue}
-                        baselineValue={baselineValue}
-                        goalDirection={goalDirection}
-                        topDrivers={report.drivers?.slice(0, 3).map(d => ({
-                          label: d.label,
-                          polarity: d.polarity,
-                          strength: d.strength,
-                          contribution: d.contribution,
-                        }))}
-                      />
-                    )}
+                    {/* Note: InsightsPanel removed - Key insight now shown once in DecisionSummary
+                        to eliminate redundant information per Task 3 of UX Redesign */}
                     {/* Decision Review */}
                     {decisionReviewStatus && (
                       <div

@@ -32,6 +32,7 @@ import { useKeyInsight } from '../hooks/useKeyInsight'
 import { buildRichGraphPayload } from '../utils/graphPayload'
 import { formatOutcomeValue } from '../../lib/format'
 import { typography } from '../../styles/typography'
+import { cleanInsightText, quoteOptionNames } from '../utils/cleanInsightText'
 import type { ConfidenceLevel } from '../../adapters/plot/types'
 
 export interface RankingData {
@@ -239,13 +240,13 @@ export function DecisionSummary({
           (goalDirection === 'maximize' && isIncrease) ||
           (goalDirection === 'minimize' && !isIncrease)
 
-        // For percentage/probability values, always show absolute change in pts
+        // For percentage/probability values, always show absolute change in percentage points
         // This avoids confusing "99% worse" when going from 100% to 1%
         let display: string
         if (units === 'percent' || isProbabilityScale) {
           // Convert to percentage points if in 0-1 scale
           const deltaPts = isProbabilityScale ? delta * 100 : delta
-          display = `${isIncrease ? '+' : ''}${Math.round(deltaPts)} pts`
+          display = `${isIncrease ? '+' : ''}${Math.round(deltaPts)}%`
         } else {
           // For non-percentage units (currency, count), show relative change
           display = baseline === 0
@@ -263,17 +264,18 @@ export function DecisionSummary({
     }
 
     // Key insight fallback: CEE headline -> engine insights summary -> null
-    // Suppress confusing backend-generated relative % change text for probability comparisons
-    // The pattern "Outcome likely to (increase|decrease) by X%" is often misleading when
-    // comparing probability values (e.g., 1% vs 99% shows as "-99%" which is confusing)
+    // Apply cleanInsightText to remove meaningless metrics like "(0.01 units)" and "+25 pts"
     const rawInsight = story?.headline ||
       report.insights?.summary?.trim() ||
       null
+    const cleanedInsight = rawInsight ? cleanInsightText(rawInsight) : null
 
     // Filter out confusing relative percentage change headlines from backend
+    // The pattern "Outcome likely to (increase|decrease) by X%" is often misleading when
+    // comparing probability values (e.g., 1% vs 99% shows as "-99%" which is confusing)
     // We show our own correctly-calculated baselineComparison.display instead
     const confusingPattern = /Outcome likely to (increase|decrease) by \d+%/i
-    const keyInsight = rawInsight && confusingPattern.test(rawInsight) ? null : rawInsight
+    const keyInsight = cleanedInsight && confusingPattern.test(cleanedInsight) ? null : cleanedInsight
 
     return {
       p50,
@@ -291,6 +293,13 @@ export function DecisionSummary({
   if (!summaryData) {
     return null
   }
+
+  // Quote option names in headline for readability
+  // e.g., "Implement software outperforms Do not implement" → "'Implement software' outperforms 'Do not implement'"
+  const optionLabels = optionNodes.map(n => n.label).filter(Boolean) as string[]
+  const quotedHeadline = summaryData.headline
+    ? quoteOptionNames(summaryData.headline, optionLabels)
+    : null
 
   const confidenceLevel = (summaryData.confidence?.level || 'medium') as ConfidenceLevel
   const confConfig = confidenceConfig[confidenceLevel]
@@ -330,24 +339,43 @@ export function DecisionSummary({
           )}
         </div>
 
-        {/* Success likelihood - large, prominent */}
-        <div className="flex items-baseline gap-3 mb-1">
-          <span
-            className={`text-3xl font-bold ${
-              outcomeQuality === 'strong'
-                ? 'text-mint-700'
-                : outcomeQuality === 'moderate'
-                  ? 'text-banana-700'
-                  : 'text-carrot-700'
-            }`}
-          >
-            {formatOutcomeValue(summaryData.p50, summaryData.units, summaryData.unitSymbol)}
-          </span>
-          <span className={`${typography.body} text-ink-600`}>
-            {ranking?.currentOptionName || optionNodes[0]?.label
-              ? `with '${ranking?.currentOptionName || optionNodes[0]?.label}'`
-              : 'success likelihood'}
-          </span>
+        {/* Close call explanation - shown when options are very close (CEE/ranking low confidence)
+            but model confidence is not low (model is still confident in the numbers) */}
+        {((keyInsight?.confidence === 'low' || ranking?.confidence === 'low') &&
+          summaryData.confidence?.level !== 'low') && (
+          <div className={`${typography.caption} flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg bg-banana-50 text-banana-700 border border-banana-200`}>
+            <span aria-hidden="true">💡</span>
+            <span>Options are very close — consider other factors important to you</span>
+          </div>
+        )}
+
+        {/* Success likelihood - ALWAYS labeled clearly */}
+        <div className="mb-1">
+          {/* Label - always visible */}
+          <p className={`${typography.caption} text-ink-500 mb-1`}>
+            Success Likelihood
+          </p>
+          {/* Hero value + option context */}
+          <div className="flex items-baseline gap-3">
+            <span
+              className={`text-3xl font-bold ${
+                outcomeQuality === 'strong'
+                  ? 'text-mint-700'
+                  : outcomeQuality === 'moderate'
+                    ? 'text-banana-700'
+                    : 'text-carrot-700'
+              }`}
+              aria-label={`Success likelihood: ${formatOutcomeValue(summaryData.p50, summaryData.units, summaryData.unitSymbol)}`}
+            >
+              {formatOutcomeValue(summaryData.p50, summaryData.units, summaryData.unitSymbol)}
+            </span>
+            {/* Option context - shown if we know which option */}
+            {(ranking?.currentOptionName || optionNodes[0]?.label) && (
+              <span className={`${typography.body} text-ink-600`}>
+                with '{ranking?.currentOptionName || optionNodes[0]?.label}'
+              </span>
+            )}
+          </div>
         </div>
 
         {/* 70% confidence band */}
@@ -388,25 +416,49 @@ export function DecisionSummary({
               {summaryData.baselineComparison.display}{' '}
               {summaryData.baselineComparison.isPositive ? 'better' : 'worse'} than {baselineName}
             </span>
+            {/* Baseline tooltip explanation */}
+            <button
+              type="button"
+              className="p-0.5 rounded hover:bg-sand-100 transition-colors"
+              title={
+                baselineName === '"do nothing"'
+                  ? 'Baseline is 0% — comparing against taking no action'
+                  : 'Baseline is your reference scenario for comparison. Click "Set Baseline" in Scenario Setup to change it.'
+              }
+              aria-label="What is baseline?"
+            >
+              <Info className="h-3.5 w-3.5 text-ink-400" />
+            </button>
           </div>
         )}
 
         {/* Key Insight headline - prefer API response, fallback to CEE story */}
-        {(keyInsight?.headline || summaryData.headline) && (
+        {(keyInsight?.headline || quotedHeadline) && (
           <div className="mt-2">
             <div className="flex items-start gap-2">
               {keyInsight?.provenance === 'cee' && (
                 <Sparkles className="h-4 w-4 text-violet-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
               )}
               <p className={`${typography.body} text-ink-800 font-medium`}>
-                {keyInsight?.headline || summaryData.headline}
+                {/* Clean insight text then quote option names for readability */}
+                {keyInsight?.headline
+                  ? quoteOptionNames(cleanInsightText(keyInsight.headline) ?? keyInsight.headline, optionLabels)
+                  : quotedHeadline}
               </p>
             </div>
-            {/* Confidence statement from key insight */}
+            {/* Confidence statement from key insight (if not just "Confidence: X") */}
             {keyInsight?.confidence_statement && (
-              <p className={`${typography.caption} text-ink-500 mt-1 ml-6`}>
-                {keyInsight.confidence_statement}
-              </p>
+              (() => {
+                // Strip standalone "Confidence: X" patterns - we show this via the badge
+                const cleaned = keyInsight.confidence_statement
+                  .replace(/^\s*Confidence:\s*(low|medium|high)\.?\s*$/i, '')
+                  .trim()
+                return cleaned ? (
+                  <p className={`${typography.caption} text-ink-500 mt-1 ml-6`}>
+                    {cleaned}
+                  </p>
+                ) : null
+              })()
             )}
           </div>
         )}

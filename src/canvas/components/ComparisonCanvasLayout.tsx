@@ -98,7 +98,7 @@ function OutcomesComparisonBar({
                 outcomes.isBetter ? 'text-mint-700' : outcomes.delta < 0 ? 'text-carrot-700' : 'text-ink-600'
               }`}
             >
-              {outcomes.delta > 0 ? '+' : ''}{(outcomes.delta * 100).toFixed(0)} pts
+              {outcomes.delta > 0 ? '+' : ''}{(outcomes.delta * 100).toFixed(0)}%
             </span>
           </div>
 

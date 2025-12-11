@@ -48,6 +48,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const updateEdgeData = useCanvasStore(state => state.updateEdgeData)
   const ceeReview = useCanvasStore(state => state.runMeta.ceeReview)
 
+  // Phase 4: Edge highlighting from results panel (drivers, conditions, etc.)
+  const highlightedEdges = useCanvasStore(state => state.highlightedEdges)
+  const isHighlighted = highlightedEdges.has(id)
+
   // Extract edge data with defaults
   const edgeData = data as EdgeData | undefined
 
@@ -78,9 +82,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [source, getEdges])
 
   // Apply visual properties (O(1), pure function)
+  // isHighlighted passed to applyEdgeVisualProps for driver/condition click highlighting
   const visualProps = useMemo(
-    () => applyEdgeVisualProps(weight, style, curvature, selected || false, false, isDark),
-    [weight, style, curvature, selected, isDark]
+    () => applyEdgeVisualProps(weight, style, curvature, selected || false, isHighlighted, isDark),
+    [weight, style, curvature, selected, isHighlighted, isDark]
   )
 
   // Determine label visibility and styling

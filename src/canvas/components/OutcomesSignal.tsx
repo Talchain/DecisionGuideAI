@@ -25,7 +25,6 @@ import {
 import { useCanvasStore } from '../store'
 import { formatOutcomeValue, formatOutcomeValueCompact } from '../../lib/format'
 import { typography } from '../../styles/typography'
-import type { ConfidenceLevel } from '../../adapters/plot/types'
 
 interface OutcomesSignalProps {
   /** Start expanded */
@@ -38,29 +37,6 @@ interface OutcomesSignalProps {
   goalDirection?: 'maximize' | 'minimize'
   /** Objective text describing what we're measuring */
   objectiveText?: string
-}
-
-// Confidence styling
-const confidenceConfig: Record<ConfidenceLevel, {
-  bgColor: string
-  textColor: string
-  label: string
-}> = {
-  high: {
-    bgColor: 'bg-mint-100',
-    textColor: 'text-mint-700',
-    label: 'High confidence',
-  },
-  medium: {
-    bgColor: 'bg-banana-100',
-    textColor: 'text-banana-700',
-    label: 'Medium confidence',
-  },
-  low: {
-    bgColor: 'bg-carrot-100',
-    textColor: 'text-carrot-700',
-    label: 'Low confidence',
-  },
 }
 
 export function OutcomesSignal({
@@ -88,7 +64,6 @@ export function OutcomesSignal({
       p85: report.results.optimistic - (report.results.optimistic - report.results.likely) * 0.5,
       units: report.results.units || 'percent',
       unitSymbol: report.results.unitSymbol,
-      confidence: report.confidence,
     }
   }, [report])
 
@@ -155,9 +130,6 @@ export function OutcomesSignal({
     )
   }
 
-  const confidenceLevel = (outcomes.confidence?.level || 'medium') as ConfidenceLevel
-  const confConfig = confidenceConfig[confidenceLevel] || confidenceConfig.medium
-
   // Determine if outcome is likely positive or needs attention based on value
   const outcomeAssessment = outcomes.p50 >= 50 ? 'positive' : outcomes.p50 >= 25 ? 'moderate' : 'low'
 
@@ -221,9 +193,9 @@ export function OutcomesSignal({
                 ) : (
                   <TrendingDown className="h-4 w-4" />
                 )}
-                {/* Show "pts" for baseline=0 (absolute), "%" for relative change */}
+                {/* Show "%" for both absolute and relative change */}
                 {comparison.isAbsoluteChange
-                  ? `${comparison.isIncrease ? '+' : ''}${Math.abs(comparison.percentChange).toFixed(0)} pts ${comparison.isPositive ? 'above' : 'below'}`
+                  ? `${comparison.isIncrease ? '+' : ''}${Math.abs(comparison.percentChange).toFixed(0)}% ${comparison.isPositive ? 'above' : 'below'}`
                   : `${Math.abs(comparison.percentChange).toFixed(0)}% ${comparison.isPositive ? 'better' : 'worse'}`
                 }
               </span>
@@ -236,11 +208,7 @@ export function OutcomesSignal({
             <span className={`${typography.caption} text-ink-500`}>
               Range: {formatOutcomeValueCompact(outcomes.p10, outcomes.units, outcomes.unitSymbol)} – {formatOutcomeValueCompact(outcomes.p90, outcomes.units, outcomes.unitSymbol)}
             </span>
-          ) : (
-            <span className={`${typography.caption} text-ink-400`}>
-              No baseline for comparison
-            </span>
-          )}
+          ) : null /* Don't show broken state - focus on what we have */}
         </div>
       </button>
 
@@ -298,17 +266,7 @@ export function OutcomesSignal({
             />
           </div>
 
-          {/* Confidence and source */}
-          <div className="flex items-center justify-between">
-            <span className={`${typography.caption} px-2 py-1 rounded ${confConfig.bgColor} ${confConfig.textColor}`}>
-              {confConfig.label}
-            </span>
-            {outcomes.confidence?.why && (
-              <span className={`${typography.caption} text-ink-500 max-w-[60%] text-right`}>
-                {outcomes.confidence.why}
-              </span>
-            )}
-          </div>
+          {/* Note: Confidence badge removed - shown once in DecisionSummary for consistency */}
 
           {/* Baseline comparison detail */}
           {comparison && (

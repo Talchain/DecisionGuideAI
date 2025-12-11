@@ -21,6 +21,9 @@ import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from '
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
+import { generateGraphHash as generateReadinessGraphHash } from './utils/graphHash'
+import { mapDriversToNodes, type MappedDriver } from './utils/driverNodeMapping'
+import type { GraphReadiness } from './hooks/useGraphReadiness'
 
 /**
  * Generate deterministic content hash using FNV-1a algorithm
@@ -52,6 +55,8 @@ export interface ResultsState {
   startedAt?: number
   finishedAt?: number
   drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
+  /** Drivers with resolved node IDs for click-to-focus */
+  mappedDrivers?: MappedDriver[]
 }
 
 export type SseDiagnostics = {
@@ -123,6 +128,7 @@ interface CanvasState {
   needleMovers: NeedleMover[]
   // Phase 3: Interaction enhancements (Set for O(1) lookup)
   highlightedNodes: Set<string>
+  highlightedEdges: Set<string>
   // M5: Grounding & Provenance
   documents: Document[]
   citations: Citation[]
@@ -162,7 +168,15 @@ interface CanvasState {
   clarifierPreviewEdgeIds: string[]
   // Pending fit view request (set by AI graph insertion, cleared by ReactFlowGraph)
   pendingFitView: boolean
+  // Graph readiness (centralised to prevent duplicate fetches)
+  graphReadinessData: GraphReadiness | null
+  graphReadinessLoading: boolean
+  graphReadinessError: string | null
+  graphReadinessLastHash: string | null
   setPendingFitView: (value: boolean) => void
+  // Graph readiness actions
+  fetchGraphReadiness: () => Promise<void>
+  clearGraphReadiness: () => void
   updateScenarioFraming: (partial: ScenarioFraming) => void
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
   updateNodeLabel: (id: string, label: string) => void
@@ -247,6 +261,7 @@ interface CanvasState {
   setNeedleMovers: (movers: NeedleMover[]) => void
   // Phase 3: Interaction actions
   setHighlightedNodes: (ids: string[]) => void
+  setHighlightedEdges: (ids: string[]) => void
   // M5: Provenance actions
   addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
   removeDocument: (id: string) => void
@@ -314,6 +329,50 @@ function graphHealthFromQuality(quality: ReportV1['graph_quality'] | undefined):
     status,
     score,
     issues: [] as ValidationIssue[],
+  }
+}
+
+/**
+ * Calculate fallback readiness from store state when CEE endpoint fails
+ */
+function calculateFallbackReadinessFromStore(get: () => CanvasState): GraphReadiness {
+  const { nodes, edges, graphHealth } = get()
+
+  let score = 50
+
+  // Boost for having nodes
+  if (nodes.length > 0) score += 10
+  if (nodes.length >= 3) score += 10
+  if (nodes.length >= 5) score += 5
+
+  // Boost for having connections
+  if (edges.length > 0) score += 10
+  if (edges.length >= nodes.length - 1) score += 5
+
+  // Penalties for issues
+  const issues = graphHealth?.issues || []
+  const blockers = issues.filter(i => i.severity === 'error' || i.severity === 'blocker')
+  const warnings = issues.filter(i => i.severity === 'warning')
+
+  score -= blockers.length * 15
+  score -= warnings.length * 5
+
+  score = Math.max(0, Math.min(100, score))
+
+  let level: 'needs_work' | 'fair' | 'strong' = 'fair'
+  if (score < 40) level = 'needs_work'
+  else if (score >= 70) level = 'strong'
+
+  return {
+    readiness_score: score,
+    readiness_level: level,
+    can_run_analysis: blockers.length === 0,
+    confidence_explanation: level === 'strong'
+      ? 'Your model has good structure and connections'
+      : level === 'fair'
+        ? 'Analysis available - consider improvements for better results'
+        : 'Address critical issues before running analysis',
+    improvements: [],
   }
 }
 
@@ -474,6 +533,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   graphHealth: null,
   needleMovers: [],
   highlightedNodes: new Set<string>(),
+  highlightedEdges: new Set<string>(),
   // M5: Grounding & Provenance
   documents: [],
   citations: [],
@@ -491,6 +551,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   clarifierPreviewEdgeIds: [],
   // Pending fit view request (set by AI graph insertion, cleared by ReactFlowGraph)
   pendingFitView: false,
+  // Graph readiness (centralised)
+  graphReadinessData: null,
+  graphReadinessLoading: false,
+  graphReadinessError: null,
+  graphReadinessLastHash: null,
 
   createNodeId: () => {
     const { nextNodeId } = get()
@@ -1813,6 +1878,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({ highlightedNodes: new Set(ids) })
   },
 
+  setHighlightedEdges: (ids: string[]) => {
+    set({ highlightedEdges: new Set(ids) })
+  },
+
   // M5: Provenance actions
   addDocument: (document) => {
     // P0: Document memory guard - reject files >1MB
@@ -1982,6 +2051,144 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // Pending fit view setter
   setPendingFitView: (value: boolean) => {
     set({ pendingFitView: value })
+  },
+
+  // Graph readiness actions (centralised to prevent duplicate fetches)
+  fetchGraphReadiness: async () => {
+    const { nodes, edges, graphReadinessLoading, graphReadinessLastHash } = get()
+
+    // Skip if already fetching
+    if (graphReadinessLoading) {
+      console.log('[Store] Graph readiness fetch already in progress, skipping')
+      return
+    }
+
+    // Calculate current graph hash
+    const currentHash = generateReadinessGraphHash(nodes, edges)
+
+    // Skip if graph hasn't changed and we already have data
+    if (currentHash === graphReadinessLastHash && get().graphReadinessData) {
+      console.log('[Store] Graph readiness cached for this graph state')
+      return
+    }
+
+    // Handle empty graph
+    if (nodes.length === 0) {
+      set({
+        graphReadinessData: {
+          readiness_score: 0,
+          readiness_level: 'needs_work',
+          can_run_analysis: false,
+          confidence_explanation: 'Add some nodes to get started',
+          improvements: [],
+        },
+        graphReadinessLastHash: currentHash,
+      })
+      return
+    }
+
+    set({
+      graphReadinessLoading: true,
+      graphReadinessError: null,
+      graphReadinessLastHash: currentHash,
+    })
+
+    const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
+
+    try {
+      const requestBody = {
+        graph: {
+          nodes: nodes.map(n => ({
+            id: n.id,
+            label: (n.data as any)?.label || n.id,
+            kind: n.type,
+          })),
+          edges: edges.map(e => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+          })),
+        },
+      }
+
+      const response = await fetch(`${CEE_BASE_URL}/graph-readiness`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-ID': crypto.randomUUID(),
+        },
+        body: JSON.stringify(requestBody),
+      })
+
+      if (!response.ok) {
+        // Use fallback for non-retryable errors
+        if ([401, 403, 404].includes(response.status)) {
+          const fallback = calculateFallbackReadinessFromStore(get)
+          set({
+            graphReadinessData: fallback,
+            graphReadinessLoading: false,
+          })
+          return
+        }
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      // Normalize response
+      const normalized: GraphReadiness = {
+        readiness_score: typeof data.readiness_score === 'number'
+          ? Math.max(0, Math.min(100, data.readiness_score))
+          : 50,
+        readiness_level: ['needs_work', 'fair', 'strong'].includes(data.readiness_level)
+          ? data.readiness_level
+          : 'fair',
+        can_run_analysis: typeof data.can_run_analysis === 'boolean'
+          ? data.can_run_analysis
+          : true,
+        confidence_explanation: typeof data.confidence_explanation === 'string'
+          ? data.confidence_explanation
+          : 'Analysis available',
+        improvements: Array.isArray(data.improvements)
+          ? data.improvements.map((imp: any) => ({
+              category: imp.category || 'general',
+              action: imp.action || imp.recommendation || 'Review this area',
+              current_gap: imp.current_gap || '',
+              quality_impact: typeof imp.quality_impact === 'number' ? imp.quality_impact : 5,
+              target_quality: typeof imp.target_quality === 'number' ? imp.target_quality : 70,
+              priority: ['high', 'medium', 'low'].includes(imp.priority) ? imp.priority : 'medium',
+              effort_minutes: typeof imp.effort_minutes === 'number' ? imp.effort_minutes : 5,
+              affected_nodes: Array.isArray(imp.affected_nodes) ? imp.affected_nodes : undefined,
+              affected_edges: Array.isArray(imp.affected_edges) ? imp.affected_edges : undefined,
+              suggested_node_type: imp.suggested_node_type || undefined,
+              current_score: typeof imp.current_score === 'number' ? imp.current_score : undefined,
+            }))
+          : [],
+      }
+
+      set({
+        graphReadinessData: normalized,
+        graphReadinessLoading: false,
+        graphReadinessError: null,
+      })
+    } catch (err) {
+      console.warn('[Store] Graph readiness fetch failed:', err)
+      const fallback = calculateFallbackReadinessFromStore(get)
+      set({
+        graphReadinessData: fallback,
+        graphReadinessLoading: false,
+        graphReadinessError: err instanceof Error ? err.message : 'Unknown error',
+      })
+    }
+  },
+
+  clearGraphReadiness: () => {
+    set({
+      graphReadinessData: null,
+      graphReadinessLoading: false,
+      graphReadinessError: null,
+      graphReadinessLastHash: null,
+    })
   },
 
   // Week 3: AI Clarifier actions

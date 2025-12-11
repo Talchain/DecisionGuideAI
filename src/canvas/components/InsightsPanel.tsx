@@ -22,6 +22,7 @@ import {
 import { typography } from '../../styles/typography'
 import type { Insights } from '../../types/plot'
 import { focusNodeById } from '../utils/focusHelpers'
+import { cleanInsightText } from '../utils/cleanInsightText'
 
 /** Driver information for insight generation */
 interface DriverSummary {
@@ -71,15 +72,18 @@ function normalizeInsights(insights: Partial<Insights> | null | undefined): Insi
     }
   }
 
-  // Normalize and truncate summary
-  let summary = insights.summary?.trim() || DEFAULT_SUMMARY
+  // Normalize, clean meaningless metrics, and truncate summary
+  let summary = cleanInsightText(insights.summary?.trim()) || DEFAULT_SUMMARY
   if (summary.length > MAX_SUMMARY_LENGTH) {
     summary = summary.slice(0, MAX_SUMMARY_LENGTH - 3) + '...'
   }
 
-  // Normalize and limit arrays
+  // Normalize, clean, and limit arrays
   const risks = Array.isArray(insights.risks)
-    ? insights.risks.slice(0, MAX_RISKS).filter(Boolean)
+    ? insights.risks
+        .slice(0, MAX_RISKS)
+        .filter(Boolean)
+        .map(risk => cleanInsightText(String(risk)) || String(risk))
     : []
 
   const next_steps = Array.isArray(insights.next_steps)

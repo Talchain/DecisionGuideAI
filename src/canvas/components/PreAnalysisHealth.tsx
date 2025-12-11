@@ -378,7 +378,7 @@ function ImprovementItem({ improvement, priority, onClick }: ImprovementItemProp
               <span className="text-ink-500">{Math.round(currentScore)}%</span>
               <ArrowRight className="h-3 w-3" aria-hidden="true" />
               <span className="font-medium">{Math.round(targetScore)}%</span>
-              <span className="text-ink-400">(+{improvement.quality_impact}pts)</span>
+              <span className="text-ink-400">(+{improvement.quality_impact}%)</span>
             </div>
           )}
 

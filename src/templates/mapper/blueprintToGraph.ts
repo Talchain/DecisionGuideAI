@@ -7,7 +7,7 @@ import type { Blueprint, BlueprintNode, BlueprintEdge } from '../blueprints/type
 
 export interface GraphNode {
   id: string
-  kind: 'goal' | 'decision' | 'option' | 'factor' | 'risk' | 'outcome'
+  kind: 'goal' | 'decision' | 'option' | 'factor' | 'risk' | 'outcome' | 'action'
   label: string
   position?: { x: number; y: number }
 }

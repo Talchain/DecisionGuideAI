@@ -10,7 +10,7 @@ export interface V1Node {
   id: string
   label?: string // max 120 chars
   body?: string // max 2000 chars
-  kind?: 'decision' | 'option' | 'outcome' // v1.2: node classification
+  kind?: 'goal' | 'decision' | 'option' | 'factor' | 'risk' | 'outcome' | 'action' // v1.2: node classification
   prior?: number // v1.2: 0..1 probability
   utility?: number // v1.2: -1..+1 relative payoff
 }

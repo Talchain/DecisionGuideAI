@@ -1,15 +1,20 @@
 /**
- * TrustSignal - Analysis reliability indicator
+ * TrustSignal - Model Quality assessment
  *
- * Shows plain-language assessment of model reliability:
- * - Three tiers: Good, Fair, Needs Work
+ * Shows plain-language assessment of MODEL quality (structure, evidence, balance).
+ * This is DISTINCT from prediction confidence - which is shown in DecisionSummary.
+ *
+ * Three tiers: Good, Fair, Needs Work
  * - Plain language messages instead of percentages
- * - Basis for assessment (structure, validity, variance)
+ * - Basis for assessment (structure, completeness, evidence coverage)
  *
  * Features:
- * - Clear reliability statement
+ * - Clear model quality statement
  * - Actionable guidance per tier
- * - Source attribution (ISL verified vs estimated)
+ * - Source attribution (analysis vs local)
+ *
+ * Note: Prediction confidence is shown once in DecisionSummary.
+ * TrustSignal focuses on model construction quality.
  */
 
 import { useState, useMemo } from 'react'
@@ -92,7 +97,7 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
           <Shield className="h-5 w-5 text-sand-400 flex-shrink-0" />
           <div>
             <p className={`${typography.body} text-sand-600`}>No quality data</p>
-            <p className={`${typography.caption} text-sand-500`}>Run analysis to see reliability assessment</p>
+            <p className={`${typography.caption} text-sand-500`}>Run analysis to see model quality assessment</p>
           </div>
         </div>
       </div>
@@ -118,7 +123,7 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
           ) : (
             <ChevronRight className="h-4 w-4 text-ink-500" />
           )}
-          <span className={`${typography.body} font-medium text-ink-800`}>Analysis Reliability</span>
+          <span className={`${typography.body} font-medium text-ink-800`}>Model Quality</span>
         </div>
 
         {/* Tier badge - no percentages */}

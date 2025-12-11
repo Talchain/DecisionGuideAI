@@ -171,3 +171,49 @@ export function isBlockingPriority(priority: ActionPriority): boolean {
 export function sortByPriority<T extends { priority: ActionPriority }>(items: T[]): T[] {
   return [...items].sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
 }
+
+/**
+ * Tailwind CSS class mappings for severity levels
+ * Used across validation, suggestions, and guidance components
+ */
+export interface SeverityClasses {
+  container: string
+  icon: string
+  text: string
+  caption: string
+  button: string
+}
+
+const SEVERITY_CLASS_MAP: Record<'error' | 'warning' | 'info', SeverityClasses> = {
+  error: {
+    container: 'border-carrot-200 bg-carrot-50',
+    icon: 'text-carrot-600',
+    text: 'text-carrot-900',
+    caption: 'text-carrot-700',
+    button: 'bg-carrot-500 hover:bg-carrot-600',
+  },
+  warning: {
+    container: 'border-sun-200 bg-sun-50',
+    icon: 'text-sun-600',
+    text: 'text-sun-900',
+    caption: 'text-sun-700',
+    button: 'bg-sun-500 hover:bg-sun-600',
+  },
+  info: {
+    container: 'border-sky-200 bg-sky-50',
+    icon: 'text-sky-600',
+    text: 'text-sky-900',
+    caption: 'text-sky-700',
+    button: 'bg-sky-500 hover:bg-sky-600',
+  },
+}
+
+/**
+ * Get Tailwind CSS classes for a severity level
+ *
+ * @param severity - 'error' | 'warning' | 'info'
+ * @returns Object with container, icon, text, caption, and button classes
+ */
+export function getSeverityClasses(severity: 'error' | 'warning' | 'info'): SeverityClasses {
+  return SEVERITY_CLASS_MAP[severity]
+}

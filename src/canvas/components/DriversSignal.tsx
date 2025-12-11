@@ -121,6 +121,19 @@ const calibrationConfig: Record<ISLConformalPrediction['calibration_quality'], {
   },
 }
 
+/**
+ * Translate contribution percentage to plain-language explanation
+ * Task 8: Translate Metrics to Meaning
+ */
+function getContributionExplanation(contribution: number): string {
+  const pct = Math.round(contribution * 100)
+  if (pct >= 40) return 'Major influence on outcome'
+  if (pct >= 25) return 'Strong influence'
+  if (pct >= 15) return 'Moderate influence'
+  if (pct >= 5) return 'Minor influence'
+  return 'Minimal influence'
+}
+
 export function DriversSignal({
   maxCollapsed = 3,
   defaultExpanded = false,
@@ -374,29 +387,10 @@ export function DriversSignal({
       )
     }
 
-    // Different messages based on whether we have results but ISL failed
-    const hasResults = report?.results
-    const islFailed = conformalError || conformalAttemptedRef.current
-
-    return (
-      <div className="p-4 bg-sand-50 border border-sand-200 rounded-xl">
-        <div className="flex items-center gap-3">
-          <Zap className="h-5 w-5 text-sand-400 flex-shrink-0" />
-          <div>
-            <p className={`${typography.body} text-sand-600`}>
-              {hasResults && islFailed
-                ? 'Driver analysis unavailable'
-                : 'No drivers identified'}
-            </p>
-            <p className={`${typography.caption} text-sand-500`}>
-              {hasResults && islFailed
-                ? 'Sensitivity data temporarily unavailable'
-                : 'Run analysis to see key factors influencing the outcome'}
-            </p>
-          </div>
-        </div>
-      </div>
-    )
+    // No drivers available - hide the section entirely rather than showing "unavailable"
+    // The drivers come from explain_delta.top_drivers (via report.drivers) or CEE fallbacks
+    // If none exist, it's cleaner to not show the section than to show a confusing message
+    return null
   }
 
   // Track if there are filtered out drivers to show in footer
@@ -482,8 +476,14 @@ export function DriversSignal({
                       )}
                     </div>
                     {driver.contribution !== undefined && (
-                      <span className={`${typography.caption} font-semibold text-ink-700 flex-shrink-0`}>
+                      <span
+                        className={`${typography.caption} font-semibold text-ink-700 flex-shrink-0`}
+                        title={getContributionExplanation(driver.contribution)}
+                      >
                         {Math.round(driver.contribution * 100)}%
+                        <span className="font-normal text-ink-500 ml-1 hidden sm:inline">
+                          ({getContributionExplanation(driver.contribution).split(' ')[0].toLowerCase()})
+                        </span>
                       </span>
                     )}
                   </div>

@@ -816,7 +816,9 @@ export const httpV1Adapter = {
       return {
         headline: headline || '',
         primary_driver: rawResponse.primary_driver ?? rawResponse.insight?.primary_driver,
-        confidence_statement: confidence ? `Confidence: ${confidence}` : rawResponse.confidence_statement,
+        // Don't prefix "Confidence: X" — the PLoT badge already shows model confidence
+        // Use CEE's prose confidence_statement if available, otherwise omit
+        confidence_statement: rawResponse.confidence_statement ?? undefined,
         caveat: rawResponse.caveat ?? rawResponse.insight?.caveat,
         provenance: 'cee',
         // Pass through additional CEE fields for UI consumption

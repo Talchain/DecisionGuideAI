@@ -31,6 +31,7 @@ import {
   Link2,
   Unlink2,
   FileText,
+  Zap,
 } from 'lucide-react'
 import type { Node, Edge } from '@xyflow/react'
 import { typography } from '../../styles/typography'
@@ -50,15 +51,17 @@ interface GroupedNodes {
   factor: Node[]
   risk: Node[]
   outcome: Node[]
+  action: Node[]
 }
 
 const NODE_TYPE_CONFIG: Record<NodeType, { icon: typeof Target; label: string; order: number; color: string }> = {
   goal: { icon: Target, label: 'Goals', order: 0, color: 'bg-amber-500' },
   decision: { icon: Crosshair, label: 'Decisions', order: 1, color: 'bg-sky-500' },
   option: { icon: Lightbulb, label: 'Options', order: 2, color: 'bg-purple-500' },
-  factor: { icon: Settings, label: 'Factors', order: 3, color: 'bg-sand-400' },
+  factor: { icon: Settings, label: 'Factors', order: 3, color: 'bg-slate-400' },
   risk: { icon: AlertTriangle, label: 'Risks', order: 4, color: 'bg-red-500' },
   outcome: { icon: TrendingUp, label: 'Outcomes', order: 5, color: 'bg-emerald-500' },
+  action: { icon: Zap, label: 'Actions', order: 6, color: 'bg-emerald-500' },
 }
 
 /**
@@ -87,6 +90,7 @@ function groupNodesByType(nodes: Node[]): GroupedNodes {
     factor: [],
     risk: [],
     outcome: [],
+    action: [],
   }
 
   for (const node of nodes) {
@@ -133,7 +137,7 @@ function formatEdgeWeight(edge: Edge): string {
 export function GraphTextView({ nodes, edges, onNodeClick }: GraphTextViewProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedSections, setExpandedSections] = useState<Set<NodeType>>(
-    new Set(['goal', 'decision', 'option', 'factor', 'risk', 'outcome'])
+    new Set(['goal', 'decision', 'option', 'factor', 'risk', 'outcome', 'action'])
   )
   const [copied, setCopied] = useState(false)
 
@@ -156,6 +160,7 @@ export function GraphTextView({ nodes, edges, onNodeClick }: GraphTextViewProps)
       factor: [],
       risk: [],
       outcome: [],
+      action: [],
     }
 
     for (const [type, nodeList] of Object.entries(groupedNodes)) {
@@ -185,7 +190,7 @@ export function GraphTextView({ nodes, edges, onNodeClick }: GraphTextViewProps)
   const generateTextExport = useCallback(() => {
     const lines: string[] = ['DECISION GRAPH STRUCTURE', '']
 
-    const typeOrder: NodeType[] = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome']
+    const typeOrder: NodeType[] = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome', 'action']
 
     for (const type of typeOrder) {
       const nodeList = groupedNodes[type]
@@ -245,7 +250,7 @@ export function GraphTextView({ nodes, edges, onNodeClick }: GraphTextViewProps)
     )
   }
 
-  const typeOrder: NodeType[] = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome']
+  const typeOrder: NodeType[] = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome', 'action']
 
   return (
     <div

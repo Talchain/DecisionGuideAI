@@ -39,11 +39,11 @@ export const nodeColors = {
     text: 'text-mint-900',
   },
   factor: {
-    bg: 'bg-sand-50',
-    border: 'border-sand-400',
-    hover: 'hover:border-sand-500',
-    selected: 'ring-4 ring-sand-300 ring-opacity-50',
-    text: 'text-ink-900',
+    bg: 'bg-slate-50',
+    border: 'border-slate-400',
+    hover: 'hover:border-slate-500',
+    selected: 'ring-4 ring-slate-300 ring-opacity-50',
+    text: 'text-slate-900',
   },
   risk: {
     bg: 'bg-red-50',
@@ -51,6 +51,13 @@ export const nodeColors = {
     hover: 'hover:border-red-600',
     selected: 'ring-4 ring-red-400 ring-opacity-50',
     text: 'text-red-900',
+  },
+  action: {
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-500',
+    hover: 'hover:border-emerald-600',
+    selected: 'ring-4 ring-emerald-400 ring-opacity-50',
+    text: 'text-emerald-900',
   },
 } as const
 

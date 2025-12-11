@@ -94,8 +94,8 @@ describe('OutcomesSignal', () => {
       it('shows comparison when baseline is exactly 0 (expanded)', () => {
         render(<OutcomesSignal baseline={0} baselineName="do nothing" defaultExpanded={true} />)
 
-        // Should show "25 pts above" since outcome is 25% (0.25) and baseline is 0
-        expect(screen.getByText(/pts above/)).toBeInTheDocument()
+        // Should show "25% above" since outcome is 25% (0.25) and baseline is 0
+        expect(screen.getByText(/% above/)).toBeInTheDocument()
         // Text appears in both header and detail section
         expect(screen.getAllByText(/vs\. do nothing/).length).toBeGreaterThan(0)
       })
@@ -104,8 +104,8 @@ describe('OutcomesSignal', () => {
         render(<OutcomesSignal baseline={0} baselineName="status quo" defaultExpanded={true} />)
 
         // Outcome is 0.25 (25%), baseline is 0
-        // Should show "+25 pts above status quo"
-        expect(screen.getByText(/\+25 pts above/)).toBeInTheDocument()
+        // Should show "+25% above status quo"
+        expect(screen.getByText(/\+25% above/)).toBeInTheDocument()
       })
 
       it('shows negative absolute change when outcome below baseline (expanded)', () => {
@@ -126,7 +126,7 @@ describe('OutcomesSignal', () => {
           return selector(state as any)
         })
 
-        // outcome 10% vs baseline 25% = -15 pts
+        // outcome 10% vs baseline 25% = -60% (relative change)
         render(<OutcomesSignal baseline={0.25} goalDirection="maximize" defaultExpanded={true} />)
 
         // Should show "worse" since outcome < baseline and goal is maximize
@@ -181,11 +181,11 @@ describe('OutcomesSignal', () => {
         expect(screen.getByText(/25% better/)).toBeInTheDocument()
       })
 
-      it('uses absolute pts for baseline=0 (expanded)', () => {
-        // Baseline 0, outcome 0.25: show +25 pts
+      it('uses absolute percentage for baseline=0 (expanded)', () => {
+        // Baseline 0, outcome 0.25: show +25%
         render(<OutcomesSignal baseline={0} defaultExpanded={true} />)
 
-        expect(screen.getByText(/25 pts above/)).toBeInTheDocument()
+        expect(screen.getByText(/25% above/)).toBeInTheDocument()
       })
     })
 

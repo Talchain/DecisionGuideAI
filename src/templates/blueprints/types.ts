@@ -1,6 +1,6 @@
 // Blueprint types for template starter flows
 
-export type NodeKind = 'decision' | 'event' | 'outcome' | 'goal' | 'option' | 'risk'
+export type NodeKind = 'decision' | 'event' | 'outcome' | 'goal' | 'option' | 'factor' | 'risk' | 'action'
 
 export interface BlueprintNode {
   id: string
