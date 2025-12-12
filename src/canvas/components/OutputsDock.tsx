@@ -309,6 +309,9 @@ export function OutputsDock() {
 
   const canonicalBands = report?.run?.bands ?? null
   const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results.likely ?? null
+  const conservativeValue = canonicalBands?.p10 ?? report?.results?.conservative ?? null
+  const optimisticValue = canonicalBands?.p90 ?? report?.results?.optimistic ?? null
+  const resultUnits = report?.results?.units
   const resultUnitSymbol = report?.results.unitSymbol
   const hasInlineSummary = Boolean(report && resultsStatus === 'complete')
 
@@ -931,6 +934,7 @@ export function OutputsDock() {
                       baseline: baselineValue,
                       goalDirection,
                     }}
+                    identifiability={normalizeIdentifiabilityTag(report?.model_card?.identifiability_tag)}
                   />
                 )}
                 {/* Task 2+4: DecisionSummary only shown when RecommendationCard is NOT shown

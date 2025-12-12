@@ -21,12 +21,15 @@ import {
   Ban,
   TrendingUp,
   TrendingDown,
+  FlaskConical,
+  Lightbulb,
 } from 'lucide-react'
 import { useRecommendation } from '../../hooks/useRecommendation'
 import { useConditionalRecommendations } from '../../hooks/useConditionalRecommendations'
 import { useCanvasStore } from '../../store'
 import { typography } from '../../../styles/typography'
 import { formatOutcomeValue, formatRange } from '../../../lib/format'
+import { Tooltip } from '../Tooltip'
 import { ExpandableSection } from './ExpandableSection'
 import { DriversSection } from './DriversSection'
 import { TradeoffsSection } from './TradeoffsSection'
@@ -107,6 +110,7 @@ export function RecommendationCard({
   optionCount = 0,
   isAnalyzing = false,
   outcomeData,
+  identifiability,
 }: RecommendationCardProps) {
   // Use the recommendation hook
   const {
@@ -409,6 +413,60 @@ export function RecommendationCard({
                 <p className={`${typography.caption} text-banana-700 mt-1`}>
                   {coherenceCheck.contradiction.description}
                 </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Brief 4.2+4.3: Exploratory analysis warning for non-identifiable models */}
+        {identifiability && (identifiability === 'underidentified' || identifiability === 'overidentified') && (
+          <div
+            className="mt-3 p-3 bg-violet-50 border border-violet-200 rounded-lg"
+            data-testid="exploratory-warning"
+            role="alert"
+          >
+            <div className="flex items-start gap-2">
+              <FlaskConical className="h-4 w-4 text-violet-600 mt-0.5 flex-shrink-0" aria-hidden="true" />
+              <div>
+                {/* Brief 4.5: Tooltip explanation */}
+                <Tooltip
+                  content="Causal effects cannot be uniquely determined from this model structure. Use results for exploration, not definitive conclusions."
+                  position="bottom"
+                >
+                  <p className={`${typography.bodySmall} font-medium text-violet-800 cursor-help inline-flex items-center gap-1`}>
+                    Exploratory Analysis
+                    <HelpCircle className="h-3 w-3 text-violet-500" aria-hidden="true" />
+                  </p>
+                </Tooltip>
+                <p className={`${typography.caption} text-violet-700 mt-1`}>
+                  {identifiability === 'underidentified'
+                    ? 'Model may have unmeasured confounders. Results show directional trends but causal effects are uncertain.'
+                    : 'Model has conflicting constraints. Some relationships may need review before relying on precise estimates.'}
+                </p>
+                {/* Brief 4.3: Suggested improvements */}
+                <div className="mt-2 pt-2 border-t border-violet-200">
+                  <div className="flex items-center gap-1 mb-1">
+                    <Lightbulb className="h-3 w-3 text-violet-600" aria-hidden="true" />
+                    <span className={`${typography.caption} font-medium text-violet-700`}>
+                      To strengthen this analysis:
+                    </span>
+                  </div>
+                  <ul className={`${typography.caption} text-violet-600 list-disc pl-5 space-y-0.5`}>
+                    {identifiability === 'underidentified' ? (
+                      <>
+                        <li>Add edges representing potential confounding factors</li>
+                        <li>Include instrumental variables if available</li>
+                        <li>Document assumptions about unmeasured effects</li>
+                      </>
+                    ) : (
+                      <>
+                        <li>Review edge weights for inconsistencies</li>
+                        <li>Check if any constraints are redundant</li>
+                        <li>Verify probability estimates across related paths</li>
+                      </>
+                    )}
+                  </ul>
+                </div>
               </div>
             </div>
           </div>

@@ -49,6 +49,9 @@ export const features = {
 
   /** Enable edge function invites */
   edgeInvites: import.meta.env.VITE_USE_EDGE_INVITES === 'true',
+
+  /** Brief 5.7: Enable EdgeV2 dual belief model and functional forms */
+  edgeV2: import.meta.env.VITE_FEATURE_EDGE_V2 === '1',
 } as const
 
 // ============================================================================

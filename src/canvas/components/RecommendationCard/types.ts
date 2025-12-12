@@ -161,6 +161,13 @@ export interface TraceMetadata {
 // Component Props
 // ============================================================================
 
+/** Identifiability status from CEE analysis */
+export type IdentifiabilityStatus =
+  | 'identifiable'
+  | 'underidentified'
+  | 'overidentified'
+  | 'unknown'
+
 export interface RecommendationCardProps {
   /** Run ID for fetching recommendation */
   runId?: string
@@ -188,6 +195,8 @@ export interface RecommendationCardProps {
     baseline?: number | null
     goalDirection?: 'maximize' | 'minimize'
   }
+  /** Brief 4.2: Identifiability status for exploratory warning */
+  identifiability?: IdentifiabilityStatus | null
 }
 
 export interface ExpandableSectionProps {

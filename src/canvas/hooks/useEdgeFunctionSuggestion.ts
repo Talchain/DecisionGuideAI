@@ -177,9 +177,71 @@ export function useEdgeFunctionSuggestion({
   }
 }
 
+// =============================================================================
+// Brief 6.1: Node Type Inference
+// =============================================================================
+
+/**
+ * Infer semantic node type from label keywords.
+ * Used to improve function type suggestions.
+ */
+type InferredNodeType =
+  | 'cause'       // Independent causes/factors
+  | 'effect'      // Dependent outcomes/results
+  | 'mediator'    // Intermediate variables
+  | 'moderator'   // Variables that modify relationships
+  | 'risk'        // Risk factors
+  | 'resource'    // Resources/inputs that can be depleted
+  | 'threshold'   // Pass/fail gates
+  | 'adoption'    // Adoption/growth curves
+  | 'unknown'
+
+function inferNodeType(label: string, nodeType: string): InferredNodeType {
+  const lowerLabel = label.toLowerCase()
+
+  // Risk-related keywords
+  if (nodeType === 'risk' || /\b(risk|threat|hazard|danger|failure)\b/.test(lowerLabel)) {
+    return 'risk'
+  }
+
+  // Threshold/gate keywords
+  if (/\b(compliance|regulatory|approval|certification|pass|fail|qualify|threshold)\b/.test(lowerLabel)) {
+    return 'threshold'
+  }
+
+  // Adoption/growth keywords
+  if (/\b(adoption|penetration|diffusion|growth|market.?share|uptake)\b/.test(lowerLabel)) {
+    return 'adoption'
+  }
+
+  // Resource/investment keywords
+  if (/\b(budget|spend|investment|cost|resource|capacity|marketing|advertising)\b/.test(lowerLabel)) {
+    return 'resource'
+  }
+
+  // Outcome keywords
+  if (nodeType === 'outcome' || /\b(outcome|result|revenue|profit|success|achievement)\b/.test(lowerLabel)) {
+    return 'effect'
+  }
+
+  // Factor keywords suggest causes
+  if (nodeType === 'factor' || /\b(factor|driver|influence|cause|input)\b/.test(lowerLabel)) {
+    return 'cause'
+  }
+
+  return 'unknown'
+}
+
+// =============================================================================
+// Brief 6.2-5: Form Recommendations, Confidence, Validation
+// =============================================================================
+
 /**
  * Generate a fallback suggestion based on node types and labels
  * Used when CEE endpoint is unavailable or errors
+ *
+ * Brief 6.1-6.5: Enhanced heuristics with node type inference,
+ * confidence levels, and support for noisy_or/logistic forms.
  */
 function generateFallbackSuggestion(
   sourceNode: any,
@@ -190,70 +252,147 @@ function generateFallbackSuggestion(
   const sourceType = sourceNode.type || ''
   const targetType = targetNode.type || ''
 
-  // Heuristic-based suggestions
-  // Marketing/advertising typically has diminishing returns
+  // Brief 6.1: Infer semantic types
+  const inferredSource = inferNodeType(sourceLabel, sourceType)
+  const inferredTarget = inferNodeType(targetLabel, targetType)
+
+  // ==========================================================================
+  // Brief 6.4: Noisy-OR suggestions
+  // Multiple independent causes combining to produce effect (OR-like)
+  // ==========================================================================
   if (
-    sourceLabel.includes('marketing') ||
-    sourceLabel.includes('advertising') ||
-    sourceLabel.includes('spend')
+    inferredSource === 'risk' &&
+    (inferredTarget === 'effect' || targetType === 'outcome')
   ) {
+    return {
+      function_type: 'noisy_or',
+      confidence: 'medium',
+      rationale: 'Multiple risk factors combine via Noisy-OR: each independently contributes to failure probability',
+      suggested_params: { noisyOrStrength: 0.7, noisyOrLeak: 0.05 },
+      provenance: 'cee',
+    }
+  }
+
+  // Multiple causes leading to same outcome suggest noisy-OR
+  if (
+    inferredSource === 'cause' &&
+    inferredTarget === 'effect'
+  ) {
+    return {
+      function_type: 'noisy_or',
+      confidence: 'low',
+      rationale: 'Independent causes may combine via Noisy-OR when any can trigger the effect',
+      suggested_params: { noisyOrStrength: 0.6, noisyOrLeak: 0.1 },
+      provenance: 'cee',
+    }
+  }
+
+  // ==========================================================================
+  // Diminishing returns for resources/investments
+  // ==========================================================================
+  if (inferredSource === 'resource') {
     return {
       function_type: 'diminishing_returns',
       confidence: 'medium',
-      rationale: 'Marketing and advertising spend typically show diminishing returns',
+      rationale: 'Resource investments typically show diminishing marginal returns',
       suggested_params: { curvature: 0.5 },
       provenance: 'cee',
     }
   }
 
-  // Adoption/market penetration often follows S-curve
-  if (
-    targetLabel.includes('adoption') ||
-    targetLabel.includes('penetration') ||
-    targetLabel.includes('market share')
-  ) {
+  // ==========================================================================
+  // S-curve / Logistic for adoption and growth
+  // ==========================================================================
+  if (inferredTarget === 'adoption') {
     return {
       function_type: 's_curve',
       confidence: 'medium',
-      rationale: 'Market adoption typically follows an S-curve pattern',
+      rationale: 'Market adoption typically follows an S-curve (slow start, rapid growth, saturation)',
       suggested_params: { midpoint: 0.5, steepness: 5 },
       provenance: 'cee',
     }
   }
 
-  // Compliance/regulatory often has threshold behaviour
+  // Brief 6.5: Logistic for saturation effects in outcomes
   if (
-    sourceLabel.includes('compliance') ||
-    sourceLabel.includes('regulatory') ||
-    targetLabel.includes('approval')
+    inferredTarget === 'effect' &&
+    /\b(saturat|diminish|limit|cap|ceiling|maximum)\b/.test(targetLabel)
   ) {
+    return {
+      function_type: 'logistic',
+      confidence: 'medium',
+      rationale: 'Outcome shows saturation characteristics - logistic models the asymptotic limit',
+      suggested_params: { logisticBias: 0, logisticScale: 4 },
+      provenance: 'cee',
+    }
+  }
+
+  // ==========================================================================
+  // Threshold behaviour for gates/compliance
+  // ==========================================================================
+  if (inferredSource === 'threshold' || inferredTarget === 'threshold') {
     return {
       function_type: 'threshold',
       confidence: 'medium',
-      rationale: 'Regulatory compliance typically has a threshold effect',
+      rationale: 'Compliance and regulatory requirements exhibit threshold (pass/fail) behaviour',
       suggested_params: { threshold: 0.7 },
       provenance: 'cee',
     }
   }
 
-  // Risk nodes often connect with threshold behaviour
-  if (sourceType === 'risk' || targetType === 'risk') {
+  // Risk nodes with threshold behaviour
+  if (inferredSource === 'risk' || inferredTarget === 'risk') {
     return {
       function_type: 'threshold',
       confidence: 'low',
-      rationale: 'Risk factors often exhibit threshold behaviour',
+      rationale: 'Risk factors often exhibit threshold behaviour (safe below threshold, dangerous above)',
       suggested_params: { threshold: 0.5 },
       provenance: 'cee',
     }
   }
 
-  // Default to linear
+  // ==========================================================================
+  // Default to linear for unknown relationships
+  // ==========================================================================
   return {
     function_type: 'linear',
     confidence: 'low',
-    rationale: 'Linear relationship is a reasonable default',
+    rationale: 'Linear relationship is the default when context is unclear. Consider adjusting based on domain knowledge.',
     provenance: 'cee',
   }
+}
+
+/**
+ * Brief 6.3: Validate that suggested function type is appropriate
+ * Returns warning message if function type may be inappropriate
+ */
+export function validateFunctionSuggestion(
+  suggestion: EdgeFunctionSuggestion,
+  sourceNodeType: string,
+  targetNodeType: string
+): string | null {
+  // Noisy-OR should connect causes to effects
+  if (suggestion.function_type === 'noisy_or') {
+    if (targetNodeType === 'decision' || targetNodeType === 'option') {
+      return 'Noisy-OR is typically used for combining causes into effects, not for decision branches'
+    }
+  }
+
+  // Threshold typically not appropriate for decision → outcome
+  if (suggestion.function_type === 'threshold') {
+    if (sourceNodeType === 'decision' && targetNodeType === 'outcome') {
+      return 'Threshold functions are typically used for pass/fail gates, not decision outcomes'
+    }
+  }
+
+  // S-curve/logistic typically not appropriate for factor → factor
+  if (suggestion.function_type === 's_curve' || suggestion.function_type === 'logistic') {
+    if (sourceNodeType === 'factor' && targetNodeType === 'factor') {
+      return 'S-curve/logistic are typically used for saturation effects, not factor-to-factor relationships'
+    }
+  }
+
+  return null
 }
 
 /**
