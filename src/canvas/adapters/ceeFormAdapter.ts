@@ -65,6 +65,7 @@ const VALID_FORM_TYPES: EdgeFunctionType[] = [
   'threshold',
   's_curve',
   'noisy_or',
+  'noisy_and_not',
   'logistic',
 ]
 
@@ -90,6 +91,12 @@ export function normalizeFormType(raw?: string): EdgeFunctionType {
     noisy_or: 'noisy_or',
     noisyor: 'noisy_or',
     or: 'noisy_or',
+    noisy_and_not: 'noisy_and_not',
+    noisyandnot: 'noisy_and_not',
+    preventative: 'noisy_and_not',
+    prevention: 'noisy_and_not',
+    blocking: 'noisy_and_not',
+    inhibit: 'noisy_and_not',
     linear: 'linear',
     proportional: 'linear',
   }

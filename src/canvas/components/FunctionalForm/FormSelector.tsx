@@ -34,6 +34,7 @@ const FormCurvePreview = memo(function FormCurvePreview({
     threshold: 'M 0 24 L 12 24 L 12 0 L 24 0',
     s_curve: 'M 0 24 Q 6 24 12 12 Q 18 0 24 0',
     noisy_or: 'M 0 24 Q 8 16 12 8 Q 16 4 24 0',
+    noisy_and_not: 'M 0 4 Q 8 8 12 16 Q 16 20 24 24', // Decreasing curve (base → blocked)
     logistic: 'M 0 22 Q 8 20 12 12 Q 16 4 24 2',
   }
 

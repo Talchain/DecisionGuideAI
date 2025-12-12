@@ -44,6 +44,7 @@ export const EdgeFunctionTypeEnum = z.enum([
   'threshold',           // y = 0 if x < t, else 1 (step function)
   's_curve',             // Logistic curve (adoption/saturation)
   'noisy_or',            // Brief 5.4: P(Y|X) = 1 - (1-p_x)^(strength * X) for combining causes
+  'noisy_and_not',       // Brief 19: P(Y|X) = baseRate * (1 - strength * X) for preventative/blocking
   'logistic',            // Brief 5.5: Standard logistic sigmoid with bias term
 ])
 export type EdgeFunctionType = z.infer<typeof EdgeFunctionTypeEnum>
@@ -99,6 +100,11 @@ export const FORM_DISPLAY_NAMES: Record<EdgeFunctionType, {
     shortDescription: 'Multiple factors each contribute independently',
     icon: '⊕',
   },
+  noisy_and_not: {
+    name: 'Preventative',
+    shortDescription: 'Reduces or blocks the effect',
+    icon: '⊖',
+  },
   logistic: {
     name: 'Tipping point',
     shortDescription: 'Gradual build-up then rapid transition',
@@ -126,6 +132,12 @@ export const EdgeFunctionParamsSchema = z.object({
   noisyOrStrength: z.number().min(0).max(1).optional(),
   /** Leak probability (effect can occur even without this cause) */
   noisyOrLeak: z.number().min(0).max(0.5).optional(),
+
+  // Brief 19: Noisy-AND-NOT parameters (preventative/blocking)
+  /** Base rate for noisy-AND-NOT (probability when no prevention active) */
+  noisyAndNotBaseRate: z.number().min(0).max(1).optional(),
+  /** Prevention strength (how much the factor reduces the base rate) */
+  noisyAndNotStrength: z.number().min(0).max(1).optional(),
 
   // Brief 5.5: Logistic parameters
   /** Bias term for logistic (shifts the sigmoid left/right) */
@@ -272,6 +284,9 @@ export const EDGE_CONSTRAINTS = {
     // Brief 5.4: Noisy-OR parameters
     noisyOrStrength: { min: 0, max: 1, step: 0.05, default: 0.7 },
     noisyOrLeak: { min: 0, max: 0.5, step: 0.01, default: 0.05 },
+    // Brief 19: Noisy-AND-NOT parameters (preventative)
+    noisyAndNotBaseRate: { min: 0, max: 1, step: 0.05, default: 0.8 },
+    noisyAndNotStrength: { min: 0, max: 1, step: 0.05, default: 0.7 },
     // Brief 5.5: Logistic parameters
     logisticBias: { min: -5, max: 5, step: 0.1, default: 0 },
     logisticScale: { min: 0.5, max: 10, step: 0.5, default: 4 },
@@ -613,6 +628,52 @@ export function logistic(
 }
 
 // =============================================================================
+// Brief 19: Noisy-AND-NOT Functional Form Implementation
+// =============================================================================
+
+/**
+ * Noisy-AND-NOT function for modelling preventative/blocking relationships.
+ *
+ * Noisy-AND-NOT models situations where a factor reduces or blocks an effect
+ * that would otherwise occur. It's the complement to Noisy-OR.
+ *
+ * P(Y=1 | X) = baseRate * (1 - strength * X)
+ *
+ * Where:
+ * - baseRate = probability of Y=1 when no prevention is active (X=0)
+ * - strength = how effectively X prevents Y (0 = no prevention, 1 = complete block)
+ * - X = prevention factor (0 = inactive, 1 = fully active)
+ *
+ * Examples:
+ * - X=0: P(Y) = baseRate (no prevention, base probability applies)
+ * - X=1: P(Y) = baseRate * (1 - strength) (full prevention, reduced probability)
+ * - If strength=1, X=1 completely blocks the effect: P(Y) = 0
+ *
+ * Use cases:
+ * - Safety measures reducing accident probability
+ * - Vaccines reducing infection risk
+ * - Quality controls reducing defect rates
+ * - Mitigation factors in risk models
+ *
+ * @param x - Prevention factor (0-1, 0=inactive, 1=fully active)
+ * @param baseRate - Probability when no prevention (0-1)
+ * @param strength - Prevention effectiveness (0-1, 1=complete block)
+ * @returns Output probability (0-1)
+ */
+export function noisyAndNot(
+  x: number,
+  baseRate = EDGE_CONSTRAINTS.functionParams.noisyAndNotBaseRate.default,
+  strength = EDGE_CONSTRAINTS.functionParams.noisyAndNotStrength.default
+): number {
+  const clampedX = Math.max(0, Math.min(1, x))
+  const clampedBaseRate = Math.max(0, Math.min(1, baseRate))
+  const clampedStrength = Math.max(0, Math.min(1, strength))
+
+  // P(Y|X) = baseRate * (1 - strength * X)
+  return clampedBaseRate * (1 - clampedStrength * clampedX)
+}
+
+// =============================================================================
 // Brief 5.6: Functional Form Validation
 // =============================================================================
 
@@ -683,6 +744,19 @@ export function validateFunctionParams(
       }
       break
 
+    case 'noisy_and_not':
+      if (params.noisyAndNotBaseRate !== undefined) {
+        if (params.noisyAndNotBaseRate < constraints.noisyAndNotBaseRate.min || params.noisyAndNotBaseRate > constraints.noisyAndNotBaseRate.max) {
+          errors.push(`Noisy-AND-NOT base rate must be between ${constraints.noisyAndNotBaseRate.min} and ${constraints.noisyAndNotBaseRate.max}`)
+        }
+      }
+      if (params.noisyAndNotStrength !== undefined) {
+        if (params.noisyAndNotStrength < constraints.noisyAndNotStrength.min || params.noisyAndNotStrength > constraints.noisyAndNotStrength.max) {
+          errors.push(`Noisy-AND-NOT strength must be between ${constraints.noisyAndNotStrength.min} and ${constraints.noisyAndNotStrength.max}`)
+        }
+      }
+      break
+
     case 'logistic':
       if (params.logisticBias !== undefined) {
         if (params.logisticBias < constraints.logisticBias.min || params.logisticBias > constraints.logisticBias.max) {
@@ -744,6 +818,12 @@ export function evaluateEdgeFunction(
       return noisyOr(clampedX, strength, leak)
     }
 
+    case 'noisy_and_not': {
+      const baseRate = params?.noisyAndNotBaseRate ?? EDGE_CONSTRAINTS.functionParams.noisyAndNotBaseRate.default
+      const strength = params?.noisyAndNotStrength ?? EDGE_CONSTRAINTS.functionParams.noisyAndNotStrength.default
+      return noisyAndNot(clampedX, baseRate, strength)
+    }
+
     case 'logistic': {
       const bias = params?.logisticBias ?? EDGE_CONSTRAINTS.functionParams.logisticBias.default
       const scale = params?.logisticScale ?? EDGE_CONSTRAINTS.functionParams.logisticScale.default
@@ -753,4 +833,60 @@ export function evaluateEdgeFunction(
     default:
       return clampedX
   }
+}
+
+// =============================================================================
+// Brief 19: Noisy-AND-NOT Validation
+// =============================================================================
+
+/**
+ * Validate if noisy_and_not is appropriate for the given node types.
+ *
+ * Noisy-AND-NOT assumes binary (0/1) semantics for proper probabilistic
+ * interpretation. While not strictly required, using it with non-binary
+ * nodes may lead to unexpected results.
+ *
+ * @param sourceNodeType - Type of the source (cause/prevention) node
+ * @param targetNodeType - Type of the target (effect) node
+ * @returns Validation result with warning if applicable
+ */
+export interface NoisyAndNotValidation {
+  valid: boolean
+  warning?: string
+  suggestion?: string
+}
+
+const BINARY_NODE_TYPES = ['risk', 'outcome', 'decision', 'goal']
+
+export function validateNoisyAndNotUsage(
+  sourceNodeType?: string,
+  targetNodeType?: string
+): NoisyAndNotValidation {
+  const warnings: string[] = []
+  const suggestions: string[] = []
+
+  // Check if source is a binary-compatible type
+  if (sourceNodeType && !BINARY_NODE_TYPES.includes(sourceNodeType.toLowerCase())) {
+    warnings.push(`Source node type "${sourceNodeType}" may not have binary semantics`)
+    suggestions.push('Consider using a Risk or Factor node as the prevention source')
+  }
+
+  // Check if target is a binary-compatible type
+  if (targetNodeType && !BINARY_NODE_TYPES.includes(targetNodeType.toLowerCase())) {
+    warnings.push(`Target node type "${targetNodeType}" may not have binary semantics`)
+    suggestions.push('Consider using an Outcome or Risk node as the prevention target')
+  }
+
+  return {
+    valid: warnings.length === 0,
+    warning: warnings.length > 0 ? warnings.join('. ') : undefined,
+    suggestion: suggestions.length > 0 ? suggestions.join('. ') : undefined,
+  }
+}
+
+/**
+ * Check if a form type requires binary node validation
+ */
+export function formRequiresBinaryValidation(form: EdgeFunctionType): boolean {
+  return form === 'noisy_and_not' || form === 'noisy_or'
 }

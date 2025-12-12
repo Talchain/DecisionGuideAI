@@ -11,9 +11,13 @@ import {
   computeEffectiveWeight,
   sampleDualBelief,
   noisyOr,
+  noisyAndNot,
   logistic,
   validateFunctionParams,
   evaluateEdgeFunction,
+  validateNoisyAndNotUsage,
+  formRequiresBinaryValidation,
+  FORM_DISPLAY_NAMES,
   DEFAULT_EDGE_DATA,
   type EdgeData,
 } from '../edges'
@@ -200,6 +204,148 @@ describe('Brief 5.6: Validation', () => {
         logisticScale: 4,
       })
       expect(result).toBeCloseTo(0.5, 1)
+    })
+
+    it('should evaluate noisy_and_not correctly', () => {
+      // P(Y|X=0) = 0.8 (base rate with no prevention)
+      const resultNoPrevent = evaluateEdgeFunction(0, 'noisy_and_not', {
+        noisyAndNotBaseRate: 0.8,
+        noisyAndNotStrength: 0.7,
+      })
+      expect(resultNoPrevent).toBeCloseTo(0.8, 2)
+
+      // P(Y|X=1) = 0.8 * (1 - 0.7 * 1) = 0.8 * 0.3 = 0.24
+      const resultFullPrevent = evaluateEdgeFunction(1, 'noisy_and_not', {
+        noisyAndNotBaseRate: 0.8,
+        noisyAndNotStrength: 0.7,
+      })
+      expect(resultFullPrevent).toBeCloseTo(0.24, 2)
+    })
+  })
+})
+
+// =============================================================================
+// Brief 19: Noisy-AND-NOT Tests
+// =============================================================================
+
+describe('Brief 19: Noisy-AND-NOT', () => {
+  describe('noisyAndNot function', () => {
+    it('should return base rate when prevention is inactive (x=0)', () => {
+      const result = noisyAndNot(0, 0.8, 0.7)
+      expect(result).toBeCloseTo(0.8, 5)
+    })
+
+    it('should reduce probability when prevention is active', () => {
+      // P(Y|X=1) = 0.8 * (1 - 0.7 * 1) = 0.8 * 0.3 = 0.24
+      const result = noisyAndNot(1, 0.8, 0.7)
+      expect(result).toBeCloseTo(0.24, 2)
+    })
+
+    it('should return 0 when prevention strength is 1 and x=1', () => {
+      // Complete blocking: 0.8 * (1 - 1 * 1) = 0
+      const result = noisyAndNot(1, 0.8, 1.0)
+      expect(result).toBeCloseTo(0, 5)
+    })
+
+    it('should have no effect when strength is 0', () => {
+      // No prevention effect: 0.8 * (1 - 0 * 1) = 0.8
+      const result = noisyAndNot(1, 0.8, 0)
+      expect(result).toBeCloseTo(0.8, 5)
+    })
+
+    it('should compute correct intermediate values', () => {
+      // P(Y|X=0.5) = 0.8 * (1 - 0.7 * 0.5) = 0.8 * 0.65 = 0.52
+      const result = noisyAndNot(0.5, 0.8, 0.7)
+      expect(result).toBeCloseTo(0.52, 2)
+    })
+
+    it('should clamp inputs to [0,1]', () => {
+      // Out of range inputs should be clamped
+      const result1 = noisyAndNot(2, 0.8, 0.7) // x > 1 clamped to 1
+      expect(result1).toBeCloseTo(0.24, 2)
+
+      const result2 = noisyAndNot(-0.5, 0.8, 0.7) // x < 0 clamped to 0
+      expect(result2).toBeCloseTo(0.8, 2)
+    })
+  })
+
+  describe('FORM_DISPLAY_NAMES', () => {
+    it('should have display name for noisy_and_not', () => {
+      expect(FORM_DISPLAY_NAMES.noisy_and_not).toBeDefined()
+      expect(FORM_DISPLAY_NAMES.noisy_and_not.name).toBe('Preventative')
+      expect(FORM_DISPLAY_NAMES.noisy_and_not.icon).toBe('⊖')
+    })
+
+    it('should have short description for noisy_and_not', () => {
+      expect(FORM_DISPLAY_NAMES.noisy_and_not.shortDescription).toContain('block')
+    })
+  })
+
+  describe('validateFunctionParams for noisy_and_not', () => {
+    it('should accept valid noisy_and_not params', () => {
+      const result = validateFunctionParams('noisy_and_not', {
+        noisyAndNotBaseRate: 0.8,
+        noisyAndNotStrength: 0.7,
+      })
+      expect(result.valid).toBe(true)
+      expect(result.errors).toHaveLength(0)
+    })
+
+    it('should reject out-of-range base rate', () => {
+      const result = validateFunctionParams('noisy_and_not', {
+        noisyAndNotBaseRate: 1.5, // > 1
+      })
+      expect(result.valid).toBe(false)
+      expect(result.errors.some(e => e.includes('base rate'))).toBe(true)
+    })
+
+    it('should reject out-of-range strength', () => {
+      const result = validateFunctionParams('noisy_and_not', {
+        noisyAndNotStrength: -0.5, // < 0
+      })
+      expect(result.valid).toBe(false)
+      expect(result.errors.some(e => e.includes('strength'))).toBe(true)
+    })
+  })
+
+  describe('validateNoisyAndNotUsage', () => {
+    it('should return valid for binary-compatible node types', () => {
+      const result = validateNoisyAndNotUsage('risk', 'outcome')
+      expect(result.valid).toBe(true)
+      expect(result.warning).toBeUndefined()
+    })
+
+    it('should warn for non-binary source node type', () => {
+      const result = validateNoisyAndNotUsage('factor', 'outcome')
+      expect(result.valid).toBe(false)
+      expect(result.warning).toContain('factor')
+    })
+
+    it('should warn for non-binary target node type', () => {
+      const result = validateNoisyAndNotUsage('risk', 'factor')
+      expect(result.valid).toBe(false)
+      expect(result.warning).toContain('factor')
+    })
+
+    it('should provide suggestions when validation fails', () => {
+      const result = validateNoisyAndNotUsage('factor', 'factor')
+      expect(result.suggestion).toBeDefined()
+    })
+  })
+
+  describe('formRequiresBinaryValidation', () => {
+    it('should return true for noisy_and_not', () => {
+      expect(formRequiresBinaryValidation('noisy_and_not')).toBe(true)
+    })
+
+    it('should return true for noisy_or', () => {
+      expect(formRequiresBinaryValidation('noisy_or')).toBe(true)
+    })
+
+    it('should return false for other forms', () => {
+      expect(formRequiresBinaryValidation('linear')).toBe(false)
+      expect(formRequiresBinaryValidation('threshold')).toBe(false)
+      expect(formRequiresBinaryValidation('logistic')).toBe(false)
     })
   })
 })
