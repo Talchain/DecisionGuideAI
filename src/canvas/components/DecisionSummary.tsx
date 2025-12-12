@@ -61,6 +61,8 @@ interface DecisionSummaryProps {
   goalDirection?: 'maximize' | 'minimize'
   /** Option ranking data (from run_bundle endpoint) */
   ranking?: RankingData | null
+  /** Objective text for goal-anchored headline (Task 3) */
+  objectiveText?: string
 }
 
 // Confidence styling
@@ -102,11 +104,58 @@ const confidenceConfig: Record<ConfidenceLevel, {
   },
 }
 
+/**
+ * Generate a goal-anchored recommendation headline (Task 3)
+ * Connects the recommendation directly to the user's objective
+ */
+function generateGoalAnchoredHeadline({
+  optionName,
+  objectiveText,
+  outcomeValue,
+  baselineComparison,
+  goalDirection,
+}: {
+  optionName?: string
+  objectiveText?: string
+  outcomeValue: number
+  baselineComparison?: { isPositive: boolean; display: string } | null
+  goalDirection: 'maximize' | 'minimize'
+}): string | null {
+  if (!optionName || !objectiveText) return null
+
+  // Format the outcome value for display
+  const formattedOutcome = outcomeValue >= 0 && outcomeValue <= 1
+    ? `${Math.round(outcomeValue * 100)}%`
+    : `${Math.round(outcomeValue)}%`
+
+  // Simplify objective text if it's too long (take first sentence or 50 chars)
+  const shortObjective = objectiveText.length > 60
+    ? objectiveText.split(/[.!?]/)[0].trim() || objectiveText.slice(0, 57) + '...'
+    : objectiveText
+
+  // Generate based on context
+  if (baselineComparison) {
+    if (baselineComparison.isPositive) {
+      // Positive comparison - emphasize improvement
+      return `'${optionName}' is your best path to ${shortObjective.toLowerCase()} — ${baselineComparison.display} better than baseline`
+    } else {
+      // Negative comparison - frame as risk minimization
+      return goalDirection === 'minimize'
+        ? `'${optionName}' minimizes risk to ${shortObjective.toLowerCase()}`
+        : `To ${shortObjective.toLowerCase()}, consider '${optionName}' — ${formattedOutcome} likelihood`
+    }
+  }
+
+  // No baseline comparison available - simple goal-anchored headline
+  return `To ${shortObjective.toLowerCase()}, proceed with '${optionName}' — ${formattedOutcome} likelihood`
+}
+
 export function DecisionSummary({
   baseline,
   baselineName = 'baseline',
   goalDirection = 'maximize',
   ranking,
+  objectiveText,
 }: DecisionSummaryProps) {
   const results = useCanvasStore((s) => s.results)
   const runMeta = useCanvasStore((s) => s.runMeta)
@@ -272,12 +321,29 @@ export function DecisionSummary({
       null
     const cleanedInsight = rawInsight ? cleanInsightText(rawInsight) : null
 
-    // Filter out confusing relative percentage change headlines from backend
+    // Task 9: Filter out confusing relative percentage change headlines from backend
     // The pattern "Outcome likely to (increase|decrease) by X%" is often misleading when
     // comparing probability values (e.g., 1% vs 99% shows as "-99%" which is confusing)
+    // Also filter out any message with extreme percentage changes (>=90%) as they're
+    // likely calculation artifacts from comparing 0-1 probabilities with 0-100 baselines
     // We show our own correctly-calculated baselineComparison.display instead
-    const confusingPattern = /Outcome likely to (increase|decrease) by \d+%/i
-    const keyInsight = cleanedInsight && confusingPattern.test(cleanedInsight) ? null : cleanedInsight
+    const confusingPatterns = [
+      /Outcome likely to (increase|decrease) by \d+%/i,
+      /decrease by (9\d|100)%/i,  // Catches "decrease by 90-100%"
+      /increase by (9\d{2,}|[1-9]\d{3,})%/i,  // Catches unrealistic increases >900%
+      /range:\s*-?\d+%\s*to\s*-?\d+%/i,  // Catches "range: -100% to -99%" patterns
+    ]
+    const keyInsight = cleanedInsight && confusingPatterns.some(p => p.test(cleanedInsight)) ? null : cleanedInsight
+
+    // Task 3: Generate goal-anchored headline
+    const currentOptionName = ranking?.currentOptionName || optionNodes[0]?.label
+    const goalAnchoredHeadline = generateGoalAnchoredHeadline({
+      optionName: currentOptionName,
+      objectiveText,
+      outcomeValue: p50,
+      baselineComparison,
+      goalDirection,
+    })
 
     return {
       p50,
@@ -288,8 +354,9 @@ export function DecisionSummary({
       topDriver,
       baselineComparison,
       confidenceBand,
+      goalAnchoredHeadline,
     }
-  }, [report, runMeta, baseline, goalDirection])
+  }, [report, runMeta, baseline, goalDirection, ranking?.currentOptionName, optionNodes, objectiveText])
 
   // Don't render if no results
   if (!summaryData) {
@@ -340,6 +407,13 @@ export function DecisionSummary({
             </span>
           )}
         </div>
+
+        {/* Task 3: Goal-anchored recommendation headline - displayed prominently */}
+        {summaryData.goalAnchoredHeadline && (
+          <p className={`${typography.body} font-semibold text-ink-900 mt-2 leading-snug`}>
+            {summaryData.goalAnchoredHeadline}
+          </p>
+        )}
 
         {/* Close call explanation - shown when options are very close (CEE/ranking low confidence)
             but model confidence is not low (model is still confident in the numbers) */}
@@ -559,21 +633,7 @@ export function DecisionSummary({
         </div>
       )}
 
-      {/* Compare CTA - only when 2+ options */}
-      {canCompare && optionNodes.length >= 2 && (
-        <div className="px-4 py-3 border-t border-sand-100">
-          <button
-            type="button"
-            onClick={() => startComparison()}
-            disabled={comparisonLoading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <GitCompare className="h-4 w-4" aria-hidden="true" />
-            {comparisonLoading ? 'Comparing...' : `Compare ${optionNodes.length} Options`}
-          </button>
-        </div>
-      )}
-
+      {/* Compare CTA moved to OutputsDock toolbar - Task 1 */}
     </div>
   )
 }

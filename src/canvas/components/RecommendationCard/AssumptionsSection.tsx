@@ -42,17 +42,9 @@ const criticalityConfig = {
 }
 
 export function AssumptionsSection({ assumptions, onAssumptionClick }: AssumptionsSectionProps) {
+  // Task 5: Don't render empty placeholder - section simply doesn't appear when empty
   if (!assumptions || assumptions.length === 0) {
-    return (
-      <div className="p-3 bg-mint-50 border border-mint-200 rounded-lg">
-        <div className="flex items-start gap-2">
-          <CheckCircle2 className="h-4 w-4 text-mint-600 flex-shrink-0 mt-0.5" />
-          <p className={`${typography.caption} text-mint-700`}>
-            No critical assumptions identified. The recommendation is based on well-established factors.
-          </p>
-        </div>
-      </div>
-    )
+    return null
   }
 
   // Sort by criticality

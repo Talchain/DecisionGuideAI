@@ -39,14 +39,9 @@ const severityConfig = {
 }
 
 export function TradeoffsSection({ tradeoffs, onTradeoffClick }: TradeoffsSectionProps) {
+  // Task 5: Don't render empty placeholder - section simply doesn't appear when empty
   if (!tradeoffs || tradeoffs.length === 0) {
-    return (
-      <div className="p-3 bg-mint-50 border border-mint-200 rounded-lg">
-        <p className={`${typography.caption} text-mint-700`}>
-          No significant tradeoffs identified. This option appears well-balanced.
-        </p>
-      </div>
-    )
+    return null
   }
 
   return (

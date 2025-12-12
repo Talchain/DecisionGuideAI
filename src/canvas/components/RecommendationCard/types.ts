@@ -178,6 +178,16 @@ export interface RecommendationCardProps {
   optionCount?: number
   /** Whether analysis is currently running */
   isAnalyzing?: boolean
+  /** Task 2+4: Outcome data for consolidated display */
+  outcomeData?: {
+    p50: number | null
+    p10?: number | null
+    p90?: number | null
+    units: 'currency' | 'percent' | 'count'
+    unitSymbol?: string
+    baseline?: number | null
+    goalDirection?: 'maximize' | 'minimize'
+  }
 }
 
 export interface ExpandableSectionProps {

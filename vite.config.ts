@@ -97,12 +97,12 @@ optimizeDeps: {
     },
     proxy: {
       '/bff/engine': {
-        target: 'https://plot-lite-service.onrender.com',
+        target: env.ENGINE_SERVICE_URL || 'https://plot-lite-service.onrender.com',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/bff\/engine/, ''),
         configure: (proxy) => {
-          console.log('[PROXY] Engine target: https://plot-lite-service.onrender.com')
+          console.log(`[PROXY] Engine target: ${env.ENGINE_SERVICE_URL || 'https://plot-lite-service.onrender.com'}`)
 
           proxy.on('error', (err) => {
             console.error('[PROXY ERROR] /bff/engine', err.message)
@@ -200,12 +200,12 @@ optimizeDeps: {
     host: true,
     proxy: {
       '/bff/engine': {
-        target: 'https://plot-lite-service.onrender.com',
+        target: env.ENGINE_SERVICE_URL || 'https://plot-lite-service.onrender.com',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/bff\/engine/, ''),
         configure: (proxy) => {
-          console.log('[PROXY] Engine target: https://plot-lite-service.onrender.com')
+          console.log(`[PROXY] Engine target: ${env.ENGINE_SERVICE_URL || 'https://plot-lite-service.onrender.com'}`)
 
           proxy.on('error', (err) => {
             console.error('[PROXY ERROR] /bff/engine', err.message)

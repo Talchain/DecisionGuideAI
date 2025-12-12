@@ -166,8 +166,8 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
             </div>
           </div>
 
-          {/* Task 3.2: Identifiability Status */}
-          {identifiability && (
+          {/* Task 3.2: Identifiability Status - Task 6: Hide 'unknown' status post-analysis */}
+          {identifiability && identifiability !== 'unknown' && (
             <div
               className="space-y-2"
               data-testid="identifiability-section"
@@ -222,8 +222,8 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
             </div>
           </div>
 
-          {/* Issues count */}
-          {metrics.issuesCount > 0 && (
+          {/* Issues count - Task 7: Only show when quality is not Good (avoid mixed messages) */}
+          {metrics.issuesCount > 0 && tier !== 'good' && (
             <div className="flex items-center gap-2 pt-2 border-t border-sand-100">
               <AlertTriangle className="h-4 w-4 text-carrot-500" />
               <span className={`${typography.caption} text-carrot-600`}>
@@ -232,8 +232,9 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
             </div>
           )}
 
-          {/* Backend recommendation */}
-          {metrics.recommendation && (
+          {/* Backend recommendation - Task 7: Only show when quality is not Good to avoid
+              contradicting "Model Quality: Good" with "Consider adding more..." suggestions */}
+          {metrics.recommendation && tier !== 'good' && (
             <p className={`${typography.caption} text-ink-500 pt-2 border-t border-sand-100`}>
               {metrics.recommendation}
             </p>

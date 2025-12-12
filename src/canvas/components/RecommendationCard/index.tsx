@@ -19,11 +19,14 @@ import {
   Loader2,
   RefreshCw,
   Ban,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react'
 import { useRecommendation } from '../../hooks/useRecommendation'
 import { useConditionalRecommendations } from '../../hooks/useConditionalRecommendations'
 import { useCanvasStore } from '../../store'
 import { typography } from '../../../styles/typography'
+import { formatOutcomeValue, formatRange } from '../../../lib/format'
 import { ExpandableSection } from './ExpandableSection'
 import { DriversSection } from './DriversSection'
 import { TradeoffsSection } from './TradeoffsSection'
@@ -103,6 +106,7 @@ export function RecommendationCard({
   onValidateClick,
   optionCount = 0,
   isAnalyzing = false,
+  outcomeData,
 }: RecommendationCardProps) {
   // Use the recommendation hook
   const {
@@ -342,6 +346,53 @@ export function RecommendationCard({
           {cleanInsightText(rec.summary) || rec.summary}
         </p>
 
+        {/* Task 2+4: Compact outcome display - Success Likelihood + Range */}
+        {outcomeData?.p50 != null && (
+          <div className="mt-4 p-3 bg-sand-50 rounded-lg border border-sand-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`${typography.caption} text-ink-500`}>Success Likelihood</p>
+                <p className={`${typography.h3} font-bold ${
+                  outcomeData.p50 >= 60 ? 'text-mint-700' :
+                  outcomeData.p50 >= 40 ? 'text-banana-700' : 'text-carrot-700'
+                }`}>
+                  {formatOutcomeValue(outcomeData.p50, outcomeData.units, outcomeData.unitSymbol)}
+                </p>
+              </div>
+              {outcomeData.p10 != null && outcomeData.p90 != null && (
+                <div className="text-right">
+                  <p className={`${typography.caption} text-ink-500`}>70% Range</p>
+                  <p className={`${typography.bodySmall} text-ink-700`}>
+                    {formatRange(outcomeData.p10, outcomeData.p90, outcomeData.units, outcomeData.unitSymbol)}
+                  </p>
+                </div>
+              )}
+            </div>
+            {/* Baseline comparison */}
+            {outcomeData.baseline != null && outcomeData.p50 != null && (() => {
+              const delta = outcomeData.p50 - outcomeData.baseline
+              const isProbScale = outcomeData.p50 >= 0 && outcomeData.p50 <= 1
+              const deltaPct = isProbScale ? delta * 100 : delta
+              const isIncrease = delta > 0
+              const isPositive = (outcomeData.goalDirection === 'maximize' && isIncrease) ||
+                (outcomeData.goalDirection === 'minimize' && !isIncrease)
+              if (Math.abs(deltaPct) < 0.5) return null
+              return (
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-sand-200">
+                  {isIncrease ? (
+                    <TrendingUp className={`h-4 w-4 ${isPositive ? 'text-mint-600' : 'text-carrot-600'}`} />
+                  ) : (
+                    <TrendingDown className={`h-4 w-4 ${isPositive ? 'text-mint-600' : 'text-carrot-600'}`} />
+                  )}
+                  <span className={`${typography.caption} ${isPositive ? 'text-mint-700' : 'text-carrot-700'}`}>
+                    {isIncrease ? '+' : ''}{Math.round(deltaPct)}% vs baseline
+                  </span>
+                </div>
+              )
+            })()}
+          </div>
+        )}
+
         {/* Task 1.6: Coherence warning banner */}
         {!coherenceCheck.isCoherent && coherenceCheck.contradiction && (
           <div
@@ -364,45 +415,51 @@ export function RecommendationCard({
         )}
       </div>
 
-      {/* Expandable Sections */}
+      {/* Expandable Sections - Task 5: Hide sections when empty (no placeholder text) */}
       <div className="divide-y divide-sand-100">
-        {/* Why this option */}
-        <ExpandableSection
-          title="Why this option"
-          badgeCount={driverCount}
-          testId="section-drivers"
-        >
-          <DriversSection
-            drivers={reasoning.primary_drivers}
-            onDriverClick={handleDriverClick}
-          />
-        </ExpandableSection>
+        {/* Why this option - only show if drivers exist */}
+        {driverCount > 0 && (
+          <ExpandableSection
+            title="Why this option"
+            badgeCount={driverCount}
+            testId="section-drivers"
+          >
+            <DriversSection
+              drivers={reasoning.primary_drivers}
+              onDriverClick={handleDriverClick}
+            />
+          </ExpandableSection>
+        )}
 
-        {/* What you're trading off */}
-        <ExpandableSection
-          title="What you're trading off"
-          badgeCount={tradeoffCount}
-          badgeVariant={tradeoffCount > 0 ? 'warning' : 'default'}
-          testId="section-tradeoffs"
-        >
-          <TradeoffsSection
-            tradeoffs={reasoning.key_tradeoffs}
-            onTradeoffClick={(edgeId) => onDriverClick?.(edgeId)}
-          />
-        </ExpandableSection>
+        {/* What you're trading off - only show if tradeoffs exist */}
+        {tradeoffCount > 0 && (
+          <ExpandableSection
+            title="What you're trading off"
+            badgeCount={tradeoffCount}
+            badgeVariant="warning"
+            testId="section-tradeoffs"
+          >
+            <TradeoffsSection
+              tradeoffs={reasoning.key_tradeoffs}
+              onTradeoffClick={(edgeId) => onDriverClick?.(edgeId)}
+            />
+          </ExpandableSection>
+        )}
 
-        {/* Assumptions to validate */}
-        <ExpandableSection
-          title="Assumptions to validate"
-          badgeCount={criticalAssumptions > 0 ? criticalAssumptions : assumptionCount}
-          badgeVariant={criticalAssumptions > 0 ? 'critical' : 'default'}
-          testId="section-assumptions"
-        >
-          <AssumptionsSection
-            assumptions={reasoning.assumptions}
-            onAssumptionClick={handleAssumptionClick}
-          />
-        </ExpandableSection>
+        {/* Assumptions to validate - only show if assumptions exist */}
+        {assumptionCount > 0 && (
+          <ExpandableSection
+            title="Assumptions to validate"
+            badgeCount={criticalAssumptions > 0 ? criticalAssumptions : assumptionCount}
+            badgeVariant={criticalAssumptions > 0 ? 'critical' : 'default'}
+            testId="section-assumptions"
+          >
+            <AssumptionsSection
+              assumptions={reasoning.assumptions}
+              onAssumptionClick={handleAssumptionClick}
+            />
+          </ExpandableSection>
+        )}
 
         {/* Task 1.3: Constraint violations and binding constraints */}
         {hasConstraintIssues && (

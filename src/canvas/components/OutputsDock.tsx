@@ -742,22 +742,37 @@ export function OutputsDock() {
                     )}
                   </div>
                 )}
-                {/* Post-run: Rerun analysis button */}
+                {/* Post-run: Action buttons toolbar */}
                 {!isPreRun && (
-                  <button
-                    type="button"
-                    onClick={handleRunAnalysis}
-                    disabled={isRunning}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
-                      isRunning
-                        ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
-                        : 'bg-sky-500 text-white hover:bg-sky-600'
-                    }`}
-                    data-testid="outputs-rerun-button"
-                  >
-                    <RefreshCw className={`w-5 h-5 ${isRunning ? 'animate-spin' : ''}`} aria-hidden="true" />
-                    {isRunning ? 'Running...' : 'Rerun Analysis'}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleRunAnalysis}
+                      disabled={isRunning}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
+                        isRunning
+                          ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
+                          : 'bg-sky-500 text-white hover:bg-sky-600'
+                      }`}
+                      data-testid="outputs-rerun-button"
+                    >
+                      <RefreshCw className={`w-5 h-5 ${isRunning ? 'animate-spin' : ''}`} aria-hidden="true" />
+                      {isRunning ? 'Running...' : 'Rerun'}
+                    </button>
+                    {/* Compare Options - moved from DecisionSummary for top toolbar placement */}
+                    {comparison.canCompare && comparison.optionNodes.length >= 2 && (
+                      <button
+                        type="button"
+                        onClick={handleCompareNow}
+                        disabled={scenarioComparison.loading}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        data-testid="outputs-compare-button"
+                      >
+                        <GitCompare className="w-5 h-5" aria-hidden="true" />
+                        {scenarioComparison.loading ? 'Comparing...' : `Compare ${comparison.optionNodes.length}`}
+                      </button>
+                    )}
+                  </div>
                 )}
                 {/* Pre-run state: Show consolidated guidance and Run button */}
                 {isPreRun && (
@@ -847,12 +862,35 @@ export function OutputsDock() {
                     units={resultUnitSymbol}
                   />
                 )}
+
                 {/* ═══════════════════════════════════════════════════════════
-                    SECTION 1: RECOMMENDATION (always visible)
-                    Phase 4: RecommendationCard (CEE-powered) above DecisionSummary
-                    DecisionSummary: What to do, why, confidence, compare CTA
+                    SECTION 1: YOUR OBJECTIVE (always visible)
+                    Task 3: Goal-anchored experience - every recommendation
+                    clearly connects to the user's objective
                 ═══════════════════════════════════════════════════════════ */}
-                {/* Phase 4: CEE-powered Recommendation Card */}
+                {!isPreRun && hasInlineSummary && objectiveText && (
+                  <div
+                    className="bg-sky-50 border border-sky-200 rounded-xl px-4 py-3"
+                    data-testid="your-objective-section"
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <BarChart3 className="h-4 w-4 text-sky-600 flex-shrink-0" aria-hidden="true" />
+                      <span className={`${typography.caption} font-semibold text-sky-700 uppercase tracking-wide`}>
+                        Your Objective
+                      </span>
+                    </div>
+                    <p className={`${typography.body} font-medium text-sky-900`}>
+                      {objectiveText}
+                    </p>
+                  </div>
+                )}
+
+                {/* ═══════════════════════════════════════════════════════════
+                    SECTION 2: RECOMMENDATION (always visible)
+                    Phase 4: RecommendationCard (CEE-powered) above DecisionSummary
+                    DecisionSummary: What to do, why, confidence
+                ═══════════════════════════════════════════════════════════ */}
+                {/* Phase 4: CEE-powered Recommendation Card with consolidated outcome display */}
                 {SHOW_RECOMMENDATION_CARD && !isPreRun && hasInlineSummary && (
                   <RecommendationCard
                     runId={runMeta.runId}
@@ -884,16 +922,26 @@ export function OutputsDock() {
                     }}
                     optionCount={comparison.optionNodes.length}
                     isAnalyzing={isRunning}
+                    outcomeData={{
+                      p50: mostLikelyValue,
+                      p10: conservativeValue,
+                      p90: optimisticValue,
+                      units: (resultUnits || 'percent') as 'currency' | 'percent' | 'count',
+                      unitSymbol: resultUnitSymbol,
+                      baseline: baselineValue,
+                      goalDirection,
+                    }}
                   />
                 )}
-                {/* DecisionSummary - contains Compare CTA and outcome summary
-                    Shown alongside RecommendationCard (not mutually exclusive) */}
-                {!isPreRun && hasInlineSummary && (
+                {/* Task 2+4: DecisionSummary only shown when RecommendationCard is NOT shown
+                    (consolidated view: RecommendationCard includes outcome display) */}
+                {!SHOW_RECOMMENDATION_CARD && !isPreRun && hasInlineSummary && (
                   <DecisionSummary
                     baseline={baselineValue}
                     baselineName={baselineValue === 0 ? '"do nothing"' : 'your baseline'}
                     goalDirection={goalDirection}
                     ranking={optionRanking}
+                    objectiveText={objectiveText}
                   />
                 )}
 
