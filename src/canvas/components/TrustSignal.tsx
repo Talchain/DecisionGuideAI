@@ -1,20 +1,15 @@
 /**
- * TrustSignal - Model Quality assessment
+ * TrustSignal - Analysis reliability indicator
  *
- * Shows plain-language assessment of MODEL quality (structure, evidence, balance).
- * This is DISTINCT from prediction confidence - which is shown in DecisionSummary.
- *
- * Three tiers: Good, Fair, Needs Work
+ * Shows plain-language assessment of model reliability:
+ * - Three tiers: Good, Fair, Needs Work
  * - Plain language messages instead of percentages
- * - Basis for assessment (structure, completeness, evidence coverage)
+ * - Basis for assessment (structure, validity, variance)
  *
  * Features:
- * - Clear model quality statement
+ * - Clear reliability statement
  * - Actionable guidance per tier
- * - Source attribution (analysis vs local)
- *
- * Note: Prediction confidence is shown once in DecisionSummary.
- * TrustSignal focuses on model construction quality.
+ * - Source attribution (ISL verified vs estimated)
  */
 
 import { useState, useMemo } from 'react'
@@ -35,12 +30,6 @@ import {
   tierConfig as baseTierConfig,
   normalizeToPercent,
 } from '../utils/qualityTiers'
-import {
-  IdentifiabilityBadge,
-  normalizeIdentifiabilityTag,
-  isIdentifiabilityWarning,
-  type IdentifiabilityStatus,
-} from './IdentifiabilityBadge'
 
 interface TrustSignalProps {
   /** Start expanded */
@@ -60,13 +49,6 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
   const results = useCanvasStore((s) => s.results)
   const graphHealth = useCanvasStore((s) => s.graphHealth)
   const report = results?.report
-
-  // Task 3.2: Extract identifiability status from model_card
-  const identifiability = useMemo((): IdentifiabilityStatus | null => {
-    const modelCard = report?.model_card as { identifiability_tag?: string } | undefined
-    if (!modelCard?.identifiability_tag) return null
-    return normalizeIdentifiabilityTag(modelCard.identifiability_tag)
-  }, [report])
 
   // Extract quality metrics
   const metrics = useMemo(() => {
@@ -110,7 +92,7 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
           <Shield className="h-5 w-5 text-sand-400 flex-shrink-0" />
           <div>
             <p className={`${typography.body} text-sand-600`}>No quality data</p>
-            <p className={`${typography.caption} text-sand-500`}>Run analysis to see model quality assessment</p>
+            <p className={`${typography.caption} text-sand-500`}>Run analysis to see reliability assessment</p>
           </div>
         </div>
       </div>
@@ -136,7 +118,7 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
           ) : (
             <ChevronRight className="h-4 w-4 text-ink-500" />
           )}
-          <span className={`${typography.body} font-medium text-ink-800`}>Model Quality</span>
+          <span className={`${typography.body} font-medium text-ink-800`}>Analysis Reliability</span>
         </div>
 
         {/* Tier badge - no percentages */}
@@ -165,22 +147,6 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
               </div>
             </div>
           </div>
-
-          {/* Task 3.2: Identifiability Status - Task 6: Hide 'unknown' status post-analysis */}
-          {identifiability && identifiability !== 'unknown' && (
-            <div
-              className="space-y-2"
-              data-testid="identifiability-section"
-            >
-              <p className={`${typography.caption} font-medium text-ink-600 uppercase tracking-wide`}>
-                Causal Analysis
-              </p>
-              <IdentifiabilityBadge
-                status={identifiability}
-                showExplanation={isIdentifiabilityWarning(identifiability)}
-              />
-            </div>
-          )}
 
           {/* Basis for assessment */}
           <div className="space-y-2">
@@ -222,8 +188,8 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
             </div>
           </div>
 
-          {/* Issues count - Task 7: Only show when quality is not Good (avoid mixed messages) */}
-          {metrics.issuesCount > 0 && tier !== 'good' && (
+          {/* Issues count */}
+          {metrics.issuesCount > 0 && (
             <div className="flex items-center gap-2 pt-2 border-t border-sand-100">
               <AlertTriangle className="h-4 w-4 text-carrot-500" />
               <span className={`${typography.caption} text-carrot-600`}>
@@ -232,9 +198,8 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
             </div>
           )}
 
-          {/* Backend recommendation - Task 7: Only show when quality is not Good to avoid
-              contradicting "Model Quality: Good" with "Consider adding more..." suggestions */}
-          {metrics.recommendation && tier !== 'good' && (
+          {/* Backend recommendation */}
+          {metrics.recommendation && (
             <p className={`${typography.caption} text-ink-500 pt-2 border-t border-sand-100`}>
               {metrics.recommendation}
             </p>

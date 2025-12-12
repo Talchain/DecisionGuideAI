@@ -19,6 +19,17 @@ function computeGraphHash(nodes: unknown[], edges: unknown[]): string {
   return `${nodeIds}::${edgeIds}`
 }
 
+/**
+ * Simple hash of graph structure for change detection
+ * Only re-validate when graph content actually changes
+ */
+function computeGraphHash(nodes: unknown[], edges: unknown[]): string {
+  // Use JSON stringify of IDs and key data for lightweight hashing
+  const nodeIds = nodes.map((n: any) => `${n.id}:${n.type}:${n.data?.label ?? ''}`).sort().join('|')
+  const edgeIds = edges.map((e: any) => `${e.source}->${e.target}`).sort().join('|')
+  return `${nodeIds}::${edgeIds}`
+}
+
 export function ValidationSuggestionsSection() {
   // React #185 FIX: Use shallow comparison for array selectors
   const nodes = useCanvasStore(s => s.nodes)

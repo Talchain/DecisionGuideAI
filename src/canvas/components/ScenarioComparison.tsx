@@ -1,19 +1,7 @@
 /**
- * @deprecated LEGACY COMPONENT - Use ComparisonCanvasLayout instead
- *
- * M6: Scenario Comparison (LEGACY)
+ * M6: Scenario Comparison
  * Side-by-side comparison of graph snapshots
  * Phase 2: Synced pan/zoom between canvases
- *
- * This component has been superseded by ComparisonCanvasLayout which provides:
- * - Better integration with the unified Results tab
- * - Improved outcomes comparison bar
- * - Modern UI patterns consistent with the rest of the app
- *
- * Migration: Replace ScenarioComparison usage with ComparisonCanvasLayout
- * See: src/canvas/components/ComparisonCanvasLayout.tsx
- *
- * TODO: Remove after Q1 2025 if no longer used
  */
 
 import { useState } from 'react'

@@ -43,92 +43,30 @@ interface ActionsSignalProps {
 
 // Validation suggestion templates based on node label patterns
 // These provide actionable validation tips for common factor types
-// Format: { keyword: { suggestion: string, howTo: string } }
-const VALIDATION_TEMPLATES: Record<string, { suggestion: string; howTo: string }> = {
-  satisfaction: {
-    suggestion: 'Survey stakeholders before committing',
-    howTo: 'Send a 5-question survey to 3-5 key stakeholders',
-  },
-  market: {
-    suggestion: 'Validate with customer research',
-    howTo: 'Interview 5-10 target customers or review recent market data',
-  },
-  cost: {
-    suggestion: 'Get vendor quotes or benchmarks',
-    howTo: 'Request quotes from 2-3 vendors or check industry benchmarks',
-  },
-  timeline: {
-    suggestion: 'Get expert estimates',
-    howTo: 'Ask 2-3 people with relevant experience for time estimates',
-  },
-  risk: {
-    suggestion: 'Perform risk assessment',
-    howTo: 'List top 5 risks and rate likelihood/impact on a 1-5 scale',
-  },
-  revenue: {
-    suggestion: 'Validate projections with data',
-    howTo: 'Compare against historical data or industry averages',
-  },
-  adoption: {
-    suggestion: 'Test with real users',
-    howTo: 'Run a small pilot with 5-10 users and collect feedback',
-  },
-  quality: {
-    suggestion: 'Define quality metrics upfront',
-    howTo: 'Set 2-3 measurable quality criteria with target thresholds',
-  },
-  resource: {
-    suggestion: 'Check resource availability',
-    howTo: 'Confirm team capacity and required skills with managers',
-  },
-  compliance: {
-    suggestion: 'Get legal/regulatory review',
-    howTo: 'Schedule 30-min review with legal or compliance team',
-  },
-  success: {
-    suggestion: 'Define success criteria',
-    howTo: 'Set 3-5 measurable outcomes that define success',
-  },
-  budget: {
-    suggestion: 'Validate budget estimates',
-    howTo: 'Break down into line items and get quotes for big-ticket items',
-  },
-  performance: {
-    suggestion: 'Set performance benchmarks',
-    howTo: 'Define baseline metrics and target improvements',
-  },
-  customer: {
-    suggestion: 'Gather customer feedback',
-    howTo: 'Conduct 5-10 customer interviews or analyze support tickets',
-  },
-  efficiency: {
-    suggestion: 'Measure current baseline',
-    howTo: 'Track current process time/cost before implementing changes',
-  },
-}
-
-// Default suggestion when no template matches
-const DEFAULT_VALIDATION = {
-  suggestion: 'Gather supporting evidence',
-  howTo: 'Add data sources or expert estimates to strengthen this factor',
+const VALIDATION_TEMPLATES: Record<string, string> = {
+  satisfaction: 'Consider: Survey stakeholders before committing',
+  market: 'Consider: Customer research before launch',
+  cost: 'Consider: Get vendor quotes before budgeting',
+  timeline: 'Consider: Expert estimate before planning',
+  risk: 'Consider: Risk assessment before proceeding',
+  revenue: 'Consider: Market analysis to validate projections',
+  adoption: 'Consider: User testing before rollout',
+  quality: 'Consider: Define quality metrics upfront',
+  resource: 'Consider: Resource availability check',
+  compliance: 'Consider: Legal/regulatory review',
 }
 
 /**
  * Get validation suggestion for a node based on its label
- * Returns both the high-level suggestion and actionable how-to step
  */
-function getValidationSuggestion(
-  nodeLabel: string,
-  useDefault = true
-): { suggestion: string; howTo: string } | null {
+function getValidationSuggestion(nodeLabel: string): string | null {
   const labelLower = nodeLabel.toLowerCase()
   for (const [keyword, template] of Object.entries(VALIDATION_TEMPLATES)) {
     if (labelLower.includes(keyword)) {
       return template
     }
   }
-  // Return default suggestion if no template matches (when requested)
-  return useDefault ? DEFAULT_VALIDATION : null
+  return null
 }
 
 // Priority styling
@@ -392,16 +330,11 @@ function ActionItem({ action, fixStatus, onFocus, onAutoFix, nodes }: ActionItem
           </div>
           <p className={`${typography.caption} text-ink-600 mb-2`}>{action.description}</p>
 
-          {/* Actionable validation suggestion */}
+          {/* Validation suggestion tip */}
           {validationSuggestion && (
-            <div className="mb-3 p-2 bg-sky-50 rounded-lg border border-sky-100">
-              <p className={`${typography.caption} font-medium text-sky-800 mb-1`}>
-                {validationSuggestion.suggestion}
-              </p>
-              <p className={`${typography.caption} text-sky-700`}>
-                <span className="font-medium">Next step:</span> {validationSuggestion.howTo}
-              </p>
-            </div>
+            <p className={`${typography.caption} text-sky-600 italic mb-2`}>
+              {validationSuggestion}
+            </p>
           )}
 
           {/* Effort and impact info */}

@@ -59,6 +59,13 @@ export const nodeColors = {
     selected: 'ring-4 ring-emerald-400 ring-opacity-50',
     text: 'text-emerald-900',
   },
+  risk: {
+    bg: 'bg-red-50',
+    border: 'border-red-500',
+    hover: 'hover:border-red-600',
+    selected: 'ring-4 ring-red-400 ring-opacity-50',
+    text: 'text-red-900',
+  },
 } as const
 
 export type NodeColorType = keyof typeof nodeColors

@@ -25,15 +25,8 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
   const [showNodeTypeSubmenu, setShowNodeTypeSubmenu] = useState(false)
 
   // React 18 + Zustand v5: use individual selectors instead of object+shallow
-  // React #185 FIX: Select only what we need to avoid re-renders from selection.anchorPosition changes
   const clipboard = useCanvasStore((s) => s.clipboard)
-  const nodeIdsSize = useCanvasStore((s) => s.selection.nodeIds.size)
-  const edgeIdsSize = useCanvasStore((s) => s.selection.edgeIds.size)
-  const selectedEdgeId = useCanvasStore((s) => {
-    const ids = s.selection.edgeIds
-    if (ids.size !== 1) return null
-    return ids.values().next().value ?? null
-  })
+  const selection = useCanvasStore((s) => s.selection)
   const addNode = useCanvasStore((s) => s.addNode)
   const deleteSelected = useCanvasStore((s) => s.deleteSelected)
   const duplicateSelected = useCanvasStore((s) => s.duplicateSelected)
@@ -51,12 +44,12 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
     { type: 'divider' as const },
     { label: 'Select All', icon: '☑️', shortcut: '⌘A', action: selectAll, enabled: true },
     { type: 'divider' as const },
-    { label: 'Cut', icon: '✂️', shortcut: '⌘X', action: cutSelected, enabled: nodeIdsSize > 0 },
-    { label: 'Copy', icon: '📋', shortcut: '⌘C', action: copySelected, enabled: nodeIdsSize > 0 },
+    { label: 'Cut', icon: '✂️', shortcut: '⌘X', action: cutSelected, enabled: selection.nodeIds.size > 0 },
+    { label: 'Copy', icon: '📋', shortcut: '⌘C', action: copySelected, enabled: selection.nodeIds.size > 0 },
     { label: 'Paste', icon: '📎', shortcut: '⌘V', action: pasteClipboard, enabled: clipboard !== null && clipboard.nodes.length > 0 },
-    { label: 'Duplicate', icon: '🔁', shortcut: '⌘D', action: duplicateSelected, enabled: nodeIdsSize > 0 },
+    { label: 'Duplicate', icon: '🔁', shortcut: '⌘D', action: duplicateSelected, enabled: selection.nodeIds.size > 0 },
     { type: 'divider' as const },
-    { label: 'Delete', icon: '🗑️', shortcut: 'Del', action: deleteSelected, enabled: nodeIdsSize > 0 || edgeIdsSize > 0 },
+    { label: 'Delete', icon: '🗑️', shortcut: 'Del', action: deleteSelected, enabled: selection.nodeIds.size > 0 || selection.edgeIds.size > 0 },
     { type: 'divider' as const },
     {
       label: 'Edit Connector',
@@ -65,43 +58,46 @@ export function ContextMenu({ x, y, onClose }: ContextMenuProps) {
       action: () => {
         showToast('Double-click the connector label to edit weight & belief', 'info')
       },
-      enabled: edgeIdsSize === 1
+      enabled: selection.edgeIds.size === 1
     },
     {
       label: 'Reconnect Source',
       icon: '🔄',
       shortcut: null,
       action: () => {
-        if (selectedEdgeId) {
-          beginReconnect(selectedEdgeId, 'source')
+        const edgeId = Array.from(selection.edgeIds)[0]
+        if (edgeId) {
+          beginReconnect(edgeId, 'source')
           showToast('Reconnect source: click a node or press Esc', 'info')
         }
       },
-      enabled: edgeIdsSize === 1
+      enabled: selection.edgeIds.size === 1
     },
-    {
-      label: 'Reconnect Target',
-      icon: '🔄',
-      shortcut: null,
+    { 
+      label: 'Reconnect Target', 
+      icon: '🔄', 
+      shortcut: null, 
       action: () => {
-        if (selectedEdgeId) {
-          beginReconnect(selectedEdgeId, 'target')
+        const edgeId = Array.from(selection.edgeIds)[0]
+        if (edgeId) {
+          beginReconnect(edgeId, 'target')
           showToast('Reconnect target: click a node or press Esc', 'info')
         }
-      },
-      enabled: edgeIdsSize === 1
+      }, 
+      enabled: selection.edgeIds.size === 1 
     },
-    {
-      label: 'Delete Connector',
-      icon: '🗑️',
-      shortcut: 'Del',
+    { 
+      label: 'Delete Connector', 
+      icon: '🗑️', 
+      shortcut: 'Del', 
       action: () => {
-        if (selectedEdgeId) {
-          deleteEdge(selectedEdgeId)
+        const edgeId = Array.from(selection.edgeIds)[0]
+        if (edgeId) {
+          deleteEdge(edgeId)
           showToast('Connector deleted — press ⌘Z to undo', 'success')
         }
-      },
-      enabled: edgeIdsSize === 1
+      }, 
+      enabled: selection.edgeIds.size === 1 
     }
   ]
 

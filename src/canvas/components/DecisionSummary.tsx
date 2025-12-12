@@ -11,7 +11,7 @@
  * the recommendation in <10 seconds.
  */
 
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo, useEffect } from 'react'
 import {
   Target,
   TrendingUp,
@@ -21,20 +21,14 @@ import {
   Zap,
   Info,
   GitCompare,
-  Sparkles,
-  Loader2,
 } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useISLConformal } from '../../hooks/useISLConformal'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
-import { useKeyInsight } from '../hooks/useKeyInsight'
 import { buildRichGraphPayload } from '../utils/graphPayload'
 import { formatOutcomeValue } from '../../lib/format'
 import { typography } from '../../styles/typography'
-import { cleanInsightText, quoteOptionNames } from '../utils/cleanInsightText'
-import { detectBaseline, formatBaselineComparison } from '../utils/baselineDetection'
-import { CONFIDENCE_RANGES } from '../utils/confidenceRangeLabels'
 import type { ConfidenceLevel } from '../../adapters/plot/types'
 
 export interface RankingData {
@@ -61,8 +55,6 @@ interface DecisionSummaryProps {
   goalDirection?: 'maximize' | 'minimize'
   /** Option ranking data (from run_bundle endpoint) */
   ranking?: RankingData | null
-  /** Objective text for goal-anchored headline (Task 3) */
-  objectiveText?: string
 }
 
 // Confidence styling
@@ -104,58 +96,11 @@ const confidenceConfig: Record<ConfidenceLevel, {
   },
 }
 
-/**
- * Generate a goal-anchored recommendation headline (Task 3)
- * Connects the recommendation directly to the user's objective
- */
-function generateGoalAnchoredHeadline({
-  optionName,
-  objectiveText,
-  outcomeValue,
-  baselineComparison,
-  goalDirection,
-}: {
-  optionName?: string
-  objectiveText?: string
-  outcomeValue: number
-  baselineComparison?: { isPositive: boolean; display: string } | null
-  goalDirection: 'maximize' | 'minimize'
-}): string | null {
-  if (!optionName || !objectiveText) return null
-
-  // Format the outcome value for display
-  const formattedOutcome = outcomeValue >= 0 && outcomeValue <= 1
-    ? `${Math.round(outcomeValue * 100)}%`
-    : `${Math.round(outcomeValue)}%`
-
-  // Simplify objective text if it's too long (take first sentence or 50 chars)
-  const shortObjective = objectiveText.length > 60
-    ? objectiveText.split(/[.!?]/)[0].trim() || objectiveText.slice(0, 57) + '...'
-    : objectiveText
-
-  // Generate based on context
-  if (baselineComparison) {
-    if (baselineComparison.isPositive) {
-      // Positive comparison - emphasize improvement
-      return `'${optionName}' is your best path to ${shortObjective.toLowerCase()} — ${baselineComparison.display} better than baseline`
-    } else {
-      // Negative comparison - frame as risk minimization
-      return goalDirection === 'minimize'
-        ? `'${optionName}' minimizes risk to ${shortObjective.toLowerCase()}`
-        : `To ${shortObjective.toLowerCase()}, consider '${optionName}' — ${formattedOutcome} likelihood`
-    }
-  }
-
-  // No baseline comparison available - simple goal-anchored headline
-  return `To ${shortObjective.toLowerCase()}, proceed with '${optionName}' — ${formattedOutcome} likelihood`
-}
-
 export function DecisionSummary({
   baseline,
   baselineName = 'baseline',
   goalDirection = 'maximize',
   ranking,
-  objectiveText,
 }: DecisionSummaryProps) {
   const results = useCanvasStore((s) => s.results)
   const runMeta = useCanvasStore((s) => s.runMeta)
@@ -167,29 +112,12 @@ export function DecisionSummary({
   const { canCompare, optionNodes } = useComparisonDetection()
   const { startComparison, loading: comparisonLoading } = useScenarioComparison()
 
-  // Key insight from CEE (Phase 2)
-  const responseHash = report?.model_card?.response_hash
-  const {
-    insight: keyInsight,
-    loading: keyInsightLoading,
-  } = useKeyInsight({
-    responseHash,
-    autoFetch: true,
-    includeDrivers: true,
-  })
-
   // Conformal predictions for specific guidance
   const { data: conformalData, loading: conformalLoading, predict } = useISLConformal()
 
-  // Track if we've attempted conformal fetch (don't retry on failure)
-  const conformalAttemptedRef = useRef(false)
-
-  // Auto-fetch conformal predictions when results exist (with circuit breaker)
+  // Auto-fetch conformal predictions when results exist
   useEffect(() => {
-    if (!report?.results || nodes.length === 0 || conformalData || conformalLoading || conformalAttemptedRef.current) return
-
-    // Mark as attempted immediately to prevent retry loop
-    conformalAttemptedRef.current = true
+    if (!report?.results || nodes.length === 0 || conformalData || conformalLoading) return
 
     const timer = setTimeout(() => {
       predict({
@@ -198,24 +126,13 @@ export function DecisionSummary({
           enable_conformal: true,
           confidence_level: 0.95,
         },
-      }).catch((err) => {
-        // Log but don't retry - 401/404 won't fix themselves
-        const status = err?.status || err?.code
-        if (status === 401 || status === 404) {
-          console.warn(`[DecisionSummary] ISL conformal unavailable (${status})`)
-        }
+      }).catch(() => {
+        // Silently fail - specific guidance is optional
       })
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [report?.results, nodes.length, edges.length, conformalData, conformalLoading, predict])
-
-  // Reset attempted flag when results change (new analysis run)
-  useEffect(() => {
-    if (!report?.results) {
-      conformalAttemptedRef.current = false
-    }
-  }, [report?.results])
+  }, [report?.results, nodes, edges, conformalData, conformalLoading, predict])
 
   // Find worst calibrated node for specific guidance
   const worstCalibratedNode = useMemo(() => {
@@ -291,13 +208,13 @@ export function DecisionSummary({
           (goalDirection === 'maximize' && isIncrease) ||
           (goalDirection === 'minimize' && !isIncrease)
 
-        // For percentage/probability values, always show absolute change in percentage points
+        // For percentage/probability values, always show absolute change in pts
         // This avoids confusing "99% worse" when going from 100% to 1%
         let display: string
         if (units === 'percent' || isProbabilityScale) {
           // Convert to percentage points if in 0-1 scale
           const deltaPts = isProbabilityScale ? delta * 100 : delta
-          display = `${isIncrease ? '+' : ''}${Math.round(deltaPts)}%`
+          display = `${isIncrease ? '+' : ''}${Math.round(deltaPts)} pts`
         } else {
           // For non-percentage units (currency, count), show relative change
           display = baseline === 0
@@ -315,35 +232,17 @@ export function DecisionSummary({
     }
 
     // Key insight fallback: CEE headline -> engine insights summary -> null
-    // Apply cleanInsightText to remove meaningless metrics like "(0.01 units)" and "+25 pts"
+    // Suppress confusing backend-generated relative % change text for probability comparisons
+    // The pattern "Outcome likely to (increase|decrease) by X%" is often misleading when
+    // comparing probability values (e.g., 1% vs 99% shows as "-99%" which is confusing)
     const rawInsight = story?.headline ||
       report.insights?.summary?.trim() ||
       null
-    const cleanedInsight = rawInsight ? cleanInsightText(rawInsight) : null
 
-    // Task 9: Filter out confusing relative percentage change headlines from backend
-    // The pattern "Outcome likely to (increase|decrease) by X%" is often misleading when
-    // comparing probability values (e.g., 1% vs 99% shows as "-99%" which is confusing)
-    // Also filter out any message with extreme percentage changes (>=90%) as they're
-    // likely calculation artifacts from comparing 0-1 probabilities with 0-100 baselines
+    // Filter out confusing relative percentage change headlines from backend
     // We show our own correctly-calculated baselineComparison.display instead
-    const confusingPatterns = [
-      /Outcome likely to (increase|decrease) by \d+%/i,
-      /decrease by (9\d|100)%/i,  // Catches "decrease by 90-100%"
-      /increase by (9\d{2,}|[1-9]\d{3,})%/i,  // Catches unrealistic increases >900%
-      /range:\s*-?\d+%\s*to\s*-?\d+%/i,  // Catches "range: -100% to -99%" patterns
-    ]
-    const keyInsight = cleanedInsight && confusingPatterns.some(p => p.test(cleanedInsight)) ? null : cleanedInsight
-
-    // Task 3: Generate goal-anchored headline
-    const currentOptionName = ranking?.currentOptionName || optionNodes[0]?.label
-    const goalAnchoredHeadline = generateGoalAnchoredHeadline({
-      optionName: currentOptionName,
-      objectiveText,
-      outcomeValue: p50,
-      baselineComparison,
-      goalDirection,
-    })
+    const confusingPattern = /Outcome likely to (increase|decrease) by \d+%/i
+    const keyInsight = rawInsight && confusingPattern.test(rawInsight) ? null : rawInsight
 
     return {
       p50,
@@ -354,21 +253,13 @@ export function DecisionSummary({
       topDriver,
       baselineComparison,
       confidenceBand,
-      goalAnchoredHeadline,
     }
-  }, [report, runMeta, baseline, goalDirection, ranking?.currentOptionName, optionNodes, objectiveText])
+  }, [report, runMeta, baseline, goalDirection])
 
   // Don't render if no results
   if (!summaryData) {
     return null
   }
-
-  // Quote option names in headline for readability
-  // e.g., "Implement software outperforms Do not implement" → "'Implement software' outperforms 'Do not implement'"
-  const optionLabels = optionNodes.map(n => n.label).filter(Boolean) as string[]
-  const quotedHeadline = summaryData.headline
-    ? quoteOptionNames(summaryData.headline, optionLabels)
-    : null
 
   const confidenceLevel = (summaryData.confidence?.level || 'medium') as ConfidenceLevel
   const confConfig = confidenceConfig[confidenceLevel]
@@ -408,56 +299,30 @@ export function DecisionSummary({
           )}
         </div>
 
-        {/* Task 3: Goal-anchored recommendation headline - displayed prominently */}
-        {summaryData.goalAnchoredHeadline && (
-          <p className={`${typography.body} font-semibold text-ink-900 mt-2 leading-snug`}>
-            {summaryData.goalAnchoredHeadline}
-          </p>
-        )}
-
-        {/* Close call explanation - shown when options are very close (CEE/ranking low confidence)
-            but model confidence is not low (model is still confident in the numbers) */}
-        {((keyInsight?.confidence === 'low' || ranking?.confidence === 'low') &&
-          summaryData.confidence?.level !== 'low') && (
-          <div className={`${typography.caption} flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg bg-banana-50 text-banana-700 border border-banana-200`}>
-            <span aria-hidden="true">💡</span>
-            <span>Options are very close — consider other factors important to you</span>
-          </div>
-        )}
-
-        {/* Success likelihood - ALWAYS labeled clearly */}
-        <div className="mb-1">
-          {/* Label - always visible */}
-          <p className={`${typography.caption} text-ink-500 mb-1`}>
-            Success Likelihood
-          </p>
-          {/* Hero value + option context */}
-          <div className="flex items-baseline gap-3">
-            <span
-              className={`text-3xl font-bold ${
-                outcomeQuality === 'strong'
-                  ? 'text-mint-700'
-                  : outcomeQuality === 'moderate'
-                    ? 'text-banana-700'
-                    : 'text-carrot-700'
-              }`}
-              aria-label={`Success likelihood: ${formatOutcomeValue(summaryData.p50, summaryData.units, summaryData.unitSymbol)}`}
-            >
-              {formatOutcomeValue(summaryData.p50, summaryData.units, summaryData.unitSymbol)}
-            </span>
-            {/* Option context - shown if we know which option */}
-            {(ranking?.currentOptionName || optionNodes[0]?.label) && (
-              <span className={`${typography.body} text-ink-600`}>
-                with '{ranking?.currentOptionName || optionNodes[0]?.label}'
-              </span>
-            )}
-          </div>
+        {/* Success likelihood - large, prominent */}
+        <div className="flex items-baseline gap-3 mb-1">
+          <span
+            className={`text-3xl font-bold ${
+              outcomeQuality === 'strong'
+                ? 'text-mint-700'
+                : outcomeQuality === 'moderate'
+                  ? 'text-banana-700'
+                  : 'text-carrot-700'
+            }`}
+          >
+            {formatOutcomeValue(summaryData.p50, summaryData.units, summaryData.unitSymbol)}
+          </span>
+          <span className={`${typography.body} text-ink-600`}>
+            {ranking?.currentOptionName || optionNodes[0]?.label
+              ? `with '${ranking?.currentOptionName || optionNodes[0]?.label}'`
+              : 'success likelihood'}
+          </span>
         </div>
 
-        {/* 70% confidence band - Task 3.9: consistent labels */}
+        {/* 70% confidence band */}
         {summaryData.confidenceBand && (
-          <p className={`${typography.caption} text-ink-500 mb-2`} title={CONFIDENCE_RANGES.core.description}>
-            {CONFIDENCE_RANGES.core.shortLabel}: {formatOutcomeValue(summaryData.confidenceBand.p15, summaryData.units, summaryData.unitSymbol)}–{formatOutcomeValue(summaryData.confidenceBand.p85, summaryData.units, summaryData.unitSymbol)}
+          <p className={`${typography.caption} text-ink-500 mb-2`}>
+            70% likely: {formatOutcomeValue(summaryData.confidenceBand.p15, summaryData.units, summaryData.unitSymbol)}–{formatOutcomeValue(summaryData.confidenceBand.p85, summaryData.units, summaryData.unitSymbol)}
           </p>
         )}
 
@@ -468,101 +333,36 @@ export function DecisionSummary({
           </p>
         )}
 
-        {/* Baseline comparison - Task 1.7: Proper baseline labeling */}
-        {summaryData.baselineComparison && (() => {
-          // Detect if baselineName is a recognized baseline option
-          const baselineDetection = detectBaseline(baselineName)
-          const formattedComparison = formatBaselineComparison(baselineName, baselineDetection.isBaseline)
-
-          return (
-            <div className="flex items-center gap-2 mb-2">
-              {summaryData.baselineComparison.isIncrease ? (
-                <TrendingUp
-                  className={`h-4 w-4 ${
-                    summaryData.baselineComparison.isPositive ? 'text-mint-600' : 'text-carrot-600'
-                  }`}
-                />
-              ) : (
-                <TrendingDown
-                  className={`h-4 w-4 ${
-                    summaryData.baselineComparison.isPositive ? 'text-mint-600' : 'text-carrot-600'
-                  }`}
-                />
-              )}
-              <span
-                className={`${typography.bodySmall} font-medium ${
-                  summaryData.baselineComparison.isPositive ? 'text-mint-700' : 'text-carrot-700'
+        {/* Baseline comparison */}
+        {summaryData.baselineComparison && (
+          <div className="flex items-center gap-2 mb-2">
+            {summaryData.baselineComparison.isIncrease ? (
+              <TrendingUp
+                className={`h-4 w-4 ${
+                  summaryData.baselineComparison.isPositive ? 'text-mint-600' : 'text-carrot-600'
                 }`}
-              >
-                {summaryData.baselineComparison.display}{' '}
-                {summaryData.baselineComparison.isPositive ? 'better' : 'worse'} {formattedComparison}
-              </span>
-              {/* Baseline tooltip explanation */}
-              <button
-                type="button"
-                className="p-0.5 rounded hover:bg-sand-100 transition-colors"
-                title={
-                  baselineDetection.isBaseline
-                    ? 'Comparing against your current baseline scenario'
-                    : 'Baseline is your reference scenario for comparison. Click "Set Baseline" in Scenario Setup to change it.'
-                }
-                aria-label="What is baseline?"
-              >
-                <Info className="h-3.5 w-3.5 text-ink-400" />
-              </button>
-            </div>
-          )
-        })()}
-
-        {/* Key Insight headline - prefer API response, fallback to CEE story */}
-        {(keyInsight?.headline || quotedHeadline) && (
-          <div className="mt-2">
-            <div className="flex items-start gap-2">
-              {keyInsight?.provenance === 'cee' && (
-                <Sparkles className="h-4 w-4 text-violet-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
-              )}
-              <p className={`${typography.body} text-ink-800 font-medium`}>
-                {/* Clean insight text then quote option names for readability */}
-                {keyInsight?.headline
-                  ? quoteOptionNames(cleanInsightText(keyInsight.headline) ?? keyInsight.headline, optionLabels)
-                  : quotedHeadline}
-              </p>
-            </div>
-            {/* Confidence statement from key insight (if not just "Confidence: X") */}
-            {keyInsight?.confidence_statement && (
-              (() => {
-                // Strip standalone "Confidence: X" patterns - we show this via the badge
-                const cleaned = keyInsight.confidence_statement
-                  .replace(/^\s*Confidence:\s*(low|medium|high)\.?\s*$/i, '')
-                  .trim()
-                return cleaned ? (
-                  <p className={`${typography.caption} text-ink-500 mt-1 ml-6`}>
-                    {cleaned}
-                  </p>
-                ) : null
-              })()
+              />
+            ) : (
+              <TrendingDown
+                className={`h-4 w-4 ${
+                  summaryData.baselineComparison.isPositive ? 'text-mint-600' : 'text-carrot-600'
+                }`}
+              />
             )}
+            <span
+              className={`${typography.bodySmall} font-medium ${
+                summaryData.baselineComparison.isPositive ? 'text-mint-700' : 'text-carrot-700'
+              }`}
+            >
+              {summaryData.baselineComparison.display}{' '}
+              {summaryData.baselineComparison.isPositive ? 'better' : 'worse'} than {baselineName}
+            </span>
           </div>
         )}
 
-        {/* Key Insight caveat - amber styling */}
-        {keyInsight?.caveat && (
-          <div className="mt-2 p-2 rounded-lg bg-banana-50 border border-banana-200">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 text-banana-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
-              <p className={`${typography.caption} text-banana-800`}>
-                {keyInsight.caveat}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Loading indicator for key insight */}
-        {keyInsightLoading && !keyInsight && (
-          <div className="mt-2 flex items-center gap-2">
-            <Loader2 className="h-4 w-4 text-ink-400 animate-spin" />
-            <span className={`${typography.caption} text-ink-500`}>Loading insight...</span>
-          </div>
+        {/* Headline from CEE story */}
+        {summaryData.headline && (
+          <p className={`${typography.body} text-ink-700 mt-2`}>{summaryData.headline}</p>
         )}
       </div>
 
@@ -608,24 +408,19 @@ export function DecisionSummary({
         </div>
       </div>
 
-      {/* Top driver - prefer key insight primary_driver, fallback to CEE story */}
-      {(keyInsight?.primary_driver || summaryData.topDriver) && (
+      {/* Top driver - if available */}
+      {summaryData.topDriver && (
         <div className="px-4 py-3 border-b border-sand-100">
           <div className="flex items-start gap-2">
             <Zap className="h-4 w-4 text-sky-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
-            <div className="flex-1">
+            <div>
               <span className={`${typography.caption} text-ink-500`}>Key driver: </span>
               <span className={`${typography.bodySmall} text-ink-800 font-medium`}>
-                {keyInsight?.primary_driver?.label || summaryData.topDriver?.label}
+                {summaryData.topDriver.label}
               </span>
-              {keyInsight?.primary_driver?.contribution_pct !== undefined && (
-                <span className={`${typography.caption} text-sky-600 ml-2`}>
-                  ({keyInsight.primary_driver.contribution_pct}% impact)
-                </span>
-              )}
-              {(keyInsight?.primary_driver?.explanation || summaryData.topDriver?.why) && (
+              {summaryData.topDriver.why && (
                 <p className={`${typography.caption} text-ink-500 mt-0.5`}>
-                  {keyInsight?.primary_driver?.explanation || summaryData.topDriver?.why}
+                  {summaryData.topDriver.why}
                 </p>
               )}
             </div>
@@ -633,7 +428,21 @@ export function DecisionSummary({
         </div>
       )}
 
-      {/* Compare CTA moved to OutputsDock toolbar - Task 1 */}
+      {/* Compare CTA - only when 2+ options */}
+      {canCompare && optionNodes.length >= 2 && (
+        <div className="px-4 py-3 border-t border-sand-100">
+          <button
+            type="button"
+            onClick={() => startComparison()}
+            disabled={comparisonLoading}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <GitCompare className="h-4 w-4" aria-hidden="true" />
+            {comparisonLoading ? 'Comparing...' : `Compare ${optionNodes.length} Options`}
+          </button>
+        </div>
+      )}
+
     </div>
   )
 }

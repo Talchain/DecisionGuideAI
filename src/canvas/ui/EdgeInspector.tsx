@@ -7,11 +7,9 @@
 import { memo, useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { Lightbulb, Check } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { EDGE_CONSTRAINTS, type EdgeStyle, type EdgePathType, type EdgeFunctionType, type EdgeFunctionParams, DEFAULT_EDGE_DATA } from '../domain/edges'
+import { EDGE_CONSTRAINTS, type EdgeStyle, type EdgePathType, DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useToast } from '../ToastContext'
 import { Tooltip } from '../components/Tooltip'
-import { BeliefInput } from '../components/BeliefInput'
-import { EdgeFunctionTypeSelector } from '../components/EdgeFunctionTypeSelector'
 import type { WeightSuggestion } from '../decisionReview/types'
 
 interface EdgeInspectorProps {
@@ -59,9 +57,6 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
   const [label, setLabel] = useState<string>(edge?.data?.label ?? '')
   const [belief, setBelief] = useState<number | undefined>(edge?.data?.belief) // v1.2
   const [provenance, setProvenance] = useState<string>(edge?.data?.provenance ?? '') // v1.2
-  // Phase 3: Function type and params
-  const [functionType, setFunctionType] = useState<EdgeFunctionType>(edge?.data?.functionType ?? 'linear')
-  const [functionParams, setFunctionParams] = useState<EdgeFunctionParams | undefined>(edge?.data?.functionParams)
   
   // Debounce timer refs
   const weightTimerRef = useRef<NodeJS.Timeout>()
@@ -147,22 +142,6 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
     const current = edge?.data ?? DEFAULT_EDGE_DATA
     updateEdge(edgeId, { data: { ...current, provenance: provenance || undefined } })
   }, [edgeId, edge?.data, provenance, updateEdge])
-
-  // Phase 3: Handle function type and params change
-  const handleFunctionTypeChange = useCallback((type: EdgeFunctionType, params?: EdgeFunctionParams) => {
-    setFunctionType(type)
-    setFunctionParams(params)
-    const current = edge?.data ?? DEFAULT_EDGE_DATA
-    updateEdge(edgeId, { data: { ...current, functionType: type, functionParams: params } })
-    setAnnouncement(`Function type changed to ${type}`)
-  }, [edgeId, edge?.data, updateEdge])
-
-  // Phase 3: Handle function provenance change
-  const handleFunctionProvenanceChange = useCallback((newProvenance: string) => {
-    setProvenance(newProvenance)
-    const current = edge?.data ?? DEFAULT_EDGE_DATA
-    updateEdge(edgeId, { data: { ...current, provenance: newProvenance } })
-  }, [edgeId, edge?.data, updateEdge])
 
   // Apply weight suggestion from CEE/ISL
   const handleApplySuggestion = useCallback(() => {
@@ -359,21 +338,33 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
         </div>
       )}
 
-      {/* v1.2: Belief control (epistemic certainty) with natural language input */}
+      {/* v1.2: Belief control (epistemic certainty) */}
       <div className="mb-4">
-        <BeliefInput
-          value={belief ?? EDGE_CONSTRAINTS.belief.default}
-          onChange={handleBeliefChange}
-          label="Belief (certainty)"
-          factorContext={{
-            label: edge?.data?.label || 'this connection',
-            node_id: edge?.source,
-          }}
-          min={EDGE_CONSTRAINTS.belief.min}
-          max={EDGE_CONSTRAINTS.belief.max}
-          step={EDGE_CONSTRAINTS.belief.step}
-          placeholder="e.g., 'fairly confident' or 'about 70-80%'"
-        />
+        <Tooltip content="Your certainty about this connection (0% = uncertain, 100% = certain)" position="right">
+          <label htmlFor="edge-belief" className="block text-xs font-medium text-gray-700 mb-1">
+            Belief (epistemic certainty)
+          </label>
+        </Tooltip>
+        <p className="text-[10px] text-gray-500 mb-1.5">0% = uncertain, 100% = certain</p>
+        <div className="flex items-center gap-2">
+          <input
+            id="edge-belief"
+            type="range"
+            min={EDGE_CONSTRAINTS.belief.min}
+            max={EDGE_CONSTRAINTS.belief.max}
+            step={EDGE_CONSTRAINTS.belief.step}
+            value={belief ?? EDGE_CONSTRAINTS.belief.default}
+            onChange={(e) => handleBeliefChange(parseFloat(e.target.value))}
+            className="flex-1"
+            aria-valuemin={EDGE_CONSTRAINTS.belief.min}
+            aria-valuemax={EDGE_CONSTRAINTS.belief.max}
+            aria-valuenow={belief ?? EDGE_CONSTRAINTS.belief.default}
+            aria-valuetext={`${Math.round((belief ?? EDGE_CONSTRAINTS.belief.default) * 100)}%`}
+          />
+          <span className="w-14 text-xs font-medium text-gray-900 tabular-nums text-right">
+            {Math.round((belief ?? EDGE_CONSTRAINTS.belief.default) * 100)}%
+          </span>
+        </div>
       </div>
 
       {/* v1.2: Provenance display (source tracking) */}
@@ -486,19 +477,7 @@ export const EdgeInspector = memo(({ edgeId, onClose }: EdgeInspectorProps) => {
           />
         </div>
       )}
-
-      {/* Phase 3: Function Type Selector */}
-      <div className="mb-4 pt-4 border-t border-gray-200">
-        <EdgeFunctionTypeSelector
-          edgeId={edgeId}
-          value={functionType}
-          params={functionParams}
-          onChange={handleFunctionTypeChange}
-          provenance={provenance}
-          onProvenanceChange={handleFunctionProvenanceChange}
-        />
-      </div>
-
+      
       {/* Label control */}
       <div className="mb-4">
         <label htmlFor="edge-label" className="block text-xs font-medium text-gray-700 mb-1">

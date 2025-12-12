@@ -34,7 +34,6 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { findDriverMatches, type Driver } from '../utils/driverMatching'
-import { mapDriverToNodeId, type MappedDriver } from '../utils/driverNodeMapping'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 import { typography } from '../../styles/typography'
 
@@ -46,7 +45,6 @@ const NODE_ICONS: Record<string, LucideIcon> = {
   factor: Settings,
   risk: AlertTriangle,
   outcome: TrendingUp,
-  action: Zap,
 }
 
 // Node color mapping (matches canvas nodes - brand compliant)
@@ -54,10 +52,9 @@ const NODE_COLORS: Record<string, { bg: string; border: string; text: string }> 
   goal: { bg: 'bg-amber-100', border: 'border-amber-400', text: 'text-amber-900' },
   decision: { bg: 'bg-sky-100', border: 'border-sky-400', text: 'text-sky-900' },
   option: { bg: 'bg-purple-100', border: 'border-purple-400', text: 'text-purple-900' },
-  factor: { bg: 'bg-slate-100', border: 'border-slate-300', text: 'text-slate-900' },
+  factor: { bg: 'bg-sand-100', border: 'border-sand-300', text: 'text-ink-900' },
   risk: { bg: 'bg-red-100', border: 'border-red-400', text: 'text-red-900' },
   outcome: { bg: 'bg-emerald-100', border: 'border-emerald-400', text: 'text-emerald-900' },
-  action: { bg: 'bg-emerald-100', border: 'border-emerald-400', text: 'text-emerald-900' },
 }
 
 // Causal node types (Risk and Factor are causal factors)
@@ -81,8 +78,6 @@ interface DriverChipsProps {
 interface EnrichedDriver extends ReportDriver {
   originalIndex: number
   nodeKind: string | null
-  /** Pre-resolved node ID for click-to-focus (null if no match) */
-  resolvedNodeId: string | null
 }
 
 export function DriverChips({ drivers }: DriverChipsProps) {
@@ -99,37 +94,80 @@ export function DriverChips({ drivers }: DriverChipsProps) {
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const chipsRef = useRef<HTMLDivElement>(null)
 
-  // Enrich drivers with node kind and resolved node ID
-  // Uses centralised mapping utility for consistent ID resolution
+  // Enrich drivers with node kind
+  // Priority: 1) API nodeKind, 2) Extract from node_id prefix, 3) Canvas ID match, 4) Label match
   const enrichedDrivers = useMemo<EnrichedDriver[]>(() => {
     return drivers.map((d, index) => {
-      // Use centralised mapping utility to resolve node ID
-      const mapped = mapDriverToNodeId(d, nodes)
-      const resolvedNodeId = mapped.resolvedNodeId
-
-      // Determine node kind from resolved node or other sources
+      // 1) Use API-provided nodeKind if available
       let nodeKind: string | null = d.nodeKind?.toLowerCase() || null
 
-      // If we resolved a node ID, get the kind from that node
-      if (!nodeKind && resolvedNodeId) {
-        const node = nodes.find(n => n.id === resolvedNodeId)
-        nodeKind = (node?.data as any)?.kind?.toLowerCase() || node?.type?.toLowerCase() || null
-      }
-
-      // Extract from API node_id prefix if still unknown
+      // 2) Extract node type from API node_id prefix (e.g., "risk_market_saturation" → "risk")
+      // This handles cases where API uses type-prefixed IDs
       if (!nodeKind && d.nodeId) {
-        const prefixMatch = d.nodeId.match(/^(goal|decision|option|factor|risk|outcome|action)_/i)
+        const prefixMatch = d.nodeId.match(/^(goal|decision|option|factor|risk|outcome)_/i)
         if (prefixMatch) {
           nodeKind = prefixMatch[1].toLowerCase()
         }
       }
 
-      // Dev-only logging for diagnosis
-      if (import.meta.env.DEV && !resolvedNodeId) {
-        console.debug('[DriverChips] Could not resolve nodeId for driver:', {
+      // 3) Fallback: find node by exact ID match on canvas
+      if (!nodeKind && d.nodeId) {
+        const node = nodes.find(n => n.id === d.nodeId)
+        nodeKind = node?.data?.kind?.toLowerCase() || node?.type?.toLowerCase() || null
+      }
+
+      // 4) Fallback: find node by exact label match (case-insensitive, trimmed)
+      if (!nodeKind) {
+        const normalizedLabel = d.label.toLowerCase().trim()
+        const node = nodes.find(n => {
+          const canvasLabel = n.data?.label?.toLowerCase().trim()
+          return canvasLabel === normalizedLabel
+        })
+        nodeKind = node?.data?.kind?.toLowerCase() || node?.type?.toLowerCase() || null
+      }
+
+      // 5) Fallback: partial label match (driver label contains node label or vice versa)
+      if (!nodeKind) {
+        const normalizedLabel = d.label.toLowerCase().trim()
+        const node = nodes.find(n => {
+          const canvasLabel = n.data?.label?.toLowerCase().trim()
+          if (!canvasLabel) return false
+          // Check if driver label contains node label or node label contains driver label
+          return normalizedLabel.includes(canvasLabel) || canvasLabel.includes(normalizedLabel)
+        })
+        nodeKind = node?.data?.kind?.toLowerCase() || node?.type?.toLowerCase() || null
+      }
+
+      // 6) Fallback: word overlap match (at least 2 words in common)
+      if (!nodeKind) {
+        const driverWords = new Set(d.label.toLowerCase().split(/\s+/).filter(w => w.length > 2))
+        let bestMatch: { node: typeof nodes[0]; overlap: number } | null = null
+
+        for (const node of nodes) {
+          const canvasLabel = node.data?.label?.toLowerCase() || ''
+          const canvasWords = new Set(canvasLabel.split(/\s+/).filter(w => w.length > 2))
+
+          let overlap = 0
+          for (const word of driverWords) {
+            if (canvasWords.has(word)) overlap++
+          }
+
+          if (overlap >= 2 && (!bestMatch || overlap > bestMatch.overlap)) {
+            bestMatch = { node, overlap }
+          }
+        }
+
+        if (bestMatch) {
+          nodeKind = bestMatch.node.data?.kind?.toLowerCase() || bestMatch.node.type?.toLowerCase() || null
+        }
+      }
+
+      // Dev-only logging for diagnosis (won't appear in production builds)
+      if (import.meta.env.DEV && !nodeKind) {
+        console.debug('[DriverChips] Could not determine nodeKind for driver:', {
           label: d.label,
-          apiNodeId: d.nodeId,
-          matchType: mapped.matchType,
+          nodeId: d.nodeId,
+          canvasNodeLabels: nodes.map(n => ({ id: n.id, label: n.data?.label, type: n.type })),
         })
       }
 
@@ -137,7 +175,6 @@ export function DriverChips({ drivers }: DriverChipsProps) {
         ...d,
         originalIndex: index,
         nodeKind,
-        resolvedNodeId,
       }
     })
   }, [drivers, nodes])
@@ -220,22 +257,8 @@ export function DriverChips({ drivers }: DriverChipsProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedIndex, driverList.length])
 
-  // Focus driver on canvas - uses pre-resolved nodeId when available
+  // Focus driver on canvas
   const handleDriverFocus = useCallback((index: number) => {
-    // Find the enriched driver by originalIndex
-    const driver = enrichedDrivers.find(d => d.originalIndex === index)
-
-    // Prefer pre-resolved nodeId for reliable focus
-    if (driver?.resolvedNodeId) {
-      focusNodeById(driver.resolvedNodeId)
-      setActiveDriver({
-        driver: driverList[index],
-        matchIndex: 0
-      })
-      return
-    }
-
-    // Fallback to findDriverMatches result
     const matches = allMatches[index]
     if (!matches || matches.length === 0) return
 
@@ -252,7 +275,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
       driver: driverList[index],
       matchIndex: currentCycle % matches.length
     })
-  }, [enrichedDrivers, allMatches, driverList, matchCycles])
+  }, [allMatches, driverList, matchCycles])
 
   // Handle hover with 300ms dwell
   const handleHoverStart = useCallback((index: number) => {
@@ -301,10 +324,8 @@ export function DriverChips({ drivers }: DriverChipsProps) {
     const isHovered = hoverIndex === driver.originalIndex
 
     const contribution = driver.contribution
-    // Use pre-resolved nodeId from centralised mapping (preferred) or fallback to matches
-    const nodeId = driver.resolvedNodeId || (matchCount > 0 ? matches[0].targetId : null)
+    const nodeId = driver.nodeId || (matchCount > 0 ? matches[0].targetId : null)
     const hasEvidence = nodeId ? checkNodeHasEvidence(nodeId) : false
-    const canFocus = nodeId !== null
 
     // Get node-specific colors and icon
     const kind = driver.nodeKind?.toLowerCase() || 'factor'

@@ -7,13 +7,7 @@
 
 import { typography } from '../../styles/typography'
 import { computeDelta } from '../utils/interpretOutcome'
-import {
-  formatOutcomeValue,
-  formatOutcomeValueCompact,
-  formatDeltaPercent,
-  type OutcomeUnits,
-} from '../../lib/format'
-import { PERCENTILE_LABELS, CONFIDENCE_RANGES } from '../utils/confidenceRangeLabels'
+import { formatOutcomeValue, formatOutcomeValueCompact, type OutcomeUnits } from '../../lib/format'
 
 type Units = OutcomeUnits
 
@@ -25,6 +19,61 @@ interface RangeDisplayProps {
   unitSymbol?: string
   baseline?: number | null
   goalDirection: 'maximize' | 'minimize'
+}
+
+function formatValue(value: number | null, units: Units, unitSymbol?: string): string {
+  if (value === null || Number.isNaN(value)) {
+    return '—'
+  }
+
+  if (units === 'currency') {
+    const symbol = unitSymbol || '$'
+    // Smart formatting for large numbers
+    if (Math.abs(value) >= 1_000_000) {
+      return `${symbol}${(value / 1_000_000).toFixed(1)}M`
+    }
+    if (Math.abs(value) >= 1_000) {
+      return `${symbol}${(value / 1_000).toFixed(1)}K`
+    }
+    return `${symbol}${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+  }
+
+  if (units === 'count') {
+    // Auto-detect if value is in 0-1 probability form
+    // Values in 0-1 range with decimals or boundary values (0, 1) suggest probability format
+    if (value >= 0 && value <= 1 && (value !== Math.floor(value) || value === 0 || value === 1)) {
+      return `${(value * 100).toFixed(1)}%`
+    }
+    return value.toLocaleString(undefined, { maximumFractionDigits: 0 })
+  }
+
+  // Default (percent): auto-detect if value is in 0-1 probability form
+  // Values in 0-1 range (inclusive) are treated as probabilities: 0.5 → 50%, 1 → 100%
+  const isProbability = value >= 0 && value <= 1
+  const displayValue = isProbability ? value * 100 : value
+  return `${displayValue.toFixed(1)}%`
+}
+
+function formatValueCompact(value: number | null, units: Units, unitSymbol?: string): string {
+  if (value === null || Number.isNaN(value)) {
+    return '—'
+  }
+
+  if (units === 'currency') {
+    const symbol = unitSymbol || '$'
+    if (Math.abs(value) >= 1_000_000) {
+      return `${symbol}${(value / 1_000_000).toFixed(0)}M`
+    }
+    if (Math.abs(value) >= 1_000) {
+      return `${symbol}${(value / 1_000).toFixed(0)}K`
+    }
+    return `${symbol}${Math.round(value)}`
+  }
+
+  // Default (percent)
+  const isProbability = value >= 0 && value <= 1
+  const displayValue = isProbability ? value * 100 : value
+  return `${Math.round(displayValue)}%`
 }
 
 function getRangeWidthLabel(p10: number | null, p50: number | null, p90: number | null): string | null {
@@ -70,7 +119,7 @@ function getBaselineMessage(
   const percentText =
     delta.deltaPercent === null
       ? ''
-      : ` (${formatDeltaPercent(delta.deltaPercent)})`
+      : ` (${delta.deltaPercent > 0 ? '+' : ''}${delta.deltaPercent.toFixed(1)}%)`
 
   return `${magnitudeWord.charAt(0).toUpperCase() + magnitudeWord.slice(1)} ${directionWord} than baseline${percentText}`
 }
@@ -112,25 +161,23 @@ export function RangeDisplay({
 
   return (
     <div className="space-y-4" data-testid="range-display">
-      {/* Large primary outcome value - Task 3.9: consistent labels */}
+      {/* Large primary outcome value */}
       {p50 !== null && !Number.isNaN(p50) && (
         <div>
           <div className="text-4xl font-bold text-ink-900 tabular-nums">
-            {formatOutcomeValue(p50, safeUnits, unitSymbol)}
+            {formatValue(p50, safeUnits, unitSymbol)}
           </div>
-          <div className={`${typography.caption} text-ink-500 mt-1`} title={PERCENTILE_LABELS.p50.explanation}>
-            {PERCENTILE_LABELS.p50.long}
+          <div className={`${typography.caption} text-ink-500 mt-1`}>
+            Most likely outcome
           </div>
         </div>
       )}
 
-      {/* Visual range bar - Task 3.9: consistent labels */}
+      {/* Visual range bar */}
       {p10 !== null && p90 !== null && !Number.isNaN(p10) && !Number.isNaN(p90) && (
         <div className="space-y-2">
           {/* Range header */}
-          <div className={`${typography.caption} font-medium text-ink-700`} title={CONFIDENCE_RANGES.full.description}>
-            {CONFIDENCE_RANGES.full.shortLabel}
-          </div>
+          <div className={`${typography.caption} font-medium text-ink-700`}>Range</div>
 
           {/* Bar container */}
           <div className="relative">
@@ -151,20 +198,20 @@ export function RangeDisplay({
 
           {/* Range labels */}
           <div className="flex justify-between items-start">
-            <div title={PERCENTILE_LABELS.p10.explanation}>
+            <div>
               <div className={`${typography.caption} font-medium text-ink-700 tabular-nums`}>
-                {formatOutcomeValueCompact(p10, safeUnits, unitSymbol)}
+                {formatValueCompact(p10, safeUnits, unitSymbol)}
               </div>
               <div className={`${typography.caption} text-ink-500`}>
-                {PERCENTILE_LABELS.p10.short}
+                Worst case
               </div>
             </div>
-            <div className="text-right" title={PERCENTILE_LABELS.p90.explanation}>
+            <div className="text-right">
               <div className={`${typography.caption} font-medium text-ink-700 tabular-nums`}>
-                {formatOutcomeValueCompact(p90, safeUnits, unitSymbol)}
+                {formatValueCompact(p90, safeUnits, unitSymbol)}
               </div>
               <div className={`${typography.caption} text-ink-500`}>
-                {PERCENTILE_LABELS.p90.short}
+                Best case
               </div>
             </div>
           </div>

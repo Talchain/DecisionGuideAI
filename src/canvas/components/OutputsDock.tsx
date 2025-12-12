@@ -56,7 +56,7 @@ import { EvidenceCoverageCompact } from './EvidenceCoverage'
 import { DecisionReadinessBadge } from './DecisionReadinessBadge'
 import { ModelQualityScore } from './ModelQualityScore'
 import { UnifiedStatusBadge } from './UnifiedStatusBadge'
-// InsightsPanel removed - key insight now shown once in DecisionSummary
+import { InsightsPanel } from './InsightsPanel'
 import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
 import { GraphTextView } from './GraphTextView'
 import { PreAnalysisGuidance } from './PreAnalysisGuidance'
@@ -67,13 +67,6 @@ import { OutcomesSignal } from './OutcomesSignal'
 import { TrustSignal } from './TrustSignal'
 import { DriversSignal } from './DriversSignal'
 import { DecisionSummary } from './DecisionSummary'
-import { RiskTolerancePanel } from './RiskTolerancePanel'
-import { RiskAdjustedDisplay } from './RiskAdjustedDisplay'
-import { ThresholdDisplay } from './ThresholdDisplay'
-import { DetailedAnalysisSection } from './DetailedAnalysisSection'
-import { RecommendationCard } from './RecommendationCard'
-import { SequentialView } from './SequentialView'
-import { MultiGoalParetoPanel } from './MultiGoalParetoPanel'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useResultsRun } from '../hooks/useResultsRun'
 import { focusNodeById } from '../utils/focusHelpers'
@@ -116,18 +109,6 @@ const STORAGE_KEY = 'canvas.outputsDock.v1'
 
 // Feature flag for Phase 1A.1: Verdict Card + Delta Interpretation
 const SHOW_VERDICT_FEATURES = import.meta.env.VITE_SHOW_VERDICT_CARD === 'true'
-
-// Feature flag for Phase 4: CEE-powered Recommendation Card
-// When enabled, shows the new RecommendationCard above DecisionSummary
-const SHOW_RECOMMENDATION_CARD = import.meta.env.VITE_SHOW_RECOMMENDATION_CARD === 'true'
-
-// Feature flag for Phase 4: Sequential Stage Visualization
-// When enabled, shows SequentialView for multi-stage decisions
-const SHOW_SEQUENTIAL_VIEW = import.meta.env.VITE_SHOW_SEQUENTIAL_VIEW === 'true'
-
-// Feature flag for Phase 5: Multi-Goal Pareto Visualization
-// When enabled, shows trade-off analysis for conflicting goals
-const SHOW_PARETO_PANEL = import.meta.env.VITE_SHOW_PARETO_PANEL === 'true'
 
 const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
   { id: 'results', label: 'Results' },
@@ -193,7 +174,6 @@ export function OutputsDock() {
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
   const setShowComparePanel = useCanvasStore(s => s.setShowComparePanel)
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
-  const setHighlightedEdges = useCanvasStore(s => s.setHighlightedEdges)
 
   // Derived values from runMeta
   const diagnostics = runMeta.diagnostics
@@ -309,9 +289,6 @@ export function OutputsDock() {
 
   const canonicalBands = report?.run?.bands ?? null
   const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results.likely ?? null
-  const conservativeValue = canonicalBands?.p10 ?? report?.results?.conservative ?? null
-  const optimisticValue = canonicalBands?.p90 ?? report?.results?.optimistic ?? null
-  const resultUnits = report?.results?.units
   const resultUnitSymbol = report?.results.unitSymbol
   const hasInlineSummary = Boolean(report && resultsStatus === 'complete')
 
@@ -745,37 +722,22 @@ export function OutputsDock() {
                     )}
                   </div>
                 )}
-                {/* Post-run: Action buttons toolbar */}
+                {/* Post-run: Rerun analysis button */}
                 {!isPreRun && (
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={handleRunAnalysis}
-                      disabled={isRunning}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
-                        isRunning
-                          ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
-                          : 'bg-sky-500 text-white hover:bg-sky-600'
-                      }`}
-                      data-testid="outputs-rerun-button"
-                    >
-                      <RefreshCw className={`w-5 h-5 ${isRunning ? 'animate-spin' : ''}`} aria-hidden="true" />
-                      {isRunning ? 'Running...' : 'Rerun'}
-                    </button>
-                    {/* Compare Options - moved from DecisionSummary for top toolbar placement */}
-                    {comparison.canCompare && comparison.optionNodes.length >= 2 && (
-                      <button
-                        type="button"
-                        onClick={handleCompareNow}
-                        disabled={scenarioComparison.loading}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        data-testid="outputs-compare-button"
-                      >
-                        <GitCompare className="w-5 h-5" aria-hidden="true" />
-                        {scenarioComparison.loading ? 'Comparing...' : `Compare ${comparison.optionNodes.length}`}
-                      </button>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRunAnalysis}
+                    disabled={isRunning}
+                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
+                      isRunning
+                        ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
+                        : 'bg-sky-500 text-white hover:bg-sky-600'
+                    }`}
+                    data-testid="outputs-rerun-button"
+                  >
+                    <RefreshCw className={`w-5 h-5 ${isRunning ? 'animate-spin' : ''}`} aria-hidden="true" />
+                    {isRunning ? 'Running...' : 'Rerun Analysis'}
+                  </button>
                 )}
                 {/* Pre-run state: Show consolidated guidance and Run button */}
                 {isPreRun && (
@@ -865,147 +827,34 @@ export function OutputsDock() {
                     units={resultUnitSymbol}
                   />
                 )}
-
-                {/* ═══════════════════════════════════════════════════════════
-                    SECTION 1: YOUR OBJECTIVE (always visible)
-                    Task 3: Goal-anchored experience - every recommendation
-                    clearly connects to the user's objective
-                ═══════════════════════════════════════════════════════════ */}
-                {!isPreRun && hasInlineSummary && objectiveText && (
-                  <div
-                    className="bg-sky-50 border border-sky-200 rounded-xl px-4 py-3"
-                    data-testid="your-objective-section"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <BarChart3 className="h-4 w-4 text-sky-600 flex-shrink-0" aria-hidden="true" />
-                      <span className={`${typography.caption} font-semibold text-sky-700 uppercase tracking-wide`}>
-                        Your Objective
-                      </span>
-                    </div>
-                    <p className={`${typography.body} font-medium text-sky-900`}>
-                      {objectiveText}
-                    </p>
-                  </div>
-                )}
-
-                {/* ═══════════════════════════════════════════════════════════
-                    SECTION 2: RECOMMENDATION (always visible)
-                    Phase 4: RecommendationCard (CEE-powered) above DecisionSummary
-                    DecisionSummary: What to do, why, confidence
-                ═══════════════════════════════════════════════════════════ */}
-                {/* Phase 4: CEE-powered Recommendation Card with consolidated outcome display */}
-                {SHOW_RECOMMENDATION_CARD && !isPreRun && hasInlineSummary && (
-                  <RecommendationCard
-                    runId={runMeta.runId}
-                    responseHash={report?.model_card?.response_hash}
-                    autoFetch={true}
-                    onDriverClick={(edgeId, nodeId) => {
-                      // Highlight edge if available, otherwise highlight node
-                      if (edgeId) {
-                        setHighlightedEdges([edgeId])
-                        setTimeout(() => setHighlightedEdges([]), 3000)
-                      }
-                      if (nodeId) {
-                        setHighlightedNodes([nodeId])
-                        focusNodeById(nodeId)
-                        setTimeout(() => setHighlightedNodes([]), 3000)
-                      }
-                    }}
-                    onAssumptionClick={(edgeId, nodeId) => {
-                      // Highlight edge if available, otherwise highlight node
-                      if (edgeId) {
-                        setHighlightedEdges([edgeId])
-                        setTimeout(() => setHighlightedEdges([]), 3000)
-                      }
-                      if (nodeId) {
-                        setHighlightedNodes([nodeId])
-                        focusNodeById(nodeId)
-                        setTimeout(() => setHighlightedNodes([]), 3000)
-                      }
-                    }}
-                    optionCount={comparison.optionNodes.length}
-                    isAnalyzing={isRunning}
-                    outcomeData={{
-                      p50: mostLikelyValue,
-                      p10: conservativeValue,
-                      p90: optimisticValue,
-                      units: (resultUnits || 'percent') as 'currency' | 'percent' | 'count',
-                      unitSymbol: resultUnitSymbol,
-                      baseline: baselineValue,
-                      goalDirection,
-                    }}
-                    identifiability={normalizeIdentifiabilityTag(report?.model_card?.identifiability_tag)}
-                  />
-                )}
-                {/* Task 2+4: DecisionSummary only shown when RecommendationCard is NOT shown
-                    (consolidated view: RecommendationCard includes outcome display) */}
-                {!SHOW_RECOMMENDATION_CARD && !isPreRun && hasInlineSummary && (
+                {/* Decision Summary - Top-level decision synthesis */}
+                {!isPreRun && hasInlineSummary && (
                   <DecisionSummary
                     baseline={baselineValue}
                     baselineName={baselineValue === 0 ? '"do nothing"' : 'your baseline'}
                     goalDirection={goalDirection}
                     ranking={optionRanking}
-                    objectiveText={objectiveText}
                   />
                 )}
 
-                {/* Phase 4: Sequential Stage Visualization (for multi-stage decisions) */}
-                {SHOW_SEQUENTIAL_VIEW && !isPreRun && hasInlineSummary && (
-                  <SequentialView
-                    autoDetect={true}
-                    onStageClick={(stageIndex) => {
-                      // Find decision node at this stage and focus it
-                      const decisionNodes = nodes.filter(n => n.type === 'decision')
-                      if (decisionNodes[stageIndex]) {
-                        const nodeId = decisionNodes[stageIndex].id
-                        setHighlightedNodes([nodeId])
-                        focusNodeById(nodeId)
-                        setTimeout(() => setHighlightedNodes([]), 3000)
-                      }
-                    }}
-                    onStageDetailsClick={(stageIndex) => {
-                      // Could navigate to stage details in future
-                      console.log('[SequentialView] Stage details clicked:', stageIndex)
-                    }}
-                  />
-                )}
-
-                {/* Phase 5: Multi-Goal Pareto Visualization (Task 5.3) */}
-                {SHOW_PARETO_PANEL && !isPreRun && hasInlineSummary && (
-                  <MultiGoalParetoPanel
-                    onOptionClick={(optionId) => {
-                      // Focus the option node
-                      const optionNode = nodes.find(n => n.id === optionId)
-                      if (optionNode) {
-                        setHighlightedNodes([optionId])
-                        focusNodeById(optionId)
-                        setTimeout(() => setHighlightedNodes([]), 3000)
-                      }
-                    }}
-                    defaultExpanded={false}
-                  />
-                )}
-
-                {/* ═══════════════════════════════════════════════════════════
-                    SECTION 2: VALIDATE (always visible)
-                    ActionsSignal: Actionable validation steps
-                ═══════════════════════════════════════════════════════════ */}
+                {/* Signal Components - Decision-first hierarchy:
+                    1. DriversSignal - Why? (understanding)
+                    2. OutcomesSignal - What? (validation)
+                    3. TrustSignal - How confident? (reliability)
+                    4. ActionsSignal - What next? (actions)
+                */}
                 {!isPreRun && hasInlineSummary && (
-                  <ActionsSignal maxCollapsed={3} defaultExpanded={true} />
-                )}
-
-                {/* ═══════════════════════════════════════════════════════════
-                    SECTION 3: DETAILED ANALYSIS (collapsed by default)
-                    Grouped: Drivers, Outcomes, Risk-Adjusted, Model Quality, Thresholds
-                ═══════════════════════════════════════════════════════════ */}
-                {!isPreRun && hasInlineSummary && (
-                  <DetailedAnalysisSection
-                    baselineValue={baselineValue}
-                    goalDirection={goalDirection}
-                    objectiveText={objectiveText}
-                    report={report}
-                    framing={framing}
-                  />
+                  <div className="space-y-3" data-testid="outputs-signals">
+                    <DriversSignal maxCollapsed={3} />
+                    <OutcomesSignal
+                      baseline={baselineValue}
+                      goalDirection={goalDirection}
+                      objectiveText={objectiveText}
+                      baselineName={baselineValue === 0 ? '"do nothing"' : 'your baseline'}
+                    />
+                    <TrustSignal />
+                    <ActionsSignal maxCollapsed={3} />
+                  </div>
                 )}
 
                 {/* Additional context - kept from original inline summary */}
@@ -1030,8 +879,21 @@ export function OutputsDock() {
                         </div>
                       </div>
                     )}
-                    {/* Note: InsightsPanel removed - Key insight now shown once in DecisionSummary
-                        to eliminate redundant information per Task 3 of UX Redesign */}
+                    {/* Insights: interpretation of results ("what does this mean?") */}
+                    {report?.insights && (
+                      <InsightsPanel
+                        insights={report.insights}
+                        outcomeValue={mostLikelyValue}
+                        baselineValue={baselineValue}
+                        goalDirection={goalDirection}
+                        topDrivers={report.drivers?.slice(0, 3).map(d => ({
+                          label: d.label,
+                          polarity: d.polarity,
+                          strength: d.strength,
+                          contribution: d.contribution,
+                        }))}
+                      />
+                    )}
                     {/* Decision Review */}
                     {decisionReviewStatus && (
                       <div

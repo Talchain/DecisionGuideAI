@@ -178,15 +178,8 @@ export function DraftChat() {
     setAttachedFiles(prev => prev.filter((_, i) => i !== index))
   }, [])
 
-  // Minimum characters required for CEE draft validation
-  const MIN_CHARS = 30
-  const trimmedDescription = description.trim()
-  const charCount = trimmedDescription.length
-  const isValidLength = charCount >= MIN_CHARS
-  const charsRemaining = MIN_CHARS - charCount
-
   const handleDraft = async () => {
-    if (!trimmedDescription || !isValidLength) return
+    if (!description.trim()) return
 
     // If there is already a graph on the canvas, confirm before clearing it
     const { nodes, edges } = useCanvasStore.getState()
@@ -564,8 +557,8 @@ export function DraftChat() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 onKeyDown={(e) => {
-                  // Submit on Enter (without Shift) - only if valid length
-                  if (e.key === 'Enter' && !e.shiftKey && isValidLength && !loading) {
+                  // Submit on Enter (without Shift)
+                  if (e.key === 'Enter' && !e.shiftKey && description.trim() && !loading) {
                     e.preventDefault()
                     handleDraft()
                   }
@@ -582,19 +575,19 @@ export function DraftChat() {
               />
 
               {/* Send button */}
-              <Tooltip content={isValidLength ? "Press Enter to send • Shift+Enter for new line" : `Need ${charsRemaining} more characters`} position="right">
+              <Tooltip content="Press Enter to send • Shift+Enter for new line" position="right">
                 <button
                   onClick={handleDraft}
-                  disabled={loading || !isValidLength}
+                  disabled={loading || !description.trim()}
                   className={`
                     absolute right-2 bottom-2 p-2 rounded-lg
-                    ${isValidLength && !loading
+                    ${description.trim() && !loading
                       ? 'bg-sky-500 text-white hover:bg-sky-600'
                       : 'bg-sand-100 text-ink-300 cursor-not-allowed'
                     }
                     transition-colors
                   `}
-                  aria-label={isValidLength ? "Generate draft (Enter to send, Shift+Enter for new line)" : `Need ${charsRemaining} more characters to draft`}
+                  aria-label="Generate draft (Enter to send, Shift+Enter for new line)"
                 >
                   {loading ? (
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -605,22 +598,6 @@ export function DraftChat() {
                   )}
                 </button>
               </Tooltip>
-            </div>
-
-            {/* Character count and hint */}
-            <div className="flex items-center justify-between mt-1.5 px-1">
-              <span className={`text-xs ${charCount > 0 && !isValidLength ? 'text-sun-600' : 'text-ink-400'}`}>
-                {charCount > 0 && !isValidLength ? (
-                  <>Add {charsRemaining} more character{charsRemaining !== 1 ? 's' : ''} for better results</>
-                ) : charCount === 0 ? (
-                  'Tip: Include your goal, key factors, and constraints'
-                ) : (
-                  <span className="text-mint-600">✓ Ready to draft</span>
-                )}
-              </span>
-              <span className={`text-xs tabular-nums ${isValidLength ? 'text-mint-600' : 'text-ink-400'}`}>
-                {charCount}/{MIN_CHARS}+
-              </span>
             </div>
           </div>
         )}
