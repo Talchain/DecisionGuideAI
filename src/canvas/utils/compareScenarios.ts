@@ -3,9 +3,13 @@
  *
  * Computes edge-level differences between two analysis results.
  * Used for Compare view to show top-5 edge diffs with provenance.
+ *
+ * NOTE: Uses shared formatters from @/lib/format for consistency.
+ * For baseline detection and "vs." text, use @/canvas/utils/baselineDetection.
  */
 
 import type { StoredRun } from '../store/runHistory'
+import { formatDeltaPercent as sharedFormatDeltaPercent } from '@/lib/format'
 
 export interface EdgeDiff {
   edgeId: string
@@ -113,11 +117,9 @@ function computeImpactScore(delta: number, deltaPercent: number): number {
 
 /**
  * Format delta percentage for display
+ * @deprecated Use formatDeltaPercent from @/lib/format instead
  */
-export function formatDeltaPercent(deltaPercent: number): string {
-  const sign = deltaPercent >= 0 ? '+' : ''
-  return `${sign}${deltaPercent.toFixed(1)}%`
-}
+export const formatDeltaPercent = sharedFormatDeltaPercent
 
 /**
  * Format edge value for display

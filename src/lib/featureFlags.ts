@@ -1,18 +1,37 @@
-/**
- * Feature Flags Module
- *
- * Centralised feature flag management for the application.
- * Encapsulates all flag sources (env, window, URL params) in one place.
- *
- * Usage:
- * ```ts
- * import { featureFlags } from '@/lib/featureFlags'
- *
- * if (featureFlags.isE2EEnabled()) {
- *   // E2E testing mode
- * }
- * ```
- */
+// ============================================================================
+// INFRASTRUCTURE/ENVIRONMENT FLAGS
+// ============================================================================
+//
+// PURPOSE: Controls infrastructure, environment detection, and service config.
+// These flags determine HOW the app runs (not WHAT users see).
+//
+// RESPONSIBILITIES:
+//   - Environment detection: isE2EEnabled(), isDevelopment(), isProduction()
+//   - Service URLs: getCeeBffBase(), getPlotEngineBase()
+//   - Infrastructure toggles: isAnalyticsEnabled(), isSentryEnabled()
+//   - Debug mode: isDebugEnabled()
+//
+// SOURCES: URL params (highest) > window.__FEATURE_FLAGS__ > env vars (VITE_*)
+//
+// DO NOT USE FOR:
+//   - UI feature experiments → use src/flags.ts
+//   - A/B tests → use src/flags.ts
+//   - Per-user feature toggles → use src/flags.ts
+//
+// See also: src/flags.ts for UI/experiment flags
+// ============================================================================
+//
+// Usage:
+// ```ts
+// import { featureFlags } from '@/lib/featureFlags'
+//
+// if (featureFlags.isE2EEnabled()) {
+//   // E2E testing mode - skip certain checks
+// }
+//
+// const plotUrl = featureFlags.getPlotEngineBase()
+// ```
+//
 
 type FlagValue = boolean | string | number | undefined
 

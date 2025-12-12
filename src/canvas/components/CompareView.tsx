@@ -5,6 +5,7 @@ import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { EdgeDiffTable } from '../compare/EdgeDiffTable'
 import { CompareSummary } from '../compare/CompareSummary'
+import { RUN_SLOT_LABELS, type RunSlot } from '../compare/labels'
 import { exportDecisionBrief } from '../export/decisionBrief'
 
 interface CompareViewProps {
@@ -38,7 +39,7 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
     setRunB(prev => (prev?.id === nextRunB?.id ? prev : nextRunB))
   }, [runs, selectedRunIds])
 
-  const handleSelectRun = (slot: 'A' | 'B', runId: string) => {
+  const handleSelectRun = (slot: RunSlot, runId: string) => {
     let nextRunA = runA
     let nextRunB = runB
 
@@ -95,7 +96,7 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
 
       <div className="p-4 grid grid-cols-2 gap-4 border-b border-gray-200 bg-gray-50">
         <div>
-          <label className={`block ${typography.label} text-gray-700 mb-2`}>Run A</label>
+          <label className={`block ${typography.label} text-gray-700 mb-2`}>{RUN_SLOT_LABELS.A}</label>
           <select
             value={runA?.id || ''}
             onChange={(e) => handleSelectRun('A', e.target.value)}
@@ -106,7 +107,7 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
           </select>
         </div>
         <div>
-          <label className={`block ${typography.label} text-gray-700 mb-2`}>Run B</label>
+          <label className={`block ${typography.label} text-gray-700 mb-2`}>{RUN_SLOT_LABELS.B}</label>
           <select
             value={runB?.id || ''}
             onChange={(e) => handleSelectRun('B', e.target.value)}
@@ -123,8 +124,8 @@ export function CompareView({ onOpenInCanvas, onBack, selectedRunIds, onSelectio
           <CompareSummary runA={runA} runB={runB} />
           <div className="flex-1 overflow-y-auto p-4 space-y-6">
             <div className="grid grid-cols-2 gap-4">
-              <RunSummaryCard run={runA} label="Run A" onOpen={() => onOpenInCanvas(runA.id)} />
-              <RunSummaryCard run={runB} label="Run B" onOpen={() => onOpenInCanvas(runB.id)} />
+              <RunSummaryCard run={runA} label={RUN_SLOT_LABELS.A} onOpen={() => onOpenInCanvas(runA.id)} />
+              <RunSummaryCard run={runB} label={RUN_SLOT_LABELS.B} onOpen={() => onOpenInCanvas(runB.id)} />
             </div>
 
             <div>

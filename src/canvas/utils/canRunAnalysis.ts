@@ -1,3 +1,34 @@
+// ============================================================================
+// UNIFIED RUN GATING LOGIC
+// ============================================================================
+//
+// PURPOSE: Single source of truth for "Can the user click Run?"
+// This is the PRIMARY gating helper - use this for:
+//   - Run button enabled/disabled state
+//   - Run button tooltip text
+//   - Keyboard shortcut gating (Ctrl+Enter)
+//
+// INPUTS REQUIRED:
+//   - graphHealth: Validation issues (from store)
+//   - readiness: CEE readiness assessment (from useGraphReadiness)
+//   - hasBlockers: Critical unified actions (from useUnifiedActions)
+//   - nodeCount: Basic graph structure check
+//   - isRunning: Prevent double-run
+//
+// RELATED FILES:
+//   - runEligibility.ts: Lower-level eligibility check (node/edge counts, limits)
+//     Use runEligibility when you don't have CEE readiness available.
+//   - useRunEligibilityCheck.ts: React hook that combines both
+//
+// USAGE:
+//   import { canRunAnalysis, getRunButtonTooltip } from '@/canvas/utils/canRunAnalysis'
+//
+//   const result = canRunAnalysis({ graphHealth, readiness, hasBlockers, nodeCount })
+//   <Button disabled={!result.allowed} title={getRunButtonTooltip(result)}>
+//     Run Analysis
+//   </Button>
+// ============================================================================
+
 /**
  * canRunAnalysis - Unified logic for determining if analysis can run
  *

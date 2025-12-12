@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { useRecommendation } from '../../hooks/useRecommendation'
 import { useConditionalRecommendations } from '../../hooks/useConditionalRecommendations'
+import { useRobustness } from '../../hooks/useRobustness'
 import { useCanvasStore } from '../../store'
 import { typography } from '../../../styles/typography'
 import { formatOutcomeValue, formatRange } from '../../../lib/format'
@@ -36,6 +37,7 @@ import { TradeoffsSection } from './TradeoffsSection'
 import { AssumptionsSection } from './AssumptionsSection'
 import { ConstraintViolationsSection } from './ConstraintViolationsSection'
 import { RobustnessIndicator } from './RobustnessIndicator'
+import { RobustnessBlock } from './RobustnessBlock'
 import { ConditionalGuidance } from '../ConditionalGuidance'
 import { cleanInsightText } from '../../utils/cleanInsightText'
 import { checkRecommendationCoherence, getCoherenceWarningMessage } from '../../utils/coherenceCheck'
@@ -132,6 +134,17 @@ export function RecommendationCard({
     conditions: conditionalData,
     loading: robustnessLoading,
   } = useConditionalRecommendations({
+    runId,
+    responseHash,
+    autoFetch: true,
+  })
+
+  // Brief 10: Fetch full robustness analysis from ISL
+  const {
+    robustness: robustnessData,
+    loading: robustnessBlockLoading,
+    error: robustnessBlockError,
+  } = useRobustness({
     runId,
     responseHash,
     autoFetch: true,
@@ -469,6 +482,29 @@ export function RecommendationCard({
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Brief 10: Unified robustness block */}
+        {(robustnessData || robustnessBlockLoading) && (
+          <div className="mt-4">
+            <RobustnessBlock
+              robustness={robustnessData}
+              loading={robustnessBlockLoading}
+              error={robustnessBlockError}
+              onParameterClick={(nodeId) => {
+                setHighlightedNodes([nodeId])
+                setTimeout(() => setHighlightedNodes([]), 3000)
+              }}
+              onVoiActionClick={(nodeId) => {
+                setHighlightedNodes([nodeId])
+                setTimeout(() => setHighlightedNodes([]), 3000)
+              }}
+              onParetoOptionClick={(optionId) => {
+                // Pareto options could be highlighted when available
+              }}
+              defaultExpanded={false}
+            />
           </div>
         )}
       </div>

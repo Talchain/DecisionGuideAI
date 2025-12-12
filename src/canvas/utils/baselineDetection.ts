@@ -1,6 +1,24 @@
+// ============================================================================
+// BASELINE DETECTION & COMPARISON UTILITIES
+// ============================================================================
+//
+// PURPOSE: Canonical source for all baseline-related logic:
+//   - Detecting baseline/status quo options by label or value
+//   - Formatting "vs." comparison text (always use formatBaselineComparison)
+//   - Baseline badge styling (use getBaselineBadgeProps)
+//   - Analyzing options relative to baseline
+//
+// USAGE:
+//   import { detectBaseline, formatBaselineComparison } from '@/canvas/utils/baselineDetection'
+//
+//   const { isBaseline } = detectBaseline(optionLabel)
+//   const comparisonText = formatBaselineComparison(baselineLabel, isBaseline)
+//   // → "vs. your baseline" or "vs. keeping current approach"
+//
+// For numeric formatting (percentages, currency), use @/lib/format instead.
+// ============================================================================
+
 /**
- * Baseline Detection Utilities
- *
  * Task 1.7: Identifies baseline/status quo options and provides
  * proper labeling and comparison handling.
  */

@@ -32,6 +32,7 @@ interface TemplatesPanelProps {
 export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanvas, insertionError }: TemplatesPanelProps): JSX.Element | null {
   const [blueprints, setBlueprints] = useState<Array<{ id: string; name: string; description: string; category?: string }>>([])
   const [templatesLoading, setTemplatesLoading] = useState(true)
+  const [templatesLoadError, setTemplatesLoadError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [selectedBlueprintId, setSelectedBlueprintId] = useState<string | null>(null)
@@ -47,6 +48,7 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   // Load templates from adapter (supports both mock and httpv1)
   useEffect(() => {
     setTemplatesLoading(true)
+    setTemplatesLoadError(null)
     plot.templates()
       .then(list => {
         // Guard for both { items: [...] } and legacy [...] array formats
@@ -62,7 +64,9 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
           if (import.meta.env.DEV) {
             console.error('❌ Invalid templates response:', list)
           }
+          setTemplatesLoadError('Invalid response from templates service')
           setBlueprints([])
+          setTemplatesLoading(false)
           return
         }
 
@@ -78,7 +82,9 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
         if (import.meta.env.DEV) {
           console.error('❌ Failed to load templates from PLoT engine:', err)
         }
-        // NO FALLBACK - fail loudly to surface issues
+        // Show error banner to user
+        const errorMessage = err instanceof Error ? err.message : 'Connection failed'
+        setTemplatesLoadError(`Unable to load templates: ${errorMessage}`)
         setBlueprints([])
         setTemplatesLoading(false)
       })
@@ -119,6 +125,40 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg)
     setTimeout(() => setToastMessage(null), 3000)
+  }, [])
+
+  // Retry loading templates after failure
+  const retryLoadTemplates = useCallback(() => {
+    setTemplatesLoading(true)
+    setTemplatesLoadError(null)
+    plot.templates()
+      .then(list => {
+        let templates: any[] = []
+        if (Array.isArray(list)) {
+          templates = list
+        } else if (list && Array.isArray(list.items)) {
+          templates = list.items
+        } else {
+          setTemplatesLoadError('Invalid response from templates service')
+          setBlueprints([])
+          setTemplatesLoading(false)
+          return
+        }
+
+        setBlueprints(templates.map(t => ({
+          id: t.id,
+          name: t.name,
+          description: t.description,
+          category: t.category || 'Other'
+        })))
+        setTemplatesLoading(false)
+      })
+      .catch(err => {
+        const errorMessage = err instanceof Error ? err.message : 'Connection failed'
+        setTemplatesLoadError(`Unable to load templates: ${errorMessage}`)
+        setBlueprints([])
+        setTemplatesLoading(false)
+      })
   }, [])
 
   const handleInsert = useCallback(async (templateId: string) => {
@@ -622,10 +662,34 @@ export function TemplatesPanel({ isOpen, onClose, onInsertBlueprint, onPinToCanv
                 />
               </div>
 
+              {/* Templates Load Error Banner */}
+              {templatesLoadError && !templatesLoading && (
+                <div className="mb-4 p-4 bg-danger-50 border border-danger-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-danger-100 flex items-center justify-center mt-0.5">
+                      <span className={`${typography.caption} text-danger-700 font-bold`}>!</span>
+                    </div>
+                    <div className="flex-1">
+                      <p className={`${typography.label} text-danger-900 mb-1`}>Templates Unavailable</p>
+                      <p className={`${typography.caption} text-danger-700 leading-relaxed mb-3`}>
+                        {templatesLoadError}
+                      </p>
+                      <button
+                        onClick={retryLoadTemplates}
+                        className={`px-3 py-1.5 ${typography.label} text-danger-700 bg-danger-100 hover:bg-danger-200 rounded transition-colors`}
+                        type="button"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Show skeleton while loading templates */}
               {templatesLoading ? (
                 <TemplateSkeleton />
-              ) : filteredBlueprints.length === 0 ? (
+              ) : templatesLoadError ? null : filteredBlueprints.length === 0 ? (
                 <div className={`py-8 text-center ${typography.body} text-gray-500`}>
                   No templates found matching your criteria
                 </div>

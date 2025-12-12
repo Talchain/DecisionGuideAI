@@ -1,3 +1,23 @@
+// ============================================================================
+// BASIC RUN ELIGIBILITY CHECK
+// ============================================================================
+//
+// PURPOSE: Lower-level eligibility check based on graph structure and limits.
+// Use this when CEE readiness is NOT available (e.g., early in rendering).
+//
+// PREFER canRunAnalysis.ts when:
+//   - You have CEE readiness from useGraphReadiness
+//   - You need unified action blockers
+//   - You need tooltip/aria-label helpers
+//
+// USE THIS when:
+//   - CEE hasn't responded yet (loading state)
+//   - Testing basic graph validity before CEE call
+//   - Components that render before hooks are ready
+//
+// See also: canRunAnalysis.ts (primary gating helper)
+// ============================================================================
+
 import type { GraphHealth } from '../validation/types'
 import type { LimitsStatusResult } from './limitsStatus'
 

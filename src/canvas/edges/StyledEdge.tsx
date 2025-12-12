@@ -15,6 +15,7 @@ import { memo, useMemo, useState } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow } from '@xyflow/react'
 import { Lightbulb } from 'lucide-react'
 import type { EdgeData, EdgePathType } from '../domain/edges'
+import { FORM_DISPLAY_NAMES } from '../domain/edges'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { formatConfidence, shouldShowLabel } from '../domain/edges'
 import { useIsDark } from '../hooks/useTheme'
@@ -74,6 +75,11 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const confidence = edgeData?.confidence
   const belief = edgeData?.belief      // v1.2
   const provenance = edgeData?.provenance  // v1.2
+
+  // Brief 11.5: Functional form type and provenance for visual indicator
+  const functionType = edgeData?.functionType ?? 'linear'
+  const formProvenance = edgeData?.formProvenance
+  const formInfo = functionType !== 'linear' ? FORM_DISPLAY_NAMES[functionType] : null
 
   // Count outgoing edges from source node for visibility logic
   const outgoingEdgeCount = useMemo(() => {
@@ -231,6 +237,30 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                     title={`Provenance: ${provenance}`}
                     aria-label={`Provenance: ${provenance}`}
                   />
+                )}
+                {/* Brief 11.5: Functional form indicator */}
+                {formInfo && (
+                  <span
+                    data-testid="edge-form-indicator"
+                    style={{
+                      fontSize: '10px',
+                      fontFamily: 'ui-monospace, monospace',
+                      padding: '1px 4px',
+                      borderRadius: '3px',
+                      flexShrink: 0,
+                    }}
+                    className={
+                      formProvenance === 'cee_recommended'
+                        ? isDark ? 'bg-teal-800 text-teal-200' : 'bg-teal-100 text-teal-700'
+                        : formProvenance === 'user_selected'
+                          ? isDark ? 'bg-amber-800 text-amber-200' : 'bg-amber-100 text-amber-700'
+                          : isDark ? 'bg-gray-700 text-gray-300' : 'bg-sand-100 text-sand-600'
+                    }
+                    title={`Form: ${formInfo.name}\n${formInfo.shortDescription}`}
+                    aria-label={`Functional form: ${formInfo.name}`}
+                  >
+                    {formInfo.icon}
+                  </span>
                 )}
               </>
             )

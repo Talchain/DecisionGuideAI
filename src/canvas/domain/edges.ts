@@ -49,6 +49,64 @@ export const EdgeFunctionTypeEnum = z.enum([
 export type EdgeFunctionType = z.infer<typeof EdgeFunctionTypeEnum>
 
 /**
+ * Brief 11.9: Form confidence level from CEE recommendation
+ * Drives UI behaviour according to Responsibility Map v1.1
+ */
+export const FormConfidenceEnum = z.enum(['high', 'medium', 'low'])
+export type FormConfidence = z.infer<typeof FormConfidenceEnum>
+
+/**
+ * Brief 11.9: Form provenance - how the form was selected
+ */
+export const FormProvenanceEnum = z.enum([
+  'cee_recommended',  // CEE auto-applied (high confidence)
+  'user_selected',    // User manually selected
+  'default',          // No recommendation, using default linear
+])
+export type FormProvenance = z.infer<typeof FormProvenanceEnum>
+
+/**
+ * Brief 11.4: Plain language form names for user display
+ * Maps technical names to user-friendly descriptions
+ */
+export const FORM_DISPLAY_NAMES: Record<EdgeFunctionType, {
+  name: string
+  shortDescription: string
+  icon?: string
+}> = {
+  linear: {
+    name: 'Proportional',
+    shortDescription: 'Each increase has the same effect',
+    icon: '─',
+  },
+  diminishing_returns: {
+    name: 'Diminishing',
+    shortDescription: 'Effect gets smaller at higher levels',
+    icon: '╭',
+  },
+  threshold: {
+    name: 'Threshold',
+    shortDescription: 'No effect until a minimum level is reached',
+    icon: '╯',
+  },
+  s_curve: {
+    name: 'Adoption curve',
+    shortDescription: 'Slow start, rapid growth, then levels off',
+    icon: '∿',
+  },
+  noisy_or: {
+    name: 'Combined causes',
+    shortDescription: 'Multiple factors each contribute independently',
+    icon: '⊕',
+  },
+  logistic: {
+    name: 'Tipping point',
+    shortDescription: 'Gradual build-up then rapid transition',
+    icon: '⟋',
+  },
+}
+
+/**
  * Parameters for non-linear edge functions
  *
  * Brief 5.4/5.5: Added parameters for noisy_or and logistic
@@ -128,6 +186,11 @@ export const EdgeDataSchema = z.object({
   // Phase 3: Non-linear edge functions
   functionType: EdgeFunctionTypeEnum.default('linear'),   // How input transforms to output
   functionParams: EdgeFunctionParamsSchema.optional(),    // Parameters for non-linear functions
+
+  // Brief 11.9: Form confidence and provenance for CEE integration
+  formConfidence: FormConfidenceEnum.optional(),          // CEE's confidence in recommended form
+  formProvenance: FormProvenanceEnum.optional(),          // How the form was selected
+  formRationale: z.string().max(200).optional(),          // CEE's explanation for the recommendation
 
   // Template tracking
   templateId: z.string().optional(),

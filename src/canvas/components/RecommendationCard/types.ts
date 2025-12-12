@@ -241,3 +241,146 @@ export interface UseRecommendationResult {
   /** Clear cached data */
   clear: () => void
 }
+
+// ============================================================================
+// Brief 10: ISL Robustness Types
+// ============================================================================
+
+/** Robustness classification from ISL analysis */
+export type RobustnessLabel = 'robust' | 'moderate' | 'fragile'
+
+/**
+ * Sensitive parameter - a factor that significantly affects the recommendation
+ * Brief 10.3: Top 2-3 sensitive parameters with flip thresholds
+ */
+export interface SensitiveParameter {
+  /** Parameter/node ID */
+  node_id: string
+  /** Human-readable label */
+  label: string
+  /** Current value (0-1) */
+  current_value: number
+  /** Value at which recommendation flips */
+  flip_threshold: number
+  /** Direction of sensitivity */
+  direction: 'increase' | 'decrease'
+  /** Sensitivity magnitude (0-1) */
+  sensitivity: number
+  /** Brief explanation */
+  explanation?: string
+}
+
+/**
+ * Value of Information - expected value of resolving uncertainty
+ * Brief 10.4: VoI suggestions for EVPI > threshold
+ */
+export interface ValueOfInformation {
+  /** Parameter/node ID */
+  node_id: string
+  /** Human-readable label */
+  label: string
+  /** Expected Value of Perfect Information (0-1 or currency) */
+  evpi: number
+  /** Whether EVPI exceeds decision-relevant threshold */
+  worth_investigating: boolean
+  /** Suggested action to resolve uncertainty */
+  suggested_action?: string
+  /** Cost estimate to resolve (optional) */
+  resolution_cost?: number
+  /** Confidence in the VoI estimate */
+  confidence?: 'high' | 'medium' | 'low'
+}
+
+/**
+ * Robustness bound - outcome range under parameter variation
+ */
+export interface RobustnessBound {
+  /** Scenario label */
+  scenario: string
+  /** Lower bound outcome */
+  lower: number
+  /** Upper bound outcome */
+  upper: number
+  /** Parameter(s) varied */
+  varied_parameters: string[]
+}
+
+/**
+ * Ranked option with robustness metadata
+ */
+export interface RankedOptionWithRobustness {
+  option_id: string
+  option_label: string
+  rank: number
+  expected_value: number
+  confidence: ConfidenceLevel
+  /** Whether this option remains top under robustness testing */
+  robust_winner: boolean
+  /** Scenarios where this option loses */
+  loses_in_scenarios?: string[]
+}
+
+/**
+ * Pareto frontier result for multi-goal decisions
+ * Brief 10.6: Pareto visualisation
+ */
+export interface ParetoResult {
+  /** Options on the Pareto frontier */
+  frontier: string[]
+  /** Options dominated by frontier options */
+  dominated: string[]
+  /** Trade-off explanation between frontier options */
+  tradeoff_narrative?: string
+  /** Criteria used for Pareto analysis */
+  criteria: string[]
+}
+
+/**
+ * Full robustness result from ISL
+ * Brief 10: Unified robustness display
+ */
+export interface RobustnessResult {
+  /** Ranked options with robustness metadata */
+  option_rankings: RankedOptionWithRobustness[]
+  /** Top recommendation with confidence */
+  recommendation: {
+    option_id: string
+    confidence: ConfidenceLevel
+    recommendation_status: 'clear' | 'close_call' | 'uncertain'
+  }
+  /** Brief 10.3: Sensitive parameters (top 2-3) */
+  sensitivity: SensitiveParameter[]
+  /** Brief 10.2: Overall robustness classification */
+  robustness_label: RobustnessLabel
+  /** Robustness bounds under parameter variation */
+  robustness_bounds: RobustnessBound[]
+  /** Brief 10.4: Value of information suggestions */
+  value_of_information: ValueOfInformation[]
+  /** Brief 10.7: Natural language narrative */
+  narrative: string
+  /** Brief 10.6: Pareto analysis for multi-goal decisions */
+  pareto?: ParetoResult
+}
+
+/**
+ * Props for RobustnessBlock component
+ * Brief 10.1: Single unified robustness block
+ */
+export interface RobustnessBlockProps {
+  /** Robustness result from ISL */
+  robustness: RobustnessResult | null
+  /** Loading state */
+  loading?: boolean
+  /** Error message */
+  error?: string | null
+  /** Callback when parameter is clicked */
+  onParameterClick?: (nodeId: string) => void
+  /** Callback when VoI action is clicked */
+  onVoiActionClick?: (nodeId: string, action: string) => void
+  /** Callback when Pareto option is clicked */
+  onParetoOptionClick?: (optionId: string) => void
+  /** Whether to show expanded view by default */
+  defaultExpanded?: boolean
+  /** Compact mode (hide details) */
+  compact?: boolean
+}
