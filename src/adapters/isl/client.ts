@@ -3,6 +3,9 @@ import type {
   ISLConformalResponse,
   ISLComparisonResponse,
   ISLRunRequest,
+  ISLRobustnessRequest,
+  ISLRobustnessResponse,
+  ISLConformalRequest,
   ContrastiveExplanationRequest,
   ContrastiveExplanationResponse,
   TransportabilityRequest,
@@ -93,7 +96,29 @@ export class ISLClient {
   }
 
   /**
-   * Get conformal predictions with confidence intervals
+   * Brief 30: Robustness analysis with correct ISL endpoint and schema
+   * POST /api/v1/robustness/analyze
+   */
+  async robustnessAnalyze(request: ISLRobustnessRequest): Promise<ISLRobustnessResponse> {
+    return this.fetch<ISLRobustnessResponse>('/api/v1/robustness/analyze', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    })
+  }
+
+  /**
+   * Brief 30: Conformal predictions with correct ISL endpoint and schema
+   * POST /api/v1/causal/counterfactual/conformal
+   */
+  async conformalPredict(request: ISLConformalRequest): Promise<ISLConformalResponse> {
+    return this.fetch<ISLConformalResponse>('/api/v1/causal/counterfactual/conformal', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    })
+  }
+
+  /**
+   * @deprecated Use conformalPredict() instead - kept for backward compatibility
    */
   async conformal(request: ISLRunRequest): Promise<ISLConformalResponse> {
     return this.fetch<ISLConformalResponse>('/conformal', {

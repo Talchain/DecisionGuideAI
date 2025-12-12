@@ -2,16 +2,202 @@
  * ISL Request Adapter
  *
  * Brief 12.5: Transform UI request format to ISL API expected format
+ * Brief 30: Updated to match actual ISL API schemas
  *
  * ISL expects specific field names and structures that differ from
  * our internal UI conventions. This adapter handles:
  * - Field name mapping
  * - Request payload structuring
- * - Optional field handling
+ * - Graph format transformation (edges as [source, target] tuples)
  */
 
+import type {
+  ISLRobustnessRequest,
+  ISLCausalModel,
+  ISLConformalRequest,
+  ISLConformalModel,
+} from '../../adapters/isl/types'
+
 // =============================================================================
-// UI Request Types (internal format)
+// UI Graph Types (internal format)
+// =============================================================================
+
+export interface UINode {
+  id: string
+  type?: string
+  data?: {
+    label?: string
+    value?: number
+    [key: string]: any
+  }
+}
+
+export interface UIEdge {
+  id: string
+  source: string
+  target: string
+  data?: {
+    weight?: number
+    [key: string]: any
+  }
+}
+
+// =============================================================================
+// Brief 30: ISL Format Transformation Functions
+// =============================================================================
+
+/**
+ * Transform UI edges to ISL format (string[][] tuples)
+ */
+export function transformEdgesToISL(edges: UIEdge[]): string[][] {
+  return edges.map(e => [e.source, e.target])
+}
+
+/**
+ * Transform UI nodes to ISL format (string[] of node IDs)
+ */
+export function transformNodesToISL(nodes: UINode[]): string[] {
+  return nodes.map(n => n.id)
+}
+
+/**
+ * Build ISL causal model from UI graph
+ */
+export function buildCausalModel(nodes: UINode[], edges: UIEdge[]): ISLCausalModel {
+  return {
+    nodes: transformNodesToISL(nodes),
+    edges: transformEdgesToISL(edges),
+  }
+}
+
+/**
+ * Build target outcome from goal node
+ * Uses ±20% range around the expected value by default
+ */
+export function buildTargetOutcome(
+  goalNodeId: string,
+  expectedValue: number,
+  rangePercent: number = 0.2
+): Record<string, [number, number]> {
+  const min = expectedValue * (1 - rangePercent)
+  const max = expectedValue * (1 + rangePercent)
+  return { [goalNodeId]: [min, max] }
+}
+
+/**
+ * Build intervention proposal from option/factor nodes with values
+ */
+export function buildInterventionProposal(
+  nodes: UINode[]
+): Record<string, number> {
+  const interventions: Record<string, number> = {}
+
+  for (const node of nodes) {
+    // Include nodes that have numeric values (factors, options with set values)
+    const value = node.data?.value
+    if (typeof value === 'number' && !isNaN(value)) {
+      interventions[node.id] = value
+    }
+  }
+
+  // If no interventions found, use a placeholder
+  if (Object.keys(interventions).length === 0) {
+    // Find first factor node with any data
+    const factorNode = nodes.find(n => n.type === 'factor')
+    if (factorNode) {
+      interventions[factorNode.id] = 0.5 // Default intervention value
+    }
+  }
+
+  return interventions
+}
+
+/**
+ * Build full ISL robustness request from UI graph
+ */
+export function buildISLRobustnessRequest(
+  nodes: UINode[],
+  edges: UIEdge[],
+  options?: {
+    interventionProposal?: Record<string, number>
+    targetOutcome?: Record<string, [number, number]>
+    perturbationRadius?: number
+    minSamples?: number
+    confidenceLevel?: number
+  }
+): ISLRobustnessRequest {
+  const causalModel = buildCausalModel(nodes, edges)
+
+  // Use provided intervention or build from nodes
+  const interventionProposal = options?.interventionProposal ?? buildInterventionProposal(nodes)
+
+  // Use provided target outcome or derive from goal/outcome nodes
+  let targetOutcome = options?.targetOutcome
+  if (!targetOutcome) {
+    const outcomeNode = nodes.find(n => n.type === 'outcome' || n.type === 'goal')
+    if (outcomeNode) {
+      const value = outcomeNode.data?.value ?? 0.5
+      targetOutcome = buildTargetOutcome(outcomeNode.id, value)
+    } else {
+      // Fallback: use first node
+      targetOutcome = { [nodes[0]?.id ?? 'outcome']: [0.4, 0.6] }
+    }
+  }
+
+  return {
+    causal_model: causalModel,
+    intervention_proposal: interventionProposal,
+    target_outcome: targetOutcome,
+    perturbation_radius: options?.perturbationRadius ?? 0.1,
+    min_samples: options?.minSamples ?? 100,
+    confidence_level: options?.confidenceLevel ?? 0.95,
+  }
+}
+
+/**
+ * Build ISL conformal request from UI graph
+ */
+export function buildISLConformalRequest(
+  nodes: UINode[],
+  edges: UIEdge[],
+  intervention: Record<string, number>,
+  calibrationData?: Array<{ inputs: Record<string, number>; outcome: Record<string, number> }>
+): ISLConformalRequest {
+  // Build equations from edges (simplified linear model)
+  const equations: Record<string, string> = {}
+  const variables = nodes.map(n => n.data?.label || n.id)
+
+  for (const edge of edges) {
+    const sourceLabel = nodes.find(n => n.id === edge.source)?.data?.label || edge.source
+    const targetLabel = nodes.find(n => n.id === edge.target)?.data?.label || edge.target
+    const weight = edge.data?.weight ?? 1
+
+    // Build simple linear equation
+    if (equations[targetLabel]) {
+      equations[targetLabel] += ` + ${weight}*${sourceLabel}`
+    } else {
+      equations[targetLabel] = `${weight}*${sourceLabel}`
+    }
+  }
+
+  const model: ISLConformalModel = {
+    variables,
+    equations,
+    distributions: {
+      noise: { type: 'normal', parameters: { mean: 0, std: 0.1 } }
+    }
+  }
+
+  return {
+    model,
+    intervention,
+    calibration_data: calibrationData ?? [],
+    confidence_level: 0.95,
+  }
+}
+
+// =============================================================================
+// Legacy Types (kept for backward compatibility)
 // =============================================================================
 
 export interface UIRobustnessRequest {
@@ -31,11 +217,8 @@ export interface UIRobustnessRequest {
   }
 }
 
-// =============================================================================
-// ISL Request Types (API expected format)
-// =============================================================================
-
-export interface ISLRobustnessRequest {
+/** @deprecated Use ISLRobustnessRequest from types.ts instead */
+export interface LegacyISLRobustnessRequest {
   run_id: string
   response_hash?: string
   include_sensitivity: boolean

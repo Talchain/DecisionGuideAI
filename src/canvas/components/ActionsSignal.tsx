@@ -115,7 +115,7 @@ export function ActionsSignal({ maxCollapsed = 3, defaultExpanded = false }: Act
   const { actions, criticalCount, totalCount, loading } = useUnifiedActions()
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
-  const validateGraph = useCanvasStore((s) => s.validateGraph)
+  const applyAutoFixChanges = useCanvasStore((s) => s.applyAutoFixChanges)
   const setHighlightedNodes = useCanvasStore((s) => s.setHighlightedNodes)
 
   // Focus handler
@@ -161,14 +161,11 @@ export function ActionsSignal({ maxCollapsed = 3, defaultExpanded = false }: Act
         const result = executeAutoFix(params, nodes, edges)
 
         if (result.success) {
-          if (result.updatedNodes) {
-            useCanvasStore.setState({ nodes: result.updatedNodes })
-          }
-          if (result.updatedEdges) {
-            useCanvasStore.setState({ edges: result.updatedEdges })
-          }
-
-          setTimeout(() => validateGraph(), 50)
+          // Use store action instead of direct setState (P1 fix - proper history/undo support)
+          applyAutoFixChanges({
+            nodes: result.updatedNodes,
+            edges: result.updatedEdges,
+          })
 
           trackAutoFixSuccess()
           setFixedIds((prev) => new Set(prev).add(action.id))
@@ -185,7 +182,7 @@ export function ActionsSignal({ maxCollapsed = 3, defaultExpanded = false }: Act
         })
       }
     },
-    [nodes, edges, validateGraph]
+    [nodes, edges, applyAutoFixChanges]
   )
 
   // Get status for an action

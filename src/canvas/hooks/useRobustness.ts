@@ -3,8 +3,9 @@
  *
  * Brief 10: Data fetch hook for robustness display
  * Brief 12: Updated to call ISL directly via /bff/isl proxy
+ * Brief 30: Updated to use correct ISL endpoint and schema
  *
- * Calls /bff/isl/api/v1/analysis/robustness endpoint to get:
+ * Calls POST /bff/isl/api/v1/robustness/analyze endpoint to get:
  * - Robustness classification (robust/moderate/fragile)
  * - Sensitive parameters with flip thresholds
  * - Value of Information suggestions
@@ -17,9 +18,11 @@ import {
   adaptISLRobustnessResponse,
   generateFallbackRobustness,
 } from '../adapters/islRobustnessAdapter'
+import { buildISLRobustnessRequest, type UINode, type UIEdge } from '../adapters/islRequestAdapter'
+import { useCanvasStore } from '../store'
 
 interface UseRobustnessOptions {
-  /** Run ID to fetch robustness for */
+  /** Run ID to fetch robustness for (used for caching) */
   runId?: string
   /** Response hash for cache key */
   responseHash?: string
@@ -50,6 +53,10 @@ export function useRobustness({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Get nodes/edges from store for ISL request
+  const nodes = useCanvasStore(s => s.nodes)
+  const edges = useCanvasStore(s => s.edges)
+
   // Track last fetched run to prevent duplicate fetches
   const lastFetchedRef = useRef<string | null>(null)
 
@@ -57,6 +64,12 @@ export function useRobustness({
     if (!runId) {
       setRobustness(null)
       setError(null)
+      return
+    }
+
+    // Need nodes to build ISL request
+    if (nodes.length === 0) {
+      setRobustness(null)
       return
     }
 
@@ -79,15 +92,27 @@ export function useRobustness({
     setError(null)
 
     try {
-      const payload = {
-        run_id: runId,
-        response_hash: responseHash,
-        include_sensitivity: true,
-        include_voi: true,
-        include_pareto: true,
-      }
+      // Brief 30: Build ISL request with correct schema
+      // Transform UI nodes/edges to ISL format
+      const uiNodes: UINode[] = nodes.map(n => ({
+        id: n.id,
+        type: n.type,
+        data: n.data as any,
+      }))
+      const uiEdges: UIEdge[] = edges.map(e => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        data: e.data as any,
+      }))
 
-      const response = await fetch('/bff/isl/api/v1/analysis/robustness', {
+      const payload = buildISLRobustnessRequest(uiNodes, uiEdges)
+
+      // DEBUG: Log ISL request payload
+      console.log('[useRobustness] ISL request payload:', JSON.stringify(payload, null, 2))
+
+      // Brief 30: Correct endpoint path
+      const response = await fetch('/bff/isl/api/v1/robustness/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,6 +121,14 @@ export function useRobustness({
       })
 
       if (!response.ok) {
+        // DEBUG: Log error response
+        const errorBody = await response.text().catch(() => 'Unable to read response body')
+        console.error('[useRobustness] ISL error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorBody,
+        })
+
         // 404 = endpoint not available, use fallback
         if (response.status === 404) {
           const fallback = generateFallbackRobustness()
@@ -103,7 +136,7 @@ export function useRobustness({
           setRobustness(fallback)
           return
         }
-        throw new Error(`Failed to fetch robustness: ${response.status}`)
+        throw new Error(`Failed to fetch robustness: ${response.status} - ${errorBody}`)
       }
 
       const data = await response.json()
@@ -128,7 +161,7 @@ export function useRobustness({
     } finally {
       setLoading(false)
     }
-  }, [runId, responseHash, loading])
+  }, [runId, responseHash, loading, nodes, edges])
 
   // Auto-fetch when runId changes
   useEffect(() => {

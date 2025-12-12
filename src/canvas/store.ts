@@ -244,6 +244,7 @@ interface CanvasState {
   setShowIssuesPanel: (show: boolean) => void
   applyRepair: (issueId: string) => void
   applyAllRepairs: () => void
+  applyAutoFixChanges: (changes: { nodes?: Node[]; edges?: Edge<EdgeData>[] }) => void
   setNeedleMovers: (movers: NeedleMover[]) => void
   // Phase 3: Interaction actions
   setHighlightedNodes: (ids: string[]) => void
@@ -1801,6 +1802,33 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({ nodes: repairedNodes, edges: typedEdges })
 
     // Re-validate after repairs
+    get().validateGraph()
+  },
+
+  applyAutoFixChanges: (changes: { nodes?: Node[]; edges?: Edge<EdgeData>[] }) => {
+    // Push to history before auto-fix (allows undo)
+    pushToHistory(get, set)
+
+    // Apply changes with proper typing
+    const updates: Partial<CanvasState> = {}
+
+    if (changes.nodes) {
+      updates.nodes = changes.nodes
+    }
+
+    if (changes.edges) {
+      updates.edges = changes.edges.map(edge => ({
+        ...edge,
+        data: {
+          ...DEFAULT_EDGE_DATA,
+          ...(edge.data as Partial<EdgeData> | undefined ?? {}),
+        },
+      }))
+    }
+
+    set(updates)
+
+    // Re-validate after auto-fix
     get().validateGraph()
   },
 

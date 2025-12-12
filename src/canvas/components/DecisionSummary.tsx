@@ -27,8 +27,9 @@ import { useISLConformal } from '../../hooks/useISLConformal'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { buildRichGraphPayload } from '../utils/graphPayload'
-import { formatOutcomeValue } from '../../lib/format'
+import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
 import { typography } from '../../styles/typography'
+import { computeBaselineComparison } from '../utils/baselineComparison'
 import type { ConfidenceLevel } from '../../adapters/plot/types'
 
 export interface RankingData {
@@ -187,49 +188,14 @@ export function DecisionSummary({
       }
     }
 
-    // Calculate baseline comparison
-    let baselineComparison = null
-    const units = report.results.units || 'percent'
-
-    if (baseline !== null && baseline !== undefined && p50 !== null && p50 !== undefined) {
-      const delta = p50 - baseline
-
-      // Detect if values are in 0-1 probability scale
-      const isProbabilityScale = p50 >= 0 && p50 <= 1
-
-      // Threshold for showing comparison:
-      // - For 0-1 probability scale: 0.005 = 0.5 percentage points
-      // - For 0-100 scale: 0.5 percentage points
-      const threshold = isProbabilityScale ? 0.005 : 0.5
-
-      if (Math.abs(delta) >= threshold) {
-        const isIncrease = delta > 0
-        const isPositive =
-          (goalDirection === 'maximize' && isIncrease) ||
-          (goalDirection === 'minimize' && !isIncrease)
-
-        // For percentage/probability values, always show absolute change in pts
-        // This avoids confusing "99% worse" when going from 100% to 1%
-        let display: string
-        if (units === 'percent' || isProbabilityScale) {
-          // Convert to percentage points if in 0-1 scale
-          const deltaPts = isProbabilityScale ? delta * 100 : delta
-          display = `${isIncrease ? '+' : ''}${Math.round(deltaPts)} pts`
-        } else {
-          // For non-percentage units (currency, count), show relative change
-          display = baseline === 0
-            ? `${isIncrease ? '+' : ''}${Math.abs(delta).toFixed(0)}`
-            : `${isIncrease ? '+' : ''}${((delta / Math.abs(baseline)) * 100).toFixed(0)}%`
-        }
-
-        baselineComparison = {
-          delta,
-          isIncrease,
-          isPositive,
-          display,
-        }
-      }
-    }
+    // Calculate baseline comparison using unified utility (fixes P0 - consistent logic)
+    const units: OutcomeUnits = (report.results.units || 'percent') as OutcomeUnits
+    const baselineComparison = computeBaselineComparison({
+      value: p50,
+      baseline: baseline ?? undefined,
+      units,
+      goalDirection,
+    })
 
     // Key insight fallback: CEE headline -> engine insights summary -> null
     // Suppress confusing backend-generated relative % change text for probability comparisons
@@ -246,7 +212,7 @@ export function DecisionSummary({
 
     return {
       p50,
-      units: report.results.units || 'percent',
+      units,
       unitSymbol: report.results.unitSymbol,
       confidence,
       headline: keyInsight,
@@ -313,8 +279,9 @@ export function DecisionSummary({
             {formatOutcomeValue(summaryData.p50, summaryData.units, summaryData.unitSymbol)}
           </span>
           <span className={`${typography.body} text-ink-600`}>
-            {ranking?.currentOptionName || optionNodes[0]?.label
-              ? `with '${ranking?.currentOptionName || optionNodes[0]?.label}'`
+            {/* Brief 26 Task 5: Use canvas node label as source of truth for consistency */}
+            {optionNodes[0]?.label
+              ? `with '${optionNodes[0].label}'`
               : 'success likelihood'}
           </span>
         </div>
@@ -327,9 +294,10 @@ export function DecisionSummary({
         )}
 
         {/* Winner context - shown when NOT the winner but ranking available */}
-        {ranking && ranking.rank !== 1 && ranking.winnerName && (
+        {/* Brief 26 Task 5: Use canvas node label for consistency */}
+        {ranking && ranking.rank !== 1 && (
           <p className={`${typography.caption} text-ink-500 mb-2`}>
-            Winner: {ranking.winnerName}
+            Winner: {optionNodes.find(o => o.label === ranking.winnerName)?.label || ranking.winnerName || 'Alternative option'}
           </p>
         )}
 

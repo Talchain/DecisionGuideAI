@@ -22,6 +22,7 @@ import { typography } from '../../styles/typography'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { trackAutoFixClicked, trackAutoFixSuccess, trackAutoFixFailed } from '../utils/sandboxTelemetry'
+import { stableImprovementId } from '../utils/stableId'
 
 /**
  * Human-readable titles for validation codes
@@ -116,7 +117,7 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
   const setHighlightedNodes = useCanvasStore((s) => s.setHighlightedNodes)
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
-  const validateGraph = useCanvasStore((s) => s.validateGraph)
+  const applyAutoFixChanges = useCanvasStore((s) => s.applyAutoFixChanges)
 
   // Hover highlight state
   const [hoveredItemId, setHoveredItemId] = useState<string | null>(null)
@@ -209,18 +210,11 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
         const result = executeAutoFix(params, nodes, edges)
 
         if (result.success) {
-          // Update canvas state with fixed nodes/edges
-          if (result.updatedNodes) {
-            useCanvasStore.setState({ nodes: result.updatedNodes })
-          }
-          if (result.updatedEdges) {
-            useCanvasStore.setState({ edges: result.updatedEdges })
-          }
-
-          // Re-trigger graph health validation
-          setTimeout(() => {
-            validateGraph()
-          }, 50)
+          // Use store action instead of direct setState (P1 fix - proper history/undo support)
+          applyAutoFixChanges({
+            nodes: result.updatedNodes,
+            edges: result.updatedEdges,
+          })
 
           trackAutoFixSuccess()
           setFixedItems((prev) => new Set(prev).add(item.id))
@@ -250,7 +244,7 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
         return false
       }
     },
-    [nodes, edges, validateGraph]
+    [nodes, edges, applyAutoFixChanges]
   )
 
   // Get auto-fix status for an item
@@ -405,7 +399,8 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
           : `${imp.action}${impactText}${targetText}`
 
         improvementsArr.push({
-          id: `readiness-${imp.category}-${imp.action.slice(0, 20)}`,
+          // P1 fix: Use stable hash-based ID to prevent collisions
+          id: stableImprovementId(imp.category, imp.action, imp.affected_nodes),
           type: 'readiness',
           severity,
           title: imp.action,

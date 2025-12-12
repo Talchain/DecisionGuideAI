@@ -49,13 +49,15 @@ describe('formatOutcomeValue', () => {
   describe('percent formatting', () => {
     it('formats values already in percentage form', () => {
       expect(formatOutcomeValue(50, 'percent')).toBe('50.0%')
-      expect(formatOutcomeValue(100, 'percent')).toBe('100.0%')
+      // Brief 33: Values are capped at 99% to avoid unrealistic "100% success"
+      expect(formatOutcomeValue(100, 'percent')).toBe('99.0%')
     })
 
     it('auto-converts 0-1 probability values to percent', () => {
       expect(formatOutcomeValue(0.5, 'percent')).toBe('50.0%')
       expect(formatOutcomeValue(0.75, 'percent')).toBe('75.0%')
-      expect(formatOutcomeValue(1, 'percent')).toBe('100.0%')
+      // Brief 33: Values are capped at 99% to avoid unrealistic "100% success"
+      expect(formatOutcomeValue(1, 'percent')).toBe('99.0%')
       expect(formatOutcomeValue(0, 'percent')).toBe('0.0%')
     })
 

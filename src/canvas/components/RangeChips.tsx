@@ -169,14 +169,18 @@ function formatValue(value: number, units: 'currency' | 'percent' | 'count', uni
     // Values in 0-1 range (inclusive) are treated as probabilities: 0.5 → 50%, 1 → 100%
     // This handles the common case where backend returns normalized probabilities
     const isProbability = value >= 0 && value <= 1
-    const displayValue = isProbability ? value * 100 : value
+    // Brief 33 Fix: Cap probability at 99% to avoid unrealistic "100% success"
+    const cappedValue = isProbability ? Math.min(value, 0.99) : Math.min(value, 99)
+    const displayValue = isProbability ? cappedValue * 100 : cappedValue
     return `${displayValue.toFixed(1)}%`
   }
 
   // For 'count' or undefined units: auto-detect probability format
   // Values in 0-1 range (inclusive) with decimals suggest probability format
   if (value >= 0 && value <= 1 && (value !== Math.floor(value) || value === 0 || value === 1)) {
-    return `${(value * 100).toFixed(1)}%`
+    // Brief 33 Fix: Cap at 99%
+    const cappedValue = Math.min(value, 0.99)
+    return `${(cappedValue * 100).toFixed(1)}%`
   }
 
   if (value >= 1000000) {

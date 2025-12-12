@@ -70,12 +70,18 @@ export function useCEECoaching() {
     if (state.nudgeCount >= MAX_NUDGES_PER_SESSION) return
 
     // Don't show nudges if:
-    // 1. The decision has framing (title, goal, or timeline set)
-    // 2. The user has completed at least one analysis run
-    // This prevents annoying prompts on well-formed decisions
+    // Brief 33 Fix: Suppress coaching nudges after ANY successful run to prevent mixed messaging
+    // (e.g., "Consider adding relationships" while showing "Strong" reliability rating)
+    // Previously required BOTH framing AND first run, but that caused contradictory UX
+    if (hasCompletedFirstRun) {
+      // User has completed analysis - don't show coaching suggestions that contradict results
+      return
+    }
+
+    // Also suppress if decision is well-framed (title, goal, or timeline set)
     const hasFraming = Boolean(framing?.title || framing?.goal || framing?.timeline)
-    if (hasFraming && hasCompletedFirstRun) {
-      // Decision is framed and analyzed - user knows what they're doing
+    if (hasFraming) {
+      // Decision is well-framed - user knows what they're doing
       return
     }
 
