@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense } from 'react'
+import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -25,7 +25,7 @@ import { KeyboardLegend, useKeyboardLegend } from './help/KeyboardLegend'
 import { SettingsPanel } from './components/SettingsPanel'
 import { useSettingsStore } from './settingsStore'
 import { CanvasErrorBoundary } from './ErrorBoundary'
-import { ToastProvider, useToast } from './ToastContext'
+import { ToastProvider, useShowToast } from './ToastContext'
 import { DiagnosticsOverlay } from './DiagnosticsOverlay'
 import { ConfirmDialog } from './components/ConfirmDialog'
 // ValidationChip removed - validation consolidated into OutputsDock panel
@@ -143,7 +143,8 @@ interface ReactFlowGraphProps {
   enableGhostSuggestions?: boolean
 }
 
-function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGhostSuggestions = false }: ReactFlowGraphProps) {
+// Brief 37: Wrap in memo to prevent parent-triggered re-renders from ReactFlowProvider
+const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGhostSuggestions = false }: ReactFlowGraphProps) {
   // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
   //
   // ROOT CAUSE: In Zustand v5 with useSyncExternalStore, when a selector returns a
@@ -446,7 +447,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
 
   // reconnecting state is selected at the top of this component
   const completeReconnect = useCanvasStore(s => s.completeReconnect)
-  const { showToast } = useToast()
+  // Brief 37 Task 4: Use stable useShowToast to prevent re-renders on toast changes
+  const showToast = useShowToast()
   const handleQuickAddClick = useCallback(() => {
     setQuickAddMode(true)
     setRadialMenuPosition(null)
@@ -1128,40 +1130,70 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
     setExistingTemplate(null)
   }, [])
   
-  const { showGrid, gridSize, snapToGrid, showAlignmentGuides, loadSettings } = useSettingsStore()
+  // Brief 37 Task 2: Use individual selectors to prevent re-renders on unrelated settings changes
+  const showGrid = useSettingsStore(s => s.showGrid)
+  const gridSize = useSettingsStore(s => s.gridSize)
+  const snapToGrid = useSettingsStore(s => s.snapToGrid)
+  const showAlignmentGuides = useSettingsStore(s => s.showAlignmentGuides)
+  const loadSettings = useSettingsStore(s => s.loadSettings)
   const snapGridValue = useMemo<[number, number]>(() => [gridSize, gridSize], [gridSize])
   const edgeTypes = useMemo(() => ({ styled: StyledEdge as any }), [])
   const defaultEdgeOpts = useMemo(() => ({ type: 'styled' as const, animated: false }), [])
   const miniMapStyle = useMemo(() => ({ width: 120, height: 80 }), [])
 
-  // Brief 36: Render storm detection with cause tracking
+  // Brief 37 Task 1: Comprehensive render cause tracking
+  // Note: This tracking identifies WHAT changed, helping diagnose render sources
   const renderCountRef = useRef(0)
-  const prevNodesRef = useRef(nodes)
-  const prevEdgesRef = useRef(edges)
-  const prevShowResultsPanelRef = useRef(showResultsPanel)
+  const prevStateRef = useRef<Record<string, any>>({})
 
   renderCountRef.current++
 
-  if (import.meta.env.DEV) {
-    const nodesSame = prevNodesRef.current === nodes
-    const edgesSame = prevEdgesRef.current === edges
-    const resultsPanelSame = prevShowResultsPanelRef.current === showResultsPanel
-
-    console.log(`[ReactFlowGraph] Render #${renderCountRef.current}`, {
-      nodes: nodes?.length,
-      edges: edges?.length,
-      nodesSame,
-      edgesSame,
-      resultsPanelSame,
+  if (import.meta.env.DEV && renderCountRef.current <= 15) {
+    // Track store values and props that could trigger re-renders
+    // Note: Only track primitives and key objects to avoid noise
+    const currentState: Record<string, any> = {
+      // Store values (data)
+      'nodes.length': nodes?.length,
+      'edges.length': edges?.length,
+      graphHealthRef: graphHealth,
+      // Store values (UI state)
       showResultsPanel,
+      showInspectorPanel,
+      showIssuesPanel,
+      showDocumentsDrawer,
+      showProvenanceHub,
+      showAIClarifier,
+      comparisonModeActive,
+      pendingFitView,
+      // Settings store
+      showGrid,
+      gridSize,
+      snapToGrid,
+    }
+
+    const changes: string[] = []
+    Object.keys(currentState).forEach(key => {
+      if (prevStateRef.current[key] !== currentState[key]) {
+        const prev = prevStateRef.current[key]
+        const curr = currentState[key]
+        if (typeof curr === 'object' && curr !== null) {
+          changes.push(`${key}: ref changed`)
+        } else {
+          changes.push(`${key}: ${prev} → ${curr}`)
+        }
+      }
     })
 
-    prevNodesRef.current = nodes
-    prevEdgesRef.current = edges
-    prevShowResultsPanelRef.current = showResultsPanel
+    if (changes.length > 0) {
+      console.log(`[RFG] #${renderCountRef.current}:`, changes.join(', '))
+    } else {
+      console.log(`[RFG] #${renderCountRef.current}: no store changes`)
+    }
 
-    if (renderCountRef.current > 40) {
-      console.warn('[ReactFlowGraph] Render storm detected! Check state updates causing re-renders.')
+    prevStateRef.current = { ...currentState }
+
+    if (renderCountRef.current > 10) {
+      console.warn(`[RFG] Storm: ${renderCountRef.current} renders`)
     }
   }
 
@@ -1788,7 +1820,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
       </BottomSheet>
     </div>
   )
-}
+})
 
 /**
  * Debug label component for minimal modes

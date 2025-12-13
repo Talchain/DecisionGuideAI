@@ -12,6 +12,16 @@ interface ToastContextType {
   removeToast: (id: string) => void
 }
 
+// Brief 37 Task 4: Split contexts to prevent re-renders
+// - ToastStateContext: Changes when toasts array changes (for ToastContainer)
+// - ToastActionsContext: Never changes (stable refs for showToast/removeToast)
+const ToastStateContext = createContext<Toast[]>([])
+const ToastActionsContext = createContext<{
+  showToast: (message: string, type?: Toast['type']) => void
+  removeToast: (id: string) => void
+} | null>(null)
+
+// Legacy context for backwards compatibility
 const ToastContext = createContext<ToastContextType | null>(null)
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -20,7 +30,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const showToast = useCallback((message: string, type: Toast['type'] = 'info') => {
     const id = `toast-${Date.now()}-${Math.random()}`
     setToasts(prev => [...prev, { id, message, type }])
-    
+
     // Auto-dismiss after 3s
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id))
@@ -31,19 +41,28 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts(prev => prev.filter(t => t.id !== id))
   }, [])
 
-  // React #185 FIX: Memoize context value to prevent infinite re-render loops.
-  // Without useMemo, a new object reference is created on every render,
-  // causing all context consumers to re-render even when values haven't changed.
-  const contextValue = useMemo(
+  // Brief 37: Actions context value is STABLE (never changes) because
+  // showToast and removeToast are wrapped in useCallback with []
+  const actionsValue = useMemo(
+    () => ({ showToast, removeToast }),
+    [showToast, removeToast]
+  )
+
+  // Legacy context value (changes when toasts changes)
+  const legacyValue = useMemo(
     () => ({ toasts, showToast, removeToast }),
     [toasts, showToast, removeToast]
   )
 
   return (
-    <ToastContext.Provider value={contextValue}>
-      {children}
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
-    </ToastContext.Provider>
+    <ToastActionsContext.Provider value={actionsValue}>
+      <ToastStateContext.Provider value={toasts}>
+        <ToastContext.Provider value={legacyValue}>
+          {children}
+          <ToastContainer toasts={toasts} onRemove={removeToast} />
+        </ToastContext.Provider>
+      </ToastStateContext.Provider>
+    </ToastActionsContext.Provider>
   )
 }
 
@@ -51,6 +70,19 @@ export function useToast() {
   const context = useContext(ToastContext)
   if (!context) throw new Error('useToast must be used within ToastProvider')
   return context
+}
+
+/**
+ * Brief 37 Task 4: Use this hook when you only need showToast (not toasts array).
+ * This prevents re-renders when toasts array changes.
+ *
+ * The standard useToast() returns { toasts, showToast, removeToast } and causes
+ * consumers to re-render when toasts changes (auto-dismiss, etc).
+ */
+export function useShowToast() {
+  const context = useContext(ToastActionsContext)
+  if (!context) throw new Error('useShowToast must be used within ToastProvider')
+  return context.showToast
 }
 
 function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: string) => void }) {
