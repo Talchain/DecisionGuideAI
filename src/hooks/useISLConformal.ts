@@ -5,15 +5,24 @@
  * POST /api/v1/causal/counterfactual/conformal
  */
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { ISLClient, ISLError } from '../adapters/isl/client'
 import type { ISLConformalResponse, ISLRunRequest, ISLConformalRequest } from '../adapters/isl/types'
 import { buildISLConformalRequest, type UINode, type UIEdge } from '../canvas/adapters/islRequestAdapter'
+
+/**
+ * Brief 35 Task 1: Status for when conformal call is skipped
+ */
+type ConformalStatus = 'idle' | 'loading' | 'success' | 'error' | 'not_applicable'
 
 interface UseISLConformalState {
   data: ISLConformalResponse | null
   loading: boolean
   error: ISLError | null
+  /** Brief 35: Status including 'not_applicable' when no factors */
+  status: ConformalStatus
+  /** Brief 35: Reason when status is 'not_applicable' */
+  skipReason: string | null
 }
 
 /**
@@ -35,10 +44,15 @@ export function useISLConformal() {
     data: null,
     loading: false,
     error: null,
+    status: 'idle',
+    skipReason: null,
   })
 
   // Memoize client to prevent recreation on every render
   const client = useMemo(() => new ISLClient(), [])
+
+  // Brief 35 Task 2: Track last payload hash to prevent duplicate requests
+  const lastPayloadHashRef = useRef<string | null>(null)
 
   /**
    * Predict using new ISL conformal endpoint
@@ -46,7 +60,7 @@ export function useISLConformal() {
    */
   const predict = useCallback(
     async (request: LegacyConformalInput | ISLRunRequest) => {
-      setState({ data: null, loading: true, error: null })
+      setState({ data: null, loading: true, error: null, status: 'loading', skipReason: null })
 
       try {
         // Transform legacy request to new ISL format
@@ -95,6 +109,34 @@ export function useISLConformal() {
           }
         }
 
+        // Brief 35 Task 1: Guard - skip conformal call when no factors exist
+        // Confidence intervals require quantitative factors as intervention targets
+        if (Object.keys(intervention).length === 0) {
+          console.log('[useISLConformal] Skipping conformal: no intervention targets (no factor nodes with values)')
+          const skipResult = {
+            data: null,
+            loading: false,
+            error: null,
+            status: 'not_applicable' as const,
+            skipReason: 'no_factors',
+          }
+          setState(skipResult)
+          return skipResult
+        }
+
+        // Brief 35 Task 2: Skip duplicate requests by comparing payload hash
+        // Hash includes node IDs, edges, and intervention values
+        const interventionHash = Object.entries(intervention).map(([k, v]) => `${k}:${v}`).sort().join('|')
+        const payloadHash = `${graph.nodes.length}-${graph.edges.length}-${graph.nodes.map(n => n.id).join(',')}-${graph.edges.map(e => `${e.from}-${e.to}`).join(',')}-${interventionHash}`
+
+        if (payloadHash === lastPayloadHashRef.current) {
+          console.log('[useISLConformal] Skipping duplicate request (same payload hash)')
+          // Reset loading state since we're not making a request
+          setState(prev => ({ ...prev, loading: false, status: prev.data ? 'success' : 'idle' }))
+          return state.data
+        }
+        lastPayloadHashRef.current = payloadHash
+
         // Build the new ISL conformal request
         const islRequest = buildISLConformalRequest(
           uiNodes,
@@ -113,7 +155,7 @@ export function useISLConformal() {
 
         // Use new conformalPredict method with correct endpoint
         const data = await client.conformalPredict(islRequest)
-        setState({ data, loading: false, error: null })
+        setState({ data, loading: false, error: null, status: 'success', skipReason: null })
         return data
       } catch (error) {
         // DEBUG: Log error
@@ -123,7 +165,7 @@ export function useISLConformal() {
           (error as Error).message || 'Conformal prediction failed',
           500
         )
-        setState({ data: null, loading: false, error: islError })
+        setState({ data: null, loading: false, error: islError, status: 'error', skipReason: null })
         throw islError
       }
     },
