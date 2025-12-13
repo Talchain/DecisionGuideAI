@@ -6,6 +6,7 @@ import { typography } from '../../styles/typography'
 import { Spinner } from '../../components/Spinner'
 import type { ISLValidationSuggestion } from '../../adapters/isl/types'
 import { buildRichGraphPayload } from '../utils/graphPayload'
+import { getSeverityClasses } from '../utils/severityMapping'
 
 /**
  * Simple hash of graph structure for change detection
@@ -199,33 +200,7 @@ interface SuggestionCardProps {
   suggestion: ISLValidationSuggestion
 }
 
-// Tailwind-safe class mappings for suggestion severity
-const getSeverityClasses = (severity: 'error' | 'warning' | 'info') => {
-  const classMap = {
-    error: {
-      container: 'border-carrot-200 bg-carrot-50',
-      icon: 'text-carrot-600',
-      text: 'text-carrot-900',
-      caption: 'text-carrot-700',
-      button: 'bg-carrot-500 hover:bg-carrot-600',
-    },
-    warning: {
-      container: 'border-sun-200 bg-sun-50',
-      icon: 'text-sun-600',
-      text: 'text-sun-900',
-      caption: 'text-sun-700',
-      button: 'bg-sun-500 hover:bg-sun-600',
-    },
-    info: {
-      container: 'border-sky-200 bg-sky-50',
-      icon: 'text-sky-600',
-      text: 'text-sky-900',
-      caption: 'text-sky-700',
-      button: 'bg-sky-500 hover:bg-sky-600',
-    },
-  }
-  return classMap[severity]
-}
+// Tailwind-safe class mappings imported from ../utils/severityMapping
 
 function SuggestionCard({ suggestion }: SuggestionCardProps) {
   const [isHighlighting, setIsHighlighting] = useState(false)

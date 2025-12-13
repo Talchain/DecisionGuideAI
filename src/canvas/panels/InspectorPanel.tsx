@@ -41,12 +41,17 @@ interface InspectorPanelProps {
 export function InspectorPanel({ isOpen, onClose }: InspectorPanelProps): JSX.Element | null {
   const panelRef = useRef<HTMLDivElement>(null)
   const edges = useCanvasStore(state => state.edges) as Edge<EdgeData>[]
-  const selection = useCanvasStore(state => state.selection)
+  // React #185 FIX: Use individual selectors to avoid re-renders from selection.anchorPosition changes
+  const edgeIdsSize = useCanvasStore(state => state.selection.edgeIds.size)
+  const selectedEdgeId = useCanvasStore(state => {
+    const ids = state.selection.edgeIds
+    if (ids.size !== 1) return null
+    return ids.values().next().value ?? null
+  })
   const updateEdge = useCanvasStore(state => state.updateEdge)
 
   // Get selected edge (only support single-edge editing)
-  const hasMultipleEdges = selection.edgeIds.size > 1
-  const selectedEdgeId = selection.edgeIds.size === 1 ? Array.from(selection.edgeIds)[0] : null
+  const hasMultipleEdges = edgeIdsSize > 1
   const selectedEdge = selectedEdgeId ? edges.find(e => e.id === selectedEdgeId) : null
 
   // Local state for editing

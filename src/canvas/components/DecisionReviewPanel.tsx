@@ -1,5 +1,6 @@
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from '../decisionReview/types'
 import { typography } from '../../styles/typography'
+import { cleanInsightText } from '../utils/cleanInsightText'
 
 export type DecisionReviewStatus = 'loading' | 'empty' | 'error' | 'ready'
 
@@ -67,11 +68,14 @@ export function DecisionReviewPanel({ status, review, error, trace }: DecisionRe
   const keyDrivers = story?.key_drivers ?? []
   const nextActions = story?.next_actions ?? []
 
+  // Clean headline to remove meaningless metrics like "(0.01 units)" and "+25 pts"
+  const cleanedHeadline = cleanInsightText(story?.headline) || 'Decision Review'
+
   return (
     <section aria-label="Decision review" data-testid="decision-review-ready" className={`p-3 ${typography.caption} text-ink-900/70 space-y-3`}>
       <div>
         <h3 className={`${typography.label} text-ink-900`} data-testid="decision-review-headline">
-          {story?.headline || 'Decision Review'}
+          {cleanedHeadline}
         </h3>
         {review?.journey && (
           <p className={`mt-1 ${typography.code} text-ink-900/60`} data-testid="decision-review-journey">

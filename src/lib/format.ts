@@ -61,13 +61,17 @@ export function formatOutcomeValue(
     // Auto-detect if value is in 0-1 probability form vs already percentage
     // Values in 0-1 range (inclusive) are treated as probabilities: 0.5 → 50%, 1 → 100%
     const isProbability = value >= 0 && value <= 1
-    const displayValue = isProbability ? value * 100 : value
+    // Brief 33 Fix: Cap probability at 99% to avoid unrealistic "100% success"
+    const cappedValue = isProbability ? Math.min(value, 0.99) : Math.min(value, 99)
+    const displayValue = isProbability ? cappedValue * 100 : cappedValue
     return `${displayValue.toFixed(decimals)}%`
   }
 
   // Count: auto-detect probability format for 0-1 values with decimals
   if (value >= 0 && value <= 1 && (value !== Math.floor(value) || value === 0 || value === 1)) {
-    return `${(value * 100).toFixed(decimals)}%`
+    // Brief 33 Fix: Cap at 99%
+    const cappedValue = Math.min(value, 0.99)
+    return `${(cappedValue * 100).toFixed(decimals)}%`
   }
 
   const absolute = Math.abs(value)
@@ -112,7 +116,9 @@ export function formatOutcomeValueCompact(
 
   // Default (percent)
   const isProbability = value >= 0 && value <= 1
-  const displayValue = isProbability ? value * 100 : value
+  // Brief 33 Fix: Cap probability at 99% to avoid unrealistic "100% success"
+  const cappedValue = isProbability ? Math.min(value, 0.99) : Math.min(value, 99)
+  const displayValue = isProbability ? cappedValue * 100 : cappedValue
   return `${Math.round(displayValue)}%`
 }
 

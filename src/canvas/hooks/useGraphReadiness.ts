@@ -2,7 +2,8 @@
  * useGraphReadiness Hook
  * Fetches pre-analysis health assessment from CEE /graph-readiness endpoint
  *
- * Returns quality tier, improvements list, and analysis eligibility
+ * Returns quality tier, improvements list, and analysis eligibility.
+ * Falls back to local graph analysis if CEE is unavailable.
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
@@ -106,6 +107,8 @@ export function useGraphReadiness() {
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // Brief 32 Task 4: Track last payload hash to prevent duplicate requests
+  const lastPayloadHashRef = useRef<string | null>(null)
 
   // Store selectors
   const nodes = useCanvasStore(s => s.nodes)
@@ -139,33 +142,64 @@ export function useGraphReadiness() {
     const correlationId = generateCorrelationId()
 
     try {
+      // Call CEE /graph-readiness endpoint
+      // BFF proxy maps /bff/cee/graph-readiness → /assist/v1/graph-readiness
+      // and injects X-Olumi-Assist-Key header
+      // Brief 31 Task 4: CEE expects 'kind' not 'type'
+      const payload = {
+        graph: {
+          nodes: nodes.map(n => ({
+            id: n.id,
+            kind: n.type,
+            label: (n.data as any)?.label || n.id,
+            data: n.data,
+          })),
+          edges: edges.map(e => ({
+            id: e.id,
+            source: e.source,
+            target: e.target,
+            data: e.data,
+          })),
+        },
+      }
+
+      // Brief 32 Task 4: Skip duplicate requests by comparing payload hash
+      // Use a simple hash of node/edge counts + IDs to detect changes
+      const payloadHash = `${nodes.length}-${edges.length}-${nodes.map(n => n.id).join(',')}-${edges.map(e => `${e.source}-${e.target}`).join(',')}`
+      if (payloadHash === lastPayloadHashRef.current) {
+        // Same payload, skip request (we already have or are getting results for this)
+        if (import.meta.env.DEV) {
+          console.log('[useGraphReadiness] Skipping duplicate request (same payload hash)')
+        }
+        setLoading(false)
+        return
+      }
+      lastPayloadHashRef.current = payloadHash
+
+      // DEBUG: Log CEE request payload (only when actually making request)
+      if (import.meta.env.DEV) {
+        console.log('[useGraphReadiness] CEE request payload:', JSON.stringify(payload, null, 2))
+      }
+
       const response = await fetch(`${CEE_BASE_URL}/graph-readiness`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-Request-ID': correlationId,
         },
-        body: JSON.stringify({
-          graph: {
-            nodes: nodes.map(n => ({
-              id: n.id,
-              type: n.type,
-              label: (n.data as any)?.label || n.id,
-              data: n.data,
-            })),
-            edges: edges.map(e => ({
-              id: e.id,
-              source: e.source,
-              target: e.target,
-              data: e.data,
-            })),
-          },
-        }),
+        body: JSON.stringify(payload),
         signal: controller.signal,
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
+        // DEBUG: Log error response
+        const errorBody = await response.text().catch(() => 'Unable to read response body')
+        console.error('[useGraphReadiness] CEE error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorBody,
+        })
+        throw new Error(`HTTP ${response.status} - ${errorBody}`)
       }
 
       const data = await response.json()

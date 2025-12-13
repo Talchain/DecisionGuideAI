@@ -88,9 +88,9 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
     }
   }
 
-  // Phase 2: Uncertain node styling
+  // Phase 2: Uncertain node styling + factor type always dashed
   const isUncertain = (data?.uncertainty ?? 0) > 0.4
-  const borderStyle = isUncertain ? 'border-dashed' : ''
+  const borderStyle = (isUncertain || nodeType === 'factor') ? 'border-dashed' : ''
 
   // Accessible name combines node type and label
   const accessibleName = `${nodeType} node: ${label}`

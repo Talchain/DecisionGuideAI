@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense } from 'react'
+import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { useLocation } from 'react-router-dom'
 import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, type Connection, type NodeChange, type EdgeChange, useReactFlow } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -25,7 +25,7 @@ import { KeyboardLegend, useKeyboardLegend } from './help/KeyboardLegend'
 import { SettingsPanel } from './components/SettingsPanel'
 import { useSettingsStore } from './settingsStore'
 import { CanvasErrorBoundary } from './ErrorBoundary'
-import { ToastProvider, useToast } from './ToastContext'
+import { ToastProvider, useShowToast } from './ToastContext'
 import { DiagnosticsOverlay } from './DiagnosticsOverlay'
 import { ConfirmDialog } from './components/ConfirmDialog'
 // ValidationChip removed - validation consolidated into OutputsDock panel
@@ -143,7 +143,8 @@ interface ReactFlowGraphProps {
   enableGhostSuggestions?: boolean
 }
 
-function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGhostSuggestions = false }: ReactFlowGraphProps) {
+// Brief 37: Wrap in memo to prevent parent-triggered re-renders from ReactFlowProvider
+const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGhostSuggestions = false }: ReactFlowGraphProps) {
   // React #185 FIX: Use INDIVIDUAL selectors - NOT object + shallow
   //
   // ROOT CAUSE: In Zustand v5 with useSyncExternalStore, when a selector returns a
@@ -180,6 +181,17 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
 
   const { getViewport, setCenter, fitView, zoomIn, zoomOut } = useReactFlow()
 
+  // Brief 36 Fix: Stabilize ReactFlow function references via refs
+  // These functions may have unstable references in some ReactFlow versions
+  const getViewportRef = useRef(getViewport)
+  const setCenterRef = useRef(setCenter)
+  const zoomInRef = useRef(zoomIn)
+  const zoomOutRef = useRef(zoomOut)
+  getViewportRef.current = getViewport
+  setCenterRef.current = setCenter
+  zoomInRef.current = zoomIn
+  zoomOutRef.current = zoomOut
+
   // Canvas control actions from store
   const undo = useCanvasStore(s => s.undo)
   const redo = useCanvasStore(s => s.redo)
@@ -192,16 +204,20 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
   const debugMode: CanvasDebugMode = getCanvasDebugMode()
 
   // Handle pending fit view request (from AI graph insertion)
+  // Brief 36 Fix: Use ref for fitView to avoid effect re-running when ReactFlow updates
+  const fitViewRef = useRef(fitView)
+  fitViewRef.current = fitView
+
   useEffect(() => {
     if (pendingFitView) {
       // Small delay to allow layout to settle
       const timer = setTimeout(() => {
-        fitView({ padding: 0.2, duration: 400 })
+        fitViewRef.current({ padding: 0.2, duration: 400 })
         setPendingFitView(false)
       }, 100)
       return () => clearTimeout(timer)
     }
-  }, [pendingFitView, fitView, setPendingFitView])
+  }, [pendingFitView, setPendingFitView])
 
   const HARD_ISOLATE_MINIMAL_CANVAS = false
   if (HARD_ISOLATE_MINIMAL_CANVAS) {
@@ -431,7 +447,8 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
 
   // reconnecting state is selected at the top of this component
   const completeReconnect = useCanvasStore(s => s.completeReconnect)
-  const { showToast } = useToast()
+  // Brief 37 Task 4: Use stable useShowToast to prevent re-renders on toast changes
+  const showToast = useShowToast()
   const handleQuickAddClick = useCallback(() => {
     setQuickAddMode(true)
     setRadialMenuPosition(null)
@@ -640,6 +657,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
   }, [])
 
   // Focus node handler (for Alt+V validation cycling and Results panel drivers)
+  // Brief 36 Fix: Use refs instead of direct dependencies to prevent re-renders
   const handleFocusNode = useCallback((nodeId: string) => {
     const store = useCanvasStore.getState()
     const targetNode = store.nodes.find(n => n.id === nodeId)
@@ -650,14 +668,15 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
     store.selectNodeWithoutHistory(nodeId)
 
     // Center viewport on the node with smooth animation
-    const viewport = getViewport()
-    setCenter(targetNode.position.x, targetNode.position.y, {
+    const viewport = getViewportRef.current()
+    setCenterRef.current(targetNode.position.x, targetNode.position.y, {
       zoom: viewport.zoom,
       duration: 300
     })
-  }, [getViewport, setCenter])
+  }, [])
 
   // Focus edge handler (for Results panel drivers)
+  // Brief 36 Fix: Use refs instead of direct dependencies to prevent re-renders
   const handleFocusEdge = useCallback((edgeId: string) => {
     const store = useCanvasStore.getState()
     const targetEdge = store.edges.find(e => e.id === edgeId)
@@ -683,12 +702,12 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
     })
 
     // Center viewport on edge midpoint with smooth animation
-    const viewport = getViewport()
-    setCenter(midX, midY, {
+    const viewport = getViewportRef.current()
+    setCenterRef.current(midX, midY, {
       zoom: viewport.zoom,
       duration: 300,
     })
-  }, [getViewport, setCenter])
+  }, [])
 
   // Register focus helpers for external use (Results panel)
   useEffect(() => {
@@ -834,13 +853,18 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
   })
 
   // P0-7: Q key to toggle quick-add mode
+  // Brief 36 Fix: Use ref to avoid re-attaching listener on quickAddMode change
+  const quickAddModeRef = useRef(quickAddMode)
+  quickAddModeRef.current = quickAddMode
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'q' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
         e.preventDefault()
+        const wasEnabled = quickAddModeRef.current
         setQuickAddMode(prev => !prev)
         setRadialMenuPosition(null) // Close menu if open
-        if (!quickAddMode) {
+        if (!wasEnabled) {
           showToast('Quick-add mode enabled. Click canvas to add nodes.', 'info')
         }
       }
@@ -848,7 +872,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [quickAddMode, showToast])
+  }, [showToast]) // Brief 36: Removed quickAddMode from deps
 
   // P0-7: Handle pane click to show radial menu in quick-add mode
   const handlePaneClick = useCallback((event: React.MouseEvent) => {
@@ -858,9 +882,10 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
   }, [quickAddMode])
 
   // P0-7: Handle node type selection from radial menu
+  // Brief 36 Fix: Use ref for getViewport to prevent dependency re-renders
   const handleRadialMenuSelect = useCallback((nodeType: NodeType) => {
     if (radialMenuPosition) {
-      const viewport = getViewport()
+      const viewport = getViewportRef.current()
       // Convert screen coordinates to canvas coordinates
       const canvasX = (radialMenuPosition.x - viewport.x) / viewport.zoom
       const canvasY = (radialMenuPosition.y - viewport.y) / viewport.zoom
@@ -904,7 +929,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
             })
 
             // Convert target node's canvas position to screen coordinates
-            const viewport = getViewport()
+            const viewport = getViewportRef.current()
             const screenX = closest.position.x * viewport.zoom + viewport.x
             const screenY = closest.position.y * viewport.zoom + viewport.y
 
@@ -918,7 +943,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
         }
       }, 50) // Small delay to ensure node is added to store
     }
-  }, [radialMenuPosition, getViewport, addNode, showToast])
+  }, [radialMenuPosition, addNode, showToast]) // Brief 36: Removed getViewport - using ref
 
   // P0-7: Cancel radial menu
   const handleRadialMenuCancel = useCallback(() => {
@@ -944,11 +969,12 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
   }, [])
 
   // Blueprint insertion handler
+  // Brief 36 Fix: Use ref for getViewport to prevent dependency re-renders
   const insertBlueprint = useCallback((blueprint: Blueprint): { nodeIdMap: Map<string, string>; newNodes: any[]; newEdges: any[]; error?: string } => {
     // Transform to goal-first graph
     const graph = blueprintToGraph(blueprint)
 
-    const viewport = getViewport()
+    const viewport = getViewportRef.current()
     const centerX = -viewport.x + (window.innerWidth / 2) / viewport.zoom
     const centerY = -viewport.y + (window.innerHeight / 2) / viewport.zoom
 
@@ -1030,14 +1056,20 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
 
     // Return result object for caller to check
     return { nodeIdMap, newNodes, newEdges }
-  }, [getViewport, createNodeId, createEdgeId, showToast])
+  }, [createNodeId, createEdgeId, showToast]) // Brief 36: Removed getViewport - using ref
   
+  // Brief 36 Fix: Blueprint subscription should NOT re-subscribe on nodes change
+  // Use a ref to access current nodes inside the subscription callback
+  const nodesRef = useRef(nodes)
+  nodesRef.current = nodes
+
   useEffect(() => {
     if (!blueprintEventBus) return
 
     const unsubscribe = blueprintEventBus.subscribe((blueprint: Blueprint) => {
-      // Check for existing template
-      const existingTemplateNode = nodes.find(n => n.data?.templateId)
+      // Check for existing template using ref (avoids dependency on nodes)
+      const currentNodes = nodesRef.current
+      const existingTemplateNode = currentNodes.find(n => n.data?.templateId)
       if (existingTemplateNode && existingTemplateNode.data) {
         setPendingBlueprint(blueprint)
         setExistingTemplate({
@@ -1056,21 +1088,28 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
     })
 
     return unsubscribe
-  }, [blueprintEventBus, nodes, insertBlueprint])
+  }, [blueprintEventBus, insertBlueprint, showToast])
   
+  // Brief 36 Fix: Use ref for edges to avoid dependency in callback
+  const edgesRef = useRef(edges)
+  edgesRef.current = edges
+
   const handleConfirmReplace = useCallback(() => {
     if (!pendingBlueprint) return
-    
+
     // Remove all nodes/edges from existing template
     const store = useCanvasStore.getState()
     store.pushHistory()
-    
-    const remainingNodes = nodes.filter(n => !n.data?.templateId)
+
+    // Brief 36 Fix: Use refs instead of direct dependencies to prevent re-renders
+    const currentNodes = nodesRef.current
+    const currentEdges = edgesRef.current
+    const remainingNodes = currentNodes.filter(n => !n.data?.templateId)
     const remainingNodeIds = new Set(remainingNodes.map(n => n.id))
-    const remainingEdges = edges.filter(e => 
+    const remainingEdges = currentEdges.filter(e =>
       remainingNodeIds.has(e.source) && remainingNodeIds.has(e.target)
     )
-    
+
     useCanvasStore.setState({
       nodes: remainingNodes,
       edges: remainingEdges
@@ -1084,23 +1123,78 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
 
     setPendingBlueprint(null)
     setExistingTemplate(null)
-  }, [pendingBlueprint, nodes, edges, insertBlueprint])
+  }, [pendingBlueprint, insertBlueprint, showToast])
   
   const handleCancelReplace = useCallback(() => {
     setPendingBlueprint(null)
     setExistingTemplate(null)
   }, [])
   
-  const { showGrid, gridSize, snapToGrid, showAlignmentGuides, loadSettings } = useSettingsStore()
+  // Brief 37 Task 2: Use individual selectors to prevent re-renders on unrelated settings changes
+  const showGrid = useSettingsStore(s => s.showGrid)
+  const gridSize = useSettingsStore(s => s.gridSize)
+  const snapToGrid = useSettingsStore(s => s.snapToGrid)
+  const showAlignmentGuides = useSettingsStore(s => s.showAlignmentGuides)
+  const loadSettings = useSettingsStore(s => s.loadSettings)
   const snapGridValue = useMemo<[number, number]>(() => [gridSize, gridSize], [gridSize])
   const edgeTypes = useMemo(() => ({ styled: StyledEdge as any }), [])
   const defaultEdgeOpts = useMemo(() => ({ type: 'styled' as const, animated: false }), [])
   const miniMapStyle = useMemo(() => ({ width: 120, height: 80 }), [])
 
-  if (import.meta.env.DEV) {
-    const renderCount = useRef(0)
-    renderCount.current++
-    if (renderCount.current > 100) console.warn('[ReactFlowGraph] Render storm detected')
+  // Brief 37 Task 1: Comprehensive render cause tracking
+  // Note: This tracking identifies WHAT changed, helping diagnose render sources
+  const renderCountRef = useRef(0)
+  const prevStateRef = useRef<Record<string, any>>({})
+
+  renderCountRef.current++
+
+  if (import.meta.env.DEV && renderCountRef.current <= 15) {
+    // Track store values and props that could trigger re-renders
+    // Note: Only track primitives and key objects to avoid noise
+    const currentState: Record<string, any> = {
+      // Store values (data)
+      'nodes.length': nodes?.length,
+      'edges.length': edges?.length,
+      graphHealthRef: graphHealth,
+      // Store values (UI state)
+      showResultsPanel,
+      showInspectorPanel,
+      showIssuesPanel,
+      showDocumentsDrawer,
+      showProvenanceHub,
+      showAIClarifier,
+      comparisonModeActive,
+      pendingFitView,
+      // Settings store
+      showGrid,
+      gridSize,
+      snapToGrid,
+    }
+
+    const changes: string[] = []
+    Object.keys(currentState).forEach(key => {
+      if (prevStateRef.current[key] !== currentState[key]) {
+        const prev = prevStateRef.current[key]
+        const curr = currentState[key]
+        if (typeof curr === 'object' && curr !== null) {
+          changes.push(`${key}: ref changed`)
+        } else {
+          changes.push(`${key}: ${prev} → ${curr}`)
+        }
+      }
+    })
+
+    if (changes.length > 0) {
+      console.log(`[RFG] #${renderCountRef.current}:`, changes.join(', '))
+    } else {
+      console.log(`[RFG] #${renderCountRef.current}: no store changes`)
+    }
+
+    prevStateRef.current = { ...currentState }
+
+    if (renderCountRef.current > 10) {
+      console.warn(`[RFG] Storm: ${renderCountRef.current} renders`)
+    }
   }
 
   useKeyboardShortcuts()
@@ -1439,22 +1533,26 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
         onRunClick={handleRunSimulation}
         onCompareClick={handleOpenCompare}
         onEvidenceClick={() => setShowProvenanceHub(true)}
-        onFitClick={() => fitView({ padding: 0.2, duration: 300 })}
+        onFitClick={() => fitViewRef.current({ padding: 0.2, duration: 300 })}
         onHelpClick={openKeyboardLegend}
         // Canvas control actions (new)
         onUndoClick={undo}
         onRedoClick={redo}
         onResetClick={() => {
-          if (nodes.length === 0 && edges.length === 0) {
+          // Brief 36 Fix: Use refs instead of nodes/edges to avoid dependency re-renders
+          const currentNodes = nodesRef.current
+          const currentEdges = edgesRef.current
+          if (currentNodes.length === 0 && currentEdges.length === 0) {
             showToast('Canvas is already empty.', 'info')
             return
           }
           setShowResetConfirm(true)
         }}
-        onZoomInClick={() => zoomIn({ duration: 200 })}
-        onZoomOutClick={() => zoomOut({ duration: 200 })}
+        onZoomInClick={() => zoomInRef.current({ duration: 200 })}
+        onZoomOutClick={() => zoomOutRef.current({ duration: 200 })}
         onAutoArrangeClick={() => {
-          if (nodes.length === 0) {
+          // Brief 36 Fix: Use ref instead of nodes to avoid dependency re-renders
+          if (nodesRef.current.length === 0) {
             showToast('No nodes to arrange.', 'info')
             return
           }
@@ -1722,7 +1820,7 @@ function ReactFlowGraphInner({ blueprintEventBus, onCanvasInteraction, enableGho
       </BottomSheet>
     </div>
   )
-}
+})
 
 /**
  * Debug label component for minimal modes

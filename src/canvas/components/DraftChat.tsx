@@ -104,6 +104,9 @@ function formatCEEError(error: CEEError | Error): { message: string; debugInfo?:
   return { message: error.message }
 }
 
+// Storage key for panel width persistence
+const DRAFT_PANEL_WIDTH_KEY = 'canvas.draftChat.width'
+
 export function DraftChat() {
   const [description, setDescription] = useState('')
   const [selectedModel, setSelectedModel] = useState<AIModelId>('claude-sonnet')
@@ -112,11 +115,26 @@ export function DraftChat() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const modelPickerRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   // State for auto-apply flow
   const [appliedNodeIds, setAppliedNodeIds] = useState<string[]>([])
   const [appliedEdgeIds, setAppliedEdgeIds] = useState<string[]>([])
   const [isOnCanvas, setIsOnCanvas] = useState(false)
+
+  // Panel width state (persisted to localStorage)
+  const [panelWidth, setPanelWidth] = useState<number>(() => {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem(DRAFT_PANEL_WIDTH_KEY)
+      if (stored) {
+        const parsed = parseInt(stored, 10)
+        if (Number.isFinite(parsed) && parsed >= 320 && parsed <= 600) {
+          return parsed
+        }
+      }
+    }
+    return 400 // default width
+  })
 
   const {
     data: draft,
@@ -345,6 +363,40 @@ export function DraftChat() {
     })
   }
 
+  // Handle panel resize via drag
+  const handleResizeStart = useCallback((event: React.MouseEvent) => {
+    if (typeof window === 'undefined') return
+    event.preventDefault()
+
+    const startX = event.clientX
+    const startWidth = panelWidth
+
+    const handleMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - startX
+      const newWidth = Math.max(320, Math.min(600, startWidth + deltaX))
+      setPanelWidth(newWidth)
+    }
+
+    const handleUp = () => {
+      window.removeEventListener('mousemove', handleMove)
+      window.removeEventListener('mouseup', handleUp)
+      // Persist width to localStorage
+      try {
+        localStorage.setItem(DRAFT_PANEL_WIDTH_KEY, String(panelWidth))
+      } catch {}
+    }
+
+    window.addEventListener('mousemove', handleMove)
+    window.addEventListener('mouseup', handleUp)
+  }, [panelWidth])
+
+  // Persist panel width when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(DRAFT_PANEL_WIDTH_KEY, String(panelWidth))
+    } catch {}
+  }, [panelWidth])
+
   // Don't render if panel is closed
   if (!showDraftChat) {
     return null
@@ -354,13 +406,14 @@ export function DraftChat() {
 
   return (
     <div
+      ref={panelRef}
       className="fixed z-[2000] flex flex-col transition-all duration-300 ease-out"
       style={{
         // Position next to left sidebar (sidebar is at left: 12px with width ~52px)
         left: 'calc(12px + var(--leftsidebar-w, 52px) + 12px)',
         top: 'calc(var(--topbar-h) + 1rem)',
         bottom: 'calc(var(--bottombar-h, 0) + 1rem)',
-        width: '400px',
+        width: `${panelWidth}px`,
         maxWidth: 'calc(100vw - 12px - var(--leftsidebar-w, 52px) - 48px)',
       }}
       role="dialog"
@@ -369,7 +422,14 @@ export function DraftChat() {
       aria-describedby="draft-chat-description"
     >
       {/* Panel container with slide animation */}
-      <div className="flex flex-col h-full bg-white rounded-2xl border border-sand-200 shadow-xl overflow-hidden">
+      <div className="flex flex-col h-full bg-white rounded-2xl border border-sand-200 shadow-xl overflow-hidden relative">
+        {/* Resize handle on right edge */}
+        <div
+          aria-hidden="true"
+          onMouseDown={handleResizeStart}
+          className="absolute inset-y-0 right-0 w-1.5 cursor-col-resize bg-transparent hover:bg-sky-200/60 transition-colors z-10"
+          title="Drag to resize panel"
+        />
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-sand-100 bg-gradient-to-r from-sky-50 to-purple-50">
           <div className="flex items-center gap-2">
@@ -567,7 +627,7 @@ export function DraftChat() {
                 className={`
                   ${typography.body} w-full p-3 pr-12 rounded-xl border border-sand-200
                   focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20
-                  resize-none overflow-hidden
+                  resize-none overflow-y-auto
                   placeholder:text-ink-400
                 `}
                 style={{ minHeight: '80px', maxHeight: '200px' }}

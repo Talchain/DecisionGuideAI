@@ -74,6 +74,8 @@ import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/a
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { useOptionRanking } from '../hooks/useOptionRanking'
+import { useRobustness } from '../hooks/useRobustness'
+import { RobustnessBlock } from './RecommendationCard/RobustnessBlock'
 // ScenarioComparison modal removed - now rendered as ComparisonCanvasLayout in ReactFlowGraph
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import type { Node, Edge } from '@xyflow/react'
@@ -142,6 +144,20 @@ export function OutputsDock() {
   const scenarioComparison = useScenarioComparison()
   const optionRanking = useOptionRanking()
 
+  // Brief 25: Fetch robustness data for sensitivity, VoI, robustness bounds
+  // Uses runMeta.runId and results hash when available
+  const results = useCanvasStore(s => s.results)
+  const robustnessRunId = results?.hash ? `run-${results.hash.slice(0, 8)}` : undefined
+  const {
+    robustness: robustnessData,
+    loading: robustnessLoading,
+    error: robustnessError,
+  } = useRobustness({
+    runId: robustnessRunId,
+    responseHash: results?.hash,
+    autoFetch: true,
+  })
+
   // React #185 FIX: Combine state selectors with shallow comparison
   // Using individual selectors for objects (runMeta, graphHealth, etc.) caused
   // infinite re-render loops in production builds because Zustand v5's
@@ -174,6 +190,7 @@ export function OutputsDock() {
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
   const setShowComparePanel = useCanvasStore(s => s.setShowComparePanel)
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
+  const applyAutoFixChanges = useCanvasStore(s => s.applyAutoFixChanges)
 
   // Derived values from runMeta
   const diagnostics = runMeta.diagnostics
@@ -259,19 +276,11 @@ export function OutputsDock() {
       const result = executeAutoFix(params, nodes, edges)
 
       if (result.success) {
-        // Update canvas state with fixed nodes/edges
-        if (result.updatedNodes) {
-          useCanvasStore.setState({ nodes: result.updatedNodes })
-        }
-        if (result.updatedEdges) {
-          useCanvasStore.setState({ edges: result.updatedEdges })
-        }
-
-        // Re-trigger graph health validation to clear fixed issues
-        // Use setTimeout to ensure state is updated before validation runs
-        setTimeout(() => {
-          useCanvasStore.getState().validateGraph()
-        }, 50)
+        // Use store action instead of direct setState (P1 fix - proper history/undo support)
+        applyAutoFixChanges({
+          nodes: result.updatedNodes,
+          edges: result.updatedEdges,
+        })
 
         trackAutoFixSuccess()
         return true
@@ -285,7 +294,7 @@ export function OutputsDock() {
       trackAutoFixFailed()
       return false
     }
-  }, [nodes, edges])
+  }, [nodes, edges, applyAutoFixChanges])
 
   const canonicalBands = report?.run?.bands ?? null
   const mostLikelyValue = canonicalBands ? canonicalBands.p50 : report?.results.likely ?? null
@@ -303,6 +312,17 @@ export function OutputsDock() {
   // Phase 1A.1: Compute verdict for VerdictCard
   // Use baseline from framing or default to 0 ("do nothing" scenario)
   const baselineValue = framing?.baseline ?? 0
+
+  // Brief 31 Task 6: Memoize topDrivers to prevent InsightsPanel re-render loop
+  const topDrivers = useMemo(() => {
+    if (!report?.drivers) return undefined
+    return report.drivers.slice(0, 3).map(d => ({
+      label: d.label,
+      polarity: d.polarity,
+      strength: d.strength,
+      contribution: d.contribution,
+    }))
+  }, [report?.drivers])
 
   const verdict = mostLikelyValue !== null
     ? deriveVerdict({
@@ -722,22 +742,40 @@ export function OutputsDock() {
                     )}
                   </div>
                 )}
-                {/* Post-run: Rerun analysis button */}
+                {/* Post-run: Rerun analysis + Compare buttons row */}
                 {!isPreRun && (
-                  <button
-                    type="button"
-                    onClick={handleRunAnalysis}
-                    disabled={isRunning}
-                    className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
-                      isRunning
-                        ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
-                        : 'bg-sky-500 text-white hover:bg-sky-600'
-                    }`}
-                    data-testid="outputs-rerun-button"
-                  >
-                    <RefreshCw className={`w-5 h-5 ${isRunning ? 'animate-spin' : ''}`} aria-hidden="true" />
-                    {isRunning ? 'Running...' : 'Rerun Analysis'}
-                  </button>
+                  <div className="flex gap-2" data-testid="outputs-action-buttons">
+                    <button
+                      type="button"
+                      onClick={handleRunAnalysis}
+                      disabled={isRunning}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
+                        isRunning
+                          ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
+                          : 'bg-sky-500 text-white hover:bg-sky-600'
+                      }`}
+                      data-testid="outputs-rerun-button"
+                    >
+                      <RefreshCw className={`w-5 h-5 ${isRunning ? 'animate-spin' : ''}`} aria-hidden="true" />
+                      {isRunning ? 'Running...' : 'Rerun'}
+                    </button>
+                    {comparison.canCompare && (
+                      <button
+                        type="button"
+                        onClick={handleCompareNow}
+                        disabled={scenarioComparison.loading}
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
+                          scenarioComparison.loading
+                            ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
+                            : 'bg-paper-50 text-sky-700 border border-sky-300 hover:bg-sky-50'
+                        }`}
+                        data-testid="outputs-compare-button"
+                      >
+                        <GitCompare className="w-5 h-5" aria-hidden="true" />
+                        {scenarioComparison.loading ? 'Comparing...' : 'Compare'}
+                      </button>
+                    )}
+                  </div>
                 )}
                 {/* Pre-run state: Show consolidated guidance and Run button */}
                 {isPreRun && (
@@ -839,13 +877,33 @@ export function OutputsDock() {
 
                 {/* Signal Components - Decision-first hierarchy:
                     1. DriversSignal - Why? (understanding)
-                    2. OutcomesSignal - What? (validation)
-                    3. TrustSignal - How confident? (reliability)
-                    4. ActionsSignal - What next? (actions)
+                    2. RobustnessBlock - Sensitivity, VoI, robustness bounds (Brief 25)
+                    3. OutcomesSignal - What? (validation)
+                    4. TrustSignal - How confident? (reliability)
+                    5. ActionsSignal - What next? (actions)
                 */}
                 {!isPreRun && hasInlineSummary && (
                   <div className="space-y-3" data-testid="outputs-signals">
                     <DriversSignal maxCollapsed={3} />
+                    {/* Brief 25: Sensitivity, VoI, and robustness bounds from ISL */}
+                    {(robustnessData || robustnessLoading) && (
+                      <RobustnessBlock
+                        robustness={robustnessData}
+                        loading={robustnessLoading}
+                        error={robustnessError}
+                        onParameterClick={(nodeId) => {
+                          setHighlightedNodes([nodeId])
+                          focusNodeById(nodeId)
+                          setTimeout(() => setHighlightedNodes([]), 3000)
+                        }}
+                        onVoiActionClick={(nodeId) => {
+                          setHighlightedNodes([nodeId])
+                          focusNodeById(nodeId)
+                          setTimeout(() => setHighlightedNodes([]), 3000)
+                        }}
+                        defaultExpanded={false}
+                      />
+                    )}
                     <OutcomesSignal
                       baseline={baselineValue}
                       goalDirection={goalDirection}
@@ -886,12 +944,7 @@ export function OutputsDock() {
                         outcomeValue={mostLikelyValue}
                         baselineValue={baselineValue}
                         goalDirection={goalDirection}
-                        topDrivers={report.drivers?.slice(0, 3).map(d => ({
-                          label: d.label,
-                          polarity: d.polarity,
-                          strength: d.strength,
-                          contribution: d.contribution,
-                        }))}
+                        topDrivers={topDrivers}
                       />
                     )}
                     {/* Decision Review */}

@@ -15,6 +15,7 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import { useGraphReadiness, type GraphImprovement } from './useGraphReadiness'
 import { determineFixType } from '../utils/autoFix'
+import { stableImprovementId } from '../utils/stableId'
 
 export type ActionPriority = 'critical' | 'high' | 'medium' | 'low'
 export type ActionSource = 'readiness' | 'validation' | 'critique' | 'bias'
@@ -158,7 +159,8 @@ export function useUnifiedActions(): UseUnifiedActionsResult {
     if (readiness?.improvements) {
       for (const imp of readiness.improvements) {
         items.push({
-          id: `readiness-${imp.category}-${imp.action.slice(0, 20)}`,
+          // P1 fix: Use stable hash-based ID to prevent collisions
+          id: stableImprovementId(imp.category, imp.action, imp.affected_nodes),
           source: 'readiness',
           priority: mapSeverityToPriority(imp.priority, 'readiness'),
           title: imp.action,
@@ -268,8 +270,12 @@ export function useUnifiedActions(): UseUnifiedActionsResult {
       }
     }
 
+    // P2: Deduplicate items that appear in multiple sources
+    // Creates a unique key from affected elements + normalized title
+    const deduped = deduplicateActions(items)
+
     // Sort by priority
-    return items.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
+    return deduped.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
   }, [readiness, graphHealth, results, runMeta])
 
   // Group by priority
@@ -300,6 +306,42 @@ export function useUnifiedActions(): UseUnifiedActionsResult {
     hasBlockers,
     loading,
   }
+}
+
+/**
+ * Generate a deduplication key for an action
+ * Combines affected elements + normalized title for matching
+ */
+function getDedupeKey(action: UnifiedAction): string {
+  const nodesPart = action.affectedNodeIds?.sort().join(',') || ''
+  const edgesPart = action.affectedEdgeIds?.sort().join(',') || ''
+  // Normalize title: lowercase, remove extra whitespace
+  const titlePart = action.title.toLowerCase().replace(/\s+/g, ' ').trim()
+  return `${nodesPart}|${edgesPart}|${titlePart}`
+}
+
+/**
+ * Deduplicate actions that appear in multiple sources
+ * When duplicates are found, keeps the highest priority version
+ */
+function deduplicateActions(items: UnifiedAction[]): UnifiedAction[] {
+  const seen = new Map<string, UnifiedAction>()
+
+  for (const item of items) {
+    const key = getDedupeKey(item)
+    const existing = seen.get(key)
+
+    if (!existing) {
+      seen.set(key, item)
+    } else {
+      // Keep the higher priority item (lower priorityOrder value)
+      if (priorityOrder[item.priority] < priorityOrder[existing.priority]) {
+        seen.set(key, item)
+      }
+    }
+  }
+
+  return Array.from(seen.values())
 }
 
 /**

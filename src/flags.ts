@@ -1,6 +1,25 @@
 // src/flags.ts
-// Feature flags using typed factory pattern to eliminate duplication.
-// Small, client-side feature flags; all default to OFF.
+// ============================================================================
+// UI/EXPERIMENT FEATURE FLAGS
+// ============================================================================
+//
+// PURPOSE: Controls UI features, experiments, and A/B tests that can be
+// toggled per-user or per-session. These flags affect what users see.
+//
+// SOURCES: Environment variables (VITE_FEATURE_*) + localStorage overrides
+//
+// EXAMPLES:
+//   - isCompareEnabled()      → Show compare feature
+//   - isScenariosEnabled()    → Enable scenario management
+//   - isDecisionReviewEnabled → Show CEE decision review UI
+//
+// DO NOT USE FOR:
+//   - Environment detection (dev/prod/E2E) → use lib/featureFlags.ts
+//   - Service base URLs → use lib/featureFlags.ts
+//   - Analytics/Sentry toggles → use lib/featureFlags.ts
+//
+// See also: src/lib/featureFlags.ts for infrastructure/environment flags
+// ============================================================================
 
 import { makeFlag } from './lib/flagFactory'
 

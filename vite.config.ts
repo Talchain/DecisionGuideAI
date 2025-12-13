@@ -97,12 +97,12 @@ optimizeDeps: {
     },
     proxy: {
       '/bff/engine': {
-        target: 'https://plot-lite-service.onrender.com',
+        target: env.ENGINE_SERVICE_URL || 'https://plot-lite-service.onrender.com',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/bff\/engine/, ''),
         configure: (proxy) => {
-          console.log('[PROXY] Engine target: https://plot-lite-service.onrender.com')
+          console.log(`[PROXY] Engine target: ${env.ENGINE_SERVICE_URL || 'https://plot-lite-service.onrender.com'}`)
 
           proxy.on('error', (err) => {
             console.error('[PROXY ERROR] /bff/engine', err.message)
@@ -155,7 +155,8 @@ optimizeDeps: {
         target: env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/bff\/cee/, ''),
+        // Rewrite /bff/cee/* → /assist/v1/* (CEE service expects /assist/v1 prefix)
+        rewrite: (path) => path.replace(/^\/bff\/cee/, '/assist/v1'),
         configure: (proxy) => {
           const ceeTarget = env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com'
           const ceeApiKey = env.ASSIST_API_KEY
@@ -167,14 +168,23 @@ optimizeDeps: {
           }
 
           // Inject API key header for authenticated requests
-          proxy.on('proxyReq', (proxyReq) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
             if (ceeApiKey) {
               proxyReq.setHeader('X-Olumi-Assist-Key', ceeApiKey)
             }
+            // Brief 32: Debug logging for proxy requests
+            console.log(`[PROXY] CEE ${req.method} ${req.url} → ${ceeTarget}${proxyReq.path}`)
           })
 
-          proxy.on('error', (err) => {
-            console.error('[PROXY ERROR] /bff/cee', err.message)
+          // Brief 32: Log response status for debugging
+          proxy.on('proxyRes', (proxyRes, req) => {
+            if (proxyRes.statusCode && proxyRes.statusCode >= 400) {
+              console.error(`[PROXY] CEE response: ${proxyRes.statusCode} for ${req.url}`)
+            }
+          })
+
+          proxy.on('error', (err, req) => {
+            console.error(`[PROXY ERROR] /bff/cee ${req?.url}:`, err.message)
           })
         }
       },
@@ -184,7 +194,23 @@ optimizeDeps: {
         secure: false,
         rewrite: (path) => path.replace(/^\/bff\/isl/, ''),
         configure: (proxy) => {
-          console.log(`[PROXY] ISL target: ${env.ISL_SERVICE_URL || 'https://isl-staging.onrender.com'}`)
+          const islTarget = env.ISL_SERVICE_URL || 'https://isl-staging.onrender.com'
+          const islApiKey = env.ISL_API_KEY
+          console.log(`[PROXY] ISL target: ${islTarget}`)
+          if (islApiKey) {
+            console.log('[PROXY] ISL auth: Authorization Bearer configured')
+          } else {
+            console.warn('[PROXY] ISL auth: ISL_API_KEY not set - requests may fail with 401')
+          }
+
+          // Inject API key headers for authenticated requests
+          // ISL may expect x-api-key, Authorization Bearer, or both
+          proxy.on('proxyReq', (proxyReq) => {
+            if (islApiKey) {
+              proxyReq.setHeader('Authorization', `Bearer ${islApiKey}`)
+              proxyReq.setHeader('x-api-key', islApiKey)
+            }
+          })
 
           proxy.on('error', (err) => {
             console.error('[PROXY ERROR] /bff/isl', err.message)
@@ -199,12 +225,12 @@ optimizeDeps: {
     host: true,
     proxy: {
       '/bff/engine': {
-        target: 'https://plot-lite-service.onrender.com',
+        target: env.ENGINE_SERVICE_URL || 'https://plot-lite-service.onrender.com',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/bff\/engine/, ''),
         configure: (proxy) => {
-          console.log('[PROXY] Engine target: https://plot-lite-service.onrender.com')
+          console.log(`[PROXY] Engine target: ${env.ENGINE_SERVICE_URL || 'https://plot-lite-service.onrender.com'}`)
 
           proxy.on('error', (err) => {
             console.error('[PROXY ERROR] /bff/engine', err.message)
@@ -231,7 +257,8 @@ optimizeDeps: {
         target: env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com',
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/bff\/cee/, ''),
+        // Rewrite /bff/cee/* → /assist/v1/* (CEE service expects /assist/v1 prefix)
+        rewrite: (path) => path.replace(/^\/bff\/cee/, '/assist/v1'),
         configure: (proxy) => {
           const ceeTarget = env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com'
           const ceeApiKey = env.ASSIST_API_KEY
@@ -243,14 +270,23 @@ optimizeDeps: {
           }
 
           // Inject API key header for authenticated requests
-          proxy.on('proxyReq', (proxyReq) => {
+          proxy.on('proxyReq', (proxyReq, req) => {
             if (ceeApiKey) {
               proxyReq.setHeader('X-Olumi-Assist-Key', ceeApiKey)
             }
+            // Brief 32: Debug logging for proxy requests
+            console.log(`[PROXY] CEE ${req.method} ${req.url} → ${ceeTarget}${proxyReq.path}`)
           })
 
-          proxy.on('error', (err) => {
-            console.error('[PROXY ERROR] /bff/cee', err.message)
+          // Brief 32: Log response status for debugging
+          proxy.on('proxyRes', (proxyRes, req) => {
+            if (proxyRes.statusCode && proxyRes.statusCode >= 400) {
+              console.error(`[PROXY] CEE response: ${proxyRes.statusCode} for ${req.url}`)
+            }
+          })
+
+          proxy.on('error', (err, req) => {
+            console.error(`[PROXY ERROR] /bff/cee ${req?.url}:`, err.message)
           })
         }
       },
@@ -260,7 +296,23 @@ optimizeDeps: {
         secure: false,
         rewrite: (path) => path.replace(/^\/bff\/isl/, ''),
         configure: (proxy) => {
-          console.log(`[PROXY] ISL target: ${env.ISL_SERVICE_URL || 'https://isl-staging.onrender.com'}`)
+          const islTarget = env.ISL_SERVICE_URL || 'https://isl-staging.onrender.com'
+          const islApiKey = env.ISL_API_KEY
+          console.log(`[PROXY] ISL target: ${islTarget}`)
+          if (islApiKey) {
+            console.log('[PROXY] ISL auth: Authorization Bearer configured')
+          } else {
+            console.warn('[PROXY] ISL auth: ISL_API_KEY not set - requests may fail with 401')
+          }
+
+          // Inject API key headers for authenticated requests
+          // ISL may expect x-api-key, Authorization Bearer, or both
+          proxy.on('proxyReq', (proxyReq) => {
+            if (islApiKey) {
+              proxyReq.setHeader('Authorization', `Bearer ${islApiKey}`)
+              proxyReq.setHeader('x-api-key', islApiKey)
+            }
+          })
 
           proxy.on('error', (err) => {
             console.error('[PROXY ERROR] /bff/isl', err.message)

@@ -4,7 +4,7 @@
 import { useState } from 'react'
 
 export type Tool = 'select' | 'pan' | 'add-node' | 'add-note' | 'connect'
-export type NodeType = 'goal' | 'decision' | 'option' | 'risk' | 'outcome'
+export type NodeType = 'goal' | 'decision' | 'option' | 'factor' | 'risk' | 'outcome' | 'action'
 
 interface PlotToolbarProps {
   currentTool: Tool
@@ -27,8 +27,10 @@ export default function PlotToolbar({ currentTool, onToolChange, onAddNode, onAd
     { type: 'goal', icon: '🎯', label: 'Goal', color: 'bg-teal-100 border-teal-300' },
     { type: 'decision', icon: '⚖️', label: 'Decision', color: 'bg-indigo-100 border-indigo-300' },
     { type: 'option', icon: '🔷', label: 'Option', color: 'bg-blue-100 border-blue-300' },
+    { type: 'factor', icon: '⚙️', label: 'Factor', color: 'bg-slate-100 border-slate-300' },
     { type: 'risk', icon: '⚠️', label: 'Risk', color: 'bg-amber-100 border-amber-300' },
     { type: 'outcome', icon: '📊', label: 'Outcome', color: 'bg-green-100 border-green-300' },
+    { type: 'action', icon: '⚡', label: 'Action', color: 'bg-emerald-100 border-emerald-300' },
   ]
 
   return (

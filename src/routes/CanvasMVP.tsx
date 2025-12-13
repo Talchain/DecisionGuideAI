@@ -2,7 +2,7 @@
 // Canvas MVP - React Flow graph editor with integrated Templates panel
 
 import '../styles/plot.css'
-import { useEffect, useState, lazy, Suspense, useCallback } from 'react'
+import { useEffect, useState, lazy, Suspense, useCallback, useRef } from 'react'
 import ReactFlowGraph, { type BlueprintEventBus, type BlueprintInsertResult } from '../canvas/ReactFlowGraph'
 import type { Blueprint } from '../templates/blueprints/types'
 import { useCanvasStore } from '../canvas/store'
@@ -39,6 +39,13 @@ const blueprintEventBus: LocalBlueprintEventBus = {
 }
 
 export default function CanvasMVP() {
+  // Brief 37 Task 3: Render counter to detect if parent is causing re-renders
+  const renderCountRef = useRef(0)
+  renderCountRef.current++
+  if (import.meta.env.DEV) {
+    console.log(`[CanvasMVP] Render #${renderCountRef.current}`)
+  }
+
   const [short, setShort] = useState('dev')
   const [insertionError, setInsertionError] = useState<string | null>(null)
   const showTemplatesPanel = useCanvasStore(state => state.showTemplatesPanel)
@@ -136,11 +143,15 @@ export default function CanvasMVP() {
   }, [])
 
   // Close Templates panel when user interacts with canvas
+  // Brief 37: Use ref to avoid dependency on showTemplatesPanel, keeping callback stable
+  const showTemplatesPanelRef = useRef(showTemplatesPanel)
+  showTemplatesPanelRef.current = showTemplatesPanel
+
   const handleCanvasInteraction = useCallback(() => {
-    if (showTemplatesPanel) {
+    if (showTemplatesPanelRef.current) {
       closeTemplatesPanel()
     }
-  }, [showTemplatesPanel, closeTemplatesPanel])
+  }, [closeTemplatesPanel])
 
   // Scenario + save state for TopBar
   const currentScenarioId = useCanvasStore(state => state.currentScenarioId)

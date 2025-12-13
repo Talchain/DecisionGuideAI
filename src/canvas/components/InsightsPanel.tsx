@@ -10,7 +10,7 @@
  * - Next Steps: Max 3 items - recommended actions
  */
 
-import { useState } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import {
   AlertTriangle,
   ArrowRight,
@@ -252,21 +252,39 @@ export function InsightsPanel({
 }: InsightsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
+  // Brief 33b: Render counter for debugging re-render loop
+  const renderCountRef = useRef(0)
+  renderCountRef.current += 1
+  if (import.meta.env.DEV) {
+    console.log(`[InsightsPanel] Render #${renderCountRef.current}`)
+  }
+
+  // Brief 33 Fix: Memoize all expensive computations to prevent re-render loop
+  // Previously these ran on every render, causing validateInsightConsistency to fire 6+ times
+
   // P0.3: Normalize insights with safe defaults and limits
-  const normalized = normalizeInsights(rawInsights)
+  const normalized = useMemo(
+    () => normalizeInsights(rawInsights),
+    [rawInsights]
+  )
 
   // Quick Win #5: Validate and correct contradictory insights
-  const { summary: rawSummary, wasContradictory } = validateInsightConsistency(
-    normalized.summary,
-    outcomeValue,
-    baselineValue,
-    goalDirection
+  const { summary: rawSummary, wasContradictory } = useMemo(
+    () => validateInsightConsistency(
+      normalized.summary,
+      outcomeValue,
+      baselineValue,
+      goalDirection
+    ),
+    [normalized.summary, outcomeValue, baselineValue, goalDirection]
   )
   const { risks, next_steps } = normalized
 
   // Generate driver-focused insight OR strip percentage from backend summary
-  const driverInsight = generateDriverInsight(topDrivers, goalDirection)
-  const cleanedSummary = stripPercentageFromSummary(rawSummary)
+  const { driverInsight, cleanedSummary } = useMemo(() => ({
+    driverInsight: generateDriverInsight(topDrivers, goalDirection),
+    cleanedSummary: stripPercentageFromSummary(rawSummary),
+  }), [topDrivers, goalDirection, rawSummary])
 
   // Prefer driver insight, fall back to cleaned summary
   const summary = driverInsight || (cleanedSummary.length > 20 ? cleanedSummary : rawSummary)

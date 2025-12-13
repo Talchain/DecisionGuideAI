@@ -23,8 +23,9 @@ import {
   Target,
 } from 'lucide-react'
 import { useCanvasStore } from '../store'
-import { formatOutcomeValue, formatOutcomeValueCompact } from '../../lib/format'
+import { formatOutcomeValue, formatOutcomeValueCompact, type OutcomeUnits } from '../../lib/format'
 import { typography } from '../../styles/typography'
+import { computeBaselineComparison } from '../utils/baselineComparison'
 import type { ConfidenceLevel } from '../../adapters/plot/types'
 
 interface OutcomesSignalProps {
@@ -79,61 +80,76 @@ export function OutcomesSignal({
   const outcomes = useMemo(() => {
     if (!report?.results) return null
 
-    return {
+    const raw = {
       p10: report.results.conservative,
       p50: report.results.likely,
       p90: report.results.optimistic,
-      // Approximate 70% confidence range (p15-p85)
-      p15: report.results.conservative + (report.results.likely - report.results.conservative) * 0.5,
-      p85: report.results.optimistic - (report.results.optimistic - report.results.likely) * 0.5,
-      units: report.results.units || 'percent',
+    }
+
+    // Brief 26 Task 1 + Brief 32 Task 2: Cap probability values at realistic maximum (99%)
+    // Handle both 0-1 format (0.65 = 65%) and 0-100 format (65 = 65%)
+    const units = report.results.units || 'percent'
+
+    // DEBUG: Log values for Brief 32 investigation
+    if (import.meta.env.DEV) {
+      console.log('[OutcomesSignal] Raw values:', { p90: raw.p90, units })
+    }
+
+    // Detect scale: values <=1 are probability format, >1 are percentage format
+    const isProbabilityFormat = units === 'percent' && raw.p90 !== undefined && raw.p90 <= 1
+    const isPercentageFormat = units === 'percent' && raw.p90 !== undefined && raw.p90 > 1
+
+    // Cap at 99% regardless of format
+    let p90 = raw.p90
+    if (isProbabilityFormat) {
+      p90 = Math.min(raw.p90, 0.99)  // Cap at 0.99 for 0-1 format
+    } else if (isPercentageFormat) {
+      p90 = Math.min(raw.p90, 99)    // Cap at 99 for 0-100 format
+    }
+
+    const p10 = raw.p10
+    const p50 = raw.p50
+
+    // Brief 26 Task 2: Ensure 70% range is consistent with percentiles
+    // p15 must be >= p10, p85 must be <= p90
+    // Use linear interpolation but clamp to valid bounds
+    const p15 = Math.max(p10, p10 + (p50 - p10) * 0.5)
+    const p85 = Math.min(p90, p50 + (p90 - p50) * 0.5)
+
+    return {
+      p10,
+      p50,
+      p90,
+      p15,
+      p85,
+      units,
       unitSymbol: report.results.unitSymbol,
       confidence: report.confidence,
     }
   }, [report])
 
-  // Calculate baseline comparison
+  // Calculate baseline comparison using unified utility
   // Note: baseline === 0 is valid (status quo = 0% success / "do nothing" scenario)
   const comparison = useMemo(() => {
     if (outcomes?.p50 === null || outcomes?.p50 === undefined || baseline === null || baseline === undefined) {
       return null
     }
 
-    const delta = outcomes.p50 - baseline
+    // Use unified baseline comparison logic (fixes P0 - units-aware detection)
+    const result = computeBaselineComparison({
+      value: outcomes.p50,
+      baseline,
+      units: outcomes.units as OutcomeUnits,
+      goalDirection,
+    })
 
-    // Detect if values are in 0-1 probability scale vs 0-100 percentage scale
-    // If outcome is between 0 and 1 (exclusive of 1 or very close to it), likely 0-1 scale
-    const isProbabilityScale = outcomes.p50 >= 0 && outcomes.p50 <= 1
+    if (!result) return null
 
-    // Skip if change is negligible:
-    // - For 0-1 scale: 0.005 = 0.5 percentage points
-    // - For 0-100 scale: 0.5 percentage points
-    const threshold = isProbabilityScale ? 0.005 : 0.5
-    if (Math.abs(delta) < threshold) return null
-
-    // For baseline = 0, use absolute change (percentage points above 0)
-    // For non-zero baseline, use relative percentage change
-    // Convert to percentage if in 0-1 scale
-    const deltaInPct = isProbabilityScale ? delta * 100 : delta
-    const percentChange = baseline === 0
-      ? deltaInPct  // Absolute change in percentage points
-      : (delta / Math.abs(baseline)) * 100
-
-    const isIncrease = delta > 0
-    const isPositive =
-      (goalDirection === 'maximize' && isIncrease) ||
-      (goalDirection === 'minimize' && !isIncrease)
-
+    // Extend with formatted delta for expanded view
     return {
-      delta,
-      percentChange,
-      isIncrease,
-      isPositive,
-      isAbsoluteChange: baseline === 0,  // Track if using absolute vs relative
-      isProbabilityScale,
-      // For formatted display, convert probability scale to percentage
+      ...result,
       formattedDelta: formatOutcomeValueCompact(
-        isProbabilityScale ? Math.abs(delta) * 100 : Math.abs(delta),
+        result.isProbabilityScale ? Math.abs(result.delta) * 100 : Math.abs(result.delta),
         outcomes.units,
         outcomes.unitSymbol
       ),
@@ -199,7 +215,7 @@ export function OutcomesSignal({
           </div>
         </div>
 
-        {/* Comparison context */}
+        {/* Comparison context - Brief 26 Task 3: Better baseline handling */}
         <div className="text-right">
           {comparison ? (
             <div className="flex flex-col items-end">
@@ -213,19 +229,27 @@ export function OutcomesSignal({
                 ) : (
                   <TrendingDown className="h-4 w-4" />
                 )}
-                {/* Show "pts" for baseline=0 (absolute), "%" for relative change */}
-                {comparison.isAbsoluteChange
-                  ? `${comparison.isIncrease ? '+' : ''}${Math.abs(comparison.percentChange).toFixed(0)} pts ${comparison.isPositive ? 'above' : 'below'}`
-                  : `${Math.abs(comparison.percentChange).toFixed(0)}% ${comparison.isPositive ? 'better' : 'worse'}`
-                }
+                {/* Use unified display from comparison utility */}
+                {comparison.display} {comparison.isPositive ? 'better' : 'worse'}
               </span>
               <span className={`${typography.caption} text-ink-500`}>
                 vs. {baselineName}
               </span>
             </div>
+          ) : baseline !== null && baseline !== undefined ? (
+            // Brief 26: Show baseline value even when change is negligible
+            <div className="flex flex-col items-end">
+              <span className={`${typography.bodySmall} flex items-center gap-1 text-ink-500`}>
+                <Minus className="h-4 w-4" />
+                Similar to {baselineName}
+              </span>
+              <span className={`${typography.caption} text-ink-400`}>
+                {formatOutcomeValueCompact(baseline, outcomes?.units || 'percent', outcomes?.unitSymbol)}
+              </span>
+            </div>
           ) : (
             <span className={`${typography.caption} text-ink-400`}>
-              No baseline for comparison
+              No baseline set
             </span>
           )}
         </div>
@@ -251,38 +275,66 @@ export function OutcomesSignal({
 
           {/* Full Range bands - 2 columns (worst/best case) since Most Likely is in header */}
           <div className="grid grid-cols-2 gap-4">
-            {/* P10 - Worst case */}
+            {/* P10 - Pessimistic scenario */}
             <div className="text-center p-2 bg-sand-50 rounded-lg">
-              <p className={`${typography.caption} text-ink-500 mb-1`}>Worst Case</p>
+              <p className={`${typography.caption} text-ink-500 mb-1`}>Pessimistic</p>
               <p className={`${typography.body} font-semibold text-ink-700`}>
                 {formatOutcomeValue(outcomes.p10, outcomes.units, outcomes.unitSymbol)}
               </p>
-              <p className={`${typography.caption} text-ink-400`}>10th percentile</p>
+              <p className={`${typography.caption} text-ink-400`}>If things go poorly</p>
             </div>
 
-            {/* P90 - Best case */}
+            {/* P90 - Optimistic scenario */}
             <div className="text-center p-2 bg-sand-50 rounded-lg">
-              <p className={`${typography.caption} text-ink-500 mb-1`}>Best Case</p>
+              <p className={`${typography.caption} text-ink-500 mb-1`}>Optimistic</p>
               <p className={`${typography.body} font-semibold text-ink-700`}>
                 {formatOutcomeValue(outcomes.p90, outcomes.units, outcomes.unitSymbol)}
               </p>
-              <p className={`${typography.caption} text-ink-400`}>90th percentile</p>
+              <p className={`${typography.caption} text-ink-400`}>If things go well</p>
             </div>
           </div>
 
-          {/* Range visualization */}
-          <div className="relative h-2 bg-sand-200 rounded-full overflow-hidden">
-            <div
-              className="absolute inset-y-0 bg-sky-300 rounded-full"
-              style={{
-                left: '10%',
-                right: '10%',
-              }}
-            />
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-sky-600 rounded-full border-2 border-white shadow"
-              style={{ left: '50%', transform: 'translate(-50%, -50%)' }}
-            />
+          {/* Brief 26 Task 7: Improved range visualization with connected success value */}
+          <div className="space-y-2">
+            {/* Range labels */}
+            <div className="flex justify-between text-xs text-ink-400">
+              <span>{formatOutcomeValueCompact(outcomes.p10, outcomes.units, outcomes.unitSymbol)}</span>
+              <span className="font-medium text-sky-700">
+                Expected: {formatOutcomeValueCompact(outcomes.p50, outcomes.units, outcomes.unitSymbol)}
+              </span>
+              <span>{formatOutcomeValueCompact(outcomes.p90, outcomes.units, outcomes.unitSymbol)}</span>
+            </div>
+            {/* Range bar */}
+            <div className="relative h-3 bg-sand-200 rounded-full overflow-hidden">
+              {/* 70% confidence range highlight */}
+              <div
+                className="absolute inset-y-0 bg-sky-200 rounded-full"
+                style={{
+                  left: `${((outcomes.p15 - outcomes.p10) / (outcomes.p90 - outcomes.p10)) * 100}%`,
+                  right: `${((outcomes.p90 - outcomes.p85) / (outcomes.p90 - outcomes.p10)) * 100}%`,
+                }}
+              />
+              {/* Expected value marker */}
+              <div
+                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-sky-600 rounded-full border-2 border-white shadow-md"
+                style={{
+                  left: `${((outcomes.p50 - outcomes.p10) / (outcomes.p90 - outcomes.p10)) * 100}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+                title={`Expected: ${formatOutcomeValue(outcomes.p50, outcomes.units, outcomes.unitSymbol)}`}
+              />
+            </div>
+            {/* Legend */}
+            <div className="flex items-center justify-center gap-4 text-xs">
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-2 bg-sky-200 rounded" />
+                <span className="text-ink-500">70% likely range</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-3 bg-sky-600 rounded-full" />
+                <span className="text-ink-500">Expected</span>
+              </span>
+            </div>
           </div>
 
           {/* Confidence and source */}
@@ -309,10 +361,7 @@ export function OutcomesSignal({
                   comparison.isPositive ? 'text-mint-600' : 'text-carrot-600'
                 }`}>
                   {comparison.isIncrease ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  {comparison.isAbsoluteChange
-                    ? `${comparison.isIncrease ? '+' : ''}${comparison.formattedDelta}`
-                    : `${comparison.formattedDelta} (${comparison.isIncrease ? '+' : ''}${comparison.percentChange.toFixed(0)}%)`
-                  }
+                  {comparison.display}
                 </span>
               </div>
             </div>

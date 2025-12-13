@@ -198,12 +198,41 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
             </div>
           )}
 
-          {/* Backend recommendation */}
-          {metrics.recommendation && (
-            <p className={`${typography.caption} text-ink-500 pt-2 border-t border-sand-100`}>
-              {metrics.recommendation}
-            </p>
-          )}
+          {/* Backend recommendation - Brief 26 Task 4 + Brief 32 Task 3 + Brief 33b: Only show if ratings justify it */}
+          {metrics.recommendation && (() => {
+            // Brief 33b Fix: Use overall tier instead of requiring ALL individual factors >= 70
+            // Previous logic failed when 2/3 factors were Strong but 1 was Adequate
+            // The tier badge already shows "Good/Fair/Needs Work" - suppression should match what's displayed
+            const overallGood = tier === 'good'
+
+            // Suppress generic "add more" suggestions when model is already strong
+            // Extended pattern to catch more variations
+            const isGenericSuggestion = /add more|consider adding|include additional|adding more|more relationships|more factors|more evidence/i.test(metrics.recommendation)
+
+            // DEBUG: Log values for Brief 33b investigation
+            if (import.meta.env.DEV) {
+              console.log('[TrustSignal] Mixed messaging check:', {
+                overallScore: metrics.score,
+                tier,
+                completeness: metrics.completeness,
+                evidenceCoverage: metrics.evidenceCoverage,
+                balance: metrics.balance,
+                overallGood,
+                recommendation: metrics.recommendation,
+                isGenericSuggestion,
+                suppressed: overallGood && isGenericSuggestion,
+              })
+            }
+
+            if (overallGood && isGenericSuggestion) {
+              return null // Don't show contradictory suggestion
+            }
+            return (
+              <p className={`${typography.caption} text-ink-500 pt-2 border-t border-sand-100`}>
+                {metrics.recommendation}
+              </p>
+            )
+          })()}
         </div>
       )}
     </div>
