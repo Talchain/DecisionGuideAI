@@ -9,6 +9,10 @@
  * - straight: Direct diagonal lines (uses getStraightPath)
  *
  * For smoothstep, curvature range 0..0.5 maps to borderRadius 0..25px.
+ *
+ * Brief v2.2: Added visual styling for effect direction
+ * - positive: Green stroke (increase → increase)
+ * - negative: Red stroke (increase → decrease)
  */
 
 import { memo, useMemo, useState } from 'react'
@@ -70,6 +74,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const confidence = edgeData?.confidence
   const belief = edgeData?.belief      // v1.2
   const provenance = edgeData?.provenance  // v1.2
+  const direction = edgeData?.direction as 'positive' | 'negative' | undefined  // v2.2
 
   // Count outgoing edges from source node for visibility logic
   const outgoingEdgeCount = useMemo(() => {
@@ -82,6 +87,19 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     () => applyEdgeVisualProps(weight, style, curvature, selected || false, false, isDark),
     [weight, style, curvature, selected, isDark]
   )
+
+  // Brief v2.2: Direction-based stroke colour
+  // positive: green (increase → increase), negative: red (increase → decrease)
+  const directionStroke = useMemo(() => {
+    if (!direction) return undefined
+    if (direction === 'positive') {
+      return isDark ? '#22c55e' : '#16a34a'  // Green-500/600
+    }
+    if (direction === 'negative') {
+      return isDark ? '#ef4444' : '#dc2626'  // Red-500/600
+    }
+    return undefined
+  }, [direction, isDark])
 
   // Determine label visibility and styling
   const labelVisibility = useMemo(
@@ -153,7 +171,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         style={{
           strokeWidth: visualProps.strokeWidth,
           strokeDasharray: visualProps.strokeDasharray,
-          stroke: visualProps.stroke,
+          // Brief v2.2: Use direction-based colour if available
+          stroke: directionStroke ?? visualProps.stroke,
           // Performance: use will-change for frequent updates
           willChange: selected ? 'stroke, stroke-width' : undefined,
         }}

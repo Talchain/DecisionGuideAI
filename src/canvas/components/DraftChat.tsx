@@ -11,6 +11,8 @@ import { DraftGuidancePanel } from './DraftGuidancePanel'
 import { RateLimitNotice } from './RateLimitNotice'
 import { DEFAULT_EDGE_DATA, trimProvenance } from '../domain/edges'
 import { Tooltip } from './Tooltip'
+import { isCEEv2Response } from '../../adapters/cee/types'
+import type { CEEDraftResponse, CEEv2Response, EffectDirection } from '../../adapters/cee/types'
 
 // Available AI models
 const AI_MODELS = [
@@ -233,9 +235,12 @@ export function DraftChat() {
   }
 
   // Apply draft to canvas and return the IDs of added nodes/edges
-  const applyDraftToCanvas = useCallback((draftData: typeof draft) => {
+  const applyDraftToCanvas = useCallback((draftData: CEEDraftResponse | CEEv2Response | null) => {
     // Null-safe: bail out if draft or nodes/edges are missing
     if (!draftData?.nodes?.length) return { nodeIds: [], edgeIds: [] }
+
+    // Check if this is a v2 response
+    const isV2 = isCEEv2Response(draftData)
 
     // Convert CEE nodes to canvas nodes
     const nodes = draftData.nodes.map((n: any) => ({
@@ -245,6 +250,9 @@ export function DraftChat() {
       data: {
         label: n.label,
         uncertainty: n.uncertainty,
+        description: n.description,
+        // Brief v2.2: Include observed_state for factor nodes
+        ...(isV2 && n.observed_state ? { observedState: n.observed_state } : {}),
       },
     }))
 
@@ -253,7 +261,7 @@ export function DraftChat() {
 
       const weight =
         typeof e.weight === 'number'
-          ? Math.max(0, Math.min(1, e.weight))
+          ? Math.max(0, Math.min(2, e.weight)) // v2.2: weight can be 0.3-1.5
           : DEFAULT_EDGE_DATA.weight
 
       const confidence =
@@ -272,6 +280,12 @@ export function DraftChat() {
         }
       }
 
+      // Brief v2.2: Extract new edge properties
+      const direction: EffectDirection | undefined = isV2 ? e.effect_direction : undefined
+      const strengthStd: number | undefined = isV2 && typeof e.strength_std === 'number'
+        ? e.strength_std
+        : undefined
+
       return {
         id,
         source: e.from,
@@ -282,7 +296,11 @@ export function DraftChat() {
           weight,
           pathType: 'bezier',
           confidence,
+          beliefExists: confidence, // Brief v2.2: Map belief to beliefExists
           provenance: provenanceText,
+          // Brief v2.2: New edge properties
+          ...(direction ? { direction } : {}),
+          ...(strengthStd !== undefined ? { strengthStd } : {}),
         },
       }
     })

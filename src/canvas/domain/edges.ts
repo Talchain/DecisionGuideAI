@@ -12,6 +12,13 @@ export const EdgeStyleEnum = z.enum(['solid', 'dashed', 'dotted'])
 export type EdgeStyle = z.infer<typeof EdgeStyleEnum>
 
 /**
+ * Brief v2.2: Effect direction enum for edges
+ * Indicates whether an increase in the source causes an increase or decrease in the target
+ */
+export const EffectDirectionEnum = z.enum(['positive', 'negative'])
+export type EffectDirection = z.infer<typeof EffectDirectionEnum>
+
+/**
  * Edge path type options for connector rendering
  * - bezier: Smooth curved lines (default, best for most graphs)
  * - smoothstep: Right-angle paths with rounded corners
@@ -167,7 +174,8 @@ export type EdgeFunctionParams = z.infer<typeof EdgeFunctionParamsSchema>
  */
 export const EdgeDataSchema = z.object({
   // Visual properties
-  weight: z.number().min(0).max(1).default(0.5),
+  // Issue 3 fix: Expanded weight range to allow strong effects (was max 1)
+  weight: z.number().min(0).max(2).default(0.5),
   style: EdgeStyleEnum.default('solid'),
   // Note: curvature is currently only applied for smoothstep paths in StyledEdge.
   // Bezier paths use a fixed internal curvature value for now.
@@ -194,6 +202,12 @@ export const EdgeDataSchema = z.object({
   beliefExists: z.number().min(0).max(1).optional(),
   /** Magnitude of effect given relationship exists (0-1). High = strong effect when present. */
   beliefStrength: z.number().min(0).max(1).optional(),
+
+  // Brief v2.2: Effect direction and parametric uncertainty
+  /** Direction of effect: positive (increase→increase) or negative (increase→decrease) */
+  direction: EffectDirectionEnum.optional(),
+  /** Parametric uncertainty (standard deviation) from CEE */
+  strengthStd: z.number().positive().optional(),
 
   // Phase 3: Non-linear edge functions
   functionType: EdgeFunctionTypeEnum.default('linear'),   // How input transforms to output
@@ -235,9 +249,10 @@ export const DEFAULT_EDGE_DATA: EdgeData = {
  * Used for validation and UI controls
  */
 export const EDGE_CONSTRAINTS = {
+  // Issue 3 fix: Expanded weight range to allow strong effects
   weight: {
     min: 0,
-    max: 1,
+    max: 2,
     step: 0.05,
     default: 0.5,
   },

@@ -4,6 +4,7 @@
  * Brief 12.5: Transform UI request format to ISL API expected format
  * Brief 30: Updated to match actual ISL API schemas
  * Brief F: Updated to match actual ISL API contract (graph + options + utility format)
+ * Brief v2.2: Added v2 edge transformation with signed mean and strength.std
  *
  * ISL expects specific field names and structures that differ from
  * our internal UI conventions. This adapter handles:
@@ -11,6 +12,7 @@
  * - Request payload structuring
  * - Graph format transformation
  * - Parameter uncertainty extraction
+ * - v2.2: Signed strength mean from direction + weight
  */
 
 import type {
@@ -20,6 +22,7 @@ import type {
   ISLConformalModel,
   ISLGraphNode,
   ISLGraphEdge,
+  ISLGraphEdgeV2,
   ISLOption,
   ISLParameterUncertainty,
   LegacyISLRobustnessRequest,
@@ -98,18 +101,20 @@ function mapNodeKind(type: string | undefined): string {
 
 /**
  * Transform UI nodes to ISL graph node format
+ * Integration fix: Maps type→kind and description→body
  */
 export function transformNodesToISLGraph(nodes: UINode[]): ISLGraphNode[] {
   return nodes.map(n => ({
     id: n.id,
-    kind: mapNodeKind(n.type),
+    kind: mapNodeKind(n.type),  // Issue 1: type → kind
     label: n.data?.label || n.id,
+    body: n.data?.description,  // Issue 2: description → body
     belief: n.data?.belief ?? n.data?.value,
   }))
 }
 
 /**
- * Transform UI edges to ISL graph edge format
+ * Transform UI edges to ISL graph edge format (v1 - unsigned weight)
  */
 export function transformEdgesToISLGraph(edges: UIEdge[]): ISLGraphEdge[] {
   return edges.map(e => ({
@@ -117,6 +122,62 @@ export function transformEdgesToISLGraph(edges: UIEdge[]): ISLGraphEdge[] {
     to: e.target,
     weight: e.data?.weight ?? e.data?.belief ?? 1,
   }))
+}
+
+// =============================================================================
+// Brief v2.2: V2 Edge Transformation Functions
+// =============================================================================
+
+// Issue 4 fix: ISLGraphEdgeV2 is now imported from '../../adapters/isl/types'
+// Re-export for backward compatibility with existing imports
+export type { ISLGraphEdgeV2 as ISLEdgeV2 } from '../../adapters/isl/types'
+
+/**
+ * Compute signed strength mean from direction and weight.
+ *
+ * - direction="positive" + weight=0.8 → mean=+0.8
+ * - direction="negative" + weight=0.8 → mean=-0.8
+ * - No direction → mean=+weight (assume positive)
+ */
+export function computeSignedMean(data: UIEdge['data']): number {
+  const magnitude = data?.weight ?? 0.5
+  const direction = data?.direction as 'positive' | 'negative' | undefined
+  const sign = direction === 'negative' ? -1 : 1
+  return sign * magnitude
+}
+
+/**
+ * Compute default std when not provided by CEE.
+ * Uses same formula as CEE for consistency:
+ * cv = 0.3 * (1 - belief) + 0.1
+ * std = max(0.05, cv * magnitude)
+ */
+export function computeDefaultStd(data: UIEdge['data']): number {
+  const magnitude = data?.weight ?? 0.5
+  const belief = data?.beliefExists ?? data?.confidence ?? data?.belief ?? 0.5
+  const cv = 0.3 * (1 - belief) + 0.1
+  return Math.max(0.05, cv * magnitude)
+}
+
+/**
+ * Transform UI edges to ISL v2 format with signed mean.
+ * Brief v2.2: Computes exists_probability and strength {mean, std}
+ * Issue 4 fix: Now returns ISLGraphEdgeV2[] from central types
+ */
+export function transformEdgesToISLv2(edges: UIEdge[]): ISLGraphEdgeV2[] {
+  return edges.map(e => {
+    const data = e.data
+
+    return {
+      from: e.source,
+      to: e.target,
+      exists_probability: data?.beliefExists ?? data?.confidence ?? data?.belief ?? 0.5,
+      strength: {
+        mean: computeSignedMean(data),
+        std: data?.strengthStd ?? computeDefaultStd(data)
+      }
+    }
+  })
 }
 
 /**
@@ -171,6 +232,7 @@ function extractInterventions(node: UINode): Record<string, number> {
 /**
  * Extract parameter uncertainties from factor nodes for ISL analysis.
  * Brief I Task 1: Handles multiple data formats for robustness.
+ * Brief v2.2: Added support for observedState format from CEE v2.
  */
 export function extractParameterUncertainties(
   nodes: UINode[]
@@ -196,13 +258,37 @@ export function extractParameterUncertainties(
     let mean: number | null = null
     let std: number | null = null
 
-    // Format 1: { range: [min, max] } or { range: { min, max } }
-    const range = extractRange(data.range)
-    if (range) {
-      mean = (range.min + range.max) / 2
-      std = (range.max - range.min) / 4 // ~95% within range
+    // Brief v2.2 Format: { observedState: { value, baseline, unit } }
+    // This is the preferred format from CEE v2.2
+    const observedState = data.observedState as { value?: number; baseline?: number; unit?: string } | undefined
+    if (observedState && typeof observedState.value === 'number') {
+      const value = observedState.value
+      const baseline = observedState.baseline ?? value
+
+      // Derive std from the change magnitude (25% of delta)
+      // Issue 2 fix: When value === baseline (delta=0), use 1% floor
+      const delta = Math.abs(value - baseline)
+      std = delta > 0
+        ? delta * 0.25  // 25% of the change as uncertainty
+        : Math.max(0.01, Math.abs(value) * 0.01)  // 1% of value or floor
+
+      mean = value
+      std = Math.max(0.01, std)  // Minimum floor
+
       if (import.meta.env.DEV) {
-        console.log(`[ISL Adapter] Factor ${node.id}: extracted from range`, { range, mean, std })
+        console.log(`[ISL Adapter] Factor ${node.id}: extracted from observedState`, { observedState, mean, std })
+      }
+    }
+
+    // Format 1: { range: [min, max] } or { range: { min, max } }
+    if (mean === null) {
+      const range = extractRange(data.range)
+      if (range) {
+        mean = (range.min + range.max) / 2
+        std = (range.max - range.min) / 4 // ~95% within range
+        if (import.meta.env.DEV) {
+          console.log(`[ISL Adapter] Factor ${node.id}: extracted from range`, { range, mean, std })
+        }
       }
     }
 
@@ -287,6 +373,7 @@ export function extractUtility(nodes: UINode[]): { goal_node_id: string; maximiz
 /**
  * Build full ISL robustness request from UI graph
  * Brief F Task 2: Uses actual ISL API contract format
+ * Brief v2.2: Added useV2Schema option for signed strength mean
  */
 export function buildISLRobustnessRequest(
   nodes: UINode[],
@@ -294,12 +381,19 @@ export function buildISLRobustnessRequest(
   options?: {
     includeVoi?: boolean
     sampleSizesForEvsi?: number[]
+    useV2Schema?: boolean
   }
 ): ISLRobustnessRequest {
+  // Brief v2.2: Use v2 edge transformation if flag is set
+  // Issue 4 fix: ISLGraph.edges now accepts ISLGraphEdge[] | ISLGraphEdgeV2[]
+  const graphEdges = options?.useV2Schema
+    ? transformEdgesToISLv2(edges)
+    : transformEdgesToISLGraph(edges)
+
   return {
     graph: {
       nodes: transformNodesToISLGraph(nodes),
-      edges: transformEdgesToISLGraph(edges),
+      edges: graphEdges,
     },
     options: extractISLOptions(nodes),
     utility: extractUtility(nodes),

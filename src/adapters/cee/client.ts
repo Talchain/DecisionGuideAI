@@ -3,7 +3,9 @@ import type {
   CEEInsightsResponse,
   CEEFramingFeedback,
   CEEStructuralWarning,
+  CEEv2Response,
 } from './types'
+import { isCEEv2Response } from './types'
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 
@@ -276,13 +278,31 @@ export class CEEClient {
   /**
    * Generate draft model from description
    * Calls CEE /draft-graph endpoint (proxy adds /assist/v1 prefix)
+   *
+   * @param description - The decision description/brief
+   * @param options - Optional parameters
+   * @param options.schemaVersion - Request specific schema version ('v1' | 'v2')
    */
-  async draftModel(description: string): Promise<CEEDraftResponse> {
-    const raw = await this.fetch<any>('/draft-graph', {
+  async draftModel(
+    description: string,
+    options?: { schemaVersion?: 'v1' | 'v2' }
+  ): Promise<CEEDraftResponse | CEEv2Response> {
+    // Build endpoint with optional schema query param
+    const endpoint = options?.schemaVersion === 'v2'
+      ? '/draft-graph?schema=v2'
+      : '/draft-graph'
+
+    const raw = await this.fetch<any>(endpoint, {
       method: 'POST',
       body: JSON.stringify({ brief: description }),
     })
 
+    // For v2 requests, check if response is v2 format
+    if (options?.schemaVersion === 'v2' && isCEEv2Response(raw)) {
+      return raw as CEEv2Response
+    }
+
+    // Fall back to v1 adaptation
     return adaptDraftResponse(raw)
   }
 

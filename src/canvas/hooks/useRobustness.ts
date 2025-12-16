@@ -20,6 +20,7 @@ import {
 } from '../adapters/islRobustnessAdapter'
 import { buildISLRobustnessRequest, type UINode, type UIEdge } from '../adapters/islRequestAdapter'
 import { useCanvasStore } from '../store'
+import { isSchemaV2Enabled } from '../../flags'
 
 interface UseRobustnessOptions {
   /** Run ID to fetch robustness for (used for caching) */
@@ -126,7 +127,10 @@ export function useRobustness({
         console.groupEnd()
       }
 
-      const payload = buildISLRobustnessRequest(uiNodes, uiEdges)
+      // Brief v2.2: Pass useV2Schema flag to use signed strength.mean
+      const payload = buildISLRobustnessRequest(uiNodes, uiEdges, {
+        useV2Schema: isSchemaV2Enabled(),
+      })
 
       // Brief I Task 5: Validate request before sending (with smarter option checking)
       if (import.meta.env.DEV) {
@@ -166,7 +170,17 @@ export function useRobustness({
       }
 
       // Brief F Task 1: Correct endpoint path
-      const response = await fetch('/bff/isl/api/v1/analysis/robustness', {
+      // Integration fix Issue 3: Use v2 endpoint when schema v2 is enabled
+      const useV2 = isSchemaV2Enabled()
+      const endpoint = useV2
+        ? '/bff/isl/api/v1/robustness/analyze/v2'
+        : '/bff/isl/api/v1/analysis/robustness'
+
+      if (import.meta.env.DEV) {
+        console.log('[useRobustness] Using endpoint:', endpoint, '(v2:', useV2, ')')
+      }
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

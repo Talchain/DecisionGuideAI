@@ -1,6 +1,7 @@
 /**
  * Node property inspector - keyboard-first editing
  * Includes inline probability editor (single source of truth)
+ * Brief v2.2: Added FactorValueEditor for observed_state editing
  */
 
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react'
@@ -11,6 +12,16 @@ import type { NodeType } from '../domain/nodes'
 import { renderIcon } from '../helpers/renderIcon'
 import { autoBalance, equalSplit, type BalanceRow } from '../utils/probabilityBalancing'
 import { Tooltip } from '../components/Tooltip'
+
+/**
+ * Brief v2.2: ObservedState type for factor nodes
+ */
+interface ObservedState {
+  value: number
+  baseline?: number
+  unit?: string
+  source?: string
+}
 
 interface NodeInspectorProps {
   nodeId: string
@@ -37,6 +48,17 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
   const node = nodes.find(n => n.id === nodeId)
   const [label, setLabel] = useState<string>(String(node?.data?.label ?? ''))
   const [description, setDescription] = useState<string>(String(node?.data?.description ?? ''))
+
+  // Brief v2.2: State for factor value editing
+  const isFactorNode = node?.type === 'factor'
+  const existingObservedState = node?.data?.observedState as ObservedState | undefined
+  const [factorValue, setFactorValue] = useState<string>(
+    existingObservedState?.value !== undefined ? String(existingObservedState.value) : ''
+  )
+  const [factorBaseline, setFactorBaseline] = useState<string>(
+    existingObservedState?.baseline !== undefined ? String(existingObservedState.baseline) : ''
+  )
+  const [factorUnit, setFactorUnit] = useState<string>(existingObservedState?.unit ?? '')
 
   // Get outgoing edges from this node
   const outgoingEdges = useMemo(() =>
@@ -125,6 +147,32 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
       updateNode(nodeId, { data: { ...node?.data, description: trimmed || undefined } })
     }
   }, [nodeId, description, node?.data, updateNode])
+
+  // Brief v2.2: Handler for factor value updates
+  const handleFactorValueUpdate = useCallback(() => {
+    const value = factorValue.trim() ? parseFloat(factorValue) : undefined
+    const baseline = factorBaseline.trim() ? parseFloat(factorBaseline) : undefined
+    const unit = factorUnit.trim() || undefined
+
+    // Only update if we have at least a value
+    if (value !== undefined && !isNaN(value)) {
+      const newObservedState: ObservedState = {
+        value,
+        ...(baseline !== undefined && !isNaN(baseline) ? { baseline } : {}),
+        ...(unit ? { unit } : {}),
+      }
+      updateNode(nodeId, {
+        data: {
+          ...node?.data,
+          observedState: newObservedState,
+        }
+      })
+    } else if (!factorValue.trim() && existingObservedState) {
+      // Clear observedState if value is empty
+      const { observedState: _, ...restData } = node?.data ?? {}
+      updateNode(nodeId, { data: restData })
+    }
+  }, [nodeId, factorValue, factorBaseline, factorUnit, node?.data, updateNode, existingObservedState])
 
   const handleTypeChange = useCallback((newType: NodeType) => {
     // Update node type in place (preserves id, position, label)
@@ -378,6 +426,66 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           placeholder="Add a note..."
         />
       </div>
+
+      {/* Brief v2.2: Factor Value Editor */}
+      {isFactorNode && (
+        <div className="mb-4 pb-4 border-b border-gray-200">
+          <Tooltip content="Set the current and baseline values for this factor" position="right">
+            <h4 className="text-xs font-medium text-gray-700 mb-2">
+              Observed Value <span className="text-gray-400">(optional)</span>
+            </h4>
+          </Tooltip>
+
+          <div className="flex gap-2 mb-2">
+            <div className="w-16">
+              <label htmlFor="factor-unit" className="block text-xs text-gray-500 mb-1">Unit</label>
+              <input
+                id="factor-unit"
+                type="text"
+                value={factorUnit}
+                onChange={(e) => setFactorUnit(e.target.value)}
+                onBlur={handleFactorValueUpdate}
+                placeholder="£, %, etc."
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+                maxLength={10}
+              />
+            </div>
+            <div className="flex-1">
+              <label htmlFor="factor-value" className="block text-xs text-gray-500 mb-1">Current</label>
+              <input
+                id="factor-value"
+                type="number"
+                value={factorValue}
+                onChange={(e) => setFactorValue(e.target.value)}
+                onBlur={handleFactorValueUpdate}
+                placeholder="59"
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+                step="any"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="factor-baseline" className="block text-xs text-gray-500 mb-1">
+              Baseline <span className="text-gray-400">(previous value)</span>
+            </label>
+            <input
+              id="factor-baseline"
+              type="number"
+              value={factorBaseline}
+              onChange={(e) => setFactorBaseline(e.target.value)}
+              onBlur={handleFactorValueUpdate}
+              placeholder="49"
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1"
+              step="any"
+            />
+          </div>
+
+          <p className="text-xs text-gray-500 mt-2">
+            Used for parameter uncertainty in analysis.
+          </p>
+        </div>
+      )}
 
       {/* Outcome Node Selector */}
       <div className="mb-4 pb-4 border-b border-gray-200">

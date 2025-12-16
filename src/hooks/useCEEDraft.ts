@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { CEEClient, CEEError } from '../adapters/cee/client'
-import type { CEEDraftResponse } from '../adapters/cee/types'
+import type { CEEDraftResponse, CEEv2Response } from '../adapters/cee/types'
+import { isSchemaV2Enabled } from '../flags'
 
 export interface DraftGuidance {
   level: 'ready' | 'needs_clarification' | 'not_ready'
@@ -9,7 +10,7 @@ export interface DraftGuidance {
 }
 
 interface UseCEEDraftState {
-  data: CEEDraftResponse | null
+  data: CEEDraftResponse | CEEv2Response | null
   loading: boolean
   error: CEEError | null
   guidance: DraftGuidance | null
@@ -32,7 +33,9 @@ export function useCEEDraft() {
       setState({ data: null, loading: true, error: null, guidance: null, retryAfterSeconds: null })
 
       try {
-        const data = await client.draftModel(description)
+        // Brief v2.2: Use schema v2 when feature flag is enabled
+        const schemaVersion = isSchemaV2Enabled() ? 'v2' : 'v1'
+        const data = await client.draftModel(description, { schemaVersion })
 
         if (!data?.nodes || data.nodes.length === 0) {
           throw new CEEError(

@@ -14,20 +14,35 @@ export interface ISLGraphNode {
   id: string
   kind: string
   label: string
+  body?: string   // Integration fix: Maps from UI description field
   belief?: number
 }
 
-/** ISL graph edge format */
+/** ISL graph edge format (v1 - unsigned weight) */
 export interface ISLGraphEdge {
   from: string
   to: string
   weight: number
 }
 
-/** ISL graph format */
+/**
+ * Issue 4 fix: ISL graph edge format v2 (signed strength with uncertainty)
+ * Brief v2.2: Used when VITE_FEATURE_SCHEMA_V2 is enabled
+ */
+export interface ISLGraphEdgeV2 {
+  from: string
+  to: string
+  exists_probability: number
+  strength: {
+    mean: number  // SIGNED: negative for negative effects
+    std: number
+  }
+}
+
+/** ISL graph format - supports both v1 and v2 edge formats */
 export interface ISLGraph {
   nodes: ISLGraphNode[]
-  edges: ISLGraphEdge[]
+  edges: ISLGraphEdge[] | ISLGraphEdgeV2[]
 }
 
 /** ISL option/intervention format */

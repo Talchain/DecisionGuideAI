@@ -253,6 +253,15 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_ONBOARDING',
     storageKey: 'feature.onboardingTour',
   },
+  // Brief v2.2: Decision Model Schema v2.2 support
+  // When enabled, UI requests ?schema=v2 from CEE and handles:
+  // - observed_state on factor nodes
+  // - effect_direction + strength_std on edges
+  // - Signed strength.mean in ISL requests
+  schemaV2: {
+    envKey: 'VITE_FEATURE_SCHEMA_V2',
+    storageKey: 'feature.schemaV2',
+  },
 } as const
 
 // ============================================================================
@@ -316,6 +325,7 @@ const flags = {
   debug: makeFlag(FLAGS_CONFIG.debug),
   snapshotsV2: makeFlag(FLAGS_CONFIG.snapshotsV2),
   onboardingTour: makeFlag(FLAGS_CONFIG.onboardingTour),
+  schemaV2: makeFlag(FLAGS_CONFIG.schemaV2),
 }
 
 // Export with original naming convention for backward compatibility
@@ -374,6 +384,7 @@ export const isOptimiseBetaEnabled = flags.optimiseBeta
 export const isDebugEnabled = flags.debug
 export const isSnapshotsV2Enabled = flags.snapshotsV2
 export const isOnboardingTourEnabled = flags.onboardingTour
+export const isSchemaV2Enabled = flags.schemaV2
 
 // ============================================================================
 // POC FLAGS (special pattern - constant object, not functions)
