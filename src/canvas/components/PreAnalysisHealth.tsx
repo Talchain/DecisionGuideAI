@@ -116,11 +116,14 @@ export function PreAnalysisHealth({
   const setHighlightedNodes = useCanvasStore((s) => s.setHighlightedNodes)
 
   // Notify parent when readiness.can_run_analysis changes (for unified run gating)
+  // Brief I Fix: Also re-evaluate when loading changes - during refresh, default to true
+  // This prevents stale CEE data from blocking the Run button after auto-fix
   useEffect(() => {
-    // Default to true when loading or no data yet (don't block by default)
-    const canRun = readiness?.can_run_analysis ?? true
+    // During loading/refresh, default to true so local validation takes precedence
+    // Once CEE responds, its can_run_analysis value takes over
+    const canRun = loading ? true : (readiness?.can_run_analysis ?? true)
     onCanRunChange?.(canRun)
-  }, [readiness?.can_run_analysis, onCanRunChange])
+  }, [readiness?.can_run_analysis, loading, onCanRunChange])
 
   // Handle focusing on affected elements
   const handleFocusImprovement = useCallback((improvement: GraphImprovement) => {

@@ -174,9 +174,6 @@ export function OutcomesSignal({
   const confidenceLevel = (outcomes.confidence?.level || 'medium') as ConfidenceLevel
   const confConfig = confidenceConfig[confidenceLevel] || confidenceConfig.medium
 
-  // Determine if outcome is likely positive or needs attention based on value
-  const outcomeAssessment = outcomes.p50 >= 50 ? 'positive' : outcomes.p50 >= 25 ? 'moderate' : 'low'
-
   return (
     <div className="bg-paper-50 border border-sand-200 rounded-xl overflow-hidden" data-testid="outcomes-signal">
       {/* Objective context - always visible at top */}
@@ -237,14 +234,15 @@ export function OutcomesSignal({
               </span>
             </div>
           ) : baseline !== null && baseline !== undefined ? (
-            // Brief 26: Show baseline value even when change is negligible
+            // Brief I Task 3: Clearer message when outcome similar to baseline
+            // Don't show confusing "Similar to do nothing 0%" - just show stable indicator
             <div className="flex flex-col items-end">
-              <span className={`${typography.bodySmall} flex items-center gap-1 text-ink-500`}>
+              <span className={`${typography.bodySmall} flex items-center gap-1 text-sky-600`}>
                 <Minus className="h-4 w-4" />
-                Similar to {baselineName}
+                Stable outcome
               </span>
               <span className={`${typography.caption} text-ink-400`}>
-                {formatOutcomeValueCompact(baseline, outcomes?.units || 'percent', outcomes?.unitSymbol)}
+                No significant change
               </span>
             </div>
           ) : (

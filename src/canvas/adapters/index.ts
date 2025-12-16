@@ -20,16 +20,40 @@ export {
   adaptFormRequest,
   buildRobustnessRequest,
   buildFormRequest,
+  // Brief F Task 2: New ISL format transformation functions
+  buildISLRobustnessRequest,
+  transformNodesToISLGraph,
+  transformEdgesToISLGraph,
+  extractISLOptions,
+  extractParameterUncertainties,
+  extractUtility,
+  // Brief F Task 5: Range format helper
+  extractRange,
 } from './islRequestAdapter'
 
 export type {
   UIRobustnessRequest,
-  ISLRobustnessRequest,
   UIEdgeContext,
   CEEEdgeContext,
   UIFormRequest,
   CEEFormRequest,
+  UINode,
+  UIEdge,
 } from './islRequestAdapter'
+
+// CEE Synthesis Adapter (Brief F Task 3C)
+export {
+  transformISLToCEESynthesis,
+  createEmptySynthesisRequest,
+} from './ceeSynthesisAdapter'
+
+export type {
+  CEESynthesisRequest,
+  CEESensitivityItem,
+  CEEVoiItem,
+  CEETippingPoint,
+  CEERobustnessItem,
+} from './ceeSynthesisAdapter'
 
 // CEE Form Adapter
 export {

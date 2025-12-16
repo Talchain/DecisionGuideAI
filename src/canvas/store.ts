@@ -22,6 +22,10 @@ import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 
+// Brief 37 Optimization: Stable empty array to prevent re-renders
+// graphHealthFromQuality() returns this when no issues exist, avoiding new array allocation
+const EMPTY_VALIDATION_ISSUES: ValidationIssue[] = []
+
 /**
  * Generate deterministic content hash using FNV-1a algorithm
  * Fast, simple, and produces consistent hashes for content integrity checks
@@ -296,7 +300,11 @@ function clearTimers() {
 // Derive a coarse GraphHealth view from engine-level graph_quality when
 // structural validation has not yet run. This keeps health chips in sync
 // with the latest analysis without overwriting validator results.
-function graphHealthFromQuality(quality: ReportV1['graph_quality'] | undefined): GraphHealth | null {
+// Brief 37 Optimization: Accept existing health to return stable reference when unchanged
+function graphHealthFromQuality(
+  quality: ReportV1['graph_quality'] | undefined,
+  existingHealth?: GraphHealth | null
+): GraphHealth | null {
   if (!quality) return null
 
   const clampedScore = Math.max(0, Math.min(1, quality.score))
@@ -311,10 +319,19 @@ function graphHealthFromQuality(quality: ReportV1['graph_quality'] | undefined):
     status = 'errors'
   }
 
+  // Brief 37 Optimization: Return existing object if score/status unchanged
+  // This prevents unnecessary re-renders from new object references
+  if (existingHealth &&
+      existingHealth.score === score &&
+      existingHealth.status === status &&
+      existingHealth.issues.length === 0) {
+    return existingHealth
+  }
+
   return {
     status,
     score,
-    issues: [] as ValidationIssue[],
+    issues: EMPTY_VALIDATION_ISSUES,
   }
 }
 
@@ -1309,13 +1326,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError }) => {
-    const { nodes, edges, results, currentScenarioId } = get()
+    const { nodes, edges, results, currentScenarioId, graphHealth: existingHealth } = get()
 
     const finishedAt = Date.now()
     const completedAtIso = new Date(finishedAt).toISOString()
     const seedString = results.seed != null ? String(results.seed) : null
 
-    const healthFromQuality = graphHealthFromQuality(report.graph_quality)
+    // Brief 37: Pass existing health to avoid creating new objects when unchanged
+    const healthFromQuality = graphHealthFromQuality(report.graph_quality, existingHealth)
 
     set(s => ({
       results: {
@@ -1438,7 +1456,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       } catch {}
     }
 
-    const healthFromQuality = graphHealthFromQuality(run.report?.graph_quality)
+    // Brief 37: Pass existing health to avoid creating new objects when unchanged
+    const existingHealth = get().graphHealth
+    const healthFromQuality = graphHealthFromQuality(run.report?.graph_quality, existingHealth)
 
     set(s => ({
       results: {
@@ -1733,11 +1753,28 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   // M4: Graph Health actions
   validateGraph: async () => {
+    // Get nodes/edges for validation (before await to ensure consistency)
     const { nodes, edges } = get()
 
     // Dynamic import to avoid bundling validation if not used
     const { validateGraph: validate } = await import('./validation/graphValidator')
     const health = validate(nodes, edges)
+
+    // Brief 37 Optimization: Re-check current store state AFTER async import
+    // to avoid race conditions where multiple calls see stale existingHealth
+    const existingHealth = get().graphHealth
+
+    // Skip update if health is unchanged (prevents re-renders from new object refs)
+    if (existingHealth &&
+        existingHealth.status === health.status &&
+        existingHealth.score === health.score &&
+        existingHealth.issues.length === health.issues.length &&
+        existingHealth.issues.every((issue, i) =>
+          issue.id === health.issues[i]?.id &&
+          issue.type === health.issues[i]?.type
+        )) {
+      return // No change, skip update
+    }
 
     set({ graphHealth: health })
   },

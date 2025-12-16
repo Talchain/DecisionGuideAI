@@ -274,6 +274,10 @@ function mapV1ResultToReport(
 
     // P0.1: Canonical decision readiness (always populated from confidence.level)
     decision_readiness: mapConfidenceToDecisionReadiness(confidenceLevel),
+
+    // Brief E Task 1: Per-option goal probabilities
+    option_probabilities: result.option_probabilities,
+    goal_node: response.goal_node || result.goal_node,
   }
 }
 
@@ -432,6 +436,25 @@ export const httpV1Adapter = {
       }
       if (input.save !== undefined) {
         v1Request.save = input.save
+      }
+
+      // Brief E Task 1: Auto-detect goal_node from kind: 'goal' in graph
+      // Brief F Task 4: Also extract goal_threshold from goal node data
+      const goalNode = graph.nodes?.find((n: any) =>
+        n.data?.kind === 'goal' || (n as any).kind === 'goal'
+      )
+      if (goalNode) {
+        v1Request.goal_node = goalNode.id
+        // Extract goal_threshold from various possible data fields
+        const goalThreshold = goalNode.data?.value
+          ?? goalNode.data?.baseline_value
+          ?? goalNode.data?.target
+          ?? (goalNode as any).value
+          ?? (goalNode as any).baseline_value
+          ?? (goalNode as any).target
+        if (typeof goalThreshold === 'number' && !isNaN(goalThreshold)) {
+          v1Request.goal_threshold = goalThreshold
+        }
       }
 
       const nodeCount = graph.nodes.length

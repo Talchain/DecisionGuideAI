@@ -47,6 +47,15 @@ export interface RankingData {
   currentOptionName?: string
 }
 
+interface GoalProbabilityData {
+  /** Probability of achieving the goal (0-1) */
+  probability: number
+  /** Confidence in the estimate (0-1) */
+  confidence: number
+  /** Goal node label */
+  goalLabel: string
+}
+
 interface DecisionSummaryProps {
   /** Baseline value for comparison display */
   baseline?: number | null
@@ -210,6 +219,22 @@ export function DecisionSummary({
     const confusingPattern = /Outcome likely to (increase|decrease) by \d+%/i
     const keyInsight = rawInsight && confusingPattern.test(rawInsight) ? null : rawInsight
 
+    // Brief E Task 1: Extract goal probability for the current option
+    let goalProbability: GoalProbabilityData | null = null
+    if (report.option_probabilities && report.goal_node) {
+      // Find the first option node to get its probability
+      const optionNodes = nodes.filter(n => (n.data as any)?.kind === 'option')
+      const currentOptionId = optionNodes[0]?.id
+      if (currentOptionId && report.option_probabilities[currentOptionId]) {
+        const prob = report.option_probabilities[currentOptionId]
+        goalProbability = {
+          probability: prob.goal_probability,
+          confidence: prob.confidence,
+          goalLabel: report.goal_node.label || 'your goal',
+        }
+      }
+    }
+
     return {
       p50,
       units,
@@ -219,8 +244,9 @@ export function DecisionSummary({
       topDriver,
       baselineComparison,
       confidenceBand,
+      goalProbability,
     }
-  }, [report, runMeta, baseline, goalDirection])
+  }, [report, runMeta, baseline, goalDirection, nodes])
 
   // Don't render if no results
   if (!summaryData) {
@@ -285,6 +311,22 @@ export function DecisionSummary({
               : 'success likelihood'}
           </span>
         </div>
+
+        {/* Brief E Task 1: Goal probability display */}
+        {summaryData.goalProbability && (
+          <p className={`${typography.bodySmall} text-ink-600 mb-2`}>
+            <span className="font-semibold">
+              {Math.round(summaryData.goalProbability.probability * 100)}%
+            </span>{' '}
+            chance of achieving{' '}
+            <span className="font-medium">{summaryData.goalProbability.goalLabel}</span>
+            {summaryData.goalProbability.confidence < 0.7 && (
+              <span className={`ml-2 ${typography.caption} text-banana-600`}>
+                (low confidence)
+              </span>
+            )}
+          </p>
+        )}
 
         {/* 70% confidence band */}
         {summaryData.confidenceBand && (

@@ -49,6 +49,9 @@ export interface V1RunRequest {
   scenario_name?: string  // Human-readable scenario name
   save?: boolean  // If true, trigger CEE Decision Review generation
   idempotencyKey?: string
+  // Brief E Task 1: Goal probability analysis fields
+  goal_node?: string  // Node ID of goal node (auto-detected from kind: 'goal' if not provided)
+  goal_threshold?: number  // Numeric target for goal achievement
 }
 
 // Response types
@@ -78,6 +81,12 @@ export interface V1ExplainDelta {
   top_drivers: V1Driver[]
 }
 
+// Brief E Task 1: Option probability for goal achievement
+export interface V1OptionProbability {
+  goal_probability: number  // 0..1 probability of achieving goal
+  confidence: number        // 0..1 confidence in the probability estimate
+}
+
 export interface V1RunResult {
   answer: string
   confidence: number // 0..1
@@ -86,6 +95,8 @@ export interface V1RunResult {
   explain_delta?: V1ExplainDelta // Drivers nested here in actual API
   response_hash?: string
   seed?: number
+  // Brief E Task 1: Per-option goal probabilities
+  option_probabilities?: Record<string, V1OptionProbability>
 }
 
 export interface V1SyncRunResponse {

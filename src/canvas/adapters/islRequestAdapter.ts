@@ -3,12 +3,14 @@
  *
  * Brief 12.5: Transform UI request format to ISL API expected format
  * Brief 30: Updated to match actual ISL API schemas
+ * Brief F: Updated to match actual ISL API contract (graph + options + utility format)
  *
  * ISL expects specific field names and structures that differ from
  * our internal UI conventions. This adapter handles:
  * - Field name mapping
  * - Request payload structuring
- * - Graph format transformation (edges as [source, target] tuples)
+ * - Graph format transformation
+ * - Parameter uncertainty extraction
  */
 
 import type {
@@ -16,6 +18,11 @@ import type {
   ISLCausalModel,
   ISLConformalRequest,
   ISLConformalModel,
+  ISLGraphNode,
+  ISLGraphEdge,
+  ISLOption,
+  ISLParameterUncertainty,
+  LegacyISLRobustnessRequest,
 } from '../../adapters/isl/types'
 
 // =============================================================================
@@ -28,6 +35,9 @@ export interface UINode {
   data?: {
     label?: string
     value?: number
+    kind?: string
+    belief?: number
+    range?: [number, number] | { min: number; max: number }
     [key: string]: any
   }
 }
@@ -38,30 +48,292 @@ export interface UIEdge {
   target: string
   data?: {
     weight?: number
+    belief?: number
     [key: string]: any
   }
 }
 
 // =============================================================================
-// Brief 30: ISL Format Transformation Functions
+// Brief F Task 5: Range Format Helper
 // =============================================================================
 
 /**
- * Transform UI edges to ISL format (string[][] tuples)
+ * Extract range from various formats (array or object)
+ * Handles both [min, max] and { min, max } formats
+ */
+export function extractRange(range: unknown): { min: number; max: number } | null {
+  if (Array.isArray(range) && range.length >= 2) {
+    const [min, max] = range
+    if (typeof min === 'number' && typeof max === 'number') {
+      return { min, max }
+    }
+  }
+  if (range && typeof range === 'object' && 'min' in range && 'max' in range) {
+    const { min, max } = range as { min: unknown; max: unknown }
+    if (typeof min === 'number' && typeof max === 'number') {
+      return { min, max }
+    }
+  }
+  return null
+}
+
+// =============================================================================
+// Brief F Task 2: ISL Format Transformation Functions
+// =============================================================================
+
+/**
+ * Map UI node type to ISL kind
+ */
+function mapNodeKind(type: string | undefined): string {
+  const kindMap: Record<string, string> = {
+    factor: 'factor',
+    outcome: 'outcome',
+    goal: 'goal',
+    option: 'option',
+    decision: 'decision',
+    risk: 'risk',
+  }
+  return kindMap[type?.toLowerCase() ?? ''] || type || 'factor'
+}
+
+/**
+ * Transform UI nodes to ISL graph node format
+ */
+export function transformNodesToISLGraph(nodes: UINode[]): ISLGraphNode[] {
+  return nodes.map(n => ({
+    id: n.id,
+    kind: mapNodeKind(n.type),
+    label: n.data?.label || n.id,
+    belief: n.data?.belief ?? n.data?.value,
+  }))
+}
+
+/**
+ * Transform UI edges to ISL graph edge format
+ */
+export function transformEdgesToISLGraph(edges: UIEdge[]): ISLGraphEdge[] {
+  return edges.map(e => ({
+    from: e.source,
+    to: e.target,
+    weight: e.data?.weight ?? e.data?.belief ?? 1,
+  }))
+}
+
+/**
+ * Extract options (option/decision nodes) for ISL format
+ */
+export function extractISLOptions(nodes: UINode[]): ISLOption[] {
+  const optionNodes = nodes.filter(n =>
+    n.type === 'option' || n.type === 'decision'
+  )
+
+  if (optionNodes.length === 0) {
+    // No option nodes - create a baseline option
+    return [{
+      id: 'baseline',
+      label: 'Baseline',
+      interventions: {},
+      is_baseline: true,
+    }]
+  }
+
+  return optionNodes.map((node, index) => ({
+    id: node.id,
+    label: node.data?.label || `Option ${index + 1}`,
+    interventions: extractInterventions(node),
+    is_baseline: index === 0,
+  }))
+}
+
+/**
+ * Extract interventions from an option node
+ */
+function extractInterventions(node: UINode): Record<string, number> {
+  const interventions: Record<string, number> = {}
+
+  // Check for explicit interventions in node data
+  if (node.data?.interventions && typeof node.data.interventions === 'object') {
+    for (const [key, value] of Object.entries(node.data.interventions)) {
+      if (typeof value === 'number') {
+        interventions[key] = value
+      }
+    }
+  }
+
+  // Fall back to node's own value if no explicit interventions
+  if (Object.keys(interventions).length === 0 && typeof node.data?.value === 'number') {
+    interventions[node.id] = node.data.value
+  }
+
+  return interventions
+}
+
+/**
+ * Extract parameter uncertainties from factor nodes for ISL analysis.
+ * Brief I Task 1: Handles multiple data formats for robustness.
+ */
+export function extractParameterUncertainties(
+  nodes: UINode[]
+): Record<string, ISLParameterUncertainty> {
+  const uncertainties: Record<string, ISLParameterUncertainty> = {}
+  const factorNodes = nodes.filter(n => n.type === 'factor')
+
+  if (import.meta.env.DEV) {
+    console.log('[ISL Adapter] Extracting parameter uncertainties from', factorNodes.length, 'factor nodes')
+  }
+
+  for (const node of factorNodes) {
+    const data = node.data
+
+    // Skip if no data at all
+    if (!data) {
+      if (import.meta.env.DEV) {
+        console.warn(`[ISL Adapter] Factor ${node.id} has no data field`)
+      }
+      continue
+    }
+
+    let mean: number | null = null
+    let std: number | null = null
+
+    // Format 1: { range: [min, max] } or { range: { min, max } }
+    const range = extractRange(data.range)
+    if (range) {
+      mean = (range.min + range.max) / 2
+      std = (range.max - range.min) / 4 // ~95% within range
+      if (import.meta.env.DEV) {
+        console.log(`[ISL Adapter] Factor ${node.id}: extracted from range`, { range, mean, std })
+      }
+    }
+
+    // Format 2: { value, baseline } — use value as mean, derive std from baseline
+    if (mean === null && typeof data.value === 'number') {
+      mean = data.value
+      if (typeof data.baseline === 'number') {
+        // Use distance from baseline as proxy for uncertainty
+        std = Math.abs(data.value - data.baseline) * 0.5 || 0.1
+      } else {
+        // Default to 10% of value
+        std = Math.abs(data.value) * 0.1 || 0.1
+      }
+      if (import.meta.env.DEV) {
+        console.log(`[ISL Adapter] Factor ${node.id}: extracted from value`, { value: data.value, mean, std })
+      }
+    }
+
+    // Format 3: { belief } — treat as probability (0-1)
+    if (mean === null && typeof data.belief === 'number') {
+      mean = data.belief
+      std = 0.1 // Default uncertainty for belief values
+      if (import.meta.env.DEV) {
+        console.log(`[ISL Adapter] Factor ${node.id}: extracted from belief`, { belief: data.belief, mean, std })
+      }
+    }
+
+    // Format 4: Check node-level properties (some nodes store data directly)
+    if (mean === null && typeof (node as any).belief === 'number') {
+      mean = (node as any).belief
+      std = 0.1
+      if (import.meta.env.DEV) {
+        console.log(`[ISL Adapter] Factor ${node.id}: extracted from node.belief`, { mean, std })
+      }
+    }
+
+    // Format 5: Check for probability field
+    if (mean === null && typeof data.probability === 'number') {
+      mean = data.probability
+      std = 0.1
+      if (import.meta.env.DEV) {
+        console.log(`[ISL Adapter] Factor ${node.id}: extracted from probability`, { mean, std })
+      }
+    }
+
+    // If we extracted valid values, add to uncertainties
+    if (mean !== null && std !== null && !isNaN(mean) && !isNaN(std)) {
+      uncertainties[node.id] = { mean, std }
+    } else if (import.meta.env.DEV) {
+      console.warn(`[ISL Adapter] Could not extract uncertainties for factor ${node.id}:`, data)
+    }
+  }
+
+  // Brief I: If no factor nodes have data, create defaults
+  if (Object.keys(uncertainties).length === 0 && factorNodes.length > 0) {
+    if (import.meta.env.DEV) {
+      console.warn('[ISL Adapter] No parameter uncertainties extracted, using defaults for', factorNodes.length, 'factors')
+    }
+    for (const factor of factorNodes) {
+      uncertainties[factor.id] = { mean: 0.5, std: 0.1 }
+    }
+  }
+
+  if (import.meta.env.DEV) {
+    console.log('[ISL Adapter] Final parameter uncertainties:', uncertainties)
+  }
+
+  return uncertainties
+}
+
+/**
+ * Find goal node and build utility specification
+ */
+export function extractUtility(nodes: UINode[]): { goal_node_id: string; maximize?: boolean } {
+  const goalNode = nodes.find(n => n.type === 'goal' || n.type === 'outcome')
+  return {
+    goal_node_id: goalNode?.id || nodes[0]?.id || 'outcome',
+    maximize: true, // Default to maximization
+  }
+}
+
+/**
+ * Build full ISL robustness request from UI graph
+ * Brief F Task 2: Uses actual ISL API contract format
+ */
+export function buildISLRobustnessRequest(
+  nodes: UINode[],
+  edges: UIEdge[],
+  options?: {
+    includeVoi?: boolean
+    sampleSizesForEvsi?: number[]
+  }
+): ISLRobustnessRequest {
+  return {
+    graph: {
+      nodes: transformNodesToISLGraph(nodes),
+      edges: transformEdgesToISLGraph(edges),
+    },
+    options: extractISLOptions(nodes),
+    utility: extractUtility(nodes),
+    parameter_uncertainties: extractParameterUncertainties(nodes),
+    analysis_options: {
+      include_voi: options?.includeVoi ?? true,
+      sample_sizes_for_evsi: options?.sampleSizesForEvsi ?? [10, 50, 100],
+    },
+  }
+}
+
+// =============================================================================
+// Legacy ISL Format (kept for backward compatibility)
+// =============================================================================
+
+/**
+ * Transform UI edges to legacy ISL format (string[][] tuples)
+ * @deprecated Use transformEdgesToISLGraph instead
  */
 export function transformEdgesToISL(edges: UIEdge[]): string[][] {
   return edges.map(e => [e.source, e.target])
 }
 
 /**
- * Transform UI nodes to ISL format (string[] of node IDs)
+ * Transform UI nodes to legacy ISL format (string[] of node IDs)
+ * @deprecated Use transformNodesToISLGraph instead
  */
 export function transformNodesToISL(nodes: UINode[]): string[] {
   return nodes.map(n => n.id)
 }
 
 /**
- * Build ISL causal model from UI graph
+ * Build legacy ISL causal model from UI graph
+ * @deprecated Use buildISLRobustnessRequest instead
  */
 export function buildCausalModel(nodes: UINode[], edges: UIEdge[]): ISLCausalModel {
   return {
@@ -72,7 +344,7 @@ export function buildCausalModel(nodes: UINode[], edges: UIEdge[]): ISLCausalMod
 
 /**
  * Build target outcome from goal node
- * Uses ±20% range around the expected value by default
+ * @deprecated No longer used in new ISL format
  */
 export function buildTargetOutcome(
   goalNodeId: string,
@@ -86,6 +358,7 @@ export function buildTargetOutcome(
 
 /**
  * Build intervention proposal from option/factor nodes with values
+ * @deprecated Use extractISLOptions instead
  */
 export function buildInterventionProposal(
   nodes: UINode[]
@@ -93,65 +366,20 @@ export function buildInterventionProposal(
   const interventions: Record<string, number> = {}
 
   for (const node of nodes) {
-    // Include nodes that have numeric values (factors, options with set values)
     const value = node.data?.value
     if (typeof value === 'number' && !isNaN(value)) {
       interventions[node.id] = value
     }
   }
 
-  // If no interventions found, use a placeholder
   if (Object.keys(interventions).length === 0) {
-    // Find first factor node with any data
     const factorNode = nodes.find(n => n.type === 'factor')
     if (factorNode) {
-      interventions[factorNode.id] = 0.5 // Default intervention value
+      interventions[factorNode.id] = 0.5
     }
   }
 
   return interventions
-}
-
-/**
- * Build full ISL robustness request from UI graph
- */
-export function buildISLRobustnessRequest(
-  nodes: UINode[],
-  edges: UIEdge[],
-  options?: {
-    interventionProposal?: Record<string, number>
-    targetOutcome?: Record<string, [number, number]>
-    perturbationRadius?: number
-    minSamples?: number
-    confidenceLevel?: number
-  }
-): ISLRobustnessRequest {
-  const causalModel = buildCausalModel(nodes, edges)
-
-  // Use provided intervention or build from nodes
-  const interventionProposal = options?.interventionProposal ?? buildInterventionProposal(nodes)
-
-  // Use provided target outcome or derive from goal/outcome nodes
-  let targetOutcome = options?.targetOutcome
-  if (!targetOutcome) {
-    const outcomeNode = nodes.find(n => n.type === 'outcome' || n.type === 'goal')
-    if (outcomeNode) {
-      const value = outcomeNode.data?.value ?? 0.5
-      targetOutcome = buildTargetOutcome(outcomeNode.id, value)
-    } else {
-      // Fallback: use first node
-      targetOutcome = { [nodes[0]?.id ?? 'outcome']: [0.4, 0.6] }
-    }
-  }
-
-  return {
-    causal_model: causalModel,
-    intervention_proposal: interventionProposal,
-    target_outcome: targetOutcome,
-    perturbation_radius: options?.perturbationRadius ?? 0.1,
-    min_samples: options?.minSamples ?? 100,
-    confidence_level: options?.confidenceLevel ?? 0.95,
-  }
 }
 
 /**
@@ -217,23 +445,7 @@ export interface UIRobustnessRequest {
   }
 }
 
-/** @deprecated Use ISLRobustnessRequest from types.ts instead */
-export interface LegacyISLRobustnessRequest {
-  run_id: string
-  response_hash?: string
-  include_sensitivity: boolean
-  include_voi: boolean
-  include_pareto: boolean
-  graph?: {
-    nodes: Array<{ id: string; label: string; kind: string }>
-    edges: Array<{ id: string; source: string; target: string; weight?: number }>
-  }
-  options?: {
-    sensitivity_depth?: 'shallow' | 'deep'
-    voi_threshold?: number
-    pareto_objectives?: string[]
-  }
-}
+// LegacyISLRobustnessRequest is imported from types.ts
 
 // =============================================================================
 // CEE Form Request Types
@@ -275,11 +487,12 @@ export interface CEEFormRequest {
 
 /**
  * Transform UI robustness request to ISL format
+ * @deprecated Use buildISLRobustnessRequest instead for new ISL API format
  */
 export function adaptRobustnessRequest(
   request: UIRobustnessRequest
-): ISLRobustnessRequest {
-  const islRequest: ISLRobustnessRequest = {
+): LegacyISLRobustnessRequest {
+  const islRequest: LegacyISLRobustnessRequest = {
     run_id: request.runId,
     include_sensitivity: request.includeSensitivity ?? true,
     include_voi: request.includeVoi ?? true,
@@ -339,11 +552,12 @@ export function adaptFormRequest(request: UIFormRequest): CEEFormRequest {
 /**
  * Build robustness request from hook parameters
  * Helper to construct request from useRobustness options
+ * @deprecated Use buildISLRobustnessRequest instead for new ISL API format
  */
 export function buildRobustnessRequest(
   runId: string,
   responseHash?: string
-): ISLRobustnessRequest {
+): LegacyISLRobustnessRequest {
   return {
     run_id: runId,
     response_hash: responseHash,

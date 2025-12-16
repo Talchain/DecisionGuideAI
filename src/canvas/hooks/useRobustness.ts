@@ -5,7 +5,7 @@
  * Brief 12: Updated to call ISL directly via /bff/isl proxy
  * Brief 30: Updated to use correct ISL endpoint and schema
  *
- * Calls POST /bff/isl/api/v1/robustness/analyze endpoint to get:
+ * Calls POST /bff/isl/api/v1/analysis/robustness endpoint to get:
  * - Robustness classification (robust/moderate/fragile)
  * - Sensitive parameters with flip thresholds
  * - Value of Information suggestions
@@ -106,13 +106,67 @@ export function useRobustness({
         data: e.data as any,
       }))
 
+      // Brief I Task 7: Enhanced debug logging for ISL diagnostics
+      if (import.meta.env.DEV) {
+        const factorNodes = uiNodes.filter(n => n.type === 'factor')
+        const optionNodes = uiNodes.filter(n => n.type === 'option' || n.type === 'decision')
+        const goalNode = uiNodes.find(n => n.type === 'goal' || n.type === 'outcome')
+
+        console.group('[useRobustness] ISL Request Diagnostics')
+        console.log('Total nodes:', uiNodes.length)
+        console.log('Factor nodes:', factorNodes.length)
+        factorNodes.forEach(f => {
+          console.log(`  - Factor "${f.id}":`, { hasData: !!f.data, data: f.data })
+        })
+        console.log('Option nodes:', optionNodes.length)
+        optionNodes.forEach(o => {
+          console.log(`  - Option "${o.id}":`, { hasData: !!o.data, data: o.data })
+        })
+        console.log('Goal node:', goalNode ? `"${goalNode.id}"` : 'MISSING', goalNode?.data)
+        console.groupEnd()
+      }
+
       const payload = buildISLRobustnessRequest(uiNodes, uiEdges)
 
-      // DEBUG: Log ISL request payload
-      console.log('[useRobustness] ISL request payload:', JSON.stringify(payload, null, 2))
+      // Brief I Task 5: Validate request before sending (with smarter option checking)
+      if (import.meta.env.DEV) {
+        const issues: string[] = []
 
-      // Brief 30: Correct endpoint path
-      const response = await fetch('/bff/isl/api/v1/robustness/analyze', {
+        // Count option/decision nodes in the canvas (not the extracted options)
+        const optionDecisionNodes = uiNodes.filter(n =>
+          n.type === 'option' || n.type === 'decision'
+        )
+
+        // Brief I Task 5: Only warn about options if user has option/decision nodes but extraction failed
+        // Having just 1 baseline option is valid when there are no option/decision nodes on canvas
+        if (optionDecisionNodes.length >= 2 && (!payload.options || payload.options.length < 2)) {
+          issues.push(`Found ${optionDecisionNodes.length} option/decision nodes but only extracted ${payload.options?.length || 0} options`)
+        }
+
+        if (!payload.utility?.goal_node_id) {
+          issues.push('Missing goal_node_id in utility')
+        }
+        if (!payload.parameter_uncertainties || Object.keys(payload.parameter_uncertainties).length === 0) {
+          issues.push('Missing parameter_uncertainties (from factor nodes)')
+        }
+
+        console.group('[useRobustness] ISL Request Validation')
+        console.log('Endpoint:', '/bff/isl/api/v1/analysis/robustness')
+        console.log('Canvas option/decision nodes:', optionDecisionNodes.length)
+        console.log('Extracted options count:', payload.options?.length)
+        console.log('Parameter uncertainties:', Object.keys(payload.parameter_uncertainties || {}))
+        console.log('Goal node ID:', payload.utility?.goal_node_id)
+        if (issues.length > 0) {
+          console.warn('Request issues:', issues)
+        } else {
+          console.log('Request validation: PASSED')
+        }
+        console.log('Full payload:', payload)
+        console.groupEnd()
+      }
+
+      // Brief F Task 1: Correct endpoint path
+      const response = await fetch('/bff/isl/api/v1/analysis/robustness', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -141,8 +195,25 @@ export function useRobustness({
 
       const data = await response.json()
 
+      // Brief I Task 7: Log response data
+      if (import.meta.env.DEV) {
+        console.group('[useRobustness] ISL Response')
+        console.log('Status:', response.status)
+        console.log('Raw data:', data)
+        console.log('Has sensitivity:', Array.isArray(data.sensitivity) && data.sensitivity.length > 0)
+        console.log('Sensitivity count:', data.sensitivity?.length ?? 0)
+        console.log('Has robustness_bounds:', Array.isArray(data.robustness_bounds))
+        console.log('Has value_of_information:', Array.isArray(data.value_of_information))
+        console.log('Robustness label:', data.robustness_label)
+        console.groupEnd()
+      }
+
       // Use adapter to transform ISL response to UI format
       const result = adaptISLRobustnessResponse(data)
+
+      if (import.meta.env.DEV) {
+        console.log('[useRobustness] Adapted result:', result)
+      }
 
       // Cache the result
       robustnessCache.set(cacheKey, result)

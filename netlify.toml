@@ -23,6 +23,9 @@
   VITE_FEATURE_SANDBOX_VOTING = "1"
   VITE_FEATURE_WHITEBOARD = "1"
   SECRETS_SCAN_ENABLED = "false"
+  # Brief E Task 4: New capability feature flags for staging QA
+  VITE_FEATURE_GOAL_PROBABILITIES = "1"
+  VITE_FEATURE_ISL_SYNTHESIS = "1"
 
 [[headers]]
   for = "/index.html"

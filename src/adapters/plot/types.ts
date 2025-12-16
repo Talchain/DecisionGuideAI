@@ -1,5 +1,11 @@
 export type ConfidenceLevel = 'low' | 'medium' | 'high'
 
+// Brief E Task 1: Per-option goal probability
+export interface OptionProbability {
+  goal_probability: number  // 0..1 probability of achieving goal
+  confidence: number        // 0..1 confidence in the probability estimate
+}
+
 export interface ReportV1 {
   schema: 'report.v1'
   meta: {
@@ -101,6 +107,16 @@ export interface ReportV1 {
     fresh_count: number
     aging_count: number
     unknown_count: number
+  }
+
+  // Brief E Task 1: Per-option goal probabilities
+  // Maps option node IDs to their goal achievement probabilities
+  option_probabilities?: Record<string, OptionProbability>
+  // Goal node info for display
+  goal_node?: {
+    id: string
+    label: string
+    threshold?: number
   }
 }
 

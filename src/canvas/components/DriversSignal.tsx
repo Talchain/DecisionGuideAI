@@ -11,6 +11,9 @@
  * - Collapsed by default showing top 3 drivers
  * - Expanded view shows all drivers with details
  * - Color-coded polarity indicators
+ * - Brief C: ISL Robustness Suite integration
+ *   - Tipping points ("If X reaches Y%, recommendation flips")
+ *   - Value of Information ("Validating X worth £Y/year")
  */
 
 import { useState, useCallback, useMemo, useEffect } from 'react'
@@ -23,6 +26,11 @@ import {
   Zap,
   ArrowUpRight,
   ArrowDownRight,
+  AlertTriangle,
+  Lightbulb,
+  Search,
+  FileText,
+  Loader2,
 } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
@@ -30,12 +38,26 @@ import { typography } from '../../styles/typography'
 import { useISLConformal } from '../../hooks/useISLConformal'
 import { buildRichGraphPayload } from '../utils/graphPayload'
 import type { ISLConformalPrediction } from '../../adapters/isl/types'
+import type { RobustnessResult, SensitiveParameter, ValueOfInformation } from './RecommendationCard/types'
+import type { SynthesisNarratives } from '../hooks/useISLSynthesis'
 
 interface DriversSignalProps {
   /** Maximum drivers to show when collapsed */
   maxCollapsed?: number
   /** Start expanded */
   defaultExpanded?: boolean
+  /** Brief C: ISL Robustness data for sensitivity/VoI */
+  robustness?: RobustnessResult | null
+  /** Brief C: Loading state for robustness data */
+  robustnessLoading?: boolean
+  /** Callback when sensitive parameter is clicked */
+  onParameterClick?: (nodeId: string) => void
+  /** Callback when VoI action is clicked */
+  onVoiActionClick?: (nodeId: string, action: string) => void
+  /** Brief E Task 2: ISL Synthesis narratives */
+  synthesis?: SynthesisNarratives | null
+  /** Brief E Task 2: Loading state for synthesis */
+  synthesisLoading?: boolean
 }
 
 // Polarity styling
@@ -123,6 +145,12 @@ const calibrationConfig: Record<ISLConformalPrediction['calibration_quality'], {
 export function DriversSignal({
   maxCollapsed = 3,
   defaultExpanded = false,
+  robustness,
+  robustnessLoading = false,
+  onParameterClick,
+  onVoiActionClick,
+  synthesis,
+  synthesisLoading = false,
 }: DriversSignalProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
@@ -131,6 +159,24 @@ export function DriversSignal({
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const report = results?.report
+
+  // Brief C: Build mapping from node_id to sensitive parameter for tipping point display
+  const sensitiveParamByNodeId = useMemo(() => {
+    if (!robustness?.sensitivity) return new Map<string, SensitiveParameter>()
+    return new Map(robustness.sensitivity.map(p => [p.node_id, p]))
+  }, [robustness?.sensitivity])
+
+  // Brief C: Also map by label (normalized lowercase) for fallback matching
+  const sensitiveParamByLabel = useMemo(() => {
+    if (!robustness?.sensitivity) return new Map<string, SensitiveParameter>()
+    return new Map(robustness.sensitivity.map(p => [p.label.toLowerCase(), p]))
+  }, [robustness?.sensitivity])
+
+  // Brief C: VoI items worth investigating
+  const worthInvestigatingVoi = useMemo(() => {
+    if (!robustness?.value_of_information) return []
+    return robustness.value_of_information.filter(v => v.worth_investigating)
+  }, [robustness?.value_of_information])
 
   // Conformal predictions for sensitivity badges
   const { data: conformalData, loading: conformalLoading, predict } = useISLConformal()
@@ -365,6 +411,12 @@ export function DriversSignal({
             ? Math.round((conformalPrediction.confidence_interval.upper - conformalPrediction.confidence_interval.lower) * 50)
             : null
 
+          // Brief C: Get sensitive parameter for tipping point display
+          const sensitiveParam = driver.nodeId
+            ? sensitiveParamByNodeId.get(driver.nodeId)
+            : sensitiveParamByLabel.get(driver.label.toLowerCase())
+          const hasTippingPoint = sensitiveParam && sensitiveParam.flip_threshold !== undefined
+
           return (
             <div
               key={`${driver.label}-${index}`}
@@ -422,8 +474,35 @@ export function DriversSignal({
                     </span>
                   </div>
 
+                  {/* Brief C: Tipping point display */}
+                  {hasTippingPoint && sensitiveParam && (
+                    <div
+                      className="mt-2 p-2 bg-banana-50 border border-banana-200 rounded-lg"
+                      data-testid={`tipping-point-${driver.nodeId || index}`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <AlertTriangle className="h-3.5 w-3.5 text-banana-600" aria-hidden="true" />
+                        <span className={`${typography.caption} font-medium text-banana-800`}>
+                          Tipping Point
+                        </span>
+                      </div>
+                      <p className={`${typography.caption} text-banana-700`}>
+                        If {driver.label.toLowerCase()} {sensitiveParam.direction === 'increase' ? 'rises to' : 'falls to'}{' '}
+                        <strong>{Math.round(sensitiveParam.flip_threshold * 100)}%</strong>, recommendation flips
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`${typography.caption} text-ink-500`}>
+                          Current: {Math.round(sensitiveParam.current_value * 100)}%
+                        </span>
+                        <span className={`${typography.caption} text-banana-600`}>
+                          ({Math.abs(Math.round((sensitiveParam.flip_threshold - sensitiveParam.current_value) * 100))}% gap)
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Focus hint */}
-                  {hasTarget && (
+                  {hasTarget && !hasTippingPoint && (
                     <span className={`${typography.caption} text-sky-600 mt-1 block`}>
                       Click to focus
                     </span>
@@ -433,6 +512,125 @@ export function DriversSignal({
             </div>
           )
         })}
+
+        {/* Brief C: Value of Information section */}
+        {worthInvestigatingVoi.length > 0 && (
+          <div className="px-4 py-3 bg-violet-50/50" data-testid="voi-section">
+            <div className="flex items-center gap-2 mb-2">
+              <Lightbulb className="h-4 w-4 text-violet-600" aria-hidden="true" />
+              <span className={`${typography.label} text-ink-700`}>
+                Worth Investigating
+              </span>
+              <span className={`${typography.caption} text-violet-600`}>
+                High value of information
+              </span>
+            </div>
+            <div className="space-y-2">
+              {worthInvestigatingVoi.map((voi) => {
+                // Format EVPI display (as currency or percentage)
+                const evpiDisplay = voi.evpi >= 1
+                  ? `£${voi.evpi.toLocaleString()}/year`
+                  : `${(voi.evpi * 100).toFixed(0)}%`
+
+                return (
+                  <button
+                    key={voi.node_id}
+                    type="button"
+                    onClick={() => {
+                      onVoiActionClick?.(voi.node_id, voi.suggested_action || 'investigate')
+                      setHighlightedNodes([voi.node_id])
+                      focusNodeById(voi.node_id)
+                      setTimeout(() => setHighlightedNodes([]), 3000)
+                    }}
+                    className="w-full text-left p-2.5 rounded-lg bg-violet-100 border border-violet-200 hover:bg-violet-200 transition-colors"
+                    data-testid={`voi-${voi.node_id}`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <Search className="h-3.5 w-3.5 text-violet-600" aria-hidden="true" />
+                        <span className={`${typography.bodySmall} font-medium text-ink-800`}>
+                          {voi.label}
+                        </span>
+                      </div>
+                      <span className={`${typography.caption} font-medium text-violet-700`}>
+                        Worth {evpiDisplay}
+                      </span>
+                    </div>
+                    {voi.suggested_action && (
+                      <p className={`${typography.caption} text-violet-700`}>
+                        {voi.suggested_action}
+                      </p>
+                    )}
+                    {voi.resolution_cost != null && (
+                      <span className={`${typography.caption} text-ink-500 mt-1 block`}>
+                        Est. cost: £{voi.resolution_cost.toLocaleString()}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Brief E Task 2: ISL Synthesis Narratives */}
+        {(synthesis || synthesisLoading) && (
+          <div className="px-4 py-3 bg-sky-50/50" data-testid="synthesis-section">
+            <div className="flex items-center gap-2 mb-3">
+              <FileText className="h-4 w-4 text-sky-600" aria-hidden="true" />
+              <span className={`${typography.label} text-ink-700`}>
+                Analysis Narratives
+              </span>
+              {synthesisLoading && (
+                <Loader2 className="h-3.5 w-3.5 text-sky-500 animate-spin" aria-hidden="true" />
+              )}
+            </div>
+
+            {synthesisLoading && !synthesis && (
+              <div className="space-y-2 animate-pulse">
+                <div className="h-4 bg-sky-100 rounded w-3/4"></div>
+                <div className="h-4 bg-sky-100 rounded w-1/2"></div>
+              </div>
+            )}
+
+            {synthesis && (
+              <div className="space-y-4">
+                {synthesis.decision && (
+                  <div>
+                    <h4 className={`${typography.caption} font-medium text-sky-700 mb-1`}>
+                      Decision Context
+                    </h4>
+                    <p className={`${typography.bodySmall} text-ink-700`}>
+                      {synthesis.decision}
+                    </p>
+                  </div>
+                )}
+
+                {synthesis.uncertainty && (
+                  <div>
+                    <h4 className={`${typography.caption} font-medium text-sky-700 mb-1`}>
+                      Key Uncertainties
+                    </h4>
+                    <p className={`${typography.bodySmall} text-ink-700`}>
+                      {synthesis.uncertainty}
+                    </p>
+                  </div>
+                )}
+
+                {synthesis.recommendation && (
+                  <div>
+                    <h4 className={`${typography.caption} font-medium text-sky-700 mb-1`}>
+                      Recommendation
+                    </h4>
+                    <p className={`${typography.bodySmall} text-ink-700`}>
+                      {synthesis.recommendation}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Footer with count and note about filtering */}
         {hasFilteredDrivers && (

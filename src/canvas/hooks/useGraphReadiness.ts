@@ -146,14 +146,21 @@ export function useGraphReadiness() {
       // BFF proxy maps /bff/cee/graph-readiness → /assist/v1/graph-readiness
       // and injects X-Olumi-Assist-Key header
       // Brief 31 Task 4: CEE expects 'kind' not 'type'
+      // Brief I Fix: Sanitize node data - CEE FactorData requires value to be a number
       const payload = {
         graph: {
-          nodes: nodes.map(n => ({
-            id: n.id,
-            kind: n.type,
-            label: (n.data as any)?.label || n.id,
-            data: n.data,
-          })),
+          nodes: nodes.map(n => {
+            const baseNode = {
+              id: n.id,
+              kind: n.type,
+              label: (n.data as any)?.label || n.id,
+            }
+            // Only include data field if it has valid FactorData (value is a number)
+            if (typeof (n.data as any)?.value === 'number') {
+              return { ...baseNode, data: n.data }
+            }
+            return baseNode
+          }),
           edges: edges.map(e => ({
             id: e.id,
             source: e.source,
@@ -164,8 +171,13 @@ export function useGraphReadiness() {
       }
 
       // Brief 32 Task 4: Skip duplicate requests by comparing payload hash
-      // Use a simple hash of node/edge counts + IDs to detect changes
-      const payloadHash = `${nodes.length}-${edges.length}-${nodes.map(n => n.id).join(',')}-${edges.map(e => `${e.source}-${e.target}`).join(',')}`
+      // Brief I Fix: Include edge data (confidence) in hash so auto-fix changes trigger refresh
+      // Edge confidence affects graph validity (probability sums)
+      const edgeDataFingerprint = edges.map(e => {
+        const conf = (e.data as any)?.confidence
+        return `${e.source}-${e.target}-${conf !== undefined ? conf.toFixed(3) : 'x'}`
+      }).join(',')
+      const payloadHash = `${nodes.length}-${edges.length}-${nodes.map(n => n.id).join(',')}-${edgeDataFingerprint}`
       if (payloadHash === lastPayloadHashRef.current) {
         // Same payload, skip request (we already have or are getting results for this)
         if (import.meta.env.DEV) {

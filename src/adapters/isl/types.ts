@@ -5,9 +5,67 @@
  */
 
 // =============================================================================
-// ISL Robustness API Types (POST /api/v1/robustness/analyze)
+// ISL Robustness API Types (POST /api/v1/analysis/robustness)
+// Brief F: Updated to match actual ISL API contract
 // =============================================================================
 
+/** ISL graph node format */
+export interface ISLGraphNode {
+  id: string
+  kind: string
+  label: string
+  belief?: number
+}
+
+/** ISL graph edge format */
+export interface ISLGraphEdge {
+  from: string
+  to: string
+  weight: number
+}
+
+/** ISL graph format */
+export interface ISLGraph {
+  nodes: ISLGraphNode[]
+  edges: ISLGraphEdge[]
+}
+
+/** ISL option/intervention format */
+export interface ISLOption {
+  id: string
+  label: string
+  interventions: Record<string, number>
+  is_baseline?: boolean
+}
+
+/** ISL utility specification */
+export interface ISLUtility {
+  goal_node_id: string
+  maximize?: boolean
+}
+
+/** ISL parameter uncertainty specification */
+export interface ISLParameterUncertainty {
+  mean: number
+  std: number
+}
+
+/** ISL analysis options */
+export interface ISLAnalysisOptions {
+  include_voi?: boolean
+  sample_sizes_for_evsi?: number[]
+}
+
+/** Brief F Task 2: ISL Robustness Request - actual API contract */
+export interface ISLRobustnessRequest {
+  graph: ISLGraph
+  options: ISLOption[]
+  utility: ISLUtility
+  parameter_uncertainties?: Record<string, ISLParameterUncertainty>
+  analysis_options?: ISLAnalysisOptions
+}
+
+// Legacy types kept for backward compatibility
 export interface ISLCausalModel {
   /** Node IDs as strings */
   nodes: string[]
@@ -15,7 +73,7 @@ export interface ISLCausalModel {
   edges: string[][]
 }
 
-export interface ISLRobustnessRequest {
+export interface LegacyISLRobustnessRequest {
   causal_model: ISLCausalModel
   /** Intervention values to test (e.g., { "price": 55.0 }) */
   intervention_proposal: Record<string, number>

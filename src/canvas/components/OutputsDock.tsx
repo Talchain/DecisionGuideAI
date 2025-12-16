@@ -75,7 +75,10 @@ import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { useOptionRanking } from '../hooks/useOptionRanking'
 import { useRobustness } from '../hooks/useRobustness'
+import { useISLSynthesis } from '../hooks/useISLSynthesis'
 import { RobustnessBlock } from './RecommendationCard/RobustnessBlock'
+import { EvidencePackExport } from './ResultsPanel/EvidencePackExport'
+import { KeyInsight } from './ResultsPanel/KeyInsight'
 // ScenarioComparison modal removed - now rendered as ComparisonCanvasLayout in ReactFlowGraph
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import type { Node, Edge } from '@xyflow/react'
@@ -184,6 +187,22 @@ export function OutputsDock() {
       framing: s.currentScenarioFraming,
     }))
   )
+
+  // Find goal node for synthesis context (must be after nodes is declared)
+  const goalNode = nodes.find(n => n.type === 'goal' || n.type === 'outcome')
+
+  // Brief E Task 2: Fetch ISL synthesis narratives
+  // Brief F Task 3B: Synthesis waits for robustness data (sequential, not parallel)
+  const {
+    synthesis: synthesisData,
+    loading: synthesisLoading,
+  } = useISLSynthesis({
+    runId: robustnessRunId,
+    responseHash: results?.hash,
+    autoFetch: !robustnessLoading && !!robustnessData, // Wait for robustness
+    robustnessResult: robustnessData, // Pass robustness data for transformation
+    goalLabel: goalNode?.data?.label as string | undefined,
+  })
 
   // Actions don't need shallow - they're stable references
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
@@ -641,43 +660,50 @@ export function OutputsDock() {
         />
       )}
       <div className="sticky top-0 z-10 border-b border-sand-200 rounded-t-2xl" style={{ background: 'rgba(255, 255, 255, 0.95)' }}>
-        <div className="flex items-center justify-between px-2 py-2">
-          {state.isOpen && (
-            <span className={`mr-2 ${typography.caption} font-medium text-ink-900/70 truncate`} aria-live="polite">
-              {OUTPUT_TABS.find(tab => tab.id === state.activeTab)?.label ?? ''}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={toggleOpen}
-            className={`inline-flex items-center justify-center w-6 h-6 rounded border border-sand-200 ${typography.caption} text-ink-900/70 hover:bg-paper-50`}
-            aria-label={state.isOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
-          >
-            {state.isOpen ? '>' : '<'}
-          </button>
-        </div>
+        {!state.isOpen && (
+          <div className="flex items-center justify-end px-2 py-2">
+            <button
+              type="button"
+              onClick={toggleOpen}
+              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-sand-200 ${typography.caption} text-ink-900/70 hover:bg-paper-50`}
+              aria-label={state.isOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
+            >
+              {state.isOpen ? '>' : '<'}
+            </button>
+          </div>
+        )}
 
         {state.isOpen && (
-          <nav
-            className="flex gap-1 px-2 py-2 border-t border-sand-200"
-            aria-label="Outputs sections"
-          >
-            {OUTPUT_TABS.map(tab => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => handleTabClick(tab.id)}
-                data-testid={tab.id === 'diagnostics' ? 'outputs-dock-tab-diagnostics' : undefined}
-                className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 focus-visible:ring-offset-1 ${
-                  state.activeTab === tab.id
-                    ? 'bg-sky-200 text-sky-600 border-b-2 border-sky-500'
-                    : 'text-ink-900/70 hover:bg-paper-50 hover:text-ink-900 border-b-2 border-transparent'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+          <div className="flex items-center gap-2 px-2 py-2" aria-label="Outputs sections">
+            <span className="sr-only" aria-live="polite">
+              {OUTPUT_TABS.find(tab => tab.id === state.activeTab)?.label ?? ''}
+            </span>
+            <nav className="flex flex-1 min-w-0 gap-1" aria-label="Outputs sections">
+              {OUTPUT_TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => handleTabClick(tab.id)}
+                  data-testid={tab.id === 'diagnostics' ? 'outputs-dock-tab-diagnostics' : undefined}
+                  className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info-500 focus-visible:ring-offset-1 ${
+                    state.activeTab === tab.id
+                      ? 'bg-sky-200 text-sky-600 border-b-2 border-sky-500'
+                      : 'text-ink-900/70 hover:bg-paper-50 hover:text-ink-900 border-b-2 border-transparent'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+            <button
+              type="button"
+              onClick={toggleOpen}
+              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-sand-200 ${typography.caption} text-ink-900/70 hover:bg-paper-50`}
+              aria-label={state.isOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
+            >
+              {state.isOpen ? '>' : '<'}
+            </button>
+          </div>
         )}
       </div>
 
@@ -749,7 +775,7 @@ export function OutputsDock() {
                       type="button"
                       onClick={handleRunAnalysis}
                       disabled={isRunning}
-                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors ${
                         isRunning
                           ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
                           : 'bg-sky-500 text-white hover:bg-sky-600'
@@ -764,7 +790,7 @@ export function OutputsDock() {
                         type="button"
                         onClick={handleCompareNow}
                         disabled={scenarioComparison.loading}
-                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
+                        className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors ${
                           scenarioComparison.loading
                             ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
                             : 'bg-paper-50 text-sky-700 border border-sky-300 hover:bg-sky-50'
@@ -875,43 +901,131 @@ export function OutputsDock() {
                   />
                 )}
 
-                {/* Signal Components - Decision-first hierarchy:
-                    1. DriversSignal - Why? (understanding)
-                    2. RobustnessBlock - Sensitivity, VoI, robustness bounds (Brief 25)
-                    3. OutcomesSignal - What? (validation)
-                    4. TrustSignal - How confident? (reliability)
-                    5. ActionsSignal - What next? (actions)
+                {/* Brief E Task 3: Four-Panel Structure
+                    1. Recommendation - "What should I do?" (DecisionSummary above)
+                    2. Key Drivers - "Why?" (DriversSignal + Synthesis Narratives)
+                    3. Validate & Improve - "Can I trust it?" (TrustSignal, RobustnessBlock, OutcomesSignal)
+                    4. Next Steps - "What's next?" (ActionsSignal)
                 */}
                 {!isPreRun && hasInlineSummary && (
-                  <div className="space-y-3" data-testid="outputs-signals">
-                    <DriversSignal maxCollapsed={3} />
-                    {/* Brief 25: Sensitivity, VoI, and robustness bounds from ISL */}
-                    {(robustnessData || robustnessLoading) && (
-                      <RobustnessBlock
-                        robustness={robustnessData}
-                        loading={robustnessLoading}
-                        error={robustnessError}
-                        onParameterClick={(nodeId) => {
-                          setHighlightedNodes([nodeId])
-                          focusNodeById(nodeId)
-                          setTimeout(() => setHighlightedNodes([]), 3000)
-                        }}
-                        onVoiActionClick={(nodeId) => {
-                          setHighlightedNodes([nodeId])
-                          focusNodeById(nodeId)
-                          setTimeout(() => setHighlightedNodes([]), 3000)
-                        }}
-                        defaultExpanded={false}
-                      />
-                    )}
-                    <OutcomesSignal
-                      baseline={baselineValue}
-                      goalDirection={goalDirection}
-                      objectiveText={objectiveText}
-                      baselineName={baselineValue === 0 ? '"do nothing"' : 'your baseline'}
-                    />
-                    <TrustSignal />
-                    <ActionsSignal maxCollapsed={3} />
+                  <div className="space-y-4" data-testid="outputs-signals">
+                    {/* Panel 2: Key Drivers - "Why?" */}
+                    <section
+                      className="border border-sand-200 rounded-lg overflow-hidden"
+                      data-testid="panel-key-drivers"
+                      aria-labelledby="panel-drivers-heading"
+                    >
+                      <header className="px-3 py-2 bg-sand-50 border-b border-sand-200">
+                        <h3
+                          id="panel-drivers-heading"
+                          className={`${typography.label} font-medium text-ink-800`}
+                        >
+                          Why this recommendation?
+                        </h3>
+                      </header>
+                      <div className="p-0">
+                        {/* Brief C: Pass robustness data to DriversSignal for tipping points & VoI */}
+                        {/* Brief E Task 2: Pass synthesis narratives to DriversSignal */}
+                        <DriversSignal
+                          maxCollapsed={3}
+                          robustness={robustnessData}
+                          robustnessLoading={robustnessLoading}
+                          synthesis={synthesisData}
+                          synthesisLoading={synthesisLoading}
+                          onParameterClick={(nodeId) => {
+                            setHighlightedNodes([nodeId])
+                            focusNodeById(nodeId)
+                            setTimeout(() => setHighlightedNodes([]), 3000)
+                          }}
+                          onVoiActionClick={(nodeId) => {
+                            setHighlightedNodes([nodeId])
+                            focusNodeById(nodeId)
+                            setTimeout(() => setHighlightedNodes([]), 3000)
+                          }}
+                        />
+                      </div>
+                    </section>
+
+                    {/* Panel 3: Validate & Improve - "Can I trust it?" */}
+                    <section
+                      className="border border-sand-200 rounded-lg overflow-hidden"
+                      data-testid="panel-validate-improve"
+                      aria-labelledby="panel-validate-heading"
+                    >
+                      <header className="px-3 py-2 bg-sand-50 border-b border-sand-200">
+                        <h3
+                          id="panel-validate-heading"
+                          className={`${typography.label} font-medium text-ink-800`}
+                        >
+                          Can you trust this?
+                        </h3>
+                      </header>
+                      <div className="p-3 space-y-3">
+                        <TrustSignal />
+                        {/* Brief 25: Robustness label/meter overview */}
+                        {(robustnessData || robustnessLoading) && (
+                          <RobustnessBlock
+                            robustness={robustnessData}
+                            loading={robustnessLoading}
+                            error={robustnessError}
+                            onParameterClick={(nodeId) => {
+                              setHighlightedNodes([nodeId])
+                              focusNodeById(nodeId)
+                              setTimeout(() => setHighlightedNodes([]), 3000)
+                            }}
+                            onVoiActionClick={(nodeId) => {
+                              setHighlightedNodes([nodeId])
+                              focusNodeById(nodeId)
+                              setTimeout(() => setHighlightedNodes([]), 3000)
+                            }}
+                            defaultExpanded={false}
+                            compact={true}
+                          />
+                        )}
+                        <OutcomesSignal
+                          baseline={baselineValue}
+                          goalDirection={goalDirection}
+                          objectiveText={objectiveText}
+                          baselineName={baselineValue === 0 ? '"do nothing"' : 'your baseline'}
+                        />
+                      </div>
+                    </section>
+
+                    {/* Panel 4: Next Steps - "What's next?" */}
+                    <section
+                      className="border border-sand-200 rounded-lg overflow-hidden"
+                      data-testid="panel-next-steps"
+                      aria-labelledby="panel-actions-heading"
+                    >
+                      <header className="px-3 py-2 bg-sand-50 border-b border-sand-200">
+                        <h3
+                          id="panel-actions-heading"
+                          className={`${typography.label} font-medium text-ink-800`}
+                        >
+                          What's next?
+                        </h3>
+                      </header>
+                      <div className="p-0">
+                        {/* Brief H Task 10: Key Insight from synthesis/analysis */}
+                        {synthesisData?.recommendation && (
+                          <div className="px-3 pt-3">
+                            <KeyInsight
+                              headline={synthesisData.recommendation}
+                              source="synthesis"
+                            />
+                          </div>
+                        )}
+                        <ActionsSignal maxCollapsed={3} />
+                        {/* Brief H Task 13: Evidence Pack Export */}
+                        <div className="px-3 pb-3 pt-2 border-t border-sand-100 mt-2">
+                          <EvidencePackExport
+                            runId={robustnessRunId}
+                            responseHash={results?.hash}
+                            compact
+                          />
+                        </div>
+                      </div>
+                    </section>
                   </div>
                 )}
 
