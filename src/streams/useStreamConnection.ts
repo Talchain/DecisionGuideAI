@@ -18,7 +18,7 @@ import { getDefaults } from '../lib/session'
 import { track } from '../lib/telemetry'
 import { record } from '../lib/history'
 import { fetchRunReport, type RunReport } from '../lib/runReport'
-import { renderMarkdownSafe } from '../lib/markdown'
+import { renderMarkdownSafe } from '../lib/renderSafeRichText'
 
 export type StreamStatus = 'idle' | 'streaming' | 'done' | 'cancelled' | 'limited' | 'aborted' | 'error'
 

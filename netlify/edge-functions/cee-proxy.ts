@@ -72,14 +72,29 @@ export default async function handler(request: Request, context: Context) {
   const targetPath = url.pathname.replace(/^\/bff\/cee/, '/assist/v1')
   const targetUrl = `${CEE_TARGET}${targetPath}${url.search}`
 
-  // Clone headers and add auth
-  const headers = new Headers(request.headers)
+  // SECURITY: Build headers from scratch with explicit allowlist
+  // Never forward all client headers - only copy what we need
+  const ALLOWED_FORWARD_HEADERS = [
+    'content-type',
+    'accept',
+    'x-correlation-id',
+    'x-request-id',
+  ]
+
+  const headers = new Headers()
+
+  // Only copy allowed headers from request
+  for (const headerName of ALLOWED_FORWARD_HEADERS) {
+    const value = request.headers.get(headerName)
+    if (value) {
+      headers.set(headerName, value)
+    }
+  }
+
+  // Add API key for CEE authentication
   if (apiKey) {
     headers.set('X-Olumi-Assist-Key', apiKey)
   }
-
-  // Remove host header to avoid conflicts
-  headers.delete('host')
 
   try {
     const response = await fetch(targetUrl, {

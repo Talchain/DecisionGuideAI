@@ -73,3 +73,21 @@ Priority files to migrate first:
 
 Existing clients (`CEEClient`, `AssistantsClient`) already have good patterns
 that can inform the unified implementation.
+
+## Related: CORS Allowlist Inconsistency (P2)
+
+**Status:** Known issue, to be addressed
+
+The CORS origin allowlists are currently inconsistent across proxies:
+
+| Proxy | Allowed Origins |
+|-------|-----------------|
+| Netlify `cee-proxy` | decisionguide.ai, app.olumi.app, decision-guide-ai.netlify.app, localhost |
+| Supabase `assist-proxy` | olumi.netlify.app (missing Netlify preview domain) |
+| Supabase `openai-proxy` | decisionguide.ai, app.olumi.app |
+
+**Recommended Fix:**
+1. Centralize allowed origins via environment variable: `ALLOWED_ORIGINS="https://...,https://..."`
+2. Parse and use in each proxy function
+3. Ensure all deploy domains are covered (prod + staging + preview)
+4. Remove dead/legacy domains

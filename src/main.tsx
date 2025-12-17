@@ -12,42 +12,53 @@ declare global {
 
 const DEBUG_LOG_STORAGE_KEY = 'olumi_safe_debug_logs_v1';
 
+// SECURITY: Only persist debug logs in DEV mode or with explicit ?stateDebug=1
+// This prevents potential PII from being stored on shared/public machines
+const ENABLE_DEBUG_PERSISTENCE =
+  import.meta.env.DEV ||
+  (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('stateDebug') === '1');
+
 window.__SAFE_DEBUG__ ||= { logs: [] };
 const debug = window.__SAFE_DEBUG__!;
 
-// Hydrate debug logs from previous session (useful after hard crashes)
-try {
-  if (typeof localStorage !== 'undefined') {
-    const raw = localStorage.getItem(DEBUG_LOG_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        debug.logs = parsed;
+// Hydrate debug logs from previous session (useful after hard crashes, DEV only)
+if (ENABLE_DEBUG_PERSISTENCE) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(DEBUG_LOG_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          debug.logs = parsed;
+        }
       }
     }
+  } catch {
+    // Ignore hydration errors - debug logging must never break boot
   }
-} catch {
-  // Ignore hydration errors - debug logging must never break boot
 }
 
 // Patch logs.push so every debug entry is persisted for post-mortem analysis
-try {
-  const originalPush = debug.logs.push.bind(debug.logs);
-  const MAX_PERSISTED = 500;
-  (debug.logs as any).push = (...entries: any[]) => {
-    const result = originalPush(...entries);
-    try {
-      const slice = debug.logs.slice(-MAX_PERSISTED);
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(DEBUG_LOG_STORAGE_KEY, JSON.stringify(slice));
+// SECURITY: Only persist in DEV mode or with explicit opt-in
+if (ENABLE_DEBUG_PERSISTENCE) {
+  try {
+    const originalPush = debug.logs.push.bind(debug.logs);
+    const MAX_PERSISTED = 500;
+    (debug.logs as any).push = (...entries: any[]) => {
+      const result = originalPush(...entries);
+      try {
+        const slice = debug.logs.slice(-MAX_PERSISTED);
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(DEBUG_LOG_STORAGE_KEY, JSON.stringify(slice));
+        }
+      } catch {
+        // Ignore persistence errors - debug logging must not impact UX
       }
-    } catch {
-      // Ignore persistence errors - debug logging must not impact UX
-    }
-    return result;
-  };
-} catch {
-  // Ignore instrumentation errors - app should still run without enhanced logging
+      return result;
+    };
+  } catch {
+    // Ignore instrumentation errors - app should still run without enhanced logging
+  }
 }
 
 const log = (m: string, data?: any) => {

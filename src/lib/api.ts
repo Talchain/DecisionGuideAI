@@ -19,6 +19,12 @@ if (!OPENAI_ANON_KEY) {
 }
 
 // —————————————————————————————————————————————————————————————————————————————
+// SECURITY: Debug data (prompt/rawResponse) is opt-in and DEV-only
+// This prevents accidental PII leakage through logs, analytics, or persistence
+// —————————————————————————————————————————————————————————————————————————————
+const INCLUDE_DEBUG_DATA = import.meta.env.DEV
+
+// —————————————————————————————————————————————————————————————————————————————
 // Helper: create chat completion via server-side proxy (with retries)
 // —————————————————————————————————————————————————————————————————————————————
 async function createChatCompletion(
@@ -30,7 +36,7 @@ async function createChatCompletion(
     response_format?: { type: 'json_object' | 'text' }
   } = {},
   retries = 3
-): Promise<{ content: string; prompt: any; rawResponse: any }> {
+): Promise<{ content: string; prompt?: any; rawResponse?: any }> {
   if (!OPENAI_ANON_KEY) {
     throw new Error('OpenAI proxy not configured. Check VITE_SUPABASE_ANON_KEY environment variable.')
   }
@@ -66,10 +72,10 @@ async function createChatCompletion(
         throw new Error('Empty response from proxy')
       }
 
+      // SECURITY: Only include debug data in DEV mode to prevent PII leakage
       return {
         content: data.content,
-        prompt: messages,
-        rawResponse: data,
+        ...(INCLUDE_DEBUG_DATA ? { prompt: messages, rawResponse: data } : {}),
       }
     } catch (err) {
       lastError = err instanceof Error ? err : new Error('Unknown error occurred')
@@ -175,7 +181,7 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
     }
   ]
 
-  const { content, prompt, rawResponse } = await createChatCompletion(
+  const result = await createChatCompletion(
     messages,
     {
       model: 'gpt-4',
@@ -184,8 +190,13 @@ Do not include any text outside the JSON. If you fail to generate valid JSON, re
     }
   )
 
-  const parsed = JSON.parse(content)
-  return { ...parsed, prompt, rawResponse }
+  const parsed = JSON.parse(result.content)
+  // SECURITY: Debug data only included in DEV mode
+  return {
+    ...parsed,
+    ...(result.prompt ? { prompt: result.prompt } : {}),
+    ...(result.rawResponse ? { rawResponse: result.rawResponse } : {}),
+  }
 }
 
 // —————————————————————————————————————————————————————————————————————————————
@@ -233,16 +244,17 @@ export const analyzeDecision = async ({
       query
     )
 
-    const { content, prompt, rawResponse } = await createChatCompletion(
+    const result = await createChatCompletion(
       promptMessages,
       { max_tokens: importance === 'critical_in_depth_analysis' ? 2000 : 1000 }
     )
 
+    // SECURITY: Debug data only included in DEV mode
     return {
-      analysis: content,
+      analysis: result.content,
       cached: false,
-      prompt,
-      rawResponse
+      ...(result.prompt ? { prompt: result.prompt } : {}),
+      ...(result.rawResponse ? { rawResponse: result.rawResponse } : {}),
     }
   } catch (error) {
     console.error(
@@ -287,7 +299,7 @@ export const analyzeOptions = async ({
       throw new Error('Missing required parameters for options analysis')
     }
 
-    const { content, prompt, rawResponse } = await createChatCompletion(
+    const result = await createChatCompletion(
       [
         {
           role: 'system',
@@ -341,8 +353,13 @@ Required JSON format:
       }
     )
 
-    const parsed = JSON.parse(content)
-    return { ...parsed, prompt, rawResponse }
+    const parsed = JSON.parse(result.content)
+    // SECURITY: Debug data only included in DEV mode
+    return {
+      ...parsed,
+      ...(result.prompt ? { prompt: result.prompt } : {}),
+      ...(result.rawResponse ? { rawResponse: result.rawResponse } : {}),
+    }
   } catch (error) {
     console.error(
       'Options analysis error:',
