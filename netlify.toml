@@ -34,15 +34,17 @@
 [[headers]]
   for = "/*"
   [headers.values]
-  # CSP: Restrict script sources, prevent XSS via inline injection
-  # Note: 'unsafe-inline' for styles is required by many UI libraries (Tailwind, etc.)
-  Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.onrender.com https://*.supabase.co https://api.openai.com wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+  # CSP: Content Security Policy
+  # Note: 'unsafe-inline' required for:
+  #   - scripts: index.html contains inline boot/safe-screen scripts
+  #   - styles: Tailwind and UI libraries inject inline styles
+  # Future improvement: migrate inline scripts to external files or use nonces
+  # via edge function for stricter CSP
+  Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.onrender.com https://*.supabase.co https://api.openai.com wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
   # Prevent clickjacking
   X-Frame-Options = "DENY"
   # Prevent MIME sniffing
   X-Content-Type-Options = "nosniff"
-  # Enable XSS filter (legacy browsers)
-  X-XSS-Protection = "1; mode=block"
   # Control referrer information
   Referrer-Policy = "strict-origin-when-cross-origin"
   # Restrict browser features

@@ -37,8 +37,9 @@ function getCorsHeaders(requestOrigin: string | null): Record<string, string> | 
   return {
     'Access-Control-Allow-Origin': requestOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, x-correlation-id',
-    'Vary': 'Origin',
+    // P2: Broader header allowlist for future-proofing (auth, API keys, etc.)
+    'Access-Control-Allow-Headers': 'Content-Type, x-correlation-id, Authorization, X-Api-Key, X-Request-Id',
+    'Vary': 'Origin, Access-Control-Request-Headers',
   }
 }
 

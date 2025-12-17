@@ -31,15 +31,19 @@
  * a single implementation with configurable output options.
  */
 
-// Re-export from canonical locations
-export { renderMarkdownSafe } from './markdown'
-export { sanitizeMarkdown } from '../canvas/utils/markdown'
+// Re-export from canonical locations (ESM static imports)
+import { renderMarkdownSafe as _renderMarkdownSafe } from './markdown'
+import { sanitizeMarkdown as _sanitizeMarkdown } from '../canvas/utils/markdown'
+
+// Re-export for direct import by callsites
+export const renderMarkdownSafe = _renderMarkdownSafe
+export const sanitizeMarkdown = _sanitizeMarkdown
 
 // Type definitions for callsites that need them
 export type RenderOptions = {
-  /** Allow links in output (requires renderMarkdownSafe) */
+  /** Allow links in output (uses renderMarkdownSafe) */
   allowLinks?: boolean
-  /** Allow code block language classes (requires renderMarkdownSafe) */
+  /** Allow code block language classes (uses renderMarkdownSafe) */
   allowCodeBlocks?: boolean
 }
 
@@ -67,14 +71,11 @@ export function renderSafeRichText(
 
   if (allowLinks || allowCodeBlocks) {
     // Use the feature-rich renderer for streaming/AI content
-    // Lazy import to avoid pulling in when not needed
-    const { renderMarkdownSafe } = require('./markdown')
-    return renderMarkdownSafe(content)
+    return _renderMarkdownSafe(content)
   }
 
   // Use DOMPurify-based sanitizer for strictest security
-  const { sanitizeMarkdown } = require('../canvas/utils/markdown')
-  return sanitizeMarkdown(content)
+  return _sanitizeMarkdown(content)
 }
 
 export default renderSafeRichText

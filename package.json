@@ -22,6 +22,7 @@
     "test:connection": "node --loader ts-node/esm src/lib/test-connection.ts",
     "test": "vitest run --reporter=verbose",
     "test:unit": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:guide": "vitest src/pages/sandbox-guide",
     "test:guide:ui": "vitest --ui src/pages/sandbox-guide",
     "test:full": "cross-env NODE_OPTIONS=--max-old-space-size=4096 vitest --bail=1",
