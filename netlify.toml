@@ -27,6 +27,27 @@
   VITE_FEATURE_GOAL_PROBABILITIES = "1"
   VITE_FEATURE_ISL_SYNTHESIS = "1"
 
+# =============================================================================
+# Security Headers (P0 - Enterprise Compliance)
+# =============================================================================
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+  # CSP: Restrict script sources, prevent XSS via inline injection
+  # Note: 'unsafe-inline' for styles is required by many UI libraries (Tailwind, etc.)
+  Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.onrender.com https://*.supabase.co https://api.openai.com wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'"
+  # Prevent clickjacking
+  X-Frame-Options = "DENY"
+  # Prevent MIME sniffing
+  X-Content-Type-Options = "nosniff"
+  # Enable XSS filter (legacy browsers)
+  X-XSS-Protection = "1; mode=block"
+  # Control referrer information
+  Referrer-Policy = "strict-origin-when-cross-origin"
+  # Restrict browser features
+  Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+
 [[headers]]
   for = "/index.html"
   [headers.values]

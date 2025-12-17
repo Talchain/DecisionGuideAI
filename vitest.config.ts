@@ -27,5 +27,31 @@ export default defineConfig({
         minThreads: 1,
       },
     },
+    // P1: Coverage configuration with enterprise thresholds
+    coverage: {
+      provider: 'v8',
+      enabled: false, // Enable via --coverage flag
+      reporter: ['text-summary', 'lcov', 'html'],
+      reportsDirectory: './coverage',
+      // Exclude non-source files from coverage
+      exclude: [
+        'node_modules/**',
+        'dist/**',
+        'coverage/**',
+        '**/*.d.ts',
+        '**/__tests__/**',
+        '**/tests/**',
+        '**/*.config.{js,ts}',
+        '**/test-utils/**',
+        '**/mocks/**',
+      ],
+      // Enterprise coverage thresholds (baseline - can be increased over time)
+      thresholds: {
+        statements: 40,
+        branches: 35,
+        functions: 40,
+        lines: 40,
+      },
+    },
   },
 })

@@ -1,0 +1,74 @@
+# Dependabot Configuration
+# P1: Automated dependency updates for security and maintenance
+#
+# Security updates are auto-created for vulnerabilities.
+# Version updates are grouped to reduce PR noise.
+
+version: 2
+updates:
+  # NPM dependencies (frontend + tooling)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/London"
+    # Group minor/patch updates to reduce PR noise
+    groups:
+      production-deps:
+        patterns:
+          - "react*"
+          - "@tanstack/*"
+          - "zustand"
+          - "zod"
+        update-types:
+          - "minor"
+          - "patch"
+      dev-deps:
+        patterns:
+          - "vite*"
+          - "@vitejs/*"
+          - "vitest*"
+          - "typescript"
+          - "eslint*"
+          - "@typescript-eslint/*"
+          - "prettier*"
+          - "@types/*"
+        update-types:
+          - "minor"
+          - "patch"
+      security-deps:
+        patterns:
+          - "dompurify"
+          - "marked"
+        update-types:
+          - "minor"
+          - "patch"
+    # Review PRs before merge
+    open-pull-requests-limit: 10
+    # Add labels for filtering
+    labels:
+      - "dependencies"
+      - "automated"
+    # Commit message format
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    # Target the main branch
+    target-branch: "main"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Europe/London"
+    labels:
+      - "dependencies"
+      - "ci"
+      - "automated"
+    commit-message:
+      prefix: "ci"
