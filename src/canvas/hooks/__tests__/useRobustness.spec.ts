@@ -2,11 +2,38 @@
  * useRobustness Hook Tests
  *
  * Brief 10: Tests for robustness data fetch hook
+ * Phase 1B: Updated to test enrichment integration
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useRobustness, clearRobustnessCache } from '../useRobustness'
+
+// Mock the canvas store
+vi.mock('../../store', () => ({
+  useCanvasStore: vi.fn((selector) => {
+    const state = {
+      nodes: [
+        { id: 'factor1', type: 'factor', data: { label: 'Factor 1', value: 0.5 } },
+        { id: 'goal1', type: 'goal', data: { label: 'Goal' } },
+      ],
+      edges: [
+        { id: 'e1', source: 'factor1', target: 'goal1', data: { belief: 0.8 } },
+      ],
+      results: {
+        enrichment: null,
+        report: null,
+      },
+    }
+    return selector(state)
+  }),
+}))
+
+// Mock the flags
+vi.mock('../../../flags', () => ({
+  isSchemaV2Enabled: vi.fn(() => false),
+  isPlotEnrichmentEnabled: vi.fn(() => false),
+}))
 
 // Mock fetch globally
 const mockFetch = vi.fn()
@@ -49,6 +76,7 @@ describe('useRobustness', () => {
       expect(result.current.robustness).toBeNull()
       expect(result.current.loading).toBe(false)
       expect(result.current.error).toBeNull()
+      expect(result.current.source).toBeNull()
     })
   })
 
@@ -73,6 +101,7 @@ describe('useRobustness', () => {
       expect(result.current.robustness?.robustness_label).toBe('moderate')
       expect(result.current.robustness?.narrative).toBe('Test narrative')
       expect(result.current.error).toBeNull()
+      expect(result.current.source).toBe('isl')
     })
 
     it('maps sensitivity data correctly', async () => {
@@ -122,6 +151,7 @@ describe('useRobustness', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
+        text: () => Promise.resolve('Not found'),
       })
 
       const { result } = renderHook(() =>
@@ -136,12 +166,15 @@ describe('useRobustness', () => {
       expect(result.current.robustness).not.toBeNull()
       expect(result.current.robustness?.robustness_label).toBe('moderate')
       expect(result.current.error).toBeNull()
+      expect(result.current.source).toBe('fallback')
     })
 
     it('sets error and fallback on other errors', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
+        statusText: 'Internal Server Error',
+        text: () => Promise.resolve('Server error'),
       })
 
       const { result } = renderHook(() =>
@@ -152,9 +185,10 @@ describe('useRobustness', () => {
         expect(result.current.loading).toBe(false)
       })
 
-      expect(result.current.error).toBe('Failed to fetch robustness: 500')
+      expect(result.current.error).toContain('Failed to fetch robustness: 500')
       // Should still have fallback
       expect(result.current.robustness).not.toBeNull()
+      expect(result.current.source).toBe('fallback')
     })
 
     it('handles network errors', async () => {
@@ -170,6 +204,7 @@ describe('useRobustness', () => {
 
       expect(result.current.error).toBe('Network error')
       expect(result.current.robustness).not.toBeNull() // Fallback
+      expect(result.current.source).toBe('fallback')
     })
   })
 
@@ -198,6 +233,7 @@ describe('useRobustness', () => {
       // Should not fetch again (cached)
       expect(mockFetch).toHaveBeenCalledTimes(1)
       expect(result.current.robustness?.narrative).toBe('Test narrative')
+      expect(result.current.source).toBe('cache')
     })
 
     it('fetches new data when runId changes', async () => {
@@ -272,7 +308,7 @@ describe('useRobustness', () => {
   })
 
   describe('Request payload', () => {
-    it('includes runId and responseHash in request', async () => {
+    it('sends request to ISL endpoint', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: () => Promise.resolve(mockApiResponse),
@@ -291,15 +327,100 @@ describe('useRobustness', () => {
       })
 
       const [url, options] = mockFetch.mock.calls[0]
-      expect(url).toBe('/bff/engine/v1/robustness')
+      expect(url).toBe('/bff/isl/api/v1/analysis/robustness')
       expect(options.method).toBe('POST')
+      expect(options.headers['Content-Type']).toBe('application/json')
 
+      // Verify body contains ISL request format
       const body = JSON.parse(options.body)
-      expect(body.run_id).toBe('test-run-123')
-      expect(body.response_hash).toBe('hash-abc')
-      expect(body.include_sensitivity).toBe(true)
-      expect(body.include_voi).toBe(true)
-      expect(body.include_pareto).toBe(true)
+      expect(body).toHaveProperty('graph')
+      expect(body).toHaveProperty('options')
+      expect(body).toHaveProperty('utility')
+    })
+  })
+
+  describe('Phase 1B: Source tracking', () => {
+    it('reports source as isl when fetching from ISL', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockApiResponse),
+      })
+
+      const { result } = renderHook(() =>
+        useRobustness({ runId: 'test-run-123', autoFetch: true })
+      )
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+
+      expect(result.current.source).toBe('isl')
+    })
+
+    it('reports source as cache when using cached data', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockApiResponse),
+      })
+
+      const { result, rerender } = renderHook(
+        ({ runId }) => useRobustness({ runId, autoFetch: true }),
+        { initialProps: { runId: 'test-run-cached' } }
+      )
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+
+      expect(result.current.source).toBe('isl')
+
+      // Rerender to use cache
+      rerender({ runId: 'test-run-cached' })
+
+      expect(result.current.source).toBe('cache')
+    })
+
+    it('reports source as fallback on error', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('Test error'))
+
+      const { result } = renderHook(() =>
+        useRobustness({ runId: 'test-run-error', autoFetch: true })
+      )
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+
+      expect(result.current.source).toBe('fallback')
+    })
+  })
+
+  describe('Phase 1B: Flag enabled behavior (no ISL fallback)', () => {
+    it('does NOT call ISL when flag enabled and no enrichment (uses fallback)', async () => {
+      // Import the mock and enable the flag
+      const { isPlotEnrichmentEnabled } = await import('../../../flags')
+      vi.mocked(isPlotEnrichmentEnabled).mockReturnValue(true)
+
+      clearRobustnessCache()
+      mockFetch.mockClear()
+
+      const { result } = renderHook(() =>
+        useRobustness({ runId: 'test-no-isl-call', autoFetch: true })
+      )
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+
+      // Key assertion: ISL fetch should NOT be called when flag is enabled
+      expect(mockFetch).not.toHaveBeenCalled()
+
+      // Should have fallback data
+      expect(result.current.robustness).not.toBeNull()
+      expect(result.current.source).toBe('fallback')
+
+      // Reset the flag
+      vi.mocked(isPlotEnrichmentEnabled).mockReturnValue(false)
     })
   })
 })

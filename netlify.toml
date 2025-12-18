@@ -26,6 +26,11 @@
   # Brief E Task 4: New capability feature flags for staging QA
   VITE_FEATURE_GOAL_PROBABILITIES = "1"
   VITE_FEATURE_ISL_SYNTHESIS = "1"
+  # Phase 1B: PLoT Enrichment Routing
+  # When "1": UI reads robustness/validation from PLoT enrichment (eliminates ISL dual-pipeline)
+  # When "0": UI calls ISL directly (legacy behavior)
+  # Enable via Netlify dashboard for staged rollout, monitor error rates via PostHog/Sentry
+  VITE_USE_PLOT_ENRICHMENT = "0"
 
 # =============================================================================
 # Security Headers (P0 - Enterprise Compliance)
@@ -35,11 +40,10 @@
   for = "/*"
   [headers.values]
   # CSP: Content Security Policy
-  # Note: 'unsafe-inline' required for:
-  #   - scripts: index.html contains inline boot/safe-screen scripts
-  #   - styles: Tailwind and UI libraries inject inline styles
-  # Future improvement: migrate inline scripts to external files or use nonces
-  # via edge function for stricter CSP
+  # script-src 'unsafe-inline': Required as base, replaced with nonce by csp-nonce edge function
+  #   The edge function injects cryptographic nonces into inline scripts and updates CSP header
+  # style-src 'unsafe-inline': Required for Tailwind CSS and React CSS-in-JS (cannot be nonce-protected)
+  #   Tailwind and component libraries inject runtime styles that cannot use nonces
   Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.onrender.com https://*.supabase.co https://api.openai.com wss://*.supabase.co; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
   # Prevent clickjacking
   X-Frame-Options = "DENY"
@@ -70,6 +74,17 @@
   to = "https://plot-lite-service.onrender.com/:splat"
   status = 200
   force = true
+
+# =============================================================================
+# Edge Functions (security-critical functions listed first for audit clarity)
+# =============================================================================
+
+# CSP Nonce Injection - MUST run before other edge functions on HTML responses
+# Generates per-request cryptographic nonces for inline scripts
+# Replaces 'unsafe-inline' with nonce-based CSP for security hardening
+[[edge_functions]]
+  function = "csp-nonce"
+  path = "/*"
 
 # CEE (Assistants) Service proxy - handled by Edge Function for auth header injection
 # Requires ASSIST_API_KEY env var in Netlify dashboard

@@ -216,12 +216,40 @@ export interface RunRequest {
   save?: boolean  // If true, trigger CEE Decision Review generation
 }
 
+// Phase 1B: Import enrichment types
+import type { PLoTEnrichment } from './enrichment'
+
 export type StreamEvent =
   | { type: 'hello'; data: { response_id: string } }
   | { type: 'tick'; data: { index: number } }
   | { type: 'reconnected'; data: { attempt: number } }
   | { type: 'done'; data: { response_id: string } }
   | { type: 'error'; data: ErrorV1 }
+
+/**
+ * Phase 1B: PLoT response data structure with optional enrichment
+ * The enrichment field contains ISL-computed robustness/validation data
+ * bundled directly from PLoT, eliminating the need for separate ISL calls.
+ */
+export interface PLoTDoneData {
+  response_id: string
+  report: ReportV1
+  diagnostics?: {
+    resumes: number
+    trims: 0 | 1
+    recovered_events: number
+    correlation_id: string
+  }
+  correlationIdHeader?: string
+  degraded?: boolean
+  // Phase 1B: Enrichment from PLoT (ISL data bundled in response)
+  enrichment?: PLoTEnrichment | null
+  // CEE fields
+  ceeReview?: unknown
+  ceeTrace?: unknown
+  ceeError?: unknown
+  ceeDebugHeaders?: unknown
+}
 
 /**
  * Critique item from PLoT Engine v1.1 contract

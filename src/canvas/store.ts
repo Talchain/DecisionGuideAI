@@ -10,6 +10,7 @@ import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
 import type { ReportV1, ErrorV1 } from '../adapters/plot/types'
+import type { PLoTEnrichment } from '../adapters/plot/enrichment'
 import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, type StoredRun } from './store/runHistory'
 import * as scenarios from './store/scenarios'
@@ -56,6 +57,9 @@ export interface ResultsState {
   startedAt?: number
   finishedAt?: number
   drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
+  // Phase 1B: PLoT enrichment data (ISL results bundled with PLoT response)
+  // When VITE_USE_PLOT_ENRICHMENT is enabled, robustness/validation data comes from here
+  enrichment?: PLoTEnrichment | null
 }
 
 export type SseDiagnostics = {
@@ -222,6 +226,7 @@ interface CanvasState {
     ceeReview?: CeeDecisionReviewPayload | null
     ceeTrace?: CeeTraceMeta | null
     ceeError?: CeeErrorViewModel | null
+    enrichment?: PLoTEnrichment | null // Phase 1B: ISL data bundled from PLoT
   }) => void
   resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string }) => void
   resultsCancelled: () => void
@@ -1325,7 +1330,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }))
   },
 
-  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError }) => {
+  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError, enrichment }) => {
     const { nodes, edges, results, currentScenarioId, graphHealth: existingHealth } = get()
 
     const finishedAt = Date.now()
@@ -1344,7 +1349,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         hash,
         drivers,
         finishedAt,
-        error: undefined
+        error: undefined,
+        enrichment: enrichment ?? null, // Phase 1B: Persist enrichment from PLoT
       },
       graphHealth: (() => {
         if (!healthFromQuality) return s.graphHealth ?? null

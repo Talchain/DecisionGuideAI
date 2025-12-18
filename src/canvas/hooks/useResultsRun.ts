@@ -101,6 +101,9 @@ export function useResultsRun(): UseResultsRunReturn {
             const ceeError = anyData.ceeError ?? null
             const ceeDebugHeaders = anyData.ceeDebugHeaders // Section 4: Debug headers
 
+            // Phase 1B: Extract enrichment from PLoT response (ISL data bundled in)
+            const enrichment = anyData.enrichment ?? null
+
             // Extract drivers from report (if present)
             // Note: Current ReportV1 has drivers as labels, not IDs
             // We'll need to map them later when we have node/edge metadata
@@ -114,6 +117,7 @@ export function useResultsRun(): UseResultsRunReturn {
               ceeReview,
               ceeTrace,
               ceeError,
+              enrichment, // Phase 1B: Pass enrichment to store
             })
 
             // Capture diagnostics, correlation metadata, and any CEE metadata when available

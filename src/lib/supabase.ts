@@ -17,15 +17,10 @@ try {
 } catch {}
 
 // —————————————————————————————————————————————————————————————————————————————
-// DEV-only env logging
+// DEV-only env logging (URL only - never log credentials, even prefixes)
 // —————————————————————————————————————————————————————————————————————————————
 if (import.meta.env.DEV) {
-  console.log(
-    '[Supabase ENV] URL=',
-    import.meta.env.VITE_SUPABASE_URL,
-    'ANON_KEY_PREFIX=',
-    import.meta.env.VITE_SUPABASE_ANON_KEY?.slice(0, 8)
-  )
+  console.log('[Supabase ENV] URL=', import.meta.env.VITE_SUPABASE_URL)
 }
 
 // —————————————————————————————————————————————————————————————————————————————
@@ -45,8 +40,10 @@ if (!supabaseUrl || !supabaseKey) {
 
 // —————————————————————————————————————————————————————————————————————————————
 // Create Supabase client
-//  • disable auto token-refresh  (avoids background-tab stalls)
-//  • disable multi-tab sync      (prevents SW broadcasts)
+//  • enable auto token-refresh   (seamless session management)
+//  • enable multi-tab sync       (consistent auth state across tabs)
+//  • persist session             (survives page reloads)
+//  • use PKCE flow               (secure OAuth for SPAs)
 //  • force fetchOptions: keepalive & no-store
 // —————————————————————————————————————————————————————————————————————————————
 export const supabase = createClient<Database>(
@@ -77,10 +74,17 @@ export const supabase = createClient<Database>(
 
 export async function getUserId(): Promise<string | null> {
   const { data, error } = await supabase.auth.getSession()
-  console.debug('[getUserId] supabase.auth.getSession →', { data, error })
+  // Security: Never log session objects (contain access_token/refresh_token)
+  if (import.meta.env.DEV) {
+    console.debug('[getUserId] supabase.auth.getSession →', {
+      hasSession: !!data?.session,
+      userId: data?.session?.user?.id ?? null,
+      error: error?.message ?? null,
+    })
+  }
   const userId = data?.session?.user?.id
   if (error || !userId) {
-    if (import.meta.env.DEV) console.error('[Supabase] getSession error:', error)
+    if (import.meta.env.DEV) console.error('[Supabase] getSession error:', error?.message)
     return null
   }
   return userId

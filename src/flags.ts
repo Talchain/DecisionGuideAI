@@ -262,6 +262,15 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_SCHEMA_V2',
     storageKey: 'feature.schemaV2',
   },
+  // Phase 1A: PLoT Enrichment Routing Consolidation
+  // When enabled, UI consumes robustness/sensitivity data from PLoT's enrichment
+  // response instead of calling ISL directly. This eliminates the dual-pipeline
+  // problem where PLoT and ISL produce inconsistent results.
+  // Default: false (preserve current behaviour until PLoT enrichment is ready)
+  plotEnrichment: {
+    envKey: 'VITE_USE_PLOT_ENRICHMENT',
+    storageKey: 'feature.plotEnrichment',
+  },
 } as const
 
 // ============================================================================
@@ -326,6 +335,7 @@ const flags = {
   snapshotsV2: makeFlag(FLAGS_CONFIG.snapshotsV2),
   onboardingTour: makeFlag(FLAGS_CONFIG.onboardingTour),
   schemaV2: makeFlag(FLAGS_CONFIG.schemaV2),
+  plotEnrichment: makeFlag(FLAGS_CONFIG.plotEnrichment),
 }
 
 // Export with original naming convention for backward compatibility
@@ -385,6 +395,7 @@ export const isDebugEnabled = flags.debug
 export const isSnapshotsV2Enabled = flags.snapshotsV2
 export const isOnboardingTourEnabled = flags.onboardingTour
 export const isSchemaV2Enabled = flags.schemaV2
+export const isPlotEnrichmentEnabled = flags.plotEnrichment
 
 // ============================================================================
 // POC FLAGS (special pattern - constant object, not functions)

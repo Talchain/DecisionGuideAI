@@ -1,18 +1,25 @@
 /**
- * useRobustness - Fetches robustness analysis from ISL
+ * useRobustness - Fetches robustness analysis from PLoT enrichment or ISL
  *
  * Brief 10: Data fetch hook for robustness display
  * Brief 12: Updated to call ISL directly via /bff/isl proxy
  * Brief 30: Updated to use correct ISL endpoint and schema
+ * Phase 1B: Added PLoT enrichment support via VITE_USE_PLOT_ENRICHMENT flag
  *
- * Calls POST /bff/isl/api/v1/analysis/robustness endpoint to get:
- * - Robustness classification (robust/moderate/fragile)
- * - Sensitive parameters with flip thresholds
- * - Value of Information suggestions
- * - Pareto analysis for multi-goal decisions
+ * When VITE_USE_PLOT_ENRICHMENT is enabled:
+ * - Extracts robustness from PLoT enrichment
+ * - Does NOT fall back to ISL (eliminates dual-pipeline)
+ * - If enrichment unavailable, returns fallback data
+ *
+ * When VITE_USE_PLOT_ENRICHMENT is disabled (legacy):
+ * - Calls POST /bff/isl/api/v1/analysis/robustness endpoint to get:
+ *   - Robustness classification (robust/moderate/fragile)
+ *   - Sensitive parameters with flip thresholds
+ *   - Value of Information suggestions
+ *   - Pareto analysis for multi-goal decisions
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
 import type { RobustnessResult } from '../components/RecommendationCard/types'
 import {
   adaptISLRobustnessResponse,
@@ -20,7 +27,11 @@ import {
 } from '../adapters/islRobustnessAdapter'
 import { buildISLRobustnessRequest, type UINode, type UIEdge } from '../adapters/islRequestAdapter'
 import { useCanvasStore } from '../store'
-import { isSchemaV2Enabled } from '../../flags'
+import { isSchemaV2Enabled, isPlotEnrichmentEnabled } from '../../flags'
+import {
+  extractRobustnessFromEnrichment,
+  type PLoTResponseWithEnrichment,
+} from '../../adapters/plot/enrichment'
 
 interface UseRobustnessOptions {
   /** Run ID to fetch robustness for (used for caching) */
@@ -40,10 +51,12 @@ interface UseRobustnessResult {
   error: string | null
   /** Manual refresh function */
   refetch: () => Promise<void>
+  /** Phase 1B: Source of robustness data (for debugging) */
+  source: 'enrichment' | 'isl' | 'cache' | 'fallback' | null
 }
 
 // Simple in-memory cache for robustness results (keyed by runId+responseHash)
-const robustnessCache = new Map<string, RobustnessResult>()
+const robustnessCache = new Map<string, { result: RobustnessResult; source: 'enrichment' | 'isl' }>()
 
 export function useRobustness({
   runId,
@@ -53,24 +66,40 @@ export function useRobustness({
   const [robustness, setRobustness] = useState<RobustnessResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [source, setSource] = useState<'enrichment' | 'isl' | 'cache' | 'fallback' | null>(null)
 
   // Get nodes/edges from store for ISL request
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  // Phase 1B: Get enrichment from store
+  const enrichment = useCanvasStore(s => s.results.enrichment)
+  const report = useCanvasStore(s => s.results.report)
 
   // Track last fetched run to prevent duplicate fetches
   const lastFetchedRef = useRef<string | null>(null)
+
+  // Track if we just completed a fetch (for source='cache' detection)
+  // This flag is set when fetch completes and cleared after the render
+  const justCompletedFetchRef = useRef(false)
+
+  // Clear the flag after each render completes
+  // This allows subsequent renders to correctly report 'cache' source
+  useLayoutEffect(() => {
+    justCompletedFetchRef.current = false
+  })
 
   const fetchRobustness = useCallback(async () => {
     if (!runId) {
       setRobustness(null)
       setError(null)
+      setSource(null)
       return
     }
 
-    // Need nodes to build ISL request
+    // Need nodes to build ISL request (if fallback needed)
     if (nodes.length === 0) {
       setRobustness(null)
+      setSource(null)
       return
     }
 
@@ -79,7 +108,8 @@ export function useRobustness({
     // Check cache first
     const cached = robustnessCache.get(cacheKey)
     if (cached) {
-      setRobustness(cached)
+      setRobustness(cached.result)
+      setSource('cache')
       return
     }
 
@@ -93,6 +123,54 @@ export function useRobustness({
     setError(null)
 
     try {
+      // =========================================================================
+      // Phase 1B: PLoT enrichment routing (when flag enabled)
+      // =========================================================================
+      if (isPlotEnrichmentEnabled()) {
+        if (enrichment) {
+          // Build a PLoT-like response object for the adapter
+          const plotResponse: PLoTResponseWithEnrichment = {
+            result: {
+              answer: report?.results?.likely?.toString() ?? '',
+              confidence: report?.confidence?.level === 'high' ? 0.9 : report?.confidence?.level === 'medium' ? 0.7 : 0.5,
+              explanation: report?.confidence?.why ?? '',
+            },
+            execution_ms: report?.meta?.elapsed_ms ?? 0,
+            enrichment,
+          }
+
+          const fromEnrichment = extractRobustnessFromEnrichment(plotResponse)
+          if (fromEnrichment !== null) {
+            if (import.meta.env.DEV) {
+              console.log('[useRobustness] Using robustness from PLoT enrichment')
+            }
+            justCompletedFetchRef.current = true
+            robustnessCache.set(cacheKey, { result: fromEnrichment, source: 'enrichment' })
+            setRobustness(fromEnrichment)
+            setSource('enrichment')
+            setLoading(false)
+            return
+          }
+        }
+
+        // Task 5: When flag enabled, do NOT fall back to ISL
+        // This eliminates dual-pipeline; PLoT is responsible for ISL calls
+        if (import.meta.env.DEV) {
+          console.warn('[useRobustness] Enrichment flag enabled but no usable enrichment - using fallback (NOT calling ISL)')
+        }
+        justCompletedFetchRef.current = true
+        const fallback = generateFallbackRobustness()
+        robustnessCache.set(cacheKey, { result: fallback, source: 'enrichment' })
+        setRobustness(fallback)
+        setSource('fallback')
+        setLoading(false)
+        return
+      }
+
+      // =========================================================================
+      // Legacy path: Direct ISL call (only when flag disabled)
+      // =========================================================================
+
       // Brief 30: Build ISL request with correct schema
       // Transform UI nodes/edges to ISL format
       const uiNodes: UINode[] = nodes.map(n => ({
@@ -199,9 +277,11 @@ export function useRobustness({
 
         // 404 = endpoint not available, use fallback
         if (response.status === 404) {
+          justCompletedFetchRef.current = true
           const fallback = generateFallbackRobustness()
-          robustnessCache.set(cacheKey, fallback)
+          robustnessCache.set(cacheKey, { result: fallback, source: 'isl' })
           setRobustness(fallback)
+          setSource('fallback')
           return
         }
         throw new Error(`Failed to fetch robustness: ${response.status} - ${errorBody}`)
@@ -230,15 +310,19 @@ export function useRobustness({
       }
 
       // Cache the result
-      robustnessCache.set(cacheKey, result)
+      justCompletedFetchRef.current = true
+      robustnessCache.set(cacheKey, { result, source: 'isl' })
       setRobustness(result)
+      setSource('isl')
     } catch (err: any) {
       const errorMessage = err?.message || 'Failed to fetch robustness analysis'
       setError(errorMessage)
 
       // Generate fallback on error
+      justCompletedFetchRef.current = true
       const fallback = generateFallbackRobustness()
       setRobustness(fallback)
+      setSource('fallback')
 
       if (import.meta.env.DEV) {
         console.warn('[useRobustness] Failed to fetch:', errorMessage)
@@ -246,7 +330,7 @@ export function useRobustness({
     } finally {
       setLoading(false)
     }
-  }, [runId, responseHash, loading, nodes, edges])
+  }, [runId, responseHash, loading, nodes, edges, enrichment, report])
 
   // Auto-fetch when runId changes
   useEffect(() => {
@@ -256,11 +340,22 @@ export function useRobustness({
     }
   }, [autoFetch, runId, responseHash, fetchRobustness])
 
+  // Compute final source: if we have cached data and this is not the render
+  // immediately after a fetch, report 'cache' as the source
+  const cacheKey = runId ? `${runId}-${responseHash || ''}` : ''
+  const isUsingCache =
+    !loading &&
+    runId &&
+    lastFetchedRef.current === cacheKey &&
+    robustnessCache.has(cacheKey) &&
+    !justCompletedFetchRef.current
+
   return {
     robustness,
     loading,
     error,
     refetch: fetchRobustness,
+    source: isUsingCache ? 'cache' : source,
   }
 }
 
