@@ -4,7 +4,7 @@
  * British English: visualisation, colour
  *
  * Features:
- * - Double-click to expand/collapse
+ * - Chevron icon to expand/collapse description
  * - Expandable description with sanitized markdown
  * - Smooth transitions
  */
@@ -12,7 +12,7 @@
 import { memo, useState, useCallback, type ReactNode } from 'react'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
 import type { NodeType } from '../domain/nodes'
-import type { LucideIcon } from 'lucide-react'
+import { ChevronDown, ChevronUp, type LucideIcon } from 'lucide-react'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
 import { NodeBadge } from '../components/NodeBadge'
@@ -31,7 +31,7 @@ interface BaseNodeProps extends NodeProps {
 /**
  * Base node with shared header and structure
  * Includes connection handles and accessibility attributes
- * Double-click to expand/collapse description
+ * Click chevron icon to expand/collapse description
  */
 export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, children }: BaseNodeProps) => {
   const label = data?.label || 'Untitled'
@@ -95,9 +95,10 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
   // Accessible name combines node type and label
   const accessibleName = `${nodeType} node: ${label}`
 
-  // Toggle expand on double-click
-  const handleDoubleClick = useCallback(() => {
-    if (!description) return  // Only expand if description exists
+  // Toggle expand via chevron icon click
+  const handleExpandToggle = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()  // Prevent node selection/drag
+    if (!description) return
 
     setIsExpanded(prev => !prev)
 
@@ -116,7 +117,7 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         relative rounded-lg border-2 shadow-sm
         ${colors.border} ${borderStyle}
         transition-all duration-300
-        ${description ? 'cursor-pointer' : 'cursor-default'}
+        cursor-default
         ${selected ? 'ring-2 ring-sky-500 ring-offset-2' : ''}
         ${isHighlighted ? 'ring-4 ring-sun-500 ring-opacity-50' : ''}
       `}
@@ -127,7 +128,6 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         maxWidth: isExpanded ? '300px' : '200px',
         minHeight: isExpanded ? '120px' : undefined,
       }}
-      onDoubleClick={handleDoubleClick}
     >
       {/* Phase 3: Border colour overlay for subtle tint */}
       <div className={`absolute inset-0 rounded-lg ${colors.bg} opacity-10 -z-10`} />
@@ -180,6 +180,23 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         {/* S1-UNK: Warning chip for unknown backend kinds */}
         {data?.unknownKind && data?.originalKind && (
           <UnknownKindWarning originalKind={data.originalKind} />
+        )}
+
+        {/* Expand/collapse chevron for nodes with description */}
+        {description && (
+          <button
+            onClick={handleExpandToggle}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="nodrag nopan ml-auto p-0.5 hover:bg-black/5 rounded transition-colors"
+            aria-label={isExpanded ? 'Collapse description' : 'Expand description'}
+            title={isExpanded ? 'Collapse' : 'Expand'}
+          >
+            {isExpanded ? (
+              <ChevronUp size={14} className={colors.text} />
+            ) : (
+              <ChevronDown size={14} className={colors.text} />
+            )}
+          </button>
         )}
       </div>
       

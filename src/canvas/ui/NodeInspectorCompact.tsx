@@ -235,7 +235,7 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
           {/* Compact probability rows */}
           <div className="space-y-1.5 mb-2">
             {rows.map((row) => (
-              <div key={row.edgeId} className="flex items-center gap-1">
+              <div key={row.edgeId} className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => toggleLock(row.edgeId)}
@@ -246,22 +246,24 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
                 >
                   {row.locked ? <Lock size={10} /> : <Unlock size={10} />}
                 </button>
-                <span className="text-xs text-gray-600 w-16 truncate" title={row.targetLabel}>
+                <span className="text-xs text-gray-600 flex-1 min-w-0 truncate" title={row.targetLabel}>
                   {row.targetLabel}
                 </span>
-                <input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="5"
-                  value={row.percent}
-                  disabled={row.locked}
-                  onChange={(e) => updatePercent(row.edgeId, parseInt(e.target.value, 10) || 0)}
-                  className={`w-12 text-xs border border-gray-300 rounded px-1 py-0.5 text-right ${
-                    row.locked ? 'opacity-50' : ''
-                  }`}
-                />
-                <span className="text-xs text-gray-500">%</span>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="5"
+                    value={row.percent}
+                    disabled={row.locked}
+                    onChange={(e) => updatePercent(row.edgeId, parseInt(e.target.value, 10) || 0)}
+                    className={`w-12 text-xs border border-gray-300 rounded px-1 py-0.5 text-right ${
+                      row.locked ? 'opacity-50' : ''
+                    }`}
+                  />
+                  <span className="text-xs text-gray-500">%</span>
+                </div>
               </div>
             ))}
           </div>
