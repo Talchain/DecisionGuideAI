@@ -190,21 +190,12 @@ export function OutputsDock() {
     }))
   )
 
-  // Find goal node for synthesis context (must be after nodes is declared)
-  const goalNode = nodes.find(n => n.type === 'goal' || n.type === 'outcome')
-
-  // Brief E Task 2: Fetch ISL synthesis narratives
-  // Brief F Task 3B: Synthesis waits for robustness data (sequential, not parallel)
+  // Synthesis data - DEPRECATED: now comes from ceeReview.blocks in Decision Review
+  // useISLSynthesis is a no-op stub retained for backward compatibility
   const {
     synthesis: synthesisData,
     loading: synthesisLoading,
-  } = useISLSynthesis({
-    runId: robustnessRunId,
-    responseHash: results?.hash,
-    autoFetch: !robustnessLoading && !!robustnessData, // Wait for robustness
-    robustnessResult: robustnessData, // Pass robustness data for transformation
-    goalLabel: goalNode?.data?.label as string | undefined,
-  })
+  } = useISLSynthesis()
 
   // Actions don't need shallow - they're stable references
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)

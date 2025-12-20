@@ -90,11 +90,25 @@ async function checkRateLimit(clientIp: string): Promise<{
 const ALLOWED_ORIGINS = [
   'https://decisionguide.ai',
   'https://app.olumi.app',
-  'https://decision-guide-ai.netlify.app',  // Netlify preview
+  'https://decision-guide-ai.netlify.app',  // Netlify main
   'https://staging--olumi.netlify.app',     // Staging environment
   'http://localhost:5173',  // Dev only
   'http://localhost:4173',  // Preview builds
 ]
+
+// Pattern for Netlify preview/branch deploys: deploy-preview-123--olumi.netlify.app, feature-xyz--olumi.netlify.app
+const NETLIFY_PREVIEW_PATTERN = /^https:\/\/[a-z0-9-]+--olumi\.netlify\.app$/
+
+/**
+ * Check if origin is allowed (exact match or Netlify preview pattern)
+ */
+function isOriginAllowed(origin: string): boolean {
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    return true
+  }
+  // Allow Netlify preview/branch deploys
+  return NETLIFY_PREVIEW_PATTERN.test(origin)
+}
 
 /**
  * Get CORS headers for allowed origins only.
@@ -102,7 +116,7 @@ const ALLOWED_ORIGINS = [
  */
 function getCorsHeaders(requestOrigin: string | null): Record<string, string> | null {
   // SECURITY: Reject unknown origins explicitly (don't fallback)
-  if (!requestOrigin || !ALLOWED_ORIGINS.includes(requestOrigin)) {
+  if (!requestOrigin || !isOriginAllowed(requestOrigin)) {
     return null
   }
 

@@ -1,33 +1,15 @@
 /**
- * useISLSynthesis - Fetches prose narratives from CEE
+ * useISLSynthesis - DEPRECATED
  *
- * Brief E Task 2: Wire ISL Synthesis Narratives
- * Brief F Task 3: Updated to call CEE (not ISL) and wait for robustness data
+ * This hook previously fetched prose narratives from the /bff/cee/isl-synthesis endpoint.
+ * That endpoint has been removed. Synthesis narratives are now provided inline via
+ * ceeReview.blocks in the PLoT response and rendered in the Decision Review panel.
  *
- * DEPRECATED: The /bff/cee/isl-synthesis endpoint is being removed.
- * Synthesis narratives will come from ceeReview.blocks in the PLoT response.
- * This hook now returns null/empty state to prevent 404 errors.
+ * This hook is retained for backward compatibility but returns null/no-op state.
+ * Dependents should migrate to consuming ceeReview.blocks directly.
  *
- * Original endpoint: POST /bff/cee/isl-synthesis
- * - decision_narrative: Overall decision context
- * - uncertainty_narrative: Key uncertainties explained
- * - recommendation_narrative: Actionable recommendations
+ * @deprecated Use ceeReview.blocks from PLoT response instead
  */
-
-// NOTE: Imports kept for type compatibility but hook is now a no-op
-// import { useState, useEffect, useCallback, useRef } from 'react'
-// import { useCanvasStore } from '../store'
-// import { transformISLToCEESynthesis, type CEESynthesisRequest } from '../adapters/ceeSynthesisAdapter'
-import type { RobustnessResult } from '../components/RecommendationCard/types'
-
-// CEE Synthesis response types (matches CEE contract)
-export interface CEESynthesisResponse {
-  synthesis: {
-    decision_narrative: string
-    uncertainty_narrative: string
-    recommendation_narrative: string
-  }
-}
 
 export interface SynthesisNarratives {
   decision: string
@@ -35,65 +17,29 @@ export interface SynthesisNarratives {
   recommendation: string
 }
 
-interface UseISLSynthesisOptions {
-  /** Run ID to fetch synthesis for (used for caching) */
-  runId?: string
-  /** Response hash for cache key */
-  responseHash?: string
-  /** Auto-fetch on mount (default: true) */
-  autoFetch?: boolean
-  /** Robustness result - synthesis waits for this (Brief F Task 3B) */
-  robustnessResult?: RobustnessResult | null
-  /** Goal node label for synthesis context */
-  goalLabel?: string
-}
-
 interface UseISLSynthesisResult {
-  /** The synthesis narratives if available */
-  synthesis: SynthesisNarratives | null
-  /** Loading state */
-  loading: boolean
-  /** Error message if request failed */
-  error: string | null
-  /** Manual refresh function */
+  /** Always null - use ceeReview.blocks instead */
+  synthesis: null
+  /** Always false - no loading occurs */
+  loading: false
+  /** Always null - no errors possible */
+  error: null
+  /** No-op function for backward compatibility */
   refetch: () => Promise<void>
 }
 
-// Simple in-memory cache for synthesis results (keyed by runId+responseHash)
-const synthesisCache = new Map<string, SynthesisNarratives>()
-
-export function useISLSynthesis({
-  runId,
-  responseHash,
-  autoFetch = true,
-  robustnessResult,
-  goalLabel,
-}: UseISLSynthesisOptions): UseISLSynthesisResult {
-  // DEPRECATED: /bff/cee/isl-synthesis endpoint removed.
-  // Synthesis narratives will come from ceeReview.blocks in PLoT response.
-  // Return null/empty state to prevent 404 errors.
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _unused = { runId, responseHash, autoFetch, robustnessResult, goalLabel }
-
+/**
+ * @deprecated Synthesis narratives now come from ceeReview.blocks in the Decision Review panel.
+ */
+export function useISLSynthesis(): UseISLSynthesisResult {
   return {
     synthesis: null,
     loading: false,
     error: null,
     refetch: async () => {
-      // No-op: endpoint deprecated
-      if (import.meta.env.DEV) {
-        console.log('[useISLSynthesis] DEPRECATED: /bff/cee/isl-synthesis removed. Synthesis comes from ceeReview.blocks.')
-      }
+      // No-op: endpoint removed, use ceeReview.blocks instead
     },
   }
-}
-
-/**
- * Clear the synthesis cache (useful for testing)
- */
-export function clearSynthesisCache(): void {
-  synthesisCache.clear()
 }
 
 export default useISLSynthesis

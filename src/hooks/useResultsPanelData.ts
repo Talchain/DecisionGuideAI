@@ -261,17 +261,12 @@ export function useResultsPanelData(): ResultsPanelData {
     autoFetch: !isPreRun && !!responseHash,
   })
 
-  // Get synthesis data (waits for robustness)
+  // Synthesis data - DEPRECATED: now comes from ceeReview.blocks in Decision Review
+  // useISLSynthesis is a no-op stub retained for backward compatibility
   const {
     synthesis: synthesisData,
     loading: synthesisLoading,
-  } = useISLSynthesis({
-    runId: runId ?? undefined,
-    responseHash: responseHash ?? undefined,
-    autoFetch: !robustnessLoading && !!robustnessData,
-    robustnessResult: robustnessData,
-    goalLabel: goalNode?.data?.label as string | undefined,
-  })
+  } = useISLSynthesis()
 
   // Get option ranking from comparison
   const optionRanking = useOptionRanking()
