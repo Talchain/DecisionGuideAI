@@ -9,3 +9,17 @@ export function useQuery(_key, _fn, _opts) {
     refetch: async () => ({ data: undefined }),
   };
 }
+export function useMutation(_opts) {
+  return {
+    mutate: () => {},
+    mutateAsync: async () => {},
+    data: undefined,
+    error: null,
+    isError: false,
+    isIdle: true,
+    isPending: false,
+    isSuccess: false,
+    reset: () => {},
+    status: 'idle',
+  };
+}
