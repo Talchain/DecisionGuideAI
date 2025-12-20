@@ -71,6 +71,8 @@ import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useResultsRun } from '../hooks/useResultsRun'
 import { focusNodeById } from '../utils/focusHelpers'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
+import { computeCTA, type CTAConfig } from '../../lib/ctaStateMachine'
+import { computeReadiness } from '../../lib/readiness'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { useOptionRanking } from '../hooks/useOptionRanking'
@@ -242,6 +244,28 @@ export function OutputsDock() {
   // Unified run eligibility: both guidance blockers AND readiness must allow running
   const canRunAnalysis = !hasPreRunBlockers && readinessCanRun && !isRunning
 
+  // R3: CTA state machine for primary analysis button
+  const ctaConfig: CTAConfig = useMemo(() => {
+    // Compute readiness from current state
+    const hasOutcome = nodes.some(n => n.type === 'outcome')
+    const hasDecision = nodes.some(n => n.type === 'decision')
+    const readinessResult = computeReadiness({
+      nodeCount: nodes.length,
+      edgeCount: edges.length,
+      graphHealth,
+      hasOutcome,
+      hasDecision,
+    })
+
+    return computeCTA({
+      resultsStatus,
+      hasGraph: nodes.length > 0,
+      readinessLevel: readinessResult.level,
+      isDegraded: runMeta?.degraded,
+      errorMessage: error?.message,
+    })
+  }, [resultsStatus, nodes, edges, graphHealth, runMeta?.degraded, error?.message])
+
   // Handle Run button click
   const handleRunAnalysis = useCallback(async () => {
     if (!canRunAnalysis) return
@@ -352,12 +376,17 @@ export function OutputsDock() {
     : null
 
   const decisionReviewFlagOn = isDecisionReviewEnabled()
+  // Legacy CEE types (deprecated)
   const ceeReview = runMeta.ceeReview ?? null
   const ceeTrace = runMeta.ceeTrace ?? null
   const ceeError = runMeta.ceeError ?? null
+  // M1 CEE Orchestrator types (preferred)
+  const ceeReviewV1 = runMeta.ceeReviewV1 ?? null
+  const ceeTraceV1 = runMeta.ceeTraceV1 ?? null
+  const ceeErrorV1 = runMeta.ceeErrorV1 ?? null
 
   // Phase 1 Section 3: CEE degraded state (non-blocking overlay behaviour)
-  const ceeDegraded = ceeTrace?.degraded === true
+  const ceeDegraded = ceeTrace?.degraded === true || ceeTraceV1?.id_mismatch === true
 
   // Sprint N P0.1: Decision readiness derived from confidence when available
   const readinessFromConfidence = report?.confidence
@@ -818,20 +847,33 @@ export function OutputsDock() {
                     {/* Consolidated pre-analysis guidance (coaching, validation, weights, biases) */}
                     <PreAnalysisGuidance onBlockersChange={setHasPreRunBlockers} />
 
-                    {/* Run analysis button - unified gating from both readiness AND guidance blockers */}
+                    {/* R3: Run analysis button - CTA state machine driven */}
                     <button
                       type="button"
                       onClick={handleRunAnalysis}
-                      disabled={!canRunAnalysis}
+                      disabled={!ctaConfig.enabled}
+                      title={ctaConfig.tooltip}
                       className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
-                        !canRunAnalysis
+                        ctaConfig.variant === 'disabled'
                           ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
-                          : 'bg-sky-500 text-white hover:bg-sky-600'
+                          : ctaConfig.variant === 'warning'
+                            ? 'bg-sun-500 text-white hover:bg-sun-600'
+                            : ctaConfig.variant === 'secondary'
+                              ? 'bg-sand-300 text-ink-700 cursor-wait'
+                              : 'bg-sky-500 text-white hover:bg-sky-600'
                       }`}
                       data-testid="outputs-run-button"
                     >
-                      <PlayCircle className="w-5 h-5" aria-hidden="true" />
-                      {isRunning ? 'Running...' : 'Run Analysis'}
+                      {ctaConfig.icon === 'loader' ? (
+                        <RefreshCw className="w-5 h-5 animate-spin" aria-hidden="true" />
+                      ) : ctaConfig.icon === 'refresh' ? (
+                        <RefreshCw className="w-5 h-5" aria-hidden="true" />
+                      ) : ctaConfig.icon === 'alert' ? (
+                        <AlertTriangle className="w-5 h-5" aria-hidden="true" />
+                      ) : (
+                        <PlayCircle className="w-5 h-5" aria-hidden="true" />
+                      )}
+                      {ctaConfig.text}
                     </button>
                   </div>
                 )}
@@ -1085,6 +1127,11 @@ export function OutputsDock() {
                           review={ceeReview ?? undefined}
                           error={ceeError ?? undefined}
                           trace={ceeTrace ?? undefined}
+                          reviewV1={ceeReviewV1 ?? undefined}
+                          errorV1={ceeErrorV1 ?? undefined}
+                          traceV1={ceeTraceV1 ?? undefined}
+                          onRetry={handleRunAnalysis}
+                          canRetryRun={!isRunning && !ceeDegraded}
                         />
                       </div>
                     )}

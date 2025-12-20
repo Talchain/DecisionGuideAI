@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, GitBranch, Activity, PlayCircle } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
+import { FileText, GitBranch, Activity, PlayCircle, Send, Loader2, Sparkles } from 'lucide-react'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore } from '../store'
@@ -9,6 +9,7 @@ import { buildHealthStrings } from '../utils/graphHealthStrings'
 import { typography } from '../../styles/typography'
 import { Collapsible } from '../../components/Collapsible'
 import { EmptyState } from './EmptyState'
+import { useAsk } from '../../hooks/useAsk'
 
 type InputsDockTab = 'documents' | 'scenarios' | 'limits'
 
@@ -342,6 +343,141 @@ function LimitsTabBody({ currentNodes, currentEdges }: { currentNodes: number; c
   )
 }
 
+/**
+ * AskInput - Persistent text input for model questions
+ * L1 Implementation: Bottom-anchored input with useAsk integration
+ *
+ * Updated for CEE contract:
+ * - Uses WorkingSetRequest format (message, graph_snapshot, etc.)
+ * - Shows preflight errors when graph exceeds limits (12 nodes / 20 edges)
+ * - Displays both server and preflight errors appropriately
+ */
+function AskInput() {
+  const [inputText, setInputText] = useState('')
+  const [lastResponse, setLastResponse] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // useAsk now handles graph context internally via store
+  const { mutate, isPending, error } = useAsk({
+    onHighlight: () => {
+      // Highlights handled by useHighlightDispatch in parent context
+    },
+  })
+
+  // Check if error is a preflight error (graph too large)
+  const isPreflightError = error?.name === 'AskPreflightError'
+
+  const handleSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = inputText.trim()
+    if (!trimmed || isPending) return
+
+    // New useAsk takes just the message string
+    // Graph context is built internally from store state
+    mutate(trimmed, {
+      onSuccess: (data) => {
+        setLastResponse(data.text)
+        setInputText('')
+      },
+    })
+  }, [inputText, isPending, mutate])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSubmit(e as unknown as React.FormEvent)
+    }
+  }, [handleSubmit])
+
+  const clearResponse = useCallback(() => {
+    setLastResponse(null)
+  }, [])
+
+  return (
+    <div
+      className="border-t border-sand-200 bg-paper-50 px-3 py-2"
+      data-testid="ask-input-container"
+    >
+      {/* Response display */}
+      {lastResponse && (
+        <div
+          className="mb-2 p-2 rounded-lg bg-sky-50 border border-sky-200"
+          data-testid="ask-response"
+        >
+          <div className="flex items-start gap-2">
+            <Sparkles className="w-4 h-4 text-sky-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="flex-1 min-w-0">
+              <p className={`${typography.caption} text-ink-900 whitespace-pre-wrap`}>
+                {lastResponse}
+              </p>
+              <button
+                type="button"
+                onClick={clearResponse}
+                className={`mt-1 ${typography.code} text-ink-900/60 hover:text-ink-900 underline`}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preflight error (graph too large) */}
+      {isPreflightError && (
+        <div
+          className="mb-2 p-2 rounded-lg bg-amber-50 border border-amber-200"
+          data-testid="preflight-error"
+        >
+          <p className={`${typography.caption} text-amber-700`}>
+            {error.message}
+          </p>
+        </div>
+      )}
+
+      {/* API error display */}
+      {error && !isPreflightError && !lastResponse && (
+        <div
+          className="mb-2 p-2 rounded-lg bg-carrot-50 border border-carrot-200"
+          data-testid="ask-error"
+        >
+          <p className={`${typography.caption} text-carrot-700`}>
+            {error.message || 'Unable to get a response. Please try again.'}
+          </p>
+        </div>
+      )}
+
+      {/* Input form */}
+      <form onSubmit={handleSubmit} className="flex gap-2">
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask about your model…"
+          disabled={isPending}
+          className={`flex-1 rounded border border-sand-300 px-2 py-1.5 ${typography.caption} text-ink-900 placeholder:text-ink-900/50 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 disabled:opacity-50 disabled:cursor-not-allowed`}
+          data-testid="ask-input"
+          aria-label="Ask about your model"
+        />
+        <button
+          type="submit"
+          disabled={!inputText.trim() || isPending}
+          className={`flex items-center justify-center w-8 h-8 rounded border border-sky-500 bg-sky-500 text-white hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+          aria-label={isPending ? 'Sending…' : 'Send'}
+          data-testid="ask-submit"
+        >
+          {isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+          ) : (
+            <Send className="w-4 h-4" aria-hidden="true" />
+          )}
+        </button>
+      </form>
+    </div>
+  )
+}
+
 const STORAGE_KEY = 'canvas.inputsDock.v1'
 
 const INPUT_TABS: { id: InputsDockTab; label: string }[] = [
@@ -574,6 +710,9 @@ export function InputsDock({ onShowDocuments, currentNodes = 0, currentEdges = 0
           )}
         </div>
       )}
+
+      {/* L1: Persistent Ask input at bottom of dock */}
+      {state.isOpen && <AskInput />}
     </aside>
   )
 }

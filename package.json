@@ -22,6 +22,8 @@
     "preview": "vite preview",
     "test:connection": "node --loader ts-node/esm src/lib/test-connection.ts",
     "test": "vitest run --reporter=verbose",
+    "security:audit": "npm audit --audit-level=high",
+    "security:audit:fix": "npm audit fix",
     "test:unit": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:guide": "vitest src/pages/sandbox-guide",

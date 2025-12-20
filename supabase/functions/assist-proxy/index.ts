@@ -23,6 +23,50 @@ const ALLOWED_ORIGINS = [
 // M2: 65s timeout for draft requests
 const REQUEST_TIMEOUT_MS = 65000;
 
+// =============================================================================
+// Rate Limiting (in-memory per isolate)
+// =============================================================================
+// Note: In-memory rate limiting provides basic protection. For production at
+// scale, consider using Upstash Redis for distributed rate limiting.
+
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const RATE_LIMIT_MAX = 20; // 20 requests per minute per IP
+
+const rateLimits = new Map<string, { count: number; resetAt: number }>();
+
+function checkRateLimit(ip: string): {
+  allowed: boolean;
+  remaining: number;
+  resetAt: number;
+} {
+  const now = Date.now();
+  const record = rateLimits.get(ip);
+
+  // New window or expired entry
+  if (!record || now > record.resetAt) {
+    const resetAt = now + RATE_LIMIT_WINDOW;
+    rateLimits.set(ip, { count: 1, resetAt });
+    return { allowed: true, remaining: RATE_LIMIT_MAX - 1, resetAt };
+  }
+
+  // Over limit
+  if (record.count >= RATE_LIMIT_MAX) {
+    return { allowed: false, remaining: 0, resetAt: record.resetAt };
+  }
+
+  // Increment count
+  record.count++;
+  return { allowed: true, remaining: RATE_LIMIT_MAX - record.count, resetAt: record.resetAt };
+}
+
+function getClientIp(req: Request): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    req.headers.get("x-real-ip") ||
+    "unknown"
+  );
+}
+
 // Helper to check if origin is allowed and get CORS headers
 function getCorsHeaders(
   requestOrigin: string | null
@@ -75,6 +119,37 @@ Deno.serve(async (req) => {
       status: 405,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+  }
+
+  // SECURITY: Rate limiting check
+  const clientIp = getClientIp(req);
+  const rateLimit = checkRateLimit(clientIp);
+
+  // Build rate limit headers
+  const rateLimitHeaders = {
+    "X-RateLimit-Limit": String(RATE_LIMIT_MAX),
+    "X-RateLimit-Remaining": String(rateLimit.remaining),
+    "X-RateLimit-Reset": String(Math.ceil(rateLimit.resetAt / 1000)),
+  };
+
+  if (!rateLimit.allowed) {
+    const retryAfter = Math.ceil((rateLimit.resetAt - Date.now()) / 1000);
+    console.warn(`[assist-proxy] Rate limit exceeded for IP: ${clientIp}`);
+    return new Response(
+      JSON.stringify({
+        error: "Rate limit exceeded. Please try again later.",
+        retryAfter,
+      }),
+      {
+        status: 429,
+        headers: {
+          ...corsHeaders,
+          ...rateLimitHeaders,
+          "Retry-After": String(retryAfter),
+          "Content-Type": "application/json",
+        },
+      }
+    );
   }
 
   // Extract and generate correlation ID (M2.6)
@@ -154,6 +229,7 @@ Deno.serve(async (req) => {
           status: upstreamResponse.status,
           headers: {
             ...corsHeaders,
+            ...rateLimitHeaders,
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
             Connection: "keep-alive",
@@ -170,7 +246,7 @@ Deno.serve(async (req) => {
 
       return new Response(JSON.stringify(data), {
         status: upstreamResponse.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, ...rateLimitHeaders, "Content-Type": "application/json" },
       });
     } catch (err: any) {
       clearTimeout(timeoutId);
@@ -187,7 +263,7 @@ Deno.serve(async (req) => {
           }),
           {
             status: 504,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            headers: { ...corsHeaders, ...rateLimitHeaders, "Content-Type": "application/json" },
           }
         );
       }
@@ -214,7 +290,7 @@ Deno.serve(async (req) => {
       }),
       {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...corsHeaders, ...rateLimitHeaders, "Content-Type": "application/json" },
       }
     );
   }

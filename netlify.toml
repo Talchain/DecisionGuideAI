@@ -30,7 +30,7 @@
   # When "1": UI reads robustness/validation from PLoT enrichment (eliminates ISL dual-pipeline)
   # When "0": UI calls ISL directly (legacy behavior)
   # Enable via Netlify dashboard for staged rollout, monitor error rates via PostHog/Sentry
-  VITE_USE_PLOT_ENRICHMENT = "0"
+  VITE_USE_PLOT_ENRICHMENT = "1"
 
 # =============================================================================
 # Security Headers (P0 - Enterprise Compliance)
@@ -71,7 +71,7 @@
 
 [[redirects]]
   from = "/bff/engine/*"
-  to = "https://plot-lite-service.onrender.com/:splat"
+  to = "https://plot-lite-service-staging.onrender.com/:splat"
   status = 200
   force = true
 

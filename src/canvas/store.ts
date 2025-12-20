@@ -19,6 +19,7 @@ import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/typ
 import type { Document, Citation } from './share/types'
 import type { Snapshot, DecisionRationale, ComparisonResult } from './snapshots/types'
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from './decisionReview/types'
+import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError } from '../types/cee'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
@@ -73,9 +74,14 @@ export type RunMetaState = {
   diagnostics?: SseDiagnostics
   correlationIdHeader?: string
   degraded?: boolean
+  // Legacy CEE types (deprecated - use ceeReviewV1, ceeTraceV1, ceeErrorV1)
   ceeReview?: CeeDecisionReviewPayload | null
   ceeTrace?: CeeTraceMeta | null
   ceeError?: CeeErrorViewModel | null
+  // M1 CEE Orchestrator types (new contract)
+  ceeReviewV1?: CeeDecisionReviewPayloadV1 | null
+  ceeTraceV1?: CeeTrace | null
+  ceeErrorV1?: CeeError | null
   ceeDebugHeaders?: CeeDebugHeaders // Phase 1 Section 4.1: Dev-only debug headers
 }
 
@@ -131,6 +137,7 @@ interface CanvasState {
   needleMovers: NeedleMover[]
   // Phase 3: Interaction enhancements (Set for O(1) lookup)
   highlightedNodes: Set<string>
+  highlightedEdges: Set<string>
   // M5: Grounding & Provenance
   documents: Document[]
   citations: Citation[]
@@ -190,6 +197,8 @@ interface CanvasState {
   canUndo: () => boolean
   canRedo: () => boolean
   deleteSelected: () => void
+  deleteNodeById: (nodeId: string) => void
+  deleteEdgeById: (edgeId: string) => void
   duplicateSelected: () => void
   copySelected: () => void
   pasteClipboard: () => void
@@ -223,9 +232,14 @@ interface CanvasState {
     report: ReportV1
     hash: string
     drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
+    // Legacy CEE types (deprecated)
     ceeReview?: CeeDecisionReviewPayload | null
     ceeTrace?: CeeTraceMeta | null
     ceeError?: CeeErrorViewModel | null
+    // M1 CEE Orchestrator types (new contract)
+    ceeReviewV1?: CeeDecisionReviewPayloadV1 | null
+    ceeTraceV1?: CeeTrace | null
+    ceeErrorV1?: CeeError | null
     enrichment?: PLoTEnrichment | null // Phase 1B: ISL data bundled from PLoT
   }) => void
   resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string }) => void
@@ -257,6 +271,7 @@ interface CanvasState {
   setNeedleMovers: (movers: NeedleMover[]) => void
   // Phase 3: Interaction actions
   setHighlightedNodes: (ids: string[]) => void
+  setHighlightedEdges: (ids: string[]) => void
   // M5: Provenance actions
   addDocument: (document: Omit<Document, 'id' | 'uploadedAt'>) => string
   removeDocument: (id: string) => void
@@ -497,6 +512,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   graphHealth: null,
   needleMovers: [],
   highlightedNodes: new Set<string>(),
+  highlightedEdges: new Set<string>(),
   // M5: Grounding & Provenance
   documents: [],
   citations: [],
@@ -843,6 +859,29 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       nodes: s.nodes.filter(n => !selection.nodeIds.has(n.id)),
       edges: s.edges.filter(e => !selection.nodeIds.has(e.source) && !selection.nodeIds.has(e.target) && !selection.edgeIds.has(e.id)),
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }
+    }))
+  },
+
+  deleteNodeById: (nodeId: string) => {
+    pushToHistory(get, set)
+    set((s) => ({
+      nodes: s.nodes.filter(n => n.id !== nodeId),
+      edges: s.edges.filter(e => e.source !== nodeId && e.target !== nodeId),
+      // Clear selection if deleted node was selected
+      selection: s.selection.nodeIds.has(nodeId)
+        ? { ...s.selection, nodeIds: new Set([...s.selection.nodeIds].filter(id => id !== nodeId)) }
+        : s.selection
+    }))
+  },
+
+  deleteEdgeById: (edgeId: string) => {
+    pushToHistory(get, set)
+    set((s) => ({
+      edges: s.edges.filter(e => e.id !== edgeId),
+      // Clear selection if deleted edge was selected
+      selection: s.selection.edgeIds.has(edgeId)
+        ? { ...s.selection, edgeIds: new Set([...s.selection.edgeIds].filter(id => id !== edgeId)) }
+        : s.selection
     }))
   },
 
@@ -1330,7 +1369,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }))
   },
 
-  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError, enrichment }) => {
+  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError, ceeReviewV1, ceeTraceV1, ceeErrorV1, enrichment }) => {
     const { nodes, edges, results, currentScenarioId, graphHealth: existingHealth } = get()
 
     const finishedAt = Date.now()
@@ -1503,7 +1542,20 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       results: {
         status: 'idle',
         progress: 0
-      }
+      },
+      // Clear all runMeta including V1 CEE fields to prevent stale Decision Review
+      runMeta: {
+        diagnostics: undefined,
+        correlationIdHeader: undefined,
+        degraded: undefined,
+        ceeReview: null,
+        ceeTrace: null,
+        ceeError: null,
+        ceeReviewV1: null,
+        ceeTraceV1: null,
+        ceeErrorV1: null,
+        ceeDebugHeaders: undefined,
+      },
     })
   },
 
@@ -1882,6 +1934,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // Phase 3: Interaction actions (accepts array, stores as Set for O(1) lookup)
   setHighlightedNodes: (ids: string[]) => {
     set({ highlightedNodes: new Set(ids) })
+  },
+  setHighlightedEdges: (ids: string[]) => {
+    set({ highlightedEdges: new Set(ids) })
   },
 
   // M5: Provenance actions

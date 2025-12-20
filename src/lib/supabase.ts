@@ -3,6 +3,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { isE2EEnabled } from '../flags'
+import { debugLog } from './debug'
 import type { Database } from '../types/database'
 
 // POC: Detect PoC mode and log binding type
@@ -17,11 +18,10 @@ try {
 } catch {}
 
 // —————————————————————————————————————————————————————————————————————————————
-// DEV-only env logging (URL only - never log credentials, even prefixes)
+// Gated env logging (URL only - never log credentials, even prefixes)
+// Enable via VITE_DEBUG_SUPABASE=true (OFF by default, even in DEV)
 // —————————————————————————————————————————————————————————————————————————————
-if (import.meta.env.DEV) {
-  console.log('[Supabase ENV] URL=', import.meta.env.VITE_SUPABASE_URL)
-}
+debugLog('logSupabase', '[Supabase ENV] URL=', import.meta.env.VITE_SUPABASE_URL)
 
 // —————————————————————————————————————————————————————————————————————————————
 // Validate environment variables
@@ -75,16 +75,15 @@ export const supabase = createClient<Database>(
 export async function getUserId(): Promise<string | null> {
   const { data, error } = await supabase.auth.getSession()
   // Security: Never log session objects (contain access_token/refresh_token)
-  if (import.meta.env.DEV) {
-    console.debug('[getUserId] supabase.auth.getSession →', {
-      hasSession: !!data?.session,
-      userId: data?.session?.user?.id ?? null,
-      error: error?.message ?? null,
-    })
-  }
+  // Only log safe metadata via explicit debug flag
+  debugLog('logAuth', '[getUserId] supabase.auth.getSession →', {
+    hasSession: !!data?.session,
+    userId: data?.session?.user?.id ?? null,
+    error: error?.message ?? null,
+  })
   const userId = data?.session?.user?.id
   if (error || !userId) {
-    if (import.meta.env.DEV) console.error('[Supabase] getSession error:', error?.message)
+    debugLog('logAuth', '[Supabase] getSession error:', error?.message)
     return null
   }
   return userId
@@ -184,41 +183,39 @@ function isValidDecisionInsert(obj: any): obj is DecisionInsert {
 export async function createDecision(
   decision: Omit<DecisionInsert, 'id' | 'created_at' | 'updated_at'>
 ) {
-  if (import.meta.env.DEV) {
-    console.log('[Supabase] ▶️ createDecision called with', decision)
-  }
+  // Gated payload logging - OFF by default even in DEV (safe for demos)
+  debugLog('logPayloads', '[Supabase] createDecision called with', decision)
 
   if (!isValidDecisionInsert(decision)) {
     const msg = 'Invalid decision data: type must be one of ' + VALID_DECISION_TYPES.join(', ')
-    console.error('[Supabase] ❌ Invalid payload:', msg, decision)
+    // eslint-disable-next-line no-console
+    console.error('[Supabase] Invalid payload:', msg)
     return { data: null, error: new Error(msg) }
   }
 
   try {
-    if (import.meta.env.DEV) {
-      console.log('[Supabase] ⏳ inserting via supabase-js…')
-    }
+    debugLog('logSupabase', '[Supabase] inserting via supabase-js…')
     const { data, error } = await supabase
       .from('decisions')
       .insert([decision] as Database['public']['Tables']['decisions']['Insert'][])
       .select()
       .single()
-    if (import.meta.env.DEV) {
-      console.log('[Supabase] ⏪ insert response', { data, error })
-    }
+    debugLog('logPayloads', '[Supabase] insert response', { data, error })
 
     if (!data && !error) {
       throw new Error(
-        '[Supabase] 🧨 insert returned no data and no error — something is blocking silently'
+        '[Supabase] insert returned no data and no error — something is blocking silently'
       )
     }
     if (error) {
-      console.error('[Supabase] ❌ Decision creation failed:', error)
+      // eslint-disable-next-line no-console
+      console.error('[Supabase] Decision creation failed:', error)
       return { data: null, error }
     }
     return { data, error: null }
   } catch (err) {
-    console.error('[Supabase] 🔥 createDecision exception', err)
+    // eslint-disable-next-line no-console
+    console.error('[Supabase] createDecision exception', err)
     return {
       data: null,
       error: err instanceof Error
@@ -602,11 +599,10 @@ export async function createInvitation(email: string) {
 export async function testSupabaseConnection() {
   try {
     await supabase.from('decisions').select('id', { head: true }).limit(1)
-    if (import.meta.env.DEV) {
-      console.log('Supabase connection OK.')
-    }
+    debugLog('logSupabase', 'Supabase connection OK.')
     return { success: true }
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error('testSupabaseConnection failed:', err)
     return {
       success: false,

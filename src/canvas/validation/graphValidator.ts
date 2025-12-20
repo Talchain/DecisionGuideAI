@@ -237,18 +237,30 @@ function detectMissingLabels(nodes: Node[]): ValidationIssue[] {
 
 /**
  * Phase 3: Detect probability errors
- * - Nodes with 2+ outgoing edges must have probabilities that sum to 100% (± 1% tolerance)
- * - Single-edge nodes with non-100%, non-0% probability are also flagged (incomplete branch)
+ * - Only validates decision→option edges (not factor→option or other edge types)
+ * - Decision nodes with 2+ outgoing edges to options must have probabilities that sum to 100% (± 1% tolerance)
+ * - Single-edge decision nodes with non-100%, non-0% probability are also flagged (incomplete branch)
  */
 function detectProbabilityErrors(nodes: Node[], edges: Edge[]): ValidationIssue[] {
   const issues: ValidationIssue[] = []
   const TOLERANCE = 0.01 // 1% tolerance
 
-  for (const node of nodes) {
-    // Get outgoing edges for this node
-    const outgoingEdges = edges.filter(e => e.source === node.id)
+  // Build node lookup for efficient target node checks
+  const nodeMap = new Map(nodes.map(n => [n.id, n]))
 
-    // Skip nodes with no outgoing edges
+  // Only validate decision nodes - other node types don't have probability semantics
+  const decisionNodes = nodes.filter(n => n.data?.kind === 'decision')
+
+  for (const node of decisionNodes) {
+    // Get outgoing edges that go to option nodes (decision→option edges)
+    // These are the only edges with probability semantics
+    const outgoingEdges = edges.filter(e => {
+      if (e.source !== node.id) return false
+      const targetNode = nodeMap.get(e.target)
+      return targetNode?.data?.kind === 'option'
+    })
+
+    // Skip decision nodes with no outgoing edges to options
     if (outgoingEdges.length === 0) {
       continue
     }

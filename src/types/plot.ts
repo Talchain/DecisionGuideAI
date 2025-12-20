@@ -8,6 +8,12 @@
  * Never send UI shape to API. Use mapper.ts to convert.
  */
 
+import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError } from './cee'
+
+// Re-export CEE types for convenience
+export type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError } from './cee'
+export { canRetry, getBlock, getBlocksForIntent } from './cee'
+
 // ============================================================================
 // UI Types (React Flow)
 // ============================================================================
@@ -128,6 +134,19 @@ export interface RunResponse {
 
   // Evidence Freshness - Data quality and age indicators
   evidence_freshness?: EvidenceFreshness
+
+  // ==========================================================================
+  // M1 CEE Orchestrator Fields (Additive)
+  // ==========================================================================
+
+  /** Decision review payload from CEE (null if CEE disabled or failed) */
+  ceeReview?: CeeDecisionReviewPayloadV1 | null
+
+  /** CEE trace for debugging (three-ID tracing) */
+  ceeTrace?: CeeTrace | null
+
+  /** CEE error if request failed (null if successful) */
+  ceeError?: CeeError | null
 }
 
 /**

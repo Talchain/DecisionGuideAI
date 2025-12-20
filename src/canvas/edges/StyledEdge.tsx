@@ -49,6 +49,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // P0-9: Inline edit popover state
   const [showEditPopover, setShowEditPopover] = useState(false)
   const [editPopoverPosition, setEditPopoverPosition] = useState({ x: 0, y: 0 })
+
+  // C1: Hover state for edge label visibility
+  const [isHovered, setIsHovered] = useState(false)
   const updateEdgeData = useCanvasStore(state => state.updateEdgeData)
   const ceeReview = useCanvasStore(state => state.runMeta.ceeReview)
 
@@ -163,8 +166,25 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     updateEdgeData(edgeId, updatedData)
   }
 
+  // C1: Handle hover for edge label visibility
+  const handleMouseEnter = () => setIsHovered(true)
+  const handleMouseLeave = () => setIsHovered(false)
+
+  // C1: Only show label when selected, hovered, has suggestion, or is first edge with hint
+  const showLabel = selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint)
+
   return (
     <>
+      {/* Invisible hitbox for hover detection - wider than visual edge */}
+      <path
+        d={edgePath}
+        fill="none"
+        stroke="transparent"
+        strokeWidth={20}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        style={{ pointerEvents: 'stroke' }}
+      />
       <BaseEdge
         id={id}
         path={edgePath}
@@ -179,78 +199,85 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         markerEnd={markerEnd}
       />
       
-      {/* Edge label - v1.2: Always show human-readable label */}
-      <EdgeLabelRenderer>
-        <div
-          style={{
-            position: 'absolute',
-            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-            pointerEvents: 'all',
-            padding: '3px 8px',
-            borderRadius: '4px',
-            maxWidth: '160px',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            cursor: 'pointer',
-          }}
-          className={`nodrag nopan border shadow-panel ${typography.edgeLabel} ${
-            isDark
-              ? 'bg-gray-900 text-gray-100 border-gray-600'
-              : 'bg-paper-50/95 text-ink-900 border-sand-200'
-          } ${hasSuggestion ? 'ring-2 ring-sky-400 ring-offset-1' : ''} ${isFirstEdge && showEdgeHint ? 'edge-hint-active' : ''}`}
-          role="note"
-          aria-label={ariaLabel}
-          title={(() => {
-            const desc = getEdgeLabel(weight, belief, labelMode)
-            const baseTooltip = provenance ? `${desc.tooltip} • Source: ${provenance}` : desc.tooltip
-            return `${baseTooltip}\n\nDouble-click to edit`
-          })()}
-          onDoubleClick={handleLabelDoubleClick}
-        >
-          {(() => {
-            const desc = getEdgeLabel(weight, belief, labelMode)
-            return (
-              <>
-                {/* Weight suggestion indicator */}
-                {hasSuggestion && (
-                  <Lightbulb
-                    className="w-3 h-3 text-sky-500 flex-shrink-0"
-                    aria-label="Weight suggestion available"
-                    data-testid="edge-suggestion-indicator"
-                  />
-                )}
-                <span style={{
-                  fontWeight: 500,
-                  fontFamily: labelMode === 'numeric' ? 'ui-monospace, monospace' : undefined
-                }}>
-                  {desc.label}
-                </span>
-                {provenance && (
-                  <span
-                    style={{
-                      width: '6px',
-                      height: '6px',
-                      borderRadius: '50%',
-                      flexShrink: 0,
-                    }}
-                    className={
-                      provenance === 'template' ? 'bg-info-500' :
-                      provenance === 'user' ? 'bg-orange-500' :
-                      'bg-gray-400'
-                    }
-                    title={`Provenance: ${provenance}`}
-                    aria-label={`Provenance: ${provenance}`}
-                  />
-                )}
-              </>
-            )
-          })()}
-        </div>
-      </EdgeLabelRenderer>
+      {/* C1: Edge label - only show when selected, hovered, or has pending suggestions */}
+      {showLabel && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
+              pointerEvents: 'all',
+              padding: '3px 8px',
+              borderRadius: '4px',
+              maxWidth: '160px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              cursor: 'pointer',
+              // C1: Smooth fade-in transition
+              opacity: 1,
+              transition: 'opacity 150ms ease-in-out',
+            }}
+            className={`nodrag nopan border shadow-panel ${typography.edgeLabel} ${
+              isDark
+                ? 'bg-gray-900 text-gray-100 border-gray-600'
+                : 'bg-paper-50/95 text-ink-900 border-sand-200'
+            } ${hasSuggestion ? 'ring-2 ring-sky-400 ring-offset-1' : ''} ${isFirstEdge && showEdgeHint ? 'edge-hint-active' : ''}`}
+            role="note"
+            aria-label={ariaLabel}
+            title={(() => {
+              const desc = getEdgeLabel(weight, belief, labelMode)
+              const baseTooltip = provenance ? `${desc.tooltip} • Source: ${provenance}` : desc.tooltip
+              return `${baseTooltip}\n\nDouble-click to edit`
+            })()}
+            onDoubleClick={handleLabelDoubleClick}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            {(() => {
+              const desc = getEdgeLabel(weight, belief, labelMode)
+              return (
+                <>
+                  {/* Weight suggestion indicator */}
+                  {hasSuggestion && (
+                    <Lightbulb
+                      className="w-3 h-3 text-sky-500 flex-shrink-0"
+                      aria-label="Weight suggestion available"
+                      data-testid="edge-suggestion-indicator"
+                    />
+                  )}
+                  <span style={{
+                    fontWeight: 500,
+                    fontFamily: labelMode === 'numeric' ? 'ui-monospace, monospace' : undefined
+                  }}>
+                    {desc.label}
+                  </span>
+                  {provenance && (
+                    <span
+                      style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        flexShrink: 0,
+                      }}
+                      className={
+                        provenance === 'template' ? 'bg-info-500' :
+                        provenance === 'user' ? 'bg-orange-500' :
+                        'bg-gray-400'
+                      }
+                      title={`Provenance: ${provenance}`}
+                      aria-label={`Provenance: ${provenance}`}
+                    />
+                  )}
+                </>
+              )
+            })()}
+          </div>
+        </EdgeLabelRenderer>
+      )}
 
       {/* P0-9: Inline edge edit popover */}
       {showEditPopover && (

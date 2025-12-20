@@ -1,5 +1,21 @@
 /**
- * PLoT API Client - Phase A: Production Quality
+ * @deprecated LEGACY API CLIENT - DO NOT USE IN NEW CODE
+ *
+ * This is the old PLoT API client with no retry logic.
+ * New code should use the production-grade adapter:
+ *
+ *   import { httpV1Adapter } from '@/adapters/plot/httpV1Adapter'
+ *
+ * The new adapter provides:
+ * - Automatic retry with exponential backoff
+ * - Proper timeout handling
+ * - Rate limit handling with Retry-After
+ * - Capability negotiation
+ * - CEE debug header parsing
+ *
+ * Migration: Replace `runTemplate()` with `httpV1Adapter.run()`
+ *
+ * TODO: Migrate DeterminismTool.tsx and tests, then delete this file
  */
 
 export type NodeKind = 'goal' | 'decision' | 'option' | 'risk' | 'outcome'
@@ -52,6 +68,7 @@ function getHeaders(token: string): HeadersInit {
   }
 }
 
+/** @deprecated Use httpV1Adapter.limits() instead */
 export async function fetchLimits(token: string): Promise<ApiLimits> {
   const now = Date.now()
   if (cachedLimits && (now - cacheTimestamp) < CACHE_TTL_MS) return cachedLimits
@@ -76,6 +93,7 @@ export async function fetchLimits(token: string): Promise<ApiLimits> {
   }
 }
 
+/** @deprecated Use httpV1Adapter.validate() instead */
 export function validateGraph(graph: Graph, limits: ApiLimits): ApiError | null {
   if (graph.nodes.length > limits.max_nodes) {
     return { code: 'LIMIT_EXCEEDED', message: `Too many nodes (max ${limits.max_nodes})`, field: 'nodes', max: limits.max_nodes }
@@ -86,6 +104,7 @@ export function validateGraph(graph: Graph, limits: ApiLimits): ApiError | null 
   return null
 }
 
+/** @deprecated Use httpV1Adapter.run() instead */
 export async function runTemplate(req: RunRequest, token: string): Promise<RunResponse> {
   try {
     const res = await fetch(`${API_BASE}/v1/run`, {

@@ -54,6 +54,10 @@ export function useResultsRun(): UseResultsRunReturn {
       ceeReview: null,
       ceeTrace: null,
       ceeError: null,
+      // M1 CEE Orchestrator types
+      ceeReviewV1: null,
+      ceeTraceV1: null,
+      ceeErrorV1: null,
     })
 
     // Decide whether to attach an Idempotency-Key for this run. In
@@ -96,10 +100,15 @@ export function useResultsRun(): UseResultsRunReturn {
             const report = data.report
 
             const anyData = data as any
+            // Legacy CEE types
             const ceeReview = anyData.ceeReview ?? null
             const ceeTrace = anyData.ceeTrace ?? null
             const ceeError = anyData.ceeError ?? null
             const ceeDebugHeaders = anyData.ceeDebugHeaders // Section 4: Debug headers
+            // M1 CEE Orchestrator types (new contract)
+            const ceeReviewV1 = anyData.ceeReviewV1 ?? report.ceeReview ?? null
+            const ceeTraceV1 = anyData.ceeTraceV1 ?? report.ceeTrace ?? null
+            const ceeErrorV1 = anyData.ceeErrorV1 ?? report.ceeError ?? null
 
             // Phase 1B: Extract enrichment from PLoT response (ISL data bundled in)
             const enrichment = anyData.enrichment ?? null
@@ -117,6 +126,9 @@ export function useResultsRun(): UseResultsRunReturn {
               ceeReview,
               ceeTrace,
               ceeError,
+              ceeReviewV1,
+              ceeTraceV1,
+              ceeErrorV1,
               enrichment, // Phase 1B: Pass enrichment to store
             })
 
@@ -128,6 +140,9 @@ export function useResultsRun(): UseResultsRunReturn {
               ceeReview ||
               ceeTrace ||
               ceeError ||
+              ceeReviewV1 ||
+              ceeTraceV1 ||
+              ceeErrorV1 ||
               ceeDebugHeaders
             ) {
               setRunMeta({
@@ -137,6 +152,9 @@ export function useResultsRun(): UseResultsRunReturn {
                 ceeReview,
                 ceeTrace,
                 ceeError,
+                ceeReviewV1,
+                ceeTraceV1,
+                ceeErrorV1,
                 ceeDebugHeaders,
               })
             }

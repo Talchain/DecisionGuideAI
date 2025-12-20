@@ -92,10 +92,22 @@ export function validateGraphLimits(graph: ReactFlowGraph): ValidationError | nu
   }
 
   // Validate outgoing connector totals ≈100% ±1%
-  for (const node of graph.nodes) {
-    const outgoingEdges = graph.edges.filter(e => e.source === node.id)
+  // ONLY for decision→option edges (probability distribution semantics)
+  // Other edge types (factor→option, risk→outcome) use different semantics
+  const nodeMap = new Map(graph.nodes.map(n => [n.id, n]))
 
-    // Skip nodes with no outgoing edges (leaf nodes)
+  for (const node of graph.nodes) {
+    // Only validate decision nodes - other node types don't have probability distribution semantics
+    if (node.data?.kind !== 'decision') continue
+
+    // Get outgoing edges to option nodes only (decision→option edges)
+    const outgoingEdges = graph.edges.filter(e => {
+      if (e.source !== node.id) return false
+      const targetNode = nodeMap.get(e.target)
+      return targetNode?.data?.kind === 'option'
+    })
+
+    // Skip decision nodes with no outgoing edges to options
     if (outgoingEdges.length === 0) continue
 
     // Calculate total confidence from outgoing edges

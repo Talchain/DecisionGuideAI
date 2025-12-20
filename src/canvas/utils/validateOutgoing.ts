@@ -2,7 +2,9 @@
  * Shared validation utility for outgoing probability validation
  *
  * Rules:
- * - A node is invalid if it has ≥2 outgoing edges with non-zero confidence
+ * - ONLY validates decision→option edges (probability distribution semantics)
+ * - Other edge types (factor→option, risk→outcome) are NOT validated here
+ * - A decision node is invalid if it has ≥2 outgoing edges to options with non-zero confidence
  *   and the sum of those non-zero confidences ≠ 100% ± tolerance
  * - Pristine nodes (all zeros, never edited) are NOT invalid
  * - Template-loaded non-zero probabilities are considered "touched"
@@ -28,6 +30,7 @@ export interface InvalidNodeInfo {
 
 /**
  * Check if a single node's outgoing probabilities are valid
+ * Only validates decision→option edges (probability distribution semantics)
  */
 export function isNodeProbabilitiesValid(
   nodeId: string,
@@ -38,10 +41,25 @@ export function isNodeProbabilitiesValid(
 ): boolean {
   const { tolerance = 0.01, requireTouched = true } = options
 
-  // Get outgoing edges for this node
-  const outgoingEdges = edges.filter(e => e.source === nodeId)
+  // Find the node to check its kind
+  const node = nodes.find(n => n.id === nodeId)
 
-  // Only validate nodes with 2+ outgoing edges
+  // Only validate decision nodes - other node types don't have probability distribution semantics
+  if (node?.data?.kind !== 'decision') {
+    return true
+  }
+
+  // Build node lookup for target node checks
+  const nodeMap = new Map(nodes.map(n => [n.id, n]))
+
+  // Get outgoing edges to option nodes only (decision→option edges)
+  const outgoingEdges = edges.filter(e => {
+    if (e.source !== nodeId) return false
+    const targetNode = nodeMap.get(e.target)
+    return targetNode?.data?.kind === 'option'
+  })
+
+  // Only validate nodes with 2+ outgoing edges to options
   if (outgoingEdges.length < 2) {
     return true
   }
@@ -68,6 +86,7 @@ export function isNodeProbabilitiesValid(
 /**
  * Get all invalid nodes in the canvas
  * Returns ordered list of invalid node info
+ * Only validates decision→option edges (probability distribution semantics)
  */
 export function getInvalidNodes(
   nodes: Node<NodeData>[],
@@ -78,10 +97,21 @@ export function getInvalidNodes(
   const { tolerance = 0.01, requireTouched = true } = options
   const invalidNodes: InvalidNodeInfo[] = []
 
-  nodes.forEach(node => {
-    const outgoingEdges = edges.filter(e => e.source === node.id)
+  // Build node lookup for efficient target node checks
+  const nodeMap = new Map(nodes.map(n => [n.id, n]))
 
-    // Only validate nodes with 2+ outgoing edges
+  // Only check decision nodes - other node types don't have probability distribution semantics
+  const decisionNodes = nodes.filter(n => n.data?.kind === 'decision')
+
+  decisionNodes.forEach(node => {
+    // Get outgoing edges to option nodes only (decision→option edges)
+    const outgoingEdges = edges.filter(e => {
+      if (e.source !== node.id) return false
+      const targetNode = nodeMap.get(e.target)
+      return targetNode?.data?.kind === 'option'
+    })
+
+    // Only validate nodes with 2+ outgoing edges to options
     if (outgoingEdges.length < 2) {
       return
     }

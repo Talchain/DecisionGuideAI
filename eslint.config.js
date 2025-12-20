@@ -200,6 +200,11 @@ export default [
       // React hooks rule is stubbed and disabled; kept for future enablement.
       'react-hooks/exhaustive-deps': 'off',
 
+      // Discourage direct console usage - prefer logger utility (src/lib/logger.ts)
+      // Warn only to avoid blocking existing code; migrate gradually
+      // Use eslint-disable-next-line no-console for justified exceptions
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
+
       // Keep security guardrails as hard errors
       'security/no-payload-logging': 'error',
       'security/no-dangerous-browser': 'error',
@@ -208,11 +213,12 @@ export default [
     },
   },
 
-  // Tests: allow raw colors (used in assertions) and rely on test globals
+  // Tests: allow raw colors and console (used in assertions and test output)
   {
-    files: ['tests/**/*.{ts,tsx}'],
+    files: ['tests/**/*.{ts,tsx}', '**/*.spec.ts', '**/*.spec.tsx', '**/*.test.ts', '**/*.test.tsx'],
     rules: {
       'brand-tokens/no-raw-colors': 'off',
+      'no-console': 'off',
     },
   },
 

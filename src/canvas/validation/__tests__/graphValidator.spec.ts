@@ -173,77 +173,204 @@ describe('validateGraph (M4)', () => {
     expect(loopIssue?.suggestedFix?.targetId).toBe('e1')
   })
 
-  it('detects probability errors when edges do not sum to 100%', () => {
-    const nodes: Node[] = [
-      { id: 'n1', data: { label: 'Decision' }, position: { x: 0, y: 0 } },
-      { id: 'n2', data: { label: 'Option A' }, position: { x: 100, y: 0 } },
-      { id: 'n3', data: { label: 'Option B' }, position: { x: 100, y: 100 } },
-    ]
-    const edges: Edge[] = [
-      { id: 'e1', source: 'n1', target: 'n2', data: { confidence: 0.3 } },
-      { id: 'e2', source: 'n1', target: 'n3', data: { confidence: 0.3 } },
-      // Sum = 60%, not 100%
-    ]
+  // ==========================================================================
+  // Probability Validation Tests - Decision→Option Only
+  // ==========================================================================
 
-    const health = validateGraph(nodes, edges)
+  describe('probability validation (decision→option edges only)', () => {
+    it('detects probability errors when decision→option edges do not sum to 100%', () => {
+      const nodes: Node[] = [
+        { id: 'n1', data: { label: 'Decision', kind: 'decision' }, position: { x: 0, y: 0 } },
+        { id: 'n2', data: { label: 'Option A', kind: 'option' }, position: { x: 100, y: 0 } },
+        { id: 'n3', data: { label: 'Option B', kind: 'option' }, position: { x: 100, y: 100 } },
+      ]
+      const edges: Edge[] = [
+        { id: 'e1', source: 'n1', target: 'n2', data: { confidence: 0.3 } },
+        { id: 'e2', source: 'n1', target: 'n3', data: { confidence: 0.3 } },
+        // Sum = 60%, not 100%
+      ]
 
-    const probIssue = health.issues.find((i) => i.type === 'probability_error')
-    expect(probIssue).toBeDefined()
-    expect(probIssue?.severity).toBe('error')
-    expect(probIssue?.message).toContain('60%')
-    expect(probIssue?.suggestedFix?.type).toBe('normalize_probabilities')
+      const health = validateGraph(nodes, edges)
+
+      const probIssue = health.issues.find((i) => i.type === 'probability_error')
+      expect(probIssue).toBeDefined()
+      expect(probIssue?.severity).toBe('error')
+      expect(probIssue?.message).toContain('60%')
+      expect(probIssue?.suggestedFix?.type).toBe('normalize_probabilities')
+    })
+
+    it('detects single-edge probability errors (incomplete branch) for decision→option', () => {
+      const nodes: Node[] = [
+        { id: 'n1', data: { label: 'Decision', kind: 'decision' }, position: { x: 0, y: 0 } },
+        { id: 'n2', data: { label: 'Option A', kind: 'option' }, position: { x: 100, y: 0 } },
+      ]
+      const edges: Edge[] = [
+        { id: 'e1', source: 'n1', target: 'n2', data: { confidence: 0.6 } },
+        // Single edge with 60% - where does the other 40% go?
+      ]
+
+      const health = validateGraph(nodes, edges)
+
+      const probIssue = health.issues.find((i) => i.type === 'probability_error')
+      expect(probIssue).toBeDefined()
+      expect(probIssue?.severity).toBe('error')
+      expect(probIssue?.message).toContain('incomplete probability')
+      expect(probIssue?.message).toContain('60%')
+      expect(probIssue?.suggestedFix?.type).toBe('normalize_probabilities')
+    })
+
+    it('allows single decision→option edge with 100% probability (valid)', () => {
+      const nodes: Node[] = [
+        { id: 'n1', data: { label: 'Decision', kind: 'decision' }, position: { x: 0, y: 0 } },
+        { id: 'n2', data: { label: 'Option A', kind: 'option' }, position: { x: 100, y: 0 } },
+      ]
+      const edges: Edge[] = [
+        { id: 'e1', source: 'n1', target: 'n2', data: { confidence: 1.0 } },
+      ]
+
+      const health = validateGraph(nodes, edges)
+
+      const probIssue = health.issues.find((i) => i.type === 'probability_error')
+      expect(probIssue).toBeUndefined()
+    })
+
+    it('skips probability validation for pristine decision→option edges (no confidence set)', () => {
+      const nodes: Node[] = [
+        { id: 'n1', data: { label: 'Decision', kind: 'decision' }, position: { x: 0, y: 0 } },
+        { id: 'n2', data: { label: 'Option A', kind: 'option' }, position: { x: 100, y: 0 } },
+        { id: 'n3', data: { label: 'Option B', kind: 'option' }, position: { x: 100, y: 100 } },
+      ]
+      const edges: Edge[] = [
+        { id: 'e1', source: 'n1', target: 'n2', data: {} }, // No confidence
+        { id: 'e2', source: 'n1', target: 'n3', data: {} }, // No confidence
+      ]
+
+      const health = validateGraph(nodes, edges)
+
+      const probIssue = health.issues.find((i) => i.type === 'probability_error')
+      expect(probIssue).toBeUndefined()
+    })
   })
 
-  it('detects single-edge probability errors (incomplete branch)', () => {
-    const nodes: Node[] = [
-      { id: 'n1', data: { label: 'Option Node' }, position: { x: 0, y: 0 } },
-      { id: 'n2', data: { label: 'Outcome' }, position: { x: 100, y: 0 } },
-    ]
-    const edges: Edge[] = [
-      { id: 'e1', source: 'n1', target: 'n2', data: { confidence: 0.6 } },
-      // Single edge with 60% - where does the other 40% go?
-    ]
+  // ==========================================================================
+  // Non-Decision Edges Should NOT Trigger Probability Validation
+  // ==========================================================================
 
-    const health = validateGraph(nodes, edges)
+  describe('probability validation ignores non-decision edges', () => {
+    it('does NOT validate factor→option edges (influence weights, not probabilities)', () => {
+      const nodes: Node[] = [
+        { id: 'factor1', data: { label: 'Market Size', kind: 'factor' }, position: { x: 0, y: 0 } },
+        { id: 'option1', data: { label: 'Option A', kind: 'option' }, position: { x: 100, y: 0 } },
+        { id: 'option2', data: { label: 'Option B', kind: 'option' }, position: { x: 100, y: 100 } },
+      ]
+      const edges: Edge[] = [
+        // Factor influences two options with weights that don't sum to 100% - this is VALID
+        { id: 'e1', source: 'factor1', target: 'option1', data: { confidence: 0.8 } },
+        { id: 'e2', source: 'factor1', target: 'option2', data: { confidence: 0.6 } },
+        // Sum = 140% - but factor edges are influence weights, not probabilities
+      ]
 
-    const probIssue = health.issues.find((i) => i.type === 'probability_error')
-    expect(probIssue).toBeDefined()
-    expect(probIssue?.severity).toBe('error')
-    expect(probIssue?.message).toContain('incomplete probability')
-    expect(probIssue?.message).toContain('60%')
-    expect(probIssue?.suggestedFix?.type).toBe('normalize_probabilities')
-  })
+      const health = validateGraph(nodes, edges)
 
-  it('allows single-edge with 100% probability (valid)', () => {
-    const nodes: Node[] = [
-      { id: 'n1', data: { label: 'Option Node' }, position: { x: 0, y: 0 } },
-      { id: 'n2', data: { label: 'Outcome' }, position: { x: 100, y: 0 } },
-    ]
-    const edges: Edge[] = [
-      { id: 'e1', source: 'n1', target: 'n2', data: { confidence: 1.0 } },
-    ]
+      const probIssue = health.issues.find((i) => i.type === 'probability_error')
+      expect(probIssue).toBeUndefined()
+    })
 
-    const health = validateGraph(nodes, edges)
+    it('does NOT validate risk→outcome edges (risk likelihoods, not decision probabilities)', () => {
+      const nodes: Node[] = [
+        { id: 'risk1', data: { label: 'Supply Chain Risk', kind: 'risk' }, position: { x: 0, y: 0 } },
+        { id: 'outcome1', data: { label: 'Delayed Launch', kind: 'outcome' }, position: { x: 100, y: 0 } },
+        { id: 'outcome2', data: { label: 'Cost Overrun', kind: 'outcome' }, position: { x: 100, y: 100 } },
+      ]
+      const edges: Edge[] = [
+        // Risk can trigger multiple outcomes - not a probability distribution
+        { id: 'e1', source: 'risk1', target: 'outcome1', data: { confidence: 0.3 } },
+        { id: 'e2', source: 'risk1', target: 'outcome2', data: { confidence: 0.5 } },
+        // Sum = 80% - but these are independent risk likelihoods
+      ]
 
-    const probIssue = health.issues.find((i) => i.type === 'probability_error')
-    expect(probIssue).toBeUndefined()
-    expect(health.status).toBe('healthy')
-  })
+      const health = validateGraph(nodes, edges)
 
-  it('skips probability validation for pristine edges (no confidence set)', () => {
-    const nodes: Node[] = [
-      { id: 'n1', data: { label: 'Node 1' }, position: { x: 0, y: 0 } },
-      { id: 'n2', data: { label: 'Node 2' }, position: { x: 100, y: 0 } },
-      { id: 'n3', data: { label: 'Node 3' }, position: { x: 100, y: 100 } },
-    ]
-    const edges: Edge[] = [
-      { id: 'e1', source: 'n1', target: 'n2', data: {} }, // No confidence
-      { id: 'e2', source: 'n1', target: 'n3', data: {} }, // No confidence
-    ]
+      const probIssue = health.issues.find((i) => i.type === 'probability_error')
+      expect(probIssue).toBeUndefined()
+    })
 
-    const health = validateGraph(nodes, edges)
+    it('does NOT validate option→outcome edges (conditional probabilities, validated differently)', () => {
+      const nodes: Node[] = [
+        { id: 'option1', data: { label: 'Option A', kind: 'option' }, position: { x: 0, y: 0 } },
+        { id: 'outcome1', data: { label: 'Success', kind: 'outcome' }, position: { x: 100, y: 0 } },
+        { id: 'outcome2', data: { label: 'Failure', kind: 'outcome' }, position: { x: 100, y: 100 } },
+      ]
+      const edges: Edge[] = [
+        // Option leading to outcomes - could be validated but differently
+        { id: 'e1', source: 'option1', target: 'outcome1', data: { confidence: 0.4 } },
+        { id: 'e2', source: 'option1', target: 'outcome2', data: { confidence: 0.3 } },
+        // Sum = 70%
+      ]
 
-    const probIssue = health.issues.find((i) => i.type === 'probability_error')
-    expect(probIssue).toBeUndefined()
+      const health = validateGraph(nodes, edges)
+
+      const probIssue = health.issues.find((i) => i.type === 'probability_error')
+      expect(probIssue).toBeUndefined()
+    })
+
+    it('does NOT validate edges from nodes without kind (legacy/unknown nodes)', () => {
+      const nodes: Node[] = [
+        { id: 'n1', data: { label: 'Node 1' }, position: { x: 0, y: 0 } }, // No kind
+        { id: 'n2', data: { label: 'Node 2' }, position: { x: 100, y: 0 } },
+        { id: 'n3', data: { label: 'Node 3' }, position: { x: 100, y: 100 } },
+      ]
+      const edges: Edge[] = [
+        { id: 'e1', source: 'n1', target: 'n2', data: { confidence: 0.3 } },
+        { id: 'e2', source: 'n1', target: 'n3', data: { confidence: 0.3 } },
+        // Sum = 60%, but source has no kind
+      ]
+
+      const health = validateGraph(nodes, edges)
+
+      const probIssue = health.issues.find((i) => i.type === 'probability_error')
+      expect(probIssue).toBeUndefined()
+    })
+
+    it('only validates decision→option, not decision→non-option edges', () => {
+      const nodes: Node[] = [
+        { id: 'd1', data: { label: 'Decision', kind: 'decision' }, position: { x: 0, y: 0 } },
+        { id: 'f1', data: { label: 'Factor', kind: 'factor' }, position: { x: 100, y: 0 } },
+        { id: 'f2', data: { label: 'Factor 2', kind: 'factor' }, position: { x: 100, y: 100 } },
+      ]
+      const edges: Edge[] = [
+        // Decision pointing to factors (unusual but possible in some graphs)
+        { id: 'e1', source: 'd1', target: 'f1', data: { confidence: 0.3 } },
+        { id: 'e2', source: 'd1', target: 'f2', data: { confidence: 0.3 } },
+        // Sum = 60%, but targets are not options
+      ]
+
+      const health = validateGraph(nodes, edges)
+
+      const probIssue = health.issues.find((i) => i.type === 'probability_error')
+      expect(probIssue).toBeUndefined()
+    })
+
+    it('validates decision→option edges while ignoring other edges from same decision', () => {
+      const nodes: Node[] = [
+        { id: 'd1', data: { label: 'Decision', kind: 'decision' }, position: { x: 0, y: 0 } },
+        { id: 'opt1', data: { label: 'Option A', kind: 'option' }, position: { x: 100, y: 0 } },
+        { id: 'opt2', data: { label: 'Option B', kind: 'option' }, position: { x: 100, y: 100 } },
+        { id: 'factor1', data: { label: 'Factor', kind: 'factor' }, position: { x: 200, y: 0 } },
+      ]
+      const edges: Edge[] = [
+        // Decision → options (these should sum to 100%)
+        { id: 'e1', source: 'd1', target: 'opt1', data: { confidence: 0.5 } },
+        { id: 'e2', source: 'd1', target: 'opt2', data: { confidence: 0.5 } },
+        // Decision → factor (this should be ignored in probability calculation)
+        { id: 'e3', source: 'd1', target: 'factor1', data: { confidence: 0.3 } },
+      ]
+
+      const health = validateGraph(nodes, edges)
+
+      // Should be healthy - only opt1+opt2 edges count (sum = 100%)
+      const probIssue = health.issues.find((i) => i.type === 'probability_error')
+      expect(probIssue).toBeUndefined()
+    })
   })
 })

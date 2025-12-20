@@ -171,12 +171,12 @@ describe('validateGraphLimits - v1.2 Enhancements', () => {
     expect(error?.max).toBe(V1_LIMITS.MAX_BODY_LENGTH)
   })
 
-  it('validates outgoing probability totals (within ±1% tolerance)', () => {
+  it('validates outgoing probability totals (within ±1% tolerance) for decision→option edges', () => {
     const graph: ReactFlowGraph = {
       nodes: [
-        { id: 'n1', data: { label: 'Decision' } },
-        { id: 'n2', data: { label: 'Option A' } },
-        { id: 'n3', data: { label: 'Option B' } },
+        { id: 'n1', data: { label: 'Decision', kind: 'decision' } },
+        { id: 'n2', data: { label: 'Option A', kind: 'option' } },
+        { id: 'n3', data: { label: 'Option B', kind: 'option' } },
       ],
       edges: [
         { id: 'e1', source: 'n1', target: 'n2', data: { confidence: 0.40 } },
@@ -188,12 +188,12 @@ describe('validateGraphLimits - v1.2 Enhancements', () => {
     expect(error).toBeNull() // Should pass: 40% + 60% = 100%
   })
 
-  it('rejects outgoing probabilities that do not sum to 100% ±1%', () => {
+  it('rejects outgoing probabilities that do not sum to 100% ±1% for decision→option edges', () => {
     const graph: ReactFlowGraph = {
       nodes: [
-        { id: 'n1', data: { label: 'Decision' } },
-        { id: 'n2', data: { label: 'Option A' } },
-        { id: 'n3', data: { label: 'Option B' } },
+        { id: 'n1', data: { label: 'Decision', kind: 'decision' } },
+        { id: 'n2', data: { label: 'Option A', kind: 'option' } },
+        { id: 'n3', data: { label: 'Option B', kind: 'option' } },
       ],
       edges: [
         { id: 'e1', source: 'n1', target: 'n2', data: { confidence: 0.30 } },
@@ -209,12 +209,12 @@ describe('validateGraphLimits - v1.2 Enhancements', () => {
     expect(error?.message).toContain('100% ±1%')
   })
 
-  it('accepts probabilities within ±1% tolerance', () => {
+  it('accepts probabilities within ±1% tolerance for decision→option edges', () => {
     const graph: ReactFlowGraph = {
       nodes: [
-        { id: 'n1', data: { label: 'Decision' } },
-        { id: 'n2', data: { label: 'Option A' } },
-        { id: 'n3', data: { label: 'Option B' } },
+        { id: 'n1', data: { label: 'Decision', kind: 'decision' } },
+        { id: 'n2', data: { label: 'Option A', kind: 'option' } },
+        { id: 'n3', data: { label: 'Option B', kind: 'option' } },
       ],
       edges: [
         { id: 'e1', source: 'n1', target: 'n2', data: { confidence: 0.495 } },
@@ -226,12 +226,12 @@ describe('validateGraphLimits - v1.2 Enhancements', () => {
     expect(error).toBeNull() // Should pass: 49.5% + 50% = 99.5% (within ±1%)
   })
 
-  it('normalizes percentage values (> 1) before validation', () => {
+  it('normalizes percentage values (> 1) before validation for decision→option edges', () => {
     const graph: ReactFlowGraph = {
       nodes: [
-        { id: 'n1', data: { label: 'Decision' } },
-        { id: 'n2', data: { label: 'Option A' } },
-        { id: 'n3', data: { label: 'Option B' } },
+        { id: 'n1', data: { label: 'Decision', kind: 'decision' } },
+        { id: 'n2', data: { label: 'Option A', kind: 'option' } },
+        { id: 'n3', data: { label: 'Option B', kind: 'option' } },
       ],
       edges: [
         { id: 'e1', source: 'n1', target: 'n2', data: { confidence: 40 } }, // Percentage format
@@ -241,6 +241,42 @@ describe('validateGraphLimits - v1.2 Enhancements', () => {
 
     const error = validateGraphLimits(graph)
     expect(error).toBeNull() // Should pass after normalization: 40% + 60% = 100%
+  })
+
+  it('does NOT validate probability sums for non-decision nodes', () => {
+    const graph: ReactFlowGraph = {
+      nodes: [
+        { id: 'f1', data: { label: 'Factor', kind: 'factor' } },
+        { id: 'o1', data: { label: 'Option A', kind: 'option' } },
+        { id: 'o2', data: { label: 'Option B', kind: 'option' } },
+      ],
+      edges: [
+        // Factor→option edges don't need to sum to 100%
+        { id: 'e1', source: 'f1', target: 'o1', data: { confidence: 0.80 } },
+        { id: 'e2', source: 'f1', target: 'o2', data: { confidence: 0.60 } },
+      ],
+    }
+
+    const error = validateGraphLimits(graph)
+    expect(error).toBeNull() // Should pass: factor edges are influence weights, not probability distributions
+  })
+
+  it('does NOT validate probability sums for decision→non-option edges', () => {
+    const graph: ReactFlowGraph = {
+      nodes: [
+        { id: 'd1', data: { label: 'Decision', kind: 'decision' } },
+        { id: 'f1', data: { label: 'Factor A', kind: 'factor' } },
+        { id: 'f2', data: { label: 'Factor B', kind: 'factor' } },
+      ],
+      edges: [
+        // Decision→factor edges (unusual but possible)
+        { id: 'e1', source: 'd1', target: 'f1', data: { confidence: 0.30 } },
+        { id: 'e2', source: 'd1', target: 'f2', data: { confidence: 0.30 } },
+      ],
+    }
+
+    const error = validateGraphLimits(graph)
+    expect(error).toBeNull() // Should pass: targets are not options
   })
 })
 

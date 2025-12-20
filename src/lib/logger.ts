@@ -1,26 +1,74 @@
 // src/lib/logger.ts
-// Structured logger that no-ops in production for debug/info
+// Structured logger with configurable log levels
+//
+// Log Level Configuration:
+// - Set VITE_LOG_LEVEL env var to: 'debug' | 'info' | 'warn' | 'error'
+// - Production defaults to 'warn' (only warn/error shown)
+// - Development defaults to 'debug' (all logs shown)
+//
+// Usage:
+//   import { logger } from '@/lib/logger'
+//   logger.debug('verbose diagnostic info')
+//   logger.info('general info')
+//   logger.warn('recoverable issue')
+//   logger.error('error requiring investigation')
 
-const isProd = import.meta.env.PROD
+type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+
+const LOG_LEVELS: Record<LogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+}
+
+// Determine current log level from env
+const getLogLevel = (): LogLevel => {
+  const envLevel = import.meta.env.VITE_LOG_LEVEL as LogLevel | undefined
+  if (envLevel && envLevel in LOG_LEVELS) {
+    return envLevel
+  }
+  // Default: 'warn' in production, 'debug' in development
+  return import.meta.env.PROD ? 'warn' : 'debug'
+}
+
+const currentLevel = getLogLevel()
+
+const shouldLog = (level: LogLevel): boolean => {
+  return LOG_LEVELS[level] >= LOG_LEVELS[currentLevel]
+}
 
 export const logger = {
   /**
-   * Debug logs - only in development
+   * Debug logs - development only by default
    * Use for verbose diagnostic information
    */
   debug: (...args: unknown[]): void => {
-    if (!isProd) {
-      console.debug(...args)
+    if (shouldLog('debug')) {
+      // eslint-disable-next-line no-console
+      console.debug('[DEBUG]', ...args)
     }
   },
 
   /**
-   * Info logs - only in development
+   * Info logs - development only by default
    * Use for general informational messages
    */
   info: (...args: unknown[]): void => {
-    if (!isProd) {
-      console.info(...args)
+    if (shouldLog('info')) {
+      // eslint-disable-next-line no-console
+      console.info('[INFO]', ...args)
+    }
+  },
+
+  /**
+   * Warning logs - always enabled by default
+   * Use for recoverable issues
+   */
+  warn: (...args: unknown[]): void => {
+    if (shouldLog('warn')) {
+      // eslint-disable-next-line no-console
+      console.warn('[WARN]', ...args)
     }
   },
 
@@ -29,14 +77,14 @@ export const logger = {
    * Use for errors that need investigation
    */
   error: (...args: unknown[]): void => {
-    console.error(...args)
+    if (shouldLog('error')) {
+      // eslint-disable-next-line no-console
+      console.error('[ERROR]', ...args)
+    }
   },
 
   /**
-   * Warning logs - always enabled
-   * Use for recoverable issues
+   * Get current log level (for diagnostics)
    */
-  warn: (...args: unknown[]): void => {
-    console.warn(...args)
-  },
+  getLevel: (): LogLevel => currentLevel,
 }

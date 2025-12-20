@@ -36,41 +36,88 @@ export interface AutoFixParams {
 /**
  * Normalizes outgoing edge probabilities (confidence) to sum to 100%
  *
+ * IMPORTANT: Only normalizes decision→option edges (probability distribution semantics).
+ * Other edge types (factor→option, risk→outcome) use different semantics and are NOT normalized.
+ *
  * Note: `confidence` is the branch probability field (0-1, should sum to 1).
  * This is distinct from `belief` which represents epistemic uncertainty.
  *
  * Strategy:
- * - If ALL edges have non-zero confidence: scale proportionally to sum to 100%
- * - If SOME edges have zero/undefined confidence: distribute evenly across ALL edges
- *   (This ensures no edges are left at 0% which would fail backend validation)
+ * - Verify source node is a decision node (return unchanged if not)
+ * - Only consider edges where target is an option node
+ * - If ALL decision→option edges have non-zero confidence: scale proportionally to sum to 100%
+ * - If SOME edges have zero/undefined confidence: distribute evenly across ALL decision→option edges
+ *   (This ensures no branches are left at 0% which would fail backend validation)
  *
- * @param nodeId - Node with probability sum issue
+ * Immutability:
+ * - Returns same edges array reference if no changes needed
+ * - Only creates new objects for edges that are actually modified
+ * - Preserves object identity for untouched edges
+ *
+ * @param nodeId - Node with probability sum issue (must be a decision node)
+ * @param nodes - Current node list (to check node kinds)
  * @param edges - Current edge list
- * @returns AutoFixResult with updated edges
+ * @returns AutoFixResult with updated edges (or same reference if unchanged)
  */
 export function normalizeProbabilities(
   nodeId: string,
+  nodes: Node[],
   edges: Edge<EdgeData>[]
 ): AutoFixResult {
-  const outgoingEdges = edges.filter(e => e.source === nodeId)
+  // Find source node and verify it's a decision node
+  const sourceNode = nodes.find(n => n.id === nodeId)
 
-  if (outgoingEdges.length === 0) {
-    return { success: false, message: 'No outgoing edges to normalize' }
+  if (!sourceNode) {
+    // Defensive: node not found
+    if (import.meta.env.DEV) {
+      console.warn('[autoFix] normalizeProbabilities called with non-existent nodeId:', nodeId)
+    }
+    return { success: false, message: 'Node not found' }
   }
 
-  // Count edges with meaningful (non-zero) confidence
-  const confidenceValues = outgoingEdges.map(e => (e.data as EdgeData)?.confidence ?? 0)
+  // Only normalize decision nodes - other node types don't have probability distribution semantics
+  if (sourceNode.data?.kind !== 'decision') {
+    if (import.meta.env.DEV) {
+      console.warn('[autoFix] normalizeProbabilities called on non-decision node:', nodeId, 'kind:', sourceNode.data?.kind)
+    }
+    // Return same array reference - no changes needed
+    return { success: false, message: 'Only decision nodes have probability distributions to normalize' }
+  }
+
+  // Build node lookup for efficient target node checks
+  const nodeMap = new Map(nodes.map(n => [n.id, n]))
+
+  // Get IDs of edges that are decision→option (probability semantics)
+  const decisionOptionEdgeIds = new Set<string>()
+  const decisionOptionEdges: Edge<EdgeData>[] = []
+
+  for (const edge of edges) {
+    if (edge.source !== nodeId) continue
+    const targetNode = nodeMap.get(edge.target)
+    if (targetNode?.data?.kind === 'option') {
+      decisionOptionEdgeIds.add(edge.id)
+      decisionOptionEdges.push(edge)
+    }
+  }
+
+  // If no decision→option edges, return unchanged (same reference)
+  if (decisionOptionEdges.length === 0) {
+    if (import.meta.env.DEV) {
+      console.warn('[autoFix] normalizeProbabilities: decision node has no outgoing option edges:', nodeId)
+    }
+    return { success: false, message: 'No decision→option edges to normalize' }
+  }
+
+  // Calculate sum and check for zero values among decision→option edges only
+  const confidenceValues = decisionOptionEdges.map(e => (e.data as EdgeData)?.confidence ?? 0)
   const nonZeroCount = confidenceValues.filter(c => c > 0).length
   const total = confidenceValues.reduce((sum, c) => sum + c, 0)
 
-  // If any edges have zero/undefined confidence, OR total is 0,
-  // distribute evenly to ensure all branches have valid probabilities
-  const shouldDistributeEvenly = total === 0 || nonZeroCount < outgoingEdges.length
-
-  if (shouldDistributeEvenly) {
-    const evenConfidence = 1 / outgoingEdges.length
+  // Avoid division by zero - if all confidences are 0, distribute evenly
+  if (total === 0) {
+    const evenConfidence = 1 / decisionOptionEdges.length
     const updatedEdges = edges.map(edge => {
-      if (edge.source === nodeId) {
+      if (decisionOptionEdgeIds.has(edge.id)) {
         return {
           ...edge,
           data: {
@@ -79,20 +126,46 @@ export function normalizeProbabilities(
           },
         }
       }
-      return edge
+      return edge // Preserve reference for untouched edges
     })
 
     const percentage = Math.round(evenConfidence * 100)
     return {
       success: true,
-      message: `Set all ${outgoingEdges.length} edges to ${percentage}% each (totaling 100%)`,
+      message: `Set all ${decisionOptionEdges.length} edges to ${percentage}% each (totaling 100%)`,
       updatedEdges,
     }
   }
 
-  // All edges have non-zero confidence - normalize proportionally
+  // If some edges have zero/undefined confidence, distribute evenly
+  const shouldDistributeEvenly = nonZeroCount < decisionOptionEdges.length
+
+  if (shouldDistributeEvenly) {
+    const evenConfidence = 1 / decisionOptionEdges.length
+    const updatedEdges = edges.map(edge => {
+      if (decisionOptionEdgeIds.has(edge.id)) {
+        return {
+          ...edge,
+          data: {
+            ...((edge.data as EdgeData) || {}),
+            confidence: evenConfidence,
+          },
+        }
+      }
+      return edge // Preserve reference for untouched edges
+    })
+
+    const percentage = Math.round(evenConfidence * 100)
+    return {
+      success: true,
+      message: `Set all ${decisionOptionEdges.length} edges to ${percentage}% each (totaling 100%)`,
+      updatedEdges,
+    }
+  }
+
+  // All decision→option edges have non-zero confidence - normalize proportionally
   const updatedEdges = edges.map(edge => {
-    if (edge.source === nodeId) {
+    if (decisionOptionEdgeIds.has(edge.id)) {
       const currentConfidence = (edge.data as EdgeData)?.confidence ?? 0
       const normalizedConfidence = currentConfidence / total
       return {
@@ -103,12 +176,12 @@ export function normalizeProbabilities(
         },
       }
     }
-    return edge
+    return edge // Preserve reference for untouched edges
   })
 
   return {
     success: true,
-    message: `Normalized ${outgoingEdges.length} edge probabilities to 100%`,
+    message: `Normalized ${decisionOptionEdges.length} edge probabilities to 100%`,
     updatedEdges,
   }
 }
@@ -321,7 +394,7 @@ export function executeAutoFix(
       if (!params.nodeId) {
         return { success: false, message: 'Node ID required for probability normalization' }
       }
-      return normalizeProbabilities(params.nodeId, edges)
+      return normalizeProbabilities(params.nodeId, nodes, edges)
 
     case 'add_risk':
       if (!params.nodeId) {
