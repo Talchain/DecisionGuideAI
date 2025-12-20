@@ -91,6 +91,7 @@ const ALLOWED_ORIGINS = [
   'https://decisionguide.ai',
   'https://app.olumi.app',
   'https://decision-guide-ai.netlify.app',  // Netlify preview
+  'https://staging--olumi.netlify.app',     // Staging environment
   'http://localhost:5173',  // Dev only
   'http://localhost:4173',  // Preview builds
 ]
