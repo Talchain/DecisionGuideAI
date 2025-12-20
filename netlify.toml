@@ -92,8 +92,8 @@
   function = "cee-proxy"
   path = "/bff/cee/*"
 
-[[redirects]]
-  from = "/bff/isl/*"
-  to = "https://isl-staging.onrender.com/:splat"
-  status = 200
-  force = true
+# ISL Service proxy - handled by Edge Function for auth header injection
+# Requires ISL_API_KEY env var in Netlify dashboard
+[[edge_functions]]
+  function = "isl-proxy"
+  path = "/bff/isl/*"
