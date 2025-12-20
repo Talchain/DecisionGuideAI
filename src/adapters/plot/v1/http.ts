@@ -357,8 +357,9 @@ async function runSyncOnce(
     }
 
     // Sprint N P1: Only include detail_level if backend supports it (prevents 400 "Unknown field")
+    // M1 CEE: Default to 'standard' so CEE runs (CEE skips on 'quick')
     const caps = await getCapabilities()
-    const desiredDetailLevel = request.detail_level ?? 'quick'
+    const desiredDetailLevel = request.detail_level ?? 'standard'
     if (caps.capabilities?.detail_level?.includes(desiredDetailLevel)) {
       requestForBody.detail_level = desiredDetailLevel
       if (import.meta.env.DEV) {
