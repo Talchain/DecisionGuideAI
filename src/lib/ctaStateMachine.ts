@@ -1,8 +1,16 @@
 /**
  * CTA State Machine
  *
+ * P0.3: Single Primary CTA Per State
+ *
  * Pure state machine for the primary CTA button in OutputsDock.
  * Determines button text, enabled state, and appearance based on analysis state.
+ *
+ * Rule: Exactly one primary button visible. Choose by state:
+ * - Before any run: "Run Analysis"
+ * - After run, 2+ options, compare-ready: "Compare Options"
+ * - After run, low confidence OR not informative: "Strengthen Model"
+ * - Error blocking results: "Try Again"
  *
  * State transitions:
  * - idle → running (on analyse click)
@@ -30,6 +38,11 @@ export type CTAState = 'idle' | 'running' | 'done' | 'degraded' | 'error'
 export type CTAVariant = 'primary' | 'secondary' | 'warning' | 'disabled'
 
 /**
+ * P0.3: Primary CTA type - determines which single primary action to show
+ */
+export type PrimaryCTAType = 'run_analysis' | 'compare_options' | 'strengthen_model' | 'try_again' | 'rerun'
+
+/**
  * Complete CTA configuration
  */
 export interface CTAConfig {
@@ -38,7 +51,9 @@ export interface CTAConfig {
   enabled: boolean
   variant: CTAVariant
   tooltip?: string
-  icon?: 'play' | 'refresh' | 'alert' | 'loader'
+  icon?: 'play' | 'refresh' | 'alert' | 'loader' | 'compare'
+  /** P0.3: The primary CTA type for this state */
+  primaryType: PrimaryCTAType
 }
 
 /**
@@ -59,6 +74,18 @@ export interface CTAInput {
 
   /** Optional error message */
   errorMessage?: string
+
+  /** P0.3: Number of option nodes (for compare CTA) */
+  optionCount?: number
+
+  /** P0.3: Whether drivers are informative */
+  driversInformative?: boolean
+
+  /** P0.3: Confidence level */
+  confidenceLevel?: 'high' | 'medium' | 'low'
+
+  /** P0.3: Whether comparison is ready/available */
+  canCompare?: boolean
 }
 
 // =============================================================================
@@ -93,49 +120,91 @@ function mapResultsStatusToCTAState(status: ResultsStatus, isDegraded?: boolean)
 }
 
 /**
- * Get CTA text based on state
+ * P0.3: Determine primary CTA type based on state and conditions
  */
-function getCTAText(state: CTAState): string {
-  switch (state) {
-    case 'idle':
-      return 'Analyse'
+function determinePrimaryCTAType(
+  state: CTAState,
+  input: CTAInput
+): PrimaryCTAType {
+  // Error state always shows "Try Again"
+  if (state === 'error') {
+    return 'try_again'
+  }
 
-    case 'running':
-      return 'Running…'
+  // Running or idle states show run_analysis
+  if (state === 'idle' || state === 'running') {
+    return 'run_analysis'
+  }
 
-    case 'done':
-      return 'Analyse again'
+  // After run (done/degraded): check conditions for primary CTA
+  // Priority: strengthen_model > compare_options > rerun
 
-    case 'degraded':
-      return 'Retry'
+  // Low confidence OR not informative → "Strengthen Model"
+  const needsStrengthening =
+    input.confidenceLevel === 'low' ||
+    input.driversInformative === false
 
-    case 'error':
-      return 'Retry'
+  if (needsStrengthening) {
+    return 'strengthen_model'
+  }
+
+  // 2+ options and compare-ready → "Compare Options"
+  if (input.canCompare && (input.optionCount ?? 0) >= 2) {
+    return 'compare_options'
+  }
+
+  // Default post-run: Rerun
+  return 'rerun'
+}
+
+/**
+ * Get CTA text based on state and primary type
+ */
+function getCTAText(state: CTAState, primaryType: PrimaryCTAType): string {
+  switch (primaryType) {
+    case 'run_analysis':
+      return state === 'running' ? 'Running…' : 'Run Analysis'
+
+    case 'compare_options':
+      return 'Compare Options'
+
+    case 'strengthen_model':
+      return 'Strengthen Model'
+
+    case 'try_again':
+      return 'Try Again'
+
+    case 'rerun':
+      return 'Rerun'
 
     default:
-      return 'Analyse'
+      return 'Run Analysis'
   }
 }
 
 /**
- * Get CTA icon based on state
+ * Get CTA icon based on state and primary type
  */
-function getCTAIcon(state: CTAState): CTAConfig['icon'] {
-  switch (state) {
-    case 'idle':
+function getCTAIcon(state: CTAState, primaryType: PrimaryCTAType): CTAConfig['icon'] {
+  if (state === 'running') {
+    return 'loader'
+  }
+
+  switch (primaryType) {
+    case 'run_analysis':
       return 'play'
 
-    case 'running':
-      return 'loader'
+    case 'compare_options':
+      return 'compare'
 
-    case 'done':
+    case 'strengthen_model':
+      return 'alert'
+
+    case 'try_again':
+      return 'alert'
+
+    case 'rerun':
       return 'refresh'
-
-    case 'degraded':
-      return 'alert'
-
-    case 'error':
-      return 'alert'
 
     default:
       return 'play'
@@ -245,6 +314,12 @@ function getCTATooltip(
 /**
  * Compute CTA configuration from input signals
  *
+ * P0.3: Returns single primary CTA based on state:
+ * - Before run: "Run Analysis"
+ * - After run, 2+ options: "Compare Options"
+ * - Low confidence/not informative: "Strengthen Model"
+ * - Error: "Try Again"
+ *
  * @param input - Current state signals
  * @returns Complete CTA configuration
  *
@@ -253,6 +328,10 @@ function getCTATooltip(
  *   resultsStatus: store.results.status,
  *   hasGraph: nodes.length > 0,
  *   readinessLevel: readiness.level,
+ *   optionCount: 2,
+ *   canCompare: true,
+ *   confidenceLevel: 'high',
+ *   driversInformative: true,
  * })
  *
  * <Button variant={cta.variant} disabled={!cta.enabled}>
@@ -261,8 +340,9 @@ function getCTATooltip(
  */
 export function computeCTA(input: CTAInput): CTAConfig {
   const state = mapResultsStatusToCTAState(input.resultsStatus, input.isDegraded)
-  const text = getCTAText(state)
-  const icon = getCTAIcon(state)
+  const primaryType = determinePrimaryCTAType(state, input)
+  const text = getCTAText(state, primaryType)
+  const icon = getCTAIcon(state, primaryType)
   const variant = getCTAVariant(state, input.readinessLevel, input.hasGraph)
   const enabled = isCTAEnabled(state, input.hasGraph, input.readinessLevel)
   const tooltip = getCTATooltip(state, input.readinessLevel, input.hasGraph, input.errorMessage)
@@ -274,6 +354,7 @@ export function computeCTA(input: CTAInput): CTAConfig {
     variant,
     icon,
     tooltip,
+    primaryType,
   }
 }
 

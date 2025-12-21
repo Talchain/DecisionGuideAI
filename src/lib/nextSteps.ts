@@ -80,24 +80,92 @@ export const DEFAULT_NEXT_STEPS_CONFIG: NextStepsConfig = {
  */
 const GENERIC_SUGGESTIONS: Omit<NextStep, 'id'>[] = [
   {
-    label: 'Review top drivers',
-    description: 'Examine factors with highest impact on the outcome',
+    label: 'Review your assumptions',
+    description: 'Check that your model reflects your current understanding',
     priority: 'medium',
     type: 'generic',
   },
   {
-    label: 'Add supporting evidence',
-    description: 'Strengthen edge weights with real data',
+    label: 'Add factors that could change the outcome',
+    description: 'Consider what might shift the result in either direction',
     priority: 'medium',
-    type: 'generic',
-  },
-  {
-    label: 'Consider missing factors',
-    description: 'Are there factors that could influence the decision?',
-    priority: 'low',
     type: 'generic',
   },
 ]
+
+/**
+ * P0.4: Issue-based default actions when CEE next_steps unavailable
+ */
+export interface IssueBasedInput {
+  /** Whether uniform_weights issue detected in graph_health */
+  hasUniformWeights?: boolean
+
+  /** Whether drivers are not informative */
+  driversNotInformative?: boolean
+
+  /** Whether there are evidence gaps */
+  hasEvidenceGaps?: boolean
+
+  /** Whether low confidence is detected */
+  hasLowConfidence?: boolean
+}
+
+/**
+ * P0.4: Get issue-based default next steps
+ */
+export function getIssueBasedDefaults(input: IssueBasedInput): NextStep[] {
+  const steps: NextStep[] = []
+
+  if (input.hasUniformWeights) {
+    steps.push({
+      id: 'issue_uniform_weights',
+      label: 'Vary edge weights to reflect different influence strengths',
+      description: 'Some connections may have more impact than others',
+      priority: 'high',
+      type: 'readiness',
+    })
+  }
+
+  if (input.driversNotInformative) {
+    steps.push({
+      id: 'issue_drivers_not_informative',
+      label: 'Differentiate options so they affect outcomes differently',
+      description: 'Options currently lead to similar results',
+      priority: 'high',
+      type: 'readiness',
+    })
+  }
+
+  if (input.hasEvidenceGaps) {
+    steps.push({
+      id: 'issue_evidence_gaps',
+      label: 'Add evidence to the most influential relationships',
+      description: 'Support key connections with data or rationale',
+      priority: 'medium',
+      type: 'readiness',
+    })
+  }
+
+  if (input.hasLowConfidence) {
+    steps.push({
+      id: 'issue_low_confidence',
+      label: 'Strengthen connections with uncertain outcomes',
+      description: 'Add more detail to reduce uncertainty',
+      priority: 'medium',
+      type: 'readiness',
+    })
+  }
+
+  // Return minimum 2 steps
+  if (steps.length === 0) {
+    return GENERIC_SUGGESTIONS.slice(0, 2).map((s, i) => ({
+      ...s,
+      id: `generic_${i}`,
+    }))
+  }
+
+  return steps.slice(0, 4) // Max 4 steps
+}
 
 // =============================================================================
 // Helper Functions
