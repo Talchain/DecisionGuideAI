@@ -78,6 +78,7 @@ export async function draftGraph(
 ): Promise<DraftResponse> {
   const base = getBffBase()
   const correlationId = options?.correlationId || generateCorrelationId()
+  const startTime = Date.now()
 
   try {
     const response = await fetch(`${base}/v1/draft-flows`, {
@@ -100,12 +101,16 @@ export async function draftGraph(
 
     return await response.json()
   } catch (err) {
+    const elapsedMs = Date.now() - startTime
     if (err instanceof Error && err.name === 'AbortError') {
+      console.error('[DRAFT_GRAPH_FAILED]', { reason: 'timeout', elapsedMs, correlationId })
       throw makeTimeoutError()
     }
     if ((err as any).code) {
+      console.error('[DRAFT_GRAPH_FAILED]', { reason: (err as any).code, elapsedMs, correlationId })
       throw err // Already an AssistError
     }
+    console.error('[DRAFT_GRAPH_FAILED]', { reason: 'network', elapsedMs, correlationId, error: err })
     throw makeNetworkError(err)
   }
 }
@@ -120,6 +125,7 @@ export async function* draftGraphStream(
 ): AsyncGenerator<DraftStreamEvent> {
   const base = getBffBase()
   const correlationId = options?.correlationId || generateCorrelationId()
+  const startTime = Date.now()
 
   let response: Response
 
@@ -144,12 +150,16 @@ export async function* draftGraphStream(
       throw makeHttpAssistError(response.status, errorBody, correlationId)
     }
   } catch (err) {
+    const elapsedMs = Date.now() - startTime
     if (err instanceof Error && err.name === 'AbortError') {
+      console.error('[DRAFT_GRAPH_FAILED]', { reason: 'timeout', elapsedMs, correlationId, streaming: true })
       throw makeTimeoutError()
     }
     if ((err as any).code) {
+      console.error('[DRAFT_GRAPH_FAILED]', { reason: (err as any).code, elapsedMs, correlationId, streaming: true })
       throw err
     }
+    console.error('[DRAFT_GRAPH_FAILED]', { reason: 'network', elapsedMs, correlationId, streaming: true, error: err })
     throw makeNetworkError(err)
   }
 

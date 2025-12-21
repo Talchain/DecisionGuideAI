@@ -73,6 +73,14 @@ import { focusNodeById } from '../utils/focusHelpers'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { computeCTA, type CTAConfig } from '../../lib/ctaStateMachine'
 import { computeReadiness } from '../../lib/readiness'
+// P0.1: Driver gating utilities
+import { areDriversInformative, getDriversGatingState } from '../../lib/driversGating'
+// P0.6: User-friendly error messages
+import { getUserFriendlyError } from '../../lib/userFriendlyErrors'
+// P0.7: Loading skeletons
+import { ResultsPanelSkeleton } from './ResultsPanelSkeleton'
+// P0.8: Instrumentation
+import { trackRunStarted, trackRunCompleted, trackRunFailed } from '../../lib/resultsInstrumentation'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { useOptionRanking } from '../hooks/useOptionRanking'
@@ -236,6 +244,7 @@ export function OutputsDock() {
   const canRunAnalysis = !hasPreRunBlockers && readinessCanRun && !isRunning
 
   // R3: CTA state machine for primary analysis button
+  // P0.3: Enhanced with option count, driver informativeness, confidence level
   const ctaConfig: CTAConfig = useMemo(() => {
     // Compute readiness from current state
     const hasOutcome = nodes.some(n => n.type === 'outcome')
@@ -248,24 +257,45 @@ export function OutputsDock() {
       hasDecision,
     })
 
+    // P0.1: Check if drivers are informative for CTA decisions
+    const driversInformative = areDriversInformative(report?.drivers_payload)
+
     return computeCTA({
       resultsStatus,
       hasGraph: nodes.length > 0,
       readinessLevel: readinessResult.level,
       isDegraded: runMeta?.degraded,
       errorMessage: error?.message,
+      // P0.3: Enhanced CTA inputs
+      optionCount: comparison.optionNodes.length,
+      driversInformative,
+      confidenceLevel: report?.confidence?.level as 'high' | 'medium' | 'low' | undefined,
+      canCompare: comparison.canCompare && resultsStatus === 'complete',
     })
-  }, [resultsStatus, nodes, edges, graphHealth, runMeta?.degraded, error?.message])
+  }, [resultsStatus, nodes, edges, graphHealth, runMeta?.degraded, error?.message, comparison.optionNodes.length, comparison.canCompare, report?.drivers_payload, report?.confidence?.level])
 
   // Handle Run button click
   const handleRunAnalysis = useCallback(async () => {
     if (!canRunAnalysis) return
+    // P0.8: Track run started
+    trackRunStarted({
+      option_count: comparison.optionNodes.length,
+      node_count: nodes.length,
+      edge_count: edges.length,
+    })
+    // P0: Log graph used for observability
+    console.info('[GRAPH_USED_FOR_RUN]', {
+      node_count: nodes.length,
+      edge_count: edges.length,
+      option_count: comparison.optionNodes.length,
+      template_id: framing?.templateId || 'canvas-graph',
+    })
     await runAnalysis({
       template_id: framing?.templateId || 'canvas-graph',
       seed: framing?.seed ?? 1337,
       graph: { nodes, edges },
     })
-  }, [canRunAnalysis, runAnalysis, framing, nodes, edges])
+  }, [canRunAnalysis, runAnalysis, framing, nodes, edges, comparison.optionNodes.length])
 
   // M6: Handle comparison prompt dismissal
   const handleDismissComparison = useCallback(() => {
@@ -357,6 +387,12 @@ export function OutputsDock() {
       contribution: d.contribution,
     }))
   }, [report?.drivers])
+
+  // P0.1: Driver gating state for contradiction prevention
+  const driversGating = useMemo(
+    () => getDriversGatingState(report?.drivers_payload),
+    [report?.drivers_payload]
+  )
 
   const verdict = mostLikelyValue !== null
     ? deriveVerdict({
@@ -548,6 +584,31 @@ export function OutputsDock() {
       // No cleanup function needed when not running (no interval to clear)
     }
   }, [resultsStatus])
+
+  // P0.8: Track run completed/failed events
+  const prevResultsStatus = useRef(resultsStatus)
+  useEffect(() => {
+    const prevStatus = prevResultsStatus.current
+    prevResultsStatus.current = resultsStatus
+
+    // Detect transition to 'complete'
+    if (resultsStatus === 'complete' && prevStatus !== 'complete' && report) {
+      trackRunCompleted({
+        confidence_level: report.confidence?.level as 'high' | 'medium' | 'low' ?? 'medium',
+        drivers_informative: areDriversInformative(report.drivers_payload),
+        trace_id: runMeta?.correlationIdHeader ?? undefined,
+        duration_ms: runStartTimeRef.current ? Date.now() - runStartTimeRef.current : undefined,
+      })
+    }
+
+    // Detect transition to 'error'
+    if (resultsStatus === 'error' && prevStatus !== 'error' && error) {
+      trackRunFailed({
+        error_code: error.code ?? 'UNKNOWN',
+        error_message: error.message,
+      })
+    }
+  }, [resultsStatus, report, error, runMeta?.correlationIdHeader])
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -763,31 +824,85 @@ export function OutputsDock() {
         <div className={`flex-1 px-3 py-3 ${typography.caption} text-ink-900/70 space-y-4 overflow-y-auto`} data-testid="outputs-dock-body">
             {state.activeTab === 'results' && (
               <div className="space-y-6">
-                {isError && error && (
-                  <div
-                    className="flex flex-col gap-1 px-3 py-2 bg-danger-50 border border-danger-200 rounded"
-                    role="alert"
-                    aria-live="polite"
-                    data-testid="outputs-error-banner"
-                  >
-                    <div className={`${typography.code} font-medium text-danger-800`}>
-                      {error.code}
-                    </div>
-                    <div className={`${typography.caption} text-ink-900/80`}>
-                      {error.message}
-                    </div>
-                    {typeof error.retryAfter === 'number' && error.retryAfter > 0 && (
-                      <div className={`${typography.caption} text-ink-900/70`}>
-                        Retry after {error.retryAfter} seconds
+                {/* P0.6: User-friendly error display */}
+                {isError && error && (() => {
+                  const friendlyError = getUserFriendlyError({
+                    code: error.code,
+                    message: error.message,
+                    status: error.status,
+                    hasPartialResults: resultsStatus === 'complete',
+                  })
+                  return (
+                    <div
+                      className={`flex flex-col gap-2 px-3 py-3 rounded-lg border ${
+                        friendlyError.severity === 'error'
+                          ? 'bg-danger-50 border-danger-200'
+                          : friendlyError.severity === 'warning'
+                            ? 'bg-sun-50 border-sun-200'
+                            : 'bg-sky-50 border-sky-200'
+                      }`}
+                      role="alert"
+                      aria-live="polite"
+                      data-testid="outputs-error-banner"
+                    >
+                      <div className={`${typography.body} font-medium ${
+                        friendlyError.severity === 'error'
+                          ? 'text-danger-800'
+                          : friendlyError.severity === 'warning'
+                            ? 'text-sun-800'
+                            : 'text-sky-800'
+                      }`}>
+                        {friendlyError.headline}
                       </div>
-                    )}
-                    {error.request_id && (
-                      <div className={`${typography.code} text-ink-900/70`}>
-                        PLoT Request ID: {error.request_id}
+                      <div className={`${typography.caption} text-ink-900/80`}>
+                        {friendlyError.explanation}
                       </div>
-                    )}
-                  </div>
-                )}
+                      <div className="flex gap-2 mt-1">
+                        {friendlyError.canRetry && (
+                          <button
+                            type="button"
+                            onClick={handleRunAnalysis}
+                            disabled={isRunning}
+                            className={`${typography.caption} font-medium px-3 py-1.5 rounded ${
+                              friendlyError.severity === 'error'
+                                ? 'bg-danger-600 text-white hover:bg-danger-700'
+                                : friendlyError.severity === 'warning'
+                                  ? 'bg-sun-600 text-white hover:bg-sun-700'
+                                  : 'bg-sky-600 text-white hover:bg-sky-700'
+                            } disabled:opacity-50`}
+                          >
+                            {friendlyError.actionText}
+                          </button>
+                        )}
+                        {friendlyError.secondaryActionText && (
+                          <button
+                            type="button"
+                            className={`${typography.caption} font-medium px-3 py-1.5 rounded border ${
+                              friendlyError.severity === 'error'
+                                ? 'border-danger-300 text-danger-700 hover:bg-danger-100'
+                                : friendlyError.severity === 'warning'
+                                  ? 'border-sun-300 text-sun-700 hover:bg-sun-100'
+                                  : 'border-sky-300 text-sky-700 hover:bg-sky-100'
+                            }`}
+                          >
+                            {friendlyError.secondaryActionText}
+                          </button>
+                        )}
+                      </div>
+                      {/* Debug info (only in dev mode) */}
+                      {import.meta.env.DEV && (
+                        <details className="mt-2">
+                          <summary className={`${typography.code} text-ink-500 cursor-pointer`}>
+                            Debug info
+                          </summary>
+                          <div className={`${typography.code} text-ink-500 mt-1 text-xs`}>
+                            Code: {error.code} | Request ID: {error.request_id || 'n/a'}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  )
+                })()}
                 {/* Post-run: Rerun analysis + Compare buttons row */}
                 {!isPreRun && (
                   <div className="flex gap-2" data-testid="outputs-action-buttons">
@@ -880,6 +995,10 @@ export function OutputsDock() {
                     <span className={`${typography.caption} text-sky-900`}>{slowRunMessage}</span>
                   </div>
                 )}
+                {/* P0.7: Loading skeleton during analysis (when streaming without report) */}
+                {isRunning && !report && (
+                  <ResultsPanelSkeleton />
+                )}
                 {/* P0 Engine: Identifiability Badge - only show when we have a meaningful status */}
                 {(() => {
                   // Safely normalize backend identifiability tag to prevent runtime errors
@@ -959,12 +1078,14 @@ export function OutputsDock() {
                       <div className="p-0">
                         {/* Brief C: Pass robustness data to DriversSignal for tipping points & VoI */}
                         {/* Brief E Task 2: Pass synthesis narratives to DriversSignal */}
+                        {/* P0.1: Pass gating state for contradiction prevention */}
                         <DriversSignal
                           maxCollapsed={3}
                           robustness={robustnessData}
                           robustnessLoading={robustnessLoading}
                           synthesis={synthesisData}
                           synthesisLoading={synthesisLoading}
+                          gatingState={driversGating}
                           onParameterClick={(nodeId) => {
                             setHighlightedNodes([nodeId])
                             focusNodeById(nodeId)
@@ -1085,6 +1206,7 @@ export function OutputsDock() {
                       </div>
                     )}
                     {/* Insights: interpretation of results ("what does this mean?") */}
+                    {/* P0.1: Pass driversInformative to gate driver-based insight generation */}
                     {report?.insights && (
                       <InsightsPanel
                         insights={report.insights}
@@ -1092,6 +1214,7 @@ export function OutputsDock() {
                         baselineValue={baselineValue}
                         goalDirection={goalDirection}
                         topDrivers={topDrivers}
+                        driversInformative={driversGating.showDriverNarratives}
                       />
                     )}
                     {/* Decision Review */}

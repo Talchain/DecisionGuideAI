@@ -40,6 +40,8 @@ import { buildRichGraphPayload } from '../utils/graphPayload'
 import type { ISLConformalPrediction } from '../../adapters/isl/types'
 import type { RobustnessResult, SensitiveParameter, ValueOfInformation } from './RecommendationCard/types'
 import type { SynthesisNarratives } from '../hooks/useISLSynthesis'
+// P0.1: Driver gating types
+import type { DriversGatingState } from '../../lib/driversGating'
 
 interface DriversSignalProps {
   /** Maximum drivers to show when collapsed */
@@ -58,6 +60,8 @@ interface DriversSignalProps {
   synthesis?: SynthesisNarratives | null
   /** Brief E Task 2: Loading state for synthesis */
   synthesisLoading?: boolean
+  /** P0.1: Driver gating state for contradiction prevention */
+  gatingState?: DriversGatingState
 }
 
 // Polarity styling
@@ -151,6 +155,7 @@ export function DriversSignal({
   onVoiActionClick,
   synthesis,
   synthesisLoading = false,
+  gatingState,
 }: DriversSignalProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
@@ -330,8 +335,11 @@ export function DriversSignal({
   // Don't show empty state while analysis is still running
   const isAnalysisRunning = results?.status === 'streaming' || results?.status === 'preparing' || results?.status === 'connecting'
 
-  // Empty state - show message explaining what drivers are
-  if (drivers.length === 0) {
+  // P0.1: Use gating state when available to determine if drivers should be shown
+  const shouldShowDrivers = gatingState ? gatingState.showDriverNarratives : drivers.length > 0
+
+  // Empty/gated state - show fallback message and remediation actions
+  if (!shouldShowDrivers) {
     // Show loading placeholder if analysis is in progress
     if (isAnalysisRunning) {
       return (
@@ -347,17 +355,35 @@ export function DriversSignal({
       )
     }
 
+    // P0.1: Show fallback message from gating state
+    const fallbackMessage = gatingState?.fallbackMessage || 'Run analysis to see key factors influencing the outcome'
+    const remediationActions = gatingState?.remediationActions || []
+
     return (
       <div className="p-4 bg-sand-50 border border-sand-200 rounded-xl">
-        <div className="flex items-center gap-3">
-          <Zap className="h-5 w-5 text-sand-400 flex-shrink-0" />
-          <div>
+        <div className="flex items-start gap-3">
+          <Zap className="h-5 w-5 text-sand-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
             <p className={`${typography.body} text-sand-600`}>
-              No drivers identified
+              {drivers.length === 0 ? 'No drivers identified' : 'Driver analysis not available'}
             </p>
-            <p className={`${typography.caption} text-sand-500`}>
-              Run analysis to see key factors influencing the outcome
+            <p className={`${typography.caption} text-sand-500 mt-1`}>
+              {fallbackMessage}
             </p>
+            {/* P0.1: Remediation actions */}
+            {remediationActions.length > 0 && (
+              <ul className="mt-3 space-y-1.5">
+                {remediationActions.map((action) => (
+                  <li
+                    key={action.code}
+                    className={`${typography.caption} text-sky-600 flex items-start gap-2`}
+                  >
+                    <ArrowUpRight className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                    <span>{action.label}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </div>

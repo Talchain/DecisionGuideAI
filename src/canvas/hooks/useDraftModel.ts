@@ -1,8 +1,11 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { DraftRequest, DraftResponse, DraftStreamEvent, AssistError } from '../../adapters/assistants/types'
 import { draftGraph, draftGraphStream } from '../../adapters/assistants/http'
 import { pocFlags } from '../../flags'
 import { track } from '../../lib/telemetry'
+
+// P0: Client-side timeout for draft-graph requests (CEE has 25s budget, add 10s buffer)
+const DRAFT_TIMEOUT_MS = 35_000
 
 export type DraftStatus = 'idle' | 'requesting' | 'streaming' | 'ready' | 'error'
 
@@ -58,13 +61,38 @@ function toErrorMessage(err: unknown): string {
 export function useDraftModel(options: UseDraftModelOptions = {}): UseDraftModelReturn {
   const [state, setState] = useState<DraftModelState>(INITIAL_STATE)
 
+  // P0: Track current request for cancellation on unmount/new request/navigation
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const timeoutIdRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const requestStartTimeRef = useRef<number>(0)
+
+  // P0: Cleanup function to cancel in-flight requests
+  const cancelCurrentRequest = useCallback(() => {
+    if (timeoutIdRef.current) {
+      clearTimeout(timeoutIdRef.current)
+      timeoutIdRef.current = null
+    }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+  }, [])
+
+  // P0: Cancel on unmount
+  useEffect(() => {
+    return () => {
+      cancelCurrentRequest()
+    }
+  }, [cancelCurrentRequest])
+
   const setError = useCallback((message: string | null) => {
     setState(prev => ({ ...prev, error: message, errorDetails: null }))
   }, [])
 
   const reset = useCallback(() => {
+    cancelCurrentRequest()
     setState(INITIAL_STATE)
-  }, [])
+  }, [cancelCurrentRequest])
 
   const requestDraft = useCallback(async (request: DraftRequest) => {
     const description = request.prompt.trim()
@@ -81,25 +109,71 @@ export function useDraftModel(options: UseDraftModelOptions = {}): UseDraftModel
       return
     }
 
+    // P0: Cancel any in-flight request before starting new one
+    cancelCurrentRequest()
+
+    // P0: Create new AbortController with timeout
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+    requestStartTimeRef.current = Date.now()
+
+    // P0: Set timeout to abort after 35s
+    timeoutIdRef.current = setTimeout(() => {
+      const elapsedMs = Date.now() - requestStartTimeRef.current
+      console.error('[DRAFT_GRAPH_FAILED]', { reason: 'client_timeout', elapsedMs, timeoutMs: DRAFT_TIMEOUT_MS })
+      abortController.abort()
+    }, DRAFT_TIMEOUT_MS)
+
     track('draft.request')
 
     const useStreaming = options.streaming ?? pocFlags.sse
 
+    // Helper to check if error is from our client-side timeout vs other abort
+    const isClientTimeout = (err: unknown): boolean => {
+      return err instanceof Error && err.name === 'AbortError' && !abortController.signal.aborted
+        ? false // Abort from elsewhere (unmount, new request)
+        : abortController.signal.aborted // Our timeout triggered it
+    }
+
     // Helper to transition into an error state
-    const fail = (err: unknown) => {
+    // P0: Don't wipe existing graph on timeout - show retry-friendly error
+    const fail = (err: unknown, preserveGraph = false) => {
+      // Clear timeout since we're done
+      if (timeoutIdRef.current) {
+        clearTimeout(timeoutIdRef.current)
+        timeoutIdRef.current = null
+      }
+
+      // P0: Check if this was a user-initiated abort (unmount/new request) - don't show error
+      if (err instanceof Error && err.name === 'AbortError' && !isClientTimeout(err)) {
+        // Silent abort - user started new request or navigated away
+        return
+      }
+
       const message = toErrorMessage(err)
       const assist = err as AssistError
       const details =
         assist && typeof assist === 'object' && 'details' in assist ? (assist as AssistError).details : undefined
       track('draft.error')
-      setState({
-        status: 'error',
-        description,
-        draft: null,
-        events: [],
-        error: message,
-        errorDetails: details ?? null,
-      })
+
+      if (preserveGraph) {
+        // P0: Timeout - preserve existing state, just set error
+        setState(prev => ({
+          ...prev,
+          status: 'error',
+          error: message,
+          errorDetails: details ?? null,
+        }))
+      } else {
+        setState({
+          status: 'error',
+          description,
+          draft: null,
+          events: [],
+          error: message,
+          errorDetails: details ?? null,
+        })
+      }
     }
 
     if (useStreaming) {
@@ -118,7 +192,8 @@ export function useDraftModel(options: UseDraftModelOptions = {}): UseDraftModel
       const events: DraftStreamEvent[] = []
 
       try {
-        for await (const event of draftGraphStream(request)) {
+        // P0: Pass signal for timeout/cancellation
+        for await (const event of draftGraphStream(request, { signal: abortController.signal })) {
           events.push(event)
 
           // Update events incrementally so UI (DraftStreamPanel) can render progress
@@ -130,6 +205,11 @@ export function useDraftModel(options: UseDraftModelOptions = {}): UseDraftModel
           }))
 
           if (event.type === 'complete') {
+            // P0: Clear timeout on success
+            if (timeoutIdRef.current) {
+              clearTimeout(timeoutIdRef.current)
+              timeoutIdRef.current = null
+            }
             track('draft.success')
             track('draft.stream.done')
             setState({
@@ -143,6 +223,11 @@ export function useDraftModel(options: UseDraftModelOptions = {}): UseDraftModel
           }
 
           if (event.type === 'error') {
+            // P0: Clear timeout on error
+            if (timeoutIdRef.current) {
+              clearTimeout(timeoutIdRef.current)
+              timeoutIdRef.current = null
+            }
             track('draft.error')
             setState({
               status: 'error',
@@ -156,6 +241,12 @@ export function useDraftModel(options: UseDraftModelOptions = {}): UseDraftModel
           }
         }
 
+        // P0: Clear timeout if loop ends
+        if (timeoutIdRef.current) {
+          clearTimeout(timeoutIdRef.current)
+          timeoutIdRef.current = null
+        }
+
         // If we exit the loop without a complete or error event
         setState(prev => ({
           ...prev,
@@ -163,7 +254,9 @@ export function useDraftModel(options: UseDraftModelOptions = {}): UseDraftModel
           error: prev.draft ? prev.error : 'Draft ended unexpectedly. Please try again.',
         }))
       } catch (err) {
-        fail(err)
+        // P0: On timeout, preserve existing graph state
+        const isTimeout = isClientTimeout(err)
+        fail(err, isTimeout)
       }
     } else {
       // Simple sync path using /draft-graph
@@ -177,7 +270,13 @@ export function useDraftModel(options: UseDraftModelOptions = {}): UseDraftModel
       })
 
       try {
-        const response = await draftGraph(request)
+        // P0: Pass signal for timeout/cancellation
+        const response = await draftGraph(request, { signal: abortController.signal })
+        // P0: Clear timeout on success
+        if (timeoutIdRef.current) {
+          clearTimeout(timeoutIdRef.current)
+          timeoutIdRef.current = null
+        }
         track('draft.success')
         setState({
           status: 'ready',
@@ -187,10 +286,12 @@ export function useDraftModel(options: UseDraftModelOptions = {}): UseDraftModel
           error: null,
         })
       } catch (err) {
-        fail(err)
+        // P0: On timeout, preserve existing graph state
+        const isTimeout = isClientTimeout(err)
+        fail(err, isTimeout)
       }
     }
-  }, [options.streaming])
+  }, [options.streaming, cancelCurrentRequest])
 
   return {
     state,

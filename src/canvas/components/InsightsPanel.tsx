@@ -46,6 +46,8 @@ interface InsightsPanelProps {
   goalDirection?: 'maximize' | 'minimize'
   /** Top drivers for driver-focused insight */
   topDrivers?: DriverSummary[]
+  /** P0.1: Whether drivers are informative (gates driver-based insight generation) */
+  driversInformative?: boolean
 }
 
 /**
@@ -249,6 +251,7 @@ export function InsightsPanel({
   baselineValue,
   goalDirection = 'maximize',
   topDrivers,
+  driversInformative = true,
 }: InsightsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
@@ -281,10 +284,11 @@ export function InsightsPanel({
   const { risks, next_steps } = normalized
 
   // Generate driver-focused insight OR strip percentage from backend summary
+  // P0.1: Only generate driver insight if drivers are informative
   const { driverInsight, cleanedSummary } = useMemo(() => ({
-    driverInsight: generateDriverInsight(topDrivers, goalDirection),
+    driverInsight: driversInformative ? generateDriverInsight(topDrivers, goalDirection) : null,
     cleanedSummary: stripPercentageFromSummary(rawSummary),
-  }), [topDrivers, goalDirection, rawSummary])
+  }), [topDrivers, goalDirection, rawSummary, driversInformative])
 
   // Prefer driver insight, fall back to cleaned summary
   const summary = driverInsight || (cleanedSummary.length > 20 ? cleanedSummary : rawSummary)

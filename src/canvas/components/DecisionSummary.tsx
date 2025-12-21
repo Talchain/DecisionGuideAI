@@ -30,6 +30,8 @@ import { buildRichGraphPayload } from '../utils/graphPayload'
 import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
 import { typography } from '../../styles/typography'
 import { computeBaselineComparison } from '../utils/baselineComparison'
+// P0.2: Precision display for confidence-aware outcome formatting
+import { getPrecisionDisplay, type PrecisionDisplayResult } from '../../lib/precisionDisplay'
 import type { ConfidenceLevel } from '../../adapters/plot/types'
 
 export interface RankingData {
@@ -56,6 +58,13 @@ interface GoalProbabilityData {
   goalLabel: string
 }
 
+/** P0.5: Comparative delta between options */
+interface ComparisonDelta {
+  winnerName: string
+  comparatorName: string
+  deltaPts: number
+}
+
 interface DecisionSummaryProps {
   /** Baseline value for comparison display */
   baseline?: number | null
@@ -65,6 +74,8 @@ interface DecisionSummaryProps {
   goalDirection?: 'maximize' | 'minimize'
   /** Option ranking data (from run_bundle endpoint) */
   ranking?: RankingData | null
+  /** P0.5: Comparative delta between options */
+  comparisonDelta?: ComparisonDelta | null
 }
 
 // Confidence styling
@@ -111,6 +122,7 @@ export function DecisionSummary({
   baselineName = 'baseline',
   goalDirection = 'maximize',
   ranking,
+  comparisonDelta,
 }: DecisionSummaryProps) {
   const results = useCanvasStore((s) => s.results)
   const runMeta = useCanvasStore((s) => s.runMeta)
@@ -235,8 +247,19 @@ export function DecisionSummary({
       }
     }
 
+    // P0.2: Compute precision display based on confidence level
+    const confidenceLevel = (confidence?.level || 'medium') as ConfidenceLevel
+    const precisionDisplay = getPrecisionDisplay({
+      confidenceLevel,
+      quantiles: { p10, p50, p90 },
+      units,
+      unitSymbol: report.results.unitSymbol,
+    })
+
     return {
       p50,
+      p10,
+      p90,
       units,
       unitSymbol: report.results.unitSymbol,
       confidence,
@@ -245,6 +268,7 @@ export function DecisionSummary({
       baselineComparison,
       confidenceBand,
       goalProbability,
+      precisionDisplay, // P0.2: Precision-aware display
     }
   }, [report, runMeta, baseline, goalDirection, nodes])
 
@@ -291,7 +315,7 @@ export function DecisionSummary({
           )}
         </div>
 
-        {/* Success likelihood - large, prominent */}
+        {/* Success likelihood - P0.2: Precision-aware display */}
         <div className="flex items-baseline gap-3 mb-1">
           <span
             className={`text-3xl font-bold ${
@@ -302,15 +326,27 @@ export function DecisionSummary({
                   : 'text-carrot-700'
             }`}
           >
-            {formatOutcomeValue(summaryData.p50, summaryData.units, summaryData.unitSymbol)}
+            {summaryData.precisionDisplay.headline}
           </span>
           <span className={`${typography.body} text-ink-600`}>
             {/* Brief 26 Task 5: Use canvas node label as source of truth for consistency */}
             {optionNodes[0]?.label
               ? `with '${optionNodes[0].label}'`
-              : 'success likelihood'}
+              : summaryData.precisionDisplay.isPointEstimate ? 'success likelihood' : 'outcome range'}
           </span>
         </div>
+        {/* P0.2: Secondary range display (for HIGH confidence) */}
+        {summaryData.precisionDisplay.secondary && (
+          <p className={`${typography.caption} text-ink-500 mb-1`}>
+            Range: {summaryData.precisionDisplay.secondary}
+          </p>
+        )}
+        {/* P0.2: Qualifier for LOW confidence */}
+        {summaryData.precisionDisplay.qualifier && (
+          <p className={`${typography.caption} text-carrot-600 font-medium mb-1`}>
+            {summaryData.precisionDisplay.qualifier}
+          </p>
+        )}
 
         {/* Brief E Task 1: Goal probability display */}
         {summaryData.goalProbability && (
@@ -366,6 +402,21 @@ export function DecisionSummary({
             >
               {summaryData.baselineComparison.display}{' '}
               {summaryData.baselineComparison.isPositive ? 'better' : 'worse'} than {baselineName}
+            </span>
+          </div>
+        )}
+        {/* P0.5: Comparative delta between options */}
+        {comparisonDelta && (
+          <div className="flex items-center gap-2 mb-2">
+            <GitCompare className="h-4 w-4 text-sky-600" aria-hidden="true" />
+            <span className={`${typography.bodySmall} text-ink-700`}>
+              <span className="font-semibold">{comparisonDelta.winnerName}</span>
+              {' vs '}
+              <span>{comparisonDelta.comparatorName}</span>
+              {': '}
+              <span className={`font-semibold ${comparisonDelta.deltaPts >= 0 ? 'text-mint-700' : 'text-carrot-700'}`}>
+                {comparisonDelta.deltaPts >= 0 ? '+' : ''}{comparisonDelta.deltaPts.toFixed(0)} pts
+              </span>
             </span>
           </div>
         )}

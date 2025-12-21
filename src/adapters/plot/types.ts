@@ -1,3 +1,5 @@
+import type { DriversPayload } from '../driversAdapter'
+
 export type ConfidenceLevel = 'low' | 'medium' | 'high'
 
 // Brief E Task 1: Per-option goal probability
@@ -44,6 +46,10 @@ export interface ReportV1 {
     /** Edge ID for canvas highlighting (camelCase) */
     edgeId?: string
   }>
+
+  /** P0.1: Structured drivers payload with gating info */
+  drivers_payload?: DriversPayload
+
   critique?: string[]
   run?: CanonicalRun // v1.2: normalized run data with p10/p50/p90 bands
 

@@ -6,6 +6,9 @@
  *
  * Environment Variables:
  * - ASSIST_API_KEY: API key for CEE service authentication
+ * - ASSIST_BASE_URL: CEE service upstream URL (default: https://olumi-assistants-service.onrender.com)
+ *   - Staging: https://cee-staging.onrender.com
+ *   - Production: (use default or set explicitly)
  *
  * SECURITY:
  * - Uses explicit origin allow-list (no wildcard CORS)
@@ -16,7 +19,9 @@
 import type { Config, Context } from '@netlify/edge-functions'
 import { getStore } from '@netlify/blobs'
 
-const CEE_TARGET = 'https://olumi-assistants-service.onrender.com'
+// P0: Read from env var for staging/production separation
+const CEE_TARGET = Deno.env.get('ASSIST_BASE_URL') || 'https://olumi-assistants-service.onrender.com'
+const CEE_ENV_VAR_USED = Deno.env.get('ASSIST_BASE_URL') ? 'ASSIST_BASE_URL' : 'hardcoded'
 
 // =============================================================================
 // Rate Limiting Configuration (Persistent via Netlify Blobs)
@@ -232,6 +237,10 @@ export default async function handler(request: Request, context: Context) {
     Object.entries(rateLimitHeaders).forEach(([key, value]) => {
       responseHeaders.set(key, value)
     })
+
+    // P0: Debug headers for routing visibility (staging vs production)
+    responseHeaders.set('x-olumi-upstream-host', new URL(CEE_TARGET).host)
+    responseHeaders.set('x-olumi-upstream-env-var', CEE_ENV_VAR_USED)
 
     return new Response(response.body, {
       status: response.status,
