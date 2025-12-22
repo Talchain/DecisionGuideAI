@@ -1191,6 +1191,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (nodes.length === 0 && edges.length === 0) return
 
     pushToHistory(get, set)
+
+    // Clear current scenario ID - user is starting fresh, not editing old scenario
+    scenarios.clearCurrentScenarioId()
+
     set({
       // Clear graph
       nodes: [],
@@ -1217,6 +1221,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         comparison: null,
         apiResponse: null,
       },
+      // Clear scenario tracking in store state
+      currentScenarioId: null,
     })
   },
 

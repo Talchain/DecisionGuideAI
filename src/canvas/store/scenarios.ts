@@ -248,6 +248,21 @@ export function setCurrentScenarioId(id: string): void {
 }
 
 /**
+ * Clear current scenario ID (when starting fresh or creating new draft)
+ */
+export function clearCurrentScenarioId(): void {
+  if (!isLocalStorageAvailable()) {
+    return
+  }
+
+  try {
+    localStorage.removeItem(CURRENT_SCENARIO_KEY)
+  } catch (error) {
+    console.error('[scenarios] Failed to clear current scenario ID:', error)
+  }
+}
+
+/**
  * Get a scenario by ID
  */
 export function getScenario(id: string): Scenario | undefined {

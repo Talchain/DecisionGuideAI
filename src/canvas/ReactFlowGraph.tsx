@@ -1235,18 +1235,69 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         } catch {}
       }
 
-      // SCENARIO FIX: Load current scenario on mount (if exists)
-      // This is separate from legacy canvas-storage persistence
-      // The scenario system (olumi-canvas-scenarios) should work in production
+      // ENHANCED PERSISTENCE: Compare autosave vs scenario timestamps
+      // Load whichever is newer to prevent losing unsaved work
       const currentId = scenarios.getCurrentScenarioId()
-      if (currentId) {
+      const autosave = scenarios.loadAutosave()
+      const scenario = currentId ? scenarios.getScenario(currentId) : null
+
+      // Determine which source to load
+      let loadSource: 'autosave' | 'scenario' | 'none' = 'none'
+      let recoveredFromAutosave = false
+
+      if (autosave && scenario) {
+        // Both exist - load whichever is newer
+        if (autosave.timestamp > scenario.updatedAt) {
+          loadSource = 'autosave'
+          recoveredFromAutosave = true
+        } else {
+          loadSource = 'scenario'
+        }
+      } else if (autosave && !scenario) {
+        // Only autosave exists - load it
+        loadSource = 'autosave'
+        recoveredFromAutosave = true
+      } else if (scenario) {
+        // Only scenario exists - load it
+        loadSource = 'scenario'
+      }
+
+      // Apply the chosen source
+      if (loadSource === 'autosave' && autosave) {
+        // Load from autosave
+        useCanvasStore.getState().hydrateGraphSlice({
+          nodes: autosave.nodes,
+          edges: autosave.edges,
+        })
+        // Clear stale scenario ID - user is now in draft mode
+        scenarios.clearCurrentScenarioId()
+        useCanvasStore.setState({ currentScenarioId: null })
+
+        console.log('[SCENARIO_STATE]', {
+          source: 'autosave',
+          autosaveTimestamp: autosave.timestamp,
+          scenarioUpdatedAt: scenario?.updatedAt,
+          nodes: autosave.nodes.length,
+          recoveredFromAutosave,
+        })
+      } else if (loadSource === 'scenario' && currentId) {
+        // Load from scenario (existing behavior)
         const loaded = useCanvasStore.getState().loadScenario(currentId)
         console.log('[SCENARIO_STATE]', {
           scenarioId: currentId,
           loaded,
-          source: 'mount',
-          nodes: useCanvasStore.getState().nodes.length
+          source: 'scenario',
+          nodes: useCanvasStore.getState().nodes.length,
         })
+      }
+
+      // Show recovery toast if we loaded from autosave
+      // Note: Toast will be shown after component mounts via a separate effect
+      if (recoveredFromAutosave) {
+        // Store flag for toast effect to pick up
+        try {
+          sessionStorage.setItem('olumi-recovered-from-autosave', 'true')
+        } catch {}
       }
 
       return
@@ -1261,6 +1312,20 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       })
     }
   }, [loadSettings])
+
+  // Show recovery toast if we loaded from autosave on mount
+  useEffect(() => {
+    try {
+      const recovered = sessionStorage.getItem('olumi-recovered-from-autosave')
+      if (recovered === 'true') {
+        sessionStorage.removeItem('olumi-recovered-from-autosave')
+        // Slight delay to ensure component is fully mounted
+        setTimeout(() => {
+          showToast('Recovered unsaved changes from your last session.', 'info')
+        }, 500)
+      }
+    } catch {}
+  }, [showToast])
 
   useEffect(() => {
     // Disable graph auto-persistence to localStorage in production to avoid
