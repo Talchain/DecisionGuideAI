@@ -407,7 +407,7 @@ export function DraftPreview({
             </button>
 
             <button
-              onClick={onClose}
+              onClick={onAccept}
               className={`
                 ${typography.button} flex-1 py-2.5 rounded
                 bg-sky-500 text-white hover:bg-sky-600

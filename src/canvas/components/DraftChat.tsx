@@ -154,6 +154,7 @@ export function DraftChat() {
   const canvasNodes = useCanvasStore(s => s.nodes)
   const applyGuidedLayout = useCanvasStore(s => s.applyGuidedLayout)
   const resetCanvas = useCanvasStore(s => s.resetCanvas)
+  const saveCurrentScenario = useCanvasStore(s => s.saveCurrentScenario)
 
   // Auto-resize textarea based on content
   const adjustTextareaHeight = useCallback(() => {
@@ -359,7 +360,14 @@ export function DraftChat() {
 
   // Legacy handlers for preview mode (kept for backward compatibility)
   const handleAccept = () => {
-    // In auto-apply mode, this just closes the panel since graph is already applied
+    // PERSISTENCE FIX: Save the current graph as a scenario before closing
+    // This ensures the graph persists across page refreshes
+    const scenarioId = saveCurrentScenario()
+    console.log('[SCENARIO_STATE]', {
+      scenarioId,
+      source: 'accept',
+      nodes: useCanvasStore.getState().nodes.length
+    })
     handleClose()
   }
 
