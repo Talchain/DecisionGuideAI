@@ -1649,15 +1649,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         })
         return currentScenarioId
       } else {
-        // Create new scenario
-        if (!name) {
-          console.warn('[Canvas] Cannot save scenario without a name')
-          set({ isSaving: false })
-          return null
-        }
+        // Create new scenario - auto-generate name if not provided
+        const scenarioName = name
+          || currentScenarioFraming?.title
+          || `Decision - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
 
         const scenario = scenarios.createScenario({
-          name,
+          name: scenarioName,
           nodes,
           edges,
           framing: currentScenarioFraming || undefined,
