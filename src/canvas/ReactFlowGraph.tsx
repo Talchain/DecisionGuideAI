@@ -11,6 +11,7 @@ import { nodeTypes } from './nodes/registry'
 import { StyledEdge } from './edges/StyledEdge'
 import { useKeyboardShortcuts } from './useKeyboardShortcuts'
 import { loadState, saveState } from './persist'
+import * as scenarios from './store/scenarios'
 import { ContextMenu } from './ContextMenu'
 import { CanvasToolbar } from './CanvasToolbar'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
@@ -1233,6 +1234,21 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           }
         } catch {}
       }
+
+      // SCENARIO FIX: Load current scenario on mount (if exists)
+      // This is separate from legacy canvas-storage persistence
+      // The scenario system (olumi-canvas-scenarios) should work in production
+      const currentId = scenarios.getCurrentScenarioId()
+      if (currentId) {
+        const loaded = useCanvasStore.getState().loadScenario(currentId)
+        console.log('[SCENARIO_STATE]', {
+          scenarioId: currentId,
+          loaded,
+          source: 'mount',
+          nodes: useCanvasStore.getState().nodes.length
+        })
+      }
+
       return
     }
 
