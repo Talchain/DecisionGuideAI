@@ -24,6 +24,7 @@ import {
 } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { formatOutcomeValue, formatOutcomeValueCompact, type OutcomeUnits } from '../../lib/format'
+import { getPrecisionDisplay, type ConfidenceLevel as PrecisionConfidence } from '../../lib/precisionDisplay'
 import { typography } from '../../styles/typography'
 import { computeBaselineComparison } from '../utils/baselineComparison'
 import type { ConfidenceLevel } from '../../adapters/plot/types'
@@ -156,6 +157,23 @@ export function OutcomesSignal({
     }
   }, [outcomes, baseline, goalDirection])
 
+  // P0.2: Compute precision-appropriate display based on confidence
+  const precisionDisplay = useMemo(() => {
+    if (!outcomes) return null
+
+    const confidenceLevel = (outcomes.confidence?.level?.toLowerCase() || 'medium') as PrecisionConfidence
+    return getPrecisionDisplay({
+      confidenceLevel,
+      quantiles: {
+        p10: outcomes.p10,
+        p50: outcomes.p50,
+        p90: outcomes.p90,
+      },
+      units: outcomes.units as OutcomeUnits,
+      unitSymbol: outcomes.unitSymbol,
+    })
+  }, [outcomes])
+
   // Empty state
   if (!outcomes) {
     return (
@@ -204,10 +222,12 @@ export function OutcomesSignal({
           )}
           <div>
             <span className={`${typography.caption} text-ink-500 block`}>
-              Success Likelihood
+              {/* P0.2: Label reflects whether showing point or range */}
+              {precisionDisplay?.isPointEstimate ? 'Success Likelihood' : 'Outcome Range'}
             </span>
             <span className={`${typography.h3} font-bold text-ink-900`}>
-              {formatOutcomeValue(outcomes.p50, outcomes.units, outcomes.unitSymbol)}
+              {/* P0.2: Use precision display - shows range for MEDIUM/LOW confidence */}
+              {precisionDisplay?.headline ?? formatOutcomeValue(outcomes.p50, outcomes.units, outcomes.unitSymbol)}
             </span>
           </div>
         </div>

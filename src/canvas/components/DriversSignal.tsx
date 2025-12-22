@@ -356,7 +356,12 @@ export function DriversSignal({
     }
 
     // P0.1: Show fallback message from gating state
-    const fallbackMessage = gatingState?.fallbackMessage || 'Run analysis to see key factors influencing the outcome'
+    // If results exist but no drivers, use appropriate message instead of "Run analysis"
+    const hasResults = results?.status === 'complete'
+    const defaultFallback = hasResults
+      ? 'Not enough signal to identify what\'s driving the result yet.'
+      : 'Run analysis to see key factors influencing the outcome'
+    const fallbackMessage = gatingState?.fallbackMessage || defaultFallback
     const remediationActions = gatingState?.remediationActions || []
 
     return (
