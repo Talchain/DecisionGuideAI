@@ -86,6 +86,9 @@ export interface CTAInput {
 
   /** P0.3: Whether comparison is ready/available */
   canCompare?: boolean
+
+  /** P0.3: Fallback message when drivers are not informative (for tooltip) */
+  driversFallbackMessage?: string
 }
 
 // =============================================================================
@@ -280,9 +283,11 @@ function isCTAEnabled(
  */
 function getCTATooltip(
   state: CTAState,
+  primaryType: PrimaryCTAType,
   readinessLevel: ReadinessLevel,
   hasGraph: boolean,
-  errorMessage?: string
+  errorMessage?: string,
+  driversFallbackMessage?: string
 ): string | undefined {
   if (!hasGraph) {
     return 'Add nodes to your model to run analysis'
@@ -302,6 +307,11 @@ function getCTATooltip(
 
   if (state === 'degraded') {
     return 'Previous analysis had issues - try again'
+  }
+
+  // P0.3: Show context when CTA switches to "Strengthen Model"
+  if (primaryType === 'strengthen_model' && driversFallbackMessage) {
+    return driversFallbackMessage
   }
 
   return undefined
@@ -345,7 +355,14 @@ export function computeCTA(input: CTAInput): CTAConfig {
   const icon = getCTAIcon(state, primaryType)
   const variant = getCTAVariant(state, input.readinessLevel, input.hasGraph)
   const enabled = isCTAEnabled(state, input.hasGraph, input.readinessLevel)
-  const tooltip = getCTATooltip(state, input.readinessLevel, input.hasGraph, input.errorMessage)
+  const tooltip = getCTATooltip(
+    state,
+    primaryType,
+    input.readinessLevel,
+    input.hasGraph,
+    input.errorMessage,
+    input.driversFallbackMessage
+  )
 
   return {
     state,

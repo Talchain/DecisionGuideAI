@@ -251,7 +251,8 @@ export function InsightsPanel({
   baselineValue,
   goalDirection = 'maximize',
   topDrivers,
-  driversInformative = true,
+  // P0.1: Safer default - don't show driver insights unless explicitly enabled
+  driversInformative = false,
 }: InsightsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 

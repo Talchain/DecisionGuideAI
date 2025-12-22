@@ -85,10 +85,8 @@ import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { useOptionRanking } from '../hooks/useOptionRanking'
 import { useRobustness } from '../hooks/useRobustness'
-import { useISLSynthesis } from '../hooks/useISLSynthesis'
 import { RobustnessBlock } from './RecommendationCard/RobustnessBlock'
 import { EvidencePackExport } from './ResultsPanel/EvidencePackExport'
-import { KeyInsight } from './ResultsPanel/KeyInsight'
 // ScenarioComparison modal removed - now rendered as ComparisonCanvasLayout in ReactFlowGraph
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import type { Node, Edge } from '@xyflow/react'
@@ -198,13 +196,6 @@ export function OutputsDock() {
     }))
   )
 
-  // Synthesis data - DEPRECATED: now comes from ceeReview.blocks in Decision Review
-  // useISLSynthesis is a no-op stub retained for backward compatibility
-  const {
-    synthesis: synthesisData,
-    loading: synthesisLoading,
-  } = useISLSynthesis()
-
   // Actions don't need shallow - they're stable references
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
@@ -259,6 +250,8 @@ export function OutputsDock() {
 
     // P0.1: Check if drivers are informative for CTA decisions
     const driversInformative = areDriversInformative(report?.drivers_payload)
+    // P0.3: Get fallback message for "Strengthen Model" tooltip context
+    const gatingState = getDriversGatingState(report?.drivers_payload)
 
     return computeCTA({
       resultsStatus,
@@ -271,6 +264,7 @@ export function OutputsDock() {
       driversInformative,
       confidenceLevel: report?.confidence?.level as 'high' | 'medium' | 'low' | undefined,
       canCompare: comparison.canCompare && resultsStatus === 'complete',
+      driversFallbackMessage: gatingState.fallbackMessage,
     })
   }, [resultsStatus, nodes, edges, graphHealth, runMeta?.degraded, error?.message, comparison.optionNodes.length, comparison.canCompare, report?.drivers_payload, report?.confidence?.level])
 
@@ -1077,14 +1071,11 @@ export function OutputsDock() {
                       </header>
                       <div className="p-0">
                         {/* Brief C: Pass robustness data to DriversSignal for tipping points & VoI */}
-                        {/* Brief E Task 2: Pass synthesis narratives to DriversSignal */}
                         {/* P0.1: Pass gating state for contradiction prevention */}
                         <DriversSignal
                           maxCollapsed={3}
                           robustness={robustnessData}
                           robustnessLoading={robustnessLoading}
-                          synthesis={synthesisData}
-                          synthesisLoading={synthesisLoading}
                           gatingState={driversGating}
                           onParameterClick={(nodeId) => {
                             setHighlightedNodes([nodeId])
@@ -1160,15 +1151,6 @@ export function OutputsDock() {
                         </h3>
                       </header>
                       <div className="p-0">
-                        {/* Brief H Task 10: Key Insight from synthesis/analysis */}
-                        {synthesisData?.recommendation && (
-                          <div className="px-3 pt-3">
-                            <KeyInsight
-                              headline={synthesisData.recommendation}
-                              source="synthesis"
-                            />
-                          </div>
-                        )}
                         <ActionsSignal maxCollapsed={3} />
                         {/* Brief H Task 13: Evidence Pack Export */}
                         <div className="px-3 pb-3 pt-2 border-t border-sand-100 mt-2">

@@ -61,11 +61,16 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
 
   if (!isOpen) return null
 
-  // Extract debug values
-  const traceId = runMeta?.ceeReview?.trace_id ?? runMeta?.traceId
-  const responseHash = results?.report?.hash ?? results?.hash
+  // Extract debug values - prioritize V1 fields over legacy
   const ceeTraceV1 = runMeta?.ceeTraceV1
-  const ceeReview = runMeta?.ceeReview
+  const ceeReviewV1 = runMeta?.ceeReviewV1
+
+  // V1: Use plot_request_id or cee_sent_request_id from trace, fallback to legacy
+  const traceId = ceeTraceV1?.plot_request_id
+    ?? ceeTraceV1?.cee_sent_request_id
+    ?? runMeta?.ceeReview?.trace_id
+    ?? runMeta?.traceId
+  const responseHash = results?.report?.hash ?? results?.hash
 
   const ceeDegraded = ceeTraceV1?.degraded === true || ceeTraceV1?.id_mismatch === true
   const islDegraded = false // ISL degradation not currently tracked
@@ -88,6 +93,7 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
     { label: 'CEE Degraded', value: String(ceeDegraded), copyable: false },
     { label: 'ISL Degraded', value: String(islDegraded), copyable: false },
     { label: 'CEE ID Mismatch', value: String(ceeTraceV1?.id_mismatch ?? false), copyable: false },
+    { label: 'CEE Latency', value: ceeTraceV1?.latency_ms ? `${ceeTraceV1.latency_ms}ms` : 'N/A', copyable: false },
   ]
 
   return (

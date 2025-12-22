@@ -45,6 +45,9 @@ export interface RemediationClickedPayload {
  * Track run_started event
  */
 export function trackRunStarted(payload: RunStartedPayload): void {
+  // SSR/test guard - analytics requires browser context
+  if (typeof window === 'undefined') return
+
   try {
     // Check for analytics provider (PostHog, etc.)
     const posthog = (window as any).posthog
@@ -65,6 +68,8 @@ export function trackRunStarted(payload: RunStartedPayload): void {
  * Track run_completed event
  */
 export function trackRunCompleted(payload: RunCompletedPayload): void {
+  if (typeof window === 'undefined') return
+
   try {
     const posthog = (window as any).posthog
     if (posthog?.capture) {
@@ -83,6 +88,8 @@ export function trackRunCompleted(payload: RunCompletedPayload): void {
  * Track run_failed event
  */
 export function trackRunFailed(payload: RunFailedPayload): void {
+  if (typeof window === 'undefined') return
+
   try {
     const posthog = (window as any).posthog
     if (posthog?.capture) {
@@ -110,6 +117,8 @@ export function trackRunFailed(payload: RunFailedPayload): void {
  * Track compare_opened event
  */
 export function trackCompareOpened(): void {
+  if (typeof window === 'undefined') return
+
   try {
     const posthog = (window as any).posthog
     if (posthog?.capture) {
@@ -128,6 +137,8 @@ export function trackCompareOpened(): void {
  * Track retry_clicked event
  */
 export function trackRetryClicked(): void {
+  if (typeof window === 'undefined') return
+
   try {
     const posthog = (window as any).posthog
     if (posthog?.capture) {
@@ -146,6 +157,8 @@ export function trackRetryClicked(): void {
  * Track remediation_clicked event
  */
 export function trackRemediationClicked(payload: RemediationClickedPayload): void {
+  if (typeof window === 'undefined') return
+
   try {
     const posthog = (window as any).posthog
     if (posthog?.capture) {
@@ -164,6 +177,8 @@ export function trackRemediationClicked(payload: RemediationClickedPayload): voi
  * Track CTA button clicked
  */
 export function trackCTAClicked(ctaType: string): void {
+  if (typeof window === 'undefined') return
+
   try {
     const posthog = (window as any).posthog
     if (posthog?.capture) {
