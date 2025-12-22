@@ -293,8 +293,8 @@ describe('RecommendationCard', () => {
       })
     })
 
-    // Compare All Options button was moved to DecisionSummary (Task 2.3: Unify compare CTAs)
-    // Tests for Compare button removed - Compare CTA now in DecisionSummary only
+    // Compare All Options button is in OutputsDock action buttons row (single primary CTA pattern)
+    // Tests for Compare button removed - Compare CTA is in OutputsDock only
 
     it('renders Validate Assumptions button when assumptions exist', () => {
       const onValidateClick = vi.fn()

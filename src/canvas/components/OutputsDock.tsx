@@ -1051,7 +1051,7 @@ export function OutputsDock() {
                     1. Recommendation - "What should I do?" (DecisionSummary above)
                     2. Key Drivers - "Why?" (DriversSignal + Synthesis Narratives)
                     3. Validate & Improve - "Can I trust it?" (TrustSignal, RobustnessBlock, OutcomesSignal)
-                    4. Next Steps - "What's next?" (ActionsSignal)
+                    4. Next Steps (ActionsSignal)
                 */}
                 {!isPreRun && hasInlineSummary && (
                   <div className="space-y-4" data-testid="outputs-signals">
@@ -1147,7 +1147,7 @@ export function OutputsDock() {
                           id="panel-actions-heading"
                           className={`${typography.label} font-medium text-ink-800`}
                         >
-                          What's next?
+                          Next Steps
                         </h3>
                       </header>
                       <div className="p-0">

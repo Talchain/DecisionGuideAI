@@ -5,8 +5,8 @@
  * - Success likelihood (p50)
  * - Confidence level with explanation
  * - Top driver (from CEE story)
- * - Comparison prompt (if 2+ options)
  *
+ * Compare CTA is in OutputsDock action buttons row for single primary CTA pattern.
  * Designed for quick scanning - user should understand
  * the recommendation in <10 seconds.
  */
@@ -25,7 +25,6 @@ import {
 import { useCanvasStore } from '../store'
 import { useISLConformal } from '../../hooks/useISLConformal'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
-import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { buildRichGraphPayload } from '../utils/graphPayload'
 import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
 import { typography } from '../../styles/typography'
@@ -130,9 +129,8 @@ export function DecisionSummary({
   const edges = useCanvasStore((s) => s.edges)
   const report = results?.report
 
-  // Comparison detection and orchestration
-  const { canCompare, optionNodes } = useComparisonDetection()
-  const { startComparison, loading: comparisonLoading } = useScenarioComparison()
+  // Comparison detection for ranking display
+  const { optionNodes } = useComparisonDetection()
 
   // Conformal predictions for specific guidance
   const { data: conformalData, loading: conformalLoading, predict } = useISLConformal()
@@ -489,20 +487,7 @@ export function DecisionSummary({
         </div>
       )}
 
-      {/* Compare CTA - only when 2+ options */}
-      {canCompare && optionNodes.length >= 2 && (
-        <div className="px-4 py-3 border-t border-sand-100">
-          <button
-            type="button"
-            onClick={() => startComparison()}
-            disabled={comparisonLoading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <GitCompare className="h-4 w-4" aria-hidden="true" />
-            {comparisonLoading ? 'Comparing...' : `Compare ${optionNodes.length} Options`}
-          </button>
-        </div>
-      )}
+      {/* Compare CTA moved to OutputsDock action buttons row for single primary CTA pattern */}
 
     </div>
   )

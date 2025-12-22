@@ -375,8 +375,8 @@ export function DriversSignal({
             <p className={`${typography.caption} text-sand-500 mt-1`}>
               {fallbackMessage}
             </p>
-            {/* P0.1: Remediation actions */}
-            {remediationActions.length > 0 && (
+            {/* P0.1: Remediation actions or default hint */}
+            {remediationActions.length > 0 ? (
               <ul className="mt-3 space-y-1.5">
                 {remediationActions.map((action) => (
                   <li
@@ -388,6 +388,11 @@ export function DriversSignal({
                   </li>
                 ))}
               </ul>
+            ) : hasResults && (
+              <p className={`${typography.caption} text-sky-600 mt-2 flex items-start gap-2`}>
+                <ArrowUpRight className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                <span>Try adding more factors that differentiate your options.</span>
+              </p>
             )}
           </div>
         </div>
