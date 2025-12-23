@@ -26,6 +26,8 @@ import {
 } from './constants'
 import { validatePayloadSize } from './payloadGuard'
 import { parseCeeDebugHeaders } from '../../../canvas/utils/ceeDebugHeaders' // Phase 1 Section 4.1
+import { withObservabilityHeaders, recordBffResponse, recordBffError } from '../../../lib/observability-headers'
+import { useGateStore } from '../../../lib/gate-state'
 
 const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
@@ -345,6 +347,11 @@ async function runSyncOnce(
     options.signal.addEventListener('abort', () => controller.abort())
   }
 
+  // Declare these early so catch block can access them
+  const requestId = options?.requestId || crypto.randomUUID()
+  const endpoint = `${base}/v1/run`
+  let startTime = Date.now() // Will be updated by withObservabilityHeaders
+
   try {
     const idempotencyKey = request.idempotencyKey || request.clientHash
 
@@ -379,31 +386,42 @@ async function runSyncOnce(
       } as V1Error
     }
 
-    // M1.4: Generate request ID if not provided
-    const requestId = options?.requestId || crypto.randomUUID()
-
-    // Build headers
-    const headers: Record<string, string> = {
+    // Build base headers (requestId and endpoint already declared above try block)
+    const baseHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       'X-Request-Id': requestId, // M1.4
       'x-olumi-sdk': 'plot-client/1.0.0', // M1.6
     }
 
     if (idempotencyKey) {
-      headers['Idempotency-Key'] = idempotencyKey
+      baseHeaders['Idempotency-Key'] = idempotencyKey
     }
 
     // M1.5: Add SCM-lite header (takes precedence over query params)
     if (options?.scmLite !== undefined) {
-      headers['x-scm-lite'] = options.scmLite ? '1' : '0'
+      baseHeaders['x-scm-lite'] = options.scmLite ? '1' : '0'
     }
 
-    const response = await fetch(`${base}/v1/run`, {
+    // Add observability headers (payload hash, client build)
+    // Update startTime from the outer scope with accurate timing
+    const { headers, startTime: obsStartTime } = await withObservabilityHeaders(
+      endpoint,
+      'POST',
+      requestForBody,
+      baseHeaders,
+      requestId
+    )
+    startTime = obsStartTime // Update outer scope for catch block
+
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers,
       body: JSON.stringify(requestForBody),
       signal: controller.signal,
     })
+
+    // Record response for observability
+    recordBffResponse(requestId, endpoint, response, startTime)
 
     if (!response.ok) {
       throw await mapHttpError(response)
@@ -420,10 +438,14 @@ async function runSyncOnce(
       }
     }
 
+    // Update run gate on successful response
+    useGateStore.getState().setGate('run', 'pass', { message: 'Simulation completed' })
+
     return result
   } catch (err) {
-    // P2.3: Include requestId in all thrown errors for debugging
-    const requestId = options?.requestId || crypto.randomUUID()
+    // P2.3: Use requestId/endpoint/startTime from outer scope for correlation
+    // Record error for observability
+    recordBffError(requestId, endpoint, startTime, err)
 
     if (err instanceof Error && err.name === 'AbortError') {
       throw {
@@ -571,18 +593,32 @@ export async function templateGraph(id: string): Promise<V1TemplateGraphResponse
  */
 export async function validate(request: V1ValidateRequest): Promise<V1ValidateResponse> {
   const base = getProxyBase()
+  const endpoint = `${base}/v1/validate`
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 5000)
 
+  // Add observability headers
+  const requestId = crypto.randomUUID()
+  let startTime = Date.now()
+
   try {
-    const response = await fetch(`${base}/v1/validate`, {
+    const { headers, startTime: obsStartTime } = await withObservabilityHeaders(
+      endpoint,
+      'POST',
+      request,
+      { 'Content-Type': 'application/json' },
+      requestId
+    )
+    startTime = obsStartTime
+
+    const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify(request),
       signal: controller.signal,
     })
+
+    recordBffResponse(requestId, endpoint, response, startTime)
 
     if (!response.ok) {
       throw await mapHttpError(response)
@@ -590,6 +626,8 @@ export async function validate(request: V1ValidateRequest): Promise<V1ValidateRe
 
     return await response.json()
   } catch (err) {
+    recordBffError(requestId, endpoint, startTime, err)
+
     if (err instanceof Error && err.name === 'AbortError') {
       throw {
         code: 'TIMEOUT',
@@ -653,23 +691,39 @@ export async function limits(): Promise<V1LimitsResponse> {
  */
 export async function runBundle(request: V1RunBundleRequest): Promise<V1RunBundleResponse> {
   const base = getProxyBase()
+  const endpoint = `${base}/v1/run_bundle`
   const timeouts = getTimeouts()
   const controller = new AbortController()
   // Longer timeout for bundle (multiple options)
   const timeoutMs = timeouts.sync * 2
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
+  // Add observability headers
+  const requestId = crypto.randomUUID()
+  let startTime = Date.now()
+
   try {
-    const response = await fetch(`${base}/v1/run_bundle`, {
-      method: 'POST',
-      headers: {
+    const { headers, startTime: obsStartTime } = await withObservabilityHeaders(
+      endpoint,
+      'POST',
+      request,
+      {
         'Content-Type': 'application/json',
-        'X-Request-Id': crypto.randomUUID(),
+        'X-Request-Id': requestId,
         'x-olumi-sdk': 'plot-client/1.0.0',
       },
+      requestId
+    )
+    startTime = obsStartTime
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
       body: JSON.stringify(request),
       signal: controller.signal,
     })
+
+    recordBffResponse(requestId, endpoint, response, startTime)
 
     if (!response.ok) {
       throw await mapHttpError(response)
@@ -677,6 +731,8 @@ export async function runBundle(request: V1RunBundleRequest): Promise<V1RunBundl
 
     return await response.json()
   } catch (err) {
+    recordBffError(requestId, endpoint, startTime, err)
+
     if (err instanceof Error && err.name === 'AbortError') {
       throw {
         code: 'TIMEOUT',

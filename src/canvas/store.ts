@@ -1648,6 +1648,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           last_run_at: currentScenarioLastRunAt || undefined,
           last_run_seed: currentScenarioLastRunSeed || undefined,
         })
+        // Clear autosave since work is now saved to scenario
+        scenarios.clearAutosave()
         set({
           isDirty: false,
           isSaving: false,
@@ -1669,6 +1671,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           last_run_at: currentScenarioLastRunAt || undefined,
           last_run_seed: currentScenarioLastRunSeed || undefined,
         })
+        // Clear autosave since work is now saved to scenario
+        scenarios.clearAutosave()
 
         set({
           currentScenarioId: scenario.id,

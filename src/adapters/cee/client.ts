@@ -6,6 +6,8 @@ import type {
   CEEv2Response,
 } from './types'
 import { isCEEv2Response } from './types'
+import { withObservabilityHeaders, recordBffResponse, recordBffError } from '../../lib/observability-headers'
+import { useGateStore } from '../../lib/gate-state'
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 
@@ -236,18 +238,43 @@ export class CEEClient {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
+    // Parse body for observability (if present) - guard against non-JSON bodies
+    let bodyData: unknown = {}
+    if (options.body && typeof options.body === 'string') {
+      try {
+        bodyData = JSON.parse(options.body)
+      } catch {
+        // Non-JSON body - use empty object for hash (still provides some correlation)
+        bodyData = {}
+      }
+    }
+
+    // Add observability headers (async for SHA-256 hashing)
+    let startTime = Date.now()
+
     try {
+      const { headers, startTime: obsStartTime } = await withObservabilityHeaders(
+        url,
+        options.method || 'GET',
+        bodyData,
+        {
+          'Content-Type': 'application/json',
+          'x-correlation-id': correlationId,
+          ...(options.headers as Record<string, string>),
+        },
+        correlationId
+      )
+      startTime = obsStartTime
       const response = await fetch(url, {
         ...options,
         signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          'x-correlation-id': correlationId,
-          ...options.headers,
-        },
+        headers,
       })
 
       clearTimeout(timeoutId)
+
+      // Record response for observability
+      recordBffResponse(correlationId, url, response, startTime)
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}))
@@ -268,6 +295,10 @@ export class CEEClient {
       return response.json()
     } catch (error) {
       clearTimeout(timeoutId)
+
+      // Record error for observability
+      recordBffError(correlationId, url, startTime, error)
+
       if (error instanceof Error && error.name === 'AbortError') {
         throw new CEEError('Request timeout', 408, undefined, correlationId)
       }
@@ -296,6 +327,9 @@ export class CEEClient {
       method: 'POST',
       body: JSON.stringify({ brief: description }),
     })
+
+    // Update graph_readiness gate on successful response
+    useGateStore.getState().setGate('graph_readiness', 'pass', { message: 'Draft graph received' })
 
     // For v2 requests, check if response is v2 format
     if (options?.schemaVersion === 'v2' && isCEEv2Response(raw)) {

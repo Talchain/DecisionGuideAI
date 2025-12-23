@@ -11,6 +11,8 @@ import type {
   TransportabilityRequest,
   TransportabilityResponse,
 } from './types'
+import { withObservabilityHeaders, recordBffResponse, recordBffError } from '../../lib/observability-headers'
+import { useGateStore } from '../../lib/gate-state'
 
 const ISL_BASE_URL = (import.meta as any).env?.VITE_ISL_BFF_BASE || '/bff/isl'
 
@@ -52,18 +54,43 @@ export class ISLClient {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), this.timeout)
 
+    // Parse body for observability (if present) - guard against non-JSON bodies
+    let bodyData: unknown = {}
+    if (options.body && typeof options.body === 'string') {
+      try {
+        bodyData = JSON.parse(options.body)
+      } catch {
+        // Non-JSON body - use empty object for hash
+        bodyData = {}
+      }
+    }
+
+    // Add observability headers (async for SHA-256 hashing)
+    let startTime = Date.now()
+
     try {
+      const { headers, startTime: obsStartTime } = await withObservabilityHeaders(
+        url,
+        options.method || 'GET',
+        bodyData,
+        {
+          'Content-Type': 'application/json',
+          'x-correlation-id': correlationId,
+          ...(options.headers as Record<string, string>),
+        },
+        correlationId
+      )
+      startTime = obsStartTime
       const response = await fetch(url, {
         ...options,
         signal: controller.signal,
-        headers: {
-          'Content-Type': 'application/json',
-          'x-correlation-id': correlationId,
-          ...options.headers,
-        },
+        headers,
       })
 
       clearTimeout(timeoutId)
+
+      // Record response for observability
+      recordBffResponse(correlationId, url, response, startTime)
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({}))
@@ -78,6 +105,10 @@ export class ISLClient {
       return response.json()
     } catch (error) {
       clearTimeout(timeoutId)
+
+      // Record error for observability
+      recordBffError(correlationId, url, startTime, error)
+
       if (error instanceof Error && error.name === 'AbortError') {
         throw new ISLError('Request timeout', 408, undefined, correlationId)
       }
@@ -89,10 +120,15 @@ export class ISLClient {
    * Validate graph and get suggestions
    */
   async validate(request: ISLRunRequest): Promise<ISLValidationResponse> {
-    return this.fetch<ISLValidationResponse>('/validate', {
+    const result = await this.fetch<ISLValidationResponse>('/validate', {
       method: 'POST',
       body: JSON.stringify(request),
     })
+
+    // Update validation gate on successful response
+    useGateStore.getState().setGate('validation', 'pass', { message: 'Graph validated' })
+
+    return result
   }
 
   /**

@@ -69,6 +69,8 @@ import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
 import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled, pocFlags } from '../flags'
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
+import { useAutosave } from './hooks/useAutosave'
+import { DebugPanel } from '../components/DebugPanel'
 
 type CanvasDebugMode = 'normal' | 'blank' | 'no-reactflow' | 'rf-only' | 'rf-bare' | 'rf-minimal' | 'rf-empty' | 'rf-no-fitview' | 'rf-no-bg' | 'rf-store' | 'provider-only' | 'no-provider'
 
@@ -442,8 +444,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [inputsOutputsEnabled, setShowDocumentsDrawer, debugMode])
 
   // Autosave hook - saves graph every 30s when dirty
-  // REACT #185 DEBUG: Disabled to isolate root cause
-  // useAutosave()
+  useAutosave()
 
   // P1 Polish: Cross-tab sync for edge label mode
   // REACT #185 DEBUG: Disabled to isolate root cause
@@ -1272,6 +1273,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         // Clear stale scenario ID - user is now in draft mode
         scenarios.clearCurrentScenarioId()
         useCanvasStore.setState({ currentScenarioId: null })
+        // Clear autosave after consuming it to prevent RecoveryBanner showing
+        scenarios.clearAutosave()
 
         console.log('[SCENARIO_STATE]', {
           source: 'autosave',
@@ -1921,6 +1924,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           </div>
         </div>
       </BottomSheet>
+
+      {/* Debug Panel - activated via ?diag=1 in staging/dev */}
+      <DebugPanel />
     </div>
   )
 })

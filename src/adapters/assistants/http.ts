@@ -4,6 +4,11 @@
  */
 
 import type { DraftRequest, DraftResponse, DraftStreamEvent, AssistError } from './types'
+import {
+  withObservabilityHeaders,
+  recordBffResponse,
+  recordBffError,
+} from '@/lib/observability-headers'
 
 const getBffBase = (): string => {
   return import.meta.env.VITE_BFF_BASE || '/bff/assist'
@@ -78,39 +83,62 @@ export async function draftGraph(
 ): Promise<DraftResponse> {
   const base = getBffBase()
   const correlationId = options?.correlationId || generateCorrelationId()
-  const startTime = Date.now()
+  const endpoint = `${base}/v1/draft-flows`
+
+  // Build request body
+  const requestBody = {
+    path: '/draft-graph',
+    payload: request,
+  }
+
+  // Add observability headers (async for SHA-256 hashing)
+  let startTime = Date.now()
+  let requestId = correlationId
 
   try {
-    const response = await fetch(`${base}/v1/draft-flows`, {
-      method: 'POST',
-      headers: {
+    const { headers, requestId: obsRequestId, startTime: obsStartTime } = await withObservabilityHeaders(
+      endpoint,
+      'POST',
+      requestBody,
+      {
         'Content-Type': 'application/json',
         'x-correlation-id': correlationId,
       },
-      body: JSON.stringify({
-        path: '/draft-graph',
-        payload: request,
-      }),
+      correlationId
+    )
+    startTime = obsStartTime
+    requestId = obsRequestId
+
+    let response: Response | null = null
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(requestBody),
       signal: options?.signal,
     })
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({}))
+      recordBffResponse(requestId, endpoint, response, startTime, `HTTP ${response.status}`)
       throw makeHttpAssistError(response.status, errorBody, correlationId)
     }
 
+    // Record successful response
+    recordBffResponse(requestId, endpoint, response, startTime)
     return await response.json()
   } catch (err) {
-    const elapsedMs = Date.now() - startTime
     if (err instanceof Error && err.name === 'AbortError') {
-      console.error('[DRAFT_GRAPH_FAILED]', { reason: 'timeout', elapsedMs, correlationId })
+      recordBffError(requestId, endpoint, startTime, err)
+      console.error('[DRAFT_GRAPH_FAILED]', { reason: 'timeout', correlationId })
       throw makeTimeoutError()
     }
     if ((err as any).code) {
-      console.error('[DRAFT_GRAPH_FAILED]', { reason: (err as any).code, elapsedMs, correlationId })
-      throw err // Already an AssistError
+      // Already an AssistError - response already recorded above
+      console.error('[DRAFT_GRAPH_FAILED]', { reason: (err as any).code, correlationId })
+      throw err
     }
-    console.error('[DRAFT_GRAPH_FAILED]', { reason: 'network', elapsedMs, correlationId, error: err })
+    recordBffError(requestId, endpoint, startTime, err)
+    console.error('[DRAFT_GRAPH_FAILED]', { reason: 'network', correlationId, error: err })
     throw makeNetworkError(err)
   }
 }
@@ -125,41 +153,64 @@ export async function* draftGraphStream(
 ): AsyncGenerator<DraftStreamEvent> {
   const base = getBffBase()
   const correlationId = options?.correlationId || generateCorrelationId()
-  const startTime = Date.now()
+  const endpoint = `${base}/v1/draft-flows`
+
+  // Build request body
+  const requestBody = {
+    path: '/draft-graph/stream',
+    payload: request,
+    stream: true,
+  }
+
+  // Add observability headers (async for SHA-256 hashing)
+  let startTime = Date.now()
+  let requestId = correlationId
+
+  const { headers, requestId: obsRequestId, startTime: obsStartTime } = await withObservabilityHeaders(
+    endpoint,
+    'POST',
+    requestBody,
+    {
+      'Content-Type': 'application/json',
+      'x-correlation-id': correlationId,
+      'Accept': 'text/event-stream',
+    },
+    correlationId
+  )
+  startTime = obsStartTime
+  requestId = obsRequestId
 
   let response: Response
 
   try {
-    response = await fetch(`${base}/v1/draft-flows`, {
+    response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-correlation-id': correlationId,
-        'Accept': 'text/event-stream',
-      },
-      body: JSON.stringify({
-        path: '/draft-graph/stream',
-        payload: request,
-        stream: true,
-      }),
+      headers,
+      body: JSON.stringify(requestBody),
       signal: options?.signal,
     })
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => ({}))
+      recordBffResponse(requestId, endpoint, response, startTime, `HTTP ${response.status}`)
       throw makeHttpAssistError(response.status, errorBody, correlationId)
     }
+
+    // Record initial response (stream started)
+    recordBffResponse(requestId, endpoint, response, startTime)
   } catch (err) {
-    const elapsedMs = Date.now() - startTime
     if (err instanceof Error && err.name === 'AbortError') {
-      console.error('[DRAFT_GRAPH_FAILED]', { reason: 'timeout', elapsedMs, correlationId, streaming: true })
+      recordBffError(requestId, endpoint, startTime, err)
+      console.error('[DRAFT_GRAPH_FAILED]', { reason: 'timeout', correlationId, streaming: true })
       throw makeTimeoutError()
     }
     if ((err as any).code) {
-      console.error('[DRAFT_GRAPH_FAILED]', { reason: (err as any).code, elapsedMs, correlationId, streaming: true })
+      // Already an AssistError - response already recorded above
+      console.error('[DRAFT_GRAPH_FAILED]', { reason: (err as any).code, correlationId, streaming: true })
       throw err
     }
-    console.error('[DRAFT_GRAPH_FAILED]', { reason: 'network', elapsedMs, correlationId, streaming: true, error: err })
+    recordBffError(requestId, endpoint, startTime, err)
+    console.error('[DRAFT_GRAPH_FAILED]', { reason: 'network', correlationId, streaming: true, error: err })
     throw makeNetworkError(err)
   }
 

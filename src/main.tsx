@@ -2,6 +2,7 @@
 import './index.css';
 import { Suspense, lazy, Component, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { initVersionCache } from './lib/version-cache';
 
 declare global {
   interface Window {
@@ -148,6 +149,11 @@ class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
     // Phase 1: render shell now so user never sees a blank screen
     root.render(<Shell />);
     log('boot:shell-rendered');
+
+    // Initialize version cache for observability headers (fire and forget)
+    initVersionCache().catch(() => {
+      // Silently ignore - version header is optional
+    });
 
     // Phase 2: upgrade to full app (next microtask is enough; avoids extra layout thrash)
     queueMicrotask(() => {

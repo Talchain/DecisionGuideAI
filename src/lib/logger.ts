@@ -88,3 +88,104 @@ export const logger = {
    */
   getLevel: (): LogLevel => currentLevel,
 }
+
+// =============================================================================
+// Boundary Logging - Structured JSON for request/response tracing
+// =============================================================================
+
+/**
+ * Boundary request event payload
+ */
+export interface BoundaryRequestEvent {
+  event: 'boundary.request'
+  timestamp: string
+  request_id: string
+  endpoint: string
+  method: string
+  payload_hash: string
+  client_build: string
+}
+
+/**
+ * Boundary response event payload
+ */
+export interface BoundaryResponseEvent {
+  event: 'boundary.response'
+  timestamp: string
+  request_id: string
+  endpoint: string
+  status: number
+  elapsed_ms: number
+  response_hash?: string
+  service?: string
+  service_build?: string
+  error?: string
+}
+
+/**
+ * Log a boundary request event (JSON format).
+ * Only logs if debug level is enabled.
+ *
+ * @param params - Request metadata
+ */
+export function logBoundaryRequest(params: {
+  requestId: string
+  endpoint: string
+  method: string
+  payloadHash: string
+  clientBuild: string
+}): void {
+  if (!shouldLog('debug')) {
+    return
+  }
+
+  const event: BoundaryRequestEvent = {
+    event: 'boundary.request',
+    timestamp: new Date().toISOString(),
+    request_id: params.requestId,
+    endpoint: params.endpoint,
+    method: params.method,
+    payload_hash: params.payloadHash,
+    client_build: params.clientBuild,
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(JSON.stringify(event))
+}
+
+/**
+ * Log a boundary response event (JSON format).
+ * Only logs if debug level is enabled.
+ *
+ * @param params - Response metadata
+ */
+export function logBoundaryResponse(params: {
+  requestId: string
+  endpoint: string
+  status: number
+  elapsedMs: number
+  responseHash?: string
+  service?: string
+  serviceBuild?: string
+  error?: string
+}): void {
+  if (!shouldLog('debug')) {
+    return
+  }
+
+  const event: BoundaryResponseEvent = {
+    event: 'boundary.response',
+    timestamp: new Date().toISOString(),
+    request_id: params.requestId,
+    endpoint: params.endpoint,
+    status: params.status,
+    elapsed_ms: params.elapsedMs,
+    ...(params.responseHash && { response_hash: params.responseHash }),
+    ...(params.service && { service: params.service }),
+    ...(params.serviceBuild && { service_build: params.serviceBuild }),
+    ...(params.error && { error: params.error }),
+  }
+
+  // eslint-disable-next-line no-console
+  console.log(JSON.stringify(event))
+}

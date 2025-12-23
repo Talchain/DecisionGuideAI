@@ -10,6 +10,7 @@ import { CEEError } from '../../adapters/cee/client'
 import { DraftGuidancePanel } from './DraftGuidancePanel'
 import { RateLimitNotice } from './RateLimitNotice'
 import { DEFAULT_EDGE_DATA, trimProvenance } from '../domain/edges'
+import { saveAutosave } from '../store/scenarios'
 import { Tooltip } from './Tooltip'
 import { isCEEv2Response } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, EffectDirection } from '../../adapters/cee/types'
@@ -319,6 +320,26 @@ export function DraftChat() {
       applyGuidedLayout()
     } catch (error) {
       console.error('[DraftChat] Guided layout failed after applying draft', error)
+    }
+
+    // IMMEDIATE AUTOSAVE: Save right away so graph survives refresh before 30s interval
+    // This eliminates the vulnerability window where AI drafts could be lost
+    try {
+      const currentState = useCanvasStore.getState()
+      saveAutosave({
+        timestamp: Date.now(),
+        scenarioId: currentState.currentScenarioId || undefined,
+        nodes: currentState.nodes,
+        edges: currentState.edges,
+      })
+      if (import.meta.env.DEV) {
+        console.log('[DraftChat] Immediate autosave after draft applied', {
+          nodes: currentState.nodes.length,
+          edges: currentState.edges.length,
+        })
+      }
+    } catch (err) {
+      console.error('[DraftChat] Immediate autosave failed:', err)
     }
 
     return {
