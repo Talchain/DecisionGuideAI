@@ -128,7 +128,7 @@ export function recordBffResponse(
     ? extractResponseHeaders(response.headers)
     : {}
 
-  // Record in debug state
+  // Record in debug state (including call chain data if present)
   recordResponse(requestId, {
     status,
     responseHash: responseHeaders.responseHash,
@@ -137,6 +137,8 @@ export function recordBffResponse(
     upstreamHost: responseHeaders.upstreamHost,
     elapsedMs,
     error,
+    downstream: responseHeaders.downstream,
+    traceReceived: responseHeaders.traceReceived,
   })
 
   // Log boundary event

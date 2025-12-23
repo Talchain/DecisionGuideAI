@@ -36,6 +36,32 @@
  */
 
 /**
+ * Downstream call record from x-olumi-downstream-calls header
+ */
+export interface DownstreamCall {
+  /** Service name (cee, isl, plot) */
+  service: string
+  /** HTTP status code */
+  status: number
+  /** Request duration in milliseconds */
+  elapsedMs: number
+  /** Payload hash sent to downstream */
+  payloadHash: string
+  /** Response hash from downstream */
+  responseHash?: string
+}
+
+/**
+ * Trace received record from x-olumi-trace-received header
+ */
+export interface TraceReceived {
+  /** Request ID echoed back */
+  requestId: string
+  /** Payload hash echoed back */
+  payloadHash: string
+}
+
+/**
  * Request trace record
  */
 export interface RequestTrace {
@@ -71,6 +97,12 @@ export interface RequestTrace {
   completed?: boolean
   /** Error message if request failed */
   error?: string
+
+  // Call chain fields (for integration verification)
+  /** Downstream service calls made by this request */
+  downstream?: DownstreamCall[]
+  /** Trace verification data echoed from service */
+  traceReceived?: TraceReceived
 }
 
 /** Maximum number of traces to keep */
@@ -132,6 +164,8 @@ export function recordResponse(
     upstreamHost?: string
     elapsedMs: number
     error?: string
+    downstream?: DownstreamCall[]
+    traceReceived?: TraceReceived | null
   }
 ): void {
   const trace = traceMap.get(requestId)
@@ -154,6 +188,14 @@ export function recordResponse(
   trace.responseTimestamp = new Date().toISOString()
   trace.completed = true
   trace.error = response.error
+
+  // Store call chain data (if present)
+  if (response.downstream && response.downstream.length > 0) {
+    trace.downstream = response.downstream
+  }
+  if (response.traceReceived) {
+    trace.traceReceived = response.traceReceived
+  }
 }
 
 /**
@@ -224,7 +266,70 @@ export const OBSERVABILITY_HEADERS = {
   PAYLOAD_HASH: 'x-olumi-payload-hash',
   UPSTREAM_HOST: 'x-olumi-upstream-host',
   REQUEST_ID: 'x-request-id',
+  DOWNSTREAM_CALLS: 'x-olumi-downstream-calls',
+  TRACE_RECEIVED: 'x-olumi-trace-received',
 } as const
+
+/**
+ * Parse x-olumi-downstream-calls header.
+ * Format: service:status:elapsed:payloadHash:responseHash;...
+ *
+ * @param header - Header value or null
+ * @returns Array of downstream call records
+ */
+export function parseDownstreamCalls(header: string | null | undefined): DownstreamCall[] {
+  if (!header || header.trim() === '') return []
+
+  try {
+    return header
+      .split(';')
+      .filter(Boolean)
+      .map((part) => {
+        const [service, status, elapsed, payloadHash, responseHash] = part.split(':')
+        return {
+          service: service || 'unknown',
+          status: parseInt(status, 10) || 0,
+          elapsedMs: parseInt(elapsed, 10) || 0,
+          payloadHash: payloadHash || '',
+          responseHash: responseHash || undefined,
+        }
+      })
+      .filter((call) => call.service !== 'unknown') // Filter out malformed entries
+  } catch {
+    // Graceful degradation on parse error
+    if (import.meta.env.DEV) {
+      console.warn('[debug-state] Failed to parse downstream-calls header:', header)
+    }
+    return []
+  }
+}
+
+/**
+ * Parse x-olumi-trace-received header.
+ * Format: request_id:payload_hash
+ *
+ * @param header - Header value or null
+ * @returns TraceReceived record or null
+ */
+export function parseTraceReceived(header: string | null | undefined): TraceReceived | null {
+  if (!header || header.trim() === '') return null
+
+  try {
+    const [requestId, payloadHash] = header.split(':')
+    if (!requestId && !payloadHash) return null
+
+    return {
+      requestId: requestId || 'none',
+      payloadHash: payloadHash || 'none',
+    }
+  } catch {
+    // Graceful degradation on parse error
+    if (import.meta.env.DEV) {
+      console.warn('[debug-state] Failed to parse trace-received header:', header)
+    }
+    return null
+  }
+}
 
 /**
  * Get a header value with case-insensitive lookup.
@@ -258,12 +363,19 @@ export function extractResponseHeaders(headers: Headers): {
   serviceBuild?: string
   upstreamHost?: string
   requestIdEcho?: string
+  downstream?: DownstreamCall[]
+  traceReceived?: TraceReceived | null
 } {
+  const downstreamHeader = getHeaderCaseInsensitive(headers, OBSERVABILITY_HEADERS.DOWNSTREAM_CALLS)
+  const traceReceivedHeader = getHeaderCaseInsensitive(headers, OBSERVABILITY_HEADERS.TRACE_RECEIVED)
+
   return {
     responseHash: getHeaderCaseInsensitive(headers, OBSERVABILITY_HEADERS.RESPONSE_HASH),
     service: getHeaderCaseInsensitive(headers, OBSERVABILITY_HEADERS.SERVICE),
     serviceBuild: getHeaderCaseInsensitive(headers, OBSERVABILITY_HEADERS.SERVICE_BUILD),
     upstreamHost: getHeaderCaseInsensitive(headers, OBSERVABILITY_HEADERS.UPSTREAM_HOST),
     requestIdEcho: getHeaderCaseInsensitive(headers, OBSERVABILITY_HEADERS.REQUEST_ID),
+    downstream: parseDownstreamCalls(downstreamHeader),
+    traceReceived: parseTraceReceived(traceReceivedHeader),
   }
 }

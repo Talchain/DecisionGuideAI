@@ -23,10 +23,30 @@
  * ```
  */
 
-import { getRecentTraces, getPendingTraces, getFailedTraces, type RequestTrace } from './debug-state'
+import { getRecentTraces, getPendingTraces, getFailedTraces, type RequestTrace, type DownstreamCall, type TraceReceived } from './debug-state'
 import { useGateStore, ALL_GATES, type GateName } from './gate-state'
 import { getClientBuild, getVersionInfo } from './version-cache'
 import { getAllServiceHealthArray, type ServiceHealthInfo } from './service-health'
+
+/**
+ * Sanitized downstream call for export
+ */
+interface SanitizedDownstreamCall {
+  service: string
+  status: number
+  elapsedMs: number
+  payloadHash: string
+  responseHash?: string
+}
+
+/**
+ * Sanitized trace received for export
+ */
+interface SanitizedTraceReceived {
+  requestId: string
+  payloadHash: string
+  verified: boolean
+}
 
 /**
  * Sanitized request trace for export
@@ -44,6 +64,10 @@ interface SanitizedTrace {
   serviceBuild?: string
   elapsedMs?: number
   completed?: boolean
+  /** Downstream service calls (if any) */
+  downstream?: SanitizedDownstreamCall[]
+  /** Trace verification data (if present) */
+  traceReceived?: SanitizedTraceReceived
   // Note: we don't include rawError or upstreamHost for privacy
 }
 
@@ -83,6 +107,22 @@ interface EnvironmentInfo {
 }
 
 /**
+ * Integration verification summary
+ */
+interface IntegrationVerification {
+  /** Overall integration status */
+  ok: boolean
+  /** Number of traces with downstream calls */
+  tracesWithDownstream: number
+  /** Number of verified trace chains */
+  verifiedChains: number
+  /** Number of failed downstream calls */
+  failedDownstreamCalls: number
+  /** Issues detected */
+  issues: string[]
+}
+
+/**
  * Full diagnostic bundle structure
  */
 export interface DiagnosticBundle {
@@ -110,6 +150,8 @@ export interface DiagnosticBundle {
   }
   /** Service health info (from response headers) */
   services: ServiceHealth[]
+  /** Integration verification summary */
+  integration: IntegrationVerification
   /** Session metadata */
   session: {
     durationMs: number
@@ -120,6 +162,32 @@ export interface DiagnosticBundle {
 
 /** Session start time for duration calculation */
 const sessionStart = Date.now()
+
+/**
+ * Sanitize downstream calls for export
+ */
+function sanitizeDownstreamCalls(calls?: DownstreamCall[]): SanitizedDownstreamCall[] | undefined {
+  if (!calls || calls.length === 0) return undefined
+  return calls.map((call) => ({
+    service: call.service,
+    status: call.status,
+    elapsedMs: call.elapsedMs,
+    payloadHash: call.payloadHash,
+    responseHash: call.responseHash,
+  }))
+}
+
+/**
+ * Sanitize trace received for export
+ */
+function sanitizeTraceReceived(trace: RequestTrace): SanitizedTraceReceived | undefined {
+  if (!trace.traceReceived) return undefined
+  return {
+    requestId: trace.traceReceived.requestId,
+    payloadHash: trace.traceReceived.payloadHash,
+    verified: trace.traceReceived.payloadHash === trace.payloadHash,
+  }
+}
 
 /**
  * Sanitize a request trace for export
@@ -138,6 +206,8 @@ function sanitizeTrace(trace: RequestTrace): SanitizedTrace {
     serviceBuild: trace.serviceBuild,
     elapsedMs: trace.elapsedMs,
     completed: trace.completed,
+    downstream: sanitizeDownstreamCalls(trace.downstream),
+    traceReceived: sanitizeTraceReceived(trace),
     // Intentionally omit: error (may contain stack traces), upstreamHost (internal infra)
   }
 }
@@ -212,6 +282,48 @@ function mergeServiceHealth(
 }
 
 /**
+ * Compute integration verification summary from traces
+ */
+function computeIntegrationVerification(traces: RequestTrace[]): IntegrationVerification {
+  const issues: string[] = []
+  let tracesWithDownstream = 0
+  let verifiedChains = 0
+  let failedDownstreamCalls = 0
+
+  for (const trace of traces) {
+    // Count traces with downstream calls
+    if (trace.downstream && trace.downstream.length > 0) {
+      tracesWithDownstream++
+
+      // Count failed downstream calls
+      for (const call of trace.downstream) {
+        if (call.status >= 400) {
+          failedDownstreamCalls++
+          issues.push(`${call.service} returned ${call.status} for ${trace.endpoint}`)
+        }
+      }
+    }
+
+    // Check trace verification
+    if (trace.traceReceived) {
+      if (trace.traceReceived.payloadHash === trace.payloadHash) {
+        verifiedChains++
+      } else {
+        issues.push(`Hash mismatch: sent ${trace.payloadHash?.slice(0, 6)}, received ${trace.traceReceived.payloadHash?.slice(0, 6)}`)
+      }
+    }
+  }
+
+  return {
+    ok: issues.length === 0,
+    tracesWithDownstream,
+    verifiedChains,
+    failedDownstreamCalls,
+    issues: issues.slice(0, 10), // Limit to 10 issues
+  }
+}
+
+/**
  * Create a diagnostic bundle with current state
  */
 export async function createDiagnosticBundle(): Promise<DiagnosticBundle> {
@@ -276,6 +388,7 @@ export async function createDiagnosticBundle(): Promise<DiagnosticBundle> {
       failed: failedTraces.map(sanitizeTrace),
     },
     services,
+    integration: computeIntegrationVerification(recentTraces),
     session: {
       durationMs: Date.now() - sessionStart,
       pageUrl: pageUrl.pathname + pageUrl.search,

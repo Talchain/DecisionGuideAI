@@ -16,8 +16,13 @@
  * ```
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { getRecentTraces, type RequestTrace } from '../lib/debug-state'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import {
+  getRecentTraces,
+  type RequestTrace,
+  type DownstreamCall,
+  type TraceReceived,
+} from '../lib/debug-state'
 import { useGateStore, ALL_GATES, type GateName, type GateStatus } from '../lib/gate-state'
 import { getClientBuild, getVersionInfo } from '../lib/version-cache'
 import { exportDiagnosticBundle } from '../lib/diagnostic-bundle'
@@ -130,74 +135,83 @@ function GateStatusChip({ gate, record }: { gate: GateName; record: { status: Ga
 }
 
 /**
- * Request trace row component
+ * Request trace row component with downstream calls
  */
 function TraceRow({ trace }: { trace: RequestTrace }) {
   const statusColor = getRequestStatusColor(trace.status)
   const method = trace.method.toUpperCase()
   const endpoint = trace.endpoint.replace('/bff/', '/')
+  const hasDownstream = trace.downstream && trace.downstream.length > 0
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: '50px 1fr 80px 60px',
-        gap: 8,
-        padding: '4px 8px',
-        fontSize: 10,
-        fontFamily: 'monospace',
-        borderBottom: '1px solid #e2e8f0',
-        alignItems: 'center',
-      }}
-    >
-      {/* Method */}
-      <span
+    <div style={{ borderBottom: '1px solid #e2e8f0' }}>
+      <div
         style={{
-          background: method === 'GET' ? '#dbeafe' : '#fce7f3',
-          color: method === 'GET' ? '#1d4ed8' : '#be185d',
-          padding: '2px 4px',
-          borderRadius: 2,
-          textAlign: 'center',
-          fontSize: 9,
-        }}
-      >
-        {method}
-      </span>
-
-      {/* Endpoint */}
-      <span
-        style={{
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          color: '#334155',
-        }}
-        title={trace.endpoint}
-      >
-        {endpoint}
-      </span>
-
-      {/* Status */}
-      <span
-        style={{
-          display: 'flex',
+          display: 'grid',
+          gridTemplateColumns: '50px 1fr 80px 60px',
+          gap: 8,
+          padding: '4px 8px',
+          fontSize: 10,
+          fontFamily: 'monospace',
           alignItems: 'center',
-          gap: 4,
         }}
       >
+        {/* Method */}
         <span
           style={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: statusColor,
+            background: method === 'GET' ? '#dbeafe' : '#fce7f3',
+            color: method === 'GET' ? '#1d4ed8' : '#be185d',
+            padding: '2px 4px',
+            borderRadius: 2,
+            textAlign: 'center',
+            fontSize: 9,
           }}
-        />
-        <span style={{ color: statusColor }}>{trace.status ?? 'pending'}</span>
-      </span>
+        >
+          {method}
+        </span>
 
-      {/* Elapsed */}
-      <span style={{ color: '#64748b', textAlign: 'right' }}>{formatElapsed(trace.elapsedMs)}</span>
+        {/* Endpoint */}
+        <span
+          style={{
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            color: '#334155',
+          }}
+          title={trace.endpoint}
+        >
+          {endpoint}
+        </span>
+
+        {/* Status */}
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+          }}
+        >
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: statusColor,
+            }}
+          />
+          <span style={{ color: statusColor }}>{trace.status ?? 'pending'}</span>
+        </span>
+
+        {/* Elapsed */}
+        <span style={{ color: '#64748b', textAlign: 'right' }}>{formatElapsed(trace.elapsedMs)}</span>
+      </div>
+
+      {/* Downstream calls (if any) */}
+      {hasDownstream && (
+        <div style={{ paddingBottom: 4, paddingRight: 8 }}>
+          <DownstreamCallList calls={trace.downstream} />
+        </div>
+      )}
     </div>
   )
 }
@@ -302,6 +316,185 @@ function RequestIdDisplay({ requestId }: { requestId?: string }) {
       >
         {copied ? '✓ Copied' : '📋 Copy'}
       </button>
+    </div>
+  )
+}
+
+/**
+ * Downstream call list component
+ */
+function DownstreamCallList({ calls }: { calls?: DownstreamCall[] }) {
+  if (!calls || calls.length === 0) return null
+
+  return (
+    <div style={{ marginLeft: 16, marginTop: 2 }}>
+      {calls.map((call, i) => {
+        const statusColor = getRequestStatusColor(call.status)
+        return (
+          <div
+            key={i}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 9,
+              fontFamily: 'monospace',
+              color: '#64748b',
+              padding: '1px 0',
+            }}
+          >
+            <span style={{ color: '#94a3b8' }}>└─</span>
+            <span style={{ fontWeight: 600, textTransform: 'uppercase', color: '#475569' }}>
+              {call.service}
+            </span>
+            <span
+              style={{
+                width: 5,
+                height: 5,
+                borderRadius: '50%',
+                background: statusColor,
+              }}
+            />
+            <span style={{ color: statusColor }}>{call.status}</span>
+            <span>{call.elapsedMs}ms</span>
+            <span style={{ color: '#94a3b8', fontSize: 8 }}>
+              [{call.payloadHash?.slice(0, 6) || '?'} → {call.responseHash?.slice(0, 6) || '?'}]
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * Verification hop interface
+ */
+interface VerificationHop {
+  from: string
+  to: string
+  hashSent: string
+  hashReceived?: string
+  verified: boolean
+}
+
+/**
+ * Build verification hops from a trace
+ */
+function buildVerificationHops(trace: RequestTrace): VerificationHop[] {
+  const hops: VerificationHop[] = []
+
+  // Determine first service from endpoint
+  const firstService = trace.endpoint.includes('plot')
+    ? 'plot'
+    : trace.endpoint.includes('engine')
+      ? 'plot'
+      : trace.endpoint.includes('cee')
+        ? 'cee'
+        : trace.endpoint.includes('isl')
+          ? 'isl'
+          : 'bff'
+
+  // UI → first service hop
+  hops.push({
+    from: 'ui',
+    to: firstService,
+    hashSent: trace.payloadHash,
+    hashReceived: trace.traceReceived?.payloadHash,
+    verified: trace.traceReceived ? trace.traceReceived.payloadHash === trace.payloadHash : true,
+  })
+
+  // Add downstream hops
+  trace.downstream?.forEach((call) => {
+    hops.push({
+      from: firstService,
+      to: call.service,
+      hashSent: call.payloadHash,
+      hashReceived: call.responseHash,
+      verified: true, // If we have the data, it arrived
+    })
+  })
+
+  return hops
+}
+
+/**
+ * Compute integration status from traces
+ */
+function computeIntegrationStatus(traces: RequestTrace[]): { ok: boolean; issues: string[] } {
+  const issues: string[] = []
+
+  for (const trace of traces.slice(0, 5)) {
+    // Check if downstream calls succeeded
+    trace.downstream?.forEach((call) => {
+      if (call.status >= 400) {
+        issues.push(`${call.service} returned ${call.status}`)
+      }
+    })
+
+    // Check trace verification
+    if (trace.traceReceived && trace.traceReceived.payloadHash !== trace.payloadHash) {
+      issues.push(`Hash mismatch: sent ${trace.payloadHash?.slice(0, 6)}, received ${trace.traceReceived.payloadHash?.slice(0, 6)}`)
+    }
+  }
+
+  return { ok: issues.length === 0, issues }
+}
+
+/**
+ * Trace verification section component
+ */
+function TraceVerification({ traces }: { traces: RequestTrace[] }) {
+  const latestTrace = traces[0]
+  if (!latestTrace || (!latestTrace.downstream?.length && !latestTrace.traceReceived)) {
+    return null
+  }
+
+  const hops = buildVerificationHops(latestTrace)
+  const allVerified = hops.every((h) => h.verified)
+
+  return (
+    <div
+      style={{
+        padding: '8px 12px',
+        borderBottom: '1px solid #e2e8f0',
+        fontSize: 10,
+        fontFamily: 'monospace',
+      }}
+    >
+      <div
+        style={{
+          fontWeight: 600,
+          marginBottom: 6,
+          color: '#334155',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+        }}
+      >
+        Trace Verification
+        <span style={{ fontSize: 12 }}>{allVerified ? '✅' : '⚠️'}</span>
+      </div>
+      {hops.map((hop, i) => (
+        <div
+          key={i}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '2px 0',
+            color: '#64748b',
+          }}
+        >
+          <span style={{ color: '#475569' }}>
+            {hop.from} → {hop.to}
+          </span>
+          <span style={{ color: '#94a3b8', fontSize: 9 }}>
+            [{hop.hashSent?.slice(0, 6) || '?'}]
+          </span>
+          <span style={{ fontSize: 12 }}>{hop.verified ? '✅' : '❌'}</span>
+        </div>
+      ))}
     </div>
   )
 }
@@ -435,7 +628,24 @@ export function DebugPanel() {
               color: '#f8fafc',
             }}
           >
-            <span style={{ fontSize: 12, fontWeight: 600 }}>Debug Panel</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 600 }}>Debug Panel</span>
+              {/* Integration status indicator */}
+              {(() => {
+                const integrationStatus = computeIntegrationStatus(traces)
+                return (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      color: integrationStatus.ok ? '#86efac' : '#fde047',
+                    }}
+                    title={integrationStatus.issues.length > 0 ? integrationStatus.issues.join('\n') : 'All integrations OK'}
+                  >
+                    {integrationStatus.ok ? '✅' : '⚠️'}
+                  </span>
+                )
+              })()}
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button
                 onClick={handleExport}
@@ -526,6 +736,9 @@ export function DebugPanel() {
               ))}
             </div>
           </div>
+
+          {/* Trace Verification Section */}
+          <TraceVerification traces={traces} />
 
           {/* Request Traces */}
           <div style={{ maxHeight: 200, overflowY: 'auto' }}>
