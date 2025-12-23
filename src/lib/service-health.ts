@@ -67,6 +67,19 @@ const SERVICE_ENDPOINTS: Record<ServiceName, string> = {
 }
 
 /**
+ * Check if we're in development mode (no actual BFF endpoints)
+ * Returns false during tests so health checks can be tested
+ */
+function isDevEnvironment(): boolean {
+  // Don't skip in test mode - let tests control via mocks
+  if ((import.meta as any).env?.MODE === 'test' || typeof (globalThis as any).vi !== 'undefined') {
+    return false
+  }
+  const appEnv = (import.meta as any).env?.VITE_APP_ENV || 'development'
+  return appEnv === 'development'
+}
+
+/**
  * Timeout for health checks (ms)
  */
 const HEALTH_CHECK_TIMEOUT = 5000
@@ -93,6 +106,17 @@ export async function fetchServiceHealth(
   options?: { skipCache?: boolean; signal?: AbortSignal }
 ): Promise<ServiceHealthInfo> {
   const now = Date.now()
+
+  // In development, return mock response (no actual BFF endpoints)
+  if (isDevEnvironment()) {
+    const mockInfo: ServiceHealthInfo = {
+      name: service,
+      status: 'unknown',
+      checkedAt: new Date().toISOString(),
+      error: 'Health check skipped in development (no BFF)',
+    }
+    return mockInfo
+  }
 
   // Check cache first
   if (!options?.skipCache) {

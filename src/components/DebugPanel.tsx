@@ -27,6 +27,7 @@ import { useGateStore, ALL_GATES, type GateName, type GateStatus } from '../lib/
 import { getClientBuild, getVersionInfo } from '../lib/version-cache'
 import { exportDiagnosticBundle } from '../lib/diagnostic-bundle'
 import { getAllServiceHealthArray, type ServiceHealthInfo, type HealthStatus } from '../lib/service-health'
+import { useCanvasStore } from '../canvas/store'
 
 declare global {
   interface Window {
@@ -72,6 +73,16 @@ const STATUS_COLORS: Record<GateStatus, { bg: string; text: string; border: stri
 }
 
 /**
+ * WARN gate guidance messages - actionable next steps
+ */
+const WARN_GATE_GUIDANCE: Record<GateName, string> = {
+  graph_readiness: 'Add more context to brief: concrete options, key factors, success metrics',
+  validation: 'Check for missing edges or disconnected nodes in the graph',
+  run: 'Verify factor values are set; some may need observed_state data',
+  robustness: 'Factor uncertainties incomplete — add baseline/std or provenance with values',
+}
+
+/**
  * Health status indicator colors
  */
 const HEALTH_STATUS_COLORS: Record<HealthStatus, string> = {
@@ -105,31 +116,51 @@ function formatElapsed(ms?: number): string {
  */
 function GateStatusChip({ gate, record }: { gate: GateName; record: { status: GateStatus; message?: string } }) {
   const colors = STATUS_COLORS[record.status]
+  const isWarn = record.status === 'warn'
+  const guidance = isWarn ? WARN_GATE_GUIDANCE[gate] : undefined
+  const tooltip = guidance ? `${record.message || gate}: ${guidance}` : (record.message || `Gate: ${gate}`)
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '4px 8px',
-        borderRadius: 4,
-        background: colors.bg,
-        border: `1px solid ${colors.border}`,
-        fontSize: 11,
-      }}
-      title={record.message || `Gate: ${gate}`}
-    >
-      <span style={{ fontWeight: 600, color: colors.text }}>{gate}</span>
-      <span
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div
         style={{
-          display: 'inline-block',
-          width: 8,
-          height: 8,
-          borderRadius: '50%',
-          background: colors.text,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '4px 8px',
+          borderRadius: 4,
+          background: colors.bg,
+          border: `1px solid ${colors.border}`,
+          fontSize: 11,
         }}
-      />
-      <span style={{ color: colors.text, textTransform: 'uppercase' }}>{record.status}</span>
+        title={tooltip}
+      >
+        <span style={{ fontWeight: 600, color: colors.text }}>{gate}</span>
+        <span
+          style={{
+            display: 'inline-block',
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: colors.text,
+          }}
+        />
+        <span style={{ color: colors.text, textTransform: 'uppercase' }}>{record.status}</span>
+      </div>
+      {/* WARN guidance inline */}
+      {isWarn && guidance && (
+        <div
+          style={{
+            fontSize: 9,
+            color: '#854d0e',
+            paddingLeft: 8,
+            maxWidth: 180,
+            lineHeight: 1.3,
+          }}
+        >
+          {guidance}
+        </div>
+      )}
     </div>
   )
 }
@@ -223,36 +254,56 @@ function ServiceRow({ service }: { service: ServiceHealthInfo }) {
   const statusColor = HEALTH_STATUS_COLORS[service.status]
   const version = service.version || '—'
   const commit = service.commit ? `(${service.commit.slice(0, 7)})` : ''
+  const showReason = service.status !== 'healthy' && service.error
 
   return (
     <div
       style={{
-        display: 'grid',
-        gridTemplateColumns: '50px 1fr 70px',
-        gap: 8,
         padding: '2px 0',
         fontSize: 10,
         fontFamily: 'monospace',
-        alignItems: 'center',
       }}
     >
-      <span style={{ fontWeight: 600, color: '#334155', textTransform: 'uppercase' }}>
-        {service.name}
-      </span>
-      <span style={{ color: '#64748b' }}>
-        {version} {commit}
-      </span>
-      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <span
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '50px 1fr 70px',
+          gap: 8,
+          alignItems: 'center',
+        }}
+      >
+        <span style={{ fontWeight: 600, color: '#334155', textTransform: 'uppercase' }}>
+          {service.name}
+        </span>
+        <span style={{ color: '#64748b' }}>
+          {version} {commit}
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span
+            style={{
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: statusColor,
+            }}
+          />
+          <span style={{ color: statusColor, fontSize: 9 }}>{service.status}</span>
+        </span>
+      </div>
+      {/* Show reason for non-healthy status */}
+      {showReason && (
+        <div
           style={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: statusColor,
+            marginLeft: 50,
+            marginTop: 2,
+            fontSize: 9,
+            color: '#94a3b8',
+            fontStyle: 'italic',
           }}
-        />
-        <span style={{ color: statusColor, fontSize: 9 }}>{service.status}</span>
-      </span>
+        >
+          {service.error}
+        </div>
+      )}
     </div>
   )
 }
@@ -500,6 +551,80 @@ function TraceVerification({ traces }: { traces: RequestTrace[] }) {
 }
 
 /**
+ * Sensitivity Analysis section component
+ * Shows data from PLoT enrichment (Factor Sensitivity Phase 1)
+ */
+function SensitivityAnalysisSection() {
+  const enrichment = useCanvasStore((s) => s.results.enrichment)
+
+  // Check if we have any sensitivity data
+  const sensitivity = enrichment?.sensitivity_analysis
+  const hasData = sensitivity && (
+    (Array.isArray(sensitivity.edges) && sensitivity.edges.length > 0) ||
+    (Array.isArray(sensitivity.factors) && sensitivity.factors.length > 0)
+  )
+
+  if (!hasData) return null
+
+  const edgeCount = sensitivity?.edges?.length ?? 0
+  const factorCount = sensitivity?.factors?.length ?? 0
+  const factorStatus = enrichment?.metadata?.factor_sensitivity_status ?? 'unknown'
+  const islEndpoints = enrichment?.metadata?.isl_endpoints_called ?? []
+
+  return (
+    <div
+      style={{
+        padding: '8px 12px',
+        borderBottom: '1px solid #e2e8f0',
+        fontSize: 10,
+        fontFamily: 'monospace',
+      }}
+    >
+      <div
+        style={{ fontWeight: 600, marginBottom: 6, color: '#334155', cursor: 'help' }}
+        title="Sensitivity analysis from PLoT enrichment (calls ISL internally with detail_level='deep')"
+      >
+        Sensitivity Analysis
+        <span style={{ marginLeft: 4, color: '#94a3b8', fontSize: 9, fontWeight: 400 }}>ⓘ</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: '2px 8px', color: '#64748b' }}>
+        <span>Source:</span>
+        <span style={{ color: '#0ea5e9' }}>PLoT /v1/run (deep)</span>
+        <span>Edge sensitivity:</span>
+        <span style={{ color: edgeCount > 0 ? '#22c55e' : '#94a3b8' }}>
+          {edgeCount > 0 ? `${edgeCount} edges` : 'none'}
+        </span>
+        <span>Factor sensitivity:</span>
+        <span style={{ color: factorCount > 0 ? '#22c55e' : '#94a3b8' }}>
+          {factorCount > 0 ? `${factorCount} factors` : 'none'}
+        </span>
+        <span>Factor status:</span>
+        <span
+          style={{
+            color:
+              factorStatus === 'available'
+                ? '#22c55e'
+                : factorStatus === 'skipped'
+                  ? '#f59e0b'
+                  : factorStatus === 'unavailable'
+                    ? '#ef4444'
+                    : '#94a3b8',
+          }}
+        >
+          {factorStatus}
+        </span>
+        {islEndpoints.length > 0 && (
+          <>
+            <span>ISL endpoints:</span>
+            <span style={{ color: '#64748b' }}>{islEndpoints.join(', ')}</span>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
  * Debug Panel main component
  */
 export function DebugPanel() {
@@ -688,7 +813,13 @@ export function DebugPanel() {
               fontFamily: 'monospace',
             }}
           >
-            <div style={{ fontWeight: 600, marginBottom: 4, color: '#334155' }}>Versions</div>
+            <div
+              style={{ fontWeight: 600, marginBottom: 4, color: '#334155', cursor: 'help' }}
+              title="Current client build version, git branch, and build timestamp"
+            >
+              Versions
+              <span style={{ marginLeft: 4, color: '#94a3b8', fontSize: 9, fontWeight: 400 }}>ⓘ</span>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '2px 8px', color: '#64748b' }}>
               <span>Client:</span>
               <span style={{ color: '#0ea5e9' }}>{clientBuild}</span>
@@ -708,7 +839,13 @@ export function DebugPanel() {
               fontFamily: 'monospace',
             }}
           >
-            <div style={{ fontWeight: 600, marginBottom: 6, color: '#334155' }}>Services</div>
+            <div
+              style={{ fontWeight: 600, marginBottom: 6, color: '#334155', cursor: 'help' }}
+              title="Backend service health: BFF (gateway), CEE (AI engine), ISL (inference), PLoT (simulation)"
+            >
+              Services
+              <span style={{ marginLeft: 4, color: '#94a3b8', fontSize: 9, fontWeight: 400 }}>ⓘ</span>
+            </div>
             {servicesLoading ? (
               <div style={{ color: '#94a3b8', fontStyle: 'italic' }}>Loading...</div>
             ) : services.length === 0 ? (
@@ -726,9 +863,11 @@ export function DebugPanel() {
             }}
           >
             <div
-              style={{ fontWeight: 600, marginBottom: 6, fontSize: 10, fontFamily: 'monospace', color: '#334155' }}
+              style={{ fontWeight: 600, marginBottom: 6, fontSize: 10, fontFamily: 'monospace', color: '#334155', cursor: 'help' }}
+              title="Pipeline stage gates: graph_readiness (CEE draft), validation (ISL validate), run (PLoT simulate), robustness (ISL robustness)"
             >
               Stage Gates
+              <span style={{ marginLeft: 4, color: '#94a3b8', fontSize: 9, fontWeight: 400 }}>ⓘ</span>
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {ALL_GATES.map((gate) => (
@@ -737,8 +876,62 @@ export function DebugPanel() {
             </div>
           </div>
 
+          {/* Sensitivity Analysis Section (Factor Sensitivity Phase 1) */}
+          <SensitivityAnalysisSection />
+
           {/* Trace Verification Section */}
           <TraceVerification traces={traces} />
+
+          {/* Warnings Section - show non-2xx responses and errors */}
+          {(() => {
+            const warnings = traces
+              .filter((t) => t.completed && (t.error || (t.status && (t.status < 200 || t.status >= 300))))
+              .slice(0, 5)
+            if (warnings.length === 0) return null
+
+            return (
+              <div
+                style={{
+                  padding: '8px 12px',
+                  borderBottom: '1px solid #e2e8f0',
+                  background: '#fef3c7',
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: 600,
+                    marginBottom: 6,
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    color: '#92400e',
+                    cursor: 'help',
+                  }}
+                  title="Recent errors and non-2xx responses from API calls"
+                >
+                  Warnings ({warnings.length})
+                  <span style={{ marginLeft: 4, fontSize: 9, fontWeight: 400 }}>⚠️</span>
+                </div>
+                {warnings.map((w) => (
+                  <div
+                    key={w.requestId}
+                    style={{
+                      fontSize: 9,
+                      fontFamily: 'monospace',
+                      color: '#92400e',
+                      padding: '2px 0',
+                    }}
+                  >
+                    <span style={{ fontWeight: 600 }}>{w.status || 'ERR'}</span>
+                    {' '}
+                    <span>{w.endpoint.replace('/bff/', '/')}</span>
+                    {w.error && (
+                      <span style={{ color: '#b45309', marginLeft: 4 }}>— {w.error}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
 
           {/* Request Traces */}
           <div style={{ maxHeight: 200, overflowY: 'auto' }}>
@@ -753,9 +946,12 @@ export function DebugPanel() {
                 borderBottom: '1px solid #e2e8f0',
                 position: 'sticky',
                 top: 0,
+                cursor: 'help',
               }}
+              title="Recent BFF API requests with method, endpoint, status, and response time"
             >
               Recent Requests ({traces.length})
+              <span style={{ marginLeft: 4, color: '#94a3b8', fontSize: 9, fontWeight: 400 }}>ⓘ</span>
             </div>
             {/* Most recent request ID with copy button */}
             {traces.length > 0 && (

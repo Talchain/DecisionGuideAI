@@ -222,7 +222,14 @@ export const useGateStore = create<GateState>((set, get) => ({
   },
 
   getGateSnapshot: () => {
-    return { ...get().gates }
+    // Deep copy to prevent mutation of store state
+    const gates = get().gates
+    return {
+      graph_readiness: { ...gates.graph_readiness },
+      validation: { ...gates.validation },
+      run: { ...gates.run },
+      robustness: { ...gates.robustness },
+    }
   },
 }))
 
@@ -251,4 +258,45 @@ export const ALL_GATES: GateName[] = ['graph_readiness', 'validation', 'run', 'r
  */
 export function _resetGateStore(): void {
   useGateStore.getState().resetAllGates()
+}
+
+// =============================================================================
+// Factor Sensitivity Phase 1: Robustness gate helper
+// =============================================================================
+
+/**
+ * Update robustness gate based on PLoT enrichment data
+ *
+ * Called after PLoT run when enrichment is processed.
+ * Status depends on edge and factor sensitivity availability:
+ * - pass: Both edge and factor sensitivity available
+ * - warn: Edge sensitivity only, or factor sensitivity unavailable/skipped
+ * - fail: No sensitivity data available
+ *
+ * @param sensitivity - Sensitivity analysis from enrichment
+ * @param factorStatus - Factor sensitivity status from metadata
+ */
+export function updateRobustnessGate(
+  sensitivity: {
+    edges?: unknown[]
+    factors?: unknown[]
+  } | null | undefined,
+  factorStatus?: 'available' | 'unavailable' | 'skipped' | null
+): void {
+  const hasEdges = Array.isArray(sensitivity?.edges) && sensitivity.edges.length > 0
+  const hasFactors = Array.isArray(sensitivity?.factors) && sensitivity.factors.length > 0
+
+  const { setGate } = useGateStore.getState()
+
+  if (hasEdges && hasFactors) {
+    setGate('robustness', 'pass', { message: 'Full sensitivity analysis complete' })
+  } else if (hasEdges && factorStatus === 'unavailable') {
+    setGate('robustness', 'warn', { message: 'Factor sensitivity temporarily unavailable' })
+  } else if (hasEdges && factorStatus === 'skipped') {
+    setGate('robustness', 'warn', { message: 'Add factor values for full analysis' })
+  } else if (hasEdges) {
+    setGate('robustness', 'warn', { message: 'Edge sensitivity only' })
+  } else {
+    setGate('robustness', 'fail', { message: 'No sensitivity data available' })
+  }
 }

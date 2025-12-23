@@ -105,8 +105,8 @@ export interface RequestTrace {
   traceReceived?: TraceReceived
 }
 
-/** Maximum number of traces to keep */
-const MAX_TRACES = 20
+/** Maximum number of traces to keep (expanded from 20 for better debugging during sustained traffic) */
+const MAX_TRACES = 50
 
 /** Circular buffer of recent traces */
 const traces: RequestTrace[] = []

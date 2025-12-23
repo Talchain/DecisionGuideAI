@@ -14,6 +14,7 @@ import {
   computeDefaultStd,
   transformEdgesToISLv2,
   extractParameterUncertainties,
+  extractValueFromProvenance,
   transformNodesToISLGraph,
 } from '../islRequestAdapter'
 import type {
@@ -506,6 +507,102 @@ describe('islRequestAdapter', () => {
 
       // Should use observedState, not value
       expect(result.factor.mean).toBe(50)
+    })
+  })
+
+  describe('extractValueFromProvenance', () => {
+    it('extracts currency values with £ symbol', () => {
+      expect(extractValueFromProvenance('Current price is £49')).toBe(49)
+      expect(extractValueFromProvenance('hypothesis • New price £59')).toBe(59)
+    })
+
+    it('extracts currency values with k/M suffix', () => {
+      expect(extractValueFromProvenance('MRR is £15k')).toBe(15000)
+      expect(extractValueFromProvenance('Revenue £1.5M')).toBe(1500000)
+    })
+
+    it('extracts currency values with $ symbol', () => {
+      expect(extractValueFromProvenance('Price $100')).toBe(100)
+      expect(extractValueFromProvenance('ARR $2.5M')).toBe(2500000)
+    })
+
+    it('extracts percentage values as decimals', () => {
+      expect(extractValueFromProvenance('Churn rate 4%')).toBe(0.04)
+      expect(extractValueFromProvenance('Growth 20%')).toBe(0.2)
+      expect(extractValueFromProvenance('Rate is 0.5%')).toBe(0.005)
+    })
+
+    it('extracts numbers with k/M suffix (no currency)', () => {
+      expect(extractValueFromProvenance('Users 15k')).toBe(15000)
+      expect(extractValueFromProvenance('DAU 1.5M')).toBe(1500000)
+    })
+
+    it('extracts from "is X" patterns', () => {
+      expect(extractValueFromProvenance('Current value is 49')).toBe(49)
+      expect(extractValueFromProvenance('Factor = 100')).toBe(100)
+    })
+
+    it('returns null for invalid input', () => {
+      expect(extractValueFromProvenance('')).toBeNull()
+      expect(extractValueFromProvenance('No numbers here')).toBeNull()
+      expect(extractValueFromProvenance(null as any)).toBeNull()
+      expect(extractValueFromProvenance(undefined as any)).toBeNull()
+    })
+
+    it('handles comma-separated numbers', () => {
+      expect(extractValueFromProvenance('Revenue £15,000')).toBe(15000)
+      expect(extractValueFromProvenance('Value $1,500,000')).toBe(1500000)
+    })
+  })
+
+  describe('extractParameterUncertainties with provenance fallback', () => {
+    it('extracts from provenance when no other value exists', () => {
+      const nodes = [{
+        id: 'price',
+        type: 'factor',
+        data: {
+          label: 'Current Price',
+          provenance: 'hypothesis • Current price is £49'
+        }
+      }]
+
+      const result = extractParameterUncertainties(nodes as any)
+
+      expect(result.price).toBeDefined()
+      expect(result.price.mean).toBe(49)
+      expect(result.price.std).toBeCloseTo(9.8, 1) // 20% of 49
+    })
+
+    it('extracts from label when no other source', () => {
+      const nodes = [{
+        id: 'mrr',
+        type: 'factor',
+        data: {
+          label: 'Current MRR (£15k)'
+        }
+      }]
+
+      const result = extractParameterUncertainties(nodes as any)
+
+      expect(result.mrr).toBeDefined()
+      expect(result.mrr.mean).toBe(15000)
+    })
+
+    it('prioritizes observedState over provenance', () => {
+      const nodes = [{
+        id: 'price',
+        type: 'factor',
+        data: {
+          label: 'Current Price',
+          observedState: { value: 59, baseline: 49 },
+          provenance: 'hypothesis • Current price is £49'
+        }
+      }]
+
+      const result = extractParameterUncertainties(nodes as any)
+
+      // Should use observedState value (59), not provenance value (49)
+      expect(result.price.mean).toBe(59)
     })
   })
 })

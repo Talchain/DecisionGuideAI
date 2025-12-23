@@ -120,7 +120,24 @@ export function recordBffResponse(
   startTime: number,
   error?: string
 ): void {
-  const elapsedMs = Date.now() - startTime
+  const now = Date.now()
+  let elapsedMs = now - startTime
+
+  // Defensive check: if startTime is invalid (0, negative, or future), estimate from request start
+  // This catches edge cases where timing data might be corrupted
+  if (elapsedMs < 0 || elapsedMs === 0 || !startTime || startTime > now) {
+    if (import.meta.env.DEV) {
+      console.warn('[observability] Invalid startTime detected:', {
+        startTime,
+        now,
+        elapsedMs,
+        requestId,
+      })
+    }
+    // Fall back to 1ms to indicate "completed but timing unknown"
+    elapsedMs = 1
+  }
+
   const status = response?.status ?? 0
 
   // Extract observability headers from response
@@ -168,7 +185,22 @@ export function recordBffError(
   startTime: number,
   error: Error | unknown
 ): void {
-  const elapsedMs = Date.now() - startTime
+  const now = Date.now()
+  let elapsedMs = now - startTime
+
+  // Defensive check: same as recordBffResponse
+  if (elapsedMs < 0 || elapsedMs === 0 || !startTime || startTime > now) {
+    if (import.meta.env.DEV) {
+      console.warn('[observability] Invalid startTime in error path:', {
+        startTime,
+        now,
+        elapsedMs,
+        requestId,
+      })
+    }
+    elapsedMs = 1
+  }
+
   const errorMessage = error instanceof Error ? error.message : String(error)
 
   // Record in debug state

@@ -1273,9 +1273,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         // Clear stale scenario ID - user is now in draft mode
         scenarios.clearCurrentScenarioId()
         useCanvasStore.setState({ currentScenarioId: null })
-        // Clear autosave after consuming it to prevent RecoveryBanner showing
-        scenarios.clearAutosave()
-        // FIX: Set dismissed flag so RecoveryBanner doesn't show (auto-recovery already happened)
+        // FIX: Do NOT clear autosave after consuming it.
+        // Keep autosave data until user explicitly saves (scenario save) or next autosave cycle.
+        // This ensures if browser crashes again before manual save, data can still be recovered.
+        // The periodic autosave will continue to update the autosave slot.
+        // scenarios.clearAutosave() // REMOVED - see comment above
+        // Set dismissed flag so RecoveryBanner doesn't show (auto-recovery already happened)
         try {
           sessionStorage.setItem('autosave-recovery-dismissed', 'true')
         } catch { /* sessionStorage not available */ }

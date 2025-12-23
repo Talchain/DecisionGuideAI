@@ -15,6 +15,7 @@ import {
   getBlockedElement,
   getGateDefault,
   ALL_GATES,
+  updateRobustnessGate,
   type GateName,
 } from '../gate-state'
 
@@ -260,6 +261,109 @@ describe('gate-state', () => {
       expect(ALL_GATES).toContain('run')
       expect(ALL_GATES).toContain('robustness')
       expect(ALL_GATES.length).toBe(4)
+    })
+  })
+
+  // =============================================================================
+  // Factor Sensitivity Phase 1: updateRobustnessGate helper
+  // =============================================================================
+
+  describe('updateRobustnessGate', () => {
+    it('sets pass when both edges and factors are available', () => {
+      updateRobustnessGate(
+        {
+          edges: [{ edge_id: 'e1' }],
+          factors: [{ factor_id: 'f1' }],
+        },
+        'available'
+      )
+
+      const { gates } = useGateStore.getState()
+      expect(gates.robustness.status).toBe('pass')
+      expect(gates.robustness.message).toBe('Full sensitivity analysis complete')
+    })
+
+    it('sets warn when edges available but factor status is unavailable', () => {
+      updateRobustnessGate(
+        {
+          edges: [{ edge_id: 'e1' }],
+          factors: [],
+        },
+        'unavailable'
+      )
+
+      const { gates } = useGateStore.getState()
+      expect(gates.robustness.status).toBe('warn')
+      expect(gates.robustness.message).toBe('Factor sensitivity temporarily unavailable')
+    })
+
+    it('sets warn when edges available but factor status is skipped', () => {
+      updateRobustnessGate(
+        {
+          edges: [{ edge_id: 'e1' }],
+        },
+        'skipped'
+      )
+
+      const { gates } = useGateStore.getState()
+      expect(gates.robustness.status).toBe('warn')
+      expect(gates.robustness.message).toBe('Add factor values for full analysis')
+    })
+
+    it('sets warn when edges available but no factor info', () => {
+      updateRobustnessGate(
+        {
+          edges: [{ edge_id: 'e1' }],
+        },
+        null
+      )
+
+      const { gates } = useGateStore.getState()
+      expect(gates.robustness.status).toBe('warn')
+      expect(gates.robustness.message).toBe('Edge sensitivity only')
+    })
+
+    it('sets fail when no sensitivity data available (null)', () => {
+      updateRobustnessGate(null, null)
+
+      const { gates } = useGateStore.getState()
+      expect(gates.robustness.status).toBe('fail')
+      expect(gates.robustness.message).toBe('No sensitivity data available')
+    })
+
+    it('sets fail when no sensitivity data available (empty edges)', () => {
+      updateRobustnessGate(
+        {
+          edges: [],
+          factors: [],
+        },
+        'available'
+      )
+
+      const { gates } = useGateStore.getState()
+      expect(gates.robustness.status).toBe('fail')
+      expect(gates.robustness.message).toBe('No sensitivity data available')
+    })
+
+    it('handles undefined sensitivity', () => {
+      updateRobustnessGate(undefined, undefined)
+
+      const { gates } = useGateStore.getState()
+      expect(gates.robustness.status).toBe('fail')
+    })
+
+    it('sets pass when factors present regardless of factor status field', () => {
+      // Even if factorStatus is missing, having factors means we have the data
+      updateRobustnessGate(
+        {
+          edges: [{ edge_id: 'e1' }],
+          factors: [{ factor_id: 'f1' }],
+        },
+        undefined
+      )
+
+      const { gates } = useGateStore.getState()
+      expect(gates.robustness.status).toBe('pass')
     })
   })
 })

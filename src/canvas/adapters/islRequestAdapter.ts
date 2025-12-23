@@ -230,6 +230,60 @@ function extractInterventions(node: UINode): Record<string, number> {
 }
 
 /**
+ * Extract numeric value from provenance or label text.
+ * Handles common formats:
+ * - Currency: £49, $100, €50, £15k, $1.5M
+ * - Percentages: 4%, 20%
+ * - Plain numbers: 49, 1500, 1.5
+ *
+ * @param text - Provenance or label text to parse
+ * @returns Extracted numeric value or null
+ */
+export function extractValueFromProvenance(text: string): number | null {
+  if (!text || typeof text !== 'string') return null
+
+  // Pattern 1: Currency with optional k/M suffix
+  // Matches: £49, $100, €50, £15k, $1.5M, £15,000
+  const currencyMatch = text.match(/[£$€]([\d,]+(?:\.\d+)?)\s*(k|m|K|M)?/i)
+  if (currencyMatch) {
+    let value = parseFloat(currencyMatch[1].replace(/,/g, ''))
+    const suffix = currencyMatch[2]?.toLowerCase()
+    if (suffix === 'k') value *= 1000
+    if (suffix === 'm') value *= 1000000
+    if (!isNaN(value)) return value
+  }
+
+  // Pattern 2: Percentage
+  // Matches: 4%, 20%, 0.5%
+  const percentMatch = text.match(/([\d.]+)\s*%/)
+  if (percentMatch) {
+    const value = parseFloat(percentMatch[1])
+    if (!isNaN(value)) return value / 100 // Return as decimal
+  }
+
+  // Pattern 3: Number with k/M suffix (no currency symbol)
+  // Matches: 15k, 1.5M, 100K
+  const suffixMatch = text.match(/\b([\d.]+)\s*(k|m|K|M)\b/)
+  if (suffixMatch) {
+    let value = parseFloat(suffixMatch[1])
+    const suffix = suffixMatch[2]?.toLowerCase()
+    if (suffix === 'k') value *= 1000
+    if (suffix === 'm') value *= 1000000
+    if (!isNaN(value)) return value
+  }
+
+  // Pattern 4: "is X" or "= X" patterns (common in provenance)
+  // Matches: "is 49", "= 100", "is 1.5"
+  const isMatch = text.match(/(?:is|=)\s+([\d.]+)\b/)
+  if (isMatch) {
+    const value = parseFloat(isMatch[1])
+    if (!isNaN(value)) return value
+  }
+
+  return null
+}
+
+/**
  * Extract parameter uncertainties from factor nodes for ISL analysis.
  * Brief I Task 1: Handles multiple data formats for robustness.
  * Brief v2.2: Added support for observedState format from CEE v2.
@@ -331,6 +385,36 @@ export function extractParameterUncertainties(
       std = 0.1
       if (import.meta.env.DEV) {
         console.log(`[ISL Adapter] Factor ${node.id}: extracted from probability`, { mean, std })
+      }
+    }
+
+    // Format 6: Extract from provenance text (fallback)
+    // Provenance often contains values like "hypothesis • Current price is £49"
+    if (mean === null && data.provenance) {
+      const provText = typeof data.provenance === 'string'
+        ? data.provenance
+        : (data.provenance as { quote?: string })?.quote ?? ''
+
+      const extractedValue = extractValueFromProvenance(provText)
+      if (extractedValue !== null) {
+        mean = extractedValue
+        std = Math.abs(mean) * 0.2 || 0.1 // Default 20% uncertainty for provenance-extracted values
+        if (import.meta.env.DEV) {
+          console.log(`[ISL Adapter] Factor ${node.id}: extracted from provenance`, { provText, mean, std })
+        }
+      }
+    }
+
+    // Format 7: Extract from label text (last resort)
+    // Labels may contain values like "Current Pro plan price (£49)"
+    if (mean === null && data.label) {
+      const extractedValue = extractValueFromProvenance(data.label)
+      if (extractedValue !== null) {
+        mean = extractedValue
+        std = Math.abs(mean) * 0.2 || 0.1
+        if (import.meta.env.DEV) {
+          console.log(`[ISL Adapter] Factor ${node.id}: extracted from label`, { label: data.label, mean, std })
+        }
       }
     }
 

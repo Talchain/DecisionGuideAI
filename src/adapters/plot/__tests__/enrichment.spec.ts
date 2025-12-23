@@ -14,6 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import {
   hasEnrichment,
   hasSensitivityAnalysis,
+  hasFactorSensitivity,
   hasCausalValidation,
   hasRobustnessAnalysis,
   hasValidation,
@@ -26,8 +27,10 @@ import {
   getRobustnessData,
   getValidationData,
   getEnrichmentAvailability,
+  adaptFactorToSensitiveParam,
   type PLoTResponseWithEnrichment,
   type PLoTEnrichment,
+  type PLoTFactorSensitivity,
 } from '../enrichment'
 
 // Mock the feature flag module
@@ -100,6 +103,23 @@ function createFullEnrichment(): PLoTEnrichment {
           sensitivity_score: 0.4,
         },
       ],
+      factors: [
+        {
+          factor_id: 'price',
+          sensitivity_score: 0.85,
+          direction: 'negative',
+        },
+        {
+          factor_id: 'demand',
+          sensitivity_score: 0.6,
+          direction: 'positive',
+        },
+        {
+          factor_id: 'complexity',
+          sensitivity_score: 0.45,
+          direction: 'mixed',
+        },
+      ],
       top_drivers: ['factor1', 'factor2'],
       fragile_edges: ['e1'],
     },
@@ -108,6 +128,9 @@ function createFullEnrichment(): PLoTEnrichment {
       detail_level: 'deep',
       isl_latency_ms: 150,
       isl_degraded: false,
+      factor_sensitivity_status: 'available',
+      factor_sensitivity_count: 3,
+      isl_endpoints_called: ['/causal/sensitivity/detailed', '/robustness/analyze/v2'],
     },
   }
 }
@@ -183,6 +206,51 @@ describe('PLoT Enrichment Adapters', () => {
       it('returns true for valid sensitivity_analysis', () => {
         const enrichment = createFullEnrichment()
         expect(hasSensitivityAnalysis(enrichment)).toBe(true)
+      })
+    })
+
+    describe('hasFactorSensitivity', () => {
+      it('returns false for null enrichment', () => {
+        expect(hasFactorSensitivity(null)).toBe(false)
+      })
+
+      it('returns false for undefined enrichment', () => {
+        expect(hasFactorSensitivity(undefined)).toBe(false)
+      })
+
+      it('returns false for enrichment without sensitivity_analysis', () => {
+        const enrichment: PLoTEnrichment = {
+          metadata: { isl_enabled: true, detail_level: 'standard' },
+        }
+        expect(hasFactorSensitivity(enrichment)).toBe(false)
+      })
+
+      it('returns false for sensitivity_analysis without factors', () => {
+        const enrichment = {
+          metadata: { isl_enabled: true, detail_level: 'deep' },
+          sensitivity_analysis: {
+            overall_robustness: 0.5,
+            edges: [{ edge_id: 'e1', from: 'a', to: 'b', sensitivity_score: 0.5 }],
+          },
+        } as PLoTEnrichment
+        expect(hasFactorSensitivity(enrichment)).toBe(false)
+      })
+
+      it('returns false for empty factors array', () => {
+        const enrichment = {
+          metadata: { isl_enabled: true, detail_level: 'deep' },
+          sensitivity_analysis: {
+            overall_robustness: 0.5,
+            edges: [{ edge_id: 'e1', from: 'a', to: 'b', sensitivity_score: 0.5 }],
+            factors: [],
+          },
+        } as PLoTEnrichment
+        expect(hasFactorSensitivity(enrichment)).toBe(false)
+      })
+
+      it('returns true for valid factors array', () => {
+        const enrichment = createFullEnrichment()
+        expect(hasFactorSensitivity(enrichment)).toBe(true)
       })
     })
 
@@ -343,10 +411,17 @@ describe('PLoT Enrichment Adapters', () => {
 
       expect(result).not.toBe(null)
       expect(result!.robustness_label).toBe('robust') // 0.75 overall_robustness
-      expect(result!.sensitivity).toHaveLength(2)
-      expect(result!.sensitivity[0].sensitivity).toBe(0.8) // highest first
-      expect(result!.sensitivity[1].sensitivity).toBe(0.4)
+      // 3 factors + 2 edges = 5 total sensitivity items (factors sorted first, then edges)
+      expect(result!.sensitivity).toHaveLength(5)
+      // Factors come first (sorted by sensitivity score), then edges
+      expect(result!.sensitivity[0].node_id).toBe('price') // factor: 0.85
+      expect(result!.sensitivity[0].sensitivity).toBe(0.85)
+      expect(result!.sensitivity[1].node_id).toBe('demand') // factor: 0.6
+      expect(result!.sensitivity[2].node_id).toBe('complexity') // factor: 0.45
+      expect(result!.sensitivity[3].sensitivity).toBe(0.8) // edge: highest
+      expect(result!.sensitivity[4].sensitivity).toBe(0.4) // edge: second
       expect(result!.narrative).toContain('robust')
+      expect(result!.narrative).toContain('3 factors') // narrative includes factor count
     })
 
     it('derives correct robustness labels from scores', () => {
@@ -586,13 +661,19 @@ describe('PLoT Enrichment Adapters', () => {
         degraded: false,
         detailLevel: null,
         hasSensitivity: false,
+        hasFactorSensitivity: false,
         hasValidation: false,
+        factorSensitivityStatus: null,
+        factorSensitivityCount: 0,
+        islEndpointsCalled: [],
       })
     })
 
     it('returns unavailable for response without enrichment', () => {
       const availability = getEnrichmentAvailability(createMinimalResponse())
       expect(availability.available).toBe(false)
+      expect(availability.hasFactorSensitivity).toBe(false)
+      expect(availability.factorSensitivityCount).toBe(0)
     })
 
     it('returns full availability info for complete enrichment', () => {
@@ -604,7 +685,11 @@ describe('PLoT Enrichment Adapters', () => {
         degraded: false,
         detailLevel: 'deep',
         hasSensitivity: true,
+        hasFactorSensitivity: true,
         hasValidation: true,
+        factorSensitivityStatus: 'available',
+        factorSensitivityCount: 3,
+        islEndpointsCalled: ['/causal/sensitivity/detailed', '/robustness/analyze/v2'],
       })
     })
 
@@ -616,6 +701,93 @@ describe('PLoT Enrichment Adapters', () => {
 
       expect(availability.available).toBe(true)
       expect(availability.degraded).toBe(true)
+      expect(availability.hasFactorSensitivity).toBe(false)
+    })
+
+    it('handles factor sensitivity without explicit status', () => {
+      const response = createResponseWithEnrichment({
+        sensitivity_analysis: {
+          overall_robustness: 0.5,
+          edges: [{ edge_id: 'e1', from: 'a', to: 'b', sensitivity_score: 0.5 }],
+          factors: [{ factor_id: 'f1', sensitivity_score: 0.7, direction: 'positive' }],
+        },
+        metadata: { isl_enabled: true, detail_level: 'deep' },
+      })
+      const availability = getEnrichmentAvailability(response)
+
+      expect(availability.hasFactorSensitivity).toBe(true)
+      expect(availability.factorSensitivityStatus).toBe('available')
+      expect(availability.factorSensitivityCount).toBe(1)
+    })
+  })
+
+  // =============================================================================
+  // Factor Sensitivity Adapter Tests
+  // =============================================================================
+
+  describe('adaptFactorToSensitiveParam', () => {
+    it('adapts positive direction factor correctly', () => {
+      const factor: PLoTFactorSensitivity = {
+        factor_id: 'revenue',
+        sensitivity_score: 0.8,
+        direction: 'positive',
+      }
+
+      const result = adaptFactorToSensitiveParam(factor)
+
+      expect(result.node_id).toBe('revenue')
+      expect(result.label).toBe('revenue')
+      expect(result.direction).toBe('increase')
+      expect(result.sensitivity).toBe(0.8)
+      expect(result.explanation).toBe('Impact direction: positive')
+      // High sensitivity (> 0.7) should have lower flip threshold
+      expect(result.flip_threshold).toBe(0.3)
+    })
+
+    it('adapts negative direction factor correctly', () => {
+      const factor: PLoTFactorSensitivity = {
+        factor_id: 'cost',
+        sensitivity_score: 0.6,
+        direction: 'negative',
+      }
+
+      const result = adaptFactorToSensitiveParam(factor)
+
+      expect(result.node_id).toBe('cost')
+      expect(result.direction).toBe('decrease')
+      expect(result.sensitivity).toBe(0.6)
+      expect(result.explanation).toBe('Impact direction: negative')
+      // Medium sensitivity (<= 0.7) should have standard flip threshold
+      expect(result.flip_threshold).toBe(0.5)
+    })
+
+    it('adapts mixed direction factor with explanatory note', () => {
+      const factor: PLoTFactorSensitivity = {
+        factor_id: 'complexity',
+        sensitivity_score: 0.5,
+        direction: 'mixed',
+      }
+
+      const result = adaptFactorToSensitiveParam(factor)
+
+      expect(result.node_id).toBe('complexity')
+      // Mixed defaults to 'increase'
+      expect(result.direction).toBe('increase')
+      expect(result.sensitivity).toBe(0.5)
+      // Mixed direction should have special explanation
+      expect(result.explanation).toBe('Non-monotonic impact: effect varies with value')
+    })
+
+    it('uses default current_value of 0.5', () => {
+      const factor: PLoTFactorSensitivity = {
+        factor_id: 'test',
+        sensitivity_score: 0.3,
+        direction: 'positive',
+      }
+
+      const result = adaptFactorToSensitiveParam(factor)
+
+      expect(result.current_value).toBe(0.5)
     })
   })
 

@@ -64,14 +64,29 @@ export interface PLoTEdgeSensitivity {
 }
 
 /**
+ * Factor sensitivity data from PLoT enrichment (Phase 1 - deep mode only)
+ * From ISL /robustness/analyze/v2 endpoint
+ */
+export interface PLoTFactorSensitivity {
+  /** Factor node ID */
+  factor_id: string
+  /** Sensitivity score (0-1, higher = more sensitive) */
+  sensitivity_score: number
+  /** Direction of impact on outcome */
+  direction: 'positive' | 'negative' | 'mixed'
+}
+
+/**
  * Sensitivity analysis data from PLoT enrichment
- * Contains robustness assessment and sensitive edges
+ * Contains robustness assessment, sensitive edges, and factor sensitivity
  */
 export interface PLoTSensitivityAnalysis {
-  /** Overall robustness score (0-1, higher = more robust) */
-  overall_robustness?: number
-  /** Per-edge sensitivity data */
+  /** Overall robustness label (derived from analysis) */
+  overall_robustness?: 'robust' | 'moderate' | 'fragile' | number
+  /** Per-edge sensitivity data (from ISL /causal/sensitivity/detailed) */
   edges: PLoTEdgeSensitivity[]
+  /** Per-factor sensitivity data (from ISL /robustness/analyze/v2 - deep mode only) */
+  factors?: PLoTFactorSensitivity[]
   /** Top driver node IDs */
   top_drivers?: string[]
   /** Edge IDs that are particularly fragile */
@@ -90,6 +105,12 @@ export interface PLoTEnrichmentMetadata {
   isl_latency_ms?: number
   /** Whether ISL returned degraded results (timeout/error) */
   isl_degraded?: boolean
+  /** ISL endpoints that were called (for debugging) */
+  isl_endpoints_called?: string[]
+  /** Factor sensitivity availability status */
+  factor_sensitivity_status?: 'available' | 'unavailable' | 'skipped'
+  /** Number of factors with sensitivity data */
+  factor_sensitivity_count?: number
 }
 
 /**
@@ -163,7 +184,7 @@ export function hasEnrichment(
 }
 
 /**
- * Check if enrichment contains sensitivity analysis data
+ * Check if enrichment contains sensitivity analysis data (edges)
  */
 export function hasSensitivityAnalysis(
   enrichment: PLoTEnrichment | null | undefined
@@ -174,6 +195,19 @@ export function hasSensitivityAnalysis(
     enrichment.sensitivity_analysis !== null &&
     enrichment.sensitivity_analysis !== undefined &&
     Array.isArray(enrichment.sensitivity_analysis.edges)
+  )
+}
+
+/**
+ * Check if enrichment contains factor sensitivity data (Phase 1)
+ */
+export function hasFactorSensitivity(
+  enrichment: PLoTEnrichment | null | undefined
+): boolean {
+  return (
+    hasSensitivityAnalysis(enrichment) &&
+    Array.isArray(enrichment.sensitivity_analysis.factors) &&
+    enrichment.sensitivity_analysis.factors.length > 0
   )
 }
 
@@ -252,6 +286,39 @@ function adaptEdgeToSensitiveParam(edge: PLoTEdgeSensitivity): SensitiveParamete
 }
 
 /**
+ * Adapt PLoT factor sensitivity to UI SensitiveParameter format
+ *
+ * Direction mapping:
+ * - 'positive': Higher values increase outcome → 'increase'
+ * - 'negative': Higher values decrease outcome → 'decrease'
+ * - 'mixed': Non-monotonic relationship → defaults to 'increase' with explanatory note
+ *
+ * @internal Exported for testing
+ */
+export function adaptFactorToSensitiveParam(factor: PLoTFactorSensitivity): SensitiveParameter {
+  // Map PLoT direction to UI direction (UI only supports increase/decrease)
+  // For 'mixed' direction, we default to 'increase' but add context in explanation
+  const uiDirection: 'increase' | 'decrease' =
+    factor.direction === 'negative' ? 'decrease' : 'increase'
+
+  // Build explanation based on direction type
+  const explanation =
+    factor.direction === 'mixed'
+      ? 'Non-monotonic impact: effect varies with value'
+      : `Impact direction: ${factor.direction}`
+
+  return {
+    node_id: factor.factor_id,
+    label: factor.factor_id, // Will be enhanced with node labels in UI
+    current_value: 0.5, // Placeholder - actual value from node
+    flip_threshold: factor.sensitivity_score > 0.7 ? 0.3 : 0.5,
+    direction: uiDirection,
+    sensitivity: factor.sensitivity_score,
+    explanation,
+  }
+}
+
+/**
  * Extract robustness data from PLoT enrichment
  *
  * Returns null if:
@@ -306,14 +373,24 @@ export function extractRobustnessFromEnrichment(
     const sortedEdges = [...sensitivity.edges].sort(
       (a, b) => b.sensitivity_score - a.sensitivity_score
     )
-    const topSensitiveParams = sortedEdges.slice(0, 5).map(adaptEdgeToSensitiveParam)
+    const topEdgeParams = sortedEdges.slice(0, 5).map(adaptEdgeToSensitiveParam)
 
-    // Derive robustness label
-    const robustnessLabel = deriveRobustnessLabel(sensitivity.overall_robustness)
+    // Adapt factor sensitivities to UI format (Phase 1 - deep mode)
+    const factors = sensitivity.factors ?? []
+    const sortedFactors = [...factors].sort(
+      (a, b) => b.sensitivity_score - a.sensitivity_score
+    )
+    const topFactorParams = sortedFactors.slice(0, 5).map(adaptFactorToSensitiveParam)
 
-    // Build minimal robustness result
-    // Note: PLoT enrichment doesn't include full option rankings or VOI
-    // Those would need separate ISL calls if required
+    // Combine edge and factor sensitivities (factors first as more actionable)
+    const allSensitiveParams = [...topFactorParams, ...topEdgeParams].slice(0, 8)
+
+    // Derive robustness label (use string label if provided, otherwise score)
+    const robustnessLabel = typeof sensitivity.overall_robustness === 'string'
+      ? sensitivity.overall_robustness as RobustnessLabel
+      : deriveRobustnessLabel(sensitivity.overall_robustness)
+
+    // Build robustness result with both edge and factor sensitivity
     const result: RobustnessResult = {
       option_rankings: [],
       recommendation: {
@@ -321,15 +398,20 @@ export function extractRobustnessFromEnrichment(
         confidence: 'medium',
         recommendation_status: 'uncertain',
       },
-      sensitivity: topSensitiveParams,
+      sensitivity: allSensitiveParams,
       robustness_label: robustnessLabel,
       robustness_bounds: [],
-      value_of_information: [],
+      value_of_information: [], // VOI not included in Phase 1
       narrative: generateNarrativeFromSensitivity(sensitivity, robustnessLabel),
     }
 
     if (import.meta.env.DEV) {
-      console.log('[PLoT Enrichment] Extracted robustness from enrichment:', result)
+      console.log('[PLoT Enrichment] Extracted robustness from enrichment:', {
+        edgeCount: sensitivity.edges.length,
+        factorCount: factors.length,
+        robustnessLabel,
+        result,
+      })
     }
 
     return result
@@ -348,16 +430,22 @@ function generateNarrativeFromSensitivity(
   sensitivity: PLoTSensitivityAnalysis,
   label: RobustnessLabel
 ): string {
-  const fragileCount = sensitivity.fragile_edges?.length ?? 0
+  const fragileEdgeCount = sensitivity.fragile_edges?.length ?? 0
+  const factorCount = sensitivity.factors?.length ?? 0
   const topDrivers = sensitivity.top_drivers?.slice(0, 3).join(', ') ?? 'unknown factors'
+
+  // Include factor info in narrative
+  const factorInfo = factorCount > 0
+    ? `${factorCount} factor${factorCount === 1 ? '' : 's'} analyzed for sensitivity. `
+    : ''
 
   switch (label) {
     case 'robust':
-      return `The analysis is robust to parameter uncertainty. Key drivers are ${topDrivers}.`
+      return `${factorInfo}The analysis is robust to parameter uncertainty. Key drivers are ${topDrivers}.`
     case 'moderate':
-      return `The analysis shows moderate sensitivity to some parameters. ${fragileCount > 0 ? `${fragileCount} edges are particularly sensitive.` : ''} Key drivers are ${topDrivers}.`
+      return `${factorInfo}The analysis shows moderate sensitivity to some parameters. ${fragileEdgeCount > 0 ? `${fragileEdgeCount} edges are particularly sensitive.` : ''} Key drivers are ${topDrivers}.`
     case 'fragile':
-      return `The recommendation is sensitive to parameter values. ${fragileCount} edges could flip the outcome. Consider reducing uncertainty in ${topDrivers}.`
+      return `${factorInfo}The recommendation is sensitive to parameter values. ${fragileEdgeCount} edges could flip the outcome. Consider reducing uncertainty in ${topDrivers}.`
   }
 }
 
@@ -551,7 +639,11 @@ export function logEnrichmentStatus(
     console.log('ISL enabled:', e.metadata.isl_enabled)
     console.log('ISL degraded:', e.metadata.isl_degraded ?? false)
     console.log('ISL latency:', e.metadata.isl_latency_ms ?? 'N/A', 'ms')
-    console.log('Has sensitivity:', hasSensitivityAnalysis(e))
+    console.log('ISL endpoints called:', e.metadata.isl_endpoints_called ?? [])
+    console.log('Has edge sensitivity:', hasSensitivityAnalysis(e))
+    console.log('Has factor sensitivity:', hasFactorSensitivity(e))
+    console.log('Factor sensitivity status:', e.metadata.factor_sensitivity_status ?? 'N/A')
+    console.log('Factor count:', e.sensitivity_analysis?.factors?.length ?? 0)
     console.log('Has validation:', hasCausalValidation(e))
   }
 
@@ -568,7 +660,11 @@ export function getEnrichmentAvailability(
   degraded: boolean
   detailLevel: 'quick' | 'standard' | 'deep' | null
   hasSensitivity: boolean
+  hasFactorSensitivity: boolean
   hasValidation: boolean
+  factorSensitivityStatus: 'available' | 'unavailable' | 'skipped' | null
+  factorSensitivityCount: number
+  islEndpointsCalled: string[]
 } {
   if (!hasEnrichment(response)) {
     return {
@@ -576,17 +672,26 @@ export function getEnrichmentAvailability(
       degraded: false,
       detailLevel: null,
       hasSensitivity: false,
+      hasFactorSensitivity: false,
       hasValidation: false,
+      factorSensitivityStatus: null,
+      factorSensitivityCount: 0,
+      islEndpointsCalled: [],
     }
   }
 
   const e = response.enrichment
+  const hasFactors = hasFactorSensitivity(e)
   return {
     available: true,
     degraded: isEnrichmentDegraded(e),
     detailLevel: e.metadata.detail_level,
     hasSensitivity: hasSensitivityAnalysis(e),
+    hasFactorSensitivity: hasFactors,
     hasValidation: hasCausalValidation(e),
+    factorSensitivityStatus: e.metadata.factor_sensitivity_status ?? (hasFactors ? 'available' : null),
+    factorSensitivityCount: e.metadata.factor_sensitivity_count ?? (e.sensitivity_analysis?.factors?.length ?? 0),
+    islEndpointsCalled: e.metadata.isl_endpoints_called ?? [],
   }
 }
 

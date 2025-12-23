@@ -126,7 +126,18 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
         ? uncRaw
         : fallbackUncertainty
 
-    return { id, label, type, uncertainty }
+    // Preserve observed_state for factor nodes (Brief I fix)
+    const observed_state = (n as any).observed_state
+    const hasObservedState = observed_state && typeof observed_state === 'object' &&
+      typeof observed_state.value === 'number'
+
+    return {
+      id,
+      label,
+      type,
+      uncertainty,
+      ...(hasObservedState ? { observed_state } : {}),
+    }
   })
 
   const edges = rawEdges
