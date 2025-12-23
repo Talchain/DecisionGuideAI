@@ -1275,6 +1275,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         useCanvasStore.setState({ currentScenarioId: null })
         // Clear autosave after consuming it to prevent RecoveryBanner showing
         scenarios.clearAutosave()
+        // FIX: Set dismissed flag so RecoveryBanner doesn't show (auto-recovery already happened)
+        try {
+          sessionStorage.setItem('autosave-recovery-dismissed', 'true')
+        } catch { /* sessionStorage not available */ }
 
         console.log('[SCENARIO_STATE]', {
           source: 'autosave',
