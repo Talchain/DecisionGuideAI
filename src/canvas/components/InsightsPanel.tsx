@@ -291,10 +291,43 @@ export function InsightsPanel({
     cleanedSummary: stripPercentageFromSummary(rawSummary),
   }), [topDrivers, goalDirection, rawSummary, driversInformative])
 
-  // Prefer driver insight, fall back to cleaned summary
-  const summary = driverInsight || (cleanedSummary.length > 20 ? cleanedSummary : rawSummary)
+  // P0.1 FIX 1: Check if summary contains driver-based language that shouldn't show
+  const summaryContainsDriverLanguage = useMemo(() => {
+    const lowerSummary = cleanedSummary.toLowerCase()
+    return lowerSummary.includes('driving') ||
+           lowerSummary.includes('driver') ||
+           lowerSummary.includes('is strongly') ||
+           lowerSummary.includes('is moderately')
+  }, [cleanedSummary])
 
-  const hasDetails = risks.length > 0 || next_steps.length > 0
+  // P0.1: If drivers not informative and summary has driver language, use neutral fallback
+  const summary = useMemo(() => {
+    if (driverInsight) return driverInsight
+    if (!driversInformative && summaryContainsDriverLanguage) {
+      return 'Analysis complete. Review the outcome above for details.'
+    }
+    return cleanedSummary.length > 20 ? cleanedSummary : rawSummary
+  }, [driverInsight, driversInformative, summaryContainsDriverLanguage, cleanedSummary, rawSummary])
+
+  // P0.1 FIX 2: Filter driver language from next steps when drivers not informative
+  const filteredNextSteps = useMemo(() => {
+    if (driversInformative) return next_steps
+
+    return next_steps.filter(step => {
+      const label = typeof step === 'string' ? step : step?.label ?? ''
+      const lowerText = label.toLowerCase()
+      // Exclude driver-based recommendations
+      if (lowerText.includes('primary outcome driver') ||
+          lowerText.includes('outcome driver') ||
+          lowerText.includes('key driver') ||
+          (lowerText.includes('driver') && lowerText.includes('outcome'))) {
+        return false
+      }
+      return true
+    })
+  }, [next_steps, driversInformative])
+
+  const hasDetails = risks.length > 0 || filteredNextSteps.length > 0
 
   return (
     <div
@@ -382,8 +415,8 @@ export function InsightsPanel({
             </div>
           )}
 
-          {/* Next Steps */}
-          {next_steps.length > 0 && (
+          {/* Next Steps - P0.1: Uses filteredNextSteps to exclude driver language */}
+          {filteredNextSteps.length > 0 && (
             <div className="pt-2">
               <div className="flex items-center gap-1.5 mb-2">
                 <Lightbulb
@@ -400,7 +433,7 @@ export function InsightsPanel({
                 aria-label="Recommended next steps"
                 data-testid="next-steps-list"
               >
-                {next_steps.map((step, index) => {
+                {filteredNextSteps.map((step, index) => {
                   const label = typeof step === 'string' ? step : step?.label ?? ''
                   const nodeId = typeof step === 'string' ? undefined : step?.nodeId
 
