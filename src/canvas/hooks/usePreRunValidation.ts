@@ -17,7 +17,8 @@ import { useCanvasStore } from '../store'
 import type { Node, Edge } from '@xyflow/react'
 import type { UIOption } from '../../types/options'
 import { normaliseOptionFromLegacyNode, type LegacyOptionNode } from '../../types/options'
-import { validateAllEdges, EdgeValidationError } from '../../adapters/plot/v2'
+import { validateAllEdges, EdgeValidationError, ceeOptionToUIOption } from '../../adapters/plot/v2'
+import type { CEEAnalysisReady } from '../../adapters/cee/types'
 
 // ============================================================================
 // Types
@@ -126,15 +127,67 @@ function validateGoalNode(
 }
 
 /**
- * Extract and validate options from canvas nodes.
+ * Extract and validate options.
+ *
+ * Priority:
+ * 1. If ceeAnalysisReady has options, use those (CEE has resolved interventions)
+ * 2. Otherwise, extract from canvas nodes (legacy fallback)
  */
 function validateOptions(
-  nodes: Node[]
+  nodes: Node[],
+  ceeAnalysisReady?: CEEAnalysisReady | null
 ): { options: UIOption[]; blockers: ValidationBlocker[]; warnings: ValidationWarning[] } {
   const blockers: ValidationBlocker[] = []
   const warnings: ValidationWarning[] = []
 
-  // Extract option nodes
+  // Priority 1: Use ceeAnalysisReady options if available
+  // These come from CEE with resolved interventions and are authoritative
+  if (ceeAnalysisReady?.options?.length) {
+    const options = ceeAnalysisReady.options.map(ceeOptionToUIOption)
+
+    if (import.meta.env.DEV) {
+      console.log('[PreRunValidation] Using ceeAnalysisReady options:', {
+        count: options.length,
+        statuses: options.map((o) => ({ id: o.id, status: o.status })),
+      })
+    }
+
+    // Check for options needing mapping (CEE may return some as needs_user_mapping)
+    const needsMappingOptions = options.filter((o) => o.status === 'needs_user_mapping')
+    if (needsMappingOptions.length > 0) {
+      blockers.push({
+        code: 'OPTIONS_NEED_MAPPING',
+        message: `${needsMappingOptions.length} option(s) need intervention values`,
+        affectedIds: needsMappingOptions.map((o) => o.id),
+        action: {
+          type: 'configure_option',
+          label: 'Configure options',
+          optionId: needsMappingOptions[0].id,
+        },
+      })
+    }
+
+    // Check for options with empty interventions
+    const emptyInterventionOptions = options.filter(
+      (o) => o.status === 'ready' && Object.keys(o.interventions).length === 0
+    )
+    if (emptyInterventionOptions.length > 0) {
+      blockers.push({
+        code: 'EMPTY_INTERVENTIONS',
+        message: `${emptyInterventionOptions.length} option(s) have no interventions`,
+        affectedIds: emptyInterventionOptions.map((o) => o.id),
+        action: {
+          type: 'configure_option',
+          label: 'Add interventions',
+          optionId: emptyInterventionOptions[0].id,
+        },
+      })
+    }
+
+    return { options, blockers, warnings }
+  }
+
+  // Priority 2: Extract from canvas nodes (legacy fallback)
   const optionNodes = nodes.filter(
     (n) => n.type === 'option' || n.type === 'decision'
   )
@@ -153,6 +206,13 @@ function validateOptions(
   const options = optionNodes.map((node) =>
     normaliseOptionFromLegacyNode(node as unknown as LegacyOptionNode, validNodeIds)
   )
+
+  if (import.meta.env.DEV) {
+    console.log('[PreRunValidation] Using canvas node options (no ceeAnalysisReady):', {
+      count: options.length,
+      statuses: options.map((o) => ({ id: o.id, status: o.status })),
+    })
+  }
 
   // Check for options needing mapping
   // P0: Block analysis until options have interventions configured
@@ -318,11 +378,17 @@ function checkIdenticalOptions(
 
 /**
  * Main validation function - pure, no side effects.
+ *
+ * @param goalNodeId - The selected goal node ID
+ * @param nodes - Canvas nodes
+ * @param edges - Canvas edges (optional)
+ * @param ceeAnalysisReady - CEE analysis_ready payload (optional, takes priority over canvas nodes for options)
  */
 export function validateBeforeRun(
   goalNodeId: string | null,
   nodes: Node[],
-  edges?: Edge[]
+  edges?: Edge[],
+  ceeAnalysisReady?: CEEAnalysisReady | null
 ): ValidationResult {
   const allBlockers: ValidationBlocker[] = []
   const allWarnings: ValidationWarning[] = []
@@ -333,8 +399,8 @@ export function validateBeforeRun(
   allBlockers.push(...goalValidation.blockers)
   allFixes.push(...goalValidation.fixes)
 
-  // 2. Validate options
-  const { options, blockers: optBlockers, warnings: optWarnings } = validateOptions(nodes)
+  // 2. Validate options (ceeAnalysisReady takes priority when available)
+  const { options, blockers: optBlockers, warnings: optWarnings } = validateOptions(nodes, ceeAnalysisReady)
   allBlockers.push(...optBlockers)
   allWarnings.push(...optWarnings)
 
@@ -374,16 +440,20 @@ export function validateBeforeRun(
  *
  * Returns validation result and automatically applies recommended fixes
  * for stale references (once, not on every render).
+ *
+ * When ceeAnalysisReady is present in the store, its options take priority
+ * over canvas node options for validation (CEE has resolved interventions).
  */
 export function usePreRunValidation(): ValidationResult {
   const outcomeNodeId = useCanvasStore((s) => s.outcomeNodeId)
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
+  const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
   const setOutcomeNode = useCanvasStore((s) => s.setOutcomeNode)
 
   const validation = useMemo(
-    () => validateBeforeRun(outcomeNodeId, nodes, edges),
-    [outcomeNodeId, nodes, edges]
+    () => validateBeforeRun(outcomeNodeId, nodes, edges, ceeAnalysisReady),
+    [outcomeNodeId, nodes, edges, ceeAnalysisReady]
   )
 
   // Apply recommended fixes (once, not on every render)
