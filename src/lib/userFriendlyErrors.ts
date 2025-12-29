@@ -53,6 +53,9 @@ export interface ErrorInput {
 
   /** Whether results are still partially available */
   hasPartialResults?: boolean
+
+  /** Explicit canRetry flag from error object (takes precedence) */
+  canRetry?: boolean
 }
 
 // =============================================================================
@@ -117,6 +120,14 @@ const ERROR_MESSAGES: Record<string, Omit<UserFriendlyError, 'canRetry'>> = {
     headline: 'Too many requests',
     explanation: 'Please wait a moment before trying again.',
     actionText: 'Wait and Retry',
+    severity: 'warning',
+  },
+
+  // Validation errors from backend (422)
+  'VALIDATION_BLOCKED': {
+    headline: 'Model needs adjustment',
+    explanation: 'Each option needs intervention values before analysis can run. Click an option node to configure.',
+    actionText: 'Review Model',
     severity: 'warning',
   },
 
@@ -203,6 +214,14 @@ export function getUserFriendlyError(input: ErrorInput): UserFriendlyError {
   // Priority: code > status > network error > default
   if (input.code && ERROR_MESSAGES[input.code]) {
     baseError = ERROR_MESSAGES[input.code]
+
+    // For validation errors, use the backend's specific message if non-empty
+    if (input.code === 'VALIDATION_BLOCKED' && input.message?.trim()) {
+      baseError = {
+        ...baseError,
+        explanation: input.message,
+      }
+    }
   } else if (input.status && STATUS_MESSAGES[input.status]) {
     baseError = STATUS_MESSAGES[input.status]
   } else if (input.isNetworkError) {
@@ -221,8 +240,10 @@ export function getUserFriendlyError(input: ErrorInput): UserFriendlyError {
     }
   }
 
-  // Determine if retryable
-  const canRetry = !['UNAUTHORIZED', 'FORBIDDEN', 'INVALID_INPUT', 'EMPTY_GRAPH'].includes(input.code || '')
+  // Use explicit canRetry if provided, otherwise determine from error code
+  const canRetry = input.canRetry !== undefined
+    ? input.canRetry
+    : !['UNAUTHORIZED', 'FORBIDDEN', 'INVALID_INPUT', 'EMPTY_GRAPH', 'VALIDATION_BLOCKED'].includes(input.code || '')
 
   return {
     ...baseError,

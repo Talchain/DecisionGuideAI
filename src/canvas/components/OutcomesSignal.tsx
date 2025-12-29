@@ -91,9 +91,19 @@ export function OutcomesSignal({
     // Handle both 0-1 format (0.65 = 65%) and 0-100 format (65 = 65%)
     const units = report.results.units || 'percent'
 
-    // DEBUG: Log values for Brief 32 investigation
-    if (import.meta.env.DEV) {
-      console.log('[OutcomesSignal] Raw values:', { p90: raw.p90, units })
+    // P1 FIX: Debug logging for 99%-99% range investigation
+    // Only log when there's a narrow range issue (less than 5% spread)
+    const spread = (raw.p90 ?? 0) - (raw.p10 ?? 0)
+    const isNarrowRange = spread < 0.05 || (raw.p90 ?? 0) > 0.95
+    if (import.meta.env.DEV && isNarrowRange) {
+      console.log('[OutcomeRange] Narrow range detected:', {
+        p10: raw.p10,
+        p50: raw.p50,
+        p90: raw.p90,
+        spread,
+        units,
+        isProbabilityScale: raw.p90 !== undefined && raw.p90 <= 1,
+      })
     }
 
     // Detect scale: values <=1 are probability format, >1 are percentage format

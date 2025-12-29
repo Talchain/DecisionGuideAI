@@ -50,6 +50,8 @@ interface PreAnalysisHealthProps {
   isAnalyzing?: boolean
   /** Callback when readiness.can_run_analysis changes (for unified gating) */
   onCanRunChange?: (canRun: boolean) => void
+  /** Whether there are blockers that prevent running (pre-run validation) */
+  hasBlockers?: boolean
 }
 
 // Tier styling configuration
@@ -111,6 +113,7 @@ export function PreAnalysisHealth({
   onFocusImprovement,
   isAnalyzing = false,
   onCanRunChange,
+  hasBlockers = false,
 }: PreAnalysisHealthProps) {
   const { readiness, loading, error, refresh } = useGraphReadiness()
   const setHighlightedNodes = useCanvasStore((s) => s.setHighlightedNodes)
@@ -243,13 +246,13 @@ export function PreAnalysisHealth({
             <button
               type="button"
               onClick={onAnalyze}
-              disabled={!readiness.can_run_analysis || isAnalyzing}
+              disabled={!readiness.can_run_analysis || isAnalyzing || hasBlockers}
               className={`${typography.bodySmall} px-4 py-2 rounded-lg font-medium transition-colors ${
-                readiness.can_run_analysis && !isAnalyzing
+                readiness.can_run_analysis && !isAnalyzing && !hasBlockers
                   ? 'bg-sky-500 text-white hover:bg-sky-600'
                   : 'bg-sand-200 text-sand-500 cursor-not-allowed'
               }`}
-              aria-label={readiness.can_run_analysis ? 'Run analysis' : 'Fix issues before running analysis'}
+              aria-label={hasBlockers ? 'Fix critical issues first' : readiness.can_run_analysis ? 'Run analysis' : 'Fix issues before running analysis'}
             >
               {isAnalyzing ? (
                 <>

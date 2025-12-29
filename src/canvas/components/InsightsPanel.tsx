@@ -257,9 +257,10 @@ export function InsightsPanel({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
   // Brief 33b: Render counter for debugging re-render loop
+  // P0-1 FIX: Only log every 10th render to reduce console spam
   const renderCountRef = useRef(0)
   renderCountRef.current += 1
-  if (import.meta.env.DEV) {
+  if (import.meta.env.DEV && renderCountRef.current <= 5) {
     console.log(`[InsightsPanel] Render #${renderCountRef.current}`)
   }
 

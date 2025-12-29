@@ -194,3 +194,71 @@ export function getRunButtonAriaLabel(result: CanRunAnalysisResult, isRunning: b
   }
   return 'Run Analysis'
 }
+
+/**
+ * Get the button label based on graph state
+ * Brief: Show "Fix Issues" when blocked, "Analyze Now" otherwise
+ */
+export function getRunButtonLabel(result: CanRunAnalysisResult, isRunning: boolean): string {
+  if (isRunning) {
+    return 'Analyzing...'
+  }
+  if (!result.allowed && result.blockingReasons && result.blockingReasons.length > 0) {
+    return 'Fix Issues'
+  }
+  return 'Analyze Now'
+}
+
+// =============================================================================
+// NUDGE PRIORITIZATION
+// =============================================================================
+
+export interface PrioritizedNudge {
+  type: 'validation' | 'coaching'
+  severity: 'critical' | 'warning' | 'info'
+  message: string
+  action?: string
+  affectedIds?: string[]
+}
+
+/**
+ * Prioritize nudges by severity
+ * Brief: Validation issues first, then coaching suggestions
+ * Sorted: critical > warning > info
+ */
+export function prioritizeNudges(
+  validationIssues: Array<{ severity: string; message: string; suggestedFix?: { targetId: string } }>,
+  coachingNudges: Array<{ severity: 'high' | 'medium' | 'low'; message: string; action?: string }>
+): PrioritizedNudge[] {
+  const severityOrder: Record<string, number> = {
+    critical: 0,
+    error: 0,
+    high: 0,
+    warning: 1,
+    medium: 1,
+    info: 2,
+    low: 2,
+  }
+
+  // Convert validation issues to nudges
+  const issueNudges: PrioritizedNudge[] = validationIssues.map(issue => ({
+    type: 'validation' as const,
+    severity: (issue.severity === 'error' ? 'critical' : issue.severity) as 'critical' | 'warning' | 'info',
+    message: issue.message,
+    action: issue.suggestedFix ? 'Fix' : undefined,
+    affectedIds: issue.suggestedFix ? [issue.suggestedFix.targetId] : undefined,
+  }))
+
+  // Convert coaching nudges
+  const coachNudges: PrioritizedNudge[] = coachingNudges.map(nudge => ({
+    type: 'coaching' as const,
+    severity: (nudge.severity === 'high' ? 'critical' : nudge.severity === 'medium' ? 'warning' : 'info') as 'critical' | 'warning' | 'info',
+    message: nudge.message,
+    action: nudge.action,
+  }))
+
+  // Combine and sort by severity
+  return [...issueNudges, ...coachNudges].sort((a, b) => {
+    return (severityOrder[a.severity] ?? 2) - (severityOrder[b.severity] ?? 2)
+  })
+}

@@ -35,9 +35,10 @@ export function validateGraph(nodes: Node[], edges: Edge[]): GraphHealth {
   issues.push(...detectProbabilityErrors(nodes, edges))
 
   // Calculate health score
+  // Brief: Critical issues = -15% each, warnings = -5% each
   const errorCount = issues.filter((i) => i.severity === 'error').length
   const warningCount = issues.filter((i) => i.severity === 'warning').length
-  const score = Math.max(0, 100 - errorCount * 20 - warningCount * 5)
+  const score = Math.max(0, 100 - errorCount * 15 - warningCount * 5)
 
   // Determine overall status
   let status: GraphHealth['status'] = 'healthy'

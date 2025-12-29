@@ -42,6 +42,8 @@ import type { RobustnessResult, SensitiveParameter, ValueOfInformation } from '.
 import type { SynthesisNarratives } from '../hooks/useISLSynthesis'
 // P0.1: Driver gating types
 import type { DriversGatingState } from '../../lib/driversGating'
+// Phase 0.4: Response normalisation
+import { normaliseResponse, getDriversDisplay } from '../../lib/responseNormalisation'
 
 interface DriversSignalProps {
   /** Maximum drivers to show when collapsed */
@@ -164,6 +166,10 @@ export function DriversSignal({
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const report = results?.report
+
+  // Phase 0.4: Normalize response to handle legacy and V3 formats
+  const normalisedResponse = useMemo(() => normaliseResponse(report), [report])
+  const driversDisplay = useMemo(() => getDriversDisplay(normalisedResponse), [normalisedResponse])
 
   // Brief C: Build mapping from node_id to sensitive parameter for tipping point display
   const sensitiveParamByNodeId = useMemo(() => {
@@ -355,14 +361,10 @@ export function DriversSignal({
       )
     }
 
-    // P0.1 FIX 3: Show fallback message from gating state
-    // If results exist but no drivers, use appropriate message instead of "Run analysis"
-    // Check for any completion state, not just 'complete' (handles error, timeout, etc.)
+    // P0.1 FIX 3: Show fallback message from gating state or normalised response
+    // Priority: gating state > normalised response > default
     const hasResults = Boolean(results) && !isAnalysisRunning
-    const defaultFallback = hasResults
-      ? 'Not enough signal to identify what\'s driving the result yet.'
-      : 'Run analysis to identify what drives your outcome.'
-    const fallbackMessage = gatingState?.fallbackMessage || defaultFallback
+    const fallbackMessage = gatingState?.fallbackMessage || driversDisplay.fallbackText
     const remediationActions = gatingState?.remediationActions || []
 
     return (
@@ -376,6 +378,12 @@ export function DriversSignal({
             <p className={`${typography.caption} text-sand-500 mt-1`}>
               {fallbackMessage}
             </p>
+            {/* Phase 0.4: Show explanation from normalised response if available */}
+            {driversDisplay.explanation && !gatingState && (
+              <p className={`${typography.caption} text-ink-500 mt-2`}>
+                {driversDisplay.explanation}
+              </p>
+            )}
             {/* P0.1: Remediation actions or default hint */}
             {remediationActions.length > 0 ? (
               <ul className="mt-3 space-y-1.5">
@@ -389,7 +397,7 @@ export function DriversSignal({
                   </li>
                 ))}
               </ul>
-            ) : hasResults && (
+            ) : hasResults && !driversDisplay.explanation && (
               <p className={`${typography.caption} text-sky-600 mt-2 flex items-start gap-2`}>
                 <ArrowUpRight className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" aria-hidden="true" />
                 <span>Try adding more factors that differentiate your options.</span>

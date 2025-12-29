@@ -12,7 +12,7 @@ import { RateLimitNotice } from './RateLimitNotice'
 import { DEFAULT_EDGE_DATA, trimProvenance } from '../domain/edges'
 import { saveAutosave } from '../store/scenarios'
 import { Tooltip } from './Tooltip'
-import { isCEEv2Response } from '../../adapters/cee/types'
+import { isCEEv2Response, hasAnalysisReady } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, EffectDirection } from '../../adapters/cee/types'
 
 // Available AI models
@@ -245,12 +245,17 @@ export function DraftChat() {
     const isV2 = isCEEv2Response(draftData)
 
     // Convert CEE nodes to canvas nodes
+    // Note: n.type contains the node kind ("goal", "outcome", "factor", etc.)
+    // from adaptDraftResponse() which maps kind → type
     const nodes = draftData.nodes.map((n: any) => ({
       id: n.id,
       type: n.type,
       position: { x: 0, y: 0 }, // Layout algorithm will position
       data: {
         label: n.label,
+        // P0: Copy kind to data.kind for GoalNodeSelector and other components
+        // that check n.data.kind (n.type contains the kind value from CEE)
+        kind: n.type,
         uncertainty: n.uncertainty,
         description: n.description,
         // Brief v2.2: Include observed_state for factor nodes
@@ -340,6 +345,32 @@ export function DraftChat() {
       }
     } catch (err) {
       console.error('[DraftChat] Immediate autosave failed:', err)
+    }
+
+    // P0: Auto-select goal node if exactly one goal exists
+    // This enables immediate "Run Analysis" without manual selection
+    const goalNodes = nodes.filter(n => n.type === 'goal')
+    if (goalNodes.length === 1) {
+      const { setOutcomeNode } = useCanvasStore.getState()
+      setOutcomeNode(goalNodes[0].id)
+      if (import.meta.env.DEV) {
+        console.log('[DraftChat] Auto-selected goal node:', goalNodes[0].id)
+      }
+    } else if (goalNodes.length > 1 && import.meta.env.DEV) {
+      console.log('[DraftChat] Multiple goal nodes found, user must select:', goalNodes.map(n => n.id))
+    }
+
+    // CEE V3: Store analysis_ready payload for V2 run if present
+    // This enables using CEE's resolved options in the analysis
+    if (hasAnalysisReady(draftData)) {
+      const { setCeeAnalysisReady } = useCanvasStore.getState()
+      setCeeAnalysisReady(draftData.analysis_ready)
+      if (import.meta.env.DEV) {
+        console.log('[DraftChat] Stored analysis_ready:', {
+          options: draftData.analysis_ready.options.length,
+          goal_node_id: draftData.analysis_ready.goal_node_id,
+        })
+      }
     }
 
     return {

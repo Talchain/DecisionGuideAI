@@ -182,8 +182,12 @@ export function transformEdgesToISLv2(edges: UIEdge[]): ISLGraphEdgeV2[] {
 
 /**
  * Extract options (option/decision nodes) for ISL format
+ * P0 Fix: Validates intervention node IDs against current graph to prevent ISL 422 errors
  */
 export function extractISLOptions(nodes: UINode[]): ISLOption[] {
+  // Build set of valid node IDs from current graph
+  const validNodeIds = new Set(nodes.map(n => n.id))
+
   const optionNodes = nodes.filter(n =>
     n.type === 'option' || n.type === 'decision'
   )
@@ -201,24 +205,45 @@ export function extractISLOptions(nodes: UINode[]): ISLOption[] {
   return optionNodes.map((node, index) => ({
     id: node.id,
     label: node.data?.label || `Option ${index + 1}`,
-    interventions: extractInterventions(node),
+    interventions: extractInterventions(node, validNodeIds),
     is_baseline: index === 0,
   }))
 }
 
 /**
  * Extract interventions from an option node
+ * P0 Fix: Validates intervention keys against valid node IDs to prevent ISL 422 errors
+ * @param node - The option node to extract interventions from
+ * @param validNodeIds - Set of valid node IDs in current graph (optional for backwards compat)
  */
-function extractInterventions(node: UINode): Record<string, number> {
+function extractInterventions(
+  node: UINode,
+  validNodeIds?: Set<string>
+): Record<string, number> {
   const interventions: Record<string, number> = {}
+  const filteredKeys: string[] = []
 
   // Check for explicit interventions in node data
   if (node.data?.interventions && typeof node.data.interventions === 'object') {
     for (const [key, value] of Object.entries(node.data.interventions)) {
       if (typeof value === 'number') {
+        // P0 Fix: Validate intervention key exists in graph
+        if (validNodeIds && !validNodeIds.has(key)) {
+          filteredKeys.push(key)
+          continue // Skip stale node ID
+        }
         interventions[key] = value
       }
     }
+  }
+
+  // Log warning for filtered stale keys
+  if (filteredKeys.length > 0 && import.meta.env.DEV) {
+    console.warn(
+      `[ISL] Filtered ${filteredKeys.length} stale intervention key(s) from option "${node.data?.label || node.id}":`,
+      filteredKeys,
+      '- These nodes no longer exist in the graph'
+    )
   }
 
   // Fall back to node's own value if no explicit interventions

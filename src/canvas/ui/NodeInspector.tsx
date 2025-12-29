@@ -12,6 +12,10 @@ import type { NodeType } from '../domain/nodes'
 import { renderIcon } from '../helpers/renderIcon'
 import { autoBalance, equalSplit, type BalanceRow } from '../utils/probabilityBalancing'
 import { Tooltip } from '../components/Tooltip'
+// P0-UI-7/8: Intervention editing for option nodes
+import { InterventionDisplay } from '../components/InterventionDisplay'
+import { UserMappingForm, NeedsMappingPrompt } from '../components/UserMappingForm'
+import { normaliseOptionFromLegacyNode, type LegacyOptionNode, type UIOption } from '../../types/options'
 
 /**
  * Brief v2.2: ObservedState type for factor nodes
@@ -59,6 +63,34 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
     existingObservedState?.baseline !== undefined ? String(existingObservedState.baseline) : ''
   )
   const [factorUnit, setFactorUnit] = useState<string>(existingObservedState?.unit ?? '')
+
+  // P0-UI-7/8: Option node intervention editing
+  const isOptionNode = node?.type === 'option' || node?.data?.kind === 'option'
+  const [showMappingForm, setShowMappingForm] = useState(false)
+
+  // Convert option node to UIOption for intervention display/editing
+  const optionAsUIOption = useMemo<UIOption | null>(() => {
+    if (!isOptionNode || !node) return null
+    const validNodeIds = new Set(nodes.map(n => n.id))
+    return normaliseOptionFromLegacyNode(node as unknown as LegacyOptionNode, validNodeIds)
+  }, [isOptionNode, node, nodes])
+
+  // Handle saving updated option mappings
+  const handleSaveOptionMapping = useCallback((updatedOption: UIOption) => {
+    if (!node) return
+    // Update node data with new interventions
+    const newInterventions: Record<string, number> = {}
+    for (const [nodeId, iv] of Object.entries(updatedOption.interventions)) {
+      newInterventions[nodeId] = iv.value
+    }
+    updateNode(nodeId, {
+      data: {
+        ...node.data,
+        interventions: newInterventions,
+      }
+    })
+    setShowMappingForm(false)
+  }, [node, nodeId, updateNode])
 
   // Get outgoing edges from this node
   const outgoingEdges = useMemo(() =>
@@ -484,6 +516,46 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           <p className="text-xs text-gray-500 mt-2">
             Used for parameter uncertainty in analysis.
           </p>
+        </div>
+      )}
+
+      {/* P0-UI-7/8: Intervention Editor for Option Nodes */}
+      {isOptionNode && optionAsUIOption && (
+        <div className="mb-4 pb-4 border-b border-gray-200">
+          <Tooltip content="Define what causal changes this option makes" position="right">
+            <h4 className="text-xs font-medium text-gray-700 mb-2">
+              Interventions
+            </h4>
+          </Tooltip>
+
+          {showMappingForm ? (
+            <UserMappingForm
+              option={optionAsUIOption}
+              nodes={nodes}
+              onSave={handleSaveOptionMapping}
+              onCancel={() => setShowMappingForm(false)}
+            />
+          ) : optionAsUIOption.status === 'needs_user_mapping' ? (
+            <NeedsMappingPrompt
+              option={optionAsUIOption}
+              onConfigure={() => setShowMappingForm(true)}
+            />
+          ) : (
+            <div className="space-y-2">
+              <InterventionDisplay
+                interventions={optionAsUIOption.interventions}
+                nodes={nodes}
+                compact
+              />
+              <button
+                type="button"
+                onClick={() => setShowMappingForm(true)}
+                className="text-xs text-sky-600 hover:text-sky-700 hover:underline"
+              >
+                Edit interventions
+              </button>
+            </div>
+          )}
         </div>
       )}
 

@@ -334,10 +334,39 @@ export class CEEClient {
       ? '/draft-graph?schema=v2'
       : '/draft-graph'
 
+    // Debug: Log schema version request
+    if (import.meta.env.DEV) {
+      console.log('[CEE] draftModel request:', {
+        endpoint,
+        schemaVersion: options?.schemaVersion || 'v1 (default)',
+      })
+    }
+
     const raw = await this.fetch<any>(endpoint, {
       method: 'POST',
       body: JSON.stringify({ brief: description }),
     })
+
+    // Debug: Log response schema details
+    if (import.meta.env.DEV) {
+      const edges = raw?.edges || []
+      const edgesWithStrengthStd = edges.filter((e: any) => typeof e.strength_std === 'number')
+      const nodesWithObservedState = (raw?.nodes || []).filter((n: any) => n.observed_state?.value !== undefined)
+      console.log('[CEE] draftModel response:', {
+        schema_version: raw?.schema_version,
+        nodeCount: raw?.nodes?.length ?? 0,
+        edgeCount: edges.length,
+        edgesWithStrengthStd: edgesWithStrengthStd.length,
+        nodesWithObservedState: nodesWithObservedState.length,
+        sampleEdge: edges[0] ? {
+          from: edges[0].from,
+          to: edges[0].to,
+          weight: edges[0].weight,
+          strength_std: edges[0].strength_std,
+          effect_direction: edges[0].effect_direction,
+        } : null,
+      })
+    }
 
     // Update graph_readiness gate on successful response
     useGateStore.getState().setGate('graph_readiness', 'pass', { message: 'Draft graph received' })

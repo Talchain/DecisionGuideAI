@@ -160,3 +160,85 @@ export interface CEEFramingFeedback {
   message: string                          // "Add outcome?" / "Looking good"
   suggestions: string[]
 }
+
+// =============================================================================
+// Schema v3 Types (analysis_ready support)
+// =============================================================================
+
+/**
+ * CEE V3 intervention format.
+ */
+export interface CEEInterventionV3 {
+  value: number
+  source: 'brief_extraction' | 'user_specified' | 'cee_hypothesis'
+  target_match?: {
+    node_id: string
+    match_type: 'exact_id' | 'exact_label' | 'semantic'
+    confidence: 'high' | 'medium' | 'low'
+  }
+  value_confidence?: 'high' | 'medium' | 'low'
+  reasoning?: string
+}
+
+/**
+ * CEE V3 option format.
+ *
+ * Note: status may be 'needs_user_input' from backend (defensive alias for 'needs_user_mapping')
+ */
+export interface CEEOptionV3 {
+  id: string
+  label: string
+  status: 'ready' | 'needs_user_mapping' | 'needs_user_input'
+  interventions: Record<string, CEEInterventionV3>
+  user_questions?: string[]
+  unresolved_targets?: string[]
+}
+
+/**
+ * CEE V3 analysis_ready payload.
+ *
+ * When present in CEE response, this contains analysis-ready options
+ * with resolved interventions that can be directly used for V2RunRequest.
+ */
+export interface CEEAnalysisReady {
+  /** Options with resolved interventions */
+  options: CEEOptionV3[]
+  /** Goal node ID from CEE */
+  goal_node_id: string
+  /** Suggested seed for reproducibility (string, defaults to "42") */
+  suggested_seed?: string
+}
+
+/**
+ * CEE v2.2 Response with optional analysis_ready (V3 extension)
+ *
+ * analysis_ready is present when CEE has successfully resolved
+ * all option interventions and the graph is ready for analysis.
+ */
+export interface CEEv3Response extends CEEv2Response {
+  analysis_ready?: CEEAnalysisReady
+}
+
+/**
+ * Type guard for v3 response with analysis_ready.
+ */
+export function isCEEv3Response(response: unknown): response is CEEv3Response {
+  return (
+    isCEEv2Response(response) &&
+    'analysis_ready' in response &&
+    typeof (response as any).analysis_ready === 'object' &&
+    (response as any).analysis_ready !== null
+  )
+}
+
+/**
+ * Type guard for checking if analysis_ready is present and valid.
+ */
+export function hasAnalysisReady(response: unknown): response is CEEv3Response & { analysis_ready: CEEAnalysisReady } {
+  return (
+    isCEEv3Response(response) &&
+    Array.isArray(response.analysis_ready?.options) &&
+    response.analysis_ready.options.length > 0 &&
+    typeof response.analysis_ready.goal_node_id === 'string'
+  )
+}

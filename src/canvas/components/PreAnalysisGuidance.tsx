@@ -17,6 +17,7 @@ import { CheckCircle, AlertTriangle, Lightbulb, TrendingUp } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useCEECoaching } from '../hooks/useCEECoaching'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
+import { usePreRunValidation } from '../hooks/usePreRunValidation'
 import { GuidanceCard, type GuidanceItem, type GuidanceSeverity, type AutoFixStatus } from './GuidanceCard'
 import { typography } from '../../styles/typography'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
@@ -109,6 +110,9 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
 
   // Get CEE graph readiness (quality improvements)
   const { readiness } = useGraphReadiness()
+
+  // Get pre-run validation (options/interventions check)
+  const preRunValidation = usePreRunValidation()
 
   // Get store state
   const graphHealth = useCanvasStore((s) => s.graphHealth)
@@ -413,12 +417,62 @@ export function PreAnalysisGuidance({ onBlockersChange }: PreAnalysisGuidancePro
       }
     }
 
+    // 6. Pre-run validation blockers (options without interventions)
+    if (preRunValidation.blockers.length > 0) {
+      for (const blocker of preRunValidation.blockers) {
+        blockersArr.push({
+          id: `prerun-${blocker.code}-${blocker.affectedIds?.[0] || 'global'}`,
+          type: 'validation',
+          severity: 'blocker',
+          title: blocker.code === 'OPTIONS_NEED_MAPPING'
+            ? 'Configure option interventions'
+            : blocker.code === 'EMPTY_INTERVENTIONS'
+              ? 'Add intervention values'
+              : blocker.message,
+          message: blocker.code === 'OPTIONS_NEED_MAPPING'
+            ? 'Click each option node and specify which factors it affects.'
+            : blocker.code === 'EMPTY_INTERVENTIONS'
+              ? 'Each option must specify intervention values for at least one factor.'
+              : blocker.message,
+          affectedNodes: blocker.affectedIds,
+          action: blocker.action?.optionId
+            ? {
+                label: blocker.action.label,
+                onClick: () => {
+                  if (blocker.action?.optionId) {
+                    focusNodeById(blocker.action.optionId)
+                  }
+                },
+              }
+            : undefined,
+        })
+      }
+    }
+
+    // 7. Pre-run validation warnings (edge defaults, etc.)
+    if (preRunValidation.warnings.length > 0) {
+      for (const warning of preRunValidation.warnings) {
+        improvementsArr.push({
+          id: `prerun-warn-${warning.code}-${warning.affectedId || 'global'}`,
+          type: 'validation',
+          severity: 'info',
+          title: warning.code === 'EDGES_MISSING_DIRECTION'
+            ? 'Edge direction not set'
+            : warning.code === 'EDGES_MISSING_WEIGHT'
+              ? 'Edge strength not set'
+              : warning.message,
+          message: warning.suggestion || warning.message,
+          affectedEdges: warning.affectedId ? [warning.affectedId] : undefined,
+        })
+      }
+    }
+
     return {
       blockers: blockersArr,
       improvements: improvementsArr,
       coaching: coachingArr,
     }
-  }, [activeNudge, dismissNudge, graphHealth, results, runMeta, readiness])
+  }, [activeNudge, dismissNudge, graphHealth, results, runMeta, readiness, preRunValidation.blockers, preRunValidation.warnings])
 
   // Notify parent about blocker state (moved from useMemo to useEffect)
   useEffect(() => {

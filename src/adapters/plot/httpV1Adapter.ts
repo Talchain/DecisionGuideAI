@@ -31,7 +31,6 @@ import { V1_LIMITS } from './v1/types'
 import { graphToV1Request, computeClientHash, toCanonicalRun, type ReactFlowGraph } from './v1/mapper'
 import { shouldUseSync, isRetryableErrorCode, isRetryableStatus } from './v1/constants'
 import { getDiagnosticsFromCompleteEvent, getGraphCaps } from './v1/sdkHelpers'
-import { isPlotEnrichmentEnabled } from '../../flags'
 
 const ENABLE_HTTPV1_DEBUG: boolean = (() => {
   try {
@@ -458,13 +457,12 @@ export const httpV1Adapter = {
         }
       }
 
-      // Factor Sensitivity Phase 1: Use 'deep' mode when PLoT enrichment is enabled
+      // Factor Sensitivity: Always use 'deep' mode to enable factor sensitivity
       // Deep mode (64 samples) enables factor sensitivity from ISL /robustness/analyze/v2
-      if (isPlotEnrichmentEnabled()) {
-        v1Request.detail_level = 'deep'
-        if (import.meta.env.DEV) {
-          console.log('[httpV1] Using detail_level: deep (PLoT enrichment enabled)')
-        }
+      // Previously gated by isPlotEnrichmentEnabled() but now always enabled for factor analysis
+      v1Request.detail_level = 'deep'
+      if (import.meta.env.DEV) {
+        console.log('[httpV1] Using detail_level: deep (factor sensitivity enabled)')
       }
 
       const nodeCount = graph.nodes.length

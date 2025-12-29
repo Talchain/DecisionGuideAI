@@ -346,6 +346,17 @@ export function extractRobustnessFromEnrichment(
 
   const enrichment = response.enrichment
 
+  // P0-3: Debug logging for CEE v2 data flow verification
+  if (import.meta.env.DEV) {
+    console.log('[FactorSensitivity] enrichment:', {
+      hasFactors: (enrichment?.sensitivity_analysis?.factors?.length ?? 0) > 0,
+      factorCount: enrichment?.sensitivity_analysis?.factors?.length ?? 0,
+      factorStatus: enrichment?.metadata?.factor_sensitivity_status,
+      schemaVersion: (response as { schema_version?: string })?.schema_version,
+      detailLevel: enrichment?.metadata?.detail_level,
+    })
+  }
+
   // Check for degraded state
   if (isEnrichmentDegraded(enrichment)) {
     if (import.meta.env.DEV) {

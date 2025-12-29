@@ -61,6 +61,8 @@ import { ValidationPanel, type CritiqueItem } from './ValidationPanel'
 import { GraphTextView } from './GraphTextView'
 import { PreAnalysisGuidance } from './PreAnalysisGuidance'
 import { PreAnalysisHealth } from './PreAnalysisHealth'
+import { GoalNodeSelector, useGoalNodeActions } from './GoalNodeSelector'
+import { usePreRunValidation } from '../hooks/usePreRunValidation'
 import { ActionsSignal } from './ActionsSignal'
 import { WarningBanner } from './WarningBanner'
 import { OutcomesSignal } from './OutcomesSignal'
@@ -68,7 +70,7 @@ import { TrustSignal } from './TrustSignal'
 import { DriversSignal } from './DriversSignal'
 import { DecisionSummary } from './DecisionSummary'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
-import { useResultsRun } from '../hooks/useResultsRun'
+import { useV2Run } from '../hooks/useV2Run'
 import { focusNodeById } from '../utils/focusHelpers'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { computeCTA, type CTAConfig } from '../../lib/ctaStateMachine'
@@ -77,10 +79,15 @@ import { computeReadiness } from '../../lib/readiness'
 import { areDriversInformative, getDriversGatingState } from '../../lib/driversGating'
 // P0.6: User-friendly error messages
 import { getUserFriendlyError } from '../../lib/userFriendlyErrors'
+// Phase 0.3: Response normalisation and degeneracy detection
+import { normaliseResponse, checkOutcomeDegeneracy } from '../../lib/responseNormalisation'
+import { DegeneracyWarning, useDegeneracyDismissal } from './DegeneracyWarning'
 // P0.7: Loading skeletons
 import { ResultsPanelSkeleton } from './ResultsPanelSkeleton'
 // P0.8: Instrumentation
 import { trackRunStarted, trackRunCompleted, trackRunFailed } from '../../lib/resultsInstrumentation'
+// P0-2: Mixed messaging gating
+import { getAnalysisDisplayState, type EnrichmentForDisplayState } from '../../lib/analysisDisplayState'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
 import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { useOptionRanking } from '../hooks/useOptionRanking'
@@ -203,6 +210,20 @@ export function OutputsDock() {
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
   const applyAutoFixChanges = useCanvasStore(s => s.applyAutoFixChanges)
 
+  // P0-UI-5: Goal node selection
+  const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
+  const setOutcomeNode = useCanvasStore(s => s.setOutcomeNode)
+  const updateNode = useCanvasStore(s => s.updateNode)
+
+  // P0-UI-6: Pre-run validation hook
+  const preRunValidation = usePreRunValidation()
+
+  // Goal node actions (mark as goal, set as outcome)
+  const { handleMarkAsGoal } = useGoalNodeActions(
+    (nodeId, data) => updateNode(nodeId, { data: { ...nodes.find(n => n.id === nodeId)?.data, ...data } }),
+    setOutcomeNode
+  )
+
   // Derived values from runMeta
   const diagnostics = runMeta.diagnostics
   const correlationIdHeader = runMeta.correlationIdHeader
@@ -221,8 +242,8 @@ export function OutputsDock() {
   const report = useCanvasStore(selectReport)
   const error = useCanvasStore(selectError)
 
-  // Pre-run validation: map graphHealth issues to critique format
-  const { run: runAnalysis } = useResultsRun()
+  // P0-UI: V2 run hook for /v2/run endpoint
+  const { runV2Analysis } = useV2Run()
 
   // Pre-run blocker state - managed by PreAnalysisGuidance component
   const [hasPreRunBlockers, setHasPreRunBlockers] = useState(false)
@@ -231,8 +252,9 @@ export function OutputsDock() {
 
   const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
 
-  // Unified run eligibility: both guidance blockers AND readiness must allow running
-  const canRunAnalysis = !hasPreRunBlockers && readinessCanRun && !isRunning
+  // Unified run eligibility: guidance blockers, readiness, AND pre-run validation must all allow running
+  // P0-UI-6: Added preRunValidation.canRun check
+  const canRunAnalysis = !hasPreRunBlockers && readinessCanRun && preRunValidation.canRun && !isRunning
 
   // R3: CTA state machine for primary analysis button
   // P0.3: Enhanced with option count, driver informativeness, confidence level
@@ -284,12 +306,9 @@ export function OutputsDock() {
       option_count: comparison.optionNodes.length,
       template_id: framing?.templateId || 'canvas-graph',
     })
-    await runAnalysis({
-      template_id: framing?.templateId || 'canvas-graph',
-      seed: framing?.seed ?? 1337,
-      graph: { nodes, edges },
-    })
-  }, [canRunAnalysis, runAnalysis, framing, nodes, edges, comparison.optionNodes.length])
+    // P0-UI: Use V2 adapter (gets nodes, edges, outcomeNodeId from store)
+    await runV2Analysis()
+  }, [canRunAnalysis, runV2Analysis, framing, nodes, edges, comparison.optionNodes.length])
 
   // M6: Handle comparison prompt dismissal
   const handleDismissComparison = useCallback(() => {
@@ -388,6 +407,20 @@ export function OutputsDock() {
     [report?.drivers_payload]
   )
 
+  // P0-2: Mixed messaging gating - compute display state based on critical issues
+  // Uses stable primitive deps to prevent render loops
+  const analysisDisplayState = useMemo(() => {
+    const enrichmentData: EnrichmentForDisplayState = {
+      critique: report?.run?.critique,
+      identifiability_tag: report?.model_card?.identifiability_tag as 'identifiable' | 'not_identifiable' | 'partially_identifiable' | 'unknown' | undefined,
+    }
+    return getAnalysisDisplayState(enrichmentData)
+  }, [
+    // Use stable primitive deps - array lengths rather than object references
+    report?.run?.critique?.length,
+    report?.model_card?.identifiability_tag,
+  ])
+
   const verdict = mostLikelyValue !== null
     ? deriveVerdict({
         outcomeValue: mostLikelyValue,
@@ -437,6 +470,11 @@ export function OutputsDock() {
       hasInsights: !!report?.insights,
     })
   }
+
+  // Phase 0.3: Normalize response and check for degeneracy
+  const normalisedResponse = useMemo(() => normaliseResponse(report), [report])
+  const degeneracyCheck = useMemo(() => checkOutcomeDegeneracy(normalisedResponse), [normalisedResponse])
+  const { isDismissed: degeneracyDismissed, dismiss: dismissDegeneracy } = useDegeneracyDismissal(robustnessRunId)
 
   let decisionReviewStatus: DecisionReviewStatus | null = null
   if (decisionReviewFlagOn) {
@@ -825,6 +863,7 @@ export function OutputsDock() {
                     message: error.message,
                     status: error.status,
                     hasPartialResults: resultsStatus === 'complete',
+                    canRetry: error.canRetry,
                   })
                   return (
                     <div
@@ -935,12 +974,23 @@ export function OutputsDock() {
                 {/* Pre-run state: Show consolidated guidance and Run button */}
                 {isPreRun && (
                   <div className="space-y-4" data-testid="outputs-pre-run">
+                    {/* P0-UI-5: Goal node selector */}
+                    {nodes.length > 0 && (
+                      <GoalNodeSelector
+                        nodes={nodes}
+                        currentGoalId={outcomeNodeId}
+                        onChange={setOutcomeNode}
+                        onMarkAsGoal={handleMarkAsGoal}
+                      />
+                    )}
+
                     {/* Graph readiness assessment from CEE - only show when canvas has nodes */}
                     {nodes.length > 0 && (
                       <PreAnalysisHealth
                         onAnalyze={handleRunAnalysis}
                         isAnalyzing={isRunning}
                         onCanRunChange={setReadinessCanRun}
+                        hasBlockers={hasPreRunBlockers || !preRunValidation.canRun}
                       />
                     )}
 
@@ -1127,12 +1177,55 @@ export function OutputsDock() {
                             compact={true}
                           />
                         )}
-                        <OutcomesSignal
-                          baseline={baselineValue}
-                          goalDirection={goalDirection}
-                          objectiveText={objectiveText}
-                          baselineName={baselineValue === 0 ? '"do nothing"' : 'your baseline'}
-                        />
+                        {/* P0-2: Mixed messaging gating - show blocker or outcomes */}
+                        {analysisDisplayState.showBlockingMessage ? (
+                          <div
+                            className="p-3 bg-carrot-50 border border-carrot-200 rounded-lg"
+                            role="alert"
+                            data-testid="critical-blocker"
+                          >
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="w-5 h-5 text-carrot-600 flex-shrink-0 mt-0.5" />
+                              <div>
+                                <p className={`${typography.body} font-medium text-carrot-800`}>
+                                  Unable to estimate reliably
+                                </p>
+                                <p className={`${typography.bodySmall} text-carrot-700 mt-1`}>
+                                  {analysisDisplayState.blockingReason}
+                                </p>
+                                {analysisDisplayState.actions.length > 0 && (
+                                  <ul className="mt-2 space-y-1">
+                                    {analysisDisplayState.actions.map((action, i) => (
+                                      <li
+                                        key={i}
+                                        className={`${typography.caption} text-carrot-600 flex items-center gap-1`}
+                                      >
+                                        <span className="w-1 h-1 bg-carrot-400 rounded-full" />
+                                        {action}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Phase 0.3: Degeneracy warning for identical outcomes */}
+                            {!degeneracyDismissed && degeneracyCheck.detected && (
+                              <DegeneracyWarning
+                                check={degeneracyCheck}
+                                onDismiss={dismissDegeneracy}
+                              />
+                            )}
+                            <OutcomesSignal
+                              baseline={baselineValue}
+                              goalDirection={goalDirection}
+                              objectiveText={objectiveText}
+                              baselineName={baselineValue === 0 ? '"do nothing"' : 'your baseline'}
+                            />
+                          </>
+                        )}
                       </div>
                     </section>
 

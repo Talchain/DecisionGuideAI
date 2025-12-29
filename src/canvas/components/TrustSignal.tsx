@@ -210,19 +210,7 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
             const isGenericSuggestion = /add more|consider adding|include additional|adding more|more relationships|more factors|more evidence/i.test(metrics.recommendation)
 
             // DEBUG: Log values for Brief 33b investigation
-            if (import.meta.env.DEV) {
-              console.log('[TrustSignal] Mixed messaging check:', {
-                overallScore: metrics.score,
-                tier,
-                completeness: metrics.completeness,
-                evidenceCoverage: metrics.evidenceCoverage,
-                balance: metrics.balance,
-                overallGood,
-                recommendation: metrics.recommendation,
-                isGenericSuggestion,
-                suppressed: overallGood && isGenericSuggestion,
-              })
-            }
+            // P0-1 FIX: Removed - this was causing excessive console spam on every render
 
             if (overallGood && isGenericSuggestion) {
               return null // Don't show contradictory suggestion

@@ -20,6 +20,7 @@ import type { Document, Citation } from './share/types'
 import type { Snapshot, DecisionRationale, ComparisonResult } from './snapshots/types'
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from './decisionReview/types'
 import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError } from '../types/cee'
+import type { CEEAnalysisReady } from '../adapters/cee/types'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
@@ -54,7 +55,7 @@ export interface ResultsState {
   seed?: number
   hash?: string                 // response_hash
   report?: ReportV1 | null
-  error?: { code: string; message: string; retryAfter?: number; request_id?: string } | null
+  error?: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean } | null
   startedAt?: number
   finishedAt?: number
   drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
@@ -131,6 +132,12 @@ interface CanvasState {
   showTemplatesPanel: boolean
   templatesPanelInvoker: HTMLElement | null
   showDraftChat: boolean
+  // CEE V3: analysis_ready payload from last draft
+  // Used by useV2Run to build requests with resolved interventions
+  ceeAnalysisReady: CEEAnalysisReady | null
+  // Node IDs that existed when ceeAnalysisReady was stored
+  // Used to detect stale analysis_ready after graph edits
+  ceeAnalysisReadyNodeIds: string[] | null
   // M4: Graph Health & Repair
   graphHealth: GraphHealth | null
   showIssuesPanel: boolean
@@ -242,7 +249,7 @@ interface CanvasState {
     ceeErrorV1?: CeeError | null
     enrichment?: PLoTEnrichment | null // Phase 1B: ISL data bundled from PLoT
   }) => void
-  resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string }) => void
+  resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean }) => void
   resultsCancelled: () => void
   resultsReset: () => void
   resultsLoadHistorical: (run: StoredRun) => void
@@ -262,6 +269,7 @@ interface CanvasState {
   openTemplatesPanel: (invoker?: HTMLElement) => void
   closeTemplatesPanel: () => void
   setShowDraftChat: (show: boolean) => void
+  setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
   // M4: Graph Health actions
   validateGraph: () => void
   setShowIssuesPanel: (show: boolean) => void
@@ -390,6 +398,20 @@ function scheduleHistoryPush(get: () => CanvasState, set: (fn: (s: CanvasState) 
   historyTimer = setTimeout(() => pushToHistory(get, set), HISTORY_DEBOUNCE_MS)
 }
 
+/**
+ * Invalidate ceeAnalysisReady when graph structure changes.
+ * Called by addNode, addEdge, onNodesChange (remove), onEdgesChange (remove/add).
+ */
+function invalidateAnalysisReady(get: () => CanvasState, set: (fn: (s: CanvasState) => Partial<CanvasState>) => void) {
+  const { ceeAnalysisReady } = get()
+  if (ceeAnalysisReady) {
+    if (import.meta.env.DEV) {
+      console.log('[Canvas] Graph mutated, clearing stale ceeAnalysisReady')
+    }
+    set(() => ({ ceeAnalysisReady: null, ceeAnalysisReadyNodeIds: null }))
+  }
+}
+
 function getMaxNumericId(ids: string[]): number {
   return ids.reduce((max, id) => {
     const num = parseInt(id.replace(/\D/g, ''), 10)
@@ -499,6 +521,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     showComparePanel: false,
     ...loadUIPreferences(), // Override with persisted preferences
   },
+  // CEE V3: analysis_ready payload
+  ceeAnalysisReady: null,
+  ceeAnalysisReadyNodeIds: null,
   // M6: Scenario Comparison Mode
   comparisonMode: {
     active: false,
@@ -554,6 +579,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   addNode: (pos, type = 'decision') => {
     pushToHistory(get, set)
+    invalidateAnalysisReady(get, set)
     const id = get().createNodeId()
     set((s) => ({ nodes: [...s.nodes, { id, type, position: pos || { x: 200, y: 200 }, data: { label: `Node ${id}` } }] }))
   },
@@ -631,6 +657,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Debounce history for drag operations
     const isDrag = changes.some(c => c.type === 'position' && (c as any).dragging)
 
+    // Invalidate analysis_ready if nodes are removed (structural change)
+    const hasRemove = changes.some(c => c.type === 'remove')
+    if (hasRemove) {
+      invalidateAnalysisReady(get, set)
+    }
+
     set((s) => {
       const updatedNodes = applyNodeChanges(changes, s.nodes)
 
@@ -667,9 +699,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   onEdgesChange: (changes) => {
     // Guard no-op changes
     if (!changes || changes.length === 0) return
-    
+
+    // Invalidate analysis_ready if edges are removed (structural change)
+    const hasRemove = changes.some(c => c.type === 'remove')
+    if (hasRemove) {
+      invalidateAnalysisReady(get, set)
+    }
+
     set((s) => ({ edges: applyEdgeChanges(changes, s.edges) as Edge<EdgeData>[] }))
-    
+
     // Edges don't have position changes, always push immediately
     pushToHistory(get, set)
   },
@@ -800,6 +838,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   addEdge: (edge) => {
     pushToHistory(get, set)
+    invalidateAnalysisReady(get, set)
     const id = get().createEdgeId()
     set((s) => {
       const touchedNodeIds = new Set(s.touchedNodeIds)
@@ -854,23 +893,30 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   deleteSelected: () => {
     pushToHistory(get, set)
-    const { selection } = get()
+    const { selection, outcomeNodeId } = get()
+    // P0.5 Fix: Clear outcomeNodeId if the outcome node is being deleted
+    const shouldClearOutcome = outcomeNodeId && selection.nodeIds.has(outcomeNodeId)
     set((s) => ({
       nodes: s.nodes.filter(n => !selection.nodeIds.has(n.id)),
       edges: s.edges.filter(e => !selection.nodeIds.has(e.source) && !selection.nodeIds.has(e.target) && !selection.edgeIds.has(e.id)),
-      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+      outcomeNodeId: shouldClearOutcome ? null : s.outcomeNodeId,
     }))
   },
 
   deleteNodeById: (nodeId: string) => {
     pushToHistory(get, set)
+    const { outcomeNodeId } = get()
+    // P0.5 Fix: Clear outcomeNodeId if this is the outcome node
+    const shouldClearOutcome = outcomeNodeId === nodeId
     set((s) => ({
       nodes: s.nodes.filter(n => n.id !== nodeId),
       edges: s.edges.filter(e => e.source !== nodeId && e.target !== nodeId),
       // Clear selection if deleted node was selected
       selection: s.selection.nodeIds.has(nodeId)
         ? { ...s.selection, nodeIds: new Set([...s.selection.nodeIds].filter(id => id !== nodeId)) }
-        : s.selection
+        : s.selection,
+      outcomeNodeId: shouldClearOutcome ? null : s.outcomeNodeId,
     }))
   },
 
@@ -1204,6 +1250,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       nextEdgeId: 1,
       // Clear AI assistant and draft state
       showDraftChat: false,
+      // Clear CEE analysis_ready payload
+      ceeAnalysisReady: null,
+      ceeAnalysisReadyNodeIds: null,
       // Clear results and analysis state
       results: { status: 'idle', progress: 0 },
       runMeta: {},
@@ -1465,12 +1514,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
   },
 
-  resultsError: ({ code, message, retryAfter, request_id }) => {
+  resultsError: ({ code, message, retryAfter, request_id, canRetry }) => {
     set(s => ({
       results: {
         ...s.results,
         status: 'error',
-        error: { code, message, retryAfter, request_id },
+        error: { code, message, retryAfter, request_id, canRetry },
         finishedAt: Date.now()
       }
     }))
@@ -1815,6 +1864,17 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   setShowDraftChat: (show: boolean) => {
     set({ showDraftChat: show })
     saveUIPreference('showDraftChat', show)
+  },
+
+  setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => {
+    if (analysisReady) {
+      // Store current node IDs for staleness detection
+      const { nodes } = get()
+      const nodeIds = nodes.map((n) => n.id)
+      set({ ceeAnalysisReady: analysisReady, ceeAnalysisReadyNodeIds: nodeIds })
+    } else {
+      set({ ceeAnalysisReady: null, ceeAnalysisReadyNodeIds: null })
+    }
   },
 
   // M4: Graph Health actions

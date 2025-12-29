@@ -16,6 +16,7 @@ import {
   extractParameterUncertainties,
   extractValueFromProvenance,
   transformNodesToISLGraph,
+  extractISLOptions,
 } from '../islRequestAdapter'
 import type {
   UIRobustnessRequest,
@@ -603,6 +604,125 @@ describe('islRequestAdapter', () => {
 
       // Should use observedState value (59), not provenance value (49)
       expect(result.price.mean).toBe(59)
+    })
+  })
+
+  // P0 Fix: Tests for intervention node ID validation
+  describe('extractISLOptions', () => {
+    it('returns baseline option when no option nodes exist', () => {
+      const nodes: UINode[] = [
+        { id: 'factor1', type: 'factor', data: { label: 'Factor 1' } },
+      ]
+
+      const result = extractISLOptions(nodes)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]).toEqual({
+        id: 'baseline',
+        label: 'Baseline',
+        interventions: {},
+        is_baseline: true,
+      })
+    })
+
+    it('extracts options from option nodes', () => {
+      const nodes: UINode[] = [
+        { id: 'factor1', type: 'factor', data: { label: 'Factor 1' } },
+        { id: 'option1', type: 'option', data: { label: 'Option A', value: 0.8 } },
+        { id: 'option2', type: 'option', data: { label: 'Option B', value: 0.5 } },
+      ]
+
+      const result = extractISLOptions(nodes)
+
+      expect(result).toHaveLength(2)
+      expect(result[0].id).toBe('option1')
+      expect(result[0].label).toBe('Option A')
+      expect(result[0].is_baseline).toBe(true)
+      expect(result[1].is_baseline).toBe(false)
+    })
+
+    it('filters stale intervention keys that reference deleted nodes', () => {
+      const nodes: UINode[] = [
+        { id: 'factor1', type: 'factor', data: { label: 'Current Factor' } },
+        {
+          id: 'option1',
+          type: 'option',
+          data: {
+            label: 'Option A',
+            interventions: {
+              'factor1': 0.8,        // Valid - node exists
+              'deleted_node': 0.5,   // Invalid - node was deleted
+              'another_deleted': 0.3 // Invalid - node was deleted
+            }
+          }
+        },
+      ]
+
+      const result = extractISLOptions(nodes)
+
+      expect(result).toHaveLength(1)
+      // Should only include the valid intervention
+      expect(result[0].interventions).toEqual({ 'factor1': 0.8 })
+      // Stale keys should be filtered out
+      expect(result[0].interventions).not.toHaveProperty('deleted_node')
+      expect(result[0].interventions).not.toHaveProperty('another_deleted')
+    })
+
+    it('keeps all interventions when all node IDs are valid', () => {
+      const nodes: UINode[] = [
+        { id: 'factor1', type: 'factor', data: { label: 'Factor 1' } },
+        { id: 'factor2', type: 'factor', data: { label: 'Factor 2' } },
+        {
+          id: 'option1',
+          type: 'option',
+          data: {
+            label: 'Option A',
+            interventions: {
+              'factor1': 0.8,
+              'factor2': 0.6
+            }
+          }
+        },
+      ]
+
+      const result = extractISLOptions(nodes)
+
+      expect(result[0].interventions).toEqual({
+        'factor1': 0.8,
+        'factor2': 0.6
+      })
+    })
+
+    it('falls back to node value when no explicit interventions', () => {
+      const nodes: UINode[] = [
+        { id: 'option1', type: 'option', data: { label: 'Option A', value: 0.75 } },
+      ]
+
+      const result = extractISLOptions(nodes)
+
+      expect(result[0].interventions).toEqual({ 'option1': 0.75 })
+    })
+
+    it('returns empty interventions when all are stale', () => {
+      const nodes: UINode[] = [
+        { id: 'factor1', type: 'factor', data: { label: 'Factor 1' } },
+        {
+          id: 'option1',
+          type: 'option',
+          data: {
+            label: 'Option A',
+            interventions: {
+              'deleted1': 0.8,
+              'deleted2': 0.5
+            }
+          }
+        },
+      ]
+
+      const result = extractISLOptions(nodes)
+
+      // All intervention keys were stale, so interventions should be empty
+      expect(result[0].interventions).toEqual({})
     })
   })
 })
