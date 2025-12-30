@@ -406,7 +406,10 @@ function invalidateAnalysisReady(get: () => CanvasState, set: (fn: (s: CanvasSta
   const { ceeAnalysisReady } = get()
   if (ceeAnalysisReady) {
     if (import.meta.env.DEV) {
+      console.log('[Canvas] === INVALIDATE ANALYSIS_READY ===')
       console.log('[Canvas] Graph mutated, clearing stale ceeAnalysisReady')
+      console.log('[Canvas] Had options:', ceeAnalysisReady.options?.length)
+      console.trace('[Canvas] invalidateAnalysisReady call stack')
     }
     set(() => ({ ceeAnalysisReady: null, ceeAnalysisReadyNodeIds: null }))
   }
@@ -1867,6 +1870,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => {
+    if (import.meta.env.DEV) {
+      console.log('[Canvas] === SET CEE_ANALYSIS_READY ===')
+      console.log('[Canvas] setCeeAnalysisReady called with:', analysisReady ? 'payload' : 'null')
+      if (analysisReady) {
+        console.log('[Canvas] options count:', analysisReady.options?.length)
+        console.log('[Canvas] goal_node_id:', analysisReady.goal_node_id)
+      }
+      console.trace('[Canvas] setCeeAnalysisReady call stack')
+    }
     if (analysisReady) {
       // Store current node IDs for staleness detection
       const { nodes } = get()

@@ -366,6 +366,14 @@ export class CEEClient {
           effect_direction: edges[0].effect_direction,
         } : null,
       })
+
+      // P0 DIAGNOSTIC: Log analysis_ready presence
+      console.log('[CEE] === RAW RESPONSE DIAGNOSTIC ===')
+      console.log('[CEE] Response keys:', Object.keys(raw || {}))
+      console.log('[CEE] Has analysis_ready:', 'analysis_ready' in (raw || {}))
+      console.log('[CEE] analysis_ready value:', raw?.analysis_ready)
+      console.log('[CEE] isCEEv2Response result:', isCEEv2Response(raw))
+      console.log('[CEE] === END DIAGNOSTIC ===')
     }
 
     // Update graph_readiness gate on successful response

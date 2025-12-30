@@ -241,6 +241,26 @@ export function DraftChat() {
     // Null-safe: bail out if draft or nodes/edges are missing
     if (!draftData?.nodes?.length) return { nodeIds: [], edgeIds: [] }
 
+    // P0 DIAGNOSTIC: Log CEE response structure for debugging analysis_ready flow
+    if (import.meta.env.DEV) {
+      console.log('[DraftChat] === CEE RESPONSE DIAGNOSTIC ===')
+      console.log('[DraftChat] Response keys:', Object.keys(draftData))
+      console.log('[DraftChat] Has analysis_ready key:', 'analysis_ready' in draftData)
+      console.log('[DraftChat] analysis_ready value:', (draftData as any).analysis_ready)
+      console.log('[DraftChat] hasAnalysisReady() result:', hasAnalysisReady(draftData))
+
+      // Detailed type guard checks
+      const ar = (draftData as any).analysis_ready
+      if (ar) {
+        console.log('[DraftChat] analysis_ready.options:', ar.options)
+        console.log('[DraftChat] analysis_ready.options is array:', Array.isArray(ar.options))
+        console.log('[DraftChat] analysis_ready.options.length:', ar.options?.length)
+        console.log('[DraftChat] analysis_ready.goal_node_id:', ar.goal_node_id)
+        console.log('[DraftChat] goal_node_id is string:', typeof ar.goal_node_id === 'string')
+      }
+      console.log('[DraftChat] === END DIAGNOSTIC ===')
+    }
+
     // Check if this is a v2 response
     const isV2 = isCEEv2Response(draftData)
 
