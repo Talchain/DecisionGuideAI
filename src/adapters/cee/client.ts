@@ -350,23 +350,21 @@ export class CEEClient {
    * Calls CEE /draft-graph endpoint (proxy adds /assist/v1 prefix)
    *
    * @param description - The decision description/brief
-   * @param options - Optional parameters
-   * @param options.schemaVersion - Request specific schema version ('v1' | 'v2')
+   * @param options - Optional parameters (legacy, kept for backward compatibility)
    */
   async draftModel(
     description: string,
-    options?: { schemaVersion?: 'v1' | 'v2' }
+    options?: { schemaVersion?: 'v1' | 'v2' | 'v3' }
   ): Promise<CEEDraftResponse | CEEv2Response> {
-    // Build endpoint with optional schema query param
-    const endpoint = options?.schemaVersion === 'v2'
-      ? '/draft-graph?schema=v2'
-      : '/draft-graph'
+    // Request V3 schema explicitly to get analysis_ready payload with resolved interventions
+    // Defence in depth: explicit version prevents breakage if CEE default changes
+    const endpoint = '/draft-graph?schema=v3'
 
     // Debug: Log schema version request
     if (import.meta.env.DEV) {
       console.log('[CEE] draftModel request:', {
         endpoint,
-        schemaVersion: options?.schemaVersion || 'v1 (default)',
+        schemaVersion: 'v3 (explicit)',
       })
     }
 
@@ -407,12 +405,12 @@ export class CEEClient {
     // Update graph_readiness gate on successful response
     useGateStore.getState().setGate('graph_readiness', 'pass', { message: 'Draft graph received' })
 
-    // For v2 requests, check if response is v2 format
-    if (options?.schemaVersion === 'v2' && isCEEv2Response(raw)) {
+    // V3 response: check if response matches v2/v3 format (v3 is superset of v2)
+    if (isCEEv2Response(raw)) {
       return raw as CEEv2Response
     }
 
-    // Fall back to v1 adaptation
+    // Fall back to v1 adaptation for legacy responses
     return adaptDraftResponse(raw)
   }
 
