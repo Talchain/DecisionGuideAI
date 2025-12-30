@@ -114,6 +114,8 @@ export function useGraphReadiness() {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const graphHealth = useCanvasStore(s => s.graphHealth)
+  // V3: Include analysis_ready so CEE knows about resolved options
+  const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
 
   const fetchReadiness = useCallback(async () => {
     // Don't fetch if no nodes
@@ -147,7 +149,7 @@ export function useGraphReadiness() {
       // and injects X-Olumi-Assist-Key header
       // Brief 31 Task 4: CEE expects 'kind' not 'type'
       // Brief I Fix: Sanitize node data - CEE FactorData requires value to be a number
-      const payload = {
+      const payload: Record<string, unknown> = {
         graph: {
           nodes: nodes.map(n => {
             const baseNode = {
@@ -170,14 +172,22 @@ export function useGraphReadiness() {
         },
       }
 
+      // V3: Include analysis_ready if present so CEE knows about resolved options
+      // This is critical because V3 moves options from graph nodes → analysis_ready.options
+      if (ceeAnalysisReady?.options?.length) {
+        payload.analysis_ready = ceeAnalysisReady
+      }
+
       // Brief 32 Task 4: Skip duplicate requests by comparing payload hash
       // Brief I Fix: Include edge data (confidence) in hash so auto-fix changes trigger refresh
       // Edge confidence affects graph validity (probability sums)
+      // V3: Include analysis_ready options count in hash
       const edgeDataFingerprint = edges.map(e => {
         const conf = (e.data as any)?.confidence
         return `${e.source}-${e.target}-${conf !== undefined ? conf.toFixed(3) : 'x'}`
       }).join(',')
-      const payloadHash = `${nodes.length}-${edges.length}-${nodes.map(n => n.id).join(',')}-${edgeDataFingerprint}`
+      const analysisReadyFingerprint = ceeAnalysisReady?.options?.length ?? 0
+      const payloadHash = `${nodes.length}-${edges.length}-${nodes.map(n => n.id).join(',')}-${edgeDataFingerprint}-ar${analysisReadyFingerprint}`
       if (payloadHash === lastPayloadHashRef.current) {
         // Same payload, skip request (we already have or are getting results for this)
         if (import.meta.env.DEV) {
@@ -263,7 +273,7 @@ export function useGraphReadiness() {
     } finally {
       setLoading(false)
     }
-  }, [nodes, edges, graphHealth])
+  }, [nodes, edges, graphHealth, ceeAnalysisReady])
 
   // Debounced fetch on graph changes
   useEffect(() => {
