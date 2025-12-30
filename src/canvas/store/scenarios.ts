@@ -512,6 +512,22 @@ export interface AutosaveData {
   scenarioId?: string // If editing an existing scenario
   nodes: Node[]
   edges: Edge[]
+  // V3: Persist analysis_ready so options survive page refresh
+  ceeAnalysisReady?: {
+    options: Array<{
+      id: string
+      label: string
+      status: 'ready' | 'needs_user_mapping'
+      interventions: Record<string, unknown>
+      user_questions?: string[]
+      unresolved_targets?: string[]
+    }>
+    goal_node_id: string
+    suggested_seed?: string
+    status?: string
+    user_questions?: string[]
+  } | null
+  selectedGoalNode?: string | null
 }
 
 // P2: Track last autosave payload to skip identical writes

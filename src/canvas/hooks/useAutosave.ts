@@ -56,6 +56,9 @@ export function useAutosave() {
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
   const currentScenarioId = useCanvasStore(s => s.currentScenarioId)
+  // V3: Include analysis_ready and goal selection in autosave
+  const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  const selectedGoalNode = useCanvasStore(s => s.selectedGoalNode)
 
   // P1 Fix: Track the hash of last saved state (not just last snapshot)
   const lastSavedHashRef = useRef<string>('')
@@ -94,7 +97,10 @@ export function useAutosave() {
           timestamp: now,
           scenarioId: currentScenarioId || undefined,
           nodes,
-          edges
+          edges,
+          // V3: Persist analysis_ready and goal selection
+          ceeAnalysisReady: ceeAnalysisReady ?? undefined,
+          selectedGoalNode: selectedGoalNode ?? undefined,
         })
 
         // P1 Fix: Update last saved hash after successful save
@@ -110,7 +116,7 @@ export function useAutosave() {
         }
       }
     }, DEBOUNCE_MS)
-  }, [nodes, edges, currentScenarioId, currentHash])
+  }, [nodes, edges, currentScenarioId, currentHash, ceeAnalysisReady, selectedGoalNode])
 
   // Periodic autosave - only saves if content changed
   useEffect(() => {

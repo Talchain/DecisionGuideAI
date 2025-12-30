@@ -357,6 +357,8 @@ function checkIdenticalOptions(
 
   for (const option of readyOptions) {
     const entries = Object.entries(option.interventions)
+      // Guard against undefined intervention values (can happen during autosave recovery)
+      .filter(([, iv]) => iv && typeof iv.value === 'number')
       .map(([nodeId, iv]) => `${nodeId}:${iv.value.toFixed(9)}`)
       .sort()
     const sig = entries.join('|')

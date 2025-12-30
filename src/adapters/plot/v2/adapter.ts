@@ -204,16 +204,20 @@ export function ceeOptionToUIOption(ceeOption: CEEOptionV3): UIOption {
     label: ceeOption.label,
     status: normaliseOptionStatus(ceeOption.status),
     interventions: Object.fromEntries(
-      Object.entries(ceeOption.interventions).map(([nodeId, iv]) => [
-        nodeId,
-        {
-          value: iv.value,
-          source: iv.source,
-          target_match: iv.target_match,
-          value_confidence: iv.value_confidence,
-          reasoning: iv.reasoning,
-        },
-      ])
+      Object.entries(ceeOption.interventions).map(([nodeId, iv]) => {
+        // CEE may return interventions as just numbers or as objects with metadata
+        const isNumber = typeof iv === 'number'
+        return [
+          nodeId,
+          {
+            value: isNumber ? iv : iv.value,
+            source: isNumber ? 'brief_extraction' : iv.source,
+            target_match: isNumber ? undefined : iv.target_match,
+            value_confidence: isNumber ? undefined : iv.value_confidence,
+            reasoning: isNumber ? undefined : iv.reasoning,
+          },
+        ]
+      })
     ),
     user_questions: ceeOption.user_questions,
     unresolved_targets: ceeOption.unresolved_targets,

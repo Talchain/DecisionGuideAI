@@ -42,13 +42,32 @@ export function RecoveryBanner() {
 
     // Load the autosaved graph
     store.reseedIds(autosaveData.nodes, autosaveData.edges)
+
+    // V3: Auto-select goal if not saved or missing
+    // Check both type and data.kind for goal detection
+    let goalNodeId = autosaveData.selectedGoalNode ?? null
+    if (!goalNodeId) {
+      const goalNodes = autosaveData.nodes.filter(
+        (n: any) => n.type === 'goal' || n.data?.kind === 'goal'
+      )
+      if (goalNodes.length === 1) {
+        goalNodeId = goalNodes[0].id
+        if (import.meta.env.DEV) {
+          console.log('[RecoveryBanner] Auto-selected goal node:', goalNodeId)
+        }
+      }
+    }
+
     useCanvasStore.setState({
       nodes: autosaveData.nodes,
       edges: autosaveData.edges,
       currentScenarioId: autosaveData.scenarioId || null,
       isDirty: true, // Mark as dirty since recovered work is unsaved
       history: { past: [], future: [] },
-      selection: { nodeIds: new Set(), edgeIds: new Set() }
+      selection: { nodeIds: new Set(), edgeIds: new Set() },
+      // V3: Restore analysis_ready and goal selection from autosave
+      ceeAnalysisReady: autosaveData.ceeAnalysisReady ?? null,
+      selectedGoalNode: goalNodeId,
     })
 
     // Clear autosave after recovery and mark as dismissed
