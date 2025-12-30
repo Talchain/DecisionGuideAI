@@ -4,8 +4,9 @@ import type {
   CEEFramingFeedback,
   CEEStructuralWarning,
   CEEv2Response,
+  CEEv3Response,
 } from './types'
-import { isCEEv2Response } from './types'
+import { isCEEv2Response, isCEEv3Response } from './types'
 import { withObservabilityHeaders, recordBffResponse, recordBffError } from '../../lib/observability-headers'
 import { useGateStore } from '../../lib/gate-state'
 
@@ -405,7 +406,12 @@ export class CEEClient {
     // Update graph_readiness gate on successful response
     useGateStore.getState().setGate('graph_readiness', 'pass', { message: 'Draft graph received' })
 
-    // V3 response: check if response matches v2/v3 format (v3 is superset of v2)
+    // Check V3 first (since we request ?schema=v3)
+    if (isCEEv3Response(raw)) {
+      return raw as CEEv3Response
+    }
+
+    // Fall back to v2 check
     if (isCEEv2Response(raw)) {
       return raw as CEEv2Response
     }
