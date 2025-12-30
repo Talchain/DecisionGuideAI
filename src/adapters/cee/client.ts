@@ -62,7 +62,10 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
       ? draft.draft_warnings.completeness.map((m: unknown) => String(m))
       : []
 
-    return {
+    // P0 FIX: Preserve analysis_ready if present in raw response
+    // This is critical for CEE V3 integration where analysis_ready contains
+    // resolved options with interventions
+    const result: CEEDraftResponse & { analysis_ready?: unknown; schema_version?: string } = {
       quality_overall: quality,
       nodes: draft.nodes,
       edges: draft.edges,
@@ -71,6 +74,18 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
         completeness,
       },
     }
+
+    // Pass through analysis_ready if present (CEE V3)
+    if (draft.analysis_ready && typeof draft.analysis_ready === 'object') {
+      result.analysis_ready = draft.analysis_ready
+    }
+
+    // Pass through schema_version if present
+    if (typeof draft.schema_version === 'string') {
+      result.schema_version = draft.schema_version
+    }
+
+    return result
   }
 
   const graph =
@@ -219,7 +234,8 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
     }
   }
 
-  return {
+  // P0 FIX: Preserve analysis_ready if present in raw response (legacy path)
+  const result: CEEDraftResponse & { analysis_ready?: unknown; schema_version?: string } = {
     quality_overall,
     nodes,
     edges,
@@ -228,6 +244,18 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
       completeness,
     },
   }
+
+  // Pass through analysis_ready if present (CEE V3)
+  if ((raw as any).analysis_ready && typeof (raw as any).analysis_ready === 'object') {
+    result.analysis_ready = (raw as any).analysis_ready
+  }
+
+  // Pass through schema_version if present
+  if (typeof (raw as any).schema_version === 'string') {
+    result.schema_version = (raw as any).schema_version
+  }
+
+  return result
 }
 
 export class CEEClient {
