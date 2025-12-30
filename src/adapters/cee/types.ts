@@ -221,14 +221,26 @@ export interface CEEv3Response extends CEEv2Response {
 
 /**
  * Type guard for v3 response with analysis_ready.
+ *
+ * V3 responses may have schema_version '2.2' or '3.0' depending on CEE version,
+ * so we check for structural validity rather than strict schema version.
  */
 export function isCEEv3Response(response: unknown): response is CEEv3Response {
-  return (
-    isCEEv2Response(response) &&
-    'analysis_ready' in response &&
-    typeof (response as any).analysis_ready === 'object' &&
-    (response as any).analysis_ready !== null
-  )
+  if (typeof response !== 'object' || response === null) return false
+
+  const r = response as Record<string, unknown>
+
+  // Must have analysis_ready object
+  if (!('analysis_ready' in r) || typeof r.analysis_ready !== 'object' || r.analysis_ready === null) {
+    return false
+  }
+
+  // Must have nodes and edges arrays (structural check from v2)
+  if (!Array.isArray(r.nodes) || !Array.isArray(r.edges)) {
+    return false
+  }
+
+  return true
 }
 
 /**
