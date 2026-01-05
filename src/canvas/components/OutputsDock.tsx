@@ -997,14 +997,41 @@ export function OutputsDock() {
                     {/* Consolidated pre-analysis guidance (coaching, validation, weights, biases) */}
                     <PreAnalysisGuidance onBlockersChange={setHasPreRunBlockers} />
 
+                    {/* User questions from CEE - shows when analysis_ready.status is not 'ready' */}
+                    {preRunValidation.userQuestions && preRunValidation.userQuestions.length > 0 && (
+                      <div
+                        className="px-3 py-2 bg-sun-50 border border-sun-200 rounded-lg"
+                        role="alert"
+                        data-testid="user-questions-alert"
+                      >
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 text-sun-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium text-sun-800">Needs Attention</p>
+                            <ul className="space-y-1">
+                              {preRunValidation.userQuestions.map((question, idx) => (
+                                <li key={idx} className="text-xs text-sun-700">
+                                  {question}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* R3: Run analysis button - CTA state machine driven */}
                     <button
                       type="button"
                       onClick={handleRunAnalysis}
-                      disabled={!ctaConfig.enabled}
-                      title={ctaConfig.tooltip}
+                      disabled={!ctaConfig.enabled || !preRunValidation.canRun}
+                      title={
+                        !preRunValidation.canRun && preRunValidation.blockers.length > 0
+                          ? preRunValidation.blockers[0].message
+                          : ctaConfig.tooltip
+                      }
                       className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
-                        ctaConfig.variant === 'disabled'
+                        ctaConfig.variant === 'disabled' || !preRunValidation.canRun
                           ? 'bg-sand-200 text-ink-500 cursor-not-allowed'
                           : ctaConfig.variant === 'warning'
                             ? 'bg-sun-500 text-white hover:bg-sun-600'

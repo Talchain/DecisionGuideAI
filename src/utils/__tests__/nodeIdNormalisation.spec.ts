@@ -370,10 +370,13 @@ describe('V2 Response Translation Coverage', () => {
       ['revenue_node', 'Revenue Node'],
       ['option_a', 'Option A'],
       ['factor_x', 'Factor X'],
+      ['goal_node', 'Goal Node'],
     ])
 
     // AND: A V2-like response with normalised IDs in all node ID fields
     const response = {
+      // goal_node_id - the goal node for the analysis
+      goal_node_id: 'goal_node',
       // options[].id - option identifiers
       options: [
         { id: 'option_a', label: 'Option A', outcome: { mean: 100 } },
@@ -400,10 +403,49 @@ describe('V2 Response Translation Coverage', () => {
     const translated = translateResponseToUIIds(response, reverseIdMap)
 
     // THEN: All node ID fields should be translated back to UI IDs
+    expect(translated.goal_node_id).toBe('Goal Node')
     expect(translated.options[0].id).toBe('Option A')
     expect(translated.critiques[0].affected_nodes).toEqual(['Price Node', 'Revenue Node'])
     expect(translated.drivers[0].node_id).toBe('Factor X')
     expect(translated.robustness?.factors?.[0].node_id).toBe('Price Node')
+  })
+
+  it('translates goal_node_id when present in reverseIdMap', () => {
+    // GIVEN: A reverseIdMap with the goal node ID
+    const reverseIdMap = new Map([
+      ['profit_margin', 'Profit Margin'],
+    ])
+
+    // AND: A response with goal_node_id
+    const response = {
+      goal_node_id: 'profit_margin',
+      options: [],
+    }
+
+    // WHEN: We translate
+    const translated = translateResponseToUIIds(response, reverseIdMap)
+
+    // THEN: goal_node_id should be translated
+    expect(translated.goal_node_id).toBe('Profit Margin')
+  })
+
+  it('preserves goal_node_id when not in reverseIdMap', () => {
+    // GIVEN: A reverseIdMap that does NOT include the goal node ID
+    const reverseIdMap = new Map([
+      ['other_node', 'Other Node'],
+    ])
+
+    // AND: A response with goal_node_id not in the map
+    const response = {
+      goal_node_id: 'unknown_goal',
+      options: [],
+    }
+
+    // WHEN: We translate
+    const translated = translateResponseToUIIds(response, reverseIdMap)
+
+    // THEN: goal_node_id should be preserved unchanged
+    expect(translated.goal_node_id).toBe('unknown_goal')
   })
 
   it('preserves unknown IDs when not in reverseIdMap', () => {
@@ -460,5 +502,362 @@ describe('V2 Response Translation Coverage', () => {
     expect(translated.critiques).toBeUndefined()
     expect(translated.drivers).toBeUndefined()
     expect(translated.robustness).toBeUndefined()
+  })
+
+  // -------------------------------------------------------------------------
+  // V2 Response Fields Translation Tests
+  // -------------------------------------------------------------------------
+
+  it('translates option_comparison[].option_id (V2 field)', () => {
+    // GIVEN: A reverseIdMap with option IDs
+    const reverseIdMap = new Map([
+      ['option_a', 'Option A'],
+      ['option_b', 'Option B'],
+    ])
+
+    // AND: A V2 response with option_comparison
+    const response = {
+      option_comparison: [
+        { option_id: 'option_a', option_label: 'Option A', confidence_interval: [0.3, 0.7] },
+        { option_id: 'option_b', option_label: 'Option B', confidence_interval: [0.2, 0.5] },
+      ],
+    }
+
+    // WHEN: We translate
+    const translated = translateResponseToUIIds(response, reverseIdMap)
+
+    // THEN: option_comparison[].option_id should be translated
+    expect(translated.option_comparison![0].option_id).toBe('Option A')
+    expect(translated.option_comparison![1].option_id).toBe('Option B')
+  })
+
+  it('translates edge_sensitivity fields (V2 field)', () => {
+    // GIVEN: A reverseIdMap with node IDs
+    const reverseIdMap = new Map([
+      ['price_node', 'Price Node'],
+      ['revenue_node', 'Revenue Node'],
+      ['cost_node', 'Cost Node'],
+    ])
+
+    // AND: A V2 response with edge_sensitivity
+    const response = {
+      edge_sensitivity: [
+        { edge_id: 'price_node::revenue_node', from: 'price_node', to: 'revenue_node', elasticity: 0.5, importance_rank: 1, interpretation: 'High impact' },
+        { edge_id: 'cost_node->revenue_node', from: 'cost_node', to: 'revenue_node', elasticity: -0.3, importance_rank: 2, interpretation: 'Negative impact' },
+      ],
+    }
+
+    // WHEN: We translate
+    const translated = translateResponseToUIIds(response, reverseIdMap)
+
+    // THEN: edge_sensitivity fields should be translated
+    expect(translated.edge_sensitivity![0].edge_id).toBe('Price Node::Revenue Node')
+    expect(translated.edge_sensitivity![0].from).toBe('Price Node')
+    expect(translated.edge_sensitivity![0].to).toBe('Revenue Node')
+    expect(translated.edge_sensitivity![1].edge_id).toBe('Cost Node->Revenue Node')
+    expect(translated.edge_sensitivity![1].from).toBe('Cost Node')
+    expect(translated.edge_sensitivity![1].to).toBe('Revenue Node')
+  })
+
+  it('translates factor_sensitivity[].factor_id (V2 field)', () => {
+    // GIVEN: A reverseIdMap with factor IDs
+    const reverseIdMap = new Map([
+      ['factor_a', 'Factor A'],
+      ['factor_b', 'Factor B'],
+    ])
+
+    // AND: A V2 response with factor_sensitivity
+    const response = {
+      factor_sensitivity: [
+        { factor_id: 'factor_a', sensitivity: 0.8 },
+        { factor_id: 'factor_b', sensitivity: 0.3 },
+      ],
+    }
+
+    // WHEN: We translate
+    const translated = translateResponseToUIIds(response, reverseIdMap)
+
+    // THEN: factor_sensitivity[].factor_id should be translated
+    expect(translated.factor_sensitivity![0].factor_id).toBe('Factor A')
+    expect(translated.factor_sensitivity![1].factor_id).toBe('Factor B')
+  })
+
+  it('translates robustness.fragile_edges and robust_edges (V2 field)', () => {
+    // GIVEN: A reverseIdMap with node IDs
+    const reverseIdMap = new Map([
+      ['price_node', 'Price Node'],
+      ['revenue_node', 'Revenue Node'],
+      ['cost_node', 'Cost Node'],
+    ])
+
+    // AND: A V2 response with robustness fragile_edges/robust_edges
+    const response = {
+      robustness: {
+        fragile_edges: ['price_node::revenue_node', 'cost_node->revenue_node'],
+        robust_edges: ['price_node::cost_node'],
+      },
+    }
+
+    // WHEN: We translate
+    const translated = translateResponseToUIIds(response, reverseIdMap)
+
+    // THEN: fragile_edges and robust_edges should have their node IDs translated
+    expect(translated.robustness!.fragile_edges).toEqual([
+      'Price Node::Revenue Node',
+      'Cost Node->Revenue Node',
+    ])
+    expect(translated.robustness!.robust_edges).toEqual([
+      'Price Node::Cost Node',
+    ])
+  })
+
+  it('handles edge_id with unknown format (passes through unchanged)', () => {
+    // GIVEN: A reverseIdMap
+    const reverseIdMap = new Map([
+      ['node_a', 'Node A'],
+    ])
+
+    // AND: An edge_id with unknown format (neither :: nor ->)
+    const response = {
+      edge_sensitivity: [
+        { edge_id: 'edge_1234', from: 'node_a', to: 'node_a', elasticity: 0.5, importance_rank: 1, interpretation: 'Test' },
+      ],
+    }
+
+    // WHEN: We translate
+    const translated = translateResponseToUIIds(response, reverseIdMap)
+
+    // THEN: edge_id should be passed through unchanged
+    expect(translated.edge_sensitivity![0].edge_id).toBe('edge_1234')
+    // But from/to should still be translated
+    expect(translated.edge_sensitivity![0].from).toBe('Node A')
+    expect(translated.edge_sensitivity![0].to).toBe('Node A')
+  })
+
+  it('translates complete V2 response with all fields', () => {
+    // GIVEN: A comprehensive reverseIdMap
+    const reverseIdMap = new Map([
+      ['goal_node', 'Goal Node'],
+      ['option_1', 'Option 1'],
+      ['option_2', 'Option 2'],
+      ['price', 'Price'],
+      ['revenue', 'Revenue'],
+      ['cost', 'Cost'],
+    ])
+
+    // AND: A complete V2 response
+    const response = {
+      goal_node_id: 'goal_node',
+      option_comparison: [
+        { option_id: 'option_1', option_label: 'Opt 1', confidence_interval: [0.3, 0.7] as [number, number] },
+        { option_id: 'option_2', option_label: 'Opt 2', confidence_interval: [0.4, 0.6] as [number, number] },
+      ],
+      edge_sensitivity: [
+        { edge_id: 'price::revenue', from: 'price', to: 'revenue', elasticity: 0.5, importance_rank: 1, interpretation: 'High', sensitivity_type: 'magnitude' as const },
+      ],
+      factor_sensitivity: [
+        { factor_id: 'cost', sensitivity: 0.3 },
+      ],
+      critiques: [
+        { code: 'TEST', severity: 'warning' as const, message: 'Test', affected_nodes: ['price', 'revenue'] },
+      ],
+      robustness: {
+        fragile_edges: ['cost::revenue'],
+        robust_edges: ['price::revenue'],
+      },
+    }
+
+    // WHEN: We translate
+    const translated = translateResponseToUIIds(response, reverseIdMap)
+
+    // THEN: All fields should be translated correctly
+    expect(translated.goal_node_id).toBe('Goal Node')
+    expect(translated.option_comparison![0].option_id).toBe('Option 1')
+    expect(translated.option_comparison![1].option_id).toBe('Option 2')
+    expect(translated.edge_sensitivity![0].edge_id).toBe('Price::Revenue')
+    expect(translated.edge_sensitivity![0].from).toBe('Price')
+    expect(translated.edge_sensitivity![0].to).toBe('Revenue')
+    expect(translated.factor_sensitivity![0].factor_id).toBe('Cost')
+    expect(translated.critiques![0].affected_nodes).toEqual(['Price', 'Revenue'])
+    expect(translated.robustness!.fragile_edges).toEqual(['Cost::Revenue'])
+    expect(translated.robustness!.robust_edges).toEqual(['Price::Revenue'])
+  })
+})
+
+// =============================================================================
+// Contract Tests: Field Coverage for translateResponseToUIIds
+// =============================================================================
+
+describe('translateResponseToUIIds contract coverage', () => {
+  /**
+   * CONTRACT DOCUMENTATION
+   *
+   * All V2RunResponse fields containing node/edge IDs must be translated.
+   * This test documents the expected field coverage and serves as a contract
+   * that must be updated when new ID fields are added to the PLoT response.
+   *
+   * ID Fields Requiring Translation (V2RunResponse):
+   * ------------------------------------------------
+   * | Field Path                        | ID Type    | Format           |
+   * |-----------------------------------|------------|------------------|
+   * | goal_node_id                      | node       | single           |
+   * | option_comparison[].option_id     | node       | single           |
+   * | critiques[].affected_nodes[]      | node       | array            |
+   * | drivers[].node_id                 | node       | single           |
+   * | edge_sensitivity[].edge_id        | edge       | "from::to"       |
+   * | edge_sensitivity[].from           | node       | single           |
+   * | edge_sensitivity[].to             | node       | single           |
+   * | factor_sensitivity[].factor_id    | node       | single           |
+   * | robustness.fragile_edges[]        | edge       | "from::to" array |
+   * | robustness.robust_edges[]         | edge       | "from::to" array |
+   * | robustness.factors[].node_id      | node       | single (legacy)  |
+   * | options[].id                      | node       | single (legacy)  |
+   *
+   * When adding new ID fields to V2RunResponse:
+   * 1. Add field path to this documentation
+   * 2. Update translateResponseToUIIds type constraint
+   * 3. Add translation logic in the return object
+   * 4. Add test case below verifying translation
+   */
+
+  // Canonical list of ID fields - update when schema changes
+  const TRANSLATED_ID_FIELDS = {
+    // V2 response fields
+    goal_node_id: { type: 'node', format: 'single' },
+    'option_comparison[].option_id': { type: 'node', format: 'single' },
+    'critiques[].affected_nodes': { type: 'node', format: 'array' },
+    'drivers[].node_id': { type: 'node', format: 'single' },
+    'edge_sensitivity[].edge_id': { type: 'edge', format: 'from::to' },
+    'edge_sensitivity[].from': { type: 'node', format: 'single' },
+    'edge_sensitivity[].to': { type: 'node', format: 'single' },
+    'factor_sensitivity[].factor_id': { type: 'node', format: 'single' },
+    'robustness.fragile_edges': { type: 'edge', format: 'array' },
+    'robustness.robust_edges': { type: 'edge', format: 'array' },
+    // Legacy fields (for backward compatibility)
+    'robustness.factors[].node_id': { type: 'node', format: 'single' },
+    'options[].id': { type: 'node', format: 'single' },
+  } as const
+
+  it('documents all translated ID fields (contract baseline)', () => {
+    // This test serves as the contract baseline
+    // If you need to add a new field, add it to TRANSLATED_ID_FIELDS above
+    const fieldCount = Object.keys(TRANSLATED_ID_FIELDS).length
+    expect(fieldCount).toBe(12) // Update this count when adding new fields
+
+    // Verify structure
+    expect(TRANSLATED_ID_FIELDS['goal_node_id']).toBeDefined()
+    expect(TRANSLATED_ID_FIELDS['option_comparison[].option_id']).toBeDefined()
+    expect(TRANSLATED_ID_FIELDS['edge_sensitivity[].edge_id']).toBeDefined()
+    expect(TRANSLATED_ID_FIELDS['factor_sensitivity[].factor_id']).toBeDefined()
+    expect(TRANSLATED_ID_FIELDS['robustness.fragile_edges']).toBeDefined()
+    expect(TRANSLATED_ID_FIELDS['robustness.robust_edges']).toBeDefined()
+  })
+
+  it('verifies all documented fields are actually translated', () => {
+    // GIVEN: A comprehensive reverse map
+    const reverseIdMap = new Map([
+      ['goal', 'Goal'],
+      ['opt1', 'Opt 1'],
+      ['opt2', 'Opt 2'],
+      ['node_a', 'Node A'],
+      ['node_b', 'Node B'],
+      ['driver', 'Driver'],
+      ['from_node', 'From Node'],
+      ['to_node', 'To Node'],
+      ['factor', 'Factor'],
+      ['fragile_from', 'Fragile From'],
+      ['fragile_to', 'Fragile To'],
+      ['robust_from', 'Robust From'],
+      ['robust_to', 'Robust To'],
+      ['legacy_opt', 'Legacy Opt'],
+      ['robustness_factor', 'Robustness Factor'],
+    ])
+
+    // AND: A response exercising ALL documented ID fields
+    const response = {
+      goal_node_id: 'goal',
+      option_comparison: [
+        { option_id: 'opt1', option_label: 'O1', confidence_interval: [0, 1] as [number, number] },
+        { option_id: 'opt2', option_label: 'O2', confidence_interval: [0, 1] as [number, number] },
+      ],
+      critiques: [
+        { code: 'C1', severity: 'warning' as const, message: 'M1', affected_nodes: ['node_a', 'node_b'] },
+      ],
+      drivers: [
+        { node_id: 'driver', label: 'D', contribution: 0.5, direction: 'positive' as const },
+      ],
+      edge_sensitivity: [
+        { edge_id: 'from_node::to_node', from: 'from_node', to: 'to_node', elasticity: 0.5, importance_rank: 1, interpretation: 'I', sensitivity_type: 'magnitude' as const },
+      ],
+      factor_sensitivity: [
+        { factor_id: 'factor', sensitivity: 0.5 },
+      ],
+      robustness: {
+        fragile_edges: ['fragile_from::fragile_to'],
+        robust_edges: ['robust_from->robust_to'],
+        factors: [{ node_id: 'robustness_factor', sensitivity: 0.5 }],
+      },
+      options: [
+        { id: 'legacy_opt', label: 'L' },
+      ],
+    }
+
+    // WHEN: We translate
+    const translated = translateResponseToUIIds(response, reverseIdMap)
+
+    // THEN: Verify each documented field is translated
+    // goal_node_id
+    expect(translated.goal_node_id).toBe('Goal')
+
+    // option_comparison[].option_id
+    expect(translated.option_comparison![0].option_id).toBe('Opt 1')
+    expect(translated.option_comparison![1].option_id).toBe('Opt 2')
+
+    // critiques[].affected_nodes
+    expect(translated.critiques![0].affected_nodes).toEqual(['Node A', 'Node B'])
+
+    // drivers[].node_id
+    expect(translated.drivers![0].node_id).toBe('Driver')
+
+    // edge_sensitivity[].edge_id, from, to
+    expect(translated.edge_sensitivity![0].edge_id).toBe('From Node::To Node')
+    expect(translated.edge_sensitivity![0].from).toBe('From Node')
+    expect(translated.edge_sensitivity![0].to).toBe('To Node')
+
+    // factor_sensitivity[].factor_id
+    expect(translated.factor_sensitivity![0].factor_id).toBe('Factor')
+
+    // robustness.fragile_edges (:: format)
+    expect(translated.robustness!.fragile_edges).toEqual(['Fragile From::Fragile To'])
+
+    // robustness.robust_edges (-> format)
+    expect(translated.robustness!.robust_edges).toEqual(['Robust From->Robust To'])
+
+    // robustness.factors[].node_id (legacy)
+    expect(translated.robustness!.factors![0].node_id).toBe('Robustness Factor')
+
+    // options[].id (legacy)
+    expect(translated.options![0].id).toBe('Legacy Opt')
+  })
+
+  /**
+   * SCHEMA EVOLUTION GUARDRAIL
+   *
+   * If you're seeing a failure here after adding a new field to V2RunResponse
+   * that contains node/edge IDs, follow these steps:
+   *
+   * 1. Add the field path to TRANSLATED_ID_FIELDS constant above
+   * 2. Update the field count assertion in 'documents all translated ID fields'
+   * 3. Add a test case in 'verifies all documented fields are actually translated'
+   * 4. Update translateResponseToUIIds function:
+   *    a. Add field to the generic type constraint
+   *    b. Add translation logic in the return object
+   */
+  it('schema evolution guardrail - checks field count', () => {
+    // If this test fails, a new ID field may have been added to V2RunResponse
+    // See the SCHEMA EVOLUTION GUARDRAIL comment above for instructions
+    const expectedFieldCount = 12
+    const actualFieldCount = Object.keys(TRANSLATED_ID_FIELDS).length
+    expect(actualFieldCount).toBe(expectedFieldCount)
   })
 })

@@ -17,10 +17,11 @@ import {
   type V2RunError,
   type V2RunResponse,
 } from '../../adapters/plot/v2'
-import { mapV2ResponseToReportV1, createErrorReport } from '../../adapters/plot/v2/responseMapper'
-import { trackRunCompleted, trackRunFailed } from '../../lib/resultsInstrumentation'
+import { mapV2ResponseToReportV1, createErrorReport, createEnrichmentFromV2Response, detectComputedButEmpty } from '../../adapters/plot/v2/responseMapper'
+import { trackRunCompleted, trackRunFailed, trackEmptyComputedResults } from '../../lib/resultsInstrumentation'
 import { generateRequestId } from '../../types/requestId'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
+import { useGateStore, updateRobustnessGate } from '../../lib/gate-state'
 
 /**
  * Check if ceeAnalysisReady is stale (graph has changed since it was stored).
@@ -283,10 +284,35 @@ export function useV2Run(): UseV2RunReturn {
           elapsed_ms,
         })
 
+        // Create enrichment from V2 response for gate-state and useRobustness
+        const enrichment = createEnrichmentFromV2Response(successResult)
+
+        // Detect computed-but-empty anomalies (backend bug detection)
+        const anomalies = detectComputedButEmpty(successResult)
+        if (anomalies.length > 0) {
+          // Track the anomaly for debugging
+          trackEmptyComputedResults({
+            request_id: requestId,
+            anomalies: anomalies.map(a => ({
+              field: a.field,
+              status: a.status,
+              message: a.message,
+            })),
+          })
+
+          if (import.meta.env.DEV) {
+            console.warn('[useV2Run] Detected computed-but-empty anomalies', {
+              requestId,
+              anomalies,
+            })
+          }
+        }
+
         trackRunCompleted({
           duration_ms: elapsed_ms,
-          option_count: successResult.options.length,
-          has_drivers: (successResult.drivers?.length ?? 0) > 0,
+          option_count: successResult.option_comparison?.length ?? 0,
+          // Check edge_sensitivity since that's what PLoT actually returns
+          has_drivers: (successResult.edge_sensitivity?.length ?? successResult.drivers?.length ?? 0) > 0,
           request_id: requestId,
         })
 
@@ -294,7 +320,51 @@ export function useV2Run(): UseV2RunReturn {
           report,
           hash: successResult.response_hash,
           requestId,
+          enrichment,
         })
+
+        // Update gates after successful analysis
+        // BUT: If there are anomalies, set gate to 'warn' instead of 'pass'
+        const hasRobustnessAnomaly = anomalies.some(a => a.field === 'robustness')
+        const hasOptionAnomaly = anomalies.some(a => a.field === 'option_comparison')
+
+        if (hasOptionAnomaly) {
+          // Option comparison claimed "computed" but was empty - this is a serious issue
+          useGateStore.getState().setGate('run', 'warn', {
+            requestId,
+            message: 'Analysis completed but option results are missing',
+            service: 'plot-v2',
+          })
+        } else {
+          useGateStore.getState().setGate('run', 'pass', {
+            requestId,
+            message: 'Analysis completed successfully',
+            service: 'plot-v2',
+          })
+        }
+
+        // Update robustness gate based on sensitivity data
+        // Handle special cases that should NOT result in 'pass':
+        // 1. robustness_status === 'error' - backend failed to compute
+        // 2. hasRobustnessAnomaly - computed but empty (backend bug)
+        if (successResult.robustness_status === 'error') {
+          useGateStore.getState().setGate('robustness', 'fail', {
+            requestId,
+            message: 'Robustness analysis failed',
+            service: 'plot-v2',
+          })
+        } else if (hasRobustnessAnomaly) {
+          useGateStore.getState().setGate('robustness', 'warn', {
+            requestId,
+            message: 'Robustness computed but results are empty',
+            service: 'plot-v2',
+          })
+        } else {
+          updateRobustnessGate(
+            enrichment?.sensitivity_analysis,
+            enrichment?.metadata?.factor_sensitivity_status
+          )
+        }
 
         // Show partial warning if applicable
         if (result.analysis_status === 'partial') {

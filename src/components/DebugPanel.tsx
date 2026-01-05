@@ -28,6 +28,7 @@ import { getClientBuild, getVersionInfo } from '../lib/version-cache'
 import { exportDiagnosticBundle } from '../lib/diagnostic-bundle'
 import { getAllServiceHealthArray, type ServiceHealthInfo, type HealthStatus } from '../lib/service-health'
 import { useCanvasStore } from '../canvas/store'
+import { ContractInspector } from './ContractInspector'
 
 declare global {
   interface Window {
@@ -630,6 +631,7 @@ function SensitivityAnalysisSection() {
 export function DebugPanel() {
   const [visible, setVisible] = useState(false)
   const [collapsed, setCollapsed] = useState(true)
+  const [expanded, setExpanded] = useState(false) // Maximized state
   const [traces, setTraces] = useState<RequestTrace[]>([])
   const [exporting, setExporting] = useState(false)
   const [services, setServices] = useState<ServiceHealthInfo[]>([])
@@ -696,6 +698,10 @@ export function DebugPanel() {
   const versionInfo = getVersionInfo()
   const clientBuild = getClientBuild()
 
+  // Panel dimensions based on state
+  const panelWidth = collapsed ? 120 : expanded ? 600 : 400
+  const panelMaxHeight = expanded ? 'calc(100vh - 32px)' : '70vh'
+
   return (
     <div
       style={{
@@ -704,8 +710,9 @@ export function DebugPanel() {
         left: 16,
         zIndex: 99998,
         fontFamily: 'system-ui, -apple-system, sans-serif',
-        maxWidth: collapsed ? 120 : 400,
-        transition: 'max-width 0.2s ease',
+        maxWidth: panelWidth,
+        width: collapsed ? 'auto' : panelWidth,
+        transition: 'all 0.2s ease',
       }}
     >
       {/* Collapsed state */}
@@ -740,6 +747,9 @@ export function DebugPanel() {
             boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
             border: '1px solid #e2e8f0',
             overflow: 'hidden',
+            maxHeight: panelMaxHeight,
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
           {/* Header */}
@@ -771,7 +781,7 @@ export function DebugPanel() {
                 )
               })()}
             </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button
                 onClick={handleExport}
                 disabled={exporting}
@@ -786,6 +796,21 @@ export function DebugPanel() {
                 }}
               >
                 {exporting ? 'Exporting...' : 'Export'}
+              </button>
+              <button
+                onClick={() => setExpanded(!expanded)}
+                style={{
+                  padding: '2px 6px',
+                  background: expanded ? '#475569' : 'transparent',
+                  color: expanded ? '#fff' : '#94a3b8',
+                  border: 'none',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  borderRadius: 4,
+                }}
+                title={expanded ? 'Minimize panel' : 'Expand panel'}
+              >
+                {expanded ? '⊖' : '⊕'}
               </button>
               <button
                 onClick={() => setCollapsed(true)}
@@ -804,6 +829,14 @@ export function DebugPanel() {
             </div>
           </div>
 
+          {/* Scrollable content area */}
+          <div
+            style={{
+              flex: 1,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+            }}
+          >
           {/* Version Info */}
           <div
             style={{
@@ -934,7 +967,7 @@ export function DebugPanel() {
           })()}
 
           {/* Request Traces */}
-          <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+          <div style={{ maxHeight: expanded ? 400 : 200, overflowY: 'auto' }}>
             <div
               style={{
                 padding: '6px 12px',
@@ -967,6 +1000,12 @@ export function DebugPanel() {
               traces.slice(0, 10).map((trace) => <TraceRow key={trace.requestId} trace={trace} />)
             )}
           </div>
+
+          {/* Contract Inspector - Payload Inspection with Schema Validation */}
+          <div style={{ borderTop: '2px solid #e2e8f0' }}>
+            <ContractInspector />
+          </div>
+          </div>{/* End scrollable content area */}
         </div>
       )}
     </div>

@@ -4,16 +4,27 @@
  *
  * Returns quality tier, improvements list, and analysis eligibility.
  * Falls back to local graph analysis if CEE is unavailable.
+ *
+ * Optimized for stability:
+ * - Uses fingerprint-based change detection to prevent excessive requests
+ * - Reads store state inside callback to maintain stable callback reference
+ * - Debounces changes effectively (callback doesn't recreate on every render)
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useCanvasStore } from '../store'
+import { useShallow } from 'zustand/shallow'
 import type { Node, Edge } from '@xyflow/react'
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 
 // Debounce delay for graph changes (ms)
-const DEBOUNCE_DELAY = 800
+const DEBOUNCE_DELAY = 500
+
+// Rate limit handling
+const INITIAL_BACKOFF_MS = 1000
+const MAX_BACKOFF_MS = 30000
+const BACKOFF_MULTIPLIER = 2
 
 export type ReadinessLevel = 'needs_work' | 'fair' | 'strong'
 export type ImprovementPriority = 'high' | 'medium' | 'low'
@@ -100,6 +111,39 @@ function calculateFallbackReadiness(
   }
 }
 
+/**
+ * Create a stable fingerprint for graph state.
+ * Only changes when graph content actually changes.
+ */
+function createGraphFingerprint(
+  nodes: Node[],
+  edges: Edge[],
+  ceeAnalysisReady: { options?: { id: string }[] } | null
+): string {
+  // Node fingerprint: id, type, and value (for factors)
+  const nodeFingerprint = nodes
+    .map((n) => {
+      const value = (n.data as any)?.value
+      return `${n.id}:${n.type}:${typeof value === 'number' ? value.toFixed(3) : 'x'}`
+    })
+    .sort()
+    .join(',')
+
+  // Edge fingerprint: source, target, confidence
+  const edgeFingerprint = edges
+    .map((e) => {
+      const conf = (e.data as any)?.confidence
+      return `${e.source}->${e.target}:${conf !== undefined ? conf.toFixed(3) : 'x'}`
+    })
+    .sort()
+    .join(',')
+
+  // CEE fingerprint: options count
+  const ceeFingerprint = ceeAnalysisReady?.options?.length ?? 0
+
+  return `n${nodes.length}|e${edges.length}|${nodeFingerprint}|${edgeFingerprint}|ar${ceeFingerprint}`
+}
+
 export function useGraphReadiness() {
   const [readiness, setReadiness] = useState<GraphReadiness | null>(null)
   const [loading, setLoading] = useState(false)
@@ -107,19 +151,48 @@ export function useGraphReadiness() {
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  // Brief 32 Task 4: Track last payload hash to prevent duplicate requests
+  // Track last payload hash to prevent duplicate requests
   const lastPayloadHashRef = useRef<string | null>(null)
+  // Track if we've logged recently to reduce noise
+  const lastLogTimeRef = useRef<number>(0)
+  // Rate limit backoff state
+  const backoffRef = useRef<{ delay: number; until: number }>({ delay: 0, until: 0 })
 
-  // Store selectors
-  const nodes = useCanvasStore(s => s.nodes)
-  const edges = useCanvasStore(s => s.edges)
-  const graphHealth = useCanvasStore(s => s.graphHealth)
-  // V3: Include analysis_ready so CEE knows about resolved options
-  const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  // Use shallow selectors to get stable references
+  // These are used for fingerprinting, not as direct dependencies
+  const nodes = useCanvasStore(useShallow((s) => s.nodes))
+  const edges = useCanvasStore(useShallow((s) => s.edges))
+  const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
 
+  // Create stable fingerprint
+  const fingerprint = useMemo(
+    () => createGraphFingerprint(nodes, edges, ceeAnalysisReady),
+    [nodes, edges, ceeAnalysisReady]
+  )
+
+  // Stable callback that reads fresh state inside
   const fetchReadiness = useCallback(async () => {
+    // Check rate limit backoff
+    const now = Date.now()
+    if (backoffRef.current.until > now) {
+      if (import.meta.env.DEV) {
+        console.log(
+          `[useGraphReadiness] Rate limited, waiting ${Math.ceil((backoffRef.current.until - now) / 1000)}s`
+        )
+      }
+      return
+    }
+
+    // Read fresh state from store
+    const {
+      nodes: currentNodes,
+      edges: currentEdges,
+      graphHealth,
+      ceeAnalysisReady: currentCeeAnalysisReady,
+    } = useCanvasStore.getState()
+
     // Don't fetch if no nodes
-    if (nodes.length === 0) {
+    if (currentNodes.length === 0) {
       setReadiness({
         readiness_score: 0,
         readiness_level: 'needs_work',
@@ -146,12 +219,11 @@ export function useGraphReadiness() {
     try {
       // Call CEE /graph-readiness endpoint
       // BFF proxy maps /bff/cee/graph-readiness → /assist/v1/graph-readiness
-      // and injects X-Olumi-Assist-Key header
       // Brief 31 Task 4: CEE expects 'kind' not 'type'
       // Brief I Fix: Sanitize node data - CEE FactorData requires value to be a number
       const payload: Record<string, unknown> = {
         graph: {
-          nodes: nodes.map(n => {
+          nodes: currentNodes.map((n) => {
             const baseNode = {
               id: n.id,
               kind: n.type,
@@ -163,7 +235,7 @@ export function useGraphReadiness() {
             }
             return baseNode
           }),
-          edges: edges.map(e => ({
+          edges: currentEdges.map((e) => ({
             id: e.id,
             source: e.source,
             target: e.target,
@@ -173,34 +245,36 @@ export function useGraphReadiness() {
       }
 
       // V3: Include analysis_ready if present so CEE knows about resolved options
-      // This is critical because V3 moves options from graph nodes → analysis_ready.options
-      if (ceeAnalysisReady?.options?.length) {
-        payload.analysis_ready = ceeAnalysisReady
+      if (currentCeeAnalysisReady?.options?.length) {
+        payload.analysis_ready = currentCeeAnalysisReady
       }
 
-      // Brief 32 Task 4: Skip duplicate requests by comparing payload hash
-      // Brief I Fix: Include edge data (confidence) in hash so auto-fix changes trigger refresh
-      // Edge confidence affects graph validity (probability sums)
-      // V3: Include analysis_ready options count in hash
-      const edgeDataFingerprint = edges.map(e => {
-        const conf = (e.data as any)?.confidence
-        return `${e.source}-${e.target}-${conf !== undefined ? conf.toFixed(3) : 'x'}`
-      }).join(',')
-      const analysisReadyFingerprint = ceeAnalysisReady?.options?.length ?? 0
-      const payloadHash = `${nodes.length}-${edges.length}-${nodes.map(n => n.id).join(',')}-${edgeDataFingerprint}-ar${analysisReadyFingerprint}`
+      // Create hash for deduplication
+      const edgeDataFingerprint = currentEdges
+        .map((e) => {
+          const conf = (e.data as any)?.confidence
+          return `${e.source}-${e.target}-${conf !== undefined ? conf.toFixed(3) : 'x'}`
+        })
+        .join(',')
+      const analysisReadyFingerprint = currentCeeAnalysisReady?.options?.length ?? 0
+      const payloadHash = `${currentNodes.length}-${currentEdges.length}-${currentNodes.map((n) => n.id).join(',')}-${edgeDataFingerprint}-ar${analysisReadyFingerprint}`
+
       if (payloadHash === lastPayloadHashRef.current) {
-        // Same payload, skip request (we already have or are getting results for this)
-        if (import.meta.env.DEV) {
-          console.log('[useGraphReadiness] Skipping duplicate request (same payload hash)')
-        }
+        // Same payload, skip request
         setLoading(false)
         return
       }
       lastPayloadHashRef.current = payloadHash
 
-      // DEBUG: Log CEE request payload (only when actually making request)
-      if (import.meta.env.DEV) {
-        console.log('[useGraphReadiness] CEE request payload:', JSON.stringify(payload, null, 2))
+      // Rate-limited logging (max once per 5 seconds)
+      const now = Date.now()
+      if (import.meta.env.DEV && now - lastLogTimeRef.current > 5000) {
+        console.log('[useGraphReadiness] Fetching readiness:', {
+          nodes: currentNodes.length,
+          edges: currentEdges.length,
+          hasAnalysisReady: Boolean(currentCeeAnalysisReady?.options?.length),
+        })
+        lastLogTimeRef.current = now
       }
 
       const response = await fetch(`${CEE_BASE_URL}/graph-readiness`, {
@@ -214,8 +288,37 @@ export function useGraphReadiness() {
       })
 
       if (!response.ok) {
-        // DEBUG: Log error response
         const errorBody = await response.text().catch(() => 'Unable to read response body')
+
+        // Handle rate limiting (429) with exponential backoff
+        if (response.status === 429) {
+          const retryAfter = response.headers.get('Retry-After')
+          const backoffDelay = retryAfter
+            ? parseInt(retryAfter, 10) * 1000
+            : Math.min(
+                backoffRef.current.delay > 0
+                  ? backoffRef.current.delay * BACKOFF_MULTIPLIER
+                  : INITIAL_BACKOFF_MS,
+                MAX_BACKOFF_MS
+              )
+
+          backoffRef.current = {
+            delay: backoffDelay,
+            until: Date.now() + backoffDelay,
+          }
+
+          console.warn(
+            `[useGraphReadiness] Rate limited (429), backing off for ${backoffDelay / 1000}s`
+          )
+
+          // Use fallback instead of throwing
+          const fallback = calculateFallbackReadiness(currentNodes, currentEdges, graphHealth)
+          setReadiness(fallback)
+          setError('Rate limited - using local validation')
+          setLoading(false)
+          return
+        }
+
         console.error('[useGraphReadiness] CEE error response:', {
           status: response.status,
           statusText: response.statusText,
@@ -224,35 +327,60 @@ export function useGraphReadiness() {
         throw new Error(`HTTP ${response.status} - ${errorBody}`)
       }
 
+      // Reset backoff on success
+      backoffRef.current = { delay: 0, until: 0 }
+
       const data = await response.json()
 
       // Validate and normalize response
       const normalized: GraphReadiness = {
-        readiness_score: typeof data.readiness_score === 'number'
-          ? Math.max(0, Math.min(100, data.readiness_score))
-          : 50,
+        readiness_score:
+          typeof data.readiness_score === 'number'
+            ? Math.max(0, Math.min(100, data.readiness_score))
+            : 50,
         readiness_level: ['needs_work', 'fair', 'strong'].includes(data.readiness_level)
           ? data.readiness_level
           : 'fair',
-        can_run_analysis: typeof data.can_run_analysis === 'boolean'
-          ? data.can_run_analysis
-          : true,
-        confidence_explanation: typeof data.confidence_explanation === 'string'
-          ? data.confidence_explanation
-          : 'Analysis available',
+        can_run_analysis:
+          typeof data.can_run_analysis === 'boolean' ? data.can_run_analysis : true,
+        confidence_explanation:
+          typeof data.confidence_explanation === 'string'
+            ? data.confidence_explanation
+            : 'Analysis available',
         improvements: Array.isArray(data.improvements)
           ? data.improvements.map((imp: any) => ({
               category: imp.category || 'general',
               action: imp.action || imp.recommendation || 'Review this area',
               current_gap: imp.current_gap || '',
-              quality_impact: typeof imp.quality_impact === 'number' ? imp.quality_impact : (typeof imp.potential_improvement === 'number' ? imp.potential_improvement : 5),
-              target_quality: typeof imp.target_quality === 'number' ? imp.target_quality : (typeof imp.target_score === 'number' ? imp.target_score : 70),
-              priority: ['high', 'medium', 'low'].includes(imp.priority) ? imp.priority : (imp.impact || 'medium'),
+              quality_impact:
+                typeof imp.quality_impact === 'number'
+                  ? imp.quality_impact
+                  : typeof imp.potential_improvement === 'number'
+                    ? imp.potential_improvement
+                    : 5,
+              target_quality:
+                typeof imp.target_quality === 'number'
+                  ? imp.target_quality
+                  : typeof imp.target_score === 'number'
+                    ? imp.target_score
+                    : 70,
+              priority: ['high', 'medium', 'low'].includes(imp.priority)
+                ? imp.priority
+                : imp.impact || 'medium',
               effort_minutes: typeof imp.effort_minutes === 'number' ? imp.effort_minutes : 5,
-              affected_nodes: Array.isArray(imp.affected_nodes) ? imp.affected_nodes : (Array.isArray(imp.affected_node_ids) ? imp.affected_node_ids : undefined),
-              affected_edges: Array.isArray(imp.affected_edges) ? imp.affected_edges : (Array.isArray(imp.affected_edge_ids) ? imp.affected_edge_ids : undefined),
+              affected_nodes: Array.isArray(imp.affected_nodes)
+                ? imp.affected_nodes
+                : Array.isArray(imp.affected_node_ids)
+                  ? imp.affected_node_ids
+                  : undefined,
+              affected_edges: Array.isArray(imp.affected_edges)
+                ? imp.affected_edges
+                : Array.isArray(imp.affected_edge_ids)
+                  ? imp.affected_edge_ids
+                  : undefined,
               suggested_node_type: imp.suggested_node_type || undefined,
-              current_score: typeof imp.current_score === 'number' ? imp.current_score : undefined,
+              current_score:
+                typeof imp.current_score === 'number' ? imp.current_score : undefined,
             }))
           : [],
       }
@@ -268,14 +396,14 @@ export function useGraphReadiness() {
       setError(err instanceof Error ? err.message : 'Unknown error')
 
       // Use fallback based on local graph health
-      const fallback = calculateFallbackReadiness(nodes, edges, graphHealth)
+      const fallback = calculateFallbackReadiness(currentNodes, currentEdges, graphHealth)
       setReadiness(fallback)
     } finally {
       setLoading(false)
     }
-  }, [nodes, edges, graphHealth, ceeAnalysisReady])
+  }, []) // No dependencies - reads from store directly
 
-  // Debounced fetch on graph changes
+  // Debounced fetch triggered by fingerprint changes
   useEffect(() => {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current)
@@ -290,7 +418,7 @@ export function useGraphReadiness() {
         clearTimeout(debounceTimeoutRef.current)
       }
     }
-  }, [fetchReadiness])
+  }, [fingerprint, fetchReadiness])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -304,8 +432,10 @@ export function useGraphReadiness() {
     }
   }, [])
 
-  // Manual refresh function
+  // Manual refresh function (stable reference)
   const refresh = useCallback(() => {
+    // Clear hash to force refresh
+    lastPayloadHashRef.current = null
     fetchReadiness()
   }, [fetchReadiness])
 

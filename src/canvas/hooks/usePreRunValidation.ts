@@ -12,8 +12,9 @@
  * - Mirrors common backend blockers for early detection
  */
 
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 import { useCanvasStore } from '../store'
+import { useShallow } from 'zustand/shallow'
 import type { Node, Edge } from '@xyflow/react'
 import type { UIOption } from '../../types/options'
 import { normaliseOptionFromLegacyNode, type LegacyOptionNode } from '../../types/options'
@@ -69,6 +70,8 @@ export interface ValidationResult {
   warnings: ValidationWarning[]
   /** Recommended state changes (caller decides whether to apply) */
   recommendedFixes?: RecommendedFix[]
+  /** User-facing questions from CEE explaining why analysis can't proceed */
+  userQuestions?: string[]
 }
 
 // ============================================================================
@@ -127,6 +130,45 @@ function validateGoalNode(
 }
 
 /**
+ * Validate overall analysis_ready status.
+ *
+ * Checks the top-level status field which indicates if the graph
+ * has structural issues (e.g., no causal path to goal).
+ */
+function validateOverallStatus(
+  ceeAnalysisReady?: CEEAnalysisReady | null
+): { blockers: ValidationBlocker[]; userQuestions: string[] } {
+  const blockers: ValidationBlocker[] = []
+  const userQuestions: string[] = []
+
+  // If no ceeAnalysisReady or no status, don't block (legacy fallback path)
+  if (!ceeAnalysisReady?.status) {
+    return { blockers, userQuestions }
+  }
+
+  // Check overall status
+  if (ceeAnalysisReady.status !== 'ready') {
+    const statusMessages: Record<string, string> = {
+      needs_user_mapping: 'Graph has structural issues that need your input',
+      needs_encoding: 'Some options have categorical values that need encoding',
+    }
+
+    blockers.push({
+      code: 'ANALYSIS_NOT_READY',
+      message: statusMessages[ceeAnalysisReady.status] || 'Analysis not ready',
+      action: { type: 'review_graph', label: 'Review graph' },
+    })
+
+    // Capture user_questions from CEE
+    if (ceeAnalysisReady.user_questions?.length) {
+      userQuestions.push(...ceeAnalysisReady.user_questions)
+    }
+  }
+
+  return { blockers, userQuestions }
+}
+
+/**
  * Extract and validate options.
  *
  * Priority:
@@ -145,12 +187,8 @@ function validateOptions(
   if (ceeAnalysisReady?.options?.length) {
     const options = ceeAnalysisReady.options.map(ceeOptionToUIOption)
 
-    if (import.meta.env.DEV) {
-      console.log('[PreRunValidation] Using ceeAnalysisReady options:', {
-        count: options.length,
-        statuses: options.map((o) => ({ id: o.id, status: o.status })),
-      })
-    }
+    // Note: Logging moved to usePreRunValidation hook to reduce noise
+    // Only logs when validation result actually changes
 
     // Check for options needing mapping (CEE may return some as needs_user_mapping)
     const needsMappingOptions = options.filter((o) => o.status === 'needs_user_mapping')
@@ -207,12 +245,8 @@ function validateOptions(
     normaliseOptionFromLegacyNode(node as unknown as LegacyOptionNode, validNodeIds)
   )
 
-  if (import.meta.env.DEV) {
-    console.log('[PreRunValidation] Using canvas node options (no ceeAnalysisReady):', {
-      count: options.length,
-      statuses: options.map((o) => ({ id: o.id, status: o.status })),
-    })
-  }
+  // Note: Logging moved to usePreRunValidation hook to reduce noise
+  // Only logs when validation result actually changes
 
   // Check for options needing mapping
   // P0: Block analysis until options have interventions configured
@@ -395,6 +429,13 @@ export function validateBeforeRun(
   const allBlockers: ValidationBlocker[] = []
   const allWarnings: ValidationWarning[] = []
   const allFixes: RecommendedFix[] = []
+  let userQuestions: string[] = []
+
+  // 0. Validate overall analysis_ready status FIRST
+  // This catches structural issues like "no causal path to goal"
+  const overallValidation = validateOverallStatus(ceeAnalysisReady)
+  allBlockers.push(...overallValidation.blockers)
+  userQuestions = overallValidation.userQuestions
 
   // 1. Validate goal node
   const goalValidation = validateGoalNode(goalNodeId, nodes)
@@ -430,12 +471,43 @@ export function validateBeforeRun(
     blockers: allBlockers,
     warnings: allWarnings,
     recommendedFixes: allFixes.length > 0 ? allFixes : undefined,
+    userQuestions: userQuestions.length > 0 ? userQuestions : undefined,
   }
 }
 
 // ============================================================================
 // React Hook
 // ============================================================================
+
+/**
+ * Create a stable fingerprint for validation inputs.
+ * Only changes when validation-relevant data changes.
+ */
+function createValidationFingerprint(
+  outcomeNodeId: string | null,
+  nodes: Node[],
+  edges: Edge[],
+  ceeAnalysisReady: CEEAnalysisReady | null
+): string {
+  // Only track data that affects validation
+  const nodeFingerprint = nodes
+    .map((n) => `${n.id}:${n.type}:${(n.data as { kind?: string })?.kind || ''}`)
+    .sort()
+    .join(',')
+
+  const edgeFingerprint = edges
+    .map((e) => `${e.source}->${e.target}`)
+    .sort()
+    .join(',')
+
+  const ceeFingerprint = ceeAnalysisReady
+    ? `${ceeAnalysisReady.status || 'none'}:${ceeAnalysisReady.options?.length || 0}:${
+        ceeAnalysisReady.options?.map((o) => `${o.id}:${o.status}`).join(',') || ''
+      }`
+    : 'null'
+
+  return `${outcomeNodeId || 'null'}|${nodeFingerprint}|${edgeFingerprint}|${ceeFingerprint}`
+}
 
 /**
  * Hook for pre-run validation with automatic fix application.
@@ -445,18 +517,52 @@ export function validateBeforeRun(
  *
  * When ceeAnalysisReady is present in the store, its options take priority
  * over canvas node options for validation (CEE has resolved interventions).
+ *
+ * Uses shallow selectors and fingerprinting to prevent unnecessary re-renders.
  */
 export function usePreRunValidation(): ValidationResult {
   const outcomeNodeId = useCanvasStore((s) => s.outcomeNodeId)
-  const nodes = useCanvasStore((s) => s.nodes)
-  const edges = useCanvasStore((s) => s.edges)
+  // Use shallow comparison to prevent re-renders when array content is the same
+  const nodes = useCanvasStore(useShallow((s) => s.nodes))
+  const edges = useCanvasStore(useShallow((s) => s.edges))
   const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
   const setOutcomeNode = useCanvasStore((s) => s.setOutcomeNode)
 
-  const validation = useMemo(
-    () => validateBeforeRun(outcomeNodeId, nodes, edges, ceeAnalysisReady),
+  // Track fingerprint to detect actual changes
+  const lastFingerprintRef = useRef<string | null>(null)
+  const lastLoggedResultRef = useRef<{ canRun: boolean; blockerCount: number } | null>(null)
+
+  // Create fingerprint for current inputs
+  const fingerprint = useMemo(
+    () => createValidationFingerprint(outcomeNodeId, nodes, edges, ceeAnalysisReady),
     [outcomeNodeId, nodes, edges, ceeAnalysisReady]
   )
+
+  const validation = useMemo(() => {
+    const result = validateBeforeRun(outcomeNodeId, nodes, edges, ceeAnalysisReady)
+
+    // Only log when validation result actually changes (DEV mode)
+    if (import.meta.env.DEV) {
+      const currentLogKey = { canRun: result.canRun, blockerCount: result.blockers.length }
+      const lastLogKey = lastLoggedResultRef.current
+
+      // Log only on first run or when result changes
+      if (
+        !lastLogKey ||
+        lastLogKey.canRun !== currentLogKey.canRun ||
+        lastLogKey.blockerCount !== currentLogKey.blockerCount
+      ) {
+        console.log('[PreRunValidation] Validation result changed:', {
+          canRun: result.canRun,
+          blockers: result.blockers.length,
+          usingCEE: Boolean(ceeAnalysisReady?.options?.length),
+        })
+        lastLoggedResultRef.current = currentLogKey
+      }
+    }
+
+    return result
+  }, [fingerprint, outcomeNodeId, nodes, edges, ceeAnalysisReady])
 
   // Apply recommended fixes (once, not on every render)
   useEffect(() => {

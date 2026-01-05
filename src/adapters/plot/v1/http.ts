@@ -26,7 +26,7 @@ import {
 } from './constants'
 import { validatePayloadSize } from './payloadGuard'
 import { parseCeeDebugHeaders } from '../../../canvas/utils/ceeDebugHeaders' // Phase 1 Section 4.1
-import { withObservabilityHeaders, recordBffResponse, recordBffError } from '../../../lib/observability-headers'
+import { withObservabilityHeaders, recordBffResponse, recordBffError, recordBffResponsePayload } from '../../../lib/observability-headers'
 import { useGateStore } from '../../../lib/gate-state'
 
 const getProxyBase = (): string => {
@@ -430,6 +430,9 @@ async function runSyncOnce(
     // Phase 1 Section 4.1: Parse CEE debug headers (dev-only)
     const result: V1SyncRunResponse = await response.json()
 
+    // Record response payload for debug panel inspection
+    recordBffResponsePayload(requestId, response, result, startTime)
+
     // Parse debug headers if available (may not exist in test mocks)
     if (response.headers) {
       const debugHeaders = parseCeeDebugHeaders(response.headers)
@@ -624,7 +627,9 @@ export async function validate(request: V1ValidateRequest): Promise<V1ValidateRe
       throw await mapHttpError(response)
     }
 
-    return await response.json()
+    const result = await response.json()
+    recordBffResponsePayload(requestId, response, result, startTime)
+    return result
   } catch (err) {
     recordBffError(requestId, endpoint, startTime, err)
 

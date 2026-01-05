@@ -28,6 +28,7 @@ import {
 } from '../../../utils/nodeIdNormalisation'
 import type { UIOption, UIInterventionValue } from '../../../types/options'
 import type { CEEAnalysisReady, CEEOptionV3 } from '../../cee/types'
+import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
 
 // ============================================================================
 // Canvas Data Types (input format)
@@ -228,18 +229,46 @@ export function ceeOptionToUIOption(ceeOption: CEEOptionV3): UIOption {
 /**
  * Convert CEEOptionV3 directly to V2Option format.
  * Flattens intervention values for the V2 API.
+ *
+ * Handles both:
+ * - Nested format (V3): { value: number, source: string, ... }
+ * - Flattened format (analysis_ready): number
+ *
+ * CEE may return interventions in either format depending on the response path.
  */
 export function ceeOptionToV2Option(ceeOption: CEEOptionV3): V2Option {
-  return {
+  if (import.meta.env.DEV) {
+    console.log('[V2Adapter] ceeOptionToV2Option input:', {
+      id: ceeOption.id,
+      label: ceeOption.label,
+      interventionKeys: Object.keys(ceeOption.interventions || {}),
+      interventions: ceeOption.interventions,
+    })
+  }
+
+  const result: V2Option = {
     id: ceeOption.id,
     label: ceeOption.label,
     interventions: Object.fromEntries(
-      Object.entries(ceeOption.interventions).map(([nodeId, iv]) => [
-        nodeId,
-        iv.value,
-      ])
+      Object.entries(ceeOption.interventions).map(([nodeId, iv]) => {
+        // Handle both nested (V3) and flattened (analysis_ready) formats
+        // V3 nested: iv = { value: number, source: string, ... }
+        // Flattened: iv = number
+        const value = typeof iv === 'number' ? iv : iv?.value
+        return [nodeId, value]
+      })
     ),
   }
+
+  if (import.meta.env.DEV) {
+    console.log('[V2Adapter] ceeOptionToV2Option output:', {
+      id: result.id,
+      interventionKeys: Object.keys(result.interventions),
+      interventions: result.interventions,
+    })
+  }
+
+  return result
 }
 
 // ============================================================================
@@ -675,6 +704,9 @@ export async function runV2(
   request: V2RunRequest
 ): Promise<V2RunResult> {
   const { baseUrl, timeout = 120000 } = config
+  const startTime = Date.now()
+  const requestId = request.request_id || `v2-${Date.now()}`
+  const endpoint = '/v2/run'
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
@@ -686,6 +718,15 @@ export async function runV2(
   if (request.request_id) {
     headers['X-Request-Id'] = request.request_id
   }
+
+  // Record request payload for debug panel
+  recordRequestPayload({
+    id: requestId,
+    endpoint,
+    method: 'POST',
+    headers,
+    body: request,
+  })
 
   try {
     const response = await fetch(`${baseUrl}/v2/run`, {
@@ -700,18 +741,75 @@ export async function runV2(
     // Handle 422 - returns V2RunError directly (not wrapped in error.v1)
     if (response.status === 422) {
       const errorBody: V2RunError = await response.json()
+
+      // Record 422 error response for debug panel
+      recordResponsePayload({
+        id: requestId,
+        status: response.status,
+        headers: Object.fromEntries(response.headers.entries()),
+        body: errorBody,
+        duration: Date.now() - startTime,
+        error: errorBody.status_reason || 'Validation blocked',
+      })
+
       return errorBody
     }
 
     // Handle other errors
     if (!response.ok) {
-      throw new Error(`V2 run failed: ${response.status} ${response.statusText}`)
+      const errorMessage = `V2 run failed: ${response.status} ${response.statusText}`
+
+      // Try to get error body if available
+      let errorBody: unknown = null
+      try {
+        errorBody = await response.json()
+      } catch {
+        // No JSON body
+      }
+
+      // Record error response for debug panel
+      recordResponsePayload({
+        id: requestId,
+        status: response.status,
+        headers: Object.fromEntries(response.headers.entries()),
+        body: errorBody,
+        duration: Date.now() - startTime,
+        error: errorMessage,
+      })
+
+      throw new Error(errorMessage)
     }
 
     const result: V2RunResponse = await response.json()
+
+    // Record success response for debug panel
+    recordResponsePayload({
+      id: requestId,
+      status: response.status,
+      headers: Object.fromEntries(response.headers.entries()),
+      body: result,
+      duration: Date.now() - startTime,
+    })
+
     return result
   } catch (error) {
     clearTimeout(timeoutId)
+
+    const errorMessage = error instanceof Error && error.name === 'AbortError'
+      ? 'V2 run request timed out'
+      : error instanceof Error ? error.message : 'Unknown error'
+
+    // Record error for debug panel (if not already recorded)
+    if (!(error instanceof Error && error.message.startsWith('V2 run failed'))) {
+      recordResponsePayload({
+        id: requestId,
+        status: 0,
+        headers: {},
+        body: null,
+        duration: Date.now() - startTime,
+        error: errorMessage,
+      })
+    }
 
     if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('V2 run request timed out')
@@ -822,6 +920,14 @@ export async function executeV2RunWithAnalysisReady(
       goalNodeId: request.goal_node_id,
       usingAnalysisReady: !!analysisReady,
     })
+
+    // Detailed options logging for debugging empty interventions
+    console.log('[V2Adapter] Final request options:', request.options.map((o) => ({
+      id: o.id,
+      label: o.label,
+      interventionKeys: Object.keys(o.interventions),
+      interventions: o.interventions,
+    })))
   }
 
   // Execute request

@@ -33,6 +33,7 @@ import { computePayloadHash } from './canonical-hash'
 import { getClientBuild } from './version-cache'
 import { recordRequest, recordResponse, extractResponseHeaders } from './debug-state'
 import { logBoundaryRequest, logBoundaryResponse } from './logger'
+import { recordRequestPayload, recordResponsePayload } from './payload-trace-store'
 
 /**
  * Result of preparing observability headers
@@ -94,6 +95,15 @@ export async function withObservabilityHeaders(
     method,
     payloadHash,
     clientBuild,
+  })
+
+  // Record payload for debug panel (dev/staging only)
+  recordRequestPayload({
+    id: requestId,
+    endpoint,
+    method,
+    headers,
+    body,
   })
 
   return {
@@ -167,6 +177,47 @@ export function recordBffResponse(
     responseHash: responseHeaders.responseHash,
     service: responseHeaders.service,
     serviceBuild: responseHeaders.serviceBuild,
+    error,
+  })
+}
+
+/**
+ * Record a response payload for debug panel inspection.
+ * Call this after parsing the response JSON.
+ *
+ * @param requestId - Request ID to correlate
+ * @param response - Fetch Response object
+ * @param body - Parsed response body
+ * @param startTime - Request start time
+ * @param error - Error message if any
+ */
+export function recordBffResponsePayload(
+  requestId: string,
+  response: Response | null,
+  body: unknown,
+  startTime: number,
+  error?: string
+): void {
+  const now = Date.now()
+  let duration = now - startTime
+  if (duration < 0 || !startTime || startTime > now) {
+    duration = 1
+  }
+
+  // Convert headers to plain object
+  const headers: Record<string, string> = {}
+  if (response?.headers) {
+    response.headers.forEach((value, key) => {
+      headers[key] = value
+    })
+  }
+
+  recordResponsePayload({
+    id: requestId,
+    status: response?.status ?? 0,
+    headers,
+    body,
+    duration,
     error,
   })
 }

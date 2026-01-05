@@ -45,7 +45,9 @@ function makeCEEAnalysisReady(
     status: 'ready' | 'needs_user_mapping'
     interventions: Record<string, { value: number }>
   }>,
-  goalNodeId: string
+  goalNodeId: string,
+  overallStatus?: 'ready' | 'needs_encoding' | 'needs_user_mapping',
+  userQuestions?: string[]
 ): CEEAnalysisReady {
   return {
     options: options.map((o) => ({
@@ -60,6 +62,8 @@ function makeCEEAnalysisReady(
       ),
     })),
     goal_node_id: goalNodeId,
+    status: overallStatus,
+    user_questions: userQuestions,
   }
 }
 
@@ -214,6 +218,130 @@ describe('validateBeforeRun', () => {
 
       expect(result.blockers.some((b) => b.code === 'GOAL_NODE_NOT_FOUND')).toBe(true)
       expect(result.recommendedFixes?.some((f) => f.type === 'clear_stale_goal')).toBe(true)
+    })
+  })
+
+  describe('overall analysis_ready.status validation', () => {
+    it('blocks when status is needs_user_mapping', () => {
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'option_a', label: 'Option A', status: 'ready', interventions: { factor_price: { value: 100 } } }],
+        'goal_revenue',
+        'needs_user_mapping',  // Overall status is NOT ready
+        ['The factor "Price" doesn\'t have a path to the goal. Is this correct?']
+      )
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(result.canRun).toBe(false)
+      expect(result.blockers.some((b) => b.code === 'ANALYSIS_NOT_READY')).toBe(true)
+      expect(result.userQuestions).toEqual([
+        'The factor "Price" doesn\'t have a path to the goal. Is this correct?',
+      ])
+    })
+
+    it('blocks when status is needs_encoding', () => {
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'option_a', label: 'Option A', status: 'ready', interventions: { factor_price: { value: 100 } } }],
+        'goal_revenue',
+        'needs_encoding'
+      )
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(result.canRun).toBe(false)
+      expect(result.blockers.some((b) => b.code === 'ANALYSIS_NOT_READY')).toBe(true)
+      expect(result.blockers.find((b) => b.code === 'ANALYSIS_NOT_READY')?.message).toContain('encoding')
+    })
+
+    it('allows run when status is ready', () => {
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'option_a', label: 'Option A', status: 'ready', interventions: { factor_price: { value: 100 } } }],
+        'goal_revenue',
+        'ready'  // Overall status is ready
+      )
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(result.blockers.some((b) => b.code === 'ANALYSIS_NOT_READY')).toBe(false)
+      expect(result.canRun).toBe(true)
+    })
+
+    it('does not block when status is absent (legacy compatibility)', () => {
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'option_a', label: 'Option A', status: 'ready', interventions: { factor_price: { value: 100 } } }],
+        'goal_revenue'
+        // No overall status - legacy compatibility
+      )
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(result.blockers.some((b) => b.code === 'ANALYSIS_NOT_READY')).toBe(false)
+      expect(result.canRun).toBe(true)
+    })
+
+    it('returns userQuestions when present', () => {
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'option_a', label: 'Option A', status: 'ready', interventions: { factor_price: { value: 100 } } }],
+        'goal_revenue',
+        'needs_user_mapping',
+        [
+          'The factor "Price" has no path to the goal.',
+          'Should this decision affect pricing or revenue?',
+        ]
+      )
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(result.userQuestions).toHaveLength(2)
+      expect(result.userQuestions).toContain('The factor "Price" has no path to the goal.')
+    })
+
+    it('returns undefined userQuestions when status is ready', () => {
+      const nodes: Node[] = [
+        makeNode('factor_price', 'factor'),
+        makeNode('goal_revenue', 'goal'),
+        makeNode('option_a', 'option'),
+      ]
+
+      const ceeAnalysisReady = makeCEEAnalysisReady(
+        [{ id: 'option_a', label: 'Option A', status: 'ready', interventions: { factor_price: { value: 100 } } }],
+        'goal_revenue',
+        'ready'
+      )
+
+      const result = validateBeforeRun('goal_revenue', nodes, [], ceeAnalysisReady)
+
+      expect(result.userQuestions).toBeUndefined()
     })
   })
 })

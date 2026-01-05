@@ -193,6 +193,43 @@ export function trackCTAClicked(ctaType: string): void {
   }
 }
 
+/**
+ * Track plot.empty_computed_results anomaly.
+ * When backend claims "computed" but results are actually empty.
+ */
+export function trackEmptyComputedResults(payload: {
+  request_id?: string
+  anomalies: Array<{
+    field: string
+    status: string
+    message: string
+  }>
+}): void {
+  if (typeof window === 'undefined') return
+
+  try {
+    const posthog = (window as any).posthog
+    if (posthog?.capture) {
+      posthog.capture('plot.empty_computed_results', payload)
+    }
+
+    // Also log to Sentry - this is a backend bug we want to track
+    const Sentry = (window as any).Sentry
+    if (Sentry?.captureMessage) {
+      Sentry.captureMessage('Backend returned computed status with empty results', {
+        level: 'warning',
+        extra: payload,
+      })
+    }
+
+    if (import.meta.env.DEV) {
+      console.warn('[Instrumentation] plot.empty_computed_results', payload)
+    }
+  } catch (e) {
+    // Silent fail
+  }
+}
+
 // =============================================================================
 // State Classification
 // =============================================================================

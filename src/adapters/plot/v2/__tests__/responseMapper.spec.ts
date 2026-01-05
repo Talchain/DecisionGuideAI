@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { mapV2ResponseToReportV1, createErrorReport } from '../responseMapper'
+import { mapV2ResponseToReportV1, createErrorReport, detectComputedButEmpty } from '../responseMapper'
 import type { V2RunResponse, V2Critique } from '../types'
 
 // ============================================================================
@@ -18,18 +18,12 @@ function makeSuccessResponse(overrides: Partial<V2RunResponse> = {}): V2RunRespo
     option_comparison_status: 'computed',
     robustness_status: 'computed',
     drivers_status: 'computed',
-    options: [
+    // PLoT returns option_comparison (not options)
+    option_comparison: [
       {
-        id: 'opt1',
-        label: 'Option 1',
-        outcome: {
-          mean: 50,
-          std: 10,
-          p10: 30,
-          p50: 50,
-          p90: 70,
-        },
-        status: 'computed',
+        option_id: 'opt1',
+        option_label: 'Option 1',
+        confidence_interval: [30, 70], // [low, high] tuple
       },
     ],
     critiques: [],
@@ -41,12 +35,25 @@ function makeSuccessResponse(overrides: Partial<V2RunResponse> = {}): V2RunRespo
         direction: 'positive',
       },
     ],
+    // PLoT returns edge_sensitivity for drivers when drivers_status is computed
+    edge_sensitivity: [
+      {
+        edge_id: 'edge1',
+        from: 'a',
+        to: 'b',
+        elasticity: 0.5,
+        importance_rank: 1,
+        sensitivity_type: 'magnitude' as const,
+        interpretation: 'Key impact',
+      },
+    ],
+    // PLoT returns fragile_edges/robust_edges (not level/confidence)
     robustness: {
-      level: 'high',
-      confidence: 0.85,
+      fragile_edges: [],
+      robust_edges: ['edge1', 'edge2', 'edge3'],
     },
     response_hash: 'abc123',
-    seed_used: '42',
+    meta: { seed_used: '42', n_samples: 1000, detail_level: 'deep', latency_ms: 100 },
     ...overrides,
   }
 }
@@ -157,15 +164,16 @@ describe('mapV2ResponseToReportV1', () => {
   })
 
   it('maps robustness to confidence', () => {
+    // 1 fragile, 2 robust = 2/3 = 66.7% robust ratio → 'medium' (0.3-0.7)
     const v2Response = makeSuccessResponse({
-      robustness: { level: 'medium', confidence: 0.65 },
+      robustness: { fragile_edges: ['weak-edge'], robust_edges: ['edge1', 'edge2'] },
     })
 
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
     expect(report.confidence).toEqual({
       level: 'medium',
-      why: 'Robustness: medium (65%)',
+      why: '1 fragile edges, 2 robust edges',
     })
   })
 
@@ -182,18 +190,18 @@ describe('mapV2ResponseToReportV1', () => {
 
   it('maps all options to option_probabilities', () => {
     const v2Response = makeSuccessResponse({
-      options: [
-        { id: 'opt1', label: 'Option 1', outcome: { mean: 50, std: 10, p10: 30, p50: 50, p90: 70 }, status: 'computed' },
-        { id: 'opt2', label: 'Option 2', outcome: { mean: 60, std: 8, p10: 45, p50: 60, p90: 75 }, status: 'computed' },
+      option_comparison: [
+        { option_id: 'opt1', option_label: 'Option 1', confidence_interval: [30, 70] },
+        { option_id: 'opt2', option_label: 'Option 2', confidence_interval: [45, 75] },
       ],
-      robustness: { level: 'high', confidence: 0.9 },
     })
 
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
+    // goal_probability = midpoint of confidence_interval
     expect(report.option_probabilities).toEqual({
-      opt1: { goal_probability: 50, confidence: 0.9 },
-      opt2: { goal_probability: 60, confidence: 0.9 },
+      opt1: { goal_probability: 50, confidence: 0.5 }, // (30+70)/2 = 50
+      opt2: { goal_probability: 60, confidence: 0.5 }, // (45+75)/2 = 60
     })
   })
 
@@ -211,8 +219,8 @@ describe('mapV2ResponseToReportV1', () => {
     expect(report.warnings).toEqual(['Warning message', 'Info message'])
   })
 
-  it('handles empty options array', () => {
-    const v2Response = makeSuccessResponse({ options: [] })
+  it('handles empty option_comparison array', () => {
+    const v2Response = makeSuccessResponse({ option_comparison: [] })
 
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
@@ -267,5 +275,102 @@ describe('createErrorReport', () => {
       optimistic: 0,
     })
     expect(report.drivers).toEqual([])
+  })
+})
+
+// ============================================================================
+// detectComputedButEmpty Tests
+// ============================================================================
+
+describe('detectComputedButEmpty', () => {
+  it('returns empty array when no anomalies detected', () => {
+    const v2Response = makeSuccessResponse()
+    const anomalies = detectComputedButEmpty(v2Response)
+    expect(anomalies).toEqual([])
+  })
+
+  it('detects empty option_comparison when status is computed', () => {
+    const v2Response = makeSuccessResponse({
+      option_comparison_status: 'computed',
+      option_comparison: [],
+    })
+    const anomalies = detectComputedButEmpty(v2Response)
+    expect(anomalies).toHaveLength(1)
+    expect(anomalies[0]).toMatchObject({
+      field: 'option_comparison',
+      status: 'computed',
+    })
+  })
+
+  it('detects empty robustness when status is computed', () => {
+    const v2Response = makeSuccessResponse({
+      robustness_status: 'computed',
+      robustness: { fragile_edges: [], robust_edges: [] },
+    })
+    const anomalies = detectComputedButEmpty(v2Response)
+    expect(anomalies).toHaveLength(1)
+    expect(anomalies[0]).toMatchObject({
+      field: 'robustness',
+      status: 'computed',
+    })
+  })
+
+  it('detects empty edge_sensitivity when drivers_status is computed', () => {
+    const v2Response = makeSuccessResponse({
+      drivers_status: 'computed',
+      edge_sensitivity: [],
+    })
+    const anomalies = detectComputedButEmpty(v2Response)
+    expect(anomalies).toHaveLength(1)
+    expect(anomalies[0]).toMatchObject({
+      field: 'edge_sensitivity',
+      status: 'computed',
+    })
+  })
+
+  it('does not flag when status is unavailable', () => {
+    const v2Response = makeSuccessResponse({
+      option_comparison_status: 'unavailable',
+      option_comparison: [],
+      robustness_status: 'unavailable',
+      robustness: undefined,
+      drivers_status: 'unavailable',
+      edge_sensitivity: [],
+    })
+    const anomalies = detectComputedButEmpty(v2Response)
+    expect(anomalies).toEqual([])
+  })
+
+  it('detects multiple anomalies at once', () => {
+    const v2Response = makeSuccessResponse({
+      option_comparison_status: 'computed',
+      option_comparison: [],
+      robustness_status: 'computed',
+      robustness: { fragile_edges: [], robust_edges: [] },
+      drivers_status: 'computed',
+      edge_sensitivity: [],
+    })
+    const anomalies = detectComputedButEmpty(v2Response)
+    expect(anomalies).toHaveLength(3)
+    expect(anomalies.map(a => a.field)).toContain('option_comparison')
+    expect(anomalies.map(a => a.field)).toContain('robustness')
+    expect(anomalies.map(a => a.field)).toContain('edge_sensitivity')
+  })
+
+  it('adds synthetic warnings to report when anomalies detected', () => {
+    const v2Response = makeSuccessResponse({
+      drivers_status: 'computed',
+      edge_sensitivity: [],
+    })
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    // Should have a warning about empty edge_sensitivity
+    expect(report.warnings).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('edge_sensitivity array is empty')
+      ])
+    )
+    expect(report._computedButEmptyAnomalies).toBeDefined()
+    expect(report._computedButEmptyAnomalies).toHaveLength(1)
   })
 })

@@ -64,6 +64,8 @@ interface KeyDriversPanelProps {
   factorNodes?: FactorNodeInfo[]
   /** Brief I: Error from ISL request */
   error?: string | null
+  /** PLoT drivers_status for contextual empty state messages */
+  driversStatus?: 'computed' | 'skipped' | 'unavailable' | 'error'
 }
 
 type SectionId = 'drivers' | 'sensitivity' | 'voi' | 'synthesis'
@@ -77,6 +79,7 @@ export function KeyDriversPanel({
   onItemClick,
   factorNodes = [],
   error,
+  driversStatus,
 }: KeyDriversPanelProps) {
   // Track which sections are expanded
   const [expandedSections, setExpandedSections] = useState<Set<SectionId>>(
@@ -136,7 +139,41 @@ export function KeyDriversPanel({
       )
     }
 
-    // Case 2: Factors exist but no sensitivity data returned
+    // Case 2: Contextual message based on drivers_status
+    if (driversStatus) {
+      const statusMessages: Record<string, { title: string; subtitle: string }> = {
+        computed: {
+          title: 'No significant drivers found',
+          subtitle: 'Analysis completed but no factors significantly influence the outcome',
+        },
+        skipped: {
+          title: 'Driver analysis skipped',
+          subtitle: 'Analysis was skipped for this run',
+        },
+        unavailable: {
+          title: 'Driver analysis unavailable',
+          subtitle: 'This analysis type is not available for the current model',
+        },
+        error: {
+          title: 'Driver analysis failed',
+          subtitle: 'An error occurred during driver analysis',
+        },
+      }
+      const msg = statusMessages[driversStatus] ?? statusMessages.computed
+      return (
+        <div className="p-4 text-center" data-testid="key-drivers-status">
+          <Info className="h-8 w-8 text-sky-400 mx-auto mb-2" aria-hidden="true" />
+          <p className={`${typography.body} text-ink-600`}>
+            {msg.title}
+          </p>
+          <p className={`${typography.caption} text-ink-500 mt-1`}>
+            {msg.subtitle}
+          </p>
+        </div>
+      )
+    }
+
+    // Case 3: Factors exist but no sensitivity data returned
     if (factorNodes.length > 0) {
       return (
         <div className="p-4 text-center" data-testid="key-drivers-no-sensitivity">
@@ -151,7 +188,7 @@ export function KeyDriversPanel({
       )
     }
 
-    // Case 3: No factors on canvas
+    // Case 4: No factors on canvas
     return (
       <div className="p-4 text-center" data-testid="key-drivers-empty">
         <Zap className="h-8 w-8 text-sand-300 mx-auto mb-2" aria-hidden="true" />

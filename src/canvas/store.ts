@@ -399,20 +399,115 @@ function scheduleHistoryPush(get: () => CanvasState, set: (fn: (s: CanvasState) 
 }
 
 /**
- * Invalidate ceeAnalysisReady when graph structure changes.
- * Called by addNode, addEdge, onNodesChange (remove), onEdgesChange (remove/add).
+ * Get all node IDs that are critical to ceeAnalysisReady.
+ * Returns goal_node_id + all option intervention target IDs.
  */
-function invalidateAnalysisReady(get: () => CanvasState, set: (fn: (s: CanvasState) => Partial<CanvasState>) => void) {
+function getCriticalNodeIds(analysisReady: CEEAnalysisReady | null): Set<string> {
+  const ids = new Set<string>()
+  if (!analysisReady) return ids
+
+  // Goal node is critical
+  if (analysisReady.goal_node_id) {
+    ids.add(analysisReady.goal_node_id)
+  }
+
+  // All intervention targets are critical
+  for (const option of analysisReady.options ?? []) {
+    // Option node itself (if it exists as a node)
+    if (option.id) {
+      ids.add(option.id)
+    }
+    // All intervention target node IDs
+    for (const nodeId of Object.keys(option.interventions ?? {})) {
+      ids.add(nodeId)
+    }
+  }
+
+  return ids
+}
+
+/**
+ * Check if any deleted node IDs are critical to ceeAnalysisReady.
+ * Only invalidates if goal, option, or intervention target nodes are deleted.
+ */
+function shouldInvalidateOnNodeDelete(
+  deletedNodeIds: string[],
+  analysisReady: CEEAnalysisReady | null
+): boolean {
+  if (!analysisReady) return false
+  const criticalIds = getCriticalNodeIds(analysisReady)
+  return deletedNodeIds.some(id => criticalIds.has(id))
+}
+
+/**
+ * Invalidate ceeAnalysisReady when critical nodes are deleted.
+ * Critical nodes: goal_node_id, option nodes, intervention target nodes.
+ * Adding nodes or editing labels does NOT invalidate.
+ */
+function invalidateAnalysisReady(
+  get: () => CanvasState,
+  set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
+  reason?: string
+) {
   const { ceeAnalysisReady } = get()
   if (ceeAnalysisReady) {
     if (import.meta.env.DEV) {
       console.log('[Canvas] === INVALIDATE ANALYSIS_READY ===')
-      console.log('[Canvas] Graph mutated, clearing stale ceeAnalysisReady')
+      console.log('[Canvas] Reason:', reason ?? 'unspecified')
       console.log('[Canvas] Had options:', ceeAnalysisReady.options?.length)
       console.trace('[Canvas] invalidateAnalysisReady call stack')
     }
     set(() => ({ ceeAnalysisReady: null, ceeAnalysisReadyNodeIds: null }))
   }
+}
+
+/**
+ * Conditionally invalidate ceeAnalysisReady if deleted nodes are critical.
+ * Returns true if invalidated, false otherwise.
+ */
+function maybeInvalidateOnNodeDelete(
+  get: () => CanvasState,
+  set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
+  deletedNodeIds: string[]
+): boolean {
+  const { ceeAnalysisReady } = get()
+  if (shouldInvalidateOnNodeDelete(deletedNodeIds, ceeAnalysisReady)) {
+    invalidateAnalysisReady(get, set, `Deleted critical node(s): ${deletedNodeIds.join(', ')}`)
+    return true
+  }
+  return false
+}
+
+/**
+ * Check if deleting an edge should invalidate ceeAnalysisReady.
+ * Invalidates if the edge connects critical nodes (goal, option, or intervention targets),
+ * as this breaks the causal path from interventions to goal.
+ */
+function shouldInvalidateOnEdgeDelete(
+  edge: { source: string; target: string },
+  analysisReady: CEEAnalysisReady | null
+): boolean {
+  if (!analysisReady) return false
+  const criticalIds = getCriticalNodeIds(analysisReady)
+  // If either endpoint is critical, the edge is part of the causal path
+  return criticalIds.has(edge.source) || criticalIds.has(edge.target)
+}
+
+/**
+ * Conditionally invalidate ceeAnalysisReady if deleted edge connects critical nodes.
+ * Returns true if invalidated, false otherwise.
+ */
+function maybeInvalidateOnEdgeDelete(
+  get: () => CanvasState,
+  set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
+  edge: { source: string; target: string }
+): boolean {
+  const { ceeAnalysisReady } = get()
+  if (shouldInvalidateOnEdgeDelete(edge, ceeAnalysisReady)) {
+    invalidateAnalysisReady(get, set, `Deleted edge connecting critical nodes: ${edge.source} → ${edge.target}`)
+    return true
+  }
+  return false
 }
 
 function getMaxNumericId(ids: string[]): number {
@@ -582,7 +677,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   addNode: (pos, type = 'decision') => {
     pushToHistory(get, set)
-    invalidateAnalysisReady(get, set)
+    // Note: Adding nodes does NOT invalidate ceeAnalysisReady
+    // Only deletion of critical nodes (goal, option, intervention targets) invalidates
     const id = get().createNodeId()
     set((s) => ({ nodes: [...s.nodes, { id, type, position: pos || { x: 200, y: 200 }, data: { label: `Node ${id}` } }] }))
   },
@@ -660,10 +756,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Debounce history for drag operations
     const isDrag = changes.some(c => c.type === 'position' && (c as any).dragging)
 
-    // Invalidate analysis_ready if nodes are removed (structural change)
-    const hasRemove = changes.some(c => c.type === 'remove')
-    if (hasRemove) {
-      invalidateAnalysisReady(get, set)
+    // Only invalidate analysis_ready if deleted nodes are critical (goal, option, intervention targets)
+    const removedChanges = changes.filter(c => c.type === 'remove')
+    if (removedChanges.length > 0) {
+      const deletedNodeIds = removedChanges.map(c => (c as { id: string }).id)
+      maybeInvalidateOnNodeDelete(get, set, deletedNodeIds)
     }
 
     set((s) => {
@@ -703,11 +800,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Guard no-op changes
     if (!changes || changes.length === 0) return
 
-    // Invalidate analysis_ready if edges are removed (structural change)
-    const hasRemove = changes.some(c => c.type === 'remove')
-    if (hasRemove) {
-      invalidateAnalysisReady(get, set)
-    }
+    // Note: Edge changes do NOT invalidate ceeAnalysisReady
+    // Only deletion of critical nodes (goal, option, intervention targets) invalidates
+    // Causal path validation is handled separately by usePreRunValidation
 
     set((s) => ({ edges: applyEdgeChanges(changes, s.edges) as Edge<EdgeData>[] }))
 
@@ -841,7 +936,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   addEdge: (edge) => {
     pushToHistory(get, set)
-    invalidateAnalysisReady(get, set)
+    // Note: Adding edges does NOT invalidate ceeAnalysisReady
+    // Only deletion of critical nodes (goal, option, intervention targets) invalidates
     const id = get().createEdgeId()
     set((s) => {
       const touchedNodeIds = new Set(s.touchedNodeIds)
@@ -896,15 +992,36 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   deleteSelected: () => {
     pushToHistory(get, set)
-    const { selection, outcomeNodeId } = get()
+    const { selection, outcomeNodeId, edges, ceeAnalysisReady } = get()
     // P0.5 Fix: Clear outcomeNodeId if the outcome node is being deleted
     const shouldClearOutcome = outcomeNodeId && selection.nodeIds.has(outcomeNodeId)
+
+    // Collect edges being deleted for invalidation check
+    const deletedEdges = edges.filter(
+      e => selection.edgeIds.has(e.id) ||
+           selection.nodeIds.has(e.source) ||
+           selection.nodeIds.has(e.target)
+    )
+
     set((s) => ({
       nodes: s.nodes.filter(n => !selection.nodeIds.has(n.id)),
       edges: s.edges.filter(e => !selection.nodeIds.has(e.source) && !selection.nodeIds.has(e.target) && !selection.edgeIds.has(e.id)),
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       outcomeNodeId: shouldClearOutcome ? null : s.outcomeNodeId,
     }))
+
+    // Check node deletions for invalidation
+    if (selection.nodeIds.size > 0) {
+      maybeInvalidateOnNodeDelete(get, set, [...selection.nodeIds])
+    } else if (ceeAnalysisReady) {
+      // Check if any deleted edges connect critical nodes (only if no nodes were deleted)
+      for (const edge of deletedEdges) {
+        if (shouldInvalidateOnEdgeDelete(edge, ceeAnalysisReady)) {
+          invalidateAnalysisReady(get, set, `Deleted edge connecting critical nodes: ${edge.source} → ${edge.target}`)
+          break
+        }
+      }
+    }
   },
 
   deleteNodeById: (nodeId: string) => {
@@ -921,9 +1038,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         : s.selection,
       outcomeNodeId: shouldClearOutcome ? null : s.outcomeNodeId,
     }))
+
+    // Invalidate analysis_ready if deleted node is critical
+    maybeInvalidateOnNodeDelete(get, set, [nodeId])
   },
 
   deleteEdgeById: (edgeId: string) => {
+    const { edges } = get()
+    const edge = edges.find(e => e.id === edgeId)
+    if (!edge) return
+
     pushToHistory(get, set)
     set((s) => ({
       edges: s.edges.filter(e => e.id !== edgeId),
@@ -932,6 +1056,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         ? { ...s.selection, edgeIds: new Set([...s.selection.edgeIds].filter(id => id !== edgeId)) }
         : s.selection
     }))
+
+    // Invalidate analysis_ready if edge connected critical nodes
+    maybeInvalidateOnEdgeDelete(get, set, edge)
   },
 
   duplicateSelected: () => {
@@ -1284,15 +1411,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (!edge) return
 
     pushToHistory(get, set)
-    
+
     const newEdges = edges.filter(e => e.id !== id)
     const newEdgeIds = new Set(selection.edgeIds)
     newEdgeIds.delete(id)
-    
-    set({ 
+
+    set({
       edges: newEdges,
       selection: { ...selection, edgeIds: newEdgeIds }
     })
+
+    // Invalidate analysis_ready if edge connected critical nodes
+    maybeInvalidateOnEdgeDelete(get, set, edge)
   },
 
   updateEdgeEndpoints: (id, updates) => {

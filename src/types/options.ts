@@ -164,6 +164,12 @@ export interface LegacyOptionNode {
 
 /**
  * Normalise a CEE V3 option to UI format.
+ *
+ * Handles both:
+ * - Nested format (V3): { value: number, source: string, ... }
+ * - Flattened format (analysis_ready): number
+ *
+ * CEE may return interventions in either format depending on the response path.
  */
 export function normaliseOptionFromCEE(ceeOption: CEEOptionV3): UIOption {
   return {
@@ -171,16 +177,20 @@ export function normaliseOptionFromCEE(ceeOption: CEEOptionV3): UIOption {
     label: ceeOption.label,
     status: ceeOption.status,
     interventions: Object.fromEntries(
-      Object.entries(ceeOption.interventions).map(([nodeId, iv]) => [
-        nodeId,
-        {
-          value: iv.value,
-          source: iv.source,
-          target_match: iv.target_match,
-          value_confidence: iv.value_confidence,
-          reasoning: iv.reasoning,
-        },
-      ])
+      Object.entries(ceeOption.interventions).map(([nodeId, iv]) => {
+        // Handle both nested (V3) and flattened (analysis_ready) formats
+        const isNumber = typeof iv === 'number'
+        return [
+          nodeId,
+          {
+            value: isNumber ? iv : iv.value,
+            source: isNumber ? 'brief_extraction' : iv.source,
+            target_match: isNumber ? undefined : iv.target_match,
+            value_confidence: isNumber ? undefined : iv.value_confidence,
+            reasoning: isNumber ? undefined : iv.reasoning,
+          },
+        ]
+      })
     ),
     user_questions: ceeOption.user_questions,
     unresolved_targets: ceeOption.unresolved_targets,

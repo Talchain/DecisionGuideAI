@@ -105,7 +105,8 @@ export function useISLConformal() {
         const intervention: Record<string, number> = {}
         for (const node of graph.nodes) {
           if (node.type === 'factor' && typeof node.value === 'number') {
-            intervention[node.label] = node.value
+            // Use node ID (not label) - ISL requires variable names matching ^[a-zA-Z_][a-zA-Z0-9_]*$
+            intervention[node.id] = node.value
           }
         }
 

@@ -12,7 +12,7 @@ import { RateLimitNotice } from './RateLimitNotice'
 import { DEFAULT_EDGE_DATA, trimProvenance } from '../domain/edges'
 import { saveAutosave } from '../store/scenarios'
 import { Tooltip } from './Tooltip'
-import { isCEEv2Response, hasAnalysisReady } from '../../adapters/cee/types'
+import { hasAnalysisReady } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, EffectDirection } from '../../adapters/cee/types'
 
 // Available AI models
@@ -257,12 +257,19 @@ export function DraftChat() {
         console.log('[DraftChat] analysis_ready.options.length:', ar.options?.length)
         console.log('[DraftChat] analysis_ready.goal_node_id:', ar.goal_node_id)
         console.log('[DraftChat] goal_node_id is string:', typeof ar.goal_node_id === 'string')
+
+        // Detailed intervention logging for debugging empty interventions issue
+        ar.options?.forEach((opt: any, i: number) => {
+          console.log(`[DraftChat] Option ${i} "${opt.label}":`, {
+            id: opt.id,
+            status: opt.status,
+            interventionKeys: Object.keys(opt.interventions || {}),
+            interventions: opt.interventions,
+          })
+        })
       }
       console.log('[DraftChat] === END DIAGNOSTIC ===')
     }
-
-    // Check if this is a v2 response
-    const isV2 = isCEEv2Response(draftData)
 
     // Convert CEE nodes to canvas nodes
     // Note: n.type contains the node kind ("goal", "outcome", "factor", etc.)
@@ -278,8 +285,8 @@ export function DraftChat() {
         kind: n.type,
         uncertainty: n.uncertainty,
         description: n.description,
-        // Brief v2.2: Include observed_state for factor nodes
-        ...(isV2 && n.observed_state ? { observedState: n.observed_state } : {}),
+        // Include observed_state for factor nodes (works for V2, V3, and future versions)
+        ...(n.observed_state ? { observedState: n.observed_state } : {}),
       },
     }))
 
@@ -307,9 +314,9 @@ export function DraftChat() {
         }
       }
 
-      // Brief v2.2: Extract new edge properties
-      const direction: EffectDirection | undefined = isV2 ? e.effect_direction : undefined
-      const strengthStd: number | undefined = isV2 && typeof e.strength_std === 'number'
+      // Extract edge properties (works for V2, V3, and future versions)
+      const direction: EffectDirection | undefined = e.effect_direction
+      const strengthStd: number | undefined = typeof e.strength_std === 'number'
         ? e.strength_std
         : undefined
 

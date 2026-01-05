@@ -197,17 +197,34 @@ export function normaliseGraphIds<
  * Translate response IDs back to UI IDs.
  *
  * Used to ensure:
+ * - Goal node ID references the correct canvas node
  * - Critique `affected_nodes` can highlight correct canvas nodes
  * - Response option IDs match option cards
  * - Driver node_ids map to correct canvas nodes
  * - Robustness factor node_ids map correctly
  * - Error messages reference recognisable node names
+ *
+ * V2 Response fields:
+ * - option_comparison[].option_id
+ * - edge_sensitivity[].from, .to, .edge_id
+ * - factor_sensitivity[].factor_id
+ * - robustness.fragile_edges[], .robust_edges[]
  */
 export function translateResponseToUIIds<T extends {
+  goal_node_id?: string
   options?: Array<{ id: string; [key: string]: unknown }>
   critiques?: Array<{ affected_nodes?: string[]; [key: string]: unknown }>
   drivers?: Array<{ node_id: string; [key: string]: unknown }>
-  robustness?: { factors?: Array<{ node_id: string; [key: string]: unknown }>; [key: string]: unknown }
+  robustness?: {
+    factors?: Array<{ node_id: string; [key: string]: unknown }>
+    fragile_edges?: string[]
+    robust_edges?: string[]
+    [key: string]: unknown
+  }
+  // V2 response fields
+  option_comparison?: Array<{ option_id: string; [key: string]: unknown }>
+  edge_sensitivity?: Array<{ edge_id: string; from: string; to: string; [key: string]: unknown }>
+  factor_sensitivity?: Array<{ factor_id: string; [key: string]: unknown }>
 }>(
   response: T,
   reverseIdMap: Map<string, string>
@@ -218,11 +235,37 @@ export function translateResponseToUIIds<T extends {
 
   const translateId = (id: string): string => reverseIdMap.get(id) ?? id
 
+  /**
+   * Translate edge ID format "from::to" or "from->to".
+   * Both from and to parts need reverse mapping.
+   */
+  const translateEdgeId = (edgeId: string): string => {
+    // Handle "from::to" format
+    if (edgeId.includes('::')) {
+      const [from, to] = edgeId.split('::')
+      return `${translateId(from)}::${translateId(to)}`
+    }
+    // Handle "from->to" format
+    if (edgeId.includes('->')) {
+      const [from, to] = edgeId.split('->')
+      return `${translateId(from)}->${translateId(to)}`
+    }
+    // Unknown format, return as-is
+    return edgeId
+  }
+
   return {
     ...response,
+    goal_node_id: response.goal_node_id ? translateId(response.goal_node_id) : undefined,
+    // Legacy V1 options
     options: response.options?.map((opt) => ({
       ...opt,
       id: translateId(opt.id),
+    })),
+    // V2 option_comparison
+    option_comparison: response.option_comparison?.map((opt) => ({
+      ...opt,
+      option_id: translateId(opt.option_id),
     })),
     critiques: response.critiques?.map((c) => ({
       ...c,
@@ -232,12 +275,27 @@ export function translateResponseToUIIds<T extends {
       ...d,
       node_id: translateId(d.node_id),
     })),
+    // V2 edge_sensitivity
+    edge_sensitivity: response.edge_sensitivity?.map((e) => ({
+      ...e,
+      edge_id: translateEdgeId(e.edge_id),
+      from: translateId(e.from),
+      to: translateId(e.to),
+    })),
+    // V2 factor_sensitivity
+    factor_sensitivity: response.factor_sensitivity?.map((f) => ({
+      ...f,
+      factor_id: translateId(f.factor_id),
+    })),
+    // Robustness with V2 fragile_edges/robust_edges
     robustness: response.robustness ? {
       ...response.robustness,
       factors: response.robustness.factors?.map((f) => ({
         ...f,
         node_id: translateId(f.node_id),
       })),
+      fragile_edges: response.robustness.fragile_edges?.map(translateEdgeId),
+      robust_edges: response.robustness.robust_edges?.map(translateEdgeId),
     } : undefined,
   }
 }

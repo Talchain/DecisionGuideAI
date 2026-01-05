@@ -207,6 +207,18 @@ export interface CEEAnalysisReady {
   goal_node_id: string
   /** Suggested seed for reproducibility (string, defaults to "42") */
   suggested_seed?: string
+  /**
+   * Overall readiness status.
+   * - 'ready': All options resolved, graph is valid, can run analysis
+   * - 'needs_encoding': Options have categorical values needing encoding
+   * - 'needs_user_mapping': Structural issues (e.g., no causal path to goal)
+   */
+  status?: 'ready' | 'needs_encoding' | 'needs_user_mapping'
+  /**
+   * User-facing questions explaining issues when status is not 'ready'.
+   * E.g., "The factor 'Price' doesn't have a path to the goal. Is this correct?"
+   */
+  user_questions?: string[]
 }
 
 /**

@@ -75,13 +75,43 @@ export interface V2Outcome {
 }
 
 /**
- * V2 option result.
+ * V2 option result (legacy format - kept for backward compatibility).
  */
 export interface V2OptionResult {
   id: string
   label: string
   outcome: V2Outcome
   status: 'computed' | 'unavailable' | 'error' | 'skipped'
+}
+
+/**
+ * V2 option comparison result (actual PLoT response format).
+ */
+export interface V2OptionComparison {
+  option_id: string
+  option_label: string
+  confidence_interval: [number, number]
+}
+
+/**
+ * V2 edge sensitivity analysis.
+ */
+export interface V2EdgeSensitivity {
+  edge_id: string
+  from: string
+  to: string
+  sensitivity_type: 'existence' | 'magnitude'
+  elasticity: number
+  importance_rank: number
+  interpretation: string
+}
+
+/**
+ * V2 factor sensitivity (placeholder - may be empty).
+ */
+export interface V2FactorSensitivity {
+  factor_id: string
+  sensitivity: number
 }
 
 /**
@@ -106,7 +136,7 @@ export interface V2Driver {
 }
 
 /**
- * V2 robustness info.
+ * V2 robustness info (legacy format - kept for backward compatibility).
  */
 export interface V2Robustness {
   level: 'high' | 'medium' | 'low'
@@ -118,19 +148,51 @@ export interface V2Robustness {
 }
 
 /**
+ * V2 robustness info (actual PLoT response format).
+ */
+export interface V2RobustnessActual {
+  fragile_edges: string[]
+  robust_edges: string[]
+}
+
+/**
+ * V2 response metadata.
+ */
+export interface V2Meta {
+  seed_used: string
+  n_samples: number
+  detail_level: string
+  latency_ms: number
+}
+
+/**
  * V2 success response.
+ *
+ * Note: PLoT returns `option_comparison` (not `options`), and robustness
+ * uses `fragile_edges`/`robust_edges` structure. Legacy `options` and
+ * `V2Robustness` types are kept for backward compatibility with existing
+ * UI components during transition.
  */
 export interface V2RunResponse {
   analysis_status: 'computed' | 'partial'
   option_comparison_status: 'computed' | 'unavailable' | 'skipped' | 'error'
   robustness_status: 'computed' | 'unavailable' | 'skipped' | 'error'
   drivers_status: 'computed' | 'unavailable' | 'skipped' | 'error'
-  options: V2OptionResult[]
+  /** Option comparison results (actual PLoT field name) */
+  option_comparison: V2OptionComparison[]
+  /** @deprecated Use option_comparison instead */
+  options?: V2OptionResult[]
   critiques: V2Critique[]
   drivers?: V2Driver[]
-  robustness?: V2Robustness
+  /** Edge sensitivity analysis */
+  edge_sensitivity?: V2EdgeSensitivity[]
+  /** Factor sensitivity (may be empty) */
+  factor_sensitivity?: V2FactorSensitivity[]
+  /** Robustness analysis (actual PLoT format) */
+  robustness?: V2RobustnessActual
   response_hash: string
-  seed_used: string
+  /** Response metadata */
+  meta?: V2Meta
   /** Echoed from request for tracing */
   request_id?: string
 }

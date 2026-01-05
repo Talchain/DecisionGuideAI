@@ -18,7 +18,8 @@ export function buildRichGraphPayload(nodes: any[], edges: any[]) {
       id: n.id,
       label: n.data?.label || '',
       type: n.type || 'decision',
-      value: n.data?.value,
+      // CEE stores values in observedState.value, legacy stores in value
+      value: n.data?.value ?? n.data?.observedState?.value,
     })),
     edges: edges.map((e) => ({
       from: e.source,

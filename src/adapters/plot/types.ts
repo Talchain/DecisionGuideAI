@@ -47,6 +47,9 @@ export interface ReportV1 {
     edgeId?: string
   }>
 
+  /** PLoT drivers_status for contextual empty state messages */
+  drivers_status?: 'computed' | 'skipped' | 'unavailable' | 'error'
+
   /** P0.1: Structured drivers payload with gating info */
   drivers_payload?: DriversPayload
 
@@ -124,6 +127,17 @@ export interface ReportV1 {
     label: string
     threshold?: number
   }
+
+  // V2-specific warnings (from critiques + computed-but-empty anomalies)
+  warnings?: string[]
+
+  // Internal: Computed-but-empty anomalies for gate logic
+  // When backend claims "computed" but results are empty/missing
+  _computedButEmptyAnomalies?: Array<{
+    field: 'option_comparison' | 'robustness' | 'edge_sensitivity' | 'factor_sensitivity'
+    status: string
+    message: string
+  }>
 }
 
 export interface ErrorV1 {

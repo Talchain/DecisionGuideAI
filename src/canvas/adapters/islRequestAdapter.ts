@@ -595,19 +595,20 @@ export function buildISLConformalRequest(
   calibrationData?: Array<{ inputs: Record<string, number>; outcome: Record<string, number> }>
 ): ISLConformalRequest {
   // Build equations from edges (simplified linear model)
+  // Use node IDs (not labels) - ISL requires variable names matching ^[a-zA-Z_][a-zA-Z0-9_]*$
   const equations: Record<string, string> = {}
-  const variables = nodes.map(n => n.data?.label || n.id)
+  const variables = nodes.map(n => n.id)
 
   for (const edge of edges) {
-    const sourceLabel = nodes.find(n => n.id === edge.source)?.data?.label || edge.source
-    const targetLabel = nodes.find(n => n.id === edge.target)?.data?.label || edge.target
+    const sourceId = edge.source
+    const targetId = edge.target
     const weight = edge.data?.weight ?? 1
 
-    // Build simple linear equation
-    if (equations[targetLabel]) {
-      equations[targetLabel] += ` + ${weight}*${sourceLabel}`
+    // Build simple linear equation using node IDs
+    if (equations[targetId]) {
+      equations[targetId] += ` + ${weight}*${sourceId}`
     } else {
-      equations[targetLabel] = `${weight}*${sourceLabel}`
+      equations[targetId] = `${weight}*${sourceId}`
     }
   }
 

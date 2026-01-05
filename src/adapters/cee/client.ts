@@ -7,7 +7,7 @@ import type {
   CEEv3Response,
 } from './types'
 import { isCEEv2Response, isCEEv3Response } from './types'
-import { withObservabilityHeaders, recordBffResponse, recordBffError } from '../../lib/observability-headers'
+import { withObservabilityHeaders, recordBffResponse, recordBffError, recordBffResponsePayload } from '../../lib/observability-headers'
 import { useGateStore } from '../../lib/gate-state'
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
@@ -319,6 +319,9 @@ export class CEEClient {
       if (!response.ok) {
         const error = await response.json().catch(() => ({}))
 
+        // Record error payload for debug inspection
+        recordBffResponsePayload(correlationId, response, error, startTime, `HTTP ${response.status}`)
+
         const baseMessage =
           response.status === 404
             ? 'Draft My Model is not available in this environment.'
@@ -332,7 +335,10 @@ export class CEEClient {
         )
       }
 
-      return response.json()
+      // Parse and record successful response payload
+      const body = await response.json()
+      recordBffResponsePayload(correlationId, response, body, startTime)
+      return body
     } catch (error) {
       clearTimeout(timeoutId)
 
