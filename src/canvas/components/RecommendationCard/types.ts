@@ -247,7 +247,7 @@ export interface UseRecommendationResult {
 // ============================================================================
 
 /** Robustness classification from ISL analysis */
-export type RobustnessLabel = 'robust' | 'moderate' | 'fragile'
+export type RobustnessLabel = 'robust' | 'moderate' | 'fragile' | 'unknown'
 
 /**
  * Sensitive parameter - a factor that significantly affects the recommendation

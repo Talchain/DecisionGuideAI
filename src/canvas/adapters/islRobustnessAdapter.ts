@@ -143,11 +143,16 @@ export function deriveConfidenceFromSpread(
 /**
  * Infer robustness label from sensitivity parameters
  * Brief 12.3: Fragile if any parameter has high sensitivity near flip threshold
+ *
+ * Returns 'unknown' for empty input to avoid misleading positive signals
+ * when no sensitivity data is available.
  */
 export function inferRobustnessLabel(
   sensitivity: SensitiveParameter[]
 ): RobustnessLabel {
-  if (sensitivity.length === 0) return 'moderate'
+  // Return 'unknown' instead of 'moderate' for empty array
+  // to avoid positive signals when no actual analysis occurred
+  if (sensitivity.length === 0) return 'unknown'
 
   const maxSensitivity = Math.max(...sensitivity.map((s) => s.sensitivity))
   const hasNearFlip = sensitivity.some((s) => {
@@ -284,7 +289,9 @@ export function adaptISLRobustnessResponse(
 }
 
 /**
- * Generate fallback robustness result when ISL is unavailable
+ * Generate fallback robustness result when ISL is unavailable.
+ * Uses 'unknown' label instead of 'moderate' to avoid misleading users
+ * with positive signals when no actual robustness data exists.
  */
 export function generateFallbackRobustness(): RobustnessResult {
   return {
@@ -295,10 +302,10 @@ export function generateFallbackRobustness(): RobustnessResult {
       recommendation_status: 'uncertain',
     },
     sensitivity: [],
-    robustness_label: 'moderate',
+    robustness_label: 'unknown',
     robustness_bounds: [],
     value_of_information: [],
     narrative:
-      'Robustness analysis is based on default assumptions. Run sensitivity analysis for more accurate results.',
+      'Robustness analysis could not be completed. Run analysis again to assess recommendation stability.',
   }
 }

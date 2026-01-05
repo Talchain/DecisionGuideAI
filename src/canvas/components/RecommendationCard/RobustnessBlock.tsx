@@ -122,6 +122,16 @@ const robustnessConfig: Record<RobustnessLabel, {
     description: 'Recommendation is sensitive to small changes in key parameters',
     meterFill: 1,
   },
+  unknown: {
+    icon: Shield,
+    bgColor: 'bg-sand-50',
+    textColor: 'text-sand-600',
+    iconColor: 'text-sand-400',
+    borderColor: 'border-sand-200',
+    label: 'Unable to assess',
+    description: 'Robustness analysis could not be completed',
+    meterFill: 0,
+  },
 }
 
 // ============================================================================

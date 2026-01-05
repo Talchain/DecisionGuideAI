@@ -181,7 +181,7 @@ describe('islRobustnessAdapter', () => {
   })
 
   describe('generateFallbackRobustness', () => {
-    it('returns valid fallback structure', () => {
+    it('returns valid fallback structure with unknown label', () => {
       const fallback = generateFallbackRobustness()
 
       expect(fallback.option_rankings).toEqual([])
@@ -189,10 +189,11 @@ describe('islRobustnessAdapter', () => {
       expect(fallback.recommendation.confidence).toBe('medium')
       expect(fallback.recommendation.recommendation_status).toBe('uncertain')
       expect(fallback.sensitivity).toEqual([])
-      expect(fallback.robustness_label).toBe('moderate')
+      // Should return 'unknown' (not 'moderate') to avoid misleading positive signals
+      expect(fallback.robustness_label).toBe('unknown')
       expect(fallback.robustness_bounds).toEqual([])
       expect(fallback.value_of_information).toEqual([])
-      expect(fallback.narrative).toContain('default assumptions')
+      expect(fallback.narrative).toContain('could not be completed')
     })
   })
 
@@ -248,8 +249,8 @@ describe('islRobustnessAdapter', () => {
       expect(inferRobustnessLabel(sensitivity)).toBe('fragile')
     })
 
-    it('returns moderate for empty sensitivity array', () => {
-      expect(inferRobustnessLabel([])).toBe('moderate')
+    it('returns unknown for empty sensitivity array to avoid false positives', () => {
+      expect(inferRobustnessLabel([])).toBe('unknown')
     })
   })
 })

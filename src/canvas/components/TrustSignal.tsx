@@ -21,8 +21,10 @@ import {
   ShieldAlert,
   CheckCircle2,
   AlertTriangle,
+  HelpCircle,
 } from 'lucide-react'
 import { useCanvasStore } from '../store'
+import { useGateStore } from '../../lib/gate-state'
 import { typography } from '../../styles/typography'
 import {
   type QualityTier,
@@ -43,12 +45,44 @@ const tierConfig = {
   poor: { ...baseTierConfig.poor, icon: ShieldAlert },
 } as const
 
+// Config for incomplete analysis state (when run gate is not pass)
+const incompleteConfig = {
+  icon: HelpCircle,
+  label: 'Incomplete',
+  message: 'Analysis did not produce complete results',
+  guidance: 'The model structure looks sound, but analysis could not complete. Try running again.',
+  bgColor: 'bg-sand-50',
+  textColor: 'text-sand-600',
+  iconColor: 'text-sand-400',
+  borderColor: 'border-sand-200',
+} as const
+
 export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
   const results = useCanvasStore((s) => s.results)
   const graphHealth = useCanvasStore((s) => s.graphHealth)
   const report = results?.report
+  const runGate = useGateStore((s) => s.gates.run)
+
+  // Detect if analysis produced incomplete results
+  // This happens when run gate is 'warn' or 'fail', or when option_comparison is empty
+  const isAnalysisIncomplete = useMemo(() => {
+    // If run gate is not 'pass', analysis didn't complete successfully
+    if (runGate?.status === 'warn' || runGate?.status === 'fail') {
+      return true
+    }
+    // Check for empty results (option_comparison is primary indicator)
+    // V2 responses map to option_probabilities, so check that too
+    const hasOptionData = report?.option_probabilities && Object.keys(report.option_probabilities).length > 0
+    // Use null check instead of !== 0 to avoid false "incomplete" for legitimate zero outcomes (break-even)
+    const hasResults = report?.results?.likely !== undefined && report?.results?.likely !== null
+    // If we have a report but no meaningful results, it's incomplete
+    if (report && !hasOptionData && !hasResults) {
+      return true
+    }
+    return false
+  }, [runGate, report])
 
   // Extract quality metrics
   const metrics = useMemo(() => {
@@ -95,6 +129,55 @@ export function TrustSignal({ defaultExpanded = false }: TrustSignalProps) {
             <p className={`${typography.caption} text-sand-500`}>Run analysis to see reliability assessment</p>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  // Incomplete analysis state: show warning when run gate indicates problems
+  // This prevents showing "Good" when analysis actually failed, regardless of metric source
+  // (Backend might supply graph_quality even when run gate is warn/fail)
+  if (isAnalysisIncomplete) {
+    const IncompleteIcon = incompleteConfig.icon
+    return (
+      <div className="bg-paper-50 border border-sand-200 rounded-xl overflow-hidden" data-testid="trust-signal-incomplete">
+        <button
+          type="button"
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="w-full px-4 py-3 flex items-center justify-between hover:bg-sand-50 transition-colors"
+          aria-expanded={isExpanded}
+        >
+          <div className="flex items-center gap-3">
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4 text-ink-500" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-ink-500" />
+            )}
+            <span className={`${typography.body} font-medium text-ink-800`}>Analysis Reliability</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <IncompleteIcon className={`h-4 w-4 ${incompleteConfig.iconColor}`} aria-hidden="true" />
+            <span className={`${typography.caption} px-2 py-0.5 rounded-full font-medium ${incompleteConfig.bgColor} ${incompleteConfig.textColor}`}>
+              {incompleteConfig.label}
+            </span>
+          </div>
+        </button>
+        {isExpanded && (
+          <div className="border-t border-sand-200 px-4 py-4 space-y-4">
+            <div className={`p-3 rounded-lg ${incompleteConfig.bgColor} border ${incompleteConfig.borderColor}`}>
+              <div className="flex items-start gap-3">
+                <IncompleteIcon className={`h-5 w-5 ${incompleteConfig.iconColor} flex-shrink-0 mt-0.5`} aria-hidden="true" />
+                <div>
+                  <p className={`${typography.body} font-medium ${incompleteConfig.textColor}`}>
+                    {incompleteConfig.message}
+                  </p>
+                  <p className={`${typography.caption} ${incompleteConfig.textColor} opacity-80 mt-1`}>
+                    {incompleteConfig.guidance}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
