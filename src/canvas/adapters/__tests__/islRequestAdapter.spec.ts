@@ -10,6 +10,7 @@ import {
   adaptFormRequest,
   buildRobustnessRequest,
   buildFormRequest,
+  buildISLConformalRequest,
   computeSignedMean,
   computeDefaultStd,
   transformEdgesToISLv2,
@@ -723,6 +724,158 @@ describe('islRequestAdapter', () => {
 
       // All intervention keys were stale, so interventions should be empty
       expect(result[0].interventions).toEqual({})
+    })
+  })
+
+  // P0 Fix: Tests for option node filtering in conformal requests
+  describe('buildISLConformalRequest', () => {
+    it('filters option nodes from variables array', () => {
+      const nodes: UINode[] = [
+        { id: 'fac_price', type: 'factor', data: { label: 'Price' } },
+        { id: 'fac_demand', type: 'factor', data: { label: 'Demand' } },
+        { id: 'opt_high', type: 'option', data: { label: 'High Price' } },
+        { id: 'opt_low', type: 'option', data: { label: 'Low Price' } },
+        { id: 'out_revenue', type: 'outcome', data: { label: 'Revenue' } },
+      ]
+      const edges: UIEdge[] = [
+        { id: 'e1', source: 'fac_price', target: 'out_revenue', data: { weight: 0.8 } },
+        { id: 'e2', source: 'opt_high', target: 'fac_price', data: { weight: 0.5 } },
+      ]
+      const intervention = { fac_price: 100, fac_demand: 50 }
+
+      const result = buildISLConformalRequest(nodes, edges, intervention)
+
+      // Variables should NOT include option nodes
+      expect(result.model.variables).toContain('fac_price')
+      expect(result.model.variables).toContain('fac_demand')
+      expect(result.model.variables).toContain('out_revenue')
+      expect(result.model.variables).not.toContain('opt_high')
+      expect(result.model.variables).not.toContain('opt_low')
+    })
+
+    it('filters decision nodes from variables array', () => {
+      const nodes: UINode[] = [
+        { id: 'dec_pricing', type: 'decision', data: { label: 'Pricing Decision' } },
+        { id: 'fac_price', type: 'factor', data: { label: 'Price' } },
+        { id: 'goal_profit', type: 'goal', data: { label: 'Maximize Profit' } },
+      ]
+      const edges: UIEdge[] = [
+        { id: 'e1', source: 'fac_price', target: 'goal_profit', data: { weight: 0.7 } },
+      ]
+      const intervention = { fac_price: 100 }
+
+      const result = buildISLConformalRequest(nodes, edges, intervention)
+
+      expect(result.model.variables).not.toContain('dec_pricing')
+      expect(result.model.variables).toContain('fac_price')
+      expect(result.model.variables).toContain('goal_profit')
+    })
+
+    it('filters edges where source is an option/decision node', () => {
+      const nodes: UINode[] = [
+        { id: 'opt_a', type: 'option', data: { label: 'Option A' } },
+        { id: 'fac_x', type: 'factor', data: { label: 'Factor X' } },
+        { id: 'out_y', type: 'outcome', data: { label: 'Outcome Y' } },
+      ]
+      const edges: UIEdge[] = [
+        { id: 'e1', source: 'opt_a', target: 'fac_x', data: { weight: 0.5 } }, // Should be filtered
+        { id: 'e2', source: 'fac_x', target: 'out_y', data: { weight: 0.8 } }, // Should remain
+      ]
+      const intervention = { fac_x: 10 }
+
+      const result = buildISLConformalRequest(nodes, edges, intervention)
+
+      // Equation for fac_x should NOT reference opt_a
+      expect(result.model.equations.fac_x).toBeUndefined()
+      // Equation for out_y should reference fac_x
+      expect(result.model.equations.out_y).toBe('0.8*fac_x')
+    })
+
+    it('filters edges where target is an option/decision node', () => {
+      const nodes: UINode[] = [
+        { id: 'dec_main', type: 'decision', data: { label: 'Main Decision' } },
+        { id: 'opt_a', type: 'option', data: { label: 'Option A' } },
+        { id: 'fac_x', type: 'factor', data: { label: 'Factor X' } },
+      ]
+      const edges: UIEdge[] = [
+        { id: 'e1', source: 'dec_main', target: 'opt_a', data: { weight: 0.5 } }, // Should be filtered
+        { id: 'e2', source: 'fac_x', target: 'dec_main', data: { weight: 0.3 } }, // Should be filtered
+      ]
+      const intervention = { fac_x: 10 }
+
+      const result = buildISLConformalRequest(nodes, edges, intervention)
+
+      // No equations should reference option or decision nodes
+      expect(result.model.equations.opt_a).toBeUndefined()
+      expect(result.model.equations.dec_main).toBeUndefined()
+    })
+
+    it('handles nodes with kind in data property', () => {
+      // Some graph formats use data.kind instead of node.type
+      const nodes: UINode[] = [
+        { id: 'fac_price', data: { kind: 'factor', label: 'Price' } },
+        { id: 'opt_high', data: { kind: 'option', label: 'High Price' } },
+        { id: 'out_revenue', data: { kind: 'outcome', label: 'Revenue' } },
+      ]
+      const edges: UIEdge[] = [
+        { id: 'e1', source: 'fac_price', target: 'out_revenue', data: { weight: 0.8 } },
+        { id: 'e2', source: 'opt_high', target: 'fac_price', data: { weight: 0.5 } },
+      ]
+      const intervention = { fac_price: 100 }
+
+      const result = buildISLConformalRequest(nodes, edges, intervention)
+
+      expect(result.model.variables).toContain('fac_price')
+      expect(result.model.variables).toContain('out_revenue')
+      expect(result.model.variables).not.toContain('opt_high')
+    })
+
+    it('preserves intervention even though it only targets factors', () => {
+      const nodes: UINode[] = [
+        { id: 'fac_price', type: 'factor', data: { label: 'Price' } },
+        { id: 'opt_high', type: 'option', data: { label: 'High Price' } },
+      ]
+      const edges: UIEdge[] = []
+      const intervention = { fac_price: 100 }
+
+      const result = buildISLConformalRequest(nodes, edges, intervention)
+
+      // Intervention should be passed through unchanged
+      expect(result.intervention).toEqual({ fac_price: 100 })
+    })
+
+    it('includes proper model structure with distributions', () => {
+      const nodes: UINode[] = [
+        { id: 'fac_a', type: 'factor', data: { label: 'Factor A' } },
+      ]
+      const edges: UIEdge[] = []
+      const intervention = { fac_a: 50 }
+
+      const result = buildISLConformalRequest(nodes, edges, intervention)
+
+      expect(result.model.distributions).toEqual({
+        noise: { type: 'normal', parameters: { mean: 0, std: 0.1 } }
+      })
+      expect(result.confidence_level).toBe(0.95)
+      expect(result.calibration_data).toEqual([])
+    })
+
+    it('handles graph with no option/decision nodes (no filtering needed)', () => {
+      const nodes: UINode[] = [
+        { id: 'fac_a', type: 'factor', data: { label: 'Factor A' } },
+        { id: 'fac_b', type: 'factor', data: { label: 'Factor B' } },
+        { id: 'out_c', type: 'outcome', data: { label: 'Outcome C' } },
+      ]
+      const edges: UIEdge[] = [
+        { id: 'e1', source: 'fac_a', target: 'out_c', data: { weight: 0.6 } },
+        { id: 'e2', source: 'fac_b', target: 'out_c', data: { weight: 0.4 } },
+      ]
+      const intervention = { fac_a: 10, fac_b: 20 }
+
+      const result = buildISLConformalRequest(nodes, edges, intervention)
+
+      expect(result.model.variables).toEqual(['fac_a', 'fac_b', 'out_c'])
+      expect(result.model.equations.out_c).toBe('0.6*fac_a + 0.4*fac_b')
     })
   })
 })

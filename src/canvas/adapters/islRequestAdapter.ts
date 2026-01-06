@@ -587,6 +587,10 @@ export function buildInterventionProposal(
 
 /**
  * Build ISL conformal request from UI graph
+ *
+ * IMPORTANT: Filters out option and decision nodes before building the causal model.
+ * Options are scenarios to compare, not variables in the causal model.
+ * Including them causes ISL to fail or return degenerate results.
  */
 export function buildISLConformalRequest(
   nodes: UINode[],
@@ -594,12 +598,29 @@ export function buildISLConformalRequest(
   intervention: Record<string, number>,
   calibrationData?: Array<{ inputs: Record<string, number>; outcome: Record<string, number> }>
 ): ISLConformalRequest {
-  // Build equations from edges (simplified linear model)
+  // Filter out option and decision nodes - they are scenarios, not causal variables
+  // Check both node.type and node.data?.kind for compatibility with different graph formats
+  const optionNodeIds = new Set(
+    nodes
+      .filter(n => n.type === 'option' || n.type === 'decision' ||
+                   n.data?.kind === 'option' || n.data?.kind === 'decision')
+      .map(n => n.id)
+  )
+
+  // Only include causal nodes (factors, outcomes, goals, etc.)
+  const causalNodes = nodes.filter(n => !optionNodeIds.has(n.id))
+  const variables = causalNodes.map(n => n.id)
+
+  // Filter edges: exclude any edge where source OR target is an option/decision node
+  const causalEdges = edges.filter(e =>
+    !optionNodeIds.has(e.source) && !optionNodeIds.has(e.target)
+  )
+
+  // Build equations from filtered edges (simplified linear model)
   // Use node IDs (not labels) - ISL requires variable names matching ^[a-zA-Z_][a-zA-Z0-9_]*$
   const equations: Record<string, string> = {}
-  const variables = nodes.map(n => n.id)
 
-  for (const edge of edges) {
+  for (const edge of causalEdges) {
     const sourceId = edge.source
     const targetId = edge.target
     const weight = edge.data?.weight ?? 1
