@@ -69,6 +69,7 @@ import { OutcomesSignal } from './OutcomesSignal'
 import { TrustSignal } from './TrustSignal'
 import { DriversSignal } from './DriversSignal'
 import { DecisionSummary } from './DecisionSummary'
+import { DecisionQuality } from './DecisionQuality'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useV2Run } from '../hooks/useV2Run'
 import { focusNodeById } from '../utils/focusHelpers'
@@ -1121,6 +1122,9 @@ export function OutputsDock() {
                     baselineName={baselineValue === 0 ? '"do nothing"' : 'your baseline'}
                     goalDirection={goalDirection}
                     ranking={optionRanking}
+                    objectiveText={objectiveText}
+                    ceeReviewV1={ceeReviewV1}
+                    ceeReview={ceeReview}
                   />
                 )}
 
@@ -1168,7 +1172,7 @@ export function OutputsDock() {
                       </div>
                     </section>
 
-                    {/* Panel 3: Validate & Improve - "Can I trust it?" */}
+                    {/* Panel 3: Decision Quality & Validation */}
                     <section
                       className="border border-sand-200 rounded-lg overflow-hidden"
                       data-testid="panel-validate-improve"
@@ -1179,10 +1183,16 @@ export function OutputsDock() {
                           id="panel-validate-heading"
                           className={`${typography.label} font-medium text-ink-800`}
                         >
-                          Can you trust this?
+                          Decision Quality
                         </h3>
                       </header>
                       <div className="p-3 space-y-3">
+                        {/* CEE-driven Decision Quality indicator (primary) */}
+                        <DecisionQuality
+                          ceeReviewV1={ceeReviewV1}
+                          report={report}
+                        />
+                        {/* Analysis Reliability (handles incomplete analysis states) */}
                         <TrustSignal />
                         {/* Brief 25: Robustness label/meter overview */}
                         {(robustnessData || robustnessLoading) && (

@@ -2,16 +2,17 @@
  * DecisionSummary - Core decision synthesis card
  *
  * Answers: "What should I do?" by synthesizing:
+ * - Objective (what we're trying to achieve)
  * - Success likelihood (p50)
+ * - Why this option (plain English rationale from CEE)
  * - Confidence level with explanation
- * - Top driver (from CEE story)
  *
  * Compare CTA is in OutputsDock action buttons row for single primary CTA pattern.
  * Designed for quick scanning - user should understand
  * the recommendation in <10 seconds.
  */
 
-import { useMemo, useEffect } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import {
   Target,
   TrendingUp,
@@ -21,6 +22,8 @@ import {
   Zap,
   Info,
   GitCompare,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { useISLConformal } from '../../hooks/useISLConformal'
@@ -31,7 +34,10 @@ import { typography } from '../../styles/typography'
 import { computeBaselineComparison } from '../utils/baselineComparison'
 // P0.2: Precision display for confidence-aware outcome formatting
 import { getPrecisionDisplay, type PrecisionDisplayResult } from '../../lib/precisionDisplay'
+import { getRationale, type Rationale } from '../utils/ceeDataAdapter'
 import type { ConfidenceLevel } from '../../adapters/plot/types'
+import type { CeeDecisionReviewPayloadV1 } from '../../types/cee'
+import type { CeeDecisionReviewPayload } from '../decisionReview/types'
 
 export interface RankingData {
   /** 1-indexed rank (1 = best) */
@@ -75,6 +81,12 @@ interface DecisionSummaryProps {
   ranking?: RankingData | null
   /** P0.5: Comparative delta between options */
   comparisonDelta?: ComparisonDelta | null
+  /** Objective text (from getObjectiveText) */
+  objectiveText?: string
+  /** CEE V1 review data for rationale extraction */
+  ceeReviewV1?: CeeDecisionReviewPayloadV1 | null
+  /** Legacy CEE review data for fallback */
+  ceeReview?: CeeDecisionReviewPayload | null
 }
 
 // Confidence styling
@@ -122,12 +134,26 @@ export function DecisionSummary({
   goalDirection = 'maximize',
   ranking,
   comparisonDelta,
+  objectiveText,
+  ceeReviewV1,
+  ceeReview,
 }: DecisionSummaryProps) {
   const results = useCanvasStore((s) => s.results)
   const runMeta = useCanvasStore((s) => s.runMeta)
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const report = results?.report
+
+  // State for expandable "Why this option" section
+  const [showWhyDetails, setShowWhyDetails] = useState(false)
+
+  // Extract rationale from CEE data (with fallbacks)
+  const rationale = useMemo<Rationale>(() => {
+    // Use props if provided, otherwise fall back to runMeta
+    const v1Data = ceeReviewV1 ?? runMeta?.ceeReviewV1
+    const legacyData = ceeReview ?? runMeta?.ceeReview
+    return getRationale(v1Data, legacyData, report)
+  }, [ceeReviewV1, ceeReview, runMeta, report])
 
   // Comparison detection for ranking display
   const { optionNodes } = useComparisonDetection()
@@ -288,13 +314,28 @@ export function DecisionSummary({
       className="bg-paper-50 border border-sand-200 rounded-xl overflow-hidden shadow-sm"
       data-testid="decision-summary"
     >
+      {/* Objective section - what we're trying to achieve */}
+      {objectiveText && (
+        <div className="px-4 py-3 bg-sky-50 border-b border-sky-100">
+          <div className="flex items-start gap-2">
+            <Target className="h-4 w-4 text-sky-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <div>
+              <span className={`${typography.caption} font-medium text-sky-700 uppercase tracking-wide`}>
+                Objective
+              </span>
+              <p className={`${typography.body} text-sky-900 mt-0.5`}>{objectiveText}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main outcome - prominent display */}
       <div className="px-4 py-4 border-b border-sand-100">
-        {/* Header - show ranking badge inline, no "Recommended" label */}
+        {/* Header - show ranking badge inline */}
         <div className="flex items-center gap-2 mb-2">
-          <Target className="h-4 w-4 text-sky-600" aria-hidden="true" />
-          <span className={`${typography.caption} font-medium text-sky-700 uppercase tracking-wide`}>
-            Decision Summary
+          <Zap className="h-4 w-4 text-mint-600" aria-hidden="true" />
+          <span className={`${typography.caption} font-medium text-mint-700 uppercase tracking-wide`}>
+            Recommended Option
           </span>
           {ranking && (
             <span className={`${typography.caption} px-2 py-0.5 rounded-full ${
@@ -467,23 +508,73 @@ export function DecisionSummary({
         </div>
       </div>
 
-      {/* Top driver - if available */}
-      {summaryData.topDriver && (
+      {/* Why this option - CEE rationale with expandable details */}
+      {(rationale.source !== 'none' || summaryData.topDriver) && (
         <div className="px-4 py-3 border-b border-sand-100">
-          <div className="flex items-start gap-2">
-            <Zap className="h-4 w-4 text-sky-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
+          {rationale.source !== 'none' ? (
+            // CEE-based rationale
             <div>
-              <span className={`${typography.caption} text-ink-500`}>Key driver: </span>
-              <span className={`${typography.bodySmall} text-ink-800 font-medium`}>
-                {summaryData.topDriver.label}
-              </span>
-              {summaryData.topDriver.why && (
-                <p className={`${typography.caption} text-ink-500 mt-0.5`}>
-                  {summaryData.topDriver.why}
-                </p>
+              <button
+                type="button"
+                onClick={() => setShowWhyDetails(!showWhyDetails)}
+                className="w-full text-left flex items-start gap-2 group"
+              >
+                <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                  {showWhyDetails ? (
+                    <ChevronDown className="h-4 w-4 text-ink-400" aria-hidden="true" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-ink-400" aria-hidden="true" />
+                  )}
+                  <Info className="h-4 w-4 text-sky-500" aria-hidden="true" />
+                </div>
+                <div className="flex-1">
+                  <span className={`${typography.caption} font-medium text-sky-700 uppercase tracking-wide`}>
+                    Why this option
+                  </span>
+                  <p className={`${typography.body} text-ink-700 mt-1`}>
+                    {rationale.headline}
+                  </p>
+                </div>
+              </button>
+
+              {/* Expandable driver details */}
+              {showWhyDetails && rationale.drivers.length > 0 && (
+                <div className="mt-3 ml-6 space-y-2">
+                  {rationale.drivers.map((driver, idx) => (
+                    <div key={idx} className="flex items-start gap-2">
+                      <Zap className="h-3.5 w-3.5 text-banana-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                      <div>
+                        <span className={`${typography.bodySmall} text-ink-800 font-medium`}>
+                          {driver.label}
+                        </span>
+                        {driver.explanation && (
+                          <p className={`${typography.caption} text-ink-500 mt-0.5`}>
+                            {driver.explanation}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-          </div>
+          ) : (
+            // Fallback to legacy top driver
+            <div className="flex items-start gap-2">
+              <Zap className="h-4 w-4 text-sky-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
+              <div>
+                <span className={`${typography.caption} text-ink-500`}>Key driver: </span>
+                <span className={`${typography.bodySmall} text-ink-800 font-medium`}>
+                  {summaryData.topDriver?.label}
+                </span>
+                {summaryData.topDriver?.why && (
+                  <p className={`${typography.caption} text-ink-500 mt-0.5`}>
+                    {summaryData.topDriver.why}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
