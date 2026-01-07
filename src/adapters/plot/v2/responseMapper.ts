@@ -540,6 +540,8 @@ export function createEnrichmentFromV2Response(v2Response: V2RunResponse): {
   }
 
   // Map to enrichment format with defensive field access
+  // P0 Fix: Include required metadata fields (isl_enabled, detail_level) so
+  // this passes hasEnrichment() type guard in extractRobustnessFromEnrichment()
   return {
     sensitivity_analysis: {
       edges: edgeSensitivity
@@ -574,6 +576,9 @@ export function createEnrichmentFromV2Response(v2Response: V2RunResponse): {
       overall_robustness: deriveOverallRobustness(),
     },
     metadata: {
+      // P0 Fix: Required fields for hasEnrichment() type guard
+      isl_enabled: true,
+      detail_level: 'deep' as const,
       factor_sensitivity_status: factorSensitivity.length > 0 ? 'available' : 'unavailable',
     },
   }

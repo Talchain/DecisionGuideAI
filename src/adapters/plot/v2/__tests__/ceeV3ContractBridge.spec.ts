@@ -519,7 +519,9 @@ describe('buildV2RequestFromAnalysisReady', () => {
     )
 
     expect(request.goal_node_id).toBe('outcome_revenue')
-    expect(request.seed).toBe(DEFAULT_SEED)
+    // P0 Fix: Seed is now derived from timestamp when not provided, not hardcoded "42"
+    expect(request.seed).toMatch(/^\d+$/) // Numeric string
+    expect(request.seed).not.toBe('42') // Never hardcoded "42"
     expect(request.options).toHaveLength(2)
     expect(request.options[0].interventions.factor_price).toBe(80)
     expect(request.options[1].interventions.factor_price).toBe(150)
@@ -549,7 +551,7 @@ describe('buildV2RequestFromAnalysisReady', () => {
     expect(request.seed).toBe('12345')
   })
 
-  it('falls back to DEFAULT_SEED when suggested_seed not provided', () => {
+  it('derives seed from timestamp when suggested_seed not provided (P0 Fix: no hardcoded "42")', () => {
     const nodes: Node[] = [
       makeNode('factor_price', { label: 'Price', kind: 'factor' }),
       makeNode('outcome_revenue', { label: 'Revenue', kind: 'outcome' }),
@@ -569,7 +571,9 @@ describe('buildV2RequestFromAnalysisReady', () => {
 
     const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady)
 
-    expect(request.seed).toBe(DEFAULT_SEED)
+    // P0 Fix: Seed is derived from timestamp, not hardcoded "42"
+    expect(request.seed).toMatch(/^\d+$/) // Numeric string
+    expect(request.seed).not.toBe('42') // Never hardcoded DEFAULT_SEED
   })
 
   it('uses fallback defaults when edges missing fields (lenient mode)', () => {

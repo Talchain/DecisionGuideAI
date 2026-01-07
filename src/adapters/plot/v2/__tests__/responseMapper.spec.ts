@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { mapV2ResponseToReportV1, createErrorReport, detectComputedButEmpty } from '../responseMapper'
+import { mapV2ResponseToReportV1, createErrorReport, detectComputedButEmpty, createEnrichmentFromV2Response } from '../responseMapper'
 import type { V2RunResponse, V2Critique } from '../types'
 
 // ============================================================================
@@ -589,5 +589,75 @@ describe('probability_of_goal and win_probability mapping', () => {
     expect(report.option_probabilities!['opt1'].win_probability).toBe(0.6)
     expect(report.option_probabilities!['opt2'].goal_probability).toBe(0.65)
     expect(report.option_probabilities!['opt2'].win_probability).toBe(0.4)
+  })
+})
+
+describe('createEnrichmentFromV2Response - P0 Fix: Robustness with empty edge_sensitivity', () => {
+  it('returns enrichment when robustness has fragile_edges but edge_sensitivity is empty', () => {
+    const v2Response = makeSuccessResponse({
+      edge_sensitivity: [],
+      factor_sensitivity: [],
+      robustness: {
+        fragile_edges: ['edge_1', 'edge_2', 'edge_3'],
+        robust_edges: ['edge_4', 'edge_5'],
+      },
+      robustness_status: 'computed',
+    })
+
+    const enrichment = createEnrichmentFromV2Response(v2Response)
+
+    expect(enrichment).not.toBeNull()
+    expect(enrichment?.sensitivity_analysis.fragile_edges).toHaveLength(3)
+    expect(enrichment?.sensitivity_analysis.robust_edges).toHaveLength(2)
+    expect(enrichment?.sensitivity_analysis.overall_robustness).toBe('moderate')
+    // Required metadata fields for hasEnrichment() type guard
+    expect(enrichment?.metadata.isl_enabled).toBe(true)
+    expect(enrichment?.metadata.detail_level).toBe('deep')
+  })
+
+  it('derives overall_robustness as "robust" when robust_edges > 70%', () => {
+    const v2Response = makeSuccessResponse({
+      edge_sensitivity: [],
+      robustness: {
+        fragile_edges: ['edge_1'],
+        robust_edges: ['edge_2', 'edge_3', 'edge_4', 'edge_5', 'edge_6', 'edge_7', 'edge_8'],
+      },
+      robustness_status: 'computed',
+    })
+
+    const enrichment = createEnrichmentFromV2Response(v2Response)
+
+    expect(enrichment?.sensitivity_analysis.overall_robustness).toBe('robust')
+  })
+
+  it('derives overall_robustness as "fragile" when robust_edges < 30%', () => {
+    const v2Response = makeSuccessResponse({
+      edge_sensitivity: [],
+      robustness: {
+        fragile_edges: ['edge_1', 'edge_2', 'edge_3', 'edge_4', 'edge_5', 'edge_6', 'edge_7'],
+        robust_edges: ['edge_8'],
+      },
+      robustness_status: 'computed',
+    })
+
+    const enrichment = createEnrichmentFromV2Response(v2Response)
+
+    expect(enrichment?.sensitivity_analysis.overall_robustness).toBe('fragile')
+  })
+
+  it('returns null when no edge_sensitivity AND no robustness edges', () => {
+    const v2Response = makeSuccessResponse({
+      edge_sensitivity: [],
+      factor_sensitivity: [],
+      robustness: {
+        fragile_edges: [],
+        robust_edges: [],
+      },
+      robustness_status: 'computed',
+    })
+
+    const enrichment = createEnrichmentFromV2Response(v2Response)
+
+    expect(enrichment).toBeNull()
   })
 })

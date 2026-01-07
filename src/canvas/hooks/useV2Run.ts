@@ -24,6 +24,20 @@ import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import { useGateStore, updateRobustnessGate, updateRobustnessGateFromV2 } from '../../lib/gate-state'
 
 /**
+ * P0 Fix: Derive a stable numeric seed from a string.
+ * Uses simple FNV-1a hash to convert string to number.
+ */
+function deriveNumericSeedFromString(input: string): number {
+  let hash = 2166136261 // FNV offset basis
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i)
+    hash = Math.imul(hash, 16777619) // FNV prime
+  }
+  // Convert to positive number in reasonable seed range (0 - 999999)
+  return Math.abs(hash) % 1000000
+}
+
+/**
  * Check if ceeAnalysisReady is stale (graph has changed since it was stored).
  *
  * Returns true if stale (should not use analysis_ready).
@@ -127,7 +141,30 @@ export function useV2Run(): UseV2RunReturn {
     setIsRunning(true)
     setError(null)
 
-    const seed = framing?.seed ?? 42
+    // P0 Fix: Seed precedence (no hardcoded "42" default)
+    // 1. Explicit seed from framing (user input or dev/test)
+    // 2. Derived from scenario_id if available (stable per scenario)
+    // 3. Derived from graph hash (stable per graph structure)
+    // 4. Let backend generate (omit seed from request)
+    let seed: number | undefined = framing?.seed
+
+    if (seed === undefined && framing?.scenario_id) {
+      // Derive stable seed from scenario_id hash
+      seed = deriveNumericSeedFromString(framing.scenario_id)
+    }
+
+    if (seed === undefined && nodes.length > 0) {
+      // Derive stable seed from graph structure hash
+      const graphKey = nodes.map(n => n.id).sort().join('|') + '::' + edges.map(e => `${e.source}->${e.target}`).sort().join('|')
+      seed = deriveNumericSeedFromString(graphKey)
+    }
+
+    // If still undefined, let backend generate (don't use hardcoded 42)
+    // Use a timestamp-based seed as last resort for reproducibility tracking
+    if (seed === undefined) {
+      seed = Math.floor(Date.now() / 1000) % 1000000 // Use Unix timestamp modulo for reasonable range
+    }
+
     const startTime = Date.now()
 
     // Generate request ID for tracing
@@ -194,6 +231,7 @@ export function useV2Run(): UseV2RunReturn {
       }
 
       // Execute V2 run with analysisReady (or fallback to node extraction)
+      // P0 Fix: Pass computed seed to avoid hardcoded "42" default
       const result = await executeV2RunWithAnalysisReady(
         config,
         nodes,
@@ -201,7 +239,8 @@ export function useV2Run(): UseV2RunReturn {
         effectiveAnalysisReady,
         outcomeNodeId,
         requestId,
-        goalThreshold ?? undefined
+        goalThreshold ?? undefined,
+        seed
       )
 
       const elapsed_ms = Date.now() - startTime

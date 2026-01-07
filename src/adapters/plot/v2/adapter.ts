@@ -545,11 +545,12 @@ export function buildV2Request(
   }
 
   // Step 4: Build final request
+  // P0 Fix: Derive seed from timestamp instead of hardcoded "42"
   const request: V2RunRequest = {
     graph: normalised.graph,
     options: normalised.options,
     goal_node_id: normalised.goalNodeId ?? goalNodeId,
-    seed: DEFAULT_SEED,
+    seed: String(Math.floor(Date.now() / 1000) % 1000000),
     detail_level: 'deep',
   }
 
@@ -569,6 +570,11 @@ export interface BuildV2RequestOptions {
    * Edge validation errors can be surfaced via validateAllEdges() in pre-run checks instead.
    */
   strictEdgeValidation?: boolean
+  /**
+   * P0 Fix: Optional seed to use for the request.
+   * If not provided, falls back to analysisReady.suggested_seed or derives from timestamp.
+   */
+  seed?: number
 }
 
 /**
@@ -625,8 +631,9 @@ export function buildV2RequestFromAnalysisReady(
   const v2Options = analysisReady.options.map(ceeOptionToV2Option)
 
   // Step 4: Get goal node ID and seed from analysisReady
+  // P0 Fix: Seed precedence - options.seed > analysisReady.suggested_seed > derived
   const goalNodeId = analysisReady.goal_node_id
-  const seed = analysisReady.suggested_seed ?? DEFAULT_SEED
+  const seed = options.seed?.toString() ?? analysisReady.suggested_seed ?? String(Math.floor(Date.now() / 1000) % 1000000)
 
   // Step 5: Apply ID normalisation for ISL V2 constraint
   // IMPORTANT: This normalises ALL IDs coherently:
@@ -884,6 +891,7 @@ export async function executeV2Run(
  * @param fallbackGoalNodeId - Goal node ID to use if analysisReady not provided
  * @param requestId - Optional request ID for tracing
  * @param goalThreshold - Optional success threshold for probability_of_goal
+ * @param seed - P0 Fix: Optional seed for reproducibility (avoids hardcoded "42")
  */
 export async function executeV2RunWithAnalysisReady(
   config: V2AdapterConfig,
@@ -892,20 +900,22 @@ export async function executeV2RunWithAnalysisReady(
   analysisReady: CEEAnalysisReady | null,
   fallbackGoalNodeId: string,
   requestId?: string,
-  goalThreshold?: number
+  goalThreshold?: number,
+  seed?: number
 ): Promise<V2RunResult> {
   // Build fallback options from nodes (used when analysisReady not available)
   const validNodeIds = new Set(nodes.map((n) => n.id))
   const fallbackOptions = extractOptionsFromNodes(nodes, validNodeIds)
 
   // Build request - uses analysisReady if available, falls back to node extraction
+  // P0 Fix: Pass seed to avoid hardcoded "42" default
   const { request, reverseIdMap } = buildV2RequestFromAnalysisReady(
     nodes,
     edges,
     analysisReady,
     fallbackOptions,
     fallbackGoalNodeId,
-    { strictEdgeValidation: false } // Lenient mode for user-edited graphs
+    { strictEdgeValidation: false, seed } // Lenient mode for user-edited graphs
   )
 
   // Add request ID for tracing

@@ -119,6 +119,21 @@ export function useRobustness({
           enrichment,
         }
 
+        // P0 Fix: Debug logging for robustness gating diagnostics
+        if (import.meta.env.DEV) {
+          const sa = enrichment.sensitivity_analysis
+          console.log('[useRobustness] Enrichment diagnostic:', {
+            robustness_status: 'computed', // V2 always returns computed status when enrichment exists
+            drivers_status: sa?.edges?.length ? 'computed' : 'unavailable',
+            fragile_count: sa?.fragile_edges?.length ?? 0,
+            robust_count: sa?.robust_edges?.length ?? 0,
+            edge_sensitivity_count: sa?.edges?.length ?? 0,
+            factor_sensitivity_count: sa?.factors?.length ?? 0,
+            has_isl_enabled: enrichment.metadata?.isl_enabled,
+            has_detail_level: enrichment.metadata?.detail_level,
+          })
+        }
+
         const fromEnrichment = extractRobustnessFromEnrichment(plotResponse)
         if (fromEnrichment !== null) {
           if (import.meta.env.DEV) {
@@ -126,6 +141,9 @@ export function useRobustness({
               hasEdges: (enrichment.sensitivity_analysis?.edges?.length ?? 0) > 0,
               hasFactors: (enrichment.sensitivity_analysis?.factors?.length ?? 0) > 0,
               factorCount: enrichment.sensitivity_analysis?.factors?.length ?? 0,
+              robustnessLabel: fromEnrichment.robustness_label,
+              fragileEdgeCount: fromEnrichment.fragile_edge_count,
+              robustEdgeCount: fromEnrichment.robust_edge_count,
             })
           }
 
@@ -141,6 +159,8 @@ export function useRobustness({
           setSource('enrichment')
           setLoading(false)
           return
+        } else if (import.meta.env.DEV) {
+          console.warn('[useRobustness] extractRobustnessFromEnrichment returned null despite enrichment present')
         }
       }
 

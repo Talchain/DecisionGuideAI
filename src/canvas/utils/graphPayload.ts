@@ -30,40 +30,151 @@ export function buildRichGraphPayload(nodes: any[], edges: any[]) {
 }
 
 /**
+ * Normalize an intervention value to a number.
+ *
+ * Handles various formats:
+ * - number → use as-is
+ * - boolean → coerce to 1/0
+ * - { value: number | boolean } → extract and coerce
+ * - Otherwise → null (invalid)
+ */
+function normalizeInterventionValue(
+  raw: unknown,
+  factorId: string,
+  requestId?: string
+): number | null {
+  // Handle null/undefined
+  if (raw === null || raw === undefined) {
+    return null
+  }
+
+  // Handle number directly
+  if (typeof raw === 'number') {
+    return isNaN(raw) ? null : raw
+  }
+
+  // Handle boolean → 1/0
+  if (typeof raw === 'boolean') {
+    return raw ? 1 : 0
+  }
+
+  // Handle object with value property
+  if (typeof raw === 'object' && raw !== null && 'value' in raw) {
+    const val = (raw as { value: unknown }).value
+    if (typeof val === 'number') {
+      return isNaN(val) ? null : val
+    }
+    if (typeof val === 'boolean') {
+      return val ? 1 : 0
+    }
+  }
+
+  // Unhandled type - log anomaly
+  if (import.meta.env.DEV) {
+    console.warn('[normalizeInterventionValue] Unhandled intervention format', {
+      factorId,
+      rawType: typeof raw,
+      raw,
+      requestId,
+    })
+  }
+
+  return null
+}
+
+/**
+ * Extract interventions from an option object.
+ *
+ * Handles multiple storage shapes in priority order:
+ * A) option.data?.interventions
+ * B) option.interventions
+ */
+function extractInterventionsFromOption(
+  option: Record<string, unknown>,
+  requestId?: string
+): Record<string, number> {
+  const result: Record<string, number> = {}
+
+  // Try option.data?.interventions first
+  let rawInterventions: Record<string, unknown> | undefined
+  if (option.data && typeof option.data === 'object' && 'interventions' in (option.data as object)) {
+    rawInterventions = (option.data as { interventions?: Record<string, unknown> }).interventions
+  }
+
+  // Fallback to option.interventions
+  if (!rawInterventions && option.interventions && typeof option.interventions === 'object') {
+    rawInterventions = option.interventions as Record<string, unknown>
+  }
+
+  if (!rawInterventions || typeof rawInterventions !== 'object') {
+    return result
+  }
+
+  const rawKeysCount = Object.keys(rawInterventions).length
+
+  for (const [factorId, rawValue] of Object.entries(rawInterventions)) {
+    const normalized = normalizeInterventionValue(rawValue, factorId, requestId)
+    if (normalized !== null) {
+      result[factorId] = normalized
+    }
+  }
+
+  if (import.meta.env.DEV) {
+    console.log('[extractInterventionsFromOption] Extraction result', {
+      winner_option_id: option.id || option.label,
+      raw_intervention_keys_count: rawKeysCount,
+      normalised_intervention_keys_count: Object.keys(result).length,
+    })
+  }
+
+  return result
+}
+
+/**
  * P0 Fix: Get interventions for the recommended option
  *
  * When making conformal predictions, we need to use the RECOMMENDED option's
  * interventions (values set to 1) rather than baseline (all 0s).
  *
  * This finds the winner option from results and extracts its intervention values.
+ * Supports multiple data shapes:
+ * - option.data?.interventions (nested)
+ * - option.interventions (flat)
+ * - analysis_ready.options[i]?.interventions (CEE format)
+ *
+ * Intervention values can be:
+ * - number → use as-is
+ * - boolean → coerce to 1/0
+ * - { value: number | boolean } → extract and coerce
  *
  * @param ceeAnalysisReady - CEE analysis ready payload with options
  * @param report - Analysis results with ranking/winner info
- * @returns Record<factorId, value> for the recommended option, or null if not found
+ * @param requestId - Optional request ID for logging anomalies
+ * @returns Record<factorId, value> for the recommended option, or null if empty/invalid
  */
 export function getRecommendedOptionInterventions(
   ceeAnalysisReady: {
-    options: Array<{
-      id: string
-      label: string
-      interventions: Record<string, { value: number }>
-    }>
+    options: Array<Record<string, unknown>>
   } | null,
   report: {
     ranking?: { winner?: string }
     option_probabilities?: Record<string, { win_probability?: number }>
-  } | null
+  } | null,
+  requestId?: string
 ): Record<string, number> | null {
   if (!ceeAnalysisReady?.options || ceeAnalysisReady.options.length === 0) {
+    if (import.meta.env.DEV) {
+      console.log('[getRecommendedOptionInterventions] No options available', { requestId })
+    }
     return null
   }
 
   // Strategy 1: Use ranking.winner label to find matching option
-  let winnerOption = null
+  let winnerOption: Record<string, unknown> | null = null
   if (report?.ranking?.winner) {
     winnerOption = ceeAnalysisReady.options.find(
       (opt) => opt.label === report.ranking!.winner
-    )
+    ) ?? null
   }
 
   // Strategy 2: Find option with highest win_probability
@@ -77,29 +188,58 @@ export function getRecommendedOptionInterventions(
       }
     }
     if (winnerId) {
-      winnerOption = ceeAnalysisReady.options.find((opt) => opt.id === winnerId)
+      winnerOption = ceeAnalysisReady.options.find((opt) => opt.id === winnerId) ?? null
     }
   }
 
   // Strategy 3: Default to first option if no winner found
   if (!winnerOption) {
-    winnerOption = ceeAnalysisReady.options[0]
+    winnerOption = ceeAnalysisReady.options[0] ?? null
   }
 
   if (!winnerOption) {
+    if (import.meta.env.DEV) {
+      console.log('[getRecommendedOptionInterventions] No winner option found', { requestId })
+    }
     return null
   }
 
-  // Extract intervention values: { factorId: value }
-  const interventions: Record<string, number> = {}
-  for (const [factorId, intervention] of Object.entries(winnerOption.interventions)) {
-    interventions[factorId] = intervention.value
-  }
+  // Extract and normalize interventions
+  const interventions = extractInterventionsFromOption(winnerOption, requestId)
 
   if (import.meta.env.DEV) {
-    console.log('[getRecommendedOptionInterventions] Winner option:', winnerOption.label)
-    console.log('[getRecommendedOptionInterventions] Interventions:', interventions)
+    console.log('[getRecommendedOptionInterventions] Final result', {
+      winner_option_label: winnerOption.label,
+      interventions,
+      requestId,
+    })
   }
 
-  return Object.keys(interventions).length > 0 ? interventions : null
+  // Guardrail: Return null if empty (caller should skip conformal)
+  if (Object.keys(interventions).length === 0) {
+    if (import.meta.env.DEV) {
+      console.warn('[getRecommendedOptionInterventions] Conformal skipped: no valid interventions available', {
+        winner_option_id: winnerOption.id,
+        winner_option_label: winnerOption.label,
+        requestId,
+      })
+    }
+    return null
+  }
+
+  // Guardrail: Check all values are numeric
+  for (const [key, val] of Object.entries(interventions)) {
+    if (typeof val !== 'number' || isNaN(val)) {
+      if (import.meta.env.DEV) {
+        console.warn('[getRecommendedOptionInterventions] Non-numeric value after normalization', {
+          key,
+          val,
+          requestId,
+        })
+      }
+      return null
+    }
+  }
+
+  return interventions
 }

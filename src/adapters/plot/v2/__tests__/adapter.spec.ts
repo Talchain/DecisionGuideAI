@@ -356,7 +356,9 @@ describe('buildV2Request', () => {
     const { request } = buildV2Request(nodes, edges, options, 'goal')
 
     expect(request.goal_node_id).toBe('goal')
-    expect(request.seed).toBe(DEFAULT_SEED)
+    // P0 Fix: Seed is derived from timestamp, not hardcoded "42"
+    expect(request.seed).toMatch(/^\d+$/) // Numeric string
+    expect(request.seed).not.toBe('42') // Never hardcoded DEFAULT_SEED
     expect(request.detail_level).toBe('deep')
     expect(request.graph.nodes).toHaveLength(2)
     expect(request.graph.edges).toHaveLength(1)
