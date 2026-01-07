@@ -36,7 +36,7 @@ import { useCanvasStore } from '../store'
 import { focusNodeById, focusEdgeById } from '../utils/focusHelpers'
 import { typography } from '../../styles/typography'
 import { useISLConformal } from '../../hooks/useISLConformal'
-import { buildRichGraphPayload } from '../utils/graphPayload'
+import { buildRichGraphPayload, getRecommendedOptionInterventions } from '../utils/graphPayload'
 import type { ISLConformalPrediction } from '../../adapters/isl/types'
 import type { RobustnessResult, SensitiveParameter, ValueOfInformation } from './RecommendationCard/types'
 import type { SynthesisNarratives } from '../hooks/useISLSynthesis'
@@ -165,6 +165,7 @@ export function DriversSignal({
   const setHighlightedNodes = useCanvasStore((s) => s.setHighlightedNodes)
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
+  const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
   const report = results?.report
 
   // Phase 0.4: Normalize response to handle legacy and V3 formats
@@ -193,16 +194,22 @@ export function DriversSignal({
   const { data: conformalData, loading: conformalLoading, predict } = useISLConformal()
 
   // Auto-fetch conformal predictions when results exist
+  // P0 Fix: Pass recommended option's interventions for option-specific predictions
   useEffect(() => {
     // Only fetch if we have results, nodes, and haven't fetched yet
     if (!report?.drivers || nodes.length === 0 || conformalData || conformalLoading) return
 
     const timer = setTimeout(() => {
+      // P0 Fix: Get the recommended option's interventions instead of using baseline (0s)
+      const recommendedInterventions = getRecommendedOptionInterventions(ceeAnalysisReady, report)
+
       predict({
         graph: buildRichGraphPayload(nodes, edges),
         options: {
           enable_conformal: true,
           confidence_level: 0.95,
+          // P0 Fix: Pass recommended option's interventions for accurate conformal predictions
+          ...(recommendedInterventions && { interventions: recommendedInterventions }),
         },
       }).catch(() => {
         // Silently fail - badges are optional enhancement
@@ -210,7 +217,7 @@ export function DriversSignal({
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [report?.drivers, nodes, edges, conformalData, conformalLoading, predict])
+  }, [report?.drivers, nodes, edges, conformalData, conformalLoading, predict, ceeAnalysisReady, report])
 
   // Create mapping from node_id to conformal prediction
   const conformalByNodeId = useMemo(() => {
@@ -373,7 +380,7 @@ export function DriversSignal({
           <Zap className="h-5 w-5 text-sand-400 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className={`${typography.body} text-sand-600`}>
-              {drivers.length === 0 ? 'No drivers identified' : 'Driver analysis not available'}
+              {drivers.length === 0 ? 'No key factors identified' : 'Key factors analysis not available'}
             </p>
             <p className={`${typography.caption} text-sand-500 mt-1`}>
               {fallbackMessage}
@@ -427,7 +434,7 @@ export function DriversSignal({
           ) : (
             <ChevronRight className="h-4 w-4 text-ink-500" />
           )}
-          <span className={`${typography.body} font-medium text-ink-800`}>Key Drivers</span>
+          <span className={`${typography.body} font-medium text-ink-800`}>Key factors</span>
         </div>
 
         <span className={`${typography.caption} text-ink-500`}>

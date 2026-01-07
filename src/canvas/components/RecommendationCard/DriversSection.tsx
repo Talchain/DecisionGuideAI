@@ -36,7 +36,7 @@ export function DriversSection({ drivers, onDriverClick }: DriversSectionProps) 
   if (!drivers || drivers.length === 0) {
     return (
       <p className={`${typography.caption} text-ink-500 italic`}>
-        No specific drivers identified for this recommendation.
+        No key factors identified
       </p>
     )
   }

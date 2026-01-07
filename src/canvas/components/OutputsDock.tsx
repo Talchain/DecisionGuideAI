@@ -62,6 +62,7 @@ import { GraphTextView } from './GraphTextView'
 import { PreAnalysisGuidance } from './PreAnalysisGuidance'
 import { PreAnalysisHealth } from './PreAnalysisHealth'
 import { GoalNodeSelector, useGoalNodeActions } from './GoalNodeSelector'
+import { ThresholdInput } from './ThresholdInput'
 import { usePreRunValidation } from '../hooks/usePreRunValidation'
 import { ActionsSignal } from './ActionsSignal'
 import { WarningBanner } from './WarningBanner'
@@ -70,6 +71,7 @@ import { TrustSignal } from './TrustSignal'
 import { DriversSignal } from './DriversSignal'
 import { DecisionSummary } from './DecisionSummary'
 import { DecisionQuality } from './DecisionQuality'
+import { AdvancedSettingsPanel } from './AdvancedSettingsPanel'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useV2Run } from '../hooks/useV2Run'
 import { focusNodeById } from '../utils/focusHelpers'
@@ -214,6 +216,8 @@ export function OutputsDock() {
   // P0-UI-5: Goal node selection
   const outcomeNodeId = useCanvasStore(s => s.outcomeNodeId)
   const setOutcomeNode = useCanvasStore(s => s.setOutcomeNode)
+  const goalThreshold = useCanvasStore(s => s.goalThreshold)
+  const setGoalThreshold = useCanvasStore(s => s.setGoalThreshold)
   const updateNode = useCanvasStore(s => s.updateNode)
 
   // P0-UI-6: Pre-run validation hook
@@ -985,6 +989,18 @@ export function OutputsDock() {
                       />
                     )}
 
+                    {/* Success threshold input (optional) - only show when goal is selected */}
+                    {outcomeNodeId && (
+                      <ThresholdInput
+                        value={goalThreshold}
+                        onChange={setGoalThreshold}
+                        unit={(() => {
+                          const goalNode = nodes.find(n => n.id === outcomeNodeId)
+                          return (goalNode?.data as { unit?: string })?.unit
+                        })()}
+                      />
+                    )}
+
                     {/* Graph readiness assessment from CEE - only show when canvas has nodes */}
                     {nodes.length > 0 && (
                       <PreAnalysisHealth
@@ -1098,7 +1114,9 @@ export function OutputsDock() {
                 {/* Phase 2: Response warnings banner (edge type inferred, weights normalized, etc.) */}
                 {!isPreRun && !warningsDismissed && report?.warnings && report.warnings.length > 0 && (
                   <WarningBanner
-                    warnings={report.warnings}
+                    warnings={report.warnings
+                      .filter((w): w is string => typeof w === 'string' && w.trim().length > 0)
+                      .map((msg) => ({ code: 'GENERAL', message: msg }))}
                     onDismiss={() => setWarningsDismissed(true)}
                     onViewAffected={(ids) => {
                       setHighlightedNodes(ids)
@@ -1362,6 +1380,13 @@ export function OutputsDock() {
                       </div>
                     )}
                     {/* M6: Scenario Comparison Prompt - REMOVED: Now using Compare CTA in DecisionSummary */}
+                  </div>
+                )}
+
+                {/* Advanced Settings - Risk Tolerance & Structural Uncertainty */}
+                {!isPreRun && (
+                  <div className="mt-4">
+                    <AdvancedSettingsPanel />
                   </div>
                 )}
               </div>

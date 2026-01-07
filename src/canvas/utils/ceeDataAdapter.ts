@@ -219,10 +219,12 @@ export function getReadiness(
     }
   }
 
-  // 3. No data - assume not ready
+  // 3. No data available - show as unavailable, not as "not ready"
+  // This distinguishes between CEE timeout (transient unavailability) and
+  // legitimate analysis issues. Using 'caution' avoids implying user action.
   return {
-    level: 'not_ready',
-    headline: 'Run analysis to assess decision quality',
+    level: 'caution',
+    headline: 'AI review unavailable',
     factors: [],
     source: 'fallback',
   }

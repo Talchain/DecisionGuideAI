@@ -215,6 +215,10 @@ export function useUnifiedActions(): UseUnifiedActionsResult {
         // Skip auto-applied items
         if (c.message?.includes('auto-applied')) continue
 
+        // Skip normalisation warnings - these are internal implementation details
+        // (e.g., "Option nodes are filtered before analysis")
+        if (c.code === 'NORMALIZATION_WARNING') continue
+
         const raw: CritiqueItemRaw = {
           type: 'critique',
           source: c.source,

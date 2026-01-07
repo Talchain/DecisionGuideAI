@@ -89,8 +89,10 @@ export interface PLoTSensitivityAnalysis {
   factors?: PLoTFactorSensitivity[]
   /** Top driver node IDs */
   top_drivers?: string[]
-  /** Edge IDs that are particularly fragile */
+  /** Edge IDs that are particularly fragile (can flip the decision) */
   fragile_edges?: string[]
+  /** Edge IDs that are robust (stable relationships) */
+  robust_edges?: string[]
 }
 
 /**
@@ -195,6 +197,21 @@ export function hasSensitivityAnalysis(
     enrichment.sensitivity_analysis !== null &&
     enrichment.sensitivity_analysis !== undefined &&
     Array.isArray(enrichment.sensitivity_analysis.edges)
+  )
+}
+
+/**
+ * Check if enrichment contains robustness edge data (fragile_edges/robust_edges)
+ * These may exist even when edge sensitivity analysis is empty.
+ */
+export function hasRobustnessEdges(
+  enrichment: PLoTEnrichment | null | undefined
+): boolean {
+  if (!enrichment?.sensitivity_analysis) return false
+  const sa = enrichment.sensitivity_analysis
+  return (
+    (Array.isArray(sa.fragile_edges) && sa.fragile_edges.length > 0) ||
+    (Array.isArray(sa.robust_edges) && sa.robust_edges.length > 0)
   )
 }
 
@@ -365,11 +382,14 @@ export function extractRobustnessFromEnrichment(
     return null
   }
 
-  // Check if sensitivity analysis is available
-  if (!hasSensitivityAnalysis(enrichment)) {
+  // Check if sensitivity analysis OR robustness edges are available
+  const hasEdgeSensitivity = hasSensitivityAnalysis(enrichment)
+  const hasRobustness = hasRobustnessEdges(enrichment)
+
+  if (!hasEdgeSensitivity && !hasRobustness) {
     if (import.meta.env.DEV) {
       console.log(
-        '[PLoT Enrichment] No sensitivity_analysis (detail_level:',
+        '[PLoT Enrichment] No sensitivity_analysis or robustness edges (detail_level:',
         enrichment.metadata.detail_level,
         ')'
       )
@@ -378,10 +398,16 @@ export function extractRobustnessFromEnrichment(
   }
 
   try {
-    const sensitivity = enrichment.sensitivity_analysis
+    // Access sensitivity_analysis (may have empty edges but fragile_edges/robust_edges)
+    const sensitivity = enrichment.sensitivity_analysis ?? { edges: [] }
+
+    // Extract robustness edge counts (from V2 robustness data)
+    const fragileEdges = Array.isArray(sensitivity.fragile_edges) ? sensitivity.fragile_edges : []
+    const robustEdges = Array.isArray(sensitivity.robust_edges) ? sensitivity.robust_edges : []
 
     // Adapt edge sensitivities to UI format (top 5 most sensitive)
-    const sortedEdges = [...sensitivity.edges].sort(
+    const edges = Array.isArray(sensitivity.edges) ? sensitivity.edges : []
+    const sortedEdges = [...edges].sort(
       (a, b) => b.sensitivity_score - a.sensitivity_score
     )
     const topEdgeParams = sortedEdges.slice(0, 5).map(adaptEdgeToSensitiveParam)
@@ -396,10 +422,25 @@ export function extractRobustnessFromEnrichment(
     // Combine edge and factor sensitivities (factors first as more actionable)
     const allSensitiveParams = [...topFactorParams, ...topEdgeParams].slice(0, 8)
 
-    // Derive robustness label (use string label if provided, otherwise score)
-    const robustnessLabel = typeof sensitivity.overall_robustness === 'string'
-      ? sensitivity.overall_robustness as RobustnessLabel
-      : deriveRobustnessLabel(sensitivity.overall_robustness)
+    // Derive robustness label from:
+    // 1. String label if provided
+    // 2. Numeric score if provided
+    // 3. fragile/robust edge ratio as fallback
+    let robustnessLabel: RobustnessLabel
+    if (typeof sensitivity.overall_robustness === 'string') {
+      robustnessLabel = sensitivity.overall_robustness as RobustnessLabel
+    } else if (typeof sensitivity.overall_robustness === 'number') {
+      robustnessLabel = deriveRobustnessLabel(sensitivity.overall_robustness)
+    } else if (fragileEdges.length > 0 || robustEdges.length > 0) {
+      // Derive from edge counts
+      const totalEdges = fragileEdges.length + robustEdges.length
+      const robustRatio = totalEdges > 0 ? robustEdges.length / totalEdges : 0.5
+      if (robustRatio >= 0.7) robustnessLabel = 'robust'
+      else if (robustRatio >= 0.3) robustnessLabel = 'moderate'
+      else robustnessLabel = 'fragile'
+    } else {
+      robustnessLabel = 'moderate'
+    }
 
     // Build robustness result with both edge and factor sensitivity
     const result: RobustnessResult = {
@@ -413,13 +454,21 @@ export function extractRobustnessFromEnrichment(
       robustness_label: robustnessLabel,
       robustness_bounds: [],
       value_of_information: [], // VOI not included in Phase 1
-      narrative: generateNarrativeFromSensitivity(sensitivity, robustnessLabel),
+      narrative: generateNarrativeFromSensitivity(
+        { ...sensitivity, edges: edges, fragile_edges: fragileEdges },
+        robustnessLabel
+      ),
+      // Include raw edge counts for UI display
+      fragile_edge_count: fragileEdges.length,
+      robust_edge_count: robustEdges.length,
     }
 
     if (import.meta.env.DEV) {
       console.log('[PLoT Enrichment] Extracted robustness from enrichment:', {
-        edgeCount: sensitivity.edges.length,
+        edgeCount: edges.length,
         factorCount: factors.length,
+        fragileEdgeCount: fragileEdges.length,
+        robustEdgeCount: robustEdges.length,
         robustnessLabel,
         result,
       })

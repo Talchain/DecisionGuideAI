@@ -259,14 +259,23 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
   return result
 }
 
+// Endpoint-specific timeouts (ms)
+const ENDPOINT_TIMEOUTS: Record<string, number> = {
+  // draft-graph needs 120s: OpenAI can take 64-71s, plus CEE processing
+  '/draft-graph': 120000,
+}
+
+// Default timeout for other CEE endpoints
+const DEFAULT_CEE_TIMEOUT = 60000
+
 export class CEEClient {
   private baseURL: string
   private timeout: number
 
   constructor(config: { timeout?: number } = {}) {
     this.baseURL = CEE_BASE_URL
-    // 60s timeout to handle Render cold starts (can take 30-45s)
-    this.timeout = config.timeout ?? 60000
+    // Default 60s timeout to handle Render cold starts (can take 30-45s)
+    this.timeout = config.timeout ?? DEFAULT_CEE_TIMEOUT
   }
 
   private async fetch<T>(
@@ -276,7 +285,11 @@ export class CEEClient {
     const url = `${this.baseURL}${endpoint}`
     const correlationId = generateCorrelationId()
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout)
+
+    // Use endpoint-specific timeout if configured, otherwise use default
+    const endpointPath = endpoint.split('?')[0] // Remove query params for matching
+    const effectiveTimeout = ENDPOINT_TIMEOUTS[endpointPath] ?? this.timeout
+    const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout)
 
     // Parse body for observability (if present) - guard against non-JSON bodies
     let bodyData: unknown = {}

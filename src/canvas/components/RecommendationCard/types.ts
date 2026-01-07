@@ -360,6 +360,10 @@ export interface RobustnessResult {
   narrative: string
   /** Brief 10.6: Pareto analysis for multi-goal decisions */
   pareto?: ParetoResult
+  /** V2 robustness: Count of fragile edges */
+  fragile_edge_count?: number
+  /** V2 robustness: Count of robust edges */
+  robust_edge_count?: number
 }
 
 /**

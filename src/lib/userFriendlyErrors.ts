@@ -138,6 +138,12 @@ const ERROR_MESSAGES: Record<string, Omit<UserFriendlyError, 'canRetry'>> = {
     actionText: 'Try Again',
     severity: 'error',
   },
+  'PROCESSING_ERROR': {
+    headline: 'Results processing issue',
+    explanation: 'We received the analysis results but had trouble displaying them. Please try again.',
+    actionText: 'Try Again',
+    severity: 'warning',
+  },
   'CEE_DEGRADED': {
     headline: 'Partial analysis available',
     explanation: 'The full review couldn\'t complete, but your core results are still valid.',

@@ -233,13 +233,72 @@ export function translateResponseToUIIds<T extends {
     return response
   }
 
-  const translateId = (id: string): string => reverseIdMap.get(id) ?? id
+  /**
+   * Extract edge ID from unknown input (string or object with edge_id).
+   * PLoT may return fragile_edges/robust_edges as either:
+   * - string[] (e.g., ["from::to"])
+   * - Array<{ edge_id: string, ... }> (object format)
+   */
+  const extractEdgeIdFromUnknown = (edge: unknown): string => {
+    if (typeof edge === 'string') {
+      return edge
+    }
+    if (edge && typeof edge === 'object') {
+      // Try common field names for edge ID
+      const obj = edge as Record<string, unknown>
+      if (typeof obj.edge_id === 'string') return obj.edge_id
+      if (typeof obj.id === 'string') return obj.id
+      if (typeof obj.edgeId === 'string') return obj.edgeId
+      // Log unexpected object shape
+      if (import.meta.env?.DEV) {
+        console.warn('[nodeIdNormalisation] extractEdgeIdFromUnknown: object without edge_id:', {
+          keys: Object.keys(obj),
+          value: edge,
+        })
+      }
+    }
+    // Best effort: stringify
+    return edge != null ? String(edge) : ''
+  }
+
+  /**
+   * Defensive translateId - handles non-string inputs gracefully.
+   * PLoT may return unexpected shapes; we log but don't crash.
+   */
+  const translateId = (id: unknown): string => {
+    if (typeof id !== 'string') {
+      if (import.meta.env?.DEV) {
+        console.warn('[nodeIdNormalisation] translateId received non-string:', {
+          received: id,
+          type: typeof id,
+          expected: 'string',
+        })
+      }
+      // Best effort: stringify if possible, otherwise return empty string
+      return id != null ? String(id) : ''
+    }
+    return reverseIdMap.get(id) ?? id
+  }
 
   /**
    * Translate edge ID format "from::to" or "from->to".
    * Both from and to parts need reverse mapping.
+   * Defensive: handles non-string inputs gracefully.
    */
-  const translateEdgeId = (edgeId: string): string => {
+  const translateEdgeId = (edgeId: unknown): string => {
+    // Defensive: handle non-string inputs
+    if (typeof edgeId !== 'string') {
+      if (import.meta.env?.DEV) {
+        console.warn('[nodeIdNormalisation] translateEdgeId received non-string:', {
+          received: edgeId,
+          type: typeof edgeId,
+          expected: 'string (format: "from::to" or "from->to")',
+        })
+      }
+      // Best effort: stringify if possible, otherwise return empty string
+      return edgeId != null ? String(edgeId) : ''
+    }
+
     // Handle "from::to" format
     if (edgeId.includes('::')) {
       const [from, to] = edgeId.split('::')
@@ -288,14 +347,23 @@ export function translateResponseToUIIds<T extends {
       factor_id: translateId(f.factor_id),
     })),
     // Robustness with V2 fragile_edges/robust_edges
+    // Note: PLoT may return either strings or objects with edge_id property
     robustness: response.robustness ? {
       ...response.robustness,
       factors: response.robustness.factors?.map((f) => ({
         ...f,
         node_id: translateId(f.node_id),
       })),
-      fragile_edges: response.robustness.fragile_edges?.map(translateEdgeId),
-      robust_edges: response.robustness.robust_edges?.map(translateEdgeId),
+      fragile_edges: response.robustness.fragile_edges?.map((edge) => {
+        // Handle both string and object formats from PLoT
+        const edgeId = extractEdgeIdFromUnknown(edge)
+        return translateEdgeId(edgeId)
+      }),
+      robust_edges: response.robustness.robust_edges?.map((edge) => {
+        // Handle both string and object formats from PLoT
+        const edgeId = extractEdgeIdFromUnknown(edge)
+        return translateEdgeId(edgeId)
+      }),
     } : undefined,
   }
 }

@@ -57,6 +57,8 @@ export interface V2RunRequest {
   detail_level: 'deep' | 'summary'
   /** Optional request ID for tracing (echoed in response) */
   request_id?: string
+  /** Optional success threshold for probability_of_goal calculation */
+  goal_threshold?: number
 }
 
 // ============================================================================
@@ -91,6 +93,10 @@ export interface V2OptionComparison {
   option_id: string
   option_label: string
   confidence_interval: [number, number]
+  /** Probability of exceeding goal_threshold (only when threshold provided) */
+  probability_of_goal?: number
+  /** Probability this option wins vs others (pairwise comparison) */
+  win_probability?: number
 }
 
 /**
@@ -107,11 +113,22 @@ export interface V2EdgeSensitivity {
 }
 
 /**
- * V2 factor sensitivity (placeholder - may be empty).
+ * V2 factor sensitivity from PLoT.
+ * Contains sensitivity analysis for individual factors.
  */
 export interface V2FactorSensitivity {
-  factor_id: string
-  sensitivity: number
+  /** Primary identifier - use factor_id or node_id */
+  factor_id?: string
+  /** Alias for factor_id (PLoT may use either) */
+  node_id?: string
+  /** Raw sensitivity value (may be positive or negative) */
+  sensitivity?: number
+  /** Direction of influence: positive or negative */
+  direction?: 'positive' | 'negative'
+  /** Elasticity measure (optional) */
+  elasticity?: number
+  /** Importance ranking (optional) */
+  importance_rank?: number
 }
 
 /**

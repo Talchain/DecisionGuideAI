@@ -41,11 +41,25 @@ export interface IdMappingResult {
  * 1. First checking if any UI edge has a stored plot_id matching exactly
  * 2. Then finding the Nth edge (by stable ordering) between source/target
  *
+ * DEFENSIVE: Handles non-string inputs gracefully.
+ *
  * @param plotEdgeId - Edge ID in PLoT format
  * @param uiEdges - UI edges to search
  * @returns UI edge ID or null if not found
  */
-export function mapPloTEdgeId(plotEdgeId: string, uiEdges: Edge[]): string | null {
+export function mapPloTEdgeId(plotEdgeId: unknown, uiEdges: Edge[]): string | null {
+  // Defensive: handle non-string inputs
+  if (typeof plotEdgeId !== 'string') {
+    if (import.meta.env.DEV) {
+      console.warn('[IdMapping] mapPloTEdgeId received non-string:', {
+        received: plotEdgeId,
+        type: typeof plotEdgeId,
+        expected: 'string (format: "from::to::index")',
+      })
+    }
+    return null
+  }
+
   // First: check if any edge has this exact plot_id stored
   const directMatch = uiEdges.find(e => (e.data as any)?.plot_id === plotEdgeId)
   if (directMatch) {
@@ -262,29 +276,37 @@ export function annotateEdgesWithPloTIds(edges: Edge[]): Edge[] {
 // =============================================================================
 
 /**
- * Check if an ID looks like a PLoT edge ID format
+ * Check if an ID looks like a PLoT edge ID format.
+ * DEFENSIVE: Handles non-string inputs gracefully.
  */
-export function isPloTEdgeIdFormat(id: string): boolean {
-  return id.includes('::')
+export function isPloTEdgeIdFormat(id: unknown): boolean {
+  return typeof id === 'string' && id.includes('::')
 }
 
 /**
- * Parse PLoT edge ID into components
+ * Parse PLoT edge ID into components.
+ * DEFENSIVE: Handles non-string inputs gracefully.
  */
-export function parsePloTEdgeId(plotEdgeId: string): {
+export function parsePloTEdgeId(plotEdgeId: unknown): {
   from: string
   to: string
   index: number
 } | null {
+  if (typeof plotEdgeId !== 'string') {
+    return null
+  }
+
   const parts = plotEdgeId.split('::')
   if (parts.length < 2) {
     return null
   }
 
+  const parsedIndex = parts[2] ? parseInt(parts[2], 10) : 0
+
   return {
     from: parts[0],
     to: parts[1],
-    index: parts[2] ? parseInt(parts[2], 10) : 0,
+    index: isNaN(parsedIndex) ? 0 : parsedIndex,
   }
 }
 

@@ -4,31 +4,40 @@ import { useISLConformal } from '../../hooks/useISLConformal'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { Spinner } from '../../components/Spinner'
-import { buildRichGraphPayload } from '../utils/graphPayload'
+import { buildRichGraphPayload, getRecommendedOptionInterventions } from '../utils/graphPayload'
 
 export function ConformalPredictionSection() {
   // React #185 FIX: Use shallow comparison for array selectors
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
+  const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  const results = useCanvasStore(s => s.results)
+  const report = results?.report
   const [enabled, setEnabled] = useState(false)
   const { data, loading, predict } = useISLConformal()
 
   // Auto-predict when enabled (debounced)
+  // P0 Fix: Pass recommended option's interventions for option-specific predictions
   useEffect(() => {
     if (!enabled || nodes.length === 0 || loading) return
 
     const timer = setTimeout(() => {
+      // P0 Fix: Get the recommended option's interventions instead of using baseline (0s)
+      const recommendedInterventions = getRecommendedOptionInterventions(ceeAnalysisReady, report)
+
       predict({
         graph: buildRichGraphPayload(nodes, edges),
         options: {
           enable_conformal: true,
           confidence_level: 0.95,
+          // P0 Fix: Pass recommended option's interventions for accurate conformal predictions
+          ...(recommendedInterventions && { interventions: recommendedInterventions }),
         },
       }).catch(console.error)
     }, 1000)
 
     return () => clearTimeout(timer)
-  }, [enabled, nodes, edges, predict, loading])
+  }, [enabled, nodes, edges, predict, loading, ceeAnalysisReady, report])
 
   if (nodes.length === 0) {
     return (

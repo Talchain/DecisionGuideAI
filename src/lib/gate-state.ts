@@ -300,3 +300,49 @@ export function updateRobustnessGate(
     setGate('robustness', 'fail', { message: 'No sensitivity data available' })
   }
 }
+
+/**
+ * Update robustness gate from V2 response format.
+ *
+ * V2 responses return robustness in a different shape:
+ * - robustness_status: 'computed' | 'unavailable' | 'error'
+ * - robustness: { fragile_edges: string[], robust_edges: string[] }
+ *
+ * This function handles that format directly instead of shoehorning it
+ * into the enrichment sensitivity structure.
+ */
+export function updateRobustnessGateFromV2(
+  robustnessStatus: 'computed' | 'unavailable' | 'error' | undefined,
+  robustnessData?: {
+    fragile_edges?: string[]
+    robust_edges?: string[]
+    fragile?: string[]
+    robust?: string[]
+  } | null
+): void {
+  const { setGate } = useGateStore.getState()
+
+  if (robustnessStatus === 'computed' && robustnessData) {
+    // Support both field name aliases: fragile_edges OR fragile, robust_edges OR robust
+    const fragileCount = (robustnessData.fragile_edges ?? robustnessData.fragile)?.length ?? 0
+    const robustCount = (robustnessData.robust_edges ?? robustnessData.robust)?.length ?? 0
+    const totalEdges = fragileCount + robustCount
+
+    if (totalEdges > 0) {
+      setGate('robustness', 'pass', {
+        message: `${totalEdges} edges analysed (${robustCount} robust, ${fragileCount} fragile)`,
+      })
+    } else {
+      // Phase 1 Refinement 2: Computed but empty arrays = unavailable
+      // This is an anomaly - robustness_status is "computed" but no edges were analysed
+      if (import.meta.env?.DEV) {
+        console.debug('[gate-state] Diagnostic: robustness_status is "computed" but both fragile and robust arrays are empty')
+      }
+      setGate('robustness', 'fail', { message: 'Robustness analysis unavailable' })
+    }
+  } else if (robustnessStatus === 'error') {
+    setGate('robustness', 'fail', { message: 'Robustness analysis failed' })
+  } else {
+    setGate('robustness', 'fail', { message: 'Robustness analysis unavailable' })
+  }
+}

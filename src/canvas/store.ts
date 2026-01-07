@@ -111,6 +111,7 @@ interface CanvasState {
   reconnecting: ReconnectState | null
   touchedNodeIds: Set<string>  // Nodes with edited probabilities
   outcomeNodeId: string | null  // Selected outcome node for analysis
+  goalThreshold: number | null  // Optional success threshold for probability_of_goal
   nextNodeId: number
   nextEdgeId: number
   _internal: { lastHistoryHash: string }
@@ -231,6 +232,8 @@ interface CanvasState {
   cleanup: () => void
   // Outcome node
   setOutcomeNode: (nodeId: string | null) => void
+  // Goal threshold for probability_of_goal
+  setGoalThreshold: (threshold: number | null) => void
   // Results actions
   resultsStart: (params: { seed: number; wasForced?: boolean }) => void
   resultsConnecting: (runId: string) => void
@@ -590,6 +593,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   reconnecting: null,
   touchedNodeIds: new Set(),
   outcomeNodeId: null,
+  goalThreshold: null,
   nextNodeId: 1,
   nextEdgeId: 1,
   results: {
@@ -1509,6 +1513,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setOutcomeNode: (nodeId) => {
     set({ outcomeNodeId: nodeId })
+  },
+
+  setGoalThreshold: (threshold) => {
+    set({ goalThreshold: threshold })
   },
 
   // Results actions

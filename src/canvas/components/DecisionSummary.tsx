@@ -28,7 +28,7 @@ import {
 import { useCanvasStore } from '../store'
 import { useISLConformal } from '../../hooks/useISLConformal'
 import { useComparisonDetection } from '../hooks/useComparisonDetection'
-import { buildRichGraphPayload } from '../utils/graphPayload'
+import { buildRichGraphPayload, getRecommendedOptionInterventions } from '../utils/graphPayload'
 import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
 import { typography } from '../../styles/typography'
 import { computeBaselineComparison } from '../utils/baselineComparison'
@@ -61,6 +61,10 @@ interface GoalProbabilityData {
   confidence: number
   /** Goal node label */
   goalLabel: string
+  /** Probability this option wins vs others (0-1) */
+  winProbability?: number
+  /** Success threshold (when provided by user) */
+  threshold?: number
 }
 
 /** P0.5: Comparative delta between options */
@@ -142,6 +146,9 @@ export function DecisionSummary({
   const runMeta = useCanvasStore((s) => s.runMeta)
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
+  const outcomeNodeId = useCanvasStore((s) => s.outcomeNodeId)
+  const goalThreshold = useCanvasStore((s) => s.goalThreshold)
+  const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
   const report = results?.report
 
   // State for expandable "Why this option" section
@@ -162,15 +169,21 @@ export function DecisionSummary({
   const { data: conformalData, loading: conformalLoading, predict } = useISLConformal()
 
   // Auto-fetch conformal predictions when results exist
+  // P0 Fix: Pass recommended option's interventions for option-specific predictions
   useEffect(() => {
     if (!report?.results || nodes.length === 0 || conformalData || conformalLoading) return
 
     const timer = setTimeout(() => {
+      // P0 Fix: Get the recommended option's interventions instead of using baseline (0s)
+      const recommendedInterventions = getRecommendedOptionInterventions(ceeAnalysisReady, report)
+
       predict({
         graph: buildRichGraphPayload(nodes, edges),
         options: {
           enable_conformal: true,
           confidence_level: 0.95,
+          // P0 Fix: Pass recommended option's interventions for accurate conformal predictions
+          ...(recommendedInterventions && { interventions: recommendedInterventions }),
         },
       }).catch(() => {
         // Silently fail - specific guidance is optional
@@ -178,7 +191,7 @@ export function DecisionSummary({
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [report?.results, nodes, edges, conformalData, conformalLoading, predict])
+  }, [report?.results, nodes, edges, conformalData, conformalLoading, predict, ceeAnalysisReady, report])
 
   // Find worst calibrated node for specific guidance
   const worstCalibratedNode = useMemo(() => {
@@ -256,17 +269,24 @@ export function DecisionSummary({
     const keyInsight = rawInsight && confusingPattern.test(rawInsight) ? null : rawInsight
 
     // Brief E Task 1: Extract goal probability for the current option
+    // Updated to use store values for goal node info
     let goalProbability: GoalProbabilityData | null = null
-    if (report.option_probabilities && report.goal_node) {
+    if (report.option_probabilities && outcomeNodeId) {
+      // Get goal node label from canvas
+      const goalNode = nodes.find(n => n.id === outcomeNodeId)
+      const goalLabel = (goalNode?.data as { label?: string })?.label || 'your goal'
+
       // Find the first option node to get its probability
-      const optionNodes = nodes.filter(n => (n.data as any)?.kind === 'option')
-      const currentOptionId = optionNodes[0]?.id
+      const optionNodesList = nodes.filter(n => (n.data as any)?.kind === 'option')
+      const currentOptionId = optionNodesList[0]?.id
       if (currentOptionId && report.option_probabilities[currentOptionId]) {
         const prob = report.option_probabilities[currentOptionId]
         goalProbability = {
           probability: prob.goal_probability,
           confidence: prob.confidence,
-          goalLabel: report.goal_node.label || 'your goal',
+          goalLabel,
+          winProbability: prob.win_probability,
+          threshold: goalThreshold ?? undefined,
         }
       }
     }
@@ -294,7 +314,7 @@ export function DecisionSummary({
       goalProbability,
       precisionDisplay, // P0.2: Precision-aware display
     }
-  }, [report, runMeta, baseline, goalDirection, nodes])
+  }, [report, runMeta, baseline, goalDirection, nodes, outcomeNodeId, goalThreshold])
 
   // Don't render if no results
   if (!summaryData) {
@@ -389,18 +409,38 @@ export function DecisionSummary({
 
         {/* Brief E Task 1: Goal probability display */}
         {summaryData.goalProbability && (
-          <p className={`${typography.bodySmall} text-ink-600 mb-2`}>
-            <span className="font-semibold">
-              {Math.round(summaryData.goalProbability.probability * 100)}%
-            </span>{' '}
-            chance of achieving{' '}
-            <span className="font-medium">{summaryData.goalProbability.goalLabel}</span>
-            {summaryData.goalProbability.confidence < 0.7 && (
-              <span className={`ml-2 ${typography.caption} text-banana-600`}>
-                (low confidence)
-              </span>
+          <div className="space-y-1 mb-2">
+            <p className={`${typography.bodySmall} text-ink-600`}>
+              <span className="font-semibold">
+                {Math.round(summaryData.goalProbability.probability * 100)}%
+              </span>{' '}
+              chance of{' '}
+              {summaryData.goalProbability.threshold !== undefined ? (
+                <>
+                  reaching{' '}
+                  <span className="font-medium">{summaryData.goalProbability.threshold.toLocaleString()}</span>
+                  {' '}for{' '}
+                  <span className="font-medium">{summaryData.goalProbability.goalLabel}</span>
+                </>
+              ) : (
+                <>
+                  achieving{' '}
+                  <span className="font-medium">{summaryData.goalProbability.goalLabel}</span>
+                </>
+              )}
+              {summaryData.goalProbability.confidence < 0.7 && (
+                <span className={`ml-2 ${typography.caption} text-banana-600`}>
+                  (low confidence)
+                </span>
+              )}
+            </p>
+            {/* Win probability - shown as secondary context */}
+            {summaryData.goalProbability.winProbability !== undefined && (
+              <p className={`${typography.caption} text-ink-500`}>
+                {Math.round(summaryData.goalProbability.winProbability * 100)}% likely to outperform other options
+              </p>
             )}
-          </p>
+          </div>
         )}
 
         {/* 70% confidence band */}

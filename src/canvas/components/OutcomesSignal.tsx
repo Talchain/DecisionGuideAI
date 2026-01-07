@@ -78,6 +78,10 @@ export function OutcomesSignal({
   const report = results?.report
 
   // Extract outcome values
+  // P0 Fix: AUTHORITATIVE SOURCE - V2 PLoT response provides outcome ranges
+  // These values come from `option_comparison[].confidence_interval` via responseMapper
+  // Do NOT use ISL conformal intervals here - those are for per-node calibration only
+  // See: src/canvas/utils/confidenceRangeLabels.ts for source documentation
   const outcomes = useMemo(() => {
     if (!report?.results) return null
 

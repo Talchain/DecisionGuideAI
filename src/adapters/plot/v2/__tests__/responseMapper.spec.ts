@@ -282,6 +282,117 @@ describe('createErrorReport', () => {
 // detectComputedButEmpty Tests
 // ============================================================================
 
+// ============================================================================
+// mapDriversFromResponse Tests - Factor Sensitivity with node_id alias
+// ============================================================================
+
+describe('mapDriversFromResponse (factor_sensitivity)', () => {
+  it('maps factor_sensitivity when edge_sensitivity is empty', () => {
+    const v2Response = makeSuccessResponse({
+      drivers: [], // Clear default drivers
+      edge_sensitivity: [],
+      factor_sensitivity: [
+        { factor_id: 'factor1', elasticity: 1.2, direction: 'positive' },
+        { factor_id: 'factor2', elasticity: -0.4, direction: 'negative' },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect(report.drivers).toHaveLength(2)
+    expect(report.drivers[0].polarity).toBe('up')
+    expect(report.drivers[0].strength).toBe('high') // 1.2 >= 1.0
+    expect(report.drivers[1].polarity).toBe('down')
+    expect(report.drivers[1].strength).toBe('low') // abs(-0.4) < 0.5
+  })
+
+  it('supports node_id as alias for factor_id', () => {
+    const v2Response = makeSuccessResponse({
+      drivers: [], // Clear default drivers
+      edge_sensitivity: [],
+      factor_sensitivity: [
+        { node_id: 'market_size', elasticity: 0.6 },
+        { node_id: 'competitor_count', elasticity: -0.3 },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect(report.drivers).toHaveLength(2)
+    // formatNodeName produces Title Case
+    expect(report.drivers[0].label).toBe('Market Size')
+    expect(report.drivers[1].label).toBe('Competitor Count')
+  })
+
+  it('prefers factor_id over node_id when both present', () => {
+    const v2Response = makeSuccessResponse({
+      drivers: [], // Clear default drivers
+      edge_sensitivity: [],
+      factor_sensitivity: [
+        { factor_id: 'primary_label', node_id: 'fallback_label', elasticity: 0.5 },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect(report.drivers).toHaveLength(1)
+    // Uses factor_id (formatNodeName produces Title Case)
+    expect(report.drivers[0].label).toBe('Primary Label')
+  })
+
+  it('orders by elasticity magnitude (highest first)', () => {
+    const v2Response = makeSuccessResponse({
+      drivers: [], // Clear default drivers
+      edge_sensitivity: [],
+      factor_sensitivity: [
+        { factor_id: 'low_factor', elasticity: 0.1 },
+        { factor_id: 'high_factor', elasticity: 0.9 },
+        { factor_id: 'medium_factor', elasticity: -0.5 },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect(report.drivers[0].label).toBe('High Factor') // 0.9
+    expect(report.drivers[1].label).toBe('Medium Factor') // abs(-0.5) = 0.5
+    expect(report.drivers[2].label).toBe('Low Factor') // 0.1
+  })
+
+  it('uses importance_rank when available', () => {
+    const v2Response = makeSuccessResponse({
+      drivers: [], // Clear default drivers
+      edge_sensitivity: [],
+      factor_sensitivity: [
+        { factor_id: 'third_item', elasticity: 0.9, importance_rank: 3 },
+        { factor_id: 'first_item', elasticity: 0.2, importance_rank: 1 },
+        { factor_id: 'second_item', elasticity: 0.5, importance_rank: 2 },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect(report.drivers[0].label).toBe('First Item') // importance_rank: 1
+    expect(report.drivers[1].label).toBe('Second Item') // importance_rank: 2
+    expect(report.drivers[2].label).toBe('Third Item') // importance_rank: 3
+  })
+
+  it('returns empty array when both edge_sensitivity and factor_sensitivity are empty', () => {
+    const v2Response = makeSuccessResponse({
+      drivers: [], // Clear default drivers
+      edge_sensitivity: [],
+      factor_sensitivity: [],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect(report.drivers).toHaveLength(0)
+  })
+})
+
+// ============================================================================
+// detectComputedButEmpty Tests
+// ============================================================================
+
 describe('detectComputedButEmpty', () => {
   it('returns empty array when no anomalies detected', () => {
     const v2Response = makeSuccessResponse()
@@ -372,5 +483,111 @@ describe('detectComputedButEmpty', () => {
     )
     expect(report._computedButEmptyAnomalies).toBeDefined()
     expect(report._computedButEmptyAnomalies).toHaveLength(1)
+  })
+})
+
+// =============================================================================
+// Probability Fields Tests (Unified Outcome Display)
+// =============================================================================
+
+describe('probability_of_goal and win_probability mapping', () => {
+  it('maps probability_of_goal from V2 option_comparison', () => {
+    const v2Response = makeSuccessResponse({
+      option_comparison: [
+        {
+          option_id: 'opt1',
+          option_label: 'Option A',
+          confidence_interval: [40, 80],
+          probability_of_goal: 0.75,
+        },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect(report.option_probabilities).toBeDefined()
+    expect(report.option_probabilities!['opt1'].goal_probability).toBe(0.75)
+  })
+
+  it('falls back to CI midpoint when probability_of_goal not provided', () => {
+    const v2Response = makeSuccessResponse({
+      option_comparison: [
+        {
+          option_id: 'opt1',
+          option_label: 'Option A',
+          confidence_interval: [30, 70], // midpoint = 50
+        },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect(report.option_probabilities).toBeDefined()
+    expect(report.option_probabilities!['opt1'].goal_probability).toBe(50) // CI midpoint
+  })
+
+  it('maps win_probability from V2 option_comparison', () => {
+    const v2Response = makeSuccessResponse({
+      option_comparison: [
+        {
+          option_id: 'opt1',
+          option_label: 'Option A',
+          confidence_interval: [40, 80],
+          win_probability: 0.85,
+        },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect(report.option_probabilities).toBeDefined()
+    expect(report.option_probabilities!['opt1'].win_probability).toBe(0.85)
+  })
+
+  it('handles missing win_probability gracefully', () => {
+    const v2Response = makeSuccessResponse({
+      option_comparison: [
+        {
+          option_id: 'opt1',
+          option_label: 'Option A',
+          confidence_interval: [40, 80],
+          // no win_probability
+        },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect(report.option_probabilities).toBeDefined()
+    expect(report.option_probabilities!['opt1'].win_probability).toBeUndefined()
+  })
+
+  it('maps multiple options with probability fields', () => {
+    const v2Response = makeSuccessResponse({
+      option_comparison: [
+        {
+          option_id: 'opt1',
+          option_label: 'Option A',
+          confidence_interval: [40, 80],
+          probability_of_goal: 0.75,
+          win_probability: 0.6,
+        },
+        {
+          option_id: 'opt2',
+          option_label: 'Option B',
+          confidence_interval: [30, 70],
+          probability_of_goal: 0.65,
+          win_probability: 0.4,
+        },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect(report.option_probabilities).toBeDefined()
+    expect(report.option_probabilities!['opt1'].goal_probability).toBe(0.75)
+    expect(report.option_probabilities!['opt1'].win_probability).toBe(0.6)
+    expect(report.option_probabilities!['opt2'].goal_probability).toBe(0.65)
+    expect(report.option_probabilities!['opt2'].win_probability).toBe(0.4)
   })
 })

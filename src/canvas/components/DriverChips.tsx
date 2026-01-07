@@ -418,7 +418,7 @@ export function DriverChips({ drivers }: DriverChipsProps) {
         <div className="flex items-start gap-2 p-3 bg-sand-100 rounded-lg border border-sand-200">
           <Info className="w-4 h-4 text-ink-500 flex-shrink-0 mt-0.5" aria-hidden="true" />
           <div className={`${typography.caption} text-ink-700`}>
-            No drivers identified yet. Run an analysis to see which factors most influence your outcome.
+            No key factors identified. Run an analysis to see which factors most influence your outcome.
           </div>
         </div>
       </div>

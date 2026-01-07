@@ -883,6 +883,7 @@ export async function executeV2Run(
  * @param analysisReady - CEE V3 analysis_ready payload (optional)
  * @param fallbackGoalNodeId - Goal node ID to use if analysisReady not provided
  * @param requestId - Optional request ID for tracing
+ * @param goalThreshold - Optional success threshold for probability_of_goal
  */
 export async function executeV2RunWithAnalysisReady(
   config: V2AdapterConfig,
@@ -890,7 +891,8 @@ export async function executeV2RunWithAnalysisReady(
   edges: Edge<CanvasEdgeData>[],
   analysisReady: CEEAnalysisReady | null,
   fallbackGoalNodeId: string,
-  requestId?: string
+  requestId?: string,
+  goalThreshold?: number
 ): Promise<V2RunResult> {
   // Build fallback options from nodes (used when analysisReady not available)
   const validNodeIds = new Set(nodes.map((n) => n.id))
@@ -911,6 +913,11 @@ export async function executeV2RunWithAnalysisReady(
     request.request_id = requestId
   }
 
+  // Add goal threshold for probability_of_goal calculation
+  if (goalThreshold !== undefined) {
+    request.goal_threshold = goalThreshold
+  }
+
   if (import.meta.env.DEV) {
     console.log('[V2Adapter] Sending request (via analysisReady path):', {
       requestId: request.request_id,
@@ -918,6 +925,7 @@ export async function executeV2RunWithAnalysisReady(
       edgeCount: request.graph.edges.length,
       optionCount: request.options.length,
       goalNodeId: request.goal_node_id,
+      goalThreshold: request.goal_threshold,
       usingAnalysisReady: !!analysisReady,
     })
 

@@ -347,3 +347,141 @@ export function recordResponsePayload(params: {
 }): void {
   usePayloadTraceStore.getState().recordResponsePayload(params)
 }
+
+// ============================================================================
+// Data Shape Anomaly Recording (Error Resilience)
+// ============================================================================
+
+/**
+ * Shape anomaly for malformed response data.
+ * Captures what we received vs what we expected.
+ */
+export interface DataShapeAnomaly {
+  timestamp: number
+  location: string
+  field: string
+  expected: string
+  received: string
+  receivedType: string
+  receivedValue: unknown
+  context?: Record<string, unknown>
+}
+
+/** In-memory buffer for shape anomalies (limited to last 50) */
+const shapeAnomalies: DataShapeAnomaly[] = []
+const MAX_ANOMALIES = 50
+
+/**
+ * Record a data shape anomaly when backend returns unexpected types.
+ * Used for debugging backend contract drift.
+ *
+ * @param location - Where in the code the anomaly was detected (e.g., "responseMapper.mapDrivers")
+ * @param field - The field with the unexpected shape (e.g., "factor_sensitivity[0].elasticity")
+ * @param expected - What type was expected (e.g., "number")
+ * @param receivedValue - The actual value received
+ * @param context - Optional additional context (e.g., surrounding fields)
+ */
+export function recordDataShapeAnomaly(
+  location: string,
+  field: string,
+  expected: string,
+  receivedValue: unknown,
+  context?: Record<string, unknown>
+): void {
+  if (!isPayloadInspectionEnabled()) return
+
+  const anomaly: DataShapeAnomaly = {
+    timestamp: Date.now(),
+    location,
+    field,
+    expected,
+    received: summarizeValue(receivedValue),
+    receivedType: typeof receivedValue,
+    receivedValue: safeClone(receivedValue),
+    context,
+  }
+
+  shapeAnomalies.unshift(anomaly)
+  if (shapeAnomalies.length > MAX_ANOMALIES) {
+    shapeAnomalies.pop()
+  }
+
+  // Also log in dev for immediate visibility
+  if (import.meta.env?.DEV) {
+    console.warn('[DataShapeAnomaly]', {
+      location,
+      field,
+      expected,
+      received: anomaly.received,
+      value: receivedValue,
+    })
+  }
+}
+
+/**
+ * Get recorded shape anomalies (for debug panel display).
+ */
+export function getDataShapeAnomalies(): DataShapeAnomaly[] {
+  return [...shapeAnomalies]
+}
+
+/**
+ * Clear recorded shape anomalies.
+ */
+export function clearDataShapeAnomalies(): void {
+  shapeAnomalies.length = 0
+}
+
+/**
+ * Export shape anomalies as JSON (for bug reports).
+ */
+export function exportDataShapeAnomalies(): string {
+  return JSON.stringify({
+    exportedAt: new Date().toISOString(),
+    count: shapeAnomalies.length,
+    anomalies: shapeAnomalies.map((a) => ({
+      ...a,
+      timestamp: new Date(a.timestamp).toISOString(),
+    })),
+  }, null, 2)
+}
+
+/**
+ * Create a summary string for an unexpected value.
+ */
+function summarizeValue(value: unknown): string {
+  if (value === null) return 'null'
+  if (value === undefined) return 'undefined'
+  if (Array.isArray(value)) return `Array(${value.length})`
+  if (typeof value === 'object') {
+    const keys = Object.keys(value as object)
+    return `Object{${keys.slice(0, 3).join(', ')}${keys.length > 3 ? '...' : ''}}`
+  }
+  if (typeof value === 'string') {
+    return value.length > 50 ? `"${value.slice(0, 50)}..."` : `"${value}"`
+  }
+  return String(value)
+}
+
+/**
+ * Safe clone for storing in anomaly buffer (handles circular refs).
+ */
+function safeClone(value: unknown, depth = 0): unknown {
+  if (depth > 3) return '[max depth]'
+  if (value === null || value === undefined) return value
+  if (typeof value !== 'object') return value
+
+  try {
+    if (Array.isArray(value)) {
+      return value.slice(0, 10).map((v) => safeClone(v, depth + 1))
+    }
+    const result: Record<string, unknown> = {}
+    const entries = Object.entries(value as object).slice(0, 20)
+    for (const [k, v] of entries) {
+      result[k] = safeClone(v, depth + 1)
+    }
+    return result
+  } catch {
+    return '[clone failed]'
+  }
+}

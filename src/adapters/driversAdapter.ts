@@ -152,11 +152,26 @@ export const DEFAULT_DRIVER_CONFIG: DriverDisplayConfig = {
  * Maps PLoT edge ID format ("from::to::index") to UI edge ID.
  * The index handles parallel edges (multiple edges between same nodes).
  *
+ * DEFENSIVE: Handles non-string inputs gracefully.
+ *
  * @param plotEdgeId - Edge ID in PLoT format
  * @param uiEdges - UI edges to search
- * @returns UI edge ID or original if not found
+ * @returns UI edge ID or original if not found, empty string for non-strings
  */
-export function mapPloTEdgeIdToUI(plotEdgeId: string, uiEdges: Edge[]): string {
+export function mapPloTEdgeIdToUI(plotEdgeId: unknown, uiEdges: Edge[]): string {
+  // Defensive: handle non-string inputs
+  if (typeof plotEdgeId !== 'string') {
+    if (import.meta.env.DEV) {
+      console.warn('[DriversAdapter] mapPloTEdgeIdToUI received non-string:', {
+        received: plotEdgeId,
+        type: typeof plotEdgeId,
+        expected: 'string (format: "from::to::index")',
+      })
+    }
+    // Return stringified version as best effort
+    return plotEdgeId != null ? String(plotEdgeId) : ''
+  }
+
   // First: check if any edge has this exact plot_id stored
   const directMatch = uiEdges.find(e => (e.data as any)?.plot_id === plotEdgeId)
   if (directMatch) {

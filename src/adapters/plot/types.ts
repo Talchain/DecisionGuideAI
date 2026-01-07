@@ -6,6 +6,8 @@ export type ConfidenceLevel = 'low' | 'medium' | 'high'
 export interface OptionProbability {
   goal_probability: number  // 0..1 probability of achieving goal
   confidence: number        // 0..1 confidence in the probability estimate
+  /** Probability this option wins vs others (pairwise comparison) */
+  win_probability?: number
 }
 
 export interface ReportV1 {

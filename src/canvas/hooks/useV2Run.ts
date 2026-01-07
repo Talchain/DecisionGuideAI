@@ -21,7 +21,7 @@ import { mapV2ResponseToReportV1, createErrorReport, createEnrichmentFromV2Respo
 import { trackRunCompleted, trackRunFailed, trackEmptyComputedResults } from '../../lib/resultsInstrumentation'
 import { generateRequestId } from '../../types/requestId'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
-import { useGateStore, updateRobustnessGate } from '../../lib/gate-state'
+import { useGateStore, updateRobustnessGate, updateRobustnessGateFromV2 } from '../../lib/gate-state'
 
 /**
  * Check if ceeAnalysisReady is stale (graph has changed since it was stored).
@@ -105,6 +105,7 @@ export function useV2Run(): UseV2RunReturn {
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const outcomeNodeId = useCanvasStore((s) => s.outcomeNodeId)
+  const goalThreshold = useCanvasStore((s) => s.goalThreshold)
   const framing = useCanvasStore((s) => s.currentScenarioFraming)
   const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
   const ceeAnalysisReadyNodeIds = useCanvasStore((s) => s.ceeAnalysisReadyNodeIds)
@@ -187,6 +188,7 @@ export function useV2Run(): UseV2RunReturn {
           nodeCount: nodes.length,
           edgeCount: edges.length,
           goalNodeId: outcomeNodeId,
+          goalThreshold,
           usingAnalysisReady: !!effectiveAnalysisReady,
         })
       }
@@ -198,7 +200,8 @@ export function useV2Run(): UseV2RunReturn {
         edges,
         effectiveAnalysisReady,
         outcomeNodeId,
-        requestId
+        requestId,
+        goalThreshold ?? undefined
       )
 
       const elapsed_ms = Date.now() - startTime
@@ -343,26 +346,20 @@ export function useV2Run(): UseV2RunReturn {
           })
         }
 
-        // Update robustness gate based on sensitivity data
-        // Handle special cases that should NOT result in 'pass':
-        // 1. robustness_status === 'error' - backend failed to compute
-        // 2. hasRobustnessAnomaly - computed but empty (backend bug)
-        if (successResult.robustness_status === 'error') {
-          useGateStore.getState().setGate('robustness', 'fail', {
-            requestId,
-            message: 'Robustness analysis failed',
-            service: 'plot-v2',
-          })
-        } else if (hasRobustnessAnomaly) {
+        // Update robustness gate from V2 response directly
+        // The new function handles robustness_status and robustness data properly
+        // Special case: hasRobustnessAnomaly means computed but empty (backend bug)
+        if (hasRobustnessAnomaly) {
           useGateStore.getState().setGate('robustness', 'warn', {
             requestId,
             message: 'Robustness computed but results are empty',
             service: 'plot-v2',
           })
         } else {
-          updateRobustnessGate(
-            enrichment?.sensitivity_analysis,
-            enrichment?.metadata?.factor_sensitivity_status
+          // Use the new V2-aware gate function that accepts robustness_status directly
+          updateRobustnessGateFromV2(
+            successResult.robustness_status,
+            successResult.robustness
           )
         }
 
@@ -392,18 +389,33 @@ export function useV2Run(): UseV2RunReturn {
         console.error('[useV2Run] Error', { requestId, error: err })
       }
 
+      // Determine error type: actual network failure vs processing error
+      // Network errors: AbortError (timeout), fetch failures, connection refused
+      // Processing errors: everything else (JSON parse, mapping errors, etc.)
+      const isActualNetworkError = err instanceof Error && (
+        err.name === 'AbortError' ||
+        err.name === 'TypeError' && message.includes('fetch') ||
+        message.includes('NetworkError') ||
+        message.includes('Failed to fetch') ||
+        message.includes('network') ||
+        message.includes('timeout') ||
+        message.includes('Connection refused')
+      )
+
+      const errorCode = isActualNetworkError ? 'NETWORK_ERROR' : 'PROCESSING_ERROR'
+
       trackRunFailed({
-        error_code: 'NETWORK_ERROR',
+        error_code: errorCode,
         error_message: message,
         duration_ms: elapsed_ms,
         request_id: requestId,
       })
 
       resultsError({
-        code: 'NETWORK_ERROR',
+        code: errorCode,
         message,
         request_id: requestId,
-        canRetry: true, // Network errors are retryable
+        canRetry: true, // Both error types are retryable
       })
 
       setError(message)

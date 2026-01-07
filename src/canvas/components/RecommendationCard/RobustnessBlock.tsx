@@ -128,8 +128,8 @@ const robustnessConfig: Record<RobustnessLabel, {
     textColor: 'text-sand-600',
     iconColor: 'text-sand-400',
     borderColor: 'border-sand-200',
-    label: 'Unable to assess',
-    description: 'Robustness analysis could not be completed',
+    label: 'Robustness data unavailable',
+    description: 'Robustness analysis is not available for this model',
     meterFill: 0,
   },
 }

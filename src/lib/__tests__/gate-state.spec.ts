@@ -16,6 +16,7 @@ import {
   getGateDefault,
   ALL_GATES,
   updateRobustnessGate,
+  updateRobustnessGateFromV2,
   type GateName,
 } from '../gate-state'
 
@@ -364,6 +365,89 @@ describe('gate-state', () => {
 
       const { gates } = useGateStore.getState()
       expect(gates.robustness.status).toBe('pass')
+    })
+  })
+
+  // =============================================================================
+  // Phase 1 UI Fixes: updateRobustnessGateFromV2 with field aliases
+  // =============================================================================
+
+  describe('updateRobustnessGateFromV2', () => {
+    it('sets pass when robustness computed with fragile_edges/robust_edges', () => {
+      updateRobustnessGateFromV2('computed', {
+        fragile_edges: ['e1', 'e2'],
+        robust_edges: ['e3', 'e4', 'e5'],
+      })
+
+      const { gates } = useGateStore.getState()
+      expect(gates.robustness.status).toBe('pass')
+      expect(gates.robustness.message).toContain('5 edges analysed')
+      expect(gates.robustness.message).toContain('3 robust')
+      expect(gates.robustness.message).toContain('2 fragile')
+    })
+
+    it('supports fragile/robust field aliases (without _edges suffix)', () => {
+      updateRobustnessGateFromV2('computed', {
+        fragile: ['e1'],
+        robust: ['e2', 'e3'],
+      })
+
+      const { gates } = useGateStore.getState()
+      expect(gates.robustness.status).toBe('pass')
+      expect(gates.robustness.message).toContain('3 edges analysed')
+      expect(gates.robustness.message).toContain('2 robust')
+      expect(gates.robustness.message).toContain('1 fragile')
+    })
+
+    it('prefers fragile_edges over fragile when both present', () => {
+      updateRobustnessGateFromV2('computed', {
+        fragile_edges: ['e1', 'e2', 'e3'], // Should use this
+        fragile: ['e1'], // Should ignore this
+        robust_edges: ['e4'],
+        robust: ['e4', 'e5'], // Should ignore this
+      })
+
+      const { gates } = useGateStore.getState()
+      expect(gates.robustness.status).toBe('pass')
+      expect(gates.robustness.message).toContain('4 edges analysed')
+      expect(gates.robustness.message).toContain('1 robust')
+      expect(gates.robustness.message).toContain('3 fragile')
+    })
+
+    it('sets fail when computed but both arrays empty (treated as unavailable)', () => {
+      updateRobustnessGateFromV2('computed', {
+        fragile_edges: [],
+        robust_edges: [],
+      })
+
+      const { gates } = useGateStore.getState()
+      // Phase 1 Refinement 2: Empty computed = unavailable
+      expect(gates.robustness.status).toBe('fail')
+      expect(gates.robustness.message).toBe('Robustness analysis unavailable')
+    })
+
+    it('sets fail when status is error', () => {
+      updateRobustnessGateFromV2('error', null)
+
+      const { gates } = useGateStore.getState()
+      expect(gates.robustness.status).toBe('fail')
+      expect(gates.robustness.message).toBe('Robustness analysis failed')
+    })
+
+    it('sets fail when status is unavailable', () => {
+      updateRobustnessGateFromV2('unavailable', null)
+
+      const { gates } = useGateStore.getState()
+      expect(gates.robustness.status).toBe('fail')
+      expect(gates.robustness.message).toBe('Robustness analysis unavailable')
+    })
+
+    it('sets fail when status is undefined', () => {
+      updateRobustnessGateFromV2(undefined, null)
+
+      const { gates } = useGateStore.getState()
+      expect(gates.robustness.status).toBe('fail')
+      expect(gates.robustness.message).toBe('Robustness analysis unavailable')
     })
   })
 })

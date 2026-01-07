@@ -3,6 +3,26 @@
  *
  * Task 3.9: Single source of truth for confidence range labels.
  * Ensures consistent terminology across all components.
+ *
+ * P0 Fix: AUTHORITATIVE SOURCE DOCUMENTATION
+ * ==========================================
+ * There are two sources of confidence intervals in the system:
+ *
+ * 1. V2 PLoT Response (`option_comparison[].confidence_interval`)
+ *    - AUTHORITATIVE for overall outcome ranges (p10/p50/p90)
+ *    - Represents: "What range of outcomes are possible for this option?"
+ *    - Used in: DecisionSummary, OutcomesSignal, ConfidenceRange component
+ *    - Source: PLoT causal inference engine
+ *
+ * 2. ISL Conformal Predictions (`predictions[].confidence_interval`)
+ *    - SUPPLEMENTARY for per-node calibration quality
+ *    - Represents: "How certain are we about this specific node's value?"
+ *    - Used in: DriversSignal badges, ConformalPrediction section
+ *    - Source: ISL statistical calibration
+ *
+ * These are NOT interchangeable. V2 confidence intervals should be used
+ * for outcome displays. Conformal intervals should only be used for
+ * calibration quality indicators on individual nodes.
  */
 
 /**

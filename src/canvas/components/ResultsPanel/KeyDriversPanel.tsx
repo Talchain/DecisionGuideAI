@@ -193,7 +193,7 @@ export function KeyDriversPanel({
       <div className="p-4 text-center" data-testid="key-drivers-empty">
         <Zap className="h-8 w-8 text-sand-300 mx-auto mb-2" aria-hidden="true" />
         <p className={`${typography.body} text-ink-600`}>
-          No drivers identified
+          No key factors identified
         </p>
         <p className={`${typography.caption} text-ink-500 mt-1`}>
           Add quantitative factors to your model to see sensitivity analysis
@@ -221,7 +221,7 @@ export function KeyDriversPanel({
               )}
               <Zap className="h-4 w-4 text-sky-500" aria-hidden="true" />
               <span className={`${typography.bodySmall} font-medium text-ink-800`}>
-                Top Drivers
+                Key factors
               </span>
             </div>
             <span className={`${typography.caption} text-ink-500`}>
