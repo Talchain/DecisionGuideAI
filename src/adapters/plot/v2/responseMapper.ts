@@ -489,6 +489,10 @@ export function createEnrichmentFromV2Response(v2Response: V2RunResponse): {
     overall_robustness?: 'robust' | 'moderate' | 'fragile'
   }
   metadata: {
+    /** P0 Fix: Required by hasEnrichment() type guard */
+    isl_enabled: boolean
+    /** P0 Fix: Required by hasEnrichment() type guard */
+    detail_level: 'quick' | 'standard' | 'deep'
     factor_sensitivity_status: 'available' | 'unavailable' | 'skipped'
   }
 } | null {

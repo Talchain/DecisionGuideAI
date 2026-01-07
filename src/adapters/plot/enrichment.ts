@@ -348,16 +348,43 @@ export function adaptFactorToSensitiveParam(factor: PLoTFactorSensitivity): Sens
 export function extractRobustnessFromEnrichment(
   response: PLoTResponseWithEnrichment | null | undefined
 ): RobustnessResult | null {
+  // P0 Fix: Enhanced debug logging to trace null returns
+  const debugExtraction = (returning_null: boolean, reason: string, extra?: Record<string, unknown>) => {
+    if (import.meta.env.DEV) {
+      const sa = (response as any)?.enrichment?.sensitivity_analysis
+      console.log('[extractRobustnessFromEnrichment] Decision:', {
+        has_fragile: Array.isArray(sa?.fragile_edges) && sa.fragile_edges.length > 0,
+        has_robust: Array.isArray(sa?.robust_edges) && sa.robust_edges.length > 0,
+        has_factors: Array.isArray(sa?.factors) && sa.factors.length > 0,
+        returning_null,
+        reason,
+        ...extra,
+      })
+    }
+  }
+
   // Check feature flag first
   if (!isPlotEnrichmentEnabled()) {
+    debugExtraction(true, 'Feature flag disabled')
     return null
   }
 
   // Check if enrichment exists
   if (!hasEnrichment(response)) {
+    // P0 Fix: More detailed logging for hasEnrichment failure
     if (import.meta.env.DEV) {
-      console.log('[PLoT Enrichment] No enrichment in response')
+      const enrichment = (response as any)?.enrichment
+      console.log('[PLoT Enrichment] hasEnrichment failed:', {
+        hasResponse: response != null,
+        hasEnrichmentObj: enrichment != null,
+        hasMetadata: enrichment?.metadata != null,
+        isl_enabled: enrichment?.metadata?.isl_enabled,
+        isl_enabled_type: typeof enrichment?.metadata?.isl_enabled,
+        detail_level: enrichment?.metadata?.detail_level,
+        detail_level_valid: ['quick', 'standard', 'deep'].includes(enrichment?.metadata?.detail_level),
+      })
     }
+    debugExtraction(true, 'hasEnrichment returned false')
     return null
   }
 
@@ -376,9 +403,7 @@ export function extractRobustnessFromEnrichment(
 
   // Check for degraded state
   if (isEnrichmentDegraded(enrichment)) {
-    if (import.meta.env.DEV) {
-      console.warn('[PLoT Enrichment] ISL returned degraded results')
-    }
+    debugExtraction(true, 'Enrichment is degraded')
     return null
   }
 
@@ -387,13 +412,11 @@ export function extractRobustnessFromEnrichment(
   const hasRobustness = hasRobustnessEdges(enrichment)
 
   if (!hasEdgeSensitivity && !hasRobustness) {
-    if (import.meta.env.DEV) {
-      console.log(
-        '[PLoT Enrichment] No sensitivity_analysis or robustness edges (detail_level:',
-        enrichment.metadata.detail_level,
-        ')'
-      )
-    }
+    debugExtraction(true, 'No sensitivity_analysis or robustness edges', {
+      hasEdgeSensitivity,
+      hasRobustness,
+      detail_level: enrichment.metadata.detail_level,
+    })
     return null
   }
 
