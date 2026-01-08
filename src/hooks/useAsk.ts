@@ -205,8 +205,11 @@ export interface UseAskOptions {
 // Constants
 // =============================================================================
 
-/** BFF endpoint for CEE /ask */
-const ASK_ENDPOINT = '/bff/cee/ask'
+/** CEE base URL - routes through PLoT which handles auth and timeout */
+const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
+
+/** CEE /ask endpoint */
+const ASK_ENDPOINT = `${CEE_BASE_URL}/ask`
 
 /** CEE contract version */
 const GRAPH_SCHEMA_VERSION = '2.2' as const

@@ -56,12 +56,15 @@ export interface ServiceHealthInfo {
   metadata?: Record<string, unknown>
 }
 
+/** CEE base URL - routes through PLoT which handles auth */
+const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
+
 /**
  * Service endpoint configuration
  */
 const SERVICE_ENDPOINTS: Record<ServiceName, string> = {
   bff: '/bff/health',
-  cee: '/bff/cee/health',
+  cee: `${CEE_BASE_URL}/health`,
   isl: '/bff/isl/health',
   plot: '/bff/plot/health',
 }

@@ -2,7 +2,7 @@
  * useFormRecommendations - Fetches CEE form recommendations for all edges
  *
  * Brief 11.1: Confidence-driven UI behaviour for functional forms
- * Brief 12: Updated to call CEE directly via /bff/cee proxy
+ * Brief 12: Updated to call CEE via PLoT proxy (routes through /v1/cee)
  *
  * - High confidence: Auto-apply form, show callout for review
  * - Medium confidence: Show subtle suggestion badge
@@ -17,6 +17,9 @@ import {
   adaptCEEFormResponse,
   generateFallbackFormRecommendation,
 } from '../adapters/ceeFormAdapter'
+
+/** CEE base URL - routes through PLoT which handles auth and timeout */
+const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 
 // Local storage key for dismissed suggestions
 const DISMISSED_SUGGESTIONS_KEY = 'canvas.formSuggestions.dismissed.v1'
@@ -108,7 +111,7 @@ export function useFormRecommendations({
         }
       })
 
-      const response = await fetch('/bff/cee/suggest-edge-function', {
+      const response = await fetch(`${CEE_BASE_URL}/suggest-edge-function`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ edges: edgeContexts }),
