@@ -70,6 +70,10 @@ export interface CEEv2Response {
     structural: CEEStructuralWarning[]
     completeness: string[]
   }
+  /** Pipeline trace data for debug panel (optional, CEE may include it) */
+  trace?: {
+    pipeline?: CeePipelineTrace
+  }
 }
 
 /**

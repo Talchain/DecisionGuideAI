@@ -123,6 +123,8 @@ export interface V2FactorSensitivity {
   node_id?: string
   /** Raw sensitivity value (may be positive or negative) */
   sensitivity?: number
+  /** Sensitivity score (PLoT v2 format, 0-1 normalized) */
+  sensitivity_score?: number
   /** Direction of influence: positive or negative */
   direction?: 'positive' | 'negative'
   /** Elasticity measure (optional) */

@@ -368,7 +368,7 @@ function createDriversPayloadFromV2(v2Response: V2RunResponse): DriversPayload |
         id: factorId,
         kind: 'node',
         label: formatNodeName(factorId),
-        sensitivity_score: safeNumber(factor.elasticity) ?? safeNumber(factor.sensitivity) ?? undefined,
+        sensitivity_score: safeNumber(factor.sensitivity_score) ?? safeNumber(factor.elasticity) ?? safeNumber(factor.sensitivity) ?? undefined,
       })
     }
   } else if (hasDrivers) {
@@ -477,7 +477,7 @@ function mapDriversFromResponse(v2Response: V2RunResponse): ReportV1['drivers'] 
 
     // Determine polarity from direction or sensitivity sign
     const direction = factor.direction
-    const sensitivityVal = safeNumber(factor.sensitivity) ?? safeNumber(factor.elasticity) ?? 0
+    const sensitivityVal = safeNumber(factor.sensitivity_score) ?? safeNumber(factor.sensitivity) ?? safeNumber(factor.elasticity) ?? 0
     const polarity = direction === 'negative'
       ? 'down' as const
       : direction === 'positive'
@@ -487,7 +487,9 @@ function mapDriversFromResponse(v2Response: V2RunResponse): ReportV1['drivers'] 
           : 'down' as const
 
     // Use elasticity if available, otherwise sensitivity
-    const magnitude = Math.abs(safeNumber(factor.elasticity) ?? safeNumber(factor.sensitivity) ?? 0.5)
+    // Priority: sensitivity_score (PLoT v2) > elasticity > sensitivity > default 0.5
+    const rawValue = safeNumber(factor.sensitivity_score) ?? safeNumber(factor.elasticity) ?? safeNumber(factor.sensitivity) ?? 0.5
+    const magnitude = Math.abs(rawValue)
 
     return {
       label: formatNodeName(factorId),
@@ -495,7 +497,7 @@ function mapDriversFromResponse(v2Response: V2RunResponse): ReportV1['drivers'] 
       strength: mapElasticityToStrength(magnitude),
       // Include factor metadata for highlighting
       nodeId: factorId,
-      contribution: normalizeElasticity(safeNumber(factor.elasticity) ?? safeNumber(factor.sensitivity) ?? 0.5),
+      contribution: normalizeElasticity(magnitude),
     }
   })
 }

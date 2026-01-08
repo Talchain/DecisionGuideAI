@@ -187,7 +187,7 @@ export function DraftLoadingAnimation() {
           {THINKING_PHRASES[phraseIndex]}{dots}
         </p>
         <p className={`${typography.caption} text-ink-900/50 mt-1`}>
-          This usually takes 5-10 seconds
+          This may take up to 60 seconds
         </p>
       </div>
 
