@@ -12,7 +12,7 @@ import { RateLimitNotice } from './RateLimitNotice'
 import { DEFAULT_EDGE_DATA, trimProvenance } from '../domain/edges'
 import { saveAutosave } from '../store/scenarios'
 import { Tooltip } from './Tooltip'
-import { hasAnalysisReady } from '../../adapters/cee/types'
+import { hasAnalysisReady, isCeePipelineTrace } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, EffectDirection } from '../../adapters/cee/types'
 
 // Available AI models
@@ -398,6 +398,14 @@ export function DraftChat() {
           goal_node_id: draftData.analysis_ready.goal_node_id,
         })
       }
+    }
+
+    // Store pipeline trace for debug panel if present (using proper type guard)
+    // Backend sends trace.pipeline (nested), not pipeline_trace (top-level)
+    const pipelineTrace = (draftData as any).trace?.pipeline
+    if (isCeePipelineTrace(pipelineTrace)) {
+      const { setCeePipelineTrace } = useCanvasStore.getState()
+      setCeePipelineTrace(pipelineTrace)
     }
 
     return {

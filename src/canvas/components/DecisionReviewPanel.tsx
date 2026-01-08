@@ -508,6 +508,51 @@ export function DecisionReviewPanel({
   // Error state: error present
   if (activeError) {
     const isRetriable = canRetry(activeError)
+
+    // P0.1 Fix: Detect timeout errors and show informational message instead of error
+    // CEE timeouts are transient and don't indicate a problem with the analysis
+    // Check both error code AND trace.degraded flag
+    const errorCodeIsTimeout = activeError.code?.toUpperCase().includes('TIMEOUT') ?? false
+    const traceIsDegraded = (normalizedTrace as Record<string, unknown> | null)?.degraded === true
+    const isTimeout = errorCodeIsTimeout || traceIsDegraded
+
+    if (isTimeout) {
+      // Timeout-specific messaging: informational, not error
+      return (
+        <section
+          aria-label="Decision review"
+          data-testid="decision-review-timeout"
+          className={`p-3 ${typography.caption} bg-info-50 border border-info-200 rounded`}
+        >
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-info-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="flex-1 min-w-0">
+              <h3 className={`${typography.label} text-info-900 mb-1`}>
+                AI review is taking longer than expected
+              </h3>
+              <p className="text-info-900 mb-2">
+                Your analysis is complete. The AI review will be available on your next run.
+              </p>
+
+              {onRetry && canRetryRun !== false && (
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-info-600 text-white rounded hover:bg-info-700 transition-colors"
+                  data-testid="decision-review-retry"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+                  Try Again
+                </button>
+              )}
+            </div>
+          </div>
+
+          {normalizedTrace && <TraceFooter trace={normalizedTrace} />}
+        </section>
+      )
+    }
+
     const headline = isRetriable
       ? 'Decision Review is temporarily unavailable'
       : activeError.suggestedAction === 'fix_input'
@@ -559,6 +604,50 @@ export function DecisionReviewPanel({
 
   // Unavailable state: review null, error null, trace present
   if (!activeReview && normalizedTrace) {
+    // P0.1 Fix: Detect timeout via trace.reason OR trace.degraded when no error object present
+    // When CEE times out, there may be no error - just trace with:
+    // - reason='CEE_V2_TIMEOUT' (specific timeout reason)
+    // - OR degraded=true (general degraded state indicator)
+    const traceReason = String((normalizedTrace as Record<string, unknown>).reason ?? '').toUpperCase()
+    const isDegraded = (normalizedTrace as Record<string, unknown>).degraded === true
+    const isTimeout = traceReason.includes('TIMEOUT') || traceReason.includes('CEE_V2_TIMEOUT') || isDegraded
+
+    if (isTimeout) {
+      // Show info-styled timeout message instead of generic unavailable
+      return (
+        <section
+          aria-label="Decision review"
+          data-testid="decision-review-timeout"
+          className={`p-3 ${typography.caption} bg-info-50 border border-info-200 rounded`}
+        >
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-info-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="flex-1 min-w-0">
+              <h3 className={`${typography.label} text-info-900 mb-1`}>
+                AI review is taking longer than expected
+              </h3>
+              <p className="text-info-900 mb-2">
+                Your analysis is complete. The AI review will be available on your next run.
+              </p>
+
+              {onRetry && canRetryRun !== false && (
+                <button
+                  type="button"
+                  onClick={handleRetry}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-info-600 text-white rounded hover:bg-info-700 transition-colors"
+                  data-testid="decision-review-retry"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+                  Try Again
+                </button>
+              )}
+            </div>
+          </div>
+          <TraceFooter trace={normalizedTrace} />
+        </section>
+      )
+    }
+
     return (
       <section
         aria-label="Decision review"
@@ -643,6 +732,34 @@ function LegacyDecisionReview({
   trace?: CeeTraceMeta | null
 }) {
   if (error) {
+    // P0.1 Fix: Detect timeout errors and show informational message instead of error
+    // Check both error code AND trace.degraded flag
+    const errorCodeIsTimeout = error.code?.toUpperCase().includes('TIMEOUT') ?? false
+    const traceIsDegraded = trace?.degraded === true
+    const isTimeout = errorCodeIsTimeout || traceIsDegraded
+
+    if (isTimeout) {
+      return (
+        <section
+          aria-label="Decision review"
+          data-testid="decision-review-timeout"
+          className={`p-3 ${typography.caption} bg-info-50 border border-info-200 rounded`}
+        >
+          <div className="flex items-start gap-2">
+            <Info className="w-4 h-4 text-info-600 flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="flex-1 min-w-0">
+              <h3 className={`${typography.label} text-info-900 mb-1`}>
+                AI review is taking longer than expected
+              </h3>
+              <p className="text-info-900">
+                Your analysis is complete. The AI review will be available on your next run.
+              </p>
+            </div>
+          </div>
+        </section>
+      )
+    }
+
     const suggested = error.suggestedAction
     const headline =
       suggested === 'retry'

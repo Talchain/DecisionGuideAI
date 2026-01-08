@@ -130,7 +130,7 @@ export async function probeCapability(
   };
 
   try {
-    // Step 1: Check health endpoint
+    // Step 1: Check health endpoint (primary: /v1/health)
     const healthResponse = await fetch(`${resolvedBase}/v1/health`, {
       method: 'GET',
       signal: AbortSignal.timeout(5000),
@@ -142,9 +142,14 @@ export async function probeCapability(
       result.healthStatus = healthData.status || 'ok';
 
       if (import.meta.env.DEV) {
-        console.log('[Probe] Health check passed:', healthData);
+        console.log('[Probe] Primary /v1/health check passed:', healthData);
       }
     } else {
+      // Primary endpoint failed - log the status and try fallback
+      if (import.meta.env.DEV) {
+        console.log(`[Probe] Primary /v1/health failed (${healthResponse.status}), trying fallback /health`);
+      }
+
       // Try fallback /health (non-versioned)
       const fallbackResponse = await fetch(`${resolvedBase}/health`, {
         method: 'GET',
@@ -157,7 +162,11 @@ export async function probeCapability(
         result.healthStatus = healthData.status || 'ok';
 
         if (import.meta.env.DEV) {
-          console.log('[Probe] Health check passed (fallback):', healthData);
+          console.log('[Probe] Fallback /health check passed - assuming run endpoint available:', healthData);
+        }
+      } else {
+        if (import.meta.env.DEV) {
+          console.warn(`[Probe] Both /v1/health and /health failed (fallback: ${fallbackResponse.status})`);
         }
       }
     }

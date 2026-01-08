@@ -271,6 +271,267 @@ export function isSuccessResponse(result: V2RunResult): result is V2RunResponse 
 }
 
 // ============================================================================
+// Runtime Validation Guards
+// ============================================================================
+
+import type { ValidationFailure } from '../../../lib/api-errors'
+
+/**
+ * Validation result with split between hard errors and soft warnings.
+ *
+ * HARD ERRORS: Block processing, throw MalformedApiResponseError
+ * - Missing required fields (analysis_status, response_hash)
+ * - option_comparison is not an array (will crash map())
+ * - Root is not an object
+ *
+ * SOFT WARNINGS: Log warning, continue with degraded UX
+ * - Optional arrays are objects instead of arrays (fallback to [])
+ * - Missing optional nested fields
+ * - Extra unexpected fields
+ */
+export interface ValidationResult {
+  valid: boolean
+  hardErrors: ValidationFailure[]
+  softWarnings: ValidationFailure[]
+}
+
+/**
+ * Validate V2RunResponse structure at runtime.
+ * Splits validation into hard blockers and soft warnings.
+ */
+export function validateV2RunResponseFull(data: unknown): ValidationResult {
+  const hardErrors: ValidationFailure[] = []
+  const softWarnings: ValidationFailure[] = []
+
+  // Root must be object - HARD ERROR
+  if (typeof data !== 'object' || data === null) {
+    hardErrors.push({
+      field: 'root',
+      expected: 'object',
+      received: data === null ? 'null' : typeof data,
+    })
+    return { valid: false, hardErrors, softWarnings }
+  }
+
+  const response = data as Record<string, unknown>
+
+  // =========================================================================
+  // HARD ERRORS - Block processing
+  // =========================================================================
+
+  // analysis_status is required - HARD ERROR
+  if (typeof response.analysis_status !== 'string') {
+    hardErrors.push({
+      field: 'analysis_status',
+      expected: 'string',
+      received: typeof response.analysis_status,
+    })
+  }
+
+  // response_hash is required - HARD ERROR
+  if (typeof response.response_hash !== 'string') {
+    hardErrors.push({
+      field: 'response_hash',
+      expected: 'string',
+      received: typeof response.response_hash,
+    })
+  }
+
+  // option_comparison being non-array is HARD (will crash map())
+  if ('option_comparison' in response && response.option_comparison !== null && response.option_comparison !== undefined) {
+    if (!Array.isArray(response.option_comparison)) {
+      hardErrors.push({
+        field: 'option_comparison',
+        expected: 'array',
+        received: typeof response.option_comparison,
+      })
+    }
+  }
+
+  // =========================================================================
+  // SOFT WARNINGS - Log and continue
+  // =========================================================================
+
+  // critiques being non-array is SOFT (can fallback to [])
+  if ('critiques' in response && response.critiques !== undefined && !Array.isArray(response.critiques)) {
+    softWarnings.push({
+      field: 'critiques',
+      expected: 'array | undefined',
+      received: typeof response.critiques,
+    })
+  }
+
+  // drivers being non-array is SOFT (can fallback to [])
+  if ('drivers' in response && response.drivers !== undefined && !Array.isArray(response.drivers)) {
+    softWarnings.push({
+      field: 'drivers',
+      expected: 'array | undefined',
+      received: typeof response.drivers,
+    })
+  }
+
+  // edge_sensitivity being non-array is SOFT (can fallback to [])
+  if ('edge_sensitivity' in response && response.edge_sensitivity !== undefined && !Array.isArray(response.edge_sensitivity)) {
+    softWarnings.push({
+      field: 'edge_sensitivity',
+      expected: 'array | undefined',
+      received: typeof response.edge_sensitivity,
+    })
+  }
+
+  // factor_sensitivity being non-array is SOFT (can fallback to [])
+  if ('factor_sensitivity' in response && response.factor_sensitivity !== undefined && !Array.isArray(response.factor_sensitivity)) {
+    softWarnings.push({
+      field: 'factor_sensitivity',
+      expected: 'array | undefined',
+      received: typeof response.factor_sensitivity,
+    })
+  }
+
+  // Status fields - SOFT (can fallback to 'unavailable')
+  const statusFields = ['option_comparison_status', 'robustness_status', 'drivers_status']
+  for (const field of statusFields) {
+    if (field in response && typeof response[field] !== 'string') {
+      softWarnings.push({
+        field,
+        expected: 'string',
+        received: typeof response[field],
+      })
+    }
+  }
+
+  // robustness object missing when status is computed - SOFT
+  if (response.robustness_status === 'computed' && !response.robustness) {
+    softWarnings.push({
+      field: 'robustness',
+      expected: 'object (when robustness_status is computed)',
+      received: String(response.robustness),
+    })
+  }
+
+  return {
+    valid: hardErrors.length === 0,
+    hardErrors,
+    softWarnings,
+  }
+}
+
+/**
+ * Legacy validation function - returns flat list of all failures.
+ * @deprecated Use validateV2RunResponseFull for hard/soft split
+ */
+export function validateV2RunResponse(data: unknown): ValidationFailure[] {
+  const result = validateV2RunResponseFull(data)
+  return [...result.hardErrors, ...result.softWarnings]
+}
+
+/**
+ * Check if data is a valid V2RunResponse (runtime type guard).
+ * Only checks hard errors - soft warnings don't invalidate.
+ */
+export function isValidV2RunResponse(data: unknown): data is V2RunResponse {
+  return validateV2RunResponseFull(data).hardErrors.length === 0
+}
+
+/**
+ * Validate V2RunError structure at runtime.
+ */
+export function validateV2RunError(data: unknown): ValidationFailure[] {
+  const failures: ValidationFailure[] = []
+
+  if (typeof data !== 'object' || data === null) {
+    failures.push({
+      field: 'root',
+      expected: 'object',
+      received: data === null ? 'null' : typeof data,
+    })
+    return failures
+  }
+
+  const response = data as Record<string, unknown>
+
+  if (typeof response.analysis_status !== 'string') {
+    failures.push({
+      field: 'analysis_status',
+      expected: 'string (blocked | failed)',
+      received: typeof response.analysis_status,
+    })
+  }
+
+  if (typeof response.status_reason !== 'string') {
+    failures.push({
+      field: 'status_reason',
+      expected: 'string',
+      received: typeof response.status_reason,
+    })
+  }
+
+  if (!Array.isArray(response.critiques)) {
+    failures.push({
+      field: 'critiques',
+      expected: 'array',
+      received: typeof response.critiques,
+    })
+  }
+
+  return failures
+}
+
+/**
+ * Check if data is a valid V2RunError (runtime type guard).
+ */
+export function isValidV2RunError(data: unknown): data is V2RunError {
+  return validateV2RunError(data).length === 0
+}
+
+/**
+ * Sanitize a V2RunResponse by fixing soft anomalies.
+ * Converts non-array fields to empty arrays to prevent crashes.
+ * Logs warnings when sanitisation is applied.
+ */
+export function sanitizeV2RunResponse(data: V2RunResponse): V2RunResponse {
+  // Track what needs fixing
+  const fixes: string[] = []
+
+  if (!Array.isArray(data.critiques)) {
+    fixes.push(`critiques: ${typeof data.critiques} → []`)
+  }
+  if (data.drivers !== undefined && !Array.isArray(data.drivers)) {
+    fixes.push(`drivers: ${typeof data.drivers} → []`)
+  }
+  if (data.edge_sensitivity !== undefined && !Array.isArray(data.edge_sensitivity)) {
+    fixes.push(`edge_sensitivity: ${typeof data.edge_sensitivity} → []`)
+  }
+  if (data.factor_sensitivity !== undefined && !Array.isArray(data.factor_sensitivity)) {
+    fixes.push(`factor_sensitivity: ${typeof data.factor_sensitivity} → []`)
+  }
+
+  // Log warning if sanitisation was applied
+  if (fixes.length > 0) {
+    const env = (import.meta as any)?.env?.VITE_APP_ENV || 'development'
+    if (env === 'development' || env === 'staging') {
+      console.warn('[V2 Sanitisation] Applied to V2RunResponse:', {
+        fixCount: fixes.length,
+        fixes,
+      })
+    }
+  }
+
+  return {
+    ...data,
+    // Ensure array fields are arrays (fix soft anomalies)
+    critiques: Array.isArray(data.critiques) ? data.critiques : [],
+    drivers: data.drivers !== undefined ? (Array.isArray(data.drivers) ? data.drivers : []) : undefined,
+    edge_sensitivity: data.edge_sensitivity !== undefined
+      ? (Array.isArray(data.edge_sensitivity) ? data.edge_sensitivity : [])
+      : undefined,
+    factor_sensitivity: data.factor_sensitivity !== undefined
+      ? (Array.isArray(data.factor_sensitivity) ? data.factor_sensitivity : [])
+      : undefined,
+  }
+}
+
+// ============================================================================
 // Constants
 // ============================================================================
 

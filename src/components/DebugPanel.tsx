@@ -4,6 +4,10 @@
  * Collapsible diagnostic panel for staging environments.
  * Displays service versions, request traces, gate statuses, and export functionality.
  *
+ * Tabs:
+ * - Overview: All existing debug panel content
+ * - CEE Pipeline: Pipeline trace visualisation for CEE draft-graph responses
+ *
  * Activation:
  * - URL parameter: ?diag=1
  * - Console: window.__OLUMI_DEBUG = true
@@ -29,6 +33,27 @@ import { exportDiagnosticBundle } from '../lib/diagnostic-bundle'
 import { getAllServiceHealthArray, type ServiceHealthInfo, type HealthStatus } from '../lib/service-health'
 import { useCanvasStore } from '../canvas/store'
 import { ContractInspector } from './ContractInspector'
+import { CeePipelineTab } from './CeePipelineTab'
+import type { CeePipelineTrace } from '../adapters/cee/types'
+
+// =============================================================================
+// Debug Panel Tabs
+// =============================================================================
+
+type DebugPanelTab = 'overview' | 'cee-pipeline'
+
+const DEBUG_TABS: { id: DebugPanelTab; label: string }[] = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'cee-pipeline', label: 'CEE Pipeline' },
+]
+
+// =============================================================================
+// CEE Pipeline Data Source
+// =============================================================================
+
+// Pipeline trace now comes from the canvas store (populated by DraftChat)
+// Previously used mock data has been removed - the pipeline tab shows
+// "No CEE pipeline data" when no draft has been run.
 
 declare global {
   interface Window {
@@ -632,11 +657,18 @@ export function DebugPanel() {
   const [visible, setVisible] = useState(false)
   const [collapsed, setCollapsed] = useState(true)
   const [expanded, setExpanded] = useState(false) // Maximized state
+  const [activeTab, setActiveTab] = useState<DebugPanelTab>('overview')
   const [traces, setTraces] = useState<RequestTrace[]>([])
   const [exporting, setExporting] = useState(false)
   const [services, setServices] = useState<ServiceHealthInfo[]>([])
   const [servicesLoading, setServicesLoading] = useState(false)
   const servicesFetched = useRef(false)
+
+  // CEE Pipeline state - consumed from canvas store (populated by DraftChat)
+  const ceePipelineTrace = useCanvasStore((s) => s.ceePipelineTrace)
+
+  // Raw error data for debugging malformed responses
+  const rawErrorData = useCanvasStore((s) => s.runMeta.rawErrorData)
 
   const gates = useGateStore((s) => s.gates)
 
@@ -829,6 +861,38 @@ export function DebugPanel() {
             </div>
           </div>
 
+          {/* Tab Bar */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 12px',
+              background: '#f8fafc',
+              borderBottom: '1px solid #e2e8f0',
+            }}
+          >
+            {DEBUG_TABS.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  padding: '8px 12px',
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: activeTab === tab.id ? '2px solid #3b82f6' : '2px solid transparent',
+                  color: activeTab === tab.id ? '#1e40af' : '#64748b',
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                  fontWeight: activeTab === tab.id ? 600 : 400,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           {/* Scrollable content area */}
           <div
             style={{
@@ -837,6 +901,16 @@ export function DebugPanel() {
               overflowX: 'hidden',
             }}
           >
+          {/* CEE Pipeline Tab */}
+          {activeTab === 'cee-pipeline' && (
+            <CeePipelineTab
+              trace={ceePipelineTrace}
+            />
+          )}
+
+          {/* Overview Tab - contains all existing content */}
+          {activeTab === 'overview' && (
+            <>
           {/* Version Info */}
           <div
             style={{
@@ -966,6 +1040,107 @@ export function DebugPanel() {
             )
           })()}
 
+          {/* Raw Error Data - malformed response debugging */}
+          {rawErrorData && (
+            <div
+              style={{
+                padding: '8px 12px',
+                borderBottom: '1px solid #e2e8f0',
+                background: '#fef2f2',
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 600,
+                  marginBottom: 6,
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                  color: '#991b1b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <span>
+                  ⚠️ Malformed Response Data
+                  <span style={{ marginLeft: 4, fontWeight: 400, color: '#b91c1c' }}>
+                    {rawErrorData.timestamp ? new Date(rawErrorData.timestamp).toLocaleTimeString() : ''}
+                  </span>
+                </span>
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(JSON.stringify(rawErrorData, null, 2))
+                  }}
+                  style={{
+                    padding: '2px 6px',
+                    fontSize: 9,
+                    background: '#fee2e2',
+                    border: '1px solid #fecaca',
+                    borderRadius: 3,
+                    cursor: 'pointer',
+                    fontFamily: 'monospace',
+                  }}
+                  title="Copy error data to clipboard"
+                >
+                  📋 Copy
+                </button>
+              </div>
+              {rawErrorData.expectedShape && (
+                <div style={{ fontSize: 9, fontFamily: 'monospace', color: '#7f1d1d', marginBottom: 4 }}>
+                  Expected: {rawErrorData.expectedShape}
+                </div>
+              )}
+              {rawErrorData.validationErrors && rawErrorData.validationErrors.length > 0 && (
+                <div style={{ marginBottom: 4 }}>
+                  <div style={{ fontSize: 9, fontFamily: 'monospace', color: '#991b1b', fontWeight: 600 }}>
+                    Hard Errors ({rawErrorData.validationErrors.length}):
+                  </div>
+                  {rawErrorData.validationErrors.slice(0, 5).map((err, i) => (
+                    <div key={i} style={{ fontSize: 9, fontFamily: 'monospace', color: '#b91c1c', paddingLeft: 8 }}>
+                      • {err}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {rawErrorData.validationWarnings && rawErrorData.validationWarnings.length > 0 && (
+                <div style={{ marginBottom: 4 }}>
+                  <div style={{ fontSize: 9, fontFamily: 'monospace', color: '#92400e', fontWeight: 600 }}>
+                    Soft Warnings ({rawErrorData.validationWarnings.length}):
+                  </div>
+                  {rawErrorData.validationWarnings.slice(0, 5).map((warn, i) => (
+                    <div key={i} style={{ fontSize: 9, fontFamily: 'monospace', color: '#b45309', paddingLeft: 8 }}>
+                      • {warn}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {rawErrorData.payload && (
+                <details style={{ marginTop: 4 }}>
+                  <summary style={{ fontSize: 9, fontFamily: 'monospace', color: '#7f1d1d', cursor: 'pointer' }}>
+                    Raw Payload (click to expand)
+                  </summary>
+                  <pre
+                    style={{
+                      fontSize: 8,
+                      fontFamily: 'monospace',
+                      background: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      borderRadius: 3,
+                      padding: 6,
+                      maxHeight: 150,
+                      overflow: 'auto',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-all',
+                      margin: '4px 0 0 0',
+                    }}
+                  >
+                    {JSON.stringify(rawErrorData.payload, null, 2)}
+                  </pre>
+                </details>
+              )}
+            </div>
+          )}
+
           {/* Request Traces */}
           <div style={{ maxHeight: expanded ? 400 : 200, overflowY: 'auto' }}>
             <div
@@ -1005,6 +1180,8 @@ export function DebugPanel() {
           <div style={{ borderTop: '2px solid #e2e8f0' }}>
             <ContractInspector />
           </div>
+            </>
+          )}
           </div>{/* End scrollable content area */}
         </div>
       )}

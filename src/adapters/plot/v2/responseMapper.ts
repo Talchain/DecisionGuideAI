@@ -13,7 +13,16 @@
 
 import type { V2RunResponse, V2OptionComparison, V2Driver, V2Critique, V2EdgeSensitivity, V2FactorSensitivity } from './types'
 import type { ReportV1, CritiqueItemV1, ConfidenceLevel } from '../types'
+import type { DriversPayload, DriverItem } from '../../driversAdapter'
 import { recordDataShapeAnomaly } from '../../../lib/payload-trace-store'
+import type {
+  CeeDecisionReviewPayloadV1,
+  CeeTrace,
+  ReviewBlock,
+  ReviewBlockItem,
+  ReadinessLevel,
+  ReadinessFactor,
+} from '../../../types/cee'
 
 // =============================================================================
 // Defensive Detection: Empty "Computed" Results
@@ -61,14 +70,19 @@ export function detectComputedButEmpty(v2Response: V2RunResponse): ComputedButEm
     }
   }
 
-  // Check edge_sensitivity (drivers_status controls this)
+  // Check drivers (edge_sensitivity OR factor_sensitivity)
+  // P0 Fix: PLoT contract says drivers_status === 'computed' when EITHER has data
+  // Only fire critique when status says computed but BOTH arrays are empty (genuine violation)
+  // When drivers_status === 'unavailable', no critique is fired (trust PLoT's status)
   if (v2Response.drivers_status === 'computed') {
-    const isEmpty = !v2Response.edge_sensitivity || v2Response.edge_sensitivity.length === 0
+    const hasEdgeSensitivity = v2Response.edge_sensitivity && v2Response.edge_sensitivity.length > 0
+    const hasFactorSensitivity = v2Response.factor_sensitivity && v2Response.factor_sensitivity.length > 0
+    const isEmpty = !hasEdgeSensitivity && !hasFactorSensitivity
     if (isEmpty) {
       anomalies.push({
         field: 'edge_sensitivity',
         status: 'computed',
-        message: 'Drivers status is "computed" but edge_sensitivity array is empty',
+        message: 'Drivers status is "computed" but both edge_sensitivity and factor_sensitivity arrays are empty',
       })
     }
   }
@@ -135,6 +149,10 @@ export function mapV2ResponseToReportV1(
   // Map drivers to V1 format
   // PLoT returns edge_sensitivity instead of drivers - use it as fallback
   const drivers = mapDriversFromResponse(v2Response)
+
+  // P0 Fix: Create drivers_payload for gating logic
+  // Without this, key factors shows "unavailable" even when factor_sensitivity has data
+  const drivers_payload = createDriversPayloadFromV2(v2Response)
 
   // Map critiques to V1 format with defensive handling
   const rawCritiques = v2Response.critiques
@@ -206,6 +224,8 @@ export function mapV2ResponseToReportV1(
     drivers,
     // Pass through drivers_status for contextual empty state messages
     drivers_status: v2Response.drivers_status,
+    // P0 Fix: Include drivers_payload for gating logic
+    drivers_payload,
     run: {
       critique,
       bands: {
@@ -298,6 +318,80 @@ function mapCritiqueSeverity(severity: 'blocker' | 'warning' | 'info'): 'BLOCKER
       return 'INFO'
     default:
       return 'INFO'
+  }
+}
+
+/**
+ * P0 Fix: Create drivers_payload from V2 response for gating logic.
+ *
+ * The DriversSignal component uses drivers_payload to determine whether to show
+ * key factors. Without this, factor_sensitivity data exists but UI shows "unavailable".
+ *
+ * Creates a synthetic drivers_payload when:
+ * - factor_sensitivity has data (drivers_status may be 'computed' or 'unavailable')
+ * - OR v2Response.drivers has data
+ */
+function createDriversPayloadFromV2(v2Response: V2RunResponse): DriversPayload | undefined {
+  // Check if we have factor_sensitivity data
+  const hasFactorSensitivity = Array.isArray(v2Response.factor_sensitivity) &&
+    v2Response.factor_sensitivity.length > 0
+
+  // Check if we have drivers data (backward compatibility)
+  const hasDrivers = Array.isArray(v2Response.drivers) &&
+    v2Response.drivers.length > 0
+
+  // If neither, return undefined (will show unavailable state)
+  if (!hasFactorSensitivity && !hasDrivers) {
+    // Return a minimal payload indicating unavailable state
+    if (v2Response.drivers_status === 'unavailable' || v2Response.drivers_status === 'skipped') {
+      return {
+        status: 'cannot_compute',
+        status_reason: 'Key factors analysis not available for this model',
+        informative: false,
+        drivers: [],
+      }
+    }
+    return undefined
+  }
+
+  // Map factor_sensitivity to DriverItem format for the payload
+  const driverItems: DriverItem[] = []
+
+  if (hasFactorSensitivity) {
+    for (const factor of v2Response.factor_sensitivity!) {
+      if (!factor || typeof factor !== 'object') continue
+
+      const factorId = safeString(factor.factor_id) ?? safeString(factor.node_id) ?? ''
+      if (!factorId) continue
+
+      driverItems.push({
+        id: factorId,
+        kind: 'node',
+        label: formatNodeName(factorId),
+        sensitivity_score: safeNumber(factor.elasticity) ?? safeNumber(factor.sensitivity) ?? undefined,
+      })
+    }
+  } else if (hasDrivers) {
+    // Fallback to drivers array (backward compatibility)
+    for (const driver of v2Response.drivers!) {
+      if (!driver || typeof driver !== 'object') continue
+
+      const driverLabel = safeString(driver.label) ?? ''
+      driverItems.push({
+        id: driverLabel.replace(/\s+/g, '_').toLowerCase(),
+        kind: 'node',
+        label: driverLabel,
+        sensitivity_score: safeNumber(driver.contribution) ?? undefined,
+      })
+    }
+  }
+
+  // P0 Fix: Return informative=true when we have actual driver data
+  // This allows the gating logic to show key factors
+  return {
+    status: 'ok',
+    informative: driverItems.length > 0,
+    drivers: driverItems.slice(0, 5), // Limit to top 5
   }
 }
 
@@ -629,5 +723,378 @@ export function createErrorReport(
         source: 'isl' as const,
       })),
     },
+  }
+}
+
+// =============================================================================
+// CEE V1 Synthesis from V2 Response
+// =============================================================================
+
+/**
+ * Synthesize CeeDecisionReviewPayloadV1 from V2 response.
+ *
+ * Since V2 endpoint doesn't include CEE data, we create a synthetic
+ * decision review from the analysis results (drivers, robustness, critiques).
+ * This allows the Decision Review panel to display useful content.
+ *
+ * The synthesized review includes:
+ * - Readiness: Derived from robustness status and critique severity
+ * - Recommendation block: From option comparison results
+ * - Drivers block: From factor_sensitivity data
+ * - Risks block: From critiques with blocker/warning severity
+ * - Next steps block: From critique suggestions
+ */
+export function synthesizeCeeReviewFromV2(
+  v2Response: V2RunResponse
+): CeeDecisionReviewPayloadV1 | null {
+  // Don't synthesize if analysis failed
+  if (v2Response.analysis_status !== 'computed' && v2Response.analysis_status !== 'partial') {
+    return null
+  }
+
+  // Derive readiness from analysis results
+  const readiness = deriveReadinessFromV2(v2Response)
+
+  // Build review blocks from V2 data
+  const blocks: ReviewBlock[] = []
+
+  // 1. Recommendation block from option comparison
+  const recommendationBlock = buildRecommendationBlock(v2Response)
+  if (recommendationBlock) {
+    blocks.push(recommendationBlock)
+  }
+
+  // 2. Drivers block from factor_sensitivity
+  const driversBlock = buildDriversBlock(v2Response)
+  if (driversBlock) {
+    blocks.push(driversBlock)
+  }
+
+  // 3. Risks block from critiques
+  const risksBlock = buildRisksBlock(v2Response)
+  if (risksBlock) {
+    blocks.push(risksBlock)
+  }
+
+  // 4. Next steps block from critique suggestions
+  const nextStepsBlock = buildNextStepsBlock(v2Response)
+  if (nextStepsBlock) {
+    blocks.push(nextStepsBlock)
+  }
+
+  return {
+    intent: 'selection',
+    analysis_state: v2Response.analysis_status === 'partial' ? 'partial' : 'ran',
+    readiness,
+    blocks,
+    // Mark as synthesized for debugging
+    _synthesized_from_v2: true,
+  }
+}
+
+/**
+ * Derive readiness status from V2 response.
+ */
+function deriveReadinessFromV2(v2Response: V2RunResponse): {
+  level: ReadinessLevel
+  headline: string
+  factors: ReadinessFactor[]
+} {
+  const factors: ReadinessFactor[] = []
+
+  // Factor 1: Option comparison status
+  if (v2Response.option_comparison_status === 'computed') {
+    factors.push({ label: 'Options analyzed', status: 'ok' })
+  } else if (v2Response.option_comparison_status === 'unavailable') {
+    factors.push({ label: 'Options analyzed', status: 'warning' })
+  } else {
+    factors.push({ label: 'Options analyzed', status: 'blocking' })
+  }
+
+  // Factor 2: Robustness status
+  if (v2Response.robustness_status === 'computed') {
+    const robustness = v2Response.robustness
+    const fragileCount = robustness?.fragile_edges?.length ?? 0
+    const robustCount = robustness?.robust_edges?.length ?? 0
+    const totalEdges = fragileCount + robustCount
+
+    if (totalEdges > 0) {
+      const fragileRatio = fragileCount / totalEdges
+      if (fragileRatio > 0.5) {
+        factors.push({ label: 'Model robustness', status: 'warning' })
+      } else {
+        factors.push({ label: 'Model robustness', status: 'ok' })
+      }
+    } else {
+      factors.push({ label: 'Model robustness', status: 'ok' })
+    }
+  } else {
+    factors.push({ label: 'Model robustness', status: 'warning' })
+  }
+
+  // Factor 3: Critique severity
+  const blockers = v2Response.critiques?.filter(c => c.severity === 'blocker') ?? []
+  const warnings = v2Response.critiques?.filter(c => c.severity === 'warning') ?? []
+
+  if (blockers.length > 0) {
+    factors.push({ label: 'Model quality', status: 'blocking' })
+  } else if (warnings.length > 0) {
+    factors.push({ label: 'Model quality', status: 'warning' })
+  } else {
+    factors.push({ label: 'Model quality', status: 'ok' })
+  }
+
+  // Determine overall level
+  const hasBlocking = factors.some(f => f.status === 'blocking')
+  const hasWarning = factors.some(f => f.status === 'warning')
+
+  let level: ReadinessLevel
+  let headline: string
+
+  if (hasBlocking) {
+    level = 'not_ready'
+    headline = 'Model needs attention before relying on results'
+  } else if (hasWarning) {
+    level = 'caution'
+    headline = 'Results provide directional guidance'
+  } else {
+    level = 'ready'
+    headline = 'Analysis is reliable for decision-making'
+  }
+
+  return { level, headline, factors }
+}
+
+/**
+ * Build recommendation block from option comparison.
+ */
+function buildRecommendationBlock(v2Response: V2RunResponse): ReviewBlock | null {
+  const options = v2Response.option_comparison
+  if (!options || options.length === 0) {
+    return {
+      id: 'recommendation',
+      status: 'cannot_compute',
+      status_reason: 'No options to compare',
+      source: 'engine',
+      summary: 'Unable to determine recommendation',
+      priority: 1,
+    }
+  }
+
+  // Find the best option (highest win_probability or probability_of_goal)
+  const sortedOptions = [...options].sort((a, b) => {
+    const aScore = a.win_probability ?? a.probability_of_goal ?? 0
+    const bScore = b.win_probability ?? b.probability_of_goal ?? 0
+    return bScore - aScore
+  })
+
+  const bestOption = sortedOptions[0]
+  const winProb = bestOption.win_probability ?? bestOption.probability_of_goal
+
+  let summary: string
+  if (winProb !== undefined && winProb > 0.6) {
+    summary = `"${bestOption.option_label}" shows the strongest expected outcome`
+  } else if (options.length === 1) {
+    summary = `Analysis complete for "${bestOption.option_label}"`
+  } else {
+    summary = 'Options are closely matched — consider other factors'
+  }
+
+  return {
+    id: 'recommendation',
+    status: 'ok',
+    source: 'engine',
+    summary,
+    priority: 1,
+    items: sortedOptions.slice(0, 3).map((opt, i) => ({
+      id: opt.option_id,
+      label: opt.option_label,
+      description: opt.win_probability !== undefined
+        ? `${Math.round(opt.win_probability * 100)}% likely to outperform others`
+        : `Confidence interval: ${opt.confidence_interval[0].toFixed(2)} – ${opt.confidence_interval[1].toFixed(2)}`,
+    })),
+  }
+}
+
+/**
+ * Build drivers block from factor_sensitivity.
+ */
+function buildDriversBlock(v2Response: V2RunResponse): ReviewBlock | null {
+  const factors = v2Response.factor_sensitivity
+  if (!factors || factors.length === 0) {
+    // Check if drivers exist instead
+    if (v2Response.drivers && v2Response.drivers.length > 0) {
+      return {
+        id: 'drivers',
+        status: 'ok',
+        source: 'engine',
+        summary: 'Key factors influencing the outcome',
+        priority: 2,
+        items: v2Response.drivers.slice(0, 5).map(d => ({
+          id: d.node_id,
+          label: d.label,
+          description: `${d.direction === 'positive' ? '↑' : '↓'} ${Math.round(d.contribution * 100)}% contribution`,
+        })),
+      }
+    }
+
+    return {
+      id: 'drivers',
+      status: v2Response.drivers_status === 'unavailable' ? 'not_applicable' : 'cannot_compute',
+      status_reason: 'Factor sensitivity analysis not available',
+      source: 'engine',
+      summary: 'Key factors could not be determined',
+      priority: 2,
+    }
+  }
+
+  // Sort by importance_rank or elasticity
+  const sorted = [...factors].sort((a, b) => {
+    if (a.importance_rank !== undefined && b.importance_rank !== undefined) {
+      return a.importance_rank - b.importance_rank
+    }
+    const aElast = Math.abs(a.elasticity ?? a.sensitivity ?? 0)
+    const bElast = Math.abs(b.elasticity ?? b.sensitivity ?? 0)
+    return bElast - aElast
+  })
+
+  return {
+    id: 'drivers',
+    status: 'ok',
+    source: 'engine',
+    summary: 'Key factors influencing the outcome',
+    priority: 2,
+    items: sorted.slice(0, 5).map(f => {
+      const factorId = f.factor_id ?? f.node_id ?? ''
+      const elasticity = f.elasticity ?? f.sensitivity ?? 0
+      const direction = f.direction ?? (elasticity >= 0 ? 'positive' : 'negative')
+
+      // Use same normalization as Key Factors for consistency
+      // normalizeElasticity divides by 2 and caps at 1.0
+      const normalizedPct = Math.round(normalizeElasticity(Math.abs(elasticity)) * 100)
+      const displayPct = normalizedPct === 0 && elasticity !== 0 ? '<1' : String(normalizedPct)
+
+      return {
+        id: factorId,
+        label: formatNodeName(factorId),
+        description: `${direction === 'positive' ? '↑' : '↓'} ${displayPct}% impact`,
+        severity: Math.abs(elasticity) >= 1 ? 'high' : Math.abs(elasticity) >= 0.5 ? 'medium' : 'low',
+      }
+    }),
+  }
+}
+
+/**
+ * Build risks block from critiques.
+ */
+function buildRisksBlock(v2Response: V2RunResponse): ReviewBlock | null {
+  const critiques = v2Response.critiques?.filter(
+    c => c.severity === 'blocker' || c.severity === 'warning'
+  ) ?? []
+
+  if (critiques.length === 0) {
+    return {
+      id: 'risks',
+      status: 'ok',
+      source: 'validator',
+      summary: 'No significant risks identified',
+      priority: 2,
+    }
+  }
+
+  return {
+    id: 'risks',
+    status: 'ok',
+    source: 'validator',
+    summary: `${critiques.length} potential issue${critiques.length > 1 ? 's' : ''} identified`,
+    priority: 2,
+    severity: critiques.some(c => c.severity === 'blocker') ? 'high' : 'medium',
+    items: critiques.slice(0, 5).map(c => ({
+      id: c.code,
+      label: c.message,
+      description: c.suggestion,
+      severity: c.severity === 'blocker' ? 'high' : 'medium',
+    })),
+  }
+}
+
+/**
+ * Build next steps block from critique suggestions.
+ */
+function buildNextStepsBlock(v2Response: V2RunResponse): ReviewBlock | null {
+  // Extract actionable suggestions from critiques
+  const suggestions = v2Response.critiques
+    ?.filter(c => c.suggestion)
+    .map(c => ({
+      id: c.code,
+      label: c.suggestion!,
+      description: `Addresses: ${c.message}`,
+    })) ?? []
+
+  // Add generic next steps based on analysis state
+  const genericSteps: ReviewBlockItem[] = []
+
+  if (v2Response.robustness_status === 'computed') {
+    const fragileCount = v2Response.robustness?.fragile_edges?.length ?? 0
+    if (fragileCount > 0) {
+      genericSteps.push({
+        id: 'review-fragile',
+        label: 'Review fragile relationships in your model',
+        description: `${fragileCount} edge${fragileCount > 1 ? 's' : ''} could significantly change results if assumptions shift`,
+      })
+    }
+  }
+
+  if (v2Response.drivers_status === 'unavailable') {
+    genericSteps.push({
+      id: 'add-factors',
+      label: 'Add more causal factors to improve analysis',
+      description: 'Key drivers could not be computed — model may need more structure',
+    })
+  }
+
+  const allItems = [...suggestions.slice(0, 3), ...genericSteps.slice(0, 2)]
+
+  if (allItems.length === 0) {
+    return {
+      id: 'next_steps',
+      status: 'ok',
+      source: 'hybrid',
+      summary: 'Analysis complete — ready for decision',
+      priority: 3,
+    }
+  }
+
+  return {
+    id: 'next_steps',
+    status: 'ok',
+    source: 'hybrid',
+    summary: 'Suggested improvements',
+    priority: 3,
+    items: allItems,
+  }
+}
+
+/**
+ * Synthesize CeeTrace from V2 response.
+ *
+ * Creates a trace object for the V2 run to maintain compatibility
+ * with existing UI components that expect trace data.
+ */
+export function synthesizeCeeTraceFromV2(
+  v2Response: V2RunResponse,
+  requestId: string,
+  latencyMs: number
+): CeeTrace {
+  return {
+    plot_request_id: requestId,
+    // V2 doesn't call CEE directly, so these are null
+    cee_sent_request_id: null,
+    cee_returned_request_id: null,
+    latency_ms: latencyMs,
+    model: null,
+    // Mark as V2 synthesized for debugging
+    _synthesized_from_v2: true,
+    source: 'v2_synthesis',
   }
 }

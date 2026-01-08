@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { InputsDock } from '../InputsDock'
 import { useCanvasStore } from '../../store'
 import * as useEngineLimitsModule from '../../hooks/useEngineLimits'
@@ -8,6 +9,19 @@ import type { UseEngineLimitsReturn } from '../../hooks/useEngineLimits'
 vi.mock('../../hooks/useEngineLimits', () => ({
   useEngineLimits: vi.fn(),
 }))
+
+// Create a wrapper with QueryClient for tests
+const createTestWrapper = () => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  })
+  return function TestWrapper({ children }: { children: React.ReactNode }) {
+    return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  }
+}
 
 const mockUseEngineLimits = vi.mocked(useEngineLimitsModule.useEngineLimits)
 
@@ -63,7 +77,7 @@ describe('InputsDock DOM', () => {
   })
 
   it('renders with correct ARIA attributes and sections', () => {
-    render(<InputsDock />)
+    render(<InputsDock />, { wrapper: createTestWrapper() })
 
     const aside = screen.getByLabelText('Inputs dock')
     expect(aside).toBeInTheDocument()
@@ -77,7 +91,7 @@ describe('InputsDock DOM', () => {
   })
 
   it('shows a collapsed icon strip when closed and reopens on icon click', () => {
-    render(<InputsDock />)
+    render(<InputsDock />, { wrapper: createTestWrapper() })
 
     const toggle = screen.getByTestId('inputs-dock-toggle')
     fireEvent.click(toggle)
@@ -101,7 +115,7 @@ describe('InputsDock DOM', () => {
   })
 
   it('persists active tab and open state via useDockState', () => {
-    const { unmount } = render(<InputsDock />)
+    const { unmount } = render(<InputsDock />, { wrapper: createTestWrapper() })
 
     // Switch to Limits tab and leave dock open
     const limitsTab = screen.getByRole('button', { name: 'Limits and health' })
@@ -110,7 +124,7 @@ describe('InputsDock DOM', () => {
     // Unmount and remount to verify persisted state
     unmount()
 
-    render(<InputsDock />)
+    render(<InputsDock />, { wrapper: createTestWrapper() })
 
     const aside = screen.getByLabelText('Inputs dock') as HTMLElement
     // Width style should reflect expanded state via CSS variable
@@ -129,7 +143,7 @@ describe('InputsDock DOM', () => {
     // Start with no framing in the store
     useCanvasStore.setState({ currentScenarioFraming: null } as any)
 
-    const { rerender } = render(<InputsDock />)
+    const { rerender } = render(<InputsDock />, { wrapper: createTestWrapper() })
 
     const scenariosTab = screen.getByRole('button', { name: 'Scenarios' })
     fireEvent.click(scenariosTab)
@@ -157,7 +171,7 @@ describe('InputsDock DOM', () => {
     )
 
     // Re-render and ensure values are preserved
-    rerender(<InputsDock />)
+    rerender(<InputsDock />, { wrapper: createTestWrapper() })
     fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
 
     expect((screen.getByLabelText('Decision or question') as HTMLInputElement).value).toBe(
@@ -174,7 +188,7 @@ describe('InputsDock DOM', () => {
   it('toggles advanced framing fields and binds them to currentScenarioFraming', () => {
     useCanvasStore.setState({ currentScenarioFraming: null } as any)
 
-    render(<InputsDock />)
+    render(<InputsDock />, { wrapper: createTestWrapper() })
     fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
 
     // Advanced block should not be visible initially
@@ -221,6 +235,33 @@ describe('InputsDock DOM', () => {
     )
   })
 
+  it('shows brief length validation hint when framing is too short (P0 Fix)', () => {
+    useCanvasStore.setState({ currentScenarioFraming: null } as any)
+
+    render(<InputsDock />, { wrapper: createTestWrapper() })
+    fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
+
+    // Initially no hint (no content)
+    expect(screen.queryByTestId('brief-length-hint')).toBeNull()
+
+    // Add very short framing (< 30 chars total)
+    const title = screen.getByLabelText('Decision or question') as HTMLInputElement
+    fireEvent.change(title, { target: { value: 'Test' } })
+
+    // Should show hint with characters remaining
+    const hint = screen.getByTestId('brief-length-hint')
+    expect(hint).toBeInTheDocument()
+    expect(hint).toHaveTextContent('at least 30 characters')
+    expect(hint).toHaveTextContent('more needed')
+
+    // Add more content to exceed 30 chars
+    const goal = screen.getByLabelText('Primary goal') as HTMLTextAreaElement
+    fireEvent.change(goal, { target: { value: 'Achieve sustainable growth' } })
+
+    // Hint should disappear when brief is long enough
+    expect(screen.queryByTestId('brief-length-hint')).toBeNull()
+  })
+
   it('collapses core framing fields behind a Collapsible when framing already exists', () => {
     useCanvasStore.setState({
       currentScenarioFraming: {
@@ -230,7 +271,7 @@ describe('InputsDock DOM', () => {
       },
     } as any)
 
-    render(<InputsDock />)
+    render(<InputsDock />, { wrapper: createTestWrapper() })
     fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
 
     const framingToggle = screen.getByRole('button', { name: /Framing/ })
@@ -256,7 +297,7 @@ describe('InputsDock DOM', () => {
       localStorage.clear()
     } catch {}
 
-    const { rerender } = render(<InputsDock />)
+    const { rerender } = render(<InputsDock />, { wrapper: createTestWrapper() })
 
     // Scenario A: set framing via UI and save
     fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
@@ -277,7 +318,7 @@ describe('InputsDock DOM', () => {
       currentScenarioId: null,
       currentScenarioFraming: null,
     } as any)
-    rerender(<InputsDock />)
+    rerender(<InputsDock />, { wrapper: createTestWrapper() })
     fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
 
     fireEvent.change(screen.getByLabelText('Decision or question'), {
@@ -294,7 +335,7 @@ describe('InputsDock DOM', () => {
 
     // Load Scenario A and verify framing
     loadScenario(idA as string)
-    rerender(<InputsDock />)
+    rerender(<InputsDock />, { wrapper: createTestWrapper() })
     fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
 
     expect((screen.getByLabelText('Decision or question') as HTMLInputElement).value).toBe(
@@ -304,7 +345,7 @@ describe('InputsDock DOM', () => {
 
     // Load Scenario B and verify framing
     loadScenario(idB as string)
-    rerender(<InputsDock />)
+    rerender(<InputsDock />, { wrapper: createTestWrapper() })
     fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
 
     expect((screen.getByLabelText('Decision or question') as HTMLInputElement).value).toBe(
@@ -314,7 +355,7 @@ describe('InputsDock DOM', () => {
 
     // Switch back to Scenario A and ensure its framing is restored
     loadScenario(idA as string)
-    rerender(<InputsDock />)
+    rerender(<InputsDock />, { wrapper: createTestWrapper() })
     fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
 
     expect((screen.getByLabelText('Decision or question') as HTMLInputElement).value).toBe(
@@ -331,7 +372,7 @@ describe('InputsDock DOM', () => {
         currentScenarioLastRunSeed: null,
       } as any)
 
-      render(<InputsDock />)
+      render(<InputsDock />, { wrapper: createTestWrapper() })
       fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
 
       const emptySummary = screen.getByTestId('scenario-run-summary-empty')
@@ -347,7 +388,7 @@ describe('InputsDock DOM', () => {
         currentScenarioLastRunSeed: '1337',
       } as any)
 
-      render(<InputsDock />)
+      render(<InputsDock />, { wrapper: createTestWrapper() })
       fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
 
       const summary = screen.getByTestId('scenario-run-summary')
@@ -379,7 +420,7 @@ describe('InputsDock DOM', () => {
         localStorage.clear()
       } catch {}
 
-      const { rerender } = render(<InputsDock />)
+      const { rerender } = render(<InputsDock />, { wrapper: createTestWrapper() })
 
       // Scenario A: save with last-run metadata
       fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
@@ -402,7 +443,7 @@ describe('InputsDock DOM', () => {
         currentScenarioLastRunAt: null,
         currentScenarioLastRunSeed: null,
       } as any)
-      rerender(<InputsDock />)
+      rerender(<InputsDock />, { wrapper: createTestWrapper() })
       fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
 
       useCanvasStore.setState({
@@ -418,7 +459,7 @@ describe('InputsDock DOM', () => {
 
       // Load Scenario A and verify its summary
       loadScenario(idA as string)
-      rerender(<InputsDock />)
+      rerender(<InputsDock />, { wrapper: createTestWrapper() })
       fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
 
       const summaryA = screen.getByTestId('scenario-run-summary')
@@ -427,7 +468,7 @@ describe('InputsDock DOM', () => {
 
       // Load Scenario B and verify its summary
       loadScenario(idB as string)
-      rerender(<InputsDock />)
+      rerender(<InputsDock />, { wrapper: createTestWrapper() })
       fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
 
       const summaryB = screen.getByTestId('scenario-run-summary')
@@ -444,7 +485,7 @@ describe('InputsDock DOM', () => {
 
       const setShowResultsPanelSpy = vi.spyOn(useCanvasStore.getState(), 'setShowResultsPanel')
 
-      render(<InputsDock />)
+      render(<InputsDock />, { wrapper: createTestWrapper() })
       fireEvent.click(screen.getByRole('button', { name: 'Scenarios' }))
 
       const cta = screen.getByRole('button', { name: 'Open latest results' })

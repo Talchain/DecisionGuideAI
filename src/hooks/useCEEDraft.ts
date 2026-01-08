@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import { CEEClient, CEEError } from '../adapters/cee/client'
-import type { CEEDraftResponse, CEEv2Response } from '../adapters/cee/types'
+import type { CEEDraftResponse, CEEv2Response, CEEv3Response } from '../adapters/cee/types'
 import { isSchemaV2Enabled } from '../flags'
 
 export interface DraftGuidance {
@@ -10,7 +10,7 @@ export interface DraftGuidance {
 }
 
 interface UseCEEDraftState {
-  data: CEEDraftResponse | CEEv2Response | null
+  data: CEEDraftResponse | CEEv2Response | CEEv3Response | null
   loading: boolean
   error: CEEError | null
   guidance: DraftGuidance | null

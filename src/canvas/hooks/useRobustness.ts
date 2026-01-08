@@ -21,7 +21,7 @@ import {
   extractRobustnessFromEnrichment,
   type PLoTResponseWithEnrichment,
 } from '../../adapters/plot/enrichment'
-import { updateRobustnessGate } from '../../lib/gate-state'
+import { useGateStore } from '../../lib/gate-state'
 
 interface UseRobustnessOptions {
   /** Run ID to fetch robustness for (used for caching) */
@@ -147,11 +147,9 @@ export function useRobustness({
             })
           }
 
-          // Update robustness gate based on available data
-          updateRobustnessGate(
-            enrichment.sensitivity_analysis,
-            enrichment.metadata?.factor_sensitivity_status
-          )
+          // P0 Fix: Do NOT update robustness gate here - useV2Run is authoritative
+          // useV2Run calls updateRobustnessGateFromV2() with the V2 response data
+          // This hook only extracts display data, not gating decisions
 
           justCompletedFetchRef.current = true
           robustnessCache.set(cacheKey, { result: fromEnrichment, source: 'enrichment' })
@@ -159,19 +157,135 @@ export function useRobustness({
           setSource('enrichment')
           setLoading(false)
           return
-        } else if (import.meta.env.DEV) {
-          console.warn('[useRobustness] extractRobustnessFromEnrichment returned null despite enrichment present')
+        }
+
+        // P0.1 Fix: Fallback to direct enrichment extraction when extractRobustnessFromEnrichment fails
+        // This handles the case where enrichment exists but the complex extraction returns null
+        // (e.g., due to type/shape mismatches between V2 enrichment and PLoT enrichment formats)
+        const sa = enrichment.sensitivity_analysis
+        if (sa) {
+          const fragileEdges = Array.isArray(sa.fragile_edges) ? sa.fragile_edges : []
+          const robustEdges = Array.isArray(sa.robust_edges) ? sa.robust_edges : []
+          const hasRobustnessData = fragileEdges.length > 0 || robustEdges.length > 0
+
+          if (hasRobustnessData) {
+            // Derive robustness label from edge counts (same logic as in enrichment.ts)
+            const totalEdges = fragileEdges.length + robustEdges.length
+            const robustRatio = totalEdges > 0 ? robustEdges.length / totalEdges : 0.5
+            let robustnessLabel: 'robust' | 'moderate' | 'fragile' = 'moderate'
+            if (robustRatio >= 0.7) robustnessLabel = 'robust'
+            else if (robustRatio < 0.3) robustnessLabel = 'fragile'
+
+            // Use overall_robustness if available (string or derive from number)
+            if (typeof sa.overall_robustness === 'string' &&
+                ['robust', 'moderate', 'fragile'].includes(sa.overall_robustness)) {
+              robustnessLabel = sa.overall_robustness as 'robust' | 'moderate' | 'fragile'
+            }
+
+            const directResult: RobustnessResult = {
+              option_rankings: [],
+              recommendation: {
+                option_id: '',
+                confidence: 'medium',
+                recommendation_status: 'uncertain',
+              },
+              sensitivity: [],
+              robustness_label: robustnessLabel,
+              robustness_bounds: [],
+              value_of_information: [],
+              narrative: `${fragileEdges.length} fragile edge${fragileEdges.length !== 1 ? 's' : ''}, ${robustEdges.length} robust edge${robustEdges.length !== 1 ? 's' : ''}`,
+              fragile_edge_count: fragileEdges.length,
+              robust_edge_count: robustEdges.length,
+            }
+
+            if (import.meta.env.DEV) {
+              console.log('[useRobustness] Using direct enrichment fallback:', {
+                fragileEdgeCount: fragileEdges.length,
+                robustEdgeCount: robustEdges.length,
+                robustnessLabel,
+                reason: 'extractRobustnessFromEnrichment returned null',
+              })
+            }
+
+            justCompletedFetchRef.current = true
+            robustnessCache.set(cacheKey, { result: directResult, source: 'enrichment' })
+            setRobustness(directResult)
+            setSource('enrichment')
+            setLoading(false)
+            return
+          }
+        }
+
+        if (import.meta.env.DEV) {
+          console.warn('[useRobustness] extractRobustnessFromEnrichment returned null and no direct robustness data available')
         }
       }
 
-      // No enrichment available - use fallback
+      // No enrichment available - try to derive from report confidence level
       // (Direct ISL calls removed in Factor Sensitivity Phase 1 - PLoT handles ISL internally)
-      if (import.meta.env.DEV) {
-        console.log('[useRobustness] No enrichment available - using fallback')
+
+      // P0.1 Fix: Use report.confidence.level to derive robustness_label when enrichment is unavailable
+      // The confidence level is derived from V2 robustness data in responseMapper, so this provides
+      // a reliable fallback that matches the footer's data source
+      if (report?.confidence?.level) {
+        const confidenceToRobustness: Record<string, 'robust' | 'moderate' | 'fragile'> = {
+          high: 'robust',
+          medium: 'moderate',
+          low: 'fragile',
+        }
+        const derivedLabel = confidenceToRobustness[report.confidence.level] || 'moderate'
+
+        // Parse edge counts from confidence.why if available (e.g., "10 fragile edges, 1 robust edges")
+        let fragileCount = 0
+        let robustCount = 0
+        const whyMatch = report.confidence.why?.match(/(\d+)\s*fragile\s*edge.*?(\d+)\s*robust\s*edge/i)
+        if (whyMatch) {
+          fragileCount = parseInt(whyMatch[1], 10) || 0
+          robustCount = parseInt(whyMatch[2], 10) || 0
+        }
+
+        const reportDerivedResult: RobustnessResult = {
+          option_rankings: [],
+          recommendation: {
+            option_id: '',
+            confidence: report.confidence.level,
+            recommendation_status: 'uncertain',
+          },
+          sensitivity: [],
+          robustness_label: derivedLabel,
+          robustness_bounds: [],
+          value_of_information: [],
+          narrative: report.confidence.why || 'Based on available data',
+          fragile_edge_count: fragileCount,
+          robust_edge_count: robustCount,
+        }
+
+        if (import.meta.env.DEV) {
+          console.log('[useRobustness] Using report confidence fallback:', {
+            confidenceLevel: report.confidence.level,
+            derivedLabel,
+            fragileCount,
+            robustCount,
+            why: report.confidence.why,
+          })
+        }
+
+        justCompletedFetchRef.current = true
+        // Don't cache report-derived results - they should be regenerated if enrichment becomes available
+        setRobustness(reportDerivedResult)
+        setSource('fallback')
+        setLoading(false)
+        return
       }
 
-      // Update gate to reflect no data available
-      updateRobustnessGate(null, null)
+      if (import.meta.env.DEV) {
+        console.log('[useRobustness] No enrichment or report confidence available - using fallback')
+        // P0 Fix: Do NOT update robustness gate here - useV2Run is authoritative
+        // If robustness data exists in V2 response, useV2Run already set the gate to 'pass'
+        // Overwriting it here causes the dual-source conflict bug
+        const currentGate = useGateStore.getState().gates.robustness
+        console.log('[useRobustness] Current robustness gate (not overwriting):', currentGate)
+      }
 
       justCompletedFetchRef.current = true
       const fallback = generateFallbackRobustness()

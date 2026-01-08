@@ -486,11 +486,13 @@ export function OutputsDock() {
     if (resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming') {
       decisionReviewStatus = 'loading'
     } else if (resultsStatus === 'complete' && report) {
-      if (ceeError) {
+      // Check both V1 types (preferred) and legacy types for backwards compatibility
+      // V1 types come from synthesized data when using V2 endpoint
+      if (ceeErrorV1 || ceeError) {
         decisionReviewStatus = 'error'
-      } else if (ceeReview) {
+      } else if (ceeReviewV1 || ceeReview) {
         decisionReviewStatus = 'ready'
-      } else if (ceeTrace) {
+      } else if (ceeTraceV1 || ceeTrace) {
         // CEE was engaged for this run (trace present) but no review/error was returned.
         // Treat this as an "empty" Decision Review state.
         decisionReviewStatus = 'empty'

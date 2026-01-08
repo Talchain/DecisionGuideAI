@@ -13,15 +13,27 @@ import {
   isBlockedResponse,
   isFailedAnalysis,
   isSuccessfulAnalysis,
+  validateV2RunResponseFull,
+  sanitizeV2RunResponse,
   type V2AdapterConfig,
   type V2RunError,
   type V2RunResponse,
 } from '../../adapters/plot/v2'
-import { mapV2ResponseToReportV1, createErrorReport, createEnrichmentFromV2Response, detectComputedButEmpty } from '../../adapters/plot/v2/responseMapper'
+import {
+  mapV2ResponseToReportV1,
+  createErrorReport,
+  createEnrichmentFromV2Response,
+  detectComputedButEmpty,
+  synthesizeCeeReviewFromV2,
+  synthesizeCeeTraceFromV2,
+} from '../../adapters/plot/v2/responseMapper'
 import { trackRunCompleted, trackRunFailed, trackEmptyComputedResults } from '../../lib/resultsInstrumentation'
+import { trackTypedError } from '../../lib/telemetry'
+import { ApiError, NetworkError, ProcessingError, isApiError } from '../../lib/api-errors'
 import { generateRequestId } from '../../types/requestId'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
 import { useGateStore, updateRobustnessGate, updateRobustnessGateFromV2 } from '../../lib/gate-state'
+import { buildRawErrorData, hashStackTrace } from '../../utils/payloadRedaction'
 
 /**
  * P0 Fix: Derive a stable numeric seed from a string.
@@ -311,7 +323,20 @@ export function useV2Run(): UseV2RunReturn {
 
       // Success - map V2 response to ReportV1
       if (isSuccessfulAnalysis(result)) {
-        const successResult = result as V2RunResponse
+        const rawSuccessResult = result as V2RunResponse
+
+        // Validate and sanitize before mapping to catch malformed responses
+        const validationResult = validateV2RunResponseFull(rawSuccessResult)
+        if (validationResult.softWarnings.length > 0 && import.meta.env.DEV) {
+          console.warn('[useV2Run] Soft validation warnings (will sanitize):', {
+            requestId,
+            warnings: validationResult.softWarnings,
+          })
+        }
+
+        // Sanitize to fix soft anomalies (e.g., object instead of array)
+        const successResult = sanitizeV2RunResponse(rawSuccessResult)
+
         if (import.meta.env.DEV) {
           console.log('[useV2Run] Analysis complete', {
             requestId,
@@ -328,6 +353,19 @@ export function useV2Run(): UseV2RunReturn {
 
         // Create enrichment from V2 response for gate-state and useRobustness
         const enrichment = createEnrichmentFromV2Response(successResult)
+
+        // Synthesize CEE V1 data from V2 response for Decision Review panel
+        // This provides useful AI-generated review content when using V2 endpoint
+        const ceeReviewV1 = synthesizeCeeReviewFromV2(successResult)
+        const ceeTraceV1 = synthesizeCeeTraceFromV2(successResult, requestId, elapsed_ms)
+
+        if (import.meta.env.DEV) {
+          console.log('[useV2Run] Synthesized CEE data from V2 response:', {
+            hasCeeReview: !!ceeReviewV1,
+            blockCount: ceeReviewV1?.blocks?.length ?? 0,
+            readinessLevel: ceeReviewV1?.readiness?.level,
+          })
+        }
 
         // Detect computed-but-empty anomalies (backend bug detection)
         const anomalies = detectComputedButEmpty(successResult)
@@ -358,11 +396,21 @@ export function useV2Run(): UseV2RunReturn {
           request_id: requestId,
         })
 
+        // Pass synthesized CEE V1 data to store so Decision Review panel can display content
         resultsComplete({
           report,
           hash: successResult.response_hash,
           requestId,
           enrichment,
+          ceeReviewV1,
+          ceeTraceV1,
+        })
+
+        // Update run metadata with CEE data for debugging/display
+        setRunMeta({
+          ceeReviewV1,
+          ceeTraceV1,
+          ceeErrorV1: null, // No error - synthesis succeeded
         })
 
         // Update gates after successful analysis
@@ -428,10 +476,12 @@ export function useV2Run(): UseV2RunReturn {
         console.error('[useV2Run] Error', { requestId, error: err })
       }
 
-      // Determine error type: actual network failure vs processing error
-      // Network errors: AbortError (timeout), fetch failures, connection refused
-      // Processing errors: everything else (JSON parse, mapping errors, etc.)
-      const isActualNetworkError = err instanceof Error && (
+      // Convert to typed error for consistent handling
+      let typedError: ApiError
+      if (isApiError(err)) {
+        // Already a typed error (e.g., MalformedApiResponseError from adapter)
+        typedError = err
+      } else if (err instanceof Error && (
         err.name === 'AbortError' ||
         err.name === 'TypeError' && message.includes('fetch') ||
         message.includes('NetworkError') ||
@@ -439,9 +489,18 @@ export function useV2Run(): UseV2RunReturn {
         message.includes('network') ||
         message.includes('timeout') ||
         message.includes('Connection refused')
-      )
+      )) {
+        // Network-related error
+        typedError = NetworkError.fromFetchError(err, { requestId, endpoint: '/v2/run' })
+      } else {
+        // Processing/mapping error
+        typedError = ProcessingError.wrap(err, { requestId, endpoint: '/v2/run' })
+      }
 
-      const errorCode = isActualNetworkError ? 'NETWORK_ERROR' : 'PROCESSING_ERROR'
+      const errorCode = typedError.code
+
+      // Track typed error for observability
+      trackTypedError(typedError)
 
       trackRunFailed({
         error_code: errorCode,
@@ -454,8 +513,35 @@ export function useV2Run(): UseV2RunReturn {
         code: errorCode,
         message,
         request_id: requestId,
-        canRetry: true, // Both error types are retryable
+        canRetry: typedError.retryable,
       })
+
+      // Capture raw error data for debugging in the debug panel
+      // Uses redaction utility to protect privacy and enforce size limits
+      let rawErrorPayload: unknown = undefined
+      let validationErrors: string[] | undefined
+
+      // If this is a MalformedApiResponseError, capture validation details
+      if (err && typeof err === 'object' && 'validationErrors' in err) {
+        const malformedErr = err as {
+          validationErrors?: Array<{ field: string; expected: string; received: string }>
+          rawPayload?: unknown
+        }
+        rawErrorPayload = malformedErr.rawPayload
+        validationErrors = malformedErr.validationErrors?.map(
+          e => `${e.field}: expected ${e.expected}, got ${e.received}`
+        )
+      }
+
+      // Build redacted error data (respects dev/staging gating and size limits)
+      const rawErrorData = buildRawErrorData({
+        payload: rawErrorPayload,
+        expectedShape: 'V2RunResponse | V2RunError',
+        validationErrors,
+      })
+
+      // Store raw error data for debug panel access
+      setRunMeta({ rawErrorData })
 
       setError(message)
     } finally {

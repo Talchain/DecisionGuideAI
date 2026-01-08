@@ -266,3 +266,104 @@ export function hasAnalysisReady(response: unknown): response is CEEv3Response &
     typeof response.analysis_ready.goal_node_id === 'string'
   )
 }
+
+// =============================================================================
+// CEE Pipeline Trace Types (Debug Panel)
+// =============================================================================
+
+/**
+ * Pipeline stage name - identifies the processing step
+ */
+export type CeePipelineStageName =
+  | 'llm_draft'
+  | 'node_validation'
+  | 'connectivity_check'
+  | 'goal_repair'
+  | 'edge_repair'
+  | 'final_validation'
+
+/**
+ * Pipeline stage status
+ */
+export type CeePipelineStageStatus = 'success' | 'failed' | 'skipped' | 'repaired'
+
+/**
+ * Overall pipeline status
+ */
+export type CeePipelineStatus = 'success' | 'success_with_repairs' | 'failed'
+
+/**
+ * Individual pipeline stage with timing and status
+ */
+export interface CeePipelineStage {
+  name: CeePipelineStageName
+  status: CeePipelineStageStatus
+  duration_ms: number
+  details?: Record<string, unknown>
+}
+
+/**
+ * Connectivity diagnostic information
+ */
+export interface CeeConnectivityDiagnostic {
+  checked: boolean
+  passed: boolean
+  decision_ids: string[]
+  reachable_options: string[]
+  reachable_goals: string[]
+  unreachable_nodes: string[]
+  edges_added?: Array<{ from: string; to: string }>
+}
+
+/**
+ * LLM call trace information
+ */
+export interface CeeLlmCall {
+  id: string
+  model: string
+  duration_ms: number
+  prompt_tokens?: number
+  completion_tokens?: number
+  request?: unknown
+  response?: unknown
+}
+
+/**
+ * Final graph summary (simplified node/edge data)
+ */
+export interface CeeFinalGraph {
+  node_count: number
+  edge_count: number
+  nodes?: CEEv2Node[]
+  edges?: CEEv2Edge[]
+}
+
+/**
+ * CEE Pipeline Trace - complete trace data from draft-graph response
+ *
+ * Contains detailed timing, connectivity diagnostics, and LLM call information
+ * for debugging and visualisation in the debug panel.
+ */
+export interface CeePipelineTrace {
+  status: CeePipelineStatus
+  total_duration_ms: number
+  llm_call_count: number
+  stages: CeePipelineStage[]
+  connectivity?: CeeConnectivityDiagnostic
+  llm_calls?: CeeLlmCall[]
+  final_graph?: CeeFinalGraph
+}
+
+/**
+ * Type guard for pipeline trace
+ */
+export function isCeePipelineTrace(value: unknown): value is CeePipelineTrace {
+  if (typeof value !== 'object' || value === null) return false
+  const v = value as Record<string, unknown>
+  return (
+    typeof v.status === 'string' &&
+    typeof v.total_duration_ms === 'number' &&
+    typeof v.llm_call_count === 'number' &&
+    Array.isArray(v.stages)
+  )
+}

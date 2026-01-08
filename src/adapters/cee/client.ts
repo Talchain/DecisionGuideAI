@@ -5,8 +5,9 @@ import type {
   CEEStructuralWarning,
   CEEv2Response,
   CEEv3Response,
+  CeePipelineTrace,
 } from './types'
-import { isCEEv2Response, isCEEv3Response } from './types'
+import { isCEEv2Response, isCEEv3Response, isCeePipelineTrace } from './types'
 import { withObservabilityHeaders, recordBffResponse, recordBffError, recordBffResponsePayload } from '../../lib/observability-headers'
 import { useGateStore } from '../../lib/gate-state'
 
@@ -66,7 +67,7 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
     // P0 FIX: Preserve analysis_ready if present in raw response
     // This is critical for CEE V3 integration where analysis_ready contains
     // resolved options with interventions
-    const result: CEEDraftResponse & { analysis_ready?: unknown; schema_version?: string } = {
+    const result: CEEDraftResponse & { analysis_ready?: unknown; schema_version?: string; pipeline_trace?: CeePipelineTrace } = {
       quality_overall: quality,
       nodes: draft.nodes,
       edges: draft.edges,
@@ -84,6 +85,12 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
     // Pass through schema_version if present
     if (typeof draft.schema_version === 'string') {
       result.schema_version = draft.schema_version
+    }
+
+    // Pass through pipeline trace if present (for debug panel)
+    // Backend sends trace.pipeline (nested), not pipeline_trace (top-level)
+    if (isCeePipelineTrace(draft.trace?.pipeline)) {
+      result.pipeline_trace = draft.trace.pipeline
     }
 
     return result
@@ -236,7 +243,7 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
   }
 
   // P0 FIX: Preserve analysis_ready if present in raw response (legacy path)
-  const result: CEEDraftResponse & { analysis_ready?: unknown; schema_version?: string } = {
+  const result: CEEDraftResponse & { analysis_ready?: unknown; schema_version?: string; pipeline_trace?: CeePipelineTrace } = {
     quality_overall,
     nodes,
     edges,
@@ -254,6 +261,12 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
   // Pass through schema_version if present
   if (typeof (raw as any).schema_version === 'string') {
     result.schema_version = (raw as any).schema_version
+  }
+
+  // Pass through pipeline trace if present (for debug panel)
+  // Backend sends trace.pipeline (nested), not pipeline_trace (top-level)
+  if (isCeePipelineTrace((raw as any).trace?.pipeline)) {
+    result.pipeline_trace = (raw as any).trace.pipeline
   }
 
   return result
@@ -375,7 +388,7 @@ export class CEEClient {
   async draftModel(
     description: string,
     options?: { schemaVersion?: 'v1' | 'v2' | 'v3' }
-  ): Promise<CEEDraftResponse | CEEv2Response> {
+  ): Promise<CEEDraftResponse | CEEv2Response | CEEv3Response> {
     // Request V3 schema explicitly to get analysis_ready payload with resolved interventions
     // Defence in depth: explicit version prevents breakage if CEE default changes
     const endpoint = '/draft-graph?schema=v3'

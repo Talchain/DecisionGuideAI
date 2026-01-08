@@ -217,10 +217,40 @@ describe('DecisionReviewPanel', () => {
       expect(screen.getByText('150ms')).toBeInTheDocument()
     })
 
-    it('renders V1 error state with retry button', () => {
+    it('renders V1 timeout state with informational messaging', () => {
       const mockError: CeeError = {
         code: 'CEE_TIMEOUT',
         message: 'Request timed out',
+        retriable: true,
+      }
+
+      const onRetry = vi.fn()
+
+      render(
+        <DecisionReviewPanel
+          status="error"
+          errorV1={mockError}
+          traceV1={mockV1Trace}
+          onRetry={onRetry}
+        />
+      )
+
+      // P0 Fix: Timeout shows informational messaging, not error
+      expect(screen.getByTestId('decision-review-timeout')).toBeInTheDocument()
+      expect(screen.getByText(/AI review is taking longer than expected/i)).toBeInTheDocument()
+      expect(screen.getByText(/Your analysis is complete/i)).toBeInTheDocument()
+
+      const retryButton = screen.getByTestId('decision-review-retry')
+      expect(retryButton).toBeInTheDocument()
+
+      fireEvent.click(retryButton)
+      expect(onRetry).toHaveBeenCalledOnce()
+    })
+
+    it('renders V1 error state for non-timeout errors', () => {
+      const mockError: CeeError = {
+        code: 'CEE_UNAVAILABLE',
+        message: 'Service unavailable',
         retriable: true,
       }
 
@@ -256,6 +286,26 @@ describe('DecisionReviewPanel', () => {
       expect(screen.getByTestId('decision-review-unavailable')).toBeInTheDocument()
       expect(screen.getByText(/not available for this run/i)).toBeInTheDocument()
       expect(screen.getByTestId('trace-footer')).toBeInTheDocument()
+    })
+
+    it('renders timeout state when trace has reason=CEE_V2_TIMEOUT (P0 Fix)', () => {
+      // P0 Fix: When CEE times out, there may be no error - just trace with reason
+      const traceWithTimeout: CeeTrace = {
+        ...mockV1Trace,
+        reason: 'CEE_V2_TIMEOUT',
+      } as CeeTrace
+
+      render(
+        <DecisionReviewPanel
+          status="ready"
+          traceV1={traceWithTimeout}
+        />
+      )
+
+      // Should render timeout state, not unavailable state
+      expect(screen.getByTestId('decision-review-timeout')).toBeInTheDocument()
+      expect(screen.getByText(/AI review is taking longer than expected/i)).toBeInTheDocument()
+      expect(screen.getByText(/Your analysis is complete/i)).toBeInTheDocument()
     })
 
     it('shows ID mismatch warning in trace footer', () => {

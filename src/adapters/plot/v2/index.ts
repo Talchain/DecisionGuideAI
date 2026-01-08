@@ -29,7 +29,16 @@ export {
   STD_FLOOR,
   DEFAULT_STD,
   DEFAULT_SEED,
+  // Runtime validation guards
+  validateV2RunResponse,
+  validateV2RunResponseFull,
+  validateV2RunError,
+  isValidV2RunResponse,
+  isValidV2RunError,
+  sanitizeV2RunResponse,
 } from './types'
+
+export type { ValidationResult } from './types'
 
 // Adapter functions
 export {

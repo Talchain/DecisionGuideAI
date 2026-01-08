@@ -61,6 +61,92 @@ function isValidBlock(block: ReviewBlock | undefined): block is ReviewBlock {
 }
 
 // =============================================================================
+// Runtime Validation Guards
+// =============================================================================
+
+/**
+ * Validate that a ReviewBlock has the expected structure.
+ * Used to catch malformed CEE responses at runtime.
+ */
+export function isValidReviewBlock(block: unknown): block is ReviewBlock {
+  if (typeof block !== 'object' || block === null) return false
+  const b = block as Record<string, unknown>
+  return (
+    typeof b.id === 'string' &&
+    typeof b.status === 'string' &&
+    typeof b.source === 'string'
+  )
+}
+
+/**
+ * Validate that a ReadinessFactor has the expected structure.
+ */
+export function isValidReadinessFactor(factor: unknown): factor is ReadinessFactor {
+  if (typeof factor !== 'object' || factor === null) return false
+  const f = factor as Record<string, unknown>
+  return (
+    typeof f.label === 'string' &&
+    typeof f.status === 'string' &&
+    ['ok', 'warning', 'blocking'].includes(f.status as string)
+  )
+}
+
+/**
+ * Validate CEE Decision Review payload structure.
+ * Filters out invalid blocks and factors to prevent crashes.
+ * Logs warnings when sanitisation is applied.
+ */
+export function sanitizeCeeReviewPayload(
+  payload: CeeDecisionReviewPayloadV1 | null | undefined
+): CeeDecisionReviewPayloadV1 | null {
+  if (!payload) return null
+
+  // Track sanitisation changes for observability
+  const originalBlockCount = Array.isArray(payload.blocks) ? payload.blocks.length : 0
+  const originalFactorCount = Array.isArray(payload.readiness?.factors) ? payload.readiness.factors.length : 0
+
+  // Ensure blocks is an array and filter invalid entries
+  const blocks = Array.isArray(payload.blocks)
+    ? payload.blocks.filter(isValidReviewBlock)
+    : []
+
+  // Ensure readiness factors are valid
+  const readiness = payload.readiness
+    ? {
+        ...payload.readiness,
+        factors: Array.isArray(payload.readiness.factors)
+          ? payload.readiness.factors.filter(isValidReadinessFactor)
+          : [],
+      }
+    : undefined
+
+  // Track removed items
+  const removedBlocks = originalBlockCount - blocks.length
+  const removedFactors = originalFactorCount - (readiness?.factors?.length ?? 0)
+
+  // Log warning if sanitisation was applied
+  if (removedBlocks > 0 || removedFactors > 0) {
+    const env = (import.meta as any).env?.VITE_APP_ENV || 'development'
+    if (env === 'development' || env === 'staging') {
+      console.warn('[CEE Sanitisation] Applied to CeeReviewPayload:', {
+        removedBlocks,
+        removedFactors,
+        originalBlockCount,
+        originalFactorCount,
+        finalBlockCount: blocks.length,
+        finalFactorCount: readiness?.factors?.length ?? 0,
+      })
+    }
+  }
+
+  return {
+    ...payload,
+    blocks,
+    readiness,
+  }
+}
+
+// =============================================================================
 // Rationale Extraction
 // =============================================================================
 

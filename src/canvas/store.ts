@@ -20,7 +20,7 @@ import type { Document, Citation } from './share/types'
 import type { Snapshot, DecisionRationale, ComparisonResult } from './snapshots/types'
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from './decisionReview/types'
 import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError } from '../types/cee'
-import type { CEEAnalysisReady } from '../adapters/cee/types'
+import type { CEEAnalysisReady, CeePipelineTrace } from '../adapters/cee/types'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
@@ -84,6 +84,14 @@ export type RunMetaState = {
   ceeTraceV1?: CeeTrace | null
   ceeErrorV1?: CeeError | null
   ceeDebugHeaders?: CeeDebugHeaders // Phase 1 Section 4.1: Dev-only debug headers
+  // Raw error data for debugging malformed responses
+  rawErrorData?: {
+    payload?: unknown             // Raw payload that failed validation (redacted)
+    expectedShape?: string        // Description of expected structure
+    validationErrors?: string[]   // Hard errors that blocked processing
+    validationWarnings?: string[] // Soft warnings (processing continued)
+    timestamp?: string            // ISO timestamp when error occurred
+  }
 }
 
 const initialNodes: Node[] = []
@@ -139,6 +147,8 @@ interface CanvasState {
   // Node IDs that existed when ceeAnalysisReady was stored
   // Used to detect stale analysis_ready after graph edits
   ceeAnalysisReadyNodeIds: string[] | null
+  // CEE Pipeline trace from last draft-graph response (for debug panel)
+  ceePipelineTrace: CeePipelineTrace | null
   // M4: Graph Health & Repair
   graphHealth: GraphHealth | null
   showIssuesPanel: boolean
@@ -273,6 +283,7 @@ interface CanvasState {
   closeTemplatesPanel: () => void
   setShowDraftChat: (show: boolean) => void
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
+  setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
   // M4: Graph Health actions
   validateGraph: () => void
   setShowIssuesPanel: (show: boolean) => void
@@ -626,6 +637,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // CEE V3: analysis_ready payload
   ceeAnalysisReady: null,
   ceeAnalysisReadyNodeIds: null,
+  // CEE Pipeline trace from last draft
+  ceePipelineTrace: null,
   // M6: Scenario Comparison Mode
   comparisonMode: {
     active: false,
@@ -1384,9 +1397,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       nextEdgeId: 1,
       // Clear AI assistant and draft state
       showDraftChat: false,
-      // Clear CEE analysis_ready payload
+      // Clear CEE analysis_ready payload and pipeline trace
       ceeAnalysisReady: null,
       ceeAnalysisReadyNodeIds: null,
+      ceePipelineTrace: null,
       // Clear results and analysis state
       results: { status: 'idle', progress: 0 },
       runMeta: {},
@@ -2025,6 +2039,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     } else {
       set({ ceeAnalysisReady: null, ceeAnalysisReadyNodeIds: null })
     }
+  },
+
+  setCeePipelineTrace: (trace: CeePipelineTrace | null) => {
+    if (import.meta.env.DEV && trace) {
+      console.log('[Canvas] setCeePipelineTrace:', {
+        status: trace.status,
+        total_duration_ms: trace.total_duration_ms,
+        llm_call_count: trace.llm_call_count,
+        stages: trace.stages.length,
+      })
+    }
+    set({ ceePipelineTrace: trace })
   },
 
   // M4: Graph Health actions

@@ -1,6 +1,8 @@
 // src/lib/telemetry.ts
 // Minimal, opt-in telemetry seam. No PII, counters only.
 import { isTelemetryEnabled } from '../flags'
+import type { ApiError } from './api-errors'
+import { hashStackTrace } from '../utils/payloadRedaction'
 
 export type TelemetryEvent =
   | 'edge.stream.start'
@@ -74,7 +76,74 @@ export function track(event: TelemetryEvent): void {
   }
 }
 
+// =============================================================================
+// Typed Error Telemetry
+// =============================================================================
+
+// hashStackTrace is imported from payloadRedaction.ts for consistent fingerprinting
+
+/**
+ * Typed error counters (keyed by error_code)
+ */
+const typedErrorCounters: Record<string, number> = {}
+
+/**
+ * Track a typed API error with classification metadata.
+ *
+ * @param error - The ApiError instance to track
+ *
+ * @example
+ * try {
+ *   await runV2Analysis()
+ * } catch (error) {
+ *   if (isApiError(error)) {
+ *     trackTypedError(error)
+ *   }
+ * }
+ */
+export function trackTypedError(error: ApiError): void {
+  if (!isTelemetryEnabled()) return
+
+  const errorCode = error.code
+  const errorClass = error.name
+  const stackHash = hashStackTrace(error.stack)
+
+  // Increment counter for this error code
+  typedErrorCounters[errorCode] = (typedErrorCounters[errorCode] || 0) + 1
+
+  try {
+    const dev = (import.meta as any)?.env?.DEV
+    if (dev && typeof console !== 'undefined' && typeof console.debug === 'function') {
+      console.debug('[TLM] typed_error', {
+        error_code: errorCode,
+        error_class: errorClass,
+        stack_hash: stackHash,
+        count: typedErrorCounters[errorCode],
+      })
+    }
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Get typed error counters (for debugging)
+ */
+export function __getTypedErrorCounters(): Record<string, number> {
+  return { ...typedErrorCounters }
+}
+
+/**
+ * Reset typed error counters (for testing)
+ */
+export function __resetTypedErrorCounters(): void {
+  Object.keys(typedErrorCounters).forEach((k) => delete typedErrorCounters[k])
+}
+
+// =============================================================================
 // Test helpers (lightweight)
+// =============================================================================
+
 export function __getTelemetryCounters() {
   return { ...counters }
 }

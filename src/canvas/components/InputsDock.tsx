@@ -25,6 +25,34 @@ interface InputsDockProps {
   renderDocumentsTab?: () => JSX.Element
 }
 
+// P0 Fix: Minimum brief length for CEE validation
+const MIN_BRIEF_LENGTH = 30
+
+/**
+ * Calculate brief length from framing fields
+ * Matches logic in useAsk.ts buildBriefFromFraming()
+ */
+function calculateBriefLength(framing: {
+  title?: string
+  goal?: string
+  timeline?: string
+  constraints?: string
+  risks?: string
+  uncertainties?: string
+} | null): number {
+  if (!framing) return 0
+
+  const parts: string[] = []
+  if (framing.title) parts.push(`Decision: ${framing.title}`)
+  if (framing.goal) parts.push(`Goal: ${framing.goal}`)
+  if (framing.timeline) parts.push(`Timeline: ${framing.timeline}`)
+  if (framing.constraints) parts.push(`Constraints: ${framing.constraints}`)
+  if (framing.risks) parts.push(`Risks: ${framing.risks}`)
+  if (framing.uncertainties) parts.push(`Uncertainties: ${framing.uncertainties}`)
+
+  return parts.join('\n\n').length
+}
+
 function FramingSection() {
   // React #185 FIX: Use shallow comparison for object selector
   const framing = useCanvasStore(s => s.currentScenarioFraming)
@@ -34,6 +62,10 @@ function FramingSection() {
   )
 
   const hasCoreFraming = Boolean(framing?.title || framing?.goal || framing?.timeline)
+
+  // P0 Fix: Calculate brief length for validation hint
+  const briefLength = useMemo(() => calculateBriefLength(framing), [framing])
+  const showBriefHint = briefLength > 0 && briefLength < MIN_BRIEF_LENGTH
 
   const handleChange = (field: 'title' | 'goal' | 'timeline' | 'constraints' | 'risks' | 'uncertainties') =>
     (event: any) => {
@@ -154,6 +186,20 @@ function FramingSection() {
           )}
         </div>
       </Collapsible>
+
+      {/* P0 Fix: Brief length validation hint */}
+      {showBriefHint && (
+        <div
+          className="mt-2 px-2 py-1.5 rounded bg-sun-50 border border-sun-200"
+          role="alert"
+          data-testid="brief-length-hint"
+        >
+          <p className={`${typography.caption} text-sun-800`}>
+            <span className="font-medium">Tip:</span> Brief should be at least {MIN_BRIEF_LENGTH} characters for best AI review results.
+            <span className="text-sun-600 ml-1">({MIN_BRIEF_LENGTH - briefLength} more needed)</span>
+          </p>
+        </div>
+      )}
     </section>
   )
 }
