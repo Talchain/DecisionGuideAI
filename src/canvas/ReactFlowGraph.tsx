@@ -51,7 +51,7 @@ import { DegradedBanner } from './components/DegradedBanner'
 import { LayoutProgressBanner } from './components/LayoutProgressBanner'
 const IssuesPanel = lazy(() => import(/* webpackChunkName: "issues-panel" */ './panels/IssuesPanel').then(m => ({ default: m.IssuesPanel })))
 const AIClarifierChat = lazy(() => import(/* webpackChunkName: "ai-clarifier" */ './panels/AIClarifierChat').then(m => ({ default: m.AIClarifierChat })))
-import { NeedleMoversOverlay } from './components/NeedleMoversOverlay'
+// NeedleMoversOverlay removed - consolidated into DriversSignal (OutputsDock)
 // CoachingNudge and useCEECoaching removed - coaching now in GuidancePanel (OutputsDock)
 import { DocumentsManager } from './components/DocumentsManager'
 import { ProvenanceHubTab } from './components/ProvenanceHubTab'
@@ -166,7 +166,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const showInspectorPanel = useCanvasStore(s => s.showInspectorPanel)
   const graphHealth = useCanvasStore(s => s.graphHealth)
   const showIssuesPanel = useCanvasStore(s => s.showIssuesPanel)
-  const needleMovers = useCanvasStore(s => s.needleMovers)
+  // needleMovers selector removed - consolidated into DriversSignal
   const documents = useCanvasStore(s => s.documents)
   const citations = useCanvasStore(s => s.citations)
   const showDocumentsDrawer = useCanvasStore(s => s.showDocumentsDrawer)
@@ -1737,12 +1737,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       <LayoutProgressBanner />
 
       {/* M4: Graph Health UI - HealthStatusBar removed, consolidated into OutputsDock */}
-      {needleMovers.length > 0 && (
-        <NeedleMoversOverlay
-          movers={needleMovers}
-          onFocusNode={handleFocusNode}
-        />
-      )}
+      {/* NeedleMoversOverlay removed - Key Factors consolidated into DriversSignal */}
 
       {paletteEnabled && showCommandPalette && (
         <CommandPalette
