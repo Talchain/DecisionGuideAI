@@ -524,7 +524,9 @@ function mapDriversFromResponse(v2Response: V2RunResponse): ReportV1['drivers'] 
     return {
       label: formatNodeName(factorId),
       polarity,
-      strength: magnitude !== null ? mapElasticityToStrength(magnitude) : 'medium',
+      // P1 Fix: Don't fabricate 'medium' when sensitivity data is missing
+      // When magnitude is null, strength should be undefined to indicate missing data
+      strength: magnitude !== null ? mapElasticityToStrength(magnitude) : undefined,
       // Include factor metadata for highlighting
       nodeId: factorId,
       // contribution is null when sensitivity data is missing - UI should show "—" not a percentage
@@ -1124,19 +1126,28 @@ function buildNextStepsBlock(v2Response: V2RunResponse): ReviewBlock | null {
  *
  * Creates a trace object for the V2 run to maintain compatibility
  * with existing UI components that expect trace data.
+ *
+ * P1 Fix: Extract cee_trace from V2 response when available.
+ * The /v2/run endpoint includes CEE trace data when CEE is called.
  */
 export function synthesizeCeeTraceFromV2(
   v2Response: V2RunResponse,
   requestId: string,
   latencyMs: number
 ): CeeTrace {
+  // Extract CEE trace data from V2 response if available
+  const ceeTrace = v2Response.cee_trace
+
   return {
     plot_request_id: requestId,
-    // V2 doesn't call CEE directly, so these are null
-    cee_sent_request_id: null,
-    cee_returned_request_id: null,
-    latency_ms: latencyMs,
+    // Use CEE trace request_id if available (both sent and returned are the same in V2 response)
+    cee_sent_request_id: ceeTrace?.request_id ?? null,
+    cee_returned_request_id: ceeTrace?.request_id ?? null,
+    // Prefer CEE-specific latency, fall back to total run latency
+    latency_ms: ceeTrace?.latency_ms ?? latencyMs,
     model: null,
+    // Mark degraded if CEE trace indicates degradation
+    id_mismatch: ceeTrace?.degraded ?? false,
     // Mark as V2 synthesized for debugging
     _synthesized_from_v2: true,
     source: 'v2_synthesis',

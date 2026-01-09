@@ -94,7 +94,8 @@ const polarityConfig: Record<'up' | 'down' | 'neutral', {
 }
 
 // Strength styling
-const strengthConfig: Record<'low' | 'medium' | 'high', {
+// P1 Fix: Added 'unavailable' state for when sensitivity data is missing
+const strengthConfig: Record<'low' | 'medium' | 'high' | 'unavailable', {
   barWidth: string
   textColor: string
   label: string
@@ -113,6 +114,11 @@ const strengthConfig: Record<'low' | 'medium' | 'high', {
     barWidth: 'w-3/4',
     textColor: 'text-mint-600',
     label: 'High',
+  },
+  unavailable: {
+    barWidth: 'w-0',
+    textColor: 'text-ink-400',
+    label: 'Impact unavailable',
   },
 }
 
@@ -451,7 +457,10 @@ export function DriversSignal({
       <div className="border-t border-sand-200 divide-y divide-sand-100">
         {drivers.map((driver, index) => {
           const polarity = polarityConfig[driver.polarity] || polarityConfig.neutral
-          const strength = strengthConfig[driver.strength] || strengthConfig.medium
+          // P1 Fix: Use 'unavailable' when strength is undefined instead of defaulting to 'medium'
+          const strength = driver.strength
+            ? strengthConfig[driver.strength] || strengthConfig.unavailable
+            : strengthConfig.unavailable
           const PolarityIcon = polarity.icon
           const hasTarget = driver.nodeId || driver.edgeId
 
