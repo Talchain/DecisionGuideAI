@@ -19,7 +19,7 @@ import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/typ
 import type { Document, Citation } from './share/types'
 import type { Snapshot, DecisionRationale, ComparisonResult } from './snapshots/types'
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from './decisionReview/types'
-import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError } from '../types/cee'
+import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError, M1Review } from '../types/cee'
 import type { CEEAnalysisReady, CeePipelineTrace } from '../adapters/cee/types'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
@@ -83,6 +83,8 @@ export type RunMetaState = {
   ceeReviewV1?: CeeDecisionReviewPayloadV1 | null
   ceeTraceV1?: CeeTrace | null
   ceeErrorV1?: CeeError | null
+  // M1 Review - CEE enrichment from /v2/run (rationale, robustness synthesis, etc.)
+  m1Review?: M1Review | null
   ceeDebugHeaders?: CeeDebugHeaders // Phase 1 Section 4.1: Dev-only debug headers
   // Raw error data for debugging malformed responses
   rawErrorData?: {

@@ -21,7 +21,9 @@ import {
 } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { Insights } from '../../types/plot'
+import type { InsightV3 } from '../../types/cee'
 import { focusNodeById } from '../utils/focusHelpers'
+import { useCanvasStore } from '../store'
 
 /** Driver information for insight generation */
 interface DriverSummary {
@@ -256,6 +258,14 @@ export function InsightsPanel({
 }: InsightsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
+  // M1 Review: Access caveats from store
+  const runMeta = useCanvasStore((s) => s.runMeta)
+  const caveats = useMemo<InsightV3[]>(() => {
+    const m1Insights = runMeta?.m1Review?.insights
+    if (!m1Insights) return []
+    return m1Insights.filter((insight) => insight.type === 'caveat')
+  }, [runMeta?.m1Review?.insights])
+
   // Brief 33b: Render counter for debugging re-render loop
   // P0-1 FIX: Only log every 10th render to reduce console spam
   const renderCountRef = useRef(0)
@@ -328,7 +338,7 @@ export function InsightsPanel({
     })
   }, [next_steps, driversInformative])
 
-  const hasDetails = risks.length > 0 || filteredNextSteps.length > 0
+  const hasDetails = risks.length > 0 || filteredNextSteps.length > 0 || caveats.length > 0
 
   return (
     <div
@@ -412,6 +422,36 @@ export function InsightsPanel({
                     </li>
                   )
                 })}
+              </ul>
+            </div>
+          )}
+
+          {/* Caveats - M1 Review: Warnings from CEE insights */}
+          {caveats.length > 0 && (
+            <div className="pt-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <AlertTriangle
+                  className="w-4 h-4 text-amber-500"
+                  aria-hidden="true"
+                />
+                <span className={`${typography.labelSmall} text-amber-600`}>
+                  Caveats
+                </span>
+              </div>
+              <ul
+                className="space-y-1.5 pl-5"
+                role="list"
+                aria-label="Analysis caveats"
+                data-testid="caveats-list"
+              >
+                {caveats.map((caveat) => (
+                  <li
+                    key={caveat.id}
+                    className={`${typography.bodySmall} text-ink-900/80 list-disc`}
+                  >
+                    {caveat.content}
+                  </li>
+                ))}
               </ul>
             </div>
           )}

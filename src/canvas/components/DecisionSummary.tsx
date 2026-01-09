@@ -159,7 +159,8 @@ export function DecisionSummary({
     // Use props if provided, otherwise fall back to runMeta
     const v1Data = ceeReviewV1 ?? runMeta?.ceeReviewV1
     const legacyData = ceeReview ?? runMeta?.ceeReview
-    return getRationale(v1Data, legacyData, report)
+    const m1ReviewData = runMeta?.m1Review
+    return getRationale(v1Data, legacyData, report, m1ReviewData)
   }, [ceeReviewV1, ceeReview, runMeta, report])
 
   // Comparison detection for ranking display

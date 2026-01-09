@@ -7,6 +7,7 @@
  * - Validation issues (graphHealth.issues with auto-fix capability)
  * - Critique items (results.report.critique)
  * - Bias findings (runMeta.ceeReview.bias_findings)
+ * - M1 Improvement guidance (runMeta.m1Review.improvement_guidance)
  *
  * Returns sorted by priority: critical → high → medium → low
  */
@@ -18,7 +19,7 @@ import { determineFixType } from '../utils/autoFix'
 import { stableImprovementId } from '../utils/stableId'
 
 export type ActionPriority = 'critical' | 'high' | 'medium' | 'low'
-export type ActionSource = 'readiness' | 'validation' | 'critique' | 'bias'
+export type ActionSource = 'readiness' | 'validation' | 'critique' | 'bias' | 'guidance'
 
 export interface UnifiedAction {
   id: string
@@ -39,7 +40,7 @@ export interface UnifiedAction {
   currentValue?: number
   suggestedValue?: number
   /** Original data for reference */
-  _raw: GraphImprovement | ValidationIssueRaw | CritiqueItemRaw | BiasFindingRaw
+  _raw: GraphImprovement | ValidationIssueRaw | CritiqueItemRaw | BiasFindingRaw | ImprovementGuidanceRaw
 }
 
 // Raw types for internal use
@@ -81,6 +82,14 @@ interface BiasFindingRaw {
   }
 }
 
+interface ImprovementGuidanceRaw {
+  type: 'guidance'
+  priority: 'critical' | 'high' | 'medium' | 'low'
+  action: string
+  reason: string
+  affected_nodes?: string[]
+}
+
 /**
  * Map severity strings to ActionPriority
  */
@@ -110,6 +119,14 @@ function mapSeverityToPriority(severity: string, source: ActionSource): ActionPr
 
   // Readiness improvement priority
   if (source === 'readiness') {
+    if (upperSeverity === 'HIGH') return 'high'
+    if (upperSeverity === 'MEDIUM') return 'medium'
+    return 'low'
+  }
+
+  // M1 improvement guidance priority (already typed as ActionPriority)
+  if (source === 'guidance') {
+    if (upperSeverity === 'CRITICAL') return 'critical'
     if (upperSeverity === 'HIGH') return 'high'
     if (upperSeverity === 'MEDIUM') return 'medium'
     return 'low'
@@ -269,6 +286,30 @@ export function useUnifiedActions(): UseUnifiedActionsResult {
           description: bias.message || bias.description || 'A potential bias was detected',
           affectedNodeIds: bias.affected_node_ids,
           effortMinutes: bias.micro_intervention?.estimated_minutes,
+          _raw: raw,
+        })
+      }
+    }
+
+    // 5. M1 Improvement Guidance from CEE enrichment
+    const improvementGuidance = runMeta?.m1Review?.improvement_guidance
+    if (improvementGuidance && Array.isArray(improvementGuidance)) {
+      for (const guidance of improvementGuidance) {
+        const raw: ImprovementGuidanceRaw = {
+          type: 'guidance',
+          priority: guidance.priority,
+          action: guidance.action,
+          reason: guidance.reason,
+          affected_nodes: guidance.affected_nodes,
+        }
+
+        items.push({
+          id: `guidance-${guidance.action.slice(0, 20).replace(/\s+/g, '-').toLowerCase()}-${guidance.priority}`,
+          source: 'guidance',
+          priority: mapSeverityToPriority(guidance.priority, 'guidance'),
+          title: guidance.action,
+          description: guidance.reason,
+          affectedNodeIds: guidance.affected_nodes,
           _raw: raw,
         })
       }

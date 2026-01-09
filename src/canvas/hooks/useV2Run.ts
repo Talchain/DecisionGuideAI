@@ -32,8 +32,35 @@ import { trackTypedError } from '../../lib/telemetry'
 import { ApiError, NetworkError, ProcessingError, isApiError } from '../../lib/api-errors'
 import { generateRequestId } from '../../types/requestId'
 import type { CEEAnalysisReady } from '../../adapters/cee/types'
+import type { M1Review } from '../../types/cee'
 import { useGateStore, updateRobustnessGate, updateRobustnessGateFromV2 } from '../../lib/gate-state'
 import { buildRawErrorData, hashStackTrace } from '../../utils/payloadRedaction'
+
+/**
+ * Extract M1 Review data from V2 response.
+ * Returns null if CEE status is skipped or no review data present.
+ */
+function extractM1ReviewFromV2(response: V2RunResponse): M1Review | null {
+  // If no CEE status or explicitly skipped, return null
+  const ceeStatus = response.cee_status ?? 'skipped'
+  if (ceeStatus === 'skipped') {
+    return null
+  }
+
+  return {
+    cee_status: ceeStatus,
+    decision_quality: response.decision_quality ?? null,
+    insights: response.insights ?? null,
+    improvement_guidance: response.improvement_guidance ?? null,
+    rationale: response.rationale ?? null,
+    robustness_synthesis: response.robustness_synthesis ?? null,
+    ceeTrace: response.cee_trace ? {
+      requestId: response.cee_trace.request_id,
+      latency_ms: response.cee_trace.latency_ms,
+      degraded: response.cee_trace.degraded,
+    } : undefined,
+  }
+}
 
 /**
  * P0 Fix: Derive a stable numeric seed from a string.
@@ -359,11 +386,18 @@ export function useV2Run(): UseV2RunReturn {
         const ceeReviewV1 = synthesizeCeeReviewFromV2(successResult)
         const ceeTraceV1 = synthesizeCeeTraceFromV2(successResult, requestId, elapsed_ms)
 
+        // Extract M1 Review data (rationale, robustness synthesis, etc.)
+        const m1Review = extractM1ReviewFromV2(successResult)
+
         if (import.meta.env.DEV) {
           console.log('[useV2Run] Synthesized CEE data from V2 response:', {
             hasCeeReview: !!ceeReviewV1,
             blockCount: ceeReviewV1?.blocks?.length ?? 0,
             readinessLevel: ceeReviewV1?.readiness?.level,
+            hasM1Review: !!m1Review,
+            m1CeeStatus: m1Review?.cee_status,
+            hasRationale: !!m1Review?.rationale,
+            hasRobustnessSynthesis: !!m1Review?.robustness_synthesis,
           })
         }
 
@@ -411,6 +445,7 @@ export function useV2Run(): UseV2RunReturn {
           ceeReviewV1,
           ceeTraceV1,
           ceeErrorV1: null, // No error - synthesis succeeded
+          m1Review, // M1 Review enrichment (rationale, robustness synthesis, etc.)
         })
 
         // Update gates after successful analysis

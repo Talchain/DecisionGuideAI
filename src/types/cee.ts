@@ -200,3 +200,84 @@ export function getBlocksForIntent(
       return defaultLayout
   }
 }
+
+// =============================================================================
+// M1 Review Types (PLoT /v2/run CEE enrichment)
+// =============================================================================
+
+/**
+ * M1 Review Status - indicates availability of CEE-generated content
+ */
+export type M1ReviewStatus = 'available' | 'unavailable' | 'degraded' | 'skipped'
+
+/**
+ * Decision Quality - readiness assessment from CEE
+ */
+export interface DecisionQualityV3 {
+  level: 'ready' | 'caution' | 'not_ready'
+  headline: string
+  factors?: Array<{
+    label: string
+    status: 'ok' | 'warning' | 'blocking'
+  }>
+}
+
+/**
+ * Insight - individual insight from CEE analysis
+ */
+export interface InsightV3 {
+  id: string
+  type: 'finding' | 'caveat' | 'risk' | 'opportunity'
+  severity?: 'low' | 'medium' | 'high'
+  content: string
+  related_nodes?: string[]
+}
+
+/**
+ * Improvement Guidance - actionable suggestions from CEE
+ */
+export interface ImprovementGuidanceV3 {
+  priority: 'critical' | 'high' | 'medium' | 'low'
+  action: string
+  reason: string
+  affected_nodes?: string[]
+}
+
+/**
+ * Rationale - decision explanation from CEE
+ */
+export interface RationaleV3 {
+  summary: string
+  key_driver?: string
+  confidence_explanation?: string
+}
+
+/**
+ * Robustness Synthesis - plain-language robustness summary from CEE
+ */
+export interface RobustnessSynthesisV3 {
+  headline: string
+  assumption_explanations?: Array<{
+    node_id: string
+    label: string
+    explanation: string
+  }>
+  investigation_suggestions?: string[]
+}
+
+/**
+ * M1 Review - combined CEE enrichment data from /v2/run
+ */
+export interface M1Review {
+  cee_status: M1ReviewStatus
+  decision_quality?: DecisionQualityV3 | null
+  insights?: InsightV3[] | null
+  improvement_guidance?: ImprovementGuidanceV3[] | null
+  rationale?: RationaleV3 | null
+  robustness_synthesis?: RobustnessSynthesisV3 | null
+  ceeTrace?: {
+    requestId: string
+    latency_ms: number
+    degraded?: boolean
+  }
+}

@@ -4,6 +4,15 @@
  * Types for the /v2/run endpoint request and response.
  */
 
+import type {
+  M1ReviewStatus,
+  DecisionQualityV3,
+  InsightV3,
+  ImprovementGuidanceV3,
+  RationaleV3,
+  RobustnessSynthesisV3,
+} from '../../../types/cee'
+
 // ============================================================================
 // Request Types
 // ============================================================================
@@ -214,6 +223,29 @@ export interface V2RunResponse {
   meta?: V2Meta
   /** Echoed from request for tracing */
   request_id?: string
+
+  // ==========================================================================
+  // M1 CEE Review Fields (optional enrichment)
+  // ==========================================================================
+
+  /** CEE status - indicates availability of CEE-generated content */
+  cee_status?: M1ReviewStatus
+  /** Decision quality assessment from CEE */
+  decision_quality?: DecisionQualityV3 | null
+  /** Insights from CEE analysis */
+  insights?: InsightV3[] | null
+  /** Improvement guidance from CEE */
+  improvement_guidance?: ImprovementGuidanceV3[] | null
+  /** Decision rationale from CEE */
+  rationale?: RationaleV3 | null
+  /** Robustness synthesis from CEE */
+  robustness_synthesis?: RobustnessSynthesisV3 | null
+  /** CEE trace for debugging */
+  cee_trace?: {
+    request_id: string
+    latency_ms: number
+    degraded?: boolean
+  }
 }
 
 /**

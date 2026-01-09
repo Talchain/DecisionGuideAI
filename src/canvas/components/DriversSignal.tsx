@@ -162,11 +162,15 @@ export function DriversSignal({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
   const results = useCanvasStore((s) => s.results)
+  const runMeta = useCanvasStore((s) => s.runMeta)
   const setHighlightedNodes = useCanvasStore((s) => s.setHighlightedNodes)
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
   const report = results?.report
+
+  // M1 Review robustness synthesis for enhanced display
+  const robustnessSynthesis = runMeta?.m1Review?.robustness_synthesis
 
   // Phase 0.4: Normalize response to handle legacy and V3 formats
   const normalisedResponse = useMemo(() => normaliseResponse(report), [report])
@@ -637,6 +641,33 @@ export function DriversSignal({
                 <Loader2 className="h-3.5 w-3.5 text-sky-500 animate-spin" aria-hidden="true" />
               )}
             </div>
+
+            {/* M1 Review: Robustness Synthesis headline */}
+            {robustnessSynthesis?.headline && (
+              <div className="mb-4">
+                <h4 className={`${typography.caption} font-medium text-violet-700 mb-1`}>
+                  Robustness Summary
+                </h4>
+                <p className={`${typography.bodySmall} text-ink-700`}>
+                  {robustnessSynthesis.headline}
+                </p>
+                {robustnessSynthesis.investigation_suggestions && robustnessSynthesis.investigation_suggestions.length > 0 && (
+                  <div className="mt-2">
+                    <span className={`${typography.caption} text-violet-600 font-medium`}>
+                      Consider investigating:
+                    </span>
+                    <ul className="mt-1 space-y-1">
+                      {robustnessSynthesis.investigation_suggestions.map((suggestion, idx) => (
+                        <li key={idx} className={`${typography.caption} text-ink-600 flex items-start gap-1.5`}>
+                          <Search className="w-3 h-3 mt-0.5 text-violet-500 shrink-0" />
+                          <span>{suggestion}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
 
             {synthesisLoading && !synthesis && (
               <div className="space-y-2 animate-pulse">

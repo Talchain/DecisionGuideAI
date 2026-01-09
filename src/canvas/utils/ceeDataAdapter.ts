@@ -13,6 +13,7 @@ import type {
   ReadinessLevel,
   ReadinessFactor,
   BlockId,
+  M1Review,
 } from '../../types/cee'
 import type { CeeDecisionReviewPayload } from '../decisionReview/types'
 import type { ReportV1 } from '../../adapters/plot/types'
@@ -154,6 +155,7 @@ export function sanitizeCeeReviewPayload(
  * Extract plain English rationale for "Why this option" section.
  *
  * Priority:
+ * 0. M1 Review rationale (from /v2/run CEE enrichment)
  * 1. CEE V1 blocks[id='drivers'] or blocks[id='recommendation']
  * 2. Legacy CEE story.key_drivers
  * 3. PLoT report.drivers
@@ -162,8 +164,20 @@ export function sanitizeCeeReviewPayload(
 export function getRationale(
   ceeReviewV1: CeeDecisionReviewPayloadV1 | null | undefined,
   ceeReview: CeeDecisionReviewPayload | null | undefined,
-  report: ReportV1 | null | undefined
+  report: ReportV1 | null | undefined,
+  m1Review?: M1Review | null
 ): Rationale {
+  // 0. Try M1 Review rationale (highest priority - direct from PLoT /v2/run)
+  if (m1Review?.rationale?.summary) {
+    return {
+      headline: m1Review.rationale.summary,
+      drivers: m1Review.rationale.key_driver
+        ? [{ label: m1Review.rationale.key_driver, explanation: m1Review.rationale.confidence_explanation }]
+        : [],
+      source: 'cee',
+    }
+  }
+
   // 1. Try CEE V1 blocks
   if (ceeReviewV1?.blocks) {
     const driversBlock = findBlock(ceeReviewV1.blocks, 'drivers')
