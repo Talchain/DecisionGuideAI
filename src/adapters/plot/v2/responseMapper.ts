@@ -516,17 +516,19 @@ function mapDriversFromResponse(v2Response: V2RunResponse): ReportV1['drivers'] 
           : 'down' as const
 
     // Use elasticity if available, otherwise sensitivity
-    // Priority: sensitivity_score (PLoT v2) > elasticity > sensitivity > default 0.5
-    const rawValue = safeNumber(factor.sensitivity_score) ?? safeNumber(factor.elasticity) ?? safeNumber(factor.sensitivity) ?? 0.5
-    const magnitude = Math.abs(rawValue)
+    // Priority: sensitivity_score (PLoT v2) > elasticity > sensitivity > null (missing data)
+    // IMPORTANT: null means "data not available" - UI must NOT display a fabricated percentage
+    const rawValue = safeNumber(factor.sensitivity_score) ?? safeNumber(factor.elasticity) ?? safeNumber(factor.sensitivity)
+    const magnitude = rawValue !== null ? Math.abs(rawValue) : null
 
     return {
       label: formatNodeName(factorId),
       polarity,
-      strength: mapElasticityToStrength(magnitude),
+      strength: magnitude !== null ? mapElasticityToStrength(magnitude) : 'medium',
       // Include factor metadata for highlighting
       nodeId: factorId,
-      contribution: normalizeElasticity(magnitude),
+      // contribution is null when sensitivity data is missing - UI should show "—" not a percentage
+      contribution: magnitude !== null ? normalizeElasticity(magnitude) : undefined,
     }
   })
 }
@@ -999,21 +1001,28 @@ function buildDriversBlock(v2Response: V2RunResponse): ReviewBlock | null {
     priority: 2,
     items: sorted.slice(0, 5).map(f => {
       const factorId = f.factor_id ?? f.node_id ?? ''
-      // Priority: sensitivity_score (PLoT v2 normalized) > elasticity > sensitivity > default 0.5
-      // Using 0.5 as default (medium impact) rather than 0 to avoid misleading "0% impact"
-      const elasticity = f.sensitivity_score ?? f.elasticity ?? f.sensitivity ?? 0.5
-      const direction = f.direction ?? (elasticity >= 0 ? 'positive' : 'negative')
+      // Priority: sensitivity_score (PLoT v2 normalized) > elasticity > sensitivity > null
+      // IMPORTANT: null means "data not available" - must NOT fabricate a percentage
+      const elasticity = f.sensitivity_score ?? f.elasticity ?? f.sensitivity ?? null
+      const direction = f.direction ?? (elasticity !== null && elasticity >= 0 ? 'positive' : 'negative')
 
-      // Use same normalization as Key Factors for consistency
-      // normalizeElasticity caps at 1.0 (ISL pre-normalises values)
-      const normalizedPct = Math.round(normalizeElasticity(Math.abs(elasticity)) * 100)
-      const displayPct = normalizedPct === 0 && elasticity !== 0 ? '<1' : String(normalizedPct)
+      // Build description: show "—" when impact data is missing (never fabricate values)
+      let description: string
+      if (elasticity === null) {
+        description = 'Impact data not available'
+      } else {
+        const normalizedPct = Math.round(normalizeElasticity(Math.abs(elasticity)) * 100)
+        const displayPct = normalizedPct === 0 && elasticity !== 0 ? '<1' : String(normalizedPct)
+        description = `${direction === 'positive' ? '↑' : '↓'} ${displayPct}% impact`
+      }
 
       return {
         id: factorId,
         label: formatNodeName(factorId),
-        description: `${direction === 'positive' ? '↑' : '↓'} ${displayPct}% impact`,
-        severity: Math.abs(elasticity) >= 1 ? 'high' : Math.abs(elasticity) >= 0.5 ? 'medium' : 'low',
+        description,
+        severity: elasticity !== null
+          ? (Math.abs(elasticity) >= 1 ? 'high' : Math.abs(elasticity) >= 0.5 ? 'medium' : 'low')
+          : 'low',
       }
     }),
   }
