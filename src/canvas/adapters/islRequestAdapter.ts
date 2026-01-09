@@ -624,12 +624,25 @@ export function buildISLConformalRequest(
     const sourceId = edge.source
     const targetId = edge.target
     const weight = edge.data?.weight ?? 1
+    const direction = edge.data?.direction
+
+    // Apply sign based on direction (consistent with V2 adapter's computeSignedMean)
+    // 'negative' direction means the factor reduces the target (e.g., risk → goal)
+    const sign = direction === 'negative' ? -1 : 1
+    const signedWeight = sign * weight
+
+    // Build equation with correct sign
+    const operator = signedWeight >= 0 ? '+' : '-'
+    const absWeight = Math.abs(signedWeight)
 
     // Build simple linear equation using node IDs
     if (equations[targetId]) {
-      equations[targetId] += ` + ${weight}*${sourceId}`
+      equations[targetId] += ` ${operator} ${absWeight}*${sourceId}`
     } else {
-      equations[targetId] = `${weight}*${sourceId}`
+      // First term: include negative sign if needed, no '+' prefix
+      equations[targetId] = signedWeight >= 0
+        ? `${absWeight}*${sourceId}`
+        : `-${absWeight}*${sourceId}`
     }
   }
 

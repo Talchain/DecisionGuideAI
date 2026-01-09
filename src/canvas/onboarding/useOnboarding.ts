@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 
 export const ONBOARDING_STORAGE_KEY = 'olumi_seen_onboarding'
 export const ONBOARDING_STORAGE_VERSION = 'v1'
@@ -57,5 +57,6 @@ export function useOnboarding() {
     setIsOpen(true)
   }, [])
 
-  return { shouldShow, isOpen, open, close, reset }
+  // React #185: Memoize return object to prevent unnecessary re-renders in consumers
+  return useMemo(() => ({ shouldShow, isOpen, open, close, reset }), [shouldShow, isOpen, open, close, reset])
 }

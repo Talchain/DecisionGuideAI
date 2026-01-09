@@ -440,12 +440,22 @@ export class CEEClient {
 
     // Check V3 first (since we request ?schema=v3)
     if (isCEEv3Response(raw)) {
-      return raw as CEEv3Response
+      const result = raw as CEEv3Response & { pipeline_trace?: CeePipelineTrace }
+      // Extract trace.pipeline to top-level pipeline_trace for consistency with V1 path
+      if (isCeePipelineTrace((raw as any).trace?.pipeline)) {
+        result.pipeline_trace = (raw as any).trace.pipeline
+      }
+      return result
     }
 
     // Fall back to v2 check
     if (isCEEv2Response(raw)) {
-      return raw as CEEv2Response
+      const result = raw as CEEv2Response & { pipeline_trace?: CeePipelineTrace }
+      // Extract trace.pipeline to top-level pipeline_trace for consistency with V1 path
+      if (isCeePipelineTrace((raw as any).trace?.pipeline)) {
+        result.pipeline_trace = (raw as any).trace.pipeline
+      }
+      return result
     }
 
     // Fall back to v1 adaptation for legacy responses

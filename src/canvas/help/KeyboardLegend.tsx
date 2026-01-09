@@ -96,7 +96,8 @@ export function useKeyboardLegend({ autoShow = false }: UseKeyboardLegendOptions
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [close, isOpen, toggle])
 
-  return { isOpen, open, close, toggle }
+  // React #185: Memoize return object to prevent unnecessary re-renders in consumers
+  return useMemo(() => ({ isOpen, open, close, toggle }), [isOpen, open, close, toggle])
 }
 
 interface KeyboardLegendProps {

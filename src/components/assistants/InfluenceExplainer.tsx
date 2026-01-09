@@ -4,7 +4,7 @@
  * Dismissible with localStorage persistence
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Info, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { typography } from '../../styles/typography'
 
@@ -222,11 +222,12 @@ export function useInfluenceExplainer() {
     }
   }, [])
 
-  return {
+  // React #185: Memoize return object to prevent unnecessary re-renders in consumers
+  return useMemo(() => ({
     shouldShow: shouldShow || isForceShown,
     forceShow: isForceShown,
     show,
     hide,
     reset,
-  }
+  }), [shouldShow, isForceShown, show, hide, reset])
 }

@@ -34,6 +34,7 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
   const runMeta = useCanvasStore((s) => s.runMeta)
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
+  const ceePipelineTrace = useCanvasStore((s) => s.ceePipelineTrace)
 
   // Keyboard shortcut: Cmd+Shift+D
   useEffect(() => {
@@ -64,12 +65,20 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
   // Extract debug values - prioritize V1 fields over legacy
   const ceeTraceV1 = runMeta?.ceeTraceV1
   const ceeReviewV1 = runMeta?.ceeReviewV1
+  const ceeReview = runMeta?.ceeReview
 
-  // V1: Use plot_request_id or cee_sent_request_id from trace, fallback to legacy
-  const traceId = ceeTraceV1?.plot_request_id
+  // CEE Draft call ID: From pipeline trace (draft-graph endpoint)
+  // Extract request_id from pipeline trace stages or use total_duration_ms as fingerprint
+  const draftCallId = (ceePipelineTrace?.stages?.[0] as any)?.request_id
+    ?? (ceePipelineTrace?.llm_calls?.[0] as any)?.request_id
+    ?? (ceePipelineTrace ? `draft-${ceePipelineTrace.total_duration_ms}ms` : undefined)
+
+  // CEE Review call ID: From V1 trace (review endpoint via PLoT /v2/run)
+  const reviewCallId = ceeTraceV1?.plot_request_id
     ?? ceeTraceV1?.cee_sent_request_id
-    ?? runMeta?.ceeReview?.trace_id
+    ?? ceeReview?.trace_id
     ?? runMeta?.traceId
+
   const responseHash = results?.report?.hash ?? results?.hash
 
   const ceeDegraded = ceeTraceV1?.degraded === true || ceeTraceV1?.id_mismatch === true
@@ -87,7 +96,8 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
   })
 
   const debugData = [
-    { label: 'Trace ID', value: traceId ?? 'N/A', copyable: !!traceId },
+    { label: 'Draft Call ID', value: draftCallId ?? 'N/A', copyable: !!draftCallId },
+    { label: 'Review Call ID', value: reviewCallId ?? 'N/A', copyable: !!reviewCallId },
     { label: 'Response Hash', value: responseHash ?? 'N/A', copyable: !!responseHash },
     { label: 'Results Status', value: results?.status ?? 'idle', copyable: false },
     { label: 'CEE Degraded', value: String(ceeDegraded), copyable: false },

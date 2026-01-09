@@ -401,8 +401,9 @@ export function DraftChat() {
     }
 
     // Store pipeline trace for debug panel if present (using proper type guard)
-    // Backend sends trace.pipeline (nested), not pipeline_trace (top-level)
-    const pipelineTrace = (draftData as any).trace?.pipeline
+    // Client extracts trace.pipeline to top-level pipeline_trace for all schema versions
+    // Check pipeline_trace first (V1/V2/V3 after extraction), fallback to trace.pipeline (raw V2/V3)
+    const pipelineTrace = (draftData as any).pipeline_trace ?? (draftData as any).trace?.pipeline
     if (isCeePipelineTrace(pipelineTrace)) {
       const { setCeePipelineTrace } = useCanvasStore.getState()
       setCeePipelineTrace(pipelineTrace)
