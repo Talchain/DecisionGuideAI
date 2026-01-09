@@ -156,6 +156,7 @@ export function DraftChat() {
   const applyGuidedLayout = useCanvasStore(s => s.applyGuidedLayout)
   const resetCanvas = useCanvasStore(s => s.resetCanvas)
   const saveCurrentScenario = useCanvasStore(s => s.saveCurrentScenario)
+  const captureErrorDetail = useCanvasStore(s => s.captureErrorDetail)
 
   // Auto-resize textarea based on content
   const adjustTextareaHeight = useCallback(() => {
@@ -233,6 +234,30 @@ export function DraftChat() {
       }
     } catch (err) {
       console.error('Draft failed:', err)
+
+      // Capture error detail for debug drawer expansion
+      if (err instanceof CEEError) {
+        const details = err.details as any
+        captureErrorDetail({
+          timestamp: new Date().toISOString(),
+          service: 'CEE',
+          httpStatus: err.status,
+          errorCode: details?.code ?? details?.details?.code,
+          message: err.message,
+          requestId: err.correlationId ?? details?.trace?.request_id,
+          endpoint: '/draft-graph',
+          retryable: err.status === 429 || err.status >= 500,
+          rawBody: err.details ? JSON.stringify(err.details).slice(0, 2000) : undefined,
+        })
+      } else if (err instanceof Error) {
+        captureErrorDetail({
+          timestamp: new Date().toISOString(),
+          service: 'CEE',
+          message: err.message,
+          endpoint: '/draft-graph',
+          retryable: false,
+        })
+      }
     }
   }
 

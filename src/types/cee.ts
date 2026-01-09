@@ -115,6 +115,35 @@ export interface CeeError {
 }
 
 // =============================================================================
+// Error Detail (for Debug Panel)
+// =============================================================================
+
+/**
+ * Detailed error information for debugging.
+ * Captured when API requests fail for display in Debug Panel.
+ */
+export interface ErrorDetail {
+  /** Timestamp when error occurred */
+  timestamp: string
+  /** Which upstream service failed (e.g., 'CEE', 'PLoT', 'ISL') */
+  service: 'CEE' | 'PLoT' | 'ISL' | 'unknown'
+  /** HTTP status code (e.g., 500, 504, 429) */
+  httpStatus?: number
+  /** Error code from the service */
+  errorCode?: string
+  /** Human-readable error message */
+  message: string
+  /** Request ID for correlation */
+  requestId?: string
+  /** Raw error body (JSON stringified if object) */
+  rawBody?: string
+  /** Endpoint that was called */
+  endpoint?: string
+  /** Whether the error is retryable */
+  retryable?: boolean
+}
+
+// =============================================================================
 // CEE Meta Fields (added to existing meta)
 // =============================================================================
 

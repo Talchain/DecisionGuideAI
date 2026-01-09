@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import { X, Bug, Copy, Check } from 'lucide-react'
+import { X, Bug, Copy, Check, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { classifyState } from '../../lib/resultsInstrumentation'
 import { typography } from '../../styles/typography'
@@ -24,6 +24,7 @@ interface DebugDrawerProps {
 export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProps) {
   const [internalIsOpen, setInternalIsOpen] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [expandedErrors, setExpandedErrors] = useState<Set<number>>(new Set())
 
   // Use external or internal state
   const isOpen = externalIsOpen ?? internalIsOpen
@@ -35,6 +36,7 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const ceePipelineTrace = useCanvasStore((s) => s.ceePipelineTrace)
+  const errorDetails = useCanvasStore((s) => s.runMeta.errorDetails)
 
   // Keyboard shortcut: Cmd+Shift+D
   useEffect(() => {
@@ -237,6 +239,156 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
                   {ceeReview.story?.headline ? 'Present' : 'N/A'}
                 </span>
               </div>
+            </div>
+          </section>
+        )}
+
+        {/* Error Details */}
+        {errorDetails && errorDetails.length > 0 && (
+          <section>
+            <h3 className={`${typography.caption} text-ink-400 uppercase tracking-wide mb-2 flex items-center gap-1`}>
+              <AlertTriangle className="w-3 h-3 text-carrot-400" />
+              Recent Errors ({errorDetails.length})
+            </h3>
+            <div className="space-y-2">
+              {errorDetails.map((error, index) => {
+                const isExpanded = expandedErrors.has(index)
+                const toggleExpanded = () => {
+                  setExpandedErrors((prev) => {
+                    const next = new Set(prev)
+                    if (next.has(index)) {
+                      next.delete(index)
+                    } else {
+                      next.add(index)
+                    }
+                    return next
+                  })
+                }
+
+                return (
+                  <div
+                    key={`${error.timestamp}-${index}`}
+                    className="bg-ink-800 rounded p-2"
+                  >
+                    {/* Error Header - Always Visible */}
+                    <button
+                      type="button"
+                      onClick={toggleExpanded}
+                      className="w-full flex items-center justify-between text-left"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isExpanded ? (
+                          <ChevronDown className="w-3 h-3 text-ink-400 flex-shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-3 h-3 text-ink-400 flex-shrink-0" />
+                        )}
+                        <span className={`${typography.caption} text-carrot-400 font-medium`}>
+                          {error.service}
+                        </span>
+                        {error.httpStatus && (
+                          <code className={`${typography.caption} text-ink-300 font-mono`}>
+                            {error.httpStatus}
+                          </code>
+                        )}
+                      </div>
+                      <span className={`${typography.caption} text-ink-500 flex-shrink-0`}>
+                        {new Date(error.timestamp).toLocaleTimeString()}
+                      </span>
+                    </button>
+
+                    {/* Expanded Details */}
+                    {isExpanded && (
+                      <div className="mt-2 pt-2 border-t border-ink-700 space-y-1.5">
+                        {/* Message */}
+                        <div>
+                          <span className={`${typography.caption} text-ink-400`}>Message: </span>
+                          <span className={`${typography.caption} text-white break-words`}>
+                            {error.message}
+                          </span>
+                        </div>
+
+                        {/* Endpoint */}
+                        {error.endpoint && (
+                          <div>
+                            <span className={`${typography.caption} text-ink-400`}>Endpoint: </span>
+                            <code className={`${typography.caption} text-mint-300 font-mono break-all`}>
+                              {error.endpoint}
+                            </code>
+                          </div>
+                        )}
+
+                        {/* Error Code */}
+                        {error.errorCode && (
+                          <div>
+                            <span className={`${typography.caption} text-ink-400`}>Code: </span>
+                            <code className={`${typography.caption} text-sky-400 font-mono`}>
+                              {error.errorCode}
+                            </code>
+                          </div>
+                        )}
+
+                        {/* Request ID */}
+                        {error.requestId && (
+                          <div className="flex items-center gap-1">
+                            <span className={`${typography.caption} text-ink-400`}>Request ID: </span>
+                            <code className={`${typography.caption} text-mint-300 font-mono truncate max-w-[140px]`}>
+                              {error.requestId}
+                            </code>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(error.requestId!, `error-${index}-requestId`)}
+                              className="p-0.5 hover:bg-ink-700 rounded"
+                              aria-label="Copy request ID"
+                            >
+                              {copiedField === `error-${index}-requestId` ? (
+                                <Check className="w-3 h-3 text-mint-400" />
+                              ) : (
+                                <Copy className="w-3 h-3 text-ink-400" />
+                              )}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Retryable */}
+                        {error.retryable !== undefined && (
+                          <div>
+                            <span className={`${typography.caption} text-ink-400`}>Retryable: </span>
+                            <span className={`${typography.caption} ${error.retryable ? 'text-mint-400' : 'text-carrot-400'}`}>
+                              {String(error.retryable)}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Raw Body */}
+                        {error.rawBody && (
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <span className={`${typography.caption} text-ink-400`}>Raw Body:</span>
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(error.rawBody!, `error-${index}-rawBody`)}
+                                className="p-0.5 hover:bg-ink-700 rounded"
+                                aria-label="Copy raw body"
+                              >
+                                {copiedField === `error-${index}-rawBody` ? (
+                                  <Check className="w-3 h-3 text-mint-400" />
+                                ) : (
+                                  <Copy className="w-3 h-3 text-ink-400" />
+                                )}
+                              </button>
+                            </div>
+                            <pre className={`${typography.caption} text-ink-300 font-mono bg-ink-900 p-1.5 rounded text-[10px] overflow-x-auto max-h-24 overflow-y-auto whitespace-pre-wrap break-all`}>
+                              {error.rawBody.length > 500
+                                ? `${error.rawBody.slice(0, 500)}...`
+                                : error.rawBody}
+                            </pre>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </section>
         )}

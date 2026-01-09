@@ -19,7 +19,7 @@ import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/typ
 import type { Document, Citation } from './share/types'
 import type { Snapshot, DecisionRationale, ComparisonResult } from './snapshots/types'
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from './decisionReview/types'
-import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError, M1Review } from '../types/cee'
+import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError, M1Review, ErrorDetail } from '../types/cee'
 import { sanitizeCeeReviewPayload, sanitizeM1Review } from './utils/ceeDataAdapter'
 import type { CEEAnalysisReady, CeePipelineTrace } from '../adapters/cee/types'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
@@ -95,6 +95,8 @@ export type RunMetaState = {
     validationWarnings?: string[] // Soft warnings (processing continued)
     timestamp?: string            // ISO timestamp when error occurred
   }
+  // Error details for Debug Panel (captures upstream service failures)
+  errorDetails?: ErrorDetail[]
 }
 
 const initialNodes: Node[] = []
@@ -266,6 +268,10 @@ interface CanvasState {
     enrichment?: PLoTEnrichment | null // Phase 1B: ISL data bundled from PLoT
   }) => void
   resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean }) => void
+  /** Capture detailed error information for Debug Panel */
+  captureErrorDetail: (detail: ErrorDetail) => void
+  /** Clear all captured error details */
+  clearErrorDetails: () => void
   resultsCancelled: () => void
   resultsReset: () => void
   resultsLoadHistorical: (run: StoredRun) => void
@@ -1679,6 +1685,25 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         status: 'error',
         error: { code, message, retryAfter, request_id, canRetry },
         finishedAt: Date.now()
+      }
+    }))
+  },
+
+  captureErrorDetail: (detail: ErrorDetail) => {
+    set(s => ({
+      runMeta: {
+        ...s.runMeta,
+        // Keep last 10 errors to avoid memory bloat
+        errorDetails: [...(s.runMeta.errorDetails ?? []), detail].slice(-10),
+      }
+    }))
+  },
+
+  clearErrorDetails: () => {
+    set(s => ({
+      runMeta: {
+        ...s.runMeta,
+        errorDetails: [],
       }
     }))
   },

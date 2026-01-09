@@ -169,6 +169,7 @@ export function useV2Run(): UseV2RunReturn {
   const resultsError = useCanvasStore((s) => s.resultsError)
   const setRunMeta = useCanvasStore((s) => s.setRunMeta)
   const setCeeAnalysisReady = useCanvasStore((s) => s.setCeeAnalysisReady)
+  const captureErrorDetail = useCanvasStore((s) => s.captureErrorDetail)
 
   const runV2Analysis = useCallback(async () => {
     // Validate goal is selected
@@ -577,6 +578,21 @@ export function useV2Run(): UseV2RunReturn {
         canRetry: typedError.retryable,
       })
 
+      // Capture error detail for debug drawer expansion
+      captureErrorDetail({
+        timestamp: new Date().toISOString(),
+        service: 'PLoT',
+        httpStatus: (typedError as NetworkError).status,
+        errorCode: typedError.code,
+        message,
+        requestId,
+        endpoint: '/v2/run',
+        retryable: typedError.retryable,
+        rawBody: typedError.context.rawPayload
+          ? JSON.stringify(typedError.context.rawPayload).slice(0, 2000)
+          : undefined,
+      })
+
       // Capture raw error data for debugging in the debug panel
       // Uses redaction utility to protect privacy and enforce size limits
       let rawErrorPayload: unknown = undefined
@@ -620,6 +636,7 @@ export function useV2Run(): UseV2RunReturn {
     resultsComplete,
     resultsError,
     setRunMeta,
+    captureErrorDetail,
   ])
 
   return {
