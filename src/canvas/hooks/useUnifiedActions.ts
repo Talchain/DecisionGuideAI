@@ -358,8 +358,9 @@ export function useUnifiedActions(): UseUnifiedActionsResult {
  * Combines affected elements + normalized title for matching
  */
 function getDedupeKey(action: UnifiedAction): string {
-  const nodesPart = action.affectedNodeIds?.sort().join(',') || ''
-  const edgesPart = action.affectedEdgeIds?.sort().join(',') || ''
+  // Spread before sorting to avoid mutating the original arrays
+  const nodesPart = action.affectedNodeIds ? [...action.affectedNodeIds].sort().join(',') : ''
+  const edgesPart = action.affectedEdgeIds ? [...action.affectedEdgeIds].sort().join(',') : ''
   // Normalize title: lowercase, remove extra whitespace
   const titlePart = action.title.toLowerCase().replace(/\s+/g, ' ').trim()
   return `${nodesPart}|${edgesPart}|${titlePart}`
