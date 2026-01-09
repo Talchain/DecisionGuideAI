@@ -20,6 +20,7 @@ import type { Document, Citation } from './share/types'
 import type { Snapshot, DecisionRationale, ComparisonResult } from './snapshots/types'
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from './decisionReview/types'
 import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError, M1Review } from '../types/cee'
+import { sanitizeCeeReviewPayload, sanitizeM1Review } from './utils/ceeDataAdapter'
 import type { CEEAnalysisReady, CeePipelineTrace } from '../adapters/cee/types'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
@@ -1772,10 +1773,22 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   setRunMeta: (meta: RunMetaState) => {
+    // Sanitisation at ingestion - single authoritative point for CEE/M1 data
+    // Components receive clean data without needing to sanitise at render time
+    const sanitised: RunMetaState = {
+      ...meta,
+      ceeReviewV1: meta.ceeReviewV1 !== undefined
+        ? sanitizeCeeReviewPayload(meta.ceeReviewV1)
+        : undefined,
+      m1Review: meta.m1Review !== undefined
+        ? sanitizeM1Review(meta.m1Review)
+        : undefined,
+    }
+
     set(s => ({
       runMeta: {
         ...s.runMeta,
-        ...meta
+        ...sanitised
       }
     }))
   },

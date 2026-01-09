@@ -62,6 +62,14 @@ export interface V2RunRequest {
   }
   options: V2Option[]
   goal_node_id: string
+  /**
+   * Seed for reproducibility. PLoT expects string format.
+   *
+   * UI passes numeric seeds which are converted to string at the adapter boundary
+   * in buildV2RequestFromAnalysisReady() via .toString(). This ensures:
+   * - UI can work with numbers (easier for hashing/derivation)
+   * - API receives strings (as PLoT expects)
+   */
   seed: string
   detail_level: 'deep' | 'summary'
   /** Optional request ID for tracing (echoed in response) */

@@ -24,6 +24,7 @@ import type { Insights } from '../../types/plot'
 import type { InsightV3 } from '../../types/cee'
 import { focusNodeById } from '../utils/focusHelpers'
 import { useCanvasStore } from '../store'
+import { debugLog, debugWarn } from '../../utils/debugLog'
 
 /** Driver information for insight generation */
 interface DriverSummary {
@@ -119,7 +120,7 @@ function validateInsightConsistency(
                                   (outcomeValue >= 0 && outcomeValue <= 100)
 
       if (isReasonableOutcome) {
-        console.warn('[InsightsPanel] Extreme percentage claim detected:', {
+        debugWarn('InsightsPanel', 'Extreme percentage claim detected', {
           summary,
           claimedChange: `${claimedChange}%`,
           outcomeValue,
@@ -159,7 +160,7 @@ function validateInsightConsistency(
     (actualChange < -5 && claimsIncrease && !claimsDecrease)
 
   if (isContradictory) {
-    console.warn('[InsightsPanel] Contradictory insight detected:', {
+    debugWarn('InsightsPanel', 'Contradictory insight detected', {
       summary,
       actualChange: `${actualChange.toFixed(1)}%`,
       claimsDecrease,
@@ -270,8 +271,8 @@ export function InsightsPanel({
   // P0-1 FIX: Only log every 10th render to reduce console spam
   const renderCountRef = useRef(0)
   renderCountRef.current += 1
-  if (import.meta.env.DEV && renderCountRef.current <= 5) {
-    console.log(`[InsightsPanel] Render #${renderCountRef.current}`)
+  if (renderCountRef.current <= 5) {
+    debugLog('InsightsPanel', `Render #${renderCountRef.current}`)
   }
 
   // Brief 33 Fix: Memoize all expensive computations to prevent re-render loop

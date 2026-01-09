@@ -15,6 +15,7 @@ import type {
   BlockId,
   M1Review,
 } from '../../types/cee'
+import { debugWarn } from '../../utils/debugLog'
 import type { CeeDecisionReviewPayload } from '../decisionReview/types'
 import type { ReportV1 } from '../../adapters/plot/types'
 
@@ -127,17 +128,14 @@ export function sanitizeCeeReviewPayload(
 
   // Log warning if sanitisation was applied
   if (removedBlocks > 0 || removedFactors > 0) {
-    const env = (import.meta as any).env?.VITE_APP_ENV || 'development'
-    if (env === 'development' || env === 'staging') {
-      console.warn('[CEE Sanitisation] Applied to CeeReviewPayload:', {
-        removedBlocks,
-        removedFactors,
-        originalBlockCount,
-        originalFactorCount,
-        finalBlockCount: blocks.length,
-        finalFactorCount: readiness?.factors?.length ?? 0,
-      })
-    }
+    debugWarn('CEE Sanitisation', 'Applied to CeeReviewPayload', {
+      removedBlocks,
+      removedFactors,
+      originalBlockCount,
+      originalFactorCount,
+      finalBlockCount: blocks.length,
+      finalFactorCount: readiness?.factors?.length ?? 0,
+    })
   }
 
   return {
@@ -147,19 +145,61 @@ export function sanitizeCeeReviewPayload(
   }
 }
 
+/**
+ * Validate M1 Review payload structure.
+ * Ensures arrays are arrays, filters invalid insights/guidance entries.
+ * Returns null if payload is null/undefined.
+ */
+export function sanitizeM1Review(
+  payload: M1Review | null | undefined
+): M1Review | null {
+  if (!payload) return null
+
+  // Ensure insights is an array of valid items
+  const insights = Array.isArray(payload.insights)
+    ? payload.insights.filter(
+        (i) => i && typeof i.id === 'string' && typeof i.content === 'string'
+      )
+    : null
+
+  // Ensure improvement_guidance is an array of valid items
+  const improvement_guidance = Array.isArray(payload.improvement_guidance)
+    ? payload.improvement_guidance.filter(
+        (g) => g && typeof g.action === 'string' && typeof g.reason === 'string'
+      )
+    : null
+
+  return {
+    ...payload,
+    insights,
+    improvement_guidance,
+  }
+}
+
 // =============================================================================
 // Rationale Extraction
 // =============================================================================
 
 /**
- * Extract plain English rationale for "Why this option" section.
+ * Returns decision rationale from the best available source.
  *
- * Priority:
- * 0. M1 Review rationale (from /v2/run CEE enrichment)
- * 1. CEE V1 blocks[id='drivers'] or blocks[id='recommendation']
- * 2. Legacy CEE story.key_drivers
- * 3. PLoT report.drivers
- * 4. Empty fallback
+ * Priority order (highest to lowest):
+ * 0. M1 Review (m1Review.rationale) - Enhanced contextualised narrative from PLoT /v2/run CEE enrichment
+ * 1. CEE Review V1 (ceeReviewV1.blocks) - Structured review blocks (drivers/recommendation)
+ * 2. Legacy CEE (ceeReview.story) - Original narrative format
+ * 3. Report drivers (report.drivers) - Fallback to raw driver data from PLoT
+ * 4. Empty fallback - Generic "No rationale available" message
+ *
+ * Components should not need to know the source - this function
+ * provides a unified interface regardless of which data is available.
+ * The `source` field in the return value indicates which data was used,
+ * useful for debugging but not for conditional UI rendering.
+ *
+ * @param ceeReviewV1 - CEE V1 review payload (structured blocks format)
+ * @param ceeReview - Legacy CEE review payload (story format)
+ * @param report - PLoT report with driver data
+ * @param m1Review - M1 Review enrichment from PLoT /v2/run
+ * @returns Unified Rationale object with headline, drivers, and source indicator
  */
 export function getRationale(
   ceeReviewV1: CeeDecisionReviewPayloadV1 | null | undefined,
