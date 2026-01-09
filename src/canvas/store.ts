@@ -201,6 +201,10 @@ interface CanvasState {
   // Pending fit view request (set by AI graph insertion, cleared by ReactFlowGraph)
   pendingFitView: boolean
   setPendingFitView: (value: boolean) => void
+  // Debug: Raw CEE output mode (bypasses post-processing repairs)
+  // Set via URL param ?rawCee=1 or Debug Panel checkbox
+  debugRawCeeOutput: boolean
+  setDebugRawCeeOutput: (value: boolean) => void
   updateScenarioFraming: (partial: ScenarioFraming) => void
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => void
   updateNodeLabel: (id: string, label: string) => void
@@ -557,6 +561,24 @@ function isStateDebugEnabled(): boolean {
   return false
 }
 
+// Check if rawCee=1 is in URL (supports HashRouter)
+// Used to bypass CEE post-processing repairs for debugging
+function getInitialRawCeeMode(): boolean {
+  if (typeof window === 'undefined') return false
+  try {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get('rawCee') === '1') return true
+    // HashRouter: query params may be in hash fragment
+    const hash = window.location.hash
+    const queryIndex = hash.indexOf('?')
+    if (queryIndex !== -1) {
+      const hashParams = new URLSearchParams(hash.slice(queryIndex + 1))
+      if (hashParams.get('rawCee') === '1') return true
+    }
+  } catch { /* ignore */ }
+  return false
+}
+
 // React #185 DEBUG: Middleware to instrument internal set() calls
 // This captures stack traces for ALL store updates, not just external setState
 type SetState<T> = (
@@ -679,6 +701,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   clarifierPreviewEdgeIds: [],
   // Pending fit view request (set by AI graph insertion, cleared by ReactFlowGraph)
   pendingFitView: false,
+  // Debug: Raw CEE output mode (initialized from URL param ?rawCee=1)
+  debugRawCeeOutput: getInitialRawCeeMode(),
 
   createNodeId: () => {
     const { nextNodeId } = get()
@@ -2392,6 +2416,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // Pending fit view setter
   setPendingFitView: (value: boolean) => {
     set({ pendingFitView: value })
+  },
+
+  // Debug: Raw CEE output mode setter
+  setDebugRawCeeOutput: (value: boolean) => {
+    if (value) {
+      console.log('[CEE] Raw output mode enabled')
+    }
+    set({ debugRawCeeOutput: value })
   },
 
   // Week 3: AI Clarifier actions

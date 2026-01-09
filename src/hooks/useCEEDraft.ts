@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { CEEClient, CEEError } from '../adapters/cee/client'
 import type { CEEDraftResponse, CEEv2Response, CEEv3Response } from '../adapters/cee/types'
 import { isSchemaV2Enabled } from '../flags'
+import { useCanvasStore } from '../canvas/store'
 
 export interface DraftGuidance {
   level: 'ready' | 'needs_clarification' | 'not_ready'
@@ -35,7 +36,13 @@ export function useCEEDraft() {
       try {
         // Brief v2.2: Use schema v2 when feature flag is enabled
         const schemaVersion = isSchemaV2Enabled() ? 'v2' : 'v1'
-        const data = await client.draftModel(description, { schemaVersion })
+
+        // Debug: Get raw_output mode from store (bypasses CEE post-processing repairs)
+        const debugRawCeeOutput = useCanvasStore.getState().debugRawCeeOutput
+        const data = await client.draftModel(description, {
+          schemaVersion,
+          raw_output: debugRawCeeOutput || undefined,
+        })
 
         if (!data?.nodes || data.nodes.length === 0) {
           throw new CEEError(

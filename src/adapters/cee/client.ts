@@ -383,27 +383,36 @@ export class CEEClient {
    * Calls CEE /draft-graph endpoint (proxy adds /assist/v1 prefix)
    *
    * @param description - The decision description/brief
-   * @param options - Optional parameters (legacy, kept for backward compatibility)
+   * @param options - Optional parameters
+   * @param options.schemaVersion - Schema version (v1, v2, v3)
+   * @param options.raw_output - If true, bypass CEE post-processing repairs (debug mode)
    */
   async draftModel(
     description: string,
-    options?: { schemaVersion?: 'v1' | 'v2' | 'v3' }
+    options?: { schemaVersion?: 'v1' | 'v2' | 'v3'; raw_output?: boolean }
   ): Promise<CEEDraftResponse | CEEv2Response | CEEv3Response> {
     // Request V3 schema explicitly to get analysis_ready payload with resolved interventions
     // Defence in depth: explicit version prevents breakage if CEE default changes
     const endpoint = '/draft-graph?schema=v3'
+
+    // Build request body
+    const requestBody: { brief: string; raw_output?: boolean } = { brief: description }
+    if (options?.raw_output) {
+      requestBody.raw_output = true
+    }
 
     // Debug: Log schema version request
     if (import.meta.env.DEV) {
       console.log('[CEE] draftModel request:', {
         endpoint,
         schemaVersion: 'v3 (explicit)',
+        raw_output: options?.raw_output ?? false,
       })
     }
 
     const raw = await this.fetch<any>(endpoint, {
       method: 'POST',
-      body: JSON.stringify({ brief: description }),
+      body: JSON.stringify(requestBody),
     })
 
     // Debug: Log response schema details

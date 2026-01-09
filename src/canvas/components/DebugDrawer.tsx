@@ -37,6 +37,9 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
   const edges = useCanvasStore((s) => s.edges)
   const ceePipelineTrace = useCanvasStore((s) => s.ceePipelineTrace)
   const errorDetails = useCanvasStore((s) => s.runMeta.errorDetails)
+  // Debug options
+  const debugRawCeeOutput = useCanvasStore((s) => s.debugRawCeeOutput)
+  const setDebugRawCeeOutput = useCanvasStore((s) => s.setDebugRawCeeOutput)
 
   // Keyboard shortcut: Cmd+Shift+D
   useEffect(() => {
@@ -218,6 +221,24 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
               <div className={`${typography.caption} text-ink-400`}>Edges</div>
             </div>
           </div>
+        </section>
+
+        {/* Debug Options */}
+        <section>
+          <h3 className={`${typography.caption} text-ink-400 uppercase tracking-wide mb-2`}>
+            Debug Options
+          </h3>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={debugRawCeeOutput}
+              onChange={(e) => setDebugRawCeeOutput(e.target.checked)}
+              className="w-4 h-4 rounded border-ink-600 bg-ink-800 text-violet-500 focus:ring-violet-500 focus:ring-offset-0"
+            />
+            <span className={`${typography.caption} text-ink-300`}>
+              Raw CEE output (bypass repairs)
+            </span>
+          </label>
         </section>
 
         {/* CEE Review Summary */}
