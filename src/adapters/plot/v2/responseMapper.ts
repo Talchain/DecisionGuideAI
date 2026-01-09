@@ -557,11 +557,13 @@ function mapElasticityToStrength(elasticity: number): 'low' | 'medium' | 'high' 
 
 /**
  * Normalize elasticity to 0-1 contribution scale.
+ * Note: ISL already normalises elasticity by /2 at computation time (robustness_analyzer_v2.py:841)
+ * so we only clamp here, not divide again.
  */
 function normalizeElasticity(elasticity: number): number {
-  // Clamp to reasonable range and normalize
+  // Clamp to reasonable range (ISL pre-normalises, no /2 needed)
   const absElasticity = Math.abs(elasticity)
-  return Math.min(1, absElasticity / 2)
+  return Math.min(1, absElasticity)
 }
 
 /**
@@ -972,7 +974,7 @@ function buildDriversBlock(v2Response: V2RunResponse): ReviewBlock | null {
       const direction = f.direction ?? (elasticity >= 0 ? 'positive' : 'negative')
 
       // Use same normalization as Key Factors for consistency
-      // normalizeElasticity divides by 2 and caps at 1.0
+      // normalizeElasticity caps at 1.0 (ISL pre-normalises values)
       const normalizedPct = Math.round(normalizeElasticity(Math.abs(elasticity)) * 100)
       const displayPct = normalizedPct === 0 && elasticity !== 0 ? '<1' : String(normalizedPct)
 
