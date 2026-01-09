@@ -91,6 +91,33 @@ export function detectComputedButEmpty(v2Response: V2RunResponse): ComputedButEm
 }
 
 /**
+ * Check if a warning message is an internal implementation detail
+ * that shouldn't be shown to users.
+ *
+ * Filters out:
+ * - Option node filtering messages (e.g., "Node 'opt_x' has kind='option'. Option nodes are filtered...")
+ * - Normalization warnings that are handled internally
+ */
+function isInternalImplementationWarning(message: string): boolean {
+  if (!message) return false
+  const lowerMessage = message.toLowerCase()
+
+  // Filter out option node filtering messages
+  if (lowerMessage.includes('option nodes are filtered') ||
+      lowerMessage.includes("has kind='option'") ||
+      lowerMessage.includes('kind=option')) {
+    return true
+  }
+
+  // Filter out normalization warnings
+  if (lowerMessage.includes('normalization') || lowerMessage.includes('normalisation')) {
+    return true
+  }
+
+  return false
+}
+
+/**
  * Map V2RunResponse to ReportV1 format.
  *
  * Handles:
@@ -266,9 +293,11 @@ export function mapV2ResponseToReportV1(
     ),
     // Include V2-specific data for components that can use it
     // Include both backend critiques and any computed-but-empty anomalies
+    // Filter out internal implementation details (option node filtering, normalization)
     warnings: [
       ...v2Response.critiques
         .filter(c => c.severity === 'warning' || c.severity === 'info')
+        .filter(c => !isInternalImplementationWarning(c.message))
         .map(c => c.message),
       ...anomalies.map(a => `${a.message}. This may indicate a backend issue.`),
     ],
@@ -970,7 +999,9 @@ function buildDriversBlock(v2Response: V2RunResponse): ReviewBlock | null {
     priority: 2,
     items: sorted.slice(0, 5).map(f => {
       const factorId = f.factor_id ?? f.node_id ?? ''
-      const elasticity = f.elasticity ?? f.sensitivity ?? 0
+      // Priority: sensitivity_score (PLoT v2 normalized) > elasticity > sensitivity > default 0.5
+      // Using 0.5 as default (medium impact) rather than 0 to avoid misleading "0% impact"
+      const elasticity = f.sensitivity_score ?? f.elasticity ?? f.sensitivity ?? 0.5
       const direction = f.direction ?? (elasticity >= 0 ? 'positive' : 'negative')
 
       // Use same normalization as Key Factors for consistency

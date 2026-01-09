@@ -271,6 +271,7 @@ export function useV2Run(): UseV2RunReturn {
 
       // Execute V2 run with analysisReady (or fallback to node extraction)
       // P0 Fix: Pass computed seed to avoid hardcoded "42" default
+      // P0 Fix: Include framing for contextualised CEE responses
       const result = await executeV2RunWithAnalysisReady(
         config,
         nodes,
@@ -279,7 +280,12 @@ export function useV2Run(): UseV2RunReturn {
         outcomeNodeId,
         requestId,
         goalThreshold ?? undefined,
-        seed
+        seed,
+        framing ? {
+          title: framing.title,
+          goal: framing.goal,
+          constraints: framing.constraints,
+        } : undefined
       )
 
       const elapsed_ms = Date.now() - startTime
@@ -386,11 +392,29 @@ export function useV2Run(): UseV2RunReturn {
         const ceeReviewV1 = synthesizeCeeReviewFromV2(successResult)
         const ceeTraceV1 = synthesizeCeeTraceFromV2(successResult, requestId, elapsed_ms)
 
+        // Debug: Log raw M1 fields from V2 response before extraction
+        if (import.meta.env.DEV) {
+          console.log('[useV2Run] Raw M1 Review fields from V2 response:', {
+            cee_status: successResult.cee_status,
+            has_decision_quality: !!successResult.decision_quality,
+            insights_count: successResult.insights?.length ?? 'missing',
+            guidance_count: successResult.improvement_guidance?.length ?? 'missing',
+            has_rationale: !!successResult.rationale,
+            rationale_summary: successResult.rationale?.summary?.slice(0, 80),
+            has_robustness: !!successResult.robustness_synthesis,
+            cee_trace: successResult.cee_trace ? {
+              request_id: successResult.cee_trace.request_id,
+              latency_ms: successResult.cee_trace.latency_ms,
+              degraded: successResult.cee_trace.degraded,
+            } : 'missing',
+          })
+        }
+
         // Extract M1 Review data (rationale, robustness synthesis, etc.)
         const m1Review = extractM1ReviewFromV2(successResult)
 
         if (import.meta.env.DEV) {
-          console.log('[useV2Run] Synthesized CEE data from V2 response:', {
+          console.log('[useV2Run] Extracted M1 Review:', {
             hasCeeReview: !!ceeReviewV1,
             blockCount: ceeReviewV1?.blocks?.length ?? 0,
             readinessLevel: ceeReviewV1?.readiness?.level,
@@ -398,6 +422,8 @@ export function useV2Run(): UseV2RunReturn {
             m1CeeStatus: m1Review?.cee_status,
             hasRationale: !!m1Review?.rationale,
             hasRobustnessSynthesis: !!m1Review?.robustness_synthesis,
+            insightsCount: m1Review?.insights?.length ?? 0,
+            guidanceCount: m1Review?.improvement_guidance?.length ?? 0,
           })
         }
 

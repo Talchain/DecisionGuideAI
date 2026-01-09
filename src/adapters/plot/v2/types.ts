@@ -76,6 +76,15 @@ export interface V2RunRequest {
   request_id?: string
   /** Optional success threshold for probability_of_goal calculation */
   goal_threshold?: number
+  /**
+   * User's decision framing for contextualised CEE responses.
+   * When provided, CEE can generate more relevant headlines and guidance.
+   */
+  framing?: {
+    title?: string
+    goal?: string
+    constraints?: string
+  }
 }
 
 // ============================================================================

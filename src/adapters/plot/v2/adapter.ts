@@ -575,6 +575,15 @@ export interface BuildV2RequestOptions {
    * If not provided, falls back to analysisReady.suggested_seed or derives from timestamp.
    */
   seed?: number
+  /**
+   * User's decision framing for contextualised CEE responses.
+   * When provided, CEE can generate more relevant headlines and guidance.
+   */
+  framing?: {
+    title?: string
+    goal?: string
+    constraints?: string
+  }
 }
 
 /**
@@ -601,7 +610,7 @@ export function buildV2RequestFromAnalysisReady(
   fallbackGoalNodeId?: string,
   options: BuildV2RequestOptions = {}
 ): { request: V2RunRequest; reverseIdMap: Map<string, string> } {
-  const { strictEdgeValidation = false } = options
+  const { strictEdgeValidation = false, framing } = options
 
   // Fall back to standard buildV2Request if no analysisReady
   if (!analysisReady) {
@@ -661,6 +670,8 @@ export function buildV2RequestFromAnalysisReady(
     goal_node_id: normalised.goalNodeId ?? goalNodeId,
     seed,
     detail_level: 'deep',
+    // Include framing for contextualised CEE responses
+    ...(framing && { framing }),
   }
 
   return { request, reverseIdMap: normalised.reverseIdMap }
@@ -892,6 +903,7 @@ export async function executeV2Run(
  * @param requestId - Optional request ID for tracing
  * @param goalThreshold - Optional success threshold for probability_of_goal
  * @param seed - P0 Fix: Optional seed for reproducibility (avoids hardcoded "42")
+ * @param framing - User's decision framing for contextualised CEE responses
  */
 export async function executeV2RunWithAnalysisReady(
   config: V2AdapterConfig,
@@ -901,7 +913,8 @@ export async function executeV2RunWithAnalysisReady(
   fallbackGoalNodeId: string,
   requestId?: string,
   goalThreshold?: number,
-  seed?: number
+  seed?: number,
+  framing?: { title?: string; goal?: string; constraints?: string }
 ): Promise<V2RunResult> {
   // Build fallback options from nodes (used when analysisReady not available)
   const validNodeIds = new Set(nodes.map((n) => n.id))
@@ -915,7 +928,7 @@ export async function executeV2RunWithAnalysisReady(
     analysisReady,
     fallbackOptions,
     fallbackGoalNodeId,
-    { strictEdgeValidation: false, seed } // Lenient mode for user-edited graphs
+    { strictEdgeValidation: false, seed, framing } // Lenient mode for user-edited graphs
   )
 
   // Add request ID for tracing
