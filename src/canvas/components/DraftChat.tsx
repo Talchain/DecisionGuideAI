@@ -258,6 +258,22 @@ export function DraftChat() {
           retryable: false,
         })
       }
+
+      // Extract pipeline trace from error responses (CEE includes trace.pipeline in 400s)
+      if (err instanceof CEEError) {
+        const details = err.details as any
+        const pipelineTrace = details?.trace?.pipeline
+        if (isCeePipelineTrace(pipelineTrace)) {
+          const { setCeePipelineTrace } = useCanvasStore.getState()
+          setCeePipelineTrace(pipelineTrace)
+          if (import.meta.env.DEV) {
+            console.log('[DraftChat] Extracted pipeline trace from error response:', {
+              stages: pipelineTrace.stages?.length,
+              status: pipelineTrace.status,
+            })
+          }
+        }
+      }
     }
   }
 

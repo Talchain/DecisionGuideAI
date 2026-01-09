@@ -650,6 +650,26 @@ function SensitivityAnalysisSection() {
   )
 }
 
+// Debug panel width constraints
+const MIN_PANEL_WIDTH = 400
+const MAX_PANEL_WIDTH = 800
+const STORAGE_KEY_WIDTH = 'olumi:debugPanelWidth'
+
+function getInitialPanelWidth(): number {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_WIDTH)
+    if (stored) {
+      const parsed = parseInt(stored, 10)
+      if (!isNaN(parsed) && parsed >= MIN_PANEL_WIDTH && parsed <= MAX_PANEL_WIDTH) {
+        return parsed
+      }
+    }
+  } catch {
+    // Ignore localStorage errors
+  }
+  return MIN_PANEL_WIDTH
+}
+
 /**
  * Debug Panel main component
  */
@@ -663,6 +683,10 @@ export function DebugPanel() {
   const [services, setServices] = useState<ServiceHealthInfo[]>([])
   const [servicesLoading, setServicesLoading] = useState(false)
   const servicesFetched = useRef(false)
+  const [userPanelWidth, setUserPanelWidth] = useState(getInitialPanelWidth)
+  const [isResizing, setIsResizing] = useState(false)
+  const resizeStartX = useRef(0)
+  const resizeStartWidth = useRef(0)
 
   // CEE Pipeline state - consumed from canvas store (populated by DraftChat)
   const ceePipelineTrace = useCanvasStore((s) => s.ceePipelineTrace)
@@ -725,13 +749,48 @@ export function DebugPanel() {
     }
   }, [])
 
+  // Handle panel resize
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizing(true)
+    resizeStartX.current = e.clientX
+    resizeStartWidth.current = userPanelWidth
+  }, [userPanelWidth])
+
+  useEffect(() => {
+    if (!isResizing) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = e.clientX - resizeStartX.current
+      const newWidth = Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, resizeStartWidth.current + delta))
+      setUserPanelWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+      // Persist to localStorage
+      try {
+        localStorage.setItem(STORAGE_KEY_WIDTH, String(userPanelWidth))
+      } catch {
+        // Ignore localStorage errors
+      }
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizing, userPanelWidth])
+
   if (!visible) return null
 
   const versionInfo = getVersionInfo()
   const clientBuild = getClientBuild()
 
   // Panel dimensions based on state
-  const panelWidth = collapsed ? 120 : expanded ? 600 : 400
+  const panelWidth = collapsed ? 120 : expanded ? Math.max(600, userPanelWidth) : userPanelWidth
   const panelMaxHeight = expanded ? 'calc(100vh - 32px)' : '70vh'
 
   return (
@@ -774,6 +833,7 @@ export function DebugPanel() {
         /* Expanded state */
         <div
           style={{
+            position: 'relative',
             background: '#ffffff',
             borderRadius: 8,
             boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
@@ -784,6 +844,28 @@ export function DebugPanel() {
             flexDirection: 'column',
           }}
         >
+          {/* Resize handle */}
+          <div
+            onMouseDown={handleResizeStart}
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: 6,
+              height: '100%',
+              cursor: 'ew-resize',
+              background: isResizing ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
+              zIndex: 10,
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              if (!isResizing) (e.target as HTMLElement).style.background = 'rgba(59, 130, 246, 0.2)'
+            }}
+            onMouseLeave={(e) => {
+              if (!isResizing) (e.target as HTMLElement).style.background = 'transparent'
+            }}
+            title="Drag to resize (400-800px)"
+          />
           {/* Header */}
           <div
             style={{

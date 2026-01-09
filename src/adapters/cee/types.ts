@@ -343,6 +343,26 @@ export interface CeeFinalGraph {
 }
 
 /**
+ * LLM quality corrections applied during pipeline
+ */
+export interface CeeLlmQualityCorrection {
+  edge_id: string
+  from_node: string
+  to_node: string
+  original_coefficient: number
+  corrected_coefficient: number
+  reason: string
+}
+
+/**
+ * LLM quality tracking and corrections
+ */
+export interface CeeLlmQuality {
+  corrections?: CeeLlmQualityCorrection[]
+  risk_coefficient_corrections?: CeeLlmQualityCorrection[]
+}
+
+/**
  * CEE Pipeline Trace - complete trace data from draft-graph response
  *
  * Contains detailed timing, connectivity diagnostics, and LLM call information
@@ -356,6 +376,7 @@ export interface CeePipelineTrace {
   connectivity?: CeeConnectivityDiagnostic
   llm_calls?: CeeLlmCall[]
   final_graph?: CeeFinalGraph
+  llm_quality?: CeeLlmQuality
 }
 
 /**

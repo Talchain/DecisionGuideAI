@@ -18,6 +18,7 @@ import type {
   CeePipelineStatus,
   CeeConnectivityDiagnostic,
   CeeLlmCall,
+  CeeLlmQualityCorrection,
 } from '../adapters/cee/types'
 
 // =============================================================================
@@ -282,15 +283,23 @@ function PipelineSummary({ trace, onCopy }: PipelineSummaryProps) {
 
 interface PipelineTimelineProps {
   stages: CeePipelineStage[]
-  selectedStage: string | null
-  onSelectStage: (name: string) => void
+  expandedStages: Set<string>
+  onToggleStage: (name: string) => void
+  onExpandAll: () => void
+  onCollapseAll: () => void
 }
 
-function PipelineTimeline({ stages, selectedStage, onSelectStage }: PipelineTimelineProps) {
+function PipelineTimeline({ stages, expandedStages, onToggleStage, onExpandAll, onCollapseAll }: PipelineTimelineProps) {
+  const allExpanded = stages.length > 0 && stages.every((s) => expandedStages.has(s.name))
+  const noneExpanded = expandedStages.size === 0
+
   return (
     <div style={{ flex: 1, minWidth: 180 }}>
       <div
         style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           fontSize: 10,
           fontFamily: 'monospace',
           fontWeight: 600,
@@ -298,26 +307,42 @@ function PipelineTimeline({ stages, selectedStage, onSelectStage }: PipelineTime
           padding: '8px 0 4px 0',
         }}
       >
-        Pipeline Stages
+        <span>Pipeline Stages</span>
+        <button
+          onClick={allExpanded ? onCollapseAll : onExpandAll}
+          style={{
+            padding: '2px 6px',
+            background: '#f1f5f9',
+            border: '1px solid #e2e8f0',
+            borderRadius: 4,
+            fontSize: 9,
+            fontFamily: 'monospace',
+            cursor: 'pointer',
+            color: '#64748b',
+          }}
+          title={allExpanded ? 'Collapse all stages' : 'Expand all stages'}
+        >
+          {allExpanded ? '▼ Collapse All' : '▶ Expand All'}
+        </button>
       </div>
       {stages.map((stage, index) => {
         const colors = STATUS_COLORS[stage.status]
-        const isSelected = selectedStage === stage.name
+        const isExpanded = expandedStages.has(stage.name)
         const icon = STATUS_ICONS[stage.status]
         const label = STAGE_LABELS[stage.name] || stage.name
 
         return (
           <button
             key={stage.name}
-            onClick={() => onSelectStage(stage.name)}
+            onClick={() => onToggleStage(stage.name)}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: 8,
               width: '100%',
               padding: '6px 8px',
-              background: isSelected ? colors.bg : 'transparent',
-              border: isSelected ? `1px solid ${colors.border}` : '1px solid transparent',
+              background: isExpanded ? colors.bg : 'transparent',
+              border: isExpanded ? `1px solid ${colors.border}` : '1px solid transparent',
               borderRadius: 4,
               cursor: 'pointer',
               fontSize: 10,
@@ -363,6 +388,11 @@ function PipelineTimeline({ stages, selectedStage, onSelectStage }: PipelineTime
               <div style={{ color: colors.text, fontWeight: 500 }}>{label}</div>
               <div style={{ color: '#94a3b8', fontSize: 9 }}>{formatDuration(stage.duration_ms)}</div>
             </div>
+
+            {/* Expand indicator */}
+            <span style={{ color: '#94a3b8', fontSize: 10 }}>
+              {isExpanded ? '▼' : '▶'}
+            </span>
 
             {/* Status */}
             <span
@@ -644,6 +674,104 @@ function LlmCallDetails({ call }: LlmCallDetailsProps) {
 }
 
 // =============================================================================
+// LLM Corrections Panel
+// =============================================================================
+
+interface LlmCorrectionsPanelProps {
+  corrections: CeeLlmQualityCorrection[]
+  title: string
+}
+
+function LlmCorrectionsPanel({ corrections, title }: LlmCorrectionsPanelProps) {
+  const [expanded, setExpanded] = useState(false)
+
+  if (corrections.length === 0) return null
+
+  return (
+    <div style={{ borderTop: '1px solid #e2e8f0', marginTop: 8 }}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '8px 0',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          fontSize: 10,
+          fontFamily: 'monospace',
+          fontWeight: 600,
+          color: '#92400e',
+        }}
+      >
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '2px 6px',
+            background: '#fef3c7',
+            borderRadius: 4,
+            fontSize: 9,
+          }}>
+            ⚠️ {corrections.length} {corrections.length === 1 ? 'Correction' : 'Corrections'}
+          </span>
+          {title}
+        </span>
+        <span style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+      </button>
+
+      {expanded && (
+        <div style={{ padding: 8, background: '#fffbeb', borderRadius: 4, marginBottom: 8 }}>
+          {corrections.map((c, idx) => (
+            <div
+              key={c.edge_id || idx}
+              style={{
+                padding: 8,
+                marginBottom: idx < corrections.length - 1 ? 8 : 0,
+                background: 'white',
+                borderRadius: 4,
+                border: '1px solid #fde68a',
+              }}
+            >
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '120px 1fr',
+                  gap: '4px 8px',
+                  fontSize: 9,
+                  fontFamily: 'monospace',
+                  color: '#64748b',
+                }}
+              >
+                <span>Edge:</span>
+                <span style={{ color: '#0ea5e9' }}>{c.from_node} → {c.to_node}</span>
+                <span>Original:</span>
+                <span style={{ color: '#ef4444', textDecoration: 'line-through' }}>
+                  {c.original_coefficient.toFixed(2)}
+                </span>
+                <span>Corrected:</span>
+                <span style={{ color: '#22c55e', fontWeight: 600 }}>
+                  {c.corrected_coefficient.toFixed(2)}
+                </span>
+                {c.reason && (
+                  <>
+                    <span>Reason:</span>
+                    <span style={{ color: '#334155' }}>{c.reason}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// =============================================================================
 // Main CeePipelineTab Component
 // =============================================================================
 
@@ -654,13 +782,37 @@ export interface CeePipelineTabProps {
 }
 
 export function CeePipelineTab({ trace, isLoading = false, error = null }: CeePipelineTabProps) {
-  const [selectedStageName, setSelectedStageName] = useState<string | null>(null)
+  const [expandedStages, setExpandedStages] = useState<Set<string>>(new Set())
 
-  // Find selected stage
-  const selectedStage = useMemo(() => {
-    if (!trace || !selectedStageName) return null
-    return trace.stages.find((s) => s.name === selectedStageName) || null
-  }, [trace, selectedStageName])
+  // Toggle individual stage
+  const handleToggleStage = (name: string) => {
+    setExpandedStages((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) {
+        next.delete(name)
+      } else {
+        next.add(name)
+      }
+      return next
+    })
+  }
+
+  // Expand all stages
+  const handleExpandAll = () => {
+    if (!trace) return
+    setExpandedStages(new Set(trace.stages.map((s) => s.name)))
+  }
+
+  // Collapse all stages
+  const handleCollapseAll = () => {
+    setExpandedStages(new Set())
+  }
+
+  // Get expanded stages for rendering
+  const expandedStageList = useMemo(() => {
+    if (!trace) return []
+    return trace.stages.filter((s) => expandedStages.has(s.name))
+  }, [trace, expandedStages])
 
   // Loading state
   if (isLoading) {
@@ -754,18 +906,38 @@ export function CeePipelineTab({ trace, isLoading = false, error = null }: CeePi
         {/* Left: Timeline */}
         <PipelineTimeline
           stages={trace.stages}
-          selectedStage={selectedStageName}
-          onSelectStage={setSelectedStageName}
+          expandedStages={expandedStages}
+          onToggleStage={handleToggleStage}
+          onExpandAll={handleExpandAll}
+          onCollapseAll={handleCollapseAll}
         />
 
-        {/* Right: Details */}
-        <div style={{ flex: 1, borderLeft: '1px solid #e2e8f0', paddingLeft: 12 }}>
-          <StageDetails stage={selectedStage} trace={trace} />
+        {/* Right: Details for expanded stages */}
+        <div style={{ flex: 1, borderLeft: '1px solid #e2e8f0', paddingLeft: 12, overflowY: 'auto' }}>
+          {expandedStageList.length === 0 ? (
+            <div style={{ color: '#94a3b8', fontSize: 10, textAlign: 'center', padding: 16 }}>
+              Click a stage to see details
+            </div>
+          ) : (
+            expandedStageList.map((stage, idx) => (
+              <div key={stage.name} style={{ marginBottom: idx < expandedStageList.length - 1 ? 16 : 0 }}>
+                <StageDetails stage={stage} trace={trace} />
+              </div>
+            ))
+          )}
         </div>
       </div>
 
       {/* Footer: Expandable sections */}
       <div style={{ padding: '0 12px 12px 12px' }}>
+        {/* LLM Quality Corrections */}
+        {trace.llm_quality?.corrections && trace.llm_quality.corrections.length > 0 && (
+          <LlmCorrectionsPanel corrections={trace.llm_quality.corrections} title="LLM Corrections" />
+        )}
+        {trace.llm_quality?.risk_coefficient_corrections && trace.llm_quality.risk_coefficient_corrections.length > 0 && (
+          <LlmCorrectionsPanel corrections={trace.llm_quality.risk_coefficient_corrections} title="Risk Coefficient Corrections" />
+        )}
+
         {/* All LLM calls */}
         {trace.llm_calls && trace.llm_calls.length > 1 && (
           <JsonViewer title={`All LLM Calls (${trace.llm_calls.length})`} data={trace.llm_calls} />
