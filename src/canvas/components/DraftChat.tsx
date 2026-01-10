@@ -279,16 +279,41 @@ export function DraftChat() {
 
   // Apply draft to canvas and return the IDs of added nodes/edges
   const applyDraftToCanvas = useCallback((draftData: CEEDraftResponse | CEEv2Response | null) => {
-    // Null-safe: bail out if draft or nodes/edges are missing
-    if (!draftData?.nodes?.length) return { nodeIds: [], edgeIds: [] }
+    // Check both locations: root level or nested under graph
+    const rawNodes = draftData?.nodes ?? (draftData as any)?.graph?.nodes ?? []
+    const rawEdgesForCheck = draftData?.edges ?? (draftData as any)?.graph?.edges ?? []
+
+    // Null-safe: bail out if draft or nodes are missing
+    if (!rawNodes.length) return { nodeIds: [], edgeIds: [] }
 
     // P0 DIAGNOSTIC: Log CEE response structure for debugging analysis_ready flow
     if (import.meta.env.DEV) {
       console.log('[DraftChat] === CEE RESPONSE DIAGNOSTIC ===')
-      console.log('[DraftChat] Response keys:', Object.keys(draftData))
-      console.log('[DraftChat] Has analysis_ready key:', 'analysis_ready' in draftData)
-      console.log('[DraftChat] analysis_ready value:', (draftData as any).analysis_ready)
+      console.log('[DraftChat] Response keys:', Object.keys(draftData || {}))
+      console.log('[DraftChat] Has analysis_ready key:', 'analysis_ready' in (draftData || {}))
+      console.log('[DraftChat] analysis_ready value:', (draftData as any)?.analysis_ready)
       console.log('[DraftChat] hasAnalysisReady() result:', hasAnalysisReady(draftData))
+      console.log('[DraftChat] Nodes location:', draftData?.nodes ? 'root' : (draftData as any)?.graph?.nodes ? 'graph.nodes' : 'none')
+      console.log('[DraftChat] Edges location:', draftData?.edges ? 'root' : (draftData as any)?.graph?.edges ? 'graph.edges' : 'none')
+
+      // P0 INVESTIGATION: Log edge structure received by DraftChat
+      const firstEdge = rawEdgesForCheck[0]
+      console.log('[DraftChat] === EDGE STRUCTURE AT DRAFTCHAT ===')
+      console.log('[DraftChat] edges array length:', rawEdgesForCheck.length)
+      if (firstEdge) {
+        console.log('[DraftChat] First edge ALL KEYS:', Object.keys(firstEdge))
+        console.log('[DraftChat] First edge RAW:', JSON.stringify(firstEdge, null, 2))
+        console.log('[DraftChat] First edge field check:', {
+          'weight (direct)': firstEdge.weight,
+          'strength_mean (direct)': firstEdge.strength_mean,
+          'strength.mean (nested)': firstEdge.strength?.mean,
+          'effect_direction': firstEdge.effect_direction,
+          'belief': firstEdge.belief,
+        })
+      } else {
+        console.log('[DraftChat] No edges received - checked both draftData.edges and draftData.graph.edges')
+      }
+      console.log('[DraftChat] === END EDGE INVESTIGATION ===')
 
       // Detailed type guard checks
       const ar = (draftData as any).analysis_ready
@@ -315,7 +340,8 @@ export function DraftChat() {
     // Convert CEE nodes to canvas nodes
     // Note: n.type contains the node kind ("goal", "outcome", "factor", etc.)
     // from adaptDraftResponse() which maps kind → type
-    const nodes = draftData.nodes.map((n: any) => ({
+    // Use rawNodes which checks both draftData.nodes and draftData.graph.nodes
+    const nodes = rawNodes.map((n: any) => ({
       id: n.id,
       type: n.type,
       position: { x: 0, y: 0 }, // Layout algorithm will position
@@ -331,13 +357,63 @@ export function DraftChat() {
       },
     }))
 
-    const edges = (draftData.edges ?? []).map((e: any, i: number) => {
+    // Check both locations: draftData.edges (v2/v3 root) or draftData.graph.edges (nested)
+    const rawEdges = draftData.edges ?? (draftData as any).graph?.edges ?? []
+    const edges = rawEdges.map((e: any, i: number) => {
       const id = typeof e.id === 'string' && e.id.trim().length > 0 ? e.id : `e-${i}`
 
-      const weight =
-        typeof e.weight === 'number'
-          ? Math.max(0, Math.min(2, e.weight)) // v2.2: weight can be 0.3-1.5
-          : DEFAULT_EDGE_DATA.weight
+      // Extract edge properties first (needed for signed weight calculation)
+      const direction: EffectDirection | undefined = e.effect_direction
+
+      // CEE v3 returns strength as nested object: { mean, std }
+      // Also support flat strength_std for backwards compatibility
+      const strengthStd: number | undefined =
+        typeof e.strength?.std === 'number' ? e.strength.std :
+        typeof e.strength_std === 'number' ? e.strength_std :
+        undefined
+
+      // Priority: strength.mean (CEE v3 nested) > strength_mean (flat) > weight (legacy) > default
+      // CEE v3 returns edges with `strength: { mean, std }` structure
+      let rawWeight: number
+      let weightSource: string
+      if (typeof e.strength?.mean === 'number') {
+        rawWeight = e.strength.mean
+        weightSource = 'strength.mean'
+      } else if (typeof e.strength_mean === 'number') {
+        rawWeight = e.strength_mean
+        weightSource = 'strength_mean'
+      } else if (typeof e.weight === 'number') {
+        rawWeight = e.weight
+        weightSource = 'weight'
+      } else {
+        rawWeight = DEFAULT_EDGE_DATA.weight
+        weightSource = 'default'
+      }
+
+      // Clamp to valid range (0-2 for magnitude)
+      // Store unsigned magnitude in weight - ISL adapter applies sign from direction
+      const weight = Math.max(0, Math.min(2, Math.abs(rawWeight)))
+
+      // Diagnostic logging for edge coefficients
+      if (import.meta.env.DEV) {
+        // Calculate what ISL will compute for verification
+        const islSign = direction === 'negative' ? -1 : 1
+        const islSignedWeight = islSign * weight
+        console.log('[DraftChat] Edge coefficient:', {
+          from: e.from,
+          to: e.to,
+          'strength (nested)': e.strength, // CEE v3 nested object
+          'strength.mean': e.strength?.mean,
+          'strength.std': e.strength?.std,
+          strength_mean: e.strength_mean, // Flat fallback
+          cee_weight: e.weight, // Legacy field
+          effect_direction: direction,
+          weightSource,
+          storedWeight: weight,
+          strengthStd,
+          islSignedWeight, // What ISL will compute
+        })
+      }
 
       const confidence =
         typeof e.belief === 'number' ? Math.max(0, Math.min(1, e.belief)) : undefined
@@ -354,12 +430,6 @@ export function DraftChat() {
           provenanceText = trimProvenance(combined)
         }
       }
-
-      // Extract edge properties (works for V2, V3, and future versions)
-      const direction: EffectDirection | undefined = e.effect_direction
-      const strengthStd: number | undefined = typeof e.strength_std === 'number'
-        ? e.strength_std
-        : undefined
 
       return {
         id,

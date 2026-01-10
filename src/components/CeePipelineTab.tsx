@@ -173,8 +173,9 @@ interface PipelineSummaryProps {
 }
 
 function PipelineSummary({ trace, onCopy }: PipelineSummaryProps) {
-  const statusColors = PIPELINE_STATUS_COLORS[trace.status]
-  const statusLabel = trace.status.replace(/_/g, ' ')
+  // Defensive: handle unexpected status values with fallback colors
+  const statusColors = PIPELINE_STATUS_COLORS[trace.status] ?? { bg: '#fee2e2', text: '#991b1b' }
+  const statusLabel = (trace.status ?? 'unknown').replace(/_/g, ' ')
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
@@ -225,8 +226,8 @@ function PipelineSummary({ trace, onCopy }: PipelineSummaryProps) {
 
       {/* LLM calls */}
       <div style={{ color: '#64748b' }}>
-        <span style={{ fontWeight: 600 }}>{trace.llm_call_count}</span>
-        <span style={{ marginLeft: 4 }}>LLM call{trace.llm_call_count !== 1 ? 's' : ''}</span>
+        <span style={{ fontWeight: 600 }}>{trace.llm_call_count ?? 1}</span>
+        <span style={{ marginLeft: 4 }}>LLM call{(trace.llm_call_count ?? 1) !== 1 ? 's' : ''}</span>
       </div>
 
       {/* Spacer */}
@@ -682,6 +683,10 @@ interface LlmCorrectionsPanelProps {
   title: string
 }
 
+/** Safely format coefficient value - handles undefined/null from malformed CEE responses */
+const formatCoeff = (value: number | undefined | null): string =>
+  typeof value === 'number' ? value.toFixed(2) : '—'
+
 function LlmCorrectionsPanel({ corrections, title }: LlmCorrectionsPanelProps) {
   const [expanded, setExpanded] = useState(false)
 
@@ -750,11 +755,11 @@ function LlmCorrectionsPanel({ corrections, title }: LlmCorrectionsPanelProps) {
                 <span style={{ color: '#0ea5e9' }}>{c.from_node} → {c.to_node}</span>
                 <span>Original:</span>
                 <span style={{ color: '#ef4444', textDecoration: 'line-through' }}>
-                  {c.original_coefficient.toFixed(2)}
+                  {formatCoeff(c.original_coefficient)}
                 </span>
                 <span>Corrected:</span>
                 <span style={{ color: '#22c55e', fontWeight: 600 }}>
-                  {c.corrected_coefficient.toFixed(2)}
+                  {formatCoeff(c.corrected_coefficient)}
                 </span>
                 {c.reason && (
                   <>

@@ -335,6 +335,80 @@ function ServiceRow({ service }: { service: ServiceHealthInfo }) {
 }
 
 /**
+ * Canvas Edges section - shows what edges look like AFTER DraftChat processing
+ * Compare with CEE Response section to debug data loss in transformation
+ */
+function CanvasEdgesSection() {
+  const edges = useCanvasStore((s) => s.edges)
+  const firstEdge = edges[0]
+
+  return (
+    <div
+      style={{
+        padding: '8px 12px',
+        borderBottom: '1px solid #e2e8f0',
+        fontSize: 10,
+        fontFamily: 'monospace',
+      }}
+    >
+      <div
+        style={{ fontWeight: 600, marginBottom: 6, color: '#334155', cursor: 'help' }}
+        title="Edge structure in canvas store AFTER DraftChat processing. Compare with CEE Response above to debug field mapping."
+      >
+        Canvas Edges
+        <span style={{ marginLeft: 4, color: '#94a3b8', fontSize: 9, fontWeight: 400 }}>ⓘ</span>
+      </div>
+      {edges.length > 0 && firstEdge?.data ? (
+        <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '2px 8px', color: '#64748b' }}>
+          <span>Count:</span>
+          <span style={{ color: '#0ea5e9' }}>{edges.length}</span>
+          <span>Data Keys:</span>
+          <span style={{ color: '#22c55e', wordBreak: 'break-word' }}>
+            {Object.keys(firstEdge.data).join(', ')}
+          </span>
+          <span>Coefficients:</span>
+          <span style={{ wordBreak: 'break-word' }}>
+            {/* Show first 3 edges' weight+direction */}
+            {edges.slice(0, 3).map((e, i) => (
+              <span key={e.id} style={{ marginRight: 8 }}>
+                {e.data?.direction === 'negative' ? '-' : '+'}
+                {((e.data?.weight ?? 0.5) as number).toFixed(2)}
+                {i < Math.min(edges.length - 1, 2) ? ',' : ''}
+              </span>
+            ))}
+            {edges.length > 3 && <span style={{ color: '#94a3b8' }}>... +{edges.length - 3} more</span>}
+          </span>
+          <span>Sample Edge:</span>
+          <details style={{ color: '#64748b' }}>
+            <summary style={{ cursor: 'pointer', color: '#3b82f6' }}>View data</summary>
+            <pre style={{
+              fontSize: 9,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+              background: '#f8fafc',
+              padding: 4,
+              borderRadius: 4,
+              marginTop: 4,
+              maxHeight: 150,
+              overflow: 'auto'
+            }}>
+              {JSON.stringify({
+                id: firstEdge.id,
+                source: firstEdge.source,
+                target: firstEdge.target,
+                ...firstEdge.data
+              }, null, 2)}
+            </pre>
+          </details>
+        </div>
+      ) : (
+        <div style={{ color: '#94a3b8' }}>No canvas edges (create edges on canvas)</div>
+      )}
+    </div>
+  )
+}
+
+/**
  * Request ID display with copy button
  */
 function RequestIdDisplay({ requestId }: { requestId?: string }) {
@@ -1043,6 +1117,64 @@ export function DebugPanel() {
               services.map((service) => <ServiceRow key={service.name} service={service} />)
             )}
           </div>
+
+          {/* CEE Response Structure - helps debug edge field mapping issues */}
+          <div
+            style={{
+              padding: '8px 12px',
+              borderBottom: '1px solid #e2e8f0',
+              fontSize: 10,
+              fontFamily: 'monospace',
+            }}
+          >
+            <div
+              style={{ fontWeight: 600, marginBottom: 6, color: '#334155', cursor: 'help' }}
+              title="CEE draft-graph response structure. Shows edge fields present and sample data to debug mapping issues."
+            >
+              CEE Response
+              <span style={{ marginLeft: 4, color: '#94a3b8', fontSize: 9, fontWeight: 400 }}>ⓘ</span>
+            </div>
+            {ceePipelineTrace?.final_graph ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '2px 8px', color: '#64748b' }}>
+                <span>Nodes:</span>
+                <span style={{ color: '#0ea5e9' }}>{ceePipelineTrace.final_graph.node_count}</span>
+                <span>Edges:</span>
+                <span style={{ color: '#0ea5e9' }}>{ceePipelineTrace.final_graph.edge_count}</span>
+                <span>Edge Keys:</span>
+                <span style={{ color: '#22c55e', wordBreak: 'break-word' }}>
+                  {ceePipelineTrace.final_graph.edges?.[0]
+                    ? Object.keys(ceePipelineTrace.final_graph.edges[0]).join(', ')
+                    : '—'}
+                </span>
+                {ceePipelineTrace.final_graph.edges?.[0] && (
+                  <>
+                    <span>Sample Edge:</span>
+                    <details style={{ color: '#64748b' }}>
+                      <summary style={{ cursor: 'pointer', color: '#3b82f6' }}>View JSON</summary>
+                      <pre style={{
+                        fontSize: 9,
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-all',
+                        background: '#f8fafc',
+                        padding: 4,
+                        borderRadius: 4,
+                        marginTop: 4,
+                        maxHeight: 150,
+                        overflow: 'auto'
+                      }}>
+                        {JSON.stringify(ceePipelineTrace.final_graph.edges[0], null, 2)}
+                      </pre>
+                    </details>
+                  </>
+                )}
+              </div>
+            ) : (
+              <div style={{ color: '#94a3b8' }}>No CEE response data (run a draft first)</div>
+            )}
+          </div>
+
+          {/* Canvas Edges - shows what DraftChat stored after processing CEE response */}
+          <CanvasEdgesSection />
 
           {/* Gate Statuses */}
           <div

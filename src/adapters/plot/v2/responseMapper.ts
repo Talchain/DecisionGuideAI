@@ -634,6 +634,15 @@ export function createEnrichmentFromV2Response(v2Response: V2RunResponse): {
   const edgeSensitivity = Array.isArray(rawEdgeSensitivity) ? rawEdgeSensitivity : []
   const factorSensitivity = Array.isArray(rawFactorSensitivity) ? rawFactorSensitivity : []
 
+  // DEV: Log raw factor_sensitivity fields to debug "Impact data not available"
+  if (import.meta.env.DEV && factorSensitivity.length > 0) {
+    console.log('[createEnrichmentFromV2Response] Raw factor_sensitivity sample:', {
+      count: factorSensitivity.length,
+      sampleKeys: factorSensitivity[0] ? Object.keys(factorSensitivity[0]) : [],
+      sample: factorSensitivity[0],
+    })
+  }
+
   // Log anomalies for non-array values
   if (rawEdgeSensitivity !== undefined && !Array.isArray(rawEdgeSensitivity)) {
     recordDataShapeAnomaly(
@@ -994,6 +1003,22 @@ function buildDriversBlock(v2Response: V2RunResponse): ReviewBlock | null {
     const bElast = Math.abs(b.elasticity ?? b.sensitivity ?? 0)
     return bElast - aElast
   })
+
+  // DEV: Log factor fields to debug "Impact data not available" issue
+  if (import.meta.env.DEV && sorted.length > 0) {
+    console.log('[buildDriversBlock] Factor sensitivity fields:', {
+      factorCount: sorted.length,
+      sampleFactor: sorted[0],
+      sampleFields: {
+        has_sensitivity_score: sorted[0].sensitivity_score !== undefined,
+        has_elasticity: sorted[0].elasticity !== undefined,
+        has_sensitivity: sorted[0].sensitivity !== undefined,
+        sensitivity_score: sorted[0].sensitivity_score,
+        elasticity: sorted[0].elasticity,
+        sensitivity: sorted[0].sensitivity,
+      },
+    })
+  }
 
   return {
     id: 'drivers',

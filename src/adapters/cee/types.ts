@@ -371,16 +371,20 @@ export interface CeeLlmQuality {
 export interface CeePipelineTrace {
   status: CeePipelineStatus
   total_duration_ms: number
-  llm_call_count: number
+  /** LLM call count - optional, defaults to 1 in raw_output mode */
+  llm_call_count?: number
   stages: CeePipelineStage[]
   connectivity?: CeeConnectivityDiagnostic
   llm_calls?: CeeLlmCall[]
   final_graph?: CeeFinalGraph
   llm_quality?: CeeLlmQuality
+  /** Indicates raw output mode (bypasses CEE post-processing) */
+  raw_output_mode?: boolean
 }
 
 /**
  * Type guard for pipeline trace
+ * Note: llm_call_count is optional (not present in raw_output mode)
  */
 export function isCeePipelineTrace(value: unknown): value is CeePipelineTrace {
   if (typeof value !== 'object' || value === null) return false
@@ -388,7 +392,6 @@ export function isCeePipelineTrace(value: unknown): value is CeePipelineTrace {
   return (
     typeof v.status === 'string' &&
     typeof v.total_duration_ms === 'number' &&
-    typeof v.llm_call_count === 'number' &&
     Array.isArray(v.stages)
   )
 }

@@ -417,21 +417,74 @@ export class CEEClient {
 
     // Debug: Log response schema details
     if (import.meta.env.DEV) {
-      const edges = raw?.edges || []
+      // P0 INVESTIGATION: Check BOTH root-level AND nested graph.edges
+      const rootEdges = raw?.edges || []
+      const graphEdges = raw?.graph?.edges || []
+      const edges = rootEdges.length > 0 ? rootEdges : graphEdges
       const edgesWithStrengthStd = edges.filter((e: any) => typeof e.strength_std === 'number')
       const nodesWithObservedState = (raw?.nodes || []).filter((n: any) => n.observed_state?.value !== undefined)
+
+      // P0 INVESTIGATION: Log graph object structure (where edges actually live)
+      console.log('[CEE] === GRAPH OBJECT INVESTIGATION ===')
+      console.log('[CEE] raw.graph exists:', !!raw?.graph)
+      console.log('[CEE] raw.graph keys:', raw?.graph ? Object.keys(raw.graph) : 'N/A')
+      console.log('[CEE] raw.graph.edges length:', graphEdges.length)
+      console.log('[CEE] raw.edges length (root):', rootEdges.length)
+
+      // Log the FIRST edge from graph.edges with ALL fields
+      const graphFirstEdge = graphEdges[0]
+      if (graphFirstEdge) {
+        console.log('[CEE] graph.edges[0] ALL KEYS:', Object.keys(graphFirstEdge))
+        console.log('[CEE] graph.edges[0] RAW:', JSON.stringify(graphFirstEdge, null, 2))
+        console.log('[CEE] graph.edges[0] field check:', {
+          'from': graphFirstEdge.from,
+          'to': graphFirstEdge.to,
+          'weight (direct)': graphFirstEdge.weight,
+          'strength_mean (direct)': graphFirstEdge.strength_mean,
+          'strength (object)': graphFirstEdge.strength,
+          'strength.mean (nested)': graphFirstEdge.strength?.mean,
+          'strength.std (nested)': graphFirstEdge.strength?.std,
+          'effect_direction': graphFirstEdge.effect_direction,
+          'belief': graphFirstEdge.belief,
+          'edge_type': graphFirstEdge.edge_type,
+        })
+      } else {
+        console.log('[CEE] graph.edges is empty or missing')
+      }
+      console.log('[CEE] === END GRAPH OBJECT INVESTIGATION ===')
+
+      // Legacy root-level edge logging
+      const firstEdge = edges[0]
+      console.log('[CEE] === EDGE STRUCTURE INVESTIGATION ===')
+      console.log('[CEE] edges array type:', typeof raw?.edges, Array.isArray(raw?.edges))
+      console.log('[CEE] edges length:', edges.length)
+      if (firstEdge) {
+        console.log('[CEE] First edge ALL KEYS:', Object.keys(firstEdge))
+        console.log('[CEE] First edge RAW:', JSON.stringify(firstEdge, null, 2))
+        console.log('[CEE] First edge field check:', {
+          'weight (direct)': firstEdge.weight,
+          'strength_mean (direct)': firstEdge.strength_mean,
+          'strength.mean (nested)': firstEdge.strength?.mean,
+          'effect_direction': firstEdge.effect_direction,
+          'belief': firstEdge.belief,
+        })
+      } else {
+        console.log('[CEE] No edges in response - raw.edges:', raw?.edges)
+      }
+      console.log('[CEE] === END EDGE INVESTIGATION ===')
+
       console.log('[CEE] draftModel response:', {
         schema_version: raw?.schema_version,
         nodeCount: raw?.nodes?.length ?? 0,
         edgeCount: edges.length,
         edgesWithStrengthStd: edgesWithStrengthStd.length,
         nodesWithObservedState: nodesWithObservedState.length,
-        sampleEdge: edges[0] ? {
-          from: edges[0].from,
-          to: edges[0].to,
-          weight: edges[0].weight,
-          strength_std: edges[0].strength_std,
-          effect_direction: edges[0].effect_direction,
+        sampleEdge: firstEdge ? {
+          from: firstEdge.from,
+          to: firstEdge.to,
+          weight: firstEdge.weight,
+          strength_std: firstEdge.strength_std,
+          effect_direction: firstEdge.effect_direction,
         } : null,
       })
 
@@ -451,8 +504,20 @@ export class CEEClient {
     if (isCEEv3Response(raw)) {
       const result = raw as CEEv3Response & { pipeline_trace?: CeePipelineTrace }
       // Extract trace.pipeline to top-level pipeline_trace for consistency with V1 path
-      if (isCeePipelineTrace((raw as any).trace?.pipeline)) {
-        result.pipeline_trace = (raw as any).trace.pipeline
+      const rawTrace = (raw as any).trace?.pipeline
+      if (isCeePipelineTrace(rawTrace)) {
+        result.pipeline_trace = rawTrace
+      } else if (import.meta.env.DEV && (raw as any).trace) {
+        // Log why trace extraction failed
+        console.warn('[CEE] Pipeline trace extraction failed for V3 response:', {
+          hasTrace: !!(raw as any).trace,
+          hasPipeline: !!(raw as any).trace?.pipeline,
+          pipelineKeys: rawTrace ? Object.keys(rawTrace) : 'undefined',
+          hasStatus: typeof rawTrace?.status === 'string',
+          hasDuration: typeof rawTrace?.total_duration_ms === 'number',
+          hasCallCount: typeof rawTrace?.llm_call_count === 'number',
+          hasStages: Array.isArray(rawTrace?.stages),
+        })
       }
       return result
     }
@@ -461,8 +526,20 @@ export class CEEClient {
     if (isCEEv2Response(raw)) {
       const result = raw as CEEv2Response & { pipeline_trace?: CeePipelineTrace }
       // Extract trace.pipeline to top-level pipeline_trace for consistency with V1 path
-      if (isCeePipelineTrace((raw as any).trace?.pipeline)) {
-        result.pipeline_trace = (raw as any).trace.pipeline
+      const rawTrace = (raw as any).trace?.pipeline
+      if (isCeePipelineTrace(rawTrace)) {
+        result.pipeline_trace = rawTrace
+      } else if (import.meta.env.DEV && (raw as any).trace) {
+        // Log why trace extraction failed
+        console.warn('[CEE] Pipeline trace extraction failed for V2 response:', {
+          hasTrace: !!(raw as any).trace,
+          hasPipeline: !!(raw as any).trace?.pipeline,
+          pipelineKeys: rawTrace ? Object.keys(rawTrace) : 'undefined',
+          hasStatus: typeof rawTrace?.status === 'string',
+          hasDuration: typeof rawTrace?.total_duration_ms === 'number',
+          hasCallCount: typeof rawTrace?.llm_call_count === 'number',
+          hasStages: Array.isArray(rawTrace?.stages),
+        })
       }
       return result
     }
