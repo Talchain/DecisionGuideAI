@@ -851,8 +851,8 @@ export function CeePipelineTab({ trace, isLoading = false, error = null }: CeePi
     )
   }
 
-  // Error state
-  if (error) {
+  // Error state WITHOUT trace - show error message
+  if (error && !trace) {
     return (
       <div
         style={{
@@ -867,11 +867,14 @@ export function CeePipelineTab({ trace, isLoading = false, error = null }: CeePi
       >
         <div style={{ fontWeight: 600, marginBottom: 4 }}>CEE Error</div>
         <div>{error}</div>
+        <div style={{ marginTop: 8, color: '#64748b', fontSize: 9 }}>
+          No pipeline trace available in error response.
+        </div>
       </div>
     )
   }
 
-  // Empty state
+  // Empty state (no error, no trace)
   if (!trace) {
     return (
       <div
@@ -896,6 +899,26 @@ export function CeePipelineTab({ trace, isLoading = false, error = null }: CeePi
 
   return (
     <div style={{ fontSize: 10, fontFamily: 'monospace' }}>
+      {/* Error banner when showing trace from error response */}
+      {error && (
+        <div
+          style={{
+            padding: '8px 12px',
+            background: '#fee2e2',
+            borderBottom: '1px solid #fca5a5',
+            fontSize: 10,
+            fontFamily: 'monospace',
+            color: '#991b1b',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}
+        >
+          <span style={{ fontSize: 12 }}>⚠️</span>
+          <span>Pipeline trace from failed request: {error}</span>
+        </div>
+      )}
+
       {/* Summary header */}
       <PipelineSummary trace={trace} />
 

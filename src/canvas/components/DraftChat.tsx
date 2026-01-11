@@ -259,10 +259,21 @@ export function DraftChat() {
         })
       }
 
-      // Extract pipeline trace from error responses (CEE includes trace.pipeline in 400s)
+      // Extract pipeline trace from error responses (CEE includes trace.pipeline in 400/500s)
+      // Check multiple possible locations since error response structure may vary
       if (err instanceof CEEError) {
         const details = err.details as any
-        const pipelineTrace = details?.trace?.pipeline
+        // Check possible trace locations in order of likelihood:
+        // 1. details.trace.pipeline (standard CEE error response)
+        // 2. details.pipeline_trace (alternative location)
+        // 3. details.details.trace.pipeline (nested details wrapper)
+        // 4. details.pipeline (direct pipeline)
+        const pipelineTrace =
+          details?.trace?.pipeline ??
+          details?.pipeline_trace ??
+          details?.details?.trace?.pipeline ??
+          details?.pipeline
+
         if (isCeePipelineTrace(pipelineTrace)) {
           const { setCeePipelineTrace } = useCanvasStore.getState()
           setCeePipelineTrace(pipelineTrace)
@@ -270,8 +281,18 @@ export function DraftChat() {
             console.log('[DraftChat] Extracted pipeline trace from error response:', {
               stages: pipelineTrace.stages?.length,
               status: pipelineTrace.status,
+              httpStatus: err.status,
             })
           }
+        } else if (import.meta.env.DEV) {
+          // Log what we found to help debug extraction issues
+          console.log('[DraftChat] No pipeline trace in error response:', {
+            httpStatus: err.status,
+            detailsKeys: details ? Object.keys(details) : [],
+            hasTrace: !!details?.trace,
+            traceKeys: details?.trace ? Object.keys(details.trace) : [],
+            hasPipeline: !!details?.trace?.pipeline,
+          })
         }
       }
     }

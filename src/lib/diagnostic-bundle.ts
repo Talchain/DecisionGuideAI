@@ -452,7 +452,12 @@ export async function getDiagnosticBundleString(): Promise<string> {
  * Combines all available debug data into a single file
  */
 export interface MergedDebugExport {
-  exportedAt: string
+  meta: {
+    timestamp: string
+    environment: string
+    uiBuild: string
+    branch?: string
+  }
   diagnostic: DiagnosticBundle
   contractTrace: {
     payloadCount: number
@@ -504,8 +509,16 @@ export async function createMergedDebugExport(): Promise<MergedDebugExport> {
     })),
   }
 
+  const versionInfo = getVersionInfo()
+  const clientBuild = getClientBuild()
+
   return {
-    exportedAt: new Date().toISOString(),
+    meta: {
+      timestamp: new Date().toISOString(),
+      environment: String(import.meta.env.VITE_APP_ENV || 'development'),
+      uiBuild: clientBuild,
+      branch: versionInfo?.branch,
+    },
     diagnostic,
     contractTrace,
     dataShapeAnomalies,
@@ -515,11 +528,11 @@ export async function createMergedDebugExport(): Promise<MergedDebugExport> {
 
 /**
  * Generate filename for merged debug export
- * Format: olumi-debug-{timestamp}.json
+ * Format: olumi-diagnostic-{timestamp}.json
  */
 function generateMergedFilename(): string {
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-  return `olumi-debug-${timestamp}.json`
+  return `olumi-diagnostic-${timestamp}.json`
 }
 
 /**

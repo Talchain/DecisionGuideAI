@@ -831,6 +831,7 @@ export function DebugPanel() {
       // Get current version info (call inside callback to get fresh values)
       const currentVersionInfo = getVersionInfo()
       const currentClientBuild = getClientBuild()
+      const environment = String(import.meta.env.VITE_APP_ENV || 'development')
 
       // Build markdown summary
       const lines: string[] = []
@@ -838,12 +839,20 @@ export function DebugPanel() {
       lines.push(`Generated: ${new Date().toISOString()}`)
       lines.push('')
 
-      // Client version
-      lines.push('## Client')
+      // Environment & Client version
+      lines.push('## Environment')
+      lines.push(`- Environment: ${environment}`)
       lines.push(`- Build: ${currentClientBuild}`)
       lines.push(`- Branch: ${currentVersionInfo?.branch ?? 'unknown'}`)
       lines.push(`- Built: ${currentVersionInfo?.timestamp ?? 'unknown'}`)
       lines.push('')
+
+      // Request ID (prominent for support)
+      if (traces.length > 0 && traces[0]?.requestId) {
+        lines.push('## Request ID')
+        lines.push(`\`${traces[0].requestId}\``)
+        lines.push('')
+      }
 
       // Gate statuses
       lines.push('## Stage Gates')
@@ -864,16 +873,16 @@ export function DebugPanel() {
         lines.push('')
       }
 
-      // Recent traces summary
+      // Request table
       if (traces.length > 0) {
         lines.push('## Recent Requests')
-        const errorCount = traces.filter(t => t.error || (t.status && t.status >= 400)).length
-        const pendingCount = traces.filter(t => !t.completed).length
-        lines.push(`- Total: ${traces.length}`)
-        lines.push(`- Errors: ${errorCount}`)
-        lines.push(`- Pending: ${pendingCount}`)
-        if (traces[0]?.requestId) {
-          lines.push(`- Latest ID: \`${traces[0].requestId}\``)
+        lines.push('| Endpoint | Status | Duration |')
+        lines.push('|----------|--------|----------|')
+        for (const trace of traces.slice(0, 10)) {
+          const endpoint = trace.endpoint.replace('/bff/', '/')
+          const status = trace.status ?? 'pending'
+          const duration = trace.elapsedMs ? `${trace.elapsedMs}ms` : '—'
+          lines.push(`| ${endpoint} | ${status} | ${duration} |`)
         }
         lines.push('')
       }
@@ -881,13 +890,50 @@ export function DebugPanel() {
       // CEE Pipeline summary
       if (ceePipelineTrace) {
         lines.push('## CEE Pipeline')
+        lines.push(`- Status: ${ceePipelineTrace.status ?? 'unknown'}`)
+        lines.push(`- Duration: ${ceePipelineTrace.total_duration_ms ?? 0}ms`)
+        lines.push(`- LLM Calls: ${ceePipelineTrace.llm_call_count ?? 0}`)
         lines.push(`- Nodes: ${ceePipelineTrace.final_graph?.node_count ?? 0}`)
         lines.push(`- Edges: ${ceePipelineTrace.final_graph?.edge_count ?? 0}`)
         lines.push('')
       }
 
-      const markdown = lines.join('\n')
-      await navigator.clipboard.writeText(markdown)
+      let markdown = lines.join('\n')
+
+      // Truncate if content exceeds 50KB
+      const MAX_SIZE = 50 * 1024
+      if (markdown.length > MAX_SIZE) {
+        markdown = markdown.slice(0, MAX_SIZE - 50) + '\n\n... (truncated at 50KB)'
+      }
+
+      // Try modern Clipboard API first, fallback to execCommand
+      let success = false
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(markdown)
+          success = true
+        } catch {
+          // Fall through to fallback
+        }
+      }
+
+      if (!success) {
+        // Fallback using document.execCommand
+        const textarea = document.createElement('textarea')
+        textarea.value = markdown
+        textarea.style.position = 'fixed'
+        textarea.style.left = '-9999px'
+        textarea.style.top = '-9999px'
+        document.body.appendChild(textarea)
+        textarea.focus()
+        textarea.select()
+        success = document.execCommand('copy')
+        document.body.removeChild(textarea)
+      }
+
+      if (!success) {
+        console.error('[DebugPanel] Copy to clipboard failed')
+      }
     } finally {
       setCopying(false)
     }
