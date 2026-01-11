@@ -251,8 +251,11 @@ export function isCEEv3Response(response: unknown): response is CEEv3Response {
     return false
   }
 
-  // Must have nodes and edges arrays (structural check from v2)
-  if (!Array.isArray(r.nodes) || !Array.isArray(r.edges)) {
+  // Must have nodes and edges arrays - check both root level and nested under graph
+  // CEE may return edges at r.edges (root) OR r.graph.edges (nested)
+  const hasNodes = Array.isArray(r.nodes) || Array.isArray((r as any).graph?.nodes)
+  const hasEdges = Array.isArray(r.edges) || Array.isArray((r as any).graph?.edges)
+  if (!hasNodes || !hasEdges) {
     return false
   }
 

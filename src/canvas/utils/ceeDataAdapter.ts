@@ -15,7 +15,7 @@ import type {
   BlockId,
   M1Review,
 } from '../../types/cee'
-import { debugWarn } from '../../utils/debugLog'
+import { devWarn } from '../../utils/debugLog'
 import type { CeeDecisionReviewPayload } from '../decisionReview/types'
 import type { ReportV1 } from '../../adapters/plot/types'
 
@@ -128,7 +128,7 @@ export function sanitizeCeeReviewPayload(
 
   // Log warning if sanitisation was applied
   if (removedBlocks > 0 || removedFactors > 0) {
-    debugWarn('CEE Sanitisation', 'Applied to CeeReviewPayload', {
+    devWarn('CEE Sanitisation', 'Applied to CeeReviewPayload', {
       removedBlocks,
       removedFactors,
       originalBlockCount,

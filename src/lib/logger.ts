@@ -1,10 +1,31 @@
 // src/lib/logger.ts
 // Structured logger with configurable log levels
 //
-// Log Level Configuration:
-// - Set VITE_LOG_LEVEL env var to: 'debug' | 'info' | 'warn' | 'error'
-// - Production defaults to 'warn' (only warn/error shown)
-// - Development defaults to 'debug' (all logs shown)
+// =============================================================================
+// LOGGING POLICY: Which logger to use
+// =============================================================================
+//
+// 1. @/lib/logger (THIS FILE)
+//    - Structured logging with levels: debug/info/warn/error
+//    - Use for: Application-wide logging, errors, warnings
+//    - Config: VITE_LOG_LEVEL=debug|info|warn|error
+//    - Prod default: warn (only warn/error shown)
+//    - Dev default: debug (all logs shown)
+//
+// 2. @/lib/debug
+//    - Explicit opt-in flags for SENSITIVE data
+//    - Use for: API payloads, auth events, API calls
+//    - Config: VITE_DEBUG_PAYLOADS=true, VITE_DEBUG_AUTH=true, etc.
+//    - DEFAULT: All OFF (safe for demos/screen recordings)
+//
+// 3. @/utils/debugLog
+//    - Simple category-based DEV-only logging
+//    - Use for: General component debugging, non-sensitive diagnostics
+//    - Functions: devLog(category, message, data), devWarn(...)
+//    - Automatically stripped in production builds
+//
+// AVOID: Raw console.log() - use one of the above instead
+// =============================================================================
 //
 // Usage:
 //   import { logger } from '@/lib/logger'

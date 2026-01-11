@@ -224,22 +224,29 @@ export function useGraphReadiness() {
       const payload: Record<string, unknown> = {
         graph: {
           nodes: currentNodes.map((n) => {
+            // CEE v2 uses 'type', CEE v3 uses 'kind' - include both for compatibility
+            const nodeKind = (n.data as any)?.kind || n.type || 'factor'
             const baseNode = {
               id: n.id,
-              kind: n.type,
+              type: nodeKind,  // CEEv2Node format
+              kind: nodeKind,  // CEEv3 format
               label: (n.data as any)?.label || n.id,
             }
             // Only include data field if it has valid FactorData (value is a number)
             if (typeof (n.data as any)?.value === 'number') {
-              return { ...baseNode, data: n.data }
+              return { ...baseNode, data: { value: (n.data as any).value } }
             }
             return baseNode
           }),
+          // CEE expects 'from'/'to' not 'source'/'target'
           edges: currentEdges.map((e) => ({
             id: e.id,
-            source: e.source,
-            target: e.target,
-            data: e.data,
+            from: e.source,
+            to: e.target,
+            // Include edge weight/strength data in CEE format
+            weight: (e.data as any)?.weight ?? 0.5,
+            belief: (e.data as any)?.beliefExists ?? (e.data as any)?.belief ?? 0.7,
+            effect_direction: (e.data as any)?.direction ?? 'positive',
           })),
         },
       }
@@ -273,6 +280,14 @@ export function useGraphReadiness() {
           nodes: currentNodes.length,
           edges: currentEdges.length,
           hasAnalysisReady: Boolean(currentCeeAnalysisReady?.options?.length),
+        })
+        // P0 DIAGNOSTIC: Log full payload structure
+        console.log('[useGraphReadiness] Payload being sent:', {
+          graphNodes: (payload.graph as any)?.nodes?.length,
+          sampleNode: (payload.graph as any)?.nodes?.[0],
+          graphEdges: (payload.graph as any)?.edges?.length,
+          sampleEdge: (payload.graph as any)?.edges?.[0],
+          hasAnalysisReady: 'analysis_ready' in payload,
         })
         lastLogTimeRef.current = now
       }

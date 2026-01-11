@@ -120,7 +120,8 @@ export function transformEdgesToISLGraph(edges: UIEdge[]): ISLGraphEdge[] {
   return edges.map(e => ({
     from: e.source,
     to: e.target,
-    weight: e.data?.weight ?? e.data?.belief ?? 1,
+    // P0-3: Use 0.5 default for consistency with DEFAULT_EDGE_DATA.weight
+    weight: e.data?.weight ?? e.data?.belief ?? 0.5,
   }))
 }
 
@@ -133,15 +134,25 @@ export function transformEdgesToISLGraph(edges: UIEdge[]): ISLGraphEdge[] {
 export type { ISLGraphEdgeV2 as ISLEdgeV2 } from '../../adapters/isl/types'
 
 /**
- * Compute signed strength mean from direction and weight.
+ * Compute signed strength mean.
  *
- * - direction="positive" + weight=0.8 → mean=+0.8
- * - direction="negative" + weight=0.8 → mean=-0.8
+ * P0-4: Per canonical rule, direction is encoded ONLY via signed strength_mean.
+ * Priority: strength_mean (already signed) > weight + direction (legacy fallback)
+ *
+ * - strength_mean=-0.8 → mean=-0.8 (sign already encoded)
+ * - direction="negative" + weight=0.8 → mean=-0.8 (legacy fallback)
  * - No direction → mean=+weight (assume positive)
  */
 export function computeSignedMean(data: UIEdge['data']): number {
+  // P0-4: Check for pre-signed strength_mean first (canonical source of truth)
+  const strengthMean = (data as any)?.strength_mean
+  if (typeof strengthMean === 'number') {
+    return strengthMean  // Already signed, use directly
+  }
+
+  // Legacy fallback: derive sign from direction + weight
   const magnitude = data?.weight ?? 0.5
-  const direction = data?.direction as 'positive' | 'negative' | undefined
+  const direction = (data?.direction ?? (data as any)?.effect_direction) as 'positive' | 'negative' | undefined
   const sign = direction === 'negative' ? -1 : 1
   return sign * magnitude
 }
@@ -620,16 +631,47 @@ export function buildISLConformalRequest(
   // Use node IDs (not labels) - ISL requires variable names matching ^[a-zA-Z_][a-zA-Z0-9_]*$
   const equations: Record<string, string> = {}
 
+  // Create node lookup for risk→goal heuristic
+  const nodeMap = new Map(nodes.map(n => [n.id, n]))
+
   for (const edge of causalEdges) {
     const sourceId = edge.source
     const targetId = edge.target
-    const weight = edge.data?.weight ?? 1
-    const direction = edge.data?.direction
 
-    // Apply sign based on direction (consistent with V2 adapter's computeSignedMean)
-    // 'negative' direction means the factor reduces the target (e.g., risk → goal)
-    const sign = direction === 'negative' ? -1 : 1
-    const signedWeight = sign * weight
+    // P0-4: Priority order for sign handling (canonical rule: direction encoded via signed strength_mean)
+    // 1. Use signed strength_mean if present (canonical source of truth)
+    // 2. Apply effect_direction if coefficient is positive/unsigned
+    // 3. LAST RESORT: risk→goal heuristic with warning
+    let coefficient = computeSignedMean(edge.data)
+
+    // Only apply additional sign logic if coefficient is positive (may need correction)
+    if (coefficient > 0) {
+      const hasExplicitDirection = edge.data?.direction === 'negative' ||
+                                   (edge.data as any)?.effect_direction === 'negative'
+
+      if (hasExplicitDirection) {
+        // 2a. Explicit direction takes precedence — apply sign flip
+        coefficient = -coefficient
+      } else {
+        // 2b. Heuristic fallback — warn when triggered
+        const sourceNode = nodeMap.get(sourceId)
+        const targetNode = nodeMap.get(targetId)
+        const isRiskSource = sourceNode?.data?.kind === 'risk'
+        const isGoalOrOutcomeTarget = targetNode?.data?.kind === 'goal' ||
+                                       targetNode?.data?.kind === 'outcome'
+
+        if (isRiskSource && isGoalOrOutcomeTarget) {
+          console.warn(
+            `[ISL Adapter] Applying risk→goal heuristic for edge ${edge.id} — ` +
+            `upstream should set negative strength_mean or effect_direction`
+          )
+          coefficient = -coefficient
+        }
+      }
+    }
+    // If coefficient is already negative, trust it — do not override
+
+    const signedWeight = coefficient
 
     // Build equation with correct sign
     const operator = signedWeight >= 0 ? '+' : '-'

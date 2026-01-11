@@ -343,13 +343,13 @@ export function DraftChat() {
     // Use rawNodes which checks both draftData.nodes and draftData.graph.nodes
     const nodes = rawNodes.map((n: any) => ({
       id: n.id,
-      type: n.type,
+      type: n.kind || n.type, // CEE uses 'kind', React Flow needs 'type'
       position: { x: 0, y: 0 }, // Layout algorithm will position
       data: {
         label: n.label,
         // P0: Copy kind to data.kind for GoalNodeSelector and other components
         // that check n.data.kind (n.type contains the kind value from CEE)
-        kind: n.type,
+        kind: n.kind || n.type,
         uncertainty: n.uncertainty,
         description: n.description,
         // Include observed_state for factor nodes (works for V2, V3, and future versions)

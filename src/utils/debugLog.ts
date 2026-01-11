@@ -1,13 +1,23 @@
 /**
- * Debug Logging Utility
+ * Development-Only Logging Utility
  *
- * Consolidates debug logging policy across the codebase.
- * Logs only appear in development builds, preventing noise in production.
+ * Simple category-based logging for development builds only.
+ * Logs are automatically stripped in production builds.
+ *
+ * WHEN TO USE:
+ * - General development debugging with category prefixes
+ * - Non-sensitive diagnostic information
+ *
+ * FOR SENSITIVE DATA (payloads, auth):
+ * - Use @/lib/debug with explicit flags (VITE_DEBUG_PAYLOADS, etc.)
+ *
+ * FOR STRUCTURED LOGGING WITH LEVELS:
+ * - Use @/lib/logger (debug/info/warn/error levels)
  *
  * Usage:
- *   import { debugLog, debugWarn } from '@/utils/debugLog'
- *   debugLog('CEE', 'Processing review payload', { blocks: 3 })
- *   debugWarn('InsightsPanel', 'Contradictory insight detected', { summary })
+ *   import { devLog, devWarn } from '@/utils/debugLog'
+ *   devLog('CEE', 'Processing review payload', { blocks: 3 })
+ *   devWarn('InsightsPanel', 'Contradictory insight detected', { summary })
  */
 
 /**
@@ -27,7 +37,7 @@ const DEBUG_ENABLED =
  * @param message - Description of what's happening
  * @param data - Optional data to include (object, array, etc.)
  */
-export function debugLog(category: string, message: string, data?: unknown): void {
+export function devLog(category: string, message: string, data?: unknown): void {
   if (!DEBUG_ENABLED) return
   if (data !== undefined) {
     console.log(`[${category}] ${message}`, data)
@@ -35,6 +45,9 @@ export function debugLog(category: string, message: string, data?: unknown): voi
     console.log(`[${category}] ${message}`)
   }
 }
+
+/** @deprecated Use devLog instead (renamed to avoid collision with @/lib/debug) */
+export const debugLog = devLog
 
 /**
  * Log a debug warning with category prefix.
@@ -45,7 +58,7 @@ export function debugLog(category: string, message: string, data?: unknown): voi
  * @param message - Description of the warning condition
  * @param data - Optional data to include
  */
-export function debugWarn(category: string, message: string, data?: unknown): void {
+export function devWarn(category: string, message: string, data?: unknown): void {
   if (!DEBUG_ENABLED) return
   if (data !== undefined) {
     console.warn(`[${category}] ${message}`, data)
@@ -54,10 +67,16 @@ export function debugWarn(category: string, message: string, data?: unknown): vo
   }
 }
 
+/** @deprecated Use devWarn instead (renamed to avoid collision with @/lib/debug) */
+export const debugWarn = devWarn
+
 /**
- * Check if debug logging is currently enabled.
+ * Check if dev logging is currently enabled.
  * Useful for conditional expensive debug operations.
  */
-export function isDebugEnabled(): boolean {
+export function isDevLogEnabled(): boolean {
   return DEBUG_ENABLED
 }
+
+/** @deprecated Use isDevLogEnabled instead */
+export const isDebugEnabled = isDevLogEnabled

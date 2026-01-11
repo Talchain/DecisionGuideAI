@@ -27,7 +27,7 @@ import { SettingsPanel } from './components/SettingsPanel'
 import { useSettingsStore } from './settingsStore'
 import { CanvasErrorBoundary } from './ErrorBoundary'
 import { ToastProvider, useShowToast } from './ToastContext'
-import { DiagnosticsOverlay } from './DiagnosticsOverlay'
+// DiagnosticsOverlay removed - use ?diag=1 URL param if needed for debugging
 import { ConfirmDialog } from './components/ConfirmDialog'
 // ValidationChip removed - validation consolidated into OutputsDock panel
 import { LayerProvider } from './components/LayerProvider'
@@ -1731,7 +1731,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         />
       )}
       <SettingsPanel />
-      <DiagnosticsOverlay />
       {/* ValidationChip removed - consolidated into OutputsDock */}
       <RecoveryBanner />
       <LayoutProgressBanner />

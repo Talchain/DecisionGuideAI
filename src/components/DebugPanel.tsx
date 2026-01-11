@@ -29,7 +29,7 @@ import {
 } from '../lib/debug-state'
 import { useGateStore, ALL_GATES, type GateName, type GateStatus } from '../lib/gate-state'
 import { getClientBuild, getVersionInfo } from '../lib/version-cache'
-import { exportDiagnosticBundle } from '../lib/diagnostic-bundle'
+import { exportMergedDebugBundle } from '../lib/diagnostic-bundle'
 import { getAllServiceHealthArray, type ServiceHealthInfo, type HealthStatus } from '../lib/service-health'
 import { useCanvasStore } from '../canvas/store'
 import { ContractInspector } from './ContractInspector'
@@ -754,6 +754,7 @@ export function DebugPanel() {
   const [activeTab, setActiveTab] = useState<DebugPanelTab>('overview')
   const [traces, setTraces] = useState<RequestTrace[]>([])
   const [exporting, setExporting] = useState(false)
+  const [copying, setCopying] = useState(false)
   const [services, setServices] = useState<ServiceHealthInfo[]>([])
   const [servicesLoading, setServicesLoading] = useState(false)
   const servicesFetched = useRef(false)
@@ -813,15 +814,84 @@ export function DebugPanel() {
     fetchServices()
   }, [visible, collapsed])
 
-  // Handle export
+  // Handle export - merged diagnostic + contract-trace + anomalies
   const handleExport = useCallback(async () => {
     setExporting(true)
     try {
-      await exportDiagnosticBundle()
+      await exportMergedDebugBundle()
     } finally {
       setExporting(false)
     }
   }, [])
+
+  // Handle copy summary - generates markdown summary and copies to clipboard
+  const handleCopySummary = useCallback(async () => {
+    setCopying(true)
+    try {
+      // Get current version info (call inside callback to get fresh values)
+      const currentVersionInfo = getVersionInfo()
+      const currentClientBuild = getClientBuild()
+
+      // Build markdown summary
+      const lines: string[] = []
+      lines.push('# Debug Summary')
+      lines.push(`Generated: ${new Date().toISOString()}`)
+      lines.push('')
+
+      // Client version
+      lines.push('## Client')
+      lines.push(`- Build: ${currentClientBuild}`)
+      lines.push(`- Branch: ${currentVersionInfo?.branch ?? 'unknown'}`)
+      lines.push(`- Built: ${currentVersionInfo?.timestamp ?? 'unknown'}`)
+      lines.push('')
+
+      // Gate statuses
+      lines.push('## Stage Gates')
+      for (const gate of ALL_GATES) {
+        const record = gates[gate]
+        const emoji = record.status === 'pass' ? '✅' : record.status === 'warn' ? '⚠️' : '❌'
+        lines.push(`- ${emoji} **${gate}**: ${record.status}${record.message ? ` — ${record.message}` : ''}`)
+      }
+      lines.push('')
+
+      // Service health
+      if (services.length > 0) {
+        lines.push('## Services')
+        for (const svc of services) {
+          const emoji = svc.status === 'healthy' ? '✅' : svc.status === 'degraded' ? '⚠️' : '❌'
+          lines.push(`- ${emoji} **${svc.name}**: ${svc.status} (${svc.version ?? 'unknown'})`)
+        }
+        lines.push('')
+      }
+
+      // Recent traces summary
+      if (traces.length > 0) {
+        lines.push('## Recent Requests')
+        const errorCount = traces.filter(t => t.error || (t.status && t.status >= 400)).length
+        const pendingCount = traces.filter(t => !t.completed).length
+        lines.push(`- Total: ${traces.length}`)
+        lines.push(`- Errors: ${errorCount}`)
+        lines.push(`- Pending: ${pendingCount}`)
+        if (traces[0]?.requestId) {
+          lines.push(`- Latest ID: \`${traces[0].requestId}\``)
+        }
+        lines.push('')
+      }
+
+      // CEE Pipeline summary
+      if (ceePipelineTrace) {
+        lines.push('## CEE Pipeline')
+        lines.push(`- Nodes: ${ceePipelineTrace.final_graph?.node_count ?? 0}`)
+        lines.push(`- Edges: ${ceePipelineTrace.final_graph?.edge_count ?? 0}`)
+        lines.push('')
+      }
+
+      const markdown = lines.join('\n')
+      await navigator.clipboard.writeText(markdown)
+    } finally {
+      setCopying(false)
+    }
+  }, [gates, services, traces, ceePipelineTrace])
 
   // Handle panel resize
   const handleResizeStart = useCallback((e: React.MouseEvent) => {
@@ -970,6 +1040,22 @@ export function DebugPanel() {
               })()}
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                onClick={handleCopySummary}
+                disabled={copying}
+                style={{
+                  padding: '4px 8px',
+                  background: copying ? '#22c55e' : '#64748b',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 4,
+                  fontSize: 10,
+                  cursor: copying ? 'default' : 'pointer',
+                }}
+                title="Copy markdown summary to clipboard"
+              >
+                {copying ? '✓ Copied' : '📋 Copy'}
+              </button>
               <button
                 onClick={handleExport}
                 disabled={exporting}

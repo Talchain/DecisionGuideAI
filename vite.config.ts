@@ -160,10 +160,14 @@ optimizeDeps: {
         configure: (proxy) => {
           const ceeTarget = env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com'
           const ceeApiKey = env.ASSIST_API_KEY
-          console.log(`[PROXY] CEE target: ${ceeTarget}`)
-          if (ceeApiKey) {
-            console.log('[PROXY] CEE auth: X-Olumi-Assist-Key configured')
-          } else {
+          // P0-A Security: Only log targets when debug proxy enabled
+          if (env.VITE_DEBUG_PROXY === '1') {
+            console.log(`[PROXY] CEE target: ${ceeTarget}`)
+            if (ceeApiKey) {
+              console.log('[PROXY] CEE auth: X-Olumi-Assist-Key configured')
+            }
+          }
+          if (!ceeApiKey) {
             console.warn('[PROXY] CEE auth: ASSIST_API_KEY not set - requests may fail with 401')
           }
 
@@ -172,19 +176,21 @@ optimizeDeps: {
             if (ceeApiKey) {
               proxyReq.setHeader('X-Olumi-Assist-Key', ceeApiKey)
             }
-            // Brief 32: Debug logging for proxy requests
-            console.log(`[PROXY] CEE ${req.method} ${req.url} → ${ceeTarget}${proxyReq.path}`)
+            // P0-A Security: Only log request URLs when explicitly enabled (may contain user content)
+            if (env.VITE_DEBUG_PROXY === '1') {
+              console.log(`[PROXY] CEE ${req.method} ${req.url} → ${ceeTarget}${proxyReq.path}`)
+            }
           })
 
-          // Brief 32: Log response status for debugging
+          // Keep error logging (sanitized - no query params)
           proxy.on('proxyRes', (proxyRes, req) => {
             if (proxyRes.statusCode && proxyRes.statusCode >= 400) {
-              console.error(`[PROXY] CEE response: ${proxyRes.statusCode} for ${req.url}`)
+              console.error(`[PROXY] CEE response: ${proxyRes.statusCode} for ${req.method} ${req.url?.split('?')[0] || 'unknown'}`)
             }
           })
 
           proxy.on('error', (err, req) => {
-            console.error(`[PROXY ERROR] /bff/cee ${req?.url}:`, err.message)
+            console.error(`[PROXY ERROR] /bff/cee ${req.method}:`, err.message)
           })
         }
       },
@@ -196,10 +202,14 @@ optimizeDeps: {
         configure: (proxy) => {
           const islTarget = env.ISL_SERVICE_URL || 'https://isl-staging.onrender.com'
           const islApiKey = env.ISL_API_KEY
-          console.log(`[PROXY] ISL target: ${islTarget}`)
-          if (islApiKey) {
-            console.log('[PROXY] ISL auth: Authorization Bearer configured')
-          } else {
+          // P0-A Security: Only log targets when debug proxy enabled
+          if (env.VITE_DEBUG_PROXY === '1') {
+            console.log(`[PROXY] ISL target: ${islTarget}`)
+            if (islApiKey) {
+              console.log('[PROXY] ISL auth: Authorization Bearer configured')
+            }
+          }
+          if (!islApiKey) {
             console.warn('[PROXY] ISL auth: ISL_API_KEY not set - requests may fail with 401')
           }
 
@@ -262,10 +272,14 @@ optimizeDeps: {
         configure: (proxy) => {
           const ceeTarget = env.CEE_SERVICE_URL || 'https://olumi-assistants-service.onrender.com'
           const ceeApiKey = env.ASSIST_API_KEY
-          console.log(`[PROXY] CEE target: ${ceeTarget}`)
-          if (ceeApiKey) {
-            console.log('[PROXY] CEE auth: X-Olumi-Assist-Key configured')
-          } else {
+          // P0-A Security: Only log targets when debug proxy enabled
+          if (env.VITE_DEBUG_PROXY === '1') {
+            console.log(`[PROXY] CEE target: ${ceeTarget}`)
+            if (ceeApiKey) {
+              console.log('[PROXY] CEE auth: X-Olumi-Assist-Key configured')
+            }
+          }
+          if (!ceeApiKey) {
             console.warn('[PROXY] CEE auth: ASSIST_API_KEY not set - requests may fail with 401')
           }
 
@@ -274,19 +288,21 @@ optimizeDeps: {
             if (ceeApiKey) {
               proxyReq.setHeader('X-Olumi-Assist-Key', ceeApiKey)
             }
-            // Brief 32: Debug logging for proxy requests
-            console.log(`[PROXY] CEE ${req.method} ${req.url} → ${ceeTarget}${proxyReq.path}`)
+            // P0-A Security: Only log request URLs when explicitly enabled (may contain user content)
+            if (env.VITE_DEBUG_PROXY === '1') {
+              console.log(`[PROXY] CEE ${req.method} ${req.url} → ${ceeTarget}${proxyReq.path}`)
+            }
           })
 
-          // Brief 32: Log response status for debugging
+          // Keep error logging (sanitized - no query params)
           proxy.on('proxyRes', (proxyRes, req) => {
             if (proxyRes.statusCode && proxyRes.statusCode >= 400) {
-              console.error(`[PROXY] CEE response: ${proxyRes.statusCode} for ${req.url}`)
+              console.error(`[PROXY] CEE response: ${proxyRes.statusCode} for ${req.method} ${req.url?.split('?')[0] || 'unknown'}`)
             }
           })
 
           proxy.on('error', (err, req) => {
-            console.error(`[PROXY ERROR] /bff/cee ${req?.url}:`, err.message)
+            console.error(`[PROXY ERROR] /bff/cee ${req.method}:`, err.message)
           })
         }
       },
@@ -298,10 +314,14 @@ optimizeDeps: {
         configure: (proxy) => {
           const islTarget = env.ISL_SERVICE_URL || 'https://isl-staging.onrender.com'
           const islApiKey = env.ISL_API_KEY
-          console.log(`[PROXY] ISL target: ${islTarget}`)
-          if (islApiKey) {
-            console.log('[PROXY] ISL auth: Authorization Bearer configured')
-          } else {
+          // P0-A Security: Only log targets when debug proxy enabled
+          if (env.VITE_DEBUG_PROXY === '1') {
+            console.log(`[PROXY] ISL target: ${islTarget}`)
+            if (islApiKey) {
+              console.log('[PROXY] ISL auth: Authorization Bearer configured')
+            }
+          }
+          if (!islApiKey) {
             console.warn('[PROXY] ISL auth: ISL_API_KEY not set - requests may fail with 401')
           }
 

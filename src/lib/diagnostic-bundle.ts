@@ -442,3 +442,109 @@ export async function getDiagnosticBundleString(): Promise<string> {
   const bundle = await createDiagnosticBundle()
   return JSON.stringify(bundle, null, 2)
 }
+
+// =============================================================================
+// Merged Debug Export (Task 1: Combined diagnostic + contract-trace + anomalies)
+// =============================================================================
+
+/**
+ * Merged debug export structure
+ * Combines all available debug data into a single file
+ */
+export interface MergedDebugExport {
+  exportedAt: string
+  diagnostic: DiagnosticBundle
+  contractTrace: {
+    payloadCount: number
+    payloads: unknown[]
+  }
+  dataShapeAnomalies: {
+    count: number
+    anomalies: unknown[]
+  }
+  boundaryEvents: unknown[] // Placeholder for future boundary event logging
+}
+
+/**
+ * Create merged debug export with all available data
+ */
+export async function createMergedDebugExport(): Promise<MergedDebugExport> {
+  // Import payload trace store dynamically to avoid circular deps
+  const { usePayloadTraceStore, getDataShapeAnomalies } = await import('./payload-trace-store')
+
+  const diagnostic = await createDiagnosticBundle()
+
+  // Get contract trace payloads
+  const payloadState = usePayloadTraceStore.getState()
+  const contractTrace = {
+    payloadCount: payloadState.payloads.length,
+    payloads: payloadState.payloads.map((p) => ({
+      id: p.id,
+      service: p.service,
+      endpoint: p.endpoint,
+      method: p.method,
+      timestamp: new Date(p.timestamp).toISOString(),
+      duration: p.duration,
+      status: p.status,
+      completed: p.completed,
+      error: p.error,
+      request: p.request,
+      response: p.response,
+      contractValidation: p.contractValidation,
+    })),
+  }
+
+  // Get data shape anomalies
+  const anomalies = getDataShapeAnomalies()
+  const dataShapeAnomalies = {
+    count: anomalies.length,
+    anomalies: anomalies.map((a) => ({
+      ...a,
+      timestamp: new Date(a.timestamp).toISOString(),
+    })),
+  }
+
+  return {
+    exportedAt: new Date().toISOString(),
+    diagnostic,
+    contractTrace,
+    dataShapeAnomalies,
+    boundaryEvents: [], // Boundary events logged to console, not stored in-memory
+  }
+}
+
+/**
+ * Generate filename for merged debug export
+ * Format: olumi-debug-{timestamp}.json
+ */
+function generateMergedFilename(): string {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  return `olumi-debug-${timestamp}.json`
+}
+
+/**
+ * Export merged debug data as downloadable JSON file
+ */
+export async function exportMergedDebugBundle(): Promise<void> {
+  const bundle = await createMergedDebugExport()
+  const json = JSON.stringify(bundle, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+
+  const filename = generateMergedFilename()
+
+  // Create temporary link and trigger download
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+
+  // Clean up blob URL
+  URL.revokeObjectURL(url)
+
+  if (import.meta.env.DEV) {
+    console.log('[diagnostic-bundle] Exported merged:', filename)
+  }
+}

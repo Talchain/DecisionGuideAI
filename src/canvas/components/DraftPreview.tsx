@@ -142,12 +142,13 @@ function getQualityConfig(quality: number) {
   }
 }
 
-function normalizeDraftType(type: string | undefined): string {
-  return (type || '').toLowerCase()
+function normalizeDraftType(node: { type?: string; kind?: string } | string | undefined): string {
+  if (typeof node === 'string') return node.toLowerCase()
+  return ((node?.kind || node?.type) || '').toLowerCase()
 }
 
-function mapDraftTypeToNodeKind(type: string | undefined): NodeKind {
-  const t = normalizeDraftType(type)
+function mapDraftTypeToNodeKind(node: { type?: string; kind?: string }): NodeKind {
+  const t = normalizeDraftType(node)
   if (t === 'goal') return 'goal'
   if (t === 'decision') return 'decision'
   if (t === 'option') return 'option'
@@ -159,12 +160,12 @@ function mapDraftTypeToNodeKind(type: string | undefined): NodeKind {
 }
 
 function buildOutline(nodes: DraftNode[]) {
-  const goals = nodes.filter(n => normalizeDraftType(n.type) === 'goal')
-  const decisions = nodes.filter(n => normalizeDraftType(n.type) === 'decision')
-  const options = nodes.filter(n => normalizeDraftType(n.type) === 'option')
-  const outcomes = nodes.filter(n => normalizeDraftType(n.type) === 'outcome')
+  const goals = nodes.filter(n => normalizeDraftType(n) === 'goal')
+  const decisions = nodes.filter(n => normalizeDraftType(n) === 'decision')
+  const options = nodes.filter(n => normalizeDraftType(n) === 'option')
+  const outcomes = nodes.filter(n => normalizeDraftType(n) === 'outcome')
   const factors = nodes.filter(n => {
-    const t = normalizeDraftType(n.type)
+    const t = normalizeDraftType(n)
     return t === 'risk' || t === 'factor' || t === 'event'
   })
   return { goals, decisions, options, outcomes, factors }
@@ -199,7 +200,7 @@ export function DraftPreview({
     const blueprintNodes = nodes.map((n, index) => ({
       id: n.id || String(index),
       label: n.label,
-      kind: mapDraftTypeToNodeKind(n.type),
+      kind: mapDraftTypeToNodeKind(n),
     }))
 
     const blueprintEdges = edges.map((e, index) => ({

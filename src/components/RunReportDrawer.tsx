@@ -68,9 +68,9 @@ export default function RunReportDrawer({ open, sessionId, org, onClose, seed, b
   const triggerRef = useRef<HTMLElement | null>(null)
   const firstFocusRef = useRef<HTMLDivElement | null>(null)
   const [copied, setCopied] = useState<boolean>(false)
-  const copyTimerRef = useRef<number | null>(null)
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [downloaded, setDownloaded] = useState<boolean>(false)
-  const dlTimerRef = useRef<number | null>(null)
+  const dlTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [pretty, setPretty] = useState<boolean>(() => {
     try { return !!(globalThis as any)?.localStorage?.getItem?.('report.pretty') } catch { return false }
   })
@@ -160,7 +160,6 @@ export default function RunReportDrawer({ open, sessionId, org, onClose, seed, b
                     if (copyTimerRef.current != null) {
                       try { clearTimeout(copyTimerRef.current) } catch {}
                     }
-                    // @ts-ignore
                     copyTimerRef.current = setTimeout(() => setCopied(false), 1200)
                   } catch {}
                 }}
@@ -192,7 +191,6 @@ export default function RunReportDrawer({ open, sessionId, org, onClose, seed, b
                     if (dlTimerRef.current != null) {
                       try { clearTimeout(dlTimerRef.current) } catch {}
                     }
-                    // @ts-ignore
                     dlTimerRef.current = setTimeout(() => setDownloaded(false), 1200)
                     setTimeout(() => URL.revokeObjectURL(url), 0)
                   } catch {}

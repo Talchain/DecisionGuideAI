@@ -217,6 +217,19 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
       ]
       const provenance_source = allowedSources.includes(rawProvSource) ? rawProvSource : undefined
 
+      // P0-2: Preserve semantic fields for downstream adapters
+      // strength_mean: normalized from nested or flat structure
+      const strengthMeanRaw = (e as any).strength_mean ?? (e as any).strength?.mean
+      const strength_mean = typeof strengthMeanRaw === 'number' ? strengthMeanRaw : undefined
+
+      // strength_std: normalized from nested or flat structure
+      const strengthStdRaw = (e as any).strength_std ?? (e as any).strength?.std
+      const strength_std = typeof strengthStdRaw === 'number' && strengthStdRaw > 0 ? strengthStdRaw : undefined
+
+      // effect_direction: preserved as-is
+      const effectDirRaw = (e as any).effect_direction
+      const effect_direction = effectDirRaw === 'positive' || effectDirRaw === 'negative' ? effectDirRaw : undefined
+
       return {
         ...(id && { id }),
         from,
@@ -225,6 +238,10 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
         ...(belief !== undefined && { belief }),
         ...(provenance !== undefined && { provenance }),
         ...(provenance_source && { provenance_source }),
+        // P0-2: Include preserved semantic fields
+        ...(strength_mean !== undefined && { strength_mean }),
+        ...(strength_std !== undefined && { strength_std }),
+        ...(effect_direction !== undefined && { effect_direction }),
       }
     })
     .filter((edge): edge is CEEDraftResponse['edges'][number] => edge !== null)
@@ -422,7 +439,9 @@ export class CEEClient {
       const graphEdges = raw?.graph?.edges || []
       const edges = rootEdges.length > 0 ? rootEdges : graphEdges
       const edgesWithStrengthStd = edges.filter((e: any) => typeof e.strength_std === 'number')
-      const nodesWithObservedState = (raw?.nodes || []).filter((n: any) => n.observed_state?.value !== undefined)
+      // P0-1: Check both root and graph.* locations for nodes
+      const allNodes = raw?.nodes ?? raw?.graph?.nodes ?? []
+      const nodesWithObservedState = allNodes.filter((n: any) => n.observed_state?.value !== undefined)
 
       // P0 INVESTIGATION: Log graph object structure (where edges actually live)
       console.log('[CEE] === GRAPH OBJECT INVESTIGATION ===')
@@ -473,9 +492,11 @@ export class CEEClient {
       }
       console.log('[CEE] === END EDGE INVESTIGATION ===')
 
+      // P0-1: Check both root and graph.* locations for nodes
+      const nodeCount = raw?.nodes?.length ?? raw?.graph?.nodes?.length ?? 0
       console.log('[CEE] draftModel response:', {
         schema_version: raw?.schema_version,
-        nodeCount: raw?.nodes?.length ?? 0,
+        nodeCount,
         edgeCount: edges.length,
         edgesWithStrengthStd: edgesWithStrengthStd.length,
         nodesWithObservedState: nodesWithObservedState.length,
@@ -503,6 +524,7 @@ export class CEEClient {
     // Check V3 first (since we request ?schema=v3)
     if (isCEEv3Response(raw)) {
       const result = raw as CEEv3Response & { pipeline_trace?: CeePipelineTrace }
+
       // Extract trace.pipeline to top-level pipeline_trace for consistency with V1 path
       const rawTrace = (raw as any).trace?.pipeline
       if (isCeePipelineTrace(rawTrace)) {

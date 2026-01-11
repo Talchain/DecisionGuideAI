@@ -9,11 +9,14 @@
  * - Validates hash format (alphanumeric, 8-64 chars)
  * - Sanitizes all user-generated content
  * - Fail-closed: invalid hash → error screen
+ * - Feature-gated: route disabled until backend implemented
  *
  * Query params (optional):
  * - template: template ID (sanitized, max 50 chars)
  *
- * Flag: VITE_FEATURE_SHARE_ALLOWLIST=0|1 (allowlist check when ON)
+ * Flags:
+ * - VITE_FEATURE_SHARE_VIEW=0|1 (route enabled when ON, fail-closed default)
+ * - VITE_FEATURE_SHARE_ALLOWLIST=0|1 (allowlist check when ON)
  */
 
 import { useEffect, useState } from 'react'
@@ -118,6 +121,35 @@ export default function ShareView() {
   const [status, setStatus] = useState<'loading' | 'validating' | 'allowed' | 'not-allowed' | 'error' | 'not-found'>('loading')
   const [data, setData] = useState<ShareData | null>(null)
   const [errorMessage, setErrorMessage] = useState<string>('')
+
+  // P0-B Security: Feature gate - route is disabled until backend is implemented
+  // Set VITE_FEATURE_SHARE_VIEW=1 to enable (dev/staging only)
+  const isShareViewEnabled = String(import.meta.env.VITE_FEATURE_SHARE_VIEW) === '1'
+
+  // Fail-closed: if feature flag not enabled, show "coming soon" immediately
+  if (!isShareViewEnabled) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+              <span className="text-2xl" aria-hidden="true">🔗</span>
+            </div>
+            <h1 className="text-xl font-semibold text-gray-900">Share Links Coming Soon</h1>
+          </div>
+          <p className="text-gray-600 mb-6">
+            The share link feature is not yet available. Please check back later or contact support for more information.
+          </p>
+          <Link
+            to="/plot"
+            className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            Go to PLoT Workspace
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   useEffect(() => {
     if (!hash) {

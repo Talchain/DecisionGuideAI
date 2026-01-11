@@ -91,18 +91,21 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [weight, style, curvature, selected, isDark]
   )
 
-  // Brief v2.2: Direction-based stroke colour
-  // positive: green (increase → increase), negative: red (increase → decrease)
+  // Brief v2.2: Direction-based stroke colour (pastel palette, low visual noise)
+  // positive: pastel green, negative: pastel blue, unknown: light grey
   const directionStroke = useMemo(() => {
-    if (!direction) return undefined
+    if (!direction) return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300 for unknown
     if (direction === 'positive') {
-      return isDark ? '#22c55e' : '#16a34a'  // Green-500/600
+      return isDark ? '#bbf7d0' : '#a7f3d0' // Pastel green-200/emerald-200
     }
     if (direction === 'negative') {
-      return isDark ? '#ef4444' : '#dc2626'  // Red-500/600
+      return isDark ? '#FF6B6B' : '#ef4444' // Risk red (matches risk node border)
     }
-    return undefined
+    return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc fallback
   }, [direction, isDark])
+
+  // Accessibility: Dashed line for negative edges (colorblind-friendly)
+  const directionDasharray = direction === 'negative' ? '8,4' : undefined
 
   // Determine label visibility and styling
   const labelVisibility = useMemo(
@@ -190,8 +193,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         path={edgePath}
         style={{
           strokeWidth: visualProps.strokeWidth,
-          strokeDasharray: visualProps.strokeDasharray,
-          // Brief v2.2: Use direction-based colour if available
+          // Accessibility: negative edges use dashed line, otherwise use visual props
+          strokeDasharray: directionDasharray ?? visualProps.strokeDasharray,
+          // Brief v2.2: Use direction-based colour (always applies - grey for unknown)
           stroke: directionStroke ?? visualProps.stroke,
           // Performance: use will-change for frequent updates
           willChange: selected ? 'stroke, stroke-width' : undefined,
