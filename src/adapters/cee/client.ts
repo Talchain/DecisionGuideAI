@@ -12,6 +12,7 @@ import { withObservabilityHeaders, recordBffResponse, recordBffError, recordBffR
 import { useGateStore } from '../../lib/gate-state'
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
+const CEE_DRAFT_ENGINE_BASE = '/bff/engine/v1/cee'
 
 /**
  * Generate correlation ID for request tracking
@@ -308,11 +309,16 @@ export class CEEClient {
     this.timeout = config.timeout ?? DEFAULT_CEE_TIMEOUT
   }
 
-  private async fetch<T>(
+  private async fetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    return this.fetchWithBase<T>(this.baseURL, endpoint, options)
+  }
+
+  private async fetchWithBase<T>(
+    baseURL: string,
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${this.baseURL}${endpoint}`
+    const url = `${baseURL}${endpoint}`
     const correlationId = generateCorrelationId()
     const controller = new AbortController()
 
@@ -427,7 +433,12 @@ export class CEEClient {
       })
     }
 
-    const raw = await this.fetch<any>(endpoint, {
+    // Intended UI path is same-origin → Plot engine proxy → CEE.
+    // In the browser, always prefer the engine proxy for draft-graph to avoid CORS fragility
+    // and to ensure auth/routing is handled consistently.
+    const draftBase = typeof window !== 'undefined' ? CEE_DRAFT_ENGINE_BASE : this.baseURL
+
+    const raw = await this.fetchWithBase<any>(draftBase, endpoint, {
       method: 'POST',
       body: JSON.stringify(requestBody),
     })

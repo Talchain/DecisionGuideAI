@@ -21,14 +21,13 @@ vi.mock('vitest', async () => {
 })
 
 // Override import.meta.env for tests
-const originalEnv = import.meta.env
+const originalEnv = (import.meta as any).env
 beforeEach(() => {
-  // @ts-expect-error - mocking import.meta.env
-  import.meta.env = { ...originalEnv, VITE_APP_ENV: 'development' }
+  ;(import.meta as any).env = { ...originalEnv, VITE_APP_ENV: 'development' }
 })
 
 afterEach(() => {
-  import.meta.env = originalEnv
+  ;(import.meta as any).env = originalEnv
 })
 
 describe('Payload Trace Store', () => {
@@ -60,6 +59,32 @@ describe('Payload Trace Store', () => {
       expect(payloads[0].method).toBe('POST')
       expect(payloads[0].service).toBe('PLoT')
       expect(payloads[0].completed).toBe(false)
+    })
+
+    it('redacts sensitive headers and body fields', () => {
+      usePayloadTraceStore.getState().recordRequestPayload({
+        id: 'req-redact',
+        endpoint: '/bff/plot/v1/run',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer SECRET_TOKEN',
+        },
+        body: {
+          token: 'VERY_SECRET',
+          nested: {
+            apiKey: 'ALSO_SECRET',
+            ok: 'keep',
+          },
+        },
+      })
+
+      const { payloads } = usePayloadTraceStore.getState()
+      expect(payloads).toHaveLength(1)
+      expect((payloads[0].request.headers as any).Authorization).toBe('[REDACTED]')
+      expect((payloads[0].request.body as any).token).toBe('[REDACTED]')
+      expect((payloads[0].request.body as any).nested.apiKey).toBe('[REDACTED]')
+      expect((payloads[0].request.body as any).nested.ok).toBe('keep')
     })
 
     it('detects service from endpoint', () => {
@@ -120,7 +145,16 @@ describe('Payload Trace Store', () => {
         id: 'req-1',
         status: 200,
         headers: { 'content-type': 'application/json' },
-        body: { analysis_status: 'computed', seed_used: 'abc123', results: [{ outcome: { mean: 0.5 } }] },
+        body: {
+          analysis_status: 'computed',
+          meta: { seed_used: 'abc123' },
+          option_comparison: [
+            {
+              option_id: 'opt-1',
+              confidence_interval: [0.4, 0.6],
+            },
+          ],
+        },
         duration: 150,
       })
 
@@ -130,8 +164,13 @@ describe('Payload Trace Store', () => {
       expect(payloads[0].duration).toBe(150)
       expect(payloads[0].response?.body).toEqual({
         analysis_status: 'computed',
-        seed_used: 'abc123',
-        results: [{ outcome: { mean: 0.5 } }],
+        meta: { seed_used: 'abc123' },
+        option_comparison: [
+          {
+            option_id: 'opt-1',
+            confidence_interval: [0.4, 0.6],
+          },
+        ],
       })
     })
 
@@ -149,7 +188,16 @@ describe('Payload Trace Store', () => {
         id: 'req-1',
         status: 200,
         headers: {},
-        body: { analysis_status: 'computed', seed_used: 'unique123', results: [{ outcome: { mean: 0.5 } }] },
+        body: {
+          analysis_status: 'computed',
+          meta: { seed_used: 'unique123' },
+          option_comparison: [
+            {
+              option_id: 'opt-1',
+              confidence_interval: [0.4, 0.6],
+            },
+          ],
+        },
         duration: 100,
       })
 

@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import type { MergedDebugExport } from '../diagnostic-bundle'
+import { truncateToSize } from '../../utils/text'
 
 // Mock dependencies
 vi.mock('../debug-state', () => ({
@@ -110,13 +110,9 @@ describe('diagnostic-bundle', () => {
 
   describe('filename generation', () => {
     it('should generate olumi-diagnostic-{timestamp}.json format', async () => {
-      // Import the module to get access to internal functions via export
       const diagnosticBundle = await import('../diagnostic-bundle')
-
-      // We can't directly test generateMergedFilename as it's not exported,
-      // but we can verify the exported function follows the expected pattern
-      // by checking that exportMergedDebugBundle exists
-      expect(diagnosticBundle.exportMergedDebugBundle).toBeDefined()
+      const filename = diagnosticBundle.__test__.generateMergedFilename()
+      expect(filename).toMatch(/^olumi-diagnostic-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}\.json$/)
     })
   })
 })
@@ -126,11 +122,7 @@ describe('Copy Summary truncation', () => {
     const MAX_SIZE = 50 * 1024
     const longContent = 'x'.repeat(MAX_SIZE + 1000)
 
-    // Simulate truncation logic
-    let result = longContent
-    if (result.length > MAX_SIZE) {
-      result = result.slice(0, MAX_SIZE - 50) + '\n\n... (truncated at 50KB)'
-    }
+    const result = truncateToSize(longContent, MAX_SIZE, '\n\n... (truncated at 50KB)')
 
     expect(result.length).toBeLessThanOrEqual(MAX_SIZE)
     expect(result).toContain('(truncated at 50KB)')

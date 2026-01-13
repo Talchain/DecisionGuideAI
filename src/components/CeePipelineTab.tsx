@@ -20,6 +20,7 @@ import type {
   CeeLlmCall,
   CeeLlmQualityCorrection,
 } from '../adapters/cee/types'
+import { copyTextToClipboard } from '../utils/clipboard'
 
 // =============================================================================
 // Status Colors and Icons
@@ -128,42 +129,6 @@ function JsonViewer({ title, data, defaultExpanded = false }: JsonViewerProps) {
 }
 
 // =============================================================================
-// Copy to Clipboard Utility
-// =============================================================================
-
-/**
- * Copy text to clipboard with fallback for older browsers
- */
-async function copyToClipboard(text: string): Promise<boolean> {
-  // Try modern Clipboard API first
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    try {
-      await navigator.clipboard.writeText(text)
-      return true
-    } catch {
-      // Fall through to fallback
-    }
-  }
-
-  // Fallback using document.execCommand
-  try {
-    const textarea = document.createElement('textarea')
-    textarea.value = text
-    textarea.style.position = 'fixed'
-    textarea.style.left = '-9999px'
-    textarea.style.top = '-9999px'
-    document.body.appendChild(textarea)
-    textarea.focus()
-    textarea.select()
-    const result = document.execCommand('copy')
-    document.body.removeChild(textarea)
-    return result
-  } catch {
-    return false
-  }
-}
-
-// =============================================================================
 // Pipeline Summary Header
 // =============================================================================
 
@@ -183,7 +148,7 @@ function PipelineSummary({ trace, onCopy }: PipelineSummaryProps) {
       exportedAt: new Date().toISOString(),
       pipelineTrace: trace,
     }
-    const success = await copyToClipboard(JSON.stringify(exportData, null, 2))
+    const success = await copyTextToClipboard(JSON.stringify(exportData, null, 2))
     if (success) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
@@ -292,7 +257,6 @@ interface PipelineTimelineProps {
 
 function PipelineTimeline({ stages, expandedStages, onToggleStage, onExpandAll, onCollapseAll }: PipelineTimelineProps) {
   const allExpanded = stages.length > 0 && stages.every((s) => expandedStages.has(s.name))
-  const noneExpanded = expandedStages.size === 0
 
   return (
     <div style={{ flex: 1, minWidth: 180 }}>
@@ -668,8 +632,8 @@ function LlmCallDetails({ call }: LlmCallDetailsProps) {
       </div>
 
       {/* LLM request/response viewers */}
-      {call.request && <JsonViewer title="LLM Request" data={call.request} />}
-      {call.response && <JsonViewer title="LLM Response" data={call.response} />}
+      {call.request != null ? <JsonViewer title="LLM Request" data={call.request} /> : null}
+      {call.response != null ? <JsonViewer title="LLM Response" data={call.response} /> : null}
     </div>
   )
 }

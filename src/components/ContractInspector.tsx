@@ -209,7 +209,12 @@ function ContractChecks({ validation }: { validation?: ContractValidationResult 
 // RequestDetail Component
 // ============================================================================
 
-function RequestDetail({ payload }: { payload: TracedPayload }) {
+interface RequestDetailProps {
+  payload: TracedPayload
+  onOpenInPayloadLab?: (body: unknown) => void
+}
+
+function RequestDetail({ payload, onOpenInPayloadLab }: RequestDetailProps) {
   // Compute request validation for PLoT error responses
   const requestValidation = useMemo(() => {
     if (payload.service === 'PLoT' && payload.status && payload.status >= 400) {
@@ -233,8 +238,28 @@ function RequestDetail({ payload }: { payload: TracedPayload }) {
     <div style={styles.detail}>
       {/* Header info */}
       <div style={{ marginBottom: 8 }}>
-        <div style={{ fontWeight: 600, color: '#334155', marginBottom: 4 }}>
-          {payload.method} {payload.endpoint}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+          <span style={{ fontWeight: 600, color: '#334155' }}>
+            {payload.method} {payload.endpoint}
+          </span>
+          {/* Task 4: Open in Payload Lab button - only show for ISL requests */}
+          {onOpenInPayloadLab && payload.service === 'ISL' && payload.request?.body && (
+            <button
+              onClick={() => onOpenInPayloadLab(payload.request.body)}
+              style={{
+                padding: '2px 6px',
+                fontSize: 9,
+                border: '1px solid #93c5fd',
+                borderRadius: 4,
+                background: '#dbeafe',
+                cursor: 'pointer',
+                color: '#1d4ed8',
+              }}
+              title="Open ISL request body in Payload Lab for editing and testing"
+            >
+              🧪 Open in Payload Lab
+            </button>
+          )}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '2px 8px', color: '#64748b' }}>
           <span>Request ID:</span>
@@ -409,7 +434,12 @@ function TraceRow({
 // ContractInspector Main Component
 // ============================================================================
 
-export function ContractInspector() {
+interface ContractInspectorProps {
+  /** Task 4: Callback to open a payload in Payload Lab */
+  onOpenInPayloadLab?: (body: unknown) => void
+}
+
+export function ContractInspector({ onOpenInPayloadLab }: ContractInspectorProps = {}) {
   // Subscribe to raw state (primitive values or stable references)
   const allPayloads = usePayloadTraceStore((s) => s.payloads)
   const selectedId = usePayloadTraceStore((s) => s.selectedId)
@@ -563,7 +593,12 @@ export function ContractInspector() {
       </div>
 
       {/* Selected detail */}
-      {selectedPayload && <RequestDetail payload={selectedPayload} />}
+      {selectedPayload && (
+        <RequestDetail
+          payload={selectedPayload}
+          onOpenInPayloadLab={onOpenInPayloadLab}
+        />
+      )}
     </div>
   )
 }

@@ -14,6 +14,7 @@ import { X, Bug, Copy, Check, ChevronDown, ChevronRight, AlertTriangle } from 'l
 import { useCanvasStore } from '../store'
 import { classifyState } from '../../lib/resultsInstrumentation'
 import { typography } from '../../styles/typography'
+import { copyTextToClipboard } from '../../utils/clipboard'
 
 interface DebugDrawerProps {
   /** External visibility control (optional) */
@@ -56,21 +57,18 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
 
   // Copy to clipboard
   const copyToClipboard = useCallback(async (value: string, field: string) => {
-    try {
-      await navigator.clipboard.writeText(value)
-      setCopiedField(field)
-      setTimeout(() => setCopiedField(null), 2000)
-    } catch {
-      // Clipboard API failed, silently ignore
-    }
+    const ok = await copyTextToClipboard(value)
+    if (!ok) return
+    setCopiedField(field)
+    setTimeout(() => setCopiedField(null), 2000)
   }, [])
 
   if (!isOpen) return null
 
   // Extract debug values - prioritize V1 fields over legacy
   const ceeTraceV1 = runMeta?.ceeTraceV1
-  const ceeReviewV1 = runMeta?.ceeReviewV1
   const ceeReview = runMeta?.ceeReview
+  const ceeReviewV1 = runMeta?.ceeReviewV1
 
   // CEE Draft call ID: From pipeline trace (draft-graph endpoint)
   // Extract request_id from pipeline trace stages or use total_duration_ms as fingerprint
@@ -81,10 +79,9 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
   // CEE Review call ID: From V1 trace (review endpoint via PLoT /v2/run)
   const reviewCallId = ceeTraceV1?.plot_request_id
     ?? ceeTraceV1?.cee_sent_request_id
-    ?? ceeReview?.trace_id
-    ?? runMeta?.traceId
+    ?? runMeta?.ceeTrace?.requestId
 
-  const responseHash = results?.report?.hash ?? results?.hash
+  const responseHash = results?.report?.model_card?.response_hash ?? results?.hash
 
   const ceeDegraded = ceeTraceV1?.degraded === true || ceeTraceV1?.id_mismatch === true
   const islDegraded = false // ISL degradation not currently tracked
@@ -242,7 +239,7 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
         </section>
 
         {/* CEE Review Summary */}
-        {ceeReview && (
+        {(ceeReview || ceeReviewV1) && (
           <section>
             <h3 className={`${typography.caption} text-ink-400 uppercase tracking-wide mb-2`}>
               CEE Review
@@ -251,13 +248,13 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
               <div className="flex items-center justify-between">
                 <span className={`${typography.caption} text-ink-400`}>blocks</span>
                 <span className={`${typography.caption} text-white`}>
-                  {ceeReview.blocks?.length ?? 0}
+                  {ceeReviewV1?.blocks?.length ?? 0}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className={`${typography.caption} text-ink-400`}>story.headline</span>
                 <span className={`${typography.caption} text-sky-400 truncate max-w-[140px]`}>
-                  {ceeReview.story?.headline ? 'Present' : 'N/A'}
+                  {ceeReview?.story?.headline ? 'Present' : 'N/A'}
                 </span>
               </div>
             </div>

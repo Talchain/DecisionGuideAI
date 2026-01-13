@@ -264,14 +264,18 @@ export function DraftChat() {
       if (err instanceof CEEError) {
         const details = err.details as any
         // Check possible trace locations in order of likelihood:
-        // 1. details.trace.pipeline (standard CEE error response)
-        // 2. details.pipeline_trace (alternative location)
-        // 3. details.details.trace.pipeline (nested details wrapper)
-        // 4. details.pipeline (direct pipeline)
+        // 1. details.error.details.trace.pipeline (wrapped error response from proxy)
+        // 2. details.trace.pipeline (standard CEE error response)
+        // 3. details.cee_response.trace.pipeline (cee_response wrapper)
+        // 4. details.details.trace.pipeline (nested details wrapper)
+        // 5. details.pipeline_trace (alternative location)
+        // 6. details.pipeline (direct pipeline)
         const pipelineTrace =
+          details?.error?.details?.trace?.pipeline ??
           details?.trace?.pipeline ??
-          details?.pipeline_trace ??
+          details?.cee_response?.trace?.pipeline ??
           details?.details?.trace?.pipeline ??
+          details?.pipeline_trace ??
           details?.pipeline
 
         if (isCeePipelineTrace(pipelineTrace)) {

@@ -256,8 +256,35 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }
 
   // Phase 3: Memoize heavy computations for performance
-  const memoizedNodes = useMemo(() => nodes, [nodes])
-  const memoizedEdges = useMemo(() => edges, [edges])
+  // Deduplicate nodes by ID to prevent React key warnings in MiniMap
+  // CEE may return duplicate node IDs - keep first occurrence
+  const memoizedNodes = useMemo(() => {
+    const seen = new Set<string>()
+    return nodes.filter((node) => {
+      if (seen.has(node.id)) {
+        if (import.meta.env.DEV) {
+          console.warn(`[ReactFlowGraph] Duplicate node ID filtered: ${node.id}`)
+        }
+        return false
+      }
+      seen.add(node.id)
+      return true
+    })
+  }, [nodes])
+  // Deduplicate edges by ID similarly
+  const memoizedEdges = useMemo(() => {
+    const seen = new Set<string>()
+    return edges.filter((edge) => {
+      if (seen.has(edge.id)) {
+        if (import.meta.env.DEV) {
+          console.warn(`[ReactFlowGraph] Duplicate edge ID filtered: ${edge.id}`)
+        }
+        return false
+      }
+      seen.add(edge.id)
+      return true
+    })
+  }, [edges])
 
   // Actions are stable references - don't need shallow comparison
   const createNodeId = useCanvasStore(s => s.createNodeId)

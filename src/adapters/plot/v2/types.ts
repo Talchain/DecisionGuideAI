@@ -123,6 +123,10 @@ export interface V2OptionComparison {
   probability_of_goal?: number
   /** Probability this option wins vs others (pairwise comparison) */
   win_probability?: number
+  /** Expected outcome value (mean of outcome distribution) */
+  expected_outcome?: number
+  /** Full outcome distribution when available (all fields optional in V2 response) */
+  outcome?: Partial<V2Outcome>
 }
 
 /**

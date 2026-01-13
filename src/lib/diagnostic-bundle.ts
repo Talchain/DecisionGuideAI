@@ -23,10 +23,13 @@
  * ```
  */
 
-import { getRecentTraces, getPendingTraces, getFailedTraces, type RequestTrace, type DownstreamCall, type TraceReceived } from './debug-state'
+import { getRecentTraces, getPendingTraces, getFailedTraces, type RequestTrace, type DownstreamCall } from './debug-state'
 import { useGateStore, ALL_GATES, type GateName } from './gate-state'
 import { getClientBuild, getVersionInfo } from './version-cache'
 import { getAllServiceHealthArray, type ServiceHealthInfo } from './service-health'
+import type { CeePipelineTrace } from '../adapters/cee/types'
+import type { ErrorDetail } from '../types/cee'
+import { redactPayload } from '../utils/payloadRedaction'
 
 /**
  * Sanitized downstream call for export
@@ -459,6 +462,8 @@ export interface MergedDebugExport {
     branch?: string
   }
   diagnostic: DiagnosticBundle
+  ceePipelineTrace?: CeePipelineTrace | null
+  errorDetails?: ErrorDetail[]
   contractTrace: {
     payloadCount: number
     payloads: unknown[]
@@ -473,7 +478,10 @@ export interface MergedDebugExport {
 /**
  * Create merged debug export with all available data
  */
-export async function createMergedDebugExport(): Promise<MergedDebugExport> {
+export async function createMergedDebugExport(extras?: {
+  ceePipelineTrace?: CeePipelineTrace | null
+  errorDetails?: ErrorDetail[]
+}): Promise<MergedDebugExport> {
   // Import payload trace store dynamically to avoid circular deps
   const { usePayloadTraceStore, getDataShapeAnomalies } = await import('./payload-trace-store')
 
@@ -493,8 +501,18 @@ export async function createMergedDebugExport(): Promise<MergedDebugExport> {
       status: p.status,
       completed: p.completed,
       error: p.error,
-      request: p.request,
-      response: p.response,
+      request: p.request
+        ? {
+            headers: redactPayload(p.request.headers) as Record<string, string>,
+            body: redactPayload(p.request.body),
+          }
+        : undefined,
+      response: p.response
+        ? {
+            headers: redactPayload(p.response.headers) as Record<string, string>,
+            body: redactPayload(p.response.body),
+          }
+        : undefined,
       contractValidation: p.contractValidation,
     })),
   }
@@ -520,6 +538,8 @@ export async function createMergedDebugExport(): Promise<MergedDebugExport> {
       branch: versionInfo?.branch,
     },
     diagnostic,
+    ceePipelineTrace: extras?.ceePipelineTrace,
+    errorDetails: extras?.errorDetails,
     contractTrace,
     dataShapeAnomalies,
     boundaryEvents: [], // Boundary events logged to console, not stored in-memory
@@ -538,8 +558,11 @@ function generateMergedFilename(): string {
 /**
  * Export merged debug data as downloadable JSON file
  */
-export async function exportMergedDebugBundle(): Promise<void> {
-  const bundle = await createMergedDebugExport()
+export async function exportMergedDebugBundle(extras?: {
+  ceePipelineTrace?: CeePipelineTrace | null
+  errorDetails?: ErrorDetail[]
+}): Promise<void> {
+  const bundle = await createMergedDebugExport(extras)
   const json = JSON.stringify(bundle, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -561,3 +584,7 @@ export async function exportMergedDebugBundle(): Promise<void> {
     console.log('[diagnostic-bundle] Exported merged:', filename)
   }
 }
+
+ export const __test__ = {
+   generateMergedFilename,
+ }

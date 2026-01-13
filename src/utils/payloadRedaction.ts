@@ -138,7 +138,7 @@ function redactValue(
   // Arrays - cap items (use per-field limit if available)
   if (Array.isArray(value)) {
     const fieldLimit = currentKey && opts.fieldArrayLimits[currentKey]
-    const effectiveLimit = fieldLimit ?? opts.maxArrayItems
+    const effectiveLimit = typeof fieldLimit === 'number' ? fieldLimit : opts.maxArrayItems
 
     const items = value.slice(0, effectiveLimit).map(item =>
       redactValue(item, opts, depth + 1, undefined, visited)
@@ -210,6 +210,17 @@ export function enforcePayloadSizeLimit<T>(
   }
 }
 
+function isSizeLimitExceeded(
+  value: unknown
+): value is { __sizeLimitExceeded: true; originalSize: number } {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    (value as any).__sizeLimitExceeded === true &&
+    typeof (value as any).originalSize === 'number'
+  )
+}
+
 // =============================================================================
 // Raw Error Data Builder
 // =============================================================================
@@ -261,7 +272,17 @@ export function buildRawErrorData(input: RawErrorDataInput): {
   }
 
   // Enforce size limit
-  return enforcePayloadSizeLimit(rawData)
+  const limited = enforcePayloadSizeLimit(rawData)
+  if (isSizeLimitExceeded(limited)) {
+    return {
+      payload: limited,
+      expectedShape: input.expectedShape,
+      validationErrors: input.validationErrors?.slice(0, 10),
+      validationWarnings: input.validationWarnings?.slice(0, 10),
+      timestamp,
+    }
+  }
+  return limited as typeof rawData
 }
 
 // =============================================================================

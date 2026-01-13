@@ -75,6 +75,11 @@ import { AdvancedSettingsPanel } from './AdvancedSettingsPanel'
 import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useV2Run } from '../hooks/useV2Run'
 import { focusNodeById } from '../utils/focusHelpers'
+// Results Panel Redesign: New section components
+import { useResultsSectionData } from '../../components/results/useResultsSectionData'
+import { RecommendationSection } from '../../components/results/RecommendationSection'
+import { DriversSection } from '../../components/results/DriversSection'
+import { ConfidenceSection } from '../../components/results/ConfidenceSection'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
 import { computeCTA, type CTAConfig } from '../../lib/ctaStateMachine'
 import { computeReadiness } from '../../lib/readiness'
@@ -249,6 +254,9 @@ export function OutputsDock() {
 
   // P0-UI: V2 run hook for /v2/run endpoint
   const { runV2Analysis } = useV2Run()
+
+  // Results Panel Redesign: Section data hook for RecommendationSection, DriversSection, ConfidenceSection
+  const resultsSectionData = useResultsSectionData()
 
   // Pre-run blocker state - managed by PreAnalysisGuidance component
   const [hasPreRunBlockers, setHasPreRunBlockers] = useState(false)
@@ -1126,194 +1134,136 @@ export function OutputsDock() {
                     }}
                   />
                 )}
-                {/* Phase 1A.1: Verdict card */}
-                {SHOW_VERDICT_FEATURES && !isPreRun && verdict && mostLikelyValue !== null && isReadyForOutcome && (
-                  <VerdictCard
-                    verdict={verdict}
-                    objectiveText={objectiveText}
-                    outcomeValue={mostLikelyValue}
-                    units={resultUnitSymbol}
-                  />
-                )}
-                {/* Decision Summary - Top-level decision synthesis */}
-                {!isPreRun && hasInlineSummary && (
-                  <DecisionSummary
-                    baseline={baselineValue}
-                    baselineName={baselineValue === 0 ? '"do nothing"' : 'your baseline'}
-                    goalDirection={goalDirection}
-                    ranking={optionRanking}
-                    objectiveText={objectiveText}
-                    ceeReviewV1={ceeReviewV1}
-                    ceeReview={ceeReview}
-                  />
-                )}
+                {/* OLD VerdictCard and DecisionSummary REMOVED - Replaced by RecommendationSection below */}
 
-                {/* Brief E Task 3: Four-Panel Structure
-                    1. Recommendation - "What should I do?" (DecisionSummary above)
-                    2. Key Drivers - "Why?" (DriversSignal + Synthesis Narratives)
-                    3. Validate & Improve - "Can I trust it?" (TrustSignal, RobustnessBlock, OutcomesSignal)
-                    4. Next Steps (ActionsSignal)
-                */}
-                {!isPreRun && hasInlineSummary && (
-                  <div className="space-y-4" data-testid="outputs-signals">
-                    {/* Panel 2: Key Drivers - "Why?" */}
+                {/* ======================================================================
+                    Results Panel Redesign: New Section Components
+                    "Coaching over gates" approach with semantic labels and dynamic normalisation
+                    ====================================================================== */}
+                {!isPreRun && hasInlineSummary && resultsSectionData && (
+                  <div className="space-y-4" data-testid="outputs-results-redesign">
+                    {/* Objective Section - FIRST section showing the goal */}
                     <section
                       className="border border-sand-200 rounded-lg overflow-hidden"
-                      data-testid="panel-key-drivers"
-                      aria-labelledby="panel-drivers-heading"
+                      data-testid="panel-objective"
+                      aria-labelledby="panel-objective-heading"
                     >
                       <header className="px-3 py-2 bg-sand-50 border-b border-sand-200">
                         <h3
-                          id="panel-drivers-heading"
-                          className={`${typography.label} font-medium text-ink-800`}
+                          id="panel-objective-heading"
+                          className={`${typography.code} font-medium text-ink-500 uppercase tracking-wider text-xs`}
                         >
-                          Why this recommendation?
+                          Your Objective
                         </h3>
                       </header>
-                      <div className="p-0">
-                        {/* Brief C: Pass robustness data to DriversSignal for tipping points & VoI */}
-                        {/* P0.1: Pass gating state for contradiction prevention */}
-                        <DriversSignal
-                          maxCollapsed={3}
-                          robustness={robustnessData}
-                          robustnessLoading={robustnessLoading}
-                          gatingState={driversGating}
-                          onParameterClick={(nodeId) => {
-                            setHighlightedNodes([nodeId])
-                            focusNodeById(nodeId)
-                            setTimeout(() => setHighlightedNodes([]), 3000)
-                          }}
-                          onVoiActionClick={(nodeId) => {
-                            setHighlightedNodes([nodeId])
-                            focusNodeById(nodeId)
-                            setTimeout(() => setHighlightedNodes([]), 3000)
-                          }}
-                        />
-                      </div>
-                    </section>
-
-                    {/* Panel 3: Decision Quality & Validation */}
-                    <section
-                      className="border border-sand-200 rounded-lg overflow-hidden"
-                      data-testid="panel-validate-improve"
-                      aria-labelledby="panel-validate-heading"
-                    >
-                      <header className="px-3 py-2 bg-sand-50 border-b border-sand-200">
-                        <h3
-                          id="panel-validate-heading"
-                          className={`${typography.label} font-medium text-ink-800`}
-                        >
-                          Decision Quality
-                        </h3>
-                      </header>
-                      <div className="p-3 space-y-3">
-                        {/* CEE-driven Decision Quality indicator (primary) */}
-                        <DecisionQuality
-                          ceeReviewV1={ceeReviewV1}
-                          report={report}
-                        />
-                        {/* Analysis Reliability (handles incomplete analysis states) */}
-                        <TrustSignal />
-                        {/* Brief 25: Robustness label/meter overview */}
-                        {(robustnessData || robustnessLoading) && (
-                          <RobustnessBlock
-                            robustness={robustnessData}
-                            loading={robustnessLoading}
-                            error={robustnessError}
-                            onParameterClick={(nodeId) => {
-                              setHighlightedNodes([nodeId])
-                              focusNodeById(nodeId)
-                              setTimeout(() => setHighlightedNodes([]), 3000)
+                      <div className="p-3">
+                        <div className="flex items-center justify-between">
+                          <p className={`${typography.body} font-medium text-ink-900`}>
+                            {resultsSectionData.goalLabel}
+                          </p>
+                          <button
+                            onClick={() => {
+                              if (resultsSectionData.goalNodeId) {
+                                setHighlightedNodes([resultsSectionData.goalNodeId])
+                                focusNodeById(resultsSectionData.goalNodeId)
+                                setTimeout(() => setHighlightedNodes([]), 3000)
+                              }
                             }}
-                            onVoiActionClick={(nodeId) => {
-                              setHighlightedNodes([nodeId])
-                              focusNodeById(nodeId)
-                              setTimeout(() => setHighlightedNodes([]), 3000)
-                            }}
-                            defaultExpanded={false}
-                            compact={true}
-                          />
-                        )}
-                        {/* P0-2: Mixed messaging gating - show blocker or outcomes */}
-                        {analysisDisplayState.showBlockingMessage ? (
-                          <div
-                            className="p-3 bg-carrot-50 border border-carrot-200 rounded-lg"
-                            role="alert"
-                            data-testid="critical-blocker"
+                            disabled={!resultsSectionData.goalNodeId}
+                            className={`${typography.caption} flex items-center gap-1 ${
+                              resultsSectionData.goalNodeId
+                                ? 'text-sky-600 hover:text-sky-800'
+                                : 'text-slate-400 cursor-not-allowed'
+                            }`}
                           >
-                            <div className="flex items-start gap-2">
-                              <AlertTriangle className="w-5 h-5 text-carrot-600 flex-shrink-0 mt-0.5" />
-                              <div>
-                                <p className={`${typography.body} font-medium text-carrot-800`}>
-                                  Unable to estimate reliably
-                                </p>
-                                <p className={`${typography.bodySmall} text-carrot-700 mt-1`}>
-                                  {analysisDisplayState.blockingReason}
-                                </p>
-                                {analysisDisplayState.actions.length > 0 && (
-                                  <ul className="mt-2 space-y-1">
-                                    {analysisDisplayState.actions.map((action, i) => (
-                                      <li
-                                        key={i}
-                                        className={`${typography.caption} text-carrot-600 flex items-center gap-1`}
-                                      >
-                                        <span className="w-1 h-1 bg-carrot-400 rounded-full" />
-                                        {action}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            {/* Phase 0.3: Degeneracy warning for identical outcomes */}
-                            {!degeneracyDismissed && degeneracyCheck.detected && (
-                              <DegeneracyWarning
-                                check={degeneracyCheck}
-                                onDismiss={dismissDegeneracy}
-                              />
-                            )}
-                            <OutcomesSignal
-                              baseline={baselineValue}
-                              goalDirection={goalDirection}
-                              objectiveText={objectiveText}
-                              baselineName={baselineValue === 0 ? '"do nothing"' : 'your baseline'}
-                            />
-                          </>
-                        )}
+                            View on canvas
+                            <span aria-hidden="true">→</span>
+                          </button>
+                        </div>
                       </div>
                     </section>
 
-                    {/* Panel 4: Next Steps - "What's next?" */}
+                    {/* Recommendation Section - "What should I do?" */}
                     <section
                       className="border border-sand-200 rounded-lg overflow-hidden"
-                      data-testid="panel-next-steps"
-                      aria-labelledby="panel-actions-heading"
+                      data-testid="panel-recommendation-redesign"
+                      aria-labelledby="panel-recommendation-heading"
                     >
                       <header className="px-3 py-2 bg-sand-50 border-b border-sand-200">
                         <h3
-                          id="panel-actions-heading"
+                          id="panel-recommendation-heading"
                           className={`${typography.label} font-medium text-ink-800`}
                         >
-                          Next Steps
+                          Recommendation
                         </h3>
                       </header>
-                      <div className="p-0">
-                        <ActionsSignal maxCollapsed={3} />
-                        {/* Brief H Task 13: Evidence Pack Export */}
-                        <div className="px-3 pb-3 pt-2 border-t border-sand-100 mt-2">
-                          <EvidencePackExport
-                            runId={robustnessRunId}
-                            responseHash={results?.hash}
-                            compact
-                          />
-                        </div>
+                      <div className="p-3">
+                        <RecommendationSection
+                          data={resultsSectionData.recommendation}
+                          onFocusNode={(nodeId) => {
+                            setHighlightedNodes([nodeId])
+                            focusNodeById(nodeId)
+                            setTimeout(() => setHighlightedNodes([]), 3000)
+                          }}
+                        />
+                      </div>
+                    </section>
+
+                    {/* Drivers Section - "Why?" with semantic labels */}
+                    <section
+                      className="border border-sand-200 rounded-lg overflow-hidden"
+                      data-testid="panel-drivers-redesign"
+                      aria-labelledby="panel-drivers-redesign-heading"
+                    >
+                      <header className="px-3 py-2 bg-sand-50 border-b border-sand-200">
+                        <h3
+                          id="panel-drivers-redesign-heading"
+                          className={`${typography.label} font-medium text-ink-800`}
+                        >
+                          What's Influencing This
+                        </h3>
+                      </header>
+                      <div className="p-3">
+                        <DriversSection
+                          data={resultsSectionData.drivers}
+                          onFocusNode={(nodeId) => {
+                            setHighlightedNodes([nodeId])
+                            focusNodeById(nodeId)
+                            setTimeout(() => setHighlightedNodes([]), 3000)
+                          }}
+                        />
+                      </div>
+                    </section>
+
+                    {/* Confidence Section - "What needs attention" */}
+                    <section
+                      className="border border-sand-200 rounded-lg overflow-hidden"
+                      data-testid="panel-confidence-redesign"
+                      aria-labelledby="panel-confidence-heading"
+                    >
+                      <header className="px-3 py-2 bg-sand-50 border-b border-sand-200">
+                        <h3
+                          id="panel-confidence-heading"
+                          className={`${typography.label} font-medium text-ink-800`}
+                        >
+                          What Needs Attention
+                        </h3>
+                      </header>
+                      <div className="p-3">
+                        <ConfidenceSection
+                          data={resultsSectionData.confidence}
+                          onFocusNode={(nodeId) => {
+                            setHighlightedNodes([nodeId])
+                            focusNodeById(nodeId)
+                            setTimeout(() => setHighlightedNodes([]), 3000)
+                          }}
+                        />
                       </div>
                     </section>
                   </div>
                 )}
+
+                {/* OLD Four-Panel Structure REMOVED - Replaced by Results Panel Redesign above */}
 
                 {/* Additional context - kept from original inline summary */}
                 {!isPreRun && hasInlineSummary && (
@@ -1349,39 +1299,7 @@ export function OutputsDock() {
                         driversInformative={driversGating.showDriverNarratives}
                       />
                     )}
-                    {/* Decision Review */}
-                    {decisionReviewStatus && (
-                      <div
-                        className="mt-6 pt-4 border-t border-sand-200"
-                        data-testid="outputs-decision-review"
-                      >
-                        <div className={`${typography.code} font-medium text-ink-900/70 mb-1`}>
-                          Decision Review
-                        </div>
-                        {ceeDegraded && (
-                          <div
-                            className={`mb-2 p-2 bg-sun-50 border border-sun-200 rounded ${typography.code} text-sun-900`}
-                            data-testid="cee-degraded-banner"
-                            role="alert"
-                            aria-live="polite"
-                          >
-                            <span className="font-medium">Partial analysis:</span> Decision Review ran with reduced functionality. Core results remain accurate.
-                          </div>
-                        )}
-                        <DecisionReviewPanel
-                          status={decisionReviewStatus}
-                          review={ceeReview ?? undefined}
-                          error={ceeError ?? undefined}
-                          trace={ceeTrace ?? undefined}
-                          reviewV1={ceeReviewV1 ?? undefined}
-                          errorV1={ceeErrorV1 ?? undefined}
-                          traceV1={ceeTraceV1 ?? undefined}
-                          onRetry={handleRunAnalysis}
-                          canRetryRun={!isRunning && !ceeDegraded}
-                        />
-                      </div>
-                    )}
-                    {/* M6: Scenario Comparison Prompt - REMOVED: Now using Compare CTA in DecisionSummary */}
+                    {/* OLD DecisionReviewPanel REMOVED - Now merged into ConfidenceSection above */}
                   </div>
                 )}
 

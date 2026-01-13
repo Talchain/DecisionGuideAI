@@ -551,15 +551,24 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Per-option results object (some APIs nest values here)
       const optionResults = prob.results ?? {}
 
-      // Extract per-option p10/p50/p90 with comprehensive fallback chain:
-      // Priority: results.* > prob.* > bands.* > goal_probability
-      // IMPORTANT: bands.* should come BEFORE goal_probability to prefer option-specific data
+      // Extract per-option p10/expected/p90 with comprehensive fallback chain:
+      // Priority: mean > expected_outcome > expected_value > p50 > bands.* > goal_probability
+      // IMPORTANT: mean (expected value) is distinct from p50 (median) - use mean for "Expected" display
+      // bands.* should come BEFORE goal_probability to prefer option-specific data
       const rawP10 = optionResults.p10 ?? prob.p10 ?? optionBands.p10 ?? prob.goal_probability
-      const rawP50 = optionResults.expected_value ?? optionResults.p50 ?? prob.expected_value ?? prob.p50 ?? optionBands.p50 ?? prob.goal_probability
+      // For "expected", prioritise mean (average outcome) over p50 (median)
+      // This fixes the 0% bug where mean=3.8% but p50=0%
+      const rawExpected =
+        optionResults.mean ?? optionResults.expected_outcome ??
+        optionResults.expected_value ?? optionResults.p50 ??
+        prob.mean ?? prob.expected_outcome ??
+        prob.expected_value ?? prob.p50 ??
+        optionBands.p50 ?? prob.goal_probability
       const rawP90 = optionResults.p90 ?? prob.p90 ?? optionBands.p90 ?? prob.goal_probability
 
       // Normalize all percentiles together for consistent scaling
-      const { p10, p50, p90 } = normalizePercentiles(rawP10, rawP50, rawP90)
+      // Note: p50 variable name kept for interface compatibility, but now contains mean (expected value)
+      const { p10, p50, p90 } = normalizePercentiles(rawP10, rawExpected, rawP90)
 
       return {
         id: nodeId,

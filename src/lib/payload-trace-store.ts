@@ -13,6 +13,13 @@ import {
   detectService,
   type ContractValidationResult,
 } from './contract-validators'
+import { redactPayload } from '../utils/payloadRedaction'
+
+const PAYLOAD_REDACTION_OPTIONS = {
+  maxDepth: 6,
+  maxArrayItems: 10,
+  maxStringLength: 1000,
+} as const
 
 // ============================================================================
 // Types
@@ -131,8 +138,8 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
       method: params.method,
       timestamp: Date.now(),
       request: {
-        headers: params.headers,
-        body: params.body,
+        headers: redactPayload(params.headers, PAYLOAD_REDACTION_OPTIONS) as Record<string, string>,
+        body: redactPayload(params.body, PAYLOAD_REDACTION_OPTIONS),
       },
       completed: false,
     }
@@ -167,8 +174,8 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
           duration: params.duration,
           error: params.error,
           response: {
-            headers: params.headers,
-            body: params.body,
+            headers: redactPayload(params.headers, PAYLOAD_REDACTION_OPTIONS) as Record<string, string>,
+            body: redactPayload(params.body, PAYLOAD_REDACTION_OPTIONS),
           },
           contractValidation,
           completed: true,

@@ -199,9 +199,64 @@ describe('mapV2ResponseToReportV1', () => {
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
     // goal_probability = midpoint of confidence_interval
+    // results contains outcome distribution (derived from CI when outcome not provided)
     expect(report.option_probabilities).toEqual({
-      opt1: { goal_probability: 50, confidence: 0.5 }, // (30+70)/2 = 50
-      opt2: { goal_probability: 60, confidence: 0.5 }, // (45+75)/2 = 60
+      opt1: {
+        goal_probability: 50, // (30+70)/2 = 50
+        confidence: 0.5,
+        win_probability: undefined,
+        results: {
+          mean: null, // No outcome.mean in input
+          expected_outcome: null,
+          p10: 30, // CI low
+          p50: 50, // Falls back to CI midpoint
+          p90: 70, // CI high
+        },
+      },
+      opt2: {
+        goal_probability: 60, // (45+75)/2 = 60
+        confidence: 0.5,
+        win_probability: undefined,
+        results: {
+          mean: null,
+          expected_outcome: null,
+          p10: 45,
+          p50: 60,
+          p90: 75,
+        },
+      },
+    })
+  })
+
+  it('extracts outcome distribution when provided (fixes 0% bug)', () => {
+    // Test case: mean=0.038 but p50=0 (skewed distribution)
+    // The UI should display mean (3.8%), not p50 (0%)
+    const v2Response = makeSuccessResponse({
+      option_comparison: [
+        {
+          option_id: 'opt1',
+          option_label: 'Option 1',
+          confidence_interval: [-0.05, 0.12] as [number, number],
+          expected_outcome: 0.038,
+          outcome: {
+            mean: 0.038,
+            p10: -0.05,
+            p50: 0,
+            p90: 0.12,
+          },
+        },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    // Verify mean is extracted and takes priority
+    expect(report.option_probabilities.opt1.results).toEqual({
+      mean: 0.038, // This should be used for "Expected" display
+      expected_outcome: 0.038,
+      p10: -0.05,
+      p50: 0, // Median is 0, but mean (3.8%) should be displayed
+      p90: 0.12,
     })
   })
 

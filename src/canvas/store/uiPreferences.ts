@@ -35,15 +35,19 @@ export function loadUIPreferences(): UIPreferences {
 
   const prefs: UIPreferences = {}
 
-  const loadBoolean = (key: string): boolean | undefined => {
+  const loadBoolean = (key: string, defaultValue?: boolean): boolean | undefined => {
     const value = localStorage.getItem(key)
-    return value !== null ? value === 'true' : undefined
+    if (value === null) {
+      return defaultValue
+    }
+    return value === 'true'
   }
 
   prefs.showResultsPanel = loadBoolean(STORAGE_KEYS.SHOW_RESULTS_PANEL)
   prefs.showInspectorPanel = loadBoolean(STORAGE_KEYS.SHOW_INSPECTOR_PANEL)
   prefs.showTemplatesPanel = loadBoolean(STORAGE_KEYS.SHOW_TEMPLATES_PANEL)
-  prefs.showDraftChat = loadBoolean(STORAGE_KEYS.SHOW_DRAFT_CHAT)
+  // Default Olumi AI (Draft Chat) to open on first load until user toggles it off
+  prefs.showDraftChat = loadBoolean(STORAGE_KEYS.SHOW_DRAFT_CHAT, true)
   prefs.showIssuesPanel = loadBoolean(STORAGE_KEYS.SHOW_ISSUES_PANEL)
   prefs.showProvenanceHub = loadBoolean(STORAGE_KEYS.SHOW_PROVENANCE_HUB)
   prefs.showDocumentsDrawer = loadBoolean(STORAGE_KEYS.SHOW_DOCUMENTS_DRAWER)

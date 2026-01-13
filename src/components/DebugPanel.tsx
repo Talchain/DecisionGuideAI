@@ -25,7 +25,6 @@ import {
   getRecentTraces,
   type RequestTrace,
   type DownstreamCall,
-  type TraceReceived,
 } from '../lib/debug-state'
 import { useGateStore, ALL_GATES, type GateName, type GateStatus } from '../lib/gate-state'
 import { getClientBuild, getVersionInfo } from '../lib/version-cache'
@@ -34,18 +33,53 @@ import { getAllServiceHealthArray, type ServiceHealthInfo, type HealthStatus } f
 import { useCanvasStore } from '../canvas/store'
 import { ContractInspector } from './ContractInspector'
 import { CeePipelineTab } from './CeePipelineTab'
-import type { CeePipelineTrace } from '../adapters/cee/types'
+import { copyTextToClipboard } from '../utils/clipboard'
+import { truncateToSize } from '../utils/text'
+import { HeadlineSignals, detectSchema } from './debug/HeadlineSignals'
+import { TimelineTab } from './debug/TimelineTab'
+import { RawDataTab } from './debug/RawDataTab'
+import { PayloadLabTab } from './debug/PayloadLabTab'
+import { getDebugFlags } from './debug/useDebugFlags'
+import type { FieldAdaptation, TimelineStage, RequestEntry, ISLTestResponse } from './debug/types'
+import { LlmIoTab } from './debug/LlmIoTab'
+import { TransformsTab } from './debug/TransformsTab'
+import { usePayloadTraceStore } from '../lib/payload-trace-store'
+import { detectService } from '../lib/contract-validators'
 
 // =============================================================================
 // Debug Panel Tabs
 // =============================================================================
 
-type DebugPanelTab = 'overview' | 'cee-pipeline'
+type DebugPanelTab =
+  | 'overview'
+  | 'timeline'
+  | 'llm-io'
+  | 'transforms'
+  | 'raw-data'
+  | 'payload-lab'
+  | 'cee-pipeline'
 
-const DEBUG_TABS: { id: DebugPanelTab; label: string }[] = [
+interface TabConfig {
+  id: DebugPanelTab
+  label: string
+  unsafeOnly?: boolean
+}
+
+const DEBUG_TABS: TabConfig[] = [
   { id: 'overview', label: 'Overview' },
+  { id: 'timeline', label: 'Timeline' },
+  { id: 'llm-io', label: 'LLM I/O' },
+  { id: 'transforms', label: 'Transforms' },
+  { id: 'raw-data', label: 'Raw Data' },
+  { id: 'payload-lab', label: 'Payload Lab' },
   { id: 'cee-pipeline', label: 'CEE Pipeline' },
 ]
+
+function truncateText(value: unknown, maxLen: number): string {
+  const str = typeof value === 'string' ? value : JSON.stringify(value)
+  if (str.length <= maxLen) return str
+  return `${str.slice(0, maxLen)}…`
+}
 
 // =============================================================================
 // CEE Pipeline Data Source
@@ -724,24 +758,282 @@ function SensitivityAnalysisSection() {
   )
 }
 
-// Debug panel width constraints
-const MIN_PANEL_WIDTH = 400
-const MAX_PANEL_WIDTH = 800
+// =============================================================================
+// Helper Functions for New Tabs
+// =============================================================================
+
+/**
+ * Build timeline stages from request traces and CEE pipeline trace
+ */
+function buildTimelineStages(
+  traces: RequestTrace[],
+  ceePipelineTrace: any
+): TimelineStage[] {
+  const stages: TimelineStage[] = []
+
+  // Add stages from request traces
+  for (const trace of traces.slice(0, 10)) {
+    const isError = trace.status && trace.status >= 400
+    const isSuccess = trace.status && trace.status >= 200 && trace.status < 400
+    const status: TimelineStage['status'] = isError
+      ? 'error'
+      : isSuccess
+        ? 'success'
+        : 'running'
+
+    stages.push({
+      id: trace.requestId || `trace-${trace.timestamp}`,
+      label: trace.endpoint.replace('/bff/', ''),
+      status,
+      duration: trace.elapsedMs,
+      details: {
+        summary: `${trace.method} ${trace.status || 'pending'}`,
+        method: trace.method,
+        status: trace.status,
+      },
+    })
+  }
+
+  // Add CEE pipeline stage if available
+  if (ceePipelineTrace) {
+    const llmChildren: TimelineStage[] = Array.isArray(ceePipelineTrace.llm_calls)
+      ? ceePipelineTrace.llm_calls.map((call: any, idx: number) => ({
+          id: `llm-${call?.id ?? idx}`,
+          label: `LLM Call ${idx + 1}`,
+          status: 'success',
+          duration: typeof call?.duration_ms === 'number' ? call.duration_ms : undefined,
+          isUnsafe: true,
+          details: {
+            summary: `${call?.model ?? 'unknown model'} (${typeof call?.duration_ms === 'number' ? `${call.duration_ms}ms` : 'duration unknown'})`,
+            model: call?.model,
+            duration_ms: call?.duration_ms,
+            prompt_preview: truncateText(call?.request, 800),
+            response_preview: truncateText(call?.response, 800),
+            prompt_tokens: call?.prompt_tokens,
+            completion_tokens: call?.completion_tokens,
+          },
+        }))
+      : []
+
+    stages.unshift({
+      id: 'cee-pipeline',
+      label: 'CEE Processing',
+      status:
+        ceePipelineTrace.status === 'success' || ceePipelineTrace.status === 'success_with_repairs'
+          ? 'success'
+          : ceePipelineTrace.status === 'failed'
+            ? 'error'
+            : 'running',
+      duration: ceePipelineTrace.total_duration_ms,
+      details: {
+        summary: `${ceePipelineTrace.status} - ${ceePipelineTrace.llm_call_count ?? 0} LLM calls`,
+        llm_calls: ceePipelineTrace.llm_call_count,
+        nodes: ceePipelineTrace.final_graph?.node_count,
+        edges: ceePipelineTrace.final_graph?.edge_count,
+      },
+      children: llmChildren.length > 0 ? llmChildren : undefined,
+    })
+  }
+
+  return stages
+}
+
+/**
+ * Build request entries from traces for RawDataTab
+ */
+function buildRequestEntries(traces: RequestTrace[]): RequestEntry[] {
+  return traces.slice(0, 20).map((trace) => ({
+    id: trace.requestId || `trace-${trace.timestamp}`,
+    timestamp: new Date(trace.timestamp),
+    method: trace.method,
+    url: trace.endpoint,
+    headers: {},
+    status: trace.status,
+    duration: trace.elapsedMs,
+  }))
+}
+
+function deriveServicesFromTraces(traces: RequestTrace[]): Record<string, { status: HealthStatus; version?: string }> {
+  const result: Record<string, { status: HealthStatus; version?: string }> = {}
+  const candidates = ['bff', 'cee', 'isl', 'plot']
+
+  for (const svc of candidates) {
+    const svcTraces =
+      svc === 'bff'
+        ? traces
+        : traces.filter((t) => {
+            // First check x-olumi-service header value
+            const headerService = (t.service ?? '').toLowerCase()
+            if (headerService === svc) return true
+            // Fall back to endpoint-based detection when header is missing
+            if (!headerService) {
+              const detectedService = detectService(t.endpoint).toLowerCase()
+              return detectedService === svc
+            }
+            return false
+          })
+
+    if (svcTraces.length === 0) {
+      result[svc] = { status: 'unknown' }
+      continue
+    }
+
+    const any5xx = svcTraces.some((t) => typeof t.status === 'number' && t.status >= 500)
+    const any4xx = svcTraces.some((t) => typeof t.status === 'number' && t.status >= 400 && t.status < 500)
+    const any2xx = svcTraces.some((t) => typeof t.status === 'number' && t.status >= 200 && t.status < 400)
+
+    const status: HealthStatus = any5xx ? 'down' : any4xx ? 'degraded' : any2xx ? 'healthy' : 'unknown'
+    const version = svcTraces.find((t) => typeof t.serviceBuild === 'string')?.serviceBuild
+
+    result[svc] = { status, version }
+  }
+
+  return result
+}
+
+/**
+ * Derive service status from traced payloads (more reliable than request traces).
+ * tracedPayloads have explicit `service` field set by the payload trace store.
+ */
+function deriveServicesFromPayloads(
+  payloads: Array<{ service: string; status?: number; error?: string; completed?: boolean; timestamp: Date }>
+): Record<string, { status: HealthStatus }> {
+  const result: Record<string, { status: HealthStatus }> = {}
+  const fiveMinutesAgo = Date.now() - 5 * 60 * 1000
+
+  // Group payloads by service (case-insensitive)
+  const byService: Record<string, typeof payloads> = {}
+  for (const p of payloads) {
+    if (!p.completed) continue
+    if (new Date(p.timestamp).getTime() < fiveMinutesAgo) continue
+
+    const svc = p.service.toLowerCase()
+    if (!byService[svc]) byService[svc] = []
+    byService[svc].push(p)
+  }
+
+  // Derive status for each service
+  for (const [svc, svcPayloads] of Object.entries(byService)) {
+    if (svcPayloads.length === 0) {
+      result[svc] = { status: 'unknown' }
+      continue
+    }
+
+    const hasNetworkError = svcPayloads.some((p) => p.status === 0 || (!p.status && p.error))
+    const has5xx = svcPayloads.some((p) => p.status && p.status >= 500)
+    const has4xx = svcPayloads.some((p) => p.status && p.status >= 400 && p.status < 500)
+    const has2xx = svcPayloads.some((p) => p.status && p.status >= 200 && p.status < 300)
+
+    // Priority: network error = unreachable, 5xx = down, 2xx with errors = degraded, 2xx only = healthy
+    let status: HealthStatus
+    if (hasNetworkError && !has2xx) {
+      status = 'down' // unreachable
+    } else if (has5xx && !has2xx) {
+      status = 'down'
+    } else if (has5xx || has4xx) {
+      status = 'degraded' // Service responding but with errors
+    } else if (has2xx) {
+      status = 'healthy'
+    } else {
+      status = 'unknown'
+    }
+
+    result[svc] = { status }
+  }
+
+  return result
+}
+
+function buildFieldAdaptations(params: {
+  ceePipelineTrace: unknown
+  nodeCount: number
+  edgeCount: number
+  hasAnalysisReady: boolean
+}): FieldAdaptation[] {
+  const adaptations: FieldAdaptation[] = []
+  const trace = params.ceePipelineTrace as any
+
+  if (trace && trace.final_graph == null && (params.nodeCount > 0 || params.edgeCount > 0)) {
+    adaptations.push({
+      path: 'pipeline.final_graph',
+      rawValue: undefined,
+      adaptedValue: { node_count: params.nodeCount, edge_count: params.edgeCount },
+      reason: 'final_graph missing in pipeline trace; using current canvas graph counts',
+    })
+  }
+
+  if (params.hasAnalysisReady) {
+    adaptations.push({
+      path: 'analysis_ready',
+      rawValue: undefined,
+      adaptedValue: 'present (stored in canvas)',
+      reason: 'analysis_ready derived from CEE v3 draft and stored in canvas state',
+    })
+  }
+
+  return adaptations
+}
+
+// Debug panel resizing constraints
+const MIN_PANEL_WIDTH = 360
+const MIN_PANEL_HEIGHT = 260
 const STORAGE_KEY_WIDTH = 'olumi:debugPanelWidth'
+const STORAGE_KEY_HEIGHT = 'olumi:debugPanelHeight'
+const STORAGE_KEY_POSITION = 'olumi:debugPanelPosition'
+const COLLAPSED_WIDTH_ESTIMATE = 180
 
 function getInitialPanelWidth(): number {
   try {
     const stored = localStorage.getItem(STORAGE_KEY_WIDTH)
     if (stored) {
-      const parsed = parseInt(stored, 10)
-      if (!isNaN(parsed) && parsed >= MIN_PANEL_WIDTH && parsed <= MAX_PANEL_WIDTH) {
-        return parsed
+      const parsed = Number(stored)
+      if (!Number.isNaN(parsed)) {
+        return Math.max(parsed, MIN_PANEL_WIDTH)
       }
     }
   } catch {
-    // Ignore localStorage errors
+    // Ignore storage errors
   }
-  return MIN_PANEL_WIDTH
+  return 520
+}
+
+function getInitialPanelHeight(): number {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_HEIGHT)
+    if (stored) {
+      const parsed = Number(stored)
+      if (!Number.isNaN(parsed)) {
+        return Math.max(parsed, MIN_PANEL_HEIGHT)
+      }
+    }
+  } catch {
+    // Ignore storage errors
+  }
+  return 480
+}
+
+function getInitialPanelPosition(): { x: number; y: number } {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_POSITION)
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        typeof parsed.x === 'number' &&
+        typeof parsed.y === 'number'
+      ) {
+        return { x: parsed.x, y: parsed.y }
+      }
+    }
+  } catch {
+    // Ignore storage errors
+  }
+  const defaultY =
+    typeof window !== 'undefined'
+      ? Math.max(16, window.innerHeight - MIN_PANEL_HEIGHT - 32)
+      : 16
+  return { x: 16, y: defaultY }
 }
 
 /**
@@ -752,6 +1044,9 @@ export function DebugPanel() {
   const [collapsed, setCollapsed] = useState(true)
   const [expanded, setExpanded] = useState(false) // Maximized state
   const [activeTab, setActiveTab] = useState<DebugPanelTab>('overview')
+  
+  // PoC: All debug features accessible with ?diag=1 (no additional gating)
+  const { showDebugConsole } = useMemo(() => getDebugFlags(), [])
   const [traces, setTraces] = useState<RequestTrace[]>([])
   const [exporting, setExporting] = useState(false)
   const [copying, setCopying] = useState(false)
@@ -759,17 +1054,104 @@ export function DebugPanel() {
   const [servicesLoading, setServicesLoading] = useState(false)
   const servicesFetched = useRef(false)
   const [userPanelWidth, setUserPanelWidth] = useState(getInitialPanelWidth)
-  const [isResizing, setIsResizing] = useState(false)
+  const [userPanelHeight, setUserPanelHeight] = useState(getInitialPanelHeight)
+  const [isResizingWidth, setIsResizingWidth] = useState(false)
+  const [isResizingHeight, setIsResizingHeight] = useState(false)
+  const [isResizingCorner, setIsResizingCorner] = useState(false)
+  const [panelPosition, setPanelPosition] = useState(getInitialPanelPosition)
+  const [isDraggingPanel, setIsDraggingPanel] = useState(false)
   const resizeStartX = useRef(0)
   const resizeStartWidth = useRef(0)
+  const resizeStartY = useRef(0)
+  const resizeStartHeight = useRef(0)
+  const resizeStartPanelY = useRef(0)
+  const verticalResizeEdge = useRef<'top' | 'bottom'>('bottom')
+  const dragStartPoint = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  const dragStartPanelPos = useRef<{ x: number; y: number }>(panelPosition)
+  const panelPositionRef = useRef(panelPosition)
 
   // CEE Pipeline state - consumed from canvas store (populated by DraftChat)
   const ceePipelineTrace = useCanvasStore((s) => s.ceePipelineTrace)
 
+  // CEE V3: analysis_ready is stored separately from pipeline trace
+  const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
+
+  // Canvas graph (best source of truth for current counts)
+  const canvasNodes = useCanvasStore((s) => s.nodes)
+  const canvasEdges = useCanvasStore((s) => s.edges)
+
+  // Payload trace store (raw request/response bodies)
+  const tracedPayloads = usePayloadTraceStore((s) => s.payloads)
+  const selectedPayloadId = usePayloadTraceStore((s) => s.selectedId)
+
+  const selectedPayload = useMemo(() => {
+    if (!selectedPayloadId) return null
+    return tracedPayloads.find((p) => p.id === selectedPayloadId) ?? null
+  }, [selectedPayloadId, tracedPayloads])
+
+  const activeResponseBody: unknown = useMemo(() => {
+    // Prefer explicitly selected payload (Contract Inspector)
+    if (selectedPayload?.response?.body !== undefined) return selectedPayload.response.body
+
+    // Otherwise, try to find the latest CEE payload that has a response
+    const latestCee = tracedPayloads.find((p) => p.service === 'CEE' && p.response?.body !== undefined)
+    if (latestCee?.response?.body !== undefined) return latestCee.response.body
+
+    return undefined
+  }, [selectedPayload, tracedPayloads])
+
+  const activePipelineForTabs: unknown = useMemo(() => {
+    // Prefer pipeline trace embedded in the active response body, if present.
+    const body = activeResponseBody as any
+    return body?.pipeline_trace ?? body?.trace?.pipeline ?? ceePipelineTrace ?? undefined
+  }, [activeResponseBody, ceePipelineTrace])
+
   // Raw error data for debugging malformed responses
   const rawErrorData = useCanvasStore((s) => s.runMeta.rawErrorData)
 
+  // Captured upstream errors for debug panel
+  const errorDetails = useCanvasStore((s) => s.runMeta.errorDetails)
+
   const gates = useGateStore((s) => s.gates)
+
+  // Navigation helper: navigate to overview tab and scroll to Contract Inspector
+  const navigateToContractInspector = useCallback((payloadId?: string) => {
+    // Select the payload if provided
+    if (payloadId) {
+      usePayloadTraceStore.getState().selectPayload(payloadId)
+    }
+    // Switch to overview tab
+    setActiveTab('overview')
+    // Scroll to Contract Inspector after tab renders
+    setTimeout(() => {
+      const el = document.getElementById('debug-contract-inspector')
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        // Add brief highlight effect
+        el.style.transition = 'background-color 0.3s'
+        el.style.backgroundColor = '#fef3c7'
+        setTimeout(() => {
+          el.style.backgroundColor = ''
+        }, 2000)
+      }
+    }, 100)
+  }, [])
+
+  // Navigation helper: scroll to Failure History section
+  const navigateToFailureHistory = useCallback(() => {
+    setActiveTab('overview')
+    setTimeout(() => {
+      const el = document.getElementById('debug-failure-history')
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.style.transition = 'background-color 0.3s'
+        el.style.backgroundColor = '#fef3c7'
+        setTimeout(() => {
+          el.style.backgroundColor = ''
+        }, 2000)
+      }
+    }, 100)
+  }, [])
 
   // Check visibility on mount and URL changes
   useEffect(() => {
@@ -800,10 +1182,27 @@ export function DebugPanel() {
       setServicesLoading(true)
       try {
         const healthData = await getAllServiceHealthArray()
-        setServices(healthData)
+        // In development, service-health intentionally returns 'unknown'.
+        // Use recent traces as a lightweight fallback so the panel stays informative.
+        const derived = deriveServicesFromTraces(getRecentTraces())
+        const merged = healthData.map((svc) => {
+          const derivedFor = derived[svc.name]
+          if (svc.status !== 'unknown') return svc
+          if (!derivedFor || derivedFor.status === 'unknown') return svc
+          return {
+            ...svc,
+            status: derivedFor.status,
+            version: svc.version ?? derivedFor.version,
+            error: undefined,
+          }
+        })
+        setServices(merged)
         servicesFetched.current = true
       } catch (err) {
-        console.warn('[DebugPanel] Failed to fetch service health:', err)
+        if (import.meta.env.DEV) {
+          // eslint-disable-next-line no-console
+          console.warn('[DebugPanel] Failed to fetch service health:', err)
+        }
         // Set empty array on failure - UI will show "unavailable"
         setServices([])
       } finally {
@@ -814,15 +1213,60 @@ export function DebugPanel() {
     fetchServices()
   }, [visible, collapsed])
 
+  // In development, service-health intentionally returns "unknown".
+  // Continuously derive status from request history (traced payloads have explicit service field).
+  // Use a ref to avoid infinite loop from services dependency
+  const servicesRef = useRef(services)
+  useEffect(() => {
+    servicesRef.current = services
+  }, [services])
+
+  // Derive service status from traced payloads (more reliable than request traces)
+  useEffect(() => {
+    if (collapsed) return
+    if (servicesRef.current.length === 0) return
+    if (tracedPayloads.length === 0 && traces.length === 0) return
+
+    // First try tracedPayloads (has explicit service field)
+    const derived = deriveServicesFromPayloads(tracedPayloads)
+    // Fall back to request traces for any missing services
+    const derivedFromTraces = deriveServicesFromTraces(traces)
+
+    // Only update if there are actual changes
+    setServices((prev) => {
+      let hasChanges = false
+      const updated = prev.map((svc) => {
+        // Prefer payload-derived status, fall back to trace-derived
+        const payloadStatus = derived[svc.name.toLowerCase()]
+        const traceStatus = derivedFromTraces[svc.name]
+        const derivedFor = payloadStatus?.status !== 'unknown' ? payloadStatus : traceStatus
+
+        if (!derivedFor || derivedFor.status === 'unknown') return svc
+        if (svc.status === derivedFor.status) return svc // No change
+        hasChanges = true
+        return {
+          ...svc,
+          status: derivedFor.status,
+          version: svc.version ?? derivedFor.version,
+          error: undefined,
+        }
+      })
+      return hasChanges ? updated : prev
+    })
+  }, [collapsed, traces, tracedPayloads])
+
   // Handle export - merged diagnostic + contract-trace + anomalies
   const handleExport = useCallback(async () => {
     setExporting(true)
     try {
-      await exportMergedDebugBundle()
+      await exportMergedDebugBundle({
+        ceePipelineTrace,
+        errorDetails,
+      })
     } finally {
       setExporting(false)
     }
-  }, [])
+  }, [ceePipelineTrace, errorDetails])
 
   // Handle copy summary - generates markdown summary and copies to clipboard
   const handleCopySummary = useCallback(async () => {
@@ -851,6 +1295,21 @@ export function DebugPanel() {
       if (traces.length > 0 && traces[0]?.requestId) {
         lines.push('## Request ID')
         lines.push(`\`${traces[0].requestId}\``)
+        lines.push('')
+      }
+
+      // Recent errors (helpful for support triage)
+      if (errorDetails && errorDetails.length > 0) {
+        lines.push('## Recent Errors')
+        for (const detail of errorDetails.slice(-3).reverse()) {
+          const parts: string[] = []
+          parts.push(detail.service)
+          if (detail.httpStatus) parts.push(String(detail.httpStatus))
+          if (detail.errorCode) parts.push(detail.errorCode)
+          const header = parts.join(' ')
+          const req = detail.requestId ? ` (requestId: ${detail.requestId})` : ''
+          lines.push(`- **${header}**: ${detail.message}${req}`)
+        }
         lines.push('')
       }
 
@@ -889,12 +1348,14 @@ export function DebugPanel() {
 
       // CEE Pipeline summary
       if (ceePipelineTrace) {
+        const fallbackNodeCount = canvasNodes.length
+        const fallbackEdgeCount = canvasEdges.length
         lines.push('## CEE Pipeline')
         lines.push(`- Status: ${ceePipelineTrace.status ?? 'unknown'}`)
         lines.push(`- Duration: ${ceePipelineTrace.total_duration_ms ?? 0}ms`)
         lines.push(`- LLM Calls: ${ceePipelineTrace.llm_call_count ?? 0}`)
-        lines.push(`- Nodes: ${ceePipelineTrace.final_graph?.node_count ?? 0}`)
-        lines.push(`- Edges: ${ceePipelineTrace.final_graph?.edge_count ?? 0}`)
+        lines.push(`- Nodes: ${ceePipelineTrace.final_graph?.node_count ?? fallbackNodeCount ?? 0}`)
+        lines.push(`- Edges: ${ceePipelineTrace.final_graph?.edge_count ?? fallbackEdgeCount ?? 0}`)
         lines.push('')
       }
 
@@ -902,62 +1363,107 @@ export function DebugPanel() {
 
       // Truncate if content exceeds 50KB
       const MAX_SIZE = 50 * 1024
-      if (markdown.length > MAX_SIZE) {
-        markdown = markdown.slice(0, MAX_SIZE - 50) + '\n\n... (truncated at 50KB)'
-      }
+      markdown = truncateToSize(markdown, MAX_SIZE, '\n\n... (truncated at 50KB)')
 
-      // Try modern Clipboard API first, fallback to execCommand
-      let success = false
-      if (navigator.clipboard?.writeText) {
-        try {
-          await navigator.clipboard.writeText(markdown)
-          success = true
-        } catch {
-          // Fall through to fallback
-        }
-      }
+      const success = await copyTextToClipboard(markdown)
 
-      if (!success) {
-        // Fallback using document.execCommand
-        const textarea = document.createElement('textarea')
-        textarea.value = markdown
-        textarea.style.position = 'fixed'
-        textarea.style.left = '-9999px'
-        textarea.style.top = '-9999px'
-        document.body.appendChild(textarea)
-        textarea.focus()
-        textarea.select()
-        success = document.execCommand('copy')
-        document.body.removeChild(textarea)
-      }
-
-      if (!success) {
+      if (!success && import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
         console.error('[DebugPanel] Copy to clipboard failed')
       }
     } finally {
       setCopying(false)
     }
-  }, [gates, services, traces, ceePipelineTrace])
+  }, [gates, services, traces, ceePipelineTrace, errorDetails])
 
   // Handle panel resize
-  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+  const handleHorizontalResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
-    setIsResizing(true)
+    setIsResizingWidth(true)
     resizeStartX.current = e.clientX
     resizeStartWidth.current = userPanelWidth
   }, [userPanelWidth])
 
+  const handleVerticalResizeStart = useCallback(
+    (edge: 'top' | 'bottom') => (e: React.MouseEvent) => {
+      e.preventDefault()
+      setIsResizingHeight(true)
+      verticalResizeEdge.current = edge
+      resizeStartY.current = e.clientY
+      resizeStartHeight.current = userPanelHeight
+      resizeStartPanelY.current = panelPosition.y
+    },
+    [panelPosition.y, userPanelHeight]
+  )
+
+  const handlePanelDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDraggingPanel(true)
+    dragStartPoint.current = { x: e.clientX, y: e.clientY }
+    dragStartPanelPos.current = panelPosition
+  }, [panelPosition])
+
+  // Corner resize handler (bottom-right corner)
+  const handleCornerResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsResizingCorner(true)
+    resizeStartX.current = e.clientX
+    resizeStartY.current = e.clientY
+    resizeStartWidth.current = userPanelWidth
+    resizeStartHeight.current = userPanelHeight
+  }, [userPanelWidth, userPanelHeight])
+
+  const clampPosition = useCallback(
+    (x: number, y: number) => {
+      const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1200
+      const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800
+      const widthForClamp = collapsed
+        ? COLLAPSED_WIDTH_ESTIMATE
+        : Math.max(userPanelWidth, MIN_PANEL_WIDTH)
+      const maxHeightAvailable =
+        typeof window !== 'undefined' ? Math.max(MIN_PANEL_HEIGHT, window.innerHeight - 32) : userPanelHeight
+      const resolvedHeight = Math.min(userPanelHeight, maxHeightAvailable ?? userPanelHeight)
+      const heightForClamp = collapsed
+        ? 80
+        : Math.max(resolvedHeight, MIN_PANEL_HEIGHT)
+      const minX = 8
+      const minY = 8
+      const maxX = Math.max(minX, viewportWidth - widthForClamp - 8)
+      const maxY = Math.max(minY, viewportHeight - heightForClamp - 8)
+      return {
+        x: Math.min(Math.max(x, minX), maxX),
+        y: Math.min(Math.max(y, minY), maxY),
+      }
+    },
+    [collapsed, userPanelHeight, userPanelWidth]
+  )
+
+  const persistPanelPosition = useCallback((pos: { x: number; y: number }) => {
+    try {
+      localStorage.setItem(STORAGE_KEY_POSITION, JSON.stringify(pos))
+    } catch {
+      // Ignore storage errors
+    }
+  }, [])
+
   useEffect(() => {
-    if (!isResizing) return
+    panelPositionRef.current = panelPosition
+  }, [panelPosition])
+
+  useEffect(() => {
+    if (!isResizingWidth) return
 
     const handleMouseMove = (e: MouseEvent) => {
       const delta = e.clientX - resizeStartX.current
-      const newWidth = Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, resizeStartWidth.current + delta))
+      const viewportWidth = typeof window !== 'undefined' ? window.innerWidth - 32 : resizeStartWidth.current + delta
+      const maxWidth = Math.max(MIN_PANEL_WIDTH, viewportWidth)
+      const newWidth = Math.min(maxWidth, Math.max(MIN_PANEL_WIDTH, resizeStartWidth.current + delta))
       setUserPanelWidth(newWidth)
     }
 
     const handleMouseUp = () => {
-      setIsResizing(false)
+      setIsResizingWidth(false)
       // Persist to localStorage
       try {
         localStorage.setItem(STORAGE_KEY_WIDTH, String(userPanelWidth))
@@ -972,7 +1478,149 @@ export function DebugPanel() {
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
-  }, [isResizing, userPanelWidth])
+  }, [isResizingWidth, userPanelWidth])
+
+  useEffect(() => {
+    if (!isResizingHeight) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const viewportHeight = typeof window !== 'undefined' ? window.innerHeight - 32 : resizeStartHeight.current
+      const maxHeight = Math.max(MIN_PANEL_HEIGHT, viewportHeight)
+
+      if (verticalResizeEdge.current === 'bottom') {
+        const delta = e.clientY - resizeStartY.current
+        const desiredHeight = Math.min(maxHeight, Math.max(MIN_PANEL_HEIGHT, resizeStartHeight.current + delta))
+        setUserPanelHeight(desiredHeight)
+        return
+      }
+
+      // Top edge resize: adjust height and y position together
+      const delta = e.clientY - resizeStartY.current
+      const desiredHeight = Math.min(
+        maxHeight,
+        Math.max(MIN_PANEL_HEIGHT, resizeStartHeight.current - delta)
+      )
+
+      const viewport = typeof window !== 'undefined' ? window.innerHeight : resizeStartHeight.current
+      const minY = 8
+      const maxY = Math.max(minY, viewport - desiredHeight - 8)
+      const proposedY = resizeStartPanelY.current + delta
+      const clampedY = Math.min(Math.max(proposedY, minY), maxY)
+
+      setPanelPosition((prev) => (prev.y === clampedY ? prev : { ...prev, y: clampedY }))
+      setUserPanelHeight(desiredHeight)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizingHeight(false)
+      try {
+        localStorage.setItem(STORAGE_KEY_HEIGHT, String(userPanelHeight))
+      } catch {
+        // Ignore storage errors
+      }
+      if (verticalResizeEdge.current === 'top') {
+        persistPanelPosition(panelPositionRef.current)
+      }
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizingHeight, userPanelHeight])
+
+  useEffect(() => {
+    if (!isDraggingPanel) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - dragStartPoint.current.x
+      const deltaY = e.clientY - dragStartPoint.current.y
+      const next = clampPosition(
+        dragStartPanelPos.current.x + deltaX,
+        dragStartPanelPos.current.y + deltaY
+      )
+      setPanelPosition(next)
+    }
+
+    const handleMouseUp = () => {
+      setIsDraggingPanel(false)
+      persistPanelPosition(panelPosition)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [clampPosition, isDraggingPanel, panelPosition, persistPanelPosition])
+
+  // Corner resize effect (handles both width and height simultaneously)
+  useEffect(() => {
+    if (!isResizingCorner) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - resizeStartX.current
+      const deltaY = e.clientY - resizeStartY.current
+
+      const viewportWidth = typeof window !== 'undefined' ? window.innerWidth - 32 : resizeStartWidth.current + deltaX
+      const viewportHeight = typeof window !== 'undefined' ? window.innerHeight - 32 : resizeStartHeight.current + deltaY
+
+      const maxWidth = Math.max(MIN_PANEL_WIDTH, viewportWidth)
+      const maxHeight = Math.max(MIN_PANEL_HEIGHT, viewportHeight)
+
+      const newWidth = Math.min(maxWidth, Math.max(MIN_PANEL_WIDTH, resizeStartWidth.current + deltaX))
+      const newHeight = Math.min(maxHeight, Math.max(MIN_PANEL_HEIGHT, resizeStartHeight.current + deltaY))
+
+      setUserPanelWidth(newWidth)
+      setUserPanelHeight(newHeight)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizingCorner(false)
+      try {
+        localStorage.setItem(STORAGE_KEY_WIDTH, String(userPanelWidth))
+        localStorage.setItem(STORAGE_KEY_HEIGHT, String(userPanelHeight))
+      } catch {
+        // Ignore storage errors
+      }
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isResizingCorner, userPanelWidth, userPanelHeight])
+
+  useEffect(() => {
+    const handleResize = () => {
+      setPanelPosition(prev => clampPosition(prev.x, prev.y))
+    }
+    window.addEventListener('resize', handleResize)
+    return () => {
+      window.removeEventListener('resize', handleResize)
+    }
+  }, [clampPosition])
+
+  useEffect(() => {
+    setPanelPosition(prev => clampPosition(prev.x, prev.y))
+  }, [clampPosition])
+
+  const ceePipelineError: string | null = useMemo(() => {
+    if (!errorDetails || errorDetails.length === 0) return null
+    for (let i = errorDetails.length - 1; i >= 0; i--) {
+      const d = errorDetails[i]
+      if (d.service !== 'CEE') continue
+      if (d.endpoint && !d.endpoint.includes('draft-graph')) continue
+      const label = d.errorCode ?? (d.httpStatus ? String(d.httpStatus) : 'CEE_ERROR')
+      return `${label}: ${d.message}`
+    }
+    return null
+  }, [errorDetails])
 
   if (!visible) return null
 
@@ -980,26 +1628,44 @@ export function DebugPanel() {
   const clientBuild = getClientBuild()
 
   // Panel dimensions based on state
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight - 32 : undefined
+  const panelHeightValue =
+    collapsed || !userPanelHeight
+      ? null
+      : Math.min(userPanelHeight, viewportHeight ?? userPanelHeight)
+  const panelHeightPx = panelHeightValue ? `${panelHeightValue}px` : undefined
   const panelWidth = collapsed ? 120 : expanded ? Math.max(600, userPanelWidth) : userPanelWidth
-  const panelMaxHeight = expanded ? 'calc(100vh - 32px)' : '70vh'
+  const panelWidthPx = collapsed ? undefined : `${panelWidth}px`
+  const tracesPanelMaxHeight = panelHeightValue
+    ? Math.max(panelHeightValue - 420, 200)
+    : expanded
+      ? 400
+      : 200
 
   return (
     <div
       style={{
         position: 'fixed',
-        bottom: 16,
-        left: 16,
+        ...(collapsed
+          ? { bottom: 24, left: 24 }
+          : { top: panelPosition.y, left: panelPosition.x }),
         zIndex: 99998,
         fontFamily: 'system-ui, -apple-system, sans-serif',
-        maxWidth: panelWidth,
-        width: collapsed ? 'auto' : panelWidth,
+        maxWidth: collapsed ? undefined : panelWidthPx,
+        width: collapsed ? 'auto' : panelWidthPx,
+        height: collapsed ? undefined : panelHeightPx,
+        maxHeight: collapsed ? undefined : panelHeightPx,
         transition: 'all 0.2s ease',
       }}
     >
       {/* Collapsed state */}
       {collapsed ? (
         <button
-          onClick={() => setCollapsed(false)}
+          onClick={() => {
+            setCollapsed(false)
+            const clamped = clampPosition(panelPosition.x, panelPosition.y)
+            setPanelPosition(clamped)
+          }}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -1016,8 +1682,7 @@ export function DebugPanel() {
           }}
           title="Open Debug Panel"
         >
-          <span>DIAG</span>
-          <span style={{ opacity: 0.6 }}>{clientBuild}</span>
+          <span>Test Suite</span>
         </button>
       ) : (
         /* Expanded state */
@@ -1029,35 +1694,126 @@ export function DebugPanel() {
             boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
             border: '1px solid #e2e8f0',
             overflow: 'hidden',
-            maxHeight: panelMaxHeight,
+            width: panelWidthPx,
+            minHeight: `${MIN_PANEL_HEIGHT}px`,
+            height: panelHeightPx,
+            maxHeight: panelHeightPx ?? '70vh',
             display: 'flex',
             flexDirection: 'column',
           }}
         >
-          {/* Resize handle */}
+          {/* Top height resize handle */}
           <div
-            onMouseDown={handleResizeStart}
+            onMouseDown={handleVerticalResizeStart('top')}
             style={{
               position: 'absolute',
               top: 0,
+              left: 0,
+              right: 0,
+              height: 6,
+              cursor: 'ns-resize',
+              background: isResizingHeight ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
+              zIndex: 12,
+              borderTopLeftRadius: 8,
+              borderTopRightRadius: 8,
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              if (!isResizingHeight) (e.target as HTMLElement).style.background = 'rgba(59, 130, 246, 0.2)'
+            }}
+            onMouseLeave={(e) => {
+              if (!isResizingHeight) (e.target as HTMLElement).style.background = 'transparent'
+            }}
+            title="Drag to adjust height from top"
+          />
+          {/* Bottom height resize handle */}
+          <div
+            onMouseDown={handleVerticalResizeStart('bottom')}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              height: 6,
+              cursor: 'ns-resize',
+              background: isResizingHeight ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
+              zIndex: 11,
+              borderBottomLeftRadius: 8,
+              borderBottomRightRadius: 8,
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              if (!isResizingHeight) (e.target as HTMLElement).style.background = 'rgba(59, 130, 246, 0.2)'
+            }}
+            onMouseLeave={(e) => {
+              if (!isResizingHeight) (e.target as HTMLElement).style.background = 'transparent'
+            }}
+            title="Drag to adjust height"
+          />
+          {/* Resize handle (right edge) */}
+          <div
+            onMouseDown={handleHorizontalResizeStart}
+            style={{
+              position: 'absolute',
+              top: 6,
               right: 0,
               width: 6,
-              height: '100%',
+              height: 'calc(100% - 12px)',
               cursor: 'ew-resize',
-              background: isResizing ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
+              background: isResizingWidth ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
               zIndex: 10,
               transition: 'background 0.15s',
             }}
             onMouseEnter={(e) => {
-              if (!isResizing) (e.target as HTMLElement).style.background = 'rgba(59, 130, 246, 0.2)'
+              if (!isResizingWidth) (e.target as HTMLElement).style.background = 'rgba(59, 130, 246, 0.2)'
             }}
             onMouseLeave={(e) => {
-              if (!isResizing) (e.target as HTMLElement).style.background = 'transparent'
+              if (!isResizingWidth) (e.target as HTMLElement).style.background = 'transparent'
             }}
-            title="Drag to resize (400-800px)"
+            title="Drag to adjust width"
           />
+          {/* Corner resize handle (bottom-right) */}
+          <div
+            onMouseDown={handleCornerResizeStart}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              right: 0,
+              width: 14,
+              height: 14,
+              cursor: 'nwse-resize',
+              background: isResizingCorner ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
+              zIndex: 15,
+              borderBottomRightRadius: 8,
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              if (!isResizingCorner) (e.target as HTMLElement).style.background = 'rgba(59, 130, 246, 0.2)'
+            }}
+            onMouseLeave={(e) => {
+              if (!isResizingCorner) (e.target as HTMLElement).style.background = 'transparent'
+            }}
+            title="Drag corner to resize"
+          >
+            {/* Visual grip indicator */}
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 10 10"
+              style={{
+                position: 'absolute',
+                bottom: 2,
+                right: 2,
+                opacity: 0.4,
+                pointerEvents: 'none',
+              }}
+            >
+              <path d="M9 1L1 9M9 5L5 9M9 9L9 9" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </div>
           {/* Header */}
           <div
+            onMouseDown={handlePanelDragStart}
             style={{
               display: 'flex',
               justifyContent: 'space-between',
@@ -1065,6 +1821,7 @@ export function DebugPanel() {
               padding: '8px 12px',
               background: '#1e293b',
               color: '#f8fafc',
+              cursor: collapsed ? 'default' : isDraggingPanel ? 'grabbing' : 'grab',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1193,6 +1950,129 @@ export function DebugPanel() {
           {activeTab === 'cee-pipeline' && (
             <CeePipelineTab
               trace={ceePipelineTrace}
+              error={ceePipelineError}
+            />
+          )}
+
+          {/* Timeline Tab */}
+          {activeTab === 'timeline' && (
+            <>
+              {(() => {
+                const hasAR = ceeAnalysisReady != null
+
+                // Prefer store-derived schema signal (pipeline trace is not the draft response)
+                const schemaSignal = hasAR
+                  ? { requested: 'v3', detected: 'v3', reason: 'analysis_ready stored in canvas', isMatch: true }
+                  : (ceePipelineTrace ? detectSchema(ceePipelineTrace) : undefined)
+
+                return (
+              <HeadlineSignals
+                route={traces[0]?.endpoint ? `UI → ${traces[0].endpoint}` : undefined}
+                schema={schemaSignal}
+                response={activeResponseBody}
+                trace={activePipelineForTabs}
+                pipelineStatus={ceePipelineTrace ? {
+                  status: ceePipelineTrace.status ?? 'unavailable',
+                  duration: ceePipelineTrace.total_duration_ms,
+                } : undefined}
+                topIssue={errorDetails?.[0] ? {
+                  message: errorDetails[0].message,
+                  severity: errorDetails[0].httpStatus && errorDetails[0].httpStatus >= 500 ? 'error' : 'warning',
+                } : null}
+                requestId={traces[0]?.requestId}
+                canvasNodeCount={canvasNodes.length}
+                canvasEdgeCount={canvasEdges.length}
+              />
+                )
+              })()}
+              <TimelineTab
+                stages={buildTimelineStages(traces, ceePipelineTrace)}
+                showUnsafe={showDebugConsole}
+              />
+            </>
+          )}
+
+          {/* LLM I/O Tab */}
+          {activeTab === 'llm-io' && (
+            <LlmIoTab trace={activePipelineForTabs} />
+          )}
+
+          {/* Transforms Tab */}
+          {activeTab === 'transforms' && (
+            <TransformsTab trace={activePipelineForTabs} />
+          )}
+
+          {/* Raw Data Tab */}
+          {activeTab === 'raw-data' && (
+            (() => {
+              const nodeCount = canvasNodes.length
+              const edgeCount = canvasEdges.length
+              const hasAR = ceeAnalysisReady != null
+              const schemaSignal = hasAR
+                ? { requested: 'v3', detected: 'v3', reason: 'analysis_ready stored in canvas', isMatch: true }
+                : (ceePipelineTrace ? detectSchema(ceePipelineTrace) : undefined)
+              const adaptations = buildFieldAdaptations({
+                ceePipelineTrace,
+                nodeCount,
+                edgeCount,
+                hasAnalysisReady: hasAR,
+              })
+
+              return (
+            <RawDataTab
+              adaptations={adaptations}
+              schema={schemaSignal}
+              requests={buildRequestEntries(traces)}
+              rawResponse={ceePipelineTrace}
+            />
+              )
+            })()
+          )}
+
+          {/* Payload Lab Tab (unsafe only) */}
+          {activeTab === 'payload-lab' && (
+            <PayloadLabTab
+              onRunTest={async (payload, _seed, _nSamples) => {
+                const startTime = Date.now()
+
+                // Call actual ISL conformal endpoint
+                const res = await fetch('/bff/isl/api/v1/causal/counterfactual/conformal', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(payload),
+                })
+
+                if (!res.ok) {
+                  const text = await res.text().catch(() => '')
+                  throw new Error(text || `HTTP ${res.status}`)
+                }
+
+                const rawResponse = await res.json()
+                const duration = Date.now() - startTime
+
+                // Transform ISLConformalResponse to ISLTestResponse format
+                // ISLConformalResponse: { predictions[], overall_calibration, sample_size }
+                // ISLTestResponse: { raw_response, summary: { options[], duration_ms, n_samples_used } }
+                const predictions = rawResponse.predictions ?? []
+                const options = predictions.map((pred: { node_id?: string; prediction?: number; confidence_interval?: { lower?: number; upper?: number } }) => ({
+                  id: pred.node_id ?? 'unknown',
+                  label: pred.node_id ?? 'Unknown',
+                  p10: pred.confidence_interval?.lower ?? 0,
+                  p50: pred.prediction ?? 0,
+                  p90: pred.confidence_interval?.upper ?? 0,
+                  winner_pct: 0, // Not applicable for single predictions
+                }))
+
+                return {
+                  raw_response: rawResponse,
+                  summary: {
+                    options,
+                    duration_ms: duration,
+                    n_samples_used: rawResponse.sample_size ?? 0,
+                  },
+                } as ISLTestResponse
+              }}
+              onNavigateToTab={(tabId) => setActiveTab(tabId as DebugPanelTab)}
             />
           )}
 
@@ -1266,43 +2146,68 @@ export function DebugPanel() {
               CEE Response
               <span style={{ marginLeft: 4, color: '#94a3b8', fontSize: 9, fontWeight: 400 }}>ⓘ</span>
             </div>
-            {ceePipelineTrace?.final_graph ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '2px 8px', color: '#64748b' }}>
-                <span>Nodes:</span>
-                <span style={{ color: '#0ea5e9' }}>{ceePipelineTrace.final_graph.node_count}</span>
-                <span>Edges:</span>
-                <span style={{ color: '#0ea5e9' }}>{ceePipelineTrace.final_graph.edge_count}</span>
-                <span>Edge Keys:</span>
-                <span style={{ color: '#22c55e', wordBreak: 'break-word' }}>
-                  {ceePipelineTrace.final_graph.edges?.[0]
-                    ? Object.keys(ceePipelineTrace.final_graph.edges[0]).join(', ')
-                    : '—'}
-                </span>
-                {ceePipelineTrace.final_graph.edges?.[0] && (
-                  <>
-                    <span>Sample Edge:</span>
-                    <details style={{ color: '#64748b' }}>
-                      <summary style={{ cursor: 'pointer', color: '#3b82f6' }}>View JSON</summary>
-                      <pre style={{
-                        fontSize: 9,
-                        whiteSpace: 'pre-wrap',
-                        wordBreak: 'break-all',
-                        background: '#f8fafc',
-                        padding: 4,
-                        borderRadius: 4,
-                        marginTop: 4,
-                        maxHeight: 150,
-                        overflow: 'auto'
-                      }}>
-                        {JSON.stringify(ceePipelineTrace.final_graph.edges[0], null, 2)}
-                      </pre>
-                    </details>
-                  </>
-                )}
-              </div>
-            ) : (
-              <div style={{ color: '#94a3b8' }}>No CEE response data (run a draft first)</div>
-            )}
+            {(() => {
+              const pipelineNodeCount = ceePipelineTrace?.final_graph?.node_count
+              const pipelineEdgeCount = ceePipelineTrace?.final_graph?.edge_count
+              const fallbackNodeCount = canvasNodes.length
+              const fallbackEdgeCount = canvasEdges.length
+
+              const nodeCount =
+                typeof pipelineNodeCount === 'number' && pipelineNodeCount > 0
+                  ? pipelineNodeCount
+                  : fallbackNodeCount
+
+              const edgeCount =
+                typeof pipelineEdgeCount === 'number' && pipelineEdgeCount > 0
+                  ? pipelineEdgeCount
+                  : fallbackEdgeCount
+
+              const anyData = nodeCount > 0 || edgeCount > 0
+
+              const sampleEdgeRaw = ceePipelineTrace?.final_graph?.edges?.[0]
+              const sampleEdgeCanvas = (canvasEdges[0] as any)?.data
+              const sampleEdge = sampleEdgeRaw ?? sampleEdgeCanvas
+
+              const edgeKeys = sampleEdge && typeof sampleEdge === 'object'
+                ? Object.keys(sampleEdge as Record<string, unknown>).join(', ')
+                : '—'
+
+              if (!anyData) {
+                return <div style={{ color: '#94a3b8' }}>No CEE response data (run a draft first)</div>
+              }
+
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '2px 8px', color: '#64748b' }}>
+                  <span>Nodes:</span>
+                  <span style={{ color: '#0ea5e9' }}>{nodeCount}</span>
+                  <span>Edges:</span>
+                  <span style={{ color: '#0ea5e9' }}>{edgeCount}</span>
+                  <span>Edge Keys:</span>
+                  <span style={{ color: '#22c55e', wordBreak: 'break-word' }}>{edgeKeys}</span>
+                  {sampleEdge && (
+                    <>
+                      <span>Sample Edge:</span>
+                      <details style={{ color: '#64748b' }}>
+                        <summary style={{ cursor: 'pointer', color: '#3b82f6' }}>View JSON</summary>
+                        <pre style={{
+                          fontSize: 9,
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-all',
+                          background: '#f8fafc',
+                          padding: 4,
+                          borderRadius: 4,
+                          marginTop: 4,
+                          maxHeight: 150,
+                          overflow: 'auto'
+                        }}>
+                          {JSON.stringify(sampleEdge, null, 2)}
+                        </pre>
+                      </details>
+                    </>
+                  )}
+                </div>
+              )
+            })()}
           </div>
 
           {/* Canvas Edges - shows what DraftChat stored after processing CEE response */}
@@ -1335,12 +2240,16 @@ export function DebugPanel() {
           {/* Trace Verification Section */}
           <TraceVerification traces={traces} />
 
-          {/* Warnings Section - show non-2xx responses and errors */}
+          {/* Warnings Section with Quick Actions Bar - show non-2xx responses and errors */}
           {(() => {
             const warnings = traces
               .filter((t) => t.completed && (t.error || (t.status && (t.status < 200 || t.status >= 300))))
               .slice(0, 5)
             if (warnings.length === 0) return null
+
+            // Find the most recent failed request for quick actions
+            const latestFailure = warnings[0]
+            const failedPayload = tracedPayloads.find((p) => p.id === latestFailure?.requestId)
 
             return (
               <div
@@ -1358,11 +2267,61 @@ export function DebugPanel() {
                     fontFamily: 'monospace',
                     color: '#92400e',
                     cursor: 'help',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
                   }}
                   title="Recent errors and non-2xx responses from API calls"
                 >
-                  Warnings ({warnings.length})
-                  <span style={{ marginLeft: 4, fontSize: 9, fontWeight: 400 }}>⚠️</span>
+                  <span>
+                    Warnings ({warnings.length})
+                    <span style={{ marginLeft: 4, fontSize: 9, fontWeight: 400 }}>⚠️</span>
+                  </span>
+                  {/* Quick Actions Bar */}
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {failedPayload && (
+                      <button
+                        onClick={() => navigateToContractInspector(failedPayload.id)}
+                        style={{
+                          padding: '2px 6px',
+                          fontSize: 8,
+                          background: '#fde68a',
+                          border: '1px solid #fbbf24',
+                          borderRadius: 3,
+                          cursor: 'pointer',
+                          fontFamily: 'monospace',
+                          color: '#92400e',
+                        }}
+                        title="View failed request details in Contract Inspector"
+                      >
+                        🔍 Details
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        const markdown = warnings.map((w) => {
+                          const parts = [`**${w.status || 'ERR'}** ${w.endpoint.replace('/bff/', '/')}`]
+                          if (w.error) parts.push(`— ${w.error}`)
+                          if (w.requestId) parts.push(`(${w.requestId.slice(0, 8)})`)
+                          return `- ${parts.join(' ')}`
+                        }).join('\n')
+                        copyTextToClipboard(markdown)
+                      }}
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: 8,
+                        background: '#fde68a',
+                        border: '1px solid #fbbf24',
+                        borderRadius: 3,
+                        cursor: 'pointer',
+                        fontFamily: 'monospace',
+                        color: '#92400e',
+                      }}
+                      title="Copy all warnings to clipboard"
+                    >
+                      📋 Copy
+                    </button>
+                  </div>
                 </div>
                 {warnings.map((w) => (
                   <div
@@ -1372,16 +2331,156 @@ export function DebugPanel() {
                       fontFamily: 'monospace',
                       color: '#92400e',
                       padding: '2px 0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
                     }}
                   >
-                    <span style={{ fontWeight: 600 }}>{w.status || 'ERR'}</span>
-                    {' '}
-                    <span>{w.endpoint.replace('/bff/', '/')}</span>
-                    {w.error && (
-                      <span style={{ color: '#b45309', marginLeft: 4 }}>— {w.error}</span>
+                    <span style={{ flex: 1 }}>
+                      <span style={{ fontWeight: 600 }}>{w.status || 'ERR'}</span>
+                      {' '}
+                      <span>{w.endpoint.replace('/bff/', '/')}</span>
+                      {w.error && (
+                        <span style={{ color: '#b45309', marginLeft: 4 }}>— {w.error}</span>
+                      )}
+                    </span>
+                    {/* Per-warning action buttons */}
+                    {tracedPayloads.find((p) => p.id === w.requestId) && (
+                      <button
+                        onClick={() => navigateToContractInspector(w.requestId)}
+                        style={{
+                          padding: '1px 4px',
+                          fontSize: 8,
+                          background: 'transparent',
+                          border: '1px solid #fbbf24',
+                          borderRadius: 2,
+                          cursor: 'pointer',
+                          fontFamily: 'monospace',
+                          color: '#b45309',
+                        }}
+                        title="View this request in Contract Inspector"
+                      >
+                        →
+                      </button>
                     )}
                   </div>
                 ))}
+              </div>
+            )
+          })()}
+
+          {/* Failure History Panel - comprehensive failure overview */}
+          {(() => {
+            // Get all failed requests from traced payloads
+            const failedPayloads = tracedPayloads.filter(
+              (p) => p.completed && (p.error || (p.status && p.status >= 400))
+            )
+            if (failedPayloads.length === 0) return null
+
+            // Group failures by service
+            const byService: Record<string, number> = {}
+            const byStatus: Record<string, number> = {}
+            for (const p of failedPayloads) {
+              byService[p.service] = (byService[p.service] || 0) + 1
+              const statusGroup = p.status ? `${Math.floor(p.status / 100)}xx` : 'ERR'
+              byStatus[statusGroup] = (byStatus[statusGroup] || 0) + 1
+            }
+
+            return (
+              <div
+                id="debug-failure-history"
+                style={{
+                  padding: '8px 12px',
+                  borderBottom: '1px solid #e2e8f0',
+                  background: '#fef2f2',
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: 600,
+                    marginBottom: 6,
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    color: '#991b1b',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <span>
+                    Failure History ({failedPayloads.length})
+                    <span style={{ marginLeft: 4, fontSize: 9, fontWeight: 400 }}>📊</span>
+                  </span>
+                  <button
+                    onClick={() => navigateToContractInspector()}
+                    style={{
+                      padding: '2px 6px',
+                      fontSize: 8,
+                      background: '#fecaca',
+                      border: '1px solid #f87171',
+                      borderRadius: 3,
+                      cursor: 'pointer',
+                      fontFamily: 'monospace',
+                      color: '#991b1b',
+                    }}
+                    title="View all requests in Contract Inspector"
+                  >
+                    View All →
+                  </button>
+                </div>
+
+                {/* Statistics row */}
+                <div style={{ display: 'flex', gap: 12, marginBottom: 6, fontSize: 9, fontFamily: 'monospace' }}>
+                  <div style={{ color: '#64748b' }}>
+                    <span style={{ fontWeight: 600 }}>By Service:</span>
+                    {Object.entries(byService).map(([svc, count]) => (
+                      <span key={svc} style={{ marginLeft: 6, color: '#991b1b' }}>
+                        {svc}: {count}
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ color: '#64748b' }}>
+                    <span style={{ fontWeight: 600 }}>By Status:</span>
+                    {Object.entries(byStatus).map(([status, count]) => (
+                      <span key={status} style={{ marginLeft: 6, color: status === '5xx' ? '#dc2626' : '#f59e0b' }}>
+                        {status}: {count}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Recent failures timeline */}
+                <div style={{ maxHeight: 120, overflowY: 'auto' }}>
+                  {failedPayloads.slice(0, 8).map((p) => (
+                    <div
+                      key={p.id}
+                      onClick={() => navigateToContractInspector(p.id)}
+                      style={{
+                        fontSize: 9,
+                        fontFamily: 'monospace',
+                        color: '#7f1d1d',
+                        padding: '3px 4px',
+                        marginBottom: 2,
+                        background: '#fee2e2',
+                        borderRadius: 3,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                      }}
+                      title={`Click to view details for ${p.endpoint}`}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontWeight: 600, minWidth: 28 }}>{p.status || 'ERR'}</span>
+                        <span style={{ color: '#64748b', minWidth: 32 }}>{p.service}</span>
+                        <span>{p.endpoint.replace('/bff/', '/').slice(0, 30)}</span>
+                      </span>
+                      <span style={{ color: '#94a3b8', fontSize: 8 }}>
+                        {new Date(p.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )
           })()}
@@ -1460,7 +2559,7 @@ export function DebugPanel() {
                   ))}
                 </div>
               )}
-              {rawErrorData.payload && (
+              {rawErrorData.payload != null && (
                 <details style={{ marginTop: 4 }}>
                   <summary style={{ fontSize: 9, fontFamily: 'monospace', color: '#7f1d1d', cursor: 'pointer' }}>
                     Raw Payload (click to expand)
@@ -1488,7 +2587,7 @@ export function DebugPanel() {
           )}
 
           {/* Request Traces */}
-          <div style={{ maxHeight: expanded ? 400 : 200, overflowY: 'auto' }}>
+          <div style={{ maxHeight: tracesPanelMaxHeight, overflowY: 'auto' }}>
             <div
               style={{
                 padding: '6px 12px',
@@ -1523,7 +2622,7 @@ export function DebugPanel() {
           </div>
 
           {/* Contract Inspector - Payload Inspection with Schema Validation */}
-          <div style={{ borderTop: '2px solid #e2e8f0' }}>
+          <div id="debug-contract-inspector" style={{ borderTop: '2px solid #e2e8f0' }}>
             <ContractInspector />
           </div>
             </>

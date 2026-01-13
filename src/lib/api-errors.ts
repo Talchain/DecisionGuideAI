@@ -43,8 +43,11 @@ export class ApiError extends Error {
     }
 
     // Maintain proper stack trace in V8
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, this.constructor)
+    const captureStackTrace = (Error as any).captureStackTrace as
+      | ((targetObject: object, constructorOpt?: Function) => void)
+      | undefined
+    if (captureStackTrace) {
+      captureStackTrace(this, this.constructor)
     }
   }
 }
