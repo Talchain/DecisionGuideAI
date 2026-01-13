@@ -1,0 +1,151 @@
+/**
+ * ImprovementsSection Component
+ *
+ * Displays actionable improvements to strengthen the analysis.
+ * Part of the Results Panel redesign - "coaching over gates" approach.
+ *
+ * Features:
+ * - Title: "Strengthen your analysis"
+ * - Collapsed by default with count badge: "X ways to improve"
+ * - Priority-based ordering (lower = more important)
+ * - Source indicator (bias, quality_factor, improvement_guidance)
+ * - Effort estimate when available
+ * - Empty state: "Your model looks good. You're ready to decide."
+ */
+
+import { useState } from 'react'
+import type { ImprovementsSectionData, ImprovementItem } from './types'
+
+interface ImprovementsSectionProps {
+  data: ImprovementsSectionData
+  defaultExpanded?: boolean
+}
+
+const SOURCE_CONFIG: Record<
+  ImprovementItem['source'],
+  {
+    bgColor: string
+    borderColor: string
+    textColor: string
+    icon: string
+    label: string
+  }
+> = {
+  bias: {
+    bgColor: 'bg-purple-50',
+    borderColor: 'border-purple-200',
+    textColor: 'text-purple-800',
+    icon: '🎯',
+    label: 'Bias finding',
+  },
+  quality_factor: {
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+    textColor: 'text-blue-800',
+    icon: '📊',
+    label: 'Quality factor',
+  },
+  improvement_guidance: {
+    bgColor: 'bg-slate-50',
+    borderColor: 'border-slate-200',
+    textColor: 'text-slate-700',
+    icon: '💡',
+    label: 'Suggestion',
+  },
+}
+
+function ImprovementRow({ item }: { item: ImprovementItem }) {
+  const config = SOURCE_CONFIG[item.source] || SOURCE_CONFIG.improvement_guidance
+
+  return (
+    <div className={`p-3 rounded-lg border ${config.bgColor} ${config.borderColor}`}>
+      <div className="flex items-start gap-2">
+        <span className="text-sm flex-shrink-0 mt-0.5">{config.icon}</span>
+        <div className="flex-1 min-w-0">
+          {/* Source badge for bias findings */}
+          {item.source === 'bias' && (
+            <span className="inline-block text-xs font-medium px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded mb-1">
+              {config.label}
+            </span>
+          )}
+
+          {/* Action text */}
+          <p className={`text-sm font-medium ${config.textColor}`}>{item.action}</p>
+
+          {/* Reason (if different from action) */}
+          {item.reason && item.reason !== item.action && (
+            <p className="text-xs text-slate-600 mt-1">{item.reason}</p>
+          )}
+
+          {/* Effort estimate and potential improvement */}
+          <div className="flex items-center gap-3 mt-2">
+            {item.effortMinutes && (
+              <span className="text-xs text-slate-500">~{item.effortMinutes} min</span>
+            )}
+            {item.potentialImprovement && (
+              <span className="text-xs text-emerald-600">{item.potentialImprovement}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function ImprovementsSection({
+  data,
+  defaultExpanded = false,
+}: ImprovementsSectionProps) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
+  const { improvements, count, hasHighPriority } = data
+
+  // Empty state - positive message
+  if (count === 0) {
+    return (
+      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+        <div className="flex items-center gap-2">
+          <span className="text-emerald-600">✓</span>
+          <p className="text-sm text-emerald-800 font-medium">
+            Your model looks good. You're ready to decide.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  // Sort by priority (already sorted in useResultsSectionData, but ensure it here)
+  const sortedImprovements = [...improvements].sort((a, b) => a.priority - b.priority)
+
+  return (
+    <div className="space-y-3">
+      {/* Header with expand/collapse */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between text-left"
+      >
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-slate-700">Strengthen your analysis</h3>
+          <span
+            className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+              hasHighPriority ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-600'
+            }`}
+          >
+            {count} {count === 1 ? 'way' : 'ways'} to improve
+          </span>
+        </div>
+        <span className="text-slate-400 text-sm">{isExpanded ? '▼' : '▶'}</span>
+      </button>
+
+      {/* Improvements list */}
+      {isExpanded && (
+        <div className="space-y-2">
+          {sortedImprovements.map((item, index) => (
+            <ImprovementRow key={`${item.action.slice(0, 20)}-${index}`} item={item} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default ImprovementsSection

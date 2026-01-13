@@ -1,0 +1,615 @@
+/**
+ * useResultsSectionData Helper Function Tests
+ *
+ * Tests for critical helper functions in the Results Panel data transformation hook.
+ * Covers dynamic normalisation, field fallback chains, rank computation, etc.
+ */
+
+import { describe, it, expect } from 'vitest'
+import {
+  normaliseLabel,
+  getFactorKey,
+  getRawElasticity,
+  computeNormalisedInfluences,
+  computeFactorRanks,
+  normaliseDirection,
+  getFactorDirection,
+  getSemanticLabel,
+  mapReadinessLevel,
+  mapConfidenceLevel,
+  getConfidenceTier,
+  normaliseImprovements,
+} from '../useResultsSectionData'
+import type { RawFactorSensitivity, EdgeForDirection } from '../types'
+
+// =============================================================================
+// 1. Dynamic Normalisation Tests
+// =============================================================================
+
+describe('computeNormalisedInfluences', () => {
+  it('normalises to max = 100% ([0.8, 2.0, 8.0] -> [10%, 25%, 100%])', () => {
+    const factors = [
+      { key: 'a', rawElasticity: 0.8 },
+      { key: 'b', rawElasticity: 2.0 },
+      { key: 'c', rawElasticity: 8.0 },
+    ]
+
+    const result = computeNormalisedInfluences(factors)
+
+    expect(result.get('a')).toBeCloseTo(0.1) // 0.8 / 8.0 = 0.1 (10%)
+    expect(result.get('b')).toBeCloseTo(0.25) // 2.0 / 8.0 = 0.25 (25%)
+    expect(result.get('c')).toBeCloseTo(1.0) // 8.0 / 8.0 = 1.0 (100%)
+  })
+
+  it('uses absolute values for normalisation', () => {
+    const factors = [
+      { key: 'a', rawElasticity: -0.5 },
+      { key: 'b', rawElasticity: 1.0 },
+    ]
+
+    const result = computeNormalisedInfluences(factors)
+
+    expect(result.get('a')).toBeCloseTo(0.5) // |-0.5| / 1.0 = 0.5
+    expect(result.get('b')).toBeCloseTo(1.0) // |1.0| / 1.0 = 1.0
+  })
+
+  it('handles all zeros (returns all 0 - UI shows direction-only view)', () => {
+    // When no sensitivity data is available (all zeros), return 0 for all
+    // The hasMagnitudeData flag will trigger direction-only display in UI
+    // This avoids misleading 100% bars when we have no real data
+    const factors = [
+      { key: 'a', rawElasticity: 0 },
+      { key: 'b', rawElasticity: 0 },
+    ]
+
+    const result = computeNormalisedInfluences(factors)
+
+    // All factors get 0 - UI will show direction-only view
+    expect(result.get('a')).toBe(0)
+    expect(result.get('b')).toBe(0)
+  })
+
+  it('handles empty array', () => {
+    const result = computeNormalisedInfluences([])
+    expect(result.size).toBe(0)
+  })
+
+  it('handles single factor', () => {
+    const factors = [{ key: 'a', rawElasticity: 5.0 }]
+
+    const result = computeNormalisedInfluences(factors)
+
+    expect(result.get('a')).toBeCloseTo(1.0) // Single factor = 100%
+  })
+
+  it('caps at 1.0 (never exceeds 100%)', () => {
+    const factors = [
+      { key: 'a', rawElasticity: 10.0 },
+      { key: 'b', rawElasticity: 5.0 },
+    ]
+
+    const result = computeNormalisedInfluences(factors)
+
+    expect(result.get('a')).toBeLessThanOrEqual(1.0)
+    expect(result.get('b')).toBeLessThanOrEqual(1.0)
+  })
+})
+
+// =============================================================================
+// 2. Field Fallback Chain Tests
+// =============================================================================
+
+describe('getRawElasticity', () => {
+  it('prefers elasticity field', () => {
+    const factor: RawFactorSensitivity = {
+      elasticity: 1.5,
+      sensitivity_score: 2.0,
+      sensitivity: 3.0,
+    }
+    expect(getRawElasticity(factor)).toBe(1.5)
+  })
+
+  it('falls back to sensitivity_score when elasticity missing', () => {
+    const factor: RawFactorSensitivity = {
+      sensitivity_score: 2.0,
+      sensitivity: 3.0,
+    }
+    expect(getRawElasticity(factor)).toBe(2.0)
+  })
+
+  it('falls back to sensitivity when others missing', () => {
+    const factor: RawFactorSensitivity = {
+      sensitivity: 3.0,
+    }
+    expect(getRawElasticity(factor)).toBe(3.0)
+  })
+
+  it('returns 0 when all fields missing', () => {
+    const factor: RawFactorSensitivity = {}
+    expect(getRawElasticity(factor)).toBe(0)
+  })
+
+  it('ignores NaN values', () => {
+    const factor: RawFactorSensitivity = {
+      elasticity: NaN,
+      sensitivity_score: 2.0,
+    }
+    expect(getRawElasticity(factor)).toBe(2.0)
+  })
+
+  it('ignores Infinity values', () => {
+    const factor: RawFactorSensitivity = {
+      elasticity: Infinity,
+      sensitivity_score: 2.0,
+    }
+    expect(getRawElasticity(factor)).toBe(2.0)
+  })
+})
+
+// =============================================================================
+// 3. Factor Key Derivation Tests
+// =============================================================================
+
+describe('getFactorKey', () => {
+  it('prefers node_id', () => {
+    const factor: RawFactorSensitivity = {
+      node_id: 'node_123',
+      factor_id: 'factor_456',
+      id: 'id_789',
+      label: 'My Factor',
+    }
+    expect(getFactorKey(factor, 0)).toBe('node_123')
+  })
+
+  it('falls back to factor_id', () => {
+    const factor: RawFactorSensitivity = {
+      factor_id: 'factor_456',
+      id: 'id_789',
+      label: 'My Factor',
+    }
+    expect(getFactorKey(factor, 0)).toBe('factor_456')
+  })
+
+  it('falls back to id', () => {
+    const factor: RawFactorSensitivity = {
+      id: 'id_789',
+      label: 'My Factor',
+    }
+    expect(getFactorKey(factor, 0)).toBe('id_789')
+  })
+
+  it('normalises label when no IDs available', () => {
+    const factor: RawFactorSensitivity = {
+      label: 'My Factor Name',
+    }
+    expect(getFactorKey(factor, 0)).toBe('my_factor_name')
+  })
+
+  it('generates index-based key when all fields missing', () => {
+    const factor: RawFactorSensitivity = {}
+    expect(getFactorKey(factor, 5)).toBe('factor_5')
+  })
+})
+
+describe('normaliseLabel', () => {
+  it('converts to lowercase', () => {
+    expect(normaliseLabel('My FACTOR')).toBe('my_factor')
+  })
+
+  it('replaces spaces with underscores', () => {
+    expect(normaliseLabel('My Factor Name')).toBe('my_factor_name')
+  })
+
+  it('collapses multiple spaces into single underscore', () => {
+    expect(normaliseLabel('My   Factor')).toBe('my_factor')
+  })
+
+  it('returns "unknown" for undefined', () => {
+    expect(normaliseLabel(undefined)).toBe('unknown')
+  })
+})
+
+// =============================================================================
+// 4. Rank Computation Tests
+// =============================================================================
+
+describe('computeFactorRanks', () => {
+  it('ranks by absolute elasticity descending', () => {
+    const factors = [
+      { key: 'a', rawElasticity: 0.5 },
+      { key: 'b', rawElasticity: 2.0 },
+      { key: 'c', rawElasticity: 1.0 },
+    ]
+
+    const result = computeFactorRanks(factors)
+
+    expect(result.get('b')).toBe(1) // Highest elasticity
+    expect(result.get('c')).toBe(2)
+    expect(result.get('a')).toBe(3) // Lowest elasticity
+  })
+
+  it('uses absolute value for ranking (negative factors)', () => {
+    const factors = [
+      { key: 'a', rawElasticity: -3.0 },
+      { key: 'b', rawElasticity: 2.0 },
+      { key: 'c', rawElasticity: -1.0 },
+    ]
+
+    const result = computeFactorRanks(factors)
+
+    expect(result.get('a')).toBe(1) // |-3.0| = 3.0 is highest
+    expect(result.get('b')).toBe(2)
+    expect(result.get('c')).toBe(3)
+  })
+
+  it('uses importance_rank as tie-breaker', () => {
+    const factors = [
+      { key: 'a', rawElasticity: 1.0, importanceRank: 2 },
+      { key: 'b', rawElasticity: 1.0, importanceRank: 1 },
+    ]
+
+    const result = computeFactorRanks(factors)
+
+    expect(result.get('b')).toBe(1) // Lower importance_rank wins
+    expect(result.get('a')).toBe(2)
+  })
+
+  it('uses label alphabetical as second tie-breaker', () => {
+    const factors = [
+      { key: 'a', rawElasticity: 1.0, label: 'Zebra' },
+      { key: 'b', rawElasticity: 1.0, label: 'Apple' },
+    ]
+
+    const result = computeFactorRanks(factors)
+
+    expect(result.get('b')).toBe(1) // "Apple" < "Zebra"
+    expect(result.get('a')).toBe(2)
+  })
+
+  it('produces 1-indexed ranks', () => {
+    const factors = [{ key: 'a', rawElasticity: 1.0 }]
+
+    const result = computeFactorRanks(factors)
+
+    expect(result.get('a')).toBe(1)
+  })
+})
+
+// =============================================================================
+// 5. Semantic Label Tests
+// =============================================================================
+
+describe('getSemanticLabel', () => {
+  it('always returns "biggest" for rank 1', () => {
+    expect(getSemanticLabel(1, 1.0)).toBe('biggest')
+    expect(getSemanticLabel(1, 0.5)).toBe('biggest')
+    expect(getSemanticLabel(1, 0.1)).toBe('biggest')
+  })
+
+  it('returns "strong" for normalised >= 0.50 (rank > 1)', () => {
+    expect(getSemanticLabel(2, 0.50)).toBe('strong')
+    expect(getSemanticLabel(2, 0.75)).toBe('strong')
+    expect(getSemanticLabel(3, 0.99)).toBe('strong')
+  })
+
+  it('returns "moderate" for normalised 0.20-0.49 (rank > 1)', () => {
+    expect(getSemanticLabel(2, 0.20)).toBe('moderate')
+    expect(getSemanticLabel(2, 0.35)).toBe('moderate')
+    expect(getSemanticLabel(2, 0.49)).toBe('moderate')
+  })
+
+  it('returns "minor" for normalised < 0.20 (rank > 1)', () => {
+    expect(getSemanticLabel(2, 0.19)).toBe('minor')
+    expect(getSemanticLabel(2, 0.10)).toBe('minor')
+    expect(getSemanticLabel(2, 0.01)).toBe('minor')
+  })
+})
+
+// =============================================================================
+// 6. Direction Mapping Tests
+// =============================================================================
+
+describe('normaliseDirection', () => {
+  it('maps positive variants', () => {
+    expect(normaliseDirection('positive')).toBe('positive')
+    expect(normaliseDirection('increases')).toBe('positive')
+    expect(normaliseDirection('+')).toBe('positive')
+    expect(normaliseDirection('increase')).toBe('positive')
+    expect(normaliseDirection('up')).toBe('positive')
+  })
+
+  it('maps negative variants', () => {
+    expect(normaliseDirection('negative')).toBe('negative')
+    expect(normaliseDirection('decreases')).toBe('negative')
+    expect(normaliseDirection('-')).toBe('negative')
+    expect(normaliseDirection('decrease')).toBe('negative')
+    expect(normaliseDirection('down')).toBe('negative')
+  })
+
+  it('handles case insensitivity', () => {
+    expect(normaliseDirection('POSITIVE')).toBe('positive')
+    expect(normaliseDirection('Negative')).toBe('negative')
+  })
+
+  it('returns undefined for unknown variants', () => {
+    expect(normaliseDirection('unknown')).toBeUndefined()
+    expect(normaliseDirection('mixed')).toBeUndefined()
+  })
+
+  it('returns undefined for undefined/empty', () => {
+    expect(normaliseDirection(undefined)).toBeUndefined()
+    expect(normaliseDirection('')).toBeUndefined()
+  })
+})
+
+describe('getFactorDirection', () => {
+  it('prefers direct edge to goal', () => {
+    const edges: EdgeForDirection[] = [
+      { source: 'factor_a', target: 'goal_1', effect_direction: 'negative' },
+      { source: 'factor_a', target: 'outcome_1', effect_direction: 'positive' },
+    ]
+
+    const result = getFactorDirection('factor_a', edges, 'goal_1', ['outcome_1'])
+
+    expect(result).toBe('negative')
+  })
+
+  it('falls back to edge to outcome when no goal edge', () => {
+    const edges: EdgeForDirection[] = [
+      { source: 'factor_a', target: 'outcome_1', effect_direction: 'positive' },
+    ]
+
+    const result = getFactorDirection('factor_a', edges, 'goal_1', ['outcome_1'])
+
+    expect(result).toBe('positive')
+  })
+
+  it('picks first outcome deterministically (sorted by ID)', () => {
+    const edges: EdgeForDirection[] = [
+      { source: 'factor_a', target: 'outcome_z', effect_direction: 'negative' },
+      { source: 'factor_a', target: 'outcome_a', effect_direction: 'positive' },
+    ]
+
+    const result = getFactorDirection('factor_a', edges, undefined, [
+      'outcome_z',
+      'outcome_a',
+    ])
+
+    expect(result).toBe('positive') // outcome_a comes first alphabetically
+  })
+
+  it('uses factor-level direction as last resort', () => {
+    const edges: EdgeForDirection[] = []
+
+    const result = getFactorDirection('factor_a', edges, 'goal_1', [], 'negative')
+
+    expect(result).toBe('negative')
+  })
+
+  it('returns undefined when no direction available', () => {
+    const edges: EdgeForDirection[] = []
+
+    const result = getFactorDirection('factor_a', edges, 'goal_1', [])
+
+    expect(result).toBeUndefined()
+  })
+
+  it('handles "from/to" edge aliases', () => {
+    const edges: EdgeForDirection[] = [
+      { from: 'factor_a', to: 'goal_1', direction: 'positive' },
+    ]
+
+    const result = getFactorDirection('factor_a', edges, 'goal_1', [])
+
+    expect(result).toBe('positive')
+  })
+})
+
+// =============================================================================
+// 7. Confidence Fallback Chain Tests
+// =============================================================================
+
+describe('mapReadinessLevel', () => {
+  it('maps readiness levels to tiers', () => {
+    expect(mapReadinessLevel('ready')).toBe('strong')
+    expect(mapReadinessLevel('fair')).toBe('fair')
+    expect(mapReadinessLevel('needs_work')).toBe('needs_work')
+    expect(mapReadinessLevel('caution')).toBe('fair')
+    expect(mapReadinessLevel('not_ready')).toBe('needs_work')
+  })
+
+  it('returns unknown for unmapped levels', () => {
+    expect(mapReadinessLevel('invalid')).toBe('unknown')
+  })
+})
+
+describe('mapConfidenceLevel', () => {
+  it('maps confidence levels to tiers', () => {
+    expect(mapConfidenceLevel('strong')).toBe('strong')
+    expect(mapConfidenceLevel('high')).toBe('strong')
+    expect(mapConfidenceLevel('fair')).toBe('fair')
+    expect(mapConfidenceLevel('medium')).toBe('fair')
+    expect(mapConfidenceLevel('needs_work')).toBe('needs_work')
+    expect(mapConfidenceLevel('low')).toBe('needs_work')
+  })
+
+  it('handles case insensitivity', () => {
+    expect(mapConfidenceLevel('STRONG')).toBe('strong')
+  })
+
+  it('returns unknown for unmapped levels', () => {
+    expect(mapConfidenceLevel('invalid')).toBe('unknown')
+  })
+})
+
+describe('getConfidenceTier', () => {
+  it('prefers graphReadiness.readiness_level', () => {
+    const result = getConfidenceTier(
+      { readiness_level: 'ready', readiness_score: 50 },
+      { confidence: { level: 'low' } }
+    )
+    expect(result).toBe('strong')
+  })
+
+  it('falls back to graphReadiness.readiness_score', () => {
+    const result = getConfidenceTier(
+      { readiness_score: 75 },
+      { confidence: { level: 'low' } }
+    )
+    expect(result).toBe('strong')
+  })
+
+  it('maps readiness_score thresholds correctly', () => {
+    expect(getConfidenceTier({ readiness_score: 70 }, undefined)).toBe('strong')
+    expect(getConfidenceTier({ readiness_score: 69 }, undefined)).toBe('fair')
+    expect(getConfidenceTier({ readiness_score: 40 }, undefined)).toBe('fair')
+    expect(getConfidenceTier({ readiness_score: 39 }, undefined)).toBe('needs_work')
+    expect(getConfidenceTier({ readiness_score: 0 }, undefined)).toBe('needs_work')
+  })
+
+  it('falls back to report.confidence.level', () => {
+    const result = getConfidenceTier(undefined, { confidence: { level: 'high' } })
+    expect(result).toBe('strong')
+  })
+
+  it('falls back to report.graph_quality.score', () => {
+    const result = getConfidenceTier(undefined, { graph_quality: { score: 80 } })
+    expect(result).toBe('strong')
+  })
+
+  it('returns unknown when no data available', () => {
+    expect(getConfidenceTier(undefined, undefined)).toBe('unknown')
+    expect(getConfidenceTier({}, {})).toBe('unknown')
+  })
+})
+
+// =============================================================================
+// 8. Improvements Deduplication Tests
+// =============================================================================
+
+describe('normaliseImprovements', () => {
+  it('includes bias findings as highest priority', () => {
+    const result = normaliseImprovements(
+      [{ explanation: 'Fix bias', micro_intervention: { steps: ['Step 1'] } }],
+      [],
+      []
+    )
+
+    expect(result.length).toBe(1)
+    expect(result[0].action).toBe('Step 1')
+    expect(result[0].priority).toBe(1)
+    expect(result[0].source).toBe('bias')
+  })
+
+  it('falls back to explanation when no micro_intervention', () => {
+    const result = normaliseImprovements(
+      [{ explanation: 'Fix bias' }],
+      [],
+      []
+    )
+
+    expect(result[0].action).toBe('Fix bias')
+  })
+
+  it('includes quality factors as medium priority', () => {
+    const result = normaliseImprovements(
+      [],
+      [{ factor: 'Coverage', recommendation: 'Add more data' }],
+      []
+    )
+
+    expect(result[0].priority).toBe(2)
+    expect(result[0].source).toBe('quality_factor')
+    expect(result[0].action).toBe('Add more data')
+  })
+
+  it('includes improvement_guidance with explicit priority', () => {
+    const result = normaliseImprovements(
+      [],
+      [],
+      [{ action: 'Do this first', priority: 1 }]
+    )
+
+    expect(result[0].priority).toBe(1)
+    expect(result[0].source).toBe('improvement_guidance')
+  })
+
+  it('defaults improvement_guidance priority to 3', () => {
+    const result = normaliseImprovements(
+      [],
+      [],
+      [{ action: 'Do this' }]
+    )
+
+    expect(result[0].priority).toBe(3)
+  })
+
+  it('deduplicates by action (case-insensitive)', () => {
+    const result = normaliseImprovements(
+      [{ explanation: 'add more data' }],
+      [{ recommendation: 'Add More Data' }],
+      []
+    )
+
+    expect(result.length).toBe(1)
+    expect(result[0].source).toBe('bias') // Keeps higher priority
+  })
+
+  it('keeps highest priority when deduplicating', () => {
+    const result = normaliseImprovements(
+      [],
+      [{ recommendation: 'do thing' }], // priority 2
+      [{ action: 'Do Thing', priority: 1 }] // priority 1
+    )
+
+    expect(result.length).toBe(1)
+    expect(result[0].priority).toBe(1) // Keeps priority 1
+  })
+
+  it('sorts by priority ascending', () => {
+    const result = normaliseImprovements(
+      [],
+      [{ recommendation: 'Medium' }],
+      [{ action: 'Low', priority: 3 }, { action: 'High', priority: 1 }]
+    )
+
+    expect(result[0].priority).toBe(1)
+    expect(result[1].priority).toBe(2)
+    expect(result[2].priority).toBe(3)
+  })
+
+  it('includes effortMinutes from bias findings', () => {
+    const result = normaliseImprovements(
+      [{ explanation: 'Fix', estimated_minutes: 15 }],
+      [],
+      []
+    )
+
+    expect(result[0].effortMinutes).toBe(15)
+  })
+
+  it('includes potentialImprovement from quality factors', () => {
+    const result = normaliseImprovements(
+      [],
+      [{ recommendation: 'Add data', potential_improvement: '+20% accuracy' }],
+      []
+    )
+
+    expect(result[0].potentialImprovement).toBe('+20% accuracy')
+  })
+
+  it('handles undefined/empty arrays', () => {
+    expect(normaliseImprovements(undefined, undefined, undefined)).toEqual([])
+    expect(normaliseImprovements([], [], [])).toEqual([])
+  })
+
+  it('skips items without actionable content', () => {
+    const result = normaliseImprovements(
+      [{ explanation: undefined }],
+      [{ factor: 'X' }], // No recommendation
+      [{}] // No action
+    )
+
+    expect(result.length).toBe(0)
+  })
+})

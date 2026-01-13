@@ -75,6 +75,16 @@
   status = 200
   force = true
 
+# CEE (Assistants) Service - graph-readiness endpoint
+# Routes /bff/cee/* → https://olumi-assistants-service.onrender.com/assist/v1/*
+# Required for Results Panel confidence tier display
+[[redirects]]
+  from = "/bff/cee/*"
+  to = "https://olumi-assistants-service.onrender.com/assist/v1/:splat"
+  status = 200
+  force = true
+  headers = {X-Olumi-Assist-Key = "${ASSIST_API_KEY}"}
+
 # =============================================================================
 # Edge Functions (security-critical functions listed first for audit clarity)
 # =============================================================================
@@ -85,11 +95,6 @@
 [[edge_functions]]
   function = "csp-nonce"
   path = "/*"
-
-# CEE (Assistants) Service proxy - DEPRECATED (removed Jan 2026)
-# CEE calls now route through PLoT which handles auth and has 120s timeout
-# UI sets VITE_CEE_BFF_BASE to PLoT's /v1/cee endpoint
-# Old edge function removed to avoid confusion
 
 # ISL Service proxy - handled by Edge Function for auth header injection
 # Requires ISL_API_KEY env var in Netlify dashboard
