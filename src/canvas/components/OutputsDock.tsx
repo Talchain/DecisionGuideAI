@@ -66,6 +66,7 @@ import { ThresholdInput } from './ThresholdInput'
 import { usePreRunValidation } from '../hooks/usePreRunValidation'
 import { ActionsSignal } from './ActionsSignal'
 import { WarningBanner } from './WarningBanner'
+import { DegradedStateBanner } from './DegradedStateBanner'
 import { OutcomesSignal } from './OutcomesSignal'
 import { TrustSignal } from './TrustSignal'
 import { DriversSignal } from './DriversSignal'
@@ -166,6 +167,8 @@ export function OutputsDock() {
 
   // Phase 2: Response warnings banner dismissal state
   const [warningsDismissed, setWarningsDismissed] = useState(false)
+  // P2: Degraded/partial state banner dismissal
+  const [degradedBannerDismissed, setDegradedBannerDismissed] = useState(false)
   const comparison = useComparisonDetection()
   const scenarioComparison = useScenarioComparison()
   const optionRanking = useOptionRanking()
@@ -1132,6 +1135,39 @@ export function OutputsDock() {
                       setHighlightedNodes(ids)
                       setTimeout(() => setHighlightedNodes([]), 3000)
                     }}
+                  />
+                )}
+                {/* P2: Degraded/partial state banner */}
+                {!isPreRun && !degradedBannerDismissed && (ceeDegraded || (
+                  resultsSectionData?.drivers?.driversStatus &&
+                  resultsSectionData.drivers.driversStatus !== 'computed'
+                ) || (
+                  resultsSectionData?.confidence?.robustnessStatus &&
+                  resultsSectionData.confidence.robustnessStatus !== 'computed'
+                )) && (
+                  <DegradedStateBanner
+                    ceeDegraded={ceeDegraded}
+                    ceeTimeoutReason={ceeDegraded ? 'Model review may be incomplete.' : undefined}
+                    islPartial={
+                      (resultsSectionData?.drivers?.driversStatus !== 'computed') ||
+                      (resultsSectionData?.confidence?.robustnessStatus !== 'computed' &&
+                       resultsSectionData?.confidence?.robustnessStatus !== undefined)
+                    }
+                    analysisTypes={[
+                      {
+                        name: 'Comparison',
+                        available: resultsSectionData?.recommendation?.analysisStatus === 'computed',
+                      },
+                      {
+                        name: 'Drivers',
+                        available: resultsSectionData?.drivers?.driversStatus === 'computed',
+                      },
+                      {
+                        name: 'Robustness',
+                        available: resultsSectionData?.confidence?.robustnessStatus === 'computed',
+                      },
+                    ].filter(t => resultsSectionData != null)}
+                    onDismiss={() => setDegradedBannerDismissed(true)}
                   />
                 )}
                 {/* OLD VerdictCard and DecisionSummary REMOVED - Replaced by RecommendationSection below */}

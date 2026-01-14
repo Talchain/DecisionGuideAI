@@ -126,6 +126,20 @@ export function recordRequest(params: {
   payloadHash: string
   clientBuild?: string
 }): void {
+  // Check if a trace with this requestId already exists (e.g., retry scenario)
+  // Remove the existing trace to prevent duplicates
+  const existingTrace = traceMap.get(params.requestId)
+  if (existingTrace) {
+    const existingIndex = traces.indexOf(existingTrace)
+    if (existingIndex !== -1) {
+      traces.splice(existingIndex, 1)
+    }
+    traceMap.delete(params.requestId)
+    if (import.meta.env.DEV) {
+      console.log('[debug-state] Replacing existing trace for retry:', params.requestId)
+    }
+  }
+
   const trace: RequestTrace = {
     requestId: params.requestId,
     endpoint: params.endpoint,
@@ -238,13 +252,19 @@ export function getFailedTraces(): RequestTrace[] {
 }
 
 /**
- * Clear all traces (for testing).
- * @internal
+ * Clear all traces.
+ * Used by Debug Panel "Clear History" action.
  */
-export function _clearTraces(): void {
+export function clearTraces(): void {
   traces.length = 0
   traceMap.clear()
 }
+
+/**
+ * @deprecated Use clearTraces instead
+ * @internal
+ */
+export const _clearTraces = clearTraces
 
 /**
  * Get trace count (for testing).

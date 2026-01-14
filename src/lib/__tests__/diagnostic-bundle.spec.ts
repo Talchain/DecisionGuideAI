@@ -31,14 +31,14 @@ describe('diagnostic-bundle', () => {
   })
 
   describe('createDiagnosticBundle', () => {
-    it('creates bundle with correct version', () => {
-      const bundle = createDiagnosticBundle()
+    it('creates bundle with correct version', async () => {
+      const bundle = await createDiagnosticBundle()
       expect(bundle.version).toBe('1.0')
     })
 
-    it('includes createdAt timestamp', () => {
+    it('includes createdAt timestamp', async () => {
       const before = Date.now()
-      const bundle = createDiagnosticBundle()
+      const bundle = await createDiagnosticBundle()
       const after = Date.now()
 
       const createdAt = new Date(bundle.createdAt).getTime()
@@ -46,16 +46,16 @@ describe('diagnostic-bundle', () => {
       expect(createdAt).toBeLessThanOrEqual(after)
     })
 
-    it('includes client info', () => {
-      const bundle = createDiagnosticBundle()
+    it('includes client info', async () => {
+      const bundle = await createDiagnosticBundle()
 
       expect(bundle.client.build).toBe('test-build')
       expect(bundle.client.branch).toBe('main')
       expect(bundle.client.commit).toBe('abc123def456')
     })
 
-    it('includes environment info', () => {
-      const bundle = createDiagnosticBundle()
+    it('includes environment info', async () => {
+      const bundle = await createDiagnosticBundle()
 
       expect(bundle.environment.userAgent).toBeDefined()
       expect(bundle.environment.language).toBeDefined()
@@ -63,8 +63,8 @@ describe('diagnostic-bundle', () => {
       expect(bundle.environment.timezone).toBeDefined()
     })
 
-    it('includes gate statuses', () => {
-      const bundle = createDiagnosticBundle()
+    it('includes gate statuses', async () => {
+      const bundle = await createDiagnosticBundle()
 
       expect(bundle.gates.length).toBe(4)
       const gateNames = bundle.gates.map((g) => g.gate)
@@ -74,11 +74,11 @@ describe('diagnostic-bundle', () => {
       expect(gateNames).toContain('robustness')
     })
 
-    it('reflects current gate statuses', () => {
+    it('reflects current gate statuses', async () => {
       useGateStore.getState().setGate('graph_readiness', 'pass')
       useGateStore.getState().setGate('validation', 'fail', { message: 'test message' })
 
-      const bundle = createDiagnosticBundle()
+      const bundle = await createDiagnosticBundle()
 
       const graphReadiness = bundle.gates.find((g) => g.gate === 'graph_readiness')
       const validation = bundle.gates.find((g) => g.gate === 'validation')
@@ -88,8 +88,8 @@ describe('diagnostic-bundle', () => {
       expect(validation?.message).toBe('test message')
     })
 
-    it('includes session info', () => {
-      const bundle = createDiagnosticBundle()
+    it('includes session info', async () => {
+      const bundle = await createDiagnosticBundle()
 
       expect(bundle.session.durationMs).toBeGreaterThanOrEqual(0)
       expect(bundle.session.pageUrl).toBeDefined()
@@ -97,7 +97,7 @@ describe('diagnostic-bundle', () => {
   })
 
   describe('trace sanitization', () => {
-    it('includes sanitized traces', () => {
+    it('includes sanitized traces', async () => {
       recordRequest({
         requestId: 'req-123',
         endpoint: '/bff/cee/draft-graph',
@@ -114,7 +114,7 @@ describe('diagnostic-bundle', () => {
         elapsedMs: 150,
       })
 
-      const bundle = createDiagnosticBundle()
+      const bundle = await createDiagnosticBundle()
 
       expect(bundle.traces.recent.length).toBe(1)
       const trace = bundle.traces.recent[0]
@@ -127,7 +127,7 @@ describe('diagnostic-bundle', () => {
       expect(trace.service).toBe('cee')
     })
 
-    it('categorizes traces correctly', () => {
+    it('categorizes traces correctly', async () => {
       // Completed request
       recordRequest({
         requestId: 'req-complete',
@@ -154,7 +154,7 @@ describe('diagnostic-bundle', () => {
         payloadHash: 'hash3',
       })
 
-      const bundle = createDiagnosticBundle()
+      const bundle = await createDiagnosticBundle()
 
       expect(bundle.traces.recent.length).toBe(3)
       expect(bundle.traces.failed.length).toBe(1)
@@ -166,7 +166,7 @@ describe('diagnostic-bundle', () => {
   })
 
   describe('privacy requirements', () => {
-    it('does not include raw error messages in sanitized traces', () => {
+    it('does not include raw error messages in sanitized traces', async () => {
       recordRequest({
         requestId: 'req-error',
         endpoint: '/bff/test',
@@ -179,23 +179,23 @@ describe('diagnostic-bundle', () => {
         error: 'Stack trace with user data: user@email.com',
       })
 
-      const bundle = createDiagnosticBundle()
+      const bundle = await createDiagnosticBundle()
       const trace = bundle.traces.recent[0]
 
       // Sanitized trace should not include the error field
       expect(trace.error).toBeUndefined()
     })
 
-    it('sanitizes page URL to remove sensitive query params', () => {
-      const bundle = createDiagnosticBundle()
+    it('sanitizes page URL to remove sensitive query params', async () => {
+      const bundle = await createDiagnosticBundle()
 
       // Should not contain auth tokens, user IDs, etc.
       expect(bundle.session.pageUrl).not.toContain('token=')
       expect(bundle.session.pageUrl).not.toContain('auth=')
     })
 
-    it('only includes hostname from referrer', () => {
-      const bundle = createDiagnosticBundle()
+    it('only includes hostname from referrer', async () => {
+      const bundle = await createDiagnosticBundle()
 
       // Referrer should be just hostname, not full path
       if (bundle.session.referrer) {
@@ -206,7 +206,7 @@ describe('diagnostic-bundle', () => {
   })
 
   describe('service extraction', () => {
-    it('extracts unique services from traces', () => {
+    it('extracts unique services from traces', async () => {
       recordRequest({
         requestId: 'req-1',
         endpoint: '/bff/cee/draft',
@@ -233,7 +233,7 @@ describe('diagnostic-bundle', () => {
         elapsedMs: 150,
       })
 
-      const bundle = createDiagnosticBundle()
+      const bundle = await createDiagnosticBundle()
 
       expect(bundle.services.length).toBe(2)
       const serviceNames = bundle.services.map((s) => s.name)
@@ -241,7 +241,7 @@ describe('diagnostic-bundle', () => {
       expect(serviceNames).toContain('isl')
     })
 
-    it('includes service version info', () => {
+    it('includes service version info', async () => {
       recordRequest({
         requestId: 'req-1',
         endpoint: '/bff/cee/draft',
@@ -255,7 +255,7 @@ describe('diagnostic-bundle', () => {
         elapsedMs: 100,
       })
 
-      const bundle = createDiagnosticBundle()
+      const bundle = await createDiagnosticBundle()
       const ceeService = bundle.services.find((s) => s.name === 'cee')
 
       expect(ceeService?.build).toBe('v1.2.3')
@@ -264,22 +264,22 @@ describe('diagnostic-bundle', () => {
   })
 
   describe('getDiagnosticBundleString', () => {
-    it('returns valid JSON string', () => {
-      const jsonString = getDiagnosticBundleString()
+    it('returns valid JSON string', async () => {
+      const jsonString = await getDiagnosticBundleString()
 
       expect(() => JSON.parse(jsonString)).not.toThrow()
     })
 
-    it('returns formatted JSON', () => {
-      const jsonString = getDiagnosticBundleString()
+    it('returns formatted JSON', async () => {
+      const jsonString = await getDiagnosticBundleString()
 
       // Should contain newlines (formatted)
       expect(jsonString).toContain('\n')
     })
 
-    it('parses to equivalent bundle', () => {
-      const bundle = createDiagnosticBundle()
-      const jsonString = getDiagnosticBundleString()
+    it('parses to equivalent bundle', async () => {
+      const bundle = await createDiagnosticBundle()
+      const jsonString = await getDiagnosticBundleString()
       const parsed = JSON.parse(jsonString) as DiagnosticBundle
 
       expect(parsed.version).toBe(bundle.version)

@@ -279,14 +279,20 @@ export function mapV2ResponseToReportV1(
         const high = Array.isArray(optCI) && typeof optCI[1] === 'number' ? optCI[1] : 0
         const ciMidpoint = (low + high) / 2
 
-        // Extract outcome distribution (mean, p10, p50, p90)
-        // Priority: outcome.* > expected_outcome > CI-derived values
+        // Extract outcome distribution with explicit expected value
+        // expected = mean (arithmetic average) — use for "Expected" display
+        // p50 = median (50th percentile) — kept separate, NOT the same as expected
         const outcome = opt.outcome
-        const expectedOutcome = safeNumber(opt.expected_outcome)
-        const outcomeMean = safeNumber(outcome?.mean) ?? expectedOutcome
-        const outcomeP10 = safeNumber(outcome?.p10) ?? low
-        const outcomeP50 = safeNumber(outcome?.p50) ?? outcomeMean ?? ciMidpoint
-        const outcomeP90 = safeNumber(outcome?.p90) ?? high
+        const rawExpectedOutcome = safeNumber(opt.expected_outcome)
+        const rawMean = safeNumber(outcome?.mean)
+
+        // Explicit expected value: mean > expected_outcome > CI midpoint
+        const expected = rawMean ?? rawExpectedOutcome ?? ciMidpoint
+
+        // Percentiles from outcome, falling back to CI bounds
+        const p10 = safeNumber(outcome?.p10) ?? low
+        const p50 = safeNumber(outcome?.p50) ?? null  // True median only, no fallback to mean
+        const p90 = safeNumber(outcome?.p90) ?? high
 
         acc[optionId] = {
           // Prefer actual probability_of_goal from V2 (when threshold was provided)
@@ -295,14 +301,15 @@ export function mapV2ResponseToReportV1(
           confidence: 0.5, // Default confidence
           // Include win_probability when available (pairwise comparison)
           win_probability: safeNumber(opt.win_probability) ?? undefined,
-          // Outcome distribution for Results Panel display
-          // mean is the expected value (average outcome), distinct from p50 (median)
-          results: {
-            mean: outcomeMean,
-            expected_outcome: expectedOutcome,
-            p10: outcomeP10,
-            p50: outcomeP50,
-            p90: outcomeP90,
+          // Explicit expected value (mean) — primary value for "Expected" display
+          expected,
+          // Full outcome distribution for Results Panel display
+          // expected is mean (average), p50 is median — semantically distinct
+          outcome: {
+            mean: rawMean,
+            p10,
+            p50,
+            p90,
           },
         }
         return acc
@@ -311,12 +318,12 @@ export function mapV2ResponseToReportV1(
         goal_probability: number
         confidence: number
         win_probability?: number
-        results?: {
-          mean?: number
-          expected_outcome?: number
-          p10?: number
-          p50?: number
-          p90?: number
+        expected?: number
+        outcome?: {
+          mean?: number | null
+          p10?: number | null
+          p50?: number | null
+          p90?: number | null
         }
       }>
     ),

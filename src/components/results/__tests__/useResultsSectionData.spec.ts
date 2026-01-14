@@ -41,6 +41,20 @@ describe('computeNormalisedInfluences', () => {
     expect(result.get('c')).toBeCloseTo(1.0) // 8.0 / 8.0 = 1.0 (100%)
   })
 
+  it('normalises [0.3, 0.5, 0.7] -> [43%, 71%, 100%]', () => {
+    const factors = [
+      { key: 'a', rawElasticity: 0.3 },
+      { key: 'b', rawElasticity: 0.5 },
+      { key: 'c', rawElasticity: 0.7 },
+    ]
+
+    const result = computeNormalisedInfluences(factors)
+
+    expect(result.get('a')).toBeCloseTo(0.43, 1) // 0.3 / 0.7 ≈ 0.43 (43%)
+    expect(result.get('b')).toBeCloseTo(0.71, 1) // 0.5 / 0.7 ≈ 0.71 (71%)
+    expect(result.get('c')).toBeCloseTo(1.0) // 0.7 / 0.7 = 1.0 (100%)
+  })
+
   it('uses absolute values for normalisation', () => {
     const factors = [
       { key: 'a', rawElasticity: -0.5 },
@@ -611,5 +625,52 @@ describe('normaliseImprovements', () => {
     )
 
     expect(result.length).toBe(0)
+  })
+})
+
+// =============================================================================
+// 9. Fragile Edge Filtering Tests
+// =============================================================================
+
+describe('fragile edge filtering', () => {
+  // Note: These test the filtering logic described in useResultsSectionData
+  // Actual filtering happens in the useMemo for confidence section
+
+  it('filters fragile edges by switch_probability < 0.3', () => {
+    // High-risk edges (switch_probability < 0.3) should be shown
+    const highRiskEdge = { source: 'a', target: 'b', switch_probability: 0.1 }
+    // Low-risk edges (switch_probability >= 0.3) should be filtered
+    const lowRiskEdge = { source: 'c', target: 'd', switch_probability: 0.5 }
+
+    const edges = [highRiskEdge, lowRiskEdge]
+    const filtered = edges.filter((fe) =>
+      typeof fe.switch_probability !== 'number' || fe.switch_probability < 0.3
+    )
+
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0]).toBe(highRiskEdge)
+  })
+
+  it('includes edges without switch_probability (legacy data)', () => {
+    const legacyEdge = { source: 'a', target: 'b' } // No switch_probability
+    const highRiskEdge = { source: 'c', target: 'd', switch_probability: 0.2 }
+
+    const edges = [legacyEdge, highRiskEdge]
+    const filtered = edges.filter((fe: any) =>
+      typeof fe.switch_probability !== 'number' || fe.switch_probability < 0.3
+    )
+
+    expect(filtered).toHaveLength(2)
+  })
+
+  it('boundary: switch_probability exactly 0.3 is not shown', () => {
+    const boundaryEdge = { source: 'a', target: 'b', switch_probability: 0.3 }
+
+    const edges = [boundaryEdge]
+    const filtered = edges.filter((fe: any) =>
+      typeof fe.switch_probability !== 'number' || fe.switch_probability < 0.3
+    )
+
+    expect(filtered).toHaveLength(0)
   })
 })

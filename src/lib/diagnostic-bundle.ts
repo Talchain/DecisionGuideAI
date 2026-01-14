@@ -454,6 +454,36 @@ export async function getDiagnosticBundleString(): Promise<string> {
  * Merged debug export structure
  * Combines all available debug data into a single file
  */
+/**
+ * Edge value summary for tracing transformation issues
+ * Captures unique values at each stage: CEE → Canvas → PLoT
+ */
+export interface EdgeValueSummary {
+  /** CEE pipeline output (from trace.final_graph) */
+  cee_out: {
+    total: number
+    unique_strength_mean: number[]
+    unique_exists_probability: number[]
+    all_default: boolean
+  } | null
+  /** Canvas store state */
+  canvas: {
+    total: number
+    unique_weights: number[]
+    unique_belief_exists: number[]
+    all_default: boolean
+  } | null
+  /** PLoT request (from contract trace) */
+  plot_in: {
+    total: number
+    unique_strength_mean: number[]
+    unique_exists_probability: number[]
+    all_default: boolean
+  } | null
+  /** Summary: where values diverge */
+  divergence: string | null
+}
+
 export interface MergedDebugExport {
   meta: {
     timestamp: string
@@ -473,6 +503,147 @@ export interface MergedDebugExport {
     anomalies: unknown[]
   }
   boundaryEvents: unknown[] // Placeholder for future boundary event logging
+  /** Edge value summary for transformation debugging */
+  edgeValueSummary: EdgeValueSummary
+}
+
+/**
+ * Extract unique finite numeric values from an array, sorted
+ */
+function uniqueSorted(values: (number | undefined | null)[]): number[] {
+  const nums = values.filter((v): v is number => typeof v === 'number' && Number.isFinite(v))
+  return [...new Set(nums)].sort((a, b) => a - b)
+}
+
+/**
+ * Safely extract array from potentially truncated data
+ * CEE/payload redaction may return { __truncated: true, items: [...] } instead of array
+ */
+function safeArray(data: unknown): unknown[] {
+  if (Array.isArray(data)) return data
+  if (data && typeof data === 'object' && '__truncated' in data) {
+    const truncated = data as { __truncated: boolean; items?: unknown[] }
+    return Array.isArray(truncated.items) ? truncated.items : []
+  }
+  return []
+}
+
+/**
+ * Compute edge value summary from available sources
+ * Wrapped in try-catch to ensure export doesn't fail if any source is unavailable
+ */
+async function computeEdgeValueSummary(
+  ceePipelineTrace: CeePipelineTrace | null | undefined,
+  payloads: unknown[]
+): Promise<EdgeValueSummary> {
+  // 1. CEE output (from pipeline trace final_graph)
+  let cee_out: EdgeValueSummary['cee_out'] = null
+  try {
+    const finalGraph = (ceePipelineTrace as any)?.final_graph
+    const rawEdges = finalGraph?.edges
+    const edges = safeArray(rawEdges) as any[]
+    if (edges.length > 0) {
+      const strengthMeans = edges.map(e => e.strength?.mean ?? e.strength_mean)
+      const existsProbs = edges.map(e => e.exists_probability ?? e.belief_exists ?? e.belief)
+      cee_out = {
+        total: edges.length,
+        unique_strength_mean: uniqueSorted(strengthMeans),
+        unique_exists_probability: uniqueSorted(existsProbs),
+        all_default: edges.every(e => (e.strength?.mean ?? e.strength_mean ?? 0.5) === 0.5),
+      }
+    }
+  } catch {
+    // CEE trace parsing failed
+  }
+
+  // 2. Canvas store state - dynamic import to avoid circular deps
+  let canvas: EdgeValueSummary['canvas'] = null
+  try {
+    const { useCanvasStore } = await import('../canvas/store')
+    const canvasEdges = useCanvasStore.getState().edges
+    if (canvasEdges && canvasEdges.length > 0) {
+      const weights = canvasEdges.map(e => e.data?.weight)
+      const beliefs = canvasEdges.map(e => e.data?.beliefExists)
+      canvas = {
+        total: canvasEdges.length,
+        unique_weights: uniqueSorted(weights),
+        unique_belief_exists: uniqueSorted(beliefs),
+        all_default: canvasEdges.every(e => (e.data?.weight ?? 0.5) === 0.5),
+      }
+    }
+  } catch {
+    // Canvas store not available or import failed
+  }
+
+  // 3. PLoT request (most recent /v2/run request from payloads)
+  let plot_in: EdgeValueSummary['plot_in'] = null
+  try {
+    // Use reverse to find the most recent match (payloads are ordered oldest-first)
+    const plotPayload = [...(payloads as any[])].reverse().find(p =>
+      p.endpoint?.includes('/v2/run') && p.request?.body?.graph?.edges
+    )
+    if (plotPayload) {
+      const rawEdges = plotPayload.request.body.graph.edges
+      const edges = safeArray(rawEdges) as any[]
+      if (edges.length > 0) {
+        const strengthMeans = edges.map(e => e.strength?.mean)
+        const existsProbs = edges.map(e => e.exists_probability)
+        plot_in = {
+          total: edges.length,
+          unique_strength_mean: uniqueSorted(strengthMeans),
+          unique_exists_probability: uniqueSorted(existsProbs),
+          all_default: edges.every(e => (e.strength?.mean ?? 0.5) === 0.5),
+        }
+      }
+    }
+  } catch {
+    // PLoT payload parsing failed
+  }
+
+  // 4. Detect divergence - compare whichever sources are available
+  let divergence: string | null = null
+  const ceeHasNonDefault = cee_out && !cee_out.all_default
+  const canvasHasNonDefault = canvas && !canvas.all_default
+  const plotHasNonDefault = plot_in && !plot_in.all_default
+
+  // Check all possible pairs for discrepancies
+  const discrepancies: string[] = []
+
+  // CEE vs Canvas comparison
+  if (cee_out && canvas) {
+    if (ceeHasNonDefault && !canvasHasNonDefault) {
+      discrepancies.push('CEE→Canvas: CEE outputs non-default values but Canvas stores 0.5 defaults')
+    }
+  }
+
+  // Canvas vs PLoT comparison
+  if (canvas && plot_in) {
+    if (canvasHasNonDefault && !plotHasNonDefault) {
+      discrepancies.push('Canvas→PLoT: Canvas has non-default values but PLoT request uses 0.5 defaults')
+    }
+  }
+
+  // CEE vs PLoT direct comparison (when canvas missing)
+  if (cee_out && plot_in && !canvas) {
+    if (ceeHasNonDefault && !plotHasNonDefault) {
+      discrepancies.push('CEE→PLoT: Values lost (canvas data unavailable)')
+    }
+  }
+
+  // Set divergence message
+  if (discrepancies.length > 0) {
+    divergence = discrepancies.join('; ')
+  } else if (!cee_out && !canvas && !plot_in) {
+    divergence = 'No edge data available from any source'
+  } else if (cee_out && !canvas && !plot_in) {
+    divergence = 'Only CEE data available (no canvas or PLoT request captured)'
+  } else if (!cee_out && canvas && !plot_in) {
+    divergence = 'Only canvas data available (no CEE trace or PLoT request captured)'
+  } else if (!cee_out && !canvas && plot_in) {
+    divergence = 'Only PLoT request available (no CEE trace or canvas data)'
+  }
+
+  return { cee_out, canvas, plot_in, divergence }
 }
 
 /**
@@ -530,6 +701,12 @@ export async function createMergedDebugExport(extras?: {
   const versionInfo = getVersionInfo()
   const clientBuild = getClientBuild()
 
+  // Compute edge value summary for transformation debugging
+  const edgeValueSummary = await computeEdgeValueSummary(
+    extras?.ceePipelineTrace,
+    payloadState.payloads
+  )
+
   return {
     meta: {
       timestamp: new Date().toISOString(),
@@ -543,6 +720,7 @@ export async function createMergedDebugExport(extras?: {
     contractTrace,
     dataShapeAnomalies,
     boundaryEvents: [], // Boundary events logged to console, not stored in-memory
+    edgeValueSummary,
   }
 }
 

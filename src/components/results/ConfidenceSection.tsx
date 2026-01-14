@@ -14,12 +14,46 @@
  */
 
 import { useState, useCallback } from 'react'
-import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, ConfidenceTier } from './types'
+import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, ConfidenceTier, CritiqueSeverity } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 
 interface ConfidenceSectionProps {
   data: ConfidenceSectionData
   onFocusNode?: (nodeId: string) => void
+}
+
+const SEVERITY_CONFIG: Record<CritiqueSeverity, {
+  icon: string
+  bgColor: string
+  borderColor: string
+  textColor: string
+  label?: string
+}> = {
+  blocker: {
+    icon: '⛔',
+    bgColor: 'bg-red-50',
+    borderColor: 'border-red-300',
+    textColor: 'text-red-800',
+    label: 'Blocks analysis',
+  },
+  error: {
+    icon: '✕',
+    bgColor: 'bg-red-50',
+    borderColor: 'border-red-200',
+    textColor: 'text-red-700',
+  },
+  warning: {
+    icon: '⚠',
+    bgColor: 'bg-amber-50',
+    borderColor: 'border-amber-200',
+    textColor: 'text-amber-700',
+  },
+  info: {
+    icon: 'ℹ',
+    bgColor: 'bg-slate-50',
+    borderColor: 'border-slate-200',
+    textColor: 'text-slate-600',
+  },
 }
 
 const TIER_CONFIG: Record<ConfidenceTier, {
@@ -84,14 +118,28 @@ function UncertaintyRow({
     }
   }, [onFocus])
 
+  // Get severity config (default to warning)
+  const severity = item.severity || 'warning'
+  const severityConfig = SEVERITY_CONFIG[severity]
+
   // Format threshold message if present
   const thresholdMessage = item.threshold
     ? `If ${item.threshold.variable} ${item.threshold.direction === 'positive' ? 'drops below' : 'rises above'} ${item.threshold.value.toFixed(1)}, "${item.threshold.alternativeOption || 'another option'}" becomes the better choice`
     : null
 
   return (
-    <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-      <p className="text-sm text-slate-700">{item.message}</p>
+    <div className={`p-3 ${severityConfig.bgColor} border ${severityConfig.borderColor} rounded-lg`}>
+      <div className="flex items-start gap-2">
+        <span className={`${severityConfig.textColor} text-sm flex-shrink-0`}>{severityConfig.icon}</span>
+        <div className="flex-1 min-w-0">
+          {severityConfig.label && (
+            <span className={`text-xs font-medium ${severityConfig.textColor} block mb-1`}>
+              {severityConfig.label}
+            </span>
+          )}
+          <p className={`text-sm ${severityConfig.textColor}`}>{item.message}</p>
+        </div>
+      </div>
       {thresholdMessage && (
         <p className="text-xs text-amber-700 mt-1 bg-amber-50 px-2 py-1 rounded">
           {thresholdMessage}

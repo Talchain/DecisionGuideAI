@@ -16,7 +16,7 @@ import {
 import { redactPayload } from '../utils/payloadRedaction'
 
 const PAYLOAD_REDACTION_OPTIONS = {
-  maxDepth: 6,
+  maxDepth: 8, // Increased from 6 to preserve response.body.trace.pipeline.llm_quality.corrections[]
   maxArrayItems: 10,
   maxStringLength: 1000,
 } as const

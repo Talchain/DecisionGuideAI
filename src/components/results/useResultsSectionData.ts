@@ -31,6 +31,7 @@ import type {
   ConfidenceTier,
   RawFactorSensitivity,
   EdgeForDirection,
+  CritiqueSeverity,
 } from './types'
 
 // =============================================================================
@@ -42,6 +43,18 @@ import type {
  */
 function normaliseLabel(label: string | undefined): string {
   return label?.toLowerCase().replace(/\s+/g, '_') ?? 'unknown'
+}
+
+/**
+ * Normalise critique severity to typed value.
+ * Handles both uppercase (BLOCKER) and lowercase (blocker) inputs.
+ */
+function normaliseSeverity(severity: string | undefined): CritiqueSeverity {
+  const normalised = severity?.toLowerCase()
+  if (normalised === 'blocker') return 'blocker'
+  if (normalised === 'error') return 'error'
+  if (normalised === 'info') return 'info'
+  return 'warning' // Default
 }
 
 /**
@@ -496,29 +509,32 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const optionNodes = nodes.filter((n) => (n.data as any)?.kind === 'option')
 
     // Helper to normalize percentage values to 0-1 range
-    // CRITICAL: Must apply consistent normalization across ALL percentile values
-    // to avoid impossible situations like p50 > p90
-    const normalizePercentiles = (
+    // CRITICAL: Must apply consistent normalization across ALL values
+    // to avoid scale mismatches between expected, p10, p50, p90
+    const normalizeOutcome = (
       rawP10: number | undefined,
+      rawExpected: number | undefined,
       rawP50: number | undefined,
       rawP90: number | undefined
-    ): { p10: number; p50: number; p90: number } => {
+    ): { p10: number; expected: number; p50: number; p90: number } => {
       // Get actual values, defaulting to 0
       let p10 = rawP10 ?? 0
+      let expected = rawExpected ?? 0
       let p50 = rawP50 ?? 0
       let p90 = rawP90 ?? 0
 
-      // Determine scale: if ANY value is > 2, assume ALL are percentages (0-100)
+      // Determine scale from ALL values: if ANY is > 2, assume percentages (0-100)
       // This ensures consistent scaling even when values come from mixed sources
-      const maxAbsValue = Math.max(Math.abs(p10), Math.abs(p50), Math.abs(p90))
+      const maxAbsValue = Math.max(Math.abs(p10), Math.abs(expected), Math.abs(p50), Math.abs(p90))
       if (maxAbsValue > 2) {
         p10 = p10 / 100
+        expected = expected / 100
         p50 = p50 / 100
         p90 = p90 / 100
       }
 
-      // Sanity check: ensure proper ordering (p10 <= p50 <= p90)
-      // If violated, the data is likely malformed - log warning and reorder
+      // Sanity check: ensure proper ordering for percentiles (p10 <= p50 <= p90)
+      // Note: expected (mean) can be outside this range for skewed distributions
       if (p10 > p50 || p50 > p90 || p10 > p90) {
         if (import.meta.env.DEV) {
           console.warn('[Results] Percentile ordering violated - reordering:', { p10, p50, p90 })
@@ -529,7 +545,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         p90 = sorted[2]
       }
 
-      return { p10, p50, p90 }
+      return { p10, expected, p50, p90 }
     }
 
     // Determine recommended option ID - prefer backend-provided, fall back to highest p50
@@ -548,41 +564,47 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
       // Per-option bands take precedence over shared bands
       const optionBands = prob.bands ?? sharedBands ?? {}
-      // Per-option results object (some APIs nest values here)
-      const optionResults = prob.results ?? {}
+      // Per-option outcome object (new structure with explicit expected)
+      const optionOutcome = prob.outcome ?? {}
 
-      // Extract per-option p10/expected/p90 with comprehensive fallback chain:
-      // Priority: mean > expected_outcome > expected_value > p50 > bands.* > goal_probability
-      // IMPORTANT: mean (expected value) is distinct from p50 (median) - use mean for "Expected" display
-      // bands.* should come BEFORE goal_probability to prefer option-specific data
-      const rawP10 = optionResults.p10 ?? prob.p10 ?? optionBands.p10 ?? prob.goal_probability
-      // For "expected", prioritise mean (average outcome) over p50 (median)
-      // This fixes the 0% bug where mean=3.8% but p50=0%
+      // Extract expected value (mean) with fallback chain
+      // Priority: prob.expected > outcome.mean > bands > goal_probability
       const rawExpected =
-        optionResults.mean ?? optionResults.expected_outcome ??
-        optionResults.expected_value ?? optionResults.p50 ??
-        prob.mean ?? prob.expected_outcome ??
-        prob.expected_value ?? prob.p50 ??
+        prob.expected ?? optionOutcome.mean ??
         optionBands.p50 ?? prob.goal_probability
-      const rawP90 = optionResults.p90 ?? prob.p90 ?? optionBands.p90 ?? prob.goal_probability
 
-      // Normalize all percentiles together for consistent scaling
-      // Note: p50 variable name kept for interface compatibility, but now contains mean (expected value)
-      const { p10, p50, p90 } = normalizePercentiles(rawP10, rawExpected, rawP90)
+      // Extract percentiles (p10/p50/p90) — p50 is true median, NOT expected
+      const rawP10 = optionOutcome.p10 ?? optionBands.p10 ?? prob.goal_probability
+      const rawP50 = optionOutcome.p50 ?? optionBands.p50 ?? rawExpected  // Median, fallback to expected if unavailable
+      const rawP90 = optionOutcome.p90 ?? optionBands.p90 ?? prob.goal_probability
+
+      // Normalize all 4 values together with single scale decision
+      // This prevents scale mismatches when expected and p50 have different magnitudes
+      const norm = normalizeOutcome(rawP10, rawExpected, rawP50, rawP90)
 
       return {
         id: nodeId,
         label: (node.data as any)?.label || nodeId,
-        p10,
-        p50,
-        p90,
+        // Explicit expected value (mean) — primary value for "Expected" display
+        expected: norm.expected,
+        // Full outcome distribution (mean = expected, for consistency)
+        outcome: {
+          mean: norm.expected,
+          p10: norm.p10,
+          p50: norm.p50,  // True median
+          p90: norm.p90,
+        },
+        // Deprecated fields for backward compatibility
+        p10: norm.p10,
+        p50: norm.expected,  // For backward compat, p50 = expected (most UI uses this)
+        p90: norm.p90,
         isRecommended: false, // Will be set immutably below
         winProbability: prob.win_probability,
       }
     })
 
-    // Sort by p50 descending for display order
-    const sortedOptions = [...unsortedOptions].sort((a, b) => b.p50 - a.p50)
+    // Sort by expected value descending for display order
+    const sortedOptions = [...unsortedOptions].sort((a, b) => (b.expected ?? 0) - (a.expected ?? 0))
 
     // Determine which option ID should be recommended
     // Priority: backend-provided ID > highest p50 (first after sort)
@@ -754,10 +776,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         const canFocus = matches.length > 0
         const matchedNodeId = matches[0]?.targetId
 
-        // Format label for display
-        const displayLabel = f.raw.label ||
+        // Format label for display - prefer canvas node label, then raw label, then formatted key
+        const matchedNode = matchedNodeId ? nodes.find(n => n.id === matchedNodeId) : null
+        const canvasLabel = (matchedNode?.data as any)?.label
+        const displayLabel = canvasLabel || f.raw.label ||
           f.key
-            .replace(/^(fac_|out_|goal_|risk_)/, '')
+            .replace(/^(fac_|out_|goal_|risk_|factor_)/, '')
+            .replace(/_\d+$/, '') // Remove trailing numbers like _0, _1
             .replace(/_/g, ' ')
             .replace(/\b\w/g, c => c.toUpperCase())
 
@@ -844,26 +869,59 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       message: w.message,
       suggestion: w.suggested_fix,
       affectedNodes: w.node_id ? [w.node_id] : undefined,
+      // Map critique severity: BLOCKER/ERROR/WARNING/INFO → blocker/error/warning/info
+      severity: normaliseSeverity(w.severity),
     }))
 
     // Add sensitive assumptions from robustness analysis (formerly "fragile edges")
-    const sensitiveAssumptions = (report as any)?.robustness?.fragile_edges || []
+    // Filter to only show high-risk fragile edges (switch_probability < 0.3)
+    const sensitiveAssumptions = ((report as any)?.robustness?.fragile_edges || [])
+      .filter((fe: any) => {
+        // If switch_probability exists, only show high-risk edges (< 0.3 means likely to flip)
+        if (typeof fe.switch_probability === 'number') {
+          return fe.switch_probability < 0.3
+        }
+        // If no switch_probability, include by default (legacy data)
+        return true
+      })
     sensitiveAssumptions.forEach((fe: any) => {
       // Format user-friendly message without technical jargon
       const sourceName = fe.source?.replace(/^(fac_|out_|goal_|risk_)/, '').replace(/_/g, ' ') || 'this factor'
       const targetName = fe.target?.replace(/^(fac_|out_|goal_|risk_)/, '').replace(/_/g, ' ') || 'the outcome'
-      const friendlyMessage = fe.description || `The relationship between "${sourceName}" and "${targetName}" may significantly affect results`
+
+      // Get alternative winner option name if available
+      const alternativeWinner = fe.alternative_winner_id || fe.alternative_option || fe.alternative_winner
+      const alternativeWinnerLabel = alternativeWinner
+        ? alternativeWinner.replace(/^(opt_)/, '').replace(/_/g, ' ')
+        : 'another option'
+
+      // Enhanced message format per spec
+      const edgeLabel = fe.label || `${sourceName} → ${targetName}`
+      const friendlyMessage = fe.description ||
+        `If "${edgeLabel}" changes significantly, "${alternativeWinnerLabel}" could become the better choice`
+
+      // P2 Fix: Derive severity from switch_probability
+      // < 0.1 = very likely to flip = blocker; < 0.2 = likely = error; < 0.3 = possible = warning
+      let severity: 'blocker' | 'error' | 'warning' = 'warning'
+      if (typeof fe.switch_probability === 'number') {
+        if (fe.switch_probability < 0.1) {
+          severity = 'blocker'
+        } else if (fe.switch_probability < 0.2) {
+          severity = 'error'
+        }
+      }
 
       uncertainties.push({
         code: 'SENSITIVE_ASSUMPTION',
         message: friendlyMessage,
-        suggestion: 'Consider validating this assumption with additional data',
+        suggestion: 'Validate this assumption',
         affectedNodes: [fe.source, fe.target].filter(Boolean),
+        severity,
         threshold: fe.threshold ? {
           variable: fe.source,
           direction: normaliseDirection(fe.direction) ?? 'positive',
           value: fe.threshold,
-          alternativeOption: fe.alternative_option,
+          alternativeOption: alternativeWinnerLabel,
         } : undefined,
       })
     })
@@ -886,6 +944,19 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     const improvements = normaliseImprovements(biasFindings, qualityFactors, improvementGuidance)
 
+    // Wire status signals from report (not runMeta) for degraded banner
+    // P2 Fix: These fields are set by responseMapper from V2 response
+    const analysisStatus = (report as any)?.analysis_state === 'partial' ? 'partial' : 'computed'
+    const driversStatus = (report as any)?.drivers_status ?? 'computed'
+    // Check for robustness data: fragile_edges or robust_edges indicates computed
+    const robustness = (report as any)?.robustness
+    const hasRobustnessData = robustness && (
+      Array.isArray(robustness.fragile_edges) ||
+      Array.isArray(robustness.robust_edges) ||
+      robustness.ranking_stability !== undefined
+    )
+    const robustnessStatus = hasRobustnessData ? 'computed' : 'unavailable'
+
     return {
       tier: tierInfo,
       qualityScore,
@@ -895,11 +966,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       evidenceCoverage,
       improvements,
       topImprovements: improvements.slice(0, 2),
-      analysisStatus: (runMeta as any)?.analysisStatus,
-      driversStatus: (runMeta as any)?.driversStatus,
-      robustnessStatus: (runMeta as any)?.robustnessStatus,
+      analysisStatus,
+      driversStatus,
+      robustnessStatus,
     }
-  }, [report, runMeta])
+  }, [report])
 
   // ==========================================================================
   // Improvements Section Data (Legacy - now merged into confidence)

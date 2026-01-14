@@ -199,17 +199,17 @@ describe('mapV2ResponseToReportV1', () => {
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
     // goal_probability = midpoint of confidence_interval
-    // results contains outcome distribution (derived from CI when outcome not provided)
+    // expected and outcome contain distribution data
     expect(report.option_probabilities).toEqual({
       opt1: {
         goal_probability: 50, // (30+70)/2 = 50
         confidence: 0.5,
         win_probability: undefined,
-        results: {
+        expected: 50, // Falls back to CI midpoint when no mean
+        outcome: {
           mean: null, // No outcome.mean in input
-          expected_outcome: null,
           p10: 30, // CI low
-          p50: 50, // Falls back to CI midpoint
+          p50: null, // True median - null when not provided
           p90: 70, // CI high
         },
       },
@@ -217,11 +217,11 @@ describe('mapV2ResponseToReportV1', () => {
         goal_probability: 60, // (45+75)/2 = 60
         confidence: 0.5,
         win_probability: undefined,
-        results: {
+        expected: 60, // Falls back to CI midpoint
+        outcome: {
           mean: null,
-          expected_outcome: null,
           p10: 45,
-          p50: 60,
+          p50: null,
           p90: 75,
         },
       },
@@ -250,14 +250,47 @@ describe('mapV2ResponseToReportV1', () => {
 
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
-    // Verify mean is extracted and takes priority
-    expect(report.option_probabilities.opt1.results).toEqual({
-      mean: 0.038, // This should be used for "Expected" display
-      expected_outcome: 0.038,
+    // Verify expected is extracted from mean (not p50)
+    expect(report.option_probabilities.opt1.expected).toBe(0.038)
+
+    // Verify outcome preserves true percentiles
+    expect(report.option_probabilities.opt1.outcome).toEqual({
+      mean: 0.038,
       p10: -0.05,
-      p50: 0, // Median is 0, but mean (3.8%) should be displayed
+      p50: 0, // True median is 0 (semantically different from expected)
       p90: 0.12,
     })
+  })
+
+  it('separates expected (mean) from p50 (median) in skewed distributions', () => {
+    // This test explicitly verifies that expected and p50 are kept separate
+    const v2Response = makeSuccessResponse({
+      option_comparison: [
+        {
+          option_id: 'skewed',
+          option_label: 'Skewed Option',
+          confidence_interval: [0, 0.5] as [number, number],
+          expected_outcome: 0.15, // Mean is 15%
+          outcome: {
+            mean: 0.15,
+            p10: 0,
+            p50: 0.05, // Median is only 5% (positively skewed)
+            p90: 0.5,
+          },
+        },
+      ],
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    // expected = mean = 15%
+    expect(report.option_probabilities.skewed.expected).toBe(0.15)
+    // p50 (median) = 5% — kept separate, NOT used for expected
+    expect(report.option_probabilities.skewed.outcome?.p50).toBe(0.05)
+    // They are different values
+    expect(report.option_probabilities.skewed.expected).not.toBe(
+      report.option_probabilities.skewed.outcome?.p50
+    )
   })
 
   it('extracts warnings from critiques', () => {

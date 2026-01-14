@@ -23,6 +23,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import {
   getRecentTraces,
+  clearTraces,
   type RequestTrace,
   type DownstreamCall,
 } from '../lib/debug-state'
@@ -45,6 +46,7 @@ import { LlmIoTab } from './debug/LlmIoTab'
 import { TransformsTab } from './debug/TransformsTab'
 import { usePayloadTraceStore } from '../lib/payload-trace-store'
 import { detectService } from '../lib/contract-validators'
+import { getStatusDisplay, formatStatus, getEnhancedStatusDisplay, formatStatusWithLabel } from './debug/formatters'
 
 // =============================================================================
 // Debug Panel Tabs
@@ -153,13 +155,20 @@ const HEALTH_STATUS_COLORS: Record<HealthStatus, string> = {
 }
 
 /**
- * Request status indicator colors
+ * Request status indicator colors.
+ * Status 0 = network error (red), null/undefined = pending (gray).
  */
-function getRequestStatusColor(status?: number): string {
-  if (!status) return '#94a3b8' // pending - gray
-  if (status >= 200 && status < 300) return '#22c55e' // success - green
-  if (status >= 400 && status < 500) return '#f59e0b' // client error - amber
-  return '#ef4444' // server error - red
+function getRequestStatusColor(status?: number, hasError = false, isComplete = true): string {
+  const display = getStatusDisplay(status ?? null, hasError, isComplete)
+  // Map Tailwind classes to hex colors for inline styles
+  const colorMap: Record<string, string> = {
+    'text-green-600': '#22c55e',
+    'text-amber-600': '#f59e0b',
+    'text-red-600': '#ef4444',
+    'text-stone-500': '#78716c',
+    'text-stone-600': '#57534e',
+  }
+  return colorMap[display.color] || '#94a3b8'
 }
 
 /**
@@ -229,7 +238,8 @@ function GateStatusChip({ gate, record }: { gate: GateName; record: { status: Ga
  * Request trace row component with downstream calls
  */
 function TraceRow({ trace }: { trace: RequestTrace }) {
-  const statusColor = getRequestStatusColor(trace.status)
+  const statusColor = getRequestStatusColor(trace.status, !!trace.error, trace.completed ?? false)
+  const enhancedStatus = getEnhancedStatusDisplay(trace.status, !!trace.error, trace.completed ?? false)
   const method = trace.method.toUpperCase()
   const endpoint = trace.endpoint.replace('/bff/', '/')
   const hasDownstream = trace.downstream && trace.downstream.length > 0
@@ -274,13 +284,15 @@ function TraceRow({ trace }: { trace: RequestTrace }) {
           {endpoint}
         </span>
 
-        {/* Status */}
+        {/* Status with error explanation tooltip */}
         <span
           style={{
             display: 'flex',
             alignItems: 'center',
             gap: 4,
+            cursor: enhancedStatus.hint ? 'help' : 'default',
           }}
+          title={enhancedStatus.hint ?? undefined}
         >
           <span
             style={{
@@ -290,7 +302,7 @@ function TraceRow({ trace }: { trace: RequestTrace }) {
               background: statusColor,
             }}
           />
-          <span style={{ color: statusColor }}>{trace.status ?? 'pending'}</span>
+          <span style={{ color: statusColor }}>{formatStatusWithLabel(trace.status, !!trace.error, trace.completed ?? false)}</span>
         </span>
 
         {/* Elapsed */}
@@ -515,6 +527,7 @@ function DownstreamCallList({ calls }: { calls?: DownstreamCall[] }) {
     <div style={{ marginLeft: 16, marginTop: 2 }}>
       {calls.map((call, i) => {
         const statusColor = getRequestStatusColor(call.status)
+        const enhancedStatus = getEnhancedStatusDisplay(call.status, false, true)
         return (
           <div
             key={i}
@@ -540,7 +553,12 @@ function DownstreamCallList({ calls }: { calls?: DownstreamCall[] }) {
                 background: statusColor,
               }}
             />
-            <span style={{ color: statusColor }}>{call.status}</span>
+            <span
+              style={{ color: statusColor, cursor: enhancedStatus.hint ? 'help' : 'default' }}
+              title={enhancedStatus.hint ?? undefined}
+            >
+              {formatStatusWithLabel(call.status, false, true)}
+            </span>
             <span>{call.elapsedMs}ms</span>
             <span style={{ color: '#94a3b8', fontSize: 8 }}>
               [{call.payloadHash?.slice(0, 6) || '?'} → {call.responseHash?.slice(0, 6) || '?'}]
@@ -725,7 +743,10 @@ function SensitivityAnalysisSection() {
         <span>Source:</span>
         <span style={{ color: '#0ea5e9' }}>PLoT /v1/run (deep)</span>
         <span>Edge sensitivity:</span>
-        <span style={{ color: edgeCount > 0 ? '#22c55e' : '#94a3b8' }}>
+        <span
+          style={{ color: edgeCount > 0 ? '#22c55e' : '#94a3b8', cursor: edgeCount === 0 ? 'help' : 'default' }}
+          title={edgeCount === 0 ? 'ISL requires edges with belief_exists < 1 or strength_std > 0' : undefined}
+        >
           {edgeCount > 0 ? `${edgeCount} edges` : 'none'}
         </span>
         <span>Factor sensitivity:</span>
@@ -787,7 +808,7 @@ function buildTimelineStages(
       status,
       duration: trace.elapsedMs,
       details: {
-        summary: `${trace.method} ${trace.status || 'pending'}`,
+        summary: `${trace.method} ${formatStatus(trace.status, !!trace.error, trace.completed ?? false)}`,
         method: trace.method,
         status: trace.status,
       },
@@ -1048,6 +1069,7 @@ export function DebugPanel() {
   // PoC: All debug features accessible with ?diag=1 (no additional gating)
   const { showDebugConsole } = useMemo(() => getDebugFlags(), [])
   const [traces, setTraces] = useState<RequestTrace[]>([])
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [copying, setCopying] = useState(false)
   const [services, setServices] = useState<ServiceHealthInfo[]>([])
@@ -1083,6 +1105,7 @@ export function DebugPanel() {
   // Payload trace store (raw request/response bodies)
   const tracedPayloads = usePayloadTraceStore((s) => s.payloads)
   const selectedPayloadId = usePayloadTraceStore((s) => s.selectedId)
+  const clearPayloads = usePayloadTraceStore((s) => s.clearPayloads)
 
   const selectedPayload = useMemo(() => {
     if (!selectedPayloadId) return null
@@ -1339,7 +1362,7 @@ export function DebugPanel() {
         lines.push('|----------|--------|----------|')
         for (const trace of traces.slice(0, 10)) {
           const endpoint = trace.endpoint.replace('/bff/', '/')
-          const status = trace.status ?? 'pending'
+          const status = formatStatus(trace.status, !!trace.error, trace.completed ?? false)
           const duration = trace.elapsedMs ? `${trace.elapsedMs}ms` : '—'
           lines.push(`| ${endpoint} | ${status} | ${duration} |`)
         }
@@ -1375,6 +1398,16 @@ export function DebugPanel() {
       setCopying(false)
     }
   }, [gates, services, traces, ceePipelineTrace, errorDetails])
+
+  // Handle clearing request history
+  const handleClearHistory = useCallback(() => {
+    setClearConfirmOpen(false)
+    clearTraces()
+    clearPayloads()
+    // P2 Fix: Reset selected payload to avoid stale Contract Inspector state
+    usePayloadTraceStore.getState().selectPayload(null)
+    setTraces([])
+  }, [clearPayloads])
 
   // Handle panel resize
   const handleHorizontalResizeStart = useCallback((e: React.MouseEvent) => {
@@ -2599,13 +2632,83 @@ export function DebugPanel() {
                 borderBottom: '1px solid #e2e8f0',
                 position: 'sticky',
                 top: 0,
-                cursor: 'help',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
               }}
-              title="Recent BFF API requests with method, endpoint, status, and response time"
             >
-              Recent Requests ({traces.length})
-              <span style={{ marginLeft: 4, color: '#94a3b8', fontSize: 9, fontWeight: 400 }}>ⓘ</span>
+              <span
+                style={{ cursor: 'help' }}
+                title="Recent BFF API requests with method, endpoint, status, and response time"
+              >
+                Recent Requests ({traces.length})
+                <span style={{ marginLeft: 4, color: '#94a3b8', fontSize: 9, fontWeight: 400 }}>ⓘ</span>
+              </span>
+              {traces.length > 0 && (
+                <button
+                  onClick={() => setClearConfirmOpen(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#94a3b8',
+                    fontSize: 9,
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    borderRadius: 2,
+                  }}
+                  onMouseOver={(e) => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fef2f2' }}
+                  onMouseOut={(e) => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'none' }}
+                  title="Clear all request history"
+                >
+                  Clear History
+                </button>
+              )}
             </div>
+            {/* Clear History Confirmation */}
+            {clearConfirmOpen && (
+              <div
+                style={{
+                  padding: '8px 12px',
+                  background: '#fef3c7',
+                  borderBottom: '1px solid #fcd34d',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  fontSize: 10,
+                }}
+              >
+                <span style={{ color: '#92400e' }}>Clear all {traces.length} request{traces.length !== 1 ? 's' : ''} and payloads?</span>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => setClearConfirmOpen(false)}
+                    style={{
+                      background: 'white',
+                      border: '1px solid #d1d5db',
+                      borderRadius: 3,
+                      padding: '2px 8px',
+                      fontSize: 10,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleClearHistory}
+                    style={{
+                      background: '#ef4444',
+                      border: 'none',
+                      borderRadius: 3,
+                      padding: '2px 8px',
+                      fontSize: 10,
+                      color: 'white',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
             {/* Most recent request ID with copy button */}
             {traces.length > 0 && (
               <div style={{ padding: '4px 12px', borderBottom: '1px solid #e2e8f0' }}>

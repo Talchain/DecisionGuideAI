@@ -11,6 +11,7 @@
  */
 
 import { useState, useMemo } from 'react'
+import { formatMs, formatCoeff as formatCoeffShared } from './debug/formatters'
 import type {
   CeePipelineTrace,
   CeePipelineStage,
@@ -59,13 +60,14 @@ const STAGE_LABELS: Record<string, string> = {
 // Format Helpers
 // =============================================================================
 
-function formatDuration(ms: number): string {
+function formatDuration(ms: number | null | undefined): string {
+  if (ms == null || !Number.isFinite(ms)) return '—'
   if (ms < 1000) return `${ms}ms`
-  return `${(ms / 1000).toFixed(2)}s`
+  return formatMs(ms)
 }
 
 function formatTokens(count?: number): string {
-  if (!count) return '—'
+  if (count == null || !Number.isFinite(count)) return '—'
   return count.toLocaleString()
 }
 
@@ -647,9 +649,8 @@ interface LlmCorrectionsPanelProps {
   title: string
 }
 
-/** Safely format coefficient value - handles undefined/null from malformed CEE responses */
-const formatCoeff = (value: number | undefined | null): string =>
-  typeof value === 'number' ? value.toFixed(2) : '—'
+/** Safely format coefficient value - handles undefined/null/NaN from malformed CEE responses */
+const formatCoeff = formatCoeffShared
 
 function LlmCorrectionsPanel({ corrections, title }: LlmCorrectionsPanelProps) {
   const [expanded, setExpanded] = useState(false)

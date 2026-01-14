@@ -9,7 +9,10 @@ function getPipeline(trace: unknown): PipelineLike | null {
 }
 
 function copyToClipboard(text: string): void {
-  navigator.clipboard.writeText(text).catch(() => {})
+  // Guard against environments without clipboard API (Electron, SSR, etc.)
+  if (typeof navigator?.clipboard?.writeText === 'function') {
+    navigator.clipboard.writeText(text).catch(() => {})
+  }
 }
 
 function formatJson(value: unknown): string {
@@ -92,9 +95,9 @@ export function LlmIoTab({ trace }: { trace: unknown }) {
           <div style={{ color: '#0f172a', fontFamily: 'monospace' }}>{durationMs !== undefined ? `${durationMs}ms` : '—'}</div>
         </div>
 
-        {capabilities.tokenUsageAvailable && (
+        {capabilities.tokenUsageAvailable && tokenUsage && (
           <div style={{ marginTop: 10, fontSize: 11, fontFamily: 'monospace', color: '#334155' }}>
-            tokens: {tokenUsage.prompt_tokens} prompt + {tokenUsage.completion_tokens} completion = {tokenUsage.total_tokens} total
+            tokens: {tokenUsage.prompt_tokens ?? '—'} prompt + {tokenUsage.completion_tokens ?? '—'} completion = {tokenUsage.total_tokens ?? '—'} total
           </div>
         )}
       </div>

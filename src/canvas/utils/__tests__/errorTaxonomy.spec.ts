@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { mapErrorToUserMessage, isOffline } from '../errorTaxonomy'
+import { mapErrorToUserMessage, isOffline, getDebugErrorExplanation, DEBUG_ERROR_EXPLANATIONS } from '../errorTaxonomy'
 
 describe('errorTaxonomy', () => {
   // Clean up all spies after each test
@@ -51,10 +51,10 @@ describe('errorTaxonomy', () => {
       // Spy auto-restored by afterEach
     })
 
-    it('maps CORS errors correctly', () => {
+    it('maps CORS errors correctly when message contains cors', () => {
       const result = mapErrorToUserMessage({
         status: 0,
-        message: 'Failed to fetch'
+        message: 'Request blocked by CORS policy'
       })
 
       expect(result.title).toBe('Connection blocked')
@@ -62,6 +62,18 @@ describe('errorTaxonomy', () => {
       expect(result.retryable).toBe(false)
       expect(result.message).toContain('CORS')
       expect(result.suggestion).toContain('support')
+    })
+
+    it('maps network errors (status 0) without CORS to generic network error', () => {
+      const result = mapErrorToUserMessage({
+        status: 0,
+        message: 'Failed to fetch'
+      })
+
+      expect(result.title).toBe('Network error')
+      expect(result.severity).toBe('error')
+      expect(result.retryable).toBe(true) // Network errors are retryable
+      expect(result.message).toContain('Unable to connect')
     })
 
     it('maps 405 Method Not Allowed', () => {
@@ -298,6 +310,87 @@ describe('errorTaxonomy', () => {
       vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(true)
       expect(isOffline()).toBe(false)
       // Spy auto-restored by afterEach
+    })
+  })
+
+  describe('getDebugErrorExplanation', () => {
+    it('returns explanation for known HTTP status codes', () => {
+      const result400 = getDebugErrorExplanation(400)
+      expect(result400?.label).toBe('Bad Request')
+      expect(result400?.hint).toContain('request')
+
+      const result404 = getDebugErrorExplanation(404)
+      expect(result404?.label).toBe('Not Found')
+      expect(result404?.hint).toContain('Endpoint')
+
+      const result500 = getDebugErrorExplanation(500)
+      expect(result500?.label).toBe('Server Error')
+      expect(result500?.hint).toContain('service logs')
+
+      const result502 = getDebugErrorExplanation(502)
+      expect(result502?.label).toBe('Bad Gateway')
+      expect(result502?.hint).toContain('CEE or ISL')
+
+      const result504 = getDebugErrorExplanation(504)
+      expect(result504?.label).toBe('Gateway Timeout')
+      expect(result504?.hint).toContain('120s')
+    })
+
+    it('returns explanation for status 0 (network error)', () => {
+      const result = getDebugErrorExplanation(0)
+      expect(result?.label).toBe('Network Error')
+      expect(result?.hint).toContain('CORS')
+    })
+
+    it('returns explanation for "Network Error" string', () => {
+      const result = getDebugErrorExplanation('Network Error')
+      expect(result?.label).toBe('Network Error')
+      expect(result?.hint).toContain('connectivity')
+    })
+
+    it('returns null for null/undefined status', () => {
+      expect(getDebugErrorExplanation(null)).toBeNull()
+      expect(getDebugErrorExplanation(undefined)).toBeNull()
+    })
+
+    it('returns null for unknown status codes', () => {
+      expect(getDebugErrorExplanation(418)).toBeNull() // I'm a teapot
+      expect(getDebugErrorExplanation(999)).toBeNull()
+    })
+
+    it('returns explanation for 422 validation errors', () => {
+      const result = getDebugErrorExplanation(422)
+      expect(result?.label).toBe('Validation Failed')
+      expect(result?.hint).toContain('critiques')
+    })
+
+    it('returns explanation for 429 rate limit', () => {
+      const result = getDebugErrorExplanation(429)
+      expect(result?.label).toBe('Rate Limited')
+      expect(result?.hint).toContain('Wait')
+    })
+
+    it('returns explanation for 503 service unavailable', () => {
+      const result = getDebugErrorExplanation(503)
+      expect(result?.label).toBe('Service Unavailable')
+      expect(result?.hint).toContain('Retry')
+    })
+  })
+
+  describe('DEBUG_ERROR_EXPLANATIONS', () => {
+    it('has entries for all common HTTP error codes', () => {
+      const expectedCodes = [400, 401, 403, 404, 405, 422, 429, 500, 502, 503, 504, 0]
+      for (const code of expectedCodes) {
+        expect(DEBUG_ERROR_EXPLANATIONS[code]).toBeDefined()
+        expect(DEBUG_ERROR_EXPLANATIONS[code].label).toBeTruthy()
+        expect(DEBUG_ERROR_EXPLANATIONS[code].hint).toBeTruthy()
+      }
+    })
+
+    it('has short, actionable hints (under 80 chars)', () => {
+      for (const [, explanation] of Object.entries(DEBUG_ERROR_EXPLANATIONS)) {
+        expect(explanation.hint.length).toBeLessThanOrEqual(80)
+      }
     })
   })
 })

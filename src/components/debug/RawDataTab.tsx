@@ -14,6 +14,7 @@
 import { useState, useCallback } from 'react'
 import type { FieldAdaptation, RequestEntry, SchemaDetectionResult } from './types'
 import { detectSchema } from './HeadlineSignals'
+import { getStatusDisplay, formatStatus, getEnhancedStatusDisplay, formatStatusWithLabel } from './formatters'
 
 interface RawDataTabProps {
   adaptations?: FieldAdaptation[]
@@ -209,8 +210,27 @@ function RequestRow({ request }: RequestRowProps) {
     })
   }, [request.response])
 
-  const isError = request.status && (request.status < 200 || request.status >= 400)
-  const statusColor = isError ? '#ef4444' : request.status ? '#22c55e' : '#94a3b8'
+  // Use enhanced status display helper - Status 0 = network error, not pending
+  const statusDisplay = getEnhancedStatusDisplay(
+    request.status ?? null,
+    request.status === 0, // Status 0 typically means network error
+    request.status !== undefined // If status is defined, request is complete
+  )
+  const isError = statusDisplay.isError
+  const statusLabel = formatStatusWithLabel(
+    request.status ?? null,
+    request.status === 0,
+    request.status !== undefined
+  )
+  // Map Tailwind classes to hex colors
+  const statusColorMap: Record<string, string> = {
+    'text-green-600': '#22c55e',
+    'text-amber-600': '#f59e0b',
+    'text-red-600': '#ef4444',
+    'text-stone-500': '#78716c',
+    'text-stone-600': '#57534e',
+  }
+  const statusColor = statusColorMap[statusDisplay.color] || '#94a3b8'
 
   return (
     <div
@@ -263,9 +283,11 @@ function RequestRow({ request }: RequestRowProps) {
             fontSize: 10,
             fontWeight: 600,
             color: statusColor,
+            cursor: statusDisplay.hint ? 'help' : 'default',
           }}
+          title={statusDisplay.hint ?? undefined}
         >
-          {request.status || 'pending'}
+          {statusLabel}
         </span>
         {request.duration && (
           <span style={{ fontSize: 10, color: '#64748b' }}>

@@ -24,11 +24,34 @@ export interface ConfidenceTierInfo {
 // Recommendation Types
 // =============================================================================
 
+/**
+ * Outcome distribution for an option.
+ * p10/p50/p90 are percentiles; mean is the arithmetic average.
+ * Note: mean (expected) and p50 (median) are semantically different for skewed distributions.
+ */
+export interface OptionOutcome {
+  /** Arithmetic mean (average outcome) - use OptionResult.expected for display */
+  mean: number | null
+  /** 10th percentile (pessimistic case) */
+  p10: number | null
+  /** 50th percentile (median) - NOT the same as mean for skewed distributions */
+  p50: number | null
+  /** 90th percentile (optimistic case) */
+  p90: number | null
+}
+
 export interface OptionResult {
   id: string
   label: string
+  /** Explicit expected value (mean) - primary value for "Expected" display */
+  expected: number | null
+  /** Full outcome distribution when available */
+  outcome: OptionOutcome
+  /** @deprecated Use outcome.p10/p50/p90 instead. Kept for backward compatibility. */
   p10: number
+  /** @deprecated Use expected or outcome.p50 instead. Kept for backward compatibility. */
   p50: number
+  /** @deprecated Use outcome.p90 instead. Kept for backward compatibility. */
   p90: number
   isRecommended: boolean
   winProbability?: number
@@ -97,11 +120,16 @@ export interface DriversSectionData {
 // Confidence Types (Merged with Improvements per redesign spec)
 // =============================================================================
 
+/** Severity levels for critiques/uncertainties */
+export type CritiqueSeverity = 'blocker' | 'error' | 'warning' | 'info'
+
 export interface UncertaintyItem {
   code: string
   message: string
   suggestion?: string
   affectedNodes?: string[]
+  /** Severity level for visual styling - defaults to 'warning' if not specified */
+  severity?: CritiqueSeverity
   /** For sensitivity thresholds (when small changes flip the recommendation) */
   threshold?: {
     variable: string

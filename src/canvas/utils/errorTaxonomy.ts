@@ -35,12 +35,25 @@ export function mapErrorToUserMessage(error: {
   const messageLower = normalizedMessage.toLowerCase()
 
   // CORS error (common in dev/staging misconfigurations)
-  if (messageLower.includes('cors') || error.status === 0) {
+  // Only check message for CORS - status 0 alone is not sufficient (could be timeout/abort)
+  if (messageLower.includes('cors') || messageLower.includes('blocked by cors')) {
     return {
       title: 'Connection blocked',
       message: 'Unable to reach the analysis engine due to a security policy (CORS).',
       suggestion: 'This usually means the engine URL is misconfigured. Contact support if this persists.',
       retryable: false,
+      severity: 'error',
+    }
+  }
+
+  // Network error (status 0 without CORS message)
+  // Status 0 can be: network timeout, connection refused, aborted request
+  if (error.status === 0) {
+    return {
+      title: 'Network error',
+      message: 'Unable to connect to the analysis engine.',
+      suggestion: 'Check your internet connection and try again. If the problem persists, the service may be temporarily unavailable.',
+      retryable: true,
       severity: 'error',
     }
   }
@@ -172,6 +185,28 @@ export function mapErrorToUserMessage(error: {
     }
   }
 
+  // ISL: Degenerate option with zero variance
+  if (error.code === 'DEGENERATE_OPTION_ZERO_VARIANCE' || messageLower.includes('zero variance')) {
+    return {
+      title: 'Option outcome has no uncertainty',
+      message: 'One of your options has a completely deterministic outcome with no variability.',
+      suggestion: 'This may indicate missing factors or edges. Review the option and add relevant uncertainty sources.',
+      retryable: false,
+      severity: 'warning',
+    }
+  }
+
+  // ISL: High tie rate between options
+  if (error.code === 'HIGH_TIE_RATE' || messageLower.includes('tie rate') || messageLower.includes('ties between options')) {
+    return {
+      title: 'Options are too similar',
+      message: 'The analysis found many ties between options, making it difficult to recommend a clear winner.',
+      suggestion: 'Add more differentiating factors or adjust factor weights to distinguish between options.',
+      retryable: false,
+      severity: 'warning',
+    }
+  }
+
   // Network offline check - ONLY as fallback when no specific error code is available
   // navigator.onLine is unreliable (VPNs, slow networks), so don't let it mask real errors
   if (!navigator.onLine && !error.code && !error.status) {
@@ -199,6 +234,85 @@ export function mapErrorToUserMessage(error: {
  */
 export function isOffline(): boolean {
   return !navigator.onLine
+}
+
+// =============================================================================
+// Debug Panel Error Explanations (Technical)
+// =============================================================================
+
+/**
+ * Technical error explanations for Debug Panel.
+ * These provide developer-focused hints, not user-facing messages.
+ */
+export interface DebugErrorExplanation {
+  label: string
+  hint: string
+}
+
+export const DEBUG_ERROR_EXPLANATIONS: Record<number | string, DebugErrorExplanation> = {
+  400: {
+    label: 'Bad Request',
+    hint: 'Invalid request structure or missing required fields. Check request payload.',
+  },
+  401: {
+    label: 'Unauthorized',
+    hint: 'Authentication failed. Check API key or session token.',
+  },
+  403: {
+    label: 'Forbidden',
+    hint: 'Permission denied. Verify user has required access.',
+  },
+  404: {
+    label: 'Not Found',
+    hint: 'Endpoint not found. Verify service routing and endpoint path.',
+  },
+  405: {
+    label: 'Method Not Allowed',
+    hint: 'HTTP method not supported. Check endpoint documentation.',
+  },
+  422: {
+    label: 'Validation Failed',
+    hint: 'Graph validation failed. Check critiques for specific issues.',
+  },
+  429: {
+    label: 'Rate Limited',
+    hint: 'Too many requests. Wait before retrying.',
+  },
+  500: {
+    label: 'Server Error',
+    hint: 'Internal service error. Check service logs for details.',
+  },
+  502: {
+    label: 'Bad Gateway',
+    hint: 'Upstream service unavailable. CEE or ISL may be down.',
+  },
+  503: {
+    label: 'Service Unavailable',
+    hint: 'Service temporarily overloaded. Retry in a few seconds.',
+  },
+  504: {
+    label: 'Gateway Timeout',
+    hint: 'Request timed out. LLM calls can take up to 120s for complex graphs.',
+  },
+  0: {
+    label: 'Network Error',
+    hint: 'Request failed to reach server. Check connectivity and CORS.',
+  },
+  'Network Error': {
+    label: 'Network Error',
+    hint: 'Request failed to reach server. Check connectivity and CORS.',
+  },
+}
+
+/**
+ * Get debug error explanation for a status code or error string.
+ * Returns label and hint for Debug Panel display.
+ */
+export function getDebugErrorExplanation(
+  status: number | string | null | undefined
+): DebugErrorExplanation | null {
+  if (status == null) return null
+  return DEBUG_ERROR_EXPLANATIONS[status] ?? null
 }
 
 /**
