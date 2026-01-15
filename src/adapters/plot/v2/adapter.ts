@@ -467,15 +467,38 @@ export function transformEdgeToV2(edge: Edge<CanvasEdgeData>): V2Edge {
   const data = edge.data ?? {}
 
   const std = data.strengthStd ?? computeDefaultStd(data)
+  const existsProb = data.beliefExists ?? data.confidence ?? data.belief ?? 0.5
+  const finalStd = Math.max(STD_FLOOR, std)
+
+  // Diagnostic logging for edge uncertainty data flow
+  if (import.meta.env.DEV) {
+    console.log('[Adapter] Edge to PLoT:', {
+      edge: `${edge.source} → ${edge.target}`,
+      canvas_beliefExists: data.beliefExists,
+      canvas_confidence: data.confidence,
+      canvas_belief: data.belief,
+      canvas_strengthStd: data.strengthStd,
+      computed_defaultStd: data.strengthStd === undefined ? computeDefaultStd(data) : 'N/A (used canvas)',
+      output_exists_probability: existsProb,
+      output_strength_std: finalStd,
+      fallback_used: data.beliefExists === undefined
+        ? data.confidence === undefined
+          ? data.belief === undefined
+            ? '0.5 (default)'
+            : 'belief'
+          : 'confidence'
+        : 'beliefExists',
+    })
+  }
 
   return {
     from: edge.source,
     to: edge.target,
     strength: {
       mean: computeSignedMean(data),
-      std: Math.max(STD_FLOOR, std),
+      std: finalStd,
     },
-    exists_probability: data.beliefExists ?? data.confidence ?? data.belief ?? 0.5,
+    exists_probability: existsProb,
   }
 }
 

@@ -448,6 +448,23 @@ export function DraftChat() {
       const beliefExistsValue =
         typeof e.belief_exists === 'number' ? Math.max(0, Math.min(1, e.belief_exists)) : undefined
 
+      // Diagnostic logging for edge uncertainty data flow
+      if (import.meta.env.DEV) {
+        const canvasBelief = beliefExistsValue ?? confidence
+        console.log('[DraftChat] Edge uncertainty from CEE:', {
+          edge: `${e.from} → ${e.to}`,
+          cee_belief_exists: e.belief_exists,
+          cee_belief: e.belief,
+          cee_strength_std: e.strength_std ?? e.strength?.std,
+          extracted_beliefExistsValue: beliefExistsValue,
+          extracted_confidence: confidence,
+          extracted_strengthStd: strengthStd,
+          canvas_beliefExists: canvasBelief,
+          canvas_strengthStd: strengthStd,
+          DEFAULT_beliefExists: 0.7, // For reference
+        })
+      }
+
       let provenanceText: string | undefined
       if (typeof e.provenance === 'string' && e.provenance.trim().length > 0) {
         provenanceText = trimProvenance(e.provenance)
