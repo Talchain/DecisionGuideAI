@@ -1,14 +1,16 @@
 /**
- * Debug Console Components
+ * Debug Panel V2 Components
  *
- * Unified testing and observability for admins and scientific validation.
+ * 4-tab debug panel for staging/development environments.
+ * - Summary: At-a-glance health check
+ * - Data Flow: Service chain tracing
+ * - Pipeline: CEE internal processing stages
+ * - Captured: Recorded payloads
+ *
+ * Public API: Only DebugPanelV2 is exported for external consumption.
+ * Internal modules (tabs, components, hooks, utils) should be imported
+ * directly by their relative paths within the debug directory.
  */
 
-export * from './types'
-export * from './useDebugFlags'
-export * from './HeadlineSignals'
-export * from './TimelineTab'
-export * from './RawDataTab'
-export * from './PayloadLabTab'
-export * from './LlmIoTab'
-export * from './TransformsTab'
+export { DebugPanelV2 } from './DebugPanelV2'
+export type { DebugPanelV2Props } from './DebugPanelV2'

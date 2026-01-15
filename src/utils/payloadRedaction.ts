@@ -25,6 +25,8 @@ export interface RedactionOptions {
   maxDepth?: number
   /** Keys to always redact (default: common sensitive keys) */
   sensitiveKeys?: string[]
+  /** Keys that look sensitive but are safe to keep (e.g., token_usage for LLM metrics) */
+  safeKeys?: string[]
   /** Per-field array limits for diagnostic-critical fields */
   fieldArrayLimits?: Record<string, number>
 }
@@ -34,6 +36,8 @@ const DEFAULT_OPTIONS: Required<RedactionOptions> = {
   maxStringLength: 500,
   maxDepth: 3,
   sensitiveKeys: ['password', 'token', 'secret', 'apiKey', 'api_key', 'authorization'],
+  // Keys that match sensitiveKeys patterns but are safe (e.g., LLM token metrics)
+  safeKeys: ['token_usage', 'prompt_tokens', 'completion_tokens', 'total_tokens'],
   fieldArrayLimits: {
     // Diagnostic-critical fields that need higher limits
     option_comparison: 10,
@@ -163,8 +167,11 @@ function redactValue(
     const redacted: Record<string, unknown> = {}
 
     for (const key of Object.keys(obj)) {
-      // Redact sensitive keys
-      if (opts.sensitiveKeys.some(sk => key.toLowerCase().includes(sk.toLowerCase()))) {
+      // Check if key is explicitly safe (e.g., token_usage for LLM metrics)
+      const isSafeKey = opts.safeKeys.some(sk => key.toLowerCase() === sk.toLowerCase())
+
+      // Redact sensitive keys (unless explicitly safe)
+      if (!isSafeKey && opts.sensitiveKeys.some(sk => key.toLowerCase().includes(sk.toLowerCase()))) {
         redacted[key] = '[REDACTED]'
         continue
       }
