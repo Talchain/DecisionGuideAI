@@ -2572,8 +2572,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         clarifierPreviewEdgeIds: previewEdges.map(e => e.id),
       })
 
-      // Auto-layout to arrange nodes in proper flow (goal → decision → outcomes)
-      get().applyLayout()
+      // Auto-layout to arrange nodes using ELK layered algorithm (top-down)
+      if (import.meta.env.DEV) {
+        console.log('[applyClarifierGraph] Applying ELK layout after clarifier insertion (preview)', {
+          addedNodes: previewNodes.length,
+          addedEdges: previewEdges.length,
+          totalNodes: get().nodes.length,
+          totalEdges: get().edges.length,
+        })
+      }
+      get().applyLayout().catch(err => {
+        console.warn('[applyClarifierGraph] Layout failed:', err)
+      })
       // Request fit view after layout completes (handled by ReactFlowGraph)
       set({ pendingFitView: true })
     } else {
@@ -2648,8 +2658,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         showAIClarifier: false,
       })
 
-      // Auto-layout to arrange nodes in proper flow (goal → decision → outcomes)
-      get().applyLayout()
+      // Auto-layout to arrange nodes using ELK layered algorithm (top-down)
+      if (import.meta.env.DEV) {
+        console.log('[applyClarifierGraph] Applying ELK layout after clarifier insertion (finalize)', {
+          addedNodes: finalNodes.length,
+          addedEdges: finalEdges.length,
+          totalNodes: get().nodes.length,
+          totalEdges: get().edges.length,
+        })
+      }
+      get().applyLayout().catch(err => {
+        console.warn('[applyClarifierGraph] Layout failed:', err)
+      })
       // Request fit view after layout completes (handled by ReactFlowGraph)
       set({ pendingFitView: true })
     }

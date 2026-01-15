@@ -152,8 +152,8 @@ export function DraftChat() {
   const showDraftChat = useCanvasStore(s => s.showDraftChat)
   const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
   const pushHistory = useCanvasStore(s => s.pushHistory)
-  const canvasNodes = useCanvasStore(s => s.nodes)
-  const applyGuidedLayout = useCanvasStore(s => s.applyGuidedLayout)
+  const applyLayout = useCanvasStore(s => s.applyLayout)
+  const setPendingFitView = useCanvasStore(s => s.setPendingFitView)
   const resetCanvas = useCanvasStore(s => s.resetCanvas)
   const saveCurrentScenario = useCanvasStore(s => s.saveCurrentScenario)
   const captureErrorDetail = useCanvasStore(s => s.captureErrorDetail)
@@ -383,7 +383,7 @@ export function DraftChat() {
     }))
 
     // Check both locations: draftData.edges (v2/v3 root) or draftData.graph.edges (nested)
-    const rawEdges = draftData.edges ?? (draftData as any).graph?.edges ?? []
+    const rawEdges = draftData?.edges ?? (draftData as any)?.graph?.edges ?? []
     const edges = rawEdges.map((e: any, i: number) => {
       const id = typeof e.id === 'string' && e.id.trim().length > 0 ? e.id : `e-${i}`
 
@@ -443,6 +443,11 @@ export function DraftChat() {
       const confidence =
         typeof e.belief === 'number' ? Math.max(0, Math.min(1, e.belief)) : undefined
 
+      // P0 Fix: Extract belief_exists (structural certainty) separately from belief (parametric certainty)
+      // CEE returns belief_exists as 0-1 probability that the edge exists at all
+      const beliefExistsValue =
+        typeof e.belief_exists === 'number' ? Math.max(0, Math.min(1, e.belief_exists)) : undefined
+
       let provenanceText: string | undefined
       if (typeof e.provenance === 'string' && e.provenance.trim().length > 0) {
         provenanceText = trimProvenance(e.provenance)
@@ -460,13 +465,14 @@ export function DraftChat() {
         id,
         source: e.from,
         target: e.to,
-        type: 'styled',
+        type: 'styled' as const,
         data: {
           ...DEFAULT_EDGE_DATA,
           weight,
-          pathType: 'bezier',
+          pathType: 'bezier' as const,
           confidence,
-          beliefExists: confidence, // Brief v2.2: Map belief to beliefExists
+          // P0 Fix: Use belief_exists (structural certainty) for beliefExists, fallback to belief (confidence)
+          beliefExists: beliefExistsValue ?? confidence,
           provenance: provenanceText,
           // Brief v2.2: New edge properties
           ...(direction ? { direction } : {}),
@@ -484,11 +490,21 @@ export function DraftChat() {
     })
     // Always apply layout for AI drafts since all nodes start at (0,0)
     // This ensures proper positioning whether starting fresh or replacing an existing graph
-    try {
-      applyGuidedLayout()
-    } catch (error) {
-      console.error('[DraftChat] Guided layout failed after applying draft', error)
+    if (import.meta.env.DEV) {
+      console.log('[DraftChat] Applying ELK layout after draft insertion', {
+        addedNodes: nodes.length,
+        addedEdges: edges.length,
+        totalNodes: useCanvasStore.getState().nodes.length,
+        totalEdges: useCanvasStore.getState().edges.length,
+      })
     }
+    void applyLayout()
+      .then(() => {
+        setPendingFitView(true)
+      })
+      .catch((error) => {
+        console.error('[DraftChat] Layout failed after applying draft', error)
+      })
 
     // IMMEDIATE AUTOSAVE: Save right away so graph survives refresh before 30s interval
     // This eliminates the vulnerability window where AI drafts could be lost
@@ -512,7 +528,7 @@ export function DraftChat() {
 
     // P0: Auto-select goal node if exactly one goal exists
     // This enables immediate "Run Analysis" without manual selection
-    const goalNodes = nodes.filter(n => n.type === 'goal')
+    const goalNodes = nodes.filter((n: any) => n.type === 'goal')
     if (goalNodes.length === 1) {
       const { setOutcomeNode } = useCanvasStore.getState()
       setOutcomeNode(goalNodes[0].id)
@@ -520,7 +536,7 @@ export function DraftChat() {
         console.log('[DraftChat] Auto-selected goal node:', goalNodes[0].id)
       }
     } else if (goalNodes.length > 1 && import.meta.env.DEV) {
-      console.log('[DraftChat] Multiple goal nodes found, user must select:', goalNodes.map(n => n.id))
+      console.log('[DraftChat] Multiple goal nodes found, user must select:', goalNodes.map((n: any) => n.id))
     }
 
     // CEE V3: Store analysis_ready payload for V2 run if present
@@ -546,10 +562,10 @@ export function DraftChat() {
     }
 
     return {
-      nodeIds: nodes.map(n => n.id),
-      edgeIds: edges.map(e => e.id),
+      nodeIds: nodes.map((n: any) => n.id),
+      edgeIds: edges.map((e: any) => e.id),
     }
-  }, [pushHistory, applyGuidedLayout])
+  }, [pushHistory, applyLayout, setPendingFitView])
 
   // Remove the applied draft from canvas
   const removeDraftFromCanvas = useCallback(() => {
@@ -793,7 +809,7 @@ export function DraftChat() {
           {/* Draft preview - shown when draft is ready */}
           {draft && (
             <DraftPreview
-              draft={draft}
+              draft={draft as any}
               onAccept={handleAccept}
               onReject={handleReject}
               // Summary mode props for auto-apply flow

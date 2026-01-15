@@ -15,6 +15,7 @@ import type { V2RunResponse, V2OptionComparison, V2Driver, V2Critique, V2EdgeSen
 import type { ReportV1, CritiqueItemV1, ConfidenceLevel } from '../types'
 import type { DriversPayload, DriverItem } from '../../driversAdapter'
 import { recordDataShapeAnomaly } from '../../../lib/payload-trace-store'
+import { safeArray } from '../../../lib/array-utils'
 import type {
   CeeDecisionReviewPayloadV1,
   CeeTrace,
@@ -253,6 +254,15 @@ export function mapV2ResponseToReportV1(
     drivers_status: v2Response.drivers_status,
     // P0 Fix: Include drivers_payload for gating logic
     drivers_payload,
+    // P0 Fix: Pass through robustness object for UI display (fragile/robust edges).
+    // Uses safeArray() to handle truncated wrapper format { __truncated: true, items: [...] }
+    robustness: v2Response.robustness ? {
+      fragile_edges: safeArray(v2Response.robustness.fragile_edges),
+      robust_edges: safeArray(v2Response.robustness.robust_edges),
+      ranking_stability: v2Response.robustness.ranking_stability,
+    } : undefined,
+    // P0 Fix: Pass through robustness_status for gating logic
+    robustness_status: v2Response.robustness_status,
     run: {
       critique,
       bands: {
@@ -698,9 +708,10 @@ export function createEnrichmentFromV2Response(v2Response: V2RunResponse): {
   }
 
   // Extract V2 robustness data (fragile_edges/robust_edges)
+  // P0 Fix: Use safeArray to handle truncated wrapper format { __truncated: true, items: [...] }
   const robustness = v2Response.robustness
-  const fragileEdges = Array.isArray(robustness?.fragile_edges) ? robustness.fragile_edges : []
-  const robustEdges = Array.isArray(robustness?.robust_edges) ? robustness.robust_edges : []
+  const fragileEdges = safeArray(robustness?.fragile_edges)
+  const robustEdges = safeArray(robustness?.robust_edges)
   const hasRobustnessData = fragileEdges.length > 0 || robustEdges.length > 0
 
   // Derive overall robustness from edge counts

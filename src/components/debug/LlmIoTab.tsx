@@ -40,22 +40,59 @@ function isRequiredKind(kind: string): boolean {
 export function LlmIoTab({ trace }: { trace: unknown }) {
   const pipeline = useMemo(() => getPipeline(trace), [trace])
 
+  // Extract first LLM call for fallback data (CEE returns llm_calls[], not llm_metadata)
+  const firstLlmCall = pipeline?.llm_calls?.[0]
+
   const capabilities = useMemo(
     () => ({
-      llmMetadataAvailable: !!pipeline?.llm_metadata,
-      llmRawAvailable: !!pipeline?.llm_raw,
-      nodeExtractionAvailable: !!pipeline?.node_extraction,
+      llmMetadataAvailable: !!pipeline?.llm_metadata || !!firstLlmCall,
+      llmRawAvailable: !!pipeline?.llm_raw || !!firstLlmCall?.response,
+      nodeExtractionAvailable: !!pipeline?.node_extraction || !!pipeline?.final_graph,
       transformsAvailable: !!pipeline?.transforms,
-      tokenUsageAvailable: !!pipeline?.llm_metadata?.token_usage,
+      tokenUsageAvailable: !!(pipeline?.llm_metadata?.token_usage || firstLlmCall?.prompt_tokens || firstLlmCall?.completion_tokens),
     }),
-    [pipeline]
+    [pipeline, firstLlmCall]
   )
 
   const [promptOpen, setPromptOpen] = useState(false)
   const [rawOpen, setRawOpen] = useState(true)
 
-  const llmMetadata = pipeline?.llm_metadata
-  const llmRaw = pipeline?.llm_raw
+  // Prefer llm_metadata if present, fall back to llm_calls[0]
+  const llmMetadata = useMemo(() => {
+    if (pipeline?.llm_metadata) return pipeline.llm_metadata
+    if (!firstLlmCall) return undefined
+    return {
+      model: firstLlmCall.model,
+      temperature: undefined, // Not available in llm_calls
+      prompt_version: undefined, // Not available in llm_calls
+    }
+  }, [pipeline, firstLlmCall])
+
+  // Prefer llm_raw if present, fall back to llm_calls[0].request/response
+  const llmRaw = useMemo(() => {
+    if (pipeline?.llm_raw) return pipeline.llm_raw
+    if (!firstLlmCall) return undefined
+    return {
+      prompt_text: typeof firstLlmCall.request === 'string' ? firstLlmCall.request : undefined,
+      output_json: firstLlmCall.response,
+      output_text: typeof firstLlmCall.response === 'string' ? firstLlmCall.response : undefined,
+    }
+  }, [pipeline, firstLlmCall])
+
+  // Prefer llm_metadata.token_usage, fall back to llm_calls[0]
+  const tokenUsage = useMemo(() => {
+    if (pipeline?.llm_metadata?.token_usage) return pipeline.llm_metadata.token_usage
+    if (!firstLlmCall) return undefined
+    const promptTokens = firstLlmCall.prompt_tokens
+    const completionTokens = firstLlmCall.completion_tokens
+    if (promptTokens === undefined && completionTokens === undefined) return undefined
+    return {
+      prompt_tokens: promptTokens,
+      completion_tokens: completionTokens,
+      total_tokens: (promptTokens ?? 0) + (completionTokens ?? 0),
+    }
+  }, [pipeline, firstLlmCall])
+
   const nodeExtraction = pipeline?.node_extraction
 
   const rawCounts = useMemo(() => countKinds(nodeExtraction?.raw), [nodeExtraction])
@@ -73,7 +110,7 @@ export function LlmIoTab({ trace }: { trace: unknown }) {
   const model = llmMetadata?.model
   const promptVersion = llmMetadata?.prompt_version
   const temperature = llmMetadata?.temperature
-  const tokenUsage = llmMetadata?.token_usage
+  // tokenUsage is already defined via useMemo above with fallback to llm_calls[0]
 
   const durationMs = typeof pipeline?.total_duration_ms === 'number' ? pipeline.total_duration_ms : undefined
 

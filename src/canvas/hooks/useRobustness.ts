@@ -22,6 +22,7 @@ import {
   type PLoTResponseWithEnrichment,
 } from '../../adapters/plot/enrichment'
 import { useGateStore } from '../../lib/gate-state'
+import { safeArray } from '../../lib/array-utils'
 
 interface UseRobustnessOptions {
   /** Run ID to fetch robustness for (used for caching) */
@@ -162,10 +163,11 @@ export function useRobustness({
         // P0.1 Fix: Fallback to direct enrichment extraction when extractRobustnessFromEnrichment fails
         // This handles the case where enrichment exists but the complex extraction returns null
         // (e.g., due to type/shape mismatches between V2 enrichment and PLoT enrichment formats)
+        // P0 Fix: Use safeArray to handle truncated wrapper format { __truncated: true, items: [...] }
         const sa = enrichment.sensitivity_analysis
         if (sa) {
-          const fragileEdges = Array.isArray(sa.fragile_edges) ? sa.fragile_edges : []
-          const robustEdges = Array.isArray(sa.robust_edges) ? sa.robust_edges : []
+          const fragileEdges = safeArray(sa.fragile_edges)
+          const robustEdges = safeArray(sa.robust_edges)
           const hasRobustnessData = fragileEdges.length > 0 || robustEdges.length > 0
 
           if (hasRobustnessData) {

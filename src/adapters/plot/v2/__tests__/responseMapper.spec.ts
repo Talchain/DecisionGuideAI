@@ -785,6 +785,85 @@ describe('probability_of_goal and win_probability mapping', () => {
   })
 })
 
+// ============================================================================
+// P0 Fix: Robustness object passthrough tests
+// ============================================================================
+
+describe('robustness passthrough to report (P0 Fix)', () => {
+  it('includes robustness object in report when present', () => {
+    const v2Response = makeSuccessResponse({
+      robustness: {
+        fragile_edges: ['edge1::edge2', 'edge3::edge4'],
+        robust_edges: ['edge5::edge6'],
+      },
+      robustness_status: 'computed',
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    // P0 Fix: robustness object should be passed through
+    expect((report as any).robustness).toBeDefined()
+    expect((report as any).robustness.fragile_edges).toEqual(['edge1::edge2', 'edge3::edge4'])
+    expect((report as any).robustness.robust_edges).toEqual(['edge5::edge6'])
+  })
+
+  it('includes robustness_status in report when present', () => {
+    const v2Response = makeSuccessResponse({
+      robustness: { fragile_edges: [], robust_edges: ['edge1'] },
+      robustness_status: 'computed',
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    // P0 Fix: robustness_status should be passed through
+    expect((report as any).robustness_status).toBe('computed')
+  })
+
+  it('sets robustness to undefined when absent in V2 response', () => {
+    const v2Response = makeSuccessResponse({
+      robustness: undefined,
+      robustness_status: 'unavailable',
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect((report as any).robustness).toBeUndefined()
+    expect((report as any).robustness_status).toBe('unavailable')
+  })
+
+  it('handles truncated array wrapper format for fragile_edges', () => {
+    // P0 Fix: safeArray handles { __truncated: true, items: [...] } format
+    const v2Response = makeSuccessResponse({
+      robustness: {
+        fragile_edges: { __truncated: true, items: ['edge1', 'edge2'], totalCount: 10 } as unknown as string[],
+        robust_edges: ['edge3'],
+      },
+      robustness_status: 'computed',
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    // safeArray should unwrap the truncated format
+    expect((report as any).robustness.fragile_edges).toEqual(['edge1', 'edge2'])
+    expect((report as any).robustness.robust_edges).toEqual(['edge3'])
+  })
+
+  it('includes ranking_stability when present', () => {
+    const v2Response = makeSuccessResponse({
+      robustness: {
+        fragile_edges: [],
+        robust_edges: ['edge1'],
+        ranking_stability: 0.85,
+      } as any,
+      robustness_status: 'computed',
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    expect((report as any).robustness.ranking_stability).toBe(0.85)
+  })
+})
+
 describe('createEnrichmentFromV2Response - P0 Fix: Robustness with empty edge_sensitivity', () => {
   it('returns enrichment when robustness has fragile_edges but edge_sensitivity is empty', () => {
     const v2Response = makeSuccessResponse({

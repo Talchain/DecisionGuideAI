@@ -231,6 +231,12 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
       const effectDirRaw = (e as any).effect_direction
       const effect_direction = effectDirRaw === 'positive' || effectDirRaw === 'negative' ? effectDirRaw : undefined
 
+      // P0 Fix: belief_exists - structural certainty (0-1), distinct from parametric belief
+      // CEE returns belief_exists separately from belief; canvas needs it for PLoT exists_probability
+      const beliefExistsRaw = (e as any).belief_exists
+      const belief_exists =
+        typeof beliefExistsRaw === 'number' ? Math.max(0, Math.min(1, beliefExistsRaw)) : undefined
+
       return {
         ...(id && { id }),
         from,
@@ -243,6 +249,8 @@ export function adaptDraftResponse(raw: any): CEEDraftResponse {
         ...(strength_mean !== undefined && { strength_mean }),
         ...(strength_std !== undefined && { strength_std }),
         ...(effect_direction !== undefined && { effect_direction }),
+        // P0 Fix: Include belief_exists for PLoT exists_probability
+        ...(belief_exists !== undefined && { belief_exists }),
       }
     })
     .filter((edge): edge is CEEDraftResponse['edges'][number] => edge !== null)

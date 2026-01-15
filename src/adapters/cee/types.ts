@@ -54,6 +54,8 @@ export interface CEEv2Edge {
   belief: number
   effect_direction: EffectDirection
   strength_std?: number  // Issue 6 fix: Made optional (CEE may not always provide)
+  strength_mean?: number // P0 Fix: CEE may provide separate strength mean
+  belief_exists?: number // P0 Fix: Structural certainty (0-1), distinct from parametric belief
   provenance?: string | { source: string; quote: string; location?: string }
   provenance_source?: 'document' | 'metric' | 'hypothesis' | 'engine'
 }

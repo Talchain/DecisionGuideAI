@@ -13,6 +13,7 @@
  */
 
 import { useMemo } from 'react'
+import { safeArray } from '../../lib/array-utils'
 import { useCanvasStore } from '../../canvas/store'
 import { useShallow } from 'zustand/react/shallow'
 import { findNodeMatches, type Driver } from '../../canvas/utils/driverMatching'
@@ -213,8 +214,15 @@ function getEdgeTargetKey(edge: EdgeForDirection): string | undefined {
 }
 
 /**
- * Derive factor direction from edges.
- * Priority: direct edge to goal > edge to any outcome > factor-level direction
+ * Derive factor direction from API response, with canvas edges as fallback.
+ *
+ * Priority (P0 Fix):
+ *   1. API factor_sensitivity.direction — authoritative from analysis engine
+ *   2. Canvas edge to goal — fallback when API direction unavailable
+ *   3. Canvas edge to any outcome — secondary fallback
+ *
+ * This ensures the API's computed direction (which accounts for actual model
+ * sensitivity analysis) takes precedence over static canvas edge metadata.
  */
 function getFactorDirection(
   factorKey: string,
@@ -223,7 +231,14 @@ function getFactorDirection(
   outcomeNodeIds: string[],
   factorDirection?: string
 ): DriverDirection | undefined {
-  // 1. Direct edge to goal
+  // 1. API factor_sensitivity.direction (PRIMARY SOURCE)
+  // The analysis engine computes direction based on sensitivity analysis,
+  // which is more accurate than static canvas edge metadata.
+  if (factorDirection) {
+    return normaliseDirection(factorDirection)
+  }
+
+  // 2. Canvas edge to goal (FALLBACK when API direction unavailable)
   if (goalNodeId) {
     const goalEdge = edges.find(
       e => getEdgeSourceKey(e) === factorKey && getEdgeTargetKey(e) === goalNodeId
@@ -233,18 +248,13 @@ function getFactorDirection(
     }
   }
 
-  // 2. Edge to any outcome (deterministic: sort by target ID, take first)
+  // 3. Canvas edge to any outcome (deterministic: sort by target ID, take first)
   const outcomeEdges = edges
     .filter(e => getEdgeSourceKey(e) === factorKey && outcomeNodeIds.includes(getEdgeTargetKey(e) ?? ''))
     .sort((a, b) => (getEdgeTargetKey(a) ?? '').localeCompare(getEdgeTargetKey(b) ?? ''))
 
   if (outcomeEdges.length > 0) {
     return normaliseDirection(outcomeEdges[0].effect_direction ?? outcomeEdges[0].direction)
-  }
-
-  // 3. Factor-level direction (if exists)
-  if (factorDirection) {
-    return normaliseDirection(factorDirection)
   }
 
   // 4. No direction available
@@ -568,9 +578,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const optionOutcome = prob.outcome ?? {}
 
       // Extract expected value (mean) with fallback chain
-      // Priority: prob.expected > outcome.mean > bands > goal_probability
+      // Priority: expected_outcome (V2 field) > expected > outcome.mean > bands > goal_probability
+      // P0 Fix: Add expected_outcome to catch unmapped V2 responses
       const rawExpected =
-        prob.expected ?? optionOutcome.mean ??
+        prob.expected_outcome ?? prob.expected ?? optionOutcome.mean ??
         optionBands.p50 ?? prob.goal_probability
 
       // Extract percentiles (p10/p50/p90) — p50 is true median, NOT expected
@@ -875,7 +886,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Add sensitive assumptions from robustness analysis (formerly "fragile edges")
     // Filter to only show high-risk fragile edges (switch_probability < 0.3)
-    const sensitiveAssumptions = ((report as any)?.robustness?.fragile_edges || [])
+    // P0 Fix: Use safeArray to handle truncated wrapper format
+    const sensitiveAssumptions = safeArray((report as any)?.robustness?.fragile_edges)
       .filter((fe: any) => {
         // If switch_probability exists, only show high-risk edges (< 0.3 means likely to flip)
         if (typeof fe.switch_probability === 'number') {
@@ -949,10 +961,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const analysisStatus = (report as any)?.analysis_state === 'partial' ? 'partial' : 'computed'
     const driversStatus = (report as any)?.drivers_status ?? 'computed'
     // Check for robustness data: fragile_edges or robust_edges indicates computed
+    // P0 Fix: Use safeArray to handle truncated wrapper format { __truncated: true, items: [...] }
     const robustness = (report as any)?.robustness
     const hasRobustnessData = robustness && (
-      Array.isArray(robustness.fragile_edges) ||
-      Array.isArray(robustness.robust_edges) ||
+      safeArray(robustness.fragile_edges).length > 0 ||
+      safeArray(robustness.robust_edges).length > 0 ||
       robustness.ranking_stability !== undefined
     )
     const robustnessStatus = hasRobustnessData ? 'computed' : 'unavailable'
