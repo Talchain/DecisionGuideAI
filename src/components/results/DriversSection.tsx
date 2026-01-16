@@ -1,46 +1,86 @@
 /**
- * DriversSection Component
+ * DriversSection Component - Redesigned
  *
- * Displays key factors influencing the decision outcome.
- * Part of the Results Panel redesign - "coaching over gates" approach.
+ * "What's Influencing This" panel with column-based layout.
  *
  * Features:
- * - Title: "What's influencing this" with microcopy
- * - Semantic labels: Biggest factor (rank 1), Strong/Moderate/Minor (threshold)
- * - Relative influence percentage (dynamic normalisation, max 100%)
- * - Direction arrows (positive/negative) or "Affects your goal" when unknown
- * - Expandable rows with raw elasticity and rank details
- * - Click-to-focus on canvas (gracefully disabled when no match)
+ * - Panel title at top, separate from grid
+ * - Column headers: "Influence" and "Confidence" (right-aligned above bars)
+ * - Direction arrows with matching bar colors (↘ orange, ↗ green)
+ * - Two bars per row (Influence + Confidence)
+ * - Factor names can wrap, bars stay aligned
+ * - Expanded view with contextual insights
+ * - ISL unavailable error state with retry
  */
 
-import { useState, useCallback } from 'react'
-import type { DriversSectionData, DriverItem, DriverSemanticLabel } from './types'
+import { useState, useCallback, useEffect } from 'react'
+import type { DriversSectionData, DriverItem } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 
 interface DriversSectionProps {
   data: DriversSectionData
   onFocusNode?: (nodeId: string) => void
+  onRetry?: () => void
 }
 
-const SEMANTIC_LABELS: Record<DriverSemanticLabel, { label: string; color: string }> = {
-  biggest: { label: 'Biggest factor', color: 'text-violet-700' },
-  strong: { label: 'Strong influence', color: 'text-blue-700' },
-  moderate: { label: 'Moderate influence', color: 'text-slate-600' },
-  minor: { label: 'Minor influence', color: 'text-slate-400' },
+// Bar colors (hex values as specified)
+const BAR_COLORS = {
+  green: '#10B981',   // Positive direction
+  orange: '#F97316',  // Negative direction
+  blue: '#3B82F6',    // Confidence (always)
+  neutral: '#94A3B8', // slate-400, for unknown direction (Fix 4)
 }
 
-/**
- * Direction-only row for when no magnitude data is available.
- * Shows direction arrow and "Affects your goal" instead of bars/percentages.
- */
-function DirectionOnlyRow({
+// Grid columns constant - shared between header and rows to avoid alignment drift
+const GRID_COLS = 'grid-cols-[minmax(140px,1fr)_90px_90px]'
+
+// Progress bar component with inline styles for precise colors
+function ProgressBar({
+  value,
+  color,
+  'aria-label': ariaLabel,
+}: {
+  value: number
+  color: 'green' | 'orange' | 'blue' | 'neutral'
+  'aria-label': string
+}) {
+  // Fix 3: Clamp value to [0,1] range before converting to percent
+  const clampedValue = Math.max(0, Math.min(1, value))
+  const percent = Math.round(clampedValue * 100)
+
+  return (
+    <div className="flex items-center gap-2 w-full">
+      <div
+        className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden"
+        role="progressbar"
+        aria-valuenow={percent}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={ariaLabel}
+      >
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${percent}%`, backgroundColor: BAR_COLORS[color] }}
+        />
+      </div>
+      <span className="text-xs text-slate-600 font-mono w-8 text-right">
+        {percent}%
+      </span>
+    </div>
+  )
+}
+
+// Expanded row details
+function ExpandedDetails({
   driver,
+  totalCount,
   onFocus,
 }: {
   driver: DriverItem
+  totalCount: number
   onFocus?: (nodeId: string) => void
 }) {
-  const handleClick = useCallback(() => {
+  const handleFocusClick = useCallback(() => {
     if (driver.canFocus) {
       const nodeId = driver.matchedNodeId ?? driver.factorKey
       if (onFocus) {
@@ -51,41 +91,33 @@ function DirectionOnlyRow({
     }
   }, [driver.canFocus, driver.matchedNodeId, driver.factorKey, onFocus])
 
-  // Direction display
-  const directionIcon = driver.direction === 'positive' ? '↗' : driver.direction === 'negative' ? '↘' : '→'
-  const directionColor = driver.direction === 'positive'
-    ? 'text-emerald-600'
-    : driver.direction === 'negative'
-      ? 'text-amber-600'
-      : 'text-slate-400'
-  const directionText = driver.direction === 'positive'
-    ? 'Increases your goal'
-    : driver.direction === 'negative'
-      ? 'Decreases your goal'
-      : 'Affects your goal'
+  // Generate contextual insight copy
+  const elasticityInsight = driver.rawElasticity > 0.001
+    ? `A 10% change here shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
+    : 'This factor affects your goal'
+
+  const flipRisk = driver.fragileEdgeInfo?.switchProbability !== undefined
+    ? `${Math.round((1 - driver.fragileEdgeInfo.switchProbability) * 100)}% chance this could flip to "${driver.fragileEdgeInfo.alternativeWinnerLabel ?? 'another option'}"`
+    : null
 
   return (
-    <div
-      className={`
-        rounded-lg bg-slate-50 border border-slate-200 p-3 flex items-center justify-between
-        ${driver.canFocus ? 'hover:bg-slate-100 cursor-pointer' : ''}
-      `}
-      onClick={driver.canFocus ? handleClick : undefined}
-      title={driver.canFocus ? `Click to focus ${driver.factorLabel} on canvas` : undefined}
-    >
-      <div className="flex items-center gap-2">
-        <span className={`text-sm ${directionColor}`}>{directionIcon}</span>
-        <span className="font-medium text-sm text-slate-800">
-          {driver.factorLabel}
-        </span>
-      </div>
-      <span className={`text-xs ${directionColor}`}>
-        {directionText}
-      </span>
+    <div className="px-4 pb-3 pt-1 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-600 space-y-1.5">
+      <p>{elasticityInsight}</p>
+      {flipRisk && <p>{flipRisk}</p>}
+
+      {driver.canFocus && (
+        <button
+          onClick={handleFocusClick}
+          className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 mt-2"
+        >
+          Focus on canvas <span aria-hidden="true">→</span>
+        </button>
+      )}
     </div>
   )
 }
 
+// Individual driver row
 function DriverRow({
   driver,
   isExpanded,
@@ -99,111 +131,96 @@ function DriverRow({
   onFocus?: (nodeId: string) => void
   totalCount: number
 }) {
-  const handleClick = useCallback(() => {
-    if (driver.canFocus) {
-      const nodeId = driver.matchedNodeId ?? driver.factorKey
-      if (onFocus) {
-        onFocus(nodeId)
-      } else {
-        focusNodeById(nodeId)
-      }
-    }
-  }, [driver.canFocus, driver.matchedNodeId, driver.factorKey, onFocus])
-
-  const semanticInfo = SEMANTIC_LABELS[driver.semanticLabel]
-  const influencePercent = Math.round(driver.normalisedInfluence * 100)
-  const barWidth = influencePercent
-
-  // Direction display
-  const hasDirection = driver.direction !== undefined
+  // Direction styling - arrow color matches bar color
+  // Fix 4: Use neutral color when direction is unknown (not orange which implies negative)
   const directionIcon = driver.direction === 'positive' ? '↗' : driver.direction === 'negative' ? '↘' : ''
   const directionColor = driver.direction === 'positive'
-    ? 'text-emerald-600'
+    ? BAR_COLORS.green
     : driver.direction === 'negative'
-      ? 'text-amber-600'
-      : 'text-slate-400'
-  const directionText = driver.direction === 'positive'
-    ? 'Positive — increasing this improves your goal'
+      ? BAR_COLORS.orange
+      : BAR_COLORS.neutral
+  const barColor: 'green' | 'orange' | 'neutral' = driver.direction === 'positive'
+    ? 'green'
     : driver.direction === 'negative'
-      ? 'Negative — increasing this reduces your goal'
-      : 'Affects your goal'
+      ? 'orange'
+      : 'neutral'
 
-  // Bar color based on direction
-  const barColor = driver.direction === 'positive'
-    ? 'bg-emerald-500'
-    : driver.direction === 'negative'
-      ? 'bg-amber-500'
-      : 'bg-violet-500'
+  // Confidence value (default to 0.7 if not available, matching DEFAULT_EDGE_DATA)
+  const confidenceValue = driver.confidence ?? 0.7
 
   return (
-    <div className="rounded-lg bg-slate-50 border border-slate-200 overflow-hidden">
-      {/* Main row - always visible */}
+    <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
       <button
         onClick={onToggleExpand}
-        className="w-full text-left p-3 hover:bg-slate-100 transition-colors"
-        title="Click to expand for details"
+        className="w-full text-left hover:bg-slate-50 transition-colors"
         aria-expanded={isExpanded}
       >
-        {/* Top line: Chevron + Label + Direction + Semantic label */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            {/* Expand/collapse chevron */}
-            <span className={`text-slate-400 text-xs transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+        {/* Grid layout: Factor name (flexible min-140px) | Influence bar (90px) | Confidence bar (90px) */}
+        <div className={`grid ${GRID_COLS} gap-3 items-center p-3`}>
+          {/* Factor name with chevron and direction arrow */}
+          <div className="flex items-start gap-1.5 min-w-0">
+            {/* Expand chevron */}
+            <span
+              className={`text-slate-400 text-xs transition-transform mt-0.5 flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
+              aria-hidden="true"
+            >
               ▶
             </span>
-            {hasDirection && (
-              <span className={`text-sm ${directionColor}`}>{directionIcon}</span>
+            {/* Direction arrow with matching color */}
+            {directionIcon && (
+              <span className="text-sm flex-shrink-0" style={{ color: directionColor }} aria-hidden="true">
+                {directionIcon}
+              </span>
             )}
-            <span className="font-medium text-sm text-slate-800">
+            {/* Label - can wrap to multiple lines */}
+            <span className="font-medium text-sm text-slate-800 break-words leading-snug">
               {driver.factorLabel}
             </span>
           </div>
-          <span className={`text-xs font-medium ${semanticInfo.color}`}>
-            {semanticInfo.label}
-          </span>
-        </div>
 
-        {/* Influence bar + percentage */}
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all ${barColor}`}
-              style={{ width: `${barWidth}%` }}
-            />
-          </div>
-          <span className="text-xs text-slate-500 w-16 text-right">
-            {influencePercent}%
-          </span>
+          {/* Influence bar - color matches direction */}
+          <ProgressBar
+            value={driver.normalisedInfluence}
+            color={barColor}
+            aria-label={`${driver.factorLabel} influence: ${Math.round(driver.normalisedInfluence * 100)}%`}
+          />
+
+          {/* Confidence bar - always blue */}
+          <ProgressBar
+            value={confidenceValue}
+            color="blue"
+            aria-label={`${driver.factorLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
+          />
         </div>
       </button>
 
       {/* Expanded details */}
       {isExpanded && (
-        <div className="px-3 pb-3 pt-1 border-t border-slate-200 bg-slate-100/50">
-          <div className="space-y-2 text-xs text-slate-600">
-            <div className="flex justify-between">
-              <span>Raw elasticity:</span>
-              <span className="font-mono">
-                {driver.rawElasticity.toFixed(2)} (rank #{driver.rank} of {totalCount})
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span>Direction:</span>
-              <span>{directionText}</span>
-            </div>
-          </div>
+        <ExpandedDetails
+          driver={driver}
+          totalCount={totalCount}
+          onFocus={onFocus}
+        />
+      )}
+    </div>
+  )
+}
 
-          {/* Focus button */}
-          {driver.canFocus && (
-            <button
-              onClick={handleClick}
-              className="mt-3 text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
-            >
-              <span>Focus on canvas</span>
-              <span>→</span>
-            </button>
-          )}
-        </div>
+// Error state component
+function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
+      <p className="text-sm text-amber-800 font-medium mb-2">
+        Unable to calculate factor influence — service unavailable
+      </p>
+      <p className="text-xs text-amber-600 mb-3">{message}</p>
+      {onRetry && (
+        <button
+          onClick={onRetry}
+          className="px-4 py-1.5 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded hover:bg-amber-50 transition-colors"
+        >
+          Retry
+        </button>
       )}
     </div>
   )
@@ -212,10 +229,45 @@ function DriverRow({
 export function DriversSection({
   data,
   onFocusNode,
+  onRetry,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
-  const { drivers, driversStatus, topDrivers, totalCount, hasMagnitudeData } = data
+  const { drivers, driversStatus, topDrivers, totalCount, hasMagnitudeData, islError } = data
+
+  // Diagnostic logging for data issues
+  // Fix 3: Guard window access for SSR, Fix 5: Gate behind debug toggle
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG && drivers.length > 0) {
+      console.log('[DriversSection] Data diagnostic:', {
+        driverCount: drivers.length,
+        driversStatus,
+        hasMagnitudeData,
+        islError,
+        drivers: drivers.map(d => ({
+          label: d.factorLabel,
+          rawElasticity: d.rawElasticity,
+          normalisedInfluence: d.normalisedInfluence,
+          confidence: d.confidence,
+          direction: d.direction,
+        })),
+      })
+
+      // Check for data issues
+      const driversWithZeroInfluence = drivers.filter(d => d.normalisedInfluence === 0)
+      const driversWithDefaultConfidence = drivers.filter(d => d.confidence === undefined)
+
+      if (driversWithZeroInfluence.length > 0) {
+        console.warn('[DriversSection] Drivers with 0% influence:', driversWithZeroInfluence.map(d => d.factorLabel))
+        console.warn('[DriversSection] Check if factor_sensitivity.elasticity is being returned from PLoT')
+      }
+
+      if (driversWithDefaultConfidence.length > 0) {
+        console.warn('[DriversSection] Drivers missing confidence (using 70% default):', driversWithDefaultConfidence.map(d => d.factorLabel))
+        console.warn('[DriversSection] Check if edge beliefExists is set for factor->goal edges')
+      }
+    }
+  }, [drivers, driversStatus, hasMagnitudeData, islError])
 
   const toggleExpand = useCallback((key: string) => {
     setExpandedKeys(prev => {
@@ -229,7 +281,12 @@ export function DriversSection({
     })
   }, [])
 
-  // Unavailable state - header rendered by parent panel
+  // ISL error state - no mock data, clear error message
+  if (islError) {
+    return <ErrorState message={islError} onRetry={onRetry} />
+  }
+
+  // Unavailable state
   if (driversStatus !== 'computed') {
     return (
       <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
@@ -240,7 +297,7 @@ export function DriversSection({
     )
   }
 
-  // No drivers - header rendered by parent panel
+  // No drivers
   if (drivers.length === 0) {
     return (
       <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
@@ -254,47 +311,19 @@ export function DriversSection({
   const displayDrivers = showAll ? drivers : topDrivers
   const hiddenCount = drivers.length - topDrivers.length
 
-  // Direction-only fallback when no magnitude data available
-  if (!hasMagnitudeData) {
-    return (
-      <div className="space-y-3">
-        {/* Microcopy for direction-only view */}
-        <p className="text-xs text-slate-500">
-          These factors affect your goal. Add more detail for relative influence.
-        </p>
-
-        {/* Direction-only rows (no bars, no semantic labels) */}
-        <div className="space-y-2">
-          {displayDrivers.map((driver) => (
-            <DirectionOnlyRow
-              key={driver.factorKey}
-              driver={driver}
-              onFocus={onFocusNode}
-            />
-          ))}
-        </div>
-
-        {/* Expand/collapse */}
-        {hiddenCount > 0 && (
-          <button
-            onClick={() => setShowAll(!showAll)}
-            className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-          >
-            {showAll ? 'Show fewer factors' : `See all factors (+${hiddenCount} more)`}
-          </button>
-        )}
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-3">
-      {/* Microcopy - header is rendered by parent panel */}
-      <p className="text-xs text-slate-500">
-        Relative influence compares factors within this model (top factor = 100%).
-      </p>
+      {/* Column headers - right-aligned above bars only */}
+      {/* NOTE: Panel title rendered by parent (OutputsDock section header) */}
+      <div className={`grid ${GRID_COLS} gap-3 px-3`}>
+        {/* Empty cell for factor name column */}
+        <div />
+        {/* Right-aligned headers over bar columns */}
+        <div className="text-xs font-medium text-slate-500 text-right pr-6">Influence</div>
+        <div className="text-xs font-medium text-slate-500 text-right pr-6">Confidence</div>
+      </div>
 
-      {/* Driver rows with magnitude bars */}
+      {/* Driver rows */}
       <div className="space-y-2">
         {displayDrivers.map((driver) => (
           <DriverRow

@@ -1,23 +1,25 @@
 /**
  * DebugPanelV2 Component
  *
- * Restructured 4-tab debug panel layout:
+ * Restructured 5-tab debug panel layout:
  * - Summary: At-a-glance health check
  * - Data Flow: Service chain tracing
  * - Pipeline: CEE internal processing stages
  * - Captured: Recorded payloads (redacted at capture time)
+ * - Payload Lab: Interactive testing for CEE drafts and ISL payloads
  */
 
 import { useState, useCallback, CSSProperties } from 'react'
 import { useDebugData } from './hooks/useDebugData'
 import { SummaryTab, DataFlowTab, PipelineTab, RawTab } from './tabs'
+import { PayloadLabTab } from './PayloadLabTab'
 import { exportDebugBundle, copyRequestId } from './utils/exportBundle'
 
 // =============================================================================
 // Types
 // =============================================================================
 
-type V2Tab = 'summary' | 'data-flow' | 'pipeline' | 'raw'
+type V2Tab = 'summary' | 'data-flow' | 'pipeline' | 'raw' | 'payload-lab'
 
 interface TabConfig {
   id: V2Tab
@@ -29,6 +31,7 @@ const V2_TABS: TabConfig[] = [
   { id: 'data-flow', label: 'Data Flow' },
   { id: 'pipeline', label: 'Pipeline' },
   { id: 'raw', label: 'Captured' },
+  { id: 'payload-lab', label: 'Payload Lab' },
 ]
 
 // =============================================================================
@@ -253,6 +256,7 @@ export function DebugPanelV2({ onClose, width, height }: DebugPanelV2Props) {
         {activeTab === 'data-flow' && <DataFlowTab data={data} />}
         {activeTab === 'pipeline' && <PipelineTab data={data} />}
         {activeTab === 'raw' && <RawTab data={data} />}
+        {activeTab === 'payload-lab' && <PayloadLabTab />}
       </div>
     </div>
   )

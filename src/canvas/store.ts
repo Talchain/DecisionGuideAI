@@ -1313,6 +1313,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const { nodes: layoutedNodes } = await layoutGraph(nodes, edges, {
         direction: layoutOptions.direction,
         spacing: layoutOptions.nodeSpacing,
+        layerSpacing: layoutOptions.layerSpacing,
         preserveLocked: layoutOptions.respectLocked
       })
       

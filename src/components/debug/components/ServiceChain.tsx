@@ -37,8 +37,8 @@ const STATUS_COLORS: Record<ChainNodeStatus, { bg: string; border: string; text:
 
 function formatDuration(ms: number | null): string {
   if (ms === null || ms === undefined) return '—'
-  if (ms < 1000) return `${ms}ms`
-  return `${(ms / 1000).toFixed(1)}s`
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  return `${(ms / 1000).toFixed(2)}s`
 }
 
 function ChainNodeBox({ node }: { node: ChainNode }) {

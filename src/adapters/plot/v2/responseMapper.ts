@@ -33,7 +33,7 @@ import type {
  * Anomaly type for tracking inconsistent backend responses.
  */
 export interface ComputedButEmptyAnomaly {
-  field: 'option_comparison' | 'robustness' | 'edge_sensitivity' | 'factor_sensitivity'
+  field: 'option_comparison' | 'robustness' | 'factor_sensitivity'
   status: string
   message: string
 }
@@ -71,19 +71,15 @@ export function detectComputedButEmpty(v2Response: V2RunResponse): ComputedButEm
     }
   }
 
-  // Check drivers (edge_sensitivity OR factor_sensitivity)
-  // P0 Fix: PLoT contract says drivers_status === 'computed' when EITHER has data
-  // Only fire critique when status says computed but BOTH arrays are empty (genuine violation)
+  // Check drivers (factor_sensitivity only - edge_sensitivity is not in V2 response)
   // When drivers_status === 'unavailable', no critique is fired (trust PLoT's status)
   if (v2Response.drivers_status === 'computed') {
-    const hasEdgeSensitivity = v2Response.edge_sensitivity && v2Response.edge_sensitivity.length > 0
     const hasFactorSensitivity = v2Response.factor_sensitivity && v2Response.factor_sensitivity.length > 0
-    const isEmpty = !hasEdgeSensitivity && !hasFactorSensitivity
-    if (isEmpty) {
+    if (!hasFactorSensitivity) {
       anomalies.push({
-        field: 'edge_sensitivity',
+        field: 'factor_sensitivity',
         status: 'computed',
-        message: 'Drivers status is "computed" but both edge_sensitivity and factor_sensitivity arrays are empty',
+        message: 'Drivers status is "computed" but factor_sensitivity array is empty',
       })
     }
   }
@@ -116,6 +112,58 @@ function isInternalImplementationWarning(message: string): boolean {
   }
 
   return false
+}
+
+/**
+ * Pick the best source for factor sensitivity data.
+ *
+ * Priority:
+ * 1. enrichment.sensitivity_analysis.factors (from ISL deep mode - has real sensitivity_score)
+ * 2. v2Response.factor_sensitivity (top-level - may only have importance_score placeholders)
+ *
+ * The enrichment path has real sensitivity data computed by ISL, while the top-level
+ * factor_sensitivity may only have importance_score=0 placeholders.
+ */
+function pickFactorSensitivityForUi(v2Response: V2RunResponse): V2FactorSensitivity[] {
+  // Check for enrichment path first (from ISL deep mode)
+  const enrichment = (v2Response as any)?.enrichment
+  const enrichmentFactors = enrichment?.sensitivity_analysis?.factors
+
+  if (Array.isArray(enrichmentFactors) && enrichmentFactors.length > 0) {
+    // Check if enrichment factors have real sensitivity data (not just placeholders)
+    const hasRealData = enrichmentFactors.some((f: any) =>
+      typeof f.sensitivity_score === 'number' && f.sensitivity_score > 0.001
+    )
+
+    if (hasRealData) {
+      // Convert enrichment format to V2FactorSensitivity
+      if (import.meta.env.DEV) {
+        console.log('[pickFactorSensitivityForUi] Using enrichment factors:', {
+          count: enrichmentFactors.length,
+          sample: enrichmentFactors[0],
+        })
+      }
+
+      return enrichmentFactors.map((f: any): V2FactorSensitivity => ({
+        factor_id: f.factor_id,
+        node_id: f.factor_id,  // Alias for compatibility
+        sensitivity_score: f.sensitivity_score,
+        direction: f.direction === 'negative' ? 'negative' : 'positive',
+        confidence: f.confidence,
+      }))
+    }
+  }
+
+  // Fall back to top-level factor_sensitivity
+  const topLevel = v2Response.factor_sensitivity
+  if (import.meta.env.DEV && Array.isArray(topLevel) && topLevel.length > 0) {
+    console.log('[pickFactorSensitivityForUi] Using top-level factor_sensitivity:', {
+      count: topLevel.length,
+      sample: topLevel[0],
+    })
+  }
+
+  return Array.isArray(topLevel) ? topLevel : []
 }
 
 /**
@@ -254,6 +302,12 @@ export function mapV2ResponseToReportV1(
     drivers_status: v2Response.drivers_status,
     // P0 Fix: Include drivers_payload for gating logic
     drivers_payload,
+    // P0 Fix: Pass through factor_sensitivity for useResultsSectionData influence bars
+    // Without this, UI reads empty array and displays 0% influence for all factors
+    // P0 Fix: Use pickFactorSensitivityForUi to select the best data source
+    // Enrichment path (from ISL deep mode) has real sensitivity_score values
+    // Top-level factor_sensitivity may only have importance_score placeholders
+    factor_sensitivity: pickFactorSensitivityForUi(v2Response),
     // P0 Fix: Pass through robustness object for UI display (fragile/robust edges).
     // Uses safeArray() to handle truncated wrapper format { __truncated: true, items: [...] }
     robustness: v2Response.robustness ? {
@@ -407,9 +461,9 @@ function mapCritiqueSeverity(severity: 'blocker' | 'warning' | 'info'): 'BLOCKER
  * - OR v2Response.drivers has data
  */
 function createDriversPayloadFromV2(v2Response: V2RunResponse): DriversPayload | undefined {
-  // Check if we have factor_sensitivity data
-  const hasFactorSensitivity = Array.isArray(v2Response.factor_sensitivity) &&
-    v2Response.factor_sensitivity.length > 0
+  // P0 Fix: Use pickFactorSensitivityForUi to get best data source (enrichment or top-level)
+  const factorSensitivity = pickFactorSensitivityForUi(v2Response)
+  const hasFactorSensitivity = factorSensitivity.length > 0
 
   // Check if we have drivers data (backward compatibility)
   const hasDrivers = Array.isArray(v2Response.drivers) &&
@@ -433,17 +487,24 @@ function createDriversPayloadFromV2(v2Response: V2RunResponse): DriversPayload |
   const driverItems: DriverItem[] = []
 
   if (hasFactorSensitivity) {
-    for (const factor of v2Response.factor_sensitivity!) {
+    for (const factor of factorSensitivity) {
       if (!factor || typeof factor !== 'object') continue
 
       const factorId = safeString(factor.factor_id) ?? safeString(factor.node_id) ?? ''
       if (!factorId) continue
 
+      // P0 Fix: Also check importance_score (PLoT v2 may use this field)
+      const sensitivityValue = safeNumber(factor.sensitivity_score) ??
+        safeNumber(factor.elasticity) ??
+        safeNumber(factor.sensitivity) ??
+        safeNumber((factor as any).importance_score) ??
+        undefined
+
       driverItems.push({
         id: factorId,
         kind: 'node',
         label: formatNodeName(factorId),
-        sensitivity_score: safeNumber(factor.sensitivity_score) ?? safeNumber(factor.elasticity) ?? safeNumber(factor.sensitivity) ?? undefined,
+        sensitivity_score: sensitivityValue,
       })
     }
   } else if (hasDrivers) {
@@ -540,9 +601,9 @@ function mapDriversFromResponse(v2Response: V2RunResponse): ReportV1['drivers'] 
     if (aRank !== null && bRank !== null) {
       return aRank - bRank
     }
-    // Fall back to absolute sensitivity/elasticity
-    const aVal = Math.abs(safeNumber(a.elasticity) ?? safeNumber(a.sensitivity) ?? 0)
-    const bVal = Math.abs(safeNumber(b.elasticity) ?? safeNumber(b.sensitivity) ?? 0)
+    // Fall back to absolute sensitivity/elasticity (P0 Fix: include sensitivity_score and importance_score)
+    const aVal = Math.abs(safeNumber(a.sensitivity_score) ?? safeNumber(a.elasticity) ?? safeNumber(a.sensitivity) ?? safeNumber(a.importance_score) ?? 0)
+    const bVal = Math.abs(safeNumber(b.sensitivity_score) ?? safeNumber(b.elasticity) ?? safeNumber(b.sensitivity) ?? safeNumber(b.importance_score) ?? 0)
     return bVal - aVal // Higher sensitivity first
   })
 
@@ -551,8 +612,9 @@ function mapDriversFromResponse(v2Response: V2RunResponse): ReportV1['drivers'] 
     const factorId = safeString(factor.factor_id) ?? safeString(factor.node_id) ?? ''
 
     // Determine polarity from direction or sensitivity sign
+    // P0 Fix: Also check importance_score (PLoT v2 may use this field)
     const direction = factor.direction
-    const sensitivityVal = safeNumber(factor.sensitivity_score) ?? safeNumber(factor.sensitivity) ?? safeNumber(factor.elasticity) ?? 0
+    const sensitivityVal = safeNumber(factor.sensitivity_score) ?? safeNumber(factor.sensitivity) ?? safeNumber(factor.elasticity) ?? safeNumber(factor.importance_score) ?? 0
     const polarity = direction === 'negative'
       ? 'down' as const
       : direction === 'positive'
@@ -562,9 +624,10 @@ function mapDriversFromResponse(v2Response: V2RunResponse): ReportV1['drivers'] 
           : 'down' as const
 
     // Use elasticity if available, otherwise sensitivity
-    // Priority: sensitivity_score (PLoT v2) > elasticity > sensitivity > null (missing data)
+    // Priority: sensitivity_score (PLoT v2) > elasticity > sensitivity > importance_score > null
+    // P0 Fix: Added importance_score since PLoT may use it instead of elasticity
     // IMPORTANT: null means "data not available" - UI must NOT display a fabricated percentage
-    const rawValue = safeNumber(factor.sensitivity_score) ?? safeNumber(factor.elasticity) ?? safeNumber(factor.sensitivity)
+    const rawValue = safeNumber(factor.sensitivity_score) ?? safeNumber(factor.elasticity) ?? safeNumber(factor.sensitivity) ?? safeNumber(factor.importance_score)
     const magnitude = rawValue !== null ? Math.abs(rawValue) : null
 
     return {

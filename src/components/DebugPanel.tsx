@@ -183,8 +183,19 @@ export function DebugPanel() {
     dragStartPanelPos.current = panelPosition
   }, [panelPosition])
 
-  // Corner resize handler (bottom-right corner)
+  // Corner resize handler (bottom-right corner) - unused for bottom-left anchored panel
   const handleCornerResizeStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsResizingCorner(true)
+    resizeStartX.current = e.clientX
+    resizeStartY.current = e.clientY
+    resizeStartWidth.current = userPanelWidth
+    resizeStartHeight.current = userPanelHeight
+  }, [userPanelWidth, userPanelHeight])
+
+  // Top-right corner resize handler (for bottom-left anchored panel)
+  const handleTopRightCornerResizeStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     setIsResizingCorner(true)
@@ -337,7 +348,8 @@ export function DebugPanel() {
     }
   }, [clampPosition, isDraggingPanel, panelPosition, persistPanelPosition])
 
-  // Corner resize effect (handles both width and height simultaneously)
+  // Corner resize effect (top-right corner for bottom-left anchored panel)
+  // Width: drag right increases, Height: drag UP increases (inverted Y)
   useEffect(() => {
     if (!isResizingCorner) return
 
@@ -346,13 +358,14 @@ export function DebugPanel() {
       const deltaY = e.clientY - resizeStartY.current
 
       const viewportWidth = typeof window !== 'undefined' ? window.innerWidth - 32 : resizeStartWidth.current + deltaX
-      const viewportHeight = typeof window !== 'undefined' ? window.innerHeight - 32 : resizeStartHeight.current + deltaY
+      const viewportHeight = typeof window !== 'undefined' ? window.innerHeight - 32 : resizeStartHeight.current - deltaY
 
       const maxWidth = Math.max(MIN_PANEL_WIDTH, viewportWidth)
       const maxHeight = Math.max(MIN_PANEL_HEIGHT, viewportHeight)
 
       const newWidth = Math.min(maxWidth, Math.max(MIN_PANEL_WIDTH, resizeStartWidth.current + deltaX))
-      const newHeight = Math.min(maxHeight, Math.max(MIN_PANEL_HEIGHT, resizeStartHeight.current + deltaY))
+      // Inverted Y: dragging UP (negative deltaY) increases height
+      const newHeight = Math.min(maxHeight, Math.max(MIN_PANEL_HEIGHT, resizeStartHeight.current - deltaY))
 
       setUserPanelWidth(newWidth)
       setUserPanelHeight(newHeight)
@@ -414,9 +427,8 @@ export function DebugPanel() {
     <div
       style={{
         position: 'fixed',
-        ...(collapsed
-          ? { bottom: 24, left: 24 }
-          : { top: panelPosition.y, left: panelPosition.x }),
+        bottom: 24,
+        left: 24,
         zIndex: 99998,
         fontFamily: 'system-ui, -apple-system, sans-serif',
         maxWidth: collapsed ? undefined : panelWidthPx,
@@ -474,6 +486,50 @@ export function DebugPanel() {
             onClose={() => setCollapsed(true)}
             width={panelWidth}
             height={panelHeightValue ?? undefined}
+          />
+
+          {/* Resize handles for bottom-left anchored panel */}
+          {/* Right edge - width resize */}
+          <div
+            onMouseDown={handleHorizontalResizeStart}
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: 6,
+              height: '100%',
+              cursor: 'ew-resize',
+              background: isResizingWidth ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
+            }}
+          />
+
+          {/* Top edge - height resize (expands upward) */}
+          <div
+            onMouseDown={handleVerticalResizeStart('top')}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: 6,
+              cursor: 'ns-resize',
+              background: isResizingHeight ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
+            }}
+          />
+
+          {/* Top-right corner - diagonal resize */}
+          <div
+            onMouseDown={handleTopRightCornerResizeStart}
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: 14,
+              height: 14,
+              cursor: 'nesw-resize',
+              background: isResizingCorner ? 'rgba(59, 130, 246, 0.3)' : 'transparent',
+              zIndex: 1,
+            }}
           />
         </div>
       )}

@@ -105,6 +105,15 @@ export interface DriverItem {
   canFocus: boolean
   /** Matching canvas node ID (if different from factorKey) */
   matchedNodeId?: string
+  /** Confidence in this factor's influence (beliefExists from edge to goal, 0-1) */
+  confidence?: number
+  /** Fragile edge info if this factor can flip the decision */
+  fragileEdgeInfo?: {
+    /** Probability this could flip decision (0-1, lower = more likely to flip) */
+    switchProbability?: number
+    /** Alternative option that would win if flipped */
+    alternativeWinnerLabel?: string
+  }
 }
 
 export interface DriversSectionData {
@@ -114,6 +123,8 @@ export interface DriversSectionData {
   totalCount: number
   /** True if any factor has real elasticity data (>0.001). When false, show direction-only view. */
   hasMagnitudeData: boolean
+  /** ISL service error message if unavailable */
+  islError?: string
 }
 
 // =============================================================================
@@ -204,8 +215,12 @@ export interface RawFactorSensitivity {
   elasticity?: number
   sensitivity_score?: number
   sensitivity?: number
+  /** P0 Fix: PLoT may return importance_score instead of elasticity/sensitivity_score */
+  importance_score?: number
   direction?: string
   importance_rank?: number
+  /** Confidence in this factor's influence (0-1), from PLoT factor_sensitivity */
+  confidence?: number
 }
 
 // =============================================================================

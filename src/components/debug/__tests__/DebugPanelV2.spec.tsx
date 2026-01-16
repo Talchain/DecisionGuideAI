@@ -165,7 +165,7 @@ describe('DebugPanelV2', () => {
     expect(tablist).toBeInTheDocument()
 
     const tabs = screen.getAllByRole('tab')
-    expect(tabs).toHaveLength(4)
+    expect(tabs).toHaveLength(5) // Summary, Data Flow, Pipeline, Captured, Payload Lab
 
     // Each tab should have aria-controls
     tabs.forEach((tab) => {

@@ -12,7 +12,10 @@ import { withObservabilityHeaders, recordBffResponse, recordBffError, recordBffR
 import { useGateStore } from '../../lib/gate-state'
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
-const CEE_DRAFT_ENGINE_BASE = '/bff/engine/v1/cee'
+// CEE Draft Engine base URL
+// On staging, can be set to direct PLoT URL to bypass Netlify proxy (which times out at ~28s)
+// Example: VITE_CEE_DRAFT_BASE=https://plot-lite-service-staging.onrender.com/v1/cee
+const CEE_DRAFT_ENGINE_BASE = (import.meta as any).env?.VITE_CEE_DRAFT_BASE || '/bff/engine/v1/cee'
 
 /**
  * Generate correlation ID for request tracking

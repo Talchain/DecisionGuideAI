@@ -77,7 +77,8 @@ function getFactorKey(factor: RawFactorSensitivity, index: number): string {
 
 /**
  * Extract raw elasticity with fallback chain.
- * Priority: elasticity > sensitivity_score > sensitivity > contribution > 0
+ * Priority: elasticity > sensitivity_score > sensitivity > importance_score > contribution > 0
+ * P0 Fix: Added importance_score since PLoT may return it instead of elasticity/sensitivity_score
  */
 function getRawElasticity(factor: RawFactorSensitivity): number {
   if (typeof factor.elasticity === 'number' && isFinite(factor.elasticity)) {
@@ -88,6 +89,10 @@ function getRawElasticity(factor: RawFactorSensitivity): number {
   }
   if (typeof factor.sensitivity === 'number' && isFinite(factor.sensitivity)) {
     return factor.sensitivity
+  }
+  // P0 Fix: Check importance_score (PLoT v2 may use this field)
+  if (typeof factor.importance_score === 'number' && isFinite(factor.importance_score) && factor.importance_score > 0) {
+    return factor.importance_score
   }
   // Fallback to contribution field (used by legacy drivers)
   if (typeof (factor as any).contribution === 'number' && isFinite((factor as any).contribution)) {
@@ -651,42 +656,74 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Source 1: factor_sensitivity (PLoT v2)
     const factorSensitivity = (report as any)?.factor_sensitivity || []
+
+    // P0 DIAGNOSTIC: Log raw factor_sensitivity data to verify field mapping
+    // Fix 3: Guard window access for SSR, Fix 5: Gate behind debug toggle
+    if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG && factorSensitivity.length > 0) {
+      console.log('[useResultsSectionData] Raw factor_sensitivity from PLoT:', {
+        count: factorSensitivity.length,
+        sample: factorSensitivity[0],
+        allFields: factorSensitivity.map((f: any) => ({
+          node_id: f.node_id,
+          label: f.label,
+          sensitivity_score: f.sensitivity_score,
+          elasticity: f.elasticity,
+          confidence: f.confidence,
+          direction: f.direction,
+        })),
+      })
+    }
+
     factorSensitivity.forEach((f: any) => rawFactors.push(f))
 
+    // Fix 2: Precompute keys in a Set for O(1) duplicate detection
+    const seenKeys = new Set<string>()
+    rawFactors.forEach((f, index) => seenKeys.add(getFactorKey(f, index)))
+
     // Source 2: drivers array (legacy)
+    // Fix 2: Use getFactorKey for canonical de-dupe (not d.nodeId || d.id)
     const legacyDrivers = (report as any)?.drivers || []
-    legacyDrivers.forEach((d: any) => {
-      if (!rawFactors.some(f => getFactorKey(f, 0) === (d.nodeId || d.id))) {
-        rawFactors.push({
-          node_id: d.nodeId,
-          id: d.id,
-          label: d.label,
-          sensitivity: d.contribution,
-          direction: d.polarity === 'down' ? 'negative' : 'positive',
-        })
+    legacyDrivers.forEach((d: any, idx: number) => {
+      const candidate: RawFactorSensitivity = {
+        node_id: d.nodeId,
+        id: d.id,
+        label: d.label,
+        sensitivity: d.contribution,
+        direction: d.polarity === 'down' ? 'negative' : 'positive',
+      }
+      const key = getFactorKey(candidate, rawFactors.length + idx)
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key)
+        rawFactors.push(candidate)
       }
     })
 
     // Source 3: drivers_payload
     const driversPayload = (report as any)?.drivers_payload?.drivers || []
-    driversPayload.forEach((pd: any) => {
-      if (!rawFactors.some(f => getFactorKey(f, 0) === (pd.id || pd.node_id))) {
+    driversPayload.forEach((pd: any, idx: number) => {
+      const key = getFactorKey(pd, rawFactors.length + idx)
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key)
         rawFactors.push(pd)
       }
     })
 
     // Source 4: sensitivity.factors (alternative path)
     const sensitivityFactors = (report as any)?.sensitivity?.factors || []
-    sensitivityFactors.forEach((sf: any) => {
-      if (!rawFactors.some(f => getFactorKey(f, 0) === (sf.id || sf.node_id))) {
+    sensitivityFactors.forEach((sf: any, idx: number) => {
+      const key = getFactorKey(sf, rawFactors.length + idx)
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key)
         rawFactors.push(sf)
       }
     })
 
     // Source 5: factors array (direct)
     const directFactors = (report as any)?.factors || []
-    directFactors.forEach((df: any) => {
-      if (!rawFactors.some(f => getFactorKey(f, 0) === (df.id || df.node_id))) {
+    directFactors.forEach((df: any, idx: number) => {
+      const key = getFactorKey(df, rawFactors.length + idx)
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key)
         rawFactors.push(df)
       }
     })
@@ -747,6 +784,19 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       direction: (e.data as any)?.direction,
     }))
 
+    // Step 4b: Build fragile edges lookup for factor-to-goal edges
+    const fragileEdgesRaw = safeArray((report as any)?.robustness?.fragile_edges)
+    const fragileEdgesMap = new Map<string, { switchProbability?: number; alternativeWinnerLabel?: string }>()
+    fragileEdgesRaw.forEach((fe: any) => {
+      const fromId = fe.from_id || fe.source
+      if (fromId) {
+        fragileEdgesMap.set(fromId, {
+          switchProbability: fe.switch_probability,
+          alternativeWinnerLabel: fe.alternative_winner_label,
+        })
+      }
+    })
+
     // Step 5: Build driver items with all presentation fields
     // Keep all factors - even those with zero elasticity (they came from the model, show them)
     // Only filter out if we have many factors AND they have zero influence
@@ -797,6 +847,27 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
             .replace(/_/g, ' ')
             .replace(/\b\w/g, c => c.toUpperCase())
 
+        // Get confidence: factor_sensitivity.confidence first, then edge beliefExists as fallback
+        // PLoT returns confidence directly on factor_sensitivity array items
+        const factorNodeId = matchedNodeId || f.key
+        const factorConfidence = typeof f.raw.confidence === 'number' ? f.raw.confidence : undefined
+        const edgeToGoal = goalNodeId
+          ? edges.find(e => e.source === factorNodeId && e.target === goalNodeId)
+          : undefined
+        const edgeConfidence = (edgeToGoal?.data as any)?.beliefExists ?? undefined
+        // Fix 3: Clamp confidence to [0,1] range
+        const rawConfidence = factorConfidence ?? edgeConfidence
+        const confidence = typeof rawConfidence === 'number'
+          ? Math.max(0, Math.min(1, rawConfidence))
+          : undefined
+
+        // Get fragile edge info if this factor can flip decision
+        const fragileInfo = fragileEdgesMap.get(factorNodeId) || fragileEdgesMap.get(f.key)
+        const fragileEdgeInfo = fragileInfo ? {
+          switchProbability: fragileInfo.switchProbability,
+          alternativeWinnerLabel: fragileInfo.alternativeWinnerLabel,
+        } : undefined
+
         return {
           factorKey: f.key,
           factorLabel: displayLabel,
@@ -807,6 +878,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           semanticLabel,
           canFocus,
           matchedNodeId: matchedNodeId !== f.key ? matchedNodeId : undefined,
+          confidence,
+          fragileEdgeInfo,
         }
       })
       .sort((a, b) => a.rank - b.rank) // Sort by rank
@@ -814,12 +887,22 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Top 3 drivers
     const topDrivers = driverItems.slice(0, 3)
 
+    // Fix 1: Only set islError when we have NO driver items to show
+    // If we have data, prefer showing it even if drivers_status indicates error
+    const islErrorMessage = driverItems.length === 0 && (driversStatus === 'error' || driversStatus === 'unavailable')
+      ? ((report as any)?.drivers_error ??
+         (report as any)?.sensitivity?.error ??
+         (report as any)?.isl_error ??
+         (driversStatus === 'error' ? 'Factor sensitivity service unavailable' : undefined))
+      : undefined
+
     return {
       drivers: driverItems,
       driversStatus: driverItems.length > 0 ? 'computed' : driversStatus,
       topDrivers,
       totalCount: driverItems.length,
       hasMagnitudeData,
+      islError: islErrorMessage,
     }
   }, [report, nodes, edges, goalNodeId, outcomeNodeIds])
 
@@ -897,15 +980,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return true
       })
     sensitiveAssumptions.forEach((fe: any) => {
-      // Format user-friendly message without technical jargon
-      const sourceName = fe.source?.replace(/^(fac_|out_|goal_|risk_)/, '').replace(/_/g, ' ') || 'this factor'
-      const targetName = fe.target?.replace(/^(fac_|out_|goal_|risk_)/, '').replace(/_/g, ' ') || 'the outcome'
+      // Schema v2.6: Use from_label/to_label with fallback to cleaned IDs
+      const cleanId = (id: string | undefined) =>
+        id?.replace(/^(fac_|out_|goal_|risk_|opt_)/, '').replace(/_/g, ' ')
+      const sourceName = fe.from_label || cleanId(fe.from_id) || 'this factor'
+      const targetName = fe.to_label || cleanId(fe.to_id) || 'the outcome'
 
-      // Get alternative winner option name if available
-      const alternativeWinner = fe.alternative_winner_id || fe.alternative_option || fe.alternative_winner
-      const alternativeWinnerLabel = alternativeWinner
-        ? alternativeWinner.replace(/^(opt_)/, '').replace(/_/g, ' ')
-        : 'another option'
+      // Schema v2.6: Use alternative_winner_label directly
+      const alternativeWinnerLabel = fe.alternative_winner_label || 'another option'
 
       // Enhanced message format per spec
       const edgeLabel = fe.label || `${sourceName} → ${targetName}`
@@ -927,10 +1009,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         code: 'SENSITIVE_ASSUMPTION',
         message: friendlyMessage,
         suggestion: 'Validate this assumption',
-        affectedNodes: [fe.source, fe.target].filter(Boolean),
+        affectedNodes: [fe.from_id, fe.to_id].filter(Boolean),
         severity,
         threshold: fe.threshold ? {
-          variable: fe.source,
+          variable: fe.from_id,
           direction: normaliseDirection(fe.direction) ?? 'positive',
           value: fe.threshold,
           alternativeOption: alternativeWinnerLabel,

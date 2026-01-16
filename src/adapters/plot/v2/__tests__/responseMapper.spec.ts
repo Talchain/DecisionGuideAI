@@ -35,7 +35,7 @@ function makeSuccessResponse(overrides: Partial<V2RunResponse> = {}): V2RunRespo
         direction: 'positive',
       },
     ],
-    // PLoT returns edge_sensitivity for drivers when drivers_status is computed
+    // PLoT returns edge_sensitivity for robustness analysis
     edge_sensitivity: [
       {
         edge_id: 'edge1',
@@ -45,6 +45,14 @@ function makeSuccessResponse(overrides: Partial<V2RunResponse> = {}): V2RunRespo
         importance_rank: 1,
         sensitivity_type: 'magnitude' as const,
         interpretation: 'Key impact',
+      },
+    ],
+    // PLoT returns factor_sensitivity for drivers when drivers_status is computed
+    factor_sensitivity: [
+      {
+        factor_id: 'factor1',
+        elasticity: 0.5,
+        importance_rank: 1,
       },
     ],
     // PLoT returns fragile_edges/robust_edges (not level/confidence)
@@ -587,46 +595,31 @@ describe('detectComputedButEmpty', () => {
     })
   })
 
-  it('detects empty drivers when BOTH edge_sensitivity and factor_sensitivity are empty', () => {
-    // P0 Fix: PLoT contract says drivers_status === 'computed' when EITHER has data
-    // Anomaly should only fire when BOTH are empty
+  it('detects empty drivers when factor_sensitivity is empty', () => {
+    // Anomaly fires when drivers_status is computed but factor_sensitivity is empty
+    // (edge_sensitivity is not checked - it's for robustness, not drivers)
     const v2Response = makeSuccessResponse({
       drivers_status: 'computed',
       edge_sensitivity: [],
-      factor_sensitivity: [], // Both arrays empty = genuine contract violation
+      factor_sensitivity: [],
     })
     const anomalies = detectComputedButEmpty(v2Response)
     expect(anomalies).toHaveLength(1)
     expect(anomalies[0]).toMatchObject({
-      field: 'edge_sensitivity',
+      field: 'factor_sensitivity',
       status: 'computed',
     })
-    expect(anomalies[0].message).toContain('both edge_sensitivity and factor_sensitivity')
+    expect(anomalies[0].message).toContain('factor_sensitivity array is empty')
   })
 
-  it('does NOT fire anomaly when factor_sensitivity has data (even if edge_sensitivity is empty)', () => {
-    // P0 Fix: Trust PLoT status - if factor_sensitivity has data, drivers are computed correctly
+  it('does NOT fire anomaly when factor_sensitivity has data', () => {
     const v2Response = makeSuccessResponse({
       drivers_status: 'computed',
-      edge_sensitivity: [], // Empty
-      factor_sensitivity: [{ factor_id: 'f1', elasticity: 0.5, importance_rank: 1 }], // Has data
+      edge_sensitivity: [], // Not checked for drivers anomaly
+      factor_sensitivity: [{ factor_id: 'f1', elasticity: 0.5, importance_rank: 1 }],
     })
     const anomalies = detectComputedButEmpty(v2Response)
-    // Should NOT have edge_sensitivity anomaly because factor_sensitivity has data
-    const driverAnomalies = anomalies.filter(a => a.field === 'edge_sensitivity')
-    expect(driverAnomalies).toHaveLength(0)
-  })
-
-  it('does NOT fire anomaly when edge_sensitivity has data (even if factor_sensitivity is empty)', () => {
-    // P0 Fix: Trust PLoT status - if edge_sensitivity has data, drivers are computed correctly
-    const v2Response = makeSuccessResponse({
-      drivers_status: 'computed',
-      edge_sensitivity: [{ edge_id: 'e1', elasticity: 0.5, importance_rank: 1 }], // Has data
-      factor_sensitivity: [], // Empty
-    })
-    const anomalies = detectComputedButEmpty(v2Response)
-    // Should NOT have edge_sensitivity anomaly because edge_sensitivity has data
-    const driverAnomalies = anomalies.filter(a => a.field === 'edge_sensitivity')
+    const driverAnomalies = anomalies.filter(a => a.field === 'factor_sensitivity')
     expect(driverAnomalies).toHaveLength(0)
   })
 
@@ -651,27 +644,27 @@ describe('detectComputedButEmpty', () => {
       robustness: { fragile_edges: [], robust_edges: [] },
       drivers_status: 'computed',
       edge_sensitivity: [],
-      factor_sensitivity: [], // P0 Fix: Both must be empty for drivers anomaly
+      factor_sensitivity: [],
     })
     const anomalies = detectComputedButEmpty(v2Response)
     expect(anomalies).toHaveLength(3)
     expect(anomalies.map(a => a.field)).toContain('option_comparison')
     expect(anomalies.map(a => a.field)).toContain('robustness')
-    expect(anomalies.map(a => a.field)).toContain('edge_sensitivity')
+    expect(anomalies.map(a => a.field)).toContain('factor_sensitivity')
   })
 
   it('adds synthetic warnings to report when anomalies detected', () => {
     const v2Response = makeSuccessResponse({
       drivers_status: 'computed',
       edge_sensitivity: [],
-      factor_sensitivity: [], // P0 Fix: Both must be empty for drivers anomaly
+      factor_sensitivity: [],
     })
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
-    // Should have a warning about empty sensitivity (both edge and factor)
+    // Should have a warning about empty factor_sensitivity
     expect(report.warnings).toEqual(
       expect.arrayContaining([
-        expect.stringContaining('both edge_sensitivity and factor_sensitivity arrays are empty')
+        expect.stringContaining('factor_sensitivity array is empty')
       ])
     )
     expect(report._computedButEmptyAnomalies).toBeDefined()

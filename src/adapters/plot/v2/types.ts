@@ -151,16 +151,22 @@ export interface V2FactorSensitivity {
   factor_id?: string
   /** Alias for factor_id (PLoT may use either) */
   node_id?: string
+  /** Human-readable label (may come from ISL enrichment) */
+  label?: string
   /** Raw sensitivity value (may be positive or negative) */
   sensitivity?: number
   /** Sensitivity score (PLoT v2 format, 0-1 normalized) */
   sensitivity_score?: number
+  /** P0 Fix: Importance score (PLoT v2 may use this instead of sensitivity_score) */
+  importance_score?: number
   /** Direction of influence: positive or negative */
   direction?: 'positive' | 'negative'
   /** Elasticity measure (optional) */
   elasticity?: number
   /** Importance ranking (optional) */
   importance_rank?: number
+  /** P0 Fix: Confidence in this factor's influence (0-1, from ISL enrichment) */
+  confidence?: number
 }
 
 /**
