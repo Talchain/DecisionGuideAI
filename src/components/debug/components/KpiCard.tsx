@@ -24,6 +24,8 @@ export interface KpiCardProps {
   tooltip?: string
   /** Accessible label */
   ariaLabel?: string
+  /** Compact mode for smaller viewports */
+  compact?: boolean
 }
 
 const STATUS_COLORS: Record<KpiStatus, { bg: string; border: string; text: string }> = {
@@ -42,6 +44,7 @@ export function KpiCard({
   onClick,
   tooltip,
   ariaLabel,
+  compact = false,
 }: KpiCardProps) {
   const colors = STATUS_COLORS[status]
   const isClickable = !!onClick
@@ -50,11 +53,12 @@ export function KpiCard({
     background: colors.bg,
     border: `1px solid ${colors.border}`,
     borderRadius: 8,
-    padding: '12px 16px',
+    padding: compact ? '8px 12px' : '12px 16px',
     display: 'flex',
     flexDirection: 'column',
-    gap: 4,
-    minWidth: 120,
+    gap: compact ? 2 : 4,
+    minWidth: compact ? 80 : 120,
+    minHeight: compact ? 72 : undefined,
     cursor: isClickable ? 'pointer' : 'default',
     transition: 'transform 0.1s, box-shadow 0.1s',
   }
@@ -94,7 +98,7 @@ export function KpiCard({
     >
       <div
         style={{
-          fontSize: 10,
+          fontSize: compact ? 9 : 10,
           fontWeight: 600,
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
@@ -105,10 +109,11 @@ export function KpiCard({
       </div>
       <div
         style={{
-          fontSize: 18,
+          fontSize: compact ? 14 : 18,
           fontWeight: 700,
           fontFamily: 'monospace',
           color: colors.text,
+          lineHeight: 1.2,
         }}
       >
         {value}

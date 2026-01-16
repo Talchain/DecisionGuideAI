@@ -106,6 +106,21 @@ export interface GateData {
   message?: string
 }
 
+export interface ServiceErrorData {
+  /** Service that failed */
+  service: string
+  /** Error code/name */
+  code: string
+  /** Error message */
+  message: string
+  /** HTTP status code */
+  status: number | null
+  /** Duration when error occurred */
+  duration_ms: number | null
+  /** Whether the error is retryable */
+  retryable: boolean
+}
+
 export interface DebugData {
   /** Overall analysis status */
   overall: {
@@ -121,6 +136,9 @@ export interface DebugData {
     plot: ServiceCallData | null
     isl: ServiceCallData | null
   }
+
+  /** First service error (for error banner display) */
+  error: ServiceErrorData | null
 
   /** Pipeline processing data */
   pipeline: PipelineData
@@ -322,6 +340,41 @@ function findBestPayload(payloads: TracedPayload[], service: string): TracedPayl
 }
 
 /**
+ * Extract error data from the first failed service.
+ * Looks in both the traced payload and the response body for error details.
+ */
+function extractFirstError(
+  services: { cee: ServiceCallData | null; plot: ServiceCallData | null; isl: ServiceCallData | null },
+  payloads: PayloadBundle
+): ServiceErrorData | null {
+  // Check services in order: CEE -> PLoT -> ISL
+  const serviceOrder: Array<{ name: string; service: ServiceCallData | null; responseKey: keyof PayloadBundle }> = [
+    { name: 'CEE', service: services.cee, responseKey: 'cee_response' },
+    { name: 'PLoT', service: services.plot, responseKey: 'plot_response' },
+    { name: 'ISL', service: services.isl, responseKey: 'isl_response' },
+  ]
+
+  for (const { name, service, responseKey } of serviceOrder) {
+    if (!service || service.success) continue
+
+    // Try to extract error details from response body
+    const responseBody = payloads[responseKey] as Record<string, unknown> | undefined
+    const errorFromBody = responseBody?.error as Record<string, unknown> | undefined
+
+    return {
+      service: name,
+      code: (errorFromBody?.code as string) || (service.error ? 'ERROR' : `HTTP_${service.status}`),
+      message: (errorFromBody?.message as string) || service.error || `Service ${name} failed`,
+      status: service.status,
+      duration_ms: service.duration_ms,
+      retryable: (errorFromBody?.retryable as boolean) ?? (service.status === 503 || service.status === 429),
+    }
+  }
+
+  return null
+}
+
+/**
  * Extract a correlation/request ID from response headers or payload.
  * Looks for common header names: x-request-id, x-correlation-id, request-id.
  * Falls back to internal trace id if no server ID found.
@@ -423,17 +476,34 @@ export function useDebugData(): DebugData {
     // Check if we have any data
     const hasData = tracedPayloads.length > 0 || !!ceePipelineTrace || nodes.length > 0
 
+    // Build services object
+    const services = {
+      cee: payloadToServiceCall(ceePayload),
+      plot: payloadToServiceCall(plotPayload),
+      isl: islServiceCall,
+    }
+
+    // Build payloads bundle
+    const payloadBundle: PayloadBundle = {
+      cee_request: ceePayload?.request?.body,
+      cee_response: ceePayload?.response?.body,
+      plot_request: plotPayload?.request?.body,
+      plot_response: plotPayload?.response?.body,
+      isl_request: islServiceCall?.request,
+      isl_response: islServiceCall?.response,
+    }
+
+    // Extract first error for error banner
+    const error = extractFirstError(services, payloadBundle)
+
     return {
       overall: {
         status: overallStatus,
         total_duration_ms: totalDuration,
         request_id: traceId,
       },
-      services: {
-        cee: payloadToServiceCall(ceePayload),
-        plot: payloadToServiceCall(plotPayload),
-        isl: islServiceCall,
-      },
+      services,
+      error,
       pipeline: {
         status: overallStatus,
         total_duration_ms: typeof (pipelineTrace as Record<string, unknown>)?.total_duration_ms === 'number'
@@ -450,14 +520,7 @@ export function useDebugData(): DebugData {
           edge_count: edges.length,
         },
       },
-      payloads: {
-        cee_request: ceePayload?.request?.body,
-        cee_response: ceePayload?.response?.body,
-        plot_request: plotPayload?.request?.body,
-        plot_response: plotPayload?.response?.body,
-        isl_request: islServiceCall?.request,
-        isl_response: islServiceCall?.response,
-      },
+      payloads: payloadBundle,
       gates,
       hasData,
     }

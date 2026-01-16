@@ -8,6 +8,7 @@
 import { useState, useMemo, CSSProperties } from 'react'
 import { PipelineStage, JsonViewer } from '../components'
 import type { DebugData } from '../hooks/useDebugData'
+import { formatDuration } from '../utils'
 
 export interface PipelineTabProps {
   /** Debug data from useDebugData hook */
@@ -170,7 +171,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Duration</span>
                 <span style={{ fontFamily: 'monospace' }}>
-                  {llmStage?.duration_ms ? `${llmStage.duration_ms}ms` : '—'}
+                  {formatDuration(llmStage?.duration_ms)}
                 </span>
               </div>
             </div>

@@ -6,6 +6,7 @@
  */
 
 import { CSSProperties } from 'react'
+import { formatDuration } from '../utils'
 
 export type ChainNodeStatus = 'success' | 'error' | 'pending' | 'unavailable' | 'skipped'
 
@@ -27,18 +28,12 @@ export interface ServiceChainProps {
   nodes: ChainNode[]
 }
 
-const STATUS_COLORS: Record<ChainNodeStatus, { bg: string; border: string; text: string; dot: string }> = {
-  success: { bg: '#dcfce7', border: '#86efac', text: '#166534', dot: '#22c55e' },
-  error: { bg: '#fee2e2', border: '#fca5a5', text: '#991b1b', dot: '#ef4444' },
-  pending: { bg: '#fef3c7', border: '#fde047', text: '#854d0e', dot: '#f59e0b' },
-  unavailable: { bg: '#f1f5f9', border: '#e2e8f0', text: '#64748b', dot: '#94a3b8' },
-  skipped: { bg: '#f8fafc', border: '#e2e8f0', text: '#94a3b8', dot: '#cbd5e1' },
-}
-
-function formatDuration(ms: number | null): string {
-  if (ms === null || ms === undefined) return '—'
-  if (ms < 1000) return `${Math.round(ms)}ms`
-  return `${(ms / 1000).toFixed(2)}s`
+const STATUS_COLORS: Record<ChainNodeStatus, { bg: string; border: string; text: string; dot: string; icon: string }> = {
+  success: { bg: '#dcfce7', border: '#86efac', text: '#166534', dot: '#22c55e', icon: '●' },
+  error: { bg: '#fee2e2', border: '#fca5a5', text: '#991b1b', dot: '#ef4444', icon: '✗' },
+  pending: { bg: '#fef3c7', border: '#fde047', text: '#854d0e', dot: '#f59e0b', icon: '●' },
+  unavailable: { bg: '#f1f5f9', border: '#e2e8f0', text: '#64748b', dot: '#94a3b8', icon: '●' },
+  skipped: { bg: '#f1f5f9', border: '#e2e8f0', text: '#9ca3af', dot: '#d1d5db', icon: '●' },
 }
 
 function ChainNodeBox({ node }: { node: ChainNode }) {
@@ -85,16 +80,17 @@ function ChainNodeBox({ node }: { node: ChainNode }) {
         }
       }}
     >
-      {/* Status dot + name */}
+      {/* Status icon + name */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <div
+        <span
           style={{
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            background: colors.dot,
+            fontSize: 10,
+            color: colors.dot,
+            lineHeight: 1,
           }}
-        />
+        >
+          {colors.icon}
+        </span>
         <span
           style={{
             fontSize: 12,

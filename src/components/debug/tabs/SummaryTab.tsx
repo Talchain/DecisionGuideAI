@@ -8,6 +8,7 @@
 import { useMemo, CSSProperties } from 'react'
 import { KpiCard, ServiceChain, type ChainNode, type KpiStatus } from '../components'
 import type { DebugData } from '../hooks/useDebugData'
+import { formatDuration, formatNodeCountsAbbreviated } from '../utils'
 
 export interface SummaryTabProps {
   /** Debug data from useDebugData hook */
@@ -55,9 +56,10 @@ export function SummaryTab({
   onNavigateToPipeline,
   onNavigateToRaw,
 }: SummaryTabProps) {
-  // Build service chain nodes
+  // Build service chain nodes with downstream failure handling
   const chainNodes = useMemo((): ChainNode[] => {
     const nodes: ChainNode[] = []
+    let previousFailed = false
 
     // UI node (always present)
     nodes.push({
@@ -68,41 +70,38 @@ export function SummaryTab({
 
     // CEE
     if (data.services.cee) {
+      const failed = !data.services.cee.success
       nodes.push({
         name: 'CEE',
         duration_ms: data.services.cee.duration_ms,
-        status: data.services.cee.success ? 'success' : data.services.cee.error ? 'error' : 'pending',
-        statusCode: data.services.cee.status,
+        status: previousFailed ? 'skipped' : failed ? 'error' : 'success',
+        statusCode: previousFailed ? null : data.services.cee.status,
         onClick: onNavigateToDataFlow,
       })
+      if (failed) previousFailed = true
     }
 
     // PLoT
-    if (data.services.plot) {
+    if (data.services.plot || previousFailed) {
+      const plotData = data.services.plot
       nodes.push({
         name: 'PLoT',
-        duration_ms: data.services.plot.duration_ms,
-        status: data.services.plot.success ? 'success' : data.services.plot.error ? 'error' : 'pending',
-        statusCode: data.services.plot.status,
+        duration_ms: previousFailed ? null : plotData?.duration_ms ?? null,
+        status: previousFailed ? 'skipped' : plotData?.success ? 'success' : plotData?.error ? 'error' : 'pending',
+        statusCode: previousFailed ? null : plotData?.status,
         onClick: onNavigateToDataFlow,
       })
+      if (plotData && !plotData.success) previousFailed = true
     }
 
     // ISL
-    if (data.services.isl) {
+    if (data.services.isl || data.services.plot || previousFailed) {
+      const islData = data.services.isl
       nodes.push({
         name: 'ISL',
-        duration_ms: data.services.isl.duration_ms,
-        status: data.services.isl.success ? 'success' : data.services.isl.error ? 'error' : 'unavailable',
-        statusCode: data.services.isl.status,
-        onClick: onNavigateToDataFlow,
-      })
-    } else if (data.services.plot) {
-      // Show ISL as unavailable if PLoT was called but ISL data not found
-      nodes.push({
-        name: 'ISL',
-        duration_ms: null,
-        status: 'unavailable',
+        duration_ms: previousFailed ? null : islData?.duration_ms ?? null,
+        status: previousFailed ? 'skipped' : islData?.success ? 'success' : islData?.error ? 'error' : 'unavailable',
+        statusCode: previousFailed ? null : islData?.status,
         onClick: onNavigateToDataFlow,
       })
     }
@@ -118,14 +117,14 @@ export function SummaryTab({
   // Token usage
   const tokenUsage = data.pipeline.llm_metadata?.token_usage
   const tokenDisplay = tokenUsage
-    ? `${tokenUsage.prompt_tokens ?? 0} in / ${tokenUsage.completion_tokens ?? 0} out`
+    ? `${tokenUsage.prompt_tokens ?? 0} → ${tokenUsage.completion_tokens ?? 0}`
     : '—'
 
   const sectionStyle: CSSProperties = {
     background: '#fff',
     border: '1px solid #e2e8f0',
     borderRadius: 8,
-    padding: 16,
+    padding: 12,
   }
 
   const sectionTitleStyle: CSSProperties = {
@@ -137,24 +136,61 @@ export function SummaryTab({
     marginBottom: 12,
   }
 
+  // Check if temperature has a value (not null/undefined/NaN)
+  const temperature = data.pipeline.llm_metadata?.temperature
+  const showTemperature = temperature != null && !Number.isNaN(temperature)
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 12 }}>
+      {/* Error Banner */}
+      {data.error && (
+        <div
+          style={{
+            background: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: 8,
+            padding: 12,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span
+              style={{
+                color: '#dc2626',
+                fontFamily: 'monospace',
+                fontSize: 13,
+                fontWeight: 500,
+              }}
+            >
+              {data.error.code}
+            </span>
+            <span style={{ color: '#991b1b', fontSize: 13 }}>{data.error.message}</span>
+            <span style={{ color: '#f87171', fontSize: 12 }}>({data.error.status})</span>
+          </div>
+          <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>
+            Duration: {formatDuration(data.error.duration_ms)}
+            {data.error.retryable && ' • Retryable'}
+          </div>
+        </div>
+      )}
+
       {/* Row 1: KPI Cards */}
       <div style={sectionStyle}>
         <div style={sectionTitleStyle}>Health Overview</div>
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gridTemplateColumns: 'repeat(2, 1fr)',
             gap: 12,
           }}
+          className="sm:grid-cols-4"
         >
           <KpiCard
             label="Graph Stats"
-            value={formatNodeCounts(data.pipeline.connectivity)}
+            value={formatNodeCountsAbbreviated(data.pipeline.connectivity)}
             status="neutral"
             onClick={onNavigateToPipeline}
-            tooltip="Click to view pipeline details"
+            tooltip={formatNodeCounts(data.pipeline.connectivity)}
+            compact
           />
           <KpiCard
             label="Analysis"
@@ -162,6 +198,7 @@ export function SummaryTab({
             status={analysisKpi.status}
             onClick={onNavigateToDataFlow}
             tooltip="Click to view data flow"
+            compact
           />
           <KpiCard
             label="Robustness"
@@ -169,6 +206,7 @@ export function SummaryTab({
             status={robustnessKpi.status}
             onClick={onNavigateToRaw}
             tooltip="Click to view raw data"
+            compact
           />
           <KpiCard
             label="Issues"
@@ -176,6 +214,7 @@ export function SummaryTab({
             status={issueCount > 0 ? 'warn' : 'ok'}
             onClick={onNavigateToDataFlow}
             tooltip={issueCount > 0 ? 'Click to investigate' : 'All gates passing'}
+            compact
           />
         </div>
       </div>
@@ -186,62 +225,46 @@ export function SummaryTab({
         <ServiceChain nodes={chainNodes} />
       </div>
 
-      {/* Row 3: Quick Stats */}
+      {/* Row 3: Quick Stats - Dense Row */}
       <div style={sectionStyle}>
         <div style={sectionTitleStyle}>Quick Stats</div>
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+            display: 'flex',
+            flexWrap: 'wrap',
             gap: '8px 24px',
-            fontSize: 12,
+            fontSize: 13,
+            color: '#475569',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#64748b' }}>Model</span>
-            <span style={{ fontFamily: 'monospace', color: '#0f172a' }}>
-              {data.pipeline.llm_metadata?.model ?? '—'}
+          <span>
+            <strong style={{ color: '#1e293b' }}>Model:</strong>{' '}
+            {data.pipeline.llm_metadata?.model ?? '—'}
+          </span>
+          <span>
+            <strong style={{ color: '#1e293b' }}>Tokens:</strong> {tokenDisplay}
+          </span>
+          <span>
+            <strong style={{ color: '#1e293b' }}>Duration:</strong>{' '}
+            {formatDuration(data.overall.total_duration_ms)}
+          </span>
+          <span>
+            <strong style={{ color: '#1e293b' }}>Edges:</strong>{' '}
+            {data.pipeline.connectivity?.edge_count ?? '—'}
+          </span>
+          {showTemperature && (
+            <span>
+              <strong style={{ color: '#1e293b' }}>Temp:</strong> {temperature}
             </span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#64748b' }}>Temperature</span>
-            <span style={{ fontFamily: 'monospace', color: '#0f172a' }}>
-              {data.pipeline.llm_metadata?.temperature ?? '—'}
-            </span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#64748b' }}>Tokens</span>
-            <span style={{ fontFamily: 'monospace', color: '#0f172a' }}>{tokenDisplay}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#64748b' }}>Total Duration</span>
-            <span style={{ fontFamily: 'monospace', color: '#0f172a' }}>
-              {data.overall.total_duration_ms
-                ? `${(data.overall.total_duration_ms / 1000).toFixed(2)}s`
-                : '—'}
-            </span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#64748b' }}>Request ID</span>
+          )}
+          {data.overall.request_id && (
             <span
-              style={{
-                fontFamily: 'monospace',
-                color: '#0f172a',
-                maxWidth: 120,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-              title={data.overall.request_id ?? undefined}
+              style={{ fontFamily: 'monospace', fontSize: 12 }}
+              title={data.overall.request_id}
             >
-              {data.overall.request_id ? data.overall.request_id.slice(0, 8) + '...' : '—'}
+              {data.overall.request_id.slice(0, 8)}...
             </span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#64748b' }}>Edges</span>
-            <span style={{ fontFamily: 'monospace', color: '#0f172a' }}>
-              {data.pipeline.connectivity?.edge_count ?? '—'}
-            </span>
-          </div>
+          )}
         </div>
       </div>
 

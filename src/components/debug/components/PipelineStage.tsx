@@ -6,6 +6,7 @@
  */
 
 import { useState, CSSProperties } from 'react'
+import { formatDuration } from '../utils'
 
 export type StageStatus = 'success' | 'error' | 'pending' | 'skipped'
 
@@ -29,12 +30,6 @@ const STATUS_BADGES: Record<StageStatus, { bg: string; text: string; label: stri
   error: { bg: '#fee2e2', text: '#991b1b', label: 'Error' },
   pending: { bg: '#fef3c7', text: '#854d0e', label: 'Pending' },
   skipped: { bg: '#f1f5f9', text: '#64748b', label: 'Skipped' },
-}
-
-function formatDuration(ms?: number): string {
-  if (ms === undefined || ms === null) return ''
-  if (ms < 1000) return `${ms}ms`
-  return `${(ms / 1000).toFixed(2)}s`
 }
 
 function formatJson(value: unknown): string {

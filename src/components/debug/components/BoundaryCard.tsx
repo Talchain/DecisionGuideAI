@@ -7,6 +7,7 @@
 
 import { useState, useCallback, CSSProperties } from 'react'
 import { copyTextToClipboard } from '../../../utils/clipboard'
+import { formatDuration } from '../utils'
 
 export type BoundaryStatus = 'success' | 'error' | 'pending' | 'unavailable'
 
@@ -38,12 +39,6 @@ const STATUS_INDICATORS: Record<BoundaryStatus, { color: string; label: string }
   error: { color: '#ef4444', label: 'Error' },
   pending: { color: '#f59e0b', label: 'Pending' },
   unavailable: { color: '#94a3b8', label: 'Unavailable' },
-}
-
-function formatDuration(ms: number | null): string {
-  if (ms === null || ms === undefined) return '—'
-  if (ms < 1000) return `${ms}ms`
-  return `${(ms / 1000).toFixed(2)}s`
 }
 
 function formatStatusCode(status: number | null): string {
