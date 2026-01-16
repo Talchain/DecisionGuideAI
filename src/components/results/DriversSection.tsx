@@ -32,8 +32,8 @@ const BAR_COLORS = {
 }
 
 // Grid columns constant - shared between header and rows to avoid alignment drift
-// P0 Fix: Increased from 90px to 100px to prevent percentage text cut-off
-const GRID_COLS = 'grid-cols-[minmax(140px,1fr)_100px_100px]'
+// P0 Fix: 85px columns fit within ~380px panel (120 min + 85 + 85 + gaps + padding)
+const GRID_COLS = 'grid-cols-[minmax(120px,1fr)_85px_85px]'
 
 // Progress bar component with inline styles for precise colors
 function ProgressBar({
