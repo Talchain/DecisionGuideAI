@@ -32,7 +32,8 @@ const BAR_COLORS = {
 }
 
 // Grid columns constant - shared between header and rows to avoid alignment drift
-const GRID_COLS = 'grid-cols-[minmax(140px,1fr)_90px_90px]'
+// P0 Fix: Increased from 90px to 100px to prevent percentage text cut-off
+const GRID_COLS = 'grid-cols-[minmax(140px,1fr)_100px_100px]'
 
 // Progress bar component with inline styles for precise colors
 function ProgressBar({
@@ -49,7 +50,8 @@ function ProgressBar({
   const percent = Math.round(clampedValue * 100)
 
   return (
-    <div className="flex items-center gap-2 w-full">
+    // P0 Fix: Reduced gap from gap-2 (8px) to gap-1 (4px) for tighter bar-percentage spacing
+    <div className="flex items-center gap-1 w-full">
       <div
         className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden"
         role="progressbar"
@@ -63,7 +65,7 @@ function ProgressBar({
           style={{ width: `${percent}%`, backgroundColor: BAR_COLORS[color] }}
         />
       </div>
-      <span className="text-xs text-slate-600 font-mono w-8 text-right">
+      <span className="text-xs text-slate-600 font-mono w-9 text-right">
         {percent}%
       </span>
     </div>
@@ -132,8 +134,9 @@ function DriverRow({
   totalCount: number
 }) {
   // Direction styling - arrow color matches bar color
-  // Fix 4: Use neutral color when direction is unknown (not orange which implies negative)
-  const directionIcon = driver.direction === 'positive' ? '↗' : driver.direction === 'negative' ? '↘' : ''
+  // P0 Fix: Single arrow serves as both direction indicator AND expand trigger
+  // When expanded, arrow rotates to show expanded state
+  const directionIcon = driver.direction === 'positive' ? '↗' : driver.direction === 'negative' ? '↘' : '•'
   const directionColor = driver.direction === 'positive'
     ? BAR_COLORS.green
     : driver.direction === 'negative'
@@ -155,23 +158,19 @@ function DriverRow({
         className="w-full text-left hover:bg-slate-50 transition-colors"
         aria-expanded={isExpanded}
       >
-        {/* Grid layout: Factor name (flexible min-140px) | Influence bar (90px) | Confidence bar (90px) */}
+        {/* Grid layout: Factor name (flexible min-140px) | Influence bar (100px) | Confidence bar (100px) */}
         <div className={`grid ${GRID_COLS} gap-3 items-center p-3`}>
-          {/* Factor name with chevron and direction arrow */}
+          {/* Factor name with single direction arrow (serves as expand trigger) */}
           <div className="flex items-start gap-1.5 min-w-0">
-            {/* Expand chevron */}
+            {/* P0 Fix: Single arrow - direction indicator that also implies expand capability
+                When expanded, arrow subtly changes (opacity) to indicate active state */}
             <span
-              className={`text-slate-400 text-xs transition-transform mt-0.5 flex-shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
+              className={`text-sm flex-shrink-0 mt-0.5 transition-opacity ${isExpanded ? 'opacity-60' : ''}`}
+              style={{ color: directionColor }}
               aria-hidden="true"
             >
-              ▶
+              {directionIcon}
             </span>
-            {/* Direction arrow with matching color */}
-            {directionIcon && (
-              <span className="text-sm flex-shrink-0" style={{ color: directionColor }} aria-hidden="true">
-                {directionIcon}
-              </span>
-            )}
             {/* Label - can wrap to multiple lines */}
             <span className="font-medium text-sm text-slate-800 break-words leading-snug">
               {driver.factorLabel}

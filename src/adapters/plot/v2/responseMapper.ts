@@ -117,15 +117,47 @@ function isInternalImplementationWarning(message: string): boolean {
 /**
  * Pick the best source for factor sensitivity data.
  *
- * Priority:
- * 1. enrichment.sensitivity_analysis.factors (from ISL deep mode - has real sensitivity_score)
- * 2. v2Response.factor_sensitivity (top-level - may only have importance_score placeholders)
+ * Priority (P0 Fix: Added downstream_calls path where real ISL data lives):
+ * 1. downstream_calls.isl.response.factor_sensitivity (direct ISL response - has real data)
+ * 2. enrichment.sensitivity_analysis.factors (from ISL deep mode - has real sensitivity_score)
+ * 3. v2Response.factor_sensitivity (top-level - may only have importance_score placeholders)
  *
- * The enrichment path has real sensitivity data computed by ISL, while the top-level
- * factor_sensitivity may only have importance_score=0 placeholders.
+ * The ISL response nested in downstream_calls has the real sensitivity data with
+ * sensitivity_score, confidence, and label fields. The top-level factor_sensitivity
+ * may only have importance_score=0 placeholders.
  */
 function pickFactorSensitivityForUi(v2Response: V2RunResponse): V2FactorSensitivity[] {
-  // Check for enrichment path first (from ISL deep mode)
+  // P0 Fix: Check downstream_calls.isl.response first (where real ISL data lives)
+  const downstream = (v2Response as any)?.downstream_calls?.isl?.response
+  const islFactors = downstream?.factor_sensitivity
+
+  if (Array.isArray(islFactors) && islFactors.length > 0) {
+    // Check if ISL factors have real sensitivity data
+    const hasRealData = islFactors.some((f: any) =>
+      (typeof f.sensitivity_score === 'number' && f.sensitivity_score > 0.001) ||
+      (typeof f.elasticity === 'number' && f.elasticity > 0.001)
+    )
+
+    if (hasRealData) {
+      if (import.meta.env.DEV) {
+        console.log('[pickFactorSensitivityForUi] Using downstream_calls.isl.response.factor_sensitivity:', {
+          count: islFactors.length,
+          sample: islFactors[0],
+        })
+      }
+
+      return islFactors.map((f: any): V2FactorSensitivity => ({
+        factor_id: f.factor_id ?? f.node_id,
+        node_id: f.node_id ?? f.factor_id,
+        label: f.label,
+        sensitivity_score: f.sensitivity_score ?? f.elasticity,
+        direction: f.direction === 'negative' ? 'negative' : 'positive',
+        confidence: f.confidence,
+      }))
+    }
+  }
+
+  // Check for enrichment path (from ISL deep mode)
   const enrichment = (v2Response as any)?.enrichment
   const enrichmentFactors = enrichment?.sensitivity_analysis?.factors
 
