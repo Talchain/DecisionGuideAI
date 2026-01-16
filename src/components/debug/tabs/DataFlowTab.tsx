@@ -71,11 +71,17 @@ function RawResponseInspector({
   if (!responseObj) return null
 
   const keys = Object.keys(responseObj)
+  const traceObj = responseObj.trace as Record<string, unknown> | undefined
+  const metaObj = responseObj.meta as Record<string, unknown> | undefined
+  const traceKeys = traceObj ? Object.keys(traceObj) : null
+  const metaKeys = metaObj ? Object.keys(metaObj) : null
 
   // Check various paths for downstream_calls
   const hasDownstreamDirect = !!responseObj.downstream_calls
-  const hasDownstreamTrace = !!(responseObj.trace as Record<string, unknown>)?.downstream_calls
+  const hasDownstreamTrace = !!traceObj?.downstream_calls
   const hasDownstreamData = !!(responseObj.data as Record<string, unknown>)?.downstream_calls
+  const hasDownstreamBody = !!(responseObj.body as Record<string, unknown>)?.downstream_calls
+  const hasDownstreamBodyTrace = !!((responseObj.body as Record<string, unknown>)?.trace as Record<string, unknown>)?.downstream_calls
 
   return (
     <details
@@ -98,10 +104,10 @@ function RawResponseInspector({
           userSelect: 'none',
         }}
       >
-        {title}
+        Inspect {title.replace('Raw ', '').replace(' Keys', '')} Structure
       </summary>
       <div style={{ marginTop: 8 }}>
-        <div style={{ fontSize: 10, color: '#64748b', marginBottom: 4 }}>Response keys:</div>
+        <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', marginBottom: 4 }}>Top-level keys:</div>
         <pre
           style={{
             margin: 0,
@@ -112,16 +118,58 @@ function RawResponseInspector({
             borderRadius: 4,
             border: '1px solid #e2e8f0',
             overflow: 'auto',
-            maxHeight: 100,
+            maxHeight: 80,
           }}
         >
-          {JSON.stringify(keys, null, 2)}
+          {JSON.stringify(keys)}
         </pre>
+
+        {traceKeys && (
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', marginBottom: 4 }}>trace keys:</div>
+            <pre
+              style={{
+                margin: 0,
+                padding: 8,
+                fontSize: 10,
+                fontFamily: 'monospace',
+                background: '#fff',
+                borderRadius: 4,
+                border: '1px solid #e2e8f0',
+                overflow: 'auto',
+                maxHeight: 60,
+              }}
+            >
+              {JSON.stringify(traceKeys)}
+            </pre>
+          </div>
+        )}
+
+        {metaKeys && (
+          <div style={{ marginTop: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', marginBottom: 4 }}>meta keys:</div>
+            <pre
+              style={{
+                margin: 0,
+                padding: 8,
+                fontSize: 10,
+                fontFamily: 'monospace',
+                background: '#fff',
+                borderRadius: 4,
+                border: '1px solid #e2e8f0',
+                overflow: 'auto',
+                maxHeight: 60,
+              }}
+            >
+              {JSON.stringify(metaKeys)}
+            </pre>
+          </div>
+        )}
 
         {title.toLowerCase().includes('plot') && (
           <div style={{ marginTop: 8 }}>
             <div style={{ fontSize: 10, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
-              downstream_calls path check:
+              downstream_calls check:
             </div>
             <ul
               style={{
@@ -147,6 +195,18 @@ function RawResponseInspector({
                 response.data.downstream_calls:{' '}
                 <span style={{ color: hasDownstreamData ? '#16a34a' : '#dc2626' }}>
                   {hasDownstreamData ? '✓' : '✗'}
+                </span>
+              </li>
+              <li>
+                response.body.downstream_calls:{' '}
+                <span style={{ color: hasDownstreamBody ? '#16a34a' : '#dc2626' }}>
+                  {hasDownstreamBody ? '✓' : '✗'}
+                </span>
+              </li>
+              <li>
+                response.body.trace.downstream_calls:{' '}
+                <span style={{ color: hasDownstreamBodyTrace ? '#16a34a' : '#dc2626' }}>
+                  {hasDownstreamBodyTrace ? '✓' : '✗'}
                 </span>
               </li>
             </ul>
@@ -355,30 +415,29 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
         </div>
       )}
 
-      {/* ISL Data Source Diagnostic Panel */}
-      <details
+      {/* ISL Data Source Diagnostic Panel - Always visible */}
+      <div
         style={{
-          background: '#fff',
+          background: '#f8fafc',
           border: '1px solid #e2e8f0',
           borderRadius: 8,
-          padding: 12,
+          padding: 16,
         }}
       >
-        <summary
+        <div
           style={{
             fontSize: 11,
             fontWeight: 700,
             textTransform: 'uppercase',
             letterSpacing: '0.05em',
             color: '#64748b',
-            cursor: 'pointer',
-            userSelect: 'none',
+            marginBottom: 12,
           }}
         >
-          ISL Data Source Diagnostic
-        </summary>
+          ISL Data Diagnostic
+        </div>
 
-        <div style={{ marginTop: 12 }}>
+        <div>
           {/* Data Source Status */}
           <div
             style={{
@@ -426,6 +485,32 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
                 'ISL data captured directly via payload trace store'}
             </div>
           </div>
+
+          {/* Troubleshooting tips when no ISL data */}
+          {data.diagnostics.isl_data_source === 'none' && (
+            <div
+              style={{
+                marginBottom: 12,
+                padding: 10,
+                background: '#fffbeb',
+                border: '1px solid #fde68a',
+                borderRadius: 6,
+                fontSize: 11,
+              }}
+            >
+              <div style={{ fontWeight: 600, color: '#92400e', marginBottom: 4 }}>Troubleshooting:</div>
+              <ul style={{ margin: 0, paddingLeft: 16, color: '#78350f' }}>
+                <li>Check PLoT build includes downstream_calls feature</li>
+                <li>Verify PLoT → ISL call succeeded (check PLoT logs)</li>
+                <li>
+                  Current PLoT build:{' '}
+                  <code style={{ background: '#fef3c7', padding: '1px 4px', borderRadius: 2 }}>
+                    {data.builds.plot || 'unknown'}
+                  </code>
+                </li>
+              </ul>
+            </div>
+          )}
 
           {/* downstream_calls path check */}
           <div style={{ marginBottom: 12 }}>
@@ -559,7 +644,7 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
             </div>
           )}
         </div>
-      </details>
+      </div>
 
       {/* No data placeholder */}
       {!data.hasData && (

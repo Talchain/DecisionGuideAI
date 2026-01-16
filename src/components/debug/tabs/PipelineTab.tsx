@@ -7,7 +7,7 @@
 
 import { useState, useMemo, useCallback, CSSProperties } from 'react'
 import { PipelineStage, JsonViewer } from '../components'
-import type { DebugData, LlmRawData } from '../hooks/useDebugData'
+import type { DebugData, LlmRawData, GraphCorrection } from '../hooks/useDebugData'
 import { formatDuration } from '../utils'
 
 /**
@@ -325,6 +325,89 @@ function Arrow() {
   )
 }
 
+/**
+ * Display a single graph correction made by CEE pipeline
+ */
+function CorrectionItem({ correction }: { correction: GraphCorrection }) {
+  const layerColors: Record<string, { bg: string; text: string }> = {
+    adapter: { bg: '#dbeafe', text: '#1d4ed8' },
+    pipeline: { bg: '#f3e8ff', text: '#7c3aed' },
+    guards: { bg: '#fef3c7', text: '#d97706' },
+  }
+
+  const typeColors: Record<string, { bg: string; text: string }> = {
+    node_added: { bg: '#dcfce7', text: '#166534' },
+    node_removed: { bg: '#fee2e2', text: '#991b1b' },
+    edge_added: { bg: '#dcfce7', text: '#166534' },
+    edge_removed: { bg: '#fee2e2', text: '#991b1b' },
+    node_modified: { bg: '#fef9c3', text: '#854d0e' },
+    edge_modified: { bg: '#fef9c3', text: '#854d0e' },
+    kind_normalised: { bg: '#e0e7ff', text: '#4338ca' },
+    coefficient_adjusted: { bg: '#e0e7ff', text: '#4338ca' },
+  }
+
+  const layerColor = layerColors[correction.layer] ?? { bg: '#f1f5f9', text: '#64748b' }
+  const typeColor = typeColors[correction.type] ?? { bg: '#f1f5f9', text: '#64748b' }
+
+  const targetText = correction.target.node_id ?? correction.target.edge_id ?? '—'
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        padding: '8px 10px',
+        background: '#f8fafc',
+        border: '1px solid #e2e8f0',
+        borderRadius: 6,
+      }}
+    >
+      {/* Header row: layer badge, type badge, target */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <span
+          style={{
+            fontSize: 9,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            padding: '2px 5px',
+            borderRadius: 3,
+            background: layerColor.bg,
+            color: layerColor.text,
+          }}
+        >
+          {correction.layer}
+        </span>
+        <span
+          style={{
+            fontSize: 9,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            padding: '2px 5px',
+            borderRadius: 3,
+            background: typeColor.bg,
+            color: typeColor.text,
+          }}
+        >
+          {correction.type.replace(/_/g, ' ')}
+        </span>
+        <span
+          style={{
+            fontSize: 10,
+            fontFamily: 'monospace',
+            color: '#64748b',
+            marginLeft: 'auto',
+          }}
+        >
+          {targetText}
+        </span>
+      </div>
+      {/* Reason row */}
+      <div style={{ fontSize: 11, color: '#334155' }}>{correction.reason}</div>
+    </div>
+  )
+}
+
 export function PipelineTab({ data }: PipelineTabProps) {
   const [showFullLlmOutput, setShowFullLlmOutput] = useState(false)
 
@@ -554,6 +637,33 @@ export function PipelineTab({ data }: PipelineTabProps) {
             {connectivity.factor_count > 0 && ` ← ${connectivity.factor_count} factors`}
             {connectivity.goal_count > 0 && ` → ${connectivity.goal_count} goal`}
             {connectivity.edge_count > 0 && ` (${connectivity.edge_count} edges)`}
+          </div>
+        </div>
+      )}
+
+      {/* Graph Corrections */}
+      {data.corrections.length > 0 && (
+        <div style={sectionStyle}>
+          <div style={sectionTitleStyle}>
+            Graph Corrections
+            {data.correctionsSummary && (
+              <span style={{ fontWeight: 400, marginLeft: 8 }}>
+                ({data.correctionsSummary.total} total)
+              </span>
+            )}
+          </div>
+          {data.correctionsSummary && (
+            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>
+              {Object.entries(data.correctionsSummary.by_layer)
+                .filter(([, count]) => count && count > 0)
+                .map(([layer, count]) => `${layer}: ${count}`)
+                .join(' | ')}
+            </div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {data.corrections.map((correction) => (
+              <CorrectionItem key={correction.id} correction={correction} />
+            ))}
           </div>
         </div>
       )}

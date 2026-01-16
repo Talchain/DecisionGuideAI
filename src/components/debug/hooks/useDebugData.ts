@@ -185,6 +185,49 @@ export interface CeeTraceData {
   source?: string
 }
 
+/**
+ * A single graph correction made by CEE pipeline
+ */
+export interface GraphCorrection {
+  /** Unique correction ID */
+  id: string
+  /** Pipeline layer that made the correction */
+  layer: 'adapter' | 'pipeline' | 'guards'
+  /** Stage number within the layer */
+  stage: number
+  /** Human-readable stage name */
+  stage_name: string
+  /** Type of correction made */
+  type:
+    | 'node_added'
+    | 'node_removed'
+    | 'edge_added'
+    | 'edge_removed'
+    | 'node_modified'
+    | 'edge_modified'
+    | 'kind_normalised'
+    | 'coefficient_adjusted'
+  /** Target of the correction */
+  target: {
+    node_id?: string
+    edge_id?: string
+  }
+  /** Reason for the correction */
+  reason: string
+}
+
+/**
+ * Summary of corrections by layer
+ */
+export interface CorrectionsSummary {
+  by_layer: {
+    adapter?: number
+    pipeline?: number
+    guards?: number
+  }
+  total: number
+}
+
 export interface DebugData {
   /** Overall analysis status */
   overall: {
@@ -212,6 +255,12 @@ export interface DebugData {
 
   /** CEE trace data if available */
   ceeTrace: CeeTraceData | null
+
+  /** Graph corrections made by CEE pipeline */
+  corrections: GraphCorrection[]
+
+  /** Summary of corrections by layer */
+  correctionsSummary: CorrectionsSummary | null
 
   /** Pipeline processing data */
   pipeline: PipelineData
@@ -648,6 +697,54 @@ function extractCeeTrace(ceeResponse: unknown): CeeTraceData | null {
 }
 
 /**
+ * Extract graph corrections from CEE response trace
+ */
+function extractCorrections(ceeResponse: unknown): GraphCorrection[] {
+  if (!ceeResponse || typeof ceeResponse !== 'object') return []
+
+  const cee = ceeResponse as Record<string, unknown>
+  const trace = cee.trace as Record<string, unknown>
+    ?? cee.ceeTrace as Record<string, unknown>
+    ?? (cee.meta as Record<string, unknown>)?.trace as Record<string, unknown>
+
+  if (!trace) return []
+
+  const corrections = trace.corrections
+  if (!Array.isArray(corrections)) return []
+
+  return corrections.filter((c): c is GraphCorrection => {
+    if (!c || typeof c !== 'object') return false
+    const corr = c as Record<string, unknown>
+    return typeof corr.id === 'string' && typeof corr.type === 'string'
+  })
+}
+
+/**
+ * Extract corrections summary from CEE response trace
+ */
+function extractCorrectionsSummary(ceeResponse: unknown): CorrectionsSummary | null {
+  if (!ceeResponse || typeof ceeResponse !== 'object') return null
+
+  const cee = ceeResponse as Record<string, unknown>
+  const trace = cee.trace as Record<string, unknown>
+    ?? cee.ceeTrace as Record<string, unknown>
+    ?? (cee.meta as Record<string, unknown>)?.trace as Record<string, unknown>
+
+  if (!trace) return null
+
+  const summary = trace.corrections_summary as Record<string, unknown> | undefined
+  if (!summary || typeof summary !== 'object') return null
+
+  const byLayer = summary.by_layer as Record<string, number> | undefined
+  const total = typeof summary.total === 'number' ? summary.total : 0
+
+  return {
+    by_layer: byLayer ?? {},
+    total,
+  }
+}
+
+/**
  * Extract a correlation/request ID from response headers or payload.
  * Looks for common header names: x-request-id, x-correlation-id, request-id.
  * Falls back to internal trace id if no server ID found.
@@ -791,6 +888,10 @@ export function useDebugData(): DebugData {
     // Extract CEE trace data
     const ceeTrace = extractCeeTrace(payloadBundle.cee_response)
 
+    // Extract graph corrections
+    const corrections = extractCorrections(payloadBundle.cee_response)
+    const correctionsSummary = extractCorrectionsSummary(payloadBundle.cee_response)
+
     return {
       overall: {
         status: overallStatus,
@@ -802,6 +903,8 @@ export function useDebugData(): DebugData {
       builds,
       diagnostics,
       ceeTrace,
+      corrections,
+      correctionsSummary,
       pipeline: {
         status: overallStatus,
         total_duration_ms: typeof (pipelineTrace as Record<string, unknown>)?.total_duration_ms === 'number'

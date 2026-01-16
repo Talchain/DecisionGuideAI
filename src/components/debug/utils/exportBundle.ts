@@ -70,6 +70,10 @@ interface DebugBundle {
     data_source: 'downstream_calls' | 'direct_capture' | 'none'
     downstream_calls_path_found: string | null
     downstream_calls_paths_checked: string[]
+    plot_response_keys: string[]
+    downstream_calls_content: unknown
+    plot_build: string | null
+    expected_plot_build_with_feature: string
     endpoint: string | null
     status_code: number | null
     duration_ms: number | null
@@ -237,6 +241,12 @@ export function buildDebugBundle(data: DebugData): DebugBundle {
       data_source: data.diagnostics.isl_data_source,
       downstream_calls_path_found: data.diagnostics.downstream_calls_path_found,
       downstream_calls_paths_checked: data.diagnostics.downstream_calls_paths_checked,
+      plot_response_keys: data.payloads.plot_response
+        ? Object.keys(data.payloads.plot_response as Record<string, unknown>)
+        : [],
+      downstream_calls_content: (data.payloads.plot_response as Record<string, unknown>)?.downstream_calls ?? null,
+      plot_build: data.builds.plot,
+      expected_plot_build_with_feature: '463baf6+',
       endpoint: data.services.isl?.endpoint ?? null,
       status_code: data.services.isl?.status ?? null,
       duration_ms: data.services.isl?.duration_ms ?? null,

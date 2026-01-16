@@ -1485,6 +1485,7 @@ export function PayloadLabTab({ lastISLPayload, onRunTest, initialPayload, onPay
   const [draftBusy, setDraftBusy] = useState(false)
   const [draftError, setDraftError] = useState<string | null>(null)
   const [draftResult, setDraftResult] = useState<PromptTesterRun | null>(null)
+  const [draftViewMode, setDraftViewMode] = useState<'processed' | 'raw'>('processed')
   const [detRuns, setDetRuns] = useState<PromptTesterRun[]>([])
   const [cooldownUntil, setCooldownUntil] = useState<number>(0)
   const [recentRunTimes, setRecentRunTimes] = useState<number[]>([])
@@ -2231,6 +2232,97 @@ export function PayloadLabTab({ lastISLPayload, onRunTest, initialPayload, onPay
                 edges:{draftResult.edgeCount}
               </span>
             </div>
+
+            {/* View mode toggle */}
+            <div style={{ display: 'flex', gap: 4, marginBottom: 10 }}>
+              <button
+                onClick={() => setDraftViewMode('processed')}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: 10,
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 6,
+                  background: draftViewMode === 'processed' ? '#dbeafe' : '#fff',
+                  color: draftViewMode === 'processed' ? '#1d4ed8' : '#64748b',
+                  cursor: 'pointer',
+                  fontWeight: draftViewMode === 'processed' ? 600 : 400,
+                }}
+              >
+                Processed
+              </button>
+              <button
+                onClick={() => setDraftViewMode('raw')}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: 10,
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 6,
+                  background: draftViewMode === 'raw' ? '#dbeafe' : '#fff',
+                  color: draftViewMode === 'raw' ? '#1d4ed8' : '#64748b',
+                  cursor: 'pointer',
+                  fontWeight: draftViewMode === 'raw' ? 600 : 400,
+                }}
+              >
+                Raw LLM
+              </button>
+            </div>
+
+            {/* Raw LLM output view */}
+            {draftViewMode === 'raw' && (() => {
+              const rawObj = draftResult.raw as Record<string, unknown> | undefined
+              const llmRaw = (rawObj?.trace as Record<string, unknown>)?.pipeline?.llm_raw as Record<string, unknown> | undefined
+                ?? (rawObj?.trace as Record<string, unknown>)?.llm_raw as Record<string, unknown> | undefined
+                ?? rawObj?.llm_raw as Record<string, unknown> | undefined
+
+              if (!llmRaw) {
+                return (
+                  <div style={{ padding: 10, background: '#f8fafc', borderRadius: 6, fontSize: 11, color: '#64748b' }}>
+                    Raw LLM output not available in response
+                  </div>
+                )
+              }
+
+              const outputText = (llmRaw.output_preview ?? llmRaw.text ?? llmRaw.content ?? llmRaw.output) as string | undefined
+              const outputHash = llmRaw.output_hash as string | undefined ?? llmRaw.hash as string | undefined
+              const nodeCount = llmRaw.output_node_count as number | undefined
+              const edgeCount = llmRaw.output_edge_count as number | undefined
+              const truncated = llmRaw.truncated as boolean | undefined
+
+              return (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ display: 'flex', gap: 12, fontSize: 10, color: '#64748b', marginBottom: 8 }}>
+                    {nodeCount !== undefined && <span>Nodes: {nodeCount}</span>}
+                    {edgeCount !== undefined && <span>Edges: {edgeCount}</span>}
+                    {outputHash && <span>Hash: <code style={{ background: '#f1f5f9', padding: '1px 4px', borderRadius: 2 }}>{outputHash.slice(0, 12)}</code></span>}
+                  </div>
+                  {outputText ? (
+                    <pre style={{
+                      padding: 10,
+                      background: '#f8fafc',
+                      borderRadius: 6,
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                      overflow: 'auto',
+                      maxHeight: 300,
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      border: '1px solid #e2e8f0',
+                    }}>
+                      {outputText}
+                    </pre>
+                  ) : (
+                    <div style={{ padding: 10, background: '#f8fafc', borderRadius: 6, fontSize: 11, color: '#64748b' }}>
+                      Raw text not available
+                    </div>
+                  )}
+                  {truncated && (
+                    <div style={{ fontSize: 10, color: '#d97706', marginTop: 4 }}>
+                      Truncated preview. Full output on CEE if needed.
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
