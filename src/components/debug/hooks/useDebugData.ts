@@ -71,6 +71,25 @@ export interface LlmMetadataData {
   }
 }
 
+export interface LlmRawData {
+  /** Raw LLM output text */
+  text?: string
+  /** Hash of the raw output for comparison */
+  hash?: string
+  /** Whether the output was truncated */
+  truncated?: boolean
+  /** Character count of original output */
+  char_count?: number
+  /** Node counts extracted from raw */
+  node_counts?: {
+    options?: number
+    factors?: number
+    outcomes?: number
+  }
+  /** Edge counts extracted from raw */
+  edge_count?: number
+}
+
 export interface NodeExtractionData {
   raw?: Record<string, number>
   normalised?: Record<string, number>
@@ -82,6 +101,7 @@ export interface PipelineData {
   total_duration_ms?: number
   stages: PipelineStageData[]
   llm_metadata?: LlmMetadataData
+  llm_raw?: LlmRawData
   node_extraction?: NodeExtractionData
   connectivity?: {
     decision_count: number
@@ -138,6 +158,8 @@ export interface DiagnosticChecks {
   plot_has_downstream_calls: boolean
   /** Path where downstream_calls was found */
   downstream_calls_path_found: string | null
+  /** All paths checked for downstream_calls */
+  downstream_calls_paths_checked: string[]
   /** Source of ISL data */
   isl_data_source: 'downstream_calls' | 'direct_capture' | 'none'
   /** Whether CEE trace is present */
@@ -146,6 +168,10 @@ export interface DiagnosticChecks {
   cee_degraded: boolean
   /** CEE degraded reason if applicable */
   cee_degraded_reason?: string
+  /** Whether llm_raw data is available */
+  llm_raw_available: boolean
+  /** Path where llm_raw was found */
+  llm_raw_path_found: string | null
 }
 
 export interface CeeTraceData {
@@ -201,40 +227,44 @@ export interface DebugData {
 }
 
 // =============================================================================
+// Constants
+// =============================================================================
+
+/**
+ * All paths checked for downstream_calls in PLoT response.
+ * Used by both findDownstreamCallsPath (for diagnostics) and extractIslFromPlotResponse (for extraction).
+ */
+const DOWNSTREAM_CALLS_PATHS = [
+  { path: 'response.downstream_calls', accessor: (p: Record<string, unknown>) => p.downstream_calls },
+  { path: 'response.body.downstream_calls', accessor: (p: Record<string, unknown>) => (p.body as Record<string, unknown>)?.downstream_calls },
+  { path: 'response.trace.downstream_calls', accessor: (p: Record<string, unknown>) => (p.trace as Record<string, unknown>)?.downstream_calls },
+  { path: 'response.data.downstream_calls', accessor: (p: Record<string, unknown>) => (p.data as Record<string, unknown>)?.downstream_calls },
+  { path: 'response.body.trace.downstream_calls', accessor: (p: Record<string, unknown>) => ((p.body as Record<string, unknown>)?.trace as Record<string, unknown>)?.downstream_calls },
+  { path: 'response.result.downstream_calls', accessor: (p: Record<string, unknown>) => (p.result as Record<string, unknown>)?.downstream_calls },
+  { path: 'response.meta.downstream_calls', accessor: (p: Record<string, unknown>) => (p.meta as Record<string, unknown>)?.downstream_calls },
+] as const
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 
 /**
- * Extract ISL data from PLoT response downstream_calls
+ * Extract ISL data from PLoT response downstream_calls.
+ * Uses DOWNSTREAM_CALLS_PATHS to ensure detection and extraction are aligned.
  */
 function extractIslFromPlotResponse(plotResponse: unknown): IslDownstreamCall | null {
   if (!plotResponse || typeof plotResponse !== 'object') return null
 
   const response = plotResponse as Record<string, unknown>
 
-  // Try body.downstream_calls.isl
-  const body = response.body as Record<string, unknown> | undefined
-  if (body?.downstream_calls && typeof body.downstream_calls === 'object') {
-    const downstream = body.downstream_calls as Record<string, unknown>
-    if (downstream.isl && typeof downstream.isl === 'object') {
-      return downstream.isl as IslDownstreamCall
-    }
-  }
-
-  // Try body.trace.downstream_calls.isl
-  const trace = body?.trace as Record<string, unknown> | undefined
-  if (trace?.downstream_calls && typeof trace.downstream_calls === 'object') {
-    const downstream = trace.downstream_calls as Record<string, unknown>
-    if (downstream.isl && typeof downstream.isl === 'object') {
-      return downstream.isl as IslDownstreamCall
-    }
-  }
-
-  // Try top-level downstream_calls.isl
-  if (response.downstream_calls && typeof response.downstream_calls === 'object') {
-    const downstream = response.downstream_calls as Record<string, unknown>
-    if (downstream.isl && typeof downstream.isl === 'object') {
-      return downstream.isl as IslDownstreamCall
+  // Check all paths using shared accessors
+  for (const { accessor } of DOWNSTREAM_CALLS_PATHS) {
+    const downstream = accessor(response)
+    if (downstream && typeof downstream === 'object') {
+      const isl = (downstream as Record<string, unknown>).isl
+      if (isl && typeof isl === 'object') {
+        return isl as IslDownstreamCall
+      }
     }
   }
 
@@ -300,6 +330,84 @@ function extractNodeExtraction(pipeline: unknown): NodeExtractionData | undefine
   }
 
   return undefined
+}
+
+/**
+ * Simple hash function for comparing raw outputs
+ */
+function simpleHash(str: string): string {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(16).padStart(8, '0')
+}
+
+/**
+ * Extract raw LLM output data from CEE response
+ * Looks in: ceeResponse?.trace?.pipeline?.llm_raw
+ *           ceeResponse?.pipeline_trace?.llm_raw
+ *           ceeResponse?.llm_raw
+ */
+function extractLlmRaw(ceeResponse: unknown): LlmRawData | undefined {
+  if (!ceeResponse || typeof ceeResponse !== 'object') return undefined
+
+  const cee = ceeResponse as Record<string, unknown>
+
+  // Try multiple paths for llm_raw
+  const llmRaw =
+    (cee.trace as Record<string, unknown>)?.pipeline?.llm_raw ??
+    (cee.trace as Record<string, unknown>)?.llm_raw ??
+    (cee.pipeline_trace as Record<string, unknown>)?.llm_raw ??
+    cee.llm_raw
+
+  if (!llmRaw || typeof llmRaw !== 'object') return undefined
+
+  const raw = llmRaw as Record<string, unknown>
+
+  // Extract text content (type-guarded)
+  const rawText = raw.text ?? raw.content ?? raw.output
+  const text = typeof rawText === 'string' ? rawText : undefined
+
+  // Calculate hash if we have text
+  const rawHash = raw.hash
+  const hash = text ? simpleHash(text) : (typeof rawHash === 'string' ? rawHash : undefined)
+
+  // Check for truncation indicators (type-guarded)
+  const truncated = raw.truncated === true || raw.was_truncated === true
+
+  // Get character count (type-guarded)
+  const rawCharCount = raw.char_count ?? raw.length
+  const charCount = text?.length ?? (typeof rawCharCount === 'number' ? rawCharCount : undefined)
+
+  // Extract node counts if available (type-guarded)
+  let nodeCounts: LlmRawData['node_counts'] | undefined
+  if (raw.node_counts && typeof raw.node_counts === 'object') {
+    const nc = raw.node_counts as Record<string, unknown>
+    nodeCounts = {
+      options: typeof nc.options === 'number' ? nc.options : undefined,
+      factors: typeof nc.factors === 'number' ? nc.factors : undefined,
+      outcomes: typeof nc.outcomes === 'number' ? nc.outcomes : undefined,
+    }
+    // Only include if at least one value is present
+    if (nodeCounts.options === undefined && nodeCounts.factors === undefined && nodeCounts.outcomes === undefined) {
+      nodeCounts = undefined
+    }
+  }
+
+  // Extract edge count (type-guarded)
+  const edgeCount = typeof raw.edge_count === 'number' ? raw.edge_count : undefined
+
+  return {
+    text,
+    hash,
+    truncated,
+    char_count: charCount,
+    node_counts: nodeCounts,
+    edge_count: edgeCount,
+  }
 }
 
 /**
@@ -457,9 +565,31 @@ function findDownstreamCallsPath(plotResponse: unknown): string | null {
   if (!plotResponse || typeof plotResponse !== 'object') return null
   const p = plotResponse as Record<string, unknown>
 
-  if (p.downstream_calls) return 'response.downstream_calls'
-  if ((p.trace as Record<string, unknown>)?.downstream_calls) return 'response.trace.downstream_calls'
-  if ((p.data as Record<string, unknown>)?.downstream_calls) return 'response.data.downstream_calls'
+  for (const { path, accessor } of DOWNSTREAM_CALLS_PATHS) {
+    if (accessor(p)) return path
+  }
+
+  return null
+}
+
+/**
+ * Get list of all paths checked for downstream_calls (for diagnostics)
+ */
+function getDownstreamCallsPathsChecked(): string[] {
+  return DOWNSTREAM_CALLS_PATHS.map(({ path }) => path)
+}
+
+/**
+ * Find the path where llm_raw was found in CEE response
+ */
+function findLlmRawPath(ceeResponse: unknown): string | null {
+  if (!ceeResponse || typeof ceeResponse !== 'object') return null
+  const cee = ceeResponse as Record<string, unknown>
+
+  if ((cee.trace as Record<string, unknown>)?.pipeline?.llm_raw) return 'response.trace.pipeline.llm_raw'
+  if ((cee.trace as Record<string, unknown>)?.llm_raw) return 'response.trace.llm_raw'
+  if ((cee.pipeline_trace as Record<string, unknown>)?.llm_raw) return 'response.pipeline_trace.llm_raw'
+  if (cee.llm_raw) return 'response.llm_raw'
 
   return null
 }
@@ -475,23 +605,24 @@ function extractDiagnosticChecks(
   const plot = plotResponse as Record<string, unknown> | undefined
   const cee = ceeResponse as Record<string, unknown> | undefined
 
-  const hasDownstreamCalls = !!(
-    plot?.downstream_calls ||
-    (plot?.trace as Record<string, unknown>)?.downstream_calls ||
-    (plot?.data as Record<string, unknown>)?.downstream_calls
-  )
+  const hasDownstreamCalls = findDownstreamCallsPath(plotResponse) !== null
 
   const ceeTrace = cee?.ceeTrace as Record<string, unknown>
     ?? cee?.trace as Record<string, unknown>
     ?? (cee?.meta as Record<string, unknown>)?.trace as Record<string, unknown>
 
+  const llmRawPath = findLlmRawPath(ceeResponse)
+
   return {
     plot_has_downstream_calls: hasDownstreamCalls,
     downstream_calls_path_found: findDownstreamCallsPath(plotResponse),
+    downstream_calls_paths_checked: getDownstreamCallsPathsChecked(),
     isl_data_source: islDataSource,
     cee_trace_present: !!ceeTrace,
     cee_degraded: (ceeTrace?.degraded as boolean) ?? false,
     cee_degraded_reason: ceeTrace?.reason as string | undefined,
+    llm_raw_available: llmRawPath !== null,
+    llm_raw_path_found: llmRawPath,
   }
 }
 
@@ -563,25 +694,10 @@ export function useDebugData(): DebugData {
     const plotPayload = findBestPayload(tracedPayloads, 'PLoT')
     const islPayload = findBestPayload(tracedPayloads, 'ISL')
 
-    // Diagnostic logging for ISL extraction
-    const plotResponseBody = plotPayload?.response?.body
-    console.log('[useDebugData] Extracting ISL data...')
-    console.log('[useDebugData] plotResponse keys:', plotResponseBody ? Object.keys(plotResponseBody as object) : [])
-
     // Extract ISL from PLoT downstream_calls if not found directly
     const islFromPlot = plotPayload?.response?.body
       ? extractIslFromPlotResponse(plotPayload.response)
       : null
-
-    console.log('[useDebugData] downstream_calls found:', !!islFromPlot)
-
-    if (islFromPlot) {
-      console.log('[useDebugData] ISL from downstream_calls:', {
-        endpoint: islFromPlot.endpoint,
-        success: islFromPlot.success,
-        status: islFromPlot.status_code,
-      })
-    }
 
     // Determine ISL data source
     let islDataSource: 'downstream_calls' | 'direct_capture' | 'none' = 'none'
@@ -591,7 +707,6 @@ export function useDebugData(): DebugData {
     if (islPayload) {
       islServiceCall = payloadToServiceCall(islPayload)
       islDataSource = 'direct_capture'
-      console.log('[useDebugData] ISL from direct capture')
     } else if (islFromPlot) {
       islServiceCall = {
         name: 'ISL',
@@ -694,6 +809,7 @@ export function useDebugData(): DebugData {
           : undefined,
         stages: extractPipelineStages(pipelineTrace),
         llm_metadata: extractLlmMetadata(pipelineTrace),
+        llm_raw: extractLlmRaw(payloadBundle.cee_response),
         node_extraction: extractNodeExtraction(pipelineTrace),
         connectivity: {
           decision_count: nodeCounts.decision,

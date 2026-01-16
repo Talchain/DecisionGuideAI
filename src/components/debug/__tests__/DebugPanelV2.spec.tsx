@@ -50,9 +50,16 @@ const defaultMockData = {
   diagnostics: {
     plot_has_downstream_calls: false,
     downstream_calls_path_found: null,
+    downstream_calls_paths_checked: [
+      'response.downstream_calls',
+      'response.body.downstream_calls',
+      'response.trace.downstream_calls',
+    ],
     isl_data_source: 'none' as const,
     cee_trace_present: false,
     cee_degraded: false,
+    llm_raw_available: false,
+    llm_raw_path_found: null,
   },
   ceeTrace: null,
   pipeline: {

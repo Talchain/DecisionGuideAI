@@ -5,7 +5,7 @@
  * Creates a structured bundle containing all payloads and diagnostic info.
  */
 
-import type { DebugData, BuildVersions, DiagnosticChecks } from '../hooks/useDebugData'
+import type { DebugData, BuildVersions, DiagnosticChecks, LlmRawData } from '../hooks/useDebugData'
 import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
 import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer'
 
@@ -24,7 +24,7 @@ interface DiagnosticInfo {
 interface DebugBundle {
   /** Bundle metadata */
   meta: {
-    version: '1.1'
+    version: '1.2'
     created_at: string
     request_id: string | null
     client_build: string | null
@@ -61,8 +61,20 @@ interface DebugBundle {
     status: string
     total_duration_ms: number | null
     llm_metadata: unknown
+    llm_raw: LlmRawData | null
     node_extraction: unknown
     connectivity: unknown
+  }
+  /** ISL diagnostic details */
+  isl_diagnostic: {
+    data_source: 'downstream_calls' | 'direct_capture' | 'none'
+    downstream_calls_path_found: string | null
+    downstream_calls_paths_checked: string[]
+    endpoint: string | null
+    status_code: number | null
+    duration_ms: number | null
+    success: boolean | null
+    error: string | null
   }
   /** Gate statuses */
   gates: Array<{ name: string; status: string; message?: string }>
@@ -162,7 +174,7 @@ export function buildDebugBundle(data: DebugData): DebugBundle {
 
   return {
     meta: {
-      version: '1.1',
+      version: '1.2',
       created_at: timestamp,
       request_id: data.overall.request_id,
       client_build: clientBuild,
@@ -217,8 +229,19 @@ export function buildDebugBundle(data: DebugData): DebugBundle {
       status: data.pipeline.status,
       total_duration_ms: data.pipeline.total_duration_ms ?? null,
       llm_metadata: data.pipeline.llm_metadata ?? null,
+      llm_raw: data.pipeline.llm_raw ?? null,
       node_extraction: data.pipeline.node_extraction ?? null,
       connectivity: data.pipeline.connectivity ?? null,
+    },
+    isl_diagnostic: {
+      data_source: data.diagnostics.isl_data_source,
+      downstream_calls_path_found: data.diagnostics.downstream_calls_path_found,
+      downstream_calls_paths_checked: data.diagnostics.downstream_calls_paths_checked,
+      endpoint: data.services.isl?.endpoint ?? null,
+      status_code: data.services.isl?.status ?? null,
+      duration_ms: data.services.isl?.duration_ms ?? null,
+      success: data.services.isl?.success ?? null,
+      error: data.services.isl?.error ?? null,
     },
     gates: data.gates.map((g) => ({
       name: g.name,

@@ -5,10 +5,245 @@
  * Shows artefact chain, pipeline stages, and connectivity.
  */
 
-import { useState, useMemo, CSSProperties } from 'react'
+import { useState, useMemo, useCallback, CSSProperties } from 'react'
 import { PipelineStage, JsonViewer } from '../components'
-import type { DebugData } from '../hooks/useDebugData'
+import type { DebugData, LlmRawData } from '../hooks/useDebugData'
 import { formatDuration } from '../utils'
+
+/**
+ * Copy text to clipboard with fallback for older browsers.
+ * Returns true on success, false on failure.
+ */
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text)
+      return true
+    }
+    // Fallback for older browsers
+    const textarea = document.createElement('textarea')
+    textarea.value = text
+    textarea.style.position = 'fixed'
+    textarea.style.left = '-9999px'
+    document.body.appendChild(textarea)
+    textarea.select()
+    const success = document.execCommand('copy')
+    document.body.removeChild(textarea)
+    return success
+  } catch {
+    return false
+  }
+}
+
+function LlmRawSection({
+  llmRaw,
+  llmRawPathFound,
+}: {
+  llmRaw: LlmRawData | undefined
+  llmRawPathFound: string | null
+}) {
+  const [showRawText, setShowRawText] = useState(false)
+  const [copyFeedback, setCopyFeedback] = useState<'success' | 'error' | null>(null)
+
+  const handleCopyHash = useCallback(async () => {
+    if (llmRaw?.hash) {
+      const success = await copyToClipboard(llmRaw.hash)
+      setCopyFeedback(success ? 'success' : 'error')
+      setTimeout(() => setCopyFeedback(null), 1500)
+    }
+  }, [llmRaw?.hash])
+
+  const handleCopyText = useCallback(async () => {
+    if (llmRaw?.text) {
+      const success = await copyToClipboard(llmRaw.text)
+      setCopyFeedback(success ? 'success' : 'error')
+      setTimeout(() => setCopyFeedback(null), 1500)
+    }
+  }, [llmRaw?.text])
+
+  if (!llmRaw) {
+    return (
+      <div
+        style={{
+          marginTop: 12,
+          padding: 12,
+          background: '#f8fafc',
+          borderRadius: 6,
+          border: '1px solid #e2e8f0',
+        }}
+      >
+        <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 4 }}>
+          Raw LLM Output
+        </div>
+        <div style={{ fontSize: 12, color: '#94a3b8' }}>
+          Not available — CEE response does not include llm_raw data
+        </div>
+        {llmRawPathFound === null && (
+          <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 4, fontFamily: 'monospace' }}>
+            Checked paths: response.trace.pipeline.llm_raw, response.trace.llm_raw, response.pipeline_trace.llm_raw, response.llm_raw
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <details
+      style={{
+        marginTop: 12,
+        padding: 12,
+        background: '#f0fdf4',
+        borderRadius: 6,
+        border: '1px solid #86efac',
+      }}
+    >
+      <summary
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          color: '#166534',
+          cursor: 'pointer',
+          userSelect: 'none',
+        }}
+      >
+        Raw LLM Output {llmRaw.truncated && <span style={{ color: '#f59e0b' }}>(truncated)</span>}
+      </summary>
+
+      <div style={{ marginTop: 12 }}>
+        {/* Metadata Grid */}
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: '8px 16px',
+            fontSize: 12,
+            marginBottom: 12,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#64748b' }}>Hash</span>
+            <span
+              style={{ fontFamily: 'monospace', cursor: llmRaw.hash ? 'pointer' : 'default' }}
+              onClick={handleCopyHash}
+              title={llmRaw.hash ? 'Click to copy' : ''}
+            >
+              {llmRaw.hash ?? '—'}{' '}
+              {copyFeedback === 'success' && <span style={{ color: '#16a34a' }}>✓</span>}
+              {copyFeedback === 'error' && <span style={{ color: '#dc2626' }}>✗</span>}
+            </span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: '#64748b' }}>Characters</span>
+            <span style={{ fontFamily: 'monospace' }}>
+              {llmRaw.char_count?.toLocaleString() ?? '—'}
+            </span>
+          </div>
+          {llmRaw.node_counts && (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Options</span>
+                <span style={{ fontFamily: 'monospace' }}>{llmRaw.node_counts.options ?? '—'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Factors</span>
+                <span style={{ fontFamily: 'monospace' }}>{llmRaw.node_counts.factors ?? '—'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: '#64748b' }}>Outcomes</span>
+                <span style={{ fontFamily: 'monospace' }}>{llmRaw.node_counts.outcomes ?? '—'}</span>
+              </div>
+            </>
+          )}
+          {llmRaw.edge_count !== undefined && (
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#64748b' }}>Edges</span>
+              <span style={{ fontFamily: 'monospace' }}>{llmRaw.edge_count}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Truncation Warning */}
+        {llmRaw.truncated && (
+          <div
+            style={{
+              padding: 8,
+              background: '#fffbeb',
+              border: '1px solid #fde68a',
+              borderRadius: 4,
+              fontSize: 11,
+              color: '#92400e',
+              marginBottom: 12,
+            }}
+          >
+            ⚠ Output was truncated during capture
+          </div>
+        )}
+
+        {/* Source Path */}
+        {llmRawPathFound && (
+          <div style={{ fontSize: 10, color: '#64748b', marginBottom: 12, fontFamily: 'monospace' }}>
+            Source: {llmRawPathFound}
+          </div>
+        )}
+
+        {/* Raw Text Toggle */}
+        {llmRaw.text && (
+          <>
+            <button
+              onClick={() => setShowRawText((v) => !v)}
+              style={{
+                padding: '6px 12px',
+                fontSize: 11,
+                cursor: 'pointer',
+                border: '1px solid #e2e8f0',
+                borderRadius: 4,
+                background: '#fff',
+                marginRight: 8,
+              }}
+            >
+              {showRawText ? 'Hide Raw Text' : 'View Raw Text'}
+            </button>
+            <button
+              onClick={handleCopyText}
+              style={{
+                padding: '6px 12px',
+                fontSize: 11,
+                cursor: 'pointer',
+                border: '1px solid #e2e8f0',
+                borderRadius: 4,
+                background: '#fff',
+              }}
+            >
+              Copy Raw Text{' '}
+              {copyFeedback === 'success' && <span style={{ color: '#16a34a' }}>✓</span>}
+              {copyFeedback === 'error' && <span style={{ color: '#dc2626' }}>✗</span>}
+            </button>
+
+            {showRawText && (
+              <pre
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                  background: '#fff',
+                  borderRadius: 4,
+                  border: '1px solid #e2e8f0',
+                  overflow: 'auto',
+                  maxHeight: 300,
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {llmRaw.text}
+              </pre>
+            )}
+          </>
+        )}
+      </div>
+    </details>
+  )
+}
 
 export interface PipelineTabProps {
   /** Debug data from useDebugData hook */
@@ -197,6 +432,12 @@ export function PipelineTab({ data }: PipelineTabProps) {
             {showFullLlmOutput && llmStage?.details && (
               <JsonViewer data={llmStage.details} maxHeight={300} showCopy />
             )}
+
+            {/* Raw LLM Output Section */}
+            <LlmRawSection
+              llmRaw={data.pipeline.llm_raw}
+              llmRawPathFound={data.diagnostics.llm_raw_path_found}
+            />
           </div>
         ),
       })
@@ -242,7 +483,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
     }
 
     return result
-  }, [data.pipeline.stages, llmMetadata, nodeExtraction, showFullLlmOutput])
+  }, [data.pipeline.stages, data.pipeline.llm_raw, data.diagnostics.llm_raw_path_found, llmMetadata, nodeExtraction, showFullLlmOutput])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 12 }}>

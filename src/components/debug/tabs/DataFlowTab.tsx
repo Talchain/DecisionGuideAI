@@ -355,6 +355,212 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
         </div>
       )}
 
+      {/* ISL Data Source Diagnostic Panel */}
+      <details
+        style={{
+          background: '#fff',
+          border: '1px solid #e2e8f0',
+          borderRadius: 8,
+          padding: 12,
+        }}
+      >
+        <summary
+          style={{
+            fontSize: 11,
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            color: '#64748b',
+            cursor: 'pointer',
+            userSelect: 'none',
+          }}
+        >
+          ISL Data Source Diagnostic
+        </summary>
+
+        <div style={{ marginTop: 12 }}>
+          {/* Data Source Status */}
+          <div
+            style={{
+              padding: 8,
+              borderRadius: 4,
+              marginBottom: 12,
+              background:
+                data.diagnostics.isl_data_source === 'none'
+                  ? '#fef2f2'
+                  : data.diagnostics.isl_data_source === 'downstream_calls'
+                    ? '#fffbeb'
+                    : '#f0fdf4',
+              border: `1px solid ${
+                data.diagnostics.isl_data_source === 'none'
+                  ? '#fecaca'
+                  : data.diagnostics.isl_data_source === 'downstream_calls'
+                    ? '#fde68a'
+                    : '#86efac'
+              }`,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color:
+                  data.diagnostics.isl_data_source === 'none'
+                    ? '#991b1b'
+                    : data.diagnostics.isl_data_source === 'downstream_calls'
+                      ? '#92400e'
+                      : '#166534',
+              }}
+            >
+              {data.diagnostics.isl_data_source === 'none' && '✗ No ISL Data'}
+              {data.diagnostics.isl_data_source === 'downstream_calls' &&
+                '⚡ ISL via PLoT downstream_calls'}
+              {data.diagnostics.isl_data_source === 'direct_capture' && '✓ ISL Direct Capture'}
+            </div>
+            <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+              {data.diagnostics.isl_data_source === 'none' &&
+                'ISL data not found in direct capture or PLoT downstream_calls'}
+              {data.diagnostics.isl_data_source === 'downstream_calls' &&
+                'ISL data extracted from PLoT response nested downstream_calls.isl'}
+              {data.diagnostics.isl_data_source === 'direct_capture' &&
+                'ISL data captured directly via payload trace store'}
+            </div>
+          </div>
+
+          {/* downstream_calls path check */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
+              downstream_calls Path Check
+            </div>
+            <div
+              style={{
+                padding: 8,
+                borderRadius: 4,
+                background:
+                  data.diagnostics.plot_has_downstream_calls ? '#f0fdf4' : '#f8fafc',
+                border: `1px solid ${
+                  data.diagnostics.plot_has_downstream_calls ? '#86efac' : '#e2e8f0'
+                }`,
+              }}
+            >
+              {data.diagnostics.downstream_calls_path_found ? (
+                <div style={{ fontSize: 12, color: '#166534' }}>
+                  ✓ Found at:{' '}
+                  <code
+                    style={{
+                      fontFamily: 'monospace',
+                      background: '#dcfce7',
+                      padding: '1px 4px',
+                      borderRadius: 2,
+                    }}
+                  >
+                    {data.diagnostics.downstream_calls_path_found}
+                  </code>
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: '#64748b' }}>✗ Not found in any path</div>
+              )}
+            </div>
+          </div>
+
+          {/* All paths checked */}
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
+              Paths Checked ({data.diagnostics.downstream_calls_paths_checked.length})
+            </div>
+            <div
+              style={{
+                padding: 8,
+                borderRadius: 4,
+                background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                fontSize: 10,
+                fontFamily: 'monospace',
+              }}
+            >
+              {data.diagnostics.downstream_calls_paths_checked.map((path, i) => (
+                <div
+                  key={path}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '2px 0',
+                    color:
+                      path === data.diagnostics.downstream_calls_path_found
+                        ? '#16a34a'
+                        : '#64748b',
+                  }}
+                >
+                  <span>
+                    {path === data.diagnostics.downstream_calls_path_found ? '✓' : '✗'}
+                  </span>
+                  <span>{path}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ISL details if available */}
+          {data.services.isl && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
+                ISL Call Details
+              </div>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '4px 12px',
+                  fontSize: 11,
+                  padding: 8,
+                  borderRadius: 4,
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                }}
+              >
+                <div>
+                  <span style={{ color: '#64748b' }}>Endpoint: </span>
+                  <code style={{ fontFamily: 'monospace' }}>
+                    {data.services.isl.endpoint ?? '—'}
+                  </code>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b' }}>Status: </span>
+                  <span
+                    style={{
+                      fontFamily: 'monospace',
+                      color: data.services.isl.success ? '#16a34a' : '#dc2626',
+                    }}
+                  >
+                    {data.services.isl.status ?? '—'}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b' }}>Duration: </span>
+                  <span style={{ fontFamily: 'monospace' }}>
+                    {data.services.isl.duration_ms != null
+                      ? `${Math.round(data.services.isl.duration_ms)}ms`
+                      : '—'}
+                  </span>
+                </div>
+                <div>
+                  <span style={{ color: '#64748b' }}>Success: </span>
+                  <span
+                    style={{
+                      fontFamily: 'monospace',
+                      color: data.services.isl.success ? '#16a34a' : '#dc2626',
+                    }}
+                  >
+                    {data.services.isl.success ? 'true' : 'false'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </details>
+
       {/* No data placeholder */}
       {!data.hasData && (
         <div
