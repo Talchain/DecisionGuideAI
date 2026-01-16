@@ -266,6 +266,43 @@ export function PipelineTab({ data }: PipelineTabProps) {
         </div>
       </div>
 
+      {/* CEE Trace Diagnostic */}
+      {data.ceeTrace && (
+        <div
+          style={{
+            ...sectionStyle,
+            background: data.ceeTrace.degraded ? '#fffbeb' : '#f0fdf4',
+            border: `1px solid ${data.ceeTrace.degraded ? '#fde68a' : '#86efac'}`,
+          }}
+        >
+          <div
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: data.ceeTrace.degraded ? '#92400e' : '#166534',
+              marginBottom: 8,
+            }}
+          >
+            {data.ceeTrace.degraded ? '⚠ CEE Degraded Mode' : '✓ CEE Normal'}
+          </div>
+          {data.ceeTrace.reason && (
+            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>
+              Reason: <code style={{ fontFamily: 'monospace', background: '#f1f5f9', padding: '1px 4px', borderRadius: 2 }}>{data.ceeTrace.reason}</code>
+            </div>
+          )}
+          {data.ceeTrace.latency_ms !== undefined && (
+            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>
+              Latency: {formatDuration(data.ceeTrace.latency_ms)}
+            </div>
+          )}
+          {data.ceeTrace.source && (
+            <div style={{ fontSize: 12, color: '#64748b' }}>
+              Source: {data.ceeTrace.source}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Connectivity Summary */}
       {connectivity && (
         <div style={sectionStyle}>

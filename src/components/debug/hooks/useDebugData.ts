@@ -15,6 +15,7 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { usePayloadTraceStore, type TracedPayload } from '../../../lib/payload-trace-store'
 import { useGateStore, type GateName, type GateStatus } from '../../../lib/gate-state'
+import { getClientBuild } from '../../../lib/version-cache'
 
 // =============================================================================
 // Types
@@ -121,6 +122,43 @@ export interface ServiceErrorData {
   retryable: boolean
 }
 
+export interface BuildVersions {
+  /** UI client build (from version-cache) */
+  ui: string | null
+  /** CEE service build */
+  cee: string | null
+  /** PLoT service build */
+  plot: string | null
+  /** ISL service build */
+  isl: string | null
+}
+
+export interface DiagnosticChecks {
+  /** Whether PLoT response contains downstream_calls */
+  plot_has_downstream_calls: boolean
+  /** Path where downstream_calls was found */
+  downstream_calls_path_found: string | null
+  /** Source of ISL data */
+  isl_data_source: 'downstream_calls' | 'direct_capture' | 'none'
+  /** Whether CEE trace is present */
+  cee_trace_present: boolean
+  /** Whether CEE is in degraded mode */
+  cee_degraded: boolean
+  /** CEE degraded reason if applicable */
+  cee_degraded_reason?: string
+}
+
+export interface CeeTraceData {
+  /** Whether CEE ran in degraded mode */
+  degraded: boolean
+  /** Reason for degradation */
+  reason?: string
+  /** CEE latency in ms */
+  latency_ms?: number
+  /** Source of the response */
+  source?: string
+}
+
 export interface DebugData {
   /** Overall analysis status */
   overall: {
@@ -139,6 +177,15 @@ export interface DebugData {
 
   /** First service error (for error banner display) */
   error: ServiceErrorData | null
+
+  /** Service build versions */
+  builds: BuildVersions
+
+  /** Diagnostic checks for troubleshooting */
+  diagnostics: DiagnosticChecks
+
+  /** CEE trace data if available */
+  ceeTrace: CeeTraceData | null
 
   /** Pipeline processing data */
   pipeline: PipelineData
@@ -375,6 +422,101 @@ function extractFirstError(
 }
 
 /**
+ * Extract build versions from service responses
+ */
+function extractBuildVersions(
+  ceeResponse: unknown,
+  plotResponse: unknown,
+  islResponse: unknown
+): BuildVersions {
+  const cee = ceeResponse as Record<string, unknown> | undefined
+  const plot = plotResponse as Record<string, unknown> | undefined
+  const isl = islResponse as Record<string, unknown> | undefined
+
+  return {
+    ui: getClientBuild() || null,
+    cee: (cee?.trace as Record<string, unknown>)?.engine?.build as string
+      ?? (cee?.trace as Record<string, unknown>)?.build as string
+      ?? (cee?.build as string)
+      ?? null,
+    plot: (plot?.meta as Record<string, unknown>)?.build as string
+      ?? (plot?.trace as Record<string, unknown>)?.build as string
+      ?? (plot?.build as string)
+      ?? null,
+    isl: (isl?._metadata as Record<string, unknown>)?.isl_version as string
+      ?? (isl?._metadata as Record<string, unknown>)?.version as string
+      ?? (isl?.version as string)
+      ?? null,
+  }
+}
+
+/**
+ * Find the path where downstream_calls was found in plot response
+ */
+function findDownstreamCallsPath(plotResponse: unknown): string | null {
+  if (!plotResponse || typeof plotResponse !== 'object') return null
+  const p = plotResponse as Record<string, unknown>
+
+  if (p.downstream_calls) return 'response.downstream_calls'
+  if ((p.trace as Record<string, unknown>)?.downstream_calls) return 'response.trace.downstream_calls'
+  if ((p.data as Record<string, unknown>)?.downstream_calls) return 'response.data.downstream_calls'
+
+  return null
+}
+
+/**
+ * Extract diagnostic checks from payloads
+ */
+function extractDiagnosticChecks(
+  plotResponse: unknown,
+  ceeResponse: unknown,
+  islDataSource: 'downstream_calls' | 'direct_capture' | 'none'
+): DiagnosticChecks {
+  const plot = plotResponse as Record<string, unknown> | undefined
+  const cee = ceeResponse as Record<string, unknown> | undefined
+
+  const hasDownstreamCalls = !!(
+    plot?.downstream_calls ||
+    (plot?.trace as Record<string, unknown>)?.downstream_calls ||
+    (plot?.data as Record<string, unknown>)?.downstream_calls
+  )
+
+  const ceeTrace = cee?.ceeTrace as Record<string, unknown>
+    ?? cee?.trace as Record<string, unknown>
+    ?? (cee?.meta as Record<string, unknown>)?.trace as Record<string, unknown>
+
+  return {
+    plot_has_downstream_calls: hasDownstreamCalls,
+    downstream_calls_path_found: findDownstreamCallsPath(plotResponse),
+    isl_data_source: islDataSource,
+    cee_trace_present: !!ceeTrace,
+    cee_degraded: (ceeTrace?.degraded as boolean) ?? false,
+    cee_degraded_reason: ceeTrace?.reason as string | undefined,
+  }
+}
+
+/**
+ * Extract CEE trace data if available
+ */
+function extractCeeTrace(ceeResponse: unknown): CeeTraceData | null {
+  if (!ceeResponse || typeof ceeResponse !== 'object') return null
+
+  const cee = ceeResponse as Record<string, unknown>
+  const trace = cee.ceeTrace as Record<string, unknown>
+    ?? cee.trace as Record<string, unknown>
+    ?? (cee.meta as Record<string, unknown>)?.trace as Record<string, unknown>
+
+  if (!trace) return null
+
+  return {
+    degraded: (trace.degraded as boolean) ?? false,
+    reason: trace.reason as string | undefined,
+    latency_ms: trace.latency_ms as number | undefined,
+    source: trace.source as string | undefined,
+  }
+}
+
+/**
  * Extract a correlation/request ID from response headers or payload.
  * Looks for common header names: x-request-id, x-correlation-id, request-id.
  * Falls back to internal trace id if no server ID found.
@@ -421,15 +563,35 @@ export function useDebugData(): DebugData {
     const plotPayload = findBestPayload(tracedPayloads, 'PLoT')
     const islPayload = findBestPayload(tracedPayloads, 'ISL')
 
+    // Diagnostic logging for ISL extraction
+    const plotResponseBody = plotPayload?.response?.body
+    console.log('[useDebugData] Extracting ISL data...')
+    console.log('[useDebugData] plotResponse keys:', plotResponseBody ? Object.keys(plotResponseBody as object) : [])
+
     // Extract ISL from PLoT downstream_calls if not found directly
     const islFromPlot = plotPayload?.response?.body
       ? extractIslFromPlotResponse(plotPayload.response)
       : null
 
+    console.log('[useDebugData] downstream_calls found:', !!islFromPlot)
+
+    if (islFromPlot) {
+      console.log('[useDebugData] ISL from downstream_calls:', {
+        endpoint: islFromPlot.endpoint,
+        success: islFromPlot.success,
+        status: islFromPlot.status_code,
+      })
+    }
+
+    // Determine ISL data source
+    let islDataSource: 'downstream_calls' | 'direct_capture' | 'none' = 'none'
+
     // Build ISL service call data
     let islServiceCall: ServiceCallData | null = null
     if (islPayload) {
       islServiceCall = payloadToServiceCall(islPayload)
+      islDataSource = 'direct_capture'
+      console.log('[useDebugData] ISL from direct capture')
     } else if (islFromPlot) {
       islServiceCall = {
         name: 'ISL',
@@ -441,6 +603,7 @@ export function useDebugData(): DebugData {
         request: islFromPlot.request,
         response: islFromPlot.response,
       }
+      islDataSource = 'downstream_calls'
     }
 
     // Determine overall status
@@ -496,6 +659,23 @@ export function useDebugData(): DebugData {
     // Extract first error for error banner
     const error = extractFirstError(services, payloadBundle)
 
+    // Extract build versions
+    const builds = extractBuildVersions(
+      payloadBundle.cee_response,
+      payloadBundle.plot_response,
+      payloadBundle.isl_response
+    )
+
+    // Extract diagnostic checks
+    const diagnostics = extractDiagnosticChecks(
+      payloadBundle.plot_response,
+      payloadBundle.cee_response,
+      islDataSource
+    )
+
+    // Extract CEE trace data
+    const ceeTrace = extractCeeTrace(payloadBundle.cee_response)
+
     return {
       overall: {
         status: overallStatus,
@@ -504,6 +684,9 @@ export function useDebugData(): DebugData {
       },
       services,
       error,
+      builds,
+      diagnostics,
+      ceeTrace,
       pipeline: {
         status: overallStatus,
         total_duration_ms: typeof (pipelineTrace as Record<string, unknown>)?.total_duration_ms === 'number'

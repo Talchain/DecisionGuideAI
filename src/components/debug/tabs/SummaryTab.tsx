@@ -9,6 +9,7 @@ import { useMemo, CSSProperties } from 'react'
 import { KpiCard, ServiceChain, type ChainNode, type KpiStatus } from '../components'
 import type { DebugData } from '../hooks/useDebugData'
 import { formatDuration, formatNodeCountsAbbreviated } from '../utils'
+import { getErrorInfo } from '../constants/errorCodes'
 
 export interface SummaryTabProps {
   /** Debug data from useDebugData hook */
@@ -143,35 +144,46 @@ export function SummaryTab({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 12 }}>
       {/* Error Banner */}
-      {data.error && (
-        <div
-          style={{
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: 8,
-            padding: 12,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span
-              style={{
-                color: '#dc2626',
-                fontFamily: 'monospace',
-                fontSize: 13,
-                fontWeight: 500,
-              }}
-            >
-              {data.error.code}
-            </span>
-            <span style={{ color: '#991b1b', fontSize: 13 }}>{data.error.message}</span>
-            <span style={{ color: '#f87171', fontSize: 12 }}>({data.error.status})</span>
+      {data.error && (() => {
+        const errorInfo = getErrorInfo(data.error.code)
+        return (
+          <div
+            style={{
+              background: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: 8,
+              padding: 12,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span
+                style={{
+                  color: '#dc2626',
+                  fontFamily: 'monospace',
+                  fontSize: 13,
+                  fontWeight: 500,
+                }}
+              >
+                {data.error.code}
+              </span>
+              <span style={{ color: '#991b1b', fontSize: 13 }}>{data.error.message}</span>
+              <span style={{ color: '#f87171', fontSize: 12 }}>({data.error.status})</span>
+            </div>
+            <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>
+              Duration: {formatDuration(data.error.duration_ms)}
+              {data.error.retryable && ' • Retryable'}
+            </div>
+            {errorInfo && (
+              <div style={{ fontSize: 12, marginTop: 8, paddingTop: 8, borderTop: '1px solid #fecaca' }}>
+                <div style={{ color: '#b91c1c' }}>{errorInfo.description}</div>
+                <div style={{ color: '#dc2626', marginTop: 2 }}>
+                  <strong>Action:</strong> {errorInfo.action}
+                </div>
+              </div>
+            )}
           </div>
-          <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>
-            Duration: {formatDuration(data.error.duration_ms)}
-            {data.error.retryable && ' • Retryable'}
-          </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Row 1: KPI Cards */}
       <div style={sectionStyle}>
@@ -265,6 +277,30 @@ export function SummaryTab({
               {data.overall.request_id.slice(0, 8)}...
             </span>
           )}
+        </div>
+
+        {/* Builds Row */}
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '8px 16px',
+            fontSize: 12,
+            color: '#64748b',
+            marginTop: 8,
+            fontFamily: 'monospace',
+          }}
+        >
+          <span>
+            <strong style={{ color: '#475569', fontFamily: 'inherit' }}>Builds:</strong>
+          </span>
+          <span>UI {data.builds.ui ?? '—'}</span>
+          <span>•</span>
+          <span>PLoT {data.builds.plot ?? '—'}</span>
+          <span>•</span>
+          <span>CEE {data.builds.cee ?? '—'}</span>
+          <span>•</span>
+          <span>ISL {data.builds.isl ?? '—'}</span>
         </div>
       </div>
 

@@ -5,8 +5,9 @@
  * Creates a structured bundle containing all payloads and diagnostic info.
  */
 
-import type { DebugData } from '../hooks/useDebugData'
+import type { DebugData, BuildVersions, DiagnosticChecks } from '../hooks/useDebugData'
 import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
+import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer'
 
 // =============================================================================
 // Types
@@ -23,7 +24,7 @@ interface DiagnosticInfo {
 interface DebugBundle {
   /** Bundle metadata */
   meta: {
-    version: '1.0'
+    version: '1.1'
     created_at: string
     request_id: string | null
     client_build: string | null
@@ -38,6 +39,8 @@ interface DebugBundle {
   }
   /** Diagnostic summary */
   diagnostic: DiagnosticInfo
+  /** Service build versions */
+  builds: BuildVersions
   /** All payloads */
   payloads: {
     cee_request: unknown
@@ -63,6 +66,10 @@ interface DebugBundle {
   }
   /** Gate statuses */
   gates: Array<{ name: string; status: string; message?: string }>
+  /** Captured console logs */
+  console_logs: BufferedLog[]
+  /** Diagnostic checks for troubleshooting */
+  diagnostic_checks: DiagnosticChecks
   /** README content */
   readme: string
 }
@@ -155,7 +162,7 @@ export function buildDebugBundle(data: DebugData): DebugBundle {
 
   return {
     meta: {
-      version: '1.0',
+      version: '1.1',
       created_at: timestamp,
       request_id: data.overall.request_id,
       client_build: clientBuild,
@@ -171,9 +178,10 @@ export function buildDebugBundle(data: DebugData): DebugBundle {
       timestamp,
       request_id: data.overall.request_id,
       environment: getEnvironment(),
-      client_version: versionInfo.clientBuild ?? 'unknown',
+      client_version: versionInfo?.short ?? 'unknown',
       user_agent: navigator.userAgent,
     },
+    builds: data.builds,
     payloads: {
       cee_request: data.payloads.cee_request ?? null,
       cee_response: data.payloads.cee_response ?? null,
@@ -217,6 +225,8 @@ export function buildDebugBundle(data: DebugData): DebugBundle {
       status: g.status,
       message: g.message,
     })),
+    console_logs: getBufferedLogs(),
+    diagnostic_checks: data.diagnostics,
     readme: generateReadme(data),
   }
 }

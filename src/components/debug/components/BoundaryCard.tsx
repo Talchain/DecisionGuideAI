@@ -32,6 +32,8 @@ export interface BoundaryCardProps {
   defaultExpanded?: boolean
   /** Overall status indicator */
   boundaryStatus?: BoundaryStatus
+  /** Custom content to render in expanded view */
+  children?: React.ReactNode
 }
 
 const STATUS_INDICATORS: Record<BoundaryStatus, { color: string; label: string }> = {
@@ -161,6 +163,7 @@ export function BoundaryCard({
   onDownload,
   defaultExpanded = false,
   boundaryStatus = 'unavailable',
+  children,
 }: BoundaryCardProps) {
   const [expanded, setExpanded] = useState(defaultExpanded)
   const statusIndicator = STATUS_INDICATORS[boundaryStatus]
@@ -302,6 +305,8 @@ export function BoundaryCard({
       {/* Expandable content */}
       {expanded && hasData && (
         <div>
+          {/* Custom children content (diagnostics, etc.) */}
+          {children && <div style={{ padding: '8px 16px' }}>{children}</div>}
           <JsonSection title="Request" data={request} />
           <JsonSection title="Response" data={response} defaultExpanded />
         </div>
