@@ -748,6 +748,10 @@ export async function runV2(
   const startTime = Date.now()
   const requestId = request.request_id || `v2-${Date.now()}`
   const endpoint = '/v2/run'
+  const directPlotUrl = import.meta.env.VITE_PLOT_ENGINE_URL
+  const resolvedBaseUrl = typeof directPlotUrl === 'string' && directPlotUrl.trim().length > 0
+    ? directPlotUrl.trim()
+    : baseUrl
 
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), timeout)
@@ -770,7 +774,7 @@ export async function runV2(
   })
 
   try {
-    const response = await fetch(`${baseUrl}/v2/run`, {
+    const response = await fetch(`${resolvedBaseUrl}/v2/run`, {
       method: 'POST',
       headers,
       body: JSON.stringify(request),
