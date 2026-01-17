@@ -1,12 +1,14 @@
-# BFF proxies (must come before SPA catch-all)
-# Note: /bff/engine/* and /engine/* routing handled by netlify.toml (environment-aware)
-/bff/isl/*     https://isl-staging.onrender.com/:splat        200!
+# BFF proxies (must come BEFORE SPA catch-all)
+# Note: /bff/isl/* handled by edge function (isl-proxy.ts) for auth header injection
+# Note: /bff/cee/* handled by netlify.toml redirect with header injection
+/bff/engine/*  https://plot-lite-service-staging.onrender.com/:splat  200!
+
+# Legacy engine proxy (VITE_EDGE_GATEWAY_URL=/engine uses this)
+/engine/*      https://plot-lite-service-staging.onrender.com/:splat  200!
 
 # Static routes
-/poc        /poc.html                                       200
-/fixtures/* /fixtures/:splat                                200
+/poc           /poc.html                                               200
+/fixtures/*    /fixtures/:splat                                        200
 
-# SPA catch-all (must be last)
-/*          /index.html                                     200
-
-# Note: /bff/cee/* is handled by Edge Function (netlify/edge-functions/cee-proxy.ts)
+# SPA catch-all (MUST BE LAST - catches all unmatched routes)
+/*             /index.html                                             200
