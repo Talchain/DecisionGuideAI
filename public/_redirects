@@ -1,9 +1,6 @@
 # BFF proxies (must come before SPA catch-all)
-/bff/engine/*  https://plot-lite-service.onrender.com/:splat  200!
+# Note: /bff/engine/* and /engine/* routing handled by netlify.toml (environment-aware)
 /bff/isl/*     https://isl-staging.onrender.com/:splat        200!
-
-# Legacy POC engine proxy
-/engine/*   https://plot-lite-service.onrender.com/:splat  200
 
 # Static routes
 /poc        /poc.html                                       200
