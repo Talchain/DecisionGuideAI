@@ -150,11 +150,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const confText = confidence !== undefined ? `, confidence ${Math.round(confidence * 100)}%` : ''
   const ariaLabel = `Edge from ${srcTitle} to ${tgtTitle}${confText}`
 
-  // Determine arrowhead marker based on state
-  const markerEnd = selected
-    ? 'url(#arrowhead-selected)'
-    : 'url(#arrowhead-default)'
-
   // P0-9: Handle double-click to open inline editor
   const handleLabelDoubleClick = (event: React.MouseEvent) => {
     event.stopPropagation()
@@ -200,7 +195,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           // Performance: use will-change for frequent updates
           willChange: selected ? 'stroke, stroke-width' : undefined,
         }}
-        markerEnd={markerEnd}
       />
       
       {/* C1: Edge label - only show when selected, hovered, or has pending suggestions */}
