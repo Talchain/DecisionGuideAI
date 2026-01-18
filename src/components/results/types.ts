@@ -219,6 +219,8 @@ export interface RawFactorSensitivity {
   importance_score?: number
   direction?: string
   importance_rank?: number
+  /** Confidence signal for factor influence (0-1), used for driver confidence */
+  value_of_information?: number
   /** Confidence in this factor's influence (0-1), from PLoT factor_sensitivity */
   confidence?: number
 }

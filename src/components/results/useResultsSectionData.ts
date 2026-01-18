@@ -668,6 +668,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           label: f.label,
           sensitivity_score: f.sensitivity_score,
           elasticity: f.elasticity,
+          value_of_information: f.value_of_information,
           confidence: f.confidence,
           direction: f.direction,
         })),
@@ -788,11 +789,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const fragileEdgesRaw = safeArray((report as any)?.robustness?.fragile_edges)
     const fragileEdgesMap = new Map<string, { switchProbability?: number; alternativeWinnerLabel?: string }>()
     fragileEdgesRaw.forEach((fe: any) => {
-      const fromId = fe.from_id || fe.source
+      const fromId = fe.from_id ?? fe.fromId ?? fe.source
       if (fromId) {
         fragileEdgesMap.set(fromId, {
           switchProbability: fe.switch_probability,
-          alternativeWinnerLabel: fe.alternative_winner_label,
+          alternativeWinnerLabel: fe.alternative_winner_label ?? fe.alternativeWinnerLabel ?? fe.alternativeWinner,
         })
       }
     })
@@ -850,7 +851,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         // Get confidence: factor_sensitivity.confidence first, then edge beliefExists as fallback
         // PLoT returns confidence directly on factor_sensitivity array items
         const factorNodeId = matchedNodeId || f.key
-        const factorConfidence = typeof f.raw.confidence === 'number' ? f.raw.confidence : undefined
+        const factorConfidence = typeof f.raw.value_of_information === 'number'
+          ? f.raw.value_of_information
+          : typeof f.raw.confidence === 'number'
+            ? f.raw.confidence
+            : undefined
         const edgeToGoal = goalNodeId
           ? edges.find(e => e.source === factorNodeId && e.target === goalNodeId)
           : undefined
@@ -983,11 +988,25 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Schema v2.6: Use from_label/to_label with fallback to cleaned IDs
       const cleanId = (id: string | undefined) =>
         id?.replace(/^(fac_|out_|goal_|risk_|opt_)/, '').replace(/_/g, ' ')
-      const sourceName = fe.from_label || cleanId(fe.from_id) || 'this factor'
-      const targetName = fe.to_label || cleanId(fe.to_id) || 'the outcome'
+      const sourceName =
+        fe.from_label ??
+        fe.fromLabel ??
+        fe.source ??
+        cleanId(fe.from_id ?? fe.fromId) ??
+        'this factor'
+      const targetName =
+        fe.to_label ??
+        fe.toLabel ??
+        fe.target ??
+        cleanId(fe.to_id ?? fe.toId) ??
+        'the outcome'
 
       // Schema v2.6: Use alternative_winner_label directly
-      const alternativeWinnerLabel = fe.alternative_winner_label || 'another option'
+      const alternativeWinnerLabel =
+        fe.alternative_winner_label ??
+        fe.alternativeWinnerLabel ??
+        fe.alternativeWinner ??
+        'another option'
 
       // Enhanced message format per spec
       const edgeLabel = fe.label || `${sourceName} → ${targetName}`
@@ -1009,10 +1028,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         code: 'SENSITIVE_ASSUMPTION',
         message: friendlyMessage,
         suggestion: 'Validate this assumption',
-        affectedNodes: [fe.from_id, fe.to_id].filter(Boolean),
+        affectedNodes: [fe.from_id ?? fe.fromId ?? fe.source, fe.to_id ?? fe.toId ?? fe.target].filter(Boolean),
         severity,
         threshold: fe.threshold ? {
-          variable: fe.from_id,
+          variable: fe.from_id ?? fe.fromId ?? fe.source,
           direction: normaliseDirection(fe.direction) ?? 'positive',
           value: fe.threshold,
           alternativeOption: alternativeWinnerLabel,
