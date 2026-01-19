@@ -14,8 +14,9 @@
  */
 
 import { useState, useCallback } from 'react'
-import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, ConfidenceTier, CritiqueSeverity } from './types'
+import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, CritiqueSeverity, ConfidenceTier } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { EMPTY_STATES } from './emptyStates'
 
 interface ConfidenceSectionProps {
   data: ConfidenceSectionData
@@ -123,8 +124,12 @@ function UncertaintyRow({
   const severityConfig = SEVERITY_CONFIG[severity]
 
   // Format threshold message if present
-  const thresholdMessage = item.threshold
-    ? `If ${item.threshold.variable} ${item.threshold.direction === 'positive' ? 'drops below' : 'rises above'} ${item.threshold.value.toFixed(1)}, "${item.threshold.alternativeOption || 'another option'}" becomes the better choice`
+  const alternativeOption = item.threshold?.alternativeOption
+  const hasSpecificAlternative = typeof alternativeOption === 'string'
+    && alternativeOption.trim().length > 0
+    && alternativeOption !== 'another option'
+  const thresholdMessage = item.threshold && hasSpecificAlternative
+    ? `If ${item.threshold.variable} ${item.threshold.direction === 'positive' ? 'drops below' : 'rises above'} ${item.threshold.value.toFixed(1)}, "${alternativeOption}" becomes the better choice`
     : null
 
   return (
@@ -207,7 +212,6 @@ export function ConfidenceSection({
     evidenceCoverage,
     improvements,
     topImprovements,
-    robustnessStatus,
   } = data
 
   const config = TIER_CONFIG[tier.tier]
@@ -216,8 +220,8 @@ export function ConfidenceSection({
   const displayImprovements = showAllImprovements ? improvements : topImprovements
   const hiddenImprovementCount = improvements.length - topImprovements.length
 
-  // Check if we should show uncertainties (only if robustness computed)
-  const showUncertainties = robustnessStatus === 'computed' || uncertainties.length > 0
+  // Always show uncertainties section header with empty state if needed
+  const showUncertainties = true
 
   // Determine if model is fully ready (strong tier, no improvements, no uncertainties)
   const isFullyReady = tier.tier === 'strong' && improvements.length === 0 && uncertainties.length === 0
@@ -282,21 +286,30 @@ export function ConfidenceSection({
         </div>
       )}
 
-      {/* Uncertainties - only show if there are any */}
-      {uncertainties.length > 0 && (
+      {/* Uncertainties */}
+      {showUncertainties && (
         <div className="space-y-2">
           <h4 className="text-xs font-medium text-slate-500 uppercase tracking-wide">
             Uncertainties
           </h4>
-          <div className="space-y-2">
-            {displayUncertainties.map((item, index) => (
-              <UncertaintyRow
-                key={`${item.code}-${index}`}
-                item={item}
-                onFocus={onFocusNode}
-              />
-            ))}
-          </div>
+          {uncertainties.length === 0 ? (
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <p className="text-sm text-slate-600 flex items-start gap-2">
+                <span aria-hidden="true">ℹ️</span>
+                {EMPTY_STATES.robustness}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {displayUncertainties.map((item, index) => (
+                <UncertaintyRow
+                  key={`${item.code}-${index}`}
+                  item={item}
+                  onFocus={onFocusNode}
+                />
+              ))}
+            </div>
+          )}
 
           {hiddenUncertaintyCount > 0 && (
             <button
@@ -309,12 +322,19 @@ export function ConfidenceSection({
         </div>
       )}
 
-      {/* Improvements - only show if there are any */}
-      {improvements.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-xs font-medium text-slate-500 uppercase tracking-wide">
-            Improvements
-          </h4>
+      {/* Improvements */}
+      <div className="space-y-2">
+        <h4 className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+          Improvements
+        </h4>
+        {improvements.length === 0 ? (
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+            <p className="text-sm text-slate-600 flex items-start gap-2">
+              <span aria-hidden="true">ℹ️</span>
+              {EMPTY_STATES.improvements}
+            </p>
+          </div>
+        ) : (
           <div className="space-y-2">
             {displayImprovements.map((item, index) => (
               <ImprovementRow
@@ -323,17 +343,17 @@ export function ConfidenceSection({
               />
             ))}
           </div>
+        )}
 
-          {hiddenImprovementCount > 0 && (
-            <button
-              onClick={() => setShowAllImprovements(!showAllImprovements)}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-            >
-              {showAllImprovements ? 'Show fewer' : `+${hiddenImprovementCount} more items`}
-            </button>
-          )}
-        </div>
-      )}
+        {hiddenImprovementCount > 0 && (
+          <button
+            onClick={() => setShowAllImprovements(!showAllImprovements)}
+            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+          >
+            {showAllImprovements ? 'Show fewer' : `+${hiddenImprovementCount} more items`}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

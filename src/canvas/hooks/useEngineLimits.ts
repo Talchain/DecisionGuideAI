@@ -27,8 +27,12 @@ export interface UseEngineLimitsReturn {
 }
 
 const RETRY_DELAYS = [0, 2000, 5000] // Exponential backoff: immediate, 2s, 5s
-const VISIBILITY_COOLDOWN_MS = 10000 // Minimum 10s between visibility-triggered fetches
-const MAX_FETCH_COUNT = 10 // Maximum fetches per session to prevent runaway loops
+const VISIBILITY_COOLDOWN_MS = 1000 // Minimum 1s between visibility-triggered fetches
+const MAX_FETCH_COUNT = 3 // Maximum fetches per session to prevent runaway loops
+const FALLBACK_LIMITS: LimitsV1 = {
+  nodes: { max: 50 },
+  edges: { max: 200 },
+}
 
 export function useEngineLimits(): UseEngineLimitsReturn {
   const [limits, setLimits] = useState<LimitsV1 | null>(null)
@@ -45,14 +49,23 @@ export function useEngineLimits(): UseEngineLimitsReturn {
   // Track last visibility fetch and total fetch count to prevent runaway loops
   const lastVisibilityFetchRef = useRef<number>(0)
   const fetchCountRef = useRef<number>(0)
+  const inFlightRef = useRef(false)
+  const fallbackActiveRef = useRef(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const fetchLimitsWithRetry = useCallback(async () => {
+    if (fallbackActiveRef.current) {
+      fetchCountRef.current = 0
+      return
+    }
+
     // Safety guard: prevent runaway fetch loops (React #185)
     fetchCountRef.current += 1
     if (fetchCountRef.current > MAX_FETCH_COUNT) {
       if (import.meta.env.DEV) {
         console.warn('[useEngineLimits] Max fetch count reached, stopping retries')
       }
+      fetchCountRef.current = 0
       setLoading(false)
       return
     }
@@ -60,11 +73,20 @@ export function useEngineLimits(): UseEngineLimitsReturn {
     setLoading(true)
     setError(null)
 
+    if (inFlightRef.current && abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    inFlightRef.current = true
+
     const adapter = plot as any
     if (!adapter.limits || typeof adapter.limits !== 'function') {
       const err = new Error('Limits endpoint not available in adapter')
       setError(err)
       setLoading(false)
+      fetchCountRef.current = 0
       return
     }
 
@@ -75,45 +97,71 @@ export function useEngineLimits(): UseEngineLimitsReturn {
       }
 
       try {
-        const result: LimitsFetch = await adapter.limits()
+        if (controller.signal.aborted) {
+          inFlightRef.current = false
+          setLoading(false)
+          fetchCountRef.current = 0
+          return
+        }
+
+        const result: LimitsFetch = await (adapter.limits.length > 0
+          ? adapter.limits({ signal: controller.signal })
+          : adapter.limits())
 
         if (result.ok) {
           setLimits(result.data)
           setSource(result.source)
           setFetchedAt(result.fetchedAt)
           setError(null)
+          fetchCountRef.current = 0
 
           if (import.meta.env.DEV && result.source === 'fallback') {
             console.warn('[useEngineLimits] Using fallback limits:', (result as any).reason)
           }
 
+          if (result.source === 'fallback') {
+            fallbackActiveRef.current = true
+          }
+
           setLoading(false)
+          inFlightRef.current = false
           return // Success
         } else {
           // Error result
           if (attempt === RETRY_DELAYS.length - 1) {
             // Final attempt failed
-            setError(result.error)
-            setLimits(null)
-            setSource(null)
+            setLimits(FALLBACK_LIMITS)
+            setSource('fallback')
             setFetchedAt(result.fetchedAt)
+            setError(null)
+            fallbackActiveRef.current = true
           }
           // Continue to next retry
         }
       } catch (err) {
+        if (controller.signal.aborted) {
+          inFlightRef.current = false
+          setLoading(false)
+          fetchCountRef.current = 0
+          return
+        }
         if (attempt === RETRY_DELAYS.length - 1) {
           // Final attempt failed
-          const error = err instanceof Error ? err : new Error(String(err))
-          console.warn('[useEngineLimits] Failed after', RETRY_DELAYS.length, 'attempts:', error)
-          setError(error)
-          setLimits(null)
-          setSource(null)
+          if (import.meta.env.DEV) {
+            const error = err instanceof Error ? err : new Error(String(err))
+            console.warn('[useEngineLimits] Failed after', RETRY_DELAYS.length, 'attempts:', error)
+          }
+          setLimits(FALLBACK_LIMITS)
+          setSource('fallback')
+          setError(null)
+          fallbackActiveRef.current = true
         }
         // Continue to next retry
       }
     }
 
     setLoading(false)
+    inFlightRef.current = false
   }, [])
 
   // Initial fetch on mount
@@ -126,7 +174,7 @@ export function useEngineLimits(): UseEngineLimitsReturn {
   // on every loading change, which can cause infinite render loops (React #185)
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && !loadingRef.current) {
+      if (document.visibilityState === 'visible' && !loadingRef.current && !fallbackActiveRef.current) {
         // Safety guard: enforce cooldown between visibility-triggered fetches
         const now = Date.now()
         if (now - lastVisibilityFetchRef.current < VISIBILITY_COOLDOWN_MS) {

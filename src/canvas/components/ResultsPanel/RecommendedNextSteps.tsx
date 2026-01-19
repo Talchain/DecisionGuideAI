@@ -19,6 +19,7 @@ import {
   Lightbulb,
 } from 'lucide-react'
 import { typography } from '../../../styles/typography'
+import { EMPTY_STATES } from '../../../components/results/emptyStates'
 
 interface NextStepAction {
   action: string
@@ -116,13 +117,10 @@ export function RecommendedNextSteps({
 
   if (!hasContent) {
     return (
-      <div className="p-4 text-center" data-testid="next-steps-empty">
-        <ArrowRight className="h-8 w-8 text-sand-300 mx-auto mb-2" aria-hidden="true" />
-        <p className={`${typography.body} text-ink-600`}>
-          No next steps identified
-        </p>
-        <p className={`${typography.caption} text-ink-500 mt-1`}>
-          Complete your analysis to get recommendations
+      <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg" data-testid="next-steps-empty">
+        <p className={`${typography.body} text-ink-600 flex items-start gap-2`}>
+          <span aria-hidden="true">ℹ️</span>
+          {EMPTY_STATES.nextSteps}
         </p>
       </div>
     )

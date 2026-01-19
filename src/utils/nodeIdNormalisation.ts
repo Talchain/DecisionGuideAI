@@ -153,9 +153,13 @@ export function normaliseGraphIds<
   }
 
   // Apply mapping to nodes
+  // P2 Fix: Spread operator preserves all node properties including observed_state
+  // which is critical for V2 nodes with value/baseline/unit/source data
   const normalisedNodes = graph.nodes.map((n) => ({
     ...n,
     id: idMap.get(n.id) ?? n.id,
+    // Explicit preservation of observed_state for clarity and safety
+    ...(n.observed_state !== undefined ? { observed_state: n.observed_state } : {}),
   }))
 
   // Apply mapping to edges
@@ -217,8 +221,8 @@ export function translateResponseToUIIds<T extends {
   drivers?: Array<{ node_id: string; [key: string]: unknown }>
   robustness?: {
     factors?: Array<{ node_id: string; [key: string]: unknown }>
-    fragile_edges?: string[]
-    robust_edges?: string[]
+    fragile_edges?: Array<unknown>
+    robust_edges?: Array<unknown>
     [key: string]: unknown
   }
   // V2 response fields
@@ -279,6 +283,9 @@ export function translateResponseToUIIds<T extends {
     }
     return reverseIdMap.get(id) ?? id
   }
+
+  const translateIdIfString = (value: unknown): unknown =>
+    typeof value === 'string' ? translateId(value) : value
 
   /**
    * Translate edge ID format "from::to" or "from->to".
@@ -357,12 +364,46 @@ export function translateResponseToUIIds<T extends {
       fragile_edges: response.robustness.fragile_edges?.map((edge) => {
         // Handle both string and object formats from PLoT
         const edgeId = extractEdgeIdFromUnknown(edge)
-        return translateEdgeId(edgeId)
+        const translatedEdgeId = translateEdgeId(edgeId)
+        if (edge && typeof edge === 'object') {
+          const obj = edge as Record<string, unknown>
+          return {
+            ...obj,
+            edge_id: translatedEdgeId,
+            edgeId: obj.edgeId ? translatedEdgeId : obj.edgeId,
+            from_id: translateIdIfString(obj.from_id),
+            to_id: translateIdIfString(obj.to_id),
+            fromId: translateIdIfString(obj.fromId),
+            toId: translateIdIfString(obj.toId),
+            source: translateIdIfString(obj.source),
+            target: translateIdIfString(obj.target),
+            alternative_winner_id: translateIdIfString(obj.alternative_winner_id),
+            alternativeWinnerId: translateIdIfString(obj.alternativeWinnerId),
+          }
+        }
+        return translatedEdgeId
       }),
       robust_edges: response.robustness.robust_edges?.map((edge) => {
         // Handle both string and object formats from PLoT
         const edgeId = extractEdgeIdFromUnknown(edge)
-        return translateEdgeId(edgeId)
+        const translatedEdgeId = translateEdgeId(edgeId)
+        if (edge && typeof edge === 'object') {
+          const obj = edge as Record<string, unknown>
+          return {
+            ...obj,
+            edge_id: translatedEdgeId,
+            edgeId: obj.edgeId ? translatedEdgeId : obj.edgeId,
+            from_id: translateIdIfString(obj.from_id),
+            to_id: translateIdIfString(obj.to_id),
+            fromId: translateIdIfString(obj.fromId),
+            toId: translateIdIfString(obj.toId),
+            source: translateIdIfString(obj.source),
+            target: translateIdIfString(obj.target),
+            alternative_winner_id: translateIdIfString(obj.alternative_winner_id),
+            alternativeWinnerId: translateIdIfString(obj.alternativeWinnerId),
+          }
+        }
+        return translatedEdgeId
       }),
     } : undefined,
   }

@@ -821,11 +821,14 @@ export function useDebugData(): DebugData {
     // Determine overall status
     const hasErrors = tracedPayloads.some((p) => p.error || (p.status && p.status >= 400))
     const hasPending = tracedPayloads.some((p) => !p.completed)
-    const overallStatus: 'success' | 'error' | 'pending' = hasErrors
-      ? 'error'
-      : hasPending
-        ? 'pending'
-        : 'success'
+    const plotAnalysisStatus = (plotPayload?.response?.body as Record<string, unknown> | undefined)?.analysis_status
+    const overallStatus: 'success' | 'error' | 'pending' = plotAnalysisStatus === 'computed'
+      ? 'success'
+      : hasErrors
+        ? 'error'
+        : hasPending
+          ? 'pending'
+          : 'success'
 
     // Calculate total duration (sum of all service calls)
     const totalDuration = tracedPayloads.reduce((sum, p) => sum + (p.duration ?? 0), 0) || null

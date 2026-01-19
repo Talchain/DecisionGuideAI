@@ -15,6 +15,7 @@
 
 import { useState } from 'react'
 import type { ImprovementsSectionData, ImprovementItem } from './types'
+import { EMPTY_STATES } from './emptyStates'
 
 interface ImprovementsSectionProps {
   data: ImprovementsSectionData
@@ -99,16 +100,14 @@ export function ImprovementsSection({
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const { improvements, count, hasHighPriority } = data
 
-  // Empty state - positive message
+  // Empty state
   if (count === 0) {
     return (
-      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
-        <div className="flex items-center gap-2">
-          <span className="text-emerald-600">✓</span>
-          <p className="text-sm text-emerald-800 font-medium">
-            Your model looks good. You're ready to decide.
-          </p>
-        </div>
+      <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
+        <p className="text-sm text-slate-600 flex items-start gap-2">
+          <span aria-hidden="true">ℹ️</span>
+          {EMPTY_STATES.improvements}
+        </p>
       </div>
     )
   }

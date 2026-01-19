@@ -31,6 +31,7 @@ import type {
   DriverDirection,
   ConfidenceTier,
   RawFactorSensitivity,
+  UiFactorSensitivity,
   EdgeForDirection,
   CritiqueSeverity,
 } from './types'
@@ -62,10 +63,11 @@ function normaliseSeverity(severity: string | undefined): CritiqueSeverity {
  * Get canonical factor key from various ID fields.
  * Priority: node_id > factor_id > id > normalised(label)
  */
-function getFactorKey(factor: RawFactorSensitivity, index: number): string {
-  if (factor.node_id) return factor.node_id
-  if (factor.factor_id) return factor.factor_id
-  if (factor.id) return factor.id
+function getFactorKey(factor: RawFactorSensitivity | UiFactorSensitivity, index: number): string {
+  if ('factorId' in factor && factor.factorId) return factor.factorId
+  if ('node_id' in factor && factor.node_id) return factor.node_id
+  if ('factor_id' in factor && factor.factor_id) return factor.factor_id
+  if ('id' in factor && factor.id) return factor.id
   if (factor.label) return normaliseLabel(factor.label)
   // Fallback: generate unique key using index
   return `factor_${index}`
@@ -76,29 +78,71 @@ function getFactorKey(factor: RawFactorSensitivity, index: number): string {
 // =============================================================================
 
 /**
+ * Safely extract a numeric value if it's a finite number.
+ */
+function safeFiniteNumber(value: unknown): number | null {
+  return typeof value === 'number' && isFinite(value) ? value : null
+}
+
+/**
  * Extract raw elasticity with fallback chain.
  * Priority: elasticity > sensitivity_score > sensitivity > importance_score > contribution > 0
  * P0 Fix: Added importance_score since PLoT may return it instead of elasticity/sensitivity_score
+ * P2 Fix: Simplified with helper to reduce repetition
  */
-function getRawElasticity(factor: RawFactorSensitivity): number {
-  if (typeof factor.elasticity === 'number' && isFinite(factor.elasticity)) {
-    return factor.elasticity
-  }
-  if (typeof factor.sensitivity_score === 'number' && isFinite(factor.sensitivity_score)) {
-    return factor.sensitivity_score
-  }
-  if (typeof factor.sensitivity === 'number' && isFinite(factor.sensitivity)) {
-    return factor.sensitivity
-  }
-  // P0 Fix: Check importance_score (PLoT v2 may use this field)
-  if (typeof factor.importance_score === 'number' && isFinite(factor.importance_score) && factor.importance_score > 0) {
-    return factor.importance_score
-  }
-  // Fallback to contribution field (used by legacy drivers)
-  if (typeof (factor as any).contribution === 'number' && isFinite((factor as any).contribution)) {
-    return (factor as any).contribution
-  }
+function getRawElasticity(factor: RawFactorSensitivity | UiFactorSensitivity): number {
+  // Type-safe access to known fields
+  const f = factor as Record<string, unknown>
+
+  // Priority chain: prefer more specific fields first
+  const elasticity = safeFiniteNumber(f.elasticity)
+  if (elasticity !== null) return elasticity
+
+  const sensitivityScore = safeFiniteNumber(f.sensitivity_score)
+  if (sensitivityScore !== null) return sensitivityScore
+
+  const sensitivity = safeFiniteNumber(f.sensitivity)
+  if (sensitivity !== null) return sensitivity
+
+  // importance_score only if > 0 (avoid placeholder zeros)
+  const importanceScore = safeFiniteNumber(f.importance_score)
+  if (importanceScore !== null && importanceScore > 0) return importanceScore
+
+  // Legacy fallback
+  const contribution = safeFiniteNumber(f.contribution)
+  if (contribution !== null) return contribution
+
   return 0
+}
+
+function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, string>): UiFactorSensitivity {
+  const typed = (raw ?? {}) as Record<string, any>
+  const rawId = typed.factor_id ?? typed.node_id ?? typed.id
+  const labelFromNodes = rawId ? nodeLabelMap.get(rawId) : undefined
+  const label = typed.label ?? typed.node_label ?? labelFromNodes ?? rawId ?? 'Unknown factor'
+  const elasticity =
+    typeof typed.elasticity === 'number' ? typed.elasticity
+      : typeof typed.sensitivity_score === 'number' ? typed.sensitivity_score
+        : typeof typed.sensitivity === 'number' ? typed.sensitivity
+          : typeof typed.importance_score === 'number' ? typed.importance_score
+            : 0
+  const confidence = typeof typed.value_of_information === 'number'
+    ? typed.value_of_information
+    : typeof typed.confidence === 'number'
+      ? typed.confidence
+      : null
+  const direction = typed.direction
+    ? (String(typed.direction).toLowerCase() === 'negative' ? 'negative' : 'positive')
+    : elasticity >= 0 ? 'positive' : 'negative'
+
+  return {
+    factorId: rawId ?? label,
+    label,
+    elasticity,
+    direction,
+    confidence,
+    importanceRank: typeof typed.importance_rank === 'number' ? typed.importance_rank : 0,
+  }
 }
 
 // =============================================================================
@@ -177,6 +221,42 @@ function computeFactorRanks(
   })
 
   return rankMap
+}
+
+// =============================================================================
+// Outcome Normalisation (CRITICAL: No magnitude-based scaling)
+// =============================================================================
+
+function normalizeOutcomeValues(
+  rawP10: number | null | undefined,
+  rawExpected: number | null | undefined,
+  rawP50: number | null | undefined,
+  rawP90: number | null | undefined
+): { p10: number | null; expected: number | null; p50: number | null; p90: number | null } {
+  let p10 = rawP10 ?? null
+  let expected = rawExpected ?? null
+  let p50 = rawP50 ?? null
+  let p90 = rawP90 ?? null
+
+  const numericValues = [p10, expected, p50, p90].filter(
+    (value): value is number => typeof value === 'number' && isFinite(value)
+  )
+  if (numericValues.length === 0) {
+    return { p10: null, expected: null, p50: null, p90: null }
+  }
+
+  // Sanity check: ensure proper ordering for percentiles (p10 <= p50 <= p90)
+  if (p10 !== null && p50 !== null && p90 !== null && (p10 > p50 || p50 > p90 || p10 > p90)) {
+    if (import.meta.env.DEV) {
+      console.warn('[Results] Percentile ordering violated - reordering:', { p10, p50, p90 })
+    }
+    const sorted = [p10, p50, p90].sort((a, b) => a - b)
+    p10 = sorted[0]
+    p50 = sorted[1]
+    p90 = sorted[2]
+  }
+
+  return { p10, expected, p50, p90 }
 }
 
 // =============================================================================
@@ -496,6 +576,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
   const goalNodeId = goalNode?.id
 
+  const nodeLabelMap = useMemo(() => {
+    const map = new Map<string, string>()
+    nodes.forEach((node) => {
+      const label = (node.data as any)?.label
+      if (typeof label === 'string' && label.trim().length > 0) {
+        map.set(node.id, label)
+      }
+    })
+    return map
+  }, [nodes])
+
   // Get outcome node IDs for direction derivation
   const outcomeNodeIds = useMemo(
     () => nodes
@@ -523,46 +614,6 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const optionProbs = (report as any).option_probabilities || {}
     const optionNodes = nodes.filter((n) => (n.data as any)?.kind === 'option')
 
-    // Helper to normalize percentage values to 0-1 range
-    // CRITICAL: Must apply consistent normalization across ALL values
-    // to avoid scale mismatches between expected, p10, p50, p90
-    const normalizeOutcome = (
-      rawP10: number | undefined,
-      rawExpected: number | undefined,
-      rawP50: number | undefined,
-      rawP90: number | undefined
-    ): { p10: number; expected: number; p50: number; p90: number } => {
-      // Get actual values, defaulting to 0
-      let p10 = rawP10 ?? 0
-      let expected = rawExpected ?? 0
-      let p50 = rawP50 ?? 0
-      let p90 = rawP90 ?? 0
-
-      // Determine scale from ALL values: if ANY is > 2, assume percentages (0-100)
-      // This ensures consistent scaling even when values come from mixed sources
-      const maxAbsValue = Math.max(Math.abs(p10), Math.abs(expected), Math.abs(p50), Math.abs(p90))
-      if (maxAbsValue > 2) {
-        p10 = p10 / 100
-        expected = expected / 100
-        p50 = p50 / 100
-        p90 = p90 / 100
-      }
-
-      // Sanity check: ensure proper ordering for percentiles (p10 <= p50 <= p90)
-      // Note: expected (mean) can be outside this range for skewed distributions
-      if (p10 > p50 || p50 > p90 || p10 > p90) {
-        if (import.meta.env.DEV) {
-          console.warn('[Results] Percentile ordering violated - reordering:', { p10, p50, p90 })
-        }
-        const sorted = [p10, p50, p90].sort((a, b) => a - b)
-        p10 = sorted[0]
-        p50 = sorted[1]
-        p90 = sorted[2]
-      }
-
-      return { p10, expected, p50, p90 }
-    }
-
     // Determine recommended option ID - prefer backend-provided, fall back to highest p50
     // Fix 4: Recommended badge must be tied to specific option identifier
     const backendRecommendedId =
@@ -586,17 +637,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Priority: expected_outcome (V2 field) > expected > outcome.mean > bands > goal_probability
       // P0 Fix: Add expected_outcome to catch unmapped V2 responses
       const rawExpected =
-        prob.expected_outcome ?? prob.expected ?? optionOutcome.mean ??
-        optionBands.p50 ?? prob.goal_probability
+        prob.expected_outcome ?? prob.expected ?? optionOutcome.mean ?? optionBands.p50 ?? null
 
       // Extract percentiles (p10/p50/p90) — p50 is true median, NOT expected
-      const rawP10 = optionOutcome.p10 ?? optionBands.p10 ?? prob.goal_probability
-      const rawP50 = optionOutcome.p50 ?? optionBands.p50 ?? rawExpected  // Median, fallback to expected if unavailable
-      const rawP90 = optionOutcome.p90 ?? optionBands.p90 ?? prob.goal_probability
+      const rawP10 = optionOutcome.p10 ?? optionBands.p10 ?? null
+      const rawP50 = optionOutcome.p50 ?? optionBands.p50 ?? rawExpected
+      const rawP90 = optionOutcome.p90 ?? optionBands.p90 ?? null
 
       // Normalize all 4 values together with single scale decision
       // This prevents scale mismatches when expected and p50 have different magnitudes
-      const norm = normalizeOutcome(rawP10, rawExpected, rawP50, rawP90)
+      const norm = normalizeOutcomeValues(rawP10, rawExpected, rawP50, rawP90)
+
+      const goalProbability = typeof prob.goal_probability === 'number'
+        ? prob.goal_probability
+        : null
 
       return {
         id: nodeId,
@@ -612,15 +666,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         },
         // Deprecated fields for backward compatibility
         p10: norm.p10,
-        p50: norm.expected,  // For backward compat, p50 = expected (most UI uses this)
+        p50: norm.p50,
         p90: norm.p90,
         isRecommended: false, // Will be set immutably below
         winProbability: prob.win_probability,
+        goalProbability,
       }
     })
 
     // Sort by expected value descending for display order
-    const sortedOptions = [...unsortedOptions].sort((a, b) => (b.expected ?? 0) - (a.expected ?? 0))
+    const sortedOptions = [...unsortedOptions].sort((a, b) => {
+      const aValue = a.expected ?? a.goalProbability ?? -Infinity
+      const bValue = b.expected ?? b.goalProbability ?? -Infinity
+      return bValue - aValue
+    })
 
     // Determine which option ID should be recommended
     // Priority: backend-provided ID > highest p50 (first after sort)
@@ -729,29 +788,6 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       }
     })
 
-    // Source 6: FALLBACK - Derive from canvas factor nodes if no data from report
-    // This ensures we show SOMETHING when the model has factors but API didn't return sensitivity data
-    // IMPORTANT: Track if we used canvas fallback - this means NO real magnitude data exists
-    let usedCanvasFallback = false
-    if (rawFactors.length === 0) {
-      usedCanvasFallback = true
-      const factorNodes = nodes.filter(n =>
-        n.type === 'factor' ||
-        (n.data as any)?.kind === 'factor' ||
-        n.type === 'risk' ||
-        (n.data as any)?.kind === 'risk'
-      )
-
-      factorNodes.forEach((node, index) => {
-        rawFactors.push({
-          node_id: node.id,
-          label: (node.data as any)?.label || node.id,
-          // Default elasticity for normalisation (but NOT real magnitude data)
-          elasticity: 0.5,
-        })
-      })
-    }
-
     if (rawFactors.length === 0) {
       return {
         drivers: [],
@@ -762,12 +798,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       }
     }
 
+    const normalizedFactors = rawFactors.map(f => normalizeFactorSensitivity(f, nodeLabelMap))
+
     // Step 1: Extract keys and raw elasticities
-    const factorsWithKeys = rawFactors.map((f, index) => ({
+    const factorsWithKeys = normalizedFactors.map((f, index) => ({
       raw: f,
       key: getFactorKey(f, index),
       rawElasticity: getRawElasticity(f),
-      importanceRank: f.importance_rank,
+      importanceRank: f.importanceRank,
       label: f.label,
     }))
 
@@ -851,11 +889,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         // Get confidence: factor_sensitivity.confidence first, then edge beliefExists as fallback
         // PLoT returns confidence directly on factor_sensitivity array items
         const factorNodeId = matchedNodeId || f.key
-        const factorConfidence = typeof f.raw.value_of_information === 'number'
-          ? f.raw.value_of_information
-          : typeof f.raw.confidence === 'number'
-            ? f.raw.confidence
-            : undefined
+        const factorConfidence = typeof f.raw.confidence === 'number'
+          ? f.raw.confidence
+          : undefined
         const edgeToGoal = goalNodeId
           ? edges.find(e => e.source === factorNodeId && e.target === goalNodeId)
           : undefined
@@ -975,7 +1011,34 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Add sensitive assumptions from robustness analysis (formerly "fragile edges")
     // Filter to only show high-risk fragile edges (switch_probability < 0.3)
     // P0 Fix: Use safeArray to handle truncated wrapper format
-    const sensitiveAssumptions = safeArray((report as any)?.robustness?.fragile_edges)
+    console.log('[REPORT_SOURCE_DEBUG]', {
+      hasReport: !!report,
+      reportKeys: report ? Object.keys(report).slice(0, 10) : [],
+      hasRobustness: !!(report as any)?.robustness,
+      hasFragileEdges: !!(report as any)?.robustness?.fragile_edges,
+      fragileEdgesLength: (report as any)?.robustness?.fragile_edges?.length,
+      hasDownstreamCalls: !!(report as any)?.downstream_calls,
+      firstEdgeKeys: (report as any)?.robustness?.fragile_edges?.[0]
+        ? Object.keys((report as any)?.robustness?.fragile_edges[0])
+        : [],
+      firstEdgeHasFromLabel: !!(report as any)?.robustness?.fragile_edges?.[0]?.from_label,
+    })
+    const fragileEdgesRaw = safeArray((report as any)?.robustness?.fragile_edges)
+    const firstFragileEdge = fragileEdgesRaw[0] as any
+    console.log('[FRAGILE_EDGES_SOURCE]', {
+      source: 'report.robustness.fragile_edges',
+      count: fragileEdgesRaw.length,
+      firstEdgeKeys: firstFragileEdge ? Object.keys(firstFragileEdge) : [],
+      hasLabels: firstFragileEdge?.from_label !== undefined,
+    })
+    const sensitiveAssumptions = Array.from(
+      new Map(
+        fragileEdgesRaw.map((fe: any) => [
+          `${fe.edge_id ?? fe.edgeId ?? ''}::${fe.alternative_winner_id ?? fe.alternativeWinnerId ?? ''}`,
+          fe,
+        ])
+      ).values()
+    )
       .filter((fe: any) => {
         // If switch_probability exists, only show high-risk edges (< 0.3 means likely to flip)
         if (typeof fe.switch_probability === 'number') {
@@ -984,29 +1047,97 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         // If no switch_probability, include by default (legacy data)
         return true
       })
+      .sort((a: any, b: any) => (b.switch_probability ?? -Infinity) - (a.switch_probability ?? -Infinity))
+      .slice(0, 3)
+    const cleanId = (id: string | undefined) =>
+      id?.replace(/^(fac_|out_|goal_|risk_|opt_)/, '').replace(/_/g, ' ')
+    const nonEmptyLabel = (value: unknown) =>
+      typeof value === 'string' && value.trim().length > 0 ? value : undefined
+    const getNodeLabel = (id: string | undefined) => (id ? nodeLabelMap.get(id) : undefined)
+    const parseEdgeId = (edgeId: string | undefined) => {
+      if (!edgeId) return {}
+      const parts = edgeId.split('::')
+      if (parts.length === 2 && parts[0] && parts[1]) {
+        return { fromId: parts[0], toId: parts[1] }
+      }
+      if (import.meta.env.DEV && typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
+        console.warn('[useResultsSectionData] Unrecognized fragile edge id format:', edgeId)
+      }
+      return {}
+    }
+
     sensitiveAssumptions.forEach((fe: any) => {
+      const edgeId = typeof fe === 'string' ? fe : fe.edge_id ?? fe.edgeId
+      const parsed = parseEdgeId(edgeId)
+      const fromId = (typeof fe === 'string' ? undefined : (fe.from_id ?? fe.fromId ?? fe.source)) ?? parsed.fromId
+      const toId = (typeof fe === 'string' ? undefined : (fe.to_id ?? fe.toId ?? fe.target)) ?? parsed.toId
+
+      const isEdgeObject = typeof fe === 'object' && fe !== null
+      console.log('[UNCERTAINTY_DEBUG]', {
+        rawEdge: fe,
+        hasFromLabel: isEdgeObject && 'from_label' in fe,
+        hasToLabel: isEdgeObject && 'to_label' in fe,
+        hasAltLabel: isEdgeObject && 'alternative_winner_label' in fe,
+        fromLabelValue: isEdgeObject ? fe.from_label : undefined,
+        toLabelValue: isEdgeObject ? fe.to_label : undefined,
+        altLabelValue: isEdgeObject ? fe.alternative_winner_label : undefined,
+      })
+
+      if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
+        console.log('[FragileEdge:RAW]', {
+          edge_id: fe.edge_id ?? fe.edgeId ?? edgeId,
+          from_label: fe.from_label,
+          fromLabel: fe.fromLabel,
+          to_label: fe.to_label,
+          toLabel: fe.toLabel,
+          alternative_winner_label: fe.alternative_winner_label,
+          alternativeWinnerLabel: fe.alternativeWinnerLabel,
+          from_id: fe.from_id ?? fe.fromId ?? parsed.fromId,
+          to_id: fe.to_id ?? fe.toId ?? parsed.toId,
+          alternative_winner_id: fe.alternative_winner_id ?? fe.alternativeWinnerId,
+          fullObject: (() => {
+            try {
+              return JSON.stringify(fe).substring(0, 500)
+            } catch {
+              return '[unserializable]'
+            }
+          })(),
+        })
+      }
+
       // Schema v2.6: Use from_label/to_label with fallback to cleaned IDs
-      const cleanId = (id: string | undefined) =>
-        id?.replace(/^(fac_|out_|goal_|risk_|opt_)/, '').replace(/_/g, ' ')
       const sourceName =
-        fe.from_label ??
-        fe.fromLabel ??
-        fe.source ??
-        cleanId(fe.from_id ?? fe.fromId) ??
+        nonEmptyLabel(fe.from_label) ??
+        nonEmptyLabel(fe.fromLabel) ??
+        getNodeLabel(fromId) ??
+        cleanId(fromId) ??
         'this factor'
       const targetName =
-        fe.to_label ??
-        fe.toLabel ??
-        fe.target ??
-        cleanId(fe.to_id ?? fe.toId) ??
+        nonEmptyLabel(fe.to_label) ??
+        nonEmptyLabel(fe.toLabel) ??
+        getNodeLabel(toId) ??
+        cleanId(toId) ??
         'the outcome'
 
       // Schema v2.6: Use alternative_winner_label directly
       const alternativeWinnerLabel =
-        fe.alternative_winner_label ??
-        fe.alternativeWinnerLabel ??
-        fe.alternativeWinner ??
+        nonEmptyLabel(fe.alternative_winner_label) ??
+        nonEmptyLabel(fe.alternativeWinnerLabel) ??
+        nonEmptyLabel(fe.alternativeWinner) ??
+        getNodeLabel(fe.alternative_winner_id ?? fe.alternativeWinnerId) ??
         'another option'
+
+      if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
+        console.log('[FragileEdge:RESOLVED]', {
+          fromLabel: sourceName,
+          toLabel: targetName,
+          alternativeLabel: alternativeWinnerLabel,
+          usedFallback:
+            sourceName === 'this factor' ||
+            targetName === 'the outcome' ||
+            alternativeWinnerLabel === 'another option',
+        })
+      }
 
       // Enhanced message format per spec
       const edgeLabel = fe.label || `${sourceName} → ${targetName}`
@@ -1028,7 +1159,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         code: 'SENSITIVE_ASSUMPTION',
         message: friendlyMessage,
         suggestion: 'Validate this assumption',
-        affectedNodes: [fe.from_id ?? fe.fromId ?? fe.source, fe.to_id ?? fe.toId ?? fe.target].filter(Boolean),
+        affectedNodes: [fromId, toId].filter(Boolean),
         severity,
         threshold: fe.threshold ? {
           variable: fe.from_id ?? fe.fromId ?? fe.source,
@@ -1041,7 +1172,6 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Get evidence coverage from multiple sources
     const rawEvidenceQuality = ceeReviewV1?.evidence_quality
-      ?? graphReadiness?.evidence_quality
       ?? (report as any)?.evidence_quality
       ?? null
 
@@ -1121,6 +1251,7 @@ export {
   getRawElasticity,
   computeNormalisedInfluences,
   computeFactorRanks,
+  normalizeOutcomeValues,
   normaliseDirection,
   getFactorDirection,
   getSemanticLabel,

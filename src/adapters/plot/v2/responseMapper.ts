@@ -15,7 +15,7 @@ import type { V2RunResponse, V2OptionComparison, V2Driver, V2Critique, V2EdgeSen
 import type { ReportV1, CritiqueItemV1, ConfidenceLevel } from '../types'
 import type { DriversPayload, DriverItem } from '../../driversAdapter'
 import { recordDataShapeAnomaly } from '../../../lib/payload-trace-store'
-import { safeArray } from '../../../lib/array-utils'
+import { safeArray, safeArrayWithMeta } from '../../../lib/array-utils'
 import type {
   CeeDecisionReviewPayloadV1,
   CeeTrace,
@@ -114,6 +114,58 @@ function isInternalImplementationWarning(message: string): boolean {
   return false
 }
 
+// =============================================================================
+// Type-Safe Runtime Data Extraction
+// =============================================================================
+
+/**
+ * Runtime extension fields that may exist on V2RunResponse but aren't in the static type.
+ * Using explicit interface + runtime checks instead of `as any` for type safety.
+ */
+interface V2ResponseRuntimeExtensions {
+  downstream_calls?: {
+    isl?: {
+      response?: {
+        factor_sensitivity?: unknown[]
+      }
+    }
+  }
+  enrichment?: {
+    sensitivity_analysis?: {
+      factors?: unknown[]
+    }
+  }
+}
+
+/**
+ * Safely extract downstream ISL factor sensitivity data with runtime type checking.
+ */
+function extractDownstreamFactors(v2Response: V2RunResponse): unknown[] | null {
+  const extended = v2Response as V2RunResponse & V2ResponseRuntimeExtensions
+  const factors = extended.downstream_calls?.isl?.response?.factor_sensitivity
+  return Array.isArray(factors) ? factors : null
+}
+
+/**
+ * Safely extract enrichment factor sensitivity data with runtime type checking.
+ */
+function extractEnrichmentFactors(v2Response: V2RunResponse): unknown[] | null {
+  const extended = v2Response as V2RunResponse & V2ResponseRuntimeExtensions
+  const factors = extended.enrichment?.sensitivity_analysis?.factors
+  return Array.isArray(factors) ? factors : null
+}
+
+/**
+ * Type guard for factor-like objects in runtime data.
+ */
+function isFactorLike(f: unknown): f is Record<string, unknown> {
+  return typeof f === 'object' && f !== null
+}
+
+// =============================================================================
+// Factor Sensitivity Selection
+// =============================================================================
+
 /**
  * Pick the best source for factor sensitivity data.
  *
@@ -128,15 +180,15 @@ function isInternalImplementationWarning(message: string): boolean {
  */
 function pickFactorSensitivityForUi(v2Response: V2RunResponse): V2FactorSensitivity[] {
   // P0 Fix: Check downstream_calls.isl.response first (where real ISL data lives)
-  const downstream = (v2Response as any)?.downstream_calls?.isl?.response
-  const islFactors = downstream?.factor_sensitivity
+  const islFactors = extractDownstreamFactors(v2Response)
 
-  if (Array.isArray(islFactors) && islFactors.length > 0) {
+  if (islFactors && islFactors.length > 0) {
     // Check if ISL factors have real sensitivity data
-    const hasRealData = islFactors.some((f: any) =>
-      (typeof f.sensitivity_score === 'number' && f.sensitivity_score > 0.001) ||
-      (typeof f.elasticity === 'number' && f.elasticity > 0.001)
-    )
+    const hasRealData = islFactors.some((f) => {
+      if (!isFactorLike(f)) return false
+      return (typeof f.sensitivity_score === 'number' && f.sensitivity_score > 0.001) ||
+        (typeof f.elasticity === 'number' && f.elasticity > 0.001)
+    })
 
     if (hasRealData) {
       if (import.meta.env.DEV) {
@@ -146,26 +198,26 @@ function pickFactorSensitivityForUi(v2Response: V2RunResponse): V2FactorSensitiv
         })
       }
 
-      return islFactors.map((f: any): V2FactorSensitivity => ({
-        factor_id: f.factor_id ?? f.node_id,
-        node_id: f.node_id ?? f.factor_id,
-        label: f.label,
-        sensitivity_score: f.sensitivity_score ?? f.elasticity,
+      return islFactors.filter(isFactorLike).map((f): V2FactorSensitivity => ({
+        factor_id: (f.factor_id as string) ?? (f.node_id as string),
+        node_id: (f.node_id as string) ?? (f.factor_id as string),
+        label: f.label as string | undefined,
+        sensitivity_score: (f.sensitivity_score as number) ?? (f.elasticity as number),
         direction: f.direction === 'negative' ? 'negative' : 'positive',
-        confidence: f.confidence,
+        confidence: f.confidence as number | undefined,
       }))
     }
   }
 
   // Check for enrichment path (from ISL deep mode)
-  const enrichment = (v2Response as any)?.enrichment
-  const enrichmentFactors = enrichment?.sensitivity_analysis?.factors
+  const enrichmentFactors = extractEnrichmentFactors(v2Response)
 
-  if (Array.isArray(enrichmentFactors) && enrichmentFactors.length > 0) {
+  if (enrichmentFactors && enrichmentFactors.length > 0) {
     // Check if enrichment factors have real sensitivity data (not just placeholders)
-    const hasRealData = enrichmentFactors.some((f: any) =>
-      typeof f.sensitivity_score === 'number' && f.sensitivity_score > 0.001
-    )
+    const hasRealData = enrichmentFactors.some((f) => {
+      if (!isFactorLike(f)) return false
+      return typeof f.sensitivity_score === 'number' && f.sensitivity_score > 0.001
+    })
 
     if (hasRealData) {
       // Convert enrichment format to V2FactorSensitivity
@@ -176,12 +228,12 @@ function pickFactorSensitivityForUi(v2Response: V2RunResponse): V2FactorSensitiv
         })
       }
 
-      return enrichmentFactors.map((f: any): V2FactorSensitivity => ({
-        factor_id: f.factor_id,
-        node_id: f.factor_id,  // Alias for compatibility
-        sensitivity_score: f.sensitivity_score,
+      return enrichmentFactors.filter(isFactorLike).map((f): V2FactorSensitivity => ({
+        factor_id: f.factor_id as string,
+        node_id: f.factor_id as string,  // Alias for compatibility
+        sensitivity_score: f.sensitivity_score as number,
         direction: f.direction === 'negative' ? 'negative' : 'positive',
-        confidence: f.confidence,
+        confidence: f.confidence as number | undefined,
       }))
     }
   }
@@ -249,10 +301,14 @@ export function mapV2ResponseToReportV1(
 
   // Extract confidence interval as results with defensive access
   // confidence_interval is [low, high] tuple
+  // P2 Fix: Use null instead of 0 when CI data is not available to avoid fabricating values
   const rawCI = primaryOption?.confidence_interval
-  const ciLow = Array.isArray(rawCI) && typeof rawCI[0] === 'number' ? rawCI[0] : 0
-  const ciHigh = Array.isArray(rawCI) && typeof rawCI[1] === 'number' ? rawCI[1] : 0
-  const ciMid = (ciLow + ciHigh) / 2
+  const hasValidCI = Array.isArray(rawCI) &&
+    typeof rawCI[0] === 'number' &&
+    typeof rawCI[1] === 'number'
+  const ciLow = hasValidCI ? rawCI[0] : null
+  const ciHigh = hasValidCI ? rawCI[1] : null
+  const ciMid = hasValidCI ? (rawCI[0] + rawCI[1]) / 2 : null
 
   // Map drivers to V1 format
   // PLoT returns edge_sensitivity instead of drivers - use it as fallback
@@ -341,12 +397,23 @@ export function mapV2ResponseToReportV1(
     // Top-level factor_sensitivity may only have importance_score placeholders
     factor_sensitivity: pickFactorSensitivityForUi(v2Response),
     // P0 Fix: Pass through robustness object for UI display (fragile/robust edges).
-    // Uses safeArray() to handle truncated wrapper format { __truncated: true, items: [...] }
-    robustness: v2Response.robustness ? {
-      fragile_edges: safeArray(v2Response.robustness.fragile_edges),
-      robust_edges: safeArray(v2Response.robustness.robust_edges),
-      ranking_stability: v2Response.robustness.ranking_stability,
-    } : undefined,
+    // P2 Fix: Use safeArrayWithMeta() to preserve truncation metadata for UI display
+    robustness: v2Response.robustness ? (() => {
+      const fragile = safeArrayWithMeta(v2Response.robustness!.fragile_edges)
+      const robust = safeArrayWithMeta(v2Response.robustness!.robust_edges)
+      return {
+        fragile_edges: fragile.items,
+        robust_edges: robust.items,
+        ranking_stability: v2Response.robustness!.ranking_stability,
+        // P2 Fix: Include truncation metadata so UI can display "50 of 500 edges"
+        _truncation: {
+          fragile_truncated: fragile.truncated,
+          fragile_total: fragile.totalCount,
+          robust_truncated: robust.truncated,
+          robust_total: robust.totalCount,
+        },
+      }
+    })() : undefined,
     // P0 Fix: Pass through robustness_status for gating logic
     robustness_status: v2Response.robustness_status,
     run: {
@@ -370,10 +437,14 @@ export function mapV2ResponseToReportV1(
         }
 
         // Defensive confidence_interval access
+        // P2 Fix: Use null instead of 0 when CI data is not available
         const optCI = opt.confidence_interval
-        const low = Array.isArray(optCI) && typeof optCI[0] === 'number' ? optCI[0] : 0
-        const high = Array.isArray(optCI) && typeof optCI[1] === 'number' ? optCI[1] : 0
-        const ciMidpoint = (low + high) / 2
+        const hasCI = Array.isArray(optCI) &&
+          typeof optCI[0] === 'number' &&
+          typeof optCI[1] === 'number'
+        const low = hasCI ? optCI[0] : null
+        const high = hasCI ? optCI[1] : null
+        const ciMidpoint = hasCI ? (optCI[0] + optCI[1]) / 2 : null
 
         // Extract outcome distribution with explicit expected value
         // expected = mean (arithmetic average) — use for "Expected" display
@@ -382,17 +453,17 @@ export function mapV2ResponseToReportV1(
         const rawExpectedOutcome = safeNumber(opt.expected_outcome)
         const rawMean = safeNumber(outcome?.mean)
 
-        // Explicit expected value: mean > expected_outcome > CI midpoint
+        // Explicit expected value: mean > expected_outcome > CI midpoint (null if none available)
         const expected = rawMean ?? rawExpectedOutcome ?? ciMidpoint
 
-        // Percentiles from outcome, falling back to CI bounds
+        // Percentiles from outcome, falling back to CI bounds (null if none available)
         const p10 = safeNumber(outcome?.p10) ?? low
         const p50 = safeNumber(outcome?.p50) ?? null  // True median only, no fallback to mean
         const p90 = safeNumber(outcome?.p90) ?? high
 
         acc[optionId] = {
           // Prefer actual probability_of_goal from V2 (when threshold was provided)
-          // Fall back to CI midpoint (normalised) for display purposes
+          // Fall back to CI midpoint (null if no CI data)
           goal_probability: safeNumber(opt.probability_of_goal) ?? ciMidpoint,
           confidence: 0.5, // Default confidence
           // Include win_probability when available (pairwise comparison)
@@ -529,7 +600,7 @@ function createDriversPayloadFromV2(v2Response: V2RunResponse): DriversPayload |
       const sensitivityValue = safeNumber(factor.sensitivity_score) ??
         safeNumber(factor.elasticity) ??
         safeNumber(factor.sensitivity) ??
-        safeNumber((factor as any).importance_score) ??
+        safeNumber(factor.importance_score) ??
         undefined
 
       driverItems.push({
@@ -627,6 +698,7 @@ function mapDriversFromResponse(v2Response: V2RunResponse): ReportV1['drivers'] 
   })
 
   // Sort by importance_rank if available, otherwise by absolute sensitivity
+  // Tie-breaker: factor_id for deterministic ordering when values are equal
   const sortedFactors = [...validFactors].sort((a, b) => {
     const aRank = safeNumber(a.importance_rank)
     const bRank = safeNumber(b.importance_rank)
@@ -636,7 +708,13 @@ function mapDriversFromResponse(v2Response: V2RunResponse): ReportV1['drivers'] 
     // Fall back to absolute sensitivity/elasticity (P0 Fix: include sensitivity_score and importance_score)
     const aVal = Math.abs(safeNumber(a.sensitivity_score) ?? safeNumber(a.elasticity) ?? safeNumber(a.sensitivity) ?? safeNumber(a.importance_score) ?? 0)
     const bVal = Math.abs(safeNumber(b.sensitivity_score) ?? safeNumber(b.elasticity) ?? safeNumber(b.sensitivity) ?? safeNumber(b.importance_score) ?? 0)
-    return bVal - aVal // Higher sensitivity first
+    if (bVal !== aVal) {
+      return bVal - aVal // Higher sensitivity first
+    }
+    // Tie-breaker: sort by factor_id for deterministic ordering
+    const aId = safeString(a.factor_id) ?? safeString(a.node_id) ?? ''
+    const bId = safeString(b.factor_id) ?? safeString(b.node_id) ?? ''
+    return aId.localeCompare(bId)
   })
 
   return sortedFactors.slice(0, 5).map((factor) => {
@@ -834,6 +912,13 @@ export function createEnrichmentFromV2Response(v2Response: V2RunResponse): {
         .filter((e, i): e is V2EdgeSensitivity => {
           if (!e || typeof e !== 'object') {
             recordDataShapeAnomaly('responseMapper.createEnrichment', `edge_sensitivity[${i}]`, 'object', e)
+            return false
+          }
+          const edgeId = safeString(e.edge_id)
+          const from = safeString(e.from)
+          const to = safeString(e.to)
+          if (!edgeId || edgeId === '::' || !from || !to) {
+            recordDataShapeAnomaly('responseMapper.createEnrichment', `edge_sensitivity[${i}]`, 'valid edge', e)
             return false
           }
           return true

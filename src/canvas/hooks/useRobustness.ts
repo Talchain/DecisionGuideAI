@@ -160,62 +160,59 @@ export function useRobustness({
           return
         }
 
-        // P0.1 Fix: Fallback to direct enrichment extraction when extractRobustnessFromEnrichment fails
-        // This handles the case where enrichment exists but the complex extraction returns null
-        // (e.g., due to type/shape mismatches between V2 enrichment and PLoT enrichment formats)
+        // P0.1 Fix: Prefer report.robustness (PLoT response) when extraction fails.
+        // This keeps fragile edge labels from the main response instead of unlabeled enrichment edges.
         // P0 Fix: Use safeArray to handle truncated wrapper format { __truncated: true, items: [...] }
-        const sa = enrichment.sensitivity_analysis
-        if (sa) {
-          const fragileEdges = safeArray(sa.fragile_edges)
-          const robustEdges = safeArray(sa.robust_edges)
-          const hasRobustnessData = fragileEdges.length > 0 || robustEdges.length > 0
+        const reportRobustness = (report as any)?.robustness
+        const fragileEdges = safeArray(reportRobustness?.fragile_edges)
+        const robustEdges = safeArray(reportRobustness?.robust_edges)
+        const hasRobustnessData = fragileEdges.length > 0 || robustEdges.length > 0
 
-          if (hasRobustnessData) {
-            // Derive robustness label from edge counts (same logic as in enrichment.ts)
-            const totalEdges = fragileEdges.length + robustEdges.length
-            const robustRatio = totalEdges > 0 ? robustEdges.length / totalEdges : 0.5
-            let robustnessLabel: 'robust' | 'moderate' | 'fragile' = 'moderate'
-            if (robustRatio >= 0.7) robustnessLabel = 'robust'
-            else if (robustRatio < 0.3) robustnessLabel = 'fragile'
+        if (hasRobustnessData) {
+          // Derive robustness label from edge counts (same logic as in enrichment.ts)
+          const totalEdges = fragileEdges.length + robustEdges.length
+          const robustRatio = totalEdges > 0 ? robustEdges.length / totalEdges : 0.5
+          let robustnessLabel: 'robust' | 'moderate' | 'fragile' = 'moderate'
+          if (robustRatio >= 0.7) robustnessLabel = 'robust'
+          else if (robustRatio < 0.3) robustnessLabel = 'fragile'
 
-            // Use overall_robustness if available (string or derive from number)
-            if (typeof sa.overall_robustness === 'string' &&
-                ['robust', 'moderate', 'fragile'].includes(sa.overall_robustness)) {
-              robustnessLabel = sa.overall_robustness as 'robust' | 'moderate' | 'fragile'
-            }
-
-            const directResult: RobustnessResult = {
-              option_rankings: [],
-              recommendation: {
-                option_id: '',
-                confidence: 'medium',
-                recommendation_status: 'uncertain',
-              },
-              sensitivity: [],
-              robustness_label: robustnessLabel,
-              robustness_bounds: [],
-              value_of_information: [],
-              narrative: `${fragileEdges.length} fragile edge${fragileEdges.length !== 1 ? 's' : ''}, ${robustEdges.length} robust edge${robustEdges.length !== 1 ? 's' : ''}`,
-              fragile_edge_count: fragileEdges.length,
-              robust_edge_count: robustEdges.length,
-            }
-
-            if (import.meta.env.DEV) {
-              console.log('[useRobustness] Using direct enrichment fallback:', {
-                fragileEdgeCount: fragileEdges.length,
-                robustEdgeCount: robustEdges.length,
-                robustnessLabel,
-                reason: 'extractRobustnessFromEnrichment returned null',
-              })
-            }
-
-            justCompletedFetchRef.current = true
-            robustnessCache.set(cacheKey, { result: directResult, source: 'enrichment' })
-            setRobustness(directResult)
-            setSource('enrichment')
-            setLoading(false)
-            return
+          // Use overall_robustness if available (string or derive from number)
+          if (typeof reportRobustness?.overall_robustness === 'string' &&
+              ['robust', 'moderate', 'fragile'].includes(reportRobustness.overall_robustness)) {
+            robustnessLabel = reportRobustness.overall_robustness as 'robust' | 'moderate' | 'fragile'
           }
+
+          const directResult: RobustnessResult = {
+            option_rankings: [],
+            recommendation: {
+              option_id: '',
+              confidence: 'medium',
+              recommendation_status: 'uncertain',
+            },
+            sensitivity: [],
+            robustness_label: robustnessLabel,
+            robustness_bounds: [],
+            value_of_information: [],
+            narrative: `${fragileEdges.length} fragile edge${fragileEdges.length !== 1 ? 's' : ''}, ${robustEdges.length} robust edge${robustEdges.length !== 1 ? 's' : ''}`,
+            fragile_edge_count: fragileEdges.length,
+            robust_edge_count: robustEdges.length,
+          }
+
+          if (import.meta.env.DEV) {
+            console.log('[useRobustness] Using report robustness fallback:', {
+              fragileEdgeCount: fragileEdges.length,
+              robustEdgeCount: robustEdges.length,
+              robustnessLabel,
+              reason: 'extractRobustnessFromEnrichment returned null',
+            })
+          }
+
+          justCompletedFetchRef.current = true
+          robustnessCache.set(cacheKey, { result: directResult, source: 'enrichment' })
+          setRobustness(directResult)
+          setSource('enrichment')
+          setLoading(false)
+          return
         }
 
         if (import.meta.env.DEV) {

@@ -7,8 +7,8 @@
  * - Derive options from nodes with kind='option'
  * - Normalise intervention keys (legacy labels to node IDs)
  * - Apply node ID normalisation for ISL V2 constraint (^[a-z0-9_:-]+$)
- * - Enforce std floor (1e-6)
- * - Always send seed as string "42"
+ * - Enforce std floor (0.001)
+ * - Send seed as string
  */
 
 import type { Node, Edge } from '@xyflow/react'
@@ -21,7 +21,7 @@ import type {
   V2Edge,
   V2Option,
 } from './types'
-import { STD_FLOOR, DEFAULT_STD, DEFAULT_SEED, isBlockedResponse } from './types'
+import { STD_FLOOR, STD_CEILING_RATIO, STD_CEILING_ABS, DEFAULT_STD, isBlockedResponse } from './types'
 import {
   normaliseGraphIds,
   translateResponseToUIIds,
@@ -45,6 +45,7 @@ interface CanvasNodeData {
     value?: number
     baseline?: number
     unit?: string
+    source?: string
   }
   interventions?: Record<string, number | UIInterventionValue>
   [key: string]: unknown
@@ -287,26 +288,46 @@ function extractObservedState(data: CanvasNodeData | undefined): V2Node['observe
     const value = data.observedState.value
     const baseline = data.observedState.baseline ?? value
     const delta = Math.abs(value - baseline)
+    const unit = data.observedState.unit
+    const source = data.observedState.source
 
-    // Derive std from change magnitude (25% of delta), with floor
-    const std = delta > 0
+    // Derive std from change magnitude (25% of delta), with floor and proportional ceiling
+    // Ceiling scales with value (50% ratio) but has absolute max for safety
+    const rawStd = delta > 0
       ? Math.max(STD_FLOOR, delta * 0.25)
       : Math.max(STD_FLOOR, Math.abs(value) * 0.01)
+    const std = Math.min(rawStd, Math.abs(value) * STD_CEILING_RATIO, STD_CEILING_ABS)
 
-    return { value, std }
+    return {
+      value,
+      std,
+      baseline,
+      ...(unit ? { unit } : {}),
+      ...(source ? { source } : {}),
+    }
   }
 
-  // Priority 2: value + baseline fields
+  // Priority 2: value + baseline fields (also check for unit/source at top level)
   if (typeof data.value === 'number') {
     const value = data.value
     const baseline = typeof data.baseline === 'number' ? data.baseline : value
     const delta = Math.abs(value - baseline)
+    const unit = (data as Record<string, unknown>).unit as string | undefined
+    const source = (data as Record<string, unknown>).source as string | undefined
 
-    const std = delta > 0
+    // Proportional ceiling: scales with value (50% ratio) but has absolute max
+    const rawStd = delta > 0
       ? Math.max(STD_FLOOR, delta * 0.25)
       : Math.max(STD_FLOOR, Math.abs(value) * 0.01 || DEFAULT_STD)
+    const std = Math.min(rawStd, Math.abs(value) * STD_CEILING_RATIO, STD_CEILING_ABS)
 
-    return { value, std }
+    return {
+      value,
+      std,
+      baseline,
+      ...(unit ? { unit } : {}),
+      ...(source ? { source } : {}),
+    }
   }
 
   return undefined
@@ -709,14 +730,23 @@ export function getOptionsFromAnalysisReady(analysisReady: CEEAnalysisReady): UI
 }
 
 /**
+ * Type alias for objects that can have their IDs translated.
+ * Matches the constraint of translateResponseToUIIds.
+ */
+type TranslatableResponse = Parameters<typeof translateResponseToUIIds>[0]
+
+/**
  * Translate V2 response IDs back to UI IDs.
  * Ensures critique affected_nodes and option IDs match canvas nodes.
+ *
+ * Note: Only call this on successful responses (V2RunResponse), not errors.
+ * The type constraint ensures the response has the expected shape for translation.
  */
-export function translateV2Response<T extends V2RunResult>(
+export function translateV2Response<T extends TranslatableResponse>(
   response: T,
   reverseIdMap: Map<string, string>
 ): T {
-  return translateResponseToUIIds(response, reverseIdMap) as T
+  return translateResponseToUIIds(response, reverseIdMap)
 }
 
 /**
@@ -804,12 +834,24 @@ export async function runV2(
     if (!response.ok) {
       const errorMessage = `V2 run failed: ${response.status} ${response.statusText}`
 
-      // Try to get error body if available
+      // Try to get error body if available (JSON first, then raw text fallback)
+      // Clone response first since body can only be read once
       let errorBody: unknown = null
+      const responseClone = response.clone()
       try {
         errorBody = await response.json()
-      } catch {
-        // No JSON body
+      } catch (parseError) {
+        // JSON parse failed - try to get raw text from clone for debugging
+        if (import.meta.env.DEV) {
+          console.warn('[V2Adapter] Failed to parse error response as JSON:', parseError)
+        }
+        try {
+          const rawText = await responseClone.text()
+          errorBody = { _raw_text: rawText, _parse_error: true }
+        } catch {
+          // Last resort - record that we couldn't get any body
+          errorBody = { _parse_error: true, _status: response.status }
+        }
       }
 
       // Record error response for debug panel
@@ -822,7 +864,16 @@ export async function runV2(
         error: errorMessage,
       })
 
-      throw new Error(errorMessage)
+      // Include error body info in the thrown error for better debugging
+      const bodyPreview = errorBody
+        ? typeof errorBody === 'object' && '_raw_text' in (errorBody as Record<string, unknown>)
+          ? (errorBody as Record<string, unknown>)._raw_text
+          : JSON.stringify(errorBody).slice(0, 200)
+        : null
+      const fullMessage = bodyPreview
+        ? `${errorMessage} - ${bodyPreview}`
+        : errorMessage
+      throw new Error(fullMessage)
     }
 
     const result: V2RunResponse = await response.json()

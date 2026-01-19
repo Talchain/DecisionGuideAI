@@ -27,6 +27,7 @@ import type {
   ISLParameterUncertainty,
   LegacyISLRobustnessRequest,
 } from '../../adapters/isl/types'
+import { STD_FLOOR } from '../../adapters/plot/v2/types'
 
 // =============================================================================
 // UI Graph Types (internal format)
@@ -360,10 +361,10 @@ export function extractParameterUncertainties(
       const delta = Math.abs(value - baseline)
       std = delta > 0
         ? delta * 0.25  // 25% of the change as uncertainty
-        : Math.max(0.01, Math.abs(value) * 0.01)  // 1% of value or floor
+        : Math.max(STD_FLOOR, Math.abs(value) * 0.01)  // 1% of value or floor
 
       mean = value
-      std = Math.max(0.01, std)  // Minimum floor
+      std = Math.max(STD_FLOOR, std)  // Minimum floor (aligned with V2 adapter)
 
       if (import.meta.env.DEV) {
         console.log(`[ISL Adapter] Factor ${node.id}: extracted from observedState`, { observedState, mean, std })

@@ -16,6 +16,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import type { DriversSectionData, DriverItem } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { EMPTY_STATES } from './emptyStates'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -75,11 +76,9 @@ function ProgressBar({
 // Expanded row details
 function ExpandedDetails({
   driver,
-  totalCount,
   onFocus,
 }: {
   driver: DriverItem
-  totalCount: number
   onFocus?: (nodeId: string) => void
 }) {
   const handleFocusClick = useCallback(() => {
@@ -93,19 +92,37 @@ function ExpandedDetails({
     }
   }, [driver.canFocus, driver.matchedNodeId, driver.factorKey, onFocus])
 
-  // Generate contextual insight copy
+  // Generate contextual insight copy only when we have real magnitude data
   const elasticityInsight = driver.rawElasticity > 0.001
     ? `A 10% change here shifts your goal by ~${Math.round(driver.rawElasticity * 10)}%`
-    : 'This factor affects your goal'
-
-  const flipRisk = driver.fragileEdgeInfo?.switchProbability !== undefined
-    ? `${Math.round((1 - driver.fragileEdgeInfo.switchProbability) * 100)}% chance this could flip to "${driver.fragileEdgeInfo.alternativeWinnerLabel ?? 'another option'}"`
     : null
+
+  const alternativeWinnerLabel = driver.fragileEdgeInfo?.alternativeWinnerLabel
+  const hasSpecificAlternative = typeof alternativeWinnerLabel === 'string'
+    && alternativeWinnerLabel.trim().length > 0
+    && alternativeWinnerLabel !== 'another option'
+  const flipRisk = driver.fragileEdgeInfo?.switchProbability !== undefined && hasSpecificAlternative
+    ? `${Math.round((1 - driver.fragileEdgeInfo.switchProbability) * 100)}% chance this could flip to "${alternativeWinnerLabel}"`
+    : null
+
+  const showQualityHint = typeof driver.confidence === 'number' && driver.confidence < 0.5
 
   return (
     <div className="px-4 pb-3 pt-1 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-600 space-y-1.5">
-      <p>{elasticityInsight}</p>
+      {elasticityInsight && <p>{elasticityInsight}</p>}
       {flipRisk && <p>{flipRisk}</p>}
+      {showQualityHint && (
+        <p className="text-xs text-slate-500 flex items-center gap-1">
+          <span aria-hidden="true">⚠️</span>
+          Could benefit from more evidence
+        </p>
+      )}
+      {!showQualityHint && driver.confidence == null && (
+        <p className="text-xs text-slate-500 flex items-center gap-1">
+          <span aria-hidden="true">ℹ️</span>
+          {EMPTY_STATES.confidence}
+        </p>
+      )}
 
       {driver.canFocus && (
         <button
@@ -125,13 +142,11 @@ function DriverRow({
   isExpanded,
   onToggleExpand,
   onFocus,
-  totalCount,
 }: {
   driver: DriverItem
   isExpanded: boolean
   onToggleExpand: () => void
   onFocus?: (nodeId: string) => void
-  totalCount: number
 }) {
   // Direction styling - arrow color matches bar color
   // P0 Fix: Single arrow serves as both direction indicator AND expand trigger
@@ -148,8 +163,9 @@ function DriverRow({
       ? 'orange'
       : 'neutral'
 
-  // Confidence value (default to 0.7 if not available, matching DEFAULT_EDGE_DATA)
-  const confidenceValue = driver.confidence ?? 0.7
+  const confidenceValue = typeof driver.confidence === 'number'
+    ? Math.max(0, Math.min(1, driver.confidence))
+    : null
 
   return (
     <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
@@ -185,11 +201,15 @@ function DriverRow({
           />
 
           {/* Confidence bar - always blue */}
-          <ProgressBar
-            value={confidenceValue}
-            color="blue"
-            aria-label={`${driver.factorLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
-          />
+          {confidenceValue === null ? (
+            <div className="text-xs text-slate-400 font-mono w-9 text-right">—</div>
+          ) : (
+            <ProgressBar
+              value={confidenceValue}
+              color="blue"
+              aria-label={`${driver.factorLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
+            />
+          )}
         </div>
       </button>
 
@@ -197,7 +217,6 @@ function DriverRow({
       {isExpanded && (
         <ExpandedDetails
           driver={driver}
-          totalCount={totalCount}
           onFocus={onFocus}
         />
       )}
@@ -232,7 +251,7 @@ export function DriversSection({
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set())
-  const { drivers, driversStatus, topDrivers, totalCount, hasMagnitudeData, islError } = data
+  const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError } = data
 
   // Diagnostic logging for data issues
   // Fix 3: Guard window access for SSR, Fix 5: Gate behind debug toggle
@@ -262,7 +281,7 @@ export function DriversSection({
       }
 
       if (driversWithDefaultConfidence.length > 0) {
-        console.warn('[DriversSection] Drivers missing confidence (using 70% default):', driversWithDefaultConfidence.map(d => d.factorLabel))
+        console.warn('[DriversSection] Drivers missing confidence:', driversWithDefaultConfidence.map(d => d.factorLabel))
         console.warn('[DriversSection] Check if edge beliefExists is set for factor->goal edges')
       }
     }
@@ -289,8 +308,9 @@ export function DriversSection({
   if (driversStatus !== 'computed') {
     return (
       <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-        <p className="text-sm text-slate-600">
-          We couldn't identify key factors. Try adding more detail to your model.
+        <p className="text-sm text-slate-600 flex items-start gap-2">
+          <span aria-hidden="true">ℹ️</span>
+          {EMPTY_STATES.drivers}
         </p>
       </div>
     )
@@ -300,8 +320,9 @@ export function DriversSection({
   if (drivers.length === 0) {
     return (
       <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-        <p className="text-sm text-slate-600">
-          No significant factors identified. Your model may need more connections.
+        <p className="text-sm text-slate-600 flex items-start gap-2">
+          <span aria-hidden="true">ℹ️</span>
+          {EMPTY_STATES.drivers}
         </p>
       </div>
     )
@@ -331,7 +352,6 @@ export function DriversSection({
             isExpanded={expandedKeys.has(driver.factorKey)}
             onToggleExpand={() => toggleExpand(driver.factorKey)}
             onFocus={onFocusNode}
-            totalCount={totalCount}
           />
         ))}
       </div>

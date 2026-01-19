@@ -27,6 +27,9 @@ export interface V2Node {
   observed_state?: {
     value: number
     std?: number
+    baseline?: number
+    unit?: string
+    source?: string
   }
 }
 
@@ -599,7 +602,19 @@ export function sanitizeV2RunResponse(data: V2RunResponse): V2RunResponse {
 /**
  * Minimum standard deviation to avoid ISL validation errors.
  */
-export const STD_FLOOR = 1e-6
+export const STD_FLOOR = 0.001
+
+/**
+ * Maximum standard deviation as a ratio of value (50% = std can be at most half of value).
+ * ISL expects std << mean; this ratio ensures uncertainty stays proportional.
+ */
+export const STD_CEILING_RATIO = 0.5
+
+/**
+ * Absolute maximum standard deviation for extreme values.
+ * Prevents unbounded std even for very large values.
+ */
+export const STD_CEILING_ABS = 10000
 
 /**
  * Default standard deviation when not provided.

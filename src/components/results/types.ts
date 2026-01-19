@@ -48,13 +48,15 @@ export interface OptionResult {
   /** Full outcome distribution when available */
   outcome: OptionOutcome
   /** @deprecated Use outcome.p10/p50/p90 instead. Kept for backward compatibility. */
-  p10: number
+  p10: number | null
   /** @deprecated Use expected or outcome.p50 instead. Kept for backward compatibility. */
-  p50: number
+  p50: number | null
   /** @deprecated Use outcome.p90 instead. Kept for backward compatibility. */
-  p90: number
+  p90: number | null
   isRecommended: boolean
   winProbability?: number
+  /** Optional goal probability when no distribution data exists. */
+  goalProbability?: number | null
 }
 
 export interface RecommendationSectionData {
@@ -223,6 +225,15 @@ export interface RawFactorSensitivity {
   value_of_information?: number
   /** Confidence in this factor's influence (0-1), from PLoT factor_sensitivity */
   confidence?: number
+}
+
+export interface UiFactorSensitivity {
+  factorId: string
+  label: string
+  elasticity: number
+  direction: 'positive' | 'negative'
+  confidence: number | null
+  importanceRank: number
 }
 
 // =============================================================================

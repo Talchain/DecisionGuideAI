@@ -19,6 +19,7 @@ import {
   mapConfidenceLevel,
   getConfidenceTier,
   normaliseImprovements,
+  normalizeOutcomeValues,
 } from '../useResultsSectionData'
 import type { RawFactorSensitivity, EdgeForDirection } from '../types'
 
@@ -106,6 +107,30 @@ describe('computeNormalisedInfluences', () => {
 
     expect(result.get('a')).toBeLessThanOrEqual(1.0)
     expect(result.get('b')).toBeLessThanOrEqual(1.0)
+  })
+})
+
+// =============================================================================
+// 10. Outcome Normalisation Tests
+// =============================================================================
+
+describe('normalizeOutcomeValues', () => {
+  it('does not rescale large absolute values', () => {
+    const result = normalizeOutcomeValues(100000, 150000, 120000, 180000)
+
+    expect(result.p10).toBe(100000)
+    expect(result.expected).toBe(150000)
+    expect(result.p50).toBe(120000)
+    expect(result.p90).toBe(180000)
+  })
+
+  it('keeps small values intact', () => {
+    const result = normalizeOutcomeValues(0.1, 0.5, 0.4, 0.9)
+
+    expect(result.p10).toBe(0.1)
+    expect(result.expected).toBe(0.5)
+    expect(result.p50).toBe(0.4)
+    expect(result.p90).toBe(0.9)
   })
 })
 

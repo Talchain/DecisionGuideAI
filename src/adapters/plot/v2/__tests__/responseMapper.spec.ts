@@ -320,9 +320,10 @@ describe('mapV2ResponseToReportV1', () => {
 
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
-    expect(report.results.conservative).toBe(0)
-    expect(report.results.likely).toBe(0)
-    expect(report.results.optimistic).toBe(0)
+    // P2 Fix: Returns null instead of fabricating 0 when no CI data available
+    expect(report.results.conservative).toBeNull()
+    expect(report.results.likely).toBeNull()
+    expect(report.results.optimistic).toBeNull()
   })
 
   describe('drivers_payload creation (P0 Fix)', () => {

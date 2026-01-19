@@ -490,8 +490,8 @@ describe('islRequestAdapter', () => {
 
       const result = extractParameterUncertainties(nodes)
 
-      // Minimum floor is 0.01
-      expect(result.factor.std).toBe(0.01)
+      // Minimum floor is 0.001 (aligned with V2 adapter STD_FLOOR)
+      expect(result.factor.std).toBe(0.001)
     })
 
     it('prioritizes observedState over value field', () => {

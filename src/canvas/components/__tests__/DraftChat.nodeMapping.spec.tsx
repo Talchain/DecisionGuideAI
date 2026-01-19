@@ -8,6 +8,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useCanvasStore } from '../../store'
+import { DEFAULT_EDGE_DATA } from '../../domain/edges'
+import type { EffectDirection } from '../../../adapters/cee/types'
 
 // Mock the CEE draft hook to avoid network calls
 vi.mock('../../../hooks/useCEEDraft', () => ({
@@ -38,7 +40,6 @@ vi.mock('../../layout', () => ({
 describe('DraftChat node mapping', () => {
   beforeEach(() => {
     // Reset store to clean state
-    const state = useCanvasStore.getState()
     useCanvasStore.setState({
       nodes: [],
       edges: [],
@@ -181,6 +182,53 @@ describe('DraftChat node mapping', () => {
       const selectedGoalId = autoSelectGoalNode(nodes)
 
       expect(selectedGoalId).toBe('goal_1')
+    })
+  })
+
+  describe('edge sign preservation', () => {
+    function mapDraftEdgeToCanvas(edge: any) {
+      const directionFromEdge: EffectDirection | undefined =
+        edge.effect_direction === 'positive' || edge.effect_direction === 'negative'
+          ? edge.effect_direction
+          : undefined
+
+      let rawWeight: number
+      if (typeof edge.strength?.mean === 'number') {
+        rawWeight = edge.strength.mean
+      } else if (typeof edge.strength_mean === 'number') {
+        rawWeight = edge.strength_mean
+      } else if (typeof edge.weight === 'number') {
+        rawWeight = edge.weight
+      } else {
+        rawWeight = DEFAULT_EDGE_DATA.weight
+      }
+
+      const direction: EffectDirection = directionFromEdge ?? (rawWeight < 0 ? 'negative' : 'positive')
+      const weight = Math.max(0, Math.min(2, Math.abs(rawWeight)))
+
+      return { weight, direction }
+    }
+
+    it('infers negative direction from signed strength_mean', () => {
+      const result = mapDraftEdgeToCanvas({ strength_mean: -0.7 })
+      expect(result.weight).toBeCloseTo(0.7)
+      expect(result.direction).toBe('negative')
+    })
+
+    it('preserves explicit negative direction', () => {
+      const result = mapDraftEdgeToCanvas({ strength_mean: -0.7, effect_direction: 'negative' })
+      expect(result.weight).toBeCloseTo(0.7)
+      expect(result.direction).toBe('negative')
+    })
+
+    it('handles mixed positive/negative edges', () => {
+      const edges = [
+        mapDraftEdgeToCanvas({ strength_mean: 0.4 }),
+        mapDraftEdgeToCanvas({ strength_mean: -0.6 }),
+      ]
+
+      expect(edges[0]).toEqual({ weight: 0.4, direction: 'positive' })
+      expect(edges[1]).toEqual({ weight: 0.6, direction: 'negative' })
     })
   })
 })

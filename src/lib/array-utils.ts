@@ -53,3 +53,43 @@ export function hasArrayContent(data: unknown): boolean {
   }
   return false
 }
+
+/**
+ * Result of extracting an array with truncation metadata preserved.
+ */
+export interface ArrayWithMeta<T = unknown> {
+  items: T[]
+  /** True if the array was truncated */
+  truncated: boolean
+  /** Total count before truncation (if available) */
+  totalCount?: number
+}
+
+/**
+ * Safely extracts an array with truncation metadata preserved.
+ * Unlike safeArray(), this preserves __truncated and totalCount info.
+ *
+ * @param data - Plain array, truncated wrapper, or any other value
+ * @returns Object containing items array and truncation metadata
+ *
+ * @example
+ * safeArrayWithMeta([1, 2, 3])
+ * // => { items: [1, 2, 3], truncated: false }
+ *
+ * safeArrayWithMeta({ __truncated: true, items: [1, 2], totalCount: 500 })
+ * // => { items: [1, 2], truncated: true, totalCount: 500 }
+ */
+export function safeArrayWithMeta<T = unknown>(data: unknown): ArrayWithMeta<T> {
+  if (Array.isArray(data)) {
+    return { items: data as T[], truncated: false }
+  }
+  if (data && typeof data === 'object' && '__truncated' in data) {
+    const truncated = data as TruncatedArray<T>
+    return {
+      items: Array.isArray(truncated.items) ? truncated.items : [],
+      truncated: truncated.__truncated ?? false,
+      totalCount: truncated.totalCount,
+    }
+  }
+  return { items: [], truncated: false }
+}

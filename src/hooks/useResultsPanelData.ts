@@ -244,12 +244,6 @@ export function useResultsPanelData(): ResultsPanelData {
   const responseHash = results?.hash ?? null
   const runId = responseHash ? `run-${responseHash.slice(0, 8)}` : null
 
-  // Find goal node
-  const goalNode = useMemo(
-    () => nodes.find(n => n.type === 'goal' || n.type === 'outcome'),
-    [nodes]
-  )
-
   // Get robustness data
   const {
     robustness: robustnessData,
@@ -329,13 +323,21 @@ export function useResultsPanelData(): ResultsPanelData {
     }
 
     // Baseline comparison
-    const baselineComparison = p50 !== null
+    const baselineResult = p50 !== null
       ? computeBaselineComparison({
           value: p50,
           baseline: baselineValue,
           units,
           goalDirection,
         })
+      : null
+    const baselineComparison = baselineResult
+      ? {
+          display: baselineResult.display,
+          isIncrease: baselineResult.isIncrease,
+          isPositive: baselineResult.isPositive,
+          absoluteDelta: baselineResult.delta,
+        }
       : null
 
     // Headline from CEE story or insights
@@ -415,8 +417,15 @@ export function useResultsPanelData(): ResultsPanelData {
     const percentage = totalEdges > 0 ? Math.round((evidencedEdges / totalEdges) * 100) : 0
 
     // Decision readiness from report or derived from confidence
-    let decisionReadiness = report?.decision_readiness ?? null
-    if (!decisionReadiness && report?.confidence) {
+    let decisionReadiness: ValidateData['decisionReadiness'] = null
+    const reportReadiness = report?.decision_readiness
+    if (reportReadiness) {
+      decisionReadiness = {
+        ready: reportReadiness.ready,
+        blockers: reportReadiness.blockers ?? [],
+        suggestions: reportReadiness.warnings ?? [],
+      }
+    } else if (report?.confidence) {
       const derivedReadiness = mapConfidenceToReadiness(
         {
           level: report.confidence.level.toUpperCase() as 'HIGH' | 'MEDIUM' | 'LOW',
@@ -425,6 +434,12 @@ export function useResultsPanelData(): ResultsPanelData {
         true // Assume positive verdict
       )
       decisionReadiness = derivedReadiness
+        ? {
+            ready: derivedReadiness.ready,
+            blockers: derivedReadiness.blockers ?? [],
+            suggestions: derivedReadiness.warnings ?? [],
+          }
+        : null
     }
 
     // Robustness bounds
@@ -434,8 +449,13 @@ export function useResultsPanelData(): ResultsPanelData {
       upper: b.upper,
     }))
 
+    const robustnessLabel = robustnessData?.robustness_label
+    const normalizedLabel = robustnessLabel === 'robust' || robustnessLabel === 'moderate' || robustnessLabel === 'fragile'
+      ? robustnessLabel
+      : null
+
     return {
-      robustnessLabel: robustnessData?.robustness_label ?? null,
+      robustnessLabel: normalizedLabel,
       bounds,
       decisionReadiness,
       evidenceCoverage: {
@@ -471,7 +491,7 @@ export function useResultsPanelData(): ResultsPanelData {
 
     // 2. Sensitivity-based recommendations (high priority for tipping points)
     const sensitivityItems = robustnessData?.sensitivity ?? []
-    const tippingPoints = sensitivityItems.filter(s => s.tipping_point !== undefined)
+    const tippingPoints = sensitivityItems.filter(s => (s as any).tipping_point !== undefined)
 
     if (tippingPoints.length > 0) {
       const topTipping = tippingPoints[0]
@@ -524,28 +544,54 @@ export function useResultsPanelData(): ResultsPanelData {
     const ceeActions = runMeta?.ceeReview?.story?.next_actions ?? []
     for (const ceeAction of ceeActions.slice(0, 2)) {
       // Only add if not already covered by context-aware actions
-      const isDuplicate = actions.some(a =>
-        a.action.toLowerCase().includes(ceeAction.toLowerCase().split(' ').slice(0, 3).join(' '))
-      )
-      if (!isDuplicate && typeof ceeAction === 'string') {
+      const actionLabel = typeof ceeAction === 'string' ? ceeAction : ceeAction?.label
+      const isDuplicate = typeof actionLabel === 'string'
+        ? actions.some(a =>
+            a.action.toLowerCase().includes(actionLabel.toLowerCase().split(' ').slice(0, 3).join(' '))
+          )
+        : false
+      if (!isDuplicate && typeof actionLabel === 'string') {
         actions.push({
-          action: ceeAction,
+          action: actionLabel,
+          rationale: typeof ceeAction === 'string' ? undefined : ceeAction?.why,
           priority: 'low',
         })
       }
     }
 
-    // 6. If no actions generated, add default helpful action
+    // 6. If no actions generated, add contextual default action
     if (actions.length === 0 && !isPreRun) {
-      actions.push({
-        action: 'Review your model structure for completeness',
-        rationale: 'Ensure all key factors and relationships are captured.',
-        priority: 'low',
-      })
+      const critiques = (report as any)?.run?.critique ?? []
+      const errorCritique = critiques.find((c: any) =>
+        typeof c?.severity === 'string' && c.severity.toLowerCase() === 'error'
+      )
+      const fragileEdges = (report as any)?.robustness?.fragile_edges
+      const hasFragileEdges = (Array.isArray(fragileEdges) && fragileEdges.length > 0)
+        || (robustnessData?.fragile_edge_count ?? 0) > 0
+
+      if (errorCritique) {
+        actions.push({
+          action: errorCritique.suggested_fix || errorCritique.message || 'Resolve critical model issues',
+          rationale: errorCritique.message || undefined,
+          priority: 'high',
+        })
+      } else if (hasFragileEdges) {
+        actions.push({
+          action: 'Validate key assumptions in your model',
+          rationale: 'Fragile assumptions could flip the recommendation.',
+          priority: 'medium',
+        })
+      } else {
+        actions.push({
+          action: 'Share results with your team',
+          rationale: 'Align stakeholders on the current recommendation.',
+          priority: 'low',
+        })
+      }
     }
 
     // Key insight from synthesis (prefer recommendation) or report
-    const keyInsight = synthesisData?.recommendation
+    const keyInsight = (synthesisData as SynthesisNarratives | null)?.recommendation
       ?? report?.insights?.summary
       ?? null
 

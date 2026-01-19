@@ -388,7 +388,10 @@ export function DraftChat() {
       const id = typeof e.id === 'string' && e.id.trim().length > 0 ? e.id : `e-${i}`
 
       // Extract edge properties first (needed for signed weight calculation)
-      const direction: EffectDirection | undefined = e.effect_direction
+      const directionFromEdge: EffectDirection | undefined =
+        e.effect_direction === 'positive' || e.effect_direction === 'negative'
+          ? e.effect_direction
+          : undefined
 
       // CEE v3 returns strength as nested object: { mean, std }
       // Also support flat strength_std for backwards compatibility
@@ -413,6 +416,19 @@ export function DraftChat() {
       } else {
         rawWeight = DEFAULT_EDGE_DATA.weight
         weightSource = 'default'
+      }
+
+      // Infer direction when missing to preserve sign (negative mean -> negative direction)
+      const direction: EffectDirection = directionFromEdge ?? (rawWeight < 0 ? 'negative' : 'positive')
+
+      if (import.meta.env.DEV && directionFromEdge === undefined) {
+        console.warn('[DraftChat] Inferred edge direction from signed mean', {
+          from: e.from,
+          to: e.to,
+          rawWeight,
+          weightSource,
+          inferredDirection: direction,
+        })
       }
 
       // Clamp to valid range (0-2 for magnitude)

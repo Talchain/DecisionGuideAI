@@ -15,6 +15,7 @@
 import { useCallback } from 'react'
 import type { RecommendationSectionData, OptionResult } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
+import { EMPTY_STATES } from './emptyStates'
 
 interface RecommendationSectionProps {
   data: RecommendationSectionData
@@ -95,7 +96,7 @@ function validateRange(
  * Range bar component showing p10, p50, p90 distribution.
  * Handles negative values, >100% values, and dynamic domain.
  */
-function RangeBar({ p10, p50, p90 }: { p10: number; p50: number; p90: number }) {
+function RangeBar({ p10, p50, p90 }: { p10: number | null; p50: number | null; p90: number | null }) {
   // Validate and fix range values
   const rangeData = validateRange(p10, p50, p90)
 
@@ -103,7 +104,7 @@ function RangeBar({ p10, p50, p90 }: { p10: number; p50: number; p90: number }) 
   if (rangeData.unavailable) {
     return (
       <div className="mt-4 p-3 bg-slate-100 border border-slate-200 rounded-lg">
-        <p className="text-xs text-slate-500 text-center">Range data not available</p>
+        <p className="text-xs text-slate-500 text-center">{EMPTY_STATES.rangeData}</p>
       </div>
     )
   }
@@ -189,6 +190,11 @@ function OptionRow({
     }
   }, [option.id, onFocus])
 
+  const displayValue = option.p50 ?? option.expected ?? option.goalProbability
+  const displaySuffix = option.goalProbability != null && option.p50 == null && option.expected == null
+    ? 'chance'
+    : 'expected'
+
   return (
     <button
       onClick={handleClick}
@@ -220,7 +226,7 @@ function OptionRow({
           option.isRecommended ? 'text-emerald-700' : 'text-slate-600'
         }`}
       >
-        {formatPercent(option.p50)} expected
+        {displayValue == null ? '—' : `${formatPercent(displayValue)} ${displaySuffix}`}
       </span>
     </button>
   )
@@ -230,7 +236,7 @@ export function RecommendationSection({
   data,
   onFocusNode,
 }: RecommendationSectionProps) {
-  const { recommendedOption, allOptions, goalLabel, goalNodeId, isSingleOption, analysisStatus, statusReason } = data
+  const { recommendedOption, allOptions, isSingleOption, analysisStatus, statusReason } = data
 
   // Error state
   if (analysisStatus === 'failed' || analysisStatus === 'blocked') {
@@ -250,18 +256,27 @@ export function RecommendationSection({
   if (!recommendedOption) {
     return (
       <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-        <p className="text-sm text-slate-600">
-          Run an analysis to see recommendations.
+        <p className="text-sm text-slate-600 flex items-start gap-2">
+          <span aria-hidden="true">ℹ️</span>
+          {EMPTY_STATES.recommendation}
         </p>
       </div>
     )
   }
 
-  const outcomeDescription = formatOutcomeDescription(
-    recommendedOption.p10,
-    recommendedOption.p50,
-    recommendedOption.p90
-  )
+  const expectedValue = recommendedOption.expected ?? recommendedOption.p50
+  const hasGoalProbability = typeof recommendedOption.goalProbability === 'number'
+  const shouldShowOutcomeDescription =
+    typeof recommendedOption.p10 === 'number' &&
+    typeof recommendedOption.p50 === 'number' &&
+    typeof recommendedOption.p90 === 'number'
+  const outcomeDescription = shouldShowOutcomeDescription
+    ? formatOutcomeDescription(
+        recommendedOption.p10 as number,
+        recommendedOption.p50 as number,
+        recommendedOption.p90 as number
+      )
+    : null
 
   return (
     <div className="space-y-4">
@@ -271,21 +286,29 @@ export function RecommendationSection({
         <div className="mb-2">
           <span className="text-sm text-emerald-700">Best estimate:</span>
           <span className="text-lg font-semibold text-emerald-900 ml-2">
-            ~{formatPercent(recommendedOption.p50)} improvement
+            {expectedValue != null
+              ? `~${formatPercent(expectedValue)} improvement`
+              : hasGoalProbability
+                ? `${formatPercent(recommendedOption.goalProbability as number)} chance of reaching goal`
+                : EMPTY_STATES.rangeData}
           </span>
         </div>
 
         {/* Natural language description */}
-        <p className="text-sm text-emerald-700">
-          {outcomeDescription}
-        </p>
+        {outcomeDescription && (
+          <p className="text-sm text-emerald-700">
+            {outcomeDescription}
+          </p>
+        )}
 
         {/* Range bar */}
-        <RangeBar
-          p10={recommendedOption.p10}
-          p50={recommendedOption.p50}
-          p90={recommendedOption.p90}
-        />
+        {expectedValue != null && (
+          <RangeBar
+            p10={recommendedOption.p10}
+            p50={recommendedOption.p50}
+            p90={recommendedOption.p90}
+          />
+        )}
       </div>
 
       {/* Option comparison (multiple options) */}
