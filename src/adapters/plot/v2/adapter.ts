@@ -29,6 +29,7 @@ import {
 import type { UIOption, UIInterventionValue } from '../../../types/options'
 import type { CEEAnalysisReady, CEEOptionV3 } from '../../cee/types'
 import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
+import { STRENGTH_BOUNDS, clampStrength } from '../../../canvas/domain/edges'
 
 // ============================================================================
 // Canvas Data Types (input format)
@@ -451,17 +452,64 @@ export function validateAllEdges(
 }
 
 /**
+ * Tracking for strength corrections made during edge transformation.
+ * Used for post-run summary display.
+ */
+export interface StrengthCorrection {
+  edgeId: string
+  from: string
+  to: string
+  original: number
+  clamped: number
+}
+
+let strengthCorrections: StrengthCorrection[] = []
+
+export function clearStrengthCorrections(): void {
+  strengthCorrections = []
+}
+
+export function getStrengthCorrections(): StrengthCorrection[] {
+  return [...strengthCorrections]
+}
+
+/**
  * Compute signed strength mean from direction and weight.
  * - direction="positive" + weight=0.8 -> mean=+0.8
  * - direction="negative" + weight=0.8 -> mean=-0.8
  *
+ * Clamps result to CEE-valid range [-1, +1].
+ *
  * IMPORTANT: Call validateEdgeData first to ensure fields exist.
  */
-function computeSignedMean(data: CanvasEdgeData | undefined): number {
+function computeSignedMean(data: CanvasEdgeData | undefined, edgeId?: string, from?: string, to?: string): number {
   const magnitude = data?.weight ?? 0.5
   const direction = data?.direction
   const sign = direction === 'negative' ? -1 : 1
-  return sign * magnitude
+  const raw = sign * magnitude
+
+  // Clamp to CEE-valid range [-1, +1]
+  const result = clampStrength(raw)
+
+  if (result.wasAdjusted && edgeId && from && to) {
+    strengthCorrections.push({
+      edgeId,
+      from,
+      to,
+      original: result.original,
+      clamped: result.clamped,
+    })
+
+    if (import.meta.env.DEV) {
+      console.log('[Adapter] Strength clamped:', {
+        edge: `${from} → ${to}`,
+        original: result.original,
+        clamped: result.clamped,
+      })
+    }
+  }
+
+  return result.clamped
 }
 
 /**
@@ -516,7 +564,7 @@ export function transformEdgeToV2(edge: Edge<CanvasEdgeData>): V2Edge {
     from: edge.source,
     to: edge.target,
     strength: {
-      mean: computeSignedMean(data),
+      mean: computeSignedMean(data, edge.id, edge.source, edge.target),
       std: finalStd,
     },
     exists_probability: existsProb,
@@ -539,7 +587,7 @@ export function transformEdgeToV2Strict(edge: Edge<CanvasEdgeData>): V2Edge {
     from: edge.source,
     to: edge.target,
     strength: {
-      mean: computeSignedMean(data),
+      mean: computeSignedMean(data, edge.id, edge.source, edge.target),
       std: Math.max(STD_FLOOR, std),
     },
     exists_probability: data.beliefExists ?? data.confidence ?? data.belief ?? 0.5,

@@ -111,6 +111,11 @@ function isInternalImplementationWarning(message: string): boolean {
     return true
   }
 
+  // Filter out clamping warnings (internal ISL constraint enforcement)
+  if (lowerMessage.includes('clamped')) {
+    return true
+  }
+
   return false
 }
 
@@ -319,6 +324,7 @@ export function mapV2ResponseToReportV1(
   const drivers_payload = createDriversPayloadFromV2(v2Response)
 
   // Map critiques to V1 format with defensive handling
+  // Filter out internal implementation warnings (clamping, normalization, option filtering)
   const rawCritiques = v2Response.critiques
   const critique: CritiqueItemV1[] = (Array.isArray(rawCritiques) ? rawCritiques : [])
     .filter((c, i): c is V2Critique => {
@@ -328,6 +334,7 @@ export function mapV2ResponseToReportV1(
       }
       return true
     })
+    .filter((c) => !isInternalImplementationWarning(safeString(c.message) ?? ''))
     .map((c) => ({
       code: safeString(c.code) ?? 'UNKNOWN',
       severity: mapCritiqueSeverity(c.severity),

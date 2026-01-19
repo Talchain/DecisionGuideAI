@@ -339,6 +339,34 @@ export function clampCurvature(curvature: number): number {
 }
 
 /**
+ * CEE V2 expects strength.mean in [-1, +1]
+ * UI weight domain is [0, 2], converted to strength at adapter layer
+ */
+export const STRENGTH_BOUNDS = {
+  min: -1,
+  max: 1,
+} as const
+
+export interface StrengthClampResult {
+  clamped: number
+  wasAdjusted: boolean
+  original: number
+}
+
+/**
+ * Clamp strength value to CEE-valid range [-1, +1]
+ * Returns tracking info for transparency in post-run summary
+ */
+export function clampStrength(value: number): StrengthClampResult {
+  const clamped = Math.max(STRENGTH_BOUNDS.min, Math.min(STRENGTH_BOUNDS.max, value))
+  return {
+    clamped,
+    wasAdjusted: clamped !== value,
+    original: value,
+  }
+}
+
+/**
  * Clamp belief to valid range (0-1)
  */
 export function clampBelief(belief: number): number {

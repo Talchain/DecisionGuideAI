@@ -82,6 +82,7 @@ import { RecommendationSection } from '../../components/results/RecommendationSe
 import { DriversSection } from '../../components/results/DriversSection'
 import { ConfidenceSection } from '../../components/results/ConfidenceSection'
 import { executeAutoFix, determineFixType, type AutoFixParams } from '../utils/autoFix'
+import { getStrengthCorrections, type StrengthCorrection } from '../../adapters/plot/v2/adapter'
 import { computeCTA, type CTAConfig } from '../../lib/ctaStateMachine'
 import { computeReadiness } from '../../lib/readiness'
 // P0.1: Driver gating utilities
@@ -1296,6 +1297,26 @@ export function OutputsDock() {
                         />
                       </div>
                     </section>
+
+                    {/* Adjustments Made: Show any strength corrections applied during this run */}
+                    {(() => {
+                      const corrections = getStrengthCorrections()
+                      if (corrections.length === 0) return null
+                      return (
+                        <details className="border border-sand-200 rounded-lg overflow-hidden">
+                          <summary className={`px-3 py-2 bg-sand-50 cursor-pointer hover:bg-sand-100 ${typography.caption} text-ink-600`}>
+                            {corrections.length} edge strength{corrections.length > 1 ? 's' : ''} adjusted
+                          </summary>
+                          <div className="p-3 space-y-1">
+                            {corrections.map((c, idx) => (
+                              <div key={idx} className={`${typography.code} text-ink-500 text-xs`}>
+                                "{c.from} → {c.to}": {c.original.toFixed(2)} → {c.clamped.toFixed(1)}
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )
+                    })()}
                   </div>
                 )}
 

@@ -34,6 +34,7 @@ const VALIDATION_TITLE_MAP: Record<string, string> = {
   'PROBABILITY_SUM': 'Probability sum must equal 100%',
   'PROBABILITY_ERROR': 'Probability sum must equal 100%',
   'BELIEF_OUT_OF_RANGE': 'Belief value out of range',
+  'STRENGTH_OUT_OF_RANGE': 'Edge strength out of range',
   // Graph structure
   'ORPHAN_NODE': 'Disconnected node found',
   'ORPHAN': 'Disconnected node found',

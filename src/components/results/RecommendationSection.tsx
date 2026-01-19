@@ -23,7 +23,8 @@ interface RecommendationSectionProps {
 }
 
 /**
- * Format a probability as a percentage.
+ * Format a probability (0-1 range) as a percentage.
+ * Multiplies by 100 for display. Use for win_probability, goal_probability, confidence.
  * Shows one decimal for small values (< 1%) to avoid rounding -0.3% to 0%.
  */
 function formatPercent(value: number): string {
@@ -36,18 +37,38 @@ function formatPercent(value: number): string {
 }
 
 /**
+ * Format an outcome value (already in percentage form) for display.
+ * Does NOT multiply by 100 — ISL returns outcome values in user units (percentage form).
+ * Use for expected, p10, p50, p90, outcome.mean.
+ * @param value - Outcome value in percentage form (e.g., 10.42 = 10.42%)
+ * @returns Formatted string (e.g., "10%") or "—" for null/undefined/NaN
+ */
+function formatOutcome(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) {
+    return '—'
+  }
+  // For values < 1% absolute, show one decimal to preserve small values
+  if (Math.abs(value) < 1 && value !== 0) {
+    return `${value.toFixed(1)}%`
+  }
+  return `${Math.round(value)}%`
+}
+
+/**
  * Format outcome description in natural language.
+ * Note: Values are in percentage form (e.g., 50 = 50%, not 0.5).
  */
 function formatOutcomeDescription(p10: number, p50: number, p90: number): string {
   // Determine the direction and magnitude
+  // Thresholds in percentage form: 50 = 50%, 20 = 20%
   if (p50 >= 0) {
     if (p10 < 0 && p90 > 0) {
       return 'Could range from slightly worse to very strong improvement'
     }
-    if (p50 > 0.5) {
+    if (p50 > 50) {
       return 'Likely a strong positive outcome'
     }
-    if (p50 > 0.2) {
+    if (p50 > 20) {
       return 'Likely a moderate positive outcome'
     }
     return 'Likely a small positive outcome'
@@ -117,7 +138,7 @@ function RangeBar({ p10, p50, p90 }: { p10: number | null; p50: number | null; p
           <div className="text-center">
             <span className="text-xs text-slate-500">Expected</span>
             <span className="block text-lg font-semibold text-emerald-700">
-              {formatPercent(rangeData.expected)}
+              {formatOutcome(rangeData.expected)}
             </span>
           </div>
         </div>
@@ -167,9 +188,9 @@ function RangeBar({ p10, p50, p90 }: { p10: number | null; p50: number | null; p
 
       {/* Value labels */}
       <div className="flex justify-between text-xs text-slate-600 mt-2 font-mono">
-        <span>{formatPercent(worse)}</span>
-        <span className="font-semibold text-emerald-700">{formatPercent(expected)}</span>
-        <span>{formatPercent(better)}</span>
+        <span>{formatOutcome(worse)}</span>
+        <span className="font-semibold text-emerald-700">{formatOutcome(expected)}</span>
+        <span>{formatOutcome(better)}</span>
       </div>
     </div>
   )
@@ -226,7 +247,11 @@ function OptionRow({
           option.isRecommended ? 'text-emerald-700' : 'text-slate-600'
         }`}
       >
-        {displayValue == null ? '—' : `${formatPercent(displayValue)} ${displaySuffix}`}
+        {displayValue == null
+          ? '—'
+          : displaySuffix === 'chance'
+            ? `${formatPercent(displayValue)} ${displaySuffix}`
+            : `${formatOutcome(displayValue)} ${displaySuffix}`}
       </span>
     </button>
   )
@@ -287,7 +312,7 @@ export function RecommendationSection({
           <span className="text-sm text-emerald-700">Best estimate:</span>
           <span className="text-lg font-semibold text-emerald-900 ml-2">
             {expectedValue != null
-              ? `~${formatPercent(expectedValue)} improvement`
+              ? `~${formatOutcome(expectedValue)} improvement`
               : hasGoalProbability
                 ? `${formatPercent(recommendedOption.goalProbability as number)} chance of reaching goal`
                 : EMPTY_STATES.rangeData}

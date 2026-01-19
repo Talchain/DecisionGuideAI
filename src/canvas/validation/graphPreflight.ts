@@ -166,6 +166,19 @@ export function validateGraph(graph: UiGraph): ValidationResult {
           field: `edges[${idx}].weight`,
         })
       }
+
+      // Check if strength (derived from weight) exceeds CEE bounds [-1, +1]
+      // UI weight domain [0, 2] → strength [-1, +1] via: strength = weight - 1
+      // This is a warning (non-blocking) - adapter will clamp
+      const strength = weight - 1
+      if (Math.abs(strength) > 1) {
+        const clampedStrength = Math.sign(strength) * 1
+        violations.push({
+          code: 'STRENGTH_OUT_OF_RANGE',
+          message: `Edge "${edge.source} → ${edge.target}" strength (${strength.toFixed(2)}) will be clamped to ${clampedStrength.toFixed(1)}`,
+          field: `edges[${idx}].weight`,
+        })
+      }
     }
   })
 

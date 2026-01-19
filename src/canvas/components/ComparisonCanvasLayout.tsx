@@ -15,6 +15,16 @@ import { typography } from '../../styles/typography'
 import type { ComparisonResult } from '../snapshots/types'
 
 /**
+ * Format an outcome value (already in percentage form) for display.
+ * Does NOT multiply by 100 — ISL returns outcome values in user units (percentage form).
+ * @param value - Outcome value in percentage form (e.g., 10.42 = 10.42%)
+ * @returns Formatted string (e.g., "10%")
+ */
+function formatOutcome(value: number): string {
+  return `${Math.round(value)}%`
+}
+
+/**
  * Outcomes Comparison Bar - Shows outcome predictions side by side
  */
 function OutcomesComparisonBar({
@@ -80,7 +90,7 @@ function OutcomesComparisonBar({
           <div className="flex items-center gap-2">
             <span className={`${typography.caption} text-ink-500`}>{outcomes.labelA}:</span>
             <span className={`${typography.body} font-bold text-ink-900`}>
-              {(outcomes.valueA * 100).toFixed(0)}%
+              {formatOutcome(outcomes.valueA)}
             </span>
           </div>
 
@@ -98,7 +108,7 @@ function OutcomesComparisonBar({
                 outcomes.isBetter ? 'text-mint-700' : outcomes.delta < 0 ? 'text-carrot-700' : 'text-ink-600'
               }`}
             >
-              {outcomes.delta > 0 ? '+' : ''}{(outcomes.delta * 100).toFixed(0)} pts
+              {outcomes.delta > 0 ? '+' : ''}{Math.round(outcomes.delta)} pts
             </span>
           </div>
 
@@ -106,7 +116,7 @@ function OutcomesComparisonBar({
           <div className="flex items-center gap-2">
             <span className={`${typography.caption} text-ink-500`}>{outcomes.labelB}:</span>
             <span className={`${typography.body} font-bold ${outcomes.isBetter ? 'text-mint-700' : 'text-ink-900'}`}>
-              {(outcomes.valueB * 100).toFixed(0)}%
+              {formatOutcome(outcomes.valueB)}
             </span>
             {outcomes.isBetter && (
               <span className={`${typography.caption} px-1.5 py-0.5 rounded bg-mint-100 text-mint-700 font-medium`}>

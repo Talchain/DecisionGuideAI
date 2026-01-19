@@ -22,6 +22,7 @@ export type AutoFixType =
   | 'add_factor'
   | 'connect_orphan'
   | 'remove_cycle'
+  | 'clamp_strength'
 
 /**
  * Auto-fix parameters passed from ValidationPanel
@@ -357,6 +358,58 @@ export function connectOrphanNode(
 }
 
 /**
+ * Clamps edge strength (weight) to valid CEE range
+ * UI weight domain [0, 2] → strength [-1, +1] via: strength = weight - 1
+ *
+ * @param edgeId - Edge to clamp
+ * @param edges - Current edge list
+ * @returns AutoFixResult with updated edge
+ */
+export function clampEdgeStrength(
+  edgeId: string,
+  edges: Edge<EdgeData>[]
+): AutoFixResult {
+  const edgeIndex = edges.findIndex(e => e.id === edgeId)
+
+  if (edgeIndex === -1) {
+    return { success: false, message: 'Edge not found' }
+  }
+
+  const edge = edges[edgeIndex]
+  const weight = (edge.data as EdgeData)?.weight ?? 1 // Default weight = 1 (neutral strength)
+
+  // UI weight domain [0, 2] → strength [-1, +1]
+  // Clamp to [0, 2] which ensures strength stays in [-1, +1]
+  const clampedWeight = Math.max(0, Math.min(2, weight))
+
+  if (clampedWeight === weight) {
+    return { success: false, message: 'Edge strength is already within valid range' }
+  }
+
+  const updatedEdges = edges.map((e, idx) => {
+    if (idx === edgeIndex) {
+      return {
+        ...e,
+        data: {
+          ...((e.data as EdgeData) || {}),
+          weight: clampedWeight,
+        },
+      }
+    }
+    return e
+  })
+
+  const originalStrength = weight - 1
+  const clampedStrength = clampedWeight - 1
+
+  return {
+    success: true,
+    message: `Clamped edge strength from ${originalStrength.toFixed(2)} to ${clampedStrength.toFixed(1)}`,
+    updatedEdges,
+  }
+}
+
+/**
  * Determines the appropriate fix type based on critique item code
  */
 export function determineFixType(code: string): AutoFixType | null {
@@ -376,6 +429,10 @@ export function determineFixType(code: string): AutoFixType | null {
 
   if (codeUpper.includes('NO_FACTOR') || codeUpper.includes('MISSING_FACTOR')) {
     return 'add_factor'
+  }
+
+  if (codeUpper.includes('STRENGTH_OUT_OF_RANGE')) {
+    return 'clamp_strength'
   }
 
   return null
@@ -413,6 +470,12 @@ export function executeAutoFix(
         return { success: false, message: 'Orphan node ID required' }
       }
       return connectOrphanNode(params.nodeId, nodes, edges)
+
+    case 'clamp_strength':
+      if (!params.edgeId) {
+        return { success: false, message: 'Edge ID required for strength clamping' }
+      }
+      return clampEdgeStrength(params.edgeId, edges)
 
     default:
       return { success: false, message: `Unknown fix type: ${params.fixType}` }

@@ -790,10 +790,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   updateEdgeData: (id, data) => {
-    // Clamp weight and belief to valid range [0, 1]
+    // Clamp weight to [0, 2] (UI domain) and belief to [0, 1]
+    // Note: CEE expects strength in [-1, +1], adapter handles conversion
     const clampedData = {
       ...data,
-      weight: data.weight !== undefined ? Math.max(0, Math.min(1, data.weight)) : undefined,
+      weight: data.weight !== undefined ? Math.max(0, Math.min(2, data.weight)) : undefined,
       belief: data.belief !== undefined ? Math.max(0, Math.min(1, data.belief)) : undefined
     }
     get().updateEdge(id, { data: clampedData })
