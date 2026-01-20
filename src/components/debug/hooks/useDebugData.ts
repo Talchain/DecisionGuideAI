@@ -1057,6 +1057,11 @@ function extractWinningOption(
 
 /**
  * Extract robustness data with stability context
+ *
+ * Thresholds (matching ISL spec):
+ * - stability ≥ 0.85: Robust
+ * - stability 0.65-0.84: Moderate
+ * - stability < 0.65: Fragile
  */
 function extractRobustness(
   gates: GateData[],
@@ -1080,7 +1085,8 @@ function extractRobustness(
     }
   }
 
-  const stabilityPercent = stability !== null ? Math.round(stability * 100) : null
+  // Format stability percentage with one decimal place
+  const stabilityPercent = stability !== null ? (stability * 100).toFixed(1) : null
 
   if (!robustnessGate || robustnessGate.status === 'pending') {
     return {
@@ -1091,45 +1097,57 @@ function extractRobustness(
     }
   }
 
-  if (robustnessGate.status === 'pass') {
-    if (stabilityPercent !== null && stabilityPercent >= 80) {
+  // Use stability-based thresholds: ≥0.85 Robust, 0.65-0.84 Moderate, <0.65 Fragile
+  if (stability !== null) {
+    if (stability >= 0.85) {
       return {
         status: 'pass',
         stability,
-        context_label: 'Robust',
-        description: `Recommendation stable (${stabilityPercent}%)`,
+        context_label: `Robust (${stabilityPercent}% stable)`,
+        description: 'Recommendation holds under assumption changes',
+      }
+    } else if (stability >= 0.65) {
+      return {
+        status: 'warn',
+        stability,
+        context_label: `Moderate (${stabilityPercent}% stable)`,
+        description: 'Some sensitivity to assumptions',
       }
     } else {
       return {
-        status: 'pass',
+        status: 'fail',
         stability,
-        context_label: 'Moderate',
-        description: stabilityPercent !== null
-          ? `Recommendation holds but sensitive (${stabilityPercent}%)`
-          : 'Recommendation holds but may be sensitive',
+        context_label: `Fragile (${stabilityPercent}% stable)`,
+        description: 'Recommendation may change if assumptions vary',
       }
+    }
+  }
+
+  // Fallback to gate status when stability not available
+  if (robustnessGate.status === 'pass') {
+    return {
+      status: 'pass',
+      stability: null,
+      context_label: 'Robust',
+      description: 'Recommendation stable',
     }
   }
 
   if (robustnessGate.status === 'warn') {
     return {
       status: 'warn',
-      stability,
+      stability: null,
       context_label: 'Moderate',
-      description: stabilityPercent !== null
-        ? `Recommendation holds but sensitive (${stabilityPercent}%)`
-        : 'Recommendation may vary under different assumptions',
+      description: 'Recommendation may vary under different assumptions',
     }
   }
 
   // Fail status
   return {
     status: 'fail',
-    stability,
+    stability: null,
     context_label: 'Fragile',
-    description: stabilityPercent !== null
-      ? `Recommendation may change if assumptions vary (${stabilityPercent}%)`
-      : 'Recommendation may change if assumptions vary',
+    description: 'Recommendation may change if assumptions vary',
   }
 }
 

@@ -112,14 +112,25 @@ interface DebugBundle {
 export interface FullGraphData {
   nodes: Array<{
     id: string
-    data: { label: string; type: string; description?: string }
+    data: {
+      label?: string
+      kind?: string
+      type?: string
+      description?: string
+    }
   }>
   edges: Array<{
     id: string
     source: string
     target: string
     label?: string
-    data?: { strength?: number; label?: string }
+    data?: {
+      strength?: number
+      strength_mean?: number
+      confidence?: number
+      label?: string
+      kind?: string
+    }
   }>
 }
 
@@ -206,21 +217,25 @@ function downloadFile(content: string, filename: string, type = 'application/jso
 
 /**
  * Transform canvas graph data into export format
+ *
+ * Node kind priority: data.kind > data.type (lowercased) > 'factor'
+ * Edge strength priority: data.strength_mean > data.strength > data.confidence
  */
 function transformGraphData(graphData: FullGraphData): NonNullable<DebugBundle['full_graph']> {
   const factors: DebugBundle['full_graph'] extends { factors: infer T } | undefined ? T : never = []
   const options: DebugBundle['full_graph'] extends { options: infer T } | undefined ? T : never = []
 
   for (const node of graphData.nodes) {
-    const nodeType = node.data?.type?.toLowerCase() ?? 'factor'
+    // Use kind (preferred) or fall back to type
+    const nodeKind = (node.data?.kind ?? node.data?.type ?? 'factor').toLowerCase()
     const entry = {
       id: node.id,
       label: node.data?.label ?? '',
-      type: nodeType,
+      type: nodeKind,
       description: node.data?.description,
     }
 
-    if (nodeType === 'option') {
+    if (nodeKind === 'option') {
       options.push(entry)
     } else {
       // All non-option nodes go into factors (goals, decisions, factors, risks, etc.)
@@ -228,19 +243,30 @@ function transformGraphData(graphData: FullGraphData): NonNullable<DebugBundle['
     }
   }
 
-  const edges = graphData.edges.map((edge) => ({
-    id: edge.id,
-    source: edge.source,
-    target: edge.target,
-    label: edge.data?.label ?? edge.label,
-    strength: edge.data?.strength,
-  }))
+  const edges = graphData.edges.map((edge) => {
+    // Extract strength with priority: strength_mean > strength > confidence
+    const strength = edge.data?.strength_mean ?? edge.data?.strength ?? edge.data?.confidence
+    return {
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      label: edge.data?.label ?? edge.label,
+      strength,
+    }
+  })
 
   return { factors, edges, options }
 }
 
 /**
- * Recursively check if any value contains __truncated marker from redaction
+ * Minimum array size threshold for reporting truncation in export metadata.
+ * Only report truncation_applied when arrays had more items than this limit.
+ */
+const TRUNCATION_REPORT_THRESHOLD = 30
+
+/**
+ * Recursively check if any value was truncated with totalCount exceeding the threshold.
+ * Only returns true when arrays actually had more than TRUNCATION_REPORT_THRESHOLD items.
  */
 function detectTruncation(value: unknown, visited = new WeakSet<object>()): boolean {
   if (value === null || value === undefined) return false
@@ -250,9 +276,15 @@ function detectTruncation(value: unknown, visited = new WeakSet<object>()): bool
   if (visited.has(value as object)) return false
   visited.add(value as object)
 
-  // Check for truncation marker
-  if ('__truncated' in (value as Record<string, unknown>)) {
-    return true
+  // Check for truncation marker with meaningful truncation (totalCount > threshold)
+  const record = value as Record<string, unknown>
+  if (record.__truncated === true && typeof record.totalCount === 'number') {
+    // Only report truncation if the array actually exceeded the threshold
+    if (record.totalCount > TRUNCATION_REPORT_THRESHOLD) {
+      return true
+    }
+    // Array was truncated but at a smaller limit - don't propagate this truncation
+    return false
   }
 
   // Recurse into arrays
@@ -261,7 +293,7 @@ function detectTruncation(value: unknown, visited = new WeakSet<object>()): bool
   }
 
   // Recurse into object values
-  return Object.values(value as Record<string, unknown>).some((v) => detectTruncation(v, visited))
+  return Object.values(record).some((v) => detectTruncation(v, visited))
 }
 
 // =============================================================================
