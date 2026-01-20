@@ -306,14 +306,14 @@ export function SummaryTab({
           <KpiCard
             label="Winner"
             value={data.winningOption
-              ? `${data.winningOption.label} (${data.winningOption.win_probability.toFixed(0)}%)`
+              ? `${data.winningOption.label || data.winningOption.id || 'Unknown'} (${Number.isFinite(data.winningOption.win_probability) ? data.winningOption.win_probability.toFixed(0) : '—'}%)`
               : 'N/A'}
             status={data.winningOption
               ? (data.winningOption.is_close_race ? 'warn' : 'ok')
               : 'neutral'}
             tooltip={data.winningOption
               ? (data.winningOption.is_close_race && data.winningOption.runner_up
-                ? `Close race vs ${data.winningOption.runner_up.label} (${data.winningOption.runner_up.win_probability.toFixed(0)}%)`
+                ? `Close race vs ${data.winningOption.runner_up.label || data.winningOption.runner_up.id || 'Unknown'} (${Number.isFinite(data.winningOption.runner_up.win_probability) ? data.winningOption.runner_up.win_probability.toFixed(0) : '—'}%)`
                 : 'Clear winner')
               : 'Run analysis to see winner'}
             compact
