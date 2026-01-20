@@ -794,13 +794,26 @@ function performUiValidationChecks(
   // Check 1: STRENGTH_OUT_OF_RANGE
   // Any edge with strength_mean < -1 or > +1
   for (const edge of edges) {
-    const strength = edge.data?.strength_mean ?? edge.data?.strength ?? edge.data?.confidence
+    // Determine which field we're checking and its value
+    let strengthField: string | null = null
+    let strength: number | undefined
+    if (edge.data?.strength_mean !== undefined) {
+      strengthField = 'strength_mean'
+      strength = edge.data.strength_mean
+    } else if (edge.data?.strength !== undefined) {
+      strengthField = 'strength'
+      strength = edge.data.strength
+    } else if (edge.data?.confidence !== undefined) {
+      strengthField = 'confidence'
+      strength = edge.data.confidence
+    }
+
     if (strength !== undefined && (strength < -1 || strength > 1)) {
       issues.push({
         id: `ui_strength_${edge.id}`,
         code: 'STRENGTH_OUT_OF_RANGE',
         severity: 'warning',
-        message: `Edge ${edge.source}→${edge.target} has strength ${strength.toFixed(2)} outside [-1, +1]`,
+        message: `Edge ${edge.source}→${edge.target} has ${strengthField}=${strength.toFixed(2)} outside [-1, +1]`,
         suggestion: 'Clamp to valid range',
         source: 'ui',
         affected_edges: [edge.id],
@@ -809,40 +822,42 @@ function performUiValidationChecks(
     }
   }
 
-  // Check 2: BIDIRECTIONAL_EDGE
-  // Both A→B and B→A edges exist between same nodes
-  const edgePairs = new Map<string, string[]>()
+  // Check 2: BIDIRECTIONAL_EDGE (optimized single-pass O(n))
+  // Track both the sorted key and direction in one loop
+  const edgePairs = new Map<string, { edgeIds: string[]; hasForward: boolean; hasBackward: boolean; nodeA: string; nodeB: string }>()
   for (const edge of edges) {
-    const key = [edge.source, edge.target].sort().join('|')
+    const [nodeA, nodeB] = [edge.source, edge.target].sort()
+    const key = `${nodeA}|${nodeB}`
     if (!edgePairs.has(key)) {
-      edgePairs.set(key, [])
+      edgePairs.set(key, { edgeIds: [], hasForward: false, hasBackward: false, nodeA, nodeB })
     }
-    edgePairs.get(key)!.push(edge.id)
+    const pair = edgePairs.get(key)!
+    pair.edgeIds.push(edge.id)
+    // Forward = nodeA→nodeB (alphabetically first to second)
+    if (edge.source === nodeA && edge.target === nodeB) {
+      pair.hasForward = true
+    } else {
+      pair.hasBackward = true
+    }
   }
 
-  for (const [key, edgeIds] of edgePairs) {
-    if (edgeIds.length > 1) {
-      const [nodeA, nodeB] = key.split('|')
-      // Check if we have both directions (A→B and B→A)
-      const hasForward = edges.some(e => e.source === nodeA && e.target === nodeB)
-      const hasBackward = edges.some(e => e.source === nodeB && e.target === nodeA)
-      if (hasForward && hasBackward) {
-        issues.push({
-          id: `ui_bidirectional_${key.replace('|', '_')}`,
-          code: 'BIDIRECTIONAL_EDGE',
-          severity: 'warning',
-          message: `Bidirectional edges between ${nodeA} and ${nodeB}`,
-          suggestion: 'Review causal direction',
-          source: 'ui',
-          affected_edges: edgeIds,
-          affected_nodes: [nodeA, nodeB],
-        })
-      }
+  for (const [key, { edgeIds, hasForward, hasBackward, nodeA, nodeB }] of edgePairs) {
+    if (hasForward && hasBackward) {
+      issues.push({
+        id: `ui_bidirectional_${key.replace('|', '_')}`,
+        code: 'BIDIRECTIONAL_EDGE',
+        severity: 'warning',
+        message: `Bidirectional edges between ${nodeA} and ${nodeB}`,
+        suggestion: 'Review causal direction',
+        source: 'ui',
+        affected_edges: edgeIds,
+        affected_nodes: [nodeA, nodeB],
+      })
     }
   }
 
   // Check 3: UNIFORM_STRENGTHS
-  // All non-structural edges have identical strength_mean
+  // All non-structural edges have identical strength_mean (threshold: 5+ edges)
   const nonStructuralEdges = edges.filter(e => {
     // Exclude decision→option edges with strength 1.0 (structural)
     const kind = e.data?.kind?.toLowerCase()
@@ -852,7 +867,7 @@ function performUiValidationChecks(
     return strength !== undefined
   })
 
-  if (nonStructuralEdges.length >= 3) {
+  if (nonStructuralEdges.length >= 5) {
     const strengths = nonStructuralEdges.map(e =>
       e.data?.strength_mean ?? e.data?.strength ?? e.data?.confidence ?? 0
     )

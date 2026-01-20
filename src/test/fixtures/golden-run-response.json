@@ -1,0 +1,214 @@
+{
+  "$schema": "https://olumi.dev/schemas/decision-v2.6",
+  "_fixture_meta": {
+    "purpose": "M0 Golden Fixture - canonical test data for Results Panel contract tests",
+    "created": "2026-01-20",
+    "version": "2.6"
+  },
+  "analysis_status": "computed",
+  "option_comparison_status": "computed",
+  "robustness_status": "computed",
+  "drivers_status": "computed",
+
+  "option_comparison": [
+    {
+      "option_id": "opt_increase_with_release",
+      "option_label": "Increase price with feature release",
+      "confidence_interval": [4.2, 69.3],
+      "probability_of_goal": 0.72,
+      "win_probability": 0.68,
+      "expected_outcome": 45.42,
+      "outcome": {
+        "mean": 45.42,
+        "std": 18.5,
+        "p10": 4.2,
+        "p50": 46.8,
+        "p90": 69.3
+      }
+    },
+    {
+      "option_id": "opt_maintain_price",
+      "option_label": "Maintain current price",
+      "confidence_interval": [-5.1, 32.4],
+      "probability_of_goal": 0.45,
+      "win_probability": 0.32,
+      "expected_outcome": 18.6,
+      "outcome": {
+        "mean": 18.6,
+        "std": 12.3,
+        "p10": -5.1,
+        "p50": 15.2,
+        "p90": 32.4
+      }
+    }
+  ],
+
+  "factor_sensitivity": [
+    {
+      "factor_id": "fac_pro_price",
+      "node_id": "fac_pro_price",
+      "label": "Pro Plan Price",
+      "importance_score": 1.0,
+      "sensitivity_score": null,
+      "elasticity": null,
+      "direction": "negative",
+      "confidence": 0.85
+    },
+    {
+      "factor_id": "fac_perceived_value",
+      "node_id": "fac_perceived_value",
+      "label": "Perceived Value",
+      "importance_score": 0.62,
+      "sensitivity_score": null,
+      "elasticity": null,
+      "direction": "positive",
+      "confidence": 0.72
+    },
+    {
+      "factor_id": "fac_bundle_release",
+      "node_id": "fac_bundle_release",
+      "label": "Feature Bundle Release",
+      "importance_score": 0.39,
+      "sensitivity_score": null,
+      "elasticity": null,
+      "direction": "positive",
+      "confidence": 0.68
+    },
+    {
+      "factor_id": "fac_market_competition",
+      "node_id": "fac_market_competition",
+      "label": "Market Competition",
+      "importance_score": 0.22,
+      "sensitivity_score": null,
+      "elasticity": null,
+      "direction": "negative",
+      "confidence": 0.55
+    },
+    {
+      "factor_id": "factor_churn_rate_0",
+      "node_id": "factor_churn_rate_0",
+      "label": "Churn Rate",
+      "importance_score": 0,
+      "sensitivity_score": null,
+      "elasticity": null,
+      "direction": "negative",
+      "confidence": 0.40
+    }
+  ],
+
+  "edge_sensitivity": [
+    {
+      "edge_id": "fac_pro_price->out_mrr",
+      "from": "fac_pro_price",
+      "to": "out_mrr",
+      "sensitivity_type": "magnitude",
+      "elasticity": 0.85,
+      "importance_rank": 1,
+      "interpretation": "Price has highest impact on MRR"
+    },
+    {
+      "edge_id": "fac_perceived_value->out_mrr",
+      "from": "fac_perceived_value",
+      "to": "out_mrr",
+      "sensitivity_type": "magnitude",
+      "elasticity": 0.62,
+      "importance_rank": 2,
+      "interpretation": "Value perception significantly affects revenue"
+    }
+  ],
+
+  "robustness": {
+    "fragile_edges": [
+      {
+        "from_id": "fac_pro_price",
+        "to_id": "out_mrr",
+        "from_label": "Pro Plan Price",
+        "to_label": "Monthly Recurring Revenue",
+        "switch_probability": 0.35,
+        "alternative_winner_label": "Maintain current price"
+      },
+      {
+        "from_id": "fac_market_competition",
+        "to_id": "out_mrr",
+        "from_label": "Market Competition",
+        "to_label": "Monthly Recurring Revenue",
+        "switch_probability": 0.18,
+        "alternative_winner_label": "Maintain current price"
+      }
+    ],
+    "robust_edges": [
+      "fac_perceived_value->out_mrr",
+      "fac_bundle_release->out_mrr"
+    ],
+    "ranking_stability": 0.72
+  },
+
+  "critiques": [
+    {
+      "code": "LOW_EVIDENCE_COVERAGE",
+      "severity": "warning",
+      "message": "43% of relationships lack supporting evidence",
+      "suggestion": "Add data sources to key assumptions"
+    },
+    {
+      "code": "INTERNAL_CLAMP_STD_1",
+      "severity": "warning",
+      "message": "Edge fac_pro_price->out_mrr: strength.std clamped from 0.01 to 0.05"
+    },
+    {
+      "code": "INTERNAL_CLAMP_STD_2",
+      "severity": "warning",
+      "message": "Edge fac_perceived_value->out_mrr: strength.std clamped from 0.02 to 0.05"
+    },
+    {
+      "code": "INTERNAL_CLAMP_STD_3",
+      "severity": "warning",
+      "message": "Edge fac_bundle_release->out_mrr: strength.std clamped from 0.008 to 0.05"
+    },
+    {
+      "code": "INTERNAL_CLAMP_STD_4",
+      "severity": "warning",
+      "message": "Edge fac_market_competition->out_mrr: strength.std clamped from 0.015 to 0.05"
+    },
+    {
+      "code": "INTERNAL_CLAMP_STD_5",
+      "severity": "warning",
+      "message": "Edge factor_churn_rate_0->out_mrr: strength.std clamped from 0.012 to 0.05"
+    },
+    {
+      "code": "INTERNAL_CLAMP_STD_6",
+      "severity": "warning",
+      "message": "Normalization applied to option node probabilities"
+    },
+    {
+      "code": "COMPETITION_NOT_MODELED",
+      "severity": "info",
+      "message": "Competitor response not modeled",
+      "suggestion": "Consider adding competitor reaction scenarios"
+    }
+  ],
+
+  "drivers": [
+    {
+      "node_id": "fac_pro_price",
+      "label": "Pro Plan Price",
+      "contribution": 0.85,
+      "direction": "negative"
+    },
+    {
+      "node_id": "fac_perceived_value",
+      "label": "Perceived Value",
+      "contribution": 0.62,
+      "direction": "positive"
+    }
+  ],
+
+  "response_hash": "golden-fixture-e65075be",
+  "request_id": "golden-test-001",
+  "meta": {
+    "seed_used": "42",
+    "n_samples": 10000,
+    "detail_level": "deep",
+    "latency_ms": 1250
+  }
+}

@@ -86,9 +86,25 @@ function safeFiniteNumber(value: unknown): number | null {
 
 /**
  * Extract raw elasticity with fallback chain.
- * Priority: elasticity > sensitivity_score > sensitivity > importance_score > contribution > 0
- * P0 Fix: Added importance_score since PLoT may return it instead of elasticity/sensitivity_score
- * P2 Fix: Simplified with helper to reduce repetition
+ *
+ * ============================================================================
+ * FACTOR INFLUENCE CONTRACT (M0)
+ * ============================================================================
+ *
+ * Fallback priority for factor influence value:
+ * 1. elasticity (if present and finite)
+ * 2. sensitivity_score (if present, finite, AND not a placeholder zero)
+ *    - EXCEPTION: Skip if sensitivity_score=0 but importance_score > 0 (P0 Fix)
+ * 3. sensitivity (if present and finite)
+ * 4. importance_score (if present and > 0)
+ * 5. contribution (legacy, if present)
+ * 6. 0 (default)
+ *
+ * CRITICAL: The responseMapper MUST preserve importance_score from ISL response.
+ * If importance_score is dropped during mapping, factors will show 0% influence.
+ *
+ * See: responseMapper.ts pickFactorSensitivityForUi() for upstream contract.
+ * Contract tests: src/test/integration/results-panel-contract.test.ts
  */
 function getRawElasticity(factor: RawFactorSensitivity | UiFactorSensitivity): number {
   // Type-safe access to known fields
@@ -98,14 +114,20 @@ function getRawElasticity(factor: RawFactorSensitivity | UiFactorSensitivity): n
   const elasticity = safeFiniteNumber(f.elasticity)
   if (elasticity !== null) return elasticity
 
+  // P0 Fix: Check importance_score early to handle "0 blocks fallback" edge case
+  // If sensitivity_score is 0 but importance_score > 0, prefer importance_score
+  const importanceScore = safeFiniteNumber(f.importance_score)
+
   const sensitivityScore = safeFiniteNumber(f.sensitivity_score)
-  if (sensitivityScore !== null) return sensitivityScore
+  // Skip sensitivity_score if it's 0 but importance_score has real data
+  if (sensitivityScore !== null && (sensitivityScore !== 0 || importanceScore === null || importanceScore <= 0)) {
+    return sensitivityScore
+  }
 
   const sensitivity = safeFiniteNumber(f.sensitivity)
   if (sensitivity !== null) return sensitivity
 
   // importance_score only if > 0 (avoid placeholder zeros)
-  const importanceScore = safeFiniteNumber(f.importance_score)
   if (importanceScore !== null && importanceScore > 0) return importanceScore
 
   // Legacy fallback

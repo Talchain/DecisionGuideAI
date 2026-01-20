@@ -9,6 +9,25 @@
  *
  * Note: PLoT returns `option_comparison` (not `options`), and robustness
  * uses `fragile_edges`/`robust_edges` structure.
+ *
+ * ============================================================================
+ * RESULTS PANEL DATA CONTRACT (M0)
+ * ============================================================================
+ *
+ * ISL/PLoT provides factor_sensitivity with these fields:
+ * - importance_score: 0-1 normalised importance (PRIMARY - use this)
+ * - sensitivity_score: raw sensitivity value (fallback)
+ * - elasticity: elasticity measure (fallback)
+ *
+ * This mapper MUST preserve importance_score for downstream consumers.
+ * The pickFactorSensitivityForUi() function:
+ * 1. Checks hasRealData including importance_score > 0.001
+ * 2. Maps sensitivity_score from: sensitivity_score ?? elasticity ?? importance_score
+ * 3. Preserves importance_score in output for getRawElasticity() fallback
+ *
+ * Contract tests: src/test/integration/results-panel-contract.test.ts
+ * Golden fixture: src/test/fixtures/golden-run-response.json
+ * Expected values: src/test/fixtures/golden-expectations.ts
  */
 
 import type { V2RunResponse, V2OptionComparison, V2Driver, V2Critique, V2EdgeSensitivity, V2FactorSensitivity } from './types'
@@ -189,10 +208,13 @@ function pickFactorSensitivityForUi(v2Response: V2RunResponse): V2FactorSensitiv
 
   if (islFactors && islFactors.length > 0) {
     // Check if ISL factors have real sensitivity data
+    // P0 Fix: Include importance_score in check (PLoT may only provide this field)
+    // Use Math.abs() to handle potential negative values (direction stored separately)
     const hasRealData = islFactors.some((f) => {
       if (!isFactorLike(f)) return false
-      return (typeof f.sensitivity_score === 'number' && f.sensitivity_score > 0.001) ||
-        (typeof f.elasticity === 'number' && f.elasticity > 0.001)
+      return (typeof f.sensitivity_score === 'number' && Math.abs(f.sensitivity_score) > 0.001) ||
+        (typeof f.elasticity === 'number' && Math.abs(f.elasticity) > 0.001) ||
+        (typeof f.importance_score === 'number' && Math.abs(f.importance_score) > 0.001)
     })
 
     if (hasRealData) {
@@ -207,7 +229,10 @@ function pickFactorSensitivityForUi(v2Response: V2RunResponse): V2FactorSensitiv
         factor_id: (f.factor_id as string) ?? (f.node_id as string),
         node_id: (f.node_id as string) ?? (f.factor_id as string),
         label: f.label as string | undefined,
-        sensitivity_score: (f.sensitivity_score as number) ?? (f.elasticity as number),
+        // P0 Fix: Add importance_score to fallback chain
+        sensitivity_score: (f.sensitivity_score as number) ?? (f.elasticity as number) ?? (f.importance_score as number),
+        // P0 Fix: Pass through importance_score for downstream consumers (getRawElasticity)
+        importance_score: f.importance_score as number | undefined,
         direction: f.direction === 'negative' ? 'negative' : 'positive',
         confidence: f.confidence as number | undefined,
       }))
@@ -219,9 +244,13 @@ function pickFactorSensitivityForUi(v2Response: V2RunResponse): V2FactorSensitiv
 
   if (enrichmentFactors && enrichmentFactors.length > 0) {
     // Check if enrichment factors have real sensitivity data (not just placeholders)
+    // P0 Fix: Include importance_score in check (PLoT may only provide this field)
+    // Use Math.abs() to handle potential negative values (direction stored separately)
     const hasRealData = enrichmentFactors.some((f) => {
       if (!isFactorLike(f)) return false
-      return typeof f.sensitivity_score === 'number' && f.sensitivity_score > 0.001
+      return (typeof f.sensitivity_score === 'number' && Math.abs(f.sensitivity_score) > 0.001) ||
+        (typeof f.elasticity === 'number' && Math.abs(f.elasticity) > 0.001) ||
+        (typeof f.importance_score === 'number' && Math.abs(f.importance_score) > 0.001)
     })
 
     if (hasRealData) {
@@ -236,7 +265,10 @@ function pickFactorSensitivityForUi(v2Response: V2RunResponse): V2FactorSensitiv
       return enrichmentFactors.filter(isFactorLike).map((f): V2FactorSensitivity => ({
         factor_id: f.factor_id as string,
         node_id: f.factor_id as string,  // Alias for compatibility
-        sensitivity_score: f.sensitivity_score as number,
+        // P0 Fix: Add importance_score to fallback chain
+        sensitivity_score: (f.sensitivity_score as number) ?? (f.elasticity as number) ?? (f.importance_score as number),
+        // P0 Fix: Pass through importance_score for downstream consumers (getRawElasticity)
+        importance_score: f.importance_score as number | undefined,
         direction: f.direction === 'negative' ? 'negative' : 'positive',
         confidence: f.confidence as number | undefined,
       }))

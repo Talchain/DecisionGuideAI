@@ -213,9 +213,11 @@ export function SummaryTab({
     marginBottom: 12,
   }
 
-  // Check if temperature has a value (not null/undefined/NaN)
+  // Format temperature: show value if available, "N/A" if missing
   const temperature = data.pipeline.llm_metadata?.temperature
-  const showTemperature = temperature != null && !Number.isNaN(temperature)
+  const temperatureDisplay = temperature != null && !Number.isNaN(temperature)
+    ? temperature
+    : 'N/A'
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 12 }}>
@@ -455,11 +457,9 @@ export function SummaryTab({
             <strong style={{ color: '#1e293b' }}>Edges:</strong>{' '}
             {data.pipeline.connectivity?.edge_count ?? '—'}
           </span>
-          {showTemperature && (
-            <span>
-              <strong style={{ color: '#1e293b' }}>Temp:</strong> {temperature}
-            </span>
-          )}
+          <span>
+            <strong style={{ color: '#1e293b' }}>Temp:</strong> {temperatureDisplay}
+          </span>
           {data.overall.request_id && (
             <span
               style={{ fontFamily: 'monospace', fontSize: 12 }}
