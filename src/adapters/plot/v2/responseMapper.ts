@@ -45,6 +45,19 @@ import type {
 } from '../../../types/cee'
 
 // =============================================================================
+// New Typed Mappers (Phase 5 Integration)
+// =============================================================================
+// These mappers provide typed, tested domain mapping with explicit source selection.
+// Use mapPloTResponseTyped() for new code paths.
+import {
+  mapPloTResponse,
+  type MappedPloTResponse,
+  type MappedFactor,
+  type MappedRobustness,
+  type MappedOption,
+} from '../../../lib/mappers'
+
+// =============================================================================
 // Defensive Detection: Empty "Computed" Results
 // =============================================================================
 
@@ -1476,4 +1489,36 @@ export function synthesizeCeeTraceFromV2(
     _synthesized_from_v2: true,
     source: 'v2_synthesis',
   }
+}
+
+// =============================================================================
+// Typed Mapper Integration (Phase 5)
+// =============================================================================
+
+/**
+ * Map V2RunResponse using new typed mappers.
+ *
+ * This function provides a typed, tested alternative to the inline mapping logic.
+ * It uses the mappers from src/lib/mappers/ which have:
+ * - Explicit source selection (downstream_calls.isl → enrichment → top_level)
+ * - Semantic contract tests
+ * - No `any` types (only `unknown` at parse boundaries)
+ * - Metadata tracking (_meta.sourcePath, _meta.fallbacksApplied)
+ *
+ * Use this for new code paths. Existing consumers can continue using
+ * mapV2ResponseToReportV1() during the transition.
+ *
+ * @param v2Response - Raw response from PLoT /v2/run endpoint
+ * @returns Typed mapped response with factors, robustness, options, and metadata
+ */
+export function mapPloTResponseTyped(v2Response: V2RunResponse): MappedPloTResponse {
+  return mapPloTResponse(v2Response)
+}
+
+// Re-export types for consumers
+export type {
+  MappedPloTResponse,
+  MappedFactor,
+  MappedRobustness,
+  MappedOption,
 }
