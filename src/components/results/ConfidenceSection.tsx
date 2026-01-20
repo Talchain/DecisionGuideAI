@@ -150,23 +150,22 @@ function UncertaintyRow({
           {thresholdMessage}
         </p>
       )}
-      {item.suggestion && (
+      {/* Show suggestion as text only if no actionable button */}
+      {item.suggestion && (!item.affectedNodes || item.affectedNodes.length === 0) && (
         <p className="text-xs text-slate-500 mt-1">
           {item.suggestion}
         </p>
       )}
+      {/* Show single button for first affected node (not per-node to avoid duplicates) */}
       {item.affectedNodes && item.affectedNodes.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-2">
-          {item.affectedNodes.map((nodeId) => (
-            <button
-              key={nodeId}
-              onClick={() => handleNodeClick(nodeId)}
-              className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-              title={`Focus ${nodeId} on canvas`}
-            >
-              Validate this assumption
-            </button>
-          ))}
+          <button
+            onClick={() => handleNodeClick(item.affectedNodes![0])}
+            className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+            title={`Focus on canvas`}
+          >
+            {item.suggestion || 'Validate this assumption'}
+          </button>
         </div>
       )}
     </div>
