@@ -10,6 +10,7 @@
  */
 
 import { useState, useCallback, useMemo, CSSProperties } from 'react'
+import { shallow } from 'zustand/shallow'
 import { useDebugData } from './hooks/useDebugData'
 import { SummaryTab, DataFlowTab, PipelineTab, RawTab } from './tabs'
 import { PayloadLabTab } from './PayloadLabTab'
@@ -59,8 +60,8 @@ export function DebugPanelV2({ onClose, width, height }: DebugPanelV2Props) {
   // Get debug data
   const data = useDebugData()
 
-  // Get graph data for export
-  const { nodes, edges } = useCanvasStore((s) => ({ nodes: s.nodes, edges: s.edges }))
+  // Get graph data for export (shallow comparison to prevent infinite re-renders)
+  const { nodes, edges } = useCanvasStore((s) => ({ nodes: s.nodes, edges: s.edges }), shallow)
 
   // Handle copy request ID
   const handleCopyRequestId = useCallback(async () => {
