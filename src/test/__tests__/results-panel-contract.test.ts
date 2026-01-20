@@ -556,3 +556,182 @@ describe('useResultsSectionData Pipeline Contract', () => {
     })
   })
 })
+
+// ============================================================================
+// Factor Sensitivity Source Selection Contract Tests
+// ============================================================================
+
+import { pickFactorSensitivityForUi } from '../../adapters/plot/v2/responseMapper'
+
+describe('Factor Sensitivity Source Selection Contract', () => {
+  describe('_source_path diagnostic', () => {
+    it('returns top_level when only top-level factor_sensitivity exists', () => {
+      const response = {
+        factor_sensitivity: [
+          { factor_id: 'fac_1', importance_score: 0.8, value_of_information: 0.6 },
+        ],
+      } as any
+
+      const result = pickFactorSensitivityForUi(response)
+      expect(result._source_path).toBe('top_level')
+      expect(result.factors).toHaveLength(1)
+    })
+
+    it('returns downstream_calls.isl when ISL factors have real data', () => {
+      const response = {
+        downstream_calls: {
+          isl: {
+            response: {
+              factor_sensitivity: [
+                { factor_id: 'fac_1', sensitivity_score: 0.5, value_of_information: 0.7 },
+              ],
+            },
+          },
+        },
+        factor_sensitivity: [
+          { factor_id: 'fac_1', importance_score: 0.8 },
+        ],
+      } as any
+
+      const result = pickFactorSensitivityForUi(response)
+      expect(result._source_path).toBe('downstream_calls.isl')
+    })
+
+    it('returns enrichment when enrichment factors have real data but no ISL', () => {
+      const response = {
+        enrichment: {
+          sensitivity_analysis: {
+            factors: [
+              { factor_id: 'fac_1', sensitivity_score: 0.5, value_of_information: 0.65 },
+            ],
+          },
+        },
+        factor_sensitivity: [
+          { factor_id: 'fac_1', importance_score: 0.8 },
+        ],
+      } as any
+
+      const result = pickFactorSensitivityForUi(response)
+      expect(result._source_path).toBe('enrichment')
+    })
+  })
+
+  describe('value_of_information preservation', () => {
+    it('preserves VOI from downstream_calls.isl path', () => {
+      const response = {
+        downstream_calls: {
+          isl: {
+            response: {
+              factor_sensitivity: [
+                { factor_id: 'fac_1', sensitivity_score: 0.5, value_of_information: 0.72 },
+              ],
+            },
+          },
+        },
+      } as any
+
+      const result = pickFactorSensitivityForUi(response)
+      expect(result._source_path).toBe('downstream_calls.isl')
+      expect(result.factors[0].value_of_information).toBe(0.72)
+    })
+
+    it('preserves VOI from enrichment path', () => {
+      const response = {
+        enrichment: {
+          sensitivity_analysis: {
+            factors: [
+              { factor_id: 'fac_1', sensitivity_score: 0.5, value_of_information: 0.68 },
+            ],
+          },
+        },
+      } as any
+
+      const result = pickFactorSensitivityForUi(response)
+      expect(result._source_path).toBe('enrichment')
+      expect(result.factors[0].value_of_information).toBe(0.68)
+    })
+
+    it('preserves VOI from top_level path (pass-through)', () => {
+      const response = {
+        factor_sensitivity: [
+          { factor_id: 'fac_1', importance_score: 0.8, value_of_information: 0.55 },
+        ],
+      } as any
+
+      const result = pickFactorSensitivityForUi(response)
+      expect(result._source_path).toBe('top_level')
+      expect(result.factors[0].value_of_information).toBe(0.55)
+    })
+  })
+
+  describe('field completeness contract', () => {
+    it('maps all V2FactorSensitivity fields from downstream_calls.isl', () => {
+      const response = {
+        downstream_calls: {
+          isl: {
+            response: {
+              factor_sensitivity: [
+                {
+                  factor_id: 'fac_complete',
+                  node_id: 'fac_complete',
+                  label: 'Complete Factor',
+                  sensitivity_score: 0.75,
+                  importance_score: 0.8,
+                  direction: 'negative',
+                  confidence: 0.9,
+                  value_of_information: 0.65,
+                },
+              ],
+            },
+          },
+        },
+      } as any
+
+      const result = pickFactorSensitivityForUi(response)
+      const factor = result.factors[0]
+
+      // Verify all mapped fields
+      expect(factor.factor_id).toBe('fac_complete')
+      expect(factor.node_id).toBe('fac_complete')
+      expect(factor.label).toBe('Complete Factor')
+      expect(factor.sensitivity_score).toBe(0.75)
+      expect(factor.importance_score).toBe(0.8)
+      expect(factor.direction).toBe('negative')
+      expect(factor.confidence).toBe(0.9)
+      expect(factor.value_of_information).toBe(0.65)
+    })
+
+    it('maps all V2FactorSensitivity fields from enrichment path', () => {
+      const response = {
+        enrichment: {
+          sensitivity_analysis: {
+            factors: [
+              {
+                factor_id: 'fac_enrich',
+                label: 'Enriched Factor',
+                sensitivity_score: 0.6,
+                importance_score: 0.7,
+                direction: 'positive',
+                confidence: 0.85,
+                value_of_information: 0.5,
+              },
+            ],
+          },
+        },
+      } as any
+
+      const result = pickFactorSensitivityForUi(response)
+      const factor = result.factors[0]
+
+      // Verify all mapped fields
+      expect(factor.factor_id).toBe('fac_enrich')
+      expect(factor.node_id).toBe('fac_enrich') // Aliased from factor_id
+      expect(factor.label).toBe('Enriched Factor')
+      expect(factor.sensitivity_score).toBe(0.6)
+      expect(factor.importance_score).toBe(0.7)
+      expect(factor.direction).toBe('positive')
+      expect(factor.confidence).toBe(0.85)
+      expect(factor.value_of_information).toBe(0.5)
+    })
+  })
+})

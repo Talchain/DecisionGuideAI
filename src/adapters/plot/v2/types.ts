@@ -170,6 +170,8 @@ export interface V2FactorSensitivity {
   importance_rank?: number
   /** P0 Fix: Confidence in this factor's influence (0-1, from ISL enrichment) */
   confidence?: number
+  /** Value of information score (0-1), used for driver confidence display */
+  value_of_information?: number
 }
 
 /**

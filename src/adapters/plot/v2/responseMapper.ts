@@ -190,6 +190,12 @@ function isFactorLike(f: unknown): f is Record<string, unknown> {
 // Factor Sensitivity Selection
 // =============================================================================
 
+/** Return type for pickFactorSensitivityForUi with diagnostic path */
+export interface FactorSensitivityResult {
+  factors: V2FactorSensitivity[]
+  _source_path: 'downstream_calls.isl' | 'enrichment' | 'top_level'
+}
+
 /**
  * Pick the best source for factor sensitivity data.
  *
@@ -201,8 +207,10 @@ function isFactorLike(f: unknown): f is Record<string, unknown> {
  * The ISL response nested in downstream_calls has the real sensitivity data with
  * sensitivity_score, confidence, and label fields. The top-level factor_sensitivity
  * may only have importance_score=0 placeholders.
+ *
+ * Returns factors array with _source_path diagnostic for debugging.
  */
-function pickFactorSensitivityForUi(v2Response: V2RunResponse): V2FactorSensitivity[] {
+export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSensitivityResult {
   // P0 Fix: Check downstream_calls.isl.response first (where real ISL data lives)
   const islFactors = extractDownstreamFactors(v2Response)
 
@@ -225,17 +233,24 @@ function pickFactorSensitivityForUi(v2Response: V2RunResponse): V2FactorSensitiv
         })
       }
 
-      return islFactors.filter(isFactorLike).map((f): V2FactorSensitivity => ({
+      // Contract: Must include all V2FactorSensitivity fields
+      const factors = islFactors.filter(isFactorLike).map((f): V2FactorSensitivity => ({
         factor_id: (f.factor_id as string) ?? (f.node_id as string),
         node_id: (f.node_id as string) ?? (f.factor_id as string),
         label: f.label as string | undefined,
+        sensitivity: f.sensitivity as number | undefined,
         // P0 Fix: Add importance_score to fallback chain
         sensitivity_score: (f.sensitivity_score as number) ?? (f.elasticity as number) ?? (f.importance_score as number),
         // P0 Fix: Pass through importance_score for downstream consumers (getRawElasticity)
         importance_score: f.importance_score as number | undefined,
         direction: f.direction === 'negative' ? 'negative' : 'positive',
+        elasticity: f.elasticity as number | undefined,
+        importance_rank: f.importance_rank as number | undefined,
         confidence: f.confidence as number | undefined,
+        // VOI Fix: Pass through value_of_information for driver confidence display
+        value_of_information: f.value_of_information as number | undefined,
       }))
+      return { factors, _source_path: 'downstream_calls.isl' }
     }
   }
 
@@ -262,16 +277,24 @@ function pickFactorSensitivityForUi(v2Response: V2RunResponse): V2FactorSensitiv
         })
       }
 
-      return enrichmentFactors.filter(isFactorLike).map((f): V2FactorSensitivity => ({
+      // Contract: Must include all V2FactorSensitivity fields
+      const factors = enrichmentFactors.filter(isFactorLike).map((f): V2FactorSensitivity => ({
         factor_id: f.factor_id as string,
         node_id: f.factor_id as string,  // Alias for compatibility
+        label: f.label as string | undefined,
+        sensitivity: f.sensitivity as number | undefined,
         // P0 Fix: Add importance_score to fallback chain
         sensitivity_score: (f.sensitivity_score as number) ?? (f.elasticity as number) ?? (f.importance_score as number),
         // P0 Fix: Pass through importance_score for downstream consumers (getRawElasticity)
         importance_score: f.importance_score as number | undefined,
         direction: f.direction === 'negative' ? 'negative' : 'positive',
+        elasticity: f.elasticity as number | undefined,
+        importance_rank: f.importance_rank as number | undefined,
         confidence: f.confidence as number | undefined,
+        // VOI Fix: Pass through value_of_information for driver confidence display
+        value_of_information: f.value_of_information as number | undefined,
       }))
+      return { factors, _source_path: 'enrichment' }
     }
   }
 
@@ -284,7 +307,8 @@ function pickFactorSensitivityForUi(v2Response: V2RunResponse): V2FactorSensitiv
     })
   }
 
-  return Array.isArray(topLevel) ? topLevel : []
+  const factors = Array.isArray(topLevel) ? topLevel : []
+  return { factors, _source_path: 'top_level' }
 }
 
 /**
@@ -434,7 +458,7 @@ export function mapV2ResponseToReportV1(
     // P0 Fix: Use pickFactorSensitivityForUi to select the best data source
     // Enrichment path (from ISL deep mode) has real sensitivity_score values
     // Top-level factor_sensitivity may only have importance_score placeholders
-    factor_sensitivity: pickFactorSensitivityForUi(v2Response),
+    factor_sensitivity: pickFactorSensitivityForUi(v2Response).factors,
     // P0 Fix: Pass through robustness object for UI display (fragile/robust edges).
     // P2 Fix: Use safeArrayWithMeta() to preserve truncation metadata for UI display
     robustness: v2Response.robustness ? (() => {
@@ -604,8 +628,13 @@ function mapCritiqueSeverity(severity: 'blocker' | 'warning' | 'info'): 'BLOCKER
  */
 function createDriversPayloadFromV2(v2Response: V2RunResponse): DriversPayload | undefined {
   // P0 Fix: Use pickFactorSensitivityForUi to get best data source (enrichment or top-level)
-  const factorSensitivity = pickFactorSensitivityForUi(v2Response)
+  const { factors: factorSensitivity, _source_path } = pickFactorSensitivityForUi(v2Response)
   const hasFactorSensitivity = factorSensitivity.length > 0
+
+  // Debug: Log which source was selected
+  if (import.meta.env.DEV && hasFactorSensitivity) {
+    console.log('[createDriversPayloadFromV2] Factor sensitivity source:', _source_path)
+  }
 
   // Check if we have drivers data (backward compatibility)
   const hasDrivers = Array.isArray(v2Response.drivers) &&
