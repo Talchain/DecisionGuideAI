@@ -9,11 +9,13 @@
  * - Payload Lab: Interactive testing for CEE drafts and ISL payloads
  */
 
-import { useState, useCallback, CSSProperties } from 'react'
+import { useState, useCallback, useMemo, CSSProperties } from 'react'
 import { useDebugData } from './hooks/useDebugData'
 import { SummaryTab, DataFlowTab, PipelineTab, RawTab } from './tabs'
 import { PayloadLabTab } from './PayloadLabTab'
 import { exportDebugBundle, copyRequestId } from './utils/exportBundle'
+import type { ISLTestResponse } from './types'
+import { ISLClient } from '../../adapters/isl/client'
 
 // =============================================================================
 // Types
@@ -78,6 +80,48 @@ export function DebugPanelV2({ onClose, width, height }: DebugPanelV2Props) {
   const navigateToDataFlow = useCallback(() => setActiveTab('data-flow'), [])
   const navigateToPipeline = useCallback(() => setActiveTab('pipeline'), [])
   const navigateToRaw = useCallback(() => setActiveTab('raw'), [])
+
+  // ISL client instance (memoized to avoid recreation)
+  const islClient = useMemo(() => new ISLClient({ timeout: 60000 }), [])
+
+  // ISL test runner for Payload Lab - uses ISLClient for proper observability
+  const handleRunISLTest = useCallback(async (
+    payload: object,
+    seed: string,
+    nSamples: number
+  ): Promise<ISLTestResponse> => {
+    const startTime = Date.now()
+
+    // Add seed and n_samples to the request
+    const requestPayload = {
+      ...payload,
+      seed,
+      n_samples: nSamples,
+    }
+
+    try {
+      // Use ISLClient.conformalPredict for proper observability headers
+      // Cast to expected type since PayloadLab generates valid ISL conformal requests
+      const rawResponse = await islClient.conformalPredict(
+        requestPayload as Parameters<typeof islClient.conformalPredict>[0]
+      )
+      const duration_ms = Date.now() - startTime
+
+      // Transform to ISLTestResponse format
+      return {
+        summary: {
+          duration_ms,
+          options: [],
+        },
+        raw_response: rawResponse,
+      }
+    } catch (error) {
+      // Cap error message length for UI safety (P3 fix)
+      const message = error instanceof Error ? error.message : String(error)
+      const truncatedMessage = message.length > 300 ? message.slice(0, 300) + '...' : message
+      throw new Error(truncatedMessage)
+    }
+  }, [islClient])
 
   // Derive status for header badge
   const statusColor =
@@ -256,7 +300,7 @@ export function DebugPanelV2({ onClose, width, height }: DebugPanelV2Props) {
         {activeTab === 'data-flow' && <DataFlowTab data={data} />}
         {activeTab === 'pipeline' && <PipelineTab data={data} />}
         {activeTab === 'raw' && <RawTab data={data} />}
-        {activeTab === 'payload-lab' && <PayloadLabTab />}
+        {activeTab === 'payload-lab' && <PayloadLabTab onRunTest={handleRunISLTest} />}
       </div>
     </div>
   )

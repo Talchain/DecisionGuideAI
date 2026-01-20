@@ -489,7 +489,7 @@ export function PipelineTab({ data }: PipelineTabProps) {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Duration</span>
                 <span style={{ fontFamily: 'monospace' }}>
-                  {formatDuration(llmStage?.duration_ms)}
+                  {formatDuration(llmMetadata?.duration_ms ?? llmStage?.duration_ms)}
                 </span>
               </div>
             </div>

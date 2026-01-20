@@ -63,6 +63,8 @@ export interface PipelineStageData {
 export interface LlmMetadataData {
   model?: string
   temperature?: number
+  /** LLM call duration in milliseconds */
+  duration_ms?: number
   prompt_version?: string
   token_usage?: {
     prompt_tokens?: number
@@ -356,6 +358,8 @@ function extractLlmMetadata(pipeline: unknown): LlmMetadataData | undefined {
     const firstCall = p.llm_calls[0] as Record<string, unknown>
     return {
       model: firstCall.model as string | undefined,
+      temperature: firstCall.temperature as number | undefined,
+      duration_ms: firstCall.duration_ms as number | undefined,
       token_usage: {
         prompt_tokens: firstCall.prompt_tokens as number | undefined,
         completion_tokens: firstCall.completion_tokens as number | undefined,
@@ -416,19 +420,19 @@ function extractLlmRaw(ceeResponse: unknown): LlmRawData | undefined {
 
   const raw = llmRaw as Record<string, unknown>
 
-  // Extract text content (type-guarded)
-  const rawText = raw.text ?? raw.content ?? raw.output
+  // Extract text content (type-guarded) - check all possible field names
+  const rawText = raw.output_preview ?? raw.text ?? raw.content ?? raw.output
   const text = typeof rawText === 'string' ? rawText : undefined
 
-  // Calculate hash if we have text
-  const rawHash = raw.hash
+  // Calculate hash if we have text, or use pre-computed hash from CEE
+  const rawHash = raw.output_hash ?? raw.hash
   const hash = text ? simpleHash(text) : (typeof rawHash === 'string' ? rawHash : undefined)
 
   // Check for truncation indicators (type-guarded)
   const truncated = raw.truncated === true || raw.was_truncated === true
 
-  // Get character count (type-guarded)
-  const rawCharCount = raw.char_count ?? raw.length
+  // Get character count (type-guarded) - check all possible field names
+  const rawCharCount = raw.char_count ?? raw.character_count ?? raw.length
   const charCount = text?.length ?? (typeof rawCharCount === 'number' ? rawCharCount : undefined)
 
   // Extract node counts if available (type-guarded)
@@ -592,7 +596,9 @@ function extractBuildVersions(
 
   return {
     ui: getClientBuild() || null,
-    cee: (cee?.trace as Record<string, unknown>)?.engine?.build as string
+    // CEE path: trace.engine.version (preferred) or trace.engine.build (fallback)
+    cee: (cee?.trace as Record<string, unknown>)?.engine?.version as string
+      ?? (cee?.trace as Record<string, unknown>)?.engine?.build as string
       ?? (cee?.trace as Record<string, unknown>)?.build as string
       ?? (cee?.build as string)
       ?? null,

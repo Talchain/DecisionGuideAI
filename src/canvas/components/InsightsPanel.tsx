@@ -127,11 +127,15 @@ function validateInsightConsistency(
         })
 
         // Generate a sensible summary based on actual outcome
+        // ISL returns outcome values in percentage form (e.g., 10.42 = 10.42%)
+        // Only multiply by 100 if value is in probability range (0-1)
         const displayValue = outcomeValue >= 0 && outcomeValue <= 1
           ? `${(outcomeValue * 100).toFixed(0)}%`
           : `${outcomeValue.toFixed(0)}%`
 
-        const isPositive = goalDirection === 'maximize' ? outcomeValue > 0.5 : outcomeValue < 0.5
+        // Determine sentiment based on value - use threshold 50 for percentage form, 0.5 for probability form
+        const threshold = outcomeValue >= 0 && outcomeValue <= 1 ? 0.5 : 50
+        const isPositive = goalDirection === 'maximize' ? outcomeValue > threshold : outcomeValue < threshold
         const sentiment = isPositive ? 'favorable' : 'moderate'
 
         return {
