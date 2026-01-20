@@ -230,6 +230,45 @@ export interface CorrectionsSummary {
   total: number
 }
 
+/**
+ * A single validation issue from ISL critiques or UI-side checks
+ */
+export interface ValidationIssue {
+  /** Unique issue ID */
+  id: string
+  /** Issue code (e.g., GRAPH_DISCONNECTED, STRENGTH_OUT_OF_RANGE) */
+  code: string
+  /** Severity level */
+  severity: 'error' | 'warning' | 'info'
+  /** Human-readable message */
+  message: string
+  /** Suggested fix or action */
+  suggestion?: string
+  /** Source of the issue */
+  source: 'isl' | 'ui'
+  /** Affected node IDs (for linking to graph) */
+  affected_nodes?: string[]
+  /** Affected edge IDs (for linking to graph) */
+  affected_edges?: string[]
+}
+
+/**
+ * Summary of validation issues by severity
+ */
+export interface ValidationSummary {
+  errors: number
+  warnings: number
+  info: number
+}
+
+/**
+ * Complete validation data
+ */
+export interface ValidationData {
+  summary: ValidationSummary
+  issues: ValidationIssue[]
+}
+
 export interface DebugData {
   /** Overall analysis status */
   overall: {
@@ -272,6 +311,9 @@ export interface DebugData {
 
   /** Gate statuses */
   gates: GateData[]
+
+  /** Graph validation issues (ISL critiques + UI-side checks) */
+  validation: ValidationData
 
   /** Whether any data is available */
   hasData: boolean
@@ -681,6 +723,183 @@ function extractDiagnosticChecks(
   }
 }
 
+// =============================================================================
+// Validation Extraction Functions
+// =============================================================================
+
+/**
+ * ISL critique structure from response
+ */
+interface ISLCritique {
+  id: string
+  code: string
+  severity: 'error' | 'warning' | 'info'
+  message: string
+  source?: string
+  suggestion?: string
+}
+
+/**
+ * Extract ISL critiques from PLoT response
+ */
+function extractIslCritiques(plotResponse: unknown): ValidationIssue[] {
+  if (!plotResponse || typeof plotResponse !== 'object') return []
+
+  const response = plotResponse as Record<string, unknown>
+
+  // Try multiple paths for critiques
+  const critiques =
+    (response.critiques as ISLCritique[]) ??
+    ((response.response as Record<string, unknown>)?.critiques as ISLCritique[]) ??
+    ((response.body as Record<string, unknown>)?.critiques as ISLCritique[]) ??
+    ((response.data as Record<string, unknown>)?.critiques as ISLCritique[]) ??
+    []
+
+  if (!Array.isArray(critiques)) return []
+
+  return critiques.map((critique): ValidationIssue => ({
+    id: critique.id ?? `isl_${crypto.randomUUID().slice(0, 8)}`,
+    code: critique.code ?? 'UNKNOWN',
+    severity: critique.severity ?? 'warning',
+    message: critique.message ?? 'Unknown issue',
+    suggestion: critique.suggestion,
+    source: 'isl',
+  }))
+}
+
+/**
+ * Edge data structure for validation checks
+ */
+interface EdgeForValidation {
+  id: string
+  source: string
+  target: string
+  data?: {
+    strength_mean?: number
+    strength?: number
+    confidence?: number
+    kind?: string
+  }
+}
+
+/**
+ * Perform UI-side validation checks on the graph
+ */
+function performUiValidationChecks(
+  edges: EdgeForValidation[],
+  _nodes: Array<{ id: string; data?: { label?: string; kind?: string } }>
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+
+  // Check 1: STRENGTH_OUT_OF_RANGE
+  // Any edge with strength_mean < -1 or > +1
+  for (const edge of edges) {
+    const strength = edge.data?.strength_mean ?? edge.data?.strength ?? edge.data?.confidence
+    if (strength !== undefined && (strength < -1 || strength > 1)) {
+      issues.push({
+        id: `ui_strength_${edge.id}`,
+        code: 'STRENGTH_OUT_OF_RANGE',
+        severity: 'warning',
+        message: `Edge ${edge.source}→${edge.target} has strength ${strength.toFixed(2)} outside [-1, +1]`,
+        suggestion: 'Clamp to valid range',
+        source: 'ui',
+        affected_edges: [edge.id],
+        affected_nodes: [edge.source, edge.target],
+      })
+    }
+  }
+
+  // Check 2: BIDIRECTIONAL_EDGE
+  // Both A→B and B→A edges exist between same nodes
+  const edgePairs = new Map<string, string[]>()
+  for (const edge of edges) {
+    const key = [edge.source, edge.target].sort().join('|')
+    if (!edgePairs.has(key)) {
+      edgePairs.set(key, [])
+    }
+    edgePairs.get(key)!.push(edge.id)
+  }
+
+  for (const [key, edgeIds] of edgePairs) {
+    if (edgeIds.length > 1) {
+      const [nodeA, nodeB] = key.split('|')
+      // Check if we have both directions (A→B and B→A)
+      const hasForward = edges.some(e => e.source === nodeA && e.target === nodeB)
+      const hasBackward = edges.some(e => e.source === nodeB && e.target === nodeA)
+      if (hasForward && hasBackward) {
+        issues.push({
+          id: `ui_bidirectional_${key.replace('|', '_')}`,
+          code: 'BIDIRECTIONAL_EDGE',
+          severity: 'warning',
+          message: `Bidirectional edges between ${nodeA} and ${nodeB}`,
+          suggestion: 'Review causal direction',
+          source: 'ui',
+          affected_edges: edgeIds,
+          affected_nodes: [nodeA, nodeB],
+        })
+      }
+    }
+  }
+
+  // Check 3: UNIFORM_STRENGTHS
+  // All non-structural edges have identical strength_mean
+  const nonStructuralEdges = edges.filter(e => {
+    // Exclude decision→option edges with strength 1.0 (structural)
+    const kind = e.data?.kind?.toLowerCase()
+    if (kind === 'structural' || kind === 'decision_option') return false
+    const strength = e.data?.strength_mean ?? e.data?.strength ?? e.data?.confidence
+    // Also exclude edges without strength values
+    return strength !== undefined
+  })
+
+  if (nonStructuralEdges.length >= 3) {
+    const strengths = nonStructuralEdges.map(e =>
+      e.data?.strength_mean ?? e.data?.strength ?? e.data?.confidence ?? 0
+    )
+    const uniqueStrengths = new Set(strengths.map(s => s.toFixed(3)))
+    if (uniqueStrengths.size === 1) {
+      const uniformValue = strengths[0]
+      issues.push({
+        id: `ui_uniform_strengths`,
+        code: 'UNIFORM_STRENGTHS',
+        severity: 'info',
+        message: `All ${nonStructuralEdges.length} causal edges have identical strength ${uniformValue.toFixed(2)}`,
+        suggestion: 'May indicate CEE prompt regression',
+        source: 'ui',
+        affected_edges: nonStructuralEdges.map(e => e.id),
+      })
+    }
+  }
+
+  return issues
+}
+
+/**
+ * Extract all validation issues (ISL critiques + UI-side checks)
+ */
+function extractValidation(
+  plotResponse: unknown,
+  edges: EdgeForValidation[],
+  nodes: Array<{ id: string; data?: { label?: string; kind?: string } }>
+): ValidationData {
+  const islIssues = extractIslCritiques(plotResponse)
+  const uiIssues = performUiValidationChecks(edges, nodes)
+
+  const allIssues = [...islIssues, ...uiIssues]
+
+  // Sort by severity: errors first, then warnings, then info
+  const severityOrder = { error: 0, warning: 1, info: 2 }
+  allIssues.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity])
+
+  const summary: ValidationSummary = {
+    errors: allIssues.filter(i => i.severity === 'error').length,
+    warnings: allIssues.filter(i => i.severity === 'warning').length,
+    info: allIssues.filter(i => i.severity === 'info').length,
+  }
+
+  return { summary, issues: allIssues }
+}
+
 /**
  * Extract CEE trace data if available
  */
@@ -901,6 +1120,21 @@ export function useDebugData(): DebugData {
     const corrections = extractCorrections(payloadBundle.cee_response)
     const correctionsSummary = extractCorrectionsSummary(payloadBundle.cee_response)
 
+    // Extract validation issues (ISL critiques + UI-side checks)
+    const validation = extractValidation(
+      payloadBundle.plot_response,
+      edges.map(e => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        data: e.data as EdgeForValidation['data'],
+      })),
+      nodes.map(n => ({
+        id: n.id,
+        data: n.data as { label?: string; kind?: string },
+      }))
+    )
+
     return {
       overall: {
         status: overallStatus,
@@ -933,6 +1167,7 @@ export function useDebugData(): DebugData {
       },
       payloads: payloadBundle,
       gates,
+      validation,
       hasData,
     }
   }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, gatesMap])

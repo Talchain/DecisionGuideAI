@@ -466,7 +466,9 @@ export function PipelineTab({ data }: PipelineTabProps) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Temperature</span>
-                <span style={{ fontFamily: 'monospace' }}>{llmMetadata?.temperature ?? '—'}</span>
+                <span style={{ fontFamily: 'monospace' }}>
+                  {llmMetadata?.temperature != null ? llmMetadata.temperature : 'N/A'}
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: '#64748b' }}>Prompt Tokens</span>

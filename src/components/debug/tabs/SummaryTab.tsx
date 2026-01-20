@@ -2,14 +2,77 @@
  * SummaryTab Component
  *
  * At-a-glance health check for Debug Panel V2.
- * Shows KPIs, service chain, and quick stats.
+ * Shows KPIs, service chain, quick stats, and graph validation.
  */
 
-import { useMemo, CSSProperties } from 'react'
+import { useState, useMemo, CSSProperties } from 'react'
 import { KpiCard, ServiceChain, type ChainNode, type KpiStatus } from '../components'
-import type { DebugData } from '../hooks/useDebugData'
+import type { DebugData, ValidationIssue } from '../hooks/useDebugData'
 import { formatDuration, formatNodeCountsAbbreviated } from '../utils'
 import { getErrorInfo } from '../constants/errorCodes'
+
+type SeverityFilter = 'all' | 'error' | 'warning' | 'info'
+
+// Severity icon and color mapping
+const SEVERITY_CONFIG = {
+  error: { icon: '●', bg: '#fef2f2', border: '#fecaca', text: '#dc2626' },
+  warning: { icon: '⚠', bg: '#fffbeb', border: '#fde68a', text: '#d97706' },
+  info: { icon: 'ℹ', bg: '#eff6ff', border: '#bfdbfe', text: '#2563eb' },
+} as const
+
+/**
+ * Individual validation issue card
+ */
+function ValidationIssueCard({ issue }: { issue: ValidationIssue }) {
+  const config = SEVERITY_CONFIG[issue.severity]
+
+  return (
+    <div
+      style={{
+        padding: '8px 12px',
+        background: config.bg,
+        border: `1px solid ${config.border}`,
+        borderRadius: 6,
+        fontSize: 12,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        <span style={{ color: config.text, flexShrink: 0 }}>{config.icon}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+            <span
+              style={{
+                fontFamily: 'monospace',
+                fontWeight: 600,
+                color: config.text,
+                fontSize: 11,
+              }}
+            >
+              {issue.code}
+            </span>
+            <span
+              style={{
+                fontSize: 10,
+                padding: '1px 4px',
+                borderRadius: 3,
+                background: issue.source === 'isl' ? '#e0e7ff' : '#f3e8ff',
+                color: issue.source === 'isl' ? '#4338ca' : '#7c3aed',
+              }}
+            >
+              {issue.source.toUpperCase()}
+            </span>
+          </div>
+          <div style={{ color: '#374151', lineHeight: 1.4 }}>{issue.message}</div>
+          {issue.suggestion && (
+            <div style={{ color: '#6b7280', marginTop: 4, fontStyle: 'italic' }}>
+              💡 {issue.suggestion}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export interface SummaryTabProps {
   /** Debug data from useDebugData hook */
@@ -109,6 +172,19 @@ export function SummaryTab({
 
     return nodes
   }, [data.services, onNavigateToDataFlow])
+
+  // Validation filter state
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all')
+  // Auto-expand validation section if there are errors
+  const [validationExpanded, setValidationExpanded] = useState(() =>
+    data.validation.summary.errors > 0
+  )
+
+  // Filtered validation issues
+  const filteredIssues = useMemo(() => {
+    if (severityFilter === 'all') return data.validation.issues
+    return data.validation.issues.filter(issue => issue.severity === severityFilter)
+  }, [data.validation.issues, severityFilter])
 
   // KPI values
   const analysisKpi = deriveAnalysisStatus(data)
@@ -237,7 +313,122 @@ export function SummaryTab({
         <ServiceChain nodes={chainNodes} />
       </div>
 
-      {/* Row 3: Quick Stats - Dense Row */}
+      {/* Row 3: Graph Validation */}
+      {data.hasData && (
+        <div style={sectionStyle}>
+          {/* Header with title, severity counts, and filter */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                onClick={() => setValidationExpanded(!validationExpanded)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: 0,
+                  fontSize: 12,
+                  color: '#64748b',
+                }}
+                aria-label={validationExpanded ? 'Collapse validation' : 'Expand validation'}
+              >
+                {validationExpanded ? '▼' : '▶'}
+              </button>
+              <span style={sectionTitleStyle as CSSProperties & { marginBottom: 0 }}>
+                Graph Validation
+              </span>
+              {/* Severity counts badge */}
+              <div style={{ display: 'flex', gap: 8, marginLeft: 8 }}>
+                {data.validation.summary.errors > 0 && (
+                  <span style={{
+                    fontSize: 11,
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    background: '#fef2f2',
+                    color: '#dc2626',
+                    fontWeight: 600,
+                  }}>
+                    ● {data.validation.summary.errors} Error{data.validation.summary.errors !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {data.validation.summary.warnings > 0 && (
+                  <span style={{
+                    fontSize: 11,
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    background: '#fffbeb',
+                    color: '#d97706',
+                    fontWeight: 600,
+                  }}>
+                    ⚠ {data.validation.summary.warnings} Warning{data.validation.summary.warnings !== 1 ? 's' : ''}
+                  </span>
+                )}
+                {data.validation.summary.info > 0 && (
+                  <span style={{
+                    fontSize: 11,
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    background: '#eff6ff',
+                    color: '#2563eb',
+                    fontWeight: 600,
+                  }}>
+                    ℹ {data.validation.summary.info} Info
+                  </span>
+                )}
+                {data.validation.issues.length === 0 && (
+                  <span style={{
+                    fontSize: 11,
+                    padding: '2px 6px',
+                    borderRadius: 4,
+                    background: '#f0fdf4',
+                    color: '#16a34a',
+                    fontWeight: 600,
+                  }}>
+                    ✓ No Issues
+                  </span>
+                )}
+              </div>
+            </div>
+            {/* Severity filter dropdown */}
+            {data.validation.issues.length > 0 && validationExpanded && (
+              <select
+                value={severityFilter}
+                onChange={(e) => setSeverityFilter(e.target.value as SeverityFilter)}
+                style={{
+                  fontSize: 11,
+                  padding: '4px 8px',
+                  borderRadius: 4,
+                  border: '1px solid #e2e8f0',
+                  background: '#fff',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="all">All</option>
+                <option value="error">Errors Only</option>
+                <option value="warning">Warnings Only</option>
+                <option value="info">Info Only</option>
+              </select>
+            )}
+          </div>
+
+          {/* Issues list */}
+          {validationExpanded && filteredIssues.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {filteredIssues.map((issue) => (
+                <ValidationIssueCard key={issue.id} issue={issue} />
+              ))}
+            </div>
+          )}
+
+          {/* Empty state when filtered */}
+          {validationExpanded && filteredIssues.length === 0 && data.validation.issues.length > 0 && (
+            <div style={{ fontSize: 12, color: '#64748b', fontStyle: 'italic' }}>
+              No {severityFilter} issues found
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Row 4: Quick Stats - Dense Row */}
       <div style={sectionStyle}>
         <div style={sectionTitleStyle}>Quick Stats</div>
         <div

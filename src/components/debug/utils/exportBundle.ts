@@ -5,7 +5,7 @@
  * Creates a structured bundle containing all payloads and diagnostic info.
  */
 
-import type { DebugData, BuildVersions, DiagnosticChecks, LlmRawData } from '../hooks/useDebugData'
+import type { DebugData, BuildVersions, DiagnosticChecks, LlmRawData, ValidationIssue, ValidationSummary } from '../hooks/useDebugData'
 import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
 import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer'
 
@@ -82,6 +82,11 @@ interface DebugBundle {
   }
   /** Gate statuses */
   gates: Array<{ name: string; status: string; message?: string }>
+  /** Graph validation issues (ISL critiques + UI-side checks) */
+  validation: {
+    summary: ValidationSummary
+    issues: ValidationIssue[]
+  }
   /** Captured console logs */
   console_logs: BufferedLog[]
   /** Diagnostic checks for troubleshooting */
@@ -258,6 +263,10 @@ export function buildDebugBundle(data: DebugData): DebugBundle {
       status: g.status,
       message: g.message,
     })),
+    validation: {
+      summary: data.validation.summary,
+      issues: data.validation.issues,
+    },
     console_logs: getBufferedLogs(),
     diagnostic_checks: data.diagnostics,
     readme: generateReadme(data),
