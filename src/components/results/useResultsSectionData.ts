@@ -846,15 +846,21 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     }))
 
     // Step 4b: Build fragile edges lookup for factor-to-goal edges
+    // When a factor has multiple fragile edges, keep the one with highest switchProbability (most risky)
     const fragileEdgesRaw = safeArray((report as any)?.robustness?.fragile_edges)
     const fragileEdgesMap = new Map<string, { switchProbability?: number; alternativeWinnerLabel?: string }>()
     fragileEdgesRaw.forEach((fe: any) => {
       const fromId = fe.from_id ?? fe.fromId ?? fe.source
       if (fromId) {
-        fragileEdgesMap.set(fromId, {
-          switchProbability: fe.switch_probability,
-          alternativeWinnerLabel: fe.alternative_winner_label ?? fe.alternativeWinnerLabel ?? fe.alternativeWinner,
-        })
+        const newProb = fe.switch_probability ?? 0
+        const existing = fragileEdgesMap.get(fromId)
+        // Keep the higher (more risky) switch probability
+        if (!existing || newProb > (existing.switchProbability ?? 0)) {
+          fragileEdgesMap.set(fromId, {
+            switchProbability: fe.switch_probability,
+            alternativeWinnerLabel: fe.alternative_winner_label ?? fe.alternativeWinnerLabel ?? fe.alternativeWinner,
+          })
+        }
       }
     })
 
