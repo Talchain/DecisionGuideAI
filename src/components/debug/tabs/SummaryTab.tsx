@@ -8,7 +8,7 @@
 import { useState, useMemo, CSSProperties } from 'react'
 import { KpiCard, ServiceChain, type ChainNode, type KpiStatus } from '../components'
 import type { DebugData, ValidationIssue } from '../hooks/useDebugData'
-import { formatDuration, formatNodeCountsAbbreviated } from '../utils'
+import { formatDuration } from '../utils'
 import { getErrorInfo } from '../constants/errorCodes'
 
 type SeverityFilter = 'all' | 'error' | 'warning' | 'info'
@@ -20,11 +20,27 @@ const SEVERITY_CONFIG = {
   info: { icon: 'ℹ', bg: '#eff6ff', border: '#bfdbfe', text: '#2563eb' },
 } as const
 
+// Human-readable explanations for validation codes
+const VALIDATION_EXPLANATIONS: Record<string, string> = {
+  COEFFICIENT_REPAIRED: 'Edge strength was auto-adjusted to valid range',
+  NORMALIZATION_WARNING: 'Option node filtered before analysis (expected behaviour)',
+  GRAPH_DISCONNECTED: "Some nodes aren't connected to the goal — they won't affect results",
+  STRENGTH_OUT_OF_RANGE: 'Edge strength outside [-1, +1] detected',
+  BIDIRECTIONAL_EDGE: 'Two-way causal link found — review direction',
+  UNIFORM_STRENGTHS: 'All edges have identical strength — may indicate prompt issue',
+  MISSING_GOAL: 'No goal node found in the graph',
+  ORPHAN_NODE: 'Node has no connections',
+  CYCLE_DETECTED: 'Circular dependency found in the graph',
+  INVALID_EDGE: 'Edge connects incompatible node types',
+}
+
 /**
  * Individual validation issue card
  */
 function ValidationIssueCard({ issue }: { issue: ValidationIssue }) {
   const config = SEVERITY_CONFIG[issue.severity]
+  // Get human-readable explanation for the code, fallback to message
+  const explanation = VALIDATION_EXPLANATIONS[issue.code]
 
   return (
     <div
@@ -62,6 +78,12 @@ function ValidationIssueCard({ issue }: { issue: ValidationIssue }) {
               {issue.source.toUpperCase()}
             </span>
           </div>
+          {/* Plain-English explanation of the code */}
+          {explanation && (
+            <div style={{ color: '#475569', lineHeight: 1.4, marginBottom: 4 }}>
+              {explanation}
+            </div>
+          )}
           <div style={{ color: '#374151', lineHeight: 1.4 }}>{issue.message}</div>
           {issue.suggestion && (
             <div style={{ color: '#6b7280', marginTop: 4, fontStyle: 'italic' }}>
@@ -100,14 +122,6 @@ function deriveAnalysisStatus(data: DebugData): { status: KpiStatus; label: stri
   if (data.overall.status === 'pending') return { status: 'warn', label: 'Pending' }
   if (!data.hasData) return { status: 'neutral', label: 'No Data' }
   return { status: 'ok', label: 'Complete' }
-}
-
-function deriveRobustnessStatus(gates: DebugData['gates']): { status: KpiStatus; label: string } {
-  const robustnessGate = gates.find((g) => g.name === 'robustness')
-  if (!robustnessGate) return { status: 'neutral', label: 'N/A' }
-  if (robustnessGate.status === 'pass') return { status: 'ok', label: 'Pass' }
-  if (robustnessGate.status === 'warn') return { status: 'warn', label: 'Warn' }
-  return { status: 'error', label: 'Fail' }
 }
 
 function countIssues(gates: DebugData['gates']): number {
@@ -188,7 +202,6 @@ export function SummaryTab({
 
   // KPI values
   const analysisKpi = deriveAnalysisStatus(data)
-  const robustnessKpi = deriveRobustnessStatus(data.gates)
   const issueCount = countIssues(data.gates)
 
   // Token usage
@@ -276,10 +289,10 @@ export function SummaryTab({
         >
           <KpiCard
             label="Graph Stats"
-            value={formatNodeCountsAbbreviated(data.pipeline.connectivity)}
+            value={formatNodeCounts(data.pipeline.connectivity)}
             status="neutral"
             onClick={onNavigateToPipeline}
-            tooltip={formatNodeCounts(data.pipeline.connectivity)}
+            tooltip="Click to view pipeline details"
             compact
           />
           <KpiCard
@@ -292,10 +305,14 @@ export function SummaryTab({
           />
           <KpiCard
             label="Robustness"
-            value={robustnessKpi.label}
-            status={robustnessKpi.status}
+            value={data.robustness.context_label}
+            status={
+              data.robustness.status === 'pass' ? 'ok' :
+              data.robustness.status === 'warn' ? 'warn' :
+              data.robustness.status === 'fail' ? 'error' : 'neutral'
+            }
             onClick={onNavigateToRaw}
-            tooltip="Click to view raw data"
+            tooltip={data.robustness.description}
             compact
           />
           <KpiCard
@@ -309,7 +326,27 @@ export function SummaryTab({
         </div>
       </div>
 
-      {/* Row 2: Service Chain */}
+      {/* Row 2: Winning Option (if available) */}
+      {data.winningOption && (
+        <div style={sectionStyle}>
+          <div style={sectionTitleStyle}>Recommendation</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>
+              Winner: {data.winningOption.label}
+            </div>
+            <div style={{ fontSize: 13, color: '#475569' }}>
+              {data.winningOption.win_probability.toFixed(0)}% confidence
+              {data.winningOption.is_close_race && data.winningOption.runner_up && (
+                <span style={{ color: '#64748b' }}>
+                  {' '}vs {data.winningOption.runner_up.label} at {data.winningOption.runner_up.win_probability.toFixed(0)}%
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Row 3: Service Chain */}
       <div style={sectionStyle}>
         <div style={sectionTitleStyle}>Service Chain</div>
         <ServiceChain nodes={chainNodes} />

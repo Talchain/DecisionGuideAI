@@ -32,21 +32,21 @@ export interface RedactionOptions {
 }
 
 const DEFAULT_OPTIONS: Required<RedactionOptions> = {
-  maxArrayItems: 5,
+  maxArrayItems: 30,
   maxStringLength: 500,
   maxDepth: 3,
   sensitiveKeys: ['password', 'token', 'secret', 'apiKey', 'api_key', 'authorization'],
   // Keys that match sensitiveKeys patterns but are safe (e.g., LLM token metrics)
   safeKeys: ['token_usage', 'prompt_tokens', 'completion_tokens', 'total_tokens'],
   fieldArrayLimits: {
-    // Diagnostic-critical fields that need higher limits
-    option_comparison: 10,
-    options: 10,
-    critiques: 10,
-    factor_sensitivity: 10,
-    actions: 10,
-    warnings: 10,
-    errors: 10,
+    // Diagnostic-critical fields with same limit as default
+    option_comparison: 30,
+    options: 30,
+    critiques: 30,
+    factor_sensitivity: 30,
+    actions: 30,
+    warnings: 30,
+    errors: 30,
   },
 }
 

@@ -16,6 +16,7 @@ import { PayloadLabTab } from './PayloadLabTab'
 import { exportDebugBundle, copyRequestId } from './utils/exportBundle'
 import type { ISLTestResponse } from './types'
 import { ISLClient } from '../../adapters/isl/client'
+import { useCanvasStore } from '../../canvas/store'
 
 // =============================================================================
 // Types
@@ -53,9 +54,13 @@ export function DebugPanelV2({ onClose, width, height }: DebugPanelV2Props) {
   const [activeTab, setActiveTab] = useState<V2Tab>('summary')
   const [exporting, setExporting] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [includeFullGraph, setIncludeFullGraph] = useState(false)
 
   // Get debug data
   const data = useDebugData()
+
+  // Get graph data for export
+  const { nodes, edges } = useCanvasStore((s) => ({ nodes: s.nodes, edges: s.edges }))
 
   // Handle copy request ID
   const handleCopyRequestId = useCallback(async () => {
@@ -70,11 +75,14 @@ export function DebugPanelV2({ onClose, width, height }: DebugPanelV2Props) {
   const handleExportAll = useCallback(() => {
     setExporting(true)
     try {
-      exportDebugBundle(data)
+      exportDebugBundle(data, {
+        includeFullGraph,
+        graphData: includeFullGraph ? { nodes, edges } : undefined,
+      })
     } finally {
       setExporting(false)
     }
-  }, [data])
+  }, [data, includeFullGraph, nodes, edges])
 
   // Navigation handlers for Summary tab
   const navigateToDataFlow = useCallback(() => setActiveTab('data-flow'), [])
@@ -238,6 +246,29 @@ export function DebugPanelV2({ onClose, width, height }: DebugPanelV2Props) {
           >
             {copied ? 'Copied!' : 'Copy Request ID'}
           </button>
+
+          {/* Include Full Graph checkbox */}
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              fontSize: 10,
+              color: exporting ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.8)',
+              cursor: exporting ? 'not-allowed' : 'pointer',
+              opacity: exporting ? 0.6 : 1,
+            }}
+            title="Include full graph data (factors, edges, options) in export. Note: descriptions are not redacted and may contain raw user text."
+          >
+            <input
+              type="checkbox"
+              checked={includeFullGraph}
+              onChange={(e) => setIncludeFullGraph(e.target.checked)}
+              disabled={exporting}
+              style={{ cursor: exporting ? 'not-allowed' : 'pointer' }}
+            />
+            Full Graph
+          </label>
 
           {/* Export All button */}
           <button

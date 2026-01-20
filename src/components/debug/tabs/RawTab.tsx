@@ -23,6 +23,7 @@ type PayloadType =
   | 'plot_response'
   | 'isl_request'
   | 'isl_response'
+  | 'llm_raw'
   | 'full_bundle'
 
 interface PayloadOption {
@@ -56,9 +57,10 @@ export function RawTab({ data }: RawTabProps) {
       { id: 'plot_response', label: 'PLoT Response', available: data.payloads.plot_response !== undefined },
       { id: 'isl_request', label: 'ISL Request', available: data.payloads.isl_request !== undefined },
       { id: 'isl_response', label: 'ISL Response', available: data.payloads.isl_response !== undefined },
+      { id: 'llm_raw', label: 'LLM Raw', available: data.pipeline.llm_raw !== undefined },
       { id: 'full_bundle', label: 'Full Bundle', available: data.hasData },
     ]
-  }, [data.payloads, data.hasData])
+  }, [data.payloads, data.hasData, data.pipeline.llm_raw])
 
   // Get selected payload data
   const selectedData = useMemo(() => {
@@ -75,12 +77,14 @@ export function RawTab({ data }: RawTabProps) {
         return data.payloads.isl_request
       case 'isl_response':
         return data.payloads.isl_response
+      case 'llm_raw':
+        return data.pipeline.llm_raw
       case 'full_bundle':
         return data.payloads
       default:
         return undefined
     }
-  }, [selectedPayload, data.payloads])
+  }, [selectedPayload, data.payloads, data.pipeline.llm_raw])
 
   // Handle download
   const handleDownload = useCallback(() => {

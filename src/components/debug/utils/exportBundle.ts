@@ -24,7 +24,7 @@ interface DiagnosticInfo {
 interface DebugBundle {
   /** Bundle metadata */
   meta: {
-    version: '1.2'
+    version: '1.3'
     created_at: string
     request_id: string | null
     client_build: string | null
@@ -36,6 +36,10 @@ interface DebugBundle {
       max_array_items: number
       max_depth: number
     }
+    /** Whether any arrays were truncated during capture */
+    truncation_applied?: boolean
+    /** Message when truncation occurred */
+    truncation_message?: string
   }
   /** Diagnostic summary */
   diagnostic: DiagnosticInfo
@@ -93,6 +97,37 @@ interface DebugBundle {
   diagnostic_checks: DiagnosticChecks
   /** README content */
   readme: string
+  /** Full graph data (when explicitly requested) */
+  full_graph?: {
+    factors: Array<{ id: string; label: string; type: string; description?: string }>
+    edges: Array<{ id: string; source: string; target: string; label?: string; strength?: number }>
+    options: Array<{ id: string; label: string; type: string; description?: string }>
+  }
+}
+
+// =============================================================================
+// Types for Graph Data Export
+// =============================================================================
+
+export interface FullGraphData {
+  nodes: Array<{
+    id: string
+    data: { label: string; type: string; description?: string }
+  }>
+  edges: Array<{
+    id: string
+    source: string
+    target: string
+    label?: string
+    data?: { strength?: number; label?: string }
+  }>
+}
+
+export interface ExportOptions {
+  /** Include full graph data (factors, edges, options) */
+  includeFullGraph?: boolean
+  /** Graph data from canvas store */
+  graphData?: FullGraphData
 }
 
 // =============================================================================
@@ -135,10 +170,10 @@ Environment: ${environment}
 ## Data Redaction Notice
 
 Payloads are REDACTED at capture time:
-- Long strings truncated to 1000 characters
-- Arrays capped to 10 items
+- Long strings truncated to 500 characters
+- Arrays capped to 30 items
 - Sensitive keys (password, token, secret, apiKey) masked
-- Object depth limited to 8 levels
+- Object depth limited to 3 levels
 
 Despite redaction, payloads may still contain decision content
 (factor names, option labels, goal descriptions).
@@ -169,6 +204,66 @@ function downloadFile(content: string, filename: string, type = 'application/jso
   URL.revokeObjectURL(url)
 }
 
+/**
+ * Transform canvas graph data into export format
+ */
+function transformGraphData(graphData: FullGraphData): NonNullable<DebugBundle['full_graph']> {
+  const factors: DebugBundle['full_graph'] extends { factors: infer T } | undefined ? T : never = []
+  const options: DebugBundle['full_graph'] extends { options: infer T } | undefined ? T : never = []
+
+  for (const node of graphData.nodes) {
+    const nodeType = node.data?.type?.toLowerCase() ?? 'factor'
+    const entry = {
+      id: node.id,
+      label: node.data?.label ?? '',
+      type: nodeType,
+      description: node.data?.description,
+    }
+
+    if (nodeType === 'option') {
+      options.push(entry)
+    } else {
+      // All non-option nodes go into factors (goals, decisions, factors, risks, etc.)
+      factors.push(entry)
+    }
+  }
+
+  const edges = graphData.edges.map((edge) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    label: edge.data?.label ?? edge.label,
+    strength: edge.data?.strength,
+  }))
+
+  return { factors, edges, options }
+}
+
+/**
+ * Recursively check if any value contains __truncated marker from redaction
+ */
+function detectTruncation(value: unknown, visited = new WeakSet<object>()): boolean {
+  if (value === null || value === undefined) return false
+  if (typeof value !== 'object') return false
+
+  // Prevent circular reference loops
+  if (visited.has(value as object)) return false
+  visited.add(value as object)
+
+  // Check for truncation marker
+  if ('__truncated' in (value as Record<string, unknown>)) {
+    return true
+  }
+
+  // Recurse into arrays
+  if (Array.isArray(value)) {
+    return value.some((item) => detectTruncation(item, visited))
+  }
+
+  // Recurse into object values
+  return Object.values(value as Record<string, unknown>).some((v) => detectTruncation(v, visited))
+}
+
 // =============================================================================
 // Export Functions
 // =============================================================================
@@ -176,24 +271,39 @@ function downloadFile(content: string, filename: string, type = 'application/jso
 /**
  * Build a complete debug bundle from DebugData
  */
-export function buildDebugBundle(data: DebugData): DebugBundle {
+export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): DebugBundle {
   const timestamp = formatTimestamp()
   const versionInfo = getVersionInfo()
   const clientBuild = getClientBuild()
 
+  // Transform graph data if requested
+  const fullGraph =
+    options.includeFullGraph && options.graphData
+      ? transformGraphData(options.graphData)
+      : undefined
+
+  // Detect if any payloads or full_graph were truncated during capture
+  const payloadsTruncated = detectTruncation(data.payloads)
+  const graphTruncated = fullGraph ? detectTruncation(fullGraph) : false
+  const truncationApplied = payloadsTruncated || graphTruncated
+
   return {
     meta: {
-      version: '1.2',
+      version: '1.3',
       created_at: timestamp,
       request_id: data.overall.request_id,
       client_build: clientBuild,
       environment: getEnvironment(),
       redaction: {
         enabled: true,
-        max_string_length: 1000,
-        max_array_items: 10,
-        max_depth: 8,
+        max_string_length: 500,
+        max_array_items: 30,
+        max_depth: 3,
       },
+      ...(truncationApplied && {
+        truncation_applied: true,
+        truncation_message: 'Large graph — arrays capped at 30 items',
+      }),
     },
     diagnostic: {
       timestamp,
@@ -270,6 +380,7 @@ export function buildDebugBundle(data: DebugData): DebugBundle {
     console_logs: getBufferedLogs(),
     diagnostic_checks: data.diagnostics,
     readme: generateReadme(data),
+    ...(fullGraph && { full_graph: fullGraph }),
   }
 }
 
@@ -278,8 +389,8 @@ export function buildDebugBundle(data: DebugData): DebugBundle {
  *
  * Filename format: olumi-debug-{short_request_id}-{date}.json
  */
-export function exportDebugBundle(data: DebugData): void {
-  const bundle = buildDebugBundle(data)
+export function exportDebugBundle(data: DebugData, options: ExportOptions = {}): void {
+  const bundle = buildDebugBundle(data, options)
   const json = JSON.stringify(bundle, null, 2)
 
   const shortId = data.overall.request_id?.slice(0, 8) ?? 'unknown'

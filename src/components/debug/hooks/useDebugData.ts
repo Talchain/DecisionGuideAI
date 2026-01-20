@@ -269,6 +269,40 @@ export interface ValidationData {
   issues: ValidationIssue[]
 }
 
+/**
+ * Winning option data from ISL analysis
+ */
+export interface WinningOptionData {
+  /** Winning option ID */
+  id: string
+  /** Winning option label */
+  label: string
+  /** Win probability (0-100) */
+  win_probability: number
+  /** Whether it's a close race (winner < 70%) */
+  is_close_race: boolean
+  /** Runner-up data if close race */
+  runner_up?: {
+    id: string
+    label: string
+    win_probability: number
+  }
+}
+
+/**
+ * Robustness data with stability context
+ */
+export interface RobustnessData {
+  /** Pass/fail/warn status */
+  status: 'pass' | 'fail' | 'warn' | 'unavailable'
+  /** Recommendation stability (0-1) */
+  stability: number | null
+  /** Human-readable context label */
+  context_label: string
+  /** Detailed description */
+  description: string
+}
+
 export interface DebugData {
   /** Overall analysis status */
   overall: {
@@ -314,6 +348,12 @@ export interface DebugData {
 
   /** Graph validation issues (ISL critiques + UI-side checks) */
   validation: ValidationData
+
+  /** Winning option from ISL analysis */
+  winningOption: WinningOptionData | null
+
+  /** Robustness data with stability context */
+  robustness: RobustnessData
 
   /** Whether any data is available */
   hasData: boolean
@@ -747,12 +787,14 @@ function extractIslCritiques(plotResponse: unknown): ValidationIssue[] {
 
   const response = plotResponse as Record<string, unknown>
 
-  // Try multiple paths for critiques
+  // Try multiple paths for critiques (check all possible ISL response locations)
   const critiques =
     (response.critiques as ISLCritique[]) ??
     ((response.response as Record<string, unknown>)?.critiques as ISLCritique[]) ??
+    (((response.isl as Record<string, unknown>)?.response as Record<string, unknown>)?.critiques as ISLCritique[]) ??
     ((response.body as Record<string, unknown>)?.critiques as ISLCritique[]) ??
     ((response.data as Record<string, unknown>)?.critiques as ISLCritique[]) ??
+    (((response.downstream_calls as Record<string, unknown>)?.isl as Record<string, unknown>)?.response as Record<string, unknown>)?.critiques as ISLCritique[] ??
     []
 
   if (!Array.isArray(critiques)) return []
@@ -913,6 +955,182 @@ function extractValidation(
   }
 
   return { summary, issues: allIssues }
+}
+
+/**
+ * Extract winning option data from PLoT/ISL response
+ */
+function extractWinningOption(
+  plotResponse: unknown,
+  ceeResponse: unknown
+): WinningOptionData | null {
+  if (!plotResponse || typeof plotResponse !== 'object') return null
+
+  const plot = plotResponse as Record<string, unknown>
+
+  // Try multiple paths for ISL options
+  const islOptions =
+    ((plot.isl as Record<string, unknown>)?.response as Record<string, unknown>)?.options ??
+    (plot.response as Record<string, unknown>)?.options ??
+    (plot.options as unknown[])
+
+  if (!Array.isArray(islOptions) || islOptions.length === 0) return null
+
+  // Find option with highest win_probability
+  interface IslOption {
+    id?: string
+    win_probability?: number
+    label?: string
+  }
+
+  const sortedOptions = [...islOptions]
+    .filter((o): o is IslOption => typeof o === 'object' && o !== null)
+    .filter(o => typeof o.win_probability === 'number')
+    .sort((a, b) => (b.win_probability ?? 0) - (a.win_probability ?? 0))
+
+  if (sortedOptions.length === 0) return null
+
+  const winner = sortedOptions[0]
+  const winnerId = winner.id ?? ''
+  const winProb = (winner.win_probability ?? 0) * 100
+
+  // Try to get label from CEE response options
+  let winnerLabel = winner.label ?? winnerId
+  if (ceeResponse && typeof ceeResponse === 'object') {
+    const cee = ceeResponse as Record<string, unknown>
+    const ceeOptions =
+      ((cee.response as Record<string, unknown>)?.graph as Record<string, unknown>)?.options ??
+      (cee.graph as Record<string, unknown>)?.options ??
+      cee.options
+    if (Array.isArray(ceeOptions)) {
+      const matchingOption = ceeOptions.find(
+        (o): o is { id?: string; label?: string } =>
+          typeof o === 'object' && o !== null && (o as { id?: string }).id === winnerId
+      )
+      if (matchingOption?.label) {
+        winnerLabel = matchingOption.label
+      }
+    }
+  }
+
+  const isCloseRace = winProb < 70
+  let runnerUp: WinningOptionData['runner_up'] = undefined
+
+  if (isCloseRace && sortedOptions.length > 1) {
+    const second = sortedOptions[1]
+    const secondId = second.id ?? ''
+    let secondLabel = second.label ?? secondId
+
+    // Try to get runner-up label from CEE
+    if (ceeResponse && typeof ceeResponse === 'object') {
+      const cee = ceeResponse as Record<string, unknown>
+      const ceeOptions =
+        ((cee.response as Record<string, unknown>)?.graph as Record<string, unknown>)?.options ??
+        (cee.graph as Record<string, unknown>)?.options ??
+        cee.options
+      if (Array.isArray(ceeOptions)) {
+        const matchingOption = ceeOptions.find(
+          (o): o is { id?: string; label?: string } =>
+            typeof o === 'object' && o !== null && (o as { id?: string }).id === secondId
+        )
+        if (matchingOption?.label) {
+          secondLabel = matchingOption.label
+        }
+      }
+    }
+
+    runnerUp = {
+      id: secondId,
+      label: secondLabel,
+      win_probability: (second.win_probability ?? 0) * 100,
+    }
+  }
+
+  return {
+    id: winnerId,
+    label: winnerLabel,
+    win_probability: winProb,
+    is_close_race: isCloseRace,
+    runner_up: runnerUp,
+  }
+}
+
+/**
+ * Extract robustness data with stability context
+ */
+function extractRobustness(
+  gates: GateData[],
+  plotResponse: unknown
+): RobustnessData {
+  const robustnessGate = gates.find(g => g.name === 'robustness')
+
+  // Extract stability from PLoT response
+  let stability: number | null = null
+  if (plotResponse && typeof plotResponse === 'object') {
+    const plot = plotResponse as Record<string, unknown>
+    const robustness =
+      ((plot.isl as Record<string, unknown>)?.response as Record<string, unknown>)?.robustness ??
+      (plot.response as Record<string, unknown>)?.robustness ??
+      plot.robustness
+    if (robustness && typeof robustness === 'object') {
+      const r = robustness as Record<string, unknown>
+      stability = typeof r.recommendation_stability === 'number'
+        ? r.recommendation_stability
+        : null
+    }
+  }
+
+  const stabilityPercent = stability !== null ? Math.round(stability * 100) : null
+
+  if (!robustnessGate || robustnessGate.status === 'pending') {
+    return {
+      status: 'unavailable',
+      stability: null,
+      context_label: 'N/A',
+      description: 'Robustness check not available',
+    }
+  }
+
+  if (robustnessGate.status === 'pass') {
+    if (stabilityPercent !== null && stabilityPercent >= 80) {
+      return {
+        status: 'pass',
+        stability,
+        context_label: 'Robust',
+        description: `Recommendation stable (${stabilityPercent}%)`,
+      }
+    } else {
+      return {
+        status: 'pass',
+        stability,
+        context_label: 'Moderate',
+        description: stabilityPercent !== null
+          ? `Recommendation holds but sensitive (${stabilityPercent}%)`
+          : 'Recommendation holds but may be sensitive',
+      }
+    }
+  }
+
+  if (robustnessGate.status === 'warn') {
+    return {
+      status: 'warn',
+      stability,
+      context_label: 'Moderate',
+      description: stabilityPercent !== null
+        ? `Recommendation holds but sensitive (${stabilityPercent}%)`
+        : 'Recommendation may vary under different assumptions',
+    }
+  }
+
+  // Fail status
+  return {
+    status: 'fail',
+    stability,
+    context_label: 'Fragile',
+    description: stabilityPercent !== null
+      ? `Recommendation may change if assumptions vary (${stabilityPercent}%)`
+      : 'Recommendation may change if assumptions vary',
+  }
 }
 
 /**
@@ -1150,6 +1368,15 @@ export function useDebugData(): DebugData {
       }))
     )
 
+    // Extract winning option data
+    const winningOption = extractWinningOption(
+      payloadBundle.plot_response,
+      payloadBundle.cee_response
+    )
+
+    // Extract robustness data with stability context
+    const robustness = extractRobustness(gates, payloadBundle.plot_response)
+
     return {
       overall: {
         status: overallStatus,
@@ -1183,6 +1410,8 @@ export function useDebugData(): DebugData {
       payloads: payloadBundle,
       gates,
       validation,
+      winningOption,
+      robustness,
       hasData,
     }
   }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, gatesMap])

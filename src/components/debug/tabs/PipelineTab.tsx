@@ -269,14 +269,36 @@ function formatNodeCounts(counts: Record<string, number> | undefined): string {
   return parts.join(', ') || 'No nodes'
 }
 
+/**
+ * Calculate total count from node counts object
+ */
+function getTotalCount(counts?: Record<string, number>): number {
+  if (!counts) return 0
+  return Object.values(counts).reduce((sum, n) => sum + n, 0)
+}
+
+/**
+ * Calculate and format delta between stages
+ */
+function formatDelta(current?: Record<string, number>, previous?: Record<string, number>): string | null {
+  if (!current || !previous) return null
+  const currentTotal = getTotalCount(current)
+  const previousTotal = getTotalCount(previous)
+  const delta = currentTotal - previousTotal
+  if (delta === 0) return null
+  return delta > 0 ? `+${delta}` : String(delta)
+}
+
 function ArtefactChip({
   label,
   counts,
   status,
+  previousCounts,
 }: {
   label: string
   counts?: Record<string, number>
   status: 'ok' | 'warn' | 'error' | 'neutral'
+  previousCounts?: Record<string, number>
 }) {
   const colors = {
     ok: { bg: '#dcfce7', border: '#86efac', text: '#166534' },
@@ -285,6 +307,9 @@ function ArtefactChip({
     neutral: { bg: '#f8fafc', border: '#e2e8f0', text: '#64748b' },
   }
   const c = colors[status]
+
+  const delta = formatDelta(counts, previousCounts)
+  const deltaColor = delta?.startsWith('+') ? '#16a34a' : '#dc2626'
 
   return (
     <div
@@ -303,6 +328,11 @@ function ArtefactChip({
       <span style={{ fontSize: 11, fontWeight: 600, color: c.text }}>{label}</span>
       <span style={{ fontSize: 10, fontFamily: 'monospace', color: '#64748b' }}>
         {formatNodeCounts(counts)}
+        {delta && (
+          <span style={{ color: deltaColor, fontWeight: 600, marginLeft: 4 }}>
+            ({delta})
+          </span>
+        )}
       </span>
     </div>
   )
@@ -586,9 +616,19 @@ export function PipelineTab({ data }: PipelineTabProps) {
         >
           <ArtefactChip label="Raw" counts={nodeExtraction?.raw} status={rawStatus} />
           <Arrow />
-          <ArtefactChip label="Normalised" counts={nodeExtraction?.normalised} status={normalisedStatus} />
+          <ArtefactChip
+            label="Normalised"
+            counts={nodeExtraction?.normalised}
+            status={normalisedStatus}
+            previousCounts={nodeExtraction?.raw}
+          />
           <Arrow />
-          <ArtefactChip label="Validated" counts={nodeExtraction?.validated} status={validatedStatus} />
+          <ArtefactChip
+            label="Validated"
+            counts={nodeExtraction?.validated}
+            status={validatedStatus}
+            previousCounts={nodeExtraction?.normalised}
+          />
         </div>
       </div>
 

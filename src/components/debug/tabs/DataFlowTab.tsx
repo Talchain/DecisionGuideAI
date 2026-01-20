@@ -9,6 +9,33 @@ import { useCallback, useState, CSSProperties } from 'react'
 import { BoundaryCard, type BoundaryStatus } from '../components'
 import type { DebugData, ServiceCallData } from '../hooks/useDebugData'
 
+// Human-readable HTTP status labels
+const HTTP_STATUS_LABELS: Record<number, string> = {
+  200: 'OK',
+  201: 'Created',
+  204: 'No Content',
+  400: 'Bad Request',
+  401: 'Unauthorised',
+  403: 'Forbidden',
+  404: 'Not Found',
+  408: 'Timeout',
+  422: 'Unprocessable',
+  429: 'Rate Limited',
+  500: 'Server Error',
+  502: 'Bad Gateway',
+  503: 'Service Unavailable',
+  504: 'Gateway Timeout',
+}
+
+/**
+ * Format HTTP status code with human-readable label
+ */
+function formatHttpStatus(status: number | null): string {
+  if (status === null) return '—'
+  const label = HTTP_STATUS_LABELS[status]
+  return label ? `${status} ${label}` : String(status)
+}
+
 export interface DataFlowTabProps {
   /** Debug data from useDebugData hook */
   data: DebugData
@@ -251,6 +278,11 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
     )
   }, [data.payloads])
 
+  // Paths Checked collapsible state - default collapsed on success
+  const [pathsCheckedExpanded, setPathsCheckedExpanded] = useState(
+    data.diagnostics.isl_data_source === 'none'
+  )
+
   const containerStyle: CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
@@ -444,18 +476,15 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
               padding: 8,
               borderRadius: 4,
               marginBottom: 12,
+              // Success states (downstream_calls or direct_capture) use green, failure uses red
               background:
                 data.diagnostics.isl_data_source === 'none'
                   ? '#fef2f2'
-                  : data.diagnostics.isl_data_source === 'downstream_calls'
-                    ? '#fffbeb'
-                    : '#f0fdf4',
+                  : '#f0fdf4',
               border: `1px solid ${
                 data.diagnostics.isl_data_source === 'none'
                   ? '#fecaca'
-                  : data.diagnostics.isl_data_source === 'downstream_calls'
-                    ? '#fde68a'
-                    : '#86efac'
+                  : '#86efac'
               }`,
             }}
           >
@@ -466,21 +495,19 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
                 color:
                   data.diagnostics.isl_data_source === 'none'
                     ? '#991b1b'
-                    : data.diagnostics.isl_data_source === 'downstream_calls'
-                      ? '#92400e'
-                      : '#166534',
+                    : '#166534',
               }}
             >
-              {data.diagnostics.isl_data_source === 'none' && '✗ No ISL Data'}
+              {data.diagnostics.isl_data_source === 'none' && '✗ ISL Data Path Issue'}
               {data.diagnostics.isl_data_source === 'downstream_calls' &&
-                '⚡ ISL via PLoT downstream_calls'}
-              {data.diagnostics.isl_data_source === 'direct_capture' && '✓ ISL Direct Capture'}
+                '✓ ISL Data Path Confirmed'}
+              {data.diagnostics.isl_data_source === 'direct_capture' && '✓ ISL Data Path Confirmed'}
             </div>
             <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
               {data.diagnostics.isl_data_source === 'none' &&
                 'ISL data not found in direct capture or PLoT downstream_calls'}
               {data.diagnostics.isl_data_source === 'downstream_calls' &&
-                'ISL data extracted from PLoT response nested downstream_calls.isl'}
+                'ISL data extracted from PLoT response (downstream_calls.isl)'}
               {data.diagnostics.isl_data_source === 'direct_capture' &&
                 'ISL data captured directly via payload trace store'}
             </div>
@@ -548,42 +575,60 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
             </div>
           </div>
 
-          {/* All paths checked */}
+          {/* All paths checked - collapsible, default collapsed on success */}
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
-              Paths Checked ({data.diagnostics.downstream_calls_paths_checked.length})
-            </div>
-            <div
+            <button
+              onClick={() => setPathsCheckedExpanded(!pathsCheckedExpanded)}
               style={{
-                padding: 8,
-                borderRadius: 4,
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                fontSize: 10,
-                fontFamily: 'monospace',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: 11,
+                fontWeight: 600,
+                color: '#475569',
+                marginBottom: 4,
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
               }}
             >
-              {data.diagnostics.downstream_calls_paths_checked.map((path, i) => (
-                <div
-                  key={path}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '2px 0',
-                    color:
-                      path === data.diagnostics.downstream_calls_path_found
-                        ? '#16a34a'
-                        : '#64748b',
-                  }}
-                >
-                  <span>
-                    {path === data.diagnostics.downstream_calls_path_found ? '✓' : '✗'}
-                  </span>
-                  <span>{path}</span>
-                </div>
-              ))}
-            </div>
+              <span>{pathsCheckedExpanded ? '▼' : '▶'}</span>
+              Paths Checked ({data.diagnostics.downstream_calls_paths_checked.length})
+            </button>
+            {pathsCheckedExpanded && (
+              <div
+                style={{
+                  padding: 8,
+                  borderRadius: 4,
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                }}
+              >
+                {data.diagnostics.downstream_calls_paths_checked.map((path) => (
+                  <div
+                    key={path}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '2px 0',
+                      color:
+                        path === data.diagnostics.downstream_calls_path_found
+                          ? '#16a34a'
+                          : '#64748b',
+                    }}
+                  >
+                    <span>
+                      {path === data.diagnostics.downstream_calls_path_found ? '✓' : '✗'}
+                    </span>
+                    <span>{path}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* ISL details if available */}
@@ -618,7 +663,7 @@ export function DataFlowTab({ data }: DataFlowTabProps) {
                       color: data.services.isl.success ? '#16a34a' : '#dc2626',
                     }}
                   >
-                    {data.services.isl.status ?? '—'}
+                    {formatHttpStatus(data.services.isl.status)}
                   </span>
                 </div>
                 <div>

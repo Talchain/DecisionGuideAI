@@ -43,9 +43,28 @@ const STATUS_INDICATORS: Record<BoundaryStatus, { color: string; label: string }
   unavailable: { color: '#94a3b8', label: 'Unavailable' },
 }
 
+// Human-readable HTTP status labels
+const HTTP_STATUS_LABELS: Record<number, string> = {
+  200: 'OK',
+  201: 'Created',
+  204: 'No Content',
+  400: 'Bad Request',
+  401: 'Unauthorised',
+  403: 'Forbidden',
+  404: 'Not Found',
+  408: 'Timeout',
+  422: 'Unprocessable',
+  429: 'Rate Limited',
+  500: 'Server Error',
+  502: 'Bad Gateway',
+  503: 'Service Unavailable',
+  504: 'Gateway Timeout',
+}
+
 function formatStatusCode(status: number | null): string {
   if (status === null || status === undefined) return '—'
-  return String(status)
+  const label = HTTP_STATUS_LABELS[status]
+  return label ? `${status} ${label}` : String(status)
 }
 
 function formatJson(value: unknown): string {
