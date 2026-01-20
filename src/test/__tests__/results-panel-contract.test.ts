@@ -299,6 +299,55 @@ describe('Uncertainties Section Contract', () => {
       })
     })
   })
+
+  describe('Flip Probability Semantics (ISL Contract)', () => {
+    /**
+     * ISL Contract: switch_probability = P(alternative wins | edge weak)
+     * Higher value = more likely to flip = higher risk
+     * UI should display switch_probability directly (NOT 1 - switch_probability)
+     */
+
+    it('displays switch_probability directly as flip risk percentage', () => {
+      // Helper to compute flip risk display like DriversSection.tsx:105
+      const computeFlipRiskDisplay = (switchProbability: number, altLabel: string) =>
+        `${Math.round(switchProbability * 100)}% chance this could flip to "${altLabel}"`
+
+      // Test: switch_probability = 0.35 should show 35%, not 65%
+      const result = computeFlipRiskDisplay(0.35, 'Option B')
+      expect(result).toContain('35%')
+      expect(result).not.toContain('65%')
+    })
+
+    it('treats higher switch_probability as higher risk', () => {
+      // Severity thresholds: > 0.7 = blocker, > 0.5 = error, > 0.3 = warning
+      const computeSeverity = (switchProb: number): 'blocker' | 'error' | 'warning' => {
+        if (switchProb > 0.7) return 'blocker'
+        if (switchProb > 0.5) return 'error'
+        return 'warning'
+      }
+
+      // Higher probability = worse severity
+      expect(computeSeverity(0.8)).toBe('blocker')  // 80% flip risk = worst
+      expect(computeSeverity(0.6)).toBe('error')    // 60% flip risk = bad
+      expect(computeSeverity(0.4)).toBe('warning')  // 40% flip risk = moderate
+      expect(computeSeverity(0.1)).toBe('warning')  // 10% flip risk = low (but still a warning if shown)
+    })
+
+    it('filters to show only high-risk edges (switch_probability > 0.3)', () => {
+      const edges = [
+        { switch_probability: 0.5 },  // High risk - should show
+        { switch_probability: 0.1 },  // Low risk - should filter
+        { switch_probability: 0.3 },  // Boundary - should filter (> 0.3 required)
+      ]
+
+      const filtered = edges.filter(
+        (fe) => typeof fe.switch_probability !== 'number' || fe.switch_probability > 0.3
+      )
+
+      expect(filtered).toHaveLength(1)
+      expect(filtered[0].switch_probability).toBe(0.5)
+    })
+  })
 })
 
 // ============================================================================

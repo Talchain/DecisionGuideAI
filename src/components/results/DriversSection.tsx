@@ -102,7 +102,7 @@ function ExpandedDetails({
     && alternativeWinnerLabel.trim().length > 0
     && alternativeWinnerLabel !== 'another option'
   const flipRisk = driver.fragileEdgeInfo?.switchProbability !== undefined && hasSpecificAlternative
-    ? `${Math.round((1 - driver.fragileEdgeInfo.switchProbability) * 100)}% chance this could flip to "${alternativeWinnerLabel}"`
+    ? `${Math.round(driver.fragileEdgeInfo.switchProbability * 100)}% chance this could flip to "${alternativeWinnerLabel}"`
     : null
 
   const showQualityHint = typeof driver.confidence === 'number' && driver.confidence < 0.5

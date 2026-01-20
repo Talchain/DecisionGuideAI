@@ -144,8 +144,8 @@ export const UNCERTAINTIES_EXPECTATIONS = {
       from_label: 'Pro Plan Price',
       to_label: 'Monthly Recurring Revenue',
       switch_probability: 0.35,
-      /** Flip risk display: 100% - switch_probability */
-      flipRiskDisplay: '65% chance this could flip',
+      /** Flip risk display: switch_probability directly (ISL = P(alternative wins)) */
+      flipRiskDisplay: '35% chance this could flip',
       alternative_winner_label: 'Maintain current price',
       shouldShowCard: true,
       /** Single button per card - fixes duplicate button bug */
@@ -157,7 +157,7 @@ export const UNCERTAINTIES_EXPECTATIONS = {
       from_label: 'Market Competition',
       to_label: 'Monthly Recurring Revenue',
       switch_probability: 0.18,
-      flipRiskDisplay: '82% chance this could flip',
+      flipRiskDisplay: '18% chance this could flip',
       alternative_winner_label: 'Maintain current price',
       shouldShowCard: true,
       buttonCount: 1,

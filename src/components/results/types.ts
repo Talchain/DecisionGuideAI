@@ -111,7 +111,7 @@ export interface DriverItem {
   confidence?: number
   /** Fragile edge info if this factor can flip the decision */
   fragileEdgeInfo?: {
-    /** Probability this could flip decision (0-1, lower = more likely to flip) */
+    /** Probability decision flips to alternative winner (0-1, higher = more likely to flip) */
     switchProbability?: number
     /** Alternative option that would win if flipped */
     alternativeWinnerLabel?: string

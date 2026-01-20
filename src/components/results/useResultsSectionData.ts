@@ -1031,28 +1031,28 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     }))
 
     // Add sensitive assumptions from robustness analysis (formerly "fragile edges")
-    // Filter to only show high-risk fragile edges (switch_probability < 0.3)
+    // Filter to only show high-risk fragile edges (switch_probability > 0.3)
     // P0 Fix: Use safeArray to handle truncated wrapper format
-    console.log('[REPORT_SOURCE_DEBUG]', {
-      hasReport: !!report,
-      reportKeys: report ? Object.keys(report).slice(0, 10) : [],
-      hasRobustness: !!(report as any)?.robustness,
-      hasFragileEdges: !!(report as any)?.robustness?.fragile_edges,
-      fragileEdgesLength: (report as any)?.robustness?.fragile_edges?.length,
-      hasDownstreamCalls: !!(report as any)?.downstream_calls,
-      firstEdgeKeys: (report as any)?.robustness?.fragile_edges?.[0]
-        ? Object.keys((report as any)?.robustness?.fragile_edges[0])
-        : [],
-      firstEdgeHasFromLabel: !!(report as any)?.robustness?.fragile_edges?.[0]?.from_label,
-    })
     const fragileEdgesRaw = safeArray((report as any)?.robustness?.fragile_edges)
     const firstFragileEdge = fragileEdgesRaw[0] as any
-    console.log('[FRAGILE_EDGES_SOURCE]', {
-      source: 'report.robustness.fragile_edges',
-      count: fragileEdgesRaw.length,
-      firstEdgeKeys: firstFragileEdge ? Object.keys(firstFragileEdge) : [],
-      hasLabels: firstFragileEdge?.from_label !== undefined,
-    })
+    if (import.meta.env.DEV && typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
+      console.log('[REPORT_SOURCE_DEBUG]', {
+        hasReport: !!report,
+        reportKeys: report ? Object.keys(report).slice(0, 10) : [],
+        hasRobustness: !!(report as any)?.robustness,
+        hasFragileEdges: !!(report as any)?.robustness?.fragile_edges,
+        fragileEdgesLength: fragileEdgesRaw.length,
+        hasDownstreamCalls: !!(report as any)?.downstream_calls,
+        firstEdgeKeys: firstFragileEdge ? Object.keys(firstFragileEdge) : [],
+        firstEdgeHasFromLabel: !!firstFragileEdge?.from_label,
+      })
+      console.log('[FRAGILE_EDGES_SOURCE]', {
+        source: 'report.robustness.fragile_edges',
+        count: fragileEdgesRaw.length,
+        firstEdgeKeys: firstFragileEdge ? Object.keys(firstFragileEdge) : [],
+        hasLabels: firstFragileEdge?.from_label !== undefined,
+      })
+    }
     const sensitiveAssumptions = Array.from(
       new Map(
         fragileEdgesRaw.map((fe: any) => [
@@ -1062,9 +1062,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       ).values()
     )
       .filter((fe: any) => {
-        // If switch_probability exists, only show high-risk edges (< 0.3 means likely to flip)
+        // If switch_probability exists, only show high-risk edges (> 0.3 means likely to flip)
+        // ISL switch_probability = P(alternative wins | edge weak) — higher = more likely to flip
         if (typeof fe.switch_probability === 'number') {
-          return fe.switch_probability < 0.3
+          return fe.switch_probability > 0.3
         }
         // If no switch_probability, include by default (legacy data)
         return true
@@ -1167,12 +1168,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         `If "${edgeLabel}" changes significantly, "${alternativeWinnerLabel}" could become the better choice`
 
       // P2 Fix: Derive severity from switch_probability
-      // < 0.1 = very likely to flip = blocker; < 0.2 = likely = error; < 0.3 = possible = warning
+      // ISL switch_probability = P(alternative wins | edge weak) — higher = more likely to flip
+      // > 0.7 = very likely to flip = blocker; > 0.5 = likely = error; > 0.3 = possible = warning
       let severity: 'blocker' | 'error' | 'warning' = 'warning'
       if (typeof fe.switch_probability === 'number') {
-        if (fe.switch_probability < 0.1) {
+        if (fe.switch_probability > 0.7) {
           severity = 'blocker'
-        } else if (fe.switch_probability < 0.2) {
+        } else if (fe.switch_probability > 0.5) {
           severity = 'error'
         }
       }

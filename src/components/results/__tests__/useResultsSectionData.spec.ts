@@ -661,15 +661,16 @@ describe('fragile edge filtering', () => {
   // Note: These test the filtering logic described in useResultsSectionData
   // Actual filtering happens in the useMemo for confidence section
 
-  it('filters fragile edges by switch_probability < 0.3', () => {
-    // High-risk edges (switch_probability < 0.3) should be shown
-    const highRiskEdge = { source: 'a', target: 'b', switch_probability: 0.1 }
-    // Low-risk edges (switch_probability >= 0.3) should be filtered
-    const lowRiskEdge = { source: 'c', target: 'd', switch_probability: 0.5 }
+  it('filters fragile edges by switch_probability > 0.3', () => {
+    // High-risk edges (switch_probability > 0.3) should be shown
+    // ISL switch_probability = P(alternative wins | edge weak) — higher = more likely to flip
+    const highRiskEdge = { source: 'a', target: 'b', switch_probability: 0.5 }
+    // Low-risk edges (switch_probability <= 0.3) should be filtered
+    const lowRiskEdge = { source: 'c', target: 'd', switch_probability: 0.1 }
 
     const edges = [highRiskEdge, lowRiskEdge]
     const filtered = edges.filter((fe) =>
-      typeof fe.switch_probability !== 'number' || fe.switch_probability < 0.3
+      typeof fe.switch_probability !== 'number' || fe.switch_probability > 0.3
     )
 
     expect(filtered).toHaveLength(1)
@@ -678,22 +679,22 @@ describe('fragile edge filtering', () => {
 
   it('includes edges without switch_probability (legacy data)', () => {
     const legacyEdge = { source: 'a', target: 'b' } // No switch_probability
-    const highRiskEdge = { source: 'c', target: 'd', switch_probability: 0.2 }
+    const highRiskEdge = { source: 'c', target: 'd', switch_probability: 0.5 }
 
     const edges = [legacyEdge, highRiskEdge]
     const filtered = edges.filter((fe: any) =>
-      typeof fe.switch_probability !== 'number' || fe.switch_probability < 0.3
+      typeof fe.switch_probability !== 'number' || fe.switch_probability > 0.3
     )
 
     expect(filtered).toHaveLength(2)
   })
 
-  it('boundary: switch_probability exactly 0.3 is not shown', () => {
+  it('boundary: switch_probability exactly 0.3 is not shown (needs > 0.3)', () => {
     const boundaryEdge = { source: 'a', target: 'b', switch_probability: 0.3 }
 
     const edges = [boundaryEdge]
     const filtered = edges.filter((fe: any) =>
-      typeof fe.switch_probability !== 'number' || fe.switch_probability < 0.3
+      typeof fe.switch_probability !== 'number' || fe.switch_probability > 0.3
     )
 
     expect(filtered).toHaveLength(0)
