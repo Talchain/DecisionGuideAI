@@ -285,7 +285,7 @@ export function SummaryTab({
             gridTemplateColumns: 'repeat(2, 1fr)',
             gap: 12,
           }}
-          className="sm:grid-cols-4"
+          className="sm:grid-cols-5"
         >
           <KpiCard
             label="Graph Stats"
@@ -301,6 +301,21 @@ export function SummaryTab({
             status={analysisKpi.status}
             onClick={onNavigateToDataFlow}
             tooltip="Click to view data flow"
+            compact
+          />
+          <KpiCard
+            label="Winner"
+            value={data.winningOption
+              ? `${data.winningOption.label} (${data.winningOption.win_probability.toFixed(0)}%)`
+              : 'N/A'}
+            status={data.winningOption
+              ? (data.winningOption.is_close_race ? 'warn' : 'ok')
+              : 'neutral'}
+            tooltip={data.winningOption
+              ? (data.winningOption.is_close_race && data.winningOption.runner_up
+                ? `Close race vs ${data.winningOption.runner_up.label} (${data.winningOption.runner_up.win_probability.toFixed(0)}%)`
+                : 'Clear winner')
+              : 'Run analysis to see winner'}
             compact
           />
           <KpiCard

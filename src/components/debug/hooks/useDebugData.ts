@@ -1065,15 +1065,30 @@ function extractWinningOption(
  */
 function extractRobustness(
   gates: GateData[],
-  plotResponse: unknown
+  plotResponse: unknown,
+  islResponse: unknown
 ): RobustnessData {
   const robustnessGate = gates.find(g => g.name === 'robustness')
 
-  // Extract stability from PLoT response
+  // Extract stability from responses (check multiple paths)
   let stability: number | null = null
-  if (plotResponse && typeof plotResponse === 'object') {
+
+  // First try ISL response directly (most reliable)
+  if (islResponse && typeof islResponse === 'object') {
+    const isl = islResponse as Record<string, unknown>
+    const robustness = isl.robustness as Record<string, unknown> | undefined
+    if (robustness && typeof robustness.recommendation_stability === 'number') {
+      stability = robustness.recommendation_stability
+    }
+  }
+
+  // Fallback: try PLoT response paths
+  if (stability === null && plotResponse && typeof plotResponse === 'object') {
     const plot = plotResponse as Record<string, unknown>
+    // Check multiple paths where ISL robustness data could be nested
     const robustness =
+      // downstream_calls.isl.response.robustness (most common for ISL via PLoT)
+      (((plot.downstream_calls as Record<string, unknown>)?.isl as Record<string, unknown>)?.response as Record<string, unknown>)?.robustness ??
       ((plot.isl as Record<string, unknown>)?.response as Record<string, unknown>)?.robustness ??
       (plot.response as Record<string, unknown>)?.robustness ??
       plot.robustness
@@ -1393,7 +1408,7 @@ export function useDebugData(): DebugData {
     )
 
     // Extract robustness data with stability context
-    const robustness = extractRobustness(gates, payloadBundle.plot_response)
+    const robustness = extractRobustness(gates, payloadBundle.plot_response, payloadBundle.isl_response)
 
     return {
       overall: {
