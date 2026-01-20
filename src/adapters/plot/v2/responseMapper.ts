@@ -218,9 +218,11 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
     // Check if ISL factors have real sensitivity data
     // P0 Fix: Include importance_score in check (PLoT may only provide this field)
     // Use Math.abs() to handle potential negative values (direction stored separately)
+    // VOI Fix: Include raw sensitivity field in check
     const hasRealData = islFactors.some((f) => {
       if (!isFactorLike(f)) return false
       return (typeof f.sensitivity_score === 'number' && Math.abs(f.sensitivity_score) > 0.001) ||
+        (typeof f.sensitivity === 'number' && Math.abs(f.sensitivity) > 0.001) ||
         (typeof f.elasticity === 'number' && Math.abs(f.elasticity) > 0.001) ||
         (typeof f.importance_score === 'number' && Math.abs(f.importance_score) > 0.001)
     })
@@ -261,9 +263,11 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
     // Check if enrichment factors have real sensitivity data (not just placeholders)
     // P0 Fix: Include importance_score in check (PLoT may only provide this field)
     // Use Math.abs() to handle potential negative values (direction stored separately)
+    // VOI Fix: Include raw sensitivity field in check
     const hasRealData = enrichmentFactors.some((f) => {
       if (!isFactorLike(f)) return false
       return (typeof f.sensitivity_score === 'number' && Math.abs(f.sensitivity_score) > 0.001) ||
+        (typeof f.sensitivity === 'number' && Math.abs(f.sensitivity) > 0.001) ||
         (typeof f.elasticity === 'number' && Math.abs(f.elasticity) > 0.001) ||
         (typeof f.importance_score === 'number' && Math.abs(f.importance_score) > 0.001)
     })
