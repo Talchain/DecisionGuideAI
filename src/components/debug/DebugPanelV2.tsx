@@ -10,7 +10,6 @@
  */
 
 import { useState, useCallback, useMemo, CSSProperties } from 'react'
-import { shallow } from 'zustand/shallow'
 import { useDebugData } from './hooks/useDebugData'
 import { SummaryTab, DataFlowTab, PipelineTab, RawTab } from './tabs'
 import { PayloadLabTab } from './PayloadLabTab'
@@ -60,9 +59,6 @@ export function DebugPanelV2({ onClose, width, height }: DebugPanelV2Props) {
   // Get debug data
   const data = useDebugData()
 
-  // Get graph data for export (shallow comparison to prevent infinite re-renders)
-  const { nodes, edges } = useCanvasStore((s) => ({ nodes: s.nodes, edges: s.edges }), shallow)
-
   // Handle copy request ID
   const handleCopyRequestId = useCallback(async () => {
     const success = await copyRequestId(data.overall.request_id)
@@ -72,18 +68,26 @@ export function DebugPanelV2({ onClose, width, height }: DebugPanelV2Props) {
     }
   }, [data.overall.request_id])
 
-  // Handle export all
+  // Handle export all (fetch graph data at export time to avoid subscription issues)
   const handleExportAll = useCallback(() => {
     setExporting(true)
     try {
+      // Get current graph data from store only when needed for export
+      const graphData = includeFullGraph
+        ? {
+            nodes: useCanvasStore.getState().nodes,
+            edges: useCanvasStore.getState().edges,
+          }
+        : undefined
+
       exportDebugBundle(data, {
         includeFullGraph,
-        graphData: includeFullGraph ? { nodes, edges } : undefined,
+        graphData,
       })
     } finally {
       setExporting(false)
     }
-  }, [data, includeFullGraph, nodes, edges])
+  }, [data, includeFullGraph])
 
   // Navigation handlers for Summary tab
   const navigateToDataFlow = useCallback(() => setActiveTab('data-flow'), [])
