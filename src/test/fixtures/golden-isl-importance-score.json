@@ -1,0 +1,88 @@
+{
+  "$schema": "https://olumi.dev/schemas/decision-v2.6",
+  "_fixture_meta": {
+    "purpose": "P0 Fix - Tests importance_score preservation through ISL path",
+    "created": "2026-01-21",
+    "version": "2.6",
+    "scenario": "ISL response with only importance_score (no sensitivity_score)"
+  },
+  "analysis_status": "computed",
+  "option_comparison_status": "computed",
+  "robustness_status": "computed",
+  "drivers_status": "computed",
+
+  "downstream_calls": {
+    "isl": {
+      "response": {
+        "factor_sensitivity": [
+          {
+            "factor_id": "fac_hire_tech_lead",
+            "node_id": "fac_hire_tech_lead",
+            "label": "Hire Tech Lead",
+            "importance_score": 1.0,
+            "value_of_information": 0.85,
+            "direction": "positive"
+          },
+          {
+            "factor_id": "fac_budget_constraints",
+            "node_id": "fac_budget_constraints",
+            "label": "Budget Constraints",
+            "importance_score": 0.65,
+            "value_of_information": 0.72,
+            "direction": "negative"
+          },
+          {
+            "factor_id": "fac_timeline_pressure",
+            "node_id": "fac_timeline_pressure",
+            "label": "Timeline Pressure",
+            "importance_score": 0.22,
+            "value_of_information": 0.45,
+            "direction": "negative"
+          }
+        ],
+        "robustness": {
+          "fragile_edges": [
+            {
+              "from_id": "fac_hire_tech_lead",
+              "to_id": "out_delivery_velocity",
+              "from_label": "Hire Tech Lead",
+              "to_label": "Delivery Velocity",
+              "switch_probability": 0.224,
+              "alternative_winner_label": "Delay Hiring"
+            }
+          ],
+          "ranking_stability": 0.78
+        }
+      }
+    }
+  },
+
+  "option_comparison": [
+    {
+      "option_id": "opt_hire_now",
+      "option_label": "Hire Now",
+      "probability_of_goal": 0.78,
+      "win_probability": 0.72,
+      "outcome": {
+        "mean": 85.5,
+        "p10": 65.0,
+        "p50": 87.0,
+        "p90": 95.0
+      }
+    },
+    {
+      "option_id": "opt_delay_hiring",
+      "option_label": "Delay Hiring",
+      "probability_of_goal": 0.45,
+      "win_probability": 0.28,
+      "outcome": {
+        "mean": 62.3,
+        "p10": 40.0,
+        "p50": 60.0,
+        "p90": 78.0
+      }
+    }
+  ],
+
+  "request_id": "golden-isl-importance-001"
+}

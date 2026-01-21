@@ -846,18 +846,26 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     }))
 
     // Step 4b: Build fragile edges lookup for factor-to-goal edges
-    // When a factor has multiple fragile edges, keep the one with highest switchProbability (most risky)
+    // RULE: When a factor has multiple fragile edges, keep the one with highest switchProbability (most risky)
+    // - Prefer defined values over undefined (undefined means "no data", not "zero risk")
+    // - When both defined, keep the higher value (more risky edge dominates)
     const fragileEdgesRaw = safeArray((report as any)?.robustness?.fragile_edges)
     const fragileEdgesMap = new Map<string, { switchProbability?: number; alternativeWinnerLabel?: string }>()
     fragileEdgesRaw.forEach((fe: any) => {
       const fromId = fe.from_id ?? fe.fromId ?? fe.source
       if (fromId) {
-        const newProb = fe.switch_probability ?? 0
+        const newProb = typeof fe.switch_probability === 'number' ? fe.switch_probability : undefined
         const existing = fragileEdgesMap.get(fromId)
-        // Keep the higher (more risky) switch probability
-        if (!existing || newProb > (existing.switchProbability ?? 0)) {
+        const existingProb = existing?.switchProbability
+
+        // Decision logic: prefer defined values, then prefer higher values
+        const shouldReplace = !existing || // No existing entry
+          (existingProb === undefined && newProb !== undefined) || // New has value, existing doesn't
+          (existingProb !== undefined && newProb !== undefined && newProb > existingProb) // Both defined, new is higher
+
+        if (shouldReplace) {
           fragileEdgesMap.set(fromId, {
-            switchProbability: fe.switch_probability,
+            switchProbability: newProb,
             alternativeWinnerLabel: fe.alternative_winner_label ?? fe.alternativeWinnerLabel ?? fe.alternativeWinner,
           })
         }

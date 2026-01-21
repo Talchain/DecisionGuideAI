@@ -9,7 +9,10 @@
 
 import { describe, it, expect } from 'vitest'
 import goldenFixture from '../../../test/fixtures/golden-run-response.json'
+import islImportanceFixture from '../../../test/fixtures/golden-isl-importance-score.json'
 import { mapPloTResponse } from '../index'
+import { pickFactorSensitivityForUi } from '../../../adapters/plot/v2/responseMapper'
+import type { V2RunResponse } from '../../../adapters/plot/v2/types'
 
 describe('ground truth: golden fixture', () => {
   // Map the golden fixture through the pipeline
@@ -116,6 +119,89 @@ describe('ground truth: golden fixture', () => {
     it('maps goal_probability from probability_of_goal', () => {
       const option = result.options.find(o => o.optionId === 'opt_maintain_price')
       expect(option!.goalProbability).toBe(0.45)
+    })
+  })
+})
+
+// =============================================================================
+// P0 Fix: ISL path importance_score preservation
+// =============================================================================
+
+describe('ground truth: ISL importance_score fixture (P0 Fix)', () => {
+  describe('response mapper pickFactorSensitivityForUi', () => {
+    // Test the response mapper directly to verify ISL path handling
+    const mapperResult = pickFactorSensitivityForUi(islImportanceFixture as unknown as V2RunResponse)
+
+    it('selects ISL path (downstream_calls.isl) when importance_score is present', () => {
+      // CRITICAL: Should detect hasRealData from importance_score alone
+      expect(mapperResult._source_path).toBe('downstream_calls.isl')
+    })
+
+    it('preserves all 3 factors from ISL response', () => {
+      expect(mapperResult.factors).toHaveLength(3)
+    })
+
+    it('preserves importance_score in output object', () => {
+      const techLead = mapperResult.factors.find(f => f.factor_id === 'fac_hire_tech_lead')
+      expect(techLead).toBeDefined()
+      // CRITICAL: importance_score must be in output for getRawElasticity()
+      expect(techLead!.importance_score).toBe(1.0)
+    })
+
+    it('keeps sensitivity_score and importance_score semantically separate', () => {
+      const techLead = mapperResult.factors.find(f => f.factor_id === 'fac_hire_tech_lead')
+      // SEMANTIC SEPARATION: sensitivity_score should NOT fall back to importance_score
+      // They are different metrics - downstream getRawElasticity() handles the fallback
+      expect(techLead!.sensitivity_score).toBeUndefined()
+      expect(techLead!.importance_score).toBe(1.0)
+    })
+
+    it('preserves value_of_information alongside importance_score', () => {
+      const techLead = mapperResult.factors.find(f => f.factor_id === 'fac_hire_tech_lead')
+      expect(techLead!.value_of_information).toBe(0.85)
+    })
+
+    it('maps all importance_score values correctly', () => {
+      const techLead = mapperResult.factors.find(f => f.factor_id === 'fac_hire_tech_lead')
+      const budget = mapperResult.factors.find(f => f.factor_id === 'fac_budget_constraints')
+      const timeline = mapperResult.factors.find(f => f.factor_id === 'fac_timeline_pressure')
+
+      expect(techLead!.importance_score).toBe(1.0)
+      expect(budget!.importance_score).toBe(0.65)
+      expect(timeline!.importance_score).toBe(0.22)
+    })
+  })
+
+  describe('full pipeline (mapPloTResponse)', () => {
+    // Test the full pipeline to verify end-to-end mapping
+    const pipelineResult = mapPloTResponse(islImportanceFixture)
+
+    it('maps factors through full pipeline with correct rawInfluence', () => {
+      const techLead = pipelineResult.factors.find(f => f.factorId === 'fac_hire_tech_lead')
+      expect(techLead).toBeDefined()
+      // rawInfluence should use importance_score (1.0)
+      expect(techLead!.rawInfluence).toBe(1.0)
+    })
+
+    it('maps all factor rawInfluence values from importance_score', () => {
+      const techLead = pipelineResult.factors.find(f => f.factorId === 'fac_hire_tech_lead')
+      const budget = pipelineResult.factors.find(f => f.factorId === 'fac_budget_constraints')
+      const timeline = pipelineResult.factors.find(f => f.factorId === 'fac_timeline_pressure')
+
+      expect(techLead!.rawInfluence).toBe(1.0)
+      expect(budget!.rawInfluence).toBe(0.65)
+      expect(timeline!.rawInfluence).toBe(0.22)
+    })
+
+    it('maps confidence from value_of_information (×100)', () => {
+      const techLead = pipelineResult.factors.find(f => f.factorId === 'fac_hire_tech_lead')
+      // value_of_information: 0.85 → confidence: 85
+      expect(techLead!.confidence).toBe(85)
+    })
+
+    it('preserves direction from ISL response', () => {
+      const budget = pipelineResult.factors.find(f => f.factorId === 'fac_budget_constraints')
+      expect(budget!.direction).toBe('negative')
     })
   })
 })

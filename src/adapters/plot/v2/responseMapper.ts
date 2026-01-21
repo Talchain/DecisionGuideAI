@@ -254,8 +254,11 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
         node_id: (f.node_id as string) ?? (f.factor_id as string),
         label: f.label as string | undefined,
         sensitivity: f.sensitivity as number | undefined,
-        // P0 Fix: Add importance_score to fallback chain
-        sensitivity_score: (f.sensitivity_score as number) ?? (f.elasticity as number) ?? (f.importance_score as number),
+        // Semantic separation: sensitivity_score and importance_score are different metrics
+        // sensitivity_score: how much outcome changes per unit factor change
+        // importance_score: relative importance/influence weight
+        // Keep them separate - downstream getRawElasticity() handles the fallback chain
+        sensitivity_score: (f.sensitivity_score as number) ?? (f.elasticity as number),
         // P0 Fix: Pass through importance_score for downstream consumers (getRawElasticity)
         importance_score: f.importance_score as number | undefined,
         direction: f.direction === 'negative' ? 'negative' : 'positive',
@@ -300,8 +303,11 @@ export function pickFactorSensitivityForUi(v2Response: V2RunResponse): FactorSen
         node_id: f.factor_id as string,  // Alias for compatibility
         label: f.label as string | undefined,
         sensitivity: f.sensitivity as number | undefined,
-        // P0 Fix: Add importance_score to fallback chain
-        sensitivity_score: (f.sensitivity_score as number) ?? (f.elasticity as number) ?? (f.importance_score as number),
+        // Semantic separation: sensitivity_score and importance_score are different metrics
+        // sensitivity_score: how much outcome changes per unit factor change
+        // importance_score: relative importance/influence weight
+        // Keep them separate - downstream getRawElasticity() handles the fallback chain
+        sensitivity_score: (f.sensitivity_score as number) ?? (f.elasticity as number),
         // P0 Fix: Pass through importance_score for downstream consumers (getRawElasticity)
         importance_score: f.importance_score as number | undefined,
         direction: f.direction === 'negative' ? 'negative' : 'positive',
