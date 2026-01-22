@@ -384,6 +384,10 @@ const DOWNSTREAM_CALLS_PATHS = [
 /**
  * Extract ISL data from PLoT response downstream_calls.
  * Uses DOWNSTREAM_CALLS_PATHS to ensure detection and extraction are aligned.
+ *
+ * Handles multiple structures:
+ * - downstream_calls.isl as object with status_code/latency_ms (older format)
+ * - downstream_calls.isl as array with status/elapsed_ms (newer PLoT format)
  */
 function extractIslFromPlotResponse(plotResponse: unknown): IslDownstreamCall | null {
   if (!plotResponse || typeof plotResponse !== 'object') return null
@@ -395,8 +399,32 @@ function extractIslFromPlotResponse(plotResponse: unknown): IslDownstreamCall | 
     const downstream = accessor(response)
     if (downstream && typeof downstream === 'object') {
       const isl = (downstream as Record<string, unknown>).isl
-      if (isl && typeof isl === 'object') {
-        return isl as IslDownstreamCall
+      if (isl) {
+        // Handle both array and object formats
+        const islData = Array.isArray(isl) ? isl[0] : isl
+        if (islData && typeof islData === 'object') {
+          const data = islData as Record<string, unknown>
+          // Normalize field names - newer PLoT uses status/elapsed_ms, interface expects status_code/latency_ms
+          const statusCode = (data.status_code ?? data.status) as number | undefined
+          const latencyMs = (data.latency_ms ?? data.elapsed_ms) as number | undefined
+          // Derive success from status code if not explicitly provided
+          const success = typeof data.success === 'boolean'
+            ? data.success
+            : typeof statusCode === 'number'
+              ? statusCode >= 200 && statusCode < 300
+              : false
+
+          return {
+            endpoint: (data.endpoint ?? '') as string,
+            // Handle both field naming conventions: request/response (older) and request_payload/response_payload (newer)
+            request: data.request ?? data.request_payload,
+            response: data.response ?? data.response_payload ?? null,
+            status_code: statusCode ?? 0,
+            success,
+            latency_ms: latencyMs ?? 0,
+            error: data.error as string | undefined,
+          }
+        }
       }
     }
   }
