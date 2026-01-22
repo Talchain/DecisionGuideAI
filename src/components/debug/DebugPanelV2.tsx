@@ -48,9 +48,13 @@ export interface DebugPanelV2Props {
   width?: number
   /** Current panel height */
   height?: number
+  /** Whether panel is in expanded mode */
+  expanded?: boolean
+  /** Toggle expanded mode */
+  onToggleExpanded?: () => void
 }
 
-export function DebugPanelV2({ onClose, width, height }: DebugPanelV2Props) {
+export function DebugPanelV2({ onClose, width, height, expanded, onToggleExpanded }: DebugPanelV2Props) {
   const [activeTab, setActiveTab] = useState<V2Tab>('summary')
   const [exporting, setExporting] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -284,6 +288,22 @@ export function DebugPanelV2({ onClose, width, height }: DebugPanelV2Props) {
           >
             {exporting ? 'Exporting...' : 'Export All'}
           </button>
+
+          {/* Expand toggle button */}
+          {onToggleExpanded && (
+            <button
+              onClick={onToggleExpanded}
+              style={{
+                ...buttonStyle,
+                padding: '4px 8px',
+                minWidth: 28,
+              }}
+              aria-label={expanded ? 'Collapse panel' : 'Expand panel'}
+              title={expanded ? 'Collapse panel' : 'Expand to 50% width'}
+            >
+              {expanded ? '⊟' : '⊞'}
+            </button>
+          )}
 
           {/* Close button */}
           {onClose && (

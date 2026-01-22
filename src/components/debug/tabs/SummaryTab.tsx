@@ -189,9 +189,9 @@ export function SummaryTab({
 
   // Validation filter state
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all')
-  // Auto-expand validation section if there are errors
+  // Auto-expand validation section if there are errors or warnings (but not for info-only)
   const [validationExpanded, setValidationExpanded] = useState(() =>
-    data.validation.summary.errors > 0
+    data.validation.summary.errors > 0 || data.validation.summary.warnings > 0
   )
 
   // Filtered validation issues
@@ -282,10 +282,9 @@ export function SummaryTab({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
             gap: 12,
           }}
-          className="sm:grid-cols-5"
         >
           <KpiCard
             label="Graph Stats"
@@ -303,21 +302,18 @@ export function SummaryTab({
             tooltip="Click to view data flow"
             compact
           />
-          <KpiCard
-            label="Winner"
-            value={data.winningOption
-              ? `${data.winningOption.label || data.winningOption.id || 'Unknown'} (${Number.isFinite(data.winningOption.win_probability) ? data.winningOption.win_probability.toFixed(0) : '—'}%)`
-              : 'N/A'}
-            status={data.winningOption
-              ? (data.winningOption.is_close_race ? 'warn' : 'ok')
-              : 'neutral'}
-            tooltip={data.winningOption
-              ? (data.winningOption.is_close_race && data.winningOption.runner_up
+          {/* Winner card - only show when there's a winning option */}
+          {data.winningOption && (
+            <KpiCard
+              label="Winner"
+              value={`${data.winningOption.label || data.winningOption.id || 'Unknown'} (${Number.isFinite(data.winningOption.win_probability) ? data.winningOption.win_probability.toFixed(0) : '—'}%)`}
+              status={data.winningOption.is_close_race ? 'warn' : 'ok'}
+              tooltip={data.winningOption.is_close_race && data.winningOption.runner_up
                 ? `Close race vs ${data.winningOption.runner_up.label || data.winningOption.runner_up.id || 'Unknown'} (${Number.isFinite(data.winningOption.runner_up.win_probability) ? data.winningOption.runner_up.win_probability.toFixed(0) : '—'}%)`
-                : 'Clear winner')
-              : 'Run analysis to see winner'}
-            compact
-          />
+                : 'Clear winner'}
+              compact
+            />
+          )}
           <KpiCard
             label="Robustness"
             value={data.robustness.context_label}
@@ -498,6 +494,26 @@ export function SummaryTab({
             <strong style={{ color: '#1e293b' }}>Model:</strong>{' '}
             {data.pipeline.llm_metadata?.model ?? '—'}
           </span>
+          {data.pipeline.llm_metadata?.prompt_version && (
+            <span
+              title={`${data.pipeline.llm_metadata.prompt_version}${data.pipeline.llm_metadata.prompt_hash ? `\nHash: ${data.pipeline.llm_metadata.prompt_hash}` : ''}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                maxWidth: 220,
+              }}
+            >
+              <strong style={{ color: '#1e293b', flexShrink: 0 }}>Prompt:</strong>
+              <span style={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}>
+                {data.pipeline.llm_metadata.prompt_version}
+              </span>
+            </span>
+          )}
           <span>
             <strong style={{ color: '#1e293b' }}>Tokens:</strong> {tokenDisplay}
           </span>

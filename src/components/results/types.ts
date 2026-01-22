@@ -59,6 +59,9 @@ export interface OptionResult {
   goalProbability?: number | null
 }
 
+/** Outcome unit type for formatting - from goal node observed_state.unit */
+export type OutcomeUnitType = 'currency' | 'percent' | 'count'
+
 export interface RecommendationSectionData {
   recommendedOption: OptionResult | null
   allOptions: OptionResult[]
@@ -67,6 +70,10 @@ export interface RecommendationSectionData {
   isSingleOption: boolean
   analysisStatus: 'computed' | 'partial' | 'failed' | 'blocked'
   statusReason?: string
+  /** Unit for outcome values (from goal node observed_state.unit) */
+  outcomeUnit?: OutcomeUnitType
+  /** Symbol for currency (e.g., '$', '£') */
+  outcomeUnitSymbol?: string
 }
 
 // =============================================================================
@@ -97,6 +104,10 @@ export interface DriverItem {
   rawElasticity: number
   /** Dynamically normalised 0-1 (abs(rawElasticity) / max(all elasticities)) */
   normalisedInfluence: number
+  /** ISL influence_score (0-1) - structural causal influence, used for Influence column */
+  influenceScore?: number
+  /** ISL zero_reason - explains why sensitivity is zero for intervention factors */
+  zeroReason?: ZeroReasonCode
   /** 1-indexed rank by absolute elasticity */
   rank: number
   /** Direction derived from edges, normalised */
@@ -209,6 +220,9 @@ export interface FocusCanvasEvent {
 // Raw Factor Data (from response, before presentation transform)
 // =============================================================================
 
+/** ISL zero_reason codes - explains why influence is zero for intervention factors */
+export type ZeroReasonCode = 'intervention_override' | 'disconnected' | 'zero_outcome_diff' | null
+
 export interface RawFactorSensitivity {
   factor_id?: string
   node_id?: string
@@ -219,6 +233,10 @@ export interface RawFactorSensitivity {
   sensitivity?: number
   /** P0 Fix: PLoT may return importance_score instead of elasticity/sensitivity_score */
   importance_score?: number
+  /** ISL influence_score (0-1) - structural causal influence */
+  influence_score?: number
+  /** ISL zero_reason - explains why sensitivity is zero for intervention factors */
+  zero_reason?: ZeroReasonCode
   direction?: string
   importance_rank?: number
   /** Confidence signal for factor influence (0-1), used for driver confidence */
@@ -234,6 +252,10 @@ export interface UiFactorSensitivity {
   direction: 'positive' | 'negative'
   confidence: number | null
   importanceRank: number
+  /** ISL influence_score (0-1) - structural causal influence */
+  influenceScore?: number
+  /** ISL zero_reason - explains why sensitivity is zero */
+  zeroReason?: ZeroReasonCode
 }
 
 // =============================================================================

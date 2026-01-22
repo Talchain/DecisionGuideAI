@@ -33,8 +33,19 @@ const BAR_COLORS = {
 }
 
 // Grid columns constant - shared between header and rows to avoid alignment drift
-// P0 Fix: 85px columns fit within ~380px panel (120 min + 85 + 85 + gaps + padding)
+// Two data columns: Influence (direction-colored) + Confidence (always blue)
 const GRID_COLS = 'grid-cols-[minmax(120px,1fr)_85px_85px]'
+
+// Threshold for "no real data" - values below this are considered missing/unavailable
+// Used to distinguish "missing data" (show "—") from "explicit zero" (show "0%")
+const MISSING_DATA_THRESHOLD = 0.001
+
+// Zero reason display messages - explains why sensitivity is zero
+const ZERO_REASON_MESSAGES: Record<string, string> = {
+  intervention_override: 'Directly controlled by your options',
+  disconnected: 'No causal path to goal',
+  zero_outcome_diff: "Changes don't affect outcome",
+}
 
 // Progress bar component with inline styles for precise colors
 function ProgressBar({
@@ -117,10 +128,11 @@ function ExpandedDetails({
           Could benefit from more evidence
         </p>
       )}
-      {!showQualityHint && driver.confidence == null && (
+      {/* Zero reason message - explains why this factor shows zero sensitivity */}
+      {driver.zeroReason && ZERO_REASON_MESSAGES[driver.zeroReason] && (
         <p className="text-xs text-slate-500 flex items-center gap-1">
           <span aria-hidden="true">ℹ️</span>
-          {EMPTY_STATES.confidence}
+          {ZERO_REASON_MESSAGES[driver.zeroReason]}
         </p>
       )}
 
@@ -163,6 +175,12 @@ function DriverRow({
       ? 'orange'
       : 'neutral'
 
+  // Use ISL influence_score (0-1) directly for Influence column
+  // Fallback to normalisedInfluence if influence_score not available
+  const influenceValue = driver.influenceScore ?? driver.normalisedInfluence
+  const hasInfluenceData = influenceValue != null && influenceValue >= 0
+
+  // Confidence value (0-1) - clamped in useResultsSectionData
   const confidenceValue = typeof driver.confidence === 'number'
     ? Math.max(0, Math.min(1, driver.confidence))
     : null
@@ -193,22 +211,26 @@ function DriverRow({
             </span>
           </div>
 
-          {/* Influence bar - color matches direction */}
-          <ProgressBar
-            value={driver.normalisedInfluence}
-            color={barColor}
-            aria-label={`${driver.factorLabel} influence: ${Math.round(driver.normalisedInfluence * 100)}%`}
-          />
+          {/* Influence bar - uses ISL influence_score (0-1) directly */}
+          {hasInfluenceData ? (
+            <ProgressBar
+              value={influenceValue}
+              color={barColor}
+              aria-label={`${driver.factorLabel} influence: ${Math.round(influenceValue * 100)}%`}
+            />
+          ) : (
+            <div className="text-xs text-slate-400 font-mono w-9 text-right">—</div>
+          )}
 
           {/* Confidence bar - always blue */}
-          {confidenceValue === null ? (
-            <div className="text-xs text-slate-400 font-mono w-9 text-right">—</div>
-          ) : (
+          {confidenceValue !== null ? (
             <ProgressBar
               value={confidenceValue}
               color="blue"
               aria-label={`${driver.factorLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
             />
+          ) : (
+            <div className="text-xs text-slate-400 font-mono w-9 text-right">—</div>
           )}
         </div>
       </button>
@@ -338,9 +360,19 @@ export function DriversSection({
       <div className={`grid ${GRID_COLS} gap-3 px-3`}>
         {/* Empty cell for factor name column */}
         <div />
-        {/* Right-aligned headers over bar columns */}
-        <div className="text-xs font-medium text-slate-500 text-right pr-6">Influence</div>
-        <div className="text-xs font-medium text-slate-500 text-right pr-6">Confidence</div>
+        {/* Right-aligned headers over bar columns with tooltips */}
+        <div
+          className="text-xs font-medium text-slate-500 text-right pr-6 cursor-help"
+          title="How strongly this factor affects your goal"
+        >
+          Influence
+        </div>
+        <div
+          className="text-xs font-medium text-slate-500 text-right pr-6 cursor-help"
+          title="How certain we are about this causal relationship"
+        >
+          Confidence
+        </div>
       </div>
 
       {/* Driver rows */}

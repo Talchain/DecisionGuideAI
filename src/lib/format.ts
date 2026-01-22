@@ -62,7 +62,8 @@ export function formatOutcomeValue(
     // Values in 0-1 range (inclusive) are treated as probabilities: 0.5 → 50%, 1 → 100%
     const isProbability = value >= 0 && value <= 1
     // Brief 33 Fix: Cap probability at 99% to avoid unrealistic "100% success"
-    const cappedValue = isProbability ? Math.min(value, 0.99) : Math.min(value, 99)
+    // NOTE: Only cap 0-1 probabilities, NOT outcome values (which can be >100% like "150% improvement")
+    const cappedValue = isProbability ? Math.min(value, 0.99) : value
     const displayValue = isProbability ? cappedValue * 100 : cappedValue
     return `${displayValue.toFixed(decimals)}%`
   }
@@ -117,7 +118,8 @@ export function formatOutcomeValueCompact(
   // Default (percent)
   const isProbability = value >= 0 && value <= 1
   // Brief 33 Fix: Cap probability at 99% to avoid unrealistic "100% success"
-  const cappedValue = isProbability ? Math.min(value, 0.99) : Math.min(value, 99)
+  // NOTE: Only cap 0-1 probabilities, NOT outcome values (which can be >100%)
+  const cappedValue = isProbability ? Math.min(value, 0.99) : value
   const displayValue = isProbability ? cappedValue * 100 : cappedValue
   return `${Math.round(displayValue)}%`
 }

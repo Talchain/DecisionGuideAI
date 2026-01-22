@@ -15,13 +15,17 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
 }))
 
 describe('RecommendationSection', () => {
+  // NOTE: Values are in percentage form matching PLoT contract (p50: 58 = 58%)
+  // NOT probability form (p50: 0.58). See golden fixture for reference.
   const mockData: RecommendationSectionData = {
     recommendedOption: {
       id: 'option-1',
       label: 'Hire Tech Lead',
-      p10: 0.23,
-      p50: 0.58,
-      p90: 0.81,
+      p10: 23,
+      p50: 58,
+      p90: 81,
+      expected: 58,
+      outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
       isRecommended: true,
       winProbability: 0.67,
     },
@@ -29,18 +33,22 @@ describe('RecommendationSection', () => {
       {
         id: 'option-1',
         label: 'Hire Tech Lead',
-        p10: 0.23,
-        p50: 0.58,
-        p90: 0.81,
+        p10: 23,
+        p50: 58,
+        p90: 81,
+        expected: 58,
+        outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
         isRecommended: true,
         winProbability: 0.67,
       },
       {
         id: 'option-2',
         label: 'Hire 2 Developers',
-        p10: 0.18,
-        p50: 0.41,
-        p90: 0.68,
+        p10: 18,
+        p50: 41,
+        p90: 68,
+        expected: 41,
+        outcome: { mean: 41, p10: 18, p50: 41, p90: 68 },
         isRecommended: false,
         winProbability: 0.33,
       },
@@ -138,7 +146,7 @@ describe('RecommendationSection', () => {
 
     render(<RecommendationSection data={preRunData} />)
 
-    expect(screen.getByText(/Run an analysis/)).toBeInTheDocument()
+    expect(screen.getByText(/Complete your model to see recommendations/)).toBeInTheDocument()
   })
 
   it('calls onFocusNode when option clicked', () => {
@@ -174,7 +182,7 @@ describe('RecommendationSection', () => {
   it('renders natural language outcome description', () => {
     render(<RecommendationSection data={mockData} />)
 
-    // p50 = 0.58 > 0.5 → "Likely a strong positive outcome"
+    // p50 = 58 > 50 → "Likely a strong positive outcome"
     expect(screen.getByText(/Likely a strong positive outcome/)).toBeInTheDocument()
   })
 
@@ -183,7 +191,9 @@ describe('RecommendationSection', () => {
       ...mockData,
       recommendedOption: {
         ...mockData.recommendedOption!,
-        p50: 0.35,
+        p10: 15,
+        p50: 35,
+        p90: 55,
       },
     }
 
@@ -197,21 +207,23 @@ describe('RecommendationSection', () => {
   // =========================================================================
 
   describe('Range Bar Validity', () => {
-    it('should handle expected outside initial bounds by reordering', () => {
-      // p10=-22%, p50=114%, p90=24% → should reorder to -22%, 24%, 114%
-      const reorderData: RecommendationSectionData = {
+    it('should display extreme values correctly (negative and >100%)', () => {
+      // Test that component handles extreme percentile values without breaking
+      // NOTE: Data layer (useResultsSectionData.normalizePercentiles) ensures p10 < p50 < p90
+      // This test uses pre-sorted data as it would arrive from the data layer
+      const extremeData: RecommendationSectionData = {
         ...mockData,
         recommendedOption: {
           ...mockData.recommendedOption!,
-          p10: -0.22,
-          p50: 1.14,
-          p90: 0.24,
+          p10: -22,   // Negative outcome possible
+          p50: 24,    // Expected outcome
+          p90: 114,   // >100% improvement possible
         },
       }
 
-      render(<RecommendationSection data={reorderData} />)
+      render(<RecommendationSection data={extremeData} />)
 
-      // After reorder: worse=-22%, expected=24%, better=114%
+      // Component displays: Worse=-22%, Expected=24%, Better=114%
       expect(screen.getByText('-22%')).toBeInTheDocument()
       expect(screen.getByText('24%')).toBeInTheDocument()
       expect(screen.getByText('114%')).toBeInTheDocument()
@@ -222,9 +234,9 @@ describe('RecommendationSection', () => {
         ...mockData,
         recommendedOption: {
           ...mockData.recommendedOption!,
-          p10: -0.30,
-          p50: -0.10,
-          p90: 0.20,
+          p10: -30,
+          p50: -10,
+          p90: 20,
         },
       }
 
@@ -236,13 +248,14 @@ describe('RecommendationSection', () => {
     })
 
     it('should handle >100% values correctly', () => {
+      // Values > 100 can occur in improvement scenarios
       const highData: RecommendationSectionData = {
         ...mockData,
         recommendedOption: {
           ...mockData.recommendedOption!,
-          p10: 0.50,
-          p50: 1.50,
-          p90: 2.00,
+          p10: 50,
+          p50: 150,
+          p90: 200,
         },
       }
 
@@ -254,14 +267,14 @@ describe('RecommendationSection', () => {
     })
 
     it('should show expected-only fallback when p10/p90 missing', () => {
-      // Simulate missing bounds by setting them to 0 with null-like behavior
+      // Simulate missing bounds
       // Note: In practice, useResultsSectionData normalizes these
       const expectedOnlyData: RecommendationSectionData = {
         ...mockData,
         recommendedOption: {
           ...mockData.recommendedOption!,
           p10: null as unknown as number,
-          p50: 0.65,
+          p50: 65,
           p90: null as unknown as number,
         },
       }
@@ -285,26 +298,32 @@ describe('RecommendationSection', () => {
           {
             id: 'opt-a',
             label: 'Option A',
-            p10: 0.20,
-            p50: 0.30,
-            p90: 0.40,
+            p10: 20,
+            p50: 30,
+            p90: 40,
+            expected: 30,
+            outcome: { mean: 30, p10: 20, p50: 30, p90: 40 },
             isRecommended: false,
           },
           {
             id: 'opt-b',
             label: 'Option B',
-            p10: 0.40,
-            p50: 0.55,
-            p90: 0.70,
+            p10: 40,
+            p50: 55,
+            p90: 70,
+            expected: 55,
+            outcome: { mean: 55, p10: 40, p50: 55, p90: 70 },
             isRecommended: true,
           },
         ],
         recommendedOption: {
           id: 'opt-b',
           label: 'Option B',
-          p10: 0.40,
-          p50: 0.55,
-          p90: 0.70,
+          p10: 40,
+          p50: 55,
+          p90: 70,
+          expected: 55,
+          outcome: { mean: 55, p10: 40, p50: 55, p90: 70 },
           isRecommended: true,
         },
         isSingleOption: false,
@@ -325,26 +344,32 @@ describe('RecommendationSection', () => {
           {
             id: 'opt-a',
             label: 'Option A',
-            p10: 0.20,
-            p50: 0.30,
-            p90: 0.40,
+            p10: 20,
+            p50: 30,
+            p90: 40,
+            expected: 30,
+            outcome: { mean: 30, p10: 20, p50: 30, p90: 40 },
             isRecommended: true,  // Backend marked this as recommended
           },
           {
             id: 'opt-b',
             label: 'Option B',
-            p10: 0.40,
-            p50: 0.55,  // Higher p50 but NOT recommended
-            p90: 0.70,
+            p10: 40,
+            p50: 55,  // Higher p50 but NOT recommended
+            p90: 70,
+            expected: 55,
+            outcome: { mean: 55, p10: 40, p50: 55, p90: 70 },
             isRecommended: false,
           },
         ],
         recommendedOption: {
           id: 'opt-a',
           label: 'Option A',
-          p10: 0.20,
-          p50: 0.30,
-          p90: 0.40,
+          p10: 20,
+          p50: 30,
+          p90: 40,
+          expected: 30,
+          outcome: { mean: 30, p10: 20, p50: 30, p90: 40 },
           isRecommended: true,
         },
         isSingleOption: false,
@@ -372,9 +397,10 @@ describe('RecommendationSection', () => {
         ...mockData,
         recommendedOption: {
           ...mockData.recommendedOption!,
-          p10: 0.15,
-          p50: 0.42,
-          p90: 0.67,
+          p10: 15,
+          p50: 42,
+          p90: 67,
+          expected: 42,
         },
       }
 

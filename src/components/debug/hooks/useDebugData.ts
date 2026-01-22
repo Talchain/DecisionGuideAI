@@ -66,6 +66,7 @@ export interface LlmMetadataData {
   /** LLM call duration in milliseconds */
   duration_ms?: number
   prompt_version?: string
+  prompt_hash?: string
   token_usage?: {
     prompt_tokens?: number
     completion_tokens?: number

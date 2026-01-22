@@ -486,6 +486,8 @@ export function DebugPanel() {
             onClose={() => setCollapsed(true)}
             width={panelWidth}
             height={panelHeightValue ?? undefined}
+            expanded={expanded}
+            onToggleExpanded={() => setExpanded((prev) => !prev)}
           />
 
           {/* Resize handles for bottom-left anchored panel */}

@@ -334,6 +334,18 @@ export function useGraphReadiness() {
           return
         }
 
+        // Handle 404 (endpoint not available) silently - use local fallback
+        // This happens when CEE orchestrator is disabled or endpoint doesn't exist
+        if (response.status === 404) {
+          if (import.meta.env.DEV) {
+            console.info('[useGraphReadiness] CEE graph-readiness endpoint not available (404), using local validation')
+          }
+          const fallback = calculateFallbackReadiness(currentNodes, currentEdges, graphHealth)
+          setReadiness(fallback)
+          setLoading(false)
+          return
+        }
+
         console.error('[useGraphReadiness] CEE error response:', {
           status: response.status,
           statusText: response.statusText,

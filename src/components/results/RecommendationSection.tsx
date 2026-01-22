@@ -13,9 +13,10 @@
  */
 
 import { useCallback } from 'react'
-import type { RecommendationSectionData, OptionResult } from './types'
+import type { RecommendationSectionData, OptionResult, OutcomeUnitType } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
+import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
 
 interface RecommendationSectionProps {
   data: RecommendationSectionData
@@ -37,21 +38,39 @@ function formatPercent(value: number): string {
 }
 
 /**
- * Format an outcome value (already in percentage form) for display.
- * Does NOT multiply by 100 — ISL returns outcome values in user units (percentage form).
- * Use for expected, p10, p50, p90, outcome.mean.
- * @param value - Outcome value in percentage form (e.g., 10.42 = 10.42%)
- * @returns Formatted string (e.g., "10%") or "—" for null/undefined/NaN
+ * Format an outcome value for display based on the goal's unit type.
+ * Issue 5 fix: Uses formatOutcomeValue from lib/format for proper unit handling.
+ *
+ * Smart rounding:
+ * - Small display values (<1): 1 decimal to preserve precision (e.g., "0.5%")
+ * - Larger display values: 0 decimals for cleaner display (e.g., "58%")
+ *
+ * For percent unit with probability input (0-1), the display value is multiplied by 100,
+ * so we calculate decimals based on the POST-multiplication value.
+ *
+ * @param value - Outcome value (meaning depends on unit type)
+ * @param unit - Unit type: 'currency', 'percent', or 'count' (default: 'percent')
+ * @param symbol - Currency symbol for currency units (e.g., '$', '£')
+ * @returns Formatted string with appropriate suffix/prefix
  */
-function formatOutcome(value: number | null | undefined): string {
+function formatOutcome(
+  value: number | null | undefined,
+  unit: OutcomeUnitType = 'percent',
+  symbol?: string
+): string {
   if (value == null || !Number.isFinite(value)) {
     return '—'
   }
-  // For values < 1% absolute, show one decimal to preserve small values
-  if (Math.abs(value) < 1 && value !== 0) {
-    return `${value.toFixed(1)}%`
-  }
-  return `${Math.round(value)}%`
+
+  // Calculate the final display value to determine decimals
+  // For percent: 0-1 values are multiplied by 100 by formatOutcomeValue
+  const isProbability = unit === 'percent' && value >= 0 && value <= 1
+  const displayValue = isProbability ? value * 100 : value
+
+  // Smart decimals: 1 for small display values, 0 for larger ones
+  const decimals = Math.abs(displayValue) < 1 && displayValue !== 0 ? 1 : 0
+
+  return formatOutcomeValue(value, unit as OutcomeUnits, symbol, { decimals })
 }
 
 /**
@@ -117,7 +136,19 @@ function validateRange(
  * Range bar component showing p10, p50, p90 distribution.
  * Handles negative values, >100% values, and dynamic domain.
  */
-function RangeBar({ p10, p50, p90 }: { p10: number | null; p50: number | null; p90: number | null }) {
+function RangeBar({
+  p10,
+  p50,
+  p90,
+  outcomeUnit = 'percent',
+  outcomeUnitSymbol,
+}: {
+  p10: number | null
+  p50: number | null
+  p90: number | null
+  outcomeUnit?: OutcomeUnitType
+  outcomeUnitSymbol?: string
+}) {
   // Validate and fix range values
   const rangeData = validateRange(p10, p50, p90)
 
@@ -138,7 +169,7 @@ function RangeBar({ p10, p50, p90 }: { p10: number | null; p50: number | null; p
           <div className="text-center">
             <span className="text-xs text-slate-500">Expected</span>
             <span className="block text-lg font-semibold text-emerald-700">
-              {formatOutcome(rangeData.expected)}
+              {formatOutcome(rangeData.expected, outcomeUnit, outcomeUnitSymbol)}
             </span>
           </div>
         </div>
@@ -188,9 +219,9 @@ function RangeBar({ p10, p50, p90 }: { p10: number | null; p50: number | null; p
 
       {/* Value labels */}
       <div className="flex justify-between text-xs text-slate-600 mt-2 font-mono">
-        <span>{formatOutcome(worse)}</span>
-        <span className="font-semibold text-emerald-700">{formatOutcome(expected)}</span>
-        <span>{formatOutcome(better)}</span>
+        <span>{formatOutcome(worse, outcomeUnit, outcomeUnitSymbol)}</span>
+        <span className="font-semibold text-emerald-700">{formatOutcome(expected, outcomeUnit, outcomeUnitSymbol)}</span>
+        <span>{formatOutcome(better, outcomeUnit, outcomeUnitSymbol)}</span>
       </div>
     </div>
   )
@@ -199,9 +230,13 @@ function RangeBar({ p10, p50, p90 }: { p10: number | null; p50: number | null; p
 function OptionRow({
   option,
   onFocus,
+  outcomeUnit = 'percent',
+  outcomeUnitSymbol,
 }: {
   option: OptionResult
   onFocus?: (nodeId: string) => void
+  outcomeUnit?: OutcomeUnitType
+  outcomeUnitSymbol?: string
 }) {
   const handleClick = useCallback(() => {
     if (onFocus) {
@@ -251,7 +286,7 @@ function OptionRow({
           ? '—'
           : displaySuffix === 'chance'
             ? `${formatPercent(displayValue)} ${displaySuffix}`
-            : `${formatOutcome(displayValue)} ${displaySuffix}`}
+            : `${formatOutcome(displayValue, outcomeUnit, outcomeUnitSymbol)} ${displaySuffix}`}
       </span>
     </button>
   )
@@ -261,7 +296,16 @@ export function RecommendationSection({
   data,
   onFocusNode,
 }: RecommendationSectionProps) {
-  const { recommendedOption, allOptions, isSingleOption, analysisStatus, statusReason } = data
+  const {
+    recommendedOption,
+    allOptions,
+    isSingleOption,
+    analysisStatus,
+    statusReason,
+    // Issue 5 fix: Extract unit for proper outcome formatting
+    outcomeUnit = 'percent',
+    outcomeUnitSymbol,
+  } = data
 
   // Error state
   if (analysisStatus === 'failed' || analysisStatus === 'blocked') {
@@ -312,7 +356,7 @@ export function RecommendationSection({
           <span className="text-sm text-emerald-700">Best estimate:</span>
           <span className="text-lg font-semibold text-emerald-900 ml-2">
             {expectedValue != null
-              ? `~${formatOutcome(expectedValue)} improvement`
+              ? `~${formatOutcome(expectedValue, outcomeUnit, outcomeUnitSymbol)} improvement`
               : hasGoalProbability
                 ? `${formatPercent(recommendedOption.goalProbability as number)} chance of reaching goal`
                 : EMPTY_STATES.rangeData}
@@ -332,6 +376,8 @@ export function RecommendationSection({
             p10={recommendedOption.p10}
             p50={recommendedOption.p50}
             p90={recommendedOption.p90}
+            outcomeUnit={outcomeUnit}
+            outcomeUnitSymbol={outcomeUnitSymbol}
           />
         )}
       </div>
@@ -346,6 +392,8 @@ export function RecommendationSection({
                 key={option.id}
                 option={option}
                 onFocus={onFocusNode}
+                outcomeUnit={outcomeUnit}
+                outcomeUnitSymbol={outcomeUnitSymbol}
               />
             ))}
           </div>

@@ -157,6 +157,12 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
     ? (String(typed.direction).toLowerCase() === 'negative' ? 'negative' : 'positive')
     : elasticity >= 0 ? 'positive' : 'negative'
 
+  // ISL influence_score (0-1) - structural causal influence
+  const influenceScore = typeof typed.influence_score === 'number' ? typed.influence_score : undefined
+
+  // ISL zero_reason - explains why sensitivity is zero for intervention factors
+  const zeroReason = typed.zero_reason as UiFactorSensitivity['zeroReason']
+
   return {
     factorId: rawId ?? label,
     label,
@@ -164,6 +170,8 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
     direction,
     confidence,
     importanceRank: typeof typed.importance_rank === 'number' ? typed.importance_rank : 0,
+    influenceScore,
+    zeroReason,
   }
 }
 
@@ -598,6 +606,31 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
   const goalNodeId = goalNode?.id
 
+  // Extract outcome unit from goal node for proper formatting (Issue 5 fix)
+  // The goal node's observed_state.unit tells us whether values are currency, percent, or count
+  const { outcomeUnit, outcomeUnitSymbol } = useMemo(() => {
+    const observedState = (goalNode?.data as any)?.observedState ?? (goalNode?.data as any)?.observed_state
+    const rawUnit = observedState?.unit
+
+    if (!rawUnit) return { outcomeUnit: undefined, outcomeUnitSymbol: undefined }
+
+    const unitLower = String(rawUnit).toLowerCase()
+
+    // Percentage variants
+    if (unitLower === '%' || unitLower === 'percent' || unitLower === 'percentage') {
+      return { outcomeUnit: 'percent' as const, outcomeUnitSymbol: undefined }
+    }
+
+    // Currency variants - detect symbol and normalize
+    if (['$', '£', '€', 'usd', 'gbp', 'eur', 'dollar', 'pound', 'euro'].some(c => unitLower.includes(c))) {
+      const symbol = String(rawUnit).match(/[$£€]/)?.[0] ?? '$'
+      return { outcomeUnit: 'currency' as const, outcomeUnitSymbol: symbol }
+    }
+
+    // Default to count for numeric units (users, items, etc.)
+    return { outcomeUnit: 'count' as const, outcomeUnitSymbol: undefined }
+  }, [goalNode])
+
   const nodeLabelMap = useMemo(() => {
     const map = new Map<string, string>()
     nodes.forEach((node) => {
@@ -723,8 +756,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       goalNodeId,
       isSingleOption: allOptions.length <= 1,
       analysisStatus: 'computed',
+      // Issue 5 fix: Pass through unit for proper outcome formatting
+      outcomeUnit,
+      outcomeUnitSymbol,
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
@@ -950,6 +986,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           factorLabel: displayLabel,
           rawElasticity: f.rawElasticity,
           normalisedInfluence,
+          // ISL influence_score (0-1) - use directly for Influence column
+          influenceScore: f.raw.influenceScore,
+          // ISL zero_reason - explains why sensitivity is zero
+          zeroReason: f.raw.zeroReason,
           rank,
           direction,
           semanticLabel,
@@ -1091,6 +1131,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const nonEmptyLabel = (value: unknown) =>
       typeof value === 'string' && value.trim().length > 0 ? value : undefined
     const getNodeLabel = (id: string | undefined) => (id ? nodeLabelMap.get(id) : undefined)
+
+    // P2 Fix: Build option label lookup from report.option_comparison
+    // This provides an additional fallback when PLoT doesn't enrich alternative_winner_label
+    // and the canvas node lookup fails
+    const optionComparison = safeArray((report as any)?.option_comparison)
+    const optionLabelMap = new Map<string, string>()
+    optionComparison.forEach((opt: any) => {
+      const optId = opt?.option_id
+      const optLabel = opt?.option_label
+      if (typeof optId === 'string' && typeof optLabel === 'string' && optLabel.trim()) {
+        optionLabelMap.set(optId, optLabel)
+      }
+    })
+    const getOptionLabel = (id: string | undefined) => (id ? optionLabelMap.get(id) : undefined)
     const parseEdgeId = (edgeId: string | undefined) => {
       if (!edgeId) return {}
       const parts = edgeId.split('::')
@@ -1157,11 +1211,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         'the outcome'
 
       // Schema v2.6: Use alternative_winner_label directly
+      // Fallback chain: PLoT enrichment → canvas node → report option_comparison → cleaned ID → default
+      const altWinnerId = fe.alternative_winner_id ?? fe.alternativeWinnerId
       const alternativeWinnerLabel =
         nonEmptyLabel(fe.alternative_winner_label) ??
         nonEmptyLabel(fe.alternativeWinnerLabel) ??
         nonEmptyLabel(fe.alternativeWinner) ??
-        getNodeLabel(fe.alternative_winner_id ?? fe.alternativeWinnerId) ??
+        getNodeLabel(altWinnerId) ??
+        getOptionLabel(altWinnerId) ??
+        cleanId(altWinnerId) ??
         'another option'
 
       if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG) {
