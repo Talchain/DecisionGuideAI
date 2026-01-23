@@ -700,3 +700,127 @@ describe('fragile edge filtering', () => {
     expect(filtered).toHaveLength(0)
   })
 })
+
+// =============================================================================
+// 10. Marginal Switch Probability Fallback Tests
+// =============================================================================
+
+describe('marginal_switch_probability fallback', () => {
+  // Helper that mirrors the actual filtering logic in useResultsSectionData
+  const getFlipProb = (fe: any) => fe.marginal_switch_probability ?? fe.switch_probability
+
+  const filterEdges = (edges: any[]) =>
+    edges.filter((fe) => {
+      const flipProb = getFlipProb(fe)
+      if (typeof flipProb === 'number') {
+        return flipProb > 0.3
+      }
+      return true // Include if no probability data (legacy)
+    })
+
+  const sortEdges = (edges: any[]) =>
+    [...edges].sort((a, b) => {
+      const bProb = getFlipProb(b) ?? -Infinity
+      const aProb = getFlipProb(a) ?? -Infinity
+      return bProb - aProb
+    })
+
+  it('uses marginal_switch_probability when present for filtering', () => {
+    // Edge with high marginal but low joint - should be INCLUDED (marginal > 0.3)
+    const highMarginalEdge = {
+      source: 'a',
+      target: 'b',
+      marginal_switch_probability: 0.5,
+      switch_probability: 0.1,
+    }
+    // Edge with low marginal but high joint - should be EXCLUDED (marginal <= 0.3)
+    const lowMarginalEdge = {
+      source: 'c',
+      target: 'd',
+      marginal_switch_probability: 0.2,
+      switch_probability: 0.8,
+    }
+
+    const filtered = filterEdges([highMarginalEdge, lowMarginalEdge])
+
+    expect(filtered).toHaveLength(1)
+    expect(filtered[0]).toBe(highMarginalEdge)
+  })
+
+  it('falls back to switch_probability when marginal is undefined', () => {
+    // Edge with only switch_probability (no marginal)
+    const jointOnlyEdge = { source: 'a', target: 'b', switch_probability: 0.5 }
+    // Edge with marginal present
+    const marginalEdge = {
+      source: 'c',
+      target: 'd',
+      marginal_switch_probability: 0.4,
+      switch_probability: 0.1,
+    }
+
+    const filtered = filterEdges([jointOnlyEdge, marginalEdge])
+
+    expect(filtered).toHaveLength(2) // Both > 0.3
+  })
+
+  it('uses marginal_switch_probability for sorting when present', () => {
+    const edges = [
+      { source: 'a', target: 'b', marginal_switch_probability: 0.3, switch_probability: 0.9 },
+      { source: 'c', target: 'd', marginal_switch_probability: 0.7, switch_probability: 0.1 },
+      { source: 'e', target: 'f', switch_probability: 0.5 }, // No marginal, uses joint
+    ]
+
+    const sorted = sortEdges(edges)
+
+    // Should be sorted by effective probability: 0.7 (marginal), 0.5 (joint fallback), 0.3 (marginal)
+    expect(sorted[0].marginal_switch_probability).toBe(0.7)
+    expect(sorted[1].switch_probability).toBe(0.5)
+    expect(sorted[2].marginal_switch_probability).toBe(0.3)
+  })
+
+  it('handles edge with marginal_switch_probability of 0 correctly', () => {
+    // marginal = 0 is a valid value (means no flip risk), not a fallback trigger
+    const zeroMarginalEdge = {
+      source: 'a',
+      target: 'b',
+      marginal_switch_probability: 0,
+      switch_probability: 0.8,
+    }
+
+    const filtered = filterEdges([zeroMarginalEdge])
+
+    // Should be filtered out because marginal (0) <= 0.3, NOT use joint (0.8)
+    expect(filtered).toHaveLength(0)
+  })
+
+  it('severity derivation uses marginal when present', () => {
+    // Helper that mirrors severity logic in useResultsSectionData
+    const deriveSeverity = (fe: any): 'blocker' | 'error' | 'warning' => {
+      const flipProbability = fe.marginal_switch_probability ?? fe.switch_probability
+      if (typeof flipProbability === 'number') {
+        if (flipProbability > 0.7) return 'blocker'
+        if (flipProbability > 0.5) return 'error'
+      }
+      return 'warning'
+    }
+
+    // High marginal (blocker) with low joint
+    const blockerEdge = {
+      marginal_switch_probability: 0.8,
+      switch_probability: 0.2,
+    }
+    // Medium marginal (error) with high joint
+    const errorEdge = {
+      marginal_switch_probability: 0.6,
+      switch_probability: 0.9,
+    }
+    // No marginal, falls back to joint (blocker)
+    const fallbackEdge = {
+      switch_probability: 0.75,
+    }
+
+    expect(deriveSeverity(blockerEdge)).toBe('blocker')
+    expect(deriveSeverity(errorEdge)).toBe('error')
+    expect(deriveSeverity(fallbackEdge)).toBe('blocker')
+  })
+})
