@@ -125,7 +125,8 @@ function deriveAnalysisStatus(data: DebugData): { status: KpiStatus; label: stri
 }
 
 function countIssues(gates: DebugData['gates']): number {
-  return gates.filter((g) => g.status === 'fail' || g.status === 'warn').length
+  // Only count 'fail' status as issues - 'warn' is for UI demotion, not blocking issues
+  return gates.filter((g) => g.status === 'fail').length
 }
 
 export function SummaryTab({
@@ -510,23 +511,9 @@ export function SummaryTab({
               tooltipParts.push(`Instance: ${diagnostics.instance_id}`)
             }
             return (
-              <span
-                title={tooltipParts.join('\n')}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  maxWidth: 220,
-                }}
-              >
-                <strong style={{ color: '#1e293b', flexShrink: 0 }}>Prompt:</strong>
-                <span style={{
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {data.pipeline.llm_metadata.prompt_version}
-                </span>
+              <span title={tooltipParts.join('\n')}>
+                <strong style={{ color: '#1e293b' }}>Prompt:</strong>{' '}
+                {data.pipeline.llm_metadata.prompt_version}
               </span>
             )
           })()}
