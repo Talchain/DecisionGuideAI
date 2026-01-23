@@ -890,7 +890,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     fragileEdgesRaw.forEach((fe: any) => {
       const fromId = fe.from_id ?? fe.fromId ?? fe.source
       if (fromId) {
-        const newProb = typeof fe.switch_probability === 'number' ? fe.switch_probability : undefined
+        // Use marginal_switch_probability when available, fall back to switch_probability
+        const newProb = typeof fe.marginal_switch_probability === 'number'
+          ? fe.marginal_switch_probability
+          : typeof fe.switch_probability === 'number'
+            ? fe.switch_probability
+            : undefined
         const existing = fragileEdgesMap.get(fromId)
         const existingProb = existing?.switchProbability
 
@@ -1116,15 +1121,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       ).values()
     )
       .filter((fe: any) => {
-        // If switch_probability exists, only show high-risk edges (> 0.3 means likely to flip)
-        // ISL switch_probability = P(alternative wins | edge weak) — higher = more likely to flip
-        if (typeof fe.switch_probability === 'number') {
-          return fe.switch_probability > 0.3
+        // Use marginal_switch_probability when available, fall back to switch_probability
+        // ISL marginal = P(alternative wins | only this edge weak) — more precise for single-edge risk
+        const flipProb = fe.marginal_switch_probability ?? fe.switch_probability
+        if (typeof flipProb === 'number') {
+          return flipProb > 0.3
         }
-        // If no switch_probability, include by default (legacy data)
+        // If no probability data, include by default (legacy data)
         return true
       })
-      .sort((a: any, b: any) => (b.switch_probability ?? -Infinity) - (a.switch_probability ?? -Infinity))
+      .sort((a: any, b: any) => {
+        const bProb = b.marginal_switch_probability ?? b.switch_probability ?? -Infinity
+        const aProb = a.marginal_switch_probability ?? a.switch_probability ?? -Infinity
+        return bProb - aProb
+      })
       .slice(0, 3)
     const cleanId = (id: string | undefined) =>
       id?.replace(/^(fac_|out_|goal_|risk_|opt_)/, '').replace(/_/g, ' ')
@@ -1239,14 +1249,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const friendlyMessage = fe.description ||
         `If "${edgeLabel}" changes significantly, "${alternativeWinnerLabel}" could become the better choice`
 
-      // P2 Fix: Derive severity from switch_probability
-      // ISL switch_probability = P(alternative wins | edge weak) — higher = more likely to flip
+      // P2 Fix: Derive severity from flip probability
+      // Use marginal_switch_probability when available (more precise single-edge risk)
       // > 0.7 = very likely to flip = blocker; > 0.5 = likely = error; > 0.3 = possible = warning
       let severity: 'blocker' | 'error' | 'warning' = 'warning'
-      if (typeof fe.switch_probability === 'number') {
-        if (fe.switch_probability > 0.7) {
+      const flipProbability = fe.marginal_switch_probability ?? fe.switch_probability
+      if (typeof flipProbability === 'number') {
+        if (flipProbability > 0.7) {
           severity = 'blocker'
-        } else if (fe.switch_probability > 0.5) {
+        } else if (flipProbability > 0.5) {
           severity = 'error'
         }
       }
