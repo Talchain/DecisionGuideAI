@@ -181,10 +181,10 @@ Environment: ${environment}
 ## Data Redaction Notice
 
 Payloads are REDACTED at capture time:
-- Long strings truncated to 500 characters
-- Arrays capped to 30 items
+- Long strings truncated to 1000 characters
+- Arrays capped to 100 items
 - Sensitive keys (password, token, secret, apiKey) masked
-- Object depth limited to 3 levels
+- Object depth limited to 8 levels
 
 Despite redaction, payloads may still contain decision content
 (factor names, option labels, goal descriptions).
@@ -262,7 +262,7 @@ function transformGraphData(graphData: FullGraphData): NonNullable<DebugBundle['
  * Minimum array size threshold for reporting truncation in export metadata.
  * Only report truncation_applied when arrays had more items than this limit.
  */
-const TRUNCATION_REPORT_THRESHOLD = 30
+const TRUNCATION_REPORT_THRESHOLD = 100
 
 /**
  * Recursively check if any value was truncated with totalCount exceeding the threshold.
@@ -328,13 +328,13 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       environment: getEnvironment(),
       redaction: {
         enabled: true,
-        max_string_length: 500,
-        max_array_items: 30,
-        max_depth: 3,
+        max_string_length: 1000,
+        max_array_items: 100,
+        max_depth: 8,
       },
       ...(truncationApplied && {
         truncation_applied: true,
-        truncation_message: 'Large graph — arrays capped at 30 items',
+        truncation_message: 'Large graph — arrays capped at 100 items',
       }),
     },
     diagnostic: {

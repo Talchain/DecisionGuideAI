@@ -9,6 +9,43 @@
  * - Extract ISL data from PLoT downstream_calls
  * - Normalize pipeline stages and metadata
  * - Provide raw payloads for inspection
+ *
+ * =============================================================================
+ * CANONICAL DATA PATHS
+ * =============================================================================
+ *
+ * Service Status:
+ * - services.cee   → tracedPayloads['CEE'].status/response
+ * - services.plot  → tracedPayloads['PLoT'].status/response
+ * - services.isl   → PRIORITY: plot_response.downstream_calls.isl[0] > tracedPayloads['ISL']
+ *                    (downstream_calls reflects actual ISL call via PLoT orchestration)
+ *
+ * Payloads:
+ * - payloads.cee_request   → tracedPayloads['CEE'].request.body
+ * - payloads.cee_response  → tracedPayloads['CEE'].response.body
+ * - payloads.plot_request  → tracedPayloads['PLoT'].request.body
+ * - payloads.plot_response → tracedPayloads['PLoT'].response.body
+ * - payloads.isl_request   → derived from services.isl.request
+ * - payloads.isl_response  → derived from services.isl.response
+ *
+ * LLM Metadata:
+ * - pipeline.llm_metadata.model          → cee_response.trace.pipeline.llm_metadata.model
+ * - pipeline.llm_metadata.prompt_version → cee_response.trace.pipeline.llm_metadata.prompt_version
+ * - pipeline.llm_metadata.prompt_hash    → cee_response.trace.pipeline.llm_metadata.prompt_hash
+ * - pipeline.llm_metadata.prompt_diagnostics → cee_response.trace.prompt_diagnostics OR .meta.prompt_diagnostics
+ *   - instance_id, cache_age_ms, cache_status, use_staging_mode
+ *
+ * Build Versions:
+ * - builds.ui   → version-cache.getClientBuild()
+ * - builds.cee  → cee_response.trace.engine.version OR .build
+ * - builds.plot → plot_response.meta.build OR .trace.build
+ * - builds.isl  → isl_response._metadata.isl_version OR .version
+ *
+ * ISL Downstream Calls (from PLoT):
+ * - plot_response.downstream_calls.isl[0].status_code
+ * - plot_response.downstream_calls.isl[0].latency_ms (or elapsed_ms)
+ * - plot_response.downstream_calls.isl[0].request_payload (or request)
+ * - plot_response.downstream_calls.isl[0].response_payload (or response)
  */
 
 import { useMemo } from 'react'
@@ -71,6 +108,17 @@ export interface LlmMetadataData {
     prompt_tokens?: number
     completion_tokens?: number
     total_tokens?: number
+  }
+  /** CEE prompt management diagnostic fields */
+  prompt_diagnostics?: {
+    /** Prompt store instance ID */
+    instance_id?: string
+    /** Cache age in milliseconds */
+    cache_age_ms?: number
+    /** Cache status (hit/miss/stale) */
+    cache_status?: string
+    /** Whether staging mode is enabled */
+    use_staging_mode?: boolean
   }
 }
 
@@ -452,21 +500,56 @@ function payloadToServiceCall(payload: TracedPayload | undefined): ServiceCallDa
 }
 
 /**
+ * Extract prompt diagnostics from CEE response
+ * Checks multiple paths where CEE might place diagnostic fields
+ */
+function extractPromptDiagnostics(ceeResponse: unknown): LlmMetadataData['prompt_diagnostics'] | undefined {
+  if (!ceeResponse || typeof ceeResponse !== 'object') return undefined
+
+  const cee = ceeResponse as Record<string, unknown>
+  const trace = cee.trace as Record<string, unknown> | undefined
+  const meta = cee.meta as Record<string, unknown> | undefined
+
+  // Check multiple paths for prompt diagnostics
+  const diagnostics =
+    trace?.prompt_diagnostics ??
+    meta?.prompt_diagnostics ??
+    cee.prompt_diagnostics ??
+    // Also check for individual fields at common locations
+    (trace?.instance_id || trace?.cache_status ? trace : undefined) ??
+    (meta?.instance_id || meta?.cache_status ? meta : undefined)
+
+  if (!diagnostics || typeof diagnostics !== 'object') return undefined
+
+  const d = diagnostics as Record<string, unknown>
+  return {
+    instance_id: d.instance_id as string | undefined,
+    cache_age_ms: d.cache_age_ms as number | undefined,
+    cache_status: d.cache_status as string | undefined,
+    use_staging_mode: d.use_staging_mode as boolean | undefined,
+  }
+}
+
+/**
  * Extract LLM metadata from pipeline trace
  */
-function extractLlmMetadata(pipeline: unknown): LlmMetadataData | undefined {
+function extractLlmMetadata(pipeline: unknown, ceeResponse?: unknown): LlmMetadataData | undefined {
   if (!pipeline || typeof pipeline !== 'object') return undefined
 
   const p = pipeline as Record<string, unknown>
 
   // Try llm_metadata directly
   if (p.llm_metadata && typeof p.llm_metadata === 'object') {
-    return p.llm_metadata as LlmMetadataData
+    const metadata = p.llm_metadata as LlmMetadataData
+    // Add prompt diagnostics from CEE response if available
+    const prompt_diagnostics = extractPromptDiagnostics(ceeResponse)
+    return prompt_diagnostics ? { ...metadata, prompt_diagnostics } : metadata
   }
 
   // Try llm_calls[0] fallback
   if (Array.isArray(p.llm_calls) && p.llm_calls.length > 0) {
     const firstCall = p.llm_calls[0] as Record<string, unknown>
+    const prompt_diagnostics = extractPromptDiagnostics(ceeResponse)
     return {
       model: firstCall.model as string | undefined,
       temperature: firstCall.temperature as number | undefined,
@@ -476,6 +559,7 @@ function extractLlmMetadata(pipeline: unknown): LlmMetadataData | undefined {
         completion_tokens: firstCall.completion_tokens as number | undefined,
         total_tokens: ((firstCall.prompt_tokens as number) ?? 0) + ((firstCall.completion_tokens as number) ?? 0),
       },
+      prompt_diagnostics,
     }
   }
 
@@ -1319,23 +1403,38 @@ export function useDebugData(): DebugData {
     // Determine ISL data source
     let islDataSource: 'downstream_calls' | 'direct_capture' | 'none' = 'none'
 
-    // Build ISL service call data
+    // Build ISL service call data from both sources
+    const directIslCall = islPayload ? payloadToServiceCall(islPayload) : null
+    const downstreamIslCall: ServiceCallData | null = islFromPlot ? {
+      name: 'ISL',
+      status: islFromPlot.status_code,
+      success: islFromPlot.success,
+      duration_ms: islFromPlot.latency_ms,
+      endpoint: islFromPlot.endpoint,
+      error: islFromPlot.error,
+      request: islFromPlot.request,
+      response: islFromPlot.response,
+    } : null
+
+    // Priority: downstream_calls (actual ISL call via PLoT) > direct_capture (probe/validation endpoint)
+    // This ensures we show the real ISL result, not any separate health check or probe
     let islServiceCall: ServiceCallData | null = null
-    if (islPayload) {
-      islServiceCall = payloadToServiceCall(islPayload)
-      islDataSource = 'direct_capture'
-    } else if (islFromPlot) {
-      islServiceCall = {
-        name: 'ISL',
-        status: islFromPlot.status_code,
-        success: islFromPlot.success,
-        duration_ms: islFromPlot.latency_ms,
-        endpoint: islFromPlot.endpoint,
-        error: islFromPlot.error,
-        request: islFromPlot.request,
-        response: islFromPlot.response,
-      }
+    if (downstreamIslCall?.success) {
+      // Prefer successful downstream_calls data (this is the actual analysis ISL call)
+      islServiceCall = downstreamIslCall
       islDataSource = 'downstream_calls'
+    } else if (directIslCall?.success) {
+      // Fall back to successful direct capture
+      islServiceCall = directIslCall
+      islDataSource = 'direct_capture'
+    } else if (downstreamIslCall) {
+      // Show failed downstream_calls (actual ISL error)
+      islServiceCall = downstreamIslCall
+      islDataSource = 'downstream_calls'
+    } else if (directIslCall) {
+      // Show failed direct capture as last resort
+      islServiceCall = directIslCall
+      islDataSource = 'direct_capture'
     }
 
     // Determine overall status
@@ -1458,7 +1557,7 @@ export function useDebugData(): DebugData {
           ? (pipelineTrace as Record<string, unknown>).total_duration_ms as number
           : undefined,
         stages: extractPipelineStages(pipelineTrace),
-        llm_metadata: extractLlmMetadata(pipelineTrace),
+        llm_metadata: extractLlmMetadata(pipelineTrace, payloadBundle.cee_response),
         llm_raw: extractLlmRaw(payloadBundle.cee_response),
         node_extraction: extractNodeExtraction(pipelineTrace),
         connectivity: {

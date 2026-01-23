@@ -494,26 +494,42 @@ export function SummaryTab({
             <strong style={{ color: '#1e293b' }}>Model:</strong>{' '}
             {data.pipeline.llm_metadata?.model ?? '—'}
           </span>
-          {data.pipeline.llm_metadata?.prompt_version && (
-            <span
-              title={`${data.pipeline.llm_metadata.prompt_version}${data.pipeline.llm_metadata.prompt_hash ? `\nHash: ${data.pipeline.llm_metadata.prompt_hash}` : ''}`}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                maxWidth: 220,
-              }}
-            >
-              <strong style={{ color: '#1e293b', flexShrink: 0 }}>Prompt:</strong>
-              <span style={{
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
-                {data.pipeline.llm_metadata.prompt_version}
+          {data.pipeline.llm_metadata?.prompt_version && (() => {
+            const diagnostics = data.pipeline.llm_metadata.prompt_diagnostics
+            const tooltipParts = [data.pipeline.llm_metadata.prompt_version]
+            if (data.pipeline.llm_metadata.prompt_hash) {
+              tooltipParts.push(`Hash: ${data.pipeline.llm_metadata.prompt_hash}`)
+            }
+            if (diagnostics?.cache_status) {
+              tooltipParts.push(`Cache: ${diagnostics.cache_status}${diagnostics.cache_age_ms != null ? ` (${diagnostics.cache_age_ms}ms)` : ''}`)
+            }
+            if (diagnostics?.use_staging_mode != null) {
+              tooltipParts.push(`Staging: ${diagnostics.use_staging_mode ? 'yes' : 'no'}`)
+            }
+            if (diagnostics?.instance_id) {
+              tooltipParts.push(`Instance: ${diagnostics.instance_id}`)
+            }
+            return (
+              <span
+                title={tooltipParts.join('\n')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  maxWidth: 220,
+                }}
+              >
+                <strong style={{ color: '#1e293b', flexShrink: 0 }}>Prompt:</strong>
+                <span style={{
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}>
+                  {data.pipeline.llm_metadata.prompt_version}
+                </span>
               </span>
-            </span>
-          )}
+            )
+          })()}
           <span>
             <strong style={{ color: '#1e293b' }}>Tokens:</strong> {tokenDisplay}
           </span>
