@@ -34,6 +34,7 @@ import type {
   UiFactorSensitivity,
   EdgeForDirection,
   CritiqueSeverity,
+  FlipRiskCategory,
 } from './types'
 
 // =============================================================================
@@ -170,6 +171,14 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
       ? typed.valueOfInformation
       : undefined
 
+  // PLoT flip_risk_category - how this factor contributes to decision uncertainty
+  // Support both snake_case (from PLoT) and camelCase (from UI-side transforms)
+  const rawFlipRiskCategory = typed.flip_risk_category ?? typed.flipRiskCategory
+  const flipRiskCategory: FlipRiskCategory | undefined =
+    rawFlipRiskCategory === 'isolated' || rawFlipRiskCategory === 'correlated' || rawFlipRiskCategory === 'negligible'
+      ? rawFlipRiskCategory
+      : undefined
+
   return {
     factorId: rawId ?? label,
     label,
@@ -180,6 +189,7 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
     influenceScore,
     zeroReason,
     valueOfInformation,
+    flipRiskCategory,
   }
 }
 
@@ -1012,6 +1022,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           // ISL value_of_information (0-1) - whether investigation could change decision
           valueOfInformation: f.raw.valueOfInformation,
           fragileEdgeInfo,
+          // PLoT flip_risk_category - how this factor contributes to decision uncertainty
+          flipRiskCategory: f.raw.flipRiskCategory,
         }
       })
       .sort((a, b) => a.rank - b.rank) // Sort by rank

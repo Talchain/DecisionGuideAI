@@ -129,6 +129,8 @@ export interface DriverItem {
     /** Alternative option that would win if flipped */
     alternativeWinnerLabel?: string
   }
+  /** PLoT flip_risk_category - how this factor contributes to decision uncertainty */
+  flipRiskCategory?: FlipRiskCategory
 }
 
 export interface DriversSectionData {
@@ -225,6 +227,9 @@ export interface FocusCanvasEvent {
 /** ISL zero_reason codes - explains why influence is zero for intervention factors */
 export type ZeroReasonCode = 'intervention_override' | 'disconnected' | 'zero_outcome_diff' | null
 
+/** PLoT flip_risk_category - how a factor contributes to decision uncertainty */
+export type FlipRiskCategory = 'isolated' | 'correlated' | 'negligible'
+
 export interface RawFactorSensitivity {
   factor_id?: string
   node_id?: string
@@ -260,6 +265,8 @@ export interface UiFactorSensitivity {
   zeroReason?: ZeroReasonCode
   /** ISL value_of_information (0-1) - whether gathering more data could change the decision */
   valueOfInformation?: number
+  /** PLoT flip_risk_category - how this factor contributes to decision uncertainty */
+  flipRiskCategory?: FlipRiskCategory
 }
 
 // =============================================================================

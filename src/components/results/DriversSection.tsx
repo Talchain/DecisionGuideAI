@@ -112,9 +112,30 @@ function ExpandedDetails({
   const hasSpecificAlternative = typeof alternativeWinnerLabel === 'string'
     && alternativeWinnerLabel.trim().length > 0
     && alternativeWinnerLabel !== 'another option'
-  const flipRisk = driver.fragileEdgeInfo?.switchProbability !== undefined && hasSpecificAlternative
-    ? `${Math.round(driver.fragileEdgeInfo.switchProbability * 100)}% chance this could flip to "${alternativeWinnerLabel}"`
-    : null
+
+  // Flip risk display based on flip_risk_category
+  // - isolated: can flip decision alone → show percentage
+  // - correlated: contributes to joint risk → show qualitative message
+  // - negligible: unlikely to affect decision → no flip text
+  // - undefined (fallback): use existing marginal-based display for older PLoT versions
+  let flipRisk: string | null = null
+  if (driver.flipRiskCategory === 'isolated') {
+    // Show percentage for isolated factors (can flip decision alone)
+    if (driver.fragileEdgeInfo?.switchProbability !== undefined && hasSpecificAlternative) {
+      flipRisk = `${Math.round(driver.fragileEdgeInfo.switchProbability * 100)}% chance this could flip to "${alternativeWinnerLabel}"`
+    }
+  } else if (driver.flipRiskCategory === 'correlated') {
+    // Show qualitative message for correlated factors (contribute to joint risk)
+    flipRisk = 'May contribute to decision change under uncertainty'
+  } else if (driver.flipRiskCategory === 'negligible') {
+    // No flip text for negligible factors
+    flipRisk = null
+  } else {
+    // Fallback: use existing behavior when flip_risk_category is undefined (old PLoT)
+    if (driver.fragileEdgeInfo?.switchProbability !== undefined && hasSpecificAlternative) {
+      flipRisk = `${Math.round(driver.fragileEdgeInfo.switchProbability * 100)}% chance this could flip to "${alternativeWinnerLabel}"`
+    }
+  }
 
   // Show "Could benefit from more evidence" when VOI > 0.05 (investigation could change decision)
   // VOI = 0 means "even if you gather more data, the decision won't change"

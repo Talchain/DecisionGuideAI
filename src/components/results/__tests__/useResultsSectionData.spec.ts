@@ -876,3 +876,126 @@ describe('value_of_information warning trigger', () => {
     expect(shouldShowWarning(highConfidenceHighVoi)).toBe(true)
   })
 })
+
+// =============================================================================
+// 12. Flip Risk Category Display Tests
+// =============================================================================
+
+describe('flip_risk_category display logic', () => {
+  // Helper that mirrors the flip risk display logic in DriversSection.tsx
+  const getFlipRiskMessage = (driver: {
+    flipRiskCategory?: 'isolated' | 'correlated' | 'negligible'
+    fragileEdgeInfo?: {
+      switchProbability?: number
+      alternativeWinnerLabel?: string
+    }
+  }): string | null => {
+    const alternativeWinnerLabel = driver.fragileEdgeInfo?.alternativeWinnerLabel
+    const hasSpecificAlternative = typeof alternativeWinnerLabel === 'string'
+      && alternativeWinnerLabel.trim().length > 0
+      && alternativeWinnerLabel !== 'another option'
+
+    if (driver.flipRiskCategory === 'isolated') {
+      // Show percentage for isolated factors (can flip decision alone)
+      if (driver.fragileEdgeInfo?.switchProbability !== undefined && hasSpecificAlternative) {
+        return `${Math.round(driver.fragileEdgeInfo.switchProbability * 100)}% chance this could flip to "${alternativeWinnerLabel}"`
+      }
+      return null
+    } else if (driver.flipRiskCategory === 'correlated') {
+      // Show qualitative message for correlated factors (contribute to joint risk)
+      return 'May contribute to decision change under uncertainty'
+    } else if (driver.flipRiskCategory === 'negligible') {
+      // No flip text for negligible factors
+      return null
+    } else {
+      // Fallback: use existing behavior when flip_risk_category is undefined (old PLoT)
+      if (driver.fragileEdgeInfo?.switchProbability !== undefined && hasSpecificAlternative) {
+        return `${Math.round(driver.fragileEdgeInfo.switchProbability * 100)}% chance this could flip to "${alternativeWinnerLabel}"`
+      }
+      return null
+    }
+  }
+
+  it('isolated category shows percentage when fragile edge info available', () => {
+    const driver = {
+      flipRiskCategory: 'isolated' as const,
+      fragileEdgeInfo: {
+        switchProbability: 0.22,
+        alternativeWinnerLabel: 'Keep Pro at £49',
+      },
+    }
+    expect(getFlipRiskMessage(driver)).toBe('22% chance this could flip to "Keep Pro at £49"')
+  })
+
+  it('isolated category shows null when no fragile edge info', () => {
+    const driver = {
+      flipRiskCategory: 'isolated' as const,
+      fragileEdgeInfo: undefined,
+    }
+    expect(getFlipRiskMessage(driver)).toBeNull()
+  })
+
+  it('correlated category shows qualitative message (NOT percentage)', () => {
+    // This is the key fix: correlated factors should NOT show "0% chance..."
+    const driver = {
+      flipRiskCategory: 'correlated' as const,
+      fragileEdgeInfo: {
+        switchProbability: 0, // Would show "0% chance..." without the fix
+        alternativeWinnerLabel: 'Option B',
+      },
+    }
+    expect(getFlipRiskMessage(driver)).toBe('May contribute to decision change under uncertainty')
+    expect(getFlipRiskMessage(driver)).not.toContain('0%')
+  })
+
+  it('correlated category shows qualitative message even without fragile edge info', () => {
+    const driver = {
+      flipRiskCategory: 'correlated' as const,
+      fragileEdgeInfo: undefined,
+    }
+    expect(getFlipRiskMessage(driver)).toBe('May contribute to decision change under uncertainty')
+  })
+
+  it('negligible category shows no flip text', () => {
+    const driver = {
+      flipRiskCategory: 'negligible' as const,
+      fragileEdgeInfo: {
+        switchProbability: 0.05,
+        alternativeWinnerLabel: 'Option C',
+      },
+    }
+    expect(getFlipRiskMessage(driver)).toBeNull()
+  })
+
+  it('undefined category (old PLoT) falls back to percentage-based display', () => {
+    // When flip_risk_category is missing (old PLoT version), use existing behavior
+    const driver = {
+      flipRiskCategory: undefined,
+      fragileEdgeInfo: {
+        switchProbability: 0.35,
+        alternativeWinnerLabel: 'Alternative Option',
+      },
+    }
+    expect(getFlipRiskMessage(driver)).toBe('35% chance this could flip to "Alternative Option"')
+  })
+
+  it('undefined category with no fragile edge shows null', () => {
+    const driver = {
+      flipRiskCategory: undefined,
+      fragileEdgeInfo: undefined,
+    }
+    expect(getFlipRiskMessage(driver)).toBeNull()
+  })
+
+  it('ignores "another option" as alternative winner label', () => {
+    // Generic "another option" shouldn't trigger the flip risk message
+    const driver = {
+      flipRiskCategory: 'isolated' as const,
+      fragileEdgeInfo: {
+        switchProbability: 0.5,
+        alternativeWinnerLabel: 'another option',
+      },
+    }
+    expect(getFlipRiskMessage(driver)).toBeNull()
+  })
+})
