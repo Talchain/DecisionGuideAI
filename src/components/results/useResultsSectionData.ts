@@ -148,11 +148,10 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
         : typeof typed.sensitivity === 'number' ? typed.sensitivity
           : typeof typed.importance_score === 'number' ? typed.importance_score
             : 0
-  const confidence = typeof typed.value_of_information === 'number'
-    ? typed.value_of_information
-    : typeof typed.confidence === 'number'
-      ? typed.confidence
-      : null
+  // Confidence in factor's influence (0-1) - separate from value_of_information
+  const confidence = typeof typed.confidence === 'number'
+    ? typed.confidence
+    : null
   const direction = typed.direction
     ? (String(typed.direction).toLowerCase() === 'negative' ? 'negative' : 'positive')
     : elasticity >= 0 ? 'positive' : 'negative'
