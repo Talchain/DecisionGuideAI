@@ -824,3 +824,55 @@ describe('marginal_switch_probability fallback', () => {
     expect(deriveSeverity(fallbackEdge)).toBe('blocker')
   })
 })
+
+// =============================================================================
+// 11. Value of Information (VOI) Warning Tests
+// =============================================================================
+
+describe('value_of_information warning trigger', () => {
+  // Helper that mirrors the showQualityHint logic in DriversSection.tsx
+  // Warning shows when VOI > 0.05 (investigation could change decision)
+  const shouldShowWarning = (driver: { valueOfInformation?: number }) =>
+    typeof driver.valueOfInformation === 'number' && driver.valueOfInformation > 0.05
+
+  it('shows warning when VOI > 0.05 (investigation could change decision)', () => {
+    const driver = { valueOfInformation: 0.72 }
+    expect(shouldShowWarning(driver)).toBe(true)
+  })
+
+  it('shows warning at boundary VOI = 0.06', () => {
+    const driver = { valueOfInformation: 0.06 }
+    expect(shouldShowWarning(driver)).toBe(true)
+  })
+
+  it('does NOT show warning when VOI = 0 (decision won\'t change)', () => {
+    // VOI = 0 means "even if you gather more data, the decision won't change"
+    const driver = { valueOfInformation: 0 }
+    expect(shouldShowWarning(driver)).toBe(false)
+  })
+
+  it('does NOT show warning at boundary VOI = 0.05 (needs > 0.05)', () => {
+    const driver = { valueOfInformation: 0.05 }
+    expect(shouldShowWarning(driver)).toBe(false)
+  })
+
+  it('does NOT show warning when VOI is undefined', () => {
+    const driver = { valueOfInformation: undefined }
+    expect(shouldShowWarning(driver)).toBe(false)
+  })
+
+  it('does NOT show warning when VOI field is missing', () => {
+    const driver = {} as { valueOfInformation?: number }
+    expect(shouldShowWarning(driver)).toBe(false)
+  })
+
+  it('warning is independent of confidence value', () => {
+    // Low confidence but VOI = 0 → no warning (decision won't change)
+    const lowConfidenceNoVoi = { confidence: 0.1, valueOfInformation: 0 }
+    expect(shouldShowWarning(lowConfidenceNoVoi)).toBe(false)
+
+    // High confidence but VOI > 0.05 → show warning (investigation worthwhile)
+    const highConfidenceHighVoi = { confidence: 0.95, valueOfInformation: 0.3 }
+    expect(shouldShowWarning(highConfidenceHighVoi)).toBe(true)
+  })
+})

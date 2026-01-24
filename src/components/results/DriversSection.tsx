@@ -116,7 +116,9 @@ function ExpandedDetails({
     ? `${Math.round(driver.fragileEdgeInfo.switchProbability * 100)}% chance this could flip to "${alternativeWinnerLabel}"`
     : null
 
-  const showQualityHint = typeof driver.confidence === 'number' && driver.confidence < 0.5
+  // Show "Could benefit from more evidence" when VOI > 0.05 (investigation could change decision)
+  // VOI = 0 means "even if you gather more data, the decision won't change"
+  const showQualityHint = typeof driver.valueOfInformation === 'number' && driver.valueOfInformation > 0.05
 
   return (
     <div className="px-4 pb-3 pt-1 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-600 space-y-1.5">

@@ -163,6 +163,14 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
   // ISL zero_reason - explains why sensitivity is zero for intervention factors
   const zeroReason = typed.zero_reason as UiFactorSensitivity['zeroReason']
 
+  // ISL value_of_information (0-1) - whether gathering more data could change the decision
+  // Support both snake_case (from PLoT) and camelCase (from UI-side transforms)
+  const valueOfInformation = typeof typed.value_of_information === 'number'
+    ? typed.value_of_information
+    : typeof typed.valueOfInformation === 'number'
+      ? typed.valueOfInformation
+      : undefined
+
   return {
     factorId: rawId ?? label,
     label,
@@ -172,6 +180,7 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
     importanceRank: typeof typed.importance_rank === 'number' ? typed.importance_rank : 0,
     influenceScore,
     zeroReason,
+    valueOfInformation,
   }
 }
 
@@ -1001,6 +1010,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           canFocus,
           matchedNodeId: matchedNodeId !== f.key ? matchedNodeId : undefined,
           confidence,
+          // ISL value_of_information (0-1) - whether investigation could change decision
+          valueOfInformation: f.raw.valueOfInformation,
           fragileEdgeInfo,
         }
       })

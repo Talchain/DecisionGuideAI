@@ -120,6 +120,8 @@ export interface DriverItem {
   matchedNodeId?: string
   /** Confidence in this factor's influence (beliefExists from edge to goal, 0-1) */
   confidence?: number
+  /** Value of Information (0-1) - whether gathering more data could change the decision */
+  valueOfInformation?: number
   /** Fragile edge info if this factor can flip the decision */
   fragileEdgeInfo?: {
     /** Probability decision flips to alternative winner (0-1, higher = more likely to flip) */
@@ -256,6 +258,8 @@ export interface UiFactorSensitivity {
   influenceScore?: number
   /** ISL zero_reason - explains why sensitivity is zero */
   zeroReason?: ZeroReasonCode
+  /** ISL value_of_information (0-1) - whether gathering more data could change the decision */
+  valueOfInformation?: number
 }
 
 // =============================================================================
