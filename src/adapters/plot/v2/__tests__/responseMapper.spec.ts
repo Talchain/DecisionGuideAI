@@ -856,6 +856,22 @@ describe('robustness passthrough to report (P0 Fix)', () => {
 
     expect((report as any).robustness.ranking_stability).toBe(0.85)
   })
+
+  it('includes recommendation_stability when present (P0 stability chip fix)', () => {
+    const v2Response = makeSuccessResponse({
+      robustness: {
+        fragile_edges: [],
+        robust_edges: ['edge1'],
+        recommendation_stability: 0.9765,
+      } as any,
+      robustness_status: 'computed',
+    })
+
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+
+    // P0 Fix: recommendation_stability should be passed through for stability chip
+    expect((report as any).robustness.recommendation_stability).toBe(0.9765)
+  })
 })
 
 describe('createEnrichmentFromV2Response - P0 Fix: Robustness with empty edge_sensitivity', () => {

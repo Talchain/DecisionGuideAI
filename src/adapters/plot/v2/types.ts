@@ -213,6 +213,10 @@ export interface V2Robustness {
 export interface V2RobustnessActual {
   fragile_edges: string[]
   robust_edges: string[]
+  /** Ranking stability - how stable the overall ranking is (0-1) */
+  ranking_stability?: number
+  /** Recommendation stability - how often recommendation stays winner (0-1) */
+  recommendation_stability?: number
 }
 
 /**

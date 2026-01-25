@@ -491,6 +491,8 @@ export function mapV2ResponseToReportV1(
         fragile_edges: fragile.items,
         robust_edges: robust.items,
         ranking_stability: v2Response.robustness!.ranking_stability,
+        // P0 Fix: Extract recommendation_stability for stability chip in Results Panel
+        recommendation_stability: v2Response.robustness!.recommendation_stability,
         // P2 Fix: Include truncation metadata so UI can display "50 of 500 edges"
         _truncation: {
           fragile_truncated: fragile.truncated,

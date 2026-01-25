@@ -531,4 +531,135 @@ describe('RecommendationSection', () => {
       expect(chip).toHaveAttribute('title', 'Recommendation stays winner 85% of the time under uncertainty')
     })
   })
+
+  // =========================================================================
+  // Range Display Fix Tests (P0: p90=1.8 should show 180%, not 2%)
+  // =========================================================================
+
+  describe('Range Display (> 100% improvements)', () => {
+    it('correctly formats p90=1.8 as 180% (probability form)', () => {
+      // Values in probability form: 1.8 = 180% improvement
+      const highImprovementData: RecommendationSectionData = {
+        ...mockData,
+        recommendedOption: {
+          id: 'option-1',
+          label: 'High Improvement',
+          p10: 0.3,
+          p50: 0.93,
+          p90: 1.8,
+          expected: 0.93,
+          outcome: { mean: 0.93, p10: 0.3, p50: 0.93, p90: 1.8 },
+          isRecommended: true,
+        },
+        allOptions: [],
+        isSingleOption: true,
+      }
+
+      render(<RecommendationSection data={highImprovementData} />)
+
+      // p90=1.8 in probability form should display as 180%
+      expect(screen.getByText('180%')).toBeInTheDocument()
+      // p50=0.93 should display as 93%
+      expect(screen.getByText('93%')).toBeInTheDocument()
+      // p10=0.3 should display as 30%
+      expect(screen.getByText('30%')).toBeInTheDocument()
+    })
+
+    it('uses threshold of 2 for probability detection (values > 1 but <= 2)', () => {
+      const nearThresholdData: RecommendationSectionData = {
+        ...mockData,
+        recommendedOption: {
+          id: 'option-1',
+          label: 'Near Threshold',
+          p10: 0.5,
+          p50: 1.0,
+          p90: 1.95,  // Just under 2, should still be probability form
+          expected: 1.0,
+          outcome: { mean: 1.0, p10: 0.5, p50: 1.0, p90: 1.95 },
+          isRecommended: true,
+        },
+        allOptions: [],
+        isSingleOption: true,
+      }
+
+      render(<RecommendationSection data={nearThresholdData} />)
+
+      // p90=1.95 should display as 195%
+      expect(screen.getByText('195%')).toBeInTheDocument()
+      // p50=1.0 should display as 100%
+      expect(screen.getByText('100%')).toBeInTheDocument()
+    })
+  })
+
+  // =========================================================================
+  // Description Threshold Fix Tests (P1: 93% should show "strong positive")
+  // =========================================================================
+
+  describe('Outcome Description Thresholds', () => {
+    it('shows "strong positive" for p50 > 50% (in probability form 0.5+)', () => {
+      const strongPositiveData: RecommendationSectionData = {
+        ...mockData,
+        recommendedOption: {
+          id: 'option-1',
+          label: 'Strong Positive',
+          p10: 0.4,
+          p50: 0.93,  // 93% - should trigger "strong positive"
+          p90: 1.2,
+          expected: 0.93,
+          outcome: { mean: 0.93, p10: 0.4, p50: 0.93, p90: 1.2 },
+          isRecommended: true,
+        },
+        allOptions: [],
+        isSingleOption: true,
+      }
+
+      render(<RecommendationSection data={strongPositiveData} />)
+
+      expect(screen.getByText(/strong positive/i)).toBeInTheDocument()
+    })
+
+    it('shows "moderate positive" for p50 20-50% (in probability form 0.2-0.5)', () => {
+      const moderatePositiveData: RecommendationSectionData = {
+        ...mockData,
+        recommendedOption: {
+          id: 'option-1',
+          label: 'Moderate Positive',
+          p10: 0.1,
+          p50: 0.35,  // 35% - should trigger "moderate positive"
+          p90: 0.6,
+          expected: 0.35,
+          outcome: { mean: 0.35, p10: 0.1, p50: 0.35, p90: 0.6 },
+          isRecommended: true,
+        },
+        allOptions: [],
+        isSingleOption: true,
+      }
+
+      render(<RecommendationSection data={moderatePositiveData} />)
+
+      expect(screen.getByText(/moderate positive/i)).toBeInTheDocument()
+    })
+
+    it('shows "small positive" for p50 < 20% (in probability form < 0.2)', () => {
+      const smallPositiveData: RecommendationSectionData = {
+        ...mockData,
+        recommendedOption: {
+          id: 'option-1',
+          label: 'Small Positive',
+          p10: 0.05,
+          p50: 0.15,  // 15% - should trigger "small positive"
+          p90: 0.25,
+          expected: 0.15,
+          outcome: { mean: 0.15, p10: 0.05, p50: 0.15, p90: 0.25 },
+          isRecommended: true,
+        },
+        allOptions: [],
+        isSingleOption: true,
+      }
+
+      render(<RecommendationSection data={smallPositiveData} />)
+
+      expect(screen.getByText(/small positive/i)).toBeInTheDocument()
+    })
+  })
 })

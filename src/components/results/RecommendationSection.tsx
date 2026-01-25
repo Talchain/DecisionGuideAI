@@ -63,12 +63,20 @@ function formatOutcome(
   }
 
   // Calculate the final display value to determine decimals
-  // For percent: 0-1 values are multiplied by 100 by formatOutcomeValue
-  const isProbability = unit === 'percent' && value >= 0 && value <= 1
+  // For percent: values in probability form (typically -2 to +2 range) are multiplied by 100
+  // Values like 1.8 = 180% improvement should be treated as probability form
+  // FIX: Use threshold of 2 instead of 1 to catch >100% improvements
+  const isProbability = unit === 'percent' && Math.abs(value) <= 2
   const displayValue = isProbability ? value * 100 : value
 
   // Smart decimals: 1 for small display values, 0 for larger ones
   const decimals = Math.abs(displayValue) < 1 && displayValue !== 0 ? 1 : 0
+
+  // Pass pre-converted value to avoid double-conversion in formatOutcomeValue
+  // Use the calculated display value directly with 'count' unit to skip formatOutcomeValue's probability detection
+  if (unit === 'percent') {
+    return `${displayValue.toFixed(decimals)}%`
+  }
 
   return formatOutcomeValue(value, unit as OutcomeUnits, symbol, { decimals })
 }
@@ -123,29 +131,35 @@ function StabilityChip({ stability }: { stability: number }) {
 
 /**
  * Format outcome description in natural language.
- * Note: Values are in percentage form (e.g., 50 = 50%, not 0.5).
+ * Note: Values are in probability form (e.g., 0.5 = 50%, 0.93 = 93%).
+ * FIX: Convert to percentage for threshold comparison.
  * Uses polarity-correct language: positive = improvement, negative = decline.
  */
 function formatOutcomeDescription(p10: number, p50: number, p90: number): string {
-  // Determine the direction and magnitude
-  // Thresholds in percentage form: 50 = 50%, 20 = 20%
-  if (p50 >= 0) {
-    if (p10 < 0 && p90 > 0) {
+  // Convert from probability form (0-2 range) to percentage form for comparison
+  // Values like 0.93 become 93, values like 1.8 become 180
+  const p10Pct = Math.abs(p10) <= 2 ? p10 * 100 : p10
+  const p50Pct = Math.abs(p50) <= 2 ? p50 * 100 : p50
+  const p90Pct = Math.abs(p90) <= 2 ? p90 * 100 : p90
+
+  // Determine the direction and magnitude using percentage thresholds
+  if (p50Pct >= 0) {
+    if (p10Pct < 0 && p90Pct > 0) {
       return 'Could range from slight decline to strong improvement'
     }
-    if (p50 > 50) {
+    if (p50Pct > 50) {
       return 'Likely a strong positive outcome'
     }
-    if (p50 > 20) {
+    if (p50Pct > 20) {
       return 'Likely a moderate positive outcome'
     }
     return 'Likely a small positive outcome'
   } else {
     // Negative expected outcome
-    if (Math.abs(p50) > 50) {
+    if (Math.abs(p50Pct) > 50) {
       return 'Likely a significant negative impact'
     }
-    if (Math.abs(p50) > 20) {
+    if (Math.abs(p50Pct) > 20) {
       return 'Likely a moderate negative impact'
     }
     return 'May have a small negative impact'
