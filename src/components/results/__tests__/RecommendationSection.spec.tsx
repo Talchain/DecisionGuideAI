@@ -415,4 +415,120 @@ describe('RecommendationSection', () => {
       expect(percentages.length).toBeGreaterThanOrEqual(1)
     })
   })
+
+  // =========================================================================
+  // Polarity Language Tests
+  // =========================================================================
+
+  describe('Polarity Language', () => {
+    it('shows "improvement" for positive expected outcome', () => {
+      const positiveData: RecommendationSectionData = {
+        ...mockData,
+        recommendedOption: {
+          ...mockData.recommendedOption!,
+          expected: 0.20,
+          p50: 0.20,
+        },
+      }
+
+      render(<RecommendationSection data={positiveData} />)
+
+      expect(screen.getByText(/20% improvement/)).toBeInTheDocument()
+      expect(screen.queryByText(/decline/)).not.toBeInTheDocument()
+    })
+
+    it('shows "decline" for negative expected outcome', () => {
+      const negativeData: RecommendationSectionData = {
+        ...mockData,
+        recommendedOption: {
+          ...mockData.recommendedOption!,
+          expected: -0.20,
+          p50: -0.20,
+        },
+      }
+
+      render(<RecommendationSection data={negativeData} />)
+
+      expect(screen.getByText(/20% decline/)).toBeInTheDocument()
+      expect(screen.queryByText(/improvement/)).not.toBeInTheDocument()
+    })
+
+    it('shows "improvement" for zero expected outcome (edge case)', () => {
+      const zeroData: RecommendationSectionData = {
+        ...mockData,
+        recommendedOption: {
+          ...mockData.recommendedOption!,
+          expected: 0,
+          p50: 0,
+        },
+      }
+
+      render(<RecommendationSection data={zeroData} />)
+
+      // Zero is treated as non-negative, so shows "improvement"
+      expect(screen.getByText(/0% improvement/)).toBeInTheDocument()
+    })
+  })
+
+  // =========================================================================
+  // Recommendation Stability Tests
+  // =========================================================================
+
+  describe('Recommendation Stability', () => {
+    it('shows High stability chip for stability >= 0.8', () => {
+      const highStabilityData: RecommendationSectionData = {
+        ...mockData,
+        recommendationStability: 0.92,
+      }
+
+      render(<RecommendationSection data={highStabilityData} />)
+
+      expect(screen.getByText(/High stability \(92%\)/)).toBeInTheDocument()
+    })
+
+    it('shows Medium stability chip for stability 0.5-0.79', () => {
+      const mediumStabilityData: RecommendationSectionData = {
+        ...mockData,
+        recommendationStability: 0.65,
+      }
+
+      render(<RecommendationSection data={mediumStabilityData} />)
+
+      expect(screen.getByText(/Medium stability \(65%\)/)).toBeInTheDocument()
+    })
+
+    it('shows Low stability chip for stability < 0.5', () => {
+      const lowStabilityData: RecommendationSectionData = {
+        ...mockData,
+        recommendationStability: 0.35,
+      }
+
+      render(<RecommendationSection data={lowStabilityData} />)
+
+      expect(screen.getByText(/Low stability \(35%\)/)).toBeInTheDocument()
+    })
+
+    it('does not show stability chip when recommendationStability is undefined', () => {
+      const noStabilityData: RecommendationSectionData = {
+        ...mockData,
+        recommendationStability: undefined,
+      }
+
+      render(<RecommendationSection data={noStabilityData} />)
+
+      expect(screen.queryByText(/stability/i)).not.toBeInTheDocument()
+    })
+
+    it('stability chip has correct tooltip', () => {
+      const stabilityData: RecommendationSectionData = {
+        ...mockData,
+        recommendationStability: 0.85,
+      }
+
+      render(<RecommendationSection data={stabilityData} />)
+
+      const chip = screen.getByText(/High stability/)
+      expect(chip).toHaveAttribute('title', 'Recommendation stays winner 85% of the time under uncertainty')
+    })
+  })
 })

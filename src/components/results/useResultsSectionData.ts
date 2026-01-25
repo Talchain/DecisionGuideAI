@@ -767,6 +767,14 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     const recommendedOption = allOptions.find((o) => o.isRecommended) || null
 
+    // Extract recommendation stability from robustness (0-1 score)
+    const robustness = (report as any)?.robustness
+    const recommendationStability = typeof robustness?.recommendation_stability === 'number'
+      ? robustness.recommendation_stability
+      : typeof robustness?.recommendationStability === 'number'
+        ? robustness.recommendationStability
+        : undefined
+
     return {
       recommendedOption,
       allOptions,
@@ -777,6 +785,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Issue 5 fix: Pass through unit for proper outcome formatting
       outcomeUnit,
       outcomeUnitSymbol,
+      recommendationStability,
     }
   }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol])
 

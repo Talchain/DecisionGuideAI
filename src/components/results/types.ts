@@ -62,6 +62,9 @@ export interface OptionResult {
 /** Outcome unit type for formatting - from goal node observed_state.unit */
 export type OutcomeUnitType = 'currency' | 'percent' | 'count'
 
+/** Stability level derived from recommendation_stability score */
+export type StabilityLevel = 'high' | 'medium' | 'low'
+
 export interface RecommendationSectionData {
   recommendedOption: OptionResult | null
   allOptions: OptionResult[]
@@ -74,6 +77,8 @@ export interface RecommendationSectionData {
   outcomeUnit?: OutcomeUnitType
   /** Symbol for currency (e.g., '$', '£') */
   outcomeUnitSymbol?: string
+  /** Recommendation stability (0-1): how often the recommendation stays winner under uncertainty */
+  recommendationStability?: number
 }
 
 // =============================================================================

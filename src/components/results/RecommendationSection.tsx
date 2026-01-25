@@ -13,7 +13,7 @@
  */
 
 import { useCallback } from 'react'
-import type { RecommendationSectionData, OptionResult, OutcomeUnitType } from './types'
+import type { RecommendationSectionData, OptionResult, OutcomeUnitType, StabilityLevel } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
@@ -74,15 +74,64 @@ function formatOutcome(
 }
 
 /**
+ * Derive stability level from recommendation_stability score.
+ * High (≥80%), Medium (50-79%), Low (<50%)
+ */
+function getStabilityLevel(stability: number): StabilityLevel {
+  if (stability >= 0.8) return 'high'
+  if (stability >= 0.5) return 'medium'
+  return 'low'
+}
+
+/**
+ * Stability chip component showing recommendation stability level.
+ */
+function StabilityChip({ stability }: { stability: number }) {
+  const level = getStabilityLevel(stability)
+  const percentage = Math.round(stability * 100)
+
+  const config = {
+    high: {
+      label: 'High',
+      bgColor: 'bg-emerald-100',
+      textColor: 'text-emerald-700',
+      borderColor: 'border-emerald-300',
+    },
+    medium: {
+      label: 'Medium',
+      bgColor: 'bg-amber-100',
+      textColor: 'text-amber-700',
+      borderColor: 'border-amber-300',
+    },
+    low: {
+      label: 'Low',
+      bgColor: 'bg-red-100',
+      textColor: 'text-red-700',
+      borderColor: 'border-red-300',
+    },
+  }[level]
+
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${config.bgColor} ${config.textColor} ${config.borderColor}`}
+      title={`Recommendation stays winner ${percentage}% of the time under uncertainty`}
+    >
+      {config.label} stability ({percentage}%)
+    </span>
+  )
+}
+
+/**
  * Format outcome description in natural language.
  * Note: Values are in percentage form (e.g., 50 = 50%, not 0.5).
+ * Uses polarity-correct language: positive = improvement, negative = decline.
  */
 function formatOutcomeDescription(p10: number, p50: number, p90: number): string {
   // Determine the direction and magnitude
   // Thresholds in percentage form: 50 = 50%, 20 = 20%
   if (p50 >= 0) {
     if (p10 < 0 && p90 > 0) {
-      return 'Could range from slightly worse to very strong improvement'
+      return 'Could range from slight decline to strong improvement'
     }
     if (p50 > 50) {
       return 'Likely a strong positive outcome'
@@ -92,7 +141,14 @@ function formatOutcomeDescription(p10: number, p50: number, p90: number): string
     }
     return 'Likely a small positive outcome'
   } else {
-    return 'May have a negative impact'
+    // Negative expected outcome
+    if (Math.abs(p50) > 50) {
+      return 'Likely a significant negative impact'
+    }
+    if (Math.abs(p50) > 20) {
+      return 'Likely a moderate negative impact'
+    }
+    return 'May have a small negative impact'
   }
 }
 
@@ -305,6 +361,7 @@ export function RecommendationSection({
     // Issue 5 fix: Extract unit for proper outcome formatting
     outcomeUnit = 'percent',
     outcomeUnitSymbol,
+    recommendationStability,
   } = data
 
   // Error state
@@ -352,15 +409,21 @@ export function RecommendationSection({
       {/* Main Recommendation */}
       <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
         {/* Best estimate headline - goal is shown in Objective section */}
-        <div className="mb-2">
-          <span className="text-sm text-emerald-700">Best estimate:</span>
-          <span className="text-lg font-semibold text-emerald-900 ml-2">
-            {expectedValue != null
-              ? `~${formatOutcome(expectedValue, outcomeUnit, outcomeUnitSymbol)} improvement`
-              : hasGoalProbability
-                ? `${formatPercent(recommendedOption.goalProbability as number)} chance of reaching goal`
-                : EMPTY_STATES.rangeData}
-          </span>
+        <div className="mb-2 flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <span className="text-sm text-emerald-700">Best estimate:</span>
+            <span className="text-lg font-semibold text-emerald-900 ml-2">
+              {expectedValue != null
+                ? `~${formatOutcome(Math.abs(expectedValue), outcomeUnit, outcomeUnitSymbol)} ${expectedValue >= 0 ? 'improvement' : 'decline'}`
+                : hasGoalProbability
+                  ? `${formatPercent(recommendedOption.goalProbability as number)} chance of reaching goal`
+                  : EMPTY_STATES.rangeData}
+            </span>
+          </div>
+          {/* Recommendation stability chip */}
+          {typeof recommendationStability === 'number' && (
+            <StabilityChip stability={recommendationStability} />
+          )}
         </div>
 
         {/* Natural language description */}
