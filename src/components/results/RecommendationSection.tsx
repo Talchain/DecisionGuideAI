@@ -13,7 +13,7 @@
  */
 
 import { useCallback } from 'react'
-import type { RecommendationSectionData, OptionResult, OutcomeUnitType, StabilityLevel } from './types'
+import type { RecommendationSectionData, OptionResult, OutcomeUnitType, StabilityLevel, WinnerDeterminedBy, RobustnessLevel, RobustnessLabel } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
@@ -93,7 +93,8 @@ function getStabilityLevel(stability: number): StabilityLevel {
 }
 
 /**
- * Stability chip component showing recommendation stability level.
+ * Task 1.6: Stability chip component showing recommendation stability level.
+ * Updated text: "Stays best in X% of scenarios tested"
  */
 function StabilityChip({ stability }: { stability: number }) {
   const level = getStabilityLevel(stability)
@@ -101,19 +102,16 @@ function StabilityChip({ stability }: { stability: number }) {
 
   const config = {
     high: {
-      label: 'High',
       bgColor: 'bg-success-100',
       textColor: 'text-success-700',
       borderColor: 'border-success-300',
     },
     medium: {
-      label: 'Medium',
       bgColor: 'bg-warning-100',
       textColor: 'text-warning-700',
       borderColor: 'border-warning-300',
     },
     low: {
-      label: 'Low',
       bgColor: 'bg-danger-100',
       textColor: 'text-danger-700',
       borderColor: 'border-danger-300',
@@ -123,54 +121,140 @@ function StabilityChip({ stability }: { stability: number }) {
   return (
     <span
       className={`${typography.caption} inline-flex items-center px-2 py-0.5 rounded border ${config.bgColor} ${config.textColor} ${config.borderColor}`}
-      title={`Recommendation stays winner ${percentage}% of the time under uncertainty`}
+      title={`How often the recommendation stays winner under uncertainty`}
     >
-      {config.label} stability ({percentage}%)
+      Stays best in {percentage}% of scenarios tested
     </span>
   )
 }
 
 /**
- * Format outcome description in natural language.
- * Note: Values are in probability form (e.g., 0.5 = 50%, 0.93 = 93%).
- * FIX: Convert to percentage for threshold comparison.
- * Uses polarity-correct language: positive = improvement, negative = decline.
+ * Task 1.4: Get winner label based on how the winner was determined.
+ * - win_probability present → "MOST LIKELY TO BE BEST"
+ * - Only expected/p50 → "HIGHEST EXPECTED OUTCOME"
+ * - Neither → "UNABLE TO DETERMINE BEST OPTION"
  */
-function formatOutcomeDescription(p10: number, p50: number, p90: number): string {
-  // Convert from probability form (0-2 range) to percentage form for comparison
-  // Values like 0.93 become 93, values like 1.8 become 180
-  const p10Pct = Math.abs(p10) <= 2 ? p10 * 100 : p10
-  const p50Pct = Math.abs(p50) <= 2 ? p50 * 100 : p50
-  const p90Pct = Math.abs(p90) <= 2 ? p90 * 100 : p90
-
-  // Determine the direction and magnitude using percentage thresholds
-  if (p50Pct >= 0) {
-    if (p10Pct < 0 && p90Pct > 0) {
-      return 'Could range from slight decline to strong improvement'
-    }
-    if (p50Pct > 50) {
-      return 'Likely a strong positive outcome'
-    }
-    if (p50Pct > 20) {
-      return 'Likely a moderate positive outcome'
-    }
-    return 'Likely a small positive outcome'
-  } else {
-    // Negative expected outcome
-    if (Math.abs(p50Pct) > 50) {
-      return 'Likely a significant negative impact'
-    }
-    if (Math.abs(p50Pct) > 20) {
-      return 'Likely a moderate negative impact'
-    }
-    return 'May have a small negative impact'
+function getWinnerLabel(determinedBy: WinnerDeterminedBy | undefined): string {
+  switch (determinedBy) {
+    case 'win_probability':
+      return 'MOST LIKELY TO BE BEST'
+    case 'expected_outcome':
+      return 'HIGHEST EXPECTED OUTCOME'
+    default:
+      return 'UNABLE TO DETERMINE BEST OPTION'
   }
 }
 
 /**
- * Validate range values for display.
+ * Task 1.5: Robustness badge component.
+ * Maps level (high/medium/low/very_low) or label (robust/moderate/fragile) to display.
+ */
+function RobustnessBadge({ 
+  level, 
+  label 
+}: { 
+  level?: RobustnessLevel
+  label?: RobustnessLabel 
+}) {
+  // Determine display based on level first, then label as fallback
+  let dotColor: string
+  let text: string
+  let bgColor: string
+  let textColor: string
+
+  if (level === 'high' || label === 'robust') {
+    dotColor = 'bg-success-500'
+    text = 'Robust'
+    bgColor = 'bg-success-50'
+    textColor = 'text-success-700'
+  } else if (level === 'medium' || label === 'moderate') {
+    dotColor = 'bg-warning-500'
+    text = 'Moderate'
+    bgColor = 'bg-warning-50'
+    textColor = 'text-warning-700'
+  } else if (level === 'low' || label === 'fragile') {
+    dotColor = 'bg-danger-500'
+    text = 'Fragile'
+    bgColor = 'bg-danger-50'
+    textColor = 'text-danger-700'
+  } else if (level === 'very_low') {
+    dotColor = 'bg-danger-500'
+    text = 'Very Fragile'
+    bgColor = 'bg-danger-50'
+    textColor = 'text-danger-700'
+  } else {
+    // Both missing - don't render badge
+    return null
+  }
+
+  return (
+    <span
+      className={`${typography.caption} inline-flex items-center gap-1.5 px-2 py-0.5 rounded ${bgColor} ${textColor}`}
+      title="How stable the recommendation is under uncertainty"
+    >
+      <span className={`w-2 h-2 rounded-full ${dotColor}`} aria-hidden="true" />
+      {text}
+    </span>
+  )
+}
+
+/**
+ * Task 1.3: Format outcome description in natural language.
+ * Note: Values are in probability form (e.g., 0.5 = 50%, 0.93 = 93%).
+ * FIX: Convert to percentage for threshold comparison.
+ * Uses polarity-correct language: positive = improvement, negative = decline.
+ * Updated rules to handle wide/zero-crossing ranges accurately.
+ */
+function formatOutcomeDescription(p10: number, expectedMean: number, p90: number): string {
+  // Convert from probability form (0-2 range) to percentage form for comparison
+  // Values like 0.93 become 93, values like 1.8 become 180
+  const p10Pct = Math.abs(p10) <= 2 ? p10 * 100 : p10
+  const expectedPct = Math.abs(expectedMean) <= 2 ? expectedMean * 100 : expectedMean
+  const p90Pct = Math.abs(p90) <= 2 ? p90 * 100 : p90
+
+  // Calculate range width
+  const rangeWidth = Math.abs(p90Pct - p10Pct)
+
+  // Check if range crosses zero
+  const crossesZero = p10Pct < 0 && p90Pct > 0
+
+  // Task 1.3: Apply new rules for range interpretation
+  if (crossesZero && rangeWidth > 100) {
+    return 'Could go either way — from significant decline to strong improvement. Consider strengthening key assumptions.'
+  }
+
+  if (crossesZero && rangeWidth <= 100) {
+    return 'Could go either way — outcomes range from decline to improvement.'
+  }
+
+  // All positive outcomes
+  if (p10Pct >= 0) {
+    if (rangeWidth > 50) {
+      return 'Likely positive, but with wide uncertainty.'
+    }
+    if (expectedPct > 50) {
+      return 'Likely a strong positive outcome'
+    }
+    if (expectedPct > 20) {
+      return 'Likely a moderate positive outcome'
+    }
+    return 'Likely a small positive outcome'
+  }
+
+  // All negative outcomes
+  if (p90Pct <= 0) {
+    return 'Likely negative outcome under current assumptions.'
+  }
+
+  // Fallback for edge cases
+  return 'Outcome uncertain — review key assumptions.'
+}
+
+/**
+ * Task 1.4: Validate range values for display.
+ * Uses expected (mean) value for center marker, NOT p50 (median).
  *
- * NOTE: Percentile ordering (p10 <= p50 <= p90) is enforced in the data layer
+ * NOTE: Percentile ordering (p10 <= expected <= p90) is enforced in the data layer
  * (useResultsSectionData.normalizePercentiles). This function only handles
  * presentation-level fallbacks (missing values, unavailable state).
  *
@@ -179,7 +263,7 @@ function formatOutcomeDescription(p10: number, p50: number, p90: number): string
  */
 function validateRange(
   p10: number | null | undefined,
-  p50: number | null | undefined,
+  expectedMean: number | null | undefined,
   p90: number | null | undefined
 ): {
   worse: number
@@ -189,39 +273,41 @@ function validateRange(
   unavailable?: boolean
 } {
   // Case 1: No data at all
-  if (p50 == null) {
+  if (expectedMean == null) {
     return { worse: 0, expected: 0, better: 0, unavailable: true }
   }
 
   // Case 2: Missing p10 or p90 — show expected only
   if (p10 == null || p90 == null) {
-    return { worse: 0, expected: p50, better: 0, showExpectedOnly: true }
+    return { worse: 0, expected: expectedMean, better: 0, showExpectedOnly: true }
   }
 
   // Case 3: All values present - trust data layer ordering, display as-is
   // (Data layer handles reordering in useResultsSectionData.normalizePercentiles)
-  return { worse: p10, expected: p50, better: p90 }
+  return { worse: p10, expected: expectedMean, better: p90 }
 }
 
 /**
- * Range bar component showing p10, p50, p90 distribution.
+ * Task 1.4: Range bar component showing p10, expected (mean), p90 distribution.
+ * Uses outcome.mean for expected value (NOT p50/median).
  * Handles negative values, >100% values, and dynamic domain.
  */
 function RangeBar({
   p10,
-  p50,
+  expectedValue,
   p90,
   outcomeUnit = 'percent',
   outcomeUnitSymbol,
 }: {
   p10: number | null
-  p50: number | null
+  /** Expected value (outcome.mean) - NOT p50/median */
+  expectedValue: number | null
   p90: number | null
   outcomeUnit?: OutcomeUnitType
   outcomeUnitSymbol?: string
 }) {
-  // Validate and fix range values
-  const rangeData = validateRange(p10, p50, p90)
+  // Validate and fix range values (using expected/mean, not p50)
+  const rangeData = validateRange(p10, expectedValue, p90)
 
   // Handle unavailable state
   if (rangeData.unavailable) {
@@ -281,7 +367,7 @@ function RangeBar({
             width: `${Math.max(0, betterPos - worsePos)}%`,
           }}
         />
-        {/* Expected (p50) marker */}
+        {/* Expected (outcome.mean) marker - NOT p50/median */}
         <div
           className="absolute w-3 h-3 bg-success-600 rounded-full -translate-x-1/2 -translate-y-0.5"
           style={{ left: `${expectedPos}%` }}
@@ -317,8 +403,9 @@ function OptionRow({
     }
   }, [option.id, onFocus])
 
-  const displayValue = option.p50 ?? option.expected ?? option.goalProbability
-  const displaySuffix = option.goalProbability != null && option.p50 == null && option.expected == null
+  // Task 1.4: Use outcome.mean (expected) consistently
+  const displayValue = option.expected ?? option.goalProbability
+  const displaySuffix = option.goalProbability != null && option.expected == null
     ? 'chance'
     : 'expected'
 
@@ -377,6 +464,15 @@ export function RecommendationSection({
     outcomeUnit = 'percent',
     outcomeUnitSymbol,
     recommendationStability,
+    // Task 1.3: Win probability
+    winProbability,
+    // Task 1.4: How winner was determined
+    determinedBy,
+    // Task 1.5: Robustness level and label
+    robustnessLevel,
+    robustnessLabel,
+    // Task 1.7: Goal text
+    goalText,
   } = data
 
   // Error state
@@ -397,33 +493,48 @@ export function RecommendationSection({
   if (!recommendedOption) {
     return (
       <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg">
-        <p className="text-sm text-slate-600 flex items-start gap-2">
-          <span aria-hidden="true">ℹ️</span>
+        <p className="text-sm text-slate-600">
           {EMPTY_STATES.recommendation}
         </p>
       </div>
     )
   }
 
-  const expectedValue = recommendedOption.expected ?? recommendedOption.p50
+  // Task 1.4: Use outcome.mean (expected) consistently - NOT p50 (median)
+  const expectedValue = recommendedOption.expected
   const hasGoalProbability = typeof recommendedOption.goalProbability === 'number'
   const shouldShowOutcomeDescription =
-    typeof recommendedOption.p10 === 'number' &&
-    typeof recommendedOption.p50 === 'number' &&
-    typeof recommendedOption.p90 === 'number'
+    typeof recommendedOption.outcome.p10 === 'number' &&
+    typeof expectedValue === 'number' &&
+    typeof recommendedOption.outcome.p90 === 'number'
   const outcomeDescription = shouldShowOutcomeDescription
     ? formatOutcomeDescription(
-        recommendedOption.p10 as number,
-        recommendedOption.p50 as number,
-        recommendedOption.p90 as number
+        recommendedOption.outcome.p10 as number,
+        expectedValue as number,
+        recommendedOption.outcome.p90 as number
       )
     : null
 
+  // Task 1.4: Get winner label based on determination method
+  const winnerLabel = getWinnerLabel(determinedBy)
+
   return (
     <div className="space-y-4">
+      {/* Task 1.7: Goal context - displayed when present */}
+      {goalText && (
+        <div className="text-sm text-slate-600">
+          <span className="font-medium">Goal:</span> {goalText}
+        </div>
+      )}
+
+      {/* Task 1.4: Winner label */}
+      <div className="text-xs font-semibold text-slate-500 tracking-wide">
+        {winnerLabel}
+      </div>
+
       {/* Main Recommendation */}
       <div className="p-4 bg-success-50 border border-success-200 rounded-lg">
-        {/* Best estimate headline - goal is shown in Objective section */}
+        {/* Best estimate headline */}
         <div className="mb-2 flex items-center justify-between flex-wrap gap-2">
           <div>
             <span className="text-xs text-success-700">Best estimate:</span>
@@ -435,11 +546,23 @@ export function RecommendationSection({
                   : EMPTY_STATES.rangeData}
             </span>
           </div>
-          {/* Recommendation stability chip */}
-          {typeof recommendationStability === 'number' && (
-            <StabilityChip stability={recommendationStability} />
-          )}
+          {/* Task 1.5: Robustness badge */}
+          <RobustnessBadge level={robustnessLevel} label={robustnessLabel} />
         </div>
+
+        {/* Task 1.6: Recommendation stability chip */}
+        {typeof recommendationStability === 'number' && (
+          <div className="mt-2">
+            <StabilityChip stability={recommendationStability} />
+          </div>
+        )}
+
+        {/* Task 1.3: Win probability display */}
+        {typeof winProbability === 'number' && winProbability > 0 && (
+          <p className="text-sm text-success-700 mt-2">
+            Wins in {Math.round(winProbability * 100)}% of scenarios tested
+          </p>
+        )}
 
         {/* Natural language description */}
         {outcomeDescription && (
@@ -448,12 +571,12 @@ export function RecommendationSection({
           </p>
         )}
 
-        {/* Range bar */}
+        {/* Range bar - Task 1.4: Use outcome.mean for expected value */}
         {expectedValue != null && (
           <RangeBar
-            p10={recommendedOption.p10}
-            p50={recommendedOption.p50}
-            p90={recommendedOption.p90}
+            p10={recommendedOption.outcome.p10}
+            expectedValue={expectedValue}
+            p90={recommendedOption.outcome.p90}
             outcomeUnit={outcomeUnit}
             outcomeUnitSymbol={outcomeUnitSymbol}
           />

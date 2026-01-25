@@ -20,7 +20,9 @@ import {
   getConfidenceTier,
   normaliseImprovements,
   normalizeOutcomeValues,
+  determineWinnerSelection,
 } from '../useResultsSectionData'
+import { formatFlipRiskMessage } from '../utils/formatScenarioRatio'
 import type { RawFactorSensitivity, EdgeForDirection } from '../types'
 
 // =============================================================================
@@ -898,7 +900,7 @@ describe('flip_risk_category display logic', () => {
     if (driver.flipRiskCategory === 'isolated') {
       // Show percentage for isolated factors (can flip decision alone)
       if (driver.fragileEdgeInfo?.switchProbability !== undefined && hasSpecificAlternative) {
-        return `${Math.round(driver.fragileEdgeInfo.switchProbability * 100)}% chance this could flip to "${alternativeWinnerLabel}"`
+        return formatFlipRiskMessage(driver.fragileEdgeInfo.switchProbability, alternativeWinnerLabel)
       }
       return null
     } else if (driver.flipRiskCategory === 'correlated') {
@@ -910,13 +912,13 @@ describe('flip_risk_category display logic', () => {
     } else {
       // Fallback: use existing behavior when flip_risk_category is undefined (old PLoT)
       if (driver.fragileEdgeInfo?.switchProbability !== undefined && hasSpecificAlternative) {
-        return `${Math.round(driver.fragileEdgeInfo.switchProbability * 100)}% chance this could flip to "${alternativeWinnerLabel}"`
+        return formatFlipRiskMessage(driver.fragileEdgeInfo.switchProbability, alternativeWinnerLabel)
       }
       return null
     }
   }
 
-  it('isolated category shows percentage when fragile edge info available', () => {
+  it('isolated category shows ratio format when probability < 0.5', () => {
     const driver = {
       flipRiskCategory: 'isolated' as const,
       fragileEdgeInfo: {
@@ -924,7 +926,10 @@ describe('flip_risk_category display logic', () => {
         alternativeWinnerLabel: 'Keep Pro at £49',
       },
     }
-    expect(getFlipRiskMessage(driver)).toBe('22% chance this could flip to "Keep Pro at £49"')
+    // Task 1.2: 0.22 < 0.5 → ratio format "~1 in 5"
+    expect(getFlipRiskMessage(driver)).toBe(
+      'In ~1 in 5 scenarios tested, "Keep Pro at £49" becomes the better choice'
+    )
   })
 
   it('isolated category shows null when no fragile edge info', () => {
@@ -967,8 +972,8 @@ describe('flip_risk_category display logic', () => {
     expect(getFlipRiskMessage(driver)).toBeNull()
   })
 
-  it('undefined category (old PLoT) falls back to percentage-based display', () => {
-    // When flip_risk_category is missing (old PLoT version), use existing behavior
+  it('undefined category (old PLoT) falls back to scenario-tested display', () => {
+    // When flip_risk_category is missing (old PLoT version), use formatFlipRiskMessage
     const driver = {
       flipRiskCategory: undefined,
       fragileEdgeInfo: {
@@ -976,12 +981,14 @@ describe('flip_risk_category display logic', () => {
         alternativeWinnerLabel: 'Alternative Option',
       },
     }
-    expect(getFlipRiskMessage(driver)).toBe('35% chance this could flip to "Alternative Option"')
+    // Task 1.2: 0.35 < 0.5 → ratio format "~1 in 3"
+    expect(getFlipRiskMessage(driver)).toBe(
+      'In ~1 in 3 scenarios tested, "Alternative Option" becomes the better choice'
+    )
   })
 
   it('undefined category with no fragile edge shows null', () => {
     const driver = {
-      flipRiskCategory: undefined,
       fragileEdgeInfo: undefined,
     }
     expect(getFlipRiskMessage(driver)).toBeNull()
@@ -997,5 +1004,35 @@ describe('flip_risk_category display logic', () => {
       },
     }
     expect(getFlipRiskMessage(driver)).toBeNull()
+  })
+})
+
+// =============================================================================
+// Winner Selection Tests
+// =============================================================================
+
+describe('determineWinnerSelection', () => {
+  it('falls back to expected_outcome when win_probability coverage is partial', () => {
+    const options = [
+      { id: 'a', expected: 0.4, winProbability: 0.3 },
+      { id: 'b', expected: 0.6 },
+    ] as any
+
+    const result = determineWinnerSelection(options, null)
+
+    expect(result.determinedBy).toBe('expected_outcome')
+    expect(result.recommendedId).toBe('b')
+  })
+
+  it('selects by win_probability when coverage is complete', () => {
+    const options = [
+      { id: 'a', expected: 0.4, winProbability: 0.3 },
+      { id: 'b', expected: 0.6, winProbability: 0.8 },
+    ] as any
+
+    const result = determineWinnerSelection(options, null)
+
+    expect(result.determinedBy).toBe('win_probability')
+    expect(result.recommendedId).toBe('b')
   })
 })

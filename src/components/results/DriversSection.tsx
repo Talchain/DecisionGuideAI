@@ -17,7 +17,7 @@ import { useState, useCallback, useEffect } from 'react'
 import type { DriversSectionData, DriverItem } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
-import { typography } from '../../styles/typography'
+import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -36,10 +36,6 @@ const BAR_COLORS = {
 // Grid columns constant - shared between header and rows to avoid alignment drift
 // Two data columns: Influence (direction-colored) + Confidence (always blue)
 const GRID_COLS = 'grid-cols-[minmax(120px,1fr)_85px_85px]'
-
-// Threshold for "no real data" - values below this are considered missing/unavailable
-// Used to distinguish "missing data" (show "—") from "explicit zero" (show "0%")
-const MISSING_DATA_THRESHOLD = 0.001
 
 // Zero reason display messages - explains why sensitivity is zero
 const ZERO_REASON_MESSAGES: Record<string, string> = {
@@ -110,21 +106,20 @@ function ExpandedDetails({
     : null
 
   const alternativeWinnerLabel = driver.fragileEdgeInfo?.alternativeWinnerLabel
-  const hasSpecificAlternative = typeof alternativeWinnerLabel === 'string'
-    && alternativeWinnerLabel.trim().length > 0
-    && alternativeWinnerLabel !== 'another option'
 
-  // Flip risk display based on flip_risk_category
-  // - isolated: can flip decision alone → show percentage
+  // Task 1.8: Flip risk display based on flip_risk_category with proper edge case guards
+  // - isolated: can flip decision alone → show percentage (with guards for p<=0, p>1, NaN)
   // - correlated: contributes to joint risk → show qualitative message
   // - negligible: unlikely to affect decision → no flip text
   // - undefined (fallback): use existing marginal-based display for older PLoT versions
   let flipRisk: string | null = null
   if (driver.flipRiskCategory === 'isolated') {
     // Show percentage for isolated factors (can flip decision alone)
-    if (driver.fragileEdgeInfo?.switchProbability !== undefined && hasSpecificAlternative) {
-      flipRisk = `${Math.round(driver.fragileEdgeInfo.switchProbability * 100)}% chance this could flip to "${alternativeWinnerLabel}"`
-    }
+    // Uses formatFlipRiskMessage which handles edge cases: p<=0, p>1, NaN, null
+    flipRisk = formatFlipRiskMessage(
+      driver.fragileEdgeInfo?.switchProbability,
+      alternativeWinnerLabel
+    )
   } else if (driver.flipRiskCategory === 'correlated') {
     // Show qualitative message for correlated factors (contribute to joint risk)
     flipRisk = 'May contribute to decision change under uncertainty'
@@ -133,9 +128,11 @@ function ExpandedDetails({
     flipRisk = null
   } else {
     // Fallback: use existing behavior when flip_risk_category is undefined (old PLoT)
-    if (driver.fragileEdgeInfo?.switchProbability !== undefined && hasSpecificAlternative) {
-      flipRisk = `${Math.round(driver.fragileEdgeInfo.switchProbability * 100)}% chance this could flip to "${alternativeWinnerLabel}"`
-    }
+    // Uses formatFlipRiskMessage which handles edge cases: p<=0, p>1, NaN, null
+    flipRisk = formatFlipRiskMessage(
+      driver.fragileEdgeInfo?.switchProbability,
+      alternativeWinnerLabel
+    )
   }
 
   // Show "Could benefit from more evidence" when VOI > 0.05 (investigation could change decision)

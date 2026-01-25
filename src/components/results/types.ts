@@ -65,6 +65,15 @@ export type OutcomeUnitType = 'currency' | 'percent' | 'count'
 /** Stability level derived from recommendation_stability score */
 export type StabilityLevel = 'high' | 'medium' | 'low'
 
+/** How the winner was determined - for honest labelling */
+export type WinnerDeterminedBy = 'win_probability' | 'expected_outcome' | 'unknown'
+
+/** Robustness level from PLoT (level field) */
+export type RobustnessLevel = 'high' | 'medium' | 'low' | 'very_low'
+
+/** Robustness label from PLoT (label field - alternative naming) */
+export type RobustnessLabel = 'robust' | 'moderate' | 'fragile'
+
 export interface RecommendationSectionData {
   recommendedOption: OptionResult | null
   allOptions: OptionResult[]
@@ -79,6 +88,16 @@ export interface RecommendationSectionData {
   outcomeUnitSymbol?: string
   /** Recommendation stability (0-1): how often the recommendation stays winner under uncertainty */
   recommendationStability?: number
+  /** Win probability (0-1): how often this option beats alternatives */
+  winProbability?: number
+  /** How the winner was determined - for honest labelling */
+  determinedBy?: WinnerDeterminedBy
+  /** Robustness level from PLoT */
+  robustnessLevel?: RobustnessLevel
+  /** Robustness label from PLoT (fallback when level missing) */
+  robustnessLabel?: RobustnessLabel
+  /** Goal text from scenario framing */
+  goalText?: string
 }
 
 // =============================================================================

@@ -35,7 +35,62 @@ import type {
   EdgeForDirection,
   CritiqueSeverity,
   FlipRiskCategory,
+  WinnerDeterminedBy,
+  RobustnessLevel,
+  RobustnessLabel,
 } from './types'
+
+// =============================================================================
+// Winner Selection Helper
+// =============================================================================
+
+export function determineWinnerSelection(
+  options: OptionResult[],
+  backendRecommendedId?: string | null
+): { recommendedId: string | null; determinedBy: WinnerDeterminedBy } {
+  if (options.length === 0) {
+    return { recommendedId: null, determinedBy: 'unknown' }
+  }
+
+  if (backendRecommendedId) {
+    const backendOption = options.find(opt => opt.id === backendRecommendedId)
+    if (backendOption?.winProbability != null) {
+      return { recommendedId: backendRecommendedId, determinedBy: 'win_probability' }
+    }
+    if (backendOption?.expected != null || backendOption?.p50 != null) {
+      return { recommendedId: backendRecommendedId, determinedBy: 'expected_outcome' }
+    }
+    return { recommendedId: backendRecommendedId, determinedBy: 'unknown' }
+  }
+
+  const optionsWithWinProbability = options.filter(
+    opt => typeof opt.winProbability === 'number'
+  )
+  const hasCompleteWinProbabilityCoverage =
+    optionsWithWinProbability.length > 0 &&
+    optionsWithWinProbability.length === options.length
+
+  if (hasCompleteWinProbabilityCoverage) {
+    const winnerByProb = [...optionsWithWinProbability]
+      .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]
+    return {
+      recommendedId: winnerByProb?.id ?? null,
+      determinedBy: 'win_probability',
+    }
+  }
+
+  const winnerByExpected = [...options]
+    .sort((a, b) => {
+      const aValue = a.expected ?? a.goalProbability ?? -Infinity
+      const bValue = b.expected ?? b.goalProbability ?? -Infinity
+      return bValue - aValue
+    })[0]
+
+  return {
+    recommendedId: winnerByExpected?.id ?? null,
+    determinedBy: 'expected_outcome',
+  }
+}
 
 // =============================================================================
 // Factor Key Derivation (CRITICAL: Standardisation)
@@ -747,17 +802,20 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       }
     })
 
-    // Sort by expected value descending for display order
+    // Task 1.1: Winner selection logic - SINGLE SOURCE OF TRUTH
+    // Determine winner selection method BEFORE sorting or selecting winner
+    // This ensures label matches the actual selection criteria
+    const { recommendedId, determinedBy } = determineWinnerSelection(
+      unsortedOptions,
+      backendRecommendedId
+    )
+
+    // Sort by expected value descending for display order (independent of winner selection)
     const sortedOptions = [...unsortedOptions].sort((a, b) => {
       const aValue = a.expected ?? a.goalProbability ?? -Infinity
       const bValue = b.expected ?? b.goalProbability ?? -Infinity
       return bValue - aValue
     })
-
-    // Determine which option ID should be recommended
-    // Priority: backend-provided ID > highest p50 (first after sort)
-    const recommendedId = backendRecommendedId
-      ?? (sortedOptions.length > 0 ? sortedOptions[0].id : null)
 
     // Immutably mark recommended option (no mutation of existing objects)
     const allOptions: OptionResult[] = sortedOptions.map(option => ({
@@ -775,6 +833,30 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ? robustness.recommendationStability
         : undefined
 
+    // Task 1.3: Extract win_probability from recommended option
+    const winProbability = recommendedOption?.winProbability
+
+    // Task 1.5: Extract robustness level and label
+    const rawRobustnessLevel = robustness?.level as string | undefined
+    const rawRobustnessLabel = robustness?.label as string | undefined
+    
+    // Normalize robustness level
+    const robustnessLevel: RobustnessLevel | undefined = 
+      rawRobustnessLevel === 'high' || rawRobustnessLevel === 'medium' || 
+      rawRobustnessLevel === 'low' || rawRobustnessLevel === 'very_low'
+        ? rawRobustnessLevel
+        : undefined
+    
+    // Normalize robustness label (fallback naming)
+    const robustnessLabel: RobustnessLabel | undefined =
+      rawRobustnessLabel === 'robust' || rawRobustnessLabel === 'moderate' || 
+      rawRobustnessLabel === 'fragile'
+        ? rawRobustnessLabel
+        : undefined
+
+    // Task 1.7: Get goal text from framing
+    const goalText = currentScenarioFraming?.goal || undefined
+
     return {
       recommendedOption,
       allOptions,
@@ -786,8 +868,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       outcomeUnit,
       outcomeUnitSymbol,
       recommendationStability,
+      // Task 1.3: Win probability for display
+      winProbability,
+      // Task 1.4: How winner was determined
+      determinedBy,
+      // Task 1.5: Robustness level and label
+      robustnessLevel,
+      robustnessLabel,
+      // Task 1.7: Goal text from framing
+      goalText,
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)
@@ -917,7 +1008,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     fragileEdgesRaw.forEach((fe: any) => {
       const fromId = fe.from_id ?? fe.fromId ?? fe.source
       if (fromId) {
-        // Use marginal_switch_probability when available, fall back to switch_probability
+        // Task 1.5: Metric consistency - use marginal_switch_probability as primary, fall back to switch_probability
+        // This same pattern is used throughout: filtering (line 1232), counting (line 1242), display
         const newProb = typeof fe.marginal_switch_probability === 'number'
           ? fe.marginal_switch_probability
           : typeof fe.switch_probability === 'number'
@@ -1151,7 +1243,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       ).values()
     )
 
-    // Filter to high-risk edges (switch_probability > threshold)
+    // Task 1.5: Filter to high-risk edges (switch_probability > threshold)
+    // Metric consistency verified: same pattern used for filtering, counting, and display
     const highRiskFragileEdges = dedupedFragileEdges
       .filter((fe: any) => {
         // Use marginal_switch_probability when available, fall back to switch_probability
