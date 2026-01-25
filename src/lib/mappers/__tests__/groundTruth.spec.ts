@@ -193,10 +193,13 @@ describe('ground truth: ISL importance_score fixture (P0 Fix)', () => {
       expect(timeline!.rawInfluence).toBe(0.22)
     })
 
-    it('maps confidence from value_of_information (×100)', () => {
+    it('returns undefined confidence when only value_of_information is present (VOI is separate metric)', () => {
       const techLead = pipelineResult.factors.find(f => f.factorId === 'fac_hire_tech_lead')
-      // value_of_information: 0.85 → confidence: 85
-      expect(techLead!.confidence).toBe(85)
+      // value_of_information is NOT used for confidence - they are semantically different
+      // VOI = "how much would more info help", confidence = "path certainty from exists_probability"
+      expect(techLead!.confidence).toBeUndefined()
+      // But VOI should be preserved separately
+      expect(techLead!.valueOfInformation).toBe(0.85)
     })
 
     it('preserves direction from ISL response', () => {

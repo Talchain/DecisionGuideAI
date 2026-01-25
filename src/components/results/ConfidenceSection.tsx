@@ -211,6 +211,7 @@ export function ConfidenceSection({
     evidenceCoverage,
     improvements,
     topImprovements,
+    filteredFragileEdges,
   } = data
 
   const config = TIER_CONFIG[tier.tier]
@@ -317,6 +318,13 @@ export function ConfidenceSection({
             >
               {showAllUncertainties ? 'Show fewer' : `+${hiddenUncertaintyCount} more items`}
             </button>
+          )}
+
+          {/* Filtered items disclosure */}
+          {filteredFragileEdges && filteredFragileEdges.filteredCount > 0 && (
+            <p className="text-xs text-slate-400 mt-2">
+              {filteredFragileEdges.description}
+            </p>
           )}
         </div>
       )}

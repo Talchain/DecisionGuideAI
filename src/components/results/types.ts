@@ -186,6 +186,16 @@ export interface EvidenceCoverage {
   needsValidation: number
 }
 
+/** Disclosure info when items are filtered below threshold */
+export interface FilteredItemsDisclosure {
+  /** Number of items filtered out */
+  filteredCount: number
+  /** Threshold used for filtering (e.g., 0.3 for 30% flip probability) */
+  threshold: number
+  /** Human-readable description of what was filtered */
+  description: string
+}
+
 export interface ConfidenceSectionData {
   tier: ConfidenceTierInfo
   /** Quality score 0-100 from graph readiness or fallback */
@@ -204,6 +214,8 @@ export interface ConfidenceSectionData {
   analysisStatus?: string
   driversStatus?: string
   robustnessStatus?: string
+  /** Disclosure when fragile edges are filtered below threshold */
+  filteredFragileEdges?: FilteredItemsDisclosure
 }
 
 // =============================================================================

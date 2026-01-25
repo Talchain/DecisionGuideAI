@@ -40,14 +40,15 @@ The `src/lib/mappers/` module provides typed domain mappers that:
 
 ---
 
-### 2. Confidence Scaling (VOI → Percentage)
+### 2. Confidence Scaling (confidence field → Percentage)
 
 **Location**: `mapFactorSensitivity.ts` → `getConfidence()`
 
 **Current Logic**:
 ```typescript
-// value_of_information (0-1) → confidence (0-100)
-const confidence = voi !== undefined ? Math.round(voi * 100) : undefined
+// confidence (0-1) → confidence (0-100)
+// IMPORTANT: VOI is NOT used for confidence - they are different metrics
+const confidence = rawConfidence !== undefined ? Math.round(rawConfidence * 100) : undefined
 ```
 
 **Why Move to PLoT**:
@@ -58,6 +59,7 @@ const confidence = voi !== undefined ? Math.round(voi * 100) : undefined
 **Migration**:
 - PLoT to return `factor.confidence` as 0-100 percentage
 - UI uses value directly without scaling
+- Note: `value_of_information` remains a separate metric (0-1), exposed as `valueOfInformation`
 
 ---
 
@@ -247,13 +249,18 @@ These design choices match the existing `useResultsSectionData.ts` behavior to e
 
 ### 4. Confidence Scale (0-100)
 
-**Decision**: `confidence` is scaled to 0-100 percentage from `value_of_information` (0-1).
+**Decision**: `confidence` is scaled to 0-100 percentage from the `confidence` field only (0-1).
 
-**Why**: Matches the existing UI expectation. The scaling `Math.round(voi * 100)` is applied at the mapper level.
+**IMPORTANT**: Confidence and `value_of_information` (VOI) are semantically different metrics:
+- **Confidence** = path certainty from `exists_probability` ("how certain is this relationship?")
+- **VOI** = value of information ("would gathering more data change the decision?")
+
+**Why**: These are distinct concepts that should not be conflated. The UI displays them separately.
 
 **Contract**:
-- `value_of_information: 0.7` → `confidence: 70`
-- `value_of_information: undefined` → `confidence: undefined` (NOT 0)
+- `confidence: 0.7` → `confidence: 70`
+- `confidence: undefined` → `confidence: undefined` (NOT 0)
+- `value_of_information` is preserved separately as `valueOfInformation`, NOT used for confidence
 
 ---
 
@@ -265,7 +272,7 @@ All semantic contracts are tested in `src/lib/mappers/__tests__/`:
 |-----------|----------|
 | `utils.spec.ts` | Boundary parse functions, zero preservation |
 | `selectDataSource.spec.ts` | Source precedence, fallback tracking |
-| `mapFactorSensitivity.spec.ts` | Influence extraction, VOI→confidence, direction |
+| `mapFactorSensitivity.spec.ts` | Influence extraction, confidence mapping (not VOI), direction |
 | `mapRobustness.spec.ts` | Switch probability (no inversion), edge labels |
 
 **Total: 95 tests** covering regression prevention and semantic contracts.

@@ -5,12 +5,13 @@
  *
  * Key transforms:
  * - importance_score → rawInfluence (no scaling, direct value)
- * - value_of_information → confidence (multiply by 100 for percentage)
+ * - confidence → confidence (from exists_probability, multiply by 100 if 0-1 scale)
  * - direction → normalised 'positive' | 'negative'
  *
  * Key contracts:
- * - Missing VOI → confidence: undefined (NOT 0)
- * - VOI: 0 → confidence: 0 (real zero preserved)
+ * - Missing confidence → confidence: undefined (NOT 0)
+ * - confidence: 0 → confidence: 0 (real zero preserved)
+ * - value_of_information is preserved separately, NOT used for confidence
  * - All optional fields use undefined, not fallback values
  */
 
@@ -104,27 +105,21 @@ function getRawInfluence(factor: RawFactor): number {
 // =============================================================================
 
 /**
- * Extract confidence from value_of_information or confidence field.
+ * Extract confidence from the confidence field only.
+ *
+ * Confidence = path certainty from exists_probability. VOI is a separate metric.
  *
  * Returns:
- * - number (0-100) when VOI/confidence is present
- * - undefined when both are missing
+ * - number (0-100) when confidence is present
+ * - undefined when missing
  *
  * CRITICAL:
- * - Missing VOI → undefined (NOT 0)
- * - VOI: 0 → 0 (real zero preserved)
- *
- * TODO: Move to PLoT post-pilot — confidence should come pre-computed
+ * - Missing confidence → undefined (NOT 0)
+ * - confidence: 0 → 0 (real zero preserved)
+ * - Do NOT use value_of_information here - VOI measures "how much would more info help",
+ *   not "how confident are we in this path"
  */
 function getConfidence(factor: RawFactor): number | undefined {
-  // Prefer value_of_information over confidence
-  const voi = asOptionalNumber(factor.value_of_information)
-  if (voi !== undefined) {
-    // VOI is 0-1, convert to 0-100 for display
-    return Math.round(voi * 100)
-  }
-
-  // Fall back to confidence field
   const confidence = asOptionalNumber(factor.confidence)
   if (confidence !== undefined) {
     // Confidence may already be 0-100 or 0-1

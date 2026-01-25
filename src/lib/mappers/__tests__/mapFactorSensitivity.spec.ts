@@ -90,13 +90,15 @@ describe('mapFactorSensitivity', () => {
     })
   })
 
-  describe('confidence mapping (VOI)', () => {
-    it('maps value_of_information: 0.7 to confidence: 70', () => {
+  describe('confidence mapping', () => {
+    // Confidence = path certainty from exists_probability. VOI is a separate metric.
+
+    it('maps confidence: 0.7 (0-1 scale) to confidence: 70', () => {
       const factors: RawFactor[] = [
         {
           factor_id: 'fac_price',
           importance_score: 0.5,
-          value_of_information: 0.7,
+          confidence: 0.7,
           label: 'Price',
         },
       ]
@@ -106,12 +108,12 @@ describe('mapFactorSensitivity', () => {
       expect(result[0].confidence).toBe(70)
     })
 
-    it('maps value_of_information: 1.0 to confidence: 100', () => {
+    it('maps confidence: 1.0 to confidence: 100', () => {
       const factors: RawFactor[] = [
         {
           factor_id: 'fac_price',
           importance_score: 0.5,
-          value_of_information: 1.0,
+          confidence: 1.0,
           label: 'Price',
         },
       ]
@@ -121,7 +123,7 @@ describe('mapFactorSensitivity', () => {
       expect(result[0].confidence).toBe(100)
     })
 
-    it('maps missing VOI to confidence: undefined (NOT 0)', () => {
+    it('maps missing confidence to undefined (NOT 0)', () => {
       const factors: RawFactor[] = [
         { factor_id: 'fac_price', importance_score: 0.5, label: 'Price' },
       ]
@@ -131,12 +133,12 @@ describe('mapFactorSensitivity', () => {
       expect(result[0].confidence).toBeUndefined()
     })
 
-    it('maps value_of_information: 0 to confidence: 0 (real zero preserved)', () => {
+    it('maps confidence: 0 to confidence: 0 (real zero preserved)', () => {
       const factors: RawFactor[] = [
         {
           factor_id: 'fac_price',
           importance_score: 0.5,
-          value_of_information: 0,
+          confidence: 0,
           label: 'Price',
         },
       ]
@@ -146,27 +148,47 @@ describe('mapFactorSensitivity', () => {
       expect(result[0].confidence).toBe(0)
     })
 
-    it('preserves raw valueOfInformation field', () => {
+    it('does NOT use value_of_information for confidence (VOI is separate metric)', () => {
       const factors: RawFactor[] = [
         {
           factor_id: 'fac_price',
           importance_score: 0.5,
-          value_of_information: 0.7,
+          value_of_information: 0.7, // VOI is NOT confidence
           label: 'Price',
         },
       ]
 
       const result = mapFactorSensitivity(factors, defaultOptions)
 
+      // Confidence should be undefined - VOI is not used for confidence
+      expect(result[0].confidence).toBeUndefined()
+      // But VOI should be preserved separately
       expect(result[0].valueOfInformation).toBe(0.7)
     })
 
-    it('falls back to confidence field when VOI is missing', () => {
+    it('preserves valueOfInformation as separate field', () => {
       const factors: RawFactor[] = [
         {
           factor_id: 'fac_price',
           importance_score: 0.5,
-          confidence: 0.8, // 0-1 scale
+          value_of_information: 0.9,
+          confidence: 0.7, // Both VOI and confidence can coexist
+          label: 'Price',
+        },
+      ]
+
+      const result = mapFactorSensitivity(factors, defaultOptions)
+
+      expect(result[0].valueOfInformation).toBe(0.9)
+      expect(result[0].confidence).toBe(70) // From confidence field, not VOI
+    })
+
+    it('handles confidence already in 0-100 scale', () => {
+      const factors: RawFactor[] = [
+        {
+          factor_id: 'fac_price',
+          importance_score: 0.5,
+          confidence: 80, // Already 0-100 scale
           label: 'Price',
         },
       ]

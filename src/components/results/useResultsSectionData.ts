@@ -1073,19 +1073,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Get confidence tier with full fallback chain
     const tier = getConfidenceTier(graphReadiness, report as any)
 
-    // Derive quality score
+    // Derive quality score - only use actual computed values, never fabricate
+    // When only tier is known, qualityScore remains null and UI shows tier label only
     let qualityScore: number | null = null
     if (typeof graphReadiness?.readiness_score === 'number') {
       qualityScore = graphReadiness.readiness_score
     } else if (typeof (report as any)?.graph_quality?.score === 'number') {
       qualityScore = (report as any).graph_quality.score
-    } else if (tier === 'strong') {
-      qualityScore = 80
-    } else if (tier === 'fair') {
-      qualityScore = 50
-    } else if (tier === 'needs_work') {
-      qualityScore = 20
     }
+    // Note: Do NOT fabricate scores from tier (80/50/20) - display tier label only when score is unavailable
 
     // Get tier display info
     const tierInfo = {
@@ -1143,7 +1139,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         hasLabels: firstFragileEdge?.from_label !== undefined,
       })
     }
-    const sensitiveAssumptions = Array.from(
+
+    // Dedupe fragile edges by unique key (edge_id + alternative_winner_id)
+    const FRAGILE_EDGE_THRESHOLD = 0.3
+    const dedupedFragileEdges = Array.from(
       new Map(
         fragileEdgesRaw.map((fe: any) => [
           `${fe.edge_id ?? fe.edgeId ?? ''}::${fe.alternative_winner_id ?? fe.alternativeWinnerId ?? ''}`,
@@ -1151,16 +1150,28 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ])
       ).values()
     )
+
+    // Filter to high-risk edges (switch_probability > threshold)
+    const highRiskFragileEdges = dedupedFragileEdges
       .filter((fe: any) => {
         // Use marginal_switch_probability when available, fall back to switch_probability
         // ISL marginal = P(alternative wins | only this edge weak) — more precise for single-edge risk
         const flipProb = fe.marginal_switch_probability ?? fe.switch_probability
         if (typeof flipProb === 'number') {
-          return flipProb > 0.3
+          return flipProb > FRAGILE_EDGE_THRESHOLD
         }
         // If no probability data, include by default (legacy data)
         return true
       })
+
+    // Count how many were filtered out (had numeric probability <= threshold)
+    const filteredFragileEdgesCount = dedupedFragileEdges.filter((fe: any) => {
+      const flipProb = fe.marginal_switch_probability ?? fe.switch_probability
+      return typeof flipProb === 'number' && flipProb <= FRAGILE_EDGE_THRESHOLD
+    }).length
+
+    // Sort by risk and take top 3
+    const sensitiveAssumptions = highRiskFragileEdges
       .sort((a: any, b: any) => {
         const bProb = b.marginal_switch_probability ?? b.switch_probability ?? -Infinity
         const aProb = a.marginal_switch_probability ?? a.switch_probability ?? -Infinity
@@ -1339,6 +1350,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     )
     const robustnessStatus = hasRobustnessData ? 'computed' : 'unavailable'
 
+    // Build filtered disclosure when items were excluded
+    const filteredFragileEdges = filteredFragileEdgesCount > 0 ? {
+      filteredCount: filteredFragileEdgesCount,
+      threshold: FRAGILE_EDGE_THRESHOLD,
+      description: `${filteredFragileEdgesCount} additional ${filteredFragileEdgesCount === 1 ? 'edge' : 'edges'} with <${Math.round(FRAGILE_EDGE_THRESHOLD * 100)}% flip risk`,
+    } : undefined
+
     return {
       tier: tierInfo,
       qualityScore,
@@ -1351,6 +1369,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       analysisStatus,
       driversStatus,
       robustnessStatus,
+      filteredFragileEdges,
     }
   }, [report])
 
