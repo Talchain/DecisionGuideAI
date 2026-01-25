@@ -17,6 +17,7 @@ import { useState, useCallback, useEffect } from 'react'
 import type { DriversSectionData, DriverItem } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
+import { typography } from '../../styles/typography'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -65,7 +66,7 @@ function ProgressBar({
     // P0 Fix: Reduced gap from gap-2 (8px) to gap-1 (4px) for tighter bar-percentage spacing
     <div className="flex items-center gap-1 w-full">
       <div
-        className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden"
+        className="flex-1 h-2 bg-sand-200 rounded-full overflow-hidden"
         role="progressbar"
         aria-valuenow={percent}
         aria-valuemin={0}
@@ -77,7 +78,7 @@ function ProgressBar({
           style={{ width: `${percent}%`, backgroundColor: BAR_COLORS[color] }}
         />
       </div>
-      <span className="text-xs text-slate-600 font-mono w-9 text-right">
+      <span className="text-xs font-mono text-slate-600 w-9 text-right">
         {percent}%
       </span>
     </div>
@@ -162,7 +163,7 @@ function ExpandedDetails({
       {driver.canFocus && (
         <button
           onClick={handleFocusClick}
-          className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1 mt-2"
+          className="text-xs text-sky-600 hover:text-sky-700 flex items-center gap-1 mt-2"
         >
           Focus on canvas <span aria-hidden="true">→</span>
         </button>
@@ -229,7 +230,7 @@ function DriverRow({
               {directionIcon}
             </span>
             {/* Label - can wrap to multiple lines */}
-            <span className="font-medium text-sm text-slate-800 break-words leading-snug">
+            <span className="text-sm text-slate-800 break-words leading-snug">
               {driver.factorLabel}
             </span>
           </div>
@@ -242,7 +243,7 @@ function DriverRow({
               aria-label={`${driver.factorLabel} influence: ${Math.round(influenceValue * 100)}%`}
             />
           ) : (
-            <div className="text-xs text-slate-400 font-mono w-9 text-right">—</div>
+            <div className="text-xs font-mono text-slate-400 w-9 text-right">—</div>
           )}
 
           {/* Confidence bar - always blue */}
@@ -253,7 +254,7 @@ function DriverRow({
               aria-label={`${driver.factorLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
             />
           ) : (
-            <div className="text-xs text-slate-400 font-mono w-9 text-right">—</div>
+            <div className="text-xs font-mono text-slate-400 w-9 text-right">—</div>
           )}
         </div>
       </button>
@@ -385,13 +386,13 @@ export function DriversSection({
         <div />
         {/* Right-aligned headers over bar columns with tooltips */}
         <div
-          className="text-xs font-medium text-slate-500 text-right pr-6 cursor-help"
+          className="text-xs text-slate-500 text-right pr-6 cursor-help"
           title="How strongly this factor affects your goal"
         >
           Influence
         </div>
         <div
-          className="text-xs font-medium text-slate-500 text-right pr-6 cursor-help"
+          className="text-xs text-slate-500 text-right pr-6 cursor-help"
           title="How certain we are about this causal relationship"
         >
           Confidence
@@ -415,7 +416,7 @@ export function DriversSection({
       {hiddenCount > 0 && (
         <button
           onClick={() => setShowAll(!showAll)}
-          className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+          className="text-sm text-sky-600 hover:text-sky-700"
         >
           {showAll ? 'Show fewer factors' : `See all factors (+${hiddenCount} more)`}
         </button>

@@ -17,6 +17,7 @@ import { useState, useCallback } from 'react'
 import type { ConfidenceSectionData, UncertaintyItem, ImprovementItem, CritiqueSeverity, ConfidenceTier } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
+import { typography } from '../../styles/typography'
 
 interface ConfidenceSectionProps {
   data: ConfidenceSectionData
@@ -32,22 +33,22 @@ const SEVERITY_CONFIG: Record<CritiqueSeverity, {
 }> = {
   blocker: {
     icon: '⛔',
-    bgColor: 'bg-red-50',
-    borderColor: 'border-red-300',
-    textColor: 'text-red-800',
+    bgColor: 'bg-danger-50',
+    borderColor: 'border-danger-300',
+    textColor: 'text-danger-800',
     label: 'Blocks analysis',
   },
   error: {
     icon: '✕',
-    bgColor: 'bg-red-50',
-    borderColor: 'border-red-200',
-    textColor: 'text-red-700',
+    bgColor: 'bg-danger-50',
+    borderColor: 'border-danger-200',
+    textColor: 'text-danger-700',
   },
   warning: {
     icon: '⚠',
-    bgColor: 'bg-amber-50',
-    borderColor: 'border-amber-200',
-    textColor: 'text-amber-700',
+    bgColor: 'bg-warning-50',
+    borderColor: 'border-warning-200',
+    textColor: 'text-warning-700',
   },
   info: {
     icon: 'ℹ',
@@ -68,27 +69,27 @@ const TIER_CONFIG: Record<ConfidenceTier, {
 }> = {
   strong: {
     icon: '✓',
-    bgColor: 'bg-emerald-50',
-    borderColor: 'border-emerald-200',
-    textColor: 'text-emerald-800',
+    bgColor: 'bg-success-50',
+    borderColor: 'border-success-200',
+    textColor: 'text-success-800',
     label: 'Good foundation',
     descriptionWithItems: 'Your model captures this decision well.',
     descriptionWithoutItems: 'Your model captures this decision well.',
   },
   fair: {
     icon: '⚠',
-    bgColor: 'bg-amber-50',
-    borderColor: 'border-amber-200',
-    textColor: 'text-amber-800',
+    bgColor: 'bg-warning-50',
+    borderColor: 'border-warning-200',
+    textColor: 'text-warning-800',
     label: 'Partial picture',
     descriptionWithItems: 'Your model covers the basics. Address the items below.',
     descriptionWithoutItems: 'Your model covers the basics but could use more detail.',
   },
   needs_work: {
     icon: '⚠',
-    bgColor: 'bg-orange-50',
-    borderColor: 'border-orange-200',
-    textColor: 'text-orange-800',
+    bgColor: 'bg-danger-50',
+    borderColor: 'border-danger-200',
+    textColor: 'text-danger-800',
     label: 'Early sketch',
     descriptionWithItems: 'Add the missing elements below before relying on the recommendation.',
     descriptionWithoutItems: 'Add more factors and connections before relying on the recommendation.',
@@ -138,7 +139,7 @@ function UncertaintyRow({
         <span className={`${severityConfig.textColor} text-sm flex-shrink-0`}>{severityConfig.icon}</span>
         <div className="flex-1 min-w-0">
           {severityConfig.label && (
-            <span className={`text-xs font-medium ${severityConfig.textColor} block mb-1`}>
+            <span className={`text-xs ${severityConfig.textColor} block mb-1`}>
               {severityConfig.label}
             </span>
           )}
@@ -146,7 +147,7 @@ function UncertaintyRow({
         </div>
       </div>
       {thresholdMessage && (
-        <p className="text-xs text-amber-700 mt-1 bg-amber-50 px-2 py-1 rounded">
+        <p className="text-xs text-warning-700 mt-1 bg-warning-50 px-2 py-1 rounded">
           {thresholdMessage}
         </p>
       )}
@@ -161,7 +162,7 @@ function UncertaintyRow({
         <div className="flex flex-wrap gap-1 mt-2">
           <button
             onClick={() => handleNodeClick(item.affectedNodes![0])}
-            className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+            className="text-xs px-2 py-0.5 bg-info-100 text-info-700 rounded hover:bg-info-200 transition-colors"
             title={`Focus on canvas`}
           >
             {item.suggestion || 'Validate this assumption'}
@@ -235,14 +236,14 @@ export function ConfidenceSection({
     <div className="space-y-4">
       {/* CASE 1: Model is fully ready - show positive message ONLY */}
       {isFullyReady && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+        <div className="p-4 bg-success-50 border border-success-200 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">✓</span>
-            <span className="font-semibold text-emerald-800">
+            <span className="text-sm font-semibold text-success-800">
               Good foundation
             </span>
           </div>
-          <p className="text-sm text-emerald-700">
+          <p className="text-sm text-success-700">
             Your model looks good. You're ready to decide.
           </p>
         </div>
@@ -253,7 +254,7 @@ export function ConfidenceSection({
         <div className={`p-4 rounded-lg border ${config.bgColor} ${config.borderColor}`}>
           <div className="flex items-center gap-2 mb-2">
             <span className="text-lg">{config.icon}</span>
-            <span className={`font-semibold ${config.textColor}`}>
+            <span className={`text-sm font-semibold ${config.textColor}`}>
               {config.label}
             </span>
           </div>
@@ -265,10 +266,10 @@ export function ConfidenceSection({
 
       {/* CASE 3: Strong tier but has items to address - show compact header */}
       {tier.tier === 'strong' && !isFullyReady && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+        <div className="p-3 bg-success-50 border border-success-200 rounded-lg">
           <div className="flex items-center gap-2">
-            <span className="text-emerald-600">✓</span>
-            <p className="text-sm text-emerald-800 font-medium">
+            <span className="text-success-600">✓</span>
+            <p className="text-sm text-success-800">
               Good foundation — a few items to consider below
             </p>
           </div>
@@ -277,8 +278,8 @@ export function ConfidenceSection({
 
       {/* Evidence coverage */}
       {evidenceCoverage && (
-        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
+        <div className="p-3 bg-info-50 border border-info-200 rounded-lg">
+          <p className="text-sm text-info-800">
             <span className="font-medium">Model evidence:</span>{' '}
             {evidenceCoverage.backedByData} assumptions backed by data,{' '}
             {evidenceCoverage.needsValidation} need validation
@@ -289,7 +290,7 @@ export function ConfidenceSection({
       {/* Uncertainties */}
       {showUncertainties && (
         <div className="space-y-2">
-          <h4 className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+          <h4 className="text-xs text-slate-500 uppercase tracking-wide">
             Uncertainties
           </h4>
           {uncertainties.length === 0 ? (
@@ -314,7 +315,7 @@ export function ConfidenceSection({
           {hiddenUncertaintyCount > 0 && (
             <button
               onClick={() => setShowAllUncertainties(!showAllUncertainties)}
-              className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+              className="text-xs text-sky-600 hover:text-sky-700"
             >
               {showAllUncertainties ? 'Show fewer' : `+${hiddenUncertaintyCount} more items`}
             </button>
@@ -331,7 +332,7 @@ export function ConfidenceSection({
 
       {/* Improvements */}
       <div className="space-y-2">
-        <h4 className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+        <h4 className="text-xs text-slate-500 uppercase tracking-wide">
           Improvements
         </h4>
         {improvements.length === 0 ? (
@@ -355,7 +356,7 @@ export function ConfidenceSection({
         {hiddenImprovementCount > 0 && (
           <button
             onClick={() => setShowAllImprovements(!showAllImprovements)}
-            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+            className="text-xs text-sky-600 hover:text-sky-700"
           >
             {showAllImprovements ? 'Show fewer' : `+${hiddenImprovementCount} more items`}
           </button>

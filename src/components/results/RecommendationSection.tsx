@@ -17,6 +17,7 @@ import type { RecommendationSectionData, OptionResult, OutcomeUnitType, Stabilit
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatOutcomeValue, type OutcomeUnits } from '../../lib/format'
+import { typography } from '../../styles/typography'
 
 interface RecommendationSectionProps {
   data: RecommendationSectionData
@@ -101,27 +102,27 @@ function StabilityChip({ stability }: { stability: number }) {
   const config = {
     high: {
       label: 'High',
-      bgColor: 'bg-emerald-100',
-      textColor: 'text-emerald-700',
-      borderColor: 'border-emerald-300',
+      bgColor: 'bg-success-100',
+      textColor: 'text-success-700',
+      borderColor: 'border-success-300',
     },
     medium: {
       label: 'Medium',
-      bgColor: 'bg-amber-100',
-      textColor: 'text-amber-700',
-      borderColor: 'border-amber-300',
+      bgColor: 'bg-warning-100',
+      textColor: 'text-warning-700',
+      borderColor: 'border-warning-300',
     },
     low: {
       label: 'Low',
-      bgColor: 'bg-red-100',
-      textColor: 'text-red-700',
-      borderColor: 'border-red-300',
+      bgColor: 'bg-danger-100',
+      textColor: 'text-danger-700',
+      borderColor: 'border-danger-300',
     },
   }[level]
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${config.bgColor} ${config.textColor} ${config.borderColor}`}
+      className={`${typography.caption} inline-flex items-center px-2 py-0.5 rounded border ${config.bgColor} ${config.textColor} ${config.borderColor}`}
       title={`Recommendation stays winner ${percentage}% of the time under uncertainty`}
     >
       {config.label} stability ({percentage}%)
@@ -225,7 +226,7 @@ function RangeBar({
   // Handle unavailable state
   if (rangeData.unavailable) {
     return (
-      <div className="mt-4 p-3 bg-slate-100 border border-slate-200 rounded-lg">
+      <div className="mt-4 p-3 bg-slate-100 border border-sand-200 rounded-lg">
         <p className="text-xs text-slate-500 text-center">{EMPTY_STATES.rangeData}</p>
       </div>
     )
@@ -238,7 +239,7 @@ function RangeBar({
         <div className="flex justify-center">
           <div className="text-center">
             <span className="text-xs text-slate-500">Expected</span>
-            <span className="block text-lg font-semibold text-emerald-700">
+            <span className="block text-xl font-semibold text-success-700">
               {formatOutcome(rangeData.expected, outcomeUnit, outcomeUnitSymbol)}
             </span>
           </div>
@@ -271,10 +272,10 @@ function RangeBar({
       </div>
 
       {/* Bar track */}
-      <div className="relative h-2 bg-slate-200 rounded-full">
+      <div className="relative h-2 bg-sand-200 rounded-full">
         {/* Range fill */}
         <div
-          className="absolute h-full bg-emerald-200 rounded-full"
+          className="absolute h-full bg-success-200 rounded-full"
           style={{
             left: `${worsePos}%`,
             width: `${Math.max(0, betterPos - worsePos)}%`,
@@ -282,15 +283,15 @@ function RangeBar({
         />
         {/* Expected (p50) marker */}
         <div
-          className="absolute w-3 h-3 bg-emerald-600 rounded-full -translate-x-1/2 -translate-y-0.5"
+          className="absolute w-3 h-3 bg-success-600 rounded-full -translate-x-1/2 -translate-y-0.5"
           style={{ left: `${expectedPos}%` }}
         />
       </div>
 
       {/* Value labels */}
-      <div className="flex justify-between text-xs text-slate-600 mt-2 font-mono">
+      <div className="flex justify-between text-xs font-mono text-slate-600 mt-2">
         <span>{formatOutcome(worse, outcomeUnit, outcomeUnitSymbol)}</span>
-        <span className="font-semibold text-emerald-700">{formatOutcome(expected, outcomeUnit, outcomeUnitSymbol)}</span>
+        <span className="font-semibold text-success-700">{formatOutcome(expected, outcomeUnit, outcomeUnitSymbol)}</span>
         <span>{formatOutcome(better, outcomeUnit, outcomeUnitSymbol)}</span>
       </div>
     </div>
@@ -327,7 +328,7 @@ function OptionRow({
       className={`
         w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center justify-between
         ${option.isRecommended
-          ? 'bg-emerald-50 border border-emerald-200 hover:bg-emerald-100'
+          ? 'bg-success-50 border border-success-200 hover:bg-success-100'
           : 'bg-slate-50 border border-slate-200 hover:bg-slate-100'
         }
       `}
@@ -335,21 +336,21 @@ function OptionRow({
     >
       <div className="flex items-center gap-2">
         <span
-          className={`font-medium text-sm ${
-            option.isRecommended ? 'text-emerald-900' : 'text-slate-700'
+          className={`text-sm ${
+            option.isRecommended ? 'text-success-900' : 'text-slate-700'
           }`}
         >
           {option.label}
         </span>
         {option.isRecommended && (
-          <span className="text-xs bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
+          <span className="text-xs bg-success-100 text-success-700 px-1.5 py-0.5 rounded">
             Recommended
           </span>
         )}
       </div>
       <span
-        className={`font-semibold text-sm ${
-          option.isRecommended ? 'text-emerald-700' : 'text-slate-600'
+        className={`text-sm ${
+          option.isRecommended ? 'text-success-700' : 'text-slate-600'
         }`}
       >
         {displayValue == null
@@ -381,12 +382,12 @@ export function RecommendationSection({
   // Error state
   if (analysisStatus === 'failed' || analysisStatus === 'blocked') {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-        <div className="flex items-center gap-2 text-red-800 font-medium mb-2">
+      <div className="p-4 bg-danger-50 border border-danger-200 rounded-lg">
+        <div className={`flex items-center gap-2 ${typography.body} text-danger-800 font-medium mb-2`}>
           <span>Analysis could not complete</span>
         </div>
         {statusReason && (
-          <p className="text-sm text-red-700">{statusReason}</p>
+          <p className={`${typography.body} text-danger-700`}>{statusReason}</p>
         )}
       </div>
     )
@@ -421,12 +422,12 @@ export function RecommendationSection({
   return (
     <div className="space-y-4">
       {/* Main Recommendation */}
-      <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg">
+      <div className="p-4 bg-success-50 border border-success-200 rounded-lg">
         {/* Best estimate headline - goal is shown in Objective section */}
         <div className="mb-2 flex items-center justify-between flex-wrap gap-2">
           <div>
-            <span className="text-sm text-emerald-700">Best estimate:</span>
-            <span className="text-lg font-semibold text-emerald-900 ml-2">
+            <span className="text-xs text-success-700">Best estimate:</span>
+            <span className="text-xl font-semibold text-success-900 ml-2">
               {expectedValue != null
                 ? `~${formatOutcome(Math.abs(expectedValue), outcomeUnit, outcomeUnitSymbol)} ${expectedValue >= 0 ? 'improvement' : 'decline'}`
                 : hasGoalProbability
@@ -442,7 +443,7 @@ export function RecommendationSection({
 
         {/* Natural language description */}
         {outcomeDescription && (
-          <p className="text-sm text-emerald-700">
+          <p className="text-sm text-success-700">
             {outcomeDescription}
           </p>
         )}
@@ -462,7 +463,7 @@ export function RecommendationSection({
       {/* Option comparison (multiple options) */}
       {!isSingleOption && allOptions.length > 1 && (
         <div className="space-y-2">
-          <h4 className="text-sm font-medium text-slate-600">How this compares:</h4>
+          <h4 className="text-sm text-slate-600">How this compares:</h4>
           <div className="space-y-2">
             {allOptions.map((option) => (
               <OptionRow
