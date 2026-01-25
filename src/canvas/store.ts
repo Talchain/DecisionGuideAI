@@ -12,7 +12,7 @@ import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextIn
 import type { ReportV1, ErrorV1 } from '../adapters/plot/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
 import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
-import { addRun, generateGraphHash, type StoredRun } from './store/runHistory'
+import { addRun, generateGraphHash, loadRuns, type StoredRun } from './store/runHistory'
 import * as scenarios from './store/scenarios'
 import type { Scenario, ScenarioFraming } from './store/scenarios'
 import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/types'
@@ -42,6 +42,35 @@ function generateContentHash(content: string): string {
   }
   // Convert to unsigned 32-bit hex string
   return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
+/**
+ * Attempts to restore results from run history by hash.
+ * Wrapped in try-catch since localStorage can throw.
+ * Returns true if results were restored, false otherwise.
+ */
+function tryRestoreResultsFromHistory(
+  resultHash: string | undefined,
+  restoreFn: (run: StoredRun) => void
+): boolean {
+  if (!resultHash) return false
+  try {
+    const runs = loadRuns()
+    const run = runs.find(r => r.hash === resultHash)
+    if (run) {
+      restoreFn(run)
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[canvas] Restored results from history:', resultHash)
+      }
+      return true
+    }
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[canvas] Run not found in history:', resultHash)
+    }
+  } catch (e) {
+    console.warn('[canvas] Failed to restore results from history:', e)
+  }
+  return false
 }
 
 // Results panel state machine
@@ -1890,6 +1919,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     })
 
     scenarios.setCurrentScenarioId(id)
+
+    // Restore results from run history if this scenario has a last run
+    tryRestoreResultsFromHistory(scenario.last_result_hash, get().resultsLoadHistorical)
+
     return true
   },
 

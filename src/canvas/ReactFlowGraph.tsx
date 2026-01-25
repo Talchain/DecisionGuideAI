@@ -45,7 +45,7 @@ const InspectorPanel = lazy(() => import(/* webpackChunkName: "inspector-panel" 
 import { useResultsRun } from './hooks/useResultsRun'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
-import { loadRuns } from './store/runHistory'
+import { loadRuns, generateGraphHash } from './store/runHistory'
 // HealthStatusBar removed - validation consolidated into OutputsDock panel
 import { DegradedBanner } from './components/DegradedBanner'
 import { LayoutProgressBanner } from './components/LayoutProgressBanner'
@@ -1290,6 +1290,19 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         loadSource = 'scenario'
       }
 
+      // Diagnostic logging for restoration debugging
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[canvas:init] Load source determination:', {
+          loadSource,
+          currentId,
+          hasAutosave: !!autosave,
+          autosaveScenarioId: autosave?.scenarioId,
+          autosaveNodes: autosave?.nodes?.length,
+          hasScenario: !!scenario,
+          scenarioLastResultHash: scenario?.last_result_hash,
+        })
+      }
+
       // Apply the chosen source
       if (loadSource === 'autosave' && autosave) {
         // Load from autosave
@@ -1309,6 +1322,52 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         try {
           sessionStorage.setItem('autosave-recovery-dismissed', 'true')
         } catch { /* sessionStorage not available */ }
+
+        // Restore results: try scenario hash first, then fall back to graphHash matching
+        let resultsRestored = false
+        if (autosave.scenarioId) {
+          const savedScenario = scenarios.getScenario(autosave.scenarioId)
+          if (savedScenario?.last_result_hash) {
+            try {
+              const runs = loadRuns()
+              const run = runs.find(r => r.hash === savedScenario.last_result_hash)
+              if (run) {
+                useCanvasStore.getState().resultsLoadHistorical(run)
+                resultsRestored = true
+                if (process.env.NODE_ENV === 'development') {
+                  console.debug('[canvas] Restored results after autosave recovery (scenario hash):', savedScenario.last_result_hash)
+                }
+              }
+            } catch (e) {
+              console.warn('[canvas] Failed to restore results after autosave:', e)
+            }
+          }
+        }
+
+        // Fallback: if no scenario or no results restored, try graphHash matching (draft mode)
+        if (!resultsRestored) {
+          try {
+            const runs = loadRuns()
+            if (process.env.NODE_ENV === 'development') {
+              console.debug('[canvas:init] Autosave draft restore - checking graphHash:', {
+                runCount: runs.length,
+                autosaveNodes: autosave.nodes.length,
+              })
+            }
+            for (const run of runs) {
+              const currentGraphHash = generateGraphHash(autosave.nodes, autosave.edges, run.seed)
+              if (run.graphHash === currentGraphHash) {
+                useCanvasStore.getState().resultsLoadHistorical(run)
+                if (process.env.NODE_ENV === 'development') {
+                  console.debug('[canvas] Restored results after autosave recovery (graphHash match):', run.hash)
+                }
+                break
+              }
+            }
+          } catch (e) {
+            console.warn('[canvas] Failed to restore results via graphHash matching:', e)
+          }
+        }
 
         console.log('[SCENARIO_STATE]', {
           source: 'autosave',
@@ -1341,12 +1400,54 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     }
 
     const loaded = loadState()
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[canvas:init] loadState fallback path:', {
+        hasLoaded: !!loaded,
+        loadedNodes: loaded?.nodes?.length,
+        loadedEdges: loaded?.edges?.length,
+      })
+    }
     if (loaded) {
       // P2: Use hydrateGraphSlice to avoid clobbering panels/results
       useCanvasStore.getState().hydrateGraphSlice({
         nodes: loaded.nodes,
         edges: loaded.edges
       })
+
+      // Try to restore results from most recent matching run (draft mode fallback)
+      try {
+        const runs = loadRuns()
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[canvas:init] Run history for draft restore:', {
+            runCount: runs.length,
+            firstRunHash: runs[0]?.hash,
+            firstRunGraphHash: runs[0]?.graphHash,
+          })
+        }
+        if (runs.length > 0) {
+          // Find the most recent run that matches the loaded graph
+          for (const run of runs) {
+            const currentGraphHash = generateGraphHash(loaded.nodes, loaded.edges, run.seed)
+            if (process.env.NODE_ENV === 'development') {
+              console.debug('[canvas:init] Comparing graph hashes:', {
+                runHash: run.hash,
+                runGraphHash: run.graphHash,
+                computedGraphHash: currentGraphHash,
+                matches: run.graphHash === currentGraphHash,
+              })
+            }
+            if (run.graphHash === currentGraphHash) {
+              useCanvasStore.getState().resultsLoadHistorical(run)
+              if (process.env.NODE_ENV === 'development') {
+                console.debug('[canvas] Restored results from matching run (draft mode):', run.hash)
+              }
+              break
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('[canvas] Failed to restore results from run history:', e)
+      }
     }
   }, [loadSettings])
 

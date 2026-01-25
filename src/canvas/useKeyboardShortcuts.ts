@@ -5,22 +5,12 @@ import { useEffect } from 'react'
 import { useCanvasStore } from './store'
 
 export function useKeyboardShortcuts() {
-  // React #185 FIX: Use individual selectors instead of destructuring from useCanvasStore()
-  // Calling useCanvasStore() without a selector subscribes to the ENTIRE store,
-  // causing re-renders on ANY state change. Actions are stable references, so
-  // using selectors avoids the entire-store subscription that causes loops.
-  const undo = useCanvasStore(s => s.undo)
-  const redo = useCanvasStore(s => s.redo)
-  const canUndo = useCanvasStore(s => s.canUndo)
-  const canRedo = useCanvasStore(s => s.canRedo)
-  const deleteSelected = useCanvasStore(s => s.deleteSelected)
-  const duplicateSelected = useCanvasStore(s => s.duplicateSelected)
-  const copySelected = useCanvasStore(s => s.copySelected)
-  const pasteClipboard = useCanvasStore(s => s.pasteClipboard)
-  const cutSelected = useCanvasStore(s => s.cutSelected)
-  const selectAll = useCanvasStore(s => s.selectAll)
-  const nudgeSelected = useCanvasStore(s => s.nudgeSelected)
-  const saveSnapshot = useCanvasStore(s => s.saveSnapshot)
+  // Fix: Use getState() inside handler to avoid dependency array issues.
+  // Previously, all 12 action functions were in the dependency array, but
+  // Zustand selectors return new function references on every render,
+  // causing the effect to re-run and triggering render storms.
+  // Using getState() inside the handler ensures we always get fresh state
+  // without needing to list actions as dependencies.
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -33,18 +23,21 @@ export function useKeyboardShortcuts() {
         return
       }
 
+      // Get fresh state for each keydown - avoids stale closure issues
+      const state = useCanvasStore.getState()
+
       // Undo: Cmd/Ctrl + Z
-      if (cmdOrCtrl && event.key === 'z' && !event.shiftKey && canUndo()) {
+      if (cmdOrCtrl && event.key === 'z' && !event.shiftKey && state.canUndo()) {
         event.preventDefault()
-        undo()
+        state.undo()
         return
       }
 
       // Redo: Cmd/Ctrl + Shift + Z or Cmd/Ctrl + Y
       if ((cmdOrCtrl && event.key === 'z' && event.shiftKey) || (cmdOrCtrl && event.key === 'y')) {
-        if (canRedo()) {
+        if (state.canRedo()) {
           event.preventDefault()
-          redo()
+          state.redo()
         }
         return
       }
@@ -52,49 +45,49 @@ export function useKeyboardShortcuts() {
       // Duplicate: Cmd/Ctrl + D
       if (cmdOrCtrl && event.key === 'd') {
         event.preventDefault()
-        duplicateSelected()
+        state.duplicateSelected()
         return
       }
 
       // Select All: Cmd/Ctrl + A
       if (cmdOrCtrl && event.key === 'a') {
         event.preventDefault()
-        selectAll()
+        state.selectAll()
         return
       }
 
       // Copy: Cmd/Ctrl + C
       if (cmdOrCtrl && event.key === 'c') {
         event.preventDefault()
-        copySelected()
+        state.copySelected()
         return
       }
 
       // Cut: Cmd/Ctrl + X
       if (cmdOrCtrl && event.key === 'x') {
         event.preventDefault()
-        cutSelected()
+        state.cutSelected()
         return
       }
 
       // Paste: Cmd/Ctrl + V
       if (cmdOrCtrl && event.key === 'v') {
         event.preventDefault()
-        pasteClipboard()
+        state.pasteClipboard()
         return
       }
 
       // Save Snapshot: Cmd/Ctrl + S
       if (cmdOrCtrl && event.key === 's') {
         event.preventDefault()
-        saveSnapshot()
+        state.saveSnapshot()
         return
       }
 
       // Delete: Delete or Backspace
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault()
-        deleteSelected()
+        state.deleteSelected()
         return
       }
 
@@ -102,27 +95,27 @@ export function useKeyboardShortcuts() {
       const nudgeAmount = event.shiftKey ? 10 : 1
       if (event.key === 'ArrowLeft') {
         event.preventDefault()
-        nudgeSelected(-nudgeAmount, 0)
+        state.nudgeSelected(-nudgeAmount, 0)
         return
       }
       if (event.key === 'ArrowRight') {
         event.preventDefault()
-        nudgeSelected(nudgeAmount, 0)
+        state.nudgeSelected(nudgeAmount, 0)
         return
       }
       if (event.key === 'ArrowUp') {
         event.preventDefault()
-        nudgeSelected(0, -nudgeAmount)
+        state.nudgeSelected(0, -nudgeAmount)
         return
       }
       if (event.key === 'ArrowDown') {
         event.preventDefault()
-        nudgeSelected(0, nudgeAmount)
+        state.nudgeSelected(0, nudgeAmount)
         return
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [undo, redo, canUndo, canRedo, deleteSelected, duplicateSelected, copySelected, pasteClipboard, cutSelected, selectAll, nudgeSelected, saveSnapshot])
+  }, []) // Empty deps - handler always gets fresh state via getState()
 }
