@@ -117,12 +117,13 @@ function normaliseSeverity(severity: string | undefined): CritiqueSeverity {
 
 /**
  * Get canonical factor key from various ID fields.
- * Priority: node_id > factor_id > id > normalised(label)
+ * Priority: factor_id > node_id > id > normalised(label)
+ * Note: PLoT uses factor_id as the canonical field name.
  */
 function getFactorKey(factor: RawFactorSensitivity | UiFactorSensitivity, index: number): string {
   if ('factorId' in factor && factor.factorId) return factor.factorId
-  if ('node_id' in factor && factor.node_id) return factor.node_id
   if ('factor_id' in factor && factor.factor_id) return factor.factor_id
+  if ('node_id' in factor && factor.node_id) return factor.node_id
   if ('id' in factor && factor.id) return factor.id
   if (factor.label) return normaliseLabel(factor.label)
   // Fallback: generate unique key using index

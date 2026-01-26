@@ -192,23 +192,23 @@ describe('getRawElasticity', () => {
 // =============================================================================
 
 describe('getFactorKey', () => {
-  it('prefers node_id', () => {
+  it('prefers factor_id (PLoT canonical field)', () => {
     const factor: RawFactorSensitivity = {
+      factor_id: 'factor_456',
       node_id: 'node_123',
-      factor_id: 'factor_456',
-      id: 'id_789',
-      label: 'My Factor',
-    }
-    expect(getFactorKey(factor, 0)).toBe('node_123')
-  })
-
-  it('falls back to factor_id', () => {
-    const factor: RawFactorSensitivity = {
-      factor_id: 'factor_456',
       id: 'id_789',
       label: 'My Factor',
     }
     expect(getFactorKey(factor, 0)).toBe('factor_456')
+  })
+
+  it('falls back to node_id when factor_id missing', () => {
+    const factor: RawFactorSensitivity = {
+      node_id: 'node_123',
+      id: 'id_789',
+      label: 'My Factor',
+    }
+    expect(getFactorKey(factor, 0)).toBe('node_123')
   })
 
   it('falls back to id', () => {
