@@ -297,7 +297,10 @@ export function ConfidenceSection({
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
               <p className="text-sm text-slate-600 flex items-start gap-2">
                 <span aria-hidden="true">ℹ️</span>
-                {EMPTY_STATES.robustness}
+                {/* Task 9: Different message when analysis completed but all edges below threshold */}
+                {filteredFragileEdges && filteredFragileEdges.filteredCount > 0
+                  ? `No high-sensitivity assumptions found — all edges changed the best option in <${Math.round(filteredFragileEdges.threshold * 100)}% of scenarios tested.`
+                  : EMPTY_STATES.robustness}
               </p>
             </div>
           ) : (

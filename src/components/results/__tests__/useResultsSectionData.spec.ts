@@ -905,7 +905,7 @@ describe('flip_risk_category display logic', () => {
       return null
     } else if (driver.flipRiskCategory === 'correlated') {
       // Show qualitative message for correlated factors (contribute to joint risk)
-      return 'May contribute to decision change under uncertainty'
+      return 'In some scenarios tested, this factor can change which option is best'
     } else if (driver.flipRiskCategory === 'negligible') {
       // No flip text for negligible factors
       return null
@@ -949,7 +949,7 @@ describe('flip_risk_category display logic', () => {
         alternativeWinnerLabel: 'Option B',
       },
     }
-    expect(getFlipRiskMessage(driver)).toBe('May contribute to decision change under uncertainty')
+    expect(getFlipRiskMessage(driver)).toBe('In some scenarios tested, this factor can change which option is best')
     expect(getFlipRiskMessage(driver)).not.toContain('0%')
   })
 
@@ -958,7 +958,7 @@ describe('flip_risk_category display logic', () => {
       flipRiskCategory: 'correlated' as const,
       fragileEdgeInfo: undefined,
     }
-    expect(getFlipRiskMessage(driver)).toBe('May contribute to decision change under uncertainty')
+    expect(getFlipRiskMessage(driver)).toBe('In some scenarios tested, this factor can change which option is best')
   })
 
   it('negligible category shows no flip text', () => {

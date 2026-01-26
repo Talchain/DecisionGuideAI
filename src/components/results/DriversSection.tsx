@@ -121,8 +121,8 @@ function ExpandedDetails({
       alternativeWinnerLabel
     )
   } else if (driver.flipRiskCategory === 'correlated') {
-    // Show qualitative message for correlated factors (contribute to joint risk)
-    decisionChangeRisk = 'May contribute to decision change under uncertainty'
+    // Task 10: Align with "scenarios tested" terminology used throughout Results Panel
+    decisionChangeRisk = 'In some scenarios tested, this factor can change which option is best'
   } else if (driver.flipRiskCategory === 'negligible') {
     // No risk text for negligible factors
     decisionChangeRisk = null
