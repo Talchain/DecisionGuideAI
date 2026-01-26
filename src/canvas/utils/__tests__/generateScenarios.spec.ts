@@ -110,8 +110,8 @@ describe('generateScenarios', () => {
 
       const result = generateScenarios(graph)
 
-      expect(result.labels.a).toBe('Option A')
-      expect(result.labels.b).toBe('Option B')
+      expect(result.labels).toEqual(['Option A', 'Option B'])
+      expect(result.scenarios).toHaveLength(2)
     })
 
     it('scenarioA includes only Option A and excludes Option B', () => {
@@ -133,7 +133,7 @@ describe('generateScenarios', () => {
       const result = generateScenarios(graph)
 
       // ScenarioA should have decision, optionA, and outcome (shared)
-      const scenarioANodeIds = result.scenarioA.nodes.map(n => n.id)
+      const scenarioANodeIds = result.scenarios[0].nodes.map(n => n.id)
       expect(scenarioANodeIds).toContain('d1')
       expect(scenarioANodeIds).toContain('o1')
       expect(scenarioANodeIds).not.toContain('o2')
@@ -158,7 +158,7 @@ describe('generateScenarios', () => {
 
       const result = generateScenarios(graph)
 
-      const scenarioBNodeIds = result.scenarioB.nodes.map(n => n.id)
+      const scenarioBNodeIds = result.scenarios[1].nodes.map(n => n.id)
       expect(scenarioBNodeIds).toContain('d1')
       expect(scenarioBNodeIds).not.toContain('o1')
       expect(scenarioBNodeIds).toContain('o2')
@@ -184,11 +184,11 @@ describe('generateScenarios', () => {
 
       const result = generateScenarios(graph)
 
-      const scenarioANodeIds = result.scenarioA.nodes.map(n => n.id)
+      const scenarioANodeIds = result.scenarios[0].nodes.map(n => n.id)
       expect(scenarioANodeIds).toContain('exclusive_a')
       expect(scenarioANodeIds).not.toContain('exclusive_b')
 
-      const scenarioBNodeIds = result.scenarioB.nodes.map(n => n.id)
+      const scenarioBNodeIds = result.scenarios[1].nodes.map(n => n.id)
       expect(scenarioBNodeIds).toContain('exclusive_b')
       expect(scenarioBNodeIds).not.toContain('exclusive_a')
     })
@@ -209,7 +209,7 @@ describe('generateScenarios', () => {
       const result = generateScenarios(graph)
 
       // ScenarioA edges should only include d1->o1, not d1->o2
-      const scenarioAEdgeIds = result.scenarioA.edges.map(e => e.id)
+      const scenarioAEdgeIds = result.scenarios[0].edges.map(e => e.id)
       expect(scenarioAEdgeIds).toContain('e1')
       expect(scenarioAEdgeIds).not.toContain('e2')
     })
@@ -246,8 +246,7 @@ describe('generateScenarios', () => {
 
       const result = generateScenarios(graph, { optionIds: ['o1', 'o3'] })
 
-      expect(result.labels.a).toBe('Option A')
-      expect(result.labels.b).toBe('Option C')
+      expect(result.labels).toEqual(['Option A', 'Option C'])
     })
 
     it('throws when specified option IDs are not found', () => {
@@ -277,8 +276,47 @@ describe('generateScenarios', () => {
 
       const result = generateScenarios(graph)
 
-      expect(result.labels.a).toBe('Option o1')
-      expect(result.labels.b).toBe('Option o2')
+      expect(result.labels).toEqual(['Option o1', 'Option o2'])
+    })
+    
+    it('generates up to 4 scenarios when 3-4 options exist', () => {
+      const graph = createGraph(
+        [
+          { id: 'd1', type: 'decision', label: 'Decision' },
+          { id: 'o1', type: 'option', label: 'Option A' },
+          { id: 'o2', type: 'option', label: 'Option B' },
+          { id: 'o3', type: 'option', label: 'Option C' },
+          { id: 'o4', type: 'option', label: 'Option D' },
+        ],
+        []
+      )
+
+      const result = generateScenarios(graph)
+
+      expect(result.scenarios).toHaveLength(4)
+      expect(result.labels).toEqual(['Option A', 'Option B', 'Option C', 'Option D'])
+      expect(result.hasMoreOptions).toBe(false)
+    })
+
+    it('caps scenarios at 4 and reports hasMoreOptions when 5+ options exist', () => {
+      const graph = createGraph(
+        [
+          { id: 'd1', type: 'decision', label: 'Decision' },
+          { id: 'o1', type: 'option', label: 'Option A' },
+          { id: 'o2', type: 'option', label: 'Option B' },
+          { id: 'o3', type: 'option', label: 'Option C' },
+          { id: 'o4', type: 'option', label: 'Option D' },
+          { id: 'o5', type: 'option', label: 'Option E' },
+        ],
+        []
+      )
+
+      const result = generateScenarios(graph)
+
+      expect(result.scenarios).toHaveLength(4)
+      expect(result.labels).toEqual(['Option A', 'Option B', 'Option C', 'Option D'])
+      expect(result.hasMoreOptions).toBe(true)
+      expect(result.allOptions).toHaveLength(5)
     })
   })
 })

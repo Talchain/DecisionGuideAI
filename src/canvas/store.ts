@@ -207,13 +207,18 @@ interface CanvasState {
   // M6: Scenario Comparison Mode (replaces main canvas with side-by-side view)
   comparisonMode: {
     active: boolean
-    scenarioA: { nodes: Node[]; edges: Edge<EdgeData>[]; label: string } | null
-    scenarioB: { nodes: Node[]; edges: Edge<EdgeData>[]; label: string } | null
+    scenarios: Array<{ nodes: Node[]; edges: Edge<EdgeData>[]; label: string; optionId?: string }>
+    labels: string[]
+    selectedIndices?: [number, number]
+    hasMoreOptions?: boolean
+    allOptionsCount?: number
     comparison: ComparisonResult | null // Diff data for stats bar and changes view
-    // ISL compare API response with outcome predictions per scenario
+    // ISL/legacy compare API response with outcome predictions per scenario
     apiResponse?: {
       base_scenario?: { id: string; name: string; outcome_predictions: Record<string, number> }
       alternative_scenarios?: Array<{ id: string; name: string; outcome_predictions: Record<string, number> }>
+      option_comparison?: Array<{ option_id: string; option_label: string; outcome?: { mean: number; p10: number; p50: number; p90: number }; expected_outcome?: number; win_probability?: number }>
+      analysis_status?: string
     } | null
   }
   // Week 3: AI Clarifier
@@ -352,7 +357,16 @@ interface CanvasState {
   setDecisionRationale: (rationale: DecisionRationale | null) => void
   exportLocal: () => string
   // M6: Scenario Comparison Mode actions
-  enterComparisonMode: (scenarioA: { nodes: Node[]; edges: Edge<EdgeData>[]; label: string }, scenarioB: { nodes: Node[]; edges: Edge<EdgeData>[]; label: string }, comparison?: ComparisonResult | null, apiResponse?: { base_scenario?: { id: string; name: string; outcome_predictions: Record<string, number> }; alternative_scenarios?: Array<{ id: string; name: string; outcome_predictions: Record<string, number> }> } | null) => void
+  enterComparisonMode: (
+    scenariosOrScenarioA:
+      | Array<{ nodes: Node[]; edges: Edge<EdgeData>[]; label: string; optionId?: string }>
+      | { nodes: Node[]; edges: Edge<EdgeData>[]; label: string; optionId?: string },
+    scenarioB?: { nodes: Node[]; edges: Edge<EdgeData>[]; label: string; optionId?: string } | null,
+    comparison?: ComparisonResult | null,
+    apiResponse?: { base_scenario?: { id: string; name: string; outcome_predictions: Record<string, number> }; alternative_scenarios?: Array<{ id: string; name: string; outcome_predictions: Record<string, number> }>; option_comparison?: Array<{ option_id: string; option_label: string; outcome?: { mean: number; p10: number; p50: number; p90: number }; expected_outcome?: number; win_probability?: number }>; analysis_status?: string } | null,
+    meta?: { hasMoreOptions?: boolean; allOptionsCount?: number }
+  ) => void
+  setComparisonSelectedIndices: (indices: [number, number]) => void
   exitComparisonMode: () => void
   // P2: Hydration hygiene
   hydrateGraphSlice: (loaded: { nodes?: Node[]; edges?: Edge<EdgeData>[]; currentScenarioId?: string | null }) => void
@@ -702,8 +716,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // M6: Scenario Comparison Mode
   comparisonMode: {
     active: false,
-    scenarioA: null,
-    scenarioB: null,
+    scenarios: [],
+    labels: [],
+    selectedIndices: [0, 1],
+    hasMoreOptions: false,
+    allOptionsCount: 0,
     comparison: null,
     apiResponse: null,
   },
@@ -1477,8 +1494,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // M6: Exit comparison mode if active
       comparisonMode: {
         active: false,
-        scenarioA: null,
-        scenarioB: null,
+        scenarios: [],
+        labels: [],
+        selectedIndices: [0, 1],
         comparison: null,
         apiResponse: null,
       },
@@ -1911,8 +1929,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // M6: Exit comparison mode when switching scenarios
       comparisonMode: {
         active: false,
-        scenarioA: null,
-        scenarioB: null,
+        scenarios: [],
+        labels: [],
+        selectedIndices: [0, 1],
         comparison: null,
         apiResponse: null,
       },
@@ -2424,24 +2443,46 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   // M6: Scenario Comparison Mode actions
-  enterComparisonMode: (scenarioA, scenarioB, comparison = null, apiResponse = null) => {
+  enterComparisonMode: (scenariosOrScenarioA, scenarioB, comparison = null, apiResponse = null, meta = {}) => {
+    const scenarios = (Array.isArray(scenariosOrScenarioA)
+      ? scenariosOrScenarioA
+      : [scenariosOrScenarioA, scenarioB]
+    ).filter((scenario): scenario is { nodes: Node[]; edges: Edge<EdgeData>[]; label: string } => Boolean(scenario))
+
+    const labels = scenarios.map((scenario) => scenario.label)
+
     set({
       comparisonMode: {
         active: true,
-        scenarioA,
-        scenarioB,
+        scenarios,
+        labels,
+        selectedIndices: [0, 1],
+        hasMoreOptions: meta.hasMoreOptions ?? false,
+        allOptionsCount: meta.allOptionsCount ?? scenarios.length,
         comparison,
         apiResponse,
       },
     })
   },
 
+  setComparisonSelectedIndices: (indices) => {
+    set((state) => ({
+      comparisonMode: {
+        ...state.comparisonMode,
+        selectedIndices: indices,
+      },
+    }))
+  },
+
   exitComparisonMode: () => {
     set({
       comparisonMode: {
         active: false,
-        scenarioA: null,
-        scenarioB: null,
+        scenarios: [],
+        labels: [],
+        selectedIndices: [0, 1],
+        hasMoreOptions: false,
+        allOptionsCount: 0,
         comparison: null,
         apiResponse: null,
       },

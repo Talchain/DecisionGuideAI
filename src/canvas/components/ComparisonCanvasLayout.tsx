@@ -5,71 +5,130 @@
  * Shows Scenario A and Scenario B in a vertical split with synced pan/zoom.
  */
 
-import { useState, useMemo } from 'react'
-import { ReactFlowProvider } from '@xyflow/react'
-import { X, Link2, Link2Off, Maximize2, Plus, Minus, RefreshCw, Equal, TrendingUp, TrendingDown, Target } from 'lucide-react'
+import { useState, useMemo, useRef, useCallback } from 'react'
+import { ReactFlowProvider, type ReactFlowInstance } from '@xyflow/react'
+import { X, Link2, Link2Off, Maximize2, Plus, Minus, RefreshCw, Equal, Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
 import { MiniCanvas } from './MiniCanvas'
-import { useSyncedViewports } from '../hooks/useSyncedViewports'
 import { typography } from '../../styles/typography'
 import type { ComparisonResult } from '../snapshots/types'
 
 /**
- * Format an outcome value (already in percentage form) for display.
- * Does NOT multiply by 100 — ISL returns outcome values in user units (percentage form).
- * @param value - Outcome value in percentage form (e.g., 10.42 = 10.42%)
- * @returns Formatted string (e.g., "10%")
+ * Format an outcome value with appropriate unit.
+ * Task 6: Display correct units from goal node metadata.
+ *
+ * @param value - Outcome value in user units
+ * @param unit - Optional unit string (e.g., '%', '£', 'pts')
+ * @returns Formatted string (e.g., "10%", "£1,234", "42")
  */
-function formatOutcome(value: number): string {
-  return `${Math.round(value)}%`
+function formatOutcome(value: number, unit?: string): string {
+  // Round to reasonable precision
+  const rounded = Math.abs(value) >= 100 ? Math.round(value) : Number(value.toFixed(1))
+
+  // Format based on unit type
+  if (unit === '%' || unit === 'percent' || unit === 'percentage') {
+    return `${rounded}%`
+  }
+  if (unit === '£' || unit === 'GBP') {
+    return `£${rounded.toLocaleString()}`
+  }
+  if (unit === '$' || unit === 'USD') {
+    return `$${rounded.toLocaleString()}`
+  }
+  if (unit === '€' || unit === 'EUR') {
+    return `€${rounded.toLocaleString()}`
+  }
+  if (unit) {
+    return `${rounded.toLocaleString()} ${unit}`
+  }
+
+  // Default: plain number (assume percentage-like for backwards compatibility)
+  return `${rounded}%`
 }
 
 /**
  * Outcomes Comparison Bar - Shows outcome predictions side by side
  */
 function OutcomesComparisonBar({
-  scenarioALabel,
-  scenarioBLabel,
+  scenarios,
   apiResponse,
+  goalUnit,
 }: {
-  scenarioALabel: string
-  scenarioBLabel: string
+  scenarios: Array<{ label: string; optionId?: string }>
   apiResponse?: {
     base_scenario?: { id: string; name: string; outcome_predictions: Record<string, number> }
     alternative_scenarios?: Array<{ id: string; name: string; outcome_predictions: Record<string, number> }>
+    option_comparison?: Array<{ option_id: string; option_label: string; outcome?: { mean: number; p10: number; p50: number; p90: number }; expected_outcome?: number; win_probability?: number }>
+    analysis_status?: string
   } | null
+  goalUnit?: string
 }) {
-  // Extract outcomes from API response
   const outcomes = useMemo(() => {
-    if (!apiResponse) return null
-
-    // Get first outcome from each scenario's predictions
-    const baseOutcome = apiResponse.base_scenario?.outcome_predictions
-    const altScenario = apiResponse.alternative_scenarios?.[0]
-    const altOutcome = altScenario?.outcome_predictions
-
-    if (!baseOutcome || !altOutcome) return null
-
-    // Get the first outcome key (typically there's one main outcome)
-    const outcomeKey = Object.keys(baseOutcome)[0]
-    if (!outcomeKey) return null
-
-    const valueA = baseOutcome[outcomeKey]
-    const valueB = altOutcome[outcomeKey]
-    const delta = valueB - valueA
-    const isBetter = delta > 0
-
-    return {
-      labelA: apiResponse.base_scenario?.name || scenarioALabel,
-      labelB: altScenario?.name || scenarioBLabel,
-      valueA,
-      valueB,
-      delta,
-      isBetter,
+    if (!apiResponse) {
+      return scenarios.map((scenario) => ({
+        label: scenario.label,
+        value: null,
+        isBest: false,
+        status: 'loading' as const,
+      }))
     }
-  }, [apiResponse, scenarioALabel, scenarioBLabel])
 
-  if (!outcomes) {
+    if (apiResponse.option_comparison?.length) {
+      const values = scenarios.map((scenario) => {
+        const match = apiResponse.option_comparison?.find((opt) => opt.option_id === scenario.optionId)
+        const value = match?.outcome?.mean ?? match?.expected_outcome ?? null
+        return {
+          label: match?.option_label || scenario.label,
+          value,
+          winProbability: match?.win_probability,
+          status: apiResponse.analysis_status === 'failed' ? 'error' : 'ready',
+        }
+      })
+
+      const best = values
+        .filter((item) => item.value !== null)
+        .sort((a, b) => (b.winProbability ?? b.value ?? 0) - (a.winProbability ?? a.value ?? 0))[0]
+
+      return values.map((item) => ({
+        ...item,
+        isBest: best?.label === item.label,
+      }))
+    }
+
+    const base = apiResponse.base_scenario
+    const alternatives = apiResponse.alternative_scenarios ?? []
+    const all = base ? [base, ...alternatives] : alternatives
+
+    if (!all.length) {
+      return scenarios.map((scenario) => ({
+        label: scenario.label,
+        value: null,
+        isBest: false,
+        status: 'loading' as const,
+      }))
+    }
+
+    const values = all.map((scenario) => {
+      const predictions = scenario.outcome_predictions
+      const key = Object.keys(predictions || {})[0]
+      const value = key ? predictions[key] : null
+      return {
+        label: scenario.name,
+        value,
+        status: 'ready' as const,
+      }
+    })
+
+    const best = values.filter((item) => item.value !== null)
+      .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))[0]
+
+    return values.map((item) => ({
+      ...item,
+      isBest: best?.label === item.label,
+    }))
+  }, [apiResponse, scenarios])
+
+  if (!outcomes.length) {
     return null
   }
 
@@ -79,51 +138,34 @@ function OutcomesComparisonBar({
       role="region"
       aria-label="Outcome comparison"
     >
-      <div className="flex items-center justify-between gap-8">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <Target className="w-4 h-4 text-sky-600" aria-hidden="true" />
           <span className={`${typography.labelSmall} text-ink-600`}>Predicted Outcomes:</span>
         </div>
-
-        <div className="flex items-center gap-8">
-          {/* Scenario A */}
-          <div className="flex items-center gap-2">
-            <span className={`${typography.caption} text-ink-500`}>{outcomes.labelA}:</span>
-            <span className={`${typography.body} font-bold text-ink-900`}>
-              {formatOutcome(outcomes.valueA)}
-            </span>
-          </div>
-
-          {/* Divider with delta */}
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white shadow-sm">
-            {outcomes.isBetter ? (
-              <TrendingUp className="w-4 h-4 text-mint-600" />
-            ) : outcomes.delta < 0 ? (
-              <TrendingDown className="w-4 h-4 text-carrot-600" />
-            ) : (
-              <Equal className="w-4 h-4 text-ink-400" />
-            )}
-            <span
-              className={`${typography.bodySmall} font-semibold ${
-                outcomes.isBetter ? 'text-mint-700' : outcomes.delta < 0 ? 'text-carrot-700' : 'text-ink-600'
+        <div className="flex items-center gap-3 flex-wrap">
+          {outcomes.map((outcome) => (
+            <div
+              key={outcome.label}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-sm ${
+                outcome.isBest ? 'bg-mint-50 border-mint-200' : 'bg-white border-sand-200'
               }`}
             >
-              {outcomes.delta > 0 ? '+' : ''}{Math.round(outcomes.delta)} pts
-            </span>
-          </div>
-
-          {/* Scenario B */}
-          <div className="flex items-center gap-2">
-            <span className={`${typography.caption} text-ink-500`}>{outcomes.labelB}:</span>
-            <span className={`${typography.body} font-bold ${outcomes.isBetter ? 'text-mint-700' : 'text-ink-900'}`}>
-              {formatOutcome(outcomes.valueB)}
-            </span>
-            {outcomes.isBetter && (
-              <span className={`${typography.caption} px-1.5 py-0.5 rounded bg-mint-100 text-mint-700 font-medium`}>
-                Better
+              <span className={`${typography.caption} text-ink-500`}>{outcome.label}</span>
+              <span
+                className={`${typography.bodySmall} font-semibold ${
+                  outcome.isBest ? 'text-mint-700' : 'text-ink-900'
+                }`}
+              >
+                {outcome.value === null ? '—' : formatOutcome(outcome.value, goalUnit)}
               </span>
-            )}
-          </div>
+              {outcome.isBest && (
+                <span className={`${typography.caption} px-1.5 py-0.5 rounded bg-mint-100 text-mint-700 font-medium`}>
+                  Best
+                </span>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -319,20 +361,39 @@ export function ComparisonCanvasLayout() {
 
   const [selectedView, setSelectedView] = useState<'split' | 'changes'>('split')
   const [syncEnabled, setSyncEnabled] = useState(true)
-  const {
-    setInstanceA,
-    setInstanceB,
-    onMoveEndA,
-    onMoveEndB,
-    fitBoth,
-  } = useSyncedViewports({ enabled: syncEnabled })
+  const instancesRef = useRef<Array<ReactFlowInstance | null>>([])
+
+  const setInstance = useCallback((index: number) => (instance: ReactFlowInstance) => {
+    instancesRef.current[index] = instance
+  }, [])
+
+  const handleMoveEnd = useCallback(
+    (index: number) => (_: unknown, viewport: { x: number; y: number; zoom: number }) => {
+      if (!syncEnabled) return
+      instancesRef.current.forEach((instance, idx) => {
+        if (idx === index || !instance) return
+        instance.setViewport(viewport)
+      })
+    },
+    [syncEnabled]
+  )
+
+  const fitAll = useCallback(() => {
+    instancesRef.current.forEach((instance) => {
+      instance?.fitView({ padding: 0.12, duration: 200 })
+    })
+  }, [])
 
   // Safety check - shouldn't render if not active
-  if (!comparisonMode.active || !comparisonMode.scenarioA || !comparisonMode.scenarioB) {
+  if (!comparisonMode.active || comparisonMode.scenarios.length < 2) {
     return null
   }
 
-  const { scenarioA, scenarioB, comparison, apiResponse } = comparisonMode
+  const { scenarios, comparison, apiResponse, hasMoreOptions, allOptionsCount } = comparisonMode
+  const scenarioSummaries = scenarios.map((scenario) => ({
+    label: scenario.label,
+    optionId: scenario.optionId,
+  }))
 
   return (
     // Note: Parent in ReactFlowGraph is position:absolute, not flex, so use h-full w-full
@@ -342,7 +403,8 @@ export function ComparisonCanvasLayout() {
         <div className="flex items-center gap-3">
           <h2 className={`${typography.h4} text-ink-900`}>Scenario Comparison</h2>
           <span className={`${typography.caption} text-ink-500`}>
-            {scenarioA.label} vs {scenarioB.label}
+            {scenarios.length} options
+            {hasMoreOptions ? ` (showing 4 of ${allOptionsCount})` : ''}
           </span>
         </div>
 
@@ -398,12 +460,12 @@ export function ComparisonCanvasLayout() {
 
               {/* Fit both */}
               <button
-                onClick={fitBoth}
+                onClick={fitAll}
                 className="flex items-center gap-1.5 px-2 py-1 rounded bg-sand-100 text-ink-600 hover:bg-sand-200 text-sm transition-colors"
-                title="Fit both canvases to view"
+                title="Fit all canvases to view"
               >
                 <Maximize2 className="w-4 h-4" />
-                <span>Fit Both</span>
+                <span>Fit All</span>
               </button>
             </>
           )}
@@ -425,67 +487,38 @@ export function ComparisonCanvasLayout() {
 
       {/* Outcomes comparison bar - shows predicted outcome differences */}
       <OutcomesComparisonBar
-        scenarioALabel={scenarioA.label}
-        scenarioBLabel={scenarioB.label}
+        scenarios={scenarioSummaries}
         apiResponse={apiResponse}
       />
 
       {/* Content - conditional based on selected view */}
       {selectedView === 'split' ? (
-        /* Side-by-side canvases */
-        <div className="flex-1 flex min-h-0">
-          {/* Scenario A - Left */}
-          <div className="flex-1 flex flex-col min-h-0 border-r border-sand-300">
-            <div className="px-4 py-2 bg-white border-b border-sand-200 flex items-center justify-between">
-              <div>
-                <h3 className={`${typography.body} font-medium text-ink-900`}>
-                  {scenarioA.label}
-                </h3>
-                <p className={`${typography.caption} text-ink-500`}>
-                  {scenarioA.nodes.length} nodes, {scenarioA.edges.length} edges
-                </p>
+        <div className="flex-1 min-h-0 p-3">
+          <div className="grid gap-3 h-full" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+            {scenarios.map((scenario, index) => (
+              <div key={scenario.label} className="flex flex-col min-h-0 border border-sand-200 rounded-lg overflow-hidden bg-white">
+                <div className="px-4 py-2 border-b border-sand-200">
+                  <h3 className={`${typography.body} font-medium text-ink-900`}>
+                    {scenario.label}
+                  </h3>
+                  <p className={`${typography.caption} text-ink-500`}>
+                    {scenario.nodes.length} nodes, {scenario.edges.length} edges
+                  </p>
+                </div>
+                <div className="flex-1 min-h-0 relative bg-paper-white">
+                  <ReactFlowProvider>
+                    <MiniCanvas
+                      nodes={scenario.nodes}
+                      edges={scenario.edges}
+                      onInit={setInstance(index)}
+                      onMoveEnd={handleMoveEnd(index)}
+                      ariaLabel={`Scenario ${index + 1}: ${scenario.label}`}
+                      className="absolute inset-0"
+                    />
+                  </ReactFlowProvider>
+                </div>
               </div>
-            </div>
-            {/* ReactFlow requires explicit dimensions - use relative + absolute positioning */}
-            <div className="flex-1 min-h-0 relative bg-paper-white">
-              <ReactFlowProvider>
-                <MiniCanvas
-                  nodes={scenarioA.nodes}
-                  edges={scenarioA.edges}
-                  onInit={setInstanceA}
-                  onMoveEnd={onMoveEndA}
-                  ariaLabel={`Scenario A: ${scenarioA.label}`}
-                  className="absolute inset-0"
-                />
-              </ReactFlowProvider>
-            </div>
-          </div>
-
-          {/* Scenario B - Right */}
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="px-4 py-2 bg-white border-b border-sand-200 flex items-center justify-between">
-              <div>
-                <h3 className={`${typography.body} font-medium text-ink-900`}>
-                  {scenarioB.label}
-                </h3>
-                <p className={`${typography.caption} text-ink-500`}>
-                  {scenarioB.nodes.length} nodes, {scenarioB.edges.length} edges
-                </p>
-              </div>
-            </div>
-            {/* ReactFlow requires explicit dimensions - use relative + absolute positioning */}
-            <div className="flex-1 min-h-0 relative bg-paper-white">
-              <ReactFlowProvider>
-                <MiniCanvas
-                  nodes={scenarioB.nodes}
-                  edges={scenarioB.edges}
-                  onInit={setInstanceB}
-                  onMoveEnd={onMoveEndB}
-                  ariaLabel={`Scenario B: ${scenarioB.label}`}
-                  className="absolute inset-0"
-                />
-              </ReactFlowProvider>
-            </div>
+            ))}
           </div>
         </div>
       ) : comparison ? (

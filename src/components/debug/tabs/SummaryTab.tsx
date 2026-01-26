@@ -38,7 +38,8 @@ const VALIDATION_EXPLANATIONS: Record<string, string> = {
  * Individual validation issue card
  */
 function ValidationIssueCard({ issue }: { issue: ValidationIssue }) {
-  const config = SEVERITY_CONFIG[issue.severity]
+  // Fallback to 'info' config for unknown severity values
+  const config = SEVERITY_CONFIG[issue.severity as keyof typeof SEVERITY_CONFIG] ?? SEVERITY_CONFIG.info
   // Get human-readable explanation for the code, fallback to message
   const explanation = VALIDATION_EXPLANATIONS[issue.code]
 

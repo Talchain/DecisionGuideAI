@@ -4,15 +4,43 @@
  * Given a graph with 1 decision node and 2+ option nodes, generates separate
  * scenarios where each scenario includes only one selected option and its
  * downstream dependencies.
+ *
+ * Multi-option support (v2):
+ * - Returns up to 4 scenarios for grid comparison
+ * - If 5+ options, returns first 4 with allOptions containing full list
  */
 
 import type { Node, Edge } from '@xyflow/react'
+
+/** Maximum number of scenarios to generate for grid comparison */
+export const MAX_COMPARISON_SCENARIOS = 4
 
 export interface ScenarioGraph {
   nodes: Node[]
   edges: Edge[]
 }
 
+/**
+ * New multi-option return type.
+ * Supports 2-4 scenarios in a grid layout.
+ */
+export interface GeneratedScenariosV2 {
+  /** Array of scenarios, one per option (up to 4) */
+  scenarios: ScenarioGraph[]
+  /** Labels for each scenario, parallel to scenarios array */
+  labels: string[]
+  /** Option IDs for each scenario, parallel to scenarios array */
+  optionIds: string[]
+  /** All available options (for picker when 5+) */
+  allOptions: Array<{ id: string; label: string }>
+  /** True if there are more options than displayed */
+  hasMoreOptions: boolean
+}
+
+/**
+ * Legacy return type for backward compatibility.
+ * @deprecated Use GeneratedScenariosV2 instead
+ */
 export interface GeneratedScenarios {
   /** Scenario with first option selected */
   scenarioA: ScenarioGraph
@@ -28,8 +56,10 @@ export interface GeneratedScenarios {
 }
 
 export interface GenerateScenariosOptions {
-  /** Specific option IDs to compare (defaults to first two options) */
+  /** Specific option IDs to compare (for legacy 2-option mode) */
   optionIds?: [string, string]
+  /** Specific option IDs to include (for multi-option mode, up to 4) */
+  selectedOptionIds?: string[]
 }
 
 /**
@@ -50,7 +80,7 @@ export interface GenerateScenariosOptions {
 export function generateScenarios(
   graph: ScenarioGraph,
   options: GenerateScenariosOptions = {}
-): GeneratedScenarios {
+): GeneratedScenariosV2 {
   const { nodes, edges } = graph
 
   // Find decision and option nodes
@@ -65,21 +95,31 @@ export function generateScenarios(
     throw new Error('Graph must have at least 2 option nodes')
   }
 
-  // Determine which options to compare
-  let optionsToCompare: Node[]
-  if (options.optionIds) {
+  // Determine which options to include (up to 4)
+  let optionsToInclude: Node[]
+  if (options.selectedOptionIds?.length) {
+    const selected = options.selectedOptionIds
+      .map((id) => allOptions.find((o) => o.id === id))
+      .filter((opt): opt is Node => Boolean(opt))
+    if (selected.length < 2) {
+      throw new Error('At least 2 valid option IDs are required')
+    }
+    optionsToInclude = selected
+  } else if (options.optionIds) {
+    // Legacy two-option selection
     const [idA, idB] = options.optionIds
     const optA = allOptions.find((o) => o.id === idA)
     const optB = allOptions.find((o) => o.id === idB)
     if (!optA || !optB) {
       throw new Error('Specified option IDs not found')
     }
-    optionsToCompare = [optA, optB]
+    optionsToInclude = [optA, optB]
   } else {
-    optionsToCompare = [allOptions[0], allOptions[1]]
+    optionsToInclude = [...allOptions]
   }
 
-  const [optionA, optionB] = optionsToCompare
+  const hasMoreOptions = optionsToInclude.length > MAX_COMPARISON_SCENARIOS
+  const limitedOptions = optionsToInclude.slice(0, MAX_COMPARISON_SCENARIOS)
 
   // Helper: Get all nodes reachable from a starting node
   const getReachableNodeIds = (startNodeId: string): Set<string> => {
@@ -150,25 +190,22 @@ export function generateScenarios(
     }
   }
 
-  // Generate scenarios
-  const scenarioA = createScenario(optionA)
-  const scenarioB = createScenario(optionB)
-
-  // Extract labels
-  const labelA = (optionA.data?.label as string) || `Option ${optionA.id}`
-  const labelB = (optionB.data?.label as string) || `Option ${optionB.id}`
+  // Generate scenarios for each selected option
+  const scenarios = limitedOptions.map((opt) => createScenario(opt))
+  const labels = limitedOptions.map(
+    (opt) => (opt.data?.label as string) || `Option ${opt.id}`
+  )
+  const optionIds = limitedOptions.map((opt) => opt.id)
 
   return {
-    scenarioA,
-    scenarioB,
-    labels: {
-      a: labelA,
-      b: labelB,
-    },
+    scenarios,
+    labels,
+    optionIds,
     allOptions: allOptions.map((opt) => ({
       id: opt.id,
       label: (opt.data?.label as string) || `Option ${opt.id}`,
     })),
+    hasMoreOptions,
   }
 }
 

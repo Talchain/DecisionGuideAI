@@ -12,6 +12,7 @@ export type {
   V2RunRequest,
   V2Outcome,
   V2OptionResult,
+  V2OptionComparison,
   V2Critique,
   V2Driver,
   V2Robustness,
