@@ -104,6 +104,44 @@ export function determineWinnerSelection(
 }
 
 // =============================================================================
+// Baseline Resolution Helper (Task 2.1)
+// =============================================================================
+
+/**
+ * Resolve the baseline option ID with proper precedence.
+ * Order: PLoT is_baseline > user selection > heuristic (Status Quo label)
+ *
+ * @param options - Option results from report
+ * @param optionNodes - Raw option nodes from canvas
+ * @param userSelectedBaselineId - User-selected baseline ID (from state)
+ * @returns Resolved baseline option ID or null
+ */
+export function resolveBaselineId(
+  options: Array<{ id: string; label: string }>,
+  optionNodes: Array<{ id: string; data: { is_baseline?: boolean; label?: string } }>,
+  userSelectedBaselineId?: string | null
+): string | null {
+  // 1. PLoT-provided baseline (option with is_baseline: true)
+  const plotBaseline = optionNodes.find(node => (node.data as any)?.is_baseline === true)
+  if (plotBaseline) return plotBaseline.id
+
+  // 2. User-selected baseline
+  if (userSelectedBaselineId) {
+    // Verify the user selection is still valid
+    const userOption = options.find(o => o.id === userSelectedBaselineId)
+    if (userOption) return userSelectedBaselineId
+  }
+
+  // 3. Heuristic: option label contains "status quo" (case-insensitive)
+  const statusQuoOption = options.find(o =>
+    o.label.toLowerCase().includes('status quo')
+  )
+  if (statusQuoOption) return statusQuoOption.id
+
+  return null
+}
+
+// =============================================================================
 // Factor Key Derivation (CRITICAL: Standardisation)
 // =============================================================================
 
@@ -830,11 +868,30 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       return bValue - aValue
     })
 
-    // Immutably mark recommended option (no mutation of existing objects)
-    const allOptions: OptionResult[] = sortedOptions.map(option => ({
-      ...option,
-      isRecommended: option.id === recommendedId,
-    }))
+    // Task 2.1: Resolve baseline option with precedence (PLoT > user > heuristic)
+    // Note: userSelectedBaselineId would come from state if we add baseline selection UI
+    const baselineId = resolveBaselineId(sortedOptions, optionNodes, undefined)
+    const baselineOption = baselineId
+      ? sortedOptions.find(o => o.id === baselineId)
+      : null
+    const baselineOutcome = baselineOption?.expected ?? null
+
+    // Immutably mark recommended option and add baseline/delta info (no mutation of existing objects)
+    const allOptions: OptionResult[] = sortedOptions.map(option => {
+      const isBaseline = option.id === baselineId
+      // Task 2.2: Calculate point delta (absolute, not percent)
+      // Don't show delta for baseline option or when baseline outcome is null
+      const deltaFromBaseline = !isBaseline && baselineOutcome != null && option.expected != null
+        ? option.expected - baselineOutcome
+        : null
+
+      return {
+        ...option,
+        isRecommended: option.id === recommendedId,
+        isBaseline,
+        deltaFromBaseline,
+      }
+    })
 
     const recommendedOption = allOptions.find((o) => o.isRecommended) || null
 
@@ -908,6 +965,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       robustnessLabel,
       // Task 1.7: Goal text from framing
       goalText,
+      // Task 2.1: Baseline tracking
+      baselineId,
+      baselineOutcome,
     }
   }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming])
 

@@ -386,6 +386,20 @@ function RangeBar({
   )
 }
 
+/**
+ * Task 2.2: Format delta from baseline as "+X" or "-X" with "vs baseline" suffix.
+ * Uses absolute point delta (not percent-of-baseline).
+ */
+function formatDelta(
+  delta: number | null | undefined,
+  unit?: OutcomeUnitType,
+  symbol?: string
+): string | null {
+  if (delta == null || delta === 0) return null
+  const sign = delta >= 0 ? '+' : ''
+  return `${sign}${formatOutcome(delta, unit, symbol)} vs baseline`
+}
+
 function OptionRow({
   option,
   onFocus,
@@ -410,6 +424,11 @@ function OptionRow({
   const displaySuffix = option.goalProbability != null && option.expected == null
     ? 'chance'
     : 'expected'
+
+  // Task 2.2: Format delta from baseline (only for non-baseline options)
+  const deltaText = !option.isBaseline
+    ? formatDelta(option.deltaFromBaseline, outcomeUnit, outcomeUnitSymbol)
+    : null
 
   return (
     <button
@@ -436,18 +455,30 @@ function OptionRow({
             Recommended
           </span>
         )}
+        {option.isBaseline && (
+          <span className="text-xs bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded">
+            Baseline
+          </span>
+        )}
       </div>
-      <span
-        className={`text-sm ${
-          option.isRecommended ? 'text-success-700' : 'text-slate-600'
-        }`}
-      >
-        {displayValue == null
-          ? '—'
-          : displaySuffix === 'chance'
-            ? `${formatPercent(displayValue)} ${displaySuffix}`
-            : `${formatOutcome(displayValue, outcomeUnit, outcomeUnitSymbol)} ${displaySuffix}`}
-      </span>
+      <div className="flex flex-col items-end">
+        <span
+          className={`text-sm ${
+            option.isRecommended ? 'text-success-700' : 'text-slate-600'
+          }`}
+        >
+          {displayValue == null
+            ? '—'
+            : displaySuffix === 'chance'
+              ? `${formatPercent(displayValue)} ${displaySuffix}`
+              : `${formatOutcome(displayValue, outcomeUnit, outcomeUnitSymbol)} ${displaySuffix}`}
+        </span>
+        {deltaText && (
+          <span className="text-xs text-slate-500">
+            {deltaText}
+          </span>
+        )}
+      </div>
     </button>
   )
 }

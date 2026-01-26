@@ -1036,3 +1036,98 @@ describe('determineWinnerSelection', () => {
     expect(result.recommendedId).toBe('b')
   })
 })
+
+// =============================================================================
+// Baseline Resolution Tests (Task 2.1)
+// =============================================================================
+
+import { resolveBaselineId } from '../useResultsSectionData'
+
+describe('resolveBaselineId', () => {
+  const makeOptions = (labels: string[]) =>
+    labels.map((label, i) => ({ id: `opt-${i}`, label }))
+
+  const makeNodes = (
+    ids: string[],
+    baselineIndex?: number
+  ) =>
+    ids.map((id, i) => ({
+      id,
+      data: {
+        label: `Option ${i}`,
+        is_baseline: baselineIndex === i ? true : undefined,
+      },
+    }))
+
+  it('returns PLoT baseline when is_baseline: true', () => {
+    const options = makeOptions(['Option A', 'Option B', 'Status Quo'])
+    const nodes = makeNodes(['opt-0', 'opt-1', 'opt-2'], 1) // opt-1 is baseline
+
+    const result = resolveBaselineId(options, nodes as any, undefined)
+
+    expect(result).toBe('opt-1')
+  })
+
+  it('returns user-selected baseline when no PLoT baseline', () => {
+    const options = makeOptions(['Option A', 'Option B'])
+    const nodes = makeNodes(['opt-0', 'opt-1']) // No is_baseline
+
+    const result = resolveBaselineId(options, nodes as any, 'opt-0')
+
+    expect(result).toBe('opt-0')
+  })
+
+  it('returns null for invalid user selection', () => {
+    const options = makeOptions(['Option A', 'Option B'])
+    const nodes = makeNodes(['opt-0', 'opt-1'])
+
+    const result = resolveBaselineId(options, nodes as any, 'invalid-id')
+
+    expect(result).toBeNull()
+  })
+
+  it('falls back to Status Quo heuristic', () => {
+    const options = makeOptions(['Option A', 'Status Quo', 'Option C'])
+    const nodes = makeNodes(['opt-0', 'opt-1', 'opt-2'])
+
+    const result = resolveBaselineId(options, nodes as any, undefined)
+
+    expect(result).toBe('opt-1') // Status Quo
+  })
+
+  it('Status Quo match is case-insensitive', () => {
+    const options = makeOptions(['Option A', 'KEEP STATUS QUO'])
+    const nodes = makeNodes(['opt-0', 'opt-1'])
+
+    const result = resolveBaselineId(options, nodes as any, undefined)
+
+    expect(result).toBe('opt-1')
+  })
+
+  it('PLoT baseline takes precedence over user selection', () => {
+    const options = makeOptions(['Option A', 'Option B'])
+    const nodes = makeNodes(['opt-0', 'opt-1'], 0) // opt-0 is PLoT baseline
+
+    const result = resolveBaselineId(options, nodes as any, 'opt-1') // User selected opt-1
+
+    expect(result).toBe('opt-0') // PLoT wins
+  })
+
+  it('PLoT baseline takes precedence over Status Quo heuristic', () => {
+    const options = makeOptions(['Option A', 'Status Quo'])
+    const nodes = makeNodes(['opt-0', 'opt-1'], 0) // opt-0 is PLoT baseline
+
+    const result = resolveBaselineId(options, nodes as any, undefined)
+
+    expect(result).toBe('opt-0') // PLoT wins over Status Quo heuristic
+  })
+
+  it('returns null when no baseline can be resolved', () => {
+    const options = makeOptions(['Option A', 'Option B'])
+    const nodes = makeNodes(['opt-0', 'opt-1'])
+
+    const result = resolveBaselineId(options, nodes as any, undefined)
+
+    expect(result).toBeNull()
+  })
+})

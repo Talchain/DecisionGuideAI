@@ -1173,4 +1173,164 @@ describe('RecommendationSection', () => {
       expect(screen.queryByText(/Wins in 0% of scenarios tested/)).not.toBeInTheDocument()
     })
   })
+
+  // =========================================================================
+  // Task 2.1 & 2.2: Baseline & Delta Display Tests
+  // =========================================================================
+
+  describe('Baseline & Delta Display', () => {
+    it('shows "Baseline" badge for baseline option', () => {
+      const baselineData: RecommendationSectionData = {
+        ...mockData,
+        allOptions: [
+          {
+            id: 'option-1',
+            label: 'Hire Tech Lead',
+            expected: 58,
+            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
+            p10: 23,
+            p50: 58,
+            p90: 81,
+            isRecommended: true,
+          },
+          {
+            id: 'option-2',
+            label: 'Status Quo',
+            expected: 30,
+            outcome: { mean: 30, p10: 10, p50: 30, p90: 50 },
+            p10: 10,
+            p50: 30,
+            p90: 50,
+            isRecommended: false,
+            isBaseline: true,
+          },
+        ],
+        baselineId: 'option-2',
+        baselineOutcome: 30,
+        isSingleOption: false,
+      }
+
+      render(<RecommendationSection data={baselineData} />)
+
+      expect(screen.getByText('Baseline')).toBeInTheDocument()
+    })
+
+    it('shows delta vs baseline for non-baseline options', () => {
+      const deltaData: RecommendationSectionData = {
+        ...mockData,
+        allOptions: [
+          {
+            id: 'option-1',
+            label: 'Hire Tech Lead',
+            expected: 58,
+            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
+            p10: 23,
+            p50: 58,
+            p90: 81,
+            isRecommended: true,
+            deltaFromBaseline: 28, // 58 - 30 = 28
+          },
+          {
+            id: 'option-2',
+            label: 'Status Quo',
+            expected: 30,
+            outcome: { mean: 30, p10: 10, p50: 30, p90: 50 },
+            p10: 10,
+            p50: 30,
+            p90: 50,
+            isRecommended: false,
+            isBaseline: true,
+            deltaFromBaseline: null, // Baseline has no delta
+          },
+        ],
+        baselineId: 'option-2',
+        baselineOutcome: 30,
+        isSingleOption: false,
+      }
+
+      render(<RecommendationSection data={deltaData} />)
+
+      // Should show delta for non-baseline option
+      expect(screen.getByText('+28% vs baseline')).toBeInTheDocument()
+    })
+
+    it('does not show delta for baseline option', () => {
+      const baselineData: RecommendationSectionData = {
+        ...mockData,
+        allOptions: [
+          {
+            id: 'option-1',
+            label: 'Hire Tech Lead',
+            expected: 58,
+            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
+            p10: 23,
+            p50: 58,
+            p90: 81,
+            isRecommended: true,
+            deltaFromBaseline: 28,
+          },
+          {
+            id: 'option-2',
+            label: 'Status Quo',
+            expected: 30,
+            outcome: { mean: 30, p10: 10, p50: 30, p90: 50 },
+            p10: 10,
+            p50: 30,
+            p90: 50,
+            isRecommended: false,
+            isBaseline: true,
+            deltaFromBaseline: null,
+          },
+        ],
+        baselineId: 'option-2',
+        baselineOutcome: 30,
+        isSingleOption: false,
+      }
+
+      render(<RecommendationSection data={baselineData} />)
+
+      // Status Quo (baseline) should not show delta text
+      const baselineRow = screen.getByRole('button', { name: /Status Quo/i })
+      expect(baselineRow).not.toHaveTextContent('vs baseline')
+    })
+
+    it('shows negative delta correctly', () => {
+      const negativeData: RecommendationSectionData = {
+        ...mockData,
+        allOptions: [
+          {
+            id: 'option-1',
+            label: 'Status Quo',
+            expected: 50,
+            outcome: { mean: 50, p10: 30, p50: 50, p90: 70 },
+            p10: 30,
+            p50: 50,
+            p90: 70,
+            isRecommended: true,
+            isBaseline: true,
+            deltaFromBaseline: null,
+          },
+          {
+            id: 'option-2',
+            label: 'Risky Option',
+            expected: 35,
+            outcome: { mean: 35, p10: 10, p50: 35, p90: 60 },
+            p10: 10,
+            p50: 35,
+            p90: 60,
+            isRecommended: false,
+            deltaFromBaseline: -15, // 35 - 50 = -15
+          },
+        ],
+        baselineId: 'option-1',
+        baselineOutcome: 50,
+        isSingleOption: false,
+      }
+
+      render(<RecommendationSection data={negativeData} />)
+
+      // Should show negative delta
+      expect(screen.getByText('-15% vs baseline')).toBeInTheDocument()
+    })
+  })
 })

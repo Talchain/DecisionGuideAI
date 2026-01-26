@@ -57,6 +57,10 @@ export interface OptionResult {
   winProbability?: number
   /** Optional goal probability when no distribution data exists. */
   goalProbability?: number | null
+  /** Task 2.1: Whether this option is the baseline for comparison */
+  isBaseline?: boolean
+  /** Task 2.2: Point delta vs baseline (absolute, not percent) */
+  deltaFromBaseline?: number | null
 }
 
 /** Outcome unit type for formatting - from goal node observed_state.unit */
@@ -98,6 +102,10 @@ export interface RecommendationSectionData {
   robustnessLabel?: RobustnessLabel
   /** Goal text from scenario framing */
   goalText?: string
+  /** Task 2.1: Resolved baseline option ID (PLoT > user > heuristic) */
+  baselineId?: string | null
+  /** Task 2.1: Baseline outcome for delta calculations */
+  baselineOutcome?: number | null
 }
 
 // =============================================================================
