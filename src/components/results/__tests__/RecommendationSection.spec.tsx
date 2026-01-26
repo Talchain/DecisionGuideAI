@@ -56,6 +56,7 @@ describe('RecommendationSection', () => {
     goalLabel: 'increase revenue',
     isSingleOption: false,
     analysisStatus: 'computed',
+    outcomeUnit: 'percent',
   }
 
   it('renders best estimate headline', () => {

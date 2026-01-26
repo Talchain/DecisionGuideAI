@@ -79,11 +79,22 @@ export function determineWinnerSelection(
     }
   }
 
+  // Task 2.4: Deterministic tie-breaker when no backend recommendation
+  // Priority: p50 (higher wins) > mean (higher wins) > option_id (alphabetical)
   const winnerByExpected = [...options]
     .sort((a, b) => {
-      const aValue = a.expected ?? a.goalProbability ?? -Infinity
-      const bValue = b.expected ?? b.goalProbability ?? -Infinity
-      return bValue - aValue
+      // 1. p50 (higher wins)
+      const aP50 = a.outcome?.p50 ?? a.p50 ?? -Infinity
+      const bP50 = b.outcome?.p50 ?? b.p50 ?? -Infinity
+      if (aP50 !== bP50) return bP50 - aP50
+
+      // 2. mean/expected (higher wins)
+      const aMean = a.expected ?? a.outcome?.mean ?? a.goalProbability ?? -Infinity
+      const bMean = b.expected ?? b.outcome?.mean ?? b.goalProbability ?? -Infinity
+      if (aMean !== bMean) return bMean - aMean
+
+      // 3. option_id (alphabetical)
+      return a.id.localeCompare(b.id)
     })[0]
 
   return {
@@ -743,9 +754,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const optionProbs = (report as any).option_probabilities || {}
     const optionNodes = nodes.filter((n) => (n.data as any)?.kind === 'option')
 
-    // Determine recommended option ID - prefer backend-provided, fall back to highest p50
-    // Fix 4: Recommended badge must be tied to specific option identifier
+    // Determine recommended option ID - prefer backend-provided, fall back to deterministic tie-breaker
+    // Task 2.4: Primary is robustness.recommended_option_id
     const backendRecommendedId =
+      (report as any)?.robustness?.recommended_option_id ??
       (report as any)?.recommendation?.option_id ??
       (report as any)?.recommendation?.selected_option ??
       (report as any)?.selected_option_id ??
@@ -838,22 +850,40 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const winProbability = recommendedOption?.winProbability
 
     // Task 1.5: Extract robustness level and label
+    // P0 Fix: PLoT doesn't return level/label - derive from recommendation_stability
     const rawRobustnessLevel = robustness?.level as string | undefined
     const rawRobustnessLabel = robustness?.label as string | undefined
-    
-    // Normalize robustness level
-    const robustnessLevel: RobustnessLevel | undefined = 
-      rawRobustnessLevel === 'high' || rawRobustnessLevel === 'medium' || 
+
+    // Derive level from recommendation_stability if not explicitly provided
+    function deriveRobustnessLevel(stability: number | undefined): RobustnessLevel | undefined {
+      if (stability === undefined) return undefined
+      if (stability >= 0.8) return 'high'
+      if (stability >= 0.5) return 'medium'
+      if (stability >= 0.3) return 'low'
+      return 'very_low'
+    }
+
+    // Normalize robustness level - try explicit value first, then derive from stability
+    const robustnessLevel: RobustnessLevel | undefined =
+      rawRobustnessLevel === 'high' || rawRobustnessLevel === 'medium' ||
       rawRobustnessLevel === 'low' || rawRobustnessLevel === 'very_low'
         ? rawRobustnessLevel
-        : undefined
-    
+        : deriveRobustnessLevel(recommendationStability)
+
+    // Derive label from level if not explicitly provided
+    function deriveLabelFromLevel(level: RobustnessLevel | undefined): RobustnessLabel | undefined {
+      if (!level) return undefined
+      if (level === 'high') return 'robust'
+      if (level === 'medium') return 'moderate'
+      return 'fragile' // low or very_low
+    }
+
     // Normalize robustness label (fallback naming)
     const robustnessLabel: RobustnessLabel | undefined =
-      rawRobustnessLabel === 'robust' || rawRobustnessLabel === 'moderate' || 
+      rawRobustnessLabel === 'robust' || rawRobustnessLabel === 'moderate' ||
       rawRobustnessLabel === 'fragile'
         ? rawRobustnessLabel
-        : undefined
+        : deriveLabelFromLevel(robustnessLevel)
 
     // Task 1.7: Get goal text from framing
     const goalText = currentScenarioFraming?.goal || undefined

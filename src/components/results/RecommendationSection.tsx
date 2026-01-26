@@ -56,18 +56,22 @@ function formatPercent(value: number): string {
  */
 function formatOutcome(
   value: number | null | undefined,
-  unit: OutcomeUnitType = 'percent',
+  unit?: OutcomeUnitType,
   symbol?: string
 ): string {
   if (value == null || !Number.isFinite(value)) {
     return '—'
   }
 
+  // Task 2.5: Only show "%" when unit is explicitly 'percent'
+  // When unit is unknown/undefined, show plain number
+  const isPercent = unit === 'percent'
+
   // Calculate the final display value to determine decimals
   // For percent: values in probability form (typically -2 to +2 range) are multiplied by 100
   // Values like 1.8 = 180% improvement should be treated as probability form
   // FIX: Use threshold of 2 instead of 1 to catch >100% improvements
-  const isProbability = unit === 'percent' && Math.abs(value) <= 2
+  const isProbability = isPercent && Math.abs(value) <= 2
   const displayValue = isProbability ? value * 100 : value
 
   // Smart decimals: 1 for small display values, 0 for larger ones
@@ -75,11 +79,17 @@ function formatOutcome(
 
   // Pass pre-converted value to avoid double-conversion in formatOutcomeValue
   // Use the calculated display value directly with 'count' unit to skip formatOutcomeValue's probability detection
-  if (unit === 'percent') {
+  if (isPercent) {
     return `${displayValue.toFixed(decimals)}%`
   }
 
-  return formatOutcomeValue(value, unit as OutcomeUnits, symbol, { decimals })
+  // For other units or unknown, use formatOutcomeValue (no % suffix)
+  if (unit) {
+    return formatOutcomeValue(value, unit as OutcomeUnits, symbol, { decimals })
+  }
+
+  // Unknown unit: plain number
+  return displayValue.toFixed(decimals)
 }
 
 /**
@@ -288,7 +298,7 @@ function RangeBar({
   p10,
   expectedValue,
   p90,
-  outcomeUnit = 'percent',
+  outcomeUnit,
   outcomeUnitSymbol,
 }: {
   p10: number | null
@@ -379,7 +389,7 @@ function RangeBar({
 function OptionRow({
   option,
   onFocus,
-  outcomeUnit = 'percent',
+  outcomeUnit,
   outcomeUnitSymbol,
 }: {
   option: OptionResult
@@ -453,7 +463,7 @@ export function RecommendationSection({
     analysisStatus,
     statusReason,
     // Issue 5 fix: Extract unit for proper outcome formatting
-    outcomeUnit = 'percent',
+    outcomeUnit,
     outcomeUnitSymbol,
     recommendationStability,
     // Task 1.3: Win probability
