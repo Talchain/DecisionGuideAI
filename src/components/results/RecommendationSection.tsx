@@ -389,13 +389,15 @@ function RangeBar({
 /**
  * Task 2.2: Format delta from baseline as "+X" or "-X" with "vs baseline" suffix.
  * Uses absolute point delta (not percent-of-baseline).
+ * Issue #3 fix: Show "same as baseline" for zero delta instead of hiding.
  */
 function formatDelta(
   delta: number | null | undefined,
   unit?: OutcomeUnitType,
   symbol?: string
 ): string | null {
-  if (delta == null || delta === 0) return null
+  if (delta == null) return null
+  if (delta === 0) return 'same as baseline'
   const sign = delta >= 0 ? '+' : ''
   return `${sign}${formatOutcome(delta, unit, symbol)} vs baseline`
 }

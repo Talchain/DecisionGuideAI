@@ -874,15 +874,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const baselineOption = baselineId
       ? sortedOptions.find(o => o.id === baselineId)
       : null
-    const baselineOutcome = baselineOption?.expected ?? null
+    // Issue #2 fix: Fall back to goalProbability when expected is null
+    const baselineOutcome = baselineOption?.expected ?? baselineOption?.goalProbability ?? null
 
     // Immutably mark recommended option and add baseline/delta info (no mutation of existing objects)
     const allOptions: OptionResult[] = sortedOptions.map(option => {
       const isBaseline = option.id === baselineId
       // Task 2.2: Calculate point delta (absolute, not percent)
-      // Don't show delta for baseline option or when baseline outcome is null
-      const deltaFromBaseline = !isBaseline && baselineOutcome != null && option.expected != null
-        ? option.expected - baselineOutcome
+      // Issue #2 fix: Use expected ?? goalProbability for delta calculation
+      const optionOutcome = option.expected ?? option.goalProbability
+      const deltaFromBaseline = !isBaseline && baselineOutcome != null && optionOutcome != null
+        ? optionOutcome - baselineOutcome
         : null
 
       return {

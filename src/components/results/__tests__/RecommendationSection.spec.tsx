@@ -1332,5 +1332,44 @@ describe('RecommendationSection', () => {
       // Should show negative delta
       expect(screen.getByText('-15% vs baseline')).toBeInTheDocument()
     })
+
+    it('shows "same as baseline" for zero delta (Issue #3 fix)', () => {
+      const zeroDeltaData: RecommendationSectionData = {
+        ...mockData,
+        allOptions: [
+          {
+            id: 'option-1',
+            label: 'Status Quo',
+            expected: 50,
+            outcome: { mean: 50, p10: 30, p50: 50, p90: 70 },
+            p10: 30,
+            p50: 50,
+            p90: 70,
+            isRecommended: true,
+            isBaseline: true,
+            deltaFromBaseline: null,
+          },
+          {
+            id: 'option-2',
+            label: 'Equal Option',
+            expected: 50, // Same as baseline
+            outcome: { mean: 50, p10: 25, p50: 50, p90: 75 },
+            p10: 25,
+            p50: 50,
+            p90: 75,
+            isRecommended: false,
+            deltaFromBaseline: 0, // 50 - 50 = 0
+          },
+        ],
+        baselineId: 'option-1',
+        baselineOutcome: 50,
+        isSingleOption: false,
+      }
+
+      render(<RecommendationSection data={zeroDeltaData} />)
+
+      // Should show "same as baseline" instead of hiding
+      expect(screen.getByText('same as baseline')).toBeInTheDocument()
+    })
   })
 })
