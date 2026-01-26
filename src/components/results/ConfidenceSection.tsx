@@ -213,6 +213,7 @@ export function ConfidenceSection({
     improvements,
     topImprovements,
     filteredFragileEdges,
+    analysisStatus,
   } = data
 
   const config = TIER_CONFIG[tier.tier]
@@ -342,7 +343,10 @@ export function ConfidenceSection({
           <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
             <p className="text-sm text-slate-600 flex items-start gap-2">
               <span aria-hidden="true">ℹ️</span>
-              {EMPTY_STATES.improvements}
+              {/* Show different message when analysis completed with no improvements */}
+              {analysisStatus === 'computed' || analysisStatus === 'partial'
+                ? 'No improvements identified — your model structure is sound.'
+                : EMPTY_STATES.improvements}
             </p>
           </div>
         ) : (
