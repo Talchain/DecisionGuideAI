@@ -148,44 +148,36 @@ function getWinnerLabel(determinedBy: WinnerDeterminedBy | undefined): string {
 /**
  * Task 1.5: Robustness badge component.
  * Maps level (high/medium/low/very_low) or label (robust/moderate/fragile) to display.
+ * Handles normalisation: uppercase, trim, replace('-', '_')
  */
-function RobustnessBadge({ 
-  level, 
-  label 
-}: { 
-  level?: RobustnessLevel
-  label?: RobustnessLabel 
-}) {
-  // Determine display based on level first, then label as fallback
-  let dotColor: string
-  let text: string
-  let bgColor: string
-  let textColor: string
+const BADGE_CONFIG: Record<string, { dotColor: string; text: string; bgColor: string; textColor: string }> = {
+  high: { dotColor: 'bg-success-500', text: 'Robust', bgColor: 'bg-success-50', textColor: 'text-success-700' },
+  robust: { dotColor: 'bg-success-500', text: 'Robust', bgColor: 'bg-success-50', textColor: 'text-success-700' },
+  medium: { dotColor: 'bg-warning-500', text: 'Moderate', bgColor: 'bg-warning-50', textColor: 'text-warning-700' },
+  moderate: { dotColor: 'bg-warning-500', text: 'Moderate', bgColor: 'bg-warning-50', textColor: 'text-warning-700' },
+  low: { dotColor: 'bg-orange-500', text: 'Fragile', bgColor: 'bg-orange-50', textColor: 'text-orange-700' },
+  fragile: { dotColor: 'bg-orange-500', text: 'Fragile', bgColor: 'bg-orange-50', textColor: 'text-orange-700' },
+  very_low: { dotColor: 'bg-danger-500', text: 'Very Fragile', bgColor: 'bg-danger-50', textColor: 'text-danger-700' },
+}
 
-  if (level === 'high' || label === 'robust') {
-    dotColor = 'bg-success-500'
-    text = 'Robust'
-    bgColor = 'bg-success-50'
-    textColor = 'text-success-700'
-  } else if (level === 'medium' || label === 'moderate') {
-    dotColor = 'bg-warning-500'
-    text = 'Moderate'
-    bgColor = 'bg-warning-50'
-    textColor = 'text-warning-700'
-  } else if (level === 'low' || label === 'fragile') {
-    dotColor = 'bg-danger-500'
-    text = 'Fragile'
-    bgColor = 'bg-danger-50'
-    textColor = 'text-danger-700'
-  } else if (level === 'very_low') {
-    dotColor = 'bg-danger-500'
-    text = 'Very Fragile'
-    bgColor = 'bg-danger-50'
-    textColor = 'text-danger-700'
-  } else {
-    // Both missing - don't render badge
-    return null
-  }
+function RobustnessBadge({
+  level,
+  label
+}: {
+  level?: RobustnessLevel
+  label?: RobustnessLabel
+}) {
+  // Normalise: level takes precedence, then label as fallback
+  // Handle uppercase, trim whitespace, replace hyphens with underscores
+  const badgeSource = level ?? label
+  if (!badgeSource) return null
+
+  const badgeKey = badgeSource.toLowerCase().trim().replace(/-/g, '_')
+  const config = BADGE_CONFIG[badgeKey]
+
+  if (!config) return null
+
+  const { dotColor, text, bgColor, textColor } = config
 
   return (
     <span
@@ -518,6 +510,31 @@ export function RecommendationSection({
   // Task 1.4: Get winner label based on determination method
   const winnerLabel = getWinnerLabel(determinedBy)
 
+  // Task 5: Near-tie explanatory text
+  // FIX: Require numeric expected values - don't show tie explanation when outcomes are missing
+  // Use expected ?? outcome.mean as fallback, filter out nulls before comparing
+  const numericOutcomes = allOptions
+    .map(o => o.expected ?? o.outcome?.mean)
+    .filter((v): v is number => typeof v === 'number')
+
+  // Only compute tie if ALL options have numeric outcomes
+  const allHaveOutcomes = numericOutcomes.length === allOptions.length && allOptions.length > 0
+  const formattedOutcomes = allHaveOutcomes
+    ? numericOutcomes.map(v => formatOutcome(v, outcomeUnit, outcomeUnitSymbol))
+    : []
+  const outcomesAppearTied = formattedOutcomes.length > 1 &&
+    formattedOutcomes.every(v => v === formattedOutcomes[0])
+
+  const winProbs = allOptions
+    .map(o => o.winProbability)
+    .filter((v): v is number => v != null)  // Preserves 0, filters null/undefined
+
+  const winSpread = winProbs.length > 1
+    ? Math.max(...winProbs) - Math.min(...winProbs)
+    : 0
+
+  const showTieExplanation = outcomesAppearTied && winSpread > 0.1
+
   return (
     <div className="space-y-4">
       {/* Task 1.7: Goal context - displayed when present */}
@@ -550,19 +567,37 @@ export function RecommendationSection({
           <RobustnessBadge level={robustnessLevel} label={robustnessLabel} />
         </div>
 
-        {/* Task 1.6: Recommendation stability chip */}
-        {typeof recommendationStability === 'number' && (
-          <div className="mt-2">
-            <StabilityChip stability={recommendationStability} />
-          </div>
-        )}
+        {/* Task 3: Conditional Stability/Win Display
+            - Always show stability line if hasStability
+            - Only show win line if showWinSeparately (both exist AND differ by > 0.05)
+            - If only hasWin (no stability), show win line alone
+            CRITICAL: No fake defaults (?? 0) */}
+        {(() => {
+          const hasStability = recommendationStability != null
+          const hasWin = winProbability != null
+          const bothExist = hasStability && hasWin
+          const showWinSeparately = bothExist &&
+            Math.abs((recommendationStability as number) - (winProbability as number)) > 0.05
+          const showWinAlone = hasWin && !hasStability
 
-        {/* Task 1.3: Win probability display */}
-        {typeof winProbability === 'number' && winProbability > 0 && (
-          <p className="text-sm text-success-700 mt-2">
-            Wins in {Math.round(winProbability * 100)}% of scenarios tested
-          </p>
-        )}
+          return (
+            <>
+              {/* Always show stability if available */}
+              {hasStability && (
+                <div className="mt-2">
+                  <StabilityChip stability={recommendationStability as number} />
+                </div>
+              )}
+              {/* Show win probability only when different from stability OR when stability missing */}
+              {/* FIX: Use formatPercent for consistency and to avoid "0%" for small non-zero values */}
+              {(showWinSeparately || showWinAlone) && (winProbability as number) > 0 && (
+                <p className="text-sm text-success-700 mt-2">
+                  Wins in {formatPercent(winProbability as number)} of scenarios tested
+                </p>
+              )}
+            </>
+          )
+        })()}
 
         {/* Natural language description */}
         {outcomeDescription && (
@@ -598,6 +633,13 @@ export function RecommendationSection({
               />
             ))}
           </div>
+
+          {/* Task 5: Near-tie explanatory text */}
+          {showTieExplanation && (
+            <p className="text-xs text-slate-500 mt-2 italic">
+              Expected outcomes are similar. The recommendation is based on which option wins more consistently across scenarios tested.
+            </p>
+          )}
         </div>
       )}
 

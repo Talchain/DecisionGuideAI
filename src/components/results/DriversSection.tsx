@@ -5,9 +5,9 @@
  *
  * Features:
  * - Panel title at top, separate from grid
- * - Column headers: "Influence" and "Confidence" (right-aligned above bars)
+ * - Column headers: "Sensitivity" and "Confidence" (right-aligned above bars)
  * - Direction arrows with matching bar colors (↘ orange, ↗ green)
- * - Two bars per row (Influence + Confidence)
+ * - Two bars per row (Sensitivity + Confidence)
  * - Factor names can wrap, bars stay aligned
  * - Expanded view with contextual insights
  * - ISL unavailable error state with retry
@@ -34,7 +34,7 @@ const BAR_COLORS = {
 }
 
 // Grid columns constant - shared between header and rows to avoid alignment drift
-// Two data columns: Influence (direction-colored) + Confidence (always blue)
+// Two data columns: Sensitivity (direction-colored) + Confidence (always blue)
 const GRID_COLS = 'grid-cols-[minmax(120px,1fr)_85px_85px]'
 
 // Zero reason display messages - explains why sensitivity is zero
@@ -107,29 +107,29 @@ function ExpandedDetails({
 
   const alternativeWinnerLabel = driver.fragileEdgeInfo?.alternativeWinnerLabel
 
-  // Task 1.8: Flip risk display based on flip_risk_category with proper edge case guards
-  // - isolated: can flip decision alone → show percentage (with guards for p<=0, p>1, NaN)
+  // Task 2: Decision change risk display based on category with proper edge case guards
+  // - isolated: can change decision alone → show scenario-tested percentage
   // - correlated: contributes to joint risk → show qualitative message
-  // - negligible: unlikely to affect decision → no flip text
+  // - negligible: unlikely to affect decision → no risk text
   // - undefined (fallback): use existing marginal-based display for older PLoT versions
-  let flipRisk: string | null = null
+  let decisionChangeRisk: string | null = null
   if (driver.flipRiskCategory === 'isolated') {
-    // Show percentage for isolated factors (can flip decision alone)
+    // Show scenario-tested message for isolated factors (can change decision alone)
     // Uses formatFlipRiskMessage which handles edge cases: p<=0, p>1, NaN, null
-    flipRisk = formatFlipRiskMessage(
+    decisionChangeRisk = formatFlipRiskMessage(
       driver.fragileEdgeInfo?.switchProbability,
       alternativeWinnerLabel
     )
   } else if (driver.flipRiskCategory === 'correlated') {
     // Show qualitative message for correlated factors (contribute to joint risk)
-    flipRisk = 'May contribute to decision change under uncertainty'
+    decisionChangeRisk = 'May contribute to decision change under uncertainty'
   } else if (driver.flipRiskCategory === 'negligible') {
-    // No flip text for negligible factors
-    flipRisk = null
+    // No risk text for negligible factors
+    decisionChangeRisk = null
   } else {
-    // Fallback: use existing behavior when flip_risk_category is undefined (old PLoT)
+    // Fallback: use existing behavior when category is undefined (old PLoT)
     // Uses formatFlipRiskMessage which handles edge cases: p<=0, p>1, NaN, null
-    flipRisk = formatFlipRiskMessage(
+    decisionChangeRisk = formatFlipRiskMessage(
       driver.fragileEdgeInfo?.switchProbability,
       alternativeWinnerLabel
     )
@@ -142,7 +142,7 @@ function ExpandedDetails({
   return (
     <div className="px-4 pb-3 pt-1 border-t border-slate-100 bg-slate-50/50 text-xs text-slate-600 space-y-1.5">
       {elasticityInsight && <p>{elasticityInsight}</p>}
-      {flipRisk && <p>{flipRisk}</p>}
+      {decisionChangeRisk && <p>{decisionChangeRisk}</p>}
       {showQualityHint && (
         <p className="text-xs text-slate-500 flex items-center gap-1">
           <span aria-hidden="true">⚠️</span>
@@ -196,10 +196,10 @@ function DriverRow({
       ? 'orange'
       : 'neutral'
 
-  // Use ISL influence_score (0-1) directly for Influence column
+  // Use ISL influence_score (0-1) directly for Sensitivity column
   // Fallback to normalisedInfluence if influence_score not available
-  const influenceValue = driver.influenceScore ?? driver.normalisedInfluence
-  const hasInfluenceData = influenceValue != null && influenceValue >= 0
+  const sensitivityValue = driver.influenceScore ?? driver.normalisedInfluence
+  const hasSensitivityData = sensitivityValue != null && sensitivityValue >= 0
 
   // Confidence value (0-1) - clamped in useResultsSectionData
   const confidenceValue = typeof driver.confidence === 'number'
@@ -213,7 +213,7 @@ function DriverRow({
         className="w-full text-left hover:bg-slate-50 transition-colors"
         aria-expanded={isExpanded}
       >
-        {/* Grid layout: Factor name (flexible min-140px) | Influence bar (100px) | Confidence bar (100px) */}
+        {/* Grid layout: Factor name (flexible min-140px) | Sensitivity bar (100px) | Confidence bar (100px) */}
         <div className={`grid ${GRID_COLS} gap-3 items-center p-3`}>
           {/* Factor name with single direction arrow (serves as expand trigger) */}
           <div className="flex items-start gap-1.5 min-w-0">
@@ -232,12 +232,12 @@ function DriverRow({
             </span>
           </div>
 
-          {/* Influence bar - uses ISL influence_score (0-1) directly */}
-          {hasInfluenceData ? (
+          {/* Task 4: Sensitivity bar - uses ISL influence_score (0-1) directly */}
+          {hasSensitivityData ? (
             <ProgressBar
-              value={influenceValue}
+              value={sensitivityValue}
               color={barColor}
-              aria-label={`${driver.factorLabel} influence: ${Math.round(influenceValue * 100)}%`}
+              aria-label={`${driver.factorLabel} sensitivity: ${Math.round(sensitivityValue * 100)}%`}
             />
           ) : (
             <div className="text-xs font-mono text-slate-400 w-9 text-right">—</div>
@@ -272,7 +272,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry?: () => voi
   return (
     <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-center">
       <p className="text-sm text-amber-800 font-medium mb-2">
-        Unable to calculate factor influence — service unavailable
+        Unable to calculate factor sensitivity — service unavailable
       </p>
       <p className="text-xs text-amber-600 mb-3">{message}</p>
       {onRetry && (
@@ -381,12 +381,12 @@ export function DriversSection({
       <div className={`grid ${GRID_COLS} gap-3 px-3`}>
         {/* Empty cell for factor name column */}
         <div />
-        {/* Right-aligned headers over bar columns with tooltips */}
+        {/* Task 4: Renamed "Influence" → "Sensitivity" */}
         <div
           className="text-xs text-slate-500 text-right pr-6 cursor-help"
-          title="How strongly this factor affects your goal"
+          title="How sensitive your goal is to changes in this factor"
         >
-          Influence
+          Sensitivity
         </div>
         <div
           className="text-xs text-slate-500 text-right pr-6 cursor-help"

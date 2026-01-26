@@ -898,4 +898,278 @@ describe('RecommendationSection', () => {
       expect(screen.getByText(/small positive/i)).toBeInTheDocument()
     })
   })
+
+  // =========================================================================
+  // Task 3: Conditional Stability/Win Display Tests
+  // =========================================================================
+
+  describe('Conditional Stability/Win Display', () => {
+    it('shows only stability when stability = 0.60 and win = 0.60 (same value)', () => {
+      const sameValueData: RecommendationSectionData = {
+        ...mockData,
+        recommendationStability: 0.60,
+        winProbability: 0.60,
+      }
+
+      render(<RecommendationSection data={sameValueData} />)
+
+      // Stability should show
+      expect(screen.getByText(/Stays best in 60% of scenarios tested/)).toBeInTheDocument()
+      // Win probability should NOT show (difference <= 0.05)
+      expect(screen.queryByText(/Wins in 60% of scenarios tested/)).not.toBeInTheDocument()
+    })
+
+    it('shows both stability and win when they differ by > 0.05', () => {
+      const differentValueData: RecommendationSectionData = {
+        ...mockData,
+        recommendationStability: 0.70,
+        winProbability: 0.55,
+      }
+
+      render(<RecommendationSection data={differentValueData} />)
+
+      // Both should show
+      expect(screen.getByText(/Stays best in 70% of scenarios tested/)).toBeInTheDocument()
+      expect(screen.getByText(/Wins in 55% of scenarios tested/)).toBeInTheDocument()
+    })
+
+    it('shows only win probability when stability is null', () => {
+      const onlyWinData: RecommendationSectionData = {
+        ...mockData,
+        recommendationStability: undefined,
+        winProbability: 0.60,
+      }
+
+      render(<RecommendationSection data={onlyWinData} />)
+
+      // Win should show alone
+      expect(screen.getByText(/Wins in 60% of scenarios tested/)).toBeInTheDocument()
+      // Stability should not show
+      expect(screen.queryByText(/Stays best/)).not.toBeInTheDocument()
+    })
+
+    it('shows only stability when win probability is null', () => {
+      const onlyStabilityData: RecommendationSectionData = {
+        ...mockData,
+        recommendationStability: 0.75,
+        winProbability: undefined,
+      }
+
+      render(<RecommendationSection data={onlyStabilityData} />)
+
+      // Stability should show
+      expect(screen.getByText(/Stays best in 75% of scenarios tested/)).toBeInTheDocument()
+      // Win should not show
+      expect(screen.queryByText(/Wins in/)).not.toBeInTheDocument()
+    })
+  })
+
+  // =========================================================================
+  // Task 5: Near-Tie Explanatory Text Tests
+  // =========================================================================
+
+  describe('Near-Tie Explanatory Text', () => {
+    it('shows tie explanation when outcomes are same but win probabilities differ', () => {
+      // Both options have same expected value (58%) but different win probabilities
+      const tiedOutcomesData: RecommendationSectionData = {
+        ...mockData,
+        allOptions: [
+          {
+            id: 'option-1',
+            label: 'Option A',
+            p10: 23,
+            p50: 58,
+            p90: 81,
+            expected: 58,
+            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
+            isRecommended: true,
+            winProbability: 0.65,
+          },
+          {
+            id: 'option-2',
+            label: 'Option B',
+            p10: 23,
+            p50: 58,
+            p90: 81,
+            expected: 58,  // Same expected value
+            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
+            isRecommended: false,
+            winProbability: 0.35,  // Different win probability (spread = 0.30 > 0.1)
+          },
+        ],
+        isSingleOption: false,
+      }
+
+      render(<RecommendationSection data={tiedOutcomesData} />)
+
+      expect(screen.getByText(/Expected outcomes are similar/)).toBeInTheDocument()
+    })
+
+    it('does not show tie explanation when outcomes differ', () => {
+      // Options have different expected values
+      const differentOutcomesData: RecommendationSectionData = {
+        ...mockData,
+        allOptions: [
+          {
+            id: 'option-1',
+            label: 'Option A',
+            p10: 23,
+            p50: 58,
+            p90: 81,
+            expected: 58,
+            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
+            isRecommended: true,
+            winProbability: 0.65,
+          },
+          {
+            id: 'option-2',
+            label: 'Option B',
+            p10: 18,
+            p50: 41,
+            p90: 68,
+            expected: 41,  // Different expected value
+            outcome: { mean: 41, p10: 18, p50: 41, p90: 68 },
+            isRecommended: false,
+            winProbability: 0.35,
+          },
+        ],
+        isSingleOption: false,
+      }
+
+      render(<RecommendationSection data={differentOutcomesData} />)
+
+      expect(screen.queryByText(/Expected outcomes are similar/)).not.toBeInTheDocument()
+    })
+
+    it('does not show tie explanation when win probability spread is small', () => {
+      // Same expected values but win probabilities are close (spread = 0.04 < 0.1)
+      const smallSpreadData: RecommendationSectionData = {
+        ...mockData,
+        allOptions: [
+          {
+            id: 'option-1',
+            label: 'Option A',
+            p10: 23,
+            p50: 58,
+            p90: 81,
+            expected: 58,
+            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
+            isRecommended: true,
+            winProbability: 0.52,
+          },
+          {
+            id: 'option-2',
+            label: 'Option B',
+            p10: 23,
+            p50: 58,
+            p90: 81,
+            expected: 58,  // Same expected value
+            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },
+            isRecommended: false,
+            winProbability: 0.48,  // Small spread (0.04 < 0.1)
+          },
+        ],
+        isSingleOption: false,
+      }
+
+      render(<RecommendationSection data={smallSpreadData} />)
+
+      expect(screen.queryByText(/Expected outcomes are similar/)).not.toBeInTheDocument()
+    })
+
+    it('does not show tie explanation when outcomes are null/missing', () => {
+      // FIX: When expected values are null, should NOT show "Expected outcomes are similar"
+      const nullOutcomesData: RecommendationSectionData = {
+        ...mockData,
+        allOptions: [
+          {
+            id: 'option-1',
+            label: 'Option A',
+            p10: null as unknown as number,
+            p50: null as unknown as number,
+            p90: null as unknown as number,
+            expected: null as unknown as number,
+            outcome: { mean: null, p10: null, p50: null, p90: null },
+            isRecommended: true,
+            winProbability: 0.65,
+          },
+          {
+            id: 'option-2',
+            label: 'Option B',
+            p10: null as unknown as number,
+            p50: null as unknown as number,
+            p90: null as unknown as number,
+            expected: null as unknown as number,
+            outcome: { mean: null, p10: null, p50: null, p90: null },
+            isRecommended: false,
+            winProbability: 0.35,
+          },
+        ],
+        isSingleOption: false,
+      }
+
+      render(<RecommendationSection data={nullOutcomesData} />)
+
+      // Should NOT show tie explanation when outcomes are missing
+      expect(screen.queryByText(/Expected outcomes are similar/)).not.toBeInTheDocument()
+    })
+
+    it('falls back to outcome.mean when expected is null', () => {
+      // When expected is null but outcome.mean exists, should use outcome.mean
+      const fallbackData: RecommendationSectionData = {
+        ...mockData,
+        allOptions: [
+          {
+            id: 'option-1',
+            label: 'Option A',
+            p10: 23,
+            p50: 58,
+            p90: 81,
+            expected: null as unknown as number,  // null expected
+            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },  // but outcome.mean exists
+            isRecommended: true,
+            winProbability: 0.65,
+          },
+          {
+            id: 'option-2',
+            label: 'Option B',
+            p10: 23,
+            p50: 58,
+            p90: 81,
+            expected: null as unknown as number,  // null expected
+            outcome: { mean: 58, p10: 23, p50: 58, p90: 81 },  // same outcome.mean
+            isRecommended: false,
+            winProbability: 0.35,  // spread = 0.30 > 0.1
+          },
+        ],
+        isSingleOption: false,
+      }
+
+      render(<RecommendationSection data={fallbackData} />)
+
+      // Should show tie explanation using outcome.mean fallback
+      expect(screen.getByText(/Expected outcomes are similar/)).toBeInTheDocument()
+    })
+  })
+
+  // =========================================================================
+  // Win Probability Small Value Formatting Tests
+  // =========================================================================
+
+  describe('Win Probability Formatting', () => {
+    it('formats small win probabilities with decimal to avoid "0%"', () => {
+      // 0.4% should show as "0.4%" not "0%"
+      const smallWinProbData: RecommendationSectionData = {
+        ...mockData,
+        recommendationStability: undefined,  // No stability, so win shows alone
+        winProbability: 0.004,  // 0.4%
+      }
+
+      render(<RecommendationSection data={smallWinProbData} />)
+
+      // Should show "0.4%" not "0%"
+      expect(screen.getByText(/Wins in 0\.4% of scenarios tested/)).toBeInTheDocument()
+      expect(screen.queryByText(/Wins in 0% of scenarios tested/)).not.toBeInTheDocument()
+    })
+  })
 })

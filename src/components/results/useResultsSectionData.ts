@@ -1444,10 +1444,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     const robustnessStatus = hasRobustnessData ? 'computed' : 'unavailable'
 
     // Build filtered disclosure when items were excluded
+    // Task 2: Use scenario-tested language, avoid "flip risk"
     const filteredFragileEdges = filteredFragileEdgesCount > 0 ? {
       filteredCount: filteredFragileEdgesCount,
       threshold: FRAGILE_EDGE_THRESHOLD,
-      description: `${filteredFragileEdgesCount} additional ${filteredFragileEdgesCount === 1 ? 'edge' : 'edges'} with <${Math.round(FRAGILE_EDGE_THRESHOLD * 100)}% flip risk`,
+      description: `${filteredFragileEdgesCount} additional ${filteredFragileEdgesCount === 1 ? 'edge' : 'edges'} changed the best option in <${Math.round(FRAGILE_EDGE_THRESHOLD * 100)}% of scenarios tested`,
     } : undefined
 
     return {
