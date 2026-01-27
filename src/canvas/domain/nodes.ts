@@ -62,8 +62,10 @@ export const OptionNodeDataSchema = NodeDataSchema.extend({
 /**
  * Controllability type for factors
  * Decision Graph Display v2: Task 6
+ * P1 Hotfix: Changed 'external' to 'unknown' — we can't claim a factor is external
+ * when we simply don't have controllability data for it
  */
-export const ControllabilityEnum = z.enum(['controllable', 'partial', 'external'])
+export const ControllabilityEnum = z.enum(['controllable', 'partial', 'unknown'])
 export type Controllability = z.infer<typeof ControllabilityEnum>
 
 /**

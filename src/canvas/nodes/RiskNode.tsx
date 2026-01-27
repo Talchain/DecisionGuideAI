@@ -17,16 +17,13 @@ export const RiskNode = memo((props: NodeProps) => {
   return (
     <BaseNode {...props} nodeType="risk" icon={metadata.icon}>
       {/* Decision Graph Display v2 Task 9 + Task C: Risk severity heat + label */}
-      {(severity || (probability === undefined || impact === undefined)) && (
+      {/* Task 1 Fix: Only show badge when severity is present, not "Not rated" placeholder */}
+      {severity && (
         <div
           className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-2 py-1 text-xs font-semibold mb-2`}
           style={{ textAlign: 'center' }}
         >
-          {severity ? (
-            <>{severity.charAt(0).toUpperCase() + severity.slice(1)} Risk</>
-          ) : (
-            <>Not rated</>
-          )}
+          {severity.charAt(0).toUpperCase() + severity.slice(1)} Risk
         </div>
       )}
 

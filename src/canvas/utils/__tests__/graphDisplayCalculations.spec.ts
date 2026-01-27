@@ -11,6 +11,8 @@ import {
   existenceCertaintyToLineStyle,
   getRiskSeverityColors,
   getControllabilityBorderStyle,
+  deriveControllability,
+  formatDisplayValue,
 } from '../graphDisplayCalculations'
 
 describe('graphDisplayCalculations', () => {
@@ -30,14 +32,16 @@ describe('graphDisplayCalculations', () => {
       expect(importance).toBe(0.9 * 1.0 * 0.8)
     })
 
-    it('uses defaults for undefined goal sensitivity (0.5)', () => {
+    it('uses defaults for undefined goal sensitivity (1.0)', () => {
+      // Per Issue #2 fix: Use 1.0 fallback for non-factor edges
       const importance = calculateEdgeImportance(0.9, 2.0, undefined)
-      expect(importance).toBe(0.9 * 2.0 * 0.5)
+      expect(importance).toBe(0.9 * 2.0 * 1.0)
     })
 
     it('uses all defaults when all values undefined', () => {
+      // Per Issue #2 fix: Use 1.0 fallback for all undefined values
       const importance = calculateEdgeImportance(undefined, undefined, undefined)
-      expect(importance).toBe(1.0 * 1.0 * 0.5)
+      expect(importance).toBe(1.0 * 1.0 * 1.0)
     })
 
     it('handles negative strength by taking absolute value', () => {
@@ -254,14 +258,202 @@ describe('graphDisplayCalculations', () => {
       expect(style).toBe('border-dashed')
     })
 
-    it('returns "border-dotted" for external', () => {
-      const style = getControllabilityBorderStyle('external')
-      expect(style).toBe('border-dotted')
+    it('returns "border-solid" for unknown (P1 Hotfix: no visual distinction)', () => {
+      const style = getControllabilityBorderStyle('unknown')
+      expect(style).toBe('border-solid')
     })
 
     it('returns "border-solid" (default) for undefined', () => {
       const style = getControllabilityBorderStyle(undefined)
       expect(style).toBe('border-solid')
+    })
+  })
+
+  describe('deriveControllability', () => {
+    const mockOptions = [
+      {
+        id: 'option-a',
+        interventions: { 'factor-1': 10, 'factor-2': 20 },
+      },
+      {
+        id: 'option-b',
+        interventions: { 'factor-1': 15 },
+      },
+    ]
+
+    // P1 Hotfix: Multi-hop test edges
+    // factor-1 → factor-3 → factor-7 → factor-8 (chain from controllable)
+    // factor-2 → factor-4
+    // factor-5 → factor-6 (no connection to interventions)
+    const mockEdges = [
+      { source: 'factor-1', target: 'factor-3' },
+      { source: 'factor-3', target: 'factor-7' },
+      { source: 'factor-7', target: 'factor-8' },
+      { source: 'factor-2', target: 'factor-4' },
+      { source: 'factor-5', target: 'factor-6' },
+    ]
+
+    it('returns "unknown" when options is undefined', () => {
+      const result = deriveControllability('factor-1', undefined, mockEdges)
+      expect(result).toBe('unknown')
+    })
+
+    it('returns "unknown" when options is empty', () => {
+      const result = deriveControllability('factor-1', [], mockEdges)
+      expect(result).toBe('unknown')
+    })
+
+    it('returns "controllable" for factors directly targeted by interventions', () => {
+      const result = deriveControllability('factor-1', mockOptions, mockEdges)
+      expect(result).toBe('controllable')
+    })
+
+    it('returns "controllable" for factor targeted by single option', () => {
+      const result = deriveControllability('factor-2', mockOptions, mockEdges)
+      expect(result).toBe('controllable')
+    })
+
+    it('returns "partial" for factors with incoming edge from controllable factor (1-hop)', () => {
+      // factor-3 has incoming edge from factor-1 (which is controllable)
+      const result = deriveControllability('factor-3', mockOptions, mockEdges)
+      expect(result).toBe('partial')
+    })
+
+    it('returns "partial" for factors 2 hops downstream (P1 Hotfix: multi-hop BFS)', () => {
+      // factor-7 is 2 hops from factor-1: factor-1 → factor-3 → factor-7
+      const result = deriveControllability('factor-7', mockOptions, mockEdges)
+      expect(result).toBe('partial')
+    })
+
+    it('returns "partial" for factors 3 hops downstream (P1 Hotfix: multi-hop BFS)', () => {
+      // factor-8 is 3 hops from factor-1: factor-1 → factor-3 → factor-7 → factor-8
+      const result = deriveControllability('factor-8', mockOptions, mockEdges)
+      expect(result).toBe('partial')
+    })
+
+    it('returns "partial" for downstream factors (1-hop from factor-2)', () => {
+      // factor-4 has incoming edge from factor-2 (which is controllable)
+      const result = deriveControllability('factor-4', mockOptions, mockEdges)
+      expect(result).toBe('partial')
+    })
+
+    it('returns "unknown" for factors with no path to any intervention', () => {
+      // factor-6 has incoming edge from factor-5, but factor-5 is not reachable from interventions
+      const result = deriveControllability('factor-6', mockOptions, mockEdges)
+      expect(result).toBe('unknown')
+    })
+
+    it('returns "unknown" for factors not in any intervention or edge', () => {
+      const result = deriveControllability('factor-unknown', mockOptions, mockEdges)
+      expect(result).toBe('unknown')
+    })
+
+    it('returns "unknown" when edges is undefined', () => {
+      // factor-3 would be partial if edges existed
+      const result = deriveControllability('factor-3', mockOptions, undefined)
+      expect(result).toBe('unknown')
+    })
+
+    it('returns "controllable" when factor in interventions even without edges', () => {
+      const result = deriveControllability('factor-1', mockOptions, undefined)
+      expect(result).toBe('controllable')
+    })
+
+    it('handles interventions with object value format', () => {
+      const optionsWithObjectValues = [
+        {
+          id: 'option-a',
+          interventions: { 'factor-obj': { value: 10 } },
+        },
+      ]
+      const result = deriveControllability('factor-obj', optionsWithObjectValues, mockEdges)
+      expect(result).toBe('controllable')
+    })
+
+    it('returns "unknown" when edges is empty array', () => {
+      // factor-3 would be partial if edges existed, but with empty edges it's unknown
+      const result = deriveControllability('factor-3', mockOptions, [])
+      expect(result).toBe('unknown')
+    })
+
+    it('handles cycles in graph without infinite loop', () => {
+      // Add cycle: factor-8 → factor-3 (creates cycle)
+      const edgesWithCycle = [
+        ...mockEdges,
+        { source: 'factor-8', target: 'factor-3' },
+      ]
+      // Should still work without hanging
+      const result = deriveControllability('factor-8', mockOptions, edgesWithCycle)
+      expect(result).toBe('partial')
+    })
+  })
+
+  describe('formatDisplayValue', () => {
+    it('returns "—" for undefined value', () => {
+      expect(formatDisplayValue(undefined)).toBe('—')
+    })
+
+    it('returns "—" for null value', () => {
+      expect(formatDisplayValue(null)).toBe('—')
+    })
+
+    it('returns "—" for NaN', () => {
+      expect(formatDisplayValue(NaN)).toBe('—')
+    })
+
+    it('returns "—" for Infinity', () => {
+      expect(formatDisplayValue(Infinity)).toBe('—')
+    })
+
+    it('formats integer with thousands separator', () => {
+      expect(formatDisplayValue(1234567)).toBe('1,234,567')
+    })
+
+    it('formats decimal with max 2 decimal places', () => {
+      expect(formatDisplayValue(1234.5678)).toBe('1,234.57')
+    })
+
+    it('formats decimal with 1 decimal place correctly', () => {
+      expect(formatDisplayValue(1234.5)).toBe('1,234.5')
+    })
+
+    it('formats zero correctly', () => {
+      expect(formatDisplayValue(0)).toBe('0')
+    })
+
+    it('formats negative numbers correctly', () => {
+      expect(formatDisplayValue(-1234.56)).toBe('-1,234.56')
+    })
+
+    it('formats small decimals correctly', () => {
+      expect(formatDisplayValue(0.123456)).toBe('0.12')
+    })
+
+    it('formats currency values with 2 decimal places', () => {
+      expect(formatDisplayValue(1234.5, 'currency')).toBe('1,234.50')
+    })
+
+    it('formats $ prefixed unit as currency', () => {
+      expect(formatDisplayValue(1234.5, '$')).toBe('1,234.50')
+    })
+
+    it('formats £ prefixed unit as currency', () => {
+      expect(formatDisplayValue(1234.5, '£')).toBe('1,234.50')
+    })
+
+    it('formats € prefixed unit as currency', () => {
+      expect(formatDisplayValue(1234.5, '€')).toBe('1,234.50')
+    })
+
+    it('handles very small values with precision', () => {
+      expect(formatDisplayValue(0.001)).toBe('0')
+    })
+
+    it('rounds correctly at boundaries', () => {
+      // Note: 1.005 has floating-point representation issues in JS
+      // Use 1.006 which rounds correctly
+      expect(formatDisplayValue(1.006)).toBe('1.01')
+      expect(formatDisplayValue(1.004)).toBe('1')
     })
   })
 })

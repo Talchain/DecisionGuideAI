@@ -15,6 +15,10 @@ import type { NodeType } from '../domain/nodes'
 interface NodeDisplayMetadata {
   /** Factor sensitivity rank (1-3 for top factors, null otherwise) */
   sensitivityRank: number | null
+  /** Factor influence score (0-1, normalized) - Task 3 */
+  influence: number | null
+  /** Factor confidence score (0-1) - Task 3 */
+  confidence: number | null
   /** Outcome/Goal achievement probability (0-1) */
   achievementProbability: number | null
   /** Recommendation stability (0-1) - fallback for Goal nodes when probability unavailable */
@@ -46,6 +50,8 @@ export function useNodeDisplayMetadata(
     if (!isResultsMode || !report) {
       return {
         sensitivityRank: null,
+        influence: null,
+        confidence: null,
         achievementProbability: null,
         stabilityPercentage: null,
         winRate: null,
@@ -53,8 +59,10 @@ export function useNodeDisplayMetadata(
       }
     }
 
-    // Task 5: Factor sensitivity rank (top 3 only)
+    // Task 5 & 3: Factor sensitivity rank (top 3 only) and influence/confidence
     let sensitivityRank: number | null = null
+    let influence: number | null = null
+    let confidence: number | null = null
     if (nodeType === 'factor') {
       // Get factor_sensitivity array and rank by elasticity
       const factorSensitivity = report.enrichment?.sensitivity_analysis?.factors ||
@@ -79,6 +87,39 @@ export function useNodeDisplayMetadata(
       // Find this node's rank (1-indexed)
       const rank = ranked.findIndex(f => f.id === nodeId) + 1
       sensitivityRank = rank > 0 && rank <= 3 ? rank : null
+
+      // Task 3: Extract influence and confidence for this factor
+      const factorData = factorSensitivity.find((f: any) =>
+        (f.factor_id || f.factorId || f.node_id || f.nodeId) === nodeId
+      )
+
+      if (factorData) {
+        // Influence: Use influence_score if available, otherwise normalize elasticity
+        const rawInfluence = factorData.influence_score ??
+                            factorData.influenceScore ??
+                            factorData.elasticity ??
+                            factorData.sensitivity_score ??
+                            factorData.importance_score
+
+        if (typeof rawInfluence === 'number') {
+          // If already 0-1 (influence_score), use directly; otherwise it's elasticity (needs normalization)
+          if (rawInfluence >= 0 && rawInfluence <= 1) {
+            influence = rawInfluence
+          } else if (ranked.length > 0 && ranked[0].elasticity > 0) {
+            // Normalize against max elasticity
+            influence = Math.abs(rawInfluence) / ranked[0].elasticity
+          }
+        }
+
+        // Confidence: Direct extraction (already 0-1)
+        // Note: Intentionally NOT using value_of_information as fallback - VOI is semantically
+        // different from confidence (it measures value of learning more, not certainty)
+        const rawConfidence = factorData.confidence
+
+        if (typeof rawConfidence === 'number' && rawConfidence >= 0 && rawConfidence <= 1) {
+          confidence = rawConfidence
+        }
+      }
     }
 
     // Task 8 & 10: Outcome/Goal achievement probability
@@ -131,6 +172,8 @@ export function useNodeDisplayMetadata(
 
     return {
       sensitivityRank,
+      influence,
+      confidence,
       achievementProbability,
       stabilityPercentage,
       winRate,

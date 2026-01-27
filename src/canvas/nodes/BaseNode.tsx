@@ -93,17 +93,20 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
     }
   }
 
-  // Phase 2: Uncertain node styling + factor type always dashed
+  // Phase 2: Uncertain node styling
   const isUncertain = (data?.uncertainty ?? 0) > 0.4
 
-  // Decision Graph Display v2 Task 6: Controllability-based border style for factors
+  // Decision Graph Display v2 Task 6 + P1 Hotfix: Controllability-based border style for factors
+  // P1 Hotfix: Don't default factors to dashed — only show dashed when explicitly 'partial'
+  // When controllability is undefined or 'unknown', use solid (we don't claim anything)
   const controllability = nodeType === 'factor' ? (data?.controllability as Controllability | undefined) : undefined
   const borderStyle = (() => {
     if (nodeType === 'factor' && controllability) {
       return getControllabilityBorderStyle(controllability)
     }
-    // Legacy: factors default to dashed, uncertain nodes also dashed
-    if (isUncertain || nodeType === 'factor') {
+    // Only uncertain non-factor nodes get dashed border
+    // P1 Hotfix: Factors no longer default to dashed — solid is the default (no claim)
+    if (isUncertain && nodeType !== 'factor') {
       return 'border-dashed'
     }
     return ''

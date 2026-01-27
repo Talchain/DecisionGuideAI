@@ -4,6 +4,7 @@ import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
+import { formatDisplayValue } from '../utils/graphDisplayCalculations'
 
 export const OptionNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.option
@@ -70,21 +71,22 @@ export const OptionNode = memo((props: NodeProps) => {
         </div>
       )}
 
-      {/* Decision Graph Display v2 Task 7 + Task E: Intervention deltas with unit formatting */}
+      {/* Decision Graph Display v2 Task 7 + Task E + Task 4: Intervention deltas with formatted values */}
       {interventionDeltas.length > 0 && (
         <div className="text-xs text-slate-500 mt-1">
           {interventionDeltas.map((delta, idx) => {
-            // Task E + Fix 6: Format value based on unit (with space between value and unit)
+            // Task 4: Better value formatting with sign prefix
+            const sign = delta.value > 0 ? '+' : ''
             let formattedValue: string
             if (delta.unit === 'fraction') {
               // Fraction → percentage
-              formattedValue = `${delta.value > 0 ? '+' : ''}${(delta.value * 100).toFixed(0)}%`
+              formattedValue = `${sign}${Math.round(delta.value * 100)}%`
             } else if (delta.unit) {
-              // Other unit → append unit with space
-              formattedValue = `${delta.value > 0 ? '+' : ''}${delta.value} ${delta.unit}`
+              // Other unit → formatted value with space and unit
+              formattedValue = `${sign}${formatDisplayValue(delta.value, delta.unit)} ${delta.unit}`
             } else {
-              // No unit → just value with sign
-              formattedValue = `${delta.value > 0 ? '+' : ''}${delta.value}`
+              // No unit → just formatted value with sign
+              formattedValue = `${sign}${formatDisplayValue(delta.value)}`
             }
 
             // Task E: Truncate label if > 20 chars, add title for full label on hover
