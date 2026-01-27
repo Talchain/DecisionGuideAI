@@ -190,6 +190,8 @@ interface CanvasState {
   // Phase 3: Interaction enhancements (Set for O(1) lookup)
   highlightedNodes: Set<string>
   highlightedEdges: Set<string>
+  // Decision Graph Display v2 Task 11: Option hover state for intervention highlighting
+  hoveredOptionId: string | null
   // M5: Grounding & Provenance
   documents: Document[]
   citations: Citation[]
@@ -730,6 +732,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   needleMovers: [],
   highlightedNodes: new Set<string>(),
   highlightedEdges: new Set<string>(),
+  hoveredOptionId: null,
   // M5: Grounding & Provenance
   documents: [],
   citations: [],
@@ -2299,6 +2302,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
   setHighlightedEdges: (ids: string[]) => {
     set({ highlightedEdges: new Set(ids) })
+  },
+  // Decision Graph Display v2 Task 11: Option hover for intervention highlighting
+  setHoveredOption: (optionId: string | null) => {
+    set({ hoveredOptionId: optionId })
   },
 
   // M5: Provenance actions

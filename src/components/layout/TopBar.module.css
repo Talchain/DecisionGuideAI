@@ -88,6 +88,90 @@
   margin-left: -6px;
 }
 
+/* Decision Graph Display v2 Task 13: Analysis metadata section */
+.topBarCenter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  margin-right: 16px;
+}
+
+.metadataChip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  border: 1px solid var(--sand-200);
+  border-radius: 12px;
+  background: var(--paper-50);
+  color: var(--ink-700);
+  white-space: nowrap;
+}
+
+.metadataChip svg {
+  flex-shrink: 0;
+  color: var(--ink-500);
+}
+
+.metadataLabel {
+  line-height: 1;
+}
+
+/* Run status colors */
+.metadataChip[data-status="complete"] {
+  border-color: var(--mint-300);
+  background: var(--mint-50);
+  color: var(--mint-800);
+}
+
+.metadataChip[data-status="complete"] svg {
+  color: var(--mint-600);
+}
+
+.metadataChip[data-status="running"] {
+  border-color: var(--sky-300);
+  background: var(--sky-50);
+  color: var(--sky-800);
+}
+
+.metadataChip[data-status="running"] svg {
+  color: var(--sky-600);
+}
+
+.metadataChip[data-status="error"] {
+  border-color: var(--carrot-300);
+  background: var(--carrot-50);
+  color: var(--carrot-800);
+}
+
+.metadataChip[data-status="error"] svg {
+  color: var(--carrot-600);
+}
+
+/* Stability colors */
+.metadataChip[data-stability="stable"] {
+  border-color: var(--mint-300);
+  background: var(--mint-50);
+  color: var(--mint-800);
+}
+
+.metadataChip[data-stability="stable"] svg {
+  color: var(--mint-600);
+}
+
+.metadataChip[data-stability="fragile"] {
+  border-color: var(--carrot-300);
+  background: var(--carrot-50);
+  color: var(--carrot-800);
+}
+
+.metadataChip[data-stability="fragile"] svg {
+  color: var(--carrot-600);
+}
+
 .topBarRight {
   display: flex;
   align-items: center;

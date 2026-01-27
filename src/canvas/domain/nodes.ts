@@ -60,17 +60,37 @@ export const OptionNodeDataSchema = NodeDataSchema.extend({
 })
 
 /**
+ * Controllability type for factors
+ * Decision Graph Display v2: Task 6
+ */
+export const ControllabilityEnum = z.enum(['controllable', 'partial', 'external'])
+export type Controllability = z.infer<typeof ControllabilityEnum>
+
+/**
  * Factor node: represents intermediate variable or driver
  */
 export const FactorNodeDataSchema = NodeDataSchema.extend({
   type: z.literal('factor'),
+  /** Controllability level for visual border style (Decision Graph Display v2) */
+  controllability: ControllabilityEnum.optional(),
 })
+
+/**
+ * Risk impact level
+ * Decision Graph Display v2: Task 9
+ */
+export const RiskImpactEnum = z.enum(['low', 'medium', 'high', 'critical'])
+export type RiskImpact = z.infer<typeof RiskImpactEnum>
 
 /**
  * Risk node: represents hazard or concern
  */
 export const RiskNodeDataSchema = NodeDataSchema.extend({
   type: z.literal('risk'),
+  /** Probability of risk occurring (0-1) - Decision Graph Display v2 */
+  probability: z.number().min(0).max(1).optional(),
+  /** Impact severity level - Decision Graph Display v2 */
+  impact: RiskImpactEnum.optional(),
 })
 
 /**

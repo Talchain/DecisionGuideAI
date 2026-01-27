@@ -17,7 +17,7 @@
 
 import { memo, useMemo, useState } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow } from '@xyflow/react'
-import { Lightbulb } from 'lucide-react'
+import { Lightbulb, AlertTriangle } from 'lucide-react'
 import type { EdgeData, EdgePathType } from '../domain/edges'
 import { applyEdgeVisualProps } from '../theme/edges'
 import { formatConfidence, shouldShowLabel } from '../domain/edges'
@@ -26,6 +26,7 @@ import { getEdgeLabel } from '../domain/edgeLabels'
 import { useEdgeLabelMode } from '../store/edgeLabelMode'
 import { EdgeEditPopover } from './EdgeEditPopover'
 import { useCanvasStore } from '../store'
+import { existenceCertaintyToLineStyle, calculateEdgeImportance, importanceToStrokeWidth } from '../utils/graphDisplayCalculations'
 import { typography } from '../../styles/typography'
 import { useEdgeEditHint } from '../hooks/useFirstTimeHints'
 
@@ -54,6 +55,22 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const [isHovered, setIsHovered] = useState(false)
   const updateEdgeData = useCanvasStore(state => state.updateEdgeData)
   const ceeReview = useCanvasStore(state => state.runMeta.ceeReview)
+
+  // Decision Graph Display v2 Task 4: Get fragile edges from results (Results mode only)
+  const resultsStatus = useCanvasStore(state => state.results.status)
+  const isResultsMode = resultsStatus === 'complete'
+  const report = useCanvasStore(state => state.results.report)
+
+  // Check if this edge is fragile (switch_probability > 0.3)
+  const isFragileEdge = useMemo(() => {
+    if (!isResultsMode || !report?.robustness) return false
+    const fragileEdges = report.robustness.fragile_edges || []
+    return fragileEdges.some((fe: any) => {
+      const edgeId = fe.edge_id || fe.edgeId
+      const switchProb = fe.marginal_switch_probability ?? fe.marginalSwitchProbability ?? fe.switch_probability ?? fe.switchProbability
+      return edgeId === id && (typeof switchProb === 'number' && switchProb > 0.3)
+    })
+  }, [isResultsMode, report, id])
 
   // Extract edge data with defaults
   const edgeData = data as EdgeData | undefined
@@ -91,8 +108,59 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [weight, style, curvature, selected, isDark]
   )
 
-  // Brief v2.2: Direction-based stroke colour (pastel palette, low visual noise)
-  // positive: pastel green, negative: pastel blue, unknown: light grey
+  // Task A: Edge thickness based on importance (Results mode only)
+  const edgeStrokeWidth = useMemo(() => {
+    if (!isResultsMode || !report) {
+      return visualProps.strokeWidth // Edit mode: uniform thickness
+    }
+
+    // Get factor_sensitivity data
+    const factorSensitivity = report.enrichment?.sensitivity_analysis?.factors ||
+                             report.factor_sensitivity ||
+                             []
+
+    if (factorSensitivity.length === 0) {
+      return visualProps.strokeWidth // Fallback: no sensitivity data
+    }
+
+    // Find the source node's elasticity (goal_sensitivity)
+    const sourceFactor = factorSensitivity.find((f: any) => {
+      const factorId = f.factor_id || f.factorId || f.node_id || f.nodeId
+      return factorId === source
+    })
+    const goalSensitivity = sourceFactor ?
+      Math.abs(sourceFactor.elasticity ?? sourceFactor.sensitivity_score ?? sourceFactor.importance_score ?? 0) :
+      undefined
+
+    // Calculate importance for this edge
+    const belief = edgeData?.beliefExists
+    const strength = weight // edge weight represents causal strength
+    const importance = calculateEdgeImportance(belief, strength, goalSensitivity)
+
+    // Get all edges to find max importance
+    const allEdges = getEdges()
+    const importances = allEdges.map(edge => {
+      const edgeSource = edge.source
+      const edgeData = edge.data as EdgeData | undefined
+      const sourceFactor = factorSensitivity.find((f: any) => {
+        const factorId = f.factor_id || f.factorId || f.node_id || f.nodeId
+        return factorId === edgeSource
+      })
+      const goalSens = sourceFactor ?
+        Math.abs(sourceFactor.elasticity ?? sourceFactor.sensitivity_score ?? sourceFactor.importance_score ?? 0) :
+        undefined
+      const belief = edgeData?.beliefExists
+      const strength = edgeData?.weight ?? 1.0
+      return calculateEdgeImportance(belief, strength, goalSens)
+    })
+    const maxImportance = Math.max(...importances, 0)
+
+    // Map to stroke width (1-8px range)
+    return importanceToStrokeWidth(importance, maxImportance)
+  }, [isResultsMode, report, source, edgeData?.beliefExists, weight, getEdges, visualProps.strokeWidth])
+
+  // Decision Graph Display v2: Direction-based stroke colour
+  // positive: green, negative: red (risk color), unknown: grey
   const directionStroke = useMemo(() => {
     if (!direction) return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc-400/300 for unknown
     if (direction === 'positive') {
@@ -104,8 +172,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     return isDark ? '#a1a1aa' : '#d4d4d8' // Zinc fallback
   }, [direction, isDark])
 
+  // Decision Graph Display v2: Existence certainty line style
+  // Solid: >70%, Dashed: 30-70%, Dotted: <30%
+  // Use utility function to ensure single source of truth
+  const existenceCertaintyDash = useMemo(() =>
+    existenceCertaintyToLineStyle(edgeData?.beliefExists),
+    [edgeData?.beliefExists]
+  )
+
   // Accessibility: Dashed line for negative edges (colorblind-friendly)
-  const directionDasharray = direction === 'negative' ? '8,4' : undefined
+  // Combined with existence certainty (existence takes priority)
+  const directionDasharray = existenceCertaintyDash ?? (direction === 'negative' ? '8,4' : undefined)
 
   // Determine label visibility and styling
   const labelVisibility = useMemo(
@@ -187,7 +264,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         id={id}
         path={edgePath}
         style={{
-          strokeWidth: visualProps.strokeWidth,
+          strokeWidth: edgeStrokeWidth,
           // Accessibility: negative edges use dashed line, otherwise use visual props
           strokeDasharray: directionDasharray ?? visualProps.strokeDasharray,
           // Brief v2.2: Use direction-based colour (always applies - grey for unknown)
@@ -197,6 +274,51 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         }}
       />
       
+      {/* Decision Graph Display v2 Task 3 + Task D: Direction sign indicator (single, near target) */}
+      {direction && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${targetX - 15}px,${targetY - 15}px)`,
+              pointerEvents: 'none',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              color: direction === 'positive' ? '#10b981' : '#ef4444',
+              textShadow: '0 0 2px white, 0 0 4px white',
+            }}
+            aria-label={`Effect direction: ${direction}`}
+          >
+            {direction === 'positive' ? '+' : '−'}
+          </div>
+        </EdgeLabelRenderer>
+      )}
+
+      {/* Decision Graph Display v2 Task 4: Fragile edge warning badge (Results mode only) */}
+      {isFragileEdge && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: `translate(-50%, -50%) translate(${labelX + 30}px,${labelY}px)`,
+              pointerEvents: 'all',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '2px 6px',
+              borderRadius: '4px',
+            }}
+            className={`${isDark ? 'bg-orange-900/90 text-orange-200' : 'bg-orange-100 text-orange-900'} border border-orange-400 shadow-sm`}
+            title="Sensitive assumption - outcome may flip if this relationship changes"
+          >
+            <AlertTriangle size={12} />
+            <span style={{ fontSize: '10px', fontWeight: 600 }}>
+              Fragile
+            </span>
+          </div>
+        </EdgeLabelRenderer>
+      )}
+
       {/* C1: Edge label - only show when selected, hovered, or has pending suggestions */}
       {showLabel && (
         <EdgeLabelRenderer>

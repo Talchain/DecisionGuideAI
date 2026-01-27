@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Save, Share2, MoreVertical, Check, BookOpen, Keyboard, HelpCircle } from 'lucide-react'
+import { Save, Share2, MoreVertical, Check, BookOpen, Keyboard, HelpCircle, Activity, Users, Shield, ShieldAlert, Clock } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import { Spinner } from '../Spinner'
 import styles from './TopBar.module.css'
+import { useAnalysisMetadata } from '../../canvas/hooks/useAnalysisMetadata'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
 export const HELP_EVENTS = {
@@ -120,6 +121,9 @@ export const TopBar = ({
 
   const saveDisabled = !isDirty || isSaving
 
+  // Decision Graph Display v2 Task 13: Analysis metadata
+  const analysisMetadata = useAnalysisMetadata()
+
   return (
     <div className={styles.topBar} role="banner">
       {/* Left section */}
@@ -173,6 +177,59 @@ export const TopBar = ({
         {/* Dirty indicator */}
         {isDirty && !isSaving && (
           <span className={styles.dirtyIndicator} aria-label="Unsaved changes" />
+        )}
+      </div>
+
+      {/* Decision Graph Display v2 Task 13: Analysis metadata chips */}
+      <div className={styles.topBarCenter}>
+        {/* Run Status */}
+        <Tooltip content={analysisMetadata.runStatus === 'complete' ? 'Analysis complete' : analysisMetadata.runStatus === 'running' ? 'Analysis in progress' : analysisMetadata.runStatus === 'error' ? 'Analysis failed' : 'Draft (not analyzed)'}>
+          <div className={styles.metadataChip} data-status={analysisMetadata.runStatus}>
+            <Activity size={12} aria-hidden="true" />
+            <span className={styles.metadataLabel}>
+              {analysisMetadata.runStatus === 'complete' ? 'Complete' : analysisMetadata.runStatus === 'running' ? 'Running...' : analysisMetadata.runStatus === 'error' ? 'Error' : 'Draft'}
+            </span>
+          </div>
+        </Tooltip>
+
+        {/* Scenario Count (only show when complete) */}
+        {analysisMetadata.scenarioCount !== null && analysisMetadata.runStatus === 'complete' && (
+          <Tooltip content={`Analyzed ${analysisMetadata.scenarioCount.toLocaleString()} scenarios`}>
+            <div className={styles.metadataChip}>
+              <Users size={12} aria-hidden="true" />
+              <span className={styles.metadataLabel}>
+                {analysisMetadata.scenarioCount.toLocaleString()} scenarios
+              </span>
+            </div>
+          </Tooltip>
+        )}
+
+        {/* Stability (only show when complete) */}
+        {analysisMetadata.stability !== null && analysisMetadata.runStatus === 'complete' && (
+          <Tooltip content={analysisMetadata.stability === 'stable' ? 'Recommendation is stable across scenarios' : 'Recommendation may change with different assumptions'}>
+            <div className={styles.metadataChip} data-stability={analysisMetadata.stability}>
+              {analysisMetadata.stability === 'stable' ? (
+                <Shield size={12} aria-hidden="true" />
+              ) : (
+                <ShieldAlert size={12} aria-hidden="true" />
+              )}
+              <span className={styles.metadataLabel}>
+                {analysisMetadata.stability === 'stable' ? 'Stable' : 'Fragile'}
+              </span>
+            </div>
+          </Tooltip>
+        )}
+
+        {/* Last Run Time (only show when complete) */}
+        {analysisMetadata.relativeTime !== null && analysisMetadata.runStatus === 'complete' && (
+          <Tooltip content={analysisMetadata.computedAt ? `Completed ${new Date(analysisMetadata.computedAt).toLocaleString()}` : 'Analysis completed'}>
+            <div className={styles.metadataChip}>
+              <Clock size={12} aria-hidden="true" />
+              <span className={styles.metadataLabel}>
+                {analysisMetadata.relativeTime}
+              </span>
+            </div>
+          </Tooltip>
         )}
       </div>
 

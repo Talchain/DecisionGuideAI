@@ -11,7 +11,7 @@
 
 import { memo, useState, useCallback, type ReactNode } from 'react'
 import { Handle, Position, type NodeProps, useUpdateNodeInternals } from '@xyflow/react'
-import type { NodeType } from '../domain/nodes'
+import type { NodeType, Controllability } from '../domain/nodes'
 import { ChevronDown, ChevronUp, type LucideIcon } from 'lucide-react'
 import { sanitizeMarkdown } from '../../lib/renderSafeRichText'
 import { UnknownKindWarning } from '../components/UnknownKindWarning'
@@ -21,6 +21,8 @@ import { useISLValidation } from '../../hooks/useISLValidation'
 import { useCanvasStore } from '../store'
 import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
+import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
+import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 
 interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
@@ -53,6 +55,9 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
   // on every store update. Selecting the entire Set causes infinite loops since
   // Set references change on each store update.
   const isHighlighted = useCanvasStore(s => s.highlightedNodes.has(id))
+
+  // Decision Graph Display v2: Get Results-mode display metadata
+  const displayMetadata = useNodeDisplayMetadata(id, nodeType)
 
   const ceeWarnings = ceeInsights?.structural_health.warnings || []
   const islAffected = islValidation?.suggestions.some(suggestion =>
@@ -90,7 +95,19 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
 
   // Phase 2: Uncertain node styling + factor type always dashed
   const isUncertain = (data?.uncertainty ?? 0) > 0.4
-  const borderStyle = (isUncertain || nodeType === 'factor') ? 'border-dashed' : ''
+
+  // Decision Graph Display v2 Task 6: Controllability-based border style for factors
+  const controllability = nodeType === 'factor' ? (data?.controllability as Controllability | undefined) : undefined
+  const borderStyle = (() => {
+    if (nodeType === 'factor' && controllability) {
+      return getControllabilityBorderStyle(controllability)
+    }
+    // Legacy: factors default to dashed, uncertain nodes also dashed
+    if (isUncertain || nodeType === 'factor') {
+      return 'border-dashed'
+    }
+    return ''
+  })()
 
   // Accessible name combines node type and label
   const accessibleName = `${nodeType} node: ${label}`
@@ -138,6 +155,17 @@ export const BaseNode = memo(({ id, nodeType, icon: Icon, data, selected, childr
         islAffected={islAffected}
         onClick={handleBadgeClick}
       />
+
+      {/* Decision Graph Display v2 Task 5: Sensitivity rank badge (Results mode, top 3 factors) */}
+      {displayMetadata.sensitivityRank && (
+        <div
+          className="absolute top-1 right-1 text-xs font-semibold text-gray-400 bg-white/80 px-1.5 py-0.5 rounded"
+          style={{ pointerEvents: 'none' }}
+          title={`Key driver #${displayMetadata.sensitivityRank}`}
+        >
+          #{displayMetadata.sensitivityRank}
+        </div>
+      )}
       {/* Connection handles */}
       <Handle
         type="target"
