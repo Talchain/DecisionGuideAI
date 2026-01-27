@@ -22,7 +22,7 @@ import type { RiskImpact } from '../domain/nodes'
  *
  * @param belief - Edge exists_probability (0-1), defaults to 1.0 if undefined
  * @param strength - Edge strength.mean, defaults to 1.0 if undefined
- * @param goalSensitivity - Factor elasticity from factor_sensitivity[], defaults to 0.5 fallback
+ * @param goalSensitivity - Factor elasticity from factor_sensitivity[], defaults to 1.0 for non-factor edges
  * @returns Importance score (unbounded, will be scaled for visual thickness)
  */
 export function calculateEdgeImportance(
@@ -32,7 +32,8 @@ export function calculateEdgeImportance(
 ): number {
   const beliefValue = belief ?? 1.0
   const strengthValue = Math.abs(strength ?? 1.0)
-  const sensitivityValue = goalSensitivity ?? 0.5
+  // Issue #2 fix: Use 1.0 fallback for non-factor edges (aligns with StyledEdge)
+  const sensitivityValue = goalSensitivity ?? 1.0
 
   return beliefValue * strengthValue * sensitivityValue
 }

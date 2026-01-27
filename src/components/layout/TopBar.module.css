@@ -90,6 +90,7 @@
 
 /* Decision Graph Display v2 Task 13: Analysis metadata section */
 /* Fix 3: Remove margin-left: auto to prevent overlap with topBarRight */
+/* Issue #4: Add min-width: 0 + overflow: hidden for layout stability */
 .topBarCenter {
   display: flex;
   align-items: center;
@@ -97,6 +98,8 @@
   flex: 1;
   justify-content: center;
   margin: 0 16px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .metadataChip {
