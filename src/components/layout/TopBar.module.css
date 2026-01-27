@@ -89,12 +89,14 @@
 }
 
 /* Decision Graph Display v2 Task 13: Analysis metadata section */
+/* Fix 3: Remove margin-left: auto to prevent overlap with topBarRight */
 .topBarCenter {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
-  margin-right: 16px;
+  flex: 1;
+  justify-content: center;
+  margin: 0 16px;
 }
 
 .metadataChip {

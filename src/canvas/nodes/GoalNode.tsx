@@ -18,10 +18,10 @@ export const GoalNode = memo((props: NodeProps) => {
           {Math.round(displayMetadata.achievementProbability * 100)}% chance
         </div>
       )}
-      {/* Task B: Fallback to stability when probability unavailable */}
+      {/* Task B + Fix 5: Fallback to recommendation stability when probability unavailable */}
       {displayMetadata.achievementProbability === null && displayMetadata.stabilityPercentage !== null && (
         <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '4px', color: '#3b82f6' }}>
-          Stable in {Math.round(displayMetadata.stabilityPercentage * 100)}% of scenarios
+          Recommended in {Math.round(displayMetadata.stabilityPercentage * 100)}% of scenarios
         </div>
       )}
 

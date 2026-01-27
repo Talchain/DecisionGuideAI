@@ -124,13 +124,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     }
 
     // Find the source node's elasticity (goal_sensitivity)
+    // Fix 4: For edges from non-factor nodes (Outcome/Risk/Goal), use elasticity=1.0 fallback
     const sourceFactor = factorSensitivity.find((f: any) => {
       const factorId = f.factor_id || f.factorId || f.node_id || f.nodeId
       return factorId === source
     })
     const goalSensitivity = sourceFactor ?
       Math.abs(sourceFactor.elasticity ?? sourceFactor.sensitivity_score ?? sourceFactor.importance_score ?? 0) :
-      undefined
+      1.0 // Fallback for non-factor nodes: use 1.0 to provide meaningful variation based on belief×strength
 
     // Calculate importance for this edge
     const belief = edgeData?.beliefExists
@@ -148,7 +149,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       })
       const goalSens = sourceFactor ?
         Math.abs(sourceFactor.elasticity ?? sourceFactor.sensitivity_score ?? sourceFactor.importance_score ?? 0) :
-        undefined
+        1.0 // Fix 4: Fallback for non-factor edges
       const belief = edgeData?.beliefExists
       const strength = edgeData?.weight ?? 1.0
       return calculateEdgeImportance(belief, strength, goalSens)
@@ -180,9 +181,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     [edgeData?.beliefExists]
   )
 
-  // Accessibility: Dashed line for negative edges (colorblind-friendly)
-  // Combined with existence certainty (existence takes priority)
-  const directionDasharray = existenceCertaintyDash ?? (direction === 'negative' ? '8,4' : undefined)
+  // Fix 1: Line style encodes existence certainty ONLY, not direction
+  // Direction is already encoded via color (green/red) and sign (+/−)
+  const dashArray = existenceCertaintyDash
 
   // Determine label visibility and styling
   const labelVisibility = useMemo(
@@ -265,8 +266,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         path={edgePath}
         style={{
           strokeWidth: edgeStrokeWidth,
-          // Accessibility: negative edges use dashed line, otherwise use visual props
-          strokeDasharray: directionDasharray ?? visualProps.strokeDasharray,
+          // Fix 1: Use existence certainty for line style, fallback to visual props
+          strokeDasharray: dashArray ?? visualProps.strokeDasharray,
           // Brief v2.2: Use direction-based colour (always applies - grey for unknown)
           stroke: directionStroke ?? visualProps.stroke,
           // Performance: use will-change for frequent updates

@@ -16,17 +16,24 @@ export const OptionNode = memo((props: NodeProps) => {
   const setHoveredOption = useCanvasStore(state => state.setHoveredOption)
 
   const interventionDeltas = useMemo(() => {
-    const interventions = props.data?.interventions as Record<string, number> | undefined
+    const interventions = props.data?.interventions
     if (!interventions || typeof interventions !== 'object') return []
 
-    // Convert to array and get top 2 by absolute value
+    // Fix 2: Convert to array and get top 2 by absolute value
+    // Handle both formats: Record<string, number> and Record<string, {value: number}>
     return Object.entries(interventions)
-      .map(([factorId, value]) => {
+      .map(([factorId, rawValue]) => {
+        // Extract numeric value - handle both number and {value: number} formats
+        const value = typeof rawValue === 'number' ? rawValue :
+                     (rawValue && typeof rawValue === 'object' && 'value' in rawValue) ?
+                     Number(rawValue.value) : 0
+
         const factorNode = nodes.find(n => n.id === factorId)
         const factorLabel = factorNode?.data?.label || factorId
         const unit = factorNode?.data?.unit as string | undefined
         return { factorLabel, value, unit }
       })
+      .filter(delta => delta.value !== 0) // Fix 2: Filter out zero interventions
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
       .slice(0, 2)
   }, [props.data?.interventions, nodes])
@@ -56,14 +63,14 @@ export const OptionNode = memo((props: NodeProps) => {
       {interventionDeltas.length > 0 && (
         <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
           {interventionDeltas.map((delta, idx) => {
-            // Task E: Format value based on unit
+            // Task E + Fix 6: Format value based on unit (with space between value and unit)
             let formattedValue: string
             if (delta.unit === 'fraction') {
               // Fraction → percentage
               formattedValue = `${delta.value > 0 ? '+' : ''}${(delta.value * 100).toFixed(0)}%`
             } else if (delta.unit) {
-              // Other unit → append unit
-              formattedValue = `${delta.value > 0 ? '+' : ''}${delta.value}${delta.unit}`
+              // Other unit → append unit with space
+              formattedValue = `${delta.value > 0 ? '+' : ''}${delta.value} ${delta.unit}`
             } else {
               // No unit → just value with sign
               formattedValue = `${delta.value > 0 ? '+' : ''}${delta.value}`
