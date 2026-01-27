@@ -395,7 +395,7 @@ describe('ConfidenceSection', () => {
         filteredFragileEdges: {
           filteredCount: 3,
           threshold: 0.3,
-          description: '3 additional edges changed the best option in <30% of scenarios tested',
+          description: '3 additional assumptions changed the best option in <30% of scenarios tested',
         },
       }
 

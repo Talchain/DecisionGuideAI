@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { mapRobustness } from '../mapRobustness'
-import type { RawRobustness } from '../types'
+import { mapRobustness, getRobustnessDisplay } from '../mapRobustness'
+import type { RawRobustness, RobustnessLevel } from '../types'
 
 describe('mapRobustness', () => {
   const defaultOptions = { sourcePath: 'downstream_calls.isl' as const }
@@ -327,6 +327,81 @@ describe('mapRobustness', () => {
       expect(result.isRobust).toBeUndefined()
       expect(result.fragileEdges).toEqual([])
       expect(result.robustEdges).toEqual([])
+    })
+  })
+})
+
+// =============================================================================
+// getRobustnessDisplay Tests
+// =============================================================================
+
+describe('getRobustnessDisplay', () => {
+  describe('valid robustness levels', () => {
+    it('returns "Robust" with green colour for high', () => {
+      const result = getRobustnessDisplay('high')
+      expect(result.label).toBe('Robust')
+      expect(result.colour).toBe('green')
+    })
+
+    it('returns "Moderate" with amber colour for moderate', () => {
+      const result = getRobustnessDisplay('moderate')
+      expect(result.label).toBe('Moderate')
+      expect(result.colour).toBe('amber')
+    })
+
+    it('returns "Fragile" with orange colour for low', () => {
+      const result = getRobustnessDisplay('low')
+      expect(result.label).toBe('Fragile')
+      expect(result.colour).toBe('orange')
+    })
+
+    it('returns "Very Fragile" with red colour for very_low', () => {
+      const result = getRobustnessDisplay('very_low')
+      expect(result.label).toBe('Very Fragile')
+      expect(result.colour).toBe('red')
+    })
+  })
+
+  describe('null/undefined handling', () => {
+    it('returns "Unknown" with grey colour for undefined', () => {
+      const result = getRobustnessDisplay(undefined)
+      expect(result.label).toBe('Unknown')
+      expect(result.colour).toBe('grey')
+    })
+
+    it('returns "Unknown" with grey colour for null', () => {
+      const result = getRobustnessDisplay(null)
+      expect(result.label).toBe('Unknown')
+      expect(result.colour).toBe('grey')
+    })
+  })
+
+  describe('exhaustive coverage', () => {
+    it('handles all valid RobustnessLevel values', () => {
+      const levels: RobustnessLevel[] = ['high', 'moderate', 'low', 'very_low']
+
+      levels.forEach((level) => {
+        const result = getRobustnessDisplay(level)
+        expect(result.label).toBeDefined()
+        expect(result.colour).toBeDefined()
+        expect(result.label).not.toBe('Unknown')
+      })
+    })
+  })
+
+  describe('badge derivation contract', () => {
+    it('badge must derive from robustness.level, NOT recommendation_stability', () => {
+      // This test documents the critical contract:
+      // When level = "low", badge must show "Fragile" (orange)
+      // NOT "Moderate" (derived from recommendation_stability threshold)
+
+      const level: RobustnessLevel = 'low'
+      const result = getRobustnessDisplay(level)
+
+      // Even if recommendation_stability were 0.553 (which would be "Moderate" by threshold),
+      // the badge must show "Fragile" because level = "low"
+      expect(result.label).toBe('Fragile')
+      expect(result.colour).toBe('orange')
     })
   })
 })

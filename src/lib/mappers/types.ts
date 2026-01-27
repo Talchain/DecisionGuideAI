@@ -57,6 +57,12 @@ export interface FactorSensitivityResult {
 // Robustness Types
 // =============================================================================
 
+/** Strict robustness level type */
+export type RobustnessLevel = 'high' | 'moderate' | 'low' | 'very_low'
+
+/** Badge colour for robustness display */
+export type BadgeColour = 'green' | 'amber' | 'orange' | 'red' | 'grey'
+
 export interface MappedFragileEdge {
   /** Edge identifier */
   edgeId: string

@@ -10,12 +10,15 @@
  */
 
 import type {
+  BadgeColour,
   DataSourcePath,
   MappedFragileEdge,
   MappedRobustness,
   RawFragileEdge,
   RawRobustness,
+  RobustnessLevel,
 } from './types'
+import { ROBUSTNESS_LEVEL_DISPLAY, type RobustnessDisplayConfig } from './constants'
 import {
   asArray,
   asOptionalBoolean,
@@ -195,5 +198,45 @@ export function mapRobustness(
     robustEdges,
     recommendedOptionId,
     recommendedOptionLabel,
+  }
+}
+
+// =============================================================================
+// Display Helper
+// =============================================================================
+
+/**
+ * Get display configuration for a robustness level.
+ *
+ * CRITICAL: Badge MUST derive from robustness.level field, NOT from recommendation_stability.
+ * Uses exhaustive switch for type safety — compile error if new levels added.
+ *
+ * @param level - The robustness level from API response
+ * @returns Display config with label and colour
+ */
+export function getRobustnessDisplay(
+  level: RobustnessLevel | null | undefined
+): RobustnessDisplayConfig {
+  // Handle missing level
+  if (!level) {
+    return { label: 'Unknown', colour: 'grey' as BadgeColour }
+  }
+
+  // Exhaustive switch — compile error if new cases not handled
+  switch (level) {
+    case 'high':
+      return ROBUSTNESS_LEVEL_DISPLAY.high
+    case 'moderate':
+      return ROBUSTNESS_LEVEL_DISPLAY.moderate
+    case 'low':
+      return ROBUSTNESS_LEVEL_DISPLAY.low
+    case 'very_low':
+      return ROBUSTNESS_LEVEL_DISPLAY.very_low
+    default: {
+      // Exhaustive check — this should never execute if types are correct
+      const _exhaustive: never = level
+      console.error(`[CONTRACT_VIOLATION] Unknown robustness level: ${level}`)
+      return { label: 'Unknown', colour: 'grey' as BadgeColour }
+    }
   }
 }

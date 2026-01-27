@@ -67,7 +67,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     const fragileEdges = report.robustness.fragile_edges || []
     return fragileEdges.some((fe: any) => {
       const edgeId = fe.edge_id || fe.edgeId
-      const switchProb = fe.marginal_switch_probability ?? fe.marginalSwitchProbability ?? fe.switch_probability ?? fe.switchProbability
+      const switchProb = fe.switch_probability ?? fe.switchProbability ?? fe.marginal_switch_probability ?? fe.marginalSwitchProbability
       return edgeId === id && (typeof switchProb === 'number' && switchProb > 0.3)
     })
   }, [isResultsMode, report, id])

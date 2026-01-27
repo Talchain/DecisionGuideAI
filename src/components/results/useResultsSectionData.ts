@@ -1101,12 +1101,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     fragileEdgesRaw.forEach((fe: any) => {
       const fromId = fe.from_id ?? fe.fromId ?? fe.source
       if (fromId) {
-        // Task 1.5: Metric consistency - use marginal_switch_probability as primary, fall back to switch_probability
-        // This same pattern is used throughout: filtering (line 1232), counting (line 1242), display
-        const newProb = typeof fe.marginal_switch_probability === 'number'
-          ? fe.marginal_switch_probability
-          : typeof fe.switch_probability === 'number'
-            ? fe.switch_probability
+        // Bug fix: use switch_probability as primary (direct flip probability from ISL)
+        // Fall back to marginal_switch_probability only if switch_probability missing
+        const newProb = typeof fe.switch_probability === 'number'
+          ? fe.switch_probability
+          : typeof fe.marginal_switch_probability === 'number'
+            ? fe.marginal_switch_probability
             : undefined
         const existing = fragileEdgesMap.get(fromId)
         const existingProb = existing?.switchProbability
@@ -1340,9 +1340,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     // Metric consistency verified: same pattern used for filtering, counting, and display
     const highRiskFragileEdges = dedupedFragileEdges
       .filter((fe: any) => {
-        // Use marginal_switch_probability when available, fall back to switch_probability
-        // ISL marginal = P(alternative wins | only this edge weak) — more precise for single-edge risk
-        const flipProb = fe.marginal_switch_probability ?? fe.switch_probability
+        // Use switch_probability as primary (direct flip probability from ISL)
+        // Fall back to marginal_switch_probability only if switch_probability missing
+        const flipProb = fe.switch_probability ?? fe.marginal_switch_probability
         if (typeof flipProb === 'number') {
           return flipProb > FRAGILE_EDGE_THRESHOLD
         }
@@ -1352,15 +1352,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Count how many were filtered out (had numeric probability <= threshold)
     const filteredFragileEdgesCount = dedupedFragileEdges.filter((fe: any) => {
-      const flipProb = fe.marginal_switch_probability ?? fe.switch_probability
+      const flipProb = fe.switch_probability ?? fe.marginal_switch_probability
       return typeof flipProb === 'number' && flipProb <= FRAGILE_EDGE_THRESHOLD
     }).length
 
     // Sort by risk and take top 3
     const sensitiveAssumptions = highRiskFragileEdges
       .sort((a: any, b: any) => {
-        const bProb = b.marginal_switch_probability ?? b.switch_probability ?? -Infinity
-        const aProb = a.marginal_switch_probability ?? a.switch_probability ?? -Infinity
+        const bProb = b.switch_probability ?? b.marginal_switch_probability ?? -Infinity
+        const aProb = a.switch_probability ?? a.marginal_switch_probability ?? -Infinity
         return bProb - aProb
       })
       .slice(0, 3)
@@ -1483,10 +1483,10 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         `If "${edgeLabel}" changes significantly, "${alternativeWinnerLabel}" could become the better choice`
 
       // P2 Fix: Derive severity from flip probability
-      // Use marginal_switch_probability when available (more precise single-edge risk)
+      // Use switch_probability as primary (direct flip probability from ISL)
       // > 0.7 = very likely to flip = blocker; > 0.5 = likely = error; > 0.3 = possible = warning
       let severity: 'blocker' | 'error' | 'warning' = 'warning'
-      const flipProbability = fe.marginal_switch_probability ?? fe.switch_probability
+      const flipProbability = fe.switch_probability ?? fe.marginal_switch_probability
       if (typeof flipProbability === 'number') {
         if (flipProbability > 0.7) {
           severity = 'blocker'
@@ -1543,10 +1543,11 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
 
     // Build filtered disclosure when items were excluded
     // Task 2: Use scenario-tested language, avoid "flip risk"
+    // Bug fix: Use "assumption"/"assumptions" terminology, NOT "edge"/"edges"
     const filteredFragileEdges = filteredFragileEdgesCount > 0 ? {
       filteredCount: filteredFragileEdgesCount,
       threshold: FRAGILE_EDGE_THRESHOLD,
-      description: `${filteredFragileEdgesCount} additional ${filteredFragileEdgesCount === 1 ? 'edge' : 'edges'} changed the best option in <${Math.round(FRAGILE_EDGE_THRESHOLD * 100)}% of scenarios tested`,
+      description: `${filteredFragileEdgesCount} additional ${filteredFragileEdgesCount === 1 ? 'assumption' : 'assumptions'} changed the best option in <${Math.round(FRAGILE_EDGE_THRESHOLD * 100)}% of scenarios tested`,
     } : undefined
 
     // Bug 2 fix: Extract robustness level for "Good foundation" logic

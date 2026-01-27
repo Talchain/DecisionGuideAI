@@ -72,8 +72,8 @@ export type StabilityLevel = 'high' | 'medium' | 'low'
 /** How the winner was determined - for honest labelling */
 export type WinnerDeterminedBy = 'win_probability' | 'expected_outcome' | 'unknown'
 
-/** Robustness level from PLoT (level field) */
-export type RobustnessLevel = 'high' | 'medium' | 'low' | 'very_low'
+/** Robustness level from PLoT (level field) - aligned with mapper types */
+export type RobustnessLevel = 'high' | 'moderate' | 'low' | 'very_low'
 
 /** Robustness label from PLoT (label field - alternative naming) */
 export type RobustnessLabel = 'robust' | 'moderate' | 'fragile'
