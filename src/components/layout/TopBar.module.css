@@ -1,7 +1,8 @@
 .topBar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  /* Fix: Removed justify-content: space-between which interfered with flex: 1 on center section */
+  /* The layout now relies on topBarLeft/Right having no flex-grow and topBarCenter having flex: 1 */
   height: 45px;
   padding: 0 24px;
   background: var(--canvas-25);
@@ -15,6 +16,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0; /* Prevent shrinking so center section gets all available space */
 }
 
 .logo {
@@ -91,13 +93,14 @@
 /* Decision Graph Display v2 Task 13: Analysis metadata section */
 /* Fix 3: Remove margin-left: auto to prevent overlap with topBarRight */
 /* Issue #4: Add min-width: 0 + overflow: hidden for layout stability */
+/* Review fix: Use padding instead of margin to avoid consuming flex space */
 .topBarCenter {
   display: flex;
   align-items: center;
   gap: 8px;
   flex: 1;
   justify-content: center;
-  margin: 0 16px;
+  padding: 0 8px; /* Reduced from margin: 0 16px - padding is inside the flex item */
   min-width: 0;
   overflow: hidden;
 }
@@ -181,6 +184,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0; /* Prevent shrinking so center section gets all available space */
 }
 
 .saveButton,

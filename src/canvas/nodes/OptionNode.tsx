@@ -12,11 +12,16 @@ export const OptionNode = memo((props: NodeProps) => {
   const displayMetadata = useNodeDisplayMetadata(props.id, 'option')
 
   // Decision Graph Display v2 Task 7: Intervention delta display
+  // Fix: Read interventions from ceeAnalysisReady, NOT from props.data.interventions
+  // The interventions live in ceeAnalysisReady.options[] after CEE response, not on node data
   const nodes = useCanvasStore(state => state.nodes)
+  const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   const setHoveredOption = useCanvasStore(state => state.setHoveredOption)
 
   const interventionDeltas = useMemo(() => {
-    const interventions = props.data?.interventions
+    // Look up this option's interventions from ceeAnalysisReady
+    const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
+    const interventions = ceeOption?.interventions
     if (!interventions || typeof interventions !== 'object') return []
 
     // Fix 2: Convert to array and get top 2 by absolute value
@@ -36,14 +41,20 @@ export const OptionNode = memo((props: NodeProps) => {
       .filter(delta => delta.value !== 0) // Fix 2: Filter out zero interventions
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
       .slice(0, 2)
-  }, [props.data?.interventions, nodes])
+  }, [ceeAnalysisReady, props.id, nodes])
 
   // Decision Graph Display v2 Task 11: Intervention highlighting on hover
+  // Fix: Check ceeAnalysisReady for interventions, not props.data
+  const hasInterventions = useMemo(() => {
+    const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
+    return ceeOption?.interventions && Object.keys(ceeOption.interventions).length > 0
+  }, [ceeAnalysisReady, props.id])
+
   const handleMouseEnter = useMemo(() => () => {
-    if (props.data?.interventions) {
+    if (hasInterventions) {
       setHoveredOption(props.id)
     }
-  }, [props.id, props.data?.interventions, setHoveredOption])
+  }, [props.id, hasInterventions, setHoveredOption])
 
   const handleMouseLeave = useMemo(() => () => {
     setHoveredOption(null)
@@ -76,14 +87,14 @@ export const OptionNode = memo((props: NodeProps) => {
               formattedValue = `${delta.value > 0 ? '+' : ''}${delta.value}`
             }
 
-            // Task E: Truncate label if > 20 chars
+            // Task E: Truncate label if > 20 chars, add title for full label on hover
             const truncatedLabel = delta.factorLabel.length > 20
               ? delta.factorLabel.substring(0, 20) + '...'
               : delta.factorLabel
 
             return (
               <div key={idx} className="mb-0.5">
-                <span className="font-medium">{truncatedLabel}:</span>{' '}
+                <span className="font-medium" title={delta.factorLabel}>{truncatedLabel}:</span>{' '}
                 <span className="text-success-600">
                   {formattedValue}
                 </span>
